@@ -65,6 +65,15 @@ class NotificadorRhService
      */
     public function notificarEvento(string $evento, Colaborador|Candidato|null $sujeto, array $contexto, string $titulo, string $mensaje, ?Model $relacionado = null, ?string $accion = null, string $prioridad = 'media'): Collection
     {
+        // Eventos LEGACY (config configuracion_sistema.eventos.*.legacy, p. ej.
+        // cierre_autorizacion_rh): se conservan para leer avisos anteriores,
+        // pero nunca se vuelven a emitir.
+        if ((bool) config(sprintf('configuracion_sistema.eventos.%s.legacy', $evento), false)) {
+            Log::warning('NotificadorRhService: se intentó notificar un evento legacy; se ignora.', ['evento' => $evento]);
+
+            return collect();
+        }
+
         try {
             $destinatarios = $this->routing->resolver($evento, $sujeto, $contexto);
         } catch (Throwable $e) {

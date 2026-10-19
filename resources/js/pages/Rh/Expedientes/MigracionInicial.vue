@@ -241,8 +241,7 @@ const filasFiltradas = computed(() => {
         const pasa =
             filtro.value === 'todos' ||
             (filtro.value === 'conflicto' && f.operacion === 'conflicto') ||
-            (filtro.value === 'en_revision' &&
-                f.operacion === 'en_revision') ||
+            (filtro.value === 'en_revision' && f.operacion === 'en_revision') ||
             (filtro.value === 'omitir' && f.operacion === 'omitir') ||
             (filtro.value === 'revision' && f.nas.tipo === 'revision') ||
             (filtro.value === 'sin_match' &&
@@ -890,9 +889,8 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                                         v-else-if="
                                             f.operacion === 'en_revision'
                                         "
-                                        >En revisión: falta
-                                        puesto/departamento (no se
-                                        aplica)</template
+                                        >En revisión: falta puesto/departamento
+                                        (no se aplica)</template
                                     >
                                     <template
                                         v-else-if="f.operacion === 'omitir'"
@@ -1220,10 +1218,7 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                     Se ejecuta en segundo plano: puedes cerrar esta pestaña y
                     volver después; el avance se conserva.
                 </p>
-                <p
-                    v-if="segundosEnCola > 30"
-                    class="text-xs text-warning"
-                >
+                <p v-if="segundosEnCola > 30" class="text-xs text-warning">
                     Sigue en cola. Verifica que el servidor tenga corriendo
                     <code>php artisan queue:work</code>.
                 </p>

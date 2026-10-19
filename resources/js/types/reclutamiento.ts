@@ -172,15 +172,6 @@ export type IntervencionCandidatoItem = {
     decidida_en: string | null;
 };
 
-export type CandidatoTimelineEtapa = {
-    clave: string;
-    titulo: string;
-    estado: 'completado' | 'actual' | 'pendiente' | 'descartado';
-    fecha: string | null;
-    responsable: string | null;
-    accion: string | null;
-};
-
 /**
  * Pregunta rápida de requisito indispensable (p. ej. «¿Sabe manejar moto?»
  * para Gestor). puestos vacío = aplica a todos.

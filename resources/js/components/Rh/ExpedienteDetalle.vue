@@ -2396,9 +2396,7 @@ function irACompletarExpediente() {
                                         "
                                         class="text-[11px] text-muted-foreground"
                                     >
-                                        {{
-                                            saldoVacaciones.dias_usados_people
-                                        }}
+                                        {{ saldoVacaciones.dias_usados_people }}
                                         en PEOPLE +
                                         {{
                                             saldoVacaciones.dias_usados_historicos

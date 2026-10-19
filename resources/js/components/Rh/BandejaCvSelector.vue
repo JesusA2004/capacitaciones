@@ -3,7 +3,10 @@ import { Eye, Inbox, RefreshCw } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Button } from '@/components/ui/button';
-import { index as listarBandeja, ver as verBandeja } from '@/routes/rh/candidatos/bandeja-cv';
+import {
+    index as listarBandeja,
+    ver as verBandeja,
+} from '@/routes/rh/candidatos/bandeja-cv';
 
 /**
  * Bandeja de CVs: archivos que se descargaron de WhatsApp Web y ya están en
@@ -13,7 +16,11 @@ import { index as listarBandeja, ver as verBandeja } from '@/routes/rh/candidato
  */
 const modelo = defineModel<string>({ default: '' });
 
-type ArchivoBandeja = { archivo: string; tamano: number; modificado_en: string };
+type ArchivoBandeja = {
+    archivo: string;
+    tamano: number;
+    modificado_en: string;
+};
 
 const archivos = ref<ArchivoBandeja[]>([]);
 const cargando = ref(false);
@@ -65,9 +72,14 @@ async function cargar() {
             throw new Error(String(respuesta.status));
         }
 
-        archivos.value = ((await respuesta.json()) as { data: ArchivoBandeja[] }).data;
+        archivos.value = (
+            (await respuesta.json()) as { data: ArchivoBandeja[] }
+        ).data;
 
-        if (modelo.value && !archivos.value.some((a) => a.archivo === modelo.value)) {
+        if (
+            modelo.value &&
+            !archivos.value.some((a) => a.archivo === modelo.value)
+        ) {
             modelo.value = '';
         }
     } catch {
@@ -86,19 +98,19 @@ onMounted(cargar);
             <!-- Nombres de archivo largos: se recortan, nunca ensanchan el diálogo. -->
             <div class="min-w-0 flex-1 [&_[data-slot=select-value]]:truncate">
                 <SelectSimple
-                v-model="modelo"
-                :opciones="opciones"
-                opcion-vacia="Sin CV de la bandeja"
-                :placeholder="
-                    cargando
-                        ? 'Cargando bandeja…'
-                        : archivos.length
-                          ? 'Elige el CV descargado'
-                          : 'La bandeja está vacía'
-                "
-                aria-label="CV de la bandeja"
-                class="min-w-0 overflow-hidden"
-            />
+                    v-model="modelo"
+                    :opciones="opciones"
+                    opcion-vacia="Sin CV de la bandeja"
+                    :placeholder="
+                        cargando
+                            ? 'Cargando bandeja…'
+                            : archivos.length
+                              ? 'Elige el CV descargado'
+                              : 'La bandeja está vacía'
+                    "
+                    aria-label="CV de la bandeja"
+                    class="min-w-0 overflow-hidden"
+                />
             </div>
             <Button
                 type="button"
@@ -109,7 +121,10 @@ onMounted(cargar);
                 title="Actualizar bandeja"
                 @click="cargar"
             >
-                <RefreshCw class="size-4" :class="cargando ? 'animate-spin' : ''" />
+                <RefreshCw
+                    class="size-4"
+                    :class="cargando ? 'animate-spin' : ''"
+                />
             </Button>
             <Button
                 v-if="modelo"

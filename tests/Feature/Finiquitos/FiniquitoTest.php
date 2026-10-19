@@ -100,7 +100,25 @@ test('rh_admin puede editar montos manuales y el total ajustado se recalcula', f
         ->and($finiquito->estado->value)->toBe('borrador');
 });
 
+test('con el flujo legacy apagado no se puede subir el escaneo del finiquito firmado', function () {
+    config(['features.cierre_flujo_legacy' => false]);
+    $solicitud = crearSolicitudBaja();
+    $this->actingAs($this->rh)->post(route('rh.solicitudes.finiquito.calcular', $solicitud), ['sueldo_mensual' => 15000]);
+    $finiquito = $solicitud->finiquitoCalculo()->first();
+
+    $this->actingAs($this->rh)
+        ->post(route('rh.solicitudes.finiquito.firmado', $solicitud), [
+            'archivo' => UploadedFile::fake()->create('finiquito-firmado.pdf', 100, 'application/pdf'),
+        ])
+        ->assertSessionHasErrors('flujo');
+
+    expect($finiquito->fresh()->estado->value)->toBe('borrador')
+        ->and($finiquito->fresh()->documento_firmado_path)->toBeNull();
+});
+
 test('un finiquito firmado no acepta más ajustes', function () {
+    // El escaneo firmado solo existe en el flujo legacy (históricos).
+    config(['features.cierre_flujo_legacy' => true]);
     $solicitud = crearSolicitudBaja();
     $this->actingAs($this->rh)->post(route('rh.solicitudes.finiquito.calcular', $solicitud), ['sueldo_mensual' => 15000]);
     $finiquito = $solicitud->finiquitoCalculo()->first();

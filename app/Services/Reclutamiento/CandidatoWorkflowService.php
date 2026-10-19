@@ -41,8 +41,9 @@ use Throwable;
  *
  *   recibidos ─perfil→ entrevista_pendiente ─entrevista→ psicometricas_pendientes
  *   ─resultados→ revision_psicometricas ─gerente→ socioeconomico_pendiente
- *   ─visita→ referencias_pendientes ─validación→ preseleccion_gerente
- *   ─PREAUTORIZACIÓN gerente→ autorizacion_rh_pendiente ─AUTORIZACIÓN RH→ autorizado_rh
+ *   ─visita→ referencias_pendientes ─validación→ autorizacion_rh_pendiente
+ *   ─AUTORIZACIÓN RH→ autorizado_rh (sin preautorización del gerente desde
+ *   2026-10-15; preseleccion_gerente queda solo como historial)
  *   ─QR (ContratacionCandidatoService)→ en_contratacion → contratado
  *
  * Cada filtro negativo cierra el proceso con motivo obligatorio. Cada paso

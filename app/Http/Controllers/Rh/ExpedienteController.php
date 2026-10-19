@@ -235,11 +235,16 @@ class ExpedienteController extends Controller
                 'puesto:id,nombre',
             ])
             ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
-                $query->where(function ($sub) use ($busqueda) {
-                    $sub->where('name', 'like', "%{$busqueda}%")
-                        ->orWhere('apellidos', 'like', "%{$busqueda}%")
-                        ->orWhere('numero_empleado', 'like', "%{$busqueda}%");
-                });
+                // Cada palabra debe aparecer en el nombre, los apellidos o el
+                // número de empleado: «Demo Persona» encuentra a «Demo» +
+                // «Persona 6 Ciclo» aunque cruce ambos campos.
+                foreach (preg_split('/\s+/', trim($busqueda)) ?: [] as $palabra) {
+                    $query->where(function ($sub) use ($palabra) {
+                        $sub->where('name', 'like', "%{$palabra}%")
+                            ->orWhere('apellidos', 'like', "%{$palabra}%")
+                            ->orWhere('numero_empleado', 'like', "%{$palabra}%");
+                    });
+                }
             })
             ->when($request->integer('empresa_id'), fn ($query, int $id) => $query->whereHas('sucursalPrincipal', fn ($sub) => $sub->where('empresa_id', $id)))
             ->when($request->integer('sucursal_id'), fn ($query, int $id) => $query->where('sucursal_principal_id', $id))

@@ -12,12 +12,21 @@ const props = defineProps<{
 
 const emit = defineEmits<{ ir: [paso: number] }>();
 
-const visibles = PASOS_ACTA.filter((p) => !props.pasos || props.pasos.includes(p.numero));
+const visibles = PASOS_ACTA.filter(
+    (p) => !props.pasos || props.pasos.includes(p.numero),
+);
 </script>
 
 <template>
-    <ol class="scroll-x-limpio flex gap-1.5 overflow-x-auto pb-1" aria-label="Pasos del acta">
-        <li v-for="(p, i) in visibles" :key="p.numero" class="flex min-w-0 flex-1 items-center gap-1.5">
+    <ol
+        class="scroll-x-limpio flex gap-1.5 overflow-x-auto pb-1"
+        aria-label="Pasos del acta"
+    >
+        <li
+            v-for="(p, i) in visibles"
+            :key="p.numero"
+            class="flex min-w-0 flex-1 items-center gap-1.5"
+        >
             <button
                 type="button"
                 class="group flex min-w-[8.5rem] flex-1 items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm disabled:pointer-events-none disabled:opacity-60 motion-reduce:hover:translate-y-0"
@@ -44,8 +53,13 @@ const visibles = PASOS_ACTA.filter((p) => !props.pasos || props.pasos.includes(p
                     <template v-else>{{ i + 1 }}</template>
                 </span>
                 <span class="min-w-0">
-                    <span class="block truncate text-xs font-medium">{{ p.titulo }}</span>
-                    <span class="block truncate text-[11px] text-muted-foreground">{{ p.ayuda }}</span>
+                    <span class="block truncate text-xs font-medium">{{
+                        p.titulo
+                    }}</span>
+                    <span
+                        class="block truncate text-[11px] text-muted-foreground"
+                        >{{ p.ayuda }}</span
+                    >
                 </span>
             </button>
         </li>

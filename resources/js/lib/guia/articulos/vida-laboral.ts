@@ -551,8 +551,7 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
             },
             {
                 titulo: 'Directorio e Inducción',
-                detalle:
-                    'Directorio de la empresa y la Inducción Mr. Lana.',
+                detalle: 'Directorio de la empresa y la Inducción Mr. Lana.',
                 canal: 'app',
             },
             {
@@ -577,11 +576,7 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
                     'Usa «Completa tu información» o «Solicitar corrección»: RH los autoriza.',
             },
         ],
-        relacionados: [
-            'completar-datos',
-            'permisos',
-            'onboarding',
-        ],
+        relacionados: ['completar-datos', 'permisos', 'onboarding'],
         accesos: [
             { etiqueta: 'Descargar la app', ruta: '/app' },
             {

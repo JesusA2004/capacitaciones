@@ -1504,7 +1504,7 @@ class DocumentoProcesoService
         }
 
         if (! $cierre->estado->autorizadoPorRh()) {
-            return 'Se habilita cuando RH autoriza la baja.';
+            return 'Esta baja no está aplicada (trámite anterior pendiente, rechazado o cancelado).';
         }
 
         if ($clave === 'evaluacion_capacitacion') {

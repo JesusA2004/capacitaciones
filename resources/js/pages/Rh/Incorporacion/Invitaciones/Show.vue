@@ -120,9 +120,7 @@ function nombreUsuario(
             v-if="yaUsada"
             class="flex items-start gap-4 rounded-2xl border border-success/40 bg-success/10 p-5"
         >
-            <CircleCheck
-                class="mt-0.5 size-7 shrink-0 text-success"
-            />
+            <CircleCheck class="mt-0.5 size-7 shrink-0 text-success" />
             <div class="flex flex-col gap-1">
                 <p class="text-base font-semibold">
                     Este QR ya se usó — ya no puedes generar otro.

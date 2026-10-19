@@ -153,10 +153,7 @@ function retirarMaterial() {
     />
 
     <!-- RH (legacy): sesión de presentación en vivo. -->
-    <div
-        v-if="sesionRh && !pdf"
-        class="pagina-ancha flex flex-col gap-4 pb-10"
-    >
+    <div v-if="sesionRh && !pdf" class="pagina-ancha flex flex-col gap-4 pb-10">
         <PresentacionInduccionRh :datos="sesionRh" />
     </div>
 
@@ -255,8 +252,8 @@ function retirarMaterial() {
                         "
                         @change="
                             formMaterial.archivo =
-                                ($event.target as HTMLInputElement).files?.[0] ??
-                                null
+                                ($event.target as HTMLInputElement)
+                                    .files?.[0] ?? null
                         "
                     />
                 </label>
@@ -276,10 +273,7 @@ function retirarMaterial() {
                     Retirar
                 </button>
             </form>
-            <p
-                v-if="formMaterial.errors.archivo"
-                class="text-xs text-danger"
-            >
+            <p v-if="formMaterial.errors.archivo" class="text-xs text-danger">
                 {{ formMaterial.errors.archivo }}
             </p>
         </section>
@@ -311,8 +305,16 @@ function retirarMaterial() {
                     autoplay
                     controlslist="nodownload"
                     class="w-full"
-                    @pause="registrarAudio(($event.target as HTMLAudioElement).currentTime)"
-                    @ended="registrarAudio(($event.target as HTMLAudioElement).currentTime)"
+                    @pause="
+                        registrarAudio(
+                            ($event.target as HTMLAudioElement).currentTime,
+                        )
+                    "
+                    @ended="
+                        registrarAudio(
+                            ($event.target as HTMLAudioElement).currentTime,
+                        )
+                    "
                 />
             </section>
 

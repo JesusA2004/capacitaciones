@@ -79,7 +79,9 @@ const form = useForm({
     cv_bandeja: '',
 });
 
-const errores = computed(() => form.errors as Record<string, string | undefined>);
+const errores = computed(
+    () => form.errors as Record<string, string | undefined>,
+);
 
 // El puesto/sucursal/empresa se derivan SIEMPRE de la vacante elegida (la
 // vacante ya nació de un puesto y sucursal concretos: baja, headcount
@@ -102,7 +104,9 @@ const campanasDisponibles = computed(() =>
 );
 
 // Medios que no son campaña: Meta/Indeed/… solo existen como campaña.
-const fuentesSinCampana = computed(() => props.opciones.fuentesSinCampana ?? []);
+const fuentesSinCampana = computed(
+    () => props.opciones.fuentesSinCampana ?? [],
+);
 
 // Puesto al que aplican las preguntas de filtro.
 const puestoActual = computed<number | null>(() => {
@@ -184,7 +188,9 @@ function etiquetaVacante(vacante: {
 }
 
 function enviar() {
-    const aplicables = new Set(preguntasAplicables.value.map((p) => String(p.id)));
+    const aplicables = new Set(
+        preguntasAplicables.value.map((p) => String(p.id)),
+    );
 
     const transformado = form.transform(({ origen, ...datos }) => ({
         ...datos,
@@ -192,7 +198,9 @@ function enviar() {
         sucursal_id: datos.sucursal_id || null,
         puesto_objetivo_id: datos.puesto_objetivo_id || null,
         vacante_id: datos.vacante_id || null,
-        campana_reclutamiento_id: origen.startsWith('c:') ? origen.slice(2) : null,
+        campana_reclutamiento_id: origen.startsWith('c:')
+            ? origen.slice(2)
+            : null,
         // Con campaña, la fuente sale del canal de la campaña (backend).
         fuente: origen.startsWith('f:') ? origen.slice(2) : null,
         respuestas_filtro: props.candidato
@@ -204,7 +212,9 @@ function enviar() {
               ),
         cv: props.candidato ? undefined : (datos.cv[0] ?? null),
         cv_bandeja:
-            props.candidato || datos.cv.length ? undefined : datos.cv_bandeja || null,
+            props.candidato || datos.cv.length
+                ? undefined
+                : datos.cv_bandeja || null,
     }));
 
     const opciones = {
@@ -233,7 +243,8 @@ function enviar() {
                 <div class="grid grid-cols-2 gap-4">
                     <div class="grid gap-2">
                         <Label for="nombre"
-                            >Nombre <span class="text-destructive">*</span></Label
+                            >Nombre
+                            <span class="text-destructive">*</span></Label
                         >
                         <Input id="nombre" v-model="form.nombre" autofocus />
                         <InputError :message="form.errors.nombre" />
@@ -262,10 +273,14 @@ function enviar() {
                      empresa salen SIEMPRE de ella (Candidato::booted()); no
                      se vuelven a pedir aquí. -->
                 <div v-if="!form.espontaneo" class="grid gap-2">
-                    <Label>Vacante <span class="text-destructive">*</span></Label>
+                    <Label
+                        >Vacante <span class="text-destructive">*</span></Label
+                    >
                     <Select v-model="form.vacante_id">
                         <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Elige una vacante disponible" />
+                            <SelectValue
+                                placeholder="Elige una vacante disponible"
+                            />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem
@@ -279,8 +294,8 @@ function enviar() {
                     <InputError :message="form.errors.vacante_id" />
                     <p class="text-xs text-muted-foreground">
                         Solo se listan vacantes con plaza real disponible. Al
-                        elegirla, puesto y sucursal se toman automáticamente
-                        de ella.
+                        elegirla, puesto y sucursal se toman automáticamente de
+                        ella.
                     </p>
                 </div>
 
@@ -306,7 +321,9 @@ function enviar() {
                     </div>
                 </div>
 
-                <div class="flex items-start gap-2 rounded-lg border border-border/60 px-3 py-2">
+                <div
+                    class="flex items-start gap-2 rounded-lg border border-border/60 px-3 py-2"
+                >
                     <Checkbox
                         id="espontaneo"
                         class="mt-0.5"
@@ -369,11 +386,14 @@ function enviar() {
                      LinkedIn solo existen como campaña: nunca se repite. -->
                 <div class="grid gap-2">
                     <Label
-                        >¿Cómo llegó? <span class="text-destructive">*</span></Label
+                        >¿Cómo llegó?
+                        <span class="text-destructive">*</span></Label
                     >
                     <Select v-model="form.origen">
                         <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Elige la campaña o el medio" />
+                            <SelectValue
+                                placeholder="Elige la campaña o el medio"
+                            />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectGroup v-if="campanasDisponibles.length">
@@ -397,14 +417,16 @@ function enviar() {
                         </SelectContent>
                     </Select>
                     <InputError
-                        :message="errores.campana_reclutamiento_id ?? errores.fuente"
+                        :message="
+                            errores.campana_reclutamiento_id ?? errores.fuente
+                        "
                     />
                     <p
                         v-if="!campanasDisponibles.length"
                         class="text-xs text-muted-foreground"
                     >
-                        Si llegó por una pauta (Meta, Indeed…), registra
-                        primero la campaña en Campañas.
+                        Si llegó por una pauta (Meta, Indeed…), registra primero
+                        la campaña en Campañas.
                     </p>
                 </div>
 
@@ -430,14 +452,18 @@ function enviar() {
                         :key="pregunta.id"
                         class="grid gap-1.5"
                     >
-                        <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div
+                            class="flex flex-wrap items-center justify-between gap-2"
+                        >
                             <span class="text-sm">{{ pregunta.pregunta }}</span>
                             <div class="flex gap-1.5">
                                 <Button
                                     type="button"
                                     size="sm"
                                     :variant="
-                                        form.respuestas_filtro[String(pregunta.id)] === true
+                                        form.respuestas_filtro[
+                                            String(pregunta.id)
+                                        ] === true
                                             ? 'default'
                                             : 'outline'
                                     "
@@ -448,7 +474,9 @@ function enviar() {
                                     type="button"
                                     size="sm"
                                     :variant="
-                                        form.respuestas_filtro[String(pregunta.id)] === false
+                                        form.respuestas_filtro[
+                                            String(pregunta.id)
+                                        ] === false
                                             ? 'default'
                                             : 'outline'
                                     "
@@ -458,7 +486,9 @@ function enviar() {
                             </div>
                         </div>
                         <InputError
-                            :message="errores[`respuestas_filtro.${pregunta.id}`]"
+                            :message="
+                                errores[`respuestas_filtro.${pregunta.id}`]
+                            "
                         />
                     </div>
                     <div

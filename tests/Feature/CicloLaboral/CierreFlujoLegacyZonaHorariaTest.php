@@ -13,6 +13,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Laravel\Sanctum\Sanctum;
 
 /*
 | Flujo ANTERIOR del finiquito apagado (features.cierre_flujo_legacy) y
@@ -79,6 +80,38 @@ test('las rutas web del flujo anterior del finiquito responden error con el flag
         ->assertSessionHasErrors();
 
     expect($this->cierre->refresh()->estado)->toBe(EstadoCierreLaboral::FiniquitoEnProceso);
+});
+
+test('con el flag apagado, los 4 pasos legacy se rechazan también por web (cita/firma) y por la API móvil', function () {
+    $this->cierres->calcularFiniquito($this->cierre, $this->rh);
+    $id = $this->cierre->id;
+
+    $this->actingAs($this->rh)
+        ->post("/rh/cierres/{$id}/cita", ['fecha' => now()->addDay()->toDateTimeString()])
+        ->assertSessionHasErrors();
+    $this->actingAs($this->rh)
+        ->post("/rh/cierres/{$id}/finiquito/firmado", ['archivo' => clArchivoPdf('firmado.pdf')])
+        ->assertSessionHasErrors();
+
+    Sanctum::actingAs($this->rh);
+    $this->postJson("/api/v1/rh/cierres/{$id}/pago/programar", ['fecha' => now()->toDateString(), 'metodo' => 'transferencia'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('flujo');
+    $this->postJson("/api/v1/rh/cierres/{$id}/cita", ['fecha' => now()->addDay()->toDateTimeString()])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('flujo');
+    $this->postJson("/api/v1/rh/cierres/{$id}/finiquito/firmado", ['archivo' => clArchivoPdf('firmado.pdf')])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('flujo');
+    $this->postJson("/api/v1/rh/cierres/{$id}/finiquito/pago", ['referencia_pago' => 'SPEI-1'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('flujo');
+
+    $cierre = $this->cierre->refresh();
+    expect($cierre->estado)->toBe(EstadoCierreLaboral::FiniquitoEnProceso)
+        ->and($cierre->pago_programado_en)->toBeNull()
+        ->and($cierre->cita_firma_en)->toBeNull()
+        ->and($cierre->pago_confirmado_en)->toBeNull();
 });
 
 test('la baja iniciada por RH procede sin paso de autorización: queda aplicada y el finiquito avanza de inmediato', function () {

@@ -16,7 +16,10 @@ import type { ColaboradorBusqueda } from '@/types';
  */
 const props = withDefaults(
     defineProps<{ buscarUrl?: (texto: string) => string }>(),
-    { buscarUrl: (texto: string) => colaboradores.url({ query: { q: texto } }) },
+    {
+        buscarUrl: (texto: string) =>
+            colaboradores.url({ query: { q: texto } }),
+    },
 );
 
 const modelo = defineModel<ColaboradorBusqueda | null>({ default: null });

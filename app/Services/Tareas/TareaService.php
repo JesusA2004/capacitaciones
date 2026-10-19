@@ -44,6 +44,14 @@ class TareaService
      */
     public function abrir(TipoTarea $tipo, ?Model $relacionado, array $opciones = []): ?TareaRh
     {
+        // Tipos LEGACY (p. ej. cierre_autorizacion_rh): la baja ya no se
+        // preautoriza ni la autoriza RH; nunca se abren pendientes nuevos.
+        if ($tipo->esLegacy()) {
+            Log::warning('TareaService: se intentó abrir un pendiente legacy; se ignora.', ['tipo' => $tipo->value]);
+
+            return null;
+        }
+
         $usuario = $opciones['usuario'] ?? null;
         $permiso = $opciones['permiso'] ?? null;
         $clave = $this->clave($tipo, $relacionado, $usuario, $permiso);

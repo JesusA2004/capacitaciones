@@ -25,7 +25,7 @@ Superior operativo **preautoriza**; RH da la **autorización final** (`Aprobacio
 - Reglas por defecto versionadas en `config/configuracion_sistema.php` (`eventos`); cambios en `reglas_notificacion` desde Configuración → **Notificaciones** (auditados).
 - `NotificadorRhService::notificarEvento()` entrega: sin duplicados, sin cuentas bloqueadas/inactivas, respetando alcance para permisos y usuarios específicos, con `route_rule` y `recipient_reason` en cada notificación, push por usuario (un fallo nunca revierte la acción), respaldo (`fallback`) y log cuando falta un receptor. Evento sin regla → respaldo seguro (RH con alcance) + log.
 - **Notificar ≠ autorizar**: el ruteo nunca da permiso de decidir.
-- Eventos conectados: solicitud_creada, solicitud_visto_bueno, candidato_preautorizado, contratos_listos, onboarding_refuerzo, evaluacion_pendiente, contrato_por_vencer, evaluacion_capturada, evaluacion_devuelta, cierre_preautorizacion, cierre_autorizacion_rh, pago_por_programar, cita_finiquito, reingreso_solicitado.
+- Eventos conectados: solicitud_creada, solicitud_visto_bueno, candidato_preautorizado, contratos_listos, onboarding_refuerzo, evaluacion_pendiente, contrato_por_vencer, evaluacion_capturada, evaluacion_devuelta, cierre_baja_solicitada, cierre_negativa_firma, reingreso_solicitado. LEGACY (claves conservadas solo para registros anteriores; nunca se emiten para un cierre nuevo, ver `docs/NOTIFICACIONES_EVENTOS.md`): cierre_preautorizacion, cierre_autorizacion_rh, pago_por_programar, cita_finiquito.
 
 ### Aviso "ya se debe renovar el contrato"
 

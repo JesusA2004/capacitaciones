@@ -74,7 +74,7 @@ class TimelineService
         'contrato_renovado' => ['Contrato por tiempo indeterminado generado', 'periodo_prueba'],
         'cierre_laboral_solicitado' => ['Baja solicitada', 'cierre'],
         'cierre_laboral_aplicado' => ['Baja aplicada', 'cierre'],
-        'cierre_laboral_autorizado_rh' => ['RH autorizó la baja', 'cierre'],
+        'cierre_laboral_autorizado_rh' => ['RH autorizó la baja (flujo anterior)', 'cierre'], // LEGACY: solo registros anteriores.
         'cierre_laboral_rechazado' => ['Baja rechazada', 'cierre'],
         'cierre_laboral_devuelto' => ['Baja devuelta para corrección', 'cierre'],
         'cierre_laboral_aviso' => ['Renuncia / aviso registrado', 'cierre'],

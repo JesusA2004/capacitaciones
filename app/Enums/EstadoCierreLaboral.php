@@ -7,9 +7,12 @@ namespace App\Enums;
  * casos refleja el flujo (CierreLaboralService::avanzar() nunca retrocede):
  *
  *   iniciado [baja APLICADA al iniciarla por el jefe directo o RH;
- *   documentos de la causa pendientes] → aviso_registrado → finiquito_en_proceso → finiquito_autorizado
- *   → pago_programado (regional de coordinación) → finiquito_firmado → pagado
- *   → baja_ejecutada (solo desde la fecha efectiva) → expediente_cerrado
+ *   documentos de la causa pendientes] → aviso_registrado → finiquito_en_proceso
+ *   → [registrar entrega del finiquito, desde la fecha efectiva]
+ *   → baja_ejecutada → expediente_cerrado
+ *
+ * LEGACY (solo con CIERRE_FLUJO_LEGACY=true / cierres históricos):
+ * finiquito_autorizado → pago_programado → finiquito_firmado → pagado.
  *
  * `iniciado` conserva su valor histórico: hoy significa "baja aplicada".
  * `solicitado` y `pendiente_rh` solo quedan en el historial (bajas

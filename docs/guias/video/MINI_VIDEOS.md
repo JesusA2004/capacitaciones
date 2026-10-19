@@ -65,15 +65,15 @@ Artículo de referencia: [Evaluación de capacitación inicial](FLUJO_COMPLETO.m
 | 4 | Autorización final de RH | Autorizar renovar. | Recursos Humanos toma la decisión final. Si decide distinto a la recomendación del jefe, el comentario es obligatorio. Si no se renueva, se abre el cierre laboral. |
 | 5 | Contrato indeterminado | Mostrar el documento listo. | Con la renovación autorizada, el contrato por tiempo indeterminado se genera una sola vez y queda listo para previsualizar, imprimir y firmar. |
 
-## Cómo hacer una baja · 01:33 min
+## Cómo hacer una baja · 01:36 min
 
 Artículo de referencia: [Baja de un colaborador (cierre laboral)](FLUJO_COMPLETO.md#articulo-baja)
 
 | # | Pantalla | Acción | Narración |
 |---|---|---|---|
-| 1 | Expediente → Ciclo laboral | Botón «Ciclo laboral» del expediente. | Abre el expediente de la persona y entra a su ciclo laboral. Ahí vive la baja completa, con aprobaciones y finiquito. |
+| 1 | Expediente → Ciclo laboral | Botón «Ciclo laboral» del expediente. | Abre el expediente de la persona y entra a su ciclo laboral. Ahí vive la baja completa: documentos, finiquito y cierre. |
 | 2 | Iniciar baja | Capturar causa, motivo y fecha efectiva. | Inicia la baja con su causa, motivo y fecha efectiva, y adjunta la evidencia. El acceso de la persona al sistema y a la app se suspende de inmediato. |
-| 3 | Autorización de RH | Autorización de RH. | Recursos Humanos la autoriza; no hace falta otra preautorización. En cada paso queda registrado quién decidió y cuándo. |
-| 4 | Finiquito | Calcular y ajustar conceptos. | Recursos Humanos calcula el finiquito, ajusta conceptos si hace falta y lo autoriza; la coordinación regional programa el pago. |
-| 5 | Cita, firma y pago | Registrar cita, firma y pago. | El gerente cita a la persona y recaba la firma y la huella. Recursos Humanos confirma el pago. |
-| 6 | Concluir | Concluir el cierre. | En la fecha efectiva se concluye el cierre. Recursos Humanos y Sistemas reciben el aviso para retirar accesos y equipo. Nada se borra: el historial queda para un posible reingreso. |
+| 3 | Documentos de la baja | Generar los documentos de la baja. | No hay preautorización ni una autorización posterior de Recursos Humanos: se generan los documentos de la baja. En cada paso queda registrado quién lo hizo y cuándo. |
+| 4 | Finiquito | Calcular y ajustar conceptos. | Recursos Humanos calcula el finiquito con su vista previa editable y ajusta conceptos si hace falta. |
+| 5 | Registrar entrega | Registrar la entrega del finiquito. | Se entrega el finiquito a la persona, que lo firma, y se registra la entrega en el sistema. |
+| 6 | Concluir | Concluir el cierre. | Con la entrega registrada se concluye el cierre. Recursos Humanos y Sistemas reciben el aviso para retirar accesos y equipo. Nada se borra: el historial queda para un posible reingreso. |

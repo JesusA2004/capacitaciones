@@ -4,6 +4,7 @@ namespace App\Services\Notificaciones;
 
 use App\Enums\CategoriaNotificacion;
 use App\Enums\EstadoSolicitudInterna;
+use App\Enums\TipoSolicitudInterna;
 use App\Enums\TipoTarea;
 use App\Models\CierreLaboral;
 use App\Models\SolicitudInterna;
@@ -29,7 +30,11 @@ use Throwable;
  *  - la bandeja de pendientes (tareas_rh abiertas): destinatarios =
  *    TareaService::destinatarios(), exactamente quien la ve en «Mis pendientes»;
  *  - solicitudes enviadas/en revisión: responsables por la regla de ruteo
- *    `solicitud_creada` y la confirmación al solicitante.
+ *    `solicitud_creada` y la confirmación al solicitante (excepto la baja:
+ *    se aplica de inmediato y no se revisa ni autoriza).
+ *
+ * Nunca repone avisos de pendientes LEGACY (TipoTarea::esLegacy(), p. ej.
+ * `cierre_autorizacion_rh`): los cierra, porque ya no tienen acción posible.
  *
  * Antes de reponer avisos cierra los pendientes que ya no son ciertos (sin
  * ventana de tiempo): «Faltan datos para …» de un cierre cuyo documento ya
@@ -69,8 +74,11 @@ class ReconciliadorNotificacionesService
                 }
             });
 
+        // La baja (BajaColaborador) se aplica de inmediato y vive en el Cierre
+        // laboral: nunca es «solicitud por revisar» ni se repone ese aviso.
         SolicitudInterna::query()
             ->whereIn('estado', [EstadoSolicitudInterna::Enviada->value, EstadoSolicitudInterna::EnRevision->value])
+            ->where('tipo', '!=', TipoSolicitudInterna::BajaColaborador->value)
             ->whereBetween('created_at', [$desde, $hasta])
             ->with(['usuario', 'colaborador', 'usuario.colaborador'])
             ->chunkById(100, function (EloquentCollection $solicitudes) use (&$resultado): void {
@@ -96,6 +104,35 @@ class ReconciliadorNotificacionesService
      */
     private function resolverObsoletos(): int
     {
+        return $this->resolverLegacy() + $this->resolverDocumentalesObsoletos();
+    }
+
+    /**
+     * Pendientes LEGACY abiertos (p. ej. cierre_autorizacion_rh de una baja
+     * anterior al flujo inmediato): ya no tienen acción posible, se cierran
+     * y nunca se reponen sus avisos.
+     */
+    private function resolverLegacy(): int
+    {
+        try {
+            $legacy = array_values(array_map(
+                fn (TipoTarea $t): string => $t->value,
+                array_filter(TipoTarea::cases(), fn (TipoTarea $t): bool => $t->esLegacy()),
+            ));
+
+            return TareaRh::query()
+                ->whereNull('resuelta_en')
+                ->whereIn('tipo', $legacy)
+                ->update(['resuelta_en' => now(), 'clave_abierta' => null, 'updated_at' => now()]);
+        } catch (Throwable $e) {
+            Log::warning('ReconciliadorNotificaciones: no se pudieron cerrar pendientes legacy.', ['error' => $e->getMessage()]);
+
+            return 0;
+        }
+    }
+
+    private function resolverDocumentalesObsoletos(): int
+    {
         try {
             $ids = TareaRh::query()
                 ->whereNull('resuelta_en')
@@ -119,6 +156,10 @@ class ReconciliadorNotificacionesService
 
     private function reconciliarTarea(TareaRh $tarea): int
     {
+        if ($tarea->tipo->esLegacy()) {
+            return 0;
+        }
+
         try {
             $recurso = $tarea->relacionado instanceof Model ? $tarea->relacionado : $tarea;
             $desde = $this->desde($tarea->created_at);

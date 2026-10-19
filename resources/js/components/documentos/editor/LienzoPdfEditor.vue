@@ -75,16 +75,23 @@ async function redibujar() {
     }
 }
 
-watch(() => [props.pagina?.numero, pxPorMm.value], () => void redibujar(), {
-    immediate: true,
-});
+watch(
+    () => [props.pagina?.numero, pxPorMm.value],
+    () => void redibujar(),
+    {
+        immediate: true,
+    },
+);
 
 function color(campo: CampoEditor): string {
     if (campo.zona !== 'dato') {
         return 'border-muted-foreground/60 bg-muted/40 text-muted-foreground';
     }
 
-    if (campo.estado === 'confirmado' && (campo.source_key || campo.expression)) {
+    if (
+        campo.estado === 'confirmado' &&
+        (campo.source_key || campo.expression)
+    ) {
         return 'border-success bg-success-soft/50 text-success';
     }
 
@@ -108,7 +115,11 @@ type Arrastre = {
 
 let arrastre: Arrastre | null = null;
 
-function iniciar(evento: PointerEvent, campo: CampoEditor, modo: Arrastre['modo']) {
+function iniciar(
+    evento: PointerEvent,
+    campo: CampoEditor,
+    modo: Arrastre['modo'],
+) {
     if (!props.editable || campo.bloqueado) {
         emit('seleccionar', campo.field_key, evento.shiftKey);
 
@@ -185,9 +196,18 @@ function alMover(evento: PointerEvent) {
     }
 
     if (arrastre.modo === 'redimensionar') {
-        const [derecha, guiaX] = ajustar(principal.x + principal.w + dx, bordes.x);
-        const [abajo, guiaY] = ajustar(principal.y + principal.h + dy, bordes.y);
-        guias.value = { x: guiaX !== null ? [guiaX] : [], y: guiaY !== null ? [guiaY] : [] };
+        const [derecha, guiaX] = ajustar(
+            principal.x + principal.w + dx,
+            bordes.x,
+        );
+        const [abajo, guiaY] = ajustar(
+            principal.y + principal.h + dy,
+            bordes.y,
+        );
+        guias.value = {
+            x: guiaX !== null ? [guiaX] : [],
+            y: guiaY !== null ? [guiaY] : [],
+        };
         emit(
             'redimensionar',
             principal.field_key,
@@ -202,14 +222,23 @@ function alMover(evento: PointerEvent) {
     const [y, guiaY] = ajustar(principal.y + dy, bordes.y);
     const ddx = x - principal.x;
     const ddy = y - principal.y;
-    guias.value = { x: guiaX !== null ? [guiaX] : [], y: guiaY !== null ? [guiaY] : [] };
+    guias.value = {
+        x: guiaX !== null ? [guiaX] : [],
+        y: guiaY !== null ? [guiaY] : [],
+    };
 
     emit(
         'mover',
         arrastre.origen.map((o) => ({
             field_key: o.field_key,
-            x: Math.min(Math.max(0, o.x + ddx), (props.pagina?.anchoMm ?? 216) - o.w),
-            y: Math.min(Math.max(0, o.y + ddy), (props.pagina?.altoMm ?? 280) - o.h),
+            x: Math.min(
+                Math.max(0, o.x + ddx),
+                (props.pagina?.anchoMm ?? 216) - o.w,
+            ),
+            y: Math.min(
+                Math.max(0, o.y + ddy),
+                (props.pagina?.altoMm ?? 280) - o.h,
+            ),
         })),
     );
 }
@@ -241,13 +270,19 @@ function alSoltar(evento: DragEvent) {
 
 const marcasRegla = computed(() =>
     props.pagina
-        ? Array.from({ length: Math.floor(props.pagina.anchoMm / 10) + 1 }, (_, i) => i * 10)
+        ? Array.from(
+              { length: Math.floor(props.pagina.anchoMm / 10) + 1 },
+              (_, i) => i * 10,
+          )
         : [],
 );
 </script>
 
 <template>
-    <div ref="contenedor" class="flex w-full min-w-0 justify-center overflow-auto p-6">
+    <div
+        ref="contenedor"
+        class="flex w-full min-w-0 justify-center overflow-auto p-6"
+    >
         <div v-if="pagina" class="relative shrink-0">
             <!-- Regla superior (cm) -->
             <div
@@ -271,7 +306,10 @@ const marcasRegla = computed(() =>
                     height: `${pagina.altoMm * pxPorMm}px`,
                 }"
             >
-                <canvas ref="lienzo" class="pointer-events-none block select-none" />
+                <canvas
+                    ref="lienzo"
+                    class="pointer-events-none block select-none"
+                />
 
                 <!-- Cuadrícula de 5 mm (solo guía visual, nunca sale en el PDF) -->
                 <div
@@ -300,9 +338,13 @@ const marcasRegla = computed(() =>
                             cn(
                                 'group absolute flex items-center overflow-hidden rounded-[2px] border-2 px-0.5 text-[10px] leading-none font-medium',
                                 color(campo),
-                                seleccion.includes(campo.field_key) && 'ring-2 ring-primary ring-offset-1',
-                                resaltado === campo.field_key && 'animate-pulse ring-2 ring-danger',
-                                editable && !campo.bloqueado ? 'cursor-move' : 'cursor-pointer',
+                                seleccion.includes(campo.field_key) &&
+                                    'ring-2 ring-primary ring-offset-1',
+                                resaltado === campo.field_key &&
+                                    'animate-pulse ring-2 ring-danger',
+                                editable && !campo.bloqueado
+                                    ? 'cursor-move'
+                                    : 'cursor-pointer',
                             )
                         "
                         :style="{
@@ -319,17 +361,26 @@ const marcasRegla = computed(() =>
                         }"
                         @pointerdown="iniciar($event, campo, 'mover')"
                     >
-                        <Lock v-if="campo.bloqueado" class="mr-0.5 size-2.5 shrink-0" />
+                        <Lock
+                            v-if="campo.bloqueado"
+                            class="mr-0.5 size-2.5 shrink-0"
+                        />
                         <span class="truncate">{{
                             campo.zona !== 'dato'
-                                ? campo.label ?? 'Firma'
-                                : campo.label ?? 'Sin dato'
+                                ? (campo.label ?? 'Firma')
+                                : (campo.label ?? 'Sin dato')
                         }}</span>
                         <span
-                            v-if="editable && !campo.bloqueado && seleccion.includes(campo.field_key)"
+                            v-if="
+                                editable &&
+                                !campo.bloqueado &&
+                                seleccion.includes(campo.field_key)
+                            "
                             class="absolute right-0 bottom-0 size-2.5 cursor-se-resize rounded-tl-sm bg-primary"
                             aria-hidden="true"
-                            @pointerdown="iniciar($event, campo, 'redimensionar')"
+                            @pointerdown="
+                                iniciar($event, campo, 'redimensionar')
+                            "
                         />
                     </div>
 

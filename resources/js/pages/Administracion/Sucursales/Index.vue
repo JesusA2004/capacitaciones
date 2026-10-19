@@ -268,7 +268,7 @@ async function eliminar(sucursal: SucursalItem) {
                         :key="sucursal.id"
                         role="link"
                         tabindex="0"
-                        class="tarjeta-interactiva group relative flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+                        class="group relative flex tarjeta-interactiva flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
                         @click="abrirSucursal(sucursal)"
                         @keydown.enter="abrirSucursal(sucursal)"
                     >

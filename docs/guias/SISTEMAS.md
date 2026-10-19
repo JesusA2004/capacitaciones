@@ -127,7 +127,7 @@ Colaborador, Gerente, Regional, Dirección Comercial, Sistemas, RH.
 
 ### Baja de un colaborador (cierre laboral)
 
-> El jefe directo (o RH) inicia la baja desde el colaborador, sin solicitud previa ni preautorización; RH autoriza. Al iniciarla se suspende el acceso; la baja se ejecuta en la fecha efectiva, ya pagado y firmado el finiquito.
+> El jefe directo (o RH) inicia la baja desde el colaborador y queda aplicada de inmediato: sin solicitud previa, sin autorización de RH y sin subir archivos. Al iniciarla se suspende el acceso; siguen los documentos de la baja y el finiquito.
 
 #### Qué es
 
@@ -135,9 +135,9 @@ Es el cierre de la relación laboral. Nunca borra a la persona: bloquea su acces
 
 #### Quién lo hace
 
-Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más puede iniciarla. Autoriza RH. Programa el pago la coordinación regional. El gerente cita, recaba firma y huella. RH confirma el pago y concluye.
+Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más puede iniciarla y no necesita autorización. Después se generan los documentos, RH calcula el finiquito y, al registrar su entrega, el cierre queda completo.
 
-> **Importante:** Al INICIAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si la baja se rechaza o cancela, el acceso vuelve solo. Su estatus laboral no cambia hasta la autorización de RH y la fecha efectiva.
+> **Importante:** Al INICIAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si RH cancela el cierre, el acceso vuelve solo. Su estatus laboral (inactivo, vacante) se ejecuta al concluir el cierre.
 
 #### Antes de empezar
 
@@ -146,14 +146,10 @@ Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más 
 
 #### Pasos
 
-1. **«Iniciar baja»** _(Gerente)_ — Expedientes → la persona de tu equipo → Ciclo laboral → «Iniciar baja»: causa (renuncia, no renovación, bajo desempeño, baja inmediata…), motivo, fecha efectiva y evidencias (PDF o imagen). Pasa directo a RH.
-2. **«Autorizar baja»** _(RH)_ — RH autoriza, devuelve o rechaza. Si la devuelve, regresa a quien la inició (jefe directo o RH), que la corrige y la reenvía con «Corregir y reenviar a RH»; no pasa por preautorización. Al autorizar se preparan los documentos de la causa.
-3. **«Registrar renuncia / aviso firmado»** _(RH)_ — Se sube la renuncia o el aviso firmado.
-4. **Finiquito** _(RH)_ — «Calcular finiquito» y «Autorizar finiquito» (ver el artículo de finiquito).
-5. **«Programar pago»** _(Regional)_ — Fecha, monto y método.
-6. **«Registrar cita» y «Registrar firma y huella»** _(Gerente)_ — El gerente cita a la persona, recaba la firma y la huella del finiquito y sube el documento firmado.
-7. **«Confirmar pago»** _(RH)_ — RH confirma que se pagó.
-8. **«Concluir cierre laboral»** _(RH)_ — Desde la fecha efectiva: la baja se ejecuta y el expediente queda cerrado. PEOPLE recuerda a RH los cierres pagados cuya fecha ya llegó.
+1. **«Iniciar baja»** _(Gerente)_ — Expedientes → la persona de tu equipo → Ciclo laboral → «Iniciar baja»: causa (renuncia, no renovación, bajo desempeño, baja inmediata…), motivo y fecha efectiva. No se sube ningún archivo. Al confirmar, la baja queda aplicada (sin autorización de RH) y el sistema prepara los documentos de la causa.
+2. **Renuncia / aviso en «Documentos de la baja»** _(RH)_ — El sistema genera la renuncia (o el aviso de terminación): «Imprimir» y, ya firmada en papel, «Marcar como firmado físicamente». No se sube ningún archivo. Si la persona se niega a firmar, «El colaborador se negó a firmar/recibir».
+3. **«Calcular finiquito»** _(RH)_ — Muestra al momento el desglose por concepto; «Ver / editar finiquito» para ajustar montos con motivo (ver el artículo de finiquito). No hay que autorizarlo.
+4. **«Registrar entrega de finiquito»** _(RH)_ — Desde la fecha efectiva: fecha de entrega, forma de pago y comentario. El finiquito se congela, la baja se ejecuta y el cierre laboral queda completo.
 
 #### Qué pasa después
 
@@ -163,8 +159,7 @@ Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más 
 
 #### Notificaciones
 
-- «Baja iniciada» a regionales y RH.
-- «Autorización» a RH; «Pago por programar» a la coordinación; «Cita de finiquito» al jefe.
+- «Baja aplicada» a regionales y RH.
 - Baja ejecutada → RH y Sistemas.
 
 #### Documentos que se generan
@@ -178,7 +173,7 @@ Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más 
 
 #### Errores comunes
 
-- **«No me deja concluir.»** La baja exige finiquito firmado y pago confirmado, y no se ejecuta antes de la fecha efectiva.
+- **«No me deja concluir.»** El cierre se completa al registrar la entrega del finiquito, que solo se permite desde la fecha efectiva.
 - **«¿Cómo hago una baja?»** Desde el Ciclo laboral de la persona. Expedientes → la persona → Ciclo laboral → «Iniciar baja». No se pide desde Solicitudes.
 
 #### Relacionado con

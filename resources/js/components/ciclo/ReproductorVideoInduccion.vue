@@ -69,10 +69,13 @@ async function enviarHeartbeat() {
     }
 
     try {
-        const respuesta = await postJson<RespuestaHeartbeat>(props.heartbeatUrl, {
-            sesion_id: sesionId,
-            posicion_segundos: posicionActual,
-        });
+        const respuesta = await postJson<RespuestaHeartbeat>(
+            props.heartbeatUrl,
+            {
+                sesion_id: sesionId,
+                posicion_segundos: posicionActual,
+            },
+        );
 
         porcentajeVisto.value = respuesta.porcentaje_visto;
         segundoMaximoPermitido = respuesta.segundo_maximo_permitido;
@@ -107,7 +110,10 @@ function alValAdelantar() {
 
 onMounted(async () => {
     try {
-        const respuesta = await postJson<RespuestaIniciar>(props.iniciarUrl, {});
+        const respuesta = await postJson<RespuestaIniciar>(
+            props.iniciarUrl,
+            {},
+        );
 
         sesionId = respuesta.sesion_id;
         porcentajeVisto.value = respuesta.porcentaje_visto;

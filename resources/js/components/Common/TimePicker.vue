@@ -32,7 +32,10 @@ const horarios = computed(() => {
             const valor = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
             const sufijo = h < 12 ? 'a. m.' : 'p. m.';
             const h12 = h % 12 === 0 ? 12 : h % 12;
-            lista.push({ value: valor, label: `${h12}:${String(m).padStart(2, '0')} ${sufijo}` });
+            lista.push({
+                value: valor,
+                label: `${h12}:${String(m).padStart(2, '0')} ${sufijo}`,
+            });
         }
     }
 

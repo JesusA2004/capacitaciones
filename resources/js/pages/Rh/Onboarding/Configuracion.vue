@@ -1,6 +1,15 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
-import { Building2, Briefcase, ClipboardCheck, GraduationCap, Package, PlayCircle, Plus, Trash2 } from '@lucide/vue';
+import {
+    Building2,
+    Briefcase,
+    ClipboardCheck,
+    GraduationCap,
+    Package,
+    PlayCircle,
+    Plus,
+    Trash2,
+} from '@lucide/vue';
 import { ref } from 'vue';
 import Casilla from '@/components/Common/Casilla.vue';
 import RadioMarca from '@/components/Common/RadioMarca.vue';
@@ -356,7 +365,9 @@ void props;
 
         <section data-tour="onboarding-modulos" class="flex flex-col gap-3">
             <div>
-                <h2 class="text-base font-semibold">Secciones de capacitación</h2>
+                <h2 class="text-base font-semibold">
+                    Secciones de capacitación
+                </h2>
                 <p class="text-sm text-muted-foreground">
                     Cada sección tiene su material y una evaluación con
                     calificación mínima.
@@ -382,12 +393,18 @@ void props;
                             class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
                         >
                             <component
-                                :is="m.tipo === 'institucional' ? Building2 : Briefcase"
+                                :is="
+                                    m.tipo === 'institucional'
+                                        ? Building2
+                                        : Briefcase
+                                "
                                 class="size-5"
                             />
                         </span>
                         <div class="min-w-0 flex-1">
-                            <p class="text-xs font-semibold text-muted-foreground">
+                            <p
+                                class="text-xs font-semibold text-muted-foreground"
+                            >
                                 Sección {{ m.orden }} ·
                                 {{
                                     m.tipo === 'institucional'

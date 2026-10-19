@@ -5,7 +5,11 @@ import { computed, ref } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 import { store as subirRecurso } from '@/routes/rh/documentos-maestros/fondos';
 import type { RecursoDocumento } from '@/types';
 
@@ -30,7 +34,9 @@ const nombreNuevo = ref('');
 const archivoNuevo = ref<File | null>(null);
 const subiendo = ref(false);
 
-const actual = computed(() => props.recursos.find((r) => r.id === modelo.value) ?? null);
+const actual = computed(
+    () => props.recursos.find((r) => r.id === modelo.value) ?? null,
+);
 
 function elegir(id: number) {
     modelo.value = id;
@@ -58,7 +64,11 @@ function subir() {
     subiendo.value = true;
     router.post(
         subirRecurso.url(),
-        { nombre: nombreNuevo.value.trim(), tipo: props.tipoSubida ?? '', archivo: archivoNuevo.value },
+        {
+            nombre: nombreNuevo.value.trim(),
+            tipo: props.tipoSubida ?? '',
+            archivo: archivoNuevo.value,
+        },
         {
             forceFormData: true,
             preserveScroll: true,
@@ -118,7 +128,10 @@ function subir() {
                     >
                         Todavía no hay recursos de este tipo en la biblioteca.
                     </p>
-                    <div v-else class="grid max-h-80 grid-cols-3 gap-2 overflow-y-auto">
+                    <div
+                        v-else
+                        class="grid max-h-80 grid-cols-3 gap-2 overflow-y-auto"
+                    >
                         <button
                             v-for="recurso in recursos"
                             :key="recurso.id"
@@ -131,9 +144,10 @@ function subir() {
                                 :alt="recurso.nombre"
                                 class="aspect-square w-full rounded-md border bg-white object-contain"
                             />
-                            <span class="line-clamp-2 text-[11px] leading-tight">{{
-                                recurso.nombre
-                            }}</span>
+                            <span
+                                class="line-clamp-2 text-[11px] leading-tight"
+                                >{{ recurso.nombre }}</span
+                            >
                         </button>
                     </div>
                 </PopoverContent>
@@ -164,11 +178,17 @@ function subir() {
                         <Button
                             type="button"
                             size="sm"
-                            :disabled="!archivoNuevo || !nombreNuevo.trim() || subiendo"
+                            :disabled="
+                                !archivoNuevo || !nombreNuevo.trim() || subiendo
+                            "
                             @click="subir"
                         >
                             <ImageIcon class="size-4" />
-                            {{ subiendo ? 'Subiendo…' : 'Agregar a la biblioteca' }}
+                            {{
+                                subiendo
+                                    ? 'Subiendo…'
+                                    : 'Agregar a la biblioteca'
+                            }}
                         </Button>
                     </div>
                 </PopoverContent>

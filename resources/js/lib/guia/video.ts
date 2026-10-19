@@ -409,9 +409,9 @@ const ESCENAS: EscenaBase[] = [
         captura: '31-baja.png',
         accion: 'Abrir «Iniciar baja», elegir la causa, el motivo y la fecha efectiva.',
         zoom: 'Zoom al diálogo',
-        textoPantalla: 'El jefe inicia → RH autoriza',
+        textoPantalla: 'El jefe o RH inicia → documentos',
         narracion:
-            'La baja no es una solicitud: el jefe directo la inicia desde el ciclo laboral de la persona y Recursos Humanos la autoriza. Al iniciarla, el acceso de la persona se suspende de inmediato, pero nunca se borra nada.',
+            'La baja no es una solicitud ni requiere otra autorización: el jefe directo o Recursos Humanos la inicia desde el ciclo laboral de la persona. Al iniciarla, el acceso de la persona se suspende de inmediato, pero nunca se borra nada.',
         transicion: 'Corte',
     },
     {
@@ -424,7 +424,7 @@ const ESCENAS: EscenaBase[] = [
         textoPantalla:
             'Sueldo pendiente · aguinaldo · vacaciones · prima · ISR',
         narracion:
-            'El finiquito se calcula con sueldo pendiente, aguinaldo proporcional, vacaciones, prima vacacional e ISR. Recursos Humanos revisa, ajusta los conceptos autorizados con su motivo, genera el PDF y, ya firmado y pagado, se ejecuta la baja en su fecha efectiva. Recursos Humanos y Sistemas reciben el aviso para retirar accesos y equipo.',
+            'El finiquito se calcula con sueldo pendiente, aguinaldo proporcional, vacaciones, prima vacacional e ISR. Recursos Humanos revisa, ajusta los conceptos autorizados con su motivo, genera el PDF y, al registrar su entrega, el cierre queda completo. Recursos Humanos y Sistemas reciben el aviso para retirar accesos y equipo.',
         transicion: 'Corte',
     },
     {
@@ -752,7 +752,7 @@ const MINIS: MiniBase[] = [
                 pantalla: 'Expediente → Ciclo laboral',
                 accion: 'Botón «Ciclo laboral» del expediente.',
                 narracion:
-                    'Abre el expediente de la persona y entra a su ciclo laboral. Ahí vive la baja completa, con aprobaciones y finiquito.',
+                    'Abre el expediente de la persona y entra a su ciclo laboral. Ahí vive la baja completa: documentos, finiquito y cierre.',
             },
             {
                 captura: '31-baja.png',
@@ -763,31 +763,31 @@ const MINIS: MiniBase[] = [
             },
             {
                 captura: '31-baja.png',
-                pantalla: 'Autorización de RH',
-                accion: 'Autorización de RH.',
+                pantalla: 'Documentos de la baja',
+                accion: 'Generar los documentos de la baja.',
                 narracion:
-                    'Recursos Humanos la autoriza; no hace falta otra preautorización. En cada paso queda registrado quién decidió y cuándo.',
+                    'No hay preautorización ni una autorización posterior de Recursos Humanos: se generan los documentos de la baja. En cada paso queda registrado quién lo hizo y cuándo.',
             },
             {
                 captura: '32-finiquito.png',
                 pantalla: 'Finiquito',
                 accion: 'Calcular y ajustar conceptos.',
                 narracion:
-                    'Recursos Humanos calcula el finiquito, ajusta conceptos si hace falta y lo autoriza; la coordinación regional programa el pago.',
+                    'Recursos Humanos calcula el finiquito con su vista previa editable y ajusta conceptos si hace falta.',
             },
             {
                 captura: '32-finiquito.png',
-                pantalla: 'Cita, firma y pago',
-                accion: 'Registrar cita, firma y pago.',
+                pantalla: 'Registrar entrega',
+                accion: 'Registrar la entrega del finiquito.',
                 narracion:
-                    'El gerente cita a la persona y recaba la firma y la huella. Recursos Humanos confirma el pago.',
+                    'Se entrega el finiquito a la persona, que lo firma, y se registra la entrega en el sistema.',
             },
             {
                 captura: '31-baja.png',
                 pantalla: 'Concluir',
                 accion: 'Concluir el cierre.',
                 narracion:
-                    'En la fecha efectiva se concluye el cierre. Recursos Humanos y Sistemas reciben el aviso para retirar accesos y equipo. Nada se borra: el historial queda para un posible reingreso.',
+                    'Con la entrega registrada se concluye el cierre. Recursos Humanos y Sistemas reciben el aviso para retirar accesos y equipo. Nada se borra: el historial queda para un posible reingreso.',
             },
         ],
     },

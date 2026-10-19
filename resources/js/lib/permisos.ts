@@ -221,10 +221,12 @@ const ETIQUETAS_PERMISO: Record<string, string> = {
     'celebraciones.moderar': 'Moderar mensajes de celebraciones',
     'celebraciones.ver': 'Ver celebraciones',
     'ciclo.autorizar_rh': 'Dar la autorización final de RH',
-    'ciclo.preautorizar': 'Dar la preautorización operativa',
+    'ciclo.preautorizar':
+        'Preautorización operativa (legacy, solo cierres históricos)',
     'cierres.ejecutar_baja': 'Ejecutar la baja definitiva',
     'cierres.gestionar': 'Gestionar cierres laborales',
-    'cierres.programar_pago': 'Programar el pago del finiquito',
+    'cierres.programar_pago':
+        'Programar el pago del finiquito (legacy, solo cierres históricos)',
     'cierres.solicitar': 'Solicitar la baja de un colaborador',
     'cierres.ver': 'Ver cierres laborales',
     'colaborador.incorporacion.documentos.solicitar-cambio':

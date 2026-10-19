@@ -74,10 +74,7 @@ const { getInitials } = useInitials();
                         <span class="min-w-0">{{ nombre }}</span>
                         <slot name="icono" />
                     </p>
-                    <p
-                        v-if="detalle"
-                        class="text-sm font-medium text-warning"
-                    >
+                    <p v-if="detalle" class="text-sm font-medium text-warning">
                         {{ detalle }}
                     </p>
                     <p

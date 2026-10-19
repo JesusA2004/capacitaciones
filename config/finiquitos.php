@@ -40,9 +40,13 @@ return [
     // adeudos ya capturados como columnas propias.
     'conceptos_extra' => [],
 
-    // Si es true, una solicitud de baja no puede aprobarse sin un cálculo de
-    // finiquito en estado "revisado" (excepto quien tenga el permiso
-    // solicitudes.bajas.omitir_finiquito, reservado a super_admin).
+    // Candado interno, NO un paso de autorización: la baja no tiene
+    // autorización de RH (la aplica de inmediato el jefe directo o RH). La
+    // solicitud interna que respalda el cierre solo se marca «aprobada» al
+    // EJECUTAR la baja (registrar la entrega del finiquito); si es true, eso
+    // exige un finiquito ya revisado/aprobado/firmado/entregado (excepto con
+    // el permiso solicitudes.bajas.omitir_finiquito, reservado a
+    // super_admin). La clave conserva su nombre histórico.
     'exigir_finiquito_revisado_para_aprobar_baja' => true,
 
 ];

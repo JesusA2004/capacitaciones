@@ -548,8 +548,19 @@ class FiniquitoService
         });
     }
 
+    /**
+     * LEGACY: subir el escaneo firmado pertenece al flujo anterior del
+     * finiquito. Con CIERRE_FLUJO_LEGACY=false (vigente) se rechaza: el
+     * finiquito nuevo se cierra registrando su entrega en el cierre laboral.
+     */
     public function subirFirmado(FiniquitoCalculo $finiquito, UploadedFile $archivo, User $actor): FiniquitoCalculo
     {
+        if (! (bool) config('features.cierre_flujo_legacy', false)) {
+            throw ValidationException::withMessages([
+                'flujo' => 'Este paso pertenece al flujo anterior del finiquito. Ahora RH registra la entrega del finiquito, que cierra el cierre laboral.',
+            ]);
+        }
+
         $this->asegurarNoFirmado($finiquito);
 
         $nombreInterno = $this->storage->nombreInterno($archivo->getClientOriginalName());

@@ -68,7 +68,7 @@ class ProcedimientoBajaService
         }
 
         if (! $cierre->estado->autorizadoPorRh()) {
-            throw ValidationException::withMessages(['cierre' => 'La baja aún no tiene autorización de RH: no hay documentos que entregar.']);
+            throw ValidationException::withMessages(['cierre' => 'Esta baja no está aplicada (trámite anterior pendiente, rechazado o cancelado): no hay documentos que entregar.']);
         }
 
         if ($this->documentos->documentosCausaFirmados($cierre)) {

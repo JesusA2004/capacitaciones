@@ -209,12 +209,12 @@ function reprocesarDocumento() {
             >
                 ¿Cómo funciona? El sistema busca CURP, RFC, NSS, domicilio,
                 beneficiario, contacto de emergencia y otros datos personales
-                dentro del documento, siempre bajo su etiqueta explícita.
-                PDF con texto: extracción directa. JPG/PNG o PDF escaneado:
-                OCR local (Tesseract) si el servidor lo tiene instalado —
-                nunca se manda a un servicio externo ni usa inteligencia
-                artificial. No adivina nombre, apellidos ni domicilio
-                completo fuera de su etiqueta.
+                dentro del documento, siempre bajo su etiqueta explícita. PDF
+                con texto: extracción directa. JPG/PNG o PDF escaneado: OCR
+                local (Tesseract) si el servidor lo tiene instalado — nunca se
+                manda a un servicio externo ni usa inteligencia artificial. No
+                adivina nombre, apellidos ni domicilio completo fuera de su
+                etiqueta.
             </p>
 
             <div v-if="cargando" class="flex justify-center py-8">
@@ -252,9 +252,7 @@ function reprocesarDocumento() {
                     v-else-if="extraccion.status === 'failed'"
                     class="flex flex-col gap-2 rounded-lg border border-warning/40 bg-warning/5 p-4 text-sm"
                 >
-                    <p
-                        class="flex items-center gap-2 font-medium text-warning"
-                    >
+                    <p class="flex items-center gap-2 font-medium text-warning">
                         <AlertTriangle class="size-4" />
                         No se pudieron leer datos automáticamente
                     </p>
@@ -274,9 +272,9 @@ function reprocesarDocumento() {
                         </p>
                         <p class="text-xs">
                             El documento se leyó correctamente, pero no se
-                            encontró ningún dato reconocible con el formato o
-                            la etiqueta esperada. Captura estos datos
-                            manualmente en «Datos personales».
+                            encontró ningún dato reconocible con el formato o la
+                            etiqueta esperada. Captura estos datos manualmente
+                            en «Datos personales».
                         </p>
                     </div>
 
@@ -325,7 +323,11 @@ function reprocesarDocumento() {
                                 class="text-xs text-muted-foreground"
                             >
                                 Confianza:
-                                {{ ETIQUETAS_CONFIANZA[extraccion.confidence[campo]] ?? extraccion.confidence[campo] }}
+                                {{
+                                    ETIQUETAS_CONFIANZA[
+                                        extraccion.confidence[campo]
+                                    ] ?? extraccion.confidence[campo]
+                                }}
                             </p>
 
                             <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">

@@ -84,7 +84,7 @@ Solución: `App\Policies\Concerns\ConSuperAdminOperativo` — un trait con `befo
 | **gerente_regional** | región | Igual catálogo funcional que gerente de sucursal, pero sobre varias sucursales de su región; única autoridad de intervención de Gestor/Volante de su región. |
 | **gerente_sucursal** / **gerente** | sucursal | Aprueba vacaciones/solicitudes/candidatos de su sucursal, actas, cierres, ciclo laboral completo de su gente. |
 | **subgerente** | sucursal | Mismo catálogo que gerente (apoyo/cobertura), sin `vacantes.crear` ni decidir candidatos/rechazos. |
-| **jefe_directo** | equipo (subordinados directos) | Aprueba vacaciones/solicitudes de su equipo, preautoriza cierres, captura evaluaciones — nunca ve a quien no es su subordinado directo. |
+| **jefe_directo** | equipo (subordinados directos) | Aprueba vacaciones/solicitudes de su equipo, inicia la baja de su equipo (aplicada de inmediato, sin preautorización ni autorización de RH), captura evaluaciones — nunca ve a quien no es su subordinado directo. |
 | **coordinadora_regional** | propio | Desde 2026-10-15 usa PEOPLE como **colaboradora** (catálogo de `colaborador`): sin bandeja RH, sin alcance de región. Ver `docs/ROLES_Y_NAVEGACION.md`. |
 | **coordinadora** | propio | Igual que coordinadora_regional: colaboradora. |
 | **colaborador** | propio | Su expediente, sus solicitudes, sus vacaciones, sus documentos autorizados, sus notificaciones. Nunca ve recibos de nómina ni documentos de renuncia/finiquito (§2). |

@@ -559,8 +559,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 // COMPATIBILIDAD LEGACY (flujo anterior del finiquito): el flujo
                 // vigente cierra el cierre con «finiquito/entrega».
                 // CierreLaboralService rechaza programar pago / cita / firma /
-                // confirmar pago sobre cierres nuevos (solo expedientes legacy o
-                // con features.cierre_flujo_legacy).
+                // confirmar pago (ValidationException 422) salvo con
+                // features.cierre_flujo_legacy (CIERRE_FLUJO_LEGACY, apagado).
                 Route::post('{cierre}/pago/programar', [CierreLaboralController::class, 'programarPago'])->name('pago.programar');
                 Route::post('{cierre}/cita', [CierreLaboralController::class, 'cita'])->name('cita');
                 Route::post('{cierre}/cerrar', [CierreLaboralController::class, 'cerrar'])->name('cerrar');

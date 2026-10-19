@@ -151,15 +151,29 @@ const conArchivos = ['registrar_aviso'];
 // Acciones propias de esta pantalla que se suman a las del proceso.
 const accionesExtra = computed<AccionCiclo[]>(() => [
     ...(props.evaluacion &&
-    props.ciclo.acciones_permitidas.some((a) => a.clave === 'autorizar_evaluacion')
-        ? [{ clave: 'devolver_evaluacion', etiqueta: 'Devolver evaluación', tipo: 'secundaria' }]
+    props.ciclo.acciones_permitidas.some(
+        (a) => a.clave === 'autorizar_evaluacion',
+    )
+        ? [
+              {
+                  clave: 'devolver_evaluacion',
+                  etiqueta: 'Devolver evaluación',
+                  tipo: 'secundaria',
+              },
+          ]
         : []),
     ...(props.evaluacion?.es_oficial &&
     !evaluacionEsElegible.value &&
     !excepcionVigente.value &&
     !excepcionPendiente.value &&
     props.puede_solicitar_excepcion
-        ? [{ clave: 'solicitar_excepcion', etiqueta: 'Solicitar excepción a Dirección General', tipo: 'peligro' }]
+        ? [
+              {
+                  clave: 'solicitar_excepcion',
+                  etiqueta: 'Solicitar excepción a Dirección General',
+                  tipo: 'peligro',
+              },
+          ]
         : []),
 ]);
 
@@ -189,7 +203,10 @@ onMounted(() => {
 function abrir(a: AccionCiclo) {
     // Ver / editar el finiquito y registrar su entrega viven en su propio
     // diálogo (desglose por concepto, ajustes y entrega que cierra el cierre).
-    if (a.clave === 'ver_finiquito' || a.clave === 'registrar_entrega_finiquito') {
+    if (
+        a.clave === 'ver_finiquito' ||
+        a.clave === 'registrar_entrega_finiquito'
+    ) {
         abrirFiniquito(a.clave === 'registrar_entrega_finiquito');
 
         return;
@@ -293,34 +310,38 @@ const requiereComentarioCaptura = computed(
 const evaluacionEsElegible = computed(
     () => props.evaluacion?.recomienda_renovar === true,
 );
-const excepcionVigente = computed(
-    () =>
-        props.evaluacion?.excepcion?.estado === 'aprobada'
-            ? props.evaluacion.excepcion
-            : null,
+const excepcionVigente = computed(() =>
+    props.evaluacion?.excepcion?.estado === 'aprobada'
+        ? props.evaluacion.excepcion
+        : null,
 );
-const excepcionPendiente = computed(
-    () =>
-        props.evaluacion?.excepcion?.estado === 'pendiente'
-            ? props.evaluacion.excepcion
-            : null,
+const excepcionPendiente = computed(() =>
+    props.evaluacion?.excepcion?.estado === 'pendiente'
+        ? props.evaluacion.excepcion
+        : null,
 );
 
-const excepcionForm = useForm<{ motivo: string; documento_soporte: File | null }>({
+const excepcionForm = useForm<{
+    motivo: string;
+    documento_soporte: File | null;
+}>({
     motivo: '',
     documento_soporte: null,
 });
 const dialogoExcepcionAbierto = ref(false);
 
 function solicitarExcepcion() {
-    excepcionForm.post(evaluacionesExcepcion.solicitar.url(evaluacionId.value), {
-        forceFormData: true,
-        preserveScroll: true,
-        onSuccess: () => {
-            dialogoExcepcionAbierto.value = false;
-            excepcionForm.reset();
+    excepcionForm.post(
+        evaluacionesExcepcion.solicitar.url(evaluacionId.value),
+        {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => {
+                dialogoExcepcionAbierto.value = false;
+                excepcionForm.reset();
+            },
         },
-    });
+    );
 }
 
 const resolverExcepcionForm = useForm<{
@@ -336,10 +357,13 @@ function resolverExcepcion(aprobar: boolean) {
     }
 
     resolverExcepcionForm.aprobar = aprobar;
-    resolverExcepcionForm.post(evaluacionesExcepcion.resolver.url(excepcionId), {
-        preserveScroll: true,
-        onSuccess: () => resolverExcepcionForm.reset(),
-    });
+    resolverExcepcionForm.post(
+        evaluacionesExcepcion.resolver.url(excepcionId),
+        {
+            preserveScroll: true,
+            onSuccess: () => resolverExcepcionForm.reset(),
+        },
+    );
 }
 
 function destino(clave: string): string {
@@ -570,9 +594,7 @@ const etiquetaFecha: Record<string, string> = {
                         {{ excepcionPendiente.motivo }}
                     </p>
                     <div v-if="puede_resolver_excepcion" class="flex gap-2">
-                        <Button
-                            type="button"
-                            @click="resolverExcepcion(true)"
+                        <Button type="button" @click="resolverExcepcion(true)"
                             >Aprobar excepción</Button
                         >
                         <Button
@@ -1043,12 +1065,13 @@ const etiquetaFecha: Record<string, string> = {
 
                 <template v-else-if="accion?.clave === 'capturar_evaluacion'">
                     <p class="text-xs text-muted-foreground">
-                        Evaluación oficial FO-RH-EPP-001 — escala 4 Muy bueno
-                        · 3 Bueno · 2 Regular · 1 Deficiente. Un solo 1, o un
-                        "Sí" en las preguntas filtro, significa NO SE RENUEVA
-                        sin importar el total (mínimo {{
-                            evaluacion?.total_minimo_renovar
-                        }}/{{ evaluacion?.total_maximo }}).
+                        Evaluación oficial FO-RH-EPP-001 — escala 4 Muy bueno ·
+                        3 Bueno · 2 Regular · 1 Deficiente. Un solo 1, o un "Sí"
+                        en las preguntas filtro, significa NO SE RENUEVA sin
+                        importar el total (mínimo
+                        {{ evaluacion?.total_minimo_renovar }}/{{
+                            evaluacion?.total_maximo
+                        }}).
                     </p>
 
                     <div
@@ -1093,9 +1116,7 @@ const etiquetaFecha: Record<string, string> = {
                             <Button
                                 type="button"
                                 size="sm"
-                                :variant="
-                                    !f.respuesta ? 'default' : 'outline'
-                                "
+                                :variant="!f.respuesta ? 'default' : 'outline'"
                                 @click="f.respuesta = false"
                                 >No</Button
                             >
@@ -1112,9 +1133,7 @@ const etiquetaFecha: Record<string, string> = {
                     </div>
 
                     <p class="text-sm font-medium">
-                        Total: {{ totalCaptura }}/{{
-                            evaluacion?.total_maximo
-                        }}
+                        Total: {{ totalCaptura }}/{{ evaluacion?.total_maximo }}
                     </p>
 
                     <div class="grid gap-1.5">
@@ -1140,28 +1159,30 @@ const etiquetaFecha: Record<string, string> = {
                                 ? 'renovar'
                                 : 'NO renovar'
                         }}</strong>
-                        (total {{ evaluacion?.calificacion }}<template
-                            v-if="evaluacion?.es_oficial"
-                        >
+                        (total {{ evaluacion?.calificacion
+                        }}<template v-if="evaluacion?.es_oficial">
                             /{{ evaluacion?.total_maximo }}</template
                         >).
                     </p>
                     <p
-                        v-if="evaluacion?.es_oficial && !evaluacionEsElegible && !excepcionVigente"
+                        v-if="
+                            evaluacion?.es_oficial &&
+                            !evaluacionEsElegible &&
+                            !excepcionVigente
+                        "
                         class="rounded-lg bg-destructive/10 p-2.5 text-xs text-destructive"
                     >
-                        No alcanza la regla de renovación del FO-RH-EPP-001.
-                        No se puede "forzar aprobado": solicita la excepción
-                        de Dirección General para poder autorizar la
-                        renovación.
+                        No alcanza la regla de renovación del FO-RH-EPP-001. No
+                        se puede "forzar aprobado": solicita la excepción de
+                        Dirección General para poder autorizar la renovación.
                     </p>
                     <p
                         v-if="excepcionVigente"
                         class="rounded-lg bg-success/10 p-2.5 text-xs text-success"
                     >
-                        Dirección General aprobó la excepción el {{
-                            formatearFecha(excepcionVigente.resuelto_en)
-                        }}: ya puedes autorizar la renovación.
+                        Dirección General aprobó la excepción el
+                        {{ formatearFecha(excepcionVigente.resuelto_en) }}: ya
+                        puedes autorizar la renovación.
                     </p>
                     <div class="flex gap-2">
                         <Button
@@ -1237,10 +1258,9 @@ const etiquetaFecha: Record<string, string> = {
                         /><InputError :message="form.errors.motivo" />
                     </div>
                     <p class="text-xs text-muted-foreground">
-                        La baja se aplica de inmediato: sus accesos se
-                        suspenden al confirmar. El sistema genera la renuncia o
-                        el aviso para imprimir y firmar; después sigue el
-                        finiquito.
+                        La baja se aplica de inmediato: sus accesos se suspenden
+                        al confirmar. El sistema genera la renuncia o el aviso
+                        para imprimir y firmar; después sigue el finiquito.
                     </p>
                     <InputError :message="form.errors.colaborador" />
                     <InputError :message="form.errors.tipo_baja" />
@@ -1248,10 +1268,9 @@ const etiquetaFecha: Record<string, string> = {
 
                 <template
                     v-else-if="
-                        [
-                            'cancelar',
-                            'devolver_evaluacion',
-                        ].includes(accion?.clave ?? '')
+                        ['cancelar', 'devolver_evaluacion'].includes(
+                            accion?.clave ?? '',
+                        )
                     "
                 >
                     <div class="grid gap-1.5">
@@ -1281,9 +1300,9 @@ const etiquetaFecha: Record<string, string> = {
 
                 <template v-else-if="accion?.clave === 'calcular_finiquito'">
                     <p class="text-sm text-muted-foreground">
-                        Se calcula con el salario registrado y la fecha
-                        efectiva de la baja. Al terminar verás el desglose por
-                        concepto para revisarlo y ajustar montos.
+                        Se calcula con el salario registrado y la fecha efectiva
+                        de la baja. Al terminar verás el desglose por concepto
+                        para revisarlo y ajustar montos.
                         <template v-if="finiquitoCierre">
                             Los ajustes que ya hiciste se conservan.</template
                         >
@@ -1301,15 +1320,13 @@ const etiquetaFecha: Record<string, string> = {
                             v-if="Number(form.sueldo_mensual) > 0"
                             class="text-xs text-muted-foreground"
                         >
-                            Salario diario:
-                            ${{
-                                (Number(form.sueldo_mensual) / 30).toLocaleString(
-                                    'es-MX',
-                                    {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 2,
-                                    },
-                                )
+                            Salario diario: ${{
+                                (
+                                    Number(form.sueldo_mensual) / 30
+                                ).toLocaleString('es-MX', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                })
                             }}
                             (sueldo mensual ÷ 30)
                         </p>
@@ -1383,13 +1400,16 @@ const etiquetaFecha: Record<string, string> = {
                     >Solicitar excepción a Dirección General</DialogTitle
                 >
                 <DialogDescription>
-                    {{ colaborador.nombre }} — la evaluación no alcanza la
-                    regla de renovación del FO-RH-EPP-001. Toda excepción
-                    requiere autorización escrita de Dirección General.
+                    {{ colaborador.nombre }} — la evaluación no alcanza la regla
+                    de renovación del FO-RH-EPP-001. Toda excepción requiere
+                    autorización escrita de Dirección General.
                 </DialogDescription>
             </DialogHeader>
 
-            <form class="flex flex-col gap-4" @submit.prevent="solicitarExcepcion">
+            <form
+                class="flex flex-col gap-4"
+                @submit.prevent="solicitarExcepcion"
+            >
                 <div class="grid gap-1.5">
                     <Label>Motivo</Label>
                     <Textarea v-model="excepcionForm.motivo" rows="4" />

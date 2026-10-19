@@ -1,2 +1,0 @@
-> pint --parallel --test
-{"tool":"pint","result":"passed"}

@@ -137,8 +137,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // COMPATIBILIDAD LEGACY (flujo anterior del finiquito: programar
             // pago → cita → firma → confirmar pago). El flujo vigente cierra el
             // cierre con «Registrar entrega de finiquito»; CierreLaboralService
-            // rechaza estos pasos sobre cierres nuevos (solo cierran expedientes
-            // legacy o con features.cierre_flujo_legacy).
+            // rechaza estos pasos (ValidationException) salvo con
+            // features.cierre_flujo_legacy (CIERRE_FLUJO_LEGACY, apagado).
             Route::post('pago/programar', [CierreLaboralController::class, 'programarPago'])->name('programarPago');
             Route::post('cita', [CierreLaboralController::class, 'cita'])->name('cita');
             Route::post('finiquito/firmado', [CierreLaboralController::class, 'finiquitoFirmado'])->name('finiquitoFirmado');

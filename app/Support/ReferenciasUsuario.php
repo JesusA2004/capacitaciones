@@ -30,6 +30,11 @@ final class ReferenciasUsuario
         ['rotacion_cargas', 'aplicado_por', 'restrict'],
         ['rotacion_cargas', 'subido_por', 'restrict'],
         ['sesiones_induccion', 'presentada_por', 'restrict'],
+        // Migración 2026-10-19: material de explicación de la Inducción
+        // (audio/video subido por RH, compartido) y tramos de video vistos
+        // por el propio colaborador en su inducción.
+        ['induccion_materiales_explicacion', 'subido_por', 'restrict'],
+        ['induccion_video_intervalos', 'user_id', 'cascade'],
         ['acta_anexos', 'subido_por', 'set_null'],
         ['actas_administrativas', 'creado_por', 'set_null'],
         ['actas_administrativas', 'responsable_id', 'set_null'],

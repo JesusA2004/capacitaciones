@@ -70,7 +70,7 @@ test('actas: captura, anexos, formato por motor documental, negativa a firmar y 
     // Flujo físico del documento: impresión y firma física. «Firmado
     // físicamente» es el estado FINAL del acta en papel; ya no se escanea.
     $this->postJson("/api/v1/rh/documentos-proceso/documento/{$documento['id']}/imprimir")->assertOk();
-    $this->postJson("/api/v1/rh/documentos-proceso/documento/{$documento['id']}/firma-fisica", ['testigos' => [['nombre' => 'Pedro López']]])->assertOk()->assertJsonPath('estado', 'firmado_fisicamente');
+    $this->postJson("/api/v1/rh/documentos-proceso/documento/{$documento['id']}/firma-fisica", ['testigos' => [['colaborador_id' => $testigo->id]]])->assertOk()->assertJsonPath('estado', 'firmado_fisicamente');
     $this->postJson("/api/v1/rh/actas/{$acta['id']}/cerrar")->assertOk()->assertJsonPath('data.estado', 'cerrada');
 
     $implicado = User::factory()->create(['colaborador_id' => $colaborador->id]);

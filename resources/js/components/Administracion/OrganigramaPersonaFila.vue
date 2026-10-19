@@ -85,10 +85,7 @@ function abrirExpediente(): void {
                 :disabled="esVacante"
                 @click="abrirExpediente"
             >
-                <p
-                    v-if="esVacante"
-                    class="text-sm font-semibold text-warning"
-                >
+                <p v-if="esVacante" class="text-sm font-semibold text-warning">
                     VACANTE
                 </p>
                 <p v-else class="text-sm leading-tight font-semibold">

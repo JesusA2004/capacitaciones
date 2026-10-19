@@ -36,7 +36,9 @@ const url = computed(() =>
     }),
 );
 const esImagen = computed(
-    () => props.tipo === 'fotografia' || (props.mime?.startsWith('image/') ?? false),
+    () =>
+        props.tipo === 'fotografia' ||
+        (props.mime?.startsWith('image/') ?? false),
 );
 const esVideo = computed(
     () => props.tipo === 'video' || (props.mime?.startsWith('video/') ?? false),

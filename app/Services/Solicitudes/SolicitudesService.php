@@ -220,6 +220,13 @@ class SolicitudesService
             $this->registrarHistorial($solicitud, $solicitante, 'enviada');
 
             $this->notificarSinFallar(function () use ($solicitud, $solicitante): void {
+                // La baja NO es una solicitud por revisar: la aplica de
+                // inmediato el jefe directo o RH (sin autorización posterior);
+                // CierreLaboralService avisa con «cierre_baja_solicitada».
+                if ($solicitud->tipo === TipoSolicitudInterna::BajaColaborador) {
+                    return;
+                }
+
                 // Destinatarios por la regla "solicitud_creada" (Configuración →
                 // Notificaciones) sobre la PERSONA solicitante; sin persona
                 // enlazada se conserva el criterio por permiso + alcance.

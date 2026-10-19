@@ -2,7 +2,7 @@
 
 # Storyboard — MR. LANA PEOPLE — Flujo completo de Recursos Humanos
 
-36 escenas · 14:11. Cada escena se graba con datos ficticios del escenario de [DATOS_DEMO.md](../DATOS_DEMO.md).
+36 escenas · 14:10. Cada escena se graba con datos ficticios del escenario de [DATOS_DEMO.md](../DATOS_DEMO.md).
 
 ## Escena 01 · 00:00–00:24
 
@@ -438,7 +438,7 @@
 
 **Narración:** Recursos Humanos envía avisos con título, mensaje e imagen a toda la empresa o a una persona; llegan por push y quedan en su bandeja. Los cumpleaños y aniversarios se felicitan solos a las ocho de la mañana.
 
-## Escena 32 · 12:13–12:37
+## Escena 32 · 12:13–12:38
 
 | | |
 |---|---|
@@ -446,13 +446,13 @@
 | **Pantalla** | Ciclo laboral → Iniciar baja (`/rh/colaboradores/:colaborador/ciclo`) |
 | **Acción** | Abrir «Iniciar baja», elegir la causa, el motivo y la fecha efectiva. |
 | **Zoom** | Zoom al diálogo |
-| **Texto en pantalla** | El jefe inicia → RH autoriza |
+| **Texto en pantalla** | El jefe o RH inicia → documentos |
 | **Captura / clip** | `31-baja.png` |
 | **Transición** | Corte |
 
-**Narración:** La baja no es una solicitud: el jefe directo la inicia desde el ciclo laboral de la persona y Recursos Humanos la autoriza. Al iniciarla, el acceso de la persona se suspende de inmediato, pero nunca se borra nada.
+**Narración:** La baja no es una solicitud ni requiere otra autorización: el jefe directo o Recursos Humanos la inicia desde el ciclo laboral de la persona. Al iniciarla, el acceso de la persona se suspende de inmediato, pero nunca se borra nada.
 
-## Escena 33 · 12:37–13:07
+## Escena 33 · 12:38–13:06
 
 | | |
 |---|---|
@@ -464,9 +464,9 @@
 | **Captura / clip** | `32-finiquito.png` |
 | **Transición** | Corte |
 
-**Narración:** El finiquito se calcula con sueldo pendiente, aguinaldo proporcional, vacaciones, prima vacacional e ISR. Recursos Humanos revisa, ajusta los conceptos autorizados con su motivo, genera el PDF y, ya firmado y pagado, se ejecuta la baja en su fecha efectiva. Recursos Humanos y Sistemas reciben el aviso para retirar accesos y equipo.
+**Narración:** El finiquito se calcula con sueldo pendiente, aguinaldo proporcional, vacaciones, prima vacacional e ISR. Recursos Humanos revisa, ajusta los conceptos autorizados con su motivo, genera el PDF y, al registrar su entrega, el cierre queda completo. Recursos Humanos y Sistemas reciben el aviso para retirar accesos y equipo.
 
-## Escena 34 · 13:07–13:26
+## Escena 34 · 13:06–13:25
 
 | | |
 |---|---|
@@ -480,7 +480,7 @@
 
 **Narración:** Si alguien regresa, no se crea una persona nueva: se busca en Reingresos, Recursos Humanos decide, y la misma persona inicia un nuevo ciclo laboral conservando todo su historial.
 
-## Escena 35 · 13:26–13:55
+## Escena 35 · 13:25–13:54
 
 | | |
 |---|---|
@@ -494,7 +494,7 @@
 
 **Narración:** Siempre que tengas una duda, abre Ayuda. Puedes buscar con tus propias palabras, por ejemplo cómo contrato un candidato, ver el recorrido completo, la guía por proceso o lo que te toca según tu rol. En cada pantalla importante, el botón Cómo funciona te lleva directo a su explicación.
 
-## Escena 36 · 13:55–14:11
+## Escena 36 · 13:54–14:10
 
 | | |
 |---|---|

@@ -67,7 +67,10 @@ const estado = ref(props.filtros.estado ?? '');
 function filtrar() {
     router.get(
         window.location.pathname,
-        { busqueda: termino.value || undefined, estado: estado.value || undefined },
+        {
+            busqueda: termino.value || undefined,
+            estado: estado.value || undefined,
+        },
         { preserveState: true, preserveScroll: true, replace: true },
     );
 }
@@ -92,14 +95,27 @@ function neto(fila: Fila): string {
 
         <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
             <div class="flex-1">
-                <Label class="mb-1.5 text-xs text-[var(--mrl-texto-suave)]">Buscar colaborador</Label>
-                <Input v-model="termino" placeholder="Nombre o número de empleado" />
+                <Label class="mb-1.5 text-xs text-[var(--mrl-texto-suave)]"
+                    >Buscar colaborador</Label
+                >
+                <Input
+                    v-model="termino"
+                    placeholder="Nombre o número de empleado"
+                />
             </div>
             <div class="w-full sm:w-64">
-                <Label class="mb-1.5 text-xs text-[var(--mrl-texto-suave)]">Estado del cierre</Label>
+                <Label class="mb-1.5 text-xs text-[var(--mrl-texto-suave)]"
+                    >Estado del cierre</Label
+                >
                 <SelectSimple
                     v-model="estado"
-                    :opciones="[{ value: 'abiertos', label: 'Solo abiertos' }, ...estados.map((e) => ({ value: e.value, label: e.label }))]"
+                    :opciones="[
+                        { value: 'abiertos', label: 'Solo abiertos' },
+                        ...estados.map((e) => ({
+                            value: e.value,
+                            label: e.label,
+                        })),
+                    ]"
                     opcion-vacia="Todos"
                     placeholder="Todos"
                 />
@@ -115,45 +131,96 @@ function neto(fila: Fila): string {
 
         <template v-else>
             <!-- Tabla (pantallas anchas) -->
-            <div class="tabla-scroll hidden rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] md:block">
+            <div
+                class="hidden tabla-scroll rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] md:block"
+            >
                 <table class="w-full text-left text-sm">
-                    <thead class="border-b border-[var(--mrl-borde)] text-xs text-[var(--mrl-texto-suave)]">
+                    <thead
+                        class="border-b border-[var(--mrl-borde)] text-xs text-[var(--mrl-texto-suave)]"
+                    >
                         <tr>
                             <th class="px-4 py-3 font-medium">Colaborador</th>
-                            <th class="px-4 py-3 font-medium">Puesto / Sucursal</th>
+                            <th class="px-4 py-3 font-medium">
+                                Puesto / Sucursal
+                            </th>
                             <th class="px-4 py-3 font-medium">Tipo de baja</th>
-                            <th class="px-4 py-3 font-medium">Fecha efectiva</th>
-                            <th class="px-4 py-3 font-medium">Estado del cierre</th>
-                            <th v-if="puede_ver_finiquito" class="px-4 py-3 font-medium">Finiquito</th>
-                            <th class="px-4 py-3 text-right font-medium">Acción siguiente</th>
+                            <th class="px-4 py-3 font-medium">
+                                Fecha efectiva
+                            </th>
+                            <th class="px-4 py-3 font-medium">
+                                Estado del cierre
+                            </th>
+                            <th
+                                v-if="puede_ver_finiquito"
+                                class="px-4 py-3 font-medium"
+                            >
+                                Finiquito
+                            </th>
+                            <th class="px-4 py-3 text-right font-medium">
+                                Acción siguiente
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="c in cierres.data" :key="c.id" class="border-b border-[var(--mrl-borde)] last:border-0">
+                        <tr
+                            v-for="c in cierres.data"
+                            :key="c.id"
+                            class="border-b border-[var(--mrl-borde)] last:border-0"
+                        >
                             <td class="px-4 py-3">
-                                <p class="font-medium">{{ c.colaborador.nombre }}</p>
-                                <p class="text-xs text-[var(--mrl-texto-suave)]">{{ c.colaborador.numero_empleado ?? '—' }}</p>
+                                <p class="font-medium">
+                                    {{ c.colaborador.nombre }}
+                                </p>
+                                <p
+                                    class="text-xs text-[var(--mrl-texto-suave)]"
+                                >
+                                    {{ c.colaborador.numero_empleado ?? '—' }}
+                                </p>
                             </td>
                             <td class="px-4 py-3 text-xs">
                                 {{ c.colaborador.puesto ?? '—' }}<br />
-                                <span class="text-[var(--mrl-texto-suave)]">{{ c.colaborador.sucursal ?? '—' }}</span>
+                                <span class="text-[var(--mrl-texto-suave)]">{{
+                                    c.colaborador.sucursal ?? '—'
+                                }}</span>
                             </td>
-                            <td class="px-4 py-3 text-xs">{{ c.tipo_baja_etiqueta }}</td>
-                            <td class="px-4 py-3 text-xs">{{ formatearFecha(c.fecha_efectiva) }}</td>
+                            <td class="px-4 py-3 text-xs">
+                                {{ c.tipo_baja_etiqueta }}
+                            </td>
+                            <td class="px-4 py-3 text-xs">
+                                {{ formatearFecha(c.fecha_efectiva) }}
+                            </td>
                             <td class="px-4 py-3">
-                                <Badge variant="info">{{ c.estado_etiqueta }}</Badge>
+                                <Badge variant="info">{{
+                                    c.estado_etiqueta
+                                }}</Badge>
                             </td>
-                            <td v-if="puede_ver_finiquito" class="px-4 py-3 text-xs">
+                            <td
+                                v-if="puede_ver_finiquito"
+                                class="px-4 py-3 text-xs"
+                            >
                                 <template v-if="c.finiquito">
                                     {{ c.finiquito.estado_etiqueta }}<br />
-                                    <span class="font-medium tabular-nums">{{ neto(c) }}</span>
+                                    <span class="font-medium tabular-nums">{{
+                                        neto(c)
+                                    }}</span>
                                 </template>
-                                <span v-else class="text-[var(--mrl-texto-suave)]">Sin calcular</span>
+                                <span
+                                    v-else
+                                    class="text-[var(--mrl-texto-suave)]"
+                                    >Sin calcular</span
+                                >
                             </td>
                             <td class="px-4 py-3 text-right">
                                 <Button size="sm" variant="outline" as-child>
-                                    <Link :href="cicloColaborador.url(c.colaborador.id)">
-                                        {{ c.siguiente_accion }} <ArrowRight class="size-3.5" />
+                                    <Link
+                                        :href="
+                                            cicloColaborador.url(
+                                                c.colaborador.id,
+                                            )
+                                        "
+                                    >
+                                        {{ c.siguiente_accion }}
+                                        <ArrowRight class="size-3.5" />
                                     </Link>
                                 </Button>
                             </td>
@@ -164,27 +231,41 @@ function neto(fila: Fila): string {
 
             <!-- Tarjetas (pantallas estrechas): una columna -->
             <ul class="flex flex-col gap-3 md:hidden">
-                <li v-for="c in cierres.data" :key="c.id" class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 text-sm">
+                <li
+                    v-for="c in cierres.data"
+                    :key="c.id"
+                    class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 text-sm"
+                >
                     <div class="flex flex-wrap items-center gap-2">
-                        <span class="font-medium">{{ c.colaborador.nombre }}</span>
+                        <span class="font-medium">{{
+                            c.colaborador.nombre
+                        }}</span>
                         <Badge variant="info">{{ c.estado_etiqueta }}</Badge>
                     </div>
                     <p class="mt-0.5 text-xs text-[var(--mrl-texto-suave)]">
-                        {{ c.colaborador.puesto ?? '—' }} · {{ c.colaborador.sucursal ?? '—' }}
+                        {{ c.colaborador.puesto ?? '—' }} ·
+                        {{ c.colaborador.sucursal ?? '—' }}
                     </p>
                     <p class="mt-1 text-xs">
-                        {{ c.tipo_baja_etiqueta }} · Baja {{ formatearFecha(c.fecha_efectiva) }}
+                        {{ c.tipo_baja_etiqueta }} · Baja
+                        {{ formatearFecha(c.fecha_efectiva) }}
                     </p>
                     <p v-if="puede_ver_finiquito" class="mt-1 text-xs">
                         Finiquito:
                         <template v-if="c.finiquito">
-                            {{ c.finiquito.estado_etiqueta }} · <span class="font-medium tabular-nums">{{ neto(c) }}</span>
+                            {{ c.finiquito.estado_etiqueta }} ·
+                            <span class="font-medium tabular-nums">{{
+                                neto(c)
+                            }}</span>
                         </template>
-                        <span v-else class="text-[var(--mrl-texto-suave)]">sin calcular</span>
+                        <span v-else class="text-[var(--mrl-texto-suave)]"
+                            >sin calcular</span
+                        >
                     </p>
                     <Button size="sm" variant="outline" class="mt-3" as-child>
                         <Link :href="cicloColaborador.url(c.colaborador.id)">
-                            {{ c.siguiente_accion }} <ArrowRight class="size-3.5" />
+                            {{ c.siguiente_accion }}
+                            <ArrowRight class="size-3.5" />
                         </Link>
                     </Button>
                 </li>

@@ -41,3 +41,6 @@ yarn-error.log
 *.sqlite3
 /database/database.sqlite
 /capacitaciones
+
+# Logs temporales de verificación local
+scratch_*.log

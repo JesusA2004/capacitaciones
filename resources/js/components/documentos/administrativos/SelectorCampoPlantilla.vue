@@ -2,7 +2,11 @@
 import { ChevronDown } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from '@/components/ui/popover';
 
 /**
  * Selector de campo amigable para los textos editables del documento
@@ -17,9 +21,7 @@ const emit = defineEmits<{ insertar: [placeholder: string] }>();
 const abierto = ref(false);
 
 function etiqueta(texto: string): string {
-    return texto
-        .replace(/_/g, ' ')
-        .replace(/\b\w/g, (c) => c.toUpperCase());
+    return texto.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 const grupos = computed(() => {

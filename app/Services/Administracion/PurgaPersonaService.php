@@ -48,6 +48,7 @@ class PurgaPersonaService
         ['finiquito_calculos', 'calculado_por_id', 'colaborador_id', 'finiquitos calculados de otras personas'],
         ['incorporacion_invitaciones', 'creado_por_id', 'colaborador_id', 'invitaciones de incorporación creadas para otras personas'],
         ['sesiones_induccion', 'presentada_por', null, 'sesiones de inducción presentadas'],
+        ['induccion_materiales_explicacion', 'subido_por', null, 'materiales de explicación de la inducción subidos'],
         ['rotacion_cargas', 'aplicado_por', null, 'cargas de rotación aplicadas'],
         ['rotacion_cargas', 'subido_por', null, 'cargas de rotación subidas'],
         ['intervenciones_candidato', 'gerente_solicitante_id', null, 'intervenciones de candidatos solicitadas'],
@@ -89,6 +90,7 @@ class PurgaPersonaService
         'generated_documents' => 'documentos generados',
         'historial_salarios' => 'historial de salarios',
         'incorporacion_invitaciones' => 'invitaciones de incorporación',
+        'induccion_video_intervalos' => 'avance del video de inducción',
         'inscripciones_curso' => 'inscripciones a cursos',
         'intentos_cuestionario' => 'intentos de cuestionario',
         'movimientos_laborales' => 'movimientos laborales',
@@ -215,7 +217,10 @@ class PurgaPersonaService
             throw new AuthorizationException('No puedes purgar tu propia cuenta.');
         }
 
-        if ($cuenta->hasRole('super_admin') && User::role('super_admin')->count() <= 1) {
+        // Debe quedar al menos OTRO super_admin vigente (sin contar a la
+        // cuenta purgada, que puede estar en papelera y no figurar en el
+        // conteo por rol).
+        if ($cuenta->hasRole('super_admin') && User::role('super_admin')->where('id', '<>', $cuenta->id)->count() === 0) {
             throw new AuthorizationException('Es el único super_admin del sistema: no se puede purgar.');
         }
     }

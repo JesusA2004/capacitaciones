@@ -122,14 +122,28 @@ const puestos = reactive(
 const puestosOrdenados = computed(() =>
     [...puestos].sort(
         (a, b) =>
-            Number(Boolean(props.puestos.find((p) => p.id === a.id)?.meses_periodo_prueba)) -
-            Number(Boolean(props.puestos.find((p) => p.id === b.id)?.meses_periodo_prueba)),
+            Number(
+                Boolean(
+                    props.puestos.find((p) => p.id === a.id)
+                        ?.meses_periodo_prueba,
+                ),
+            ) -
+            Number(
+                Boolean(
+                    props.puestos.find((p) => p.id === b.id)
+                        ?.meses_periodo_prueba,
+                ),
+            ),
     ),
 );
 
 const resumenDuracion = computed(() => {
-    const configurados = props.puestos.filter((p) => (p.meses_periodo_prueba ?? 0) > 0).length;
-    const aviso = props.parametros.find((p) => p.clave === 'rh.dias_aviso_vencimiento');
+    const configurados = props.puestos.filter(
+        (p) => (p.meses_periodo_prueba ?? 0) > 0,
+    ).length;
+    const aviso = props.parametros.find(
+        (p) => p.clave === 'rh.dias_aviso_vencimiento',
+    );
 
     return {
         configurados,
@@ -290,8 +304,8 @@ const error = (clave: string) =>
                     </h2>
                     <p class="text-sm text-muted-foreground">
                         Cada puesto define cuántos meses dura su contrato de
-                        capacitación inicial. No hay duración general: un
-                        puesto sin configurar no se puede contratar.
+                        capacitación inicial. No hay duración general: un puesto
+                        sin configurar no se puede contratar.
                     </p>
                 </div>
                 <Link
@@ -358,9 +372,7 @@ const error = (clave: string) =>
                 </div>
             </div>
 
-            <ul
-                class="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3"
-            >
+            <ul class="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
                 <li
                     v-for="p in puestosOrdenados"
                     :key="p.id"
@@ -403,7 +415,9 @@ const error = (clave: string) =>
                         </span>
                     </div>
 
-                    <div class="grid grid-cols-[auto_1fr] items-center gap-2 text-sm">
+                    <div
+                        class="grid grid-cols-[auto_1fr] items-center gap-2 text-sm"
+                    >
                         <label
                             :for="`meses-${p.id}`"
                             class="text-xs text-muted-foreground"
@@ -576,14 +590,17 @@ const error = (clave: string) =>
             </ul>
         </section>
 
-        <section class="flex flex-col gap-2" aria-label="Motivos de rechazo de candidatos">
+        <section
+            class="flex flex-col gap-2"
+            aria-label="Motivos de rechazo de candidatos"
+        >
             <h2 class="text-sm font-semibold">
                 Motivos de rechazo de candidatos
             </h2>
             <p class="text-xs text-[var(--mrl-texto-suave)]">
-                Catálogo que usa Reclutamiento al cerrar un proceso o
-                rechazar a un candidato. Un motivo ya usado nunca se borra:
-                solo se desactiva.
+                Catálogo que usa Reclutamiento al cerrar un proceso o rechazar a
+                un candidato. Un motivo ya usado nunca se borra: solo se
+                desactiva.
             </p>
             <ul class="grid gap-2 sm:grid-cols-2">
                 <li
@@ -598,7 +615,9 @@ const error = (clave: string) =>
                         size="sm"
                         :aria-label="`Categoría de ${m.nombre}`"
                     />
-                    <div class="flex items-center justify-between gap-3 text-xs">
+                    <div
+                        class="flex items-center justify-between gap-3 text-xs"
+                    >
                         <label class="flex items-center gap-1.5">
                             <Casilla v-model="m.activo" /> Activo
                         </label>
@@ -653,7 +672,9 @@ const error = (clave: string) =>
                     />
                 </div>
                 <label class="mb-1.5 flex items-center gap-1.5 text-xs">
-                    <Casilla v-model="formNuevoMotivo.no_recontratable_por_defecto" />
+                    <Casilla
+                        v-model="formNuevoMotivo.no_recontratable_por_defecto"
+                    />
                     No recontratable por defecto
                 </label>
                 <Button size="sm" @click="crearMotivoRechazo"
@@ -682,14 +703,20 @@ const error = (clave: string) =>
                     :key="p.id"
                     class="flex flex-col gap-2 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-3 text-sm"
                 >
-                    <Input v-model="p.pregunta" class="h-8" :aria-label="`Pregunta ${p.id}`" />
+                    <Input
+                        v-model="p.pregunta"
+                        class="h-8"
+                        :aria-label="`Pregunta ${p.id}`"
+                    />
                     <div class="grid gap-2 sm:grid-cols-2">
                         <SelectSimple
                             :model-value="p.respuesta_requerida ? 'si' : 'no'"
                             :opciones="opcionesRespuesta"
                             size="sm"
                             aria-label="Respuesta que exige el puesto"
-                            @update:model-value="(v) => (p.respuesta_requerida = v === 'si')"
+                            @update:model-value="
+                                (v) => (p.respuesta_requerida = v === 'si')
+                            "
                         />
                         <SelectSimple
                             v-model="p.motivo_rechazo_id"
@@ -700,7 +727,10 @@ const error = (clave: string) =>
                             aria-label="Motivo con que se descarta"
                         />
                     </div>
-                    <div class="flex flex-wrap gap-1.5" aria-label="Puestos a los que aplica">
+                    <div
+                        class="flex flex-wrap gap-1.5"
+                        aria-label="Puestos a los que aplica"
+                    >
                         <button
                             v-for="puesto in puestos"
                             :key="puesto.id"
@@ -711,7 +741,9 @@ const error = (clave: string) =>
                                     ? 'border-transparent bg-salvia font-medium'
                                     : 'border-[var(--mrl-borde)] text-[var(--mrl-texto-suave)]'
                             "
-                            @click="p.puestos = alternarPuesto(p.puestos, puesto.id)"
+                            @click="
+                                p.puestos = alternarPuesto(p.puestos, puesto.id)
+                            "
                         >
                             {{ puesto.nombre }}
                         </button>
@@ -723,7 +755,9 @@ const error = (clave: string) =>
                                 : 'Sin puestos marcados: aplica a todos los puestos.'
                         }}
                     </p>
-                    <div class="flex items-center justify-between gap-3 text-xs">
+                    <div
+                        class="flex items-center justify-between gap-3 text-xs"
+                    >
                         <label class="flex items-center gap-1.5">
                             <Casilla v-model="p.activo" /> Activa
                         </label>
@@ -754,18 +788,28 @@ const error = (clave: string) =>
                             placeholder="¿Sabe manejar moto?"
                             class="h-8"
                         />
-                        <InputError :message="formNuevaPregunta.errors.pregunta" />
+                        <InputError
+                            :message="formNuevaPregunta.errors.pregunta"
+                        />
                     </div>
                     <div class="grid gap-1">
                         <label class="text-xs text-[var(--mrl-texto-suave)]"
                             >Respuesta que exige el puesto</label
                         >
                         <SelectSimple
-                            :model-value="formNuevaPregunta.respuesta_requerida ? 'si' : 'no'"
+                            :model-value="
+                                formNuevaPregunta.respuesta_requerida
+                                    ? 'si'
+                                    : 'no'
+                            "
                             :opciones="opcionesRespuesta"
                             size="sm"
                             class="w-52"
-                            @update:model-value="(v) => (formNuevaPregunta.respuesta_requerida = v === 'si')"
+                            @update:model-value="
+                                (v) =>
+                                    (formNuevaPregunta.respuesta_requerida =
+                                        v === 'si')
+                            "
                         />
                     </div>
                     <div class="grid gap-1">
@@ -786,7 +830,10 @@ const error = (clave: string) =>
                         Eliminatoria
                     </label>
                 </div>
-                <div class="flex flex-wrap gap-1.5" aria-label="Puestos a los que aplica la nueva pregunta">
+                <div
+                    class="flex flex-wrap gap-1.5"
+                    aria-label="Puestos a los que aplica la nueva pregunta"
+                >
                     <button
                         v-for="puesto in puestos"
                         :key="puesto.id"
@@ -797,7 +844,12 @@ const error = (clave: string) =>
                                 ? 'border-transparent bg-salvia font-medium'
                                 : 'border-[var(--mrl-borde)] text-[var(--mrl-texto-suave)]'
                         "
-                        @click="formNuevaPregunta.puestos = alternarPuesto(formNuevaPregunta.puestos, puesto.id)"
+                        @click="
+                            formNuevaPregunta.puestos = alternarPuesto(
+                                formNuevaPregunta.puestos,
+                                puesto.id,
+                            )
+                        "
                     >
                         {{ puesto.nombre }}
                     </button>

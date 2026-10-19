@@ -18,7 +18,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
         queEs: 'Es el cierre de la relación laboral. Nunca borra a la persona: bloquea su acceso y conserva expediente, contratos, evaluaciones y documentos para un posible reingreso.',
         quien: ['gerente', 'regional', 'rh', 'sistemas'],
         quienDetalle:
-            'Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más puede iniciarla y no necesita autorización. Programa el pago la coordinación regional. El gerente cita, recaba firma y huella. RH confirma el pago y concluye.',
+            'Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más puede iniciarla y no necesita autorización. Después se generan los documentos, RH calcula el finiquito y, al registrar su entrega, el cierre queda completo.',
         antes: [
             'La persona está activa y eres su jefe directo (o RH).',
             'La baja NO es una solicitud: no está en «Nueva solicitud».',
@@ -62,7 +62,6 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
         ],
         notificaciones: [
             '«Baja aplicada» a regionales y RH.',
-            '«Pago por programar» a la coordinación; «Cita de finiquito» al jefe.',
             'Baja ejecutada → RH y Sistemas.',
         ],
         documentos: [
@@ -73,7 +72,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
             {
                 problema: '«No me deja concluir.»',
                 solucion:
-                    'La baja exige finiquito firmado y pago confirmado, y no se ejecuta antes de la fecha efectiva.',
+                    'El cierre se completa al registrar la entrega del finiquito, que solo se permite desde la fecha efectiva.',
             },
             {
                 problema: '«¿Cómo hago una baja?»',
@@ -126,7 +125,8 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
             },
             {
                 titulo: 'Vista previa PDF',
-                detalle: 'Revisa el formato del finiquito con los montos actuales.',
+                detalle:
+                    'Revisa el formato del finiquito con los montos actuales.',
             },
             {
                 titulo: '«Registrar entrega de finiquito»',
@@ -135,7 +135,9 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
             },
         ],
         documentos: ['Finiquito en PDF'],
-        despues: ['Después de la entrega el finiquito se puede ver e imprimir, pero ya no editar.'],
+        despues: [
+            'Después de la entrega el finiquito se puede ver e imprimir, pero ya no editar.',
+        ],
         errores: [
             {
                 problema: '«No puedo ajustar el finiquito.»',

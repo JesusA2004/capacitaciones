@@ -1,2 +1,0 @@
-npm notice run types:check
-npm notice run vue-tsc --noEmit

@@ -1,13 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import {
-    Check,
-    ClipboardList,
-    Download,
-    Eye,
-    RotateCcw,
-    X,
-} from '@lucide/vue';
+import { Check, ClipboardList, Download, Eye, RotateCcw, X } from '@lucide/vue';
 import { ref } from 'vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -69,7 +62,10 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: '/dashboard' },
-            { title: 'Validación de documentos', href: '/rh/validacion-documentos' },
+            {
+                title: 'Validación de documentos',
+                href: '/rh/validacion-documentos',
+            },
         ],
     },
 });
@@ -99,11 +95,7 @@ function fechaCorta(valor: string | null): string {
 }
 
 function aprobar(fila: DocumentoFila) {
-    router.post(
-        fila.aprobar_url,
-        {},
-        { preserveScroll: true },
-    );
+    router.post(fila.aprobar_url, {}, { preserveScroll: true });
 }
 
 // Rechazar / solicitar nueva versión comparten el diálogo de motivo, pero
@@ -215,7 +207,9 @@ function confirmar() {
                             >v{{ fila.version }}</TableCell
                         >
                         <TableCell>
-                            <p class="text-xs">{{ fechaCorta(fila.cargado_en) }}</p>
+                            <p class="text-xs">
+                                {{ fechaCorta(fila.cargado_en) }}
+                            </p>
                             <p
                                 v-if="fila.subido_por"
                                 class="text-[11px] text-muted-foreground"
@@ -224,9 +218,10 @@ function confirmar() {
                             </p>
                         </TableCell>
                         <TableCell>
-                            <Badge :variant="ESTADOS[fila.estado] ?? 'secondary'">{{
-                                fila.estado_etiqueta
-                            }}</Badge>
+                            <Badge
+                                :variant="ESTADOS[fila.estado] ?? 'secondary'"
+                                >{{ fila.estado_etiqueta }}</Badge
+                            >
                         </TableCell>
                         <TableCell>
                             <div class="flex items-center justify-end gap-1">
@@ -249,7 +244,10 @@ function confirmar() {
                                     as-child
                                     title="Descargar"
                                 >
-                                    <a :href="fila.descargar_url" target="_blank">
+                                    <a
+                                        :href="fila.descargar_url"
+                                        target="_blank"
+                                    >
                                         <Download class="size-4" />
                                     </a>
                                 </Button>
@@ -294,7 +292,11 @@ function confirmar() {
 
     <Dialog
         :open="dialogo !== null"
-        @update:open="(abierto) => { if (!abierto) dialogo = null; }"
+        @update:open="
+            (abierto) => {
+                if (!abierto) dialogo = null;
+            }
+        "
     >
         <DialogContent>
             <DialogHeader>
@@ -326,7 +328,9 @@ function confirmar() {
             </div>
 
             <DialogFooter>
-                <Button variant="outline" @click="dialogo = null">Cancelar</Button>
+                <Button variant="outline" @click="dialogo = null"
+                    >Cancelar</Button
+                >
                 <Button
                     :variant="
                         dialogo?.tipo === 'rechazar' ? 'destructive' : 'default'

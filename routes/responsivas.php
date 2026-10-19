@@ -5,7 +5,8 @@ use Illuminate\Support\Facades\Route;
 
 /*
 | Responsivas de equipo (docs/responsiva): el gerente o RH las genera desde
-| la ficha del colaborador; se imprimen, se firman y se sube el escaneo.
+| la ficha del colaborador; se imprimen, se firman en papel y se marcan
+| «firmada físicamente» (sin subir escaneo).
 | Autorización en App\Policies\ResponsivaPolicy.
 */
 

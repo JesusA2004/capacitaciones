@@ -285,7 +285,12 @@ function abrirPreview(evento: Event) {
                 type="button"
                 class="flex items-center gap-1 hover:underline"
                 draggable="false"
-                @click="abrirEvidencia($event, candidato.accesos_rapidos.psicometrico)"
+                @click="
+                    abrirEvidencia(
+                        $event,
+                        candidato.accesos_rapidos.psicometrico,
+                    )
+                "
                 @dragstart="detenerArrastre"
             >
                 <Brain class="size-3.5" /> Ver psicométrico
@@ -295,7 +300,12 @@ function abrirPreview(evento: Event) {
                 type="button"
                 class="flex items-center gap-1 hover:underline"
                 draggable="false"
-                @click="abrirEvidencia($event, candidato.accesos_rapidos.socioeconomico)"
+                @click="
+                    abrirEvidencia(
+                        $event,
+                        candidato.accesos_rapidos.socioeconomico,
+                    )
+                "
                 @dragstart="detenerArrastre"
             >
                 <Home class="size-3.5" /> Ver socioeconómico
@@ -315,7 +325,10 @@ function abrirPreview(evento: Event) {
         <div
             class="flex items-center justify-between gap-2 border-t border-border/60 pt-2 text-[11px] text-muted-foreground"
         >
-            <span class="flex items-center gap-1" :title="etiquetaUltimoMovimiento">
+            <span
+                class="flex items-center gap-1"
+                :title="etiquetaUltimoMovimiento"
+            >
                 <Clock class="size-3.5" />
                 {{ fechaIngreso }}
             </span>
@@ -344,7 +357,9 @@ function abrirPreview(evento: Event) {
         :nombre-archivo="evidenciaAbierta.nombre"
         :tipo="evidenciaAbierta.tipo"
         :mime="evidenciaAbierta.mime"
-        @update:open="(abierto: boolean) => !abierto && (evidenciaAbierta = null)"
+        @update:open="
+            (abierto: boolean) => !abierto && (evidenciaAbierta = null)
+        "
     />
 
     <DocumentPreviewDialog

@@ -179,13 +179,22 @@ const opcionesPermiso = (campo: string) =>
 // pantalla no muestra (antes `dias: []` en un préstamo daba un error
 // invisible y el botón «no hacía nada»).
 function camposDelTipo(datos: ReturnType<typeof form.data>) {
-    const base = { tipo: datos.tipo, motivo: datos.motivo, observaciones: datos.observaciones };
+    const base = {
+        tipo: datos.tipo,
+        motivo: datos.motivo,
+        observaciones: datos.observaciones,
+    };
 
     // Completar / cambiar datos: solo los campos que la persona capturó.
     if (datos.tipo === 'actualizacion_datos') {
-        const capturados = Object.fromEntries(Object.entries(datos.datos).filter(([, v]) => v.trim() !== ''));
+        const capturados = Object.fromEntries(
+            Object.entries(datos.datos).filter(([, v]) => v.trim() !== ''),
+        );
 
-        return { ...base, ...(Object.keys(capturados).length ? { datos: capturados } : {}) };
+        return {
+            ...base,
+            ...(Object.keys(capturados).length ? { datos: capturados } : {}),
+        };
     }
 
     if (datos.tipo === 'permiso') {
@@ -207,9 +216,15 @@ function camposDelTipo(datos: ReturnType<typeof form.data>) {
 
     return {
         ...base,
-        ...(modoFechas.value === 'dias_especificos' ? { dias: datos.dias } : {}),
-        ...(modoFechas.value !== 'ninguna' && modoFechas.value !== 'dias_especificos'
-            ? { fecha_inicio: datos.fecha_inicio, duracion_dias: datos.duracion_dias }
+        ...(modoFechas.value === 'dias_especificos'
+            ? { dias: datos.dias }
+            : {}),
+        ...(modoFechas.value !== 'ninguna' &&
+        modoFechas.value !== 'dias_especificos'
+            ? {
+                  fecha_inicio: datos.fecha_inicio,
+                  duracion_dias: datos.duracion_dias,
+              }
             : {}),
     };
 }
@@ -265,7 +280,6 @@ const saldoRestante = computed(
 function nombreTipo(clave: string): string {
     return props.tipos.find((t) => t.clave === clave)?.nombre ?? clave;
 }
-
 </script>
 
 <template>
@@ -398,12 +412,19 @@ function nombreTipo(clave: string): string {
                     {{ AVISO_FORMATO_AUTOMATICO[form.tipo] }}
                 </div>
 
-                <p v-if="form.errors.tipo" class="text-sm text-destructive" data-input-error>
+                <p
+                    v-if="form.errors.tipo"
+                    class="text-sm text-destructive"
+                    data-input-error
+                >
                     {{ form.errors.tipo }}
                 </p>
 
                 <DatosPersonalesFormulario
-                    v-if="form.tipo === 'actualizacion_datos' && datosPersonales.length"
+                    v-if="
+                        form.tipo === 'actualizacion_datos' &&
+                        datosPersonales.length
+                    "
                     v-model="form.datos"
                     :campos="datosPersonales"
                     :errores="form.errors"
@@ -436,17 +457,36 @@ function nombreTipo(clave: string): string {
                     v-if="tipoActual?.requiere_dias"
                     class="grid grid-cols-3 gap-2 text-center"
                 >
-                    <div class="rounded-xl border border-border/60 bg-muted/40 p-3">
-                        <p class="text-2xl font-bold tabular-nums">{{ saldoVacaciones.dias_disponibles }}</p>
+                    <div
+                        class="rounded-xl border border-border/60 bg-muted/40 p-3"
+                    >
+                        <p class="text-2xl font-bold tabular-nums">
+                            {{ saldoVacaciones.dias_disponibles }}
+                        </p>
                         <p class="text-xs text-muted-foreground">Saldo antes</p>
                     </div>
-                    <div class="rounded-xl border border-primary/30 bg-primary/5 p-3">
-                        <p class="text-2xl font-bold tabular-nums text-primary">{{ form.dias.length }}</p>
-                        <p class="text-xs text-muted-foreground">Días seleccionados</p>
+                    <div
+                        class="rounded-xl border border-primary/30 bg-primary/5 p-3"
+                    >
+                        <p class="text-2xl font-bold text-primary tabular-nums">
+                            {{ form.dias.length }}
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                            Días seleccionados
+                        </p>
                     </div>
-                    <div class="rounded-xl border border-border/60 bg-muted/40 p-3">
-                        <p class="text-2xl font-bold tabular-nums" :class="saldoRestante < 0 ? 'text-destructive' : ''">{{ saldoRestante }}</p>
-                        <p class="text-xs text-muted-foreground">Saldo después</p>
+                    <div
+                        class="rounded-xl border border-border/60 bg-muted/40 p-3"
+                    >
+                        <p
+                            class="text-2xl font-bold tabular-nums"
+                            :class="saldoRestante < 0 ? 'text-destructive' : ''"
+                        >
+                            {{ saldoRestante }}
+                        </p>
+                        <p class="text-xs text-muted-foreground">
+                            Saldo después
+                        </p>
                     </div>
                 </div>
 
@@ -472,7 +512,8 @@ function nombreTipo(clave: string): string {
                         />
                         <p
                             v-if="form.errors.fecha_inicio"
-                            class="text-sm text-destructive" data-input-error
+                            class="text-sm text-destructive"
+                            data-input-error
                         >
                             {{ form.errors.fecha_inicio }}
                         </p>
@@ -488,7 +529,8 @@ function nombreTipo(clave: string): string {
                         />
                         <p
                             v-if="form.errors.duracion_dias"
-                            class="text-sm text-destructive" data-input-error
+                            class="text-sm text-destructive"
+                            data-input-error
                         >
                             {{ form.errors.duracion_dias }}
                         </p>
@@ -529,7 +571,11 @@ function nombreTipo(clave: string): string {
                         >
                         días disponibles. El domingo no cuenta como vacaciones.
                     </p>
-                    <p v-if="form.errors.dias" class="text-sm text-destructive" data-input-error>
+                    <p
+                        v-if="form.errors.dias"
+                        class="text-sm text-destructive"
+                        data-input-error
+                    >
                         {{ form.errors.dias }}
                     </p>
                 </div>
@@ -548,23 +594,29 @@ function nombreTipo(clave: string): string {
                         />
                         <p
                             v-if="form.errors.monto_solicitado"
-                            class="text-sm text-destructive" data-input-error
+                            class="text-sm text-destructive"
+                            data-input-error
                         >
                             {{ form.errors.monto_solicitado }}
                         </p>
                     </div>
                     <p class="text-xs text-muted-foreground">
-                        RH definirá contigo el plazo, la periodicidad y la
-                        fecha del primer descuento al autorizar el préstamo.
+                        RH definirá contigo el plazo, la periodicidad y la fecha
+                        del primer descuento al autorizar el préstamo.
                     </p>
                 </div>
 
                 <div v-if="!esPermiso" class="grid gap-2">
-                    <Label for="motivo">{{ form.tipo === 'actualizacion_datos' ? 'Comentario para RH (opcional)' : 'Motivo' }}</Label>
+                    <Label for="motivo">{{
+                        form.tipo === 'actualizacion_datos'
+                            ? 'Comentario para RH (opcional)'
+                            : 'Motivo'
+                    }}</Label>
                     <Textarea id="motivo" v-model="form.motivo" rows="3" />
                     <p
                         v-if="form.errors.motivo"
-                        class="text-sm text-destructive" data-input-error
+                        class="text-sm text-destructive"
+                        data-input-error
                     >
                         {{ form.errors.motivo }}
                     </p>
@@ -579,7 +631,8 @@ function nombreTipo(clave: string): string {
                     />
                     <p
                         v-if="form.errors.observaciones"
-                        class="text-sm text-destructive" data-input-error
+                        class="text-sm text-destructive"
+                        data-input-error
                     >
                         {{ form.errors.observaciones }}
                     </p>

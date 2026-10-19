@@ -172,7 +172,8 @@ Encabezados reconocidos por nombre (el orden de las columnas no importa). Mínim
 ```bash
 php artisan expedientes:importar-inicial base.xlsx                      # dry run
 php artisan expedientes:importar-inicial base.xlsx --apply --confirm    # ejecutar
-php artisan expedientes:importar-inicial base.xlsx --apply --confirm --mover --usuario=rh@mrlana.com  # (solo origen legacy)
+php artisan expedientes:importar-inicial base.xlsx --apply --confirm --mover --usuario="Jesus Arizmendi"  # (solo origen legacy; --usuario es el USERNAME, no el correo)
+php artisan expedientes:importar-inicial "BASE SEMANA 41.xlsx" --roster="roster.xlsx"                  # formato por sucursales + roster (dry run)
 ```
 
 ## 11. BD inicial de producción

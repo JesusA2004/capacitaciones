@@ -2,7 +2,8 @@
  * Lotes de recibos de nómina (App\Services\Nomina\LoteNominaService):
  * PREPARAR → REVISAR → EMITIR.
  */
-export type EstadoLoteNomina = 'borrador' | 'preparado' | 'emitido' | 'cancelado';
+export type EstadoLoteNomina =
+    'borrador' | 'preparado' | 'emitido' | 'cancelado';
 
 export type IncidenciaLote = {
     numero_empleado: string | null;

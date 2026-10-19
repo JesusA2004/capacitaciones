@@ -231,9 +231,11 @@ class CierreLaboralService
     }
 
     /**
-     * No renovación autorizada desde la evaluación del periodo de prueba: la
-     * preautorización (jefe) y la autorización RH ya están registradas en la
-     * evaluación, así que el cierre nace autorizado.
+     * No renovación decidida en la evaluación del periodo de prueba (el jefe
+     * la recomienda y RH valida la EVALUACIÓN; eso es del periodo de prueba,
+     * no una autorización de la baja). El cierre nace aplicado como cualquier
+     * baja — sin preautorización ni autorización posterior de RH — y sigue
+     * documentos → finiquito → registrar entrega → cierre.
      *
      * @param  array<string, mixed>  $datos
      */
@@ -269,9 +271,11 @@ class CierreLaboralService
             ]);
         });
 
-        $this->auditoria->registrar('cierre_laboral_autorizado_rh', $cierre, $actor, [
+        $this->auditoria->registrar('cierre_laboral_aplicado', $cierre, $actor, [
             'colaborador_id' => $colaborador->id,
             'tipo_baja' => $tipoBaja->value,
+            'fecha_efectiva' => $cierre->fecha_efectiva->toDateString(),
+            'aplicada_por' => 'Recursos Humanos (no renovación del periodo de prueba)',
             'evaluacion_id' => $evaluacion->id,
         ]);
 
@@ -609,8 +613,9 @@ class CierreLaboralService
 
     /**
      * Ejecuta la baja (estatus inactivo, tokens/dispositivos revocados,
-     * vacante sincronizada) — solo con RH autorizado, finiquito firmado y
-     * pagado, y a partir de la fecha efectiva.
+     * vacante sincronizada) — solo con la baja aplicada, el finiquito según
+     * config/contratos.php (cierre.requiere_*) y a partir de la fecha
+     * efectiva. En el flujo vigente la dispara registrarEntregaFiniquito().
      */
     public function ejecutarBaja(CierreLaboral $cierre, User $actor): CierreLaboral
     {

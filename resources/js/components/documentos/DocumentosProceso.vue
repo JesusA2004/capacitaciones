@@ -1026,12 +1026,9 @@ async function confirmarBaja() {
                             "
                         />
                     </div>
-                    <p
-                        v-if="!testigosCompletos"
-                        class="text-xs text-warning"
-                    >
-                        El acta exige dos testigos elegidos del buscador (activos
-                        del centro de trabajo){{
+                    <p v-if="!testigosCompletos" class="text-xs text-warning">
+                        El acta exige dos testigos elegidos del buscador
+                        (activos del centro de trabajo){{
                             dialogoBaja.tipo === 'negativa'
                                 ? ' (puedes capturarlos después, antes de generarla)'
                                 : ''

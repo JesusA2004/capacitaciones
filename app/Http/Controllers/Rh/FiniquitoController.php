@@ -135,7 +135,7 @@ class FiniquitoController extends Controller
 
         $this->finiquitos->aprobarCalculo($finiquito, request()->user());
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Finiquito revisado: la baja ya puede aprobarse.']);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Finiquito revisado. Lo que sigue es registrar su entrega en el cierre laboral.']);
     }
 
     public function generarPdf(SolicitudInterna $solicitud): RedirectResponse

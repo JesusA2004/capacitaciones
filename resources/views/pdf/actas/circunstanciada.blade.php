@@ -30,7 +30,7 @@
     }
     $parrafos = fn (?string $texto) => collect(preg_split("/\R{2,}/u", trim((string) $texto)) ?: [])->filter(fn ($p) => trim($p) !== '');
 @endphp
-@php($pal = config('pdf_identidad'))
+@php $pal = config('pdf_identidad'); @endphp
 <!DOCTYPE html>
 <html lang="es">
 <head>

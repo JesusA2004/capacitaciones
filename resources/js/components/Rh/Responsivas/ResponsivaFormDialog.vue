@@ -133,7 +133,8 @@ const muestraAccesorioOtro = computed(() =>
 
 const completo = computed(() => {
     const d = form.value.datos;
-    const base = form.value.lugar.trim() !== '' && form.value.fecha_entrega !== '';
+    const base =
+        form.value.lugar.trim() !== '' && form.value.fecha_entrega !== '';
 
     if (!base) {
         return false;
@@ -443,9 +444,7 @@ async function generar() {
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
-                                <p
-                                    class="mt-1 text-xs text-muted-foreground"
-                                >
+                                <p class="mt-1 text-xs text-muted-foreground">
                                     {{
                                         responsableSeleccionado?.puesto ??
                                         'Sin puesto'
@@ -458,8 +457,7 @@ async function generar() {
                                 </p>
                                 <p class="text-xs text-muted-foreground">
                                     {{
-                                        valores.otorgante.puesto ??
-                                        'Sin puesto'
+                                        valores.otorgante.puesto ?? 'Sin puesto'
                                     }}
                                 </p>
                             </template>
@@ -479,9 +477,14 @@ async function generar() {
                     <!-- Familia, lugar y fecha -->
                     <div class="grid gap-4 sm:grid-cols-3">
                         <div class="grid gap-1.5">
-                            <Label for="responsiva-tipo">Tipo de responsiva</Label>
+                            <Label for="responsiva-tipo"
+                                >Tipo de responsiva</Label
+                            >
                             <Select v-model="form.tipo">
-                                <SelectTrigger id="responsiva-tipo" class="w-full">
+                                <SelectTrigger
+                                    id="responsiva-tipo"
+                                    class="w-full"
+                                >
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -505,7 +508,9 @@ async function generar() {
                             />
                         </div>
                         <div class="grid gap-1.5">
-                            <Label for="responsiva-fecha">Fecha de entrega</Label>
+                            <Label for="responsiva-fecha"
+                                >Fecha de entrega</Label
+                            >
                             <DatePicker
                                 id="responsiva-fecha"
                                 v-model="form.fecha_entrega"
@@ -518,14 +523,20 @@ async function generar() {
                     <div v-if="esMueble" class="flex flex-col gap-4">
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div class="grid gap-1.5">
-                                <Label for="mueble-tipo">Tipo de mueble *</Label>
+                                <Label for="mueble-tipo"
+                                    >Tipo de mueble *</Label
+                                >
                                 <Select v-model="form.datos.tipo_mueble">
-                                    <SelectTrigger id="mueble-tipo" class="w-full">
+                                    <SelectTrigger
+                                        id="mueble-tipo"
+                                        class="w-full"
+                                    >
                                         <SelectValue placeholder="Elige…" />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem
-                                            v-for="o in catalogos?.tipos_mueble ?? []"
+                                            v-for="o in catalogos?.tipos_mueble ??
+                                            []"
                                             :key="o.value"
                                             :value="o.value"
                                         >
@@ -548,46 +559,90 @@ async function generar() {
                         </div>
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div class="grid gap-1.5">
-                                <Label for="mueble-marca">Marca (si tiene)</Label>
-                                <Input id="mueble-marca" v-model="form.datos.marca" maxlength="120" />
+                                <Label for="mueble-marca"
+                                    >Marca (si tiene)</Label
+                                >
+                                <Input
+                                    id="mueble-marca"
+                                    v-model="form.datos.marca"
+                                    maxlength="120"
+                                />
                             </div>
                             <div class="grid gap-1.5">
-                                <Label for="mueble-modelo">Modelo (si tiene)</Label>
-                                <Input id="mueble-modelo" v-model="form.datos.modelo" maxlength="120" />
+                                <Label for="mueble-modelo"
+                                    >Modelo (si tiene)</Label
+                                >
+                                <Input
+                                    id="mueble-modelo"
+                                    v-model="form.datos.modelo"
+                                    maxlength="120"
+                                />
                             </div>
                             <div class="grid gap-1.5">
-                                <Label for="mueble-inv">Número de inventario *</Label>
-                                <Input id="mueble-inv" v-model="form.datos.numero_inventario" maxlength="120" />
+                                <Label for="mueble-inv"
+                                    >Número de inventario *</Label
+                                >
+                                <Input
+                                    id="mueble-inv"
+                                    v-model="form.datos.numero_inventario"
+                                    maxlength="120"
+                                />
                             </div>
                             <div class="grid gap-1.5">
-                                <Label for="mueble-serie">Número de serie (si tiene)</Label>
-                                <Input id="mueble-serie" v-model="form.datos.numero_serie" maxlength="120" />
+                                <Label for="mueble-serie"
+                                    >Número de serie (si tiene)</Label
+                                >
+                                <Input
+                                    id="mueble-serie"
+                                    v-model="form.datos.numero_serie"
+                                    maxlength="120"
+                                />
                             </div>
                         </div>
                         <div class="grid gap-4 sm:grid-cols-3">
                             <div class="grid gap-1.5">
                                 <Label for="mueble-color">Color</Label>
-                                <Input id="mueble-color" v-model="form.datos.color" maxlength="60" />
+                                <Input
+                                    id="mueble-color"
+                                    v-model="form.datos.color"
+                                    maxlength="60"
+                                />
                             </div>
                             <div class="grid gap-1.5">
                                 <Label for="mueble-material">Material</Label>
-                                <Input id="mueble-material" v-model="form.datos.material" maxlength="120" />
+                                <Input
+                                    id="mueble-material"
+                                    v-model="form.datos.material"
+                                    maxlength="120"
+                                />
                             </div>
                             <div class="grid gap-1.5">
-                                <Label for="mueble-tamano">Tamaño / características</Label>
-                                <Input id="mueble-tamano" v-model="form.datos.tamano" maxlength="255" />
+                                <Label for="mueble-tamano"
+                                    >Tamaño / características</Label
+                                >
+                                <Input
+                                    id="mueble-tamano"
+                                    v-model="form.datos.tamano"
+                                    maxlength="255"
+                                />
                             </div>
                         </div>
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div class="grid gap-1.5">
-                                <Label for="mueble-estado">Estado del mueble *</Label>
+                                <Label for="mueble-estado"
+                                    >Estado del mueble *</Label
+                                >
                                 <Select v-model="form.datos.estado">
-                                    <SelectTrigger id="mueble-estado" class="w-full">
+                                    <SelectTrigger
+                                        id="mueble-estado"
+                                        class="w-full"
+                                    >
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem
-                                            v-for="o in catalogos?.estados_fisicos ?? []"
+                                            v-for="o in catalogos?.estados_fisicos ??
+                                            []"
                                             :key="o.value"
                                             :value="o.value"
                                         >
@@ -597,16 +652,34 @@ async function generar() {
                                 </Select>
                             </div>
                             <div class="grid gap-1.5">
-                                <Label for="mueble-danos">Daños o detalles</Label>
-                                <Input id="mueble-danos" v-model="form.datos.danos" maxlength="2000" />
+                                <Label for="mueble-danos"
+                                    >Daños o detalles</Label
+                                >
+                                <Input
+                                    id="mueble-danos"
+                                    v-model="form.datos.danos"
+                                    maxlength="2000"
+                                />
                             </div>
                             <div class="grid gap-1.5">
-                                <Label for="mueble-lugar">Lugar donde quedará *</Label>
-                                <Input id="mueble-lugar" v-model="form.datos.ubicacion_lugar" maxlength="255" />
+                                <Label for="mueble-lugar"
+                                    >Lugar donde quedará *</Label
+                                >
+                                <Input
+                                    id="mueble-lugar"
+                                    v-model="form.datos.ubicacion_lugar"
+                                    maxlength="255"
+                                />
                             </div>
                             <div class="grid gap-1.5">
-                                <Label for="mueble-area">Sucursal / Oficina / Área</Label>
-                                <Input id="mueble-area" v-model="form.datos.ubicacion_area" maxlength="255" />
+                                <Label for="mueble-area"
+                                    >Sucursal / Oficina / Área</Label
+                                >
+                                <Input
+                                    id="mueble-area"
+                                    v-model="form.datos.ubicacion_area"
+                                    maxlength="255"
+                                />
                             </div>
                         </div>
                     </div>
@@ -622,7 +695,8 @@ async function generar() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem
-                                            v-for="o in catalogos?.tipos_equipo ?? []"
+                                            v-for="o in catalogos?.tipos_equipo ??
+                                            []"
                                             :key="o.value"
                                             :value="o.value"
                                         >
@@ -636,51 +710,89 @@ async function generar() {
                                 class="grid gap-1.5"
                             >
                                 <Label for="eq-otro">¿Qué equipo? *</Label>
-                                <Input id="eq-otro" v-model="form.datos.tipo_equipo_otro" maxlength="160" />
+                                <Input
+                                    id="eq-otro"
+                                    v-model="form.datos.tipo_equipo_otro"
+                                    maxlength="160"
+                                />
                             </div>
                         </div>
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div class="grid gap-1.5">
                                 <Label for="eq-marca">Marca *</Label>
-                                <Input id="eq-marca" v-model="form.datos.marca" maxlength="120" />
+                                <Input
+                                    id="eq-marca"
+                                    v-model="form.datos.marca"
+                                    maxlength="120"
+                                />
                             </div>
                             <div class="grid gap-1.5">
                                 <Label for="eq-modelo">Modelo</Label>
-                                <Input id="eq-modelo" v-model="form.datos.modelo" maxlength="120" />
+                                <Input
+                                    id="eq-modelo"
+                                    v-model="form.datos.modelo"
+                                    maxlength="120"
+                                />
                             </div>
                             <div class="grid gap-1.5">
                                 <Label for="eq-serie">Número de serie</Label>
-                                <Input id="eq-serie" v-model="form.datos.numero_serie" maxlength="120" />
+                                <Input
+                                    id="eq-serie"
+                                    v-model="form.datos.numero_serie"
+                                    maxlength="120"
+                                />
                             </div>
                             <div class="grid gap-1.5">
                                 <Label for="eq-inv">Número de inventario</Label>
-                                <Input id="eq-inv" v-model="form.datos.numero_inventario" maxlength="120" />
+                                <Input
+                                    id="eq-inv"
+                                    v-model="form.datos.numero_inventario"
+                                    maxlength="120"
+                                />
                             </div>
                         </div>
                         <div v-if="esCelular" class="grid gap-4 sm:grid-cols-3">
                             <div class="grid gap-1.5">
                                 <Label for="eq-imei1">IMEI 1</Label>
-                                <Input id="eq-imei1" v-model="form.datos.imei1" maxlength="60" />
+                                <Input
+                                    id="eq-imei1"
+                                    v-model="form.datos.imei1"
+                                    maxlength="60"
+                                />
                             </div>
                             <div class="grid gap-1.5">
                                 <Label for="eq-imei2">IMEI 2</Label>
-                                <Input id="eq-imei2" v-model="form.datos.imei2" maxlength="60" />
+                                <Input
+                                    id="eq-imei2"
+                                    v-model="form.datos.imei2"
+                                    maxlength="60"
+                                />
                             </div>
                             <div class="grid gap-1.5">
                                 <Label for="eq-tel">Número telefónico</Label>
-                                <Input id="eq-tel" v-model="form.datos.numero_telefonico" maxlength="40" />
+                                <Input
+                                    id="eq-tel"
+                                    v-model="form.datos.numero_telefonico"
+                                    maxlength="40"
+                                />
                             </div>
                         </div>
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div class="grid gap-1.5">
-                                <Label for="eq-estado">Estado del equipo *</Label>
+                                <Label for="eq-estado"
+                                    >Estado del equipo *</Label
+                                >
                                 <Select v-model="form.datos.estado">
-                                    <SelectTrigger id="eq-estado" class="w-full">
+                                    <SelectTrigger
+                                        id="eq-estado"
+                                        class="w-full"
+                                    >
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem
-                                            v-for="o in catalogos?.estados_fisicos ?? []"
+                                            v-for="o in catalogos?.estados_fisicos ??
+                                            []"
                                             :key="o.value"
                                             :value="o.value"
                                         >
@@ -691,7 +803,11 @@ async function generar() {
                             </div>
                             <div class="grid gap-1.5">
                                 <Label for="eq-danos">Daños o detalles</Label>
-                                <Input id="eq-danos" v-model="form.datos.danos" maxlength="2000" />
+                                <Input
+                                    id="eq-danos"
+                                    v-model="form.datos.danos"
+                                    maxlength="2000"
+                                />
                             </div>
                         </div>
                         <div class="grid gap-2">
@@ -703,8 +819,18 @@ async function generar() {
                                     class="flex items-center gap-2 text-sm"
                                 >
                                     <Checkbox
-                                        :model-value="form.datos.accesorios.includes(o.value)"
-                                        @update:model-value="(v: boolean | 'indeterminate') => toggleAccesorio(o.value, v === true)"
+                                        :model-value="
+                                            form.datos.accesorios.includes(
+                                                o.value,
+                                            )
+                                        "
+                                        @update:model-value="
+                                            (v: boolean | 'indeterminate') =>
+                                                toggleAccesorio(
+                                                    o.value,
+                                                    v === true,
+                                                )
+                                        "
                                     />
                                     {{ o.label }}
                                 </label>
@@ -723,31 +849,61 @@ async function generar() {
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div class="grid gap-1.5">
                                 <Label for="veh-marca">Marca *</Label>
-                                <Input id="veh-marca" v-model="form.datos.marca" maxlength="120" />
+                                <Input
+                                    id="veh-marca"
+                                    v-model="form.datos.marca"
+                                    maxlength="120"
+                                />
                             </div>
                             <div class="grid gap-1.5">
-                                <Label for="veh-submarca">Submarca / Tipo</Label>
-                                <Input id="veh-submarca" v-model="form.datos.submarca" maxlength="120" />
+                                <Label for="veh-submarca"
+                                    >Submarca / Tipo</Label
+                                >
+                                <Input
+                                    id="veh-submarca"
+                                    v-model="form.datos.submarca"
+                                    maxlength="120"
+                                />
                             </div>
                             <div class="grid gap-1.5">
                                 <Label for="veh-modelo">Modelo / Año</Label>
-                                <Input id="veh-modelo" v-model="form.datos.modelo_anio" maxlength="60" />
+                                <Input
+                                    id="veh-modelo"
+                                    v-model="form.datos.modelo_anio"
+                                    maxlength="60"
+                                />
                             </div>
                             <div class="grid gap-1.5">
                                 <Label for="veh-color">Color</Label>
-                                <Input id="veh-color" v-model="form.datos.color" maxlength="60" />
+                                <Input
+                                    id="veh-color"
+                                    v-model="form.datos.color"
+                                    maxlength="60"
+                                />
                             </div>
                             <div class="grid gap-1.5">
                                 <Label for="veh-niv">NIV / VIN</Label>
-                                <Input id="veh-niv" v-model="form.datos.niv" maxlength="40" />
+                                <Input
+                                    id="veh-niv"
+                                    v-model="form.datos.niv"
+                                    maxlength="40"
+                                />
                             </div>
                             <div class="grid gap-1.5">
                                 <Label for="veh-motor">Número de motor</Label>
-                                <Input id="veh-motor" v-model="form.datos.numero_motor" maxlength="60" />
+                                <Input
+                                    id="veh-motor"
+                                    v-model="form.datos.numero_motor"
+                                    maxlength="60"
+                                />
                             </div>
                             <div class="grid gap-1.5">
                                 <Label for="veh-placas">Placas *</Label>
-                                <Input id="veh-placas" v-model="form.datos.placas" maxlength="20" />
+                                <Input
+                                    id="veh-placas"
+                                    v-model="form.datos.placas"
+                                    maxlength="20"
+                                />
                             </div>
                             <div class="grid gap-1.5">
                                 <Label for="veh-km">Kilometraje</Label>
@@ -769,7 +925,8 @@ async function generar() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem
-                                            v-for="o in catalogos?.niveles_combustible ?? []"
+                                            v-for="o in catalogos?.niveles_combustible ??
+                                            []"
                                             :key="o.value"
                                             :value="o.value"
                                         >
@@ -786,7 +943,8 @@ async function generar() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem
-                                            v-for="o in catalogos?.estados_conservacion ?? []"
+                                            v-for="o in catalogos?.estados_conservacion ??
+                                            []"
                                             :key="o.value"
                                             :value="o.value"
                                         >
@@ -803,7 +961,8 @@ async function generar() {
                                     </SelectTrigger>
                                     <SelectContent>
                                         <SelectItem
-                                            v-for="o in catalogos?.estados_conservacion ?? []"
+                                            v-for="o in catalogos?.estados_conservacion ??
+                                            []"
                                             :key="o.value"
                                             :value="o.value"
                                         >
@@ -814,8 +973,15 @@ async function generar() {
                             </div>
                         </div>
                         <div class="grid gap-1.5">
-                            <Label for="veh-danos">Daños o detalles existentes</Label>
-                            <Textarea id="veh-danos" v-model="form.datos.danos" rows="2" maxlength="2000" />
+                            <Label for="veh-danos"
+                                >Daños o detalles existentes</Label
+                            >
+                            <Textarea
+                                id="veh-danos"
+                                v-model="form.datos.danos"
+                                rows="2"
+                                maxlength="2000"
+                            />
                         </div>
                         <div class="grid gap-2">
                             <Label>Accesorios y documentos recibidos</Label>
@@ -826,8 +992,18 @@ async function generar() {
                                     class="flex items-center gap-2 text-sm"
                                 >
                                     <Checkbox
-                                        :model-value="form.datos.accesorios.includes(o.value)"
-                                        @update:model-value="(v: boolean | 'indeterminate') => toggleAccesorio(o.value, v === true)"
+                                        :model-value="
+                                            form.datos.accesorios.includes(
+                                                o.value,
+                                            )
+                                        "
+                                        @update:model-value="
+                                            (v: boolean | 'indeterminate') =>
+                                                toggleAccesorio(
+                                                    o.value,
+                                                    v === true,
+                                                )
+                                        "
                                     />
                                     {{ o.label }}
                                 </label>

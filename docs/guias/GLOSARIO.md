@@ -12,7 +12,7 @@ Palabras de MR. LANA PEOPLE explicadas sin tecnicismos (también en `/ayuda/glos
 
 **Capacitación inicial** — Primer contrato de la persona (equivale al periodo de prueba). Su duración la define cada puesto: Gestor 2 meses, Gerente 3… → [Contrato de capacitación inicial](FLUJO_COMPLETO.md#articulo-contrato-inicial)
 
-**Cierre laboral** — El proceso completo de baja: el jefe directo (o RH) la inicia, RH autoriza, finiquito, pago, firma y baja en la fecha efectiva. → [Baja de un colaborador (cierre laboral)](FLUJO_COMPLETO.md#articulo-baja)
+**Cierre laboral** — El proceso completo de baja: el jefe directo (o RH) la inicia (sin preautorización ni autorización posterior de RH), documentos, finiquito, registro de su entrega y cierre. → [Baja de un colaborador (cierre laboral)](FLUJO_COMPLETO.md#articulo-baja)
 
 **Contrato indeterminado** — Contrato sin fecha de fin que sigue a una capacitación inicial aprobada. → [Contrato por tiempo indeterminado](FLUJO_COMPLETO.md#articulo-contrato-indeterminado)
 

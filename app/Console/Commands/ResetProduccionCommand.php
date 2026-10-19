@@ -52,18 +52,34 @@ class ResetProduccionCommand extends Command
             }
         }
 
-        $this->components->task('Borrando y reaplicando migraciones (migrate:fresh)', function (): bool {
-            $this->callSilent('migrate:fresh', ['--force' => true]);
+        // Si un paso falla se detiene aquí (nunca se reporta «reiniciada» con
+        // la base a medias): repite el comando tras corregir la causa.
+        $migro = false;
+        $this->components->task('Borrando y reaplicando migraciones (migrate:fresh)', function () use (&$migro): bool {
+            $migro = $this->call('migrate:fresh', ['--force' => true]) === self::SUCCESS;
 
-            return true;
+            return $migro;
         });
 
-        if ($this->option('seed')) {
-            $this->components->task('Sembrando catálogos y roles/permisos base (db:seed)', function (): bool {
-                $this->callSilent('db:seed', ['--force' => true]);
+        if (! $migro) {
+            $this->components->error('migrate:fresh falló: revisa el error de arriba. No se sembró nada.');
 
-                return true;
+            return self::FAILURE;
+        }
+
+        if ($this->option('seed')) {
+            $sembro = false;
+            $this->components->task('Sembrando catálogos y roles/permisos base (db:seed)', function () use (&$sembro): bool {
+                $sembro = $this->call('db:seed', ['--force' => true]) === self::SUCCESS;
+
+                return $sembro;
             });
+
+            if (! $sembro) {
+                $this->components->error('db:seed falló: revisa el error de arriba y repite con --seed.');
+
+                return self::FAILURE;
+            }
         }
 
         $this->components->task('Limpiando cachés (config, route, cache, view)', function (): bool {

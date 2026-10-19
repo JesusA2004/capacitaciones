@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { ClipboardList, FileSignature, FolderOpen, UserPlus } from '@lucide/vue';
+import {
+    ClipboardList,
+    FileSignature,
+    FolderOpen,
+    UserPlus,
+} from '@lucide/vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
@@ -61,10 +66,13 @@ defineOptions({
     },
 });
 
-const { filtros, aplicarConDebounce, limpiar } = useFiltros('/rh/contratacion', {
-    busqueda: props.filtros.busqueda ?? '',
-    sucursal_id: props.filtros.sucursal_id ?? '',
-});
+const { filtros, aplicarConDebounce, limpiar } = useFiltros(
+    '/rh/contratacion',
+    {
+        busqueda: props.filtros.busqueda ?? '',
+        sucursal_id: props.filtros.sucursal_id ?? '',
+    },
+);
 
 function fechaCorta(valor: string | null): string {
     return valor
@@ -118,7 +126,7 @@ function fechaCorta(valor: string | null): string {
                     v-for="alta in altasDigitales"
                     :key="alta.id"
                     :href="alta.ver_url"
-                    class="tarjeta-interactiva flex flex-col gap-1 rounded-xl border border-border/60 bg-background p-3"
+                    class="flex tarjeta-interactiva flex-col gap-1 rounded-xl border border-border/60 bg-background p-3"
                 >
                     <p class="truncate text-sm font-semibold">
                         {{ alta.nombre }}
@@ -167,15 +175,22 @@ function fechaCorta(valor: string | null): string {
                         <TableHead>Puesto</TableHead>
                         <TableHead>Sucursal</TableHead>
                         <TableHead>Avance</TableHead>
-                        <TableHead class="text-center">Docs. pendientes</TableHead>
-                        <TableHead class="text-center">Docs. rechazados</TableHead>
+                        <TableHead class="text-center"
+                            >Docs. pendientes</TableHead
+                        >
+                        <TableHead class="text-center"
+                            >Docs. rechazados</TableHead
+                        >
                         <TableHead>Contrato</TableHead>
                         <TableHead>IMSS</TableHead>
                         <TableHead>Siguiente acción</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    <TableRow v-for="persona in personas.data" :key="persona.id">
+                    <TableRow
+                        v-for="persona in personas.data"
+                        :key="persona.id"
+                    >
                         <TableCell>
                             <Link
                                 :href="persona.ciclo_url"
@@ -202,7 +217,9 @@ function fechaCorta(valor: string | null): string {
                                 >
                                     <div
                                         class="h-full rounded-full bg-primary"
-                                        :style="{ width: persona.progreso + '%' }"
+                                        :style="{
+                                            width: persona.progreso + '%',
+                                        }"
                                     />
                                 </div>
                             </div>
@@ -236,7 +253,9 @@ function fechaCorta(valor: string | null): string {
                         <TableCell>
                             <Button variant="ghost" size="sm" as-child>
                                 <Link :href="persona.ciclo_url">
-                                    {{ persona.siguiente_accion ?? 'Ver ciclo' }}
+                                    {{
+                                        persona.siguiente_accion ?? 'Ver ciclo'
+                                    }}
                                 </Link>
                             </Button>
                         </TableCell>

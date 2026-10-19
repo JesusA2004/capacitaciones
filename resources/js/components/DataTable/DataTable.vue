@@ -33,7 +33,6 @@ withDefaults(
 
 const emit = defineEmits<{ 'click-fila': [fila: T] }>();
 
-
 function valorCelda(fila: T, clave: string): unknown {
     return clave.split('.').reduce<unknown>((acumulado, parte) => {
         if (acumulado && typeof acumulado === 'object' && parte in acumulado) {

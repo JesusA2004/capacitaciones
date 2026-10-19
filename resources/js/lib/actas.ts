@@ -73,7 +73,13 @@ export function formularioDesdeActa(
     const t = (v: string | null | undefined) => v ?? '';
 
     if (!c) {
-        return { ...base, fecha: acta.fecha, hora: t(acta.hora), lugar: t(acta.lugar), hechos: acta.hechos };
+        return {
+            ...base,
+            fecha: acta.fecha,
+            hora: t(acta.hora),
+            lugar: t(acta.lugar),
+            hechos: acta.hechos,
+        };
     }
 
     const jefeParticipa = c.jefe?.participa ?? false;
@@ -154,7 +160,8 @@ export function cargaActa(f: FormularioCircunstanciada) {
             disposiciones: n(c.disposiciones),
             incidencia: {
                 tipo: n(c.incidencia.tipo),
-                otro: c.incidencia.tipo === 'otra' ? n(c.incidencia.otro) : null,
+                otro:
+                    c.incidencia.tipo === 'otra' ? n(c.incidencia.otro) : null,
                 fecha_desde: n(c.incidencia.fecha_desde),
                 fecha_hasta: n(c.incidencia.fecha_hasta),
                 hora_desde: n(c.incidencia.hora_desde),
@@ -168,14 +175,17 @@ export function cargaActa(f: FormularioCircunstanciada) {
             jefe: {
                 participa: c.jefe.participa && c.jefe.colaborador_id !== null,
                 colaborador_id: c.jefe.participa ? c.jefe.colaborador_id : null,
-                manifestacion: c.jefe.participa ? n(c.jefe.manifestacion) : null,
+                manifestacion: c.jefe.participa
+                    ? n(c.jefe.manifestacion)
+                    : null,
             },
             testigos_hechos: c.testigos_hechos
                 .filter((x) => x.colaborador_id !== null)
                 .map((x) => ({
                     colaborador_id: x.colaborador_id,
                     relacion: n(x.relacion),
-                    relacion_otro: x.relacion === 'otra' ? n(x.relacion_otro) : null,
+                    relacion_otro:
+                        x.relacion === 'otra' ? n(x.relacion_otro) : null,
                     manifestacion: n(x.manifestacion),
                 })),
             testigos_asistencia: c.testigos_asistencia
@@ -218,9 +228,25 @@ export function conflictoPersona(
 
     const c = f.circunstanciada;
     const otros: { id: number | null; rol: string; ref: unknown }[] = [
-        ...(c.jefe.participa ? [{ id: c.jefe.colaborador_id, rol: 'jefe inmediato', ref: 'jefe' }] : []),
-        ...c.testigos_hechos.map((x) => ({ id: x.colaborador_id, rol: 'testigo de hechos', ref: x })),
-        ...c.testigos_asistencia.map((x) => ({ id: x.colaborador_id, rol: 'testigo de asistencia', ref: x })),
+        ...(c.jefe.participa
+            ? [
+                  {
+                      id: c.jefe.colaborador_id,
+                      rol: 'jefe inmediato',
+                      ref: 'jefe',
+                  },
+              ]
+            : []),
+        ...c.testigos_hechos.map((x) => ({
+            id: x.colaborador_id,
+            rol: 'testigo de hechos',
+            ref: x,
+        })),
+        ...c.testigos_asistencia.map((x) => ({
+            id: x.colaborador_id,
+            rol: 'testigo de asistencia',
+            ref: x,
+        })),
     ];
     const repetido = otros.find((o) => o.ref !== propio && o.id === id);
 
@@ -247,16 +273,22 @@ export function faltantesActa(f: FormularioCircunstanciada): string[] {
     }
 
     if (!c.responsable.caracter) {
-        faltan.push('Indica el carácter con el que interviene quien levanta el acta.');
+        faltan.push(
+            'Indica el carácter con el que interviene quien levanta el acta.',
+        );
     }
 
     if (c.trabajador.manifesto === null) {
-        faltan.push('Registra la manifestación del trabajador o que no quiso manifestar.');
+        faltan.push(
+            'Registra la manifestación del trabajador o que no quiso manifestar.',
+        );
     } else if (c.trabajador.manifesto && !c.trabajador.manifestacion.trim()) {
         faltan.push('Captura lo que manifestó el trabajador.');
     }
 
-    if (c.testigos_hechos.some((x) => x.colaborador_id !== null && !x.relacion)) {
+    if (
+        c.testigos_hechos.some((x) => x.colaborador_id !== null && !x.relacion)
+    ) {
         faltan.push('Indica la relación de cada testigo con los hechos.');
     }
 

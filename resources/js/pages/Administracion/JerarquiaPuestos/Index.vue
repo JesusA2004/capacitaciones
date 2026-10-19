@@ -100,7 +100,11 @@ const props = defineProps<{
 const seccionLamina = computed(() => {
     const valor = seccionActiva.value?.valor;
 
-    return valor === 'corporativo' || valor === 'comercial' || valor === 'sucursal' ? valor : null;
+    return valor === 'corporativo' ||
+        valor === 'comercial' ||
+        valor === 'sucursal'
+        ? valor
+        : null;
 });
 
 // "Por personas" (una tarjeta por colaborador, rama por sucursal) es la
@@ -639,7 +643,9 @@ watch(
         <!-- General «Por personas»: la composición de las tres láminas
              (una sola verdad). «Por puestos» conserva el árbol editable. -->
         <OrganigramaGeneral
-            v-else-if="vista === 'personas' && seccionActiva?.valor === 'general'"
+            v-else-if="
+                vista === 'personas' && seccionActiva?.valor === 'general'
+            "
             :laminas="laminas"
         />
 

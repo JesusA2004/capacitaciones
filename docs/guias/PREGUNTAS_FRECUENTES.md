@@ -60,7 +60,7 @@ No se registra como candidato nuevo: se busca en Reingresos y, si RH lo aprueba,
 
 ## ¿Dónde inicio una baja?
 
-En el Ciclo laboral de la persona (Expedientes → la persona → «Ciclo laboral») con «Iniciar baja»: solo su jefe directo o RH. No es una solicitud; después siguen la autorización de RH y el finiquito.
+En el Ciclo laboral de la persona (Expedientes → la persona → «Ciclo laboral») con «Iniciar baja»: solo su jefe directo o RH. No es una solicitud ni requiere otra autorización; después siguen los documentos, el finiquito y el registro de su entrega.
 
 → [Baja de un colaborador (cierre laboral)](FLUJO_COMPLETO.md#articulo-baja)
 

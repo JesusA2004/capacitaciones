@@ -92,10 +92,7 @@ const netoEmitido = computed(() =>
         .reduce((total, l) => total + Number(l.total_neto), 0),
 );
 
-const ESTADOS: Record<
-    string,
-    { clase: string; icono: typeof CheckCircle2 }
-> = {
+const ESTADOS: Record<string, { clase: string; icono: typeof CheckCircle2 }> = {
     preparado: {
         clase: 'bg-warning-soft text-warning',
         icono: Layers,
@@ -156,7 +153,12 @@ const periodoElegido = computed(() => {
     }
 
     const primera = base.getDate() <= 15;
-    const inicio = new Date(base.getFullYear(), base.getMonth(), primera ? 1 : 16, 12);
+    const inicio = new Date(
+        base.getFullYear(),
+        base.getMonth(),
+        primera ? 1 : 16,
+        12,
+    );
     // Día 0 del mes siguiente = último día REAL del mes.
     const fin = primera
         ? new Date(base.getFullYear(), base.getMonth(), 15, 12)
@@ -174,7 +176,6 @@ function crear() {
         },
     });
 }
-
 </script>
 
 <template>
@@ -204,9 +205,21 @@ function crear() {
         <ol data-tour="nomina-pasos" class="grid gap-3 sm:grid-cols-3">
             <li
                 v-for="(paso, i) in [
-                    { t: 'Preparar', d: 'Desde el sueldo de cada persona o importando el archivo de RH.', i: Layers },
-                    { t: 'Revisar', d: 'PDF real de cada recibo, errores y advertencias antes de publicar.', i: CalendarRange },
-                    { t: 'Emitir', d: 'Se congela el PDF oficial de cada recibo; RH los descarga, imprime y entrega.', i: Send },
+                    {
+                        t: 'Preparar',
+                        d: 'Desde el sueldo de cada persona o importando el archivo de RH.',
+                        i: Layers,
+                    },
+                    {
+                        t: 'Revisar',
+                        d: 'PDF real de cada recibo, errores y advertencias antes de publicar.',
+                        i: CalendarRange,
+                    },
+                    {
+                        t: 'Emitir',
+                        d: 'Se congela el PDF oficial de cada recibo; RH los descarga, imprime y entrega.',
+                        i: Send,
+                    },
                 ]"
                 :key="paso.t"
                 class="flex items-start gap-3 rounded-2xl border border-border/60 bg-card p-4"
@@ -226,11 +239,7 @@ function crear() {
         </ol>
 
         <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <MetricCard
-                etiqueta="Lotes"
-                :valor="lotes.total"
-                :icono="Layers"
-            />
+            <MetricCard etiqueta="Lotes" :valor="lotes.total" :icono="Layers" />
             <MetricCard
                 etiqueta="En revisión"
                 :valor="enRevision"
@@ -298,7 +307,8 @@ function crear() {
                     <div class="rounded-xl bg-muted/60 p-2">
                         <p class="text-lg font-bold tabular-nums">
                             {{ lote.preparados }}
-                            <span class="text-xs font-normal text-muted-foreground"
+                            <span
+                                class="text-xs font-normal text-muted-foreground"
                                 >/ {{ lote.esperados }}</span
                             >
                         </p>
@@ -309,7 +319,9 @@ function crear() {
                     <div class="rounded-xl bg-muted/60 p-2">
                         <p
                             class="text-lg font-bold tabular-nums"
-                            :class="lote.total_errores ? 'text-destructive' : ''"
+                            :class="
+                                lote.total_errores ? 'text-destructive' : ''
+                            "
                         >
                             {{ lote.total_errores }}
                         </p>
@@ -377,8 +389,16 @@ function crear() {
                     <div class="grid grid-cols-2 gap-2">
                         <button
                             v-for="opcion in [
-                                { v: 'semanal', t: 'Sucursales · Semanal', d: 'Lunes a domingo' },
-                                { v: 'quincenal', t: 'Corporativo · Quincenal', d: '1–15 y 16–fin de mes' },
+                                {
+                                    v: 'semanal',
+                                    t: 'Sucursales · Semanal',
+                                    d: 'Lunes a domingo',
+                                },
+                                {
+                                    v: 'quincenal',
+                                    t: 'Corporativo · Quincenal',
+                                    d: '1–15 y 16–fin de mes',
+                                },
                             ] as const"
                             :key="opcion.v"
                             type="button"
@@ -398,14 +418,16 @@ function crear() {
                     </div>
                     <p class="text-xs text-muted-foreground">
                         El grupo lo decide la ubicación organizacional de cada
-                        colaborador (sucursal vs. corporativo): nunca se
-                        mezclan en el mismo lote.
+                        colaborador (sucursal vs. corporativo): nunca se mezclan
+                        en el mismo lote.
                     </p>
                 </div>
 
                 <div v-if="form.periodicidad === 'semanal'" class="grid gap-2">
                     <Label>Sucursales (opcional)</Label>
-                    <div class="grid max-h-40 gap-1 overflow-y-auto rounded-xl border border-border/60 p-2">
+                    <div
+                        class="grid max-h-40 gap-1 overflow-y-auto rounded-xl border border-border/60 p-2"
+                    >
                         <label
                             v-for="sucursal in sucursalesSemanal"
                             :key="sucursal.id"
@@ -413,15 +435,17 @@ function crear() {
                         >
                             <input
                                 type="checkbox"
-                                :checked="form.sucursal_ids.includes(sucursal.id)"
+                                :checked="
+                                    form.sucursal_ids.includes(sucursal.id)
+                                "
                                 @change="alternarSucursal(sucursal.id)"
                             />
                             {{ sucursal.nombre }}
                         </label>
                     </div>
                     <p class="text-xs text-muted-foreground">
-                        Deja todas sin marcar para incluir todas las
-                        sucursales (nunca corporativo).
+                        Deja todas sin marcar para incluir todas las sucursales
+                        (nunca corporativo).
                     </p>
                 </div>
 
@@ -431,9 +455,17 @@ function crear() {
                     <p
                         class="rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground"
                     >
-                        Periodo: <strong class="text-foreground">{{ periodoElegido }}</strong>
+                        Periodo:
+                        <strong class="text-foreground">{{
+                            periodoElegido
+                        }}</strong>
                     </p>
-                    <InputError :message="form.errors.fecha ?? (form.errors as Record<string, string>).periodo" />
+                    <InputError
+                        :message="
+                            form.errors.fecha ??
+                            (form.errors as Record<string, string>).periodo
+                        "
+                    />
                 </div>
 
                 <div class="grid gap-2">
@@ -468,7 +500,9 @@ function crear() {
                             "
                             @click="form.origen = 'importacion'"
                         >
-                            <p class="text-sm font-semibold">Importar archivo</p>
+                            <p class="text-sm font-semibold">
+                                Importar archivo
+                            </p>
                             <p class="text-xs text-muted-foreground">
                                 CSV/Excel: numero_empleado, tipo, concepto,
                                 importe (clave y días opcionales).
@@ -486,8 +520,8 @@ function crear() {
                         class="block w-full rounded-lg border border-input bg-background px-3 py-2 text-sm file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1 file:text-xs file:font-medium file:text-primary-foreground"
                         @change="
                             form.archivo =
-                                ($event.target as HTMLInputElement).files?.[0] ??
-                                null
+                                ($event.target as HTMLInputElement)
+                                    .files?.[0] ?? null
                         "
                     />
                     <InputError :message="form.errors.archivo" />
@@ -502,7 +536,11 @@ function crear() {
                 </Badge>
 
                 <SheetFooter class="mt-auto px-0">
-                    <Button type="submit" class="w-full" :disabled="form.processing">
+                    <Button
+                        type="submit"
+                        class="w-full"
+                        :disabled="form.processing"
+                    >
                         <Layers class="size-4" />
                         {{ form.processing ? 'Preparando…' : 'Preparar lote' }}
                     </Button>

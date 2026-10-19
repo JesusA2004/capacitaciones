@@ -121,13 +121,16 @@ const urlReportePeriodo = computed(() =>
             Object.entries({
                 mes: props.filtros.mes,
                 anio: props.filtros.anio,
-                canales: props.filtros.canal ? [props.filtros.canal] : undefined,
+                canales: props.filtros.canal
+                    ? [props.filtros.canal]
+                    : undefined,
                 empresa_id: props.filtros.empresa_id,
                 sucursal_id: props.filtros.sucursal_id,
                 departamento_id: props.filtros.departamento_id,
                 puesto_id: props.filtros.puesto_id,
             }).filter(
-                ([, valor]) => valor !== undefined && valor !== null && valor !== '',
+                ([, valor]) =>
+                    valor !== undefined && valor !== null && valor !== '',
             ),
         ),
     }),
@@ -141,7 +144,10 @@ function nombreCanal(valor: string): string {
 
 const fecha = (valor: string | null) =>
     valor
-        ? new Date(`${valor.slice(0, 10)}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+        ? new Date(`${valor.slice(0, 10)}T12:00:00`).toLocaleDateString(
+              'es-MX',
+              { day: 'numeric', month: 'short' },
+          )
         : null;
 
 function rangoFechas(campana: CampanaReclutamientoItem): string {
@@ -151,7 +157,9 @@ function rangoFechas(campana: CampanaReclutamientoItem): string {
         return `${meses.find((m) => m.value === String(campana.mes))?.etiqueta ?? ''} ${campana.anio}`;
     }
 
-    return campana.fecha_fin ? `${inicio} – ${fecha(campana.fecha_fin)}` : `Desde ${inicio}`;
+    return campana.fecha_fin
+        ? `${inicio} – ${fecha(campana.fecha_fin)}`
+        : `Desde ${inicio}`;
 }
 
 /** Embudo de la campaña (paleta pastel; solo datos reales de candidatos). */
@@ -159,12 +167,36 @@ function embudo(campana: CampanaReclutamientoItem) {
     const r = campana.resultado;
 
     return [
-        { etiqueta: 'Candidatos', valor: r?.candidatos ?? 0, barra: 'bg-esmeralda/70' },
-        { etiqueta: 'Contactados', valor: r?.contactados ?? 0, barra: 'bg-esmeralda/60' },
-        { etiqueta: 'Entrevistas', valor: r?.entrevistas ?? 0, barra: 'bg-esmeralda/50' },
-        { etiqueta: 'Psicométricos', valor: r?.psicometricos ?? 0, barra: 'bg-oro/70' },
-        { etiqueta: 'Socioeconómico', valor: r?.socioeconomicos ?? 0, barra: 'bg-oro/55' },
-        { etiqueta: 'Contratados', valor: r?.contratados ?? 0, barra: 'bg-success/70' },
+        {
+            etiqueta: 'Candidatos',
+            valor: r?.candidatos ?? 0,
+            barra: 'bg-esmeralda/70',
+        },
+        {
+            etiqueta: 'Contactados',
+            valor: r?.contactados ?? 0,
+            barra: 'bg-esmeralda/60',
+        },
+        {
+            etiqueta: 'Entrevistas',
+            valor: r?.entrevistas ?? 0,
+            barra: 'bg-esmeralda/50',
+        },
+        {
+            etiqueta: 'Psicométricos',
+            valor: r?.psicometricos ?? 0,
+            barra: 'bg-oro/70',
+        },
+        {
+            etiqueta: 'Socioeconómico',
+            valor: r?.socioeconomicos ?? 0,
+            barra: 'bg-oro/55',
+        },
+        {
+            etiqueta: 'Contratados',
+            valor: r?.contratados ?? 0,
+            barra: 'bg-success/70',
+        },
     ];
 }
 
@@ -180,7 +212,9 @@ function anchoPaso(campana: CampanaReclutamientoItem, valor: number): number {
 }
 
 /** Adjunto (Meta Ads, factura, reporte) que se ve DENTRO de PEOPLE. */
-const adjuntoActivo = ref<{ nombre: string; mime: string; url: string } | null>(null);
+const adjuntoActivo = ref<{ nombre: string; mime: string; url: string } | null>(
+    null,
+);
 
 const numero = (valor: number) => valor.toLocaleString('es-MX');
 
@@ -438,7 +472,11 @@ async function eliminar(campana: CampanaReclutamientoItem) {
             </Button>
         </CrudEmptyState>
 
-        <div v-else data-tour="tabla" class="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
+        <div
+            v-else
+            data-tour="tabla"
+            class="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3"
+        >
             <article
                 v-for="campana in campanas.data"
                 :key="campana.id"
@@ -447,49 +485,115 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                 <header
                     class="flex items-start gap-3 border-b border-border/60 bg-gradient-to-r from-crema/70 to-salvia/70 px-5 py-4 text-foreground"
                 >
-                    <span class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-card/80 text-primary shadow-sm">
+                    <span
+                        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-card/80 text-primary shadow-sm"
+                    >
                         <Megaphone class="size-5" />
                     </span>
                     <div class="min-w-0 flex-1">
-                        <p class="text-xs font-semibold tracking-wider text-bronce uppercase">
+                        <p
+                            class="text-xs font-semibold tracking-wider text-bronce uppercase"
+                        >
                             {{ nombreCanal(campana.canal) }}
                         </p>
                         <p class="truncate text-base font-semibold">
-                            {{ campana.nombre || campana.puesto?.nombre || 'Campaña general' }}
+                            {{
+                                campana.nombre ||
+                                campana.puesto?.nombre ||
+                                'Campaña general'
+                            }}
                         </p>
                         <p class="truncate text-xs text-muted-foreground">
                             {{ campana.puesto?.nombre ?? 'Sin puesto' }} ·
                             {{ campana.sucursal?.nombre ?? 'Sin sucursal' }}
-                            <template v-if="campana.vacante_id"> · Vacante #{{ campana.vacante_id }}</template>
+                            <template v-if="campana.vacante_id">
+                                · Vacante #{{ campana.vacante_id }}</template
+                            >
                         </p>
                     </div>
                     <CrudActionMenu>
-                        <DropdownMenuItem @select="abrirEditar(campana)">Editar</DropdownMenuItem>
+                        <DropdownMenuItem @select="abrirEditar(campana)"
+                            >Editar</DropdownMenuItem
+                        >
                         <DropdownMenuItem as-child>
-                            <a :href="reporteCampanaPdf.url(campana.id)" target="_blank" rel="noopener">Reporte PDF</a>
+                            <a
+                                :href="reporteCampanaPdf.url(campana.id)"
+                                target="_blank"
+                                rel="noopener"
+                                >Reporte PDF</a
+                            >
                         </DropdownMenuItem>
-                        <DropdownMenuItem variant="destructive" @select="eliminar(campana)">Eliminar</DropdownMenuItem>
+                        <DropdownMenuItem
+                            variant="destructive"
+                            @select="eliminar(campana)"
+                            >Eliminar</DropdownMenuItem
+                        >
                     </CrudActionMenu>
                 </header>
 
                 <div class="flex flex-1 flex-col gap-4 p-5">
-                    <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                        <span class="inline-flex items-center gap-1"><CalendarDays class="size-3.5" />{{ rangoFechas(campana) }}</span>
-                        <span v-if="campana.responsable" class="inline-flex items-center gap-1"><UserRound class="size-3.5" />{{ campana.responsable.name }} {{ campana.responsable.apellidos ?? '' }}</span>
-                        <span v-if="campana.sueldo_publicado" class="inline-flex items-center gap-1"><BadgeDollarSign class="size-3.5" />Sueldo publicado {{ formatoMoneda(Number(campana.sueldo_publicado)) }}</span>
+                    <div
+                        class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
+                    >
+                        <span class="inline-flex items-center gap-1"
+                            ><CalendarDays class="size-3.5" />{{
+                                rangoFechas(campana)
+                            }}</span
+                        >
+                        <span
+                            v-if="campana.responsable"
+                            class="inline-flex items-center gap-1"
+                            ><UserRound class="size-3.5" />{{
+                                campana.responsable.name
+                            }}
+                            {{ campana.responsable.apellidos ?? '' }}</span
+                        >
+                        <span
+                            v-if="campana.sueldo_publicado"
+                            class="inline-flex items-center gap-1"
+                            ><BadgeDollarSign class="size-3.5" />Sueldo
+                            publicado
+                            {{
+                                formatoMoneda(Number(campana.sueldo_publicado))
+                            }}</span
+                        >
                     </div>
 
                     <!-- Presupuesto vs gasto -->
                     <div class="grid gap-1.5">
-                        <div class="flex items-baseline justify-between text-sm">
-                            <span class="font-semibold">{{ formatoMoneda(Number(campana.monto)) }} <span class="font-normal text-muted-foreground">gastado</span></span>
-                            <span v-if="campana.presupuesto" class="text-xs text-muted-foreground">de {{ formatoMoneda(Number(campana.presupuesto)) }}</span>
+                        <div
+                            class="flex items-baseline justify-between text-sm"
+                        >
+                            <span class="font-semibold"
+                                >{{ formatoMoneda(Number(campana.monto)) }}
+                                <span class="font-normal text-muted-foreground"
+                                    >gastado</span
+                                ></span
+                            >
+                            <span
+                                v-if="campana.presupuesto"
+                                class="text-xs text-muted-foreground"
+                                >de
+                                {{
+                                    formatoMoneda(Number(campana.presupuesto))
+                                }}</span
+                            >
                         </div>
-                        <div v-if="campana.presupuesto" class="h-2 overflow-hidden rounded-full bg-muted">
+                        <div
+                            v-if="campana.presupuesto"
+                            class="h-2 overflow-hidden rounded-full bg-muted"
+                        >
                             <div
                                 class="h-full rounded-full transition-all"
-                                :class="Number(campana.monto) > Number(campana.presupuesto) ? 'bg-destructive' : 'bg-oro'"
-                                :style="{ width: `${Math.min(100, (Number(campana.monto) / Math.max(1, Number(campana.presupuesto))) * 100)}%` }"
+                                :class="
+                                    Number(campana.monto) >
+                                    Number(campana.presupuesto)
+                                        ? 'bg-destructive'
+                                        : 'bg-oro'
+                                "
+                                :style="{
+                                    width: `${Math.min(100, (Number(campana.monto) / Math.max(1, Number(campana.presupuesto))) * 100)}%`,
+                                }"
                             />
                         </div>
                     </div>
@@ -503,55 +607,139 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                             :key="paso.etiqueta"
                             class="grid grid-cols-[7.5rem_minmax(0,1fr)_2.5rem] items-center gap-3 text-sm"
                         >
-                            <span class="truncate text-muted-foreground">{{ paso.etiqueta }}</span>
-                            <span class="h-2.5 overflow-hidden rounded-full bg-muted">
+                            <span class="truncate text-muted-foreground">{{
+                                paso.etiqueta
+                            }}</span>
+                            <span
+                                class="h-2.5 overflow-hidden rounded-full bg-muted"
+                            >
                                 <span
                                     class="block h-full rounded-full transition-all"
                                     :class="paso.barra"
-                                    :style="{ width: `${anchoPaso(campana, paso.valor)}%` }"
+                                    :style="{
+                                        width: `${anchoPaso(campana, paso.valor)}%`,
+                                    }"
                                 />
                             </span>
-                            <span class="text-right font-semibold tabular-nums">{{ paso.valor }}</span>
+                            <span
+                                class="text-right font-semibold tabular-nums"
+                                >{{ paso.valor }}</span
+                            >
                         </li>
                     </ul>
 
                     <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                         <div>
-                            <dt class="text-xs text-muted-foreground">Costo por candidato</dt>
-                            <dd class="font-semibold">{{ campana.resultado?.costo_por_candidato != null ? formatoMoneda(campana.resultado.costo_por_candidato) : '—' }}</dd>
+                            <dt class="text-xs text-muted-foreground">
+                                Costo por candidato
+                            </dt>
+                            <dd class="font-semibold">
+                                {{
+                                    campana.resultado?.costo_por_candidato !=
+                                    null
+                                        ? formatoMoneda(
+                                              campana.resultado
+                                                  .costo_por_candidato,
+                                          )
+                                        : '—'
+                                }}
+                            </dd>
                         </div>
                         <div>
-                            <dt class="text-xs text-muted-foreground">Costo por contratación</dt>
-                            <dd class="font-semibold">{{ campana.resultado?.costo_por_colaborador != null ? formatoMoneda(campana.resultado.costo_por_colaborador) : '—' }}</dd>
+                            <dt class="text-xs text-muted-foreground">
+                                Costo por contratación
+                            </dt>
+                            <dd class="font-semibold">
+                                {{
+                                    campana.resultado?.costo_por_colaborador !=
+                                    null
+                                        ? formatoMoneda(
+                                              campana.resultado
+                                                  .costo_por_colaborador,
+                                          )
+                                        : '—'
+                                }}
+                            </dd>
                         </div>
                         <div>
-                            <dt class="text-xs text-muted-foreground">Conversión</dt>
-                            <dd class="font-semibold">{{ campana.resultado?.conversion != null ? `${campana.resultado.conversion}%` : '—' }}</dd>
+                            <dt class="text-xs text-muted-foreground">
+                                Conversión
+                            </dt>
+                            <dd class="font-semibold">
+                                {{
+                                    campana.resultado?.conversion != null
+                                        ? `${campana.resultado.conversion}%`
+                                        : '—'
+                                }}
+                            </dd>
                         </div>
                         <div>
-                            <dt class="text-xs text-muted-foreground">Días de cobertura</dt>
-                            <dd class="font-semibold">{{ campana.resultado?.dias_cobertura != null ? `${campana.resultado.dias_cobertura} días` : '—' }}</dd>
+                            <dt class="text-xs text-muted-foreground">
+                                Días de cobertura
+                            </dt>
+                            <dd class="font-semibold">
+                                {{
+                                    campana.resultado?.dias_cobertura != null
+                                        ? `${campana.resultado.dias_cobertura} días`
+                                        : '—'
+                                }}
+                            </dd>
                         </div>
-                        <template v-if="campana.resultado?.impresiones != null || campana.resultado?.clics != null">
+                        <template
+                            v-if="
+                                campana.resultado?.impresiones != null ||
+                                campana.resultado?.clics != null
+                            "
+                        >
                             <div>
-                                <dt class="text-xs text-muted-foreground">Impresiones · clics</dt>
+                                <dt class="text-xs text-muted-foreground">
+                                    Impresiones · clics
+                                </dt>
                                 <dd class="font-semibold">
-                                    {{ campana.resultado?.impresiones != null ? numero(campana.resultado.impresiones) : '—' }} ·
-                                    {{ campana.resultado?.clics != null ? numero(campana.resultado.clics) : '—' }}
+                                    {{
+                                        campana.resultado?.impresiones != null
+                                            ? numero(
+                                                  campana.resultado.impresiones,
+                                              )
+                                            : '—'
+                                    }}
+                                    ·
+                                    {{
+                                        campana.resultado?.clics != null
+                                            ? numero(campana.resultado.clics)
+                                            : '—'
+                                    }}
                                 </dd>
                             </div>
                             <div>
-                                <dt class="text-xs text-muted-foreground">Costo por clic</dt>
-                                <dd class="font-semibold">{{ campana.resultado?.costo_por_clic != null ? formatoMoneda(campana.resultado.costo_por_clic) : '—' }}</dd>
+                                <dt class="text-xs text-muted-foreground">
+                                    Costo por clic
+                                </dt>
+                                <dd class="font-semibold">
+                                    {{
+                                        campana.resultado?.costo_por_clic !=
+                                        null
+                                            ? formatoMoneda(
+                                                  campana.resultado
+                                                      .costo_por_clic,
+                                              )
+                                            : '—'
+                                    }}
+                                </dd>
                             </div>
                         </template>
                     </dl>
 
-                    <p v-if="campana.copy" class="line-clamp-2 rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground italic">
+                    <p
+                        v-if="campana.copy"
+                        class="line-clamp-2 rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground italic"
+                    >
                         “{{ campana.copy }}”
                     </p>
 
-                    <div class="mt-auto flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
+                    <div
+                        class="mt-auto flex flex-wrap items-center gap-2 border-t border-border/60 pt-3"
+                    >
                         <a
                             v-if="campana.url"
                             :href="campana.url"
@@ -567,10 +755,23 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                             class="inline-flex min-h-9 max-w-44 items-center gap-1 rounded-lg border px-2 py-1 text-xs hover:bg-muted"
                             @click="adjuntoActivo = adjunto"
                         >
-                            <component :is="adjunto.mime.startsWith('image/') ? ImageIcon : FileText" class="size-3.5 shrink-0" />
+                            <component
+                                :is="
+                                    adjunto.mime.startsWith('image/')
+                                        ? ImageIcon
+                                        : FileText
+                                "
+                                class="size-3.5 shrink-0"
+                            />
                             <span class="truncate">{{ adjunto.nombre }}</span>
                         </button>
-                        <Button variant="ghost" size="sm" class="ml-auto" @click="abrirEditar(campana)">Editar</Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            class="ml-auto"
+                            @click="abrirEditar(campana)"
+                            >Editar</Button
+                        >
                     </div>
                 </div>
             </article>
@@ -583,7 +784,13 @@ async function eliminar(campana: CampanaReclutamientoItem) {
         :open="adjuntoActivo !== null"
         :preview-url="adjuntoActivo?.url ?? null"
         :nombre="adjuntoActivo?.nombre ?? ''"
-        :tipo="adjuntoActivo ? (adjuntoActivo.mime === 'application/pdf' ? 'pdf' : adjuntoActivo.mime.split('/').pop()) : null"
+        :tipo="
+            adjuntoActivo
+                ? adjuntoActivo.mime === 'application/pdf'
+                    ? 'pdf'
+                    : adjuntoActivo.mime.split('/').pop()
+                : null
+        "
         @update:open="(abierto: boolean) => !abierto && (adjuntoActivo = null)"
     />
 

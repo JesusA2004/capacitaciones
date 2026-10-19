@@ -528,90 +528,87 @@ Los cumpleaños y aniversarios se felicitan
 solos a las ocho de la mañana.
 
 111
-00:12:14,000 --> 00:12:21,727
-La baja no es una solicitud: el jefe
-directo la inicia desde el ciclo laboral de la
+00:12:14,000 --> 00:12:20,364
+La baja no es una solicitud ni requiere
+otra autorización: el jefe directo o
 
 112
-00:12:21,727 --> 00:12:24,455
-persona y Recursos Humanos la autoriza.
+00:12:20,364 --> 00:12:25,364
+Recursos Humanos la inicia desde el ciclo
+laboral de la persona.
 
 113
-00:12:24,455 --> 00:12:31,273
+00:12:25,364 --> 00:12:32,182
 Al iniciarla, el acceso de la persona se
 suspende de inmediato, pero nunca se borra
 
 114
-00:12:31,273 --> 00:12:31,727
+00:12:32,182 --> 00:12:32,636
 nada.
 
 115
-00:12:38,000 --> 00:12:42,545
+00:12:39,000 --> 00:12:43,545
 El finiquito se calcula con sueldo
 pendiente, aguinaldo proporcional, vacaciones,
 
 116
-00:12:42,545 --> 00:12:47,545
+00:12:43,545 --> 00:12:48,545
 prima vacacional e ISR. Recursos Humanos
 revisa, ajusta los conceptos autorizados
 
 117
-00:12:47,545 --> 00:12:55,727
-con su motivo, genera el PDF y, ya firmado
-y pagado, se ejecuta la baja en su fecha
+00:12:48,545 --> 00:12:55,364
+con su motivo, genera el PDF y, al
+registrar su entrega, el cierre queda completo.
 
 118
-00:12:55,727 --> 00:13:01,182
-efectiva. Recursos Humanos y Sistemas
-reciben el aviso para retirar accesos y
+00:12:55,364 --> 00:13:00,818
+Recursos Humanos y Sistemas reciben el
+aviso para retirar accesos y equipo.
 
 119
-00:13:01,182 --> 00:13:01,636
-equipo.
-
-120
-00:13:08,000 --> 00:13:14,364
+00:13:07,000 --> 00:13:13,364
 Si alguien regresa, no se crea una persona
 nueva: se busca en Reingresos, Recursos
 
-121
-00:13:14,364 --> 00:13:20,727
+120
+00:13:13,364 --> 00:13:19,727
 Humanos decide, y la misma persona inicia
 un nuevo ciclo laboral conservando todo su
 
-122
-00:13:20,727 --> 00:13:21,182
+121
+00:13:19,727 --> 00:13:20,182
 historial.
 
-123
-00:13:27,500 --> 00:13:30,682
+122
+00:13:26,500 --> 00:13:29,682
 Siempre que tengas una duda, abre Ayuda.
 
-124
-00:13:30,682 --> 00:13:36,591
+123
+00:13:29,682 --> 00:13:35,591
 Puedes buscar con tus propias palabras,
 por ejemplo cómo contrato un candidato, ver
 
-125
-00:13:36,591 --> 00:13:43,409
+124
+00:13:35,591 --> 00:13:42,409
 el recorrido completo, la guía por proceso
 o lo que te toca según tu rol.
 
-126
-00:13:43,409 --> 00:13:49,318
+125
+00:13:42,409 --> 00:13:48,318
 En cada pantalla importante, el botón Cómo
 funciona te lleva directo a su
 
-127
-00:13:49,318 --> 00:13:49,773
+126
+00:13:48,318 --> 00:13:48,773
 explicación.
 
-128
-00:13:56,000 --> 00:14:03,273
+127
+00:13:55,000 --> 00:14:02,273
 Con MR. LANA PEOPLE cada persona sabe qué
 hacer, dónde hacerlo, quién lo hace y qué
 
-129
-00:14:03,273 --> 00:14:06,455
+128
+00:14:02,273 --> 00:14:05,455
 pasa después. Gracias por ver este
 recorrido.

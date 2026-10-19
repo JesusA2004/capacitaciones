@@ -71,7 +71,7 @@ encolado (no vuelve a crear la notificación).
 | Evaluación de periodo de prueba | Sistema / jefe | — | Evaluador, RH (`evaluaciones.autorizar`) | Colaborador | `EvaluacionPeriodoPrueba` |
 | Excepción de Dirección General | RH | — | `excepciones.autorizar` | RH | `SolicitudExcepcionPeriodoPrueba` |
 | Préstamo autorizado | RH / Dirección | — | — | Colaborador (`prestamo_autorizado`) | `Prestamo` |
-| Baja solicitada (cierre laboral) | Gerente / RH | "Baja solicitada" (accesos suspendidos) | Regional + RH (`cierre_baja_solicitada`), luego RH para autorizar (`cierre_autorizacion_rh`). **Sin preautorización de un superior** | — | `CierreLaboral` |
+| Baja aplicada (cierre laboral) | Jefe directo / RH | "Baja aplicada" (accesos suspendidos) | Regional + RH (`cierre_baja_solicitada`), solo para enterarse (pueden rehabilitar accesos). **Sin preautorización ni autorización posterior de RH**; nunca genera «solicitud por revisar» | — | `CierreLaboral` |
 | Negativa a firmar/recibir la baja | RH | — | RH que gestiona el cierre, para generar el acta de negativa con dos testigos (`cierre_negativa_firma`, `cierres.gestionar`) | — | `CierreLaboral` |
 | Finiquito / documentos de la baja por firmar | RH | — | Colaborador (`documento_firma_pendiente`) y RH que opera el documento | Colaborador | `GeneratedDocument` / `CierreLaboral` |
 | Acta administrativa | Gerente / RH | — | RH (`actas.gestionar`) | — | `ActaAdministrativa` |
@@ -84,26 +84,40 @@ del recurso y responde "Ya fue atendida" en vez de mandar a una pantalla rota.
 
 ### Flujo de baja vigente vs. legacy (histórico)
 
-El flujo de baja **vigente** es: *baja solicitada* → *autorización de RH*
-(`cierre_autorizacion_rh`, sin preautorización de un superior) → generación y
-firma de los documentos; si el colaborador se niega, *acta de negativa con dos
-testigos* (`cierre_negativa_firma`). Al **ejecutarse** la baja, RH y **Sistemas**
+El flujo de baja **vigente** es: el *jefe directo* (cadena de mando del
+organigrama) o *RH* **inicia la baja y queda aplicada de inmediato** (accesos
+suspendidos; aviso `cierre_baja_solicitada` a regionales y RH) → *documentos* de
+la causa (generados → impresos → firmados físicamente; si el colaborador se
+niega, *acta de negativa con dos testigos*, `cierre_negativa_firma`) →
+*finiquito* (RH calcula/ajusta) → *registrar entrega del finiquito* → *cierre*.
+**No hay preautorización ni autorización posterior de RH**, ni devolver/reenviar
+la baja, ni programar pago/cita. La solicitud interna de baja que respalda el
+trámite (folio, historial) **no** dispara `solicitud_creada` (ni el flujo
+normal ni el reconciliador). Al **ejecutarse** la baja, RH y **Sistemas**
 reciben `colaborador_baja` para retirar accesos, cuentas y equipo. El alta
 dispara el espejo: `colaborador_alta` a RH, Sistemas y el gerente del
 colaborador. Ninguno de estos eventos notifica a toda la plantilla.
 
-Los siguientes eventos son **legacy / histórico** del flujo anterior y **ya no
-se disparan** (sus claves se conservan en `config/configuracion_sistema.php`
-solo para avisos ya enviados y registros previos; las migraciones
+Los siguientes eventos/tareas son **LEGACY (histórico)** del flujo anterior y
+**nunca se generan para un cierre nuevo**. Sus claves se conservan en
+`config/configuracion_sistema.php` (marcadas `'legacy' => true`, etiqueta
+«Legacy: …») y en `App\Enums\TipoTarea` (`esLegacy()`) solo para leer avisos y
+registros previos. Candados: `NotificadorRhService::notificarEvento()` ignora un
+evento legacy, `TareaService::abrir()` se niega a abrir un tipo legacy y el
+reconciliador (`notificaciones:reconciliar`) cierra cualquier pendiente legacy
+que siga abierto sin reponer su aviso. Las migraciones
 `2026_10_16_120000_baja_inmediata_sin_autorizacion_rh` y
-`2026_10_16_140000_cierre_retira_avisos_de_autorizacion_y_pago` retiraron sus
-tareas y avisos):
+`2026_10_16_140000_cierre_retira_avisos_de_autorizacion_y_pago` ya habían
+retirado las tareas y avisos abiertos:
 
-- **Preautorización de la baja** (`cierre_preautorizacion`): la baja ya no se
-  preautoriza; esa clave hoy solo avisa a quien inició una baja que RH devolvió
-  para corregir.
+- **Autorización de RH de la baja** (`cierre_autorizacion_rh`): LEGACY.
+- **Preautorización de la baja** (`cierre_preautorizacion`): LEGACY (tampoco
+  existe ya «devolver para corregir»).
 - **Pago de finiquito por programar** (`pago_por_programar`) y **cita de
-  finiquito** (`cita_finiquito`): el flujo nuevo no abre estas tareas.
+  finiquito** (`cita_finiquito`): LEGACY. Los pasos del flujo anterior
+  (programar pago, cita, finiquito firmado, confirmar pago) solo proceden con
+  `features.cierre_flujo_legacy` (`CIERRE_FLUJO_LEGACY`, apagado por defecto);
+  sin ella `CierreLaboralService` los rechaza (web y API).
 
 ## Diagnóstico
 

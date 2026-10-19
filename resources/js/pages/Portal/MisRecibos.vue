@@ -52,7 +52,6 @@ const fecha = (valor: string) =>
         month: 'short',
         year: 'numeric',
     });
-
 </script>
 
 <template>

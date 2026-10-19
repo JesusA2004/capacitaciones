@@ -149,7 +149,9 @@ const sucursalActiva = computed(() =>
             <UserCog class="size-4 shrink-0" />
             <p>
                 <span class="font-semibold">{{ datosIncompletosTotal }}</span>
-                colaborador{{ datosIncompletosTotal === 1 ? '' : 'es' }}
+                colaborador{{
+                    datosIncompletosTotal === 1 ? '' : 'es'
+                }}
                 requiere{{ datosIncompletosTotal === 1 ? '' : 'n' }} completar
                 información para poder generarle(s) documentos (contratos,
                 constancias…). Búscalo en la lista: su tarjeta lo marca con

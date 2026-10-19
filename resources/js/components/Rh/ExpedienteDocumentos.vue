@@ -204,7 +204,11 @@ function abrirPreview(item: DocumentoExpedienteItem) {
             {{ resumenConteo === 1 ? 'dato' : 'datos' }} con documentos
             existentes.
         </span>
-        <Button size="sm" variant="outline" @click="resumenExtraccionAbierto = true">
+        <Button
+            size="sm"
+            variant="outline"
+            @click="resumenExtraccionAbierto = true"
+        >
             Revisar datos encontrados
         </Button>
     </div>

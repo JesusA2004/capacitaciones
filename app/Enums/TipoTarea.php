@@ -61,10 +61,12 @@ enum TipoTarea: string
     case ExcepcionPeriodoPruebaPendiente = 'excepcion_periodo_prueba_pendiente';
 
     // Etapa 6 — cierre laboral y reingreso
+    // LEGACY (ver esLegacy()): solo filas históricas; nada los crea hoy.
     case CierrePreautorizacion = 'cierre_preautorizacion';
     case CierreAutorizacionRh = 'cierre_autorizacion_rh';
     case FiniquitoPendiente = 'finiquito_pendiente';
     case FiniquitoPorAutorizar = 'finiquito_por_autorizar';
+    // LEGACY (flujo anterior del finiquito, features.cierre_flujo_legacy).
     case PagoPorProgramar = 'pago_por_programar';
     case CitaFiniquito = 'cita_finiquito';
     case CierrePorConcluir = 'cierre_por_concluir';
@@ -112,14 +114,15 @@ enum TipoTarea: string
             self::EvaluacionPendiente => 'Evaluación de periodo de prueba pendiente',
             self::EvaluacionPorAutorizar => 'Periodo de prueba pendiente de autorización',
             self::ExcepcionPeriodoPruebaPendiente => 'Excepción de renovación por autorizar',
-            // Valor histórico: hoy es la baja devuelta por RH (corregir y
-            // reenviar); solo registros anteriores traen preautorización.
-            self::CierrePreautorizacion => 'Baja devuelta por corregir',
-            self::CierreAutorizacionRh => 'Baja pendiente de autorización final',
+            // LEGACY: la baja es inmediata (jefe directo o RH) — sin
+            // preautorización, sin autorización de RH, sin devolver/reenviar.
+            // Estas etiquetas solo describen registros anteriores.
+            self::CierrePreautorizacion => 'Legacy: baja por preautorizar (flujo anterior)',
+            self::CierreAutorizacionRh => 'Legacy: baja pendiente de autorización de RH (flujo anterior)',
             self::FiniquitoPendiente => 'Finiquito pendiente',
             self::FiniquitoPorAutorizar => 'Finiquito por entregar',
-            self::PagoPorProgramar => 'Pago de finiquito por programar',
-            self::CitaFiniquito => 'Excolaborador por citar (firma y pago)',
+            self::PagoPorProgramar => 'Legacy: pago de finiquito por programar (flujo anterior)',
+            self::CitaFiniquito => 'Legacy: excolaborador por citar (flujo anterior)',
             self::CierrePorConcluir => 'Cierre laboral por concluir',
             self::ReingresoPreautorizacion => 'Reingreso por preautorizar',
             self::ReingresoRevision => 'Reingreso por revisar',
@@ -154,6 +157,18 @@ enum TipoTarea: string
             self::ReingresoPreautorizacion, self::ReingresoRevision => EtapaCicloLaboral::Reingreso,
             self::VacacionesPendiente, self::PermisoPendiente, self::PrestamoPendiente => null,
         };
+    }
+
+    /**
+     * Tipos LEGACY: existen solo para leer filas históricas. El flujo vigente
+     * de la baja es jefe directo/RH inicia → documentos → finiquito →
+     * registrar entrega → cierre (sin preautorización, sin autorización de
+     * RH, sin programar pago ni cita). TareaService::abrir() se niega a
+     * crearlos y el reconciliador de avisos no los repone.
+     */
+    public function esLegacy(): bool
+    {
+        return in_array($this, [self::CierrePreautorizacion, self::CierreAutorizacionRh, self::PagoPorProgramar, self::CitaFiniquito], true);
     }
 
     /**

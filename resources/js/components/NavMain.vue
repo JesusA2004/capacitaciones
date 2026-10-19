@@ -203,7 +203,7 @@ function alCambiar(valor: boolean): void {
                             as-child
                             :is-active="accesoActivo(item.href)"
                             :tooltip="item.title"
-                            class="relative h-10 rounded-xl text-sidebar-foreground transition-colors before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-transparent hover:bg-salvia/70 hover:text-primary data-[active=true]:bg-verde-suave/80 data-[active=true]:font-semibold data-[active=true]:text-primary data-[active=true]:before:bg-oro"
+                            class="relative h-8 rounded-lg text-sidebar-foreground transition-colors before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-transparent hover:bg-salvia/70 hover:text-primary data-[active=true]:bg-verde-suave/80 data-[active=true]:font-semibold data-[active=true]:text-primary data-[active=true]:before:bg-oro"
                         >
                             <Link :href="item.href">
                                 <component :is="item.icon" />

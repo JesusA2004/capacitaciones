@@ -95,7 +95,7 @@ export const GLOSARIO: TerminoGlosario[] = [
     {
         termino: 'Cierre laboral',
         definicion:
-            'El proceso completo de baja: el jefe directo (o RH) la inicia, RH autoriza, finiquito, pago, firma y baja en la fecha efectiva.',
+            'El proceso completo de baja: el jefe directo (o RH) la inicia (sin preautorización ni autorización posterior de RH), documentos, finiquito, registro de su entrega y cierre.',
         articulo: 'baja',
     },
     {
@@ -180,7 +180,7 @@ export const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
     {
         pregunta: '¿Dónde inicio una baja?',
         respuesta:
-            'En el Ciclo laboral de la persona (Expedientes → la persona → «Ciclo laboral») con «Iniciar baja»: solo su jefe directo o RH. No es una solicitud; después siguen la autorización de RH y el finiquito.',
+            'En el Ciclo laboral de la persona (Expedientes → la persona → «Ciclo laboral») con «Iniciar baja»: solo su jefe directo o RH. No es una solicitud ni requiere otra autorización; después siguen los documentos, el finiquito y el registro de su entrega.',
         articulo: 'baja',
         roles: ['rh', 'gerente', 'sistemas'],
     },

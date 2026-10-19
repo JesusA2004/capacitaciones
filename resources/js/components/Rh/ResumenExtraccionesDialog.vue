@@ -50,7 +50,11 @@ type PendienteItem = {
     campos: string[];
 };
 
-type ConflictoEntrada = { valor: string; fuente: string; extraccion_id: number };
+type ConflictoEntrada = {
+    valor: string;
+    fuente: string;
+    extraccion_id: number;
+};
 
 const props = defineProps<{
     open: boolean;
@@ -111,9 +115,9 @@ function cerrarDialogoDocumento(abierto: boolean) {
                     Datos encontrados en documentos existentes
                 </DialogTitle>
                 <DialogDescription>
-                    Sugerencias de todos los documentos del expediente
-                    (normales e histórico). Nada se aplica solo — ábrelas una
-                    por una para revisar y decidir.
+                    Sugerencias de todos los documentos del expediente (normales
+                    e histórico). Nada se aplica solo — ábrelas una por una para
+                    revisar y decidir.
                 </DialogDescription>
             </DialogHeader>
 
@@ -139,7 +143,10 @@ function cerrarDialogoDocumento(abierto: boolean) {
                             ETIQUETAS_CAMPO[campo] ?? campo
                         }}</span>
                         :
-                        <template v-for="(e, i) in entradas" :key="e.extraccion_id">
+                        <template
+                            v-for="(e, i) in entradas"
+                            :key="e.extraccion_id"
+                        >
                             <span v-if="i > 0"> vs. </span>
                             «{{ e.valor }}» ({{ e.fuente }})
                         </template>
@@ -178,7 +185,11 @@ function cerrarDialogoDocumento(abierto: boolean) {
                                 </Badge>
                             </div>
                         </div>
-                        <Button size="sm" variant="outline" @click="abrir(item)">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            @click="abrir(item)"
+                        >
                             Revisar
                         </Button>
                     </div>
@@ -190,7 +201,11 @@ function cerrarDialogoDocumento(abierto: boolean) {
     <ExtraccionDocumentoDialog
         v-if="itemActivo"
         :open="!!itemActivo"
-        :documento-id="(itemActivo.fuente_tipo === 'historico' ? itemActivo.expediente_historico_id : itemActivo.employee_document_id) ?? 0"
+        :documento-id="
+            (itemActivo.fuente_tipo === 'historico'
+                ? itemActivo.expediente_historico_id
+                : itemActivo.employee_document_id) ?? 0
+        "
         :fuente="itemActivo.fuente_tipo"
         :tipo-nombre="itemActivo.fuente_nombre"
         :puede-aplicar="puedeAplicar"

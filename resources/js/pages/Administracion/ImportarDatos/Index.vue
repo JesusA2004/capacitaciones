@@ -10,8 +10,8 @@ import {
     Upload,
     Terminal,
 } from '@lucide/vue';
-import { computed  } from 'vue';
-import type {Component} from 'vue';
+import { computed } from 'vue';
+import type { Component } from 'vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
@@ -213,7 +213,10 @@ const tarjetas = computed<Tarjeta[]>(() => {
                         v-if="tarjeta.nota"
                         class="flex items-center gap-1.5 text-xs text-muted-foreground"
                     >
-                        <Terminal class="size-3.5 shrink-0" aria-hidden="true" />
+                        <Terminal
+                            class="size-3.5 shrink-0"
+                            aria-hidden="true"
+                        />
                         <span>{{ tarjeta.nota }}</span>
                     </p>
                     <Button

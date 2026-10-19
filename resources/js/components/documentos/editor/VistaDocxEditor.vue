@@ -24,7 +24,13 @@ const emit = defineEmits<{
 }>();
 
 const porClave = computed(
-    () => new Map(props.campos.map((c, i) => [c.field_key, { campo: c, numero: i + 1 }])),
+    () =>
+        new Map(
+            props.campos.map((c, i) => [
+                c.field_key,
+                { campo: c, numero: i + 1 },
+            ]),
+        ),
 );
 
 function color(campo: CampoEditor | undefined): string {
@@ -32,7 +38,10 @@ function color(campo: CampoEditor | undefined): string {
         return 'border-muted-foreground/50 bg-muted text-muted-foreground';
     }
 
-    if (campo.estado === 'confirmado' && (campo.source_key || campo.expression)) {
+    if (
+        campo.estado === 'confirmado' &&
+        (campo.source_key || campo.expression)
+    ) {
         return 'border-success bg-success-soft text-success';
     }
 
@@ -62,7 +71,10 @@ const visibles = computed(() => {
 
     return props.parrafos
         .map((p, i) => ({ p, i }))
-        .filter(({ i }) => conCampo.has(i) || conCampo.has(i - 1) || conCampo.has(i + 1));
+        .filter(
+            ({ i }) =>
+                conCampo.has(i) || conCampo.has(i - 1) || conCampo.has(i + 1),
+        );
 });
 </script>
 
@@ -91,7 +103,11 @@ const visibles = computed(() => {
                 "
             >
                 <template v-for="(s, k) in p.segmentos" :key="k">
-                    <span v-if="s.tipo === 'texto'" class="whitespace-pre-wrap">{{ s.texto }}</span>
+                    <span
+                        v-if="s.tipo === 'texto'"
+                        class="whitespace-pre-wrap"
+                        >{{ s.texto }}</span
+                    >
                     <span
                         v-else-if="s.tipo === 'firma'"
                         class="mx-0.5 inline-flex items-center rounded border border-dashed border-muted-foreground/50 bg-muted px-1.5 text-xs text-muted-foreground"
@@ -105,18 +121,24 @@ const visibles = computed(() => {
                             cn(
                                 'mx-0.5 inline-flex max-w-[16rem] items-center gap-1 rounded border-2 px-1.5 align-baseline text-xs font-semibold transition-shadow',
                                 color(porClave.get(s.field_key)?.campo),
-                                seleccion.includes(s.field_key) && 'ring-2 ring-primary ring-offset-1',
-                                resaltado === s.field_key && 'animate-pulse ring-2 ring-danger',
+                                seleccion.includes(s.field_key) &&
+                                    'ring-2 ring-primary ring-offset-1',
+                                resaltado === s.field_key &&
+                                    'animate-pulse ring-2 ring-danger',
                             )
                         "
                         :title="s.original"
-                        @click="emit('seleccionar', s.field_key, $event.shiftKey)"
+                        @click="
+                            emit('seleccionar', s.field_key, $event.shiftKey)
+                        "
                         @dragover.prevent
                         @drop.prevent="alSoltar($event, s.field_key)"
                     >
                         <span
                             class="flex size-4 shrink-0 items-center justify-center rounded-full bg-current/15 text-[10px]"
-                            >{{ porClave.get(s.field_key)?.numero ?? '?' }}</span
+                            >{{
+                                porClave.get(s.field_key)?.numero ?? '?'
+                            }}</span
                         >
                         <span class="truncate">{{
                             porClave.get(s.field_key)?.campo.label ?? 'Sin dato'

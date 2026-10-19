@@ -189,9 +189,7 @@ const enlace =
             "
             class="flex flex-col gap-2 rounded-2xl border border-oro/40 bg-warning-soft/50 p-4"
         >
-            <p
-                class="flex items-center gap-2 text-sm font-medium text-warning"
-            >
+            <p class="flex items-center gap-2 text-sm font-medium text-warning">
                 <UserCog class="size-4 shrink-0" />
                 Te faltan
                 {{ perfil.completitud_datos.faltantes.length }}
@@ -352,7 +350,8 @@ const enlace =
                             v-if="vacaciones.dias_usados_historicos > 0"
                             class="text-[10px] text-[var(--mrl-texto-suave)]"
                         >
-                            {{ vacaciones.dias_usados_people }} en PEOPLE + {{ vacaciones.dias_usados_historicos }} históricos
+                            {{ vacaciones.dias_usados_people }} en PEOPLE +
+                            {{ vacaciones.dias_usados_historicos }} históricos
                         </p>
                     </div>
                     <div

@@ -10,8 +10,10 @@ use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 
 /**
  * Autorización por objeto del cierre laboral. Las reglas de cada etapa
- * (quién preautoriza, que RH autoriza, quién programa el pago) las valida
- * además App\Services\CierreLaboral\CierreLaboralService — igual para web y API.
+ * (jefe directo o RH inician la baja y se aplica de inmediato → documentos
+ * → finiquito → registrar entrega → cierre; sin preautorización ni
+ * autorización posterior de RH) las valida además
+ * App\Services\CierreLaboral\CierreLaboralService — igual para web y API.
  */
 class CierreLaboralPolicy
 {

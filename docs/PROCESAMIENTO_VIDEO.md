@@ -92,9 +92,11 @@ Configuración real (`deploy/nginx/multimedia.conf`, agregar dentro del `server{
 ```nginx
 location /protegido-nas/ {
     internal;
-    alias /mnt/mrlana-capacitacion/;   # mismo directorio que NAS_ROOT
+    alias /mnt/people-storage/;   # mismo directorio que NAS_ROOT (people.mr-lana.com)
 }
 ```
+
+Extracto mínimo: el archivo real además separa `hls/` (caché inmutable) y `documentos|originales/` (`no-store`) en `location` con expresión regular. En esos bloques `alias` reemplaza la URI completa, así que la regex debe capturar la ruta relativa entera (`^/protegido-nas/(hls/.+)$` → `alias /mnt/people-storage/$1;`); un alias sin captura serviría el directorio, nunca el archivo.
 
 Pruebas: `tests/Feature/Multimedia/XAccelRedirectTest.php` verifica que el header se emite correctamente activado/desactivado y que la ruta expuesta nunca contiene la ruta física del servidor — con `Storage::fake`, sin necesidad de un Nginx real corriendo. La verificación end-to-end (Nginx real sirviendo el archivo) queda pendiente de un entorno de producción real, como se declara en `docs/AUDITORIA_CUMPLIMIENTO.md` sección 9.
 

@@ -18,7 +18,7 @@ NAS_ROOT=/ruta/absoluta/al/punto/de/montaje
 ```
 
 - En **desarrollo**, `NAS_ROOT` puede apuntar a cualquier carpeta local (por defecto `storage/app/private/capacitacion` si no se declara).
-- En **producción**, la recomendación es montar el recurso compartido del NAS (SMB/CIFS o NFS) como una carpeta del sistema operativo del servidor (por ejemplo `/mnt/mrlana-capacitacion`) y apuntar `NAS_ROOT` ahí. Desde el punto de vista de Laravel sigue siendo `driver=local`: FFmpeg/FFprobe pueden abrir la ruta absoluta directamente (`MediaStorageService::rutaLocalAbsoluta()`), sin descargar nada a un temporal primero (`MediaStorageService::esDiscoLocal()` devuelve `true`).
+- En **producción**, la recomendación es montar el recurso compartido del NAS (SMB/CIFS o NFS) como una carpeta del sistema operativo del servidor (en MR. LANA PEOPLE: `/mnt/people-storage`) y apuntar `NAS_ROOT` ahí. Desde el punto de vista de Laravel sigue siendo `driver=local`: FFmpeg/FFprobe pueden abrir la ruta absoluta directamente (`MediaStorageService::rutaLocalAbsoluta()`), sin descargar nada a un temporal primero (`MediaStorageService::esDiscoLocal()` devuelve `true`).
 - Despliegue actual de MR. LANA PEOPLE (`people.mr-lana.com`): el Synology está conectado al VPS por **Tailscale** y montado en `/mnt/people-storage` (`NAS_DRIVER=local`, `NAS_ROOT=/mnt/people-storage`, ver `.env.example`). Es el mismo disco `nas` que usan `App\Services\Expedientes\DocumentoStorageService` (expedientes/incorporación documental) y `App\Services\AltaDigital\AltaDigitalStorageService` — no solo la biblioteca multimedia: cada Service tiene su propio prefijo lógico de rutas dentro del mismo disco físico (`expedientes/{empresa}/{sucursal}/{numero - nombre}/...` — legible por diseño, ver `docs/ESTRUCTURA_EXPEDIENTES_NAS.md` —, `hls/{uuid}/...`, etc.), nunca comparten carpeta.
 
 Esta es la opción recomendada por defecto: es la más simple y la más rápida (ni la subida ni el procesamiento pasan por una capa de red adicional gestionada por PHP).
@@ -48,11 +48,11 @@ Diferencias de comportamiento con este driver:
 
 ## Variables de entorno relacionadas
 
-Ya declaradas (comentadas) en `.env.example`:
+Ya declaradas en `.env.example` (`NAS_DRIVER`/`NAS_ROOT` activas; el resto comentadas):
 
 ```env
-# NAS_DRIVER=local
-# NAS_ROOT=/mnt/mrlana-capacitacion
+NAS_DRIVER=local
+NAS_ROOT=/mnt/people-storage
 # NAS_HOST=
 # NAS_PORT=22
 # NAS_USERNAME=

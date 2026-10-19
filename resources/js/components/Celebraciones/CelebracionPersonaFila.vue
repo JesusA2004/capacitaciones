@@ -53,10 +53,7 @@ const subtitulo = computed(() => subtituloPersona(props.evento));
             >
                 {{ subtitulo }}
             </p>
-            <p
-                v-if="evento.detalle"
-                class="text-xs font-medium text-warning"
-            >
+            <p v-if="evento.detalle" class="text-xs font-medium text-warning">
                 {{ evento.detalle }}
             </p>
         </div>

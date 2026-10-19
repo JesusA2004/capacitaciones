@@ -41,7 +41,9 @@ type Evaluacion = {
     url: string;
 };
 
-const documentoActivo = ref<{ id: number; nombre: string; url: string } | null>(null);
+const documentoActivo = ref<{ id: number; nombre: string; url: string } | null>(
+    null,
+);
 
 /** Imprime el PDF dentro de PEOPLE (iframe oculto), sin abrir otra pestaña. */
 function imprimir(url: string) {
@@ -75,16 +77,37 @@ defineOptions({
     },
 });
 
-const ESTILO: Record<Evaluacion['estado'], { icono: typeof Hourglass; clase: string; accion: string }> = {
-    pendiente: { icono: Hourglass, clase: 'bg-warning-soft text-warning', accion: 'Capturar evaluación' },
-    devuelta: { icono: RotateCcw, clase: 'bg-destructive/10 text-destructive', accion: 'Corregir captura' },
-    capturada: { icono: ClipboardCheck, clase: 'bg-primary/10 text-primary', accion: 'Revisar y autorizar' },
-    autorizada: { icono: BadgeCheck, clase: 'bg-success-soft/60 text-success', accion: 'Ver resultado y contrato' },
+const ESTILO: Record<
+    Evaluacion['estado'],
+    { icono: typeof Hourglass; clase: string; accion: string }
+> = {
+    pendiente: {
+        icono: Hourglass,
+        clase: 'bg-warning-soft text-warning',
+        accion: 'Capturar evaluación',
+    },
+    devuelta: {
+        icono: RotateCcw,
+        clase: 'bg-destructive/10 text-destructive',
+        accion: 'Corregir captura',
+    },
+    capturada: {
+        icono: ClipboardCheck,
+        clase: 'bg-primary/10 text-primary',
+        accion: 'Revisar y autorizar',
+    },
+    autorizada: {
+        icono: BadgeCheck,
+        clase: 'bg-success-soft/60 text-success',
+        accion: 'Ver resultado y contrato',
+    },
 };
 
 const conteo = computed(() => ({
     total: props.evaluaciones.total,
-    urgentes: props.evaluaciones.data.filter((e) => e.estado !== 'autorizada' && (e.dias_restantes ?? 99) <= 5).length,
+    urgentes: props.evaluaciones.data.filter(
+        (e) => e.estado !== 'autorizada' && (e.dias_restantes ?? 99) <= 5,
+    ).length,
 }));
 
 function filtrar(estado: string | null) {
@@ -93,7 +116,11 @@ function filtrar(estado: string | null) {
 
 const fecha = (valor: string | null) =>
     valor
-        ? new Date(`${valor}T12:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+        ? new Date(`${valor}T12:00:00`).toLocaleDateString('es-MX', {
+              day: 'numeric',
+              month: 'short',
+              year: 'numeric',
+          })
         : '—';
 </script>
 
@@ -111,7 +138,11 @@ const fecha = (valor: string | null) =>
             <button
                 type="button"
                 class="shrink-0 rounded-full border px-4 py-1.5 text-sm transition"
-                :class="!filtros.estado ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:bg-muted'"
+                :class="
+                    !filtros.estado
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border bg-card hover:bg-muted'
+                "
                 @click="filtrar(null)"
             >
                 Todas · {{ conteo.total }}
@@ -121,15 +152,23 @@ const fecha = (valor: string | null) =>
                 :key="estado.value"
                 type="button"
                 class="shrink-0 rounded-full border px-4 py-1.5 text-sm transition"
-                :class="filtros.estado === estado.value ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:bg-muted'"
+                :class="
+                    filtros.estado === estado.value
+                        ? 'border-primary bg-primary text-primary-foreground'
+                        : 'border-border bg-card hover:bg-muted'
+                "
                 @click="filtrar(estado.value)"
             >
                 {{ estado.label }}
             </button>
         </div>
 
-        <p v-if="conteo.urgentes" class="rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm">
-            <strong>{{ conteo.urgentes }}</strong> evaluación(es) vencen en 5 días o menos.
+        <p
+            v-if="conteo.urgentes"
+            class="rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm"
+        >
+            <strong>{{ conteo.urgentes }}</strong> evaluación(es) vencen en 5
+            días o menos.
         </p>
 
         <EmptyState
@@ -145,40 +184,62 @@ const fecha = (valor: string | null) =>
                 :key="evaluacion.id"
                 role="link"
                 tabindex="0"
-                class="tarjeta-interactiva group flex flex-col gap-4 rounded-2xl border border-border/60 bg-card p-5 shadow-sm"
+                class="group flex tarjeta-interactiva flex-col gap-4 rounded-2xl border border-border/60 bg-card p-5 shadow-sm"
                 @click="router.visit(evaluacion.url)"
                 @keydown.enter="router.visit(evaluacion.url)"
             >
                 <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0">
-                        <p class="truncate font-semibold">{{ evaluacion.colaborador.nombre }}</p>
+                        <p class="truncate font-semibold">
+                            {{ evaluacion.colaborador.nombre }}
+                        </p>
                         <p class="truncate text-xs text-muted-foreground">
-                            {{ evaluacion.puesto ?? 'Sin puesto' }} · {{ evaluacion.sucursal ?? 'Sin sucursal' }}
+                            {{ evaluacion.puesto ?? 'Sin puesto' }} ·
+                            {{ evaluacion.sucursal ?? 'Sin sucursal' }}
                         </p>
                     </div>
-                    <span class="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium" :class="ESTILO[evaluacion.estado].clase">
-                        <component :is="ESTILO[evaluacion.estado].icono" class="size-3.5" />
+                    <span
+                        class="inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium"
+                        :class="ESTILO[evaluacion.estado].clase"
+                    >
+                        <component
+                            :is="ESTILO[evaluacion.estado].icono"
+                            class="size-3.5"
+                        />
                         {{ evaluacion.estado_etiqueta }}
                     </span>
                 </div>
 
                 <div class="grid grid-cols-3 gap-2 text-center">
                     <div class="rounded-xl bg-muted/60 p-2">
-                        <p class="text-sm font-semibold">{{ fecha(evaluacion.fecha_limite) }}</p>
-                        <p class="text-[11px] text-muted-foreground">Fecha límite</p>
+                        <p class="text-sm font-semibold">
+                            {{ fecha(evaluacion.fecha_limite) }}
+                        </p>
+                        <p class="text-[11px] text-muted-foreground">
+                            Fecha límite
+                        </p>
                     </div>
                     <div class="rounded-xl bg-muted/60 p-2">
                         <p
                             class="text-lg font-bold tabular-nums"
-                            :class="evaluacion.estado !== 'autorizada' && (evaluacion.dias_restantes ?? 99) <= 5 ? 'text-destructive' : ''"
+                            :class="
+                                evaluacion.estado !== 'autorizada' &&
+                                (evaluacion.dias_restantes ?? 99) <= 5
+                                    ? 'text-destructive'
+                                    : ''
+                            "
                         >
                             {{ evaluacion.dias_restantes ?? '—' }}
                         </p>
                         <p class="text-[11px] text-muted-foreground">Días</p>
                     </div>
                     <div class="rounded-xl bg-muted/60 p-2">
-                        <p class="text-lg font-bold tabular-nums">{{ evaluacion.calificacion ?? '—' }}</p>
-                        <p class="text-[11px] text-muted-foreground">Calificación</p>
+                        <p class="text-lg font-bold tabular-nums">
+                            {{ evaluacion.calificacion ?? '—' }}
+                        </p>
+                        <p class="text-[11px] text-muted-foreground">
+                            Calificación
+                        </p>
                     </div>
                 </div>
 
@@ -186,33 +247,50 @@ const fecha = (valor: string | null) =>
                     v-if="evaluacion.contrato_renovacion_id"
                     class="flex flex-col gap-2 rounded-xl border border-success/25 bg-success-soft/50 p-3 text-sm"
                 >
-                    <p class="flex items-center gap-1.5 font-semibold text-success">
+                    <p
+                        class="flex items-center gap-1.5 font-semibold text-success"
+                    >
                         <BadgeCheck class="size-4" /> Evaluación aprobada
                     </p>
                     <p class="flex items-center gap-1.5 text-success">
-                        <FileSignature class="size-4" /> Contrato indeterminado listo
+                        <FileSignature class="size-4" /> Contrato indeterminado
+                        listo
                     </p>
-                    <div v-if="evaluacion.documento_renovacion" class="flex flex-wrap gap-2">
+                    <div
+                        v-if="evaluacion.documento_renovacion"
+                        class="flex flex-wrap gap-2"
+                    >
                         <Button
                             size="sm"
                             variant="outline"
                             class="min-h-11 sm:min-h-8"
-                            @click.stop="documentoActivo = evaluacion.documento_renovacion"
+                            @click.stop="
+                                documentoActivo =
+                                    evaluacion.documento_renovacion
+                            "
                         >
                             <Eye class="size-4" /> Previsualizar
                         </Button>
                         <Button
                             size="sm"
                             class="min-h-11 sm:min-h-8"
-                            @click.stop="imprimir(evaluacion.documento_renovacion.url)"
+                            @click.stop="
+                                imprimir(evaluacion.documento_renovacion.url)
+                            "
                         >
                             <Printer class="size-4" /> Imprimir
                         </Button>
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between border-t border-border/60 pt-3 text-sm">
-                    <span v-if="evaluacion.decision_renovar === false" class="text-muted-foreground">No se renueva</span>
+                <div
+                    class="flex items-center justify-between border-t border-border/60 pt-3 text-sm"
+                >
+                    <span
+                        v-if="evaluacion.decision_renovar === false"
+                        class="text-muted-foreground"
+                        >No se renueva</span
+                    >
                     <span v-else class="text-muted-foreground">&nbsp;</span>
                     <Link
                         :href="evaluacion.url"
@@ -230,6 +308,8 @@ const fecha = (valor: string | null) =>
         :preview-url="documentoActivo?.url ?? null"
         :nombre="documentoActivo?.nombre ?? 'Contrato indeterminado.pdf'"
         tipo="pdf"
-        @update:open="(abierto: boolean) => !abierto && (documentoActivo = null)"
+        @update:open="
+            (abierto: boolean) => !abierto && (documentoActivo = null)
+        "
     />
 </template>

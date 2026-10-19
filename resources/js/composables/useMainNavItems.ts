@@ -183,7 +183,12 @@ export function useMainNavItems() {
             items: (NavItem | false)[],
         ): NavGroup => ({
             ...base,
-            items: items.filter((i): i is NavItem => i !== false),
+            // Un acceso con href marcador '#' (módulo sin pantalla real) nunca
+            // se pinta, aunque se encienda su bandera por error: nada de
+            // enlaces falsos en el menú.
+            items: items.filter(
+                (i): i is NavItem => i !== false && i.href !== '#',
+            ),
         });
 
         const grupos: NavGroup[] = [
@@ -360,7 +365,10 @@ export function useMainNavItems() {
                         href: indexExpedientes(),
                         icon: Users,
                     },
-                    algunPermiso('solicitudes.revisar', 'solicitudes.aprobar') && {
+                    algunPermiso(
+                        'solicitudes.revisar',
+                        'solicitudes.aprobar',
+                    ) && {
                         title: 'Solicitudes',
                         href: indexRhSolicitudes(),
                         icon: ClipboardList,
@@ -523,7 +531,10 @@ export function useMainNavItems() {
                         href: indexImportarDatos(),
                         icon: FileSpreadsheet,
                     },
-                    algunPermiso('configuracion.ver', 'notificaciones.ver_todas') && {
+                    algunPermiso(
+                        'configuracion.ver',
+                        'notificaciones.ver_todas',
+                    ) && {
                         title: 'Ajustes y notificaciones',
                         href: indexConfiguracion(),
                         icon: Settings2,

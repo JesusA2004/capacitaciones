@@ -89,7 +89,7 @@ flowchart TD
 9. **[Nómina](#proceso-nomina)** — Recibos simples (no CFDI) por lote: semanal para sucursales y quincenal para corporativo. PEOPLE prepara, RH revisa uno por uno, emite, imprime y entrega el recibo impreso. _(30 a 60 minutos por lote; RH)_
 10. **[Avisos](#proceso-avisos)** — Comunicados de RH con título, mensaje e imagen, para toda la empresa o para una persona. Llegan por notificación y push y quedan en su expediente. _(2 minutos; RH, Colaborador)_
 11. **[Vida laboral](#proceso-vida-laboral)** — Lo que pasa mientras la persona trabaja: cumpleaños y aniversarios, cambios de puesto o sucursal registrados en su historial y el uso diario de la app. _(Continuo; Colaborador, RH, Gerente)_
-12. **[Baja y finiquito](#proceso-baja)** — Cierre laboral: el jefe directo (o RH) inicia la baja desde el colaborador, sin solicitud previa; RH autoriza, calcula y autoriza el finiquito, se programa el pago, se firma y se ejecuta la baja. _(1 a 3 semanas; Gerente, Regional, RH, Sistemas)_
+12. **[Baja y finiquito](#proceso-baja)** — Cierre laboral: el jefe directo (o RH) inicia la baja desde el colaborador, sin solicitud previa; la baja queda aplicada; RH calcula y ajusta el finiquito y, al registrar su entrega, el cierre queda completo. _(1 a 3 semanas; Gerente, Regional, RH, Sistemas)_
 13. **[Reingresos](#proceso-reingresos)** — Volver a contratar a alguien sin crear otra persona: misma cuenta y mismo historial, un ciclo laboral nuevo. _(1 a 5 días; Gerente, RH)_
 14. **[Administración](#proceso-administracion)** — Estructura (empresas, sucursales, puestos, plantilla autorizada), cuentas y roles, notificaciones, documentos maestros, la app y la bandeja Mis pendientes. _(Según el ajuste; RH, Sistemas)_
 
@@ -1397,7 +1397,7 @@ RH elige a quién le presenta la inducción, la presenta (en sala o por Meet), e
 4. **RH revisa y califica** _(RH · Web)_ — Le llega el aviso «Evaluación de inducción por calificar». En la revisión ve cada pregunta con la respuesta del colaborador y si acertó (A/B/C se califican solas), marca la rúbrica oficial de los casos prácticos (D), puede dejar un comentario y ve el total /30. Desde ahí también ve la vista previa del formato FO-RH-EI, lo descarga o lo guarda en el expediente.
 5. **Si requiere reforzamiento** _(RH)_ — Menos de 24/30: RH deja retroalimentación y habilita la reevaluación (plazo de 5 días hábiles). El colaborador no puede reintentar antes.
 6. **Seguimiento** _(RH · Web)_ — En «Presentar inducción» RH ve a cada persona en ingreso: Pendiente de presentar → Presentada · por contestar → Por calificar (D) → Aprobada / Reforzamiento, y si ya está Laborando.
-7. **Autoestudio (opcional)** _(Colaborador · Web y app)_ — El colaborador también puede recorrer el PDF desde Mis pendientes; al terminar todas las páginas, «Terminé la inducción» habilita su evaluación.
+7. **Qué ve el colaborador** _(Colaborador · Web y app)_ — El colaborador nunca presenta: en Mi espacio → «Inducción Mr. Lana» solo ve el PDF mientras la sesión de RH en la que lo incluyeron está en curso. Antes de la sesión ve que RH se la presentará; después, su evaluación por contestar y, al terminarla, que ya la completó (sin el contenido).
 
 #### Qué pasa después
 
@@ -1416,7 +1416,7 @@ RH elige a quién le presenta la inducción, la presenta (en sala o por Meet), e
 
 #### Errores comunes
 
-- **«No me aparece la evaluación.»** RH todavía no pulsa «Enviar evaluación» de la sesión donde te presentó la inducción, o aún no inicia tu proceso de ingreso. También puedes recorrer todas las páginas desde Mis pendientes y pulsar «Terminé la inducción».
+- **«No me aparece la evaluación.»** RH todavía no pulsa «Enviar evaluación» de la sesión donde te presentó la inducción, o aún no inicia tu proceso de ingreso.
 - **«No encuentro a la persona en el buscador.»** Solo aparecen colaboradores no dados de baja dentro de tu alcance.
 
 #### Relacionado con
@@ -2197,7 +2197,7 @@ RH.
 
 ## 12. Baja y finiquito
 
-Cierre laboral: el jefe directo (o RH) inicia la baja desde el colaborador, sin solicitud previa; RH autoriza, calcula y autoriza el finiquito, se programa el pago, se firma y se ejecuta la baja.
+Cierre laboral: el jefe directo (o RH) inicia la baja desde el colaborador, sin solicitud previa; la baja queda aplicada; RH calcula y ajusta el finiquito y, al registrar su entrega, el cierre queda completo.
 
 **Tiempo estimado:** 1 a 3 semanas · **Roles:** Gerente, Regional, RH, Sistemas · **En pantalla:** `/ayuda/proceso/baja`
 
@@ -2205,7 +2205,7 @@ Cierre laboral: el jefe directo (o RH) inicia la baja desde el colaborador, sin 
 
 ### Baja de un colaborador (cierre laboral)
 
-> El jefe directo (o RH) inicia la baja desde el colaborador, sin solicitud previa ni preautorización; RH autoriza. Al iniciarla se suspende el acceso; la baja se ejecuta en la fecha efectiva, ya pagado y firmado el finiquito.
+> El jefe directo (o RH) inicia la baja desde el colaborador y queda aplicada de inmediato: sin solicitud previa, sin autorización de RH y sin subir archivos. Al iniciarla se suspende el acceso; siguen los documentos de la baja y el finiquito.
 
 #### Qué es
 
@@ -2213,9 +2213,9 @@ Es el cierre de la relación laboral. Nunca borra a la persona: bloquea su acces
 
 #### Quién lo hace
 
-Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más puede iniciarla. Autoriza RH. Programa el pago la coordinación regional. El gerente cita, recaba firma y huella. RH confirma el pago y concluye.
+Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más puede iniciarla y no necesita autorización. Después se generan los documentos, RH calcula el finiquito y, al registrar su entrega, el cierre queda completo.
 
-> **Importante:** Al INICIAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si la baja se rechaza o cancela, el acceso vuelve solo. Su estatus laboral no cambia hasta la autorización de RH y la fecha efectiva.
+> **Importante:** Al INICIAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si RH cancela el cierre, el acceso vuelve solo. Su estatus laboral (inactivo, vacante) se ejecuta al concluir el cierre.
 
 #### Antes de empezar
 
@@ -2224,14 +2224,10 @@ Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más 
 
 #### Pasos
 
-1. **«Iniciar baja»** _(Gerente)_ — Expedientes → la persona de tu equipo → Ciclo laboral → «Iniciar baja»: causa (renuncia, no renovación, bajo desempeño, baja inmediata…), motivo, fecha efectiva y evidencias (PDF o imagen). Pasa directo a RH.
-2. **«Autorizar baja»** _(RH)_ — RH autoriza, devuelve o rechaza. Si la devuelve, regresa a quien la inició (jefe directo o RH), que la corrige y la reenvía con «Corregir y reenviar a RH»; no pasa por preautorización. Al autorizar se preparan los documentos de la causa.
-3. **«Registrar renuncia / aviso firmado»** _(RH)_ — Se sube la renuncia o el aviso firmado.
-4. **Finiquito** _(RH)_ — «Calcular finiquito» y «Autorizar finiquito» (ver el artículo de finiquito).
-5. **«Programar pago»** _(Regional)_ — Fecha, monto y método.
-6. **«Registrar cita» y «Registrar firma y huella»** _(Gerente)_ — El gerente cita a la persona, recaba la firma y la huella del finiquito y sube el documento firmado.
-7. **«Confirmar pago»** _(RH)_ — RH confirma que se pagó.
-8. **«Concluir cierre laboral»** _(RH)_ — Desde la fecha efectiva: la baja se ejecuta y el expediente queda cerrado. PEOPLE recuerda a RH los cierres pagados cuya fecha ya llegó.
+1. **«Iniciar baja»** _(Gerente)_ — Expedientes → la persona de tu equipo → Ciclo laboral → «Iniciar baja»: causa (renuncia, no renovación, bajo desempeño, baja inmediata…), motivo y fecha efectiva. No se sube ningún archivo. Al confirmar, la baja queda aplicada (sin autorización de RH) y el sistema prepara los documentos de la causa.
+2. **Renuncia / aviso en «Documentos de la baja»** _(RH)_ — El sistema genera la renuncia (o el aviso de terminación): «Imprimir» y, ya firmada en papel, «Marcar como firmado físicamente». No se sube ningún archivo. Si la persona se niega a firmar, «El colaborador se negó a firmar/recibir».
+3. **«Calcular finiquito»** _(RH)_ — Muestra al momento el desglose por concepto; «Ver / editar finiquito» para ajustar montos con motivo (ver el artículo de finiquito). No hay que autorizarlo.
+4. **«Registrar entrega de finiquito»** _(RH)_ — Desde la fecha efectiva: fecha de entrega, forma de pago y comentario. El finiquito se congela, la baja se ejecuta y el cierre laboral queda completo.
 
 #### Qué pasa después
 
@@ -2241,8 +2237,7 @@ Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más 
 
 #### Notificaciones
 
-- «Baja iniciada» a regionales y RH.
-- «Autorización» a RH; «Pago por programar» a la coordinación; «Cita de finiquito» al jefe.
+- «Baja aplicada» a regionales y RH.
 - Baja ejecutada → RH y Sistemas.
 
 #### Documentos que se generan
@@ -2256,7 +2251,7 @@ Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más 
 
 #### Errores comunes
 
-- **«No me deja concluir.»** La baja exige finiquito firmado y pago confirmado, y no se ejecuta antes de la fecha efectiva.
+- **«No me deja concluir.»** El cierre se completa al registrar la entrega del finiquito, que solo se permite desde la fecha efectiva.
 - **«¿Cómo hago una baja?»** Desde el Ciclo laboral de la persona. Expedientes → la persona → Ciclo laboral → «Iniciar baja». No se pide desde Solicitudes.
 
 #### Relacionado con
@@ -2274,7 +2269,7 @@ Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más 
 
 ### Finiquito
 
-> PEOPLE calcula sueldo pendiente, aguinaldo, vacaciones, prima vacacional e ISR; RH revisa, ajusta lo autorizado y genera el PDF para firma.
+> PEOPLE calcula sueldo pendiente, aguinaldo, vacaciones, prima vacacional e ISR; RH revisa, ajusta montos y registra la entrega, que cierra la baja.
 
 #### Qué es
 
@@ -2282,36 +2277,36 @@ Es el cálculo del pago final de la persona que se va.
 
 #### Quién lo hace
 
-RH, Regional.
+RH.
 
 #### Antes de empezar
 
-- La baja está autorizada por RH.
+- La baja ya está aplicada (se inició desde el ciclo laboral).
 
 #### Pasos
 
-1. **«Calcular finiquito»** — Desde el ciclo laboral, con el sueldo mensual y el sueldo pendiente.
+1. **«Calcular finiquito»** — Desde el ciclo laboral. El sueldo se toma del salario diario registrado (× 30) y puedes cambiarlo. Al terminar se abre el desglose.
 2. **Revisa los conceptos** — Percepciones: sueldo pendiente, aguinaldo proporcional, vacaciones proporcionales, prima vacacional, indemnización y bonos extra (si aplican). Deducciones: ISR retenido, otras deducciones y adeudos.
-3. **Ajusta lo autorizado** — En Solicitudes → la solicitud de baja → panel «Finiquito»: ajusta el importe de un concepto automático (con motivo), bonos, descuentos, adeudos o agrega conceptos.
-4. **Vista previa y PDF** — Revisa la vista previa, márcalo como revisado y genera el PDF.
-5. **«Autorizar finiquito»** — Queda listo para programar el pago.
-6. **Firmado** — Al subir el finiquito firmado (con huella) queda bloqueado: ya no admite ajustes.
+3. **Ajusta montos** — «Ver / editar finiquito» (en el estado del cierre o en la tarjeta «Finiquito» de Documentos de la baja): el lápiz de cada concepto cambia su importe con motivo; «Agregar renglón» suma una percepción o deducción. El total lo recalcula PEOPLE y queda quién y cuándo editó.
+4. **Vista previa PDF** — Revisa el formato del finiquito con los montos actuales.
+5. **«Registrar entrega de finiquito»** — Fecha, forma de pago y comentario. El finiquito queda congelado (solo lectura) y el cierre laboral completo.
 
 #### Qué pasa después
 
-- La descarga entrega el escaneo firmado cuando existe.
+- Después de la entrega el finiquito se puede ver e imprimir, pero ya no editar.
 
 #### Documentos que se generan
 
-- Finiquito en PDF (y el escaneo firmado)
+- Finiquito en PDF
 
 #### Qué queda registrado
 
-- Cálculo, cada ajuste con motivo y autor, autorización, firma y pago.
+- Cálculo, cada ajuste con motivo y autor, y la entrega (fecha, forma de pago, quién).
 
 #### Errores comunes
 
-- **«No puedo ajustar el finiquito.»** Ya está firmado o pagado: queda bloqueado para proteger el documento firmado.
+- **«No puedo ajustar el finiquito.»** Ya se registró su entrega: queda congelado tal como se entregó.
+- **«No me deja registrar la entrega.»** La baja todavía no llega a su fecha efectiva, o la fecha de entrega es futura.
 - **«Un ajuste no se guarda.»** Escribe el motivo: todo ajuste queda auditado.
 
 #### Relacionado con

@@ -353,9 +353,7 @@ function eliminarConcepto(id: number) {
                             "
                             class="block text-xs font-normal text-muted-foreground"
                             >+
-                            {{
-                                finiquito.vacaciones_proporcionales
-                            }}
+                            {{ finiquito.vacaciones_proporcionales }}
                             proporcionales del año en curso</span
                         >
                     </p>
@@ -365,221 +363,227 @@ function eliminarConcepto(id: number) {
             <!-- Desglose: automáticos (solo lectura) + capturados por RH
                  (editables/eliminables) — misma fuente que el PDF. -->
             <div class="tabla-scroll">
-            <table class="w-full min-w-[32rem] text-sm">
-                <tbody class="divide-y divide-border/60">
-                    <tr v-if="ajustandoClave" class="bg-warning-soft/40">
-                        <td colspan="4" class="p-2">
-                            <form
-                                class="flex flex-wrap items-end gap-2"
-                                @submit.prevent="guardarAjuste"
-                            >
-                                <span class="w-full text-xs font-medium"
-                                    >Ajuste autorizado de «{{
-                                        desglose.find(
-                                            (f) =>
-                                                f.concepto_clave ===
-                                                ajustandoClave,
-                                        )?.concepto
-                                    }}» (calculado
-                                    {{
-                                        moneda(
+                <table class="w-full min-w-[32rem] text-sm">
+                    <tbody class="divide-y divide-border/60">
+                        <tr v-if="ajustandoClave" class="bg-warning-soft/40">
+                            <td colspan="4" class="p-2">
+                                <form
+                                    class="flex flex-wrap items-end gap-2"
+                                    @submit.prevent="guardarAjuste"
+                                >
+                                    <span class="w-full text-xs font-medium"
+                                        >Ajuste autorizado de «{{
                                             desglose.find(
                                                 (f) =>
                                                     f.concepto_clave ===
                                                     ajustandoClave,
-                                            )?.valor_calculado ?? 0,
-                                        )
-                                    }})</span
+                                            )?.concepto
+                                        }}» (calculado
+                                        {{
+                                            moneda(
+                                                desglose.find(
+                                                    (f) =>
+                                                        f.concepto_clave ===
+                                                        ajustandoClave,
+                                                )?.valor_calculado ?? 0,
+                                            )
+                                        }})</span
+                                    >
+                                    <Input
+                                        v-model="formAjuste.importe"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        class="w-32"
+                                        title="Importe final"
+                                    />
+                                    <Input
+                                        v-model="formAjuste.motivo"
+                                        class="min-w-[12rem] flex-1"
+                                        placeholder="Motivo del ajuste (obligatorio)"
+                                    />
+                                    <Button
+                                        type="submit"
+                                        size="sm"
+                                        :disabled="formAjuste.processing"
+                                        >Guardar</Button
+                                    >
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        @click="ajustandoClave = null"
+                                        >Cancelar</Button
+                                    >
+                                    <p
+                                        v-if="
+                                            formAjuste.errors.motivo ||
+                                            formAjuste.errors.importe
+                                        "
+                                        class="w-full text-xs text-destructive"
+                                    >
+                                        {{
+                                            formAjuste.errors.motivo ??
+                                            formAjuste.errors.importe
+                                        }}
+                                    </p>
+                                </form>
+                            </td>
+                        </tr>
+                        <tr
+                            v-for="fila in desglose"
+                            :key="fila.id ?? fila.clave ?? fila.concepto"
+                        >
+                            <template v-if="fila.id !== editandoConceptoId">
+                                <td
+                                    class="w-12 py-1.5 font-mono text-xs text-muted-foreground tabular-nums"
                                 >
-                                <Input
-                                    v-model="formAjuste.importe"
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    class="w-32"
-                                    title="Importe final"
-                                />
-                                <Input
-                                    v-model="formAjuste.motivo"
-                                    class="min-w-[12rem] flex-1"
-                                    placeholder="Motivo del ajuste (obligatorio)"
-                                />
-                                <Button
-                                    type="submit"
-                                    size="sm"
-                                    :disabled="formAjuste.processing"
-                                    >Guardar</Button
-                                >
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="ghost"
-                                    @click="ajustandoClave = null"
-                                    >Cancelar</Button
-                                >
-                                <p
+                                    {{ fila.clave }}
+                                </td>
+                                <td class="py-1.5 text-muted-foreground">
+                                    <span
+                                        class="mr-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                                        :class="
+                                            fila.tipo === 'deduccion'
+                                                ? 'bg-destructive/10 text-destructive'
+                                                : 'bg-primary/10 text-primary'
+                                        "
+                                        >{{
+                                            fila.tipo === 'deduccion'
+                                                ? 'Deducción'
+                                                : 'Percepción'
+                                        }}</span
+                                    >
+                                    {{ fila.concepto }}
+                                    <span v-if="fila.dias" class="text-xs"
+                                        >({{ fila.dias }} días)</span
+                                    >
+                                    <span
+                                        v-if="fila.ajustado && fila.ajuste"
+                                        class="mt-0.5 block text-[11px] text-warning"
+                                        :title="fila.ajuste.motivo"
+                                        >Ajustado: calculado
+                                        {{
+                                            moneda(fila.ajuste.valor_calculado)
+                                        }}
+                                        →
+                                        {{ moneda(fila.ajuste.valor_final) }} ·
+                                        {{ fila.ajuste.motivo
+                                        }}<template v-if="fila.ajuste.usuario">
+                                            ·
+                                            {{ fila.ajuste.usuario }}</template
+                                        ></span
+                                    >
+                                    <span
+                                        v-if="fila.origen === 'manual'"
+                                        class="ml-1 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground uppercase"
+                                        >manual</span
+                                    >
+                                </td>
+                                <td class="py-1.5 text-right tabular-nums">
+                                    {{ fila.tipo === 'deduccion' ? '−' : ''
+                                    }}{{ moneda(fila.importe) }}
+                                </td>
+                                <td
                                     v-if="
-                                        formAjuste.errors.motivo ||
-                                        formAjuste.errors.importe
+                                        fila.origen === 'manual' &&
+                                        puedeEditarAjustes
                                     "
-                                    class="w-full text-xs text-destructive"
+                                    class="w-16 py-1.5 text-right"
                                 >
-                                    {{
-                                        formAjuste.errors.motivo ??
-                                        formAjuste.errors.importe
-                                    }}
-                                </p>
-                            </form>
-                        </td>
-                    </tr>
-                    <tr
-                        v-for="fila in desglose"
-                        :key="fila.id ?? fila.clave ?? fila.concepto"
-                    >
-                        <template v-if="fila.id !== editandoConceptoId">
-                            <td
-                                class="w-12 py-1.5 font-mono text-xs text-muted-foreground tabular-nums"
-                            >
-                                {{ fila.clave }}
-                            </td>
-                            <td class="py-1.5 text-muted-foreground">
-                                <span
-                                    class="mr-1.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium"
-                                    :class="
-                                        fila.tipo === 'deduccion'
-                                            ? 'bg-destructive/10 text-destructive'
-                                            : 'bg-primary/10 text-primary'
+                                    <button
+                                        type="button"
+                                        class="text-muted-foreground hover:text-foreground"
+                                        @click="abrirEdicionConcepto(fila)"
+                                    >
+                                        <Pencil class="size-3.5" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="ml-2 text-muted-foreground hover:text-destructive"
+                                        @click="eliminarConcepto(fila.id!)"
+                                    >
+                                        <Trash2 class="size-3.5" />
+                                    </button>
+                                </td>
+                                <td
+                                    v-else-if="
+                                        fila.concepto_clave &&
+                                        puedeEditarAjustes &&
+                                        !cerrado
                                     "
-                                    >{{
-                                        fila.tipo === 'deduccion'
-                                            ? 'Deducción'
-                                            : 'Percepción'
-                                    }}</span
+                                    class="w-16 py-1.5 text-right"
                                 >
-                                {{ fila.concepto }}
-                                <span v-if="fila.dias" class="text-xs"
-                                    >({{ fila.dias }} días)</span
-                                >
-                                <span
-                                    v-if="fila.ajustado && fila.ajuste"
-                                    class="mt-0.5 block text-[11px] text-warning"
-                                    :title="fila.ajuste.motivo"
-                                    >Ajustado: calculado
-                                    {{ moneda(fila.ajuste.valor_calculado) }} →
-                                    {{ moneda(fila.ajuste.valor_final) }} ·
-                                    {{ fila.ajuste.motivo
-                                    }}<template v-if="fila.ajuste.usuario">
-                                        · {{ fila.ajuste.usuario }}</template
-                                    ></span
-                                >
-                                <span
-                                    v-if="fila.origen === 'manual'"
-                                    class="ml-1 rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground uppercase"
-                                    >manual</span
-                                >
-                            </td>
-                            <td class="py-1.5 text-right tabular-nums">
-                                {{ fila.tipo === 'deduccion' ? '−' : ''
-                                }}{{ moneda(fila.importe) }}
-                            </td>
-                            <td
-                                v-if="
-                                    fila.origen === 'manual' &&
-                                    puedeEditarAjustes
-                                "
-                                class="w-16 py-1.5 text-right"
-                            >
-                                <button
-                                    type="button"
-                                    class="text-muted-foreground hover:text-foreground"
-                                    @click="abrirEdicionConcepto(fila)"
-                                >
-                                    <Pencil class="size-3.5" />
-                                </button>
-                                <button
-                                    type="button"
-                                    class="ml-2 text-muted-foreground hover:text-destructive"
-                                    @click="eliminarConcepto(fila.id!)"
-                                >
-                                    <Trash2 class="size-3.5" />
-                                </button>
-                            </td>
-                            <td
-                                v-else-if="
-                                    fila.concepto_clave &&
-                                    puedeEditarAjustes &&
-                                    !cerrado
-                                "
-                                class="w-16 py-1.5 text-right"
-                            >
-                                <button
-                                    type="button"
-                                    class="text-xs font-medium text-primary hover:underline"
-                                    @click="abrirAjuste(fila)"
-                                >
-                                    Ajustar
-                                </button>
-                            </td>
-                            <td v-else />
-                        </template>
+                                    <button
+                                        type="button"
+                                        class="text-xs font-medium text-primary hover:underline"
+                                        @click="abrirAjuste(fila)"
+                                    >
+                                        Ajustar
+                                    </button>
+                                </td>
+                                <td v-else />
+                            </template>
 
-                        <!-- Edición en línea del concepto manual seleccionado. -->
-                        <td v-else colspan="4" class="py-1.5">
-                            <form
-                                class="flex flex-wrap items-end gap-2"
-                                @submit.prevent="guardarEdicionConcepto"
-                            >
-                                <SelectSimple
-                                    v-model="formEditarConcepto.tipo"
-                                    class="w-32"
-                                    :opciones="TIPOS_CONCEPTO"
-                                />
-                                <Input
-                                    v-model="formEditarConcepto.concepto"
-                                    class="min-w-[9rem] flex-1"
-                                    placeholder="Concepto"
-                                />
-                                <Input
-                                    v-model="formEditarConcepto.cantidad"
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    class="w-20"
-                                    title="Cantidad"
-                                />
-                                <Input
-                                    v-model="formEditarConcepto.importe"
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    class="w-28"
-                                    title="Importe"
-                                />
-                                <Button
-                                    size="sm"
-                                    type="submit"
-                                    :disabled="formEditarConcepto.processing"
-                                    >Guardar</Button
+                            <!-- Edición en línea del concepto manual seleccionado. -->
+                            <td v-else colspan="4" class="py-1.5">
+                                <form
+                                    class="flex flex-wrap items-end gap-2"
+                                    @submit.prevent="guardarEdicionConcepto"
                                 >
-                                <Button
-                                    type="button"
-                                    size="icon"
-                                    variant="ghost"
-                                    @click="editandoConceptoId = null"
-                                    ><X class="size-4"
-                                /></Button>
-                            </form>
-                        </td>
-                    </tr>
-                    <tr class="font-medium">
-                        <td class="py-1.5">Total calculado</td>
-                        <td class="py-1.5 text-right tabular-nums">
-                            {{ moneda(finiquito.total_calculado) }}
-                        </td>
-                        <td />
-                    </tr>
-                </tbody>
-            </table>
+                                    <SelectSimple
+                                        v-model="formEditarConcepto.tipo"
+                                        class="w-32"
+                                        :opciones="TIPOS_CONCEPTO"
+                                    />
+                                    <Input
+                                        v-model="formEditarConcepto.concepto"
+                                        class="min-w-[9rem] flex-1"
+                                        placeholder="Concepto"
+                                    />
+                                    <Input
+                                        v-model="formEditarConcepto.cantidad"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        class="w-20"
+                                        title="Cantidad"
+                                    />
+                                    <Input
+                                        v-model="formEditarConcepto.importe"
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        class="w-28"
+                                        title="Importe"
+                                    />
+                                    <Button
+                                        size="sm"
+                                        type="submit"
+                                        :disabled="
+                                            formEditarConcepto.processing
+                                        "
+                                        >Guardar</Button
+                                    >
+                                    <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="ghost"
+                                        @click="editandoConceptoId = null"
+                                        ><X class="size-4"
+                                    /></Button>
+                                </form>
+                            </td>
+                        </tr>
+                        <tr class="font-medium">
+                            <td class="py-1.5">Total calculado</td>
+                            <td class="py-1.5 text-right tabular-nums">
+                                {{ moneda(finiquito.total_calculado) }}
+                            </td>
+                            <td />
+                        </tr>
+                    </tbody>
+                </table>
             </div>
 
             <!-- Agregar un concepto manual (percepción o deducción). -->

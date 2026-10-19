@@ -53,7 +53,9 @@ const clasesOpcion = (activa: boolean) =>
         ? 'border-primary bg-primary/5 ring-1 ring-primary'
         : 'border-border/70 hover:border-primary/30 hover:bg-muted/50';
 
-const tieneTipo = computed(() => props.opcionesTipo.some((o) => o.value === permisoTipo.value));
+const tieneTipo = computed(() =>
+    props.opcionesTipo.some((o) => o.value === permisoTipo.value),
+);
 </script>
 
 <template>
@@ -70,10 +72,17 @@ const tieneTipo = computed(() => props.opcionesTipo.some((o) => o.value === perm
                     :aria-pressed="permisoTipo === opcion.value"
                     @click="permisoTipo = opcion.value"
                 >
-                    <span class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                        <component :is="ICONOS[opcion.value] ?? Clock3" class="size-4" />
+                    <span
+                        class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+                    >
+                        <component
+                            :is="ICONOS[opcion.value] ?? Clock3"
+                            class="size-4"
+                        />
                     </span>
-                    <span class="text-sm font-semibold">{{ opcion.label }}</span>
+                    <span class="text-sm font-semibold">{{
+                        opcion.label
+                    }}</span>
                 </button>
             </div>
             <InputError :message="errores.permiso_tipo" />
@@ -87,17 +96,35 @@ const tieneTipo = computed(() => props.opcionesTipo.some((o) => o.value === perm
             </div>
             <div v-if="permisoTipo === 'faltar'" class="grid gap-2">
                 <Label for="permiso-dias">Días</Label>
-                <Input id="permiso-dias" v-model="duracionDias" type="number" min="1" max="30" inputmode="numeric" />
+                <Input
+                    id="permiso-dias"
+                    v-model="duracionDias"
+                    type="number"
+                    min="1"
+                    max="30"
+                    inputmode="numeric"
+                />
                 <InputError :message="errores.duracion_dias" />
             </div>
-            <div v-else-if="permisoTipo === 'salir_temprano'" class="grid gap-2">
+            <div
+                v-else-if="permisoTipo === 'salir_temprano'"
+                class="grid gap-2"
+            >
                 <Label for="permiso-hora-salida">Hora de salida</Label>
-                <TimePicker id="permiso-hora-salida" v-model="horaSalida" placeholder="Hora de salida" />
+                <TimePicker
+                    id="permiso-hora-salida"
+                    v-model="horaSalida"
+                    placeholder="Hora de salida"
+                />
                 <InputError :message="errores.hora_salida" />
             </div>
             <div v-else class="grid gap-2">
                 <Label for="permiso-hora-entrada">Hora de entrada</Label>
-                <TimePicker id="permiso-hora-entrada" v-model="horaEntrada" placeholder="Hora de entrada" />
+                <TimePicker
+                    id="permiso-hora-entrada"
+                    v-model="horaEntrada"
+                    placeholder="Hora de entrada"
+                />
                 <InputError :message="errores.hora_entrada" />
             </div>
         </section>
@@ -124,7 +151,10 @@ const tieneTipo = computed(() => props.opcionesTipo.some((o) => o.value === perm
             v-if="esEspecial"
             class="grid gap-2 rounded-2xl border border-oro/40 bg-warning-soft/40 p-4"
         >
-            <Label class="flex items-center gap-1.5"><Sparkles class="size-3.5 text-oro" /> Causal del permiso especial</Label>
+            <Label class="flex items-center gap-1.5"
+                ><Sparkles class="size-3.5 text-oro" /> Causal del permiso
+                especial</Label
+            >
             <div class="flex flex-wrap gap-2">
                 <button
                     v-for="opcion in opcionesCausal"

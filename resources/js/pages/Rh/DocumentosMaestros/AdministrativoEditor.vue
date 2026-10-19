@@ -152,13 +152,15 @@ function insertarEnCampo(
     placeholder: string,
 ) {
     const actual = diseno.content[campo] ?? '';
-    diseno.content[campo] = actual.length > 0 ? `${actual} ${placeholder}` : placeholder;
+    diseno.content[campo] =
+        actual.length > 0 ? `${actual} ${placeholder}` : placeholder;
 }
 
 function insertarEnPie(placeholder: string) {
-    diseno.footer.text = diseno.footer.text.length > 0
-        ? `${diseno.footer.text} ${placeholder}`
-        : placeholder;
+    diseno.footer.text =
+        diseno.footer.text.length > 0
+            ? `${diseno.footer.text} ${placeholder}`
+            : placeholder;
 }
 
 function iniciarBorrador(): void {
@@ -282,7 +284,7 @@ const claseCampo =
                  derecha en escritorio (mismo orden que el resto del panel de
                  herramientas | preview). -->
             <section
-                class="order-1 flex flex-col gap-3 xl:order-2 xl:sticky xl:top-4 xl:self-start"
+                class="order-1 flex flex-col gap-3 xl:sticky xl:top-4 xl:order-2 xl:self-start"
             >
                 <div class="flex items-center justify-between gap-2">
                     <h2 class="font-semibold">Vista previa</h2>
@@ -463,11 +465,15 @@ const claseCampo =
                     </summary>
                     <div class="mt-4 grid gap-4">
                         <div class="grid gap-1.5">
-                            <div class="flex items-center justify-between gap-2">
+                            <div
+                                class="flex items-center justify-between gap-2"
+                            >
                                 <Label for="titulo">Título</Label>
                                 <SelectorCampoPlantilla
                                     :campos="familia.campos"
-                                    @insertar="(p) => insertarEnCampo('titulo', p)"
+                                    @insertar="
+                                        (p) => insertarEnCampo('titulo', p)
+                                    "
                                 />
                             </div>
                             <Input
@@ -477,11 +483,15 @@ const claseCampo =
                             />
                         </div>
                         <div class="grid gap-1.5">
-                            <div class="flex items-center justify-between gap-2">
+                            <div
+                                class="flex items-center justify-between gap-2"
+                            >
                                 <Label for="subtitulo">Subtítulo</Label>
                                 <SelectorCampoPlantilla
                                     :campos="familia.campos"
-                                    @insertar="(p) => insertarEnCampo('subtitulo', p)"
+                                    @insertar="
+                                        (p) => insertarEnCampo('subtitulo', p)
+                                    "
                                 />
                             </div>
                             <Input
@@ -491,11 +501,15 @@ const claseCampo =
                             />
                         </div>
                         <div class="grid gap-1.5">
-                            <div class="flex items-center justify-between gap-2">
+                            <div
+                                class="flex items-center justify-between gap-2"
+                            >
                                 <Label for="leyenda">Leyenda</Label>
                                 <SelectorCampoPlantilla
                                     :campos="familia.campos"
-                                    @insertar="(p) => insertarEnCampo('leyenda', p)"
+                                    @insertar="
+                                        (p) => insertarEnCampo('leyenda', p)
+                                    "
                                 />
                             </div>
                             <Textarea
@@ -505,11 +519,15 @@ const claseCampo =
                             />
                         </div>
                         <div class="grid gap-1.5">
-                            <div class="flex items-center justify-between gap-2">
+                            <div
+                                class="flex items-center justify-between gap-2"
+                            >
                                 <Label for="nota">Nota</Label>
                                 <SelectorCampoPlantilla
                                     :campos="familia.campos"
-                                    @insertar="(p) => insertarEnCampo('nota', p)"
+                                    @insertar="
+                                        (p) => insertarEnCampo('nota', p)
+                                    "
                                 />
                             </div>
                             <Textarea
@@ -776,9 +794,7 @@ const claseCampo =
                 </details>
 
                 <details class="rounded-2xl border bg-card p-4">
-                    <summary class="cursor-pointer font-semibold">
-                        Pie
-                    </summary>
+                    <summary class="cursor-pointer font-semibold">Pie</summary>
                     <div class="mt-4 grid gap-4 sm:grid-cols-3">
                         <label class="flex items-center gap-2 text-sm">
                             <input
@@ -804,7 +820,9 @@ const claseCampo =
                             />
                         </div>
                         <div class="grid gap-1.5 sm:col-span-3">
-                            <div class="flex items-center justify-between gap-2">
+                            <div
+                                class="flex items-center justify-between gap-2"
+                            >
                                 <Label>Texto del pie</Label>
                                 <SelectorCampoPlantilla
                                     :campos="familia.campos"
@@ -836,8 +854,7 @@ const claseCampo =
                                         Predeterminado del servidor ({{
                                             motores.find(
                                                 (m) =>
-                                                    m.valor ===
-                                                    motorPorDefecto,
+                                                    m.valor === motorPorDefecto,
                                             )?.etiqueta
                                         }})
                                     </option>
@@ -935,21 +952,18 @@ const claseCampo =
                                         v-model="diseno.paragraph.align"
                                         :class="claseCampo"
                                     >
-                                        <option value="left">
-                                            Izquierda
-                                        </option>
+                                        <option value="left">Izquierda</option>
                                         <option value="justify">
                                             Justificado
                                         </option>
-                                        <option value="center">
-                                            Centrado
-                                        </option>
+                                        <option value="center">Centrado</option>
                                         <option value="right">Derecha</option>
                                     </select>
                                 </div>
                                 <div
                                     v-for="(etiqueta, campo) in {
-                                        indent_left_mm: 'Sangría izquierda (mm)',
+                                        indent_left_mm:
+                                            'Sangría izquierda (mm)',
                                         indent_right_mm: 'Sangría derecha (mm)',
                                         first_line_mm: 'Primera línea (mm)',
                                         space_before_pt: 'Espacio antes (pt)',
@@ -1003,7 +1017,9 @@ const claseCampo =
                             </p>
                             <div class="grid gap-4 sm:grid-cols-3">
                                 <div class="grid gap-1.5">
-                                    <Label>Espaciado entre secciones (mm)</Label>
+                                    <Label
+                                        >Espaciado entre secciones (mm)</Label
+                                    >
                                     <Input
                                         v-model.number="
                                             diseno.sections.spacing_mm
@@ -1051,8 +1067,7 @@ const claseCampo =
                             <p class="text-xs text-muted-foreground">
                                 Normalmente no hace falta escribirlos a mano:
                                 usa "Insertar campo" en Contenido y Pie. Aquí
-                                están por si prefieres escribirlos
-                                directamente.
+                                están por si prefieres escribirlos directamente.
                             </p>
                             <p class="mt-2 text-xs text-muted-foreground">
                                 <code
@@ -1122,10 +1137,7 @@ const claseCampo =
                                 }}</span
                             >
                         </div>
-                        <p
-                            v-if="v.notas"
-                            class="text-xs text-muted-foreground"
-                        >
+                        <p v-if="v.notas" class="text-xs text-muted-foreground">
                             {{ v.notas }}
                         </p>
                         <p class="text-xs text-muted-foreground">

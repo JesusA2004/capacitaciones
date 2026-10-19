@@ -62,7 +62,9 @@ const { filtros, aplicarConDebounce, limpiar } = useFiltros(
     },
 );
 
-function variantePaquete(fila: ContratoFila): 'success' | 'warning' | 'secondary' {
+function variantePaquete(
+    fila: ContratoFila,
+): 'success' | 'warning' | 'secondary' {
     if (fila.paquete_firmado) {
         return 'success';
     }
@@ -152,10 +154,13 @@ function varianteDocumento(estado: string | null): 'success' | 'info' {
                                     :key="doc.id"
                                     class="flex items-center gap-2"
                                 >
-                                    <Badge :variant="varianteDocumento(doc.estado)">{{
-                                        doc.estado_etiqueta
-                                    }}</Badge>
-                                    <span class="text-xs">{{ doc.titulo }}</span>
+                                    <Badge
+                                        :variant="varianteDocumento(doc.estado)"
+                                        >{{ doc.estado_etiqueta }}</Badge
+                                    >
+                                    <span class="text-xs">{{
+                                        doc.titulo
+                                    }}</span>
                                 </div>
                             </div>
                             <span v-else class="text-xs text-muted-foreground"

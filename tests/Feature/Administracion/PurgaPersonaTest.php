@@ -21,6 +21,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Activity;
 
 /*
@@ -231,4 +232,41 @@ test('salvaguardas: no a sí mismo, sí a otro super_admin cuando quedan más de
     // Guard del último super_admin (ya solo queda uno): el servicio lo impide.
     expect(fn () => app(PurgaPersonaService::class)->purgar($this->super, $this->super))
         ->toThrow(AuthorizationException::class);
+});
+
+test('el material de explicación de la inducción subido por la persona detiene la purga (contenido compartido)', function () {
+    $moduloId = DB::table('onboarding_modulos')->insertGetId([
+        'titulo' => 'Inducción Mr. Lana',
+        'tipo' => 'institucional',
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    DB::table('induccion_materiales_explicacion')->insert([
+        'onboarding_modulo_id' => $moduloId,
+        'tipo' => 'audio',
+        'activo' => true,
+        'subido_por' => $this->cuenta->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    $revision = app(PurgaPersonaService::class)->revisar($this->cuenta, $this->super);
+
+    expect($revision['puede'])->toBeFalse()
+        ->and(implode(' ', $revision['bloqueos']))->toContain('materiales de explicación de la inducción');
+
+    expect(fn () => app(PurgaPersonaService::class)->purgar($this->cuenta, $this->super))
+        ->toThrow(ValidationException::class);
+    expect(User::query()->whereKey($this->cuenta->id)->exists())->toBeTrue()
+        ->and(DB::table('induccion_materiales_explicacion')->count())->toBe(1);
+});
+
+test('un super_admin en papelera se puede purgar si queda otro super_admin vigente', function () {
+    $enPapelera = clUsuario('super_admin');
+    $enPapelera->delete();
+
+    app(PurgaPersonaService::class)->purgar($enPapelera, $this->super);
+
+    expect(User::withTrashed()->whereKey($enPapelera->id)->exists())->toBeFalse()
+        ->and(User::role('super_admin')->whereKey($this->super->id)->exists())->toBeTrue();
 });

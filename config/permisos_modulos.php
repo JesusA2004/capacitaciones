@@ -71,7 +71,7 @@ return [
             'grupo' => 'People',
             'acceso' => 'responsivas.ver',
             'alcances' => ['todos' => 'responsivas.ver_todos', 'region' => 'responsivas.ver_region', 'sucursal' => 'responsivas.ver_sucursal', 'equipo' => 'responsivas.ver_equipo'],
-            'acciones' => ['responsivas.generar' => 'Generar / subir firmada', 'responsivas.cancelar' => 'Cancelar'],
+            'acciones' => ['responsivas.generar' => 'Generar / marcar firmada físicamente', 'responsivas.cancelar' => 'Cancelar'],
         ],
         'documentos' => [
             'etiqueta' => 'Contratos y documentos',

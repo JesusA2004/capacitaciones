@@ -65,7 +65,8 @@ class ColaboradorPolicy
     /**
      * RH (cierres.gestionar) o el jefe/gerente (cierres.solicitar) — el jefe
      * también por cadena de mando aunque no tenga alcance de sucursal. La
-     * regla completa (causa, preautorización, RH) vive en CierreLaboralService.
+     * regla completa (causa, baja inmediata sin preautorización ni
+     * autorización posterior de RH) vive en CierreLaboralService.
      */
     public function iniciarCierre(User $usuario, Colaborador $colaborador): bool
     {

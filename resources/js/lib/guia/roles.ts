@@ -107,7 +107,10 @@ export const ROLES_GUIA: RolGuia[] = [
                 articulo: 'revisar-solicitudes',
             },
             { texto: 'Levantar un acta', articulo: 'actas' },
-            { texto: 'Iniciar la baja de alguien de tu equipo', articulo: 'baja' },
+            {
+                texto: 'Iniciar la baja de alguien de tu equipo',
+                articulo: 'baja',
+            },
             { texto: 'Directorio', articulo: 'directorio' },
             { texto: 'Mis pendientes', articulo: 'mis-pendientes' },
         ],
@@ -136,10 +139,6 @@ export const ROLES_GUIA: RolGuia[] = [
             {
                 texto: 'Entrevistar y revisar candidatos a Gerente de sucursal',
                 articulo: 'entrevista-gerente',
-            },
-            {
-                texto: 'Programar el pago del finiquito (coordinación regional)',
-                articulo: 'finiquito',
             },
             {
                 texto: 'Monitorear vacantes de la región',

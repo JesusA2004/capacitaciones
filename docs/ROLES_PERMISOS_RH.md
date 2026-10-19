@@ -67,7 +67,7 @@ Cubierto por tests: `tests/Feature/Administracion/EmpresaTest.php`, `tests/Featu
 
 ## Roles y permisos del ciclo laboral (septiembre 2026)
 
-Roles nuevos: `direccion` (autoriza evaluaciones, préstamos y bajas; indicadores
+Roles nuevos: `direccion` (autoriza evaluaciones y préstamos —las bajas no requieren autorización—; indicadores
 globales), `juridico` (consulta documentación jurídica y administra plantillas del motor
 documental) y `sistemas` (cuentas, roles, releases y auditoría; desde 2026-10-13 con lectura global para soporte y sin ninguna acción de decisión de RH — ver `docs/FLUJO_OPERATIVO_Y_PERMISOS.md` §4).
 Los tres tienen alcance global en `AlcanceOrganizacionalService`, pero cada acción sigue

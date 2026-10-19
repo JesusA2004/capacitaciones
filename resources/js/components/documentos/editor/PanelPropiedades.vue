@@ -91,7 +91,10 @@ const zonas: { valor: ZonaCampo; etiqueta: string }[] = [
     { valor: 'ignorar', etiqueta: 'Sin dato' },
 ];
 
-const transformaciones: { valor: TransformacionCampo | null; etiqueta: string }[] = [
+const transformaciones: {
+    valor: TransformacionCampo | null;
+    etiqueta: string;
+}[] = [
     { valor: null, etiqueta: 'Normal' },
     { valor: 'mayusculas', etiqueta: 'MAYÚSCULAS' },
     { valor: 'minusculas', etiqueta: 'minúsculas' },
@@ -116,7 +119,12 @@ function elegir(variable: VariableEditor) {
 }
 
 function aceptarSugerencia(clave: string, etiqueta: string) {
-    emit('cambiar', { source_key: clave, expression: null, label: etiqueta, estado: 'confirmado' });
+    emit('cambiar', {
+        source_key: clave,
+        expression: null,
+        label: etiqueta,
+        estado: 'confirmado',
+    });
 }
 
 function aNumero(valor: string | number): number | null {
@@ -143,9 +151,16 @@ function modoCompuesto(activo: boolean) {
     <div class="flex flex-col gap-4">
         <header class="flex items-start justify-between gap-2">
             <div class="min-w-0">
-                <p class="text-xs text-muted-foreground">Espacio {{ numero }} de {{ total }}</p>
-                <p class="truncate font-semibold">{{ campo.label ?? 'Sin dato asignado' }}</p>
-                <p v-if="campo.contexto" class="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                <p class="text-xs text-muted-foreground">
+                    Espacio {{ numero }} de {{ total }}
+                </p>
+                <p class="truncate font-semibold">
+                    {{ campo.label ?? 'Sin dato asignado' }}
+                </p>
+                <p
+                    v-if="campo.contexto"
+                    class="mt-0.5 line-clamp-2 text-xs text-muted-foreground"
+                >
                     Cerca de: «{{ campo.contexto }}»
                 </p>
             </div>
@@ -153,10 +168,17 @@ function modoCompuesto(activo: boolean) {
                 :class="
                     cn(
                         'shrink-0',
-                        campo.zona !== 'dato' && 'bg-muted text-muted-foreground',
-                        campo.zona === 'dato' && campo.estado === 'confirmado' && 'bg-success-soft text-success',
-                        campo.zona === 'dato' && campo.estado === 'sugerido' && 'bg-warning-soft text-warning',
-                        campo.zona === 'dato' && campo.estado === 'sin_asignar' && 'bg-danger-soft text-danger',
+                        campo.zona !== 'dato' &&
+                            'bg-muted text-muted-foreground',
+                        campo.zona === 'dato' &&
+                            campo.estado === 'confirmado' &&
+                            'bg-success-soft text-success',
+                        campo.zona === 'dato' &&
+                            campo.estado === 'sugerido' &&
+                            'bg-warning-soft text-warning',
+                        campo.zona === 'dato' &&
+                            campo.estado === 'sin_asignar' &&
+                            'bg-danger-soft text-danger',
                     )
                 "
                 variant="secondary"
@@ -172,7 +194,10 @@ function modoCompuesto(activo: boolean) {
             >
         </header>
 
-        <p v-if="campo.motivo" class="rounded-lg bg-warning-soft px-3 py-2 text-xs text-warning">
+        <p
+            v-if="campo.motivo"
+            class="rounded-lg bg-warning-soft px-3 py-2 text-xs text-warning"
+        >
             {{ campo.motivo }}
         </p>
 
@@ -188,10 +213,18 @@ function modoCompuesto(activo: boolean) {
                     :class="
                         cn(
                             'rounded-full border px-2.5 py-1 text-xs',
-                            campo.zona === z.valor ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted',
+                            campo.zona === z.valor
+                                ? 'border-primary bg-primary text-primary-foreground'
+                                : 'hover:bg-muted',
                         )
                     "
-                    @click="emit('cambiar', { zona: z.valor, label: z.valor === 'dato' ? campo.label : z.etiqueta })"
+                    @click="
+                        emit('cambiar', {
+                            zona: z.valor,
+                            label:
+                                z.valor === 'dato' ? campo.label : z.etiqueta,
+                        })
+                    "
                 >
                     {{ z.etiqueta }}
                 </button>
@@ -200,8 +233,13 @@ function modoCompuesto(activo: boolean) {
 
         <template v-if="campo.zona === 'dato'">
             <!-- Sugerencias del detector -->
-            <div v-if="campo.sugerencias.length && campo.estado !== 'confirmado'" class="flex flex-col gap-1.5">
-                <Label class="flex items-center gap-1 text-xs"><Sparkles class="size-3.5" /> Sugerencias</Label>
+            <div
+                v-if="campo.sugerencias.length && campo.estado !== 'confirmado'"
+                class="flex flex-col gap-1.5"
+            >
+                <Label class="flex items-center gap-1 text-xs"
+                    ><Sparkles class="size-3.5" /> Sugerencias</Label
+                >
                 <div class="flex flex-col gap-1">
                     <button
                         v-for="s in campo.sugerencias"
@@ -212,7 +250,10 @@ function modoCompuesto(activo: boolean) {
                         @click="aceptarSugerencia(s.clave, s.etiqueta)"
                     >
                         <span class="truncate">{{ s.etiqueta }}</span>
-                        <span class="ml-2 shrink-0 text-xs text-muted-foreground">{{ Math.round(s.confianza * 100) }} %</span>
+                        <span
+                            class="ml-2 shrink-0 text-xs text-muted-foreground"
+                            >{{ Math.round(s.confianza * 100) }} %</span
+                        >
                     </button>
                 </div>
             </div>
@@ -223,14 +264,29 @@ function modoCompuesto(activo: boolean) {
                 <template v-if="!campo.expression">
                     <Popover v-model:open="selectorAbierto">
                         <PopoverTrigger as-child>
-                            <Button variant="outline" class="justify-between" :disabled="!editable">
+                            <Button
+                                variant="outline"
+                                class="justify-between"
+                                :disabled="!editable"
+                            >
                                 <span class="truncate">{{
-                                    campo.source_key ? etiquetaDe.get(campo.source_key) ?? campo.label : 'Elegir dato…'
+                                    campo.source_key
+                                        ? (etiquetaDe.get(campo.source_key) ??
+                                          campo.label)
+                                        : 'Elegir dato…'
                                 }}</span>
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent class="flex max-h-[26rem] w-80 flex-col" align="start">
-                            <PanelVariables :grupos="grupos" :habilitado="editable" :seleccionado="true" @elegir="elegir" />
+                        <PopoverContent
+                            class="flex max-h-[26rem] w-80 flex-col"
+                            align="start"
+                        >
+                            <PanelVariables
+                                :grupos="grupos"
+                                :habilitado="editable"
+                                :seleccionado="true"
+                                @elegir="elegir"
+                            />
                         </PopoverContent>
                     </Popover>
                 </template>
@@ -241,7 +297,9 @@ function modoCompuesto(activo: boolean) {
                     :editable="editable"
                     @cambiar="(e) => emit('cambiar', { expression: e })"
                 />
-                <label class="flex items-center gap-2 text-xs text-muted-foreground">
+                <label
+                    class="flex items-center gap-2 text-xs text-muted-foreground"
+                >
                     <Checkbox
                         :model-value="campo.expression !== null"
                         :disabled="!editable"
@@ -262,7 +320,9 @@ function modoCompuesto(activo: boolean) {
                         :class="
                             cn(
                                 'rounded-md border px-2 py-1 text-xs',
-                                campo.transform === t.valor ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-muted',
+                                campo.transform === t.valor
+                                    ? 'border-primary bg-primary/10 text-primary'
+                                    : 'hover:bg-muted',
                             )
                         "
                         @click="emit('cambiar', { transform: t.valor })"
@@ -279,15 +339,37 @@ function modoCompuesto(activo: boolean) {
                     <button
                         type="button"
                         :disabled="!editable"
-                        :class="cn('rounded-lg border px-2.5 py-1.5 text-left text-sm', campo.required ? 'border-primary bg-primary/10' : 'hover:bg-muted')"
-                        @click="emit('cambiar', { required: true, motivo_blanco: null })"
+                        :class="
+                            cn(
+                                'rounded-lg border px-2.5 py-1.5 text-left text-sm',
+                                campo.required
+                                    ? 'border-primary bg-primary/10'
+                                    : 'hover:bg-muted',
+                            )
+                        "
+                        @click="
+                            emit('cambiar', {
+                                required: true,
+                                motivo_blanco: null,
+                            })
+                        "
                     >
-                        No generar el documento <span class="text-xs text-muted-foreground">(recomendado)</span>
+                        No generar el documento
+                        <span class="text-xs text-muted-foreground"
+                            >(recomendado)</span
+                        >
                     </button>
                     <button
                         type="button"
                         :disabled="!editable"
-                        :class="cn('rounded-lg border px-2.5 py-1.5 text-left text-sm', !campo.required ? 'border-primary bg-primary/10' : 'hover:bg-muted')"
+                        :class="
+                            cn(
+                                'rounded-lg border px-2.5 py-1.5 text-left text-sm',
+                                !campo.required
+                                    ? 'border-primary bg-primary/10'
+                                    : 'hover:bg-muted',
+                            )
+                        "
                         @click="emit('cambiar', { required: false })"
                     >
                         Dejar la línea en blanco a propósito
@@ -299,11 +381,16 @@ function modoCompuesto(activo: boolean) {
                     :disabled="!editable"
                     placeholder="¿Por qué puede ir en blanco? (obligatorio)"
                     class="h-8 text-sm"
-                    @update:model-value="(v) => emit('cambiar', { motivo_blanco: String(v) })"
+                    @update:model-value="
+                        (v) => emit('cambiar', { motivo_blanco: String(v) })
+                    "
                 />
             </div>
 
-            <details v-if="campo.source_key" class="text-xs text-muted-foreground">
+            <details
+                v-if="campo.source_key"
+                class="text-xs text-muted-foreground"
+            >
                 <summary class="cursor-pointer select-none">Detalles</summary>
                 <p class="mt-1 font-mono">{{ campo.source_key }}</p>
             </details>
@@ -314,104 +401,184 @@ function modoCompuesto(activo: boolean) {
              números exactos quedan en «Opciones avanzadas». -->
         <Collapsible v-if="esPdf" v-model:open="avanzadas">
             <CollapsibleTrigger as-child>
-                <Button variant="ghost" size="sm" class="w-full justify-between px-2 text-xs text-muted-foreground">
-                    Opciones avanzadas <ChevronDown :class="cn('size-4 transition-transform', avanzadas && 'rotate-180')" />
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    class="w-full justify-between px-2 text-xs text-muted-foreground"
+                >
+                    Opciones avanzadas
+                    <ChevronDown
+                        :class="
+                            cn(
+                                'size-4 transition-transform',
+                                avanzadas && 'rotate-180',
+                            )
+                        "
+                    />
                 </Button>
             </CollapsibleTrigger>
             <CollapsibleContent class="flex flex-col gap-3 pt-2">
-            <div class="grid grid-cols-2 gap-2">
-                <div v-for="d in (['x', 'y', 'width', 'height'] as const)" :key="d" class="flex flex-col gap-1">
-                    <Label class="text-xs">{{ { x: 'X (mm)', y: 'Y (mm)', width: 'Ancho', height: 'Alto' }[d] }}</Label>
-                    <Input
-                        type="number"
-                        step="0.5"
-                        class="h-8"
-                        :model-value="campo[d] ?? ''"
-                        :disabled="!editable || campo.bloqueado"
-                        @update:model-value="(v) => emit('cambiar', { [d]: aNumero(v) })"
-                    />
+                <div class="grid grid-cols-2 gap-2">
+                    <div
+                        v-for="d in ['x', 'y', 'width', 'height'] as const"
+                        :key="d"
+                        class="flex flex-col gap-1"
+                    >
+                        <Label class="text-xs">{{
+                            {
+                                x: 'X (mm)',
+                                y: 'Y (mm)',
+                                width: 'Ancho',
+                                height: 'Alto',
+                            }[d]
+                        }}</Label>
+                        <Input
+                            type="number"
+                            step="0.5"
+                            class="h-8"
+                            :model-value="campo[d] ?? ''"
+                            :disabled="!editable || campo.bloqueado"
+                            @update:model-value="
+                                (v) => emit('cambiar', { [d]: aNumero(v) })
+                            "
+                        />
+                    </div>
                 </div>
-            </div>
-            <div v-if="campo.zona === 'dato'" class="grid grid-cols-2 gap-2">
-                <div class="flex flex-col gap-1">
-                    <Label class="text-xs">Tamaño (pt)</Label>
-                    <Input
-                        type="number"
-                        step="0.5"
-                        class="h-8"
-                        :model-value="campo.font_size ?? 9"
-                        :disabled="!editable"
-                        @update:model-value="(v) => emit('cambiar', { font_size: aNumero(v) })"
-                    />
+                <div
+                    v-if="campo.zona === 'dato'"
+                    class="grid grid-cols-2 gap-2"
+                >
+                    <div class="flex flex-col gap-1">
+                        <Label class="text-xs">Tamaño (pt)</Label>
+                        <Input
+                            type="number"
+                            step="0.5"
+                            class="h-8"
+                            :model-value="campo.font_size ?? 9"
+                            :disabled="!editable"
+                            @update:model-value="
+                                (v) =>
+                                    emit('cambiar', { font_size: aNumero(v) })
+                            "
+                        />
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <Label class="text-xs">Tamaño mínimo</Label>
+                        <Input
+                            type="number"
+                            step="0.5"
+                            class="h-8"
+                            :model-value="campo.font_size_min ?? 6"
+                            :disabled="!editable"
+                            @update:model-value="
+                                (v) =>
+                                    emit('cambiar', {
+                                        font_size_min: aNumero(v),
+                                    })
+                            "
+                        />
+                    </div>
                 </div>
-                <div class="flex flex-col gap-1">
-                    <Label class="text-xs">Tamaño mínimo</Label>
-                    <Input
-                        type="number"
-                        step="0.5"
-                        class="h-8"
-                        :model-value="campo.font_size_min ?? 6"
+                <div
+                    v-if="campo.zona === 'dato'"
+                    class="flex flex-wrap items-center gap-1"
+                >
+                    <Button
+                        size="icon"
+                        variant="outline"
+                        class="size-8"
+                        :class="
+                            campo.font_weight === 'bold' &&
+                            'border-primary bg-primary/10'
+                        "
                         :disabled="!editable"
-                        @update:model-value="(v) => emit('cambiar', { font_size_min: aNumero(v) })"
-                    />
+                        aria-label="Negrita"
+                        @click="
+                            emit('cambiar', {
+                                font_weight:
+                                    campo.font_weight === 'bold'
+                                        ? null
+                                        : 'bold',
+                            })
+                        "
+                        ><Bold class="size-4"
+                    /></Button>
+                    <Button
+                        v-for="a in [
+                            ['L', AlignLeft],
+                            ['C', AlignCenter],
+                            ['R', AlignRight],
+                        ] as const"
+                        :key="a[0]"
+                        size="icon"
+                        variant="outline"
+                        class="size-8"
+                        :class="
+                            (campo.text_align ?? 'L') === a[0] &&
+                            'border-primary bg-primary/10'
+                        "
+                        :disabled="!editable"
+                        :aria-label="`Alinear ${a[0]}`"
+                        @click="emit('cambiar', { text_align: a[0] })"
+                        ><component :is="a[1]" class="size-4"
+                    /></Button>
+                    <label class="ml-2 flex items-center gap-1.5 text-xs">
+                        <Checkbox
+                            :model-value="campo.multiline"
+                            :disabled="!editable"
+                            @update:model-value="
+                                (v) =>
+                                    emit('cambiar', { multiline: v === true })
+                            "
+                        />
+                        Varias líneas
+                    </label>
+                    <label class="flex items-center gap-1.5 text-xs">
+                        <Checkbox
+                            :model-value="campo.type === 'casilla'"
+                            :disabled="!editable"
+                            @update:model-value="
+                                (v) =>
+                                    emit('cambiar', {
+                                        type: v === true ? 'casilla' : 'texto',
+                                    })
+                            "
+                        />
+                        Casilla ☒
+                    </label>
+                    <label class="flex items-center gap-1.5 text-xs">
+                        <Checkbox
+                            :model-value="campo.background_color !== null"
+                            :disabled="!editable"
+                            @update:model-value="
+                                (v) =>
+                                    emit('cambiar', {
+                                        background_color:
+                                            v === true ? FONDO_TAPAR : null,
+                                    })
+                            "
+                        />
+                        Tapar texto impreso
+                    </label>
                 </div>
-            </div>
-            <div v-if="campo.zona === 'dato'" class="flex flex-wrap items-center gap-1">
-                <Button
-                    size="icon"
-                    variant="outline"
-                    class="size-8"
-                    :class="campo.font_weight === 'bold' && 'border-primary bg-primary/10'"
-                    :disabled="!editable"
-                    aria-label="Negrita"
-                    @click="emit('cambiar', { font_weight: campo.font_weight === 'bold' ? null : 'bold' })"
-                    ><Bold class="size-4"
-                /></Button>
-                <Button
-                    v-for="a in ([['L', AlignLeft], ['C', AlignCenter], ['R', AlignRight]] as const)"
-                    :key="a[0]"
-                    size="icon"
-                    variant="outline"
-                    class="size-8"
-                    :class="(campo.text_align ?? 'L') === a[0] && 'border-primary bg-primary/10'"
-                    :disabled="!editable"
-                    :aria-label="`Alinear ${a[0]}`"
-                    @click="emit('cambiar', { text_align: a[0] })"
-                    ><component :is="a[1]" class="size-4"
-                /></Button>
-                <label class="ml-2 flex items-center gap-1.5 text-xs">
-                    <Checkbox
-                        :model-value="campo.multiline"
-                        :disabled="!editable"
-                        @update:model-value="(v) => emit('cambiar', { multiline: v === true })"
-                    />
-                    Varias líneas
-                </label>
-                <label class="flex items-center gap-1.5 text-xs">
-                    <Checkbox
-                        :model-value="campo.type === 'casilla'"
-                        :disabled="!editable"
-                        @update:model-value="(v) => emit('cambiar', { type: v === true ? 'casilla' : 'texto' })"
-                    />
-                    Casilla ☒
-                </label>
-                <label class="flex items-center gap-1.5 text-xs">
-                    <Checkbox
-                        :model-value="campo.background_color !== null"
-                        :disabled="!editable"
-                        @update:model-value="(v) => emit('cambiar', { background_color: v === true ? FONDO_TAPAR : null })"
-                    />
-                    Tapar texto impreso
-                </label>
-            </div>
             </CollapsibleContent>
         </Collapsible>
 
         <div class="flex flex-wrap gap-2 border-t pt-3">
-            <Button v-if="confirmable" size="sm" :disabled="!editable" @click="emit('confirmar')">
+            <Button
+                v-if="confirmable"
+                size="sm"
+                :disabled="!editable"
+                @click="emit('confirmar')"
+            >
                 <Check class="size-4" /> Confirmar
             </Button>
-            <Button v-if="pendientes > 0" size="sm" variant="outline" @click="emit('siguiente')">
+            <Button
+                v-if="pendientes > 0"
+                size="sm"
+                variant="outline"
+                @click="emit('siguiente')"
+            >
                 Siguiente por revisar <ArrowRight class="size-4" />
             </Button>
             <Button
@@ -421,13 +588,29 @@ function modoCompuesto(activo: boolean) {
                 :disabled="!editable"
                 @click="emit('cambiar', { bloqueado: !campo.bloqueado })"
             >
-                <component :is="campo.bloqueado ? LockOpen : Lock" class="size-4" />
+                <component
+                    :is="campo.bloqueado ? LockOpen : Lock"
+                    class="size-4"
+                />
                 {{ campo.bloqueado ? 'Desbloquear' : 'Bloquear' }}
             </Button>
-            <Button v-if="esPdf" size="sm" variant="outline" :disabled="!editable" @click="emit('duplicar')">
+            <Button
+                v-if="esPdf"
+                size="sm"
+                variant="outline"
+                :disabled="!editable"
+                @click="emit('duplicar')"
+            >
                 <Copy class="size-4" /> Duplicar
             </Button>
-            <Button v-if="esPdf" size="sm" variant="ghost" class="text-danger" :disabled="!editable" @click="emit('eliminar')">
+            <Button
+                v-if="esPdf"
+                size="sm"
+                variant="ghost"
+                class="text-danger"
+                :disabled="!editable"
+                @click="emit('eliminar')"
+            >
                 <Trash2 class="size-4" /> Eliminar
             </Button>
         </div>

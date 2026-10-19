@@ -111,8 +111,14 @@ function enviar(fila: Fila) {
         />
 
         <div>
-            <Label class="mb-1.5 text-xs text-[var(--mrl-texto-suave)]">Buscar colaborador</Label>
-            <Input v-model="termino" placeholder="Nombre o número de empleado" class="max-w-md" />
+            <Label class="mb-1.5 text-xs text-[var(--mrl-texto-suave)]"
+                >Buscar colaborador</Label
+            >
+            <Input
+                v-model="termino"
+                placeholder="Nombre o número de empleado"
+                class="max-w-md"
+            />
         </div>
 
         <p
@@ -124,39 +130,97 @@ function enviar(fila: Fila) {
 
         <template v-else>
             <!-- Tabla (pantallas anchas) -->
-            <div class="tabla-scroll hidden rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] md:block">
+            <div
+                class="hidden tabla-scroll rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] md:block"
+            >
                 <table class="w-full text-left text-sm">
-                    <thead class="border-b border-[var(--mrl-borde)] text-xs text-[var(--mrl-texto-suave)]">
+                    <thead
+                        class="border-b border-[var(--mrl-borde)] text-xs text-[var(--mrl-texto-suave)]"
+                    >
                         <tr>
                             <th class="px-4 py-3 font-medium">Colaborador</th>
-                            <th class="px-4 py-3 font-medium">Puesto / Sucursal</th>
-                            <th class="px-4 py-3 font-medium">Etapa de onboarding</th>
-                            <th class="px-4 py-3 font-medium">Descriptivo de puesto</th>
-                            <th class="px-4 py-3 text-right font-medium">Acción</th>
+                            <th class="px-4 py-3 font-medium">
+                                Puesto / Sucursal
+                            </th>
+                            <th class="px-4 py-3 font-medium">
+                                Etapa de onboarding
+                            </th>
+                            <th class="px-4 py-3 font-medium">
+                                Descriptivo de puesto
+                            </th>
+                            <th class="px-4 py-3 text-right font-medium">
+                                Acción
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr v-for="f in colaboradores.data" :key="f.colaborador.id" class="border-b border-[var(--mrl-borde)] last:border-0">
+                        <tr
+                            v-for="f in colaboradores.data"
+                            :key="f.colaborador.id"
+                            class="border-b border-[var(--mrl-borde)] last:border-0"
+                        >
                             <td class="px-4 py-3">
-                                <Link :href="cicloColaborador.url(f.colaborador.id)" class="font-medium hover:underline">{{ f.colaborador.nombre }}</Link>
-                                <p class="text-xs text-[var(--mrl-texto-suave)]">{{ f.colaborador.numero_empleado ?? '—' }}</p>
+                                <Link
+                                    :href="
+                                        cicloColaborador.url(f.colaborador.id)
+                                    "
+                                    class="font-medium hover:underline"
+                                    >{{ f.colaborador.nombre }}</Link
+                                >
+                                <p
+                                    class="text-xs text-[var(--mrl-texto-suave)]"
+                                >
+                                    {{ f.colaborador.numero_empleado ?? '—' }}
+                                </p>
                             </td>
                             <td class="px-4 py-3 text-xs">
                                 {{ f.colaborador.puesto ?? '—' }}<br />
-                                <span class="text-[var(--mrl-texto-suave)]">{{ f.colaborador.sucursal ?? '—' }}</span>
+                                <span class="text-[var(--mrl-texto-suave)]">{{
+                                    f.colaborador.sucursal ?? '—'
+                                }}</span>
                             </td>
-                            <td class="px-4 py-3 text-xs">{{ f.onboarding_estado_etiqueta }}</td>
+                            <td class="px-4 py-3 text-xs">
+                                {{ f.onboarding_estado_etiqueta }}
+                            </td>
                             <td class="px-4 py-3 text-xs">
                                 <template v-if="f.acuse">
-                                    <Badge :variant="variantes[f.acuse.estado] ?? 'info'">{{ f.acuse.estado_etiqueta }}</Badge>
-                                    <p class="mt-1 text-[var(--mrl-texto-suave)]">
-                                        Enviado {{ formatearFecha(f.acuse.enviado_en) }}
-                                        <template v-if="f.acuse.acusado_en"> · aceptado {{ formatearFecha(f.acuse.acusado_en) }}</template>
-                                        <template v-else-if="f.acuse.leido_en"> · visto {{ formatearFecha(f.acuse.leido_en) }}</template>
+                                    <Badge
+                                        :variant="
+                                            variantes[f.acuse.estado] ?? 'info'
+                                        "
+                                        >{{ f.acuse.estado_etiqueta }}</Badge
+                                    >
+                                    <p
+                                        class="mt-1 text-[var(--mrl-texto-suave)]"
+                                    >
+                                        Enviado
+                                        {{ formatearFecha(f.acuse.enviado_en) }}
+                                        <template v-if="f.acuse.acusado_en">
+                                            · aceptado
+                                            {{
+                                                formatearFecha(
+                                                    f.acuse.acusado_en,
+                                                )
+                                            }}</template
+                                        >
+                                        <template v-else-if="f.acuse.leido_en">
+                                            · visto
+                                            {{
+                                                formatearFecha(f.acuse.leido_en)
+                                            }}</template
+                                        >
                                     </p>
-                                    <p v-if="f.acuse.comentario" class="mt-0.5 italic text-[var(--mrl-texto-suave)]">«{{ f.acuse.comentario }}»</p>
+                                    <p
+                                        v-if="f.acuse.comentario"
+                                        class="mt-0.5 text-[var(--mrl-texto-suave)] italic"
+                                    >
+                                        «{{ f.acuse.comentario }}»
+                                    </p>
                                 </template>
-                                <span v-else class="text-[var(--mrl-texto-suave)]">
+                                <span
+                                    v-else
+                                    class="text-[var(--mrl-texto-suave)]"
+                                >
                                     {{ f.motivo ?? 'Sin enviar' }}
                                 </span>
                             </td>
@@ -167,10 +231,23 @@ function enviar(fila: Fila) {
                                     :disabled="enviandoId === f.colaborador.id"
                                     @click="enviar(f)"
                                 >
-                                    <Send class="size-3.5" /> {{ f.acuse ? 'Reenviar' : 'Enviar descriptivo' }}
+                                    <Send class="size-3.5" />
+                                    {{
+                                        f.acuse
+                                            ? 'Reenviar'
+                                            : 'Enviar descriptivo'
+                                    }}
                                 </Button>
-                                <span v-else-if="f.acuse?.acusado_en" class="text-xs text-[var(--mrl-verde)]">Aceptado</span>
-                                <span v-else class="text-xs text-[var(--mrl-texto-suave)]">—</span>
+                                <span
+                                    v-else-if="f.acuse?.acusado_en"
+                                    class="text-xs text-[var(--mrl-verde)]"
+                                    >Aceptado</span
+                                >
+                                <span
+                                    v-else
+                                    class="text-xs text-[var(--mrl-texto-suave)]"
+                                    >—</span
+                                >
                             </td>
                         </tr>
                     </tbody>
@@ -179,21 +256,50 @@ function enviar(fila: Fila) {
 
             <!-- Tarjetas (pantallas estrechas): una columna -->
             <ul class="flex flex-col gap-3 md:hidden">
-                <li v-for="f in colaboradores.data" :key="f.colaborador.id" class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 text-sm">
+                <li
+                    v-for="f in colaboradores.data"
+                    :key="f.colaborador.id"
+                    class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 text-sm"
+                >
                     <div class="flex flex-wrap items-center gap-2">
-                        <Link :href="cicloColaborador.url(f.colaborador.id)" class="font-medium hover:underline">{{ f.colaborador.nombre }}</Link>
-                        <Badge v-if="f.acuse" :variant="variantes[f.acuse.estado] ?? 'info'">{{ f.acuse.estado_etiqueta }}</Badge>
+                        <Link
+                            :href="cicloColaborador.url(f.colaborador.id)"
+                            class="font-medium hover:underline"
+                            >{{ f.colaborador.nombre }}</Link
+                        >
+                        <Badge
+                            v-if="f.acuse"
+                            :variant="variantes[f.acuse.estado] ?? 'info'"
+                            >{{ f.acuse.estado_etiqueta }}</Badge
+                        >
                     </div>
                     <p class="mt-0.5 text-xs text-[var(--mrl-texto-suave)]">
-                        {{ f.colaborador.puesto ?? '—' }} · {{ f.colaborador.sucursal ?? '—' }}
+                        {{ f.colaborador.puesto ?? '—' }} ·
+                        {{ f.colaborador.sucursal ?? '—' }}
                     </p>
-                    <p class="mt-1 text-xs">{{ f.onboarding_estado_etiqueta }}</p>
-                    <p v-if="f.acuse" class="mt-1 text-xs text-[var(--mrl-texto-suave)]">
+                    <p class="mt-1 text-xs">
+                        {{ f.onboarding_estado_etiqueta }}
+                    </p>
+                    <p
+                        v-if="f.acuse"
+                        class="mt-1 text-xs text-[var(--mrl-texto-suave)]"
+                    >
                         Enviado {{ formatearFecha(f.acuse.enviado_en) }}
-                        <template v-if="f.acuse.acusado_en"> · aceptado {{ formatearFecha(f.acuse.acusado_en) }}</template>
-                        <template v-else-if="f.acuse.leido_en"> · visto {{ formatearFecha(f.acuse.leido_en) }}</template>
+                        <template v-if="f.acuse.acusado_en">
+                            · aceptado
+                            {{ formatearFecha(f.acuse.acusado_en) }}</template
+                        >
+                        <template v-else-if="f.acuse.leido_en">
+                            · visto
+                            {{ formatearFecha(f.acuse.leido_en) }}</template
+                        >
                     </p>
-                    <p v-else class="mt-1 text-xs text-[var(--mrl-texto-suave)]">{{ f.motivo ?? 'Sin enviar' }}</p>
+                    <p
+                        v-else
+                        class="mt-1 text-xs text-[var(--mrl-texto-suave)]"
+                    >
+                        {{ f.motivo ?? 'Sin enviar' }}
+                    </p>
                     <Button
                         v-if="f.puede_enviar"
                         size="sm"
@@ -201,7 +307,8 @@ function enviar(fila: Fila) {
                         :disabled="enviandoId === f.colaborador.id"
                         @click="enviar(f)"
                     >
-                        <Send class="size-3.5" /> {{ f.acuse ? 'Reenviar' : 'Enviar descriptivo' }}
+                        <Send class="size-3.5" />
+                        {{ f.acuse ? 'Reenviar' : 'Enviar descriptivo' }}
                     </Button>
                 </li>
             </ul>

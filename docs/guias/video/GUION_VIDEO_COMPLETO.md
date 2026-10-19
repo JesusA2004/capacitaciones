@@ -2,7 +2,7 @@
 
 # Guion de voz — MR. LANA PEOPLE — Flujo completo de Recursos Humanos
 
-Duración estimada: **14:11** · Formato 16:9, 1080p · Voz en español de México neutro, clara y natural · Música de fondo discreta (opcional, a −28 dB bajo la voz).
+Duración estimada: **14:10** · Formato 16:9, 1080p · Voz en español de México neutro, clara y natural · Música de fondo discreta (opcional, a −28 dB bajo la voz).
 
 Texto **palabra por palabra** de la locución. Entre corchetes, lo que se ve en pantalla.
 
@@ -170,22 +170,22 @@ Recursos Humanos envía avisos con título, mensaje e imagen a toda la empresa o
 
 **[12:13 · Ciclo laboral → Iniciar baja]**
 
-La baja no es una solicitud: el jefe directo la inicia desde el ciclo laboral de la persona y Recursos Humanos la autoriza. Al iniciarla, el acceso de la persona se suspende de inmediato, pero nunca se borra nada.
+La baja no es una solicitud ni requiere otra autorización: el jefe directo o Recursos Humanos la inicia desde el ciclo laboral de la persona. Al iniciarla, el acceso de la persona se suspende de inmediato, pero nunca se borra nada.
 
-**[12:37 · Solicitud de baja → Finiquito]**
+**[12:38 · Solicitud de baja → Finiquito]**
 
-El finiquito se calcula con sueldo pendiente, aguinaldo proporcional, vacaciones, prima vacacional e ISR. Recursos Humanos revisa, ajusta los conceptos autorizados con su motivo, genera el PDF y, ya firmado y pagado, se ejecuta la baja en su fecha efectiva. Recursos Humanos y Sistemas reciben el aviso para retirar accesos y equipo.
+El finiquito se calcula con sueldo pendiente, aguinaldo proporcional, vacaciones, prima vacacional e ISR. Recursos Humanos revisa, ajusta los conceptos autorizados con su motivo, genera el PDF y, al registrar su entrega, el cierre queda completo. Recursos Humanos y Sistemas reciben el aviso para retirar accesos y equipo.
 
-**[13:07 · Desarrollo → Reingresos]**
+**[13:06 · Desarrollo → Reingresos]**
 
 Si alguien regresa, no se crea una persona nueva: se busca en Reingresos, Recursos Humanos decide, y la misma persona inicia un nuevo ciclo laboral conservando todo su historial.
 
-## 13:26 — Cierre
+## 13:25 — Cierre
 
-**[13:26 · Ayuda → Guía del sistema]**
+**[13:25 · Ayuda → Guía del sistema]**
 
 Siempre que tengas una duda, abre Ayuda. Puedes buscar con tus propias palabras, por ejemplo cómo contrato un candidato, ver el recorrido completo, la guía por proceso o lo que te toca según tu rol. En cada pantalla importante, el botón Cómo funciona te lleva directo a su explicación.
 
-**[13:55 · Portada final]**
+**[13:54 · Portada final]**
 
 Con MR. LANA PEOPLE cada persona sabe qué hacer, dónde hacerlo, quién lo hace y qué pasa después. Gracias por ver este recorrido.

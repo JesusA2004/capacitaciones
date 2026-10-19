@@ -237,20 +237,24 @@ return [
             'destinatarios' => ['regional', 'rh'],
             'fallback' => ['gerencia_rh'],
         ],
-        // La clave se conserva (avisos ya enviados y registros anteriores):
-        // la baja ya NO se preautoriza; este aviso llega a quien la inició
-        // cuando RH se la devuelve para corregirla y reenviarla.
+        // LEGACY ('legacy' => true): claves conservadas solo para leer avisos y
+        // pendientes anteriores. Flujo vigente de la baja: jefe directo o RH
+        // la inicia → documentos → finiquito → registrar entrega → cierre,
+        // sin preautorización ni autorización posterior de RH (ni devolver/
+        // reenviar). NotificadorRhService nunca emite un evento legacy.
         'cierre_preautorizacion' => [
-            'etiqueta' => 'Baja devuelta por RH para corregir',
-            'descripcion' => 'RH devolvió una baja: quien la inició (jefe directo o RH) la corrige y la reenvía. Sin preautorización de un superior (solo bajas anteriores a ese cambio pueden traerla pendiente).',
+            'etiqueta' => 'Legacy: baja por preautorizar (flujo anterior)',
+            'descripcion' => 'LEGACY: ya no se emite. La baja la aplica de inmediato el jefe directo o RH, sin preautorización; solo registros anteriores traen este aviso.',
             'destinatarios' => ['aprobador'],
             'fallback' => [],
+            'legacy' => true,
         ],
         'cierre_autorizacion_rh' => [
-            'etiqueta' => 'Baja pendiente de autorización de RH',
-            'descripcion' => 'El jefe directo o RH inició la baja (sin preautorización); RH la autoriza.',
+            'etiqueta' => 'Legacy: baja pendiente de autorización de RH (flujo anterior)',
+            'descripcion' => 'LEGACY: ya no se emite. La baja la aplica de inmediato el jefe directo o RH, sin autorización posterior de RH; solo registros anteriores traen este aviso.',
             'destinatarios' => ['rh'],
             'fallback' => ['gerencia_rh'],
+            'legacy' => true,
         ],
         'cierre_negativa_firma' => [
             'etiqueta' => 'El colaborador se negó a firmar/recibir la baja',
@@ -260,17 +264,19 @@ return [
             'fallback' => ['rh'],
         ],
         'pago_por_programar' => [
-            'etiqueta' => 'Pago de finiquito por programar',
-            'descripcion' => 'El finiquito está autorizado; se programa el pago según flujo.',
+            'etiqueta' => 'Legacy: pago de finiquito por programar (flujo anterior)',
+            'descripcion' => 'LEGACY: ya no se emite. RH registra la entrega del finiquito, que cierra el cierre laboral (sin programar pago).',
             'destinatarios' => ['usuarios_con_permiso'],
             'permiso' => 'cierres.programar_pago',
             'fallback' => ['rh'],
+            'legacy' => true,
         ],
         'cita_finiquito' => [
-            'etiqueta' => 'Excolaborador por citar (firma y pago)',
-            'descripcion' => 'El pago está programado: el jefe cita al excolaborador.',
+            'etiqueta' => 'Legacy: excolaborador por citar (flujo anterior)',
+            'descripcion' => 'LEGACY: ya no se emite. RH registra la entrega del finiquito, que cierra el cierre laboral (sin cita).',
             'destinatarios' => ['jefe_directo'],
             'fallback' => ['responsable_sucursal'],
+            'legacy' => true,
         ],
         'colaborador_alta' => [
             'etiqueta' => 'Alta de colaborador',
