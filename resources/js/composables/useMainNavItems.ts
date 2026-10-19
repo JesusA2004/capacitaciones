@@ -10,6 +10,7 @@ import {
     ClipboardCheck,
     ClipboardList,
     Compass,
+    Contact,
     DoorOpen,
     FileCheck,
     FilePen,
@@ -20,6 +21,7 @@ import {
     GitBranch,
     GraduationCap,
     Inbox,
+    Landmark,
     LayoutGrid,
     Megaphone,
     Network,
@@ -31,12 +33,15 @@ import {
     ScrollText,
     Search,
     Settings2,
+    Smartphone,
     ShieldCheck,
     Sparkles,
     Target,
+    TrendingDown,
     TrendingUp,
     UserPlus,
     UserRound,
+    UserSearch,
     Users,
 } from '@lucide/vue';
 import type { LucideIcon } from '@lucide/vue';
@@ -44,15 +49,21 @@ import { computed } from 'vue';
 import { useNavegacion } from '@/composables/useNavegacion';
 import { usePermisos } from '@/composables/usePermisos';
 import { dashboard, miExpediente } from '@/routes';
+import { index as indexAppReleases } from '@/routes/administracion/app-releases';
 import { index as indexConfiguracion } from '@/routes/administracion/configuracion';
+import { index as indexDepartamentos } from '@/routes/administracion/departamentos';
+import { index as indexEmpresas } from '@/routes/administracion/empresas';
 import { index as indexImportarDatos } from '@/routes/administracion/importar-datos';
 import { index as indexJerarquiaPuestos } from '@/routes/administracion/jerarquia-puestos';
+import { index as indexNotificacionesSistema } from '@/routes/administracion/notificaciones-sistema';
 import { index as indexPuestos } from '@/routes/administracion/puestos';
+import { index as indexRoles } from '@/routes/administracion/roles';
 import { index as indexSucursales } from '@/routes/administracion/sucursales';
 import { index as indexUsuarios } from '@/routes/administracion/usuarios';
 import { proximamente as capacitacionProximamente } from '@/routes/capacitacion';
 import { index as indexMuroFelicitaciones } from '@/routes/celebraciones';
 import { index as indexCursos } from '@/routes/cursos';
+import { index as indexDirectorio } from '@/routes/directorio';
 import { presentacion as presentacionInduccion } from '@/routes/induccion';
 import {
     index as indexPortal,
@@ -61,9 +72,11 @@ import {
 } from '@/routes/portal';
 import { ver as verInduccion } from '@/routes/portal/induccion';
 import { index as indexReportes } from '@/routes/reportes';
+import { index as indexRotacion } from '@/routes/reportes/rotacion';
 import { index as indexActas } from '@/routes/rh/actas';
 import { index as indexActivosResponsivas } from '@/routes/rh/activos-responsivas';
 import { index as indexAniversarios } from '@/routes/rh/aniversarios';
+import { index as indexAvisos } from '@/routes/rh/avisos';
 import { index as indexCampanas } from '@/routes/rh/campanas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
 import { index as indexCierres } from '@/routes/rh/cierres';
@@ -73,10 +86,13 @@ import { index as indexCumpleanos } from '@/routes/rh/cumpleanos';
 import { index as indexDocumentosMaestros } from '@/routes/rh/documentos-maestros';
 import { index as indexEvaluaciones } from '@/routes/rh/evaluaciones';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
+import { index as indexImportaciones } from '@/routes/rh/importaciones';
 import { index as indexIncorporacionInvitaciones } from '@/routes/rh/incorporacion/invitaciones';
 import { index as indexInduccionPuesto } from '@/routes/rh/induccion-puesto';
 import { index as indexLotesNomina } from '@/routes/rh/nomina/lotes';
+import { configuracion as configuracionOnboarding } from '@/routes/rh/onboarding';
 import { index as indexPendientes } from '@/routes/rh/pendientes';
+import { index as indexPerfilesPuesto } from '@/routes/rh/perfiles-puesto';
 import { index as indexReingresos } from '@/routes/rh/reingresos';
 import { index as indexRhSolicitudes } from '@/routes/rh/solicitudes';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
@@ -170,6 +186,7 @@ export function useMainNavItems() {
                 href: indexMuroFelicitaciones(),
                 icon: PartyPopper,
             },
+            { title: 'Directorio', href: indexDirectorio(), icon: Contact },
             { title: 'Ayuda', href: '/ayuda', icon: Compass },
         ];
 
@@ -194,6 +211,7 @@ export function useMainNavItems() {
         const grupos: NavGroup[] = [
             grupo({ id: 'inicio', titulo: 'Inicio', icono: LayoutGrid }, [
                 { title: 'Tablero de RH', href: dashboard(), icon: LayoutGrid },
+                { title: 'Directorio', href: indexDirectorio(), icon: Contact },
                 algunPermiso(
                     'ciclo.preautorizar',
                     'ciclo.autorizar_rh',
@@ -230,6 +248,11 @@ export function useMainNavItems() {
                         title: 'Campañas',
                         href: indexCampanas(),
                         icon: Megaphone,
+                    },
+                    tienePermiso('perfiles_puesto.ver') && {
+                        title: 'Descriptivos y perfiles',
+                        href: indexPerfilesPuesto(),
+                        icon: UserSearch,
                     },
                     tienePermiso('candidatos.ver') && {
                         title: 'Candidatos',
@@ -287,6 +310,19 @@ export function useMainNavItems() {
                         title: 'Inducción al puesto',
                         href: indexInduccionPuesto(),
                         icon: Compass,
+                    },
+                    tienePermiso('onboarding.gestionar') && {
+                        title: 'Configuración de onboarding',
+                        href: configuracionOnboarding(),
+                        icon: Sparkles,
+                    },
+                    algunPermiso(
+                        'evaluaciones.capturar',
+                        'evaluaciones.autorizar',
+                    ) && {
+                        title: 'Evaluación de capacitación inicial',
+                        href: indexEvaluaciones(),
+                        icon: ClipboardCheck,
                     },
                     // Mismo motor de «Evaluación de capacitación inicial»
                     // (rh.evaluaciones), aquí filtrado a las ya autorizadas =
@@ -382,6 +418,18 @@ export function useMainNavItems() {
                         title: 'Recibo simple de pago',
                         href: indexLotesNomina(),
                         icon: ReceiptText,
+                    },
+                    tienePermiso(
+                        'colaboradores.importar_salarios_vacaciones',
+                    ) && {
+                        title: 'Importar salarios y vacaciones',
+                        href: indexImportaciones(),
+                        icon: FileSpreadsheet,
+                    },
+                    tienePermiso('avisos.enviar') && {
+                        title: 'Enviar notificación',
+                        href: indexAvisos(),
+                        icon: BellRing,
                     },
                     // Cumpleaños + aniversarios + muro unificados en
                     // «Celebraciones»: una sola entrada (§18).
@@ -480,6 +528,16 @@ export function useMainNavItems() {
                         href: indexSucursales(),
                         icon: Building2,
                     },
+                    tienePermiso('departamentos.administrar') && {
+                        title: 'Departamentos',
+                        href: indexDepartamentos(),
+                        icon: Briefcase,
+                    },
+                    tienePermiso('empresas.ver') && {
+                        title: 'Empresas',
+                        href: indexEmpresas(),
+                        icon: Landmark,
+                    },
                 ],
             ),
 
@@ -490,12 +548,15 @@ export function useMainNavItems() {
                     icono: BarChart3,
                 },
                 [
-                    // Rotación vive DENTRO de Reportes de RH (su fuente canónica
-                    // es RotacionPeriodo); ya no es una entrada suelta (§12/§18).
                     tienePermiso('reportes_rh.ver') && {
                         title: 'Reportes de RH',
                         href: indexReportes(),
                         icon: BarChart3,
+                    },
+                    tienePermiso('rotacion.ver') && {
+                        title: 'Rotación de personal',
+                        href: indexRotacion(),
+                        icon: TrendingDown,
                     },
                 ],
             ),
@@ -520,6 +581,11 @@ export function useMainNavItems() {
                         href: indexUsuarios(),
                         icon: ShieldCheck,
                     },
+                    tienePermiso('roles.administrar') && {
+                        title: 'Roles y permisos',
+                        href: indexRoles(),
+                        icon: ShieldCheck,
+                    },
                     algunPermiso(
                         'expedientes.migrar',
                         'headcount.importar',
@@ -538,6 +604,16 @@ export function useMainNavItems() {
                         title: 'Ajustes y notificaciones',
                         href: indexConfiguracion(),
                         icon: Settings2,
+                    },
+                    tienePermiso('notificaciones.ver_todas') && {
+                        title: 'Notificaciones del sistema',
+                        href: indexNotificacionesSistema(),
+                        icon: BellRing,
+                    },
+                    tienePermiso('app_releases.ver') && {
+                        title: 'Versiones de app',
+                        href: indexAppReleases(),
+                        icon: Smartphone,
                     },
                 ],
             ),

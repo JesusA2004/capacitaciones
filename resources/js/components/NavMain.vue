@@ -169,7 +169,7 @@ function alCambiar(valor: boolean): void {
                 <SidebarGroupLabel
                     as="button"
                     type="button"
-                    class="group/etiqueta flex h-7 w-full cursor-pointer items-center gap-2 rounded-md px-2 text-[11px] font-semibold tracking-[0.1em] text-bronce uppercase transition-colors hover:bg-salvia/60 hover:text-primary focus-visible:ring-2"
+                    class="group/etiqueta flex min-h-7 w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-left text-[10px] leading-tight font-semibold tracking-[0.06em] text-bronce uppercase transition-colors hover:bg-salvia/60 hover:text-primary focus-visible:ring-2"
                 >
                     <!-- Número de etapa, discreto (1–7); los bloques
                          transversales no lo llevan. -->
@@ -186,7 +186,7 @@ function alCambiar(valor: boolean): void {
                         class="size-3.5 shrink-0 text-bronce/70"
                         aria-hidden="true"
                     />
-                    <span class="truncate">{{ titulo }}</span>
+                    <span class="min-w-0 flex-1">{{ titulo }}</span>
                     <ChevronRight
                         class="ml-auto size-3.5 shrink-0 text-bronce/70 transition-transform duration-200 group-data-[state=open]/colapsable:rotate-90"
                         aria-hidden="true"
@@ -203,7 +203,7 @@ function alCambiar(valor: boolean): void {
                             as-child
                             :is-active="accesoActivo(item.href)"
                             :tooltip="item.title"
-                            class="relative h-8 rounded-lg text-sidebar-foreground transition-colors before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-transparent hover:bg-salvia/70 hover:text-primary data-[active=true]:bg-verde-suave/80 data-[active=true]:font-semibold data-[active=true]:text-primary data-[active=true]:before:bg-oro"
+                            class="relative h-auto min-h-8 rounded-lg py-1.5 text-[13px] leading-tight text-sidebar-foreground transition-colors before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-transparent hover:bg-salvia/70 hover:text-primary data-[active=true]:bg-verde-suave/80 data-[active=true]:font-semibold data-[active=true]:text-primary data-[active=true]:before:bg-oro [&>span:last-child]:whitespace-normal!"
                         >
                             <Link :href="item.href">
                                 <component :is="item.icon" />

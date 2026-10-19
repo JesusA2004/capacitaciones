@@ -42,10 +42,16 @@ function gruposDeclarados() {
 }
 
 const ESPERADO = [
-    ['Inicio', ['Tablero de RH', 'Pendientes']],
+    ['Inicio', ['Tablero de RH', 'Directorio', 'Pendientes']],
     [
         'Reclutamiento y selección',
-        ['Vacantes', 'Campañas', 'Candidatos', 'Invitaciones QR'],
+        [
+            'Vacantes',
+            'Campañas',
+            'Descriptivos y perfiles',
+            'Candidatos',
+            'Invitaciones QR',
+        ],
     ],
     [
         'Contratación y expediente',
@@ -60,6 +66,8 @@ const ESPERADO = [
         [
             'Inducción institucional',
             'Inducción al puesto',
+            'Configuración de onboarding',
+            'Evaluación de capacitación inicial',
             'Calificaciones y refuerzo',
             'Activos y responsivas',
         ],
@@ -75,6 +83,8 @@ const ESPERADO = [
             'Solicitudes',
             'Actas administrativas',
             'Recibo simple de pago',
+            'Importar salarios y vacaciones',
+            'Enviar notificación',
             'Celebraciones',
         ],
     ],
@@ -90,16 +100,25 @@ const ESPERADO = [
     ['Cierres laborales', ['Bajas y finiquitos', 'Reingresos']],
     [
         'Organización',
-        ['Organigrama', 'Puestos y tabulador', 'Sucursales y departamentos'],
+        [
+            'Organigrama',
+            'Puestos y tabulador',
+            'Sucursales y departamentos',
+            'Departamentos',
+            'Empresas',
+        ],
     ],
-    ['Reportes', ['Reportes de RH']],
+    ['Reportes', ['Reportes de RH', 'Rotación de personal']],
     [
         'Configuración',
         [
             'Documentos maestros',
             'Usuarios y permisos',
+            'Roles y permisos',
             'Importar datos',
             'Ajustes y notificaciones',
+            'Notificaciones del sistema',
+            'Versiones de app',
         ],
     ],
 ];
@@ -133,10 +152,11 @@ function declaracion(titulo) {
     return operativo.slice(inicio, operativo.indexOf('}', i) + 1);
 }
 
-test('cada acceso (salvo el Tablero) está condicionado por permiso o bandera', () => {
+test('cada acceso (salvo Tablero y Directorio) está condicionado por permiso o bandera', () => {
     for (const [, items] of ESPERADO) {
         for (const titulo of items) {
-            if (titulo === 'Tablero de RH') {
+            // El directorio es de toda la empresa (cualquier usuario autenticado).
+            if (titulo === 'Tablero de RH' || titulo === 'Directorio') {
                 continue;
             }
 
@@ -186,8 +206,9 @@ test('NavMain: grupos plegables, persistidos con try/catch y abiertos si contien
     assert.match(navMain, /try \{\s*window\.localStorage\.setItem/);
     assert.match(navMain, /leerPreferencia\(\) \?\? grupoActivo\.value/);
     assert.match(navMain, /watch\(grupoActivo/);
-    // Densidad compacta: accesos de h-8.
-    assert.match(navMain, /class="relative h-8 /);
+    // Accesos compactos (min-h-8) que envuelven el texto en vez de cortarlo.
+    assert.match(navMain, /class="relative h-auto min-h-8 /);
+    assert.ok(navMain.includes('[&>span:last-child]:whitespace-normal!'));
 });
 
 test('Sidebar: modo iconos, hover sin clic solo con puntero fino y expansión superpuesta', () => {
