@@ -195,7 +195,24 @@ function analizarExcel() {
 }
 
 // --- Revisión -----------------------------------------------------------------
-const plan = computed(() => props.migracion?.plan ?? null);
+// Un análisis guardado por una versión anterior (o cuyo plan quedó vacío)
+// no trae la forma actual: se trata como «sin plan» y se pide reanalizar,
+// en vez de romper la pantalla al leer plan.origen.
+const plan = computed(() => {
+    const p = props.migracion?.plan ?? null;
+
+    return p &&
+        p.origen &&
+        Array.isArray(p.filas) &&
+        Array.isArray(p.carpetas_sin_persona) &&
+        Array.isArray(p.sucursales_no_autorizadas_nas) &&
+        Array.isArray(p.excel?.sin_reconocer)
+        ? p
+        : null;
+});
+const planIlegible = computed(
+    () => props.migracion !== null && plan.value === null,
+);
 const totales = computed(() => props.migracion?.totales ?? {});
 const filtro = ref<
     | 'todos'
@@ -578,6 +595,16 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                 </div>
             </div>
         </section>
+
+        <div
+            v-if="planIlegible"
+            class="rounded-xl bg-warning/10 p-3 text-sm text-warning"
+        >
+            Este análisis ({{ migracion?.archivo }}) no tiene un plan de
+            revisión que esta versión pueda mostrar (se hizo con una versión
+            anterior o quedó incompleto). Vuelve a subir el Excel en el paso 1
+            para analizarlo de nuevo.
+        </div>
 
         <template v-if="migracion && plan">
             <!-- Paso 3: Revisión -->
