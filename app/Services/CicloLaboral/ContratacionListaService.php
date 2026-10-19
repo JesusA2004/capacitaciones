@@ -248,7 +248,10 @@ class ContratacionListaService
             'paquete_generado' => $contrato !== null && $this->contratos->paqueteGenerado($contrato),
             'paquete_firmado' => $contrato !== null && $this->contratos->paqueteFirmado($contrato),
             'documentos' => $documentos,
-            'gestion_url' => sprintf('/rh/documentos-proceso/colaborador/%d', $colaborador->id),
+            // La generación/firma del paquete vive en el Ciclo laboral de la
+            // persona (sección «Documentos»); /rh/documentos-proceso/... es el
+            // endpoint JSON que esa sección consume, no una página.
+            'gestion_url' => route('rh.colaboradores.ciclo', $colaborador, false),
         ];
     }
 

@@ -150,8 +150,15 @@ test('Contratos de ingreso lista a las personas en contratación con su paquete'
             ->component('Rh/Contratacion/ContratosIngreso')
             ->has('contratos.data', 1)
             ->where('contratos.data.0.id', $persona->id)
-            ->where('contratos.data.0.gestion_url', "/rh/documentos-proceso/colaborador/{$persona->id}")
+            ->where('contratos.data.0.gestion_url', "/rh/colaboradores/{$persona->id}/ciclo")
             ->has('contratos.data.0.documentos'));
+
+    // «Gestionar» abre una página Inertia (el Ciclo laboral), no el JSON
+    // de /rh/documentos-proceso que esa página consume.
+    $this->actingAs($this->rh)
+        ->get("/rh/colaboradores/{$persona->id}/ciclo")
+        ->assertOk()
+        ->assertInertia(fn (Assert $p) => $p->component('Rh/Colaboradores/Ciclo'));
 });
 
 test('Contratos de ingreso responde 403 sin contratos.ver', function () {
