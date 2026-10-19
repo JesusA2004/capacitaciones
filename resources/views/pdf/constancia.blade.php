@@ -1,13 +1,15 @@
+@php($pal = config('pdf_identidad'))
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="utf-8">
     <title>Constancia — {{ $certificado->curso->titulo }}</title>
+    {{-- Identidad institucional PEOPLE: paleta única en config/pdf_identidad.php. --}}
     <style>
         @page { margin: 60px 50px; }
-        body { font-family: 'Helvetica', sans-serif; color: #111111; text-align: center; }
-        .marco { border: 4px solid #64D64B; padding: 40px; height: 620px; }
-        .marca { font-size: 14px; letter-spacing: 4px; text-transform: uppercase; color: #2DC7D3; margin-bottom: 30px; }
+        body { font-family: 'Helvetica', sans-serif; color: {{ $pal['texto'] }}; text-align: center; }
+        .marco { border: 4px solid {{ $pal['petroleo'] }}; padding: 40px; height: 620px; }
+        .marca { font-size: 14px; letter-spacing: 4px; text-transform: uppercase; color: {{ $pal['bronce'] }}; margin-bottom: 30px; }
         h1 { font-size: 30px; margin: 0 0 10px; }
         .subtitulo { font-size: 14px; color: #555555; margin-bottom: 40px; }
         .nombre { font-size: 26px; font-weight: bold; margin: 20px 0; border-bottom: 1px solid #cccccc; display: inline-block; padding-bottom: 8px; }

@@ -27,7 +27,11 @@ return [
     |--------------------------------------------------------------------------
     */
     'token_ttl' => (int) env('MEDIA_TOKEN_TTL', 600),
-    'allowed_origin' => env('MEDIA_ALLOWED_ORIGIN'),
+    // Origen (dominio) autorizado para pedir multimedia desde un frontend
+    // servido en otro host (CORS). Por defecto el dominio real del portal;
+    // deploy/nginx/multimedia.conf debe usar este mismo valor en su cabecera
+    // Access-Control-Allow-Origin. Nunca "*" para contenido privado.
+    'allowed_origin' => env('MEDIA_ALLOWED_ORIGIN', 'https://people.mr-lana.com'),
     'max_upload_mb' => (int) env('MEDIA_MAX_UPLOAD_MB', 2048),
 
     /*

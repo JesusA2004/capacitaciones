@@ -6,6 +6,7 @@ use App\Models\Prestamo;
 use App\Models\PrestamoMovimiento;
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Support\FechaMexico;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -70,7 +71,7 @@ class PrestamoService
                 'monto_solicitado' => $solicitud->monto_solicitado,
                 'plazo_solicitado' => $solicitud->plazo_meses,
                 'motivo' => $solicitud->motivo,
-                'fecha_solicitud' => $solicitud->created_at?->toDateString(),
+                'fecha_solicitud' => $solicitud->created_at?->copy()->setTimezone(FechaMexico::ZONA)->toDateString(),
                 'observaciones' => $datos['observaciones'] ?? null,
                 'autorizado_por' => $registradoPor->id,
                 'autorizado_en' => now(),
@@ -170,7 +171,8 @@ class PrestamoService
             /** @var PrestamoMovimiento $movimiento */
             $movimiento = PrestamoMovimiento::query()->create([
                 'prestamo_id' => $prestamo->id,
-                'fecha' => now()->toDateString(),
+                // Fecha calendario del movimiento en México, no UTC (P1-28).
+                'fecha' => FechaMexico::hoy(),
                 'monto' => $monto,
                 'tipo' => $tipo,
                 'saldo_anterior' => $saldoAnterior,
@@ -228,7 +230,8 @@ class PrestamoService
             /** @var PrestamoMovimiento $movimiento */
             $movimiento = PrestamoMovimiento::query()->create([
                 'prestamo_id' => $prestamo->id,
-                'fecha' => now()->toDateString(),
+                // Fecha calendario del movimiento en México, no UTC (P1-28).
+                'fecha' => FechaMexico::hoy(),
                 'monto' => $monto,
                 'tipo' => self::TIPO_REVERSO_NOMINA,
                 'saldo_anterior' => $saldoAnterior,

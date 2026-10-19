@@ -10,12 +10,10 @@ use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudVacaciones;
 use App\Models\User;
-use App\Notifications\Mobile\RhVacacionCreadaNotification;
 use App\Notifications\Mobile\VacacionActualizadaNotification;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Notificaciones\Aviso;
 use App\Services\Notificaciones\NotificacionEventosService;
-use App\Services\RhMobile\ResponsableResolverService;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -23,7 +21,6 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
@@ -40,7 +37,6 @@ use Throwable;
 class VacacionesService
 {
     public function __construct(
-        private readonly ResponsableResolverService $responsables,
         private readonly NotificacionEventosService $eventos,
         private readonly AlcanceOrganizacionalService $alcance,
     ) {}
@@ -318,66 +314,81 @@ class VacacionesService
     }
 
     /**
-     * @return Collection<int, SolicitudVacaciones>
+     * Solicitudes de vacaciones del colaborador para la app móvil: la fuente
+     * viva es `solicitudes_internas` (tipo=vacaciones, donde ahora se crean
+     * TODAS las altas, ver App\Services\Solicitudes\SolicitudesService::crear),
+     * combinada en modo lectura con las filas históricas de la tabla legacy
+     * `solicitudes_vacaciones` (que ya no recibe altas pero conserva su
+     * historial — nunca se borra). Devuelve la MISMA forma JSON que respondía
+     * el endpoint legacy para no romper apps instaladas.
+     *
+     * @return list<array<string, mixed>>
      */
-    public function misSolicitudes(User $colaborador): Collection
+    public function misSolicitudesUnificadas(User $colaborador): array
     {
-        return SolicitudVacaciones::query()
-            ->where(function (Builder $q) use ($colaborador): void {
-                $q->where('user_id', $colaborador->id);
+        $porIdentidad = function (Builder $q) use ($colaborador): void {
+            $q->where('user_id', $colaborador->id);
 
-                if ($colaborador->colaborador_id !== null) {
-                    $q->orWhere('colaborador_id', $colaborador->colaborador_id);
-                }
-            })
-            ->orderByDesc('created_at')
-            ->get();
+            if ($colaborador->colaborador_id !== null) {
+                $q->orWhere('colaborador_id', $colaborador->colaborador_id);
+            }
+        };
+
+        $internas = SolicitudInterna::query()
+            ->where('tipo', TipoSolicitudInterna::Vacaciones)
+            ->where($porIdentidad)
+            ->get()
+            ->map(fn (SolicitudInterna $s): array => [
+                'id' => $s->id,
+                'solicitud_id' => $s->id,
+                'fecha_inicio' => $s->fecha_inicio?->toDateString(),
+                'fecha_fin' => $s->fecha_fin?->toDateString(),
+                'dias_solicitados' => $s->dias_solicitados,
+                'comentario' => $s->motivo,
+                'estado' => self::estadoLegacy($s->estado),
+                'estado_etiqueta' => $s->estado->etiqueta(),
+                'motivo_rechazo' => $s->motivo_rechazo,
+                'creada_en' => $s->created_at?->toIso8601String(),
+            ])
+            ->all();
+
+        $legacy = SolicitudVacaciones::query()
+            ->where($porIdentidad)
+            ->get()
+            ->map(fn (SolicitudVacaciones $v): array => [
+                'id' => $v->id,
+                'solicitud_id' => $v->id,
+                'fecha_inicio' => $v->fecha_inicio->toDateString(),
+                'fecha_fin' => $v->fecha_fin->toDateString(),
+                'dias_solicitados' => $v->dias_solicitados,
+                'comentario' => $v->comentario,
+                'estado' => $v->estado->value,
+                'estado_etiqueta' => $v->estado->etiqueta(),
+                'motivo_rechazo' => $v->motivo_rechazo,
+                'creada_en' => $v->created_at?->toIso8601String(),
+            ])
+            ->all();
+
+        $items = array_merge($internas, $legacy);
+
+        usort($items, fn (array $a, array $b): int => strcmp((string) $b['creada_en'], (string) $a['creada_en']));
+
+        return $items;
     }
 
     /**
-     * Crea una solicitud de vacaciones validando que el colaborador tenga
-     * saldo suficiente. Usado por el controlador web (Inertia) y por la API
-     * movil (Api\V1\VacacionesController) — misma logica, un solo lugar.
-     *
-     * @param  array<string, mixed>  $datos  Validado por StoreSolicitudVacacionesRequest: fecha_inicio, fecha_fin, dias_solicitados, comentario?.
-     *
-     * @throws ValidationException
+     * Mapea el estado del motor unificado a los valores que esperaba el
+     * cliente legacy (pendiente|aprobada|rechazada|cancelada): cualquier etapa
+     * de revisión abierta cuenta como «pendiente».
      */
-    public function solicitar(User $colaborador, array $datos): SolicitudVacaciones
+    private static function estadoLegacy(EstadoSolicitudInterna $estado): string
     {
-        $saldo = $this->saldo($colaborador);
-
-        if (! $saldo['puede_solicitar']) {
-            throw ValidationException::withMessages([
-                'dias_solicitados' => $saldo['motivo_no_disponible'] ?? 'Todavía no puedes solicitar vacaciones.',
-            ]);
-        }
-
-        if ($datos['dias_solicitados'] > $saldo['dias_disponibles']) {
-            throw ValidationException::withMessages([
-                'dias_solicitados' => 'No tienes suficientes días disponibles.',
-            ]);
-        }
-
-        $solicitud = SolicitudVacaciones::create([
-            ...$datos,
-            'user_id' => $colaborador->id,
-            'colaborador_id' => $colaborador->colaborador_id,
-            'estado' => EstadoSolicitudVacaciones::Pendiente,
-        ]);
-
-        $this->notificarSinFallar(function () use ($solicitud, $colaborador): void {
-            $responsables = $this->responsables->paraColaborador($colaborador, 'rh.vacaciones.aprobar');
-
-            $this->eventos->registrarConPendiente(
-                $colaborador,
-                new Aviso('vacaciones_solicitadas', 'vacaciones', 'Vacaciones solicitadas', sprintf('Pediste %d día(s) de vacaciones; quedó en revisión.', (int) $solicitud->dias_solicitados), $solicitud, 'registrada'),
-                $responsables,
-                new Aviso('vacaciones_solicitadas', 'rh_vacaciones', 'Nueva solicitud de vacaciones', 'Un colaborador solicitó vacaciones.', $solicitud, 'revisar_vacaciones', 'media', [], null, new RhVacacionCreadaNotification($solicitud)),
-            );
-        });
-
-        return $solicitud;
+        return match ($estado) {
+            EstadoSolicitudInterna::Aprobada => 'aprobada',
+            EstadoSolicitudInterna::Rechazada => 'rechazada',
+            EstadoSolicitudInterna::Cancelada => 'cancelada',
+            default => 'pendiente',
+        };
     }
 
     /**

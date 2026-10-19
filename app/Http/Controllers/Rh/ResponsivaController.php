@@ -2,7 +2,14 @@
 
 namespace App\Http\Controllers\Rh;
 
-use App\Enums\CondicionActivoResponsiva;
+use App\Enums\AccesorioEquipoElectronico;
+use App\Enums\AccesorioVehiculo;
+use App\Enums\EstadoConservacion;
+use App\Enums\EstadoFisicoResponsiva;
+use App\Enums\EstadoResponsiva;
+use App\Enums\NivelCombustible;
+use App\Enums\TipoBienMueble;
+use App\Enums\TipoEquipoElectronico;
 use App\Enums\TipoResponsiva;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\GuardarResponsivaRequest;
@@ -12,7 +19,8 @@ use App\Services\Responsivas\ResponsivaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
-use Illuminate\Http\UploadedFile;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -24,6 +32,34 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class ResponsivaController extends Controller
 {
     public function __construct(private readonly ResponsivaService $responsivas) {}
+
+    /**
+     * Panorama (índice web): TODAS las responsivas dentro del alcance del
+     * usuario. Documental, no inventario. Las operaciones (firma física,
+     * devolución, cancelación, PDF) siguen siendo las rutas per-persona que
+     * ya existen; aquí solo se listan y se enlaza a la ficha del colaborador.
+     */
+    public function panorama(Request $request): InertiaResponse
+    {
+        $usuario = $request->user();
+        abort_unless($usuario->can('responsivas.ver'), 403);
+
+        $listado = $this->responsivas
+            ->panorama($usuario, $request->only(['tipo', 'estado', 'busqueda', 'per_page']))
+            ->withQueryString();
+        $listado->getCollection()->transform(fn (Responsiva $r): array => $this->responsivas->presentarParaIndice($r, $usuario));
+
+        return Inertia::render('Rh/Responsivas/Index', [
+            'responsivas' => $listado,
+            'filtros' => [
+                'tipo' => $request->query('tipo'),
+                'estado' => $request->query('estado'),
+                'busqueda' => (string) $request->query('busqueda', ''),
+            ],
+            'tipos' => array_map(fn (TipoResponsiva $t): array => ['value' => $t->value, 'label' => $t->etiqueta()], TipoResponsiva::cases()),
+            'estados' => array_map(fn (EstadoResponsiva $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], EstadoResponsiva::cases()),
+        ]);
+    }
 
     public function index(Request $request, Colaborador $colaborador): JsonResponse
     {
@@ -38,7 +74,15 @@ class ResponsivaController extends Controller
             'puede_generar' => $puedeGenerar,
             'valores_iniciales' => $puedeGenerar ? $this->responsivas->valoresIniciales($colaborador, $usuario) : null,
             'tipos' => array_map(fn (TipoResponsiva $t): array => ['value' => $t->value, 'label' => $t->etiqueta()], TipoResponsiva::cases()),
-            'condiciones' => array_map(fn (CondicionActivoResponsiva $c): array => ['value' => $c->value, 'label' => $c->etiqueta()], CondicionActivoResponsiva::cases()),
+            'catalogos' => [
+                'estados_fisicos' => array_map(fn (EstadoFisicoResponsiva $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], EstadoFisicoResponsiva::cases()),
+                'tipos_mueble' => array_map(fn (TipoBienMueble $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], TipoBienMueble::cases()),
+                'tipos_equipo' => array_map(fn (TipoEquipoElectronico $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], TipoEquipoElectronico::cases()),
+                'accesorios_equipo' => array_map(fn (AccesorioEquipoElectronico $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], AccesorioEquipoElectronico::cases()),
+                'niveles_combustible' => array_map(fn (NivelCombustible $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], NivelCombustible::cases()),
+                'estados_conservacion' => array_map(fn (EstadoConservacion $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], EstadoConservacion::cases()),
+                'accesorios_vehiculo' => array_map(fn (AccesorioVehiculo $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], AccesorioVehiculo::cases()),
+            ],
         ]);
     }
 
@@ -91,28 +135,7 @@ class ResponsivaController extends Controller
 
         return response()->json([
             'message' => sprintf('Responsiva %s marcada como firmada físicamente.', $responsiva->folio),
-            'responsiva' => $this->responsivas->presentar($responsiva->load(['activos', 'entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador']), $request->user()),
-        ]);
-    }
-
-    /**
-     * LEGACY (solo lectura en el flujo nuevo): subir el escaneo de la
-     * responsiva firmada. Se conserva para los registros antiguos.
-     */
-    public function subirFirmada(Request $request, Responsiva $responsiva): JsonResponse
-    {
-        $this->authorize('operar', $responsiva);
-        $datos = $request->validate([
-            'archivo' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:'.((int) config('expedientes.max_upload_mb', 20) * 1024)],
-        ], [], ['archivo' => 'responsiva firmada']);
-
-        /** @var UploadedFile $archivo */
-        $archivo = $datos['archivo'];
-        $responsiva = $this->responsivas->subirFirmada($responsiva, $archivo, $request->user());
-
-        return response()->json([
-            'message' => sprintf('Se guardó la responsiva %s firmada en el expediente.', $responsiva->folio),
-            'responsiva' => $this->responsivas->presentar($responsiva->load(['activos', 'entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador']), $request->user()),
+            'responsiva' => $this->responsivas->presentar($responsiva->load(['entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador']), $request->user()),
         ]);
     }
 
@@ -128,7 +151,7 @@ class ResponsivaController extends Controller
 
         return response()->json([
             'message' => sprintf('Se registró la devolución del equipo de la responsiva %s.', $responsiva->folio),
-            'responsiva' => $this->responsivas->presentar($responsiva->load(['activos', 'entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador']), $request->user()),
+            'responsiva' => $this->responsivas->presentar($responsiva->load(['entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador']), $request->user()),
         ]);
     }
 
@@ -143,7 +166,7 @@ class ResponsivaController extends Controller
 
         return response()->json([
             'message' => sprintf('Responsiva %s cancelada.', $responsiva->folio),
-            'responsiva' => $this->responsivas->presentar($responsiva->load(['activos', 'entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador']), $request->user()),
+            'responsiva' => $this->responsivas->presentar($responsiva->load(['entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador']), $request->user()),
         ]);
     }
 }

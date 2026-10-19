@@ -65,4 +65,17 @@ class UserPolicy
             && ! $usuario->is($objetivo)
             && $this->alcance->puedeVerUsuario($usuario, $objetivo);
     }
+
+    /**
+     * PURGA INTEGRAL de la persona (cuenta + expediente + todo lo suyo),
+     * exclusiva de super_admin y solo para registros erróneos/de prueba —
+     * ver App\Services\Administracion\PurgaPersonaService. No es «Revocar
+     * acceso» (que conserva todo). Las salvaguardas finas (no a sí mismo, no
+     * al último super_admin, bloqueos por datos de terceros) se revalidan en
+     * el servicio.
+     */
+    public function purgarDefinitivamente(User $usuario, User $objetivo): bool
+    {
+        return $usuario->hasRole('super_admin') && ! $usuario->is($objetivo);
+    }
 }

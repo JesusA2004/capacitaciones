@@ -74,15 +74,29 @@ enum EstadoFlujoDocumento: string
         };
     }
 
+    /**
+     * Estado terminal administrativo: el documento ya se archivó o se canceló.
+     * NO incluye FirmadoFisicamente a propósito — para «ya no se puede tocar
+     * el documento» (incluida la firma física, estado final del flujo en
+     * papel) usa estaConcluido().
+     */
     public function esFinal(): bool
     {
         return $this === self::Archivado || $this === self::Cancelado;
     }
 
     /**
-     * true cuando el documento ya quedó firmado por el colaborador (digital
-     * o físicamente) — lo usan el alta (pendiente_firma) y la renovación.
+     * El documento ya no admite cambios de flujo: está firmado físicamente
+     * (estado FINAL del flujo en papel, con su original resguardado),
+     * archivado o cancelado. Un documento concluido NO puede cancelarse sin
+     * un proceso de anulación auditado aparte — ver FlujoDocumentalService::
+     * cancelar().
      */
+    public function estaConcluido(): bool
+    {
+        return $this === self::FirmadoFisicamente || $this->esFinal();
+    }
+
     /**
      * true cuando ya existe el original físico firmado (firma + huella
      * registradas por el gerente), aunque todavía no se envíe o archive.
@@ -95,6 +109,16 @@ enum EstadoFlujoDocumento: string
         ], true);
     }
 
+    /**
+     * true cuando el colaborador YA ACEPTÓ/FIRMÓ digitalmente el documento (y
+     * en cualquier estado posterior). OJO: NO significa «concluido según su
+     * flujo» — devuelve true incluso en estados PRE-firma física
+     * (PendienteImpresion/Impreso/PendienteFirmaFisica), porque solo marca
+     * que se superó la etapa de firma digital. Para saber si el documento
+     * cumplió todos sus requisitos de firma usa
+     * App\Services\DocumentosLaborales\FirmaDocumentalService::
+     * documentoConcluidoSegunFlujo(), no este método.
+     */
     public function estaFirmado(): bool
     {
         return in_array($this, [

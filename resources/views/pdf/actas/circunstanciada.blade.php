@@ -30,11 +30,13 @@
     }
     $parrafos = fn (?string $texto) => collect(preg_split("/\R{2,}/u", trim((string) $texto)) ?: [])->filter(fn ($p) => trim($p) !== '');
 @endphp
+@php($pal = config('pdf_identidad'))
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="utf-8">
     <title>Acta administrativa circunstanciada {{ $d['folio'] }}</title>
+    {{-- Identidad institucional PEOPLE: paleta única en config/pdf_identidad.php. --}}
     <style>
         @page {
             @if ($motor === 'browsershot') size: A4 portrait; @endif
@@ -49,50 +51,50 @@
         .encabezado td { vertical-align: top; }
         .logo { height: 14mm; }
         .titulo { text-align: right; }
-        .titulo h1 { margin: 0; font-size: 14.5pt; line-height: 1.2; letter-spacing: 1.4pt; color: #0d3e43; font-weight: bold; }
-        .meta { margin-top: 2mm; font-size: 8.6pt; color: #52606d; line-height: 1.45; }
-        .meta strong { color: #1f2933; font-weight: bold; }
-        .filete { height: 0.5mm; background: #b08d57; margin: 4mm 0 5mm; }
+        .titulo h1 { margin: 0; font-size: 14.5pt; line-height: 1.2; letter-spacing: 1.4pt; color: {{ $pal['petroleo'] }}; font-weight: bold; }
+        .meta { margin-top: 2mm; font-size: 8.6pt; color: {{ $pal['texto_suave'] }}; line-height: 1.45; }
+        .meta strong { color: {{ $pal['texto'] }}; font-weight: bold; }
+        .filete { height: 0.5mm; background: {{ $pal['dorado'] }}; margin: 4mm 0 5mm; }
 
         /* Datos del patrón */
         .patron td { padding: 0.8mm 0; font-size: 9pt; vertical-align: top; }
-        .patron .etq { width: 34%; color: #52606d; }
+        .patron .etq { width: 34%; color: {{ $pal['texto_suave'] }}; }
 
         /* Secciones */
         .seccion { margin-top: 6.5mm; }
-        h2 { margin: 0 0 2.5mm; padding-bottom: 1.2mm; font-size: 10pt; letter-spacing: 0.6pt; text-transform: uppercase; color: #0d3e43; border-bottom: 0.25mm solid #c9d3d6; page-break-after: avoid; }
-        h2 .num { color: #b08d57; margin-right: 2mm; }
-        h3 { margin: 4mm 0 1.5mm; font-size: 9.4pt; color: #0d3e43; page-break-after: avoid; }
-        .nota { color: #52606d; font-size: 9pt; }
+        h2 { margin: 0 0 2.5mm; padding-bottom: 1.2mm; font-size: 10pt; letter-spacing: 0.6pt; text-transform: uppercase; color: {{ $pal['petroleo'] }}; border-bottom: 0.25mm solid {{ $pal['borde_claro'] }}; page-break-after: avoid; }
+        h2 .num { color: {{ $pal['dorado'] }}; margin-right: 2mm; }
+        h3 { margin: 4mm 0 1.5mm; font-size: 9.4pt; color: {{ $pal['petroleo'] }}; page-break-after: avoid; }
+        .nota { color: {{ $pal['texto_suave'] }}; font-size: 9pt; }
 
         /* Tabla de identificación */
-        .ficha td { padding: 1.4mm 2mm; border-bottom: 0.2mm solid #e4e9eb; font-size: 9.4pt; vertical-align: top; }
-        .ficha .etq { width: 30%; color: #52606d; }
+        .ficha td { padding: 1.4mm 2mm; border-bottom: 0.2mm solid {{ $pal['borde_claro'] }}; font-size: 9.4pt; vertical-align: top; }
+        .ficha .etq { width: 30%; color: {{ $pal['texto_suave'] }}; }
 
         .persona { margin-bottom: 2.5mm; page-break-inside: avoid; }
         .persona .nombre { font-weight: bold; }
-        .persona .det { color: #52606d; font-size: 9pt; }
+        .persona .det { color: {{ $pal['texto_suave'] }}; font-size: 9pt; }
 
         .manifestacion { margin: 0 0 4mm; page-break-inside: avoid; }
         .manifestacion .quien { margin-bottom: 1mm; }
 
-        .anexo { margin: 0 0 3mm; padding-left: 3mm; border-left: 0.6mm solid #e4e9eb; page-break-inside: avoid; }
-        .anexo .det { color: #52606d; font-size: 9pt; }
+        .anexo { margin: 0 0 3mm; padding-left: 3mm; border-left: 0.6mm solid {{ $pal['borde_claro'] }}; page-break-inside: avoid; }
+        .anexo .det { color: {{ $pal['texto_suave'] }}; font-size: 9pt; }
 
         /* Firmas: espacio real para pluma, sin cajas */
         .firmas { margin-top: 2mm; }
         .firmas td { width: 50%; padding: 15mm 7mm 1.5mm; vertical-align: bottom; text-align: center; page-break-inside: avoid; }
-        .firmas .linea { border-top: 0.25mm solid #1f2933; padding-top: 1.5mm; font-weight: bold; font-size: 9.4pt; }
+        .firmas .linea { border-top: 0.25mm solid {{ $pal['texto'] }}; padding-top: 1.5mm; font-weight: bold; font-size: 9.4pt; }
         .firmas .puesto { font-size: 8.8pt; }
-        .firmas .caracter { font-size: 8.2pt; color: #6b7785; }
+        .firmas .caracter { font-size: 8.2pt; color: {{ $pal['texto_suave'] }}; }
 
-        .control td { padding: 1.2mm 2mm; border-bottom: 0.2mm solid #e4e9eb; font-size: 9.2pt; }
-        .control .etq { width: 45%; color: #52606d; }
+        .control td { padding: 1.2mm 2mm; border-bottom: 0.2mm solid {{ $pal['borde_claro'] }}; font-size: 9.2pt; }
+        .control .etq { width: 45%; color: {{ $pal['texto_suave'] }}; }
 
-        /* Vista previa: marca diagonal suave que no tapa el texto */
-        .marca { position: fixed; top: 42%; left: 0; width: 100%; text-align: center; transform: rotate(-30deg); font-size: 40pt; font-weight: bold; letter-spacing: 6pt; color: rgba(176, 141, 87, 0.13); z-index: 0; }
+        /* Vista previa: marca diagonal suave (petróleo institucional) que no tapa el texto */
+        .marca { position: fixed; top: 42%; left: 0; width: 100%; text-align: center; transform: rotate(-30deg); font-size: 40pt; font-weight: bold; letter-spacing: 6pt; color: rgba(49, 91, 89, 0.13); z-index: 0; }
         /* En línea y sin padding vertical: la vista previa pagina exactamente igual que el acta definitiva. */
-        .insignia { margin-left: 1.5mm; white-space: nowrap; padding: 0 1.6mm; border: 0.25mm solid #b08d57; border-radius: 1mm; color: #8a6a3a; font-size: 7.6pt; letter-spacing: 1pt; }
+        .insignia { margin-left: 1.5mm; white-space: nowrap; padding: 0 1.6mm; border: 0.25mm solid {{ $pal['dorado'] }}; border-radius: 1mm; color: {{ $pal['alerta_texto'] }}; font-size: 7.6pt; letter-spacing: 1pt; }
     </style>
 </head>
 <body>

@@ -4,7 +4,6 @@ namespace App\Services\Onboarding;
 
 use App\Enums\EstadoEvaluacionInduccion;
 use App\Enums\EstadoOnboarding;
-use App\Enums\EstadoSesionInduccion;
 use App\Enums\NivelEvaluacionInduccion;
 use App\Enums\PrioridadTarea;
 use App\Enums\TipoModuloOnboarding;
@@ -16,7 +15,6 @@ use App\Models\OnboardingAvance;
 use App\Models\OnboardingModulo;
 use App\Models\OnboardingProceso;
 use App\Models\SesionInduccion;
-use App\Models\SesionInduccionColaborador;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
@@ -64,15 +62,13 @@ class EvaluacionInduccionService
     /**
      * Idempotente: crea (o devuelve) la evaluación formal del proceso cuando
      * todos los avances institucionales obligatorios de esa clave ya tienen
-     * su contenido visto — por autoestudio (visor del PDF) o porque RH se la
-     * PRESENTÓ en una sesión (SesionInduccionService, camino principal).
-     * null si el proceso no tiene ningún módulo institucional con
+     * su contenido visto. En el nuevo flujo eso ocurre cuando el colaborador
+     * TERMINA la inducción por su cuenta (hojas del PDF + video completo si el
+     * material es video — InduccionPdfService::terminar(), única fuente del
+     * gate). null si el proceso no tiene ningún módulo institucional con
      * evaluación formal configurada, o si falta contenido por ver.
-     *
-     * $sesion: la sesión de RH que acaba de presentarla (solo cambia el
-     * texto del aviso al colaborador).
      */
-    public function habilitarPara(OnboardingProceso $proceso, ?SesionInduccion $sesion = null): ?EvaluacionInduccion
+    public function habilitarPara(OnboardingProceso $proceso): ?EvaluacionInduccion
     {
         // Onboardings abiertos antes de existir el módulo de la evaluación
         // formal: se le agrega para que la evaluación sí pueda habilitarse.
@@ -105,19 +101,6 @@ class EvaluacionInduccionService
         $obligatorios = $avances->filter(fn (OnboardingAvance $a) => $a->modulo->obligatorio);
         $contenidoCompleto = $obligatorios->isNotEmpty() && $obligatorios->every(fn (OnboardingAvance $a) => $a->contenido_visto_en !== null);
 
-        // RH ya le presentó la inducción (p. ej. ANTES de que su onboarding
-        // existiera: asistencia «sin proceso de ingreso»): se aplica ahora
-        // esa presentación, una sola vez y de forma auditable.
-        if (! $contenidoCompleto && $obligatorios->isNotEmpty()) {
-            $previa = $sesion ?? $this->sesionPresentadaPara($proceso->colaborador_id);
-
-            if ($previa !== null) {
-                $this->registrarPresentacionRh($proceso, $previa);
-                $sesion = $previa;
-                $contenidoCompleto = true;
-            }
-        }
-
         if (! $contenidoCompleto) {
             return null;
         }
@@ -135,12 +118,12 @@ class EvaluacionInduccionService
 
         if ($usuario !== null) {
             $this->tareas->abrir(TipoTarea::InduccionEvaluacionPendiente, $evaluacion, [
-                'titulo' => $sesion !== null ? self::TITULO_AVISO_PRESENTADA : 'Presenta tu evaluación de inducción',
+                'titulo' => 'Presenta tu evaluación de inducción',
                 'colaborador' => $proceso->colaborador,
                 'usuario' => $usuario,
                 'accion' => 'presentar_evaluacion_induccion',
             ]);
-            $this->notificarDisponible($usuario, $evaluacion, $sesion !== null);
+            $this->notificarDisponible($usuario, $evaluacion);
         }
 
         return $evaluacion;
@@ -150,15 +133,13 @@ class EvaluacionInduccionService
      * Aviso (notificación + push) de que ya puede contestar su evaluación.
      * La capa de notificaciones nunca lanza ni deshace la acción principal.
      */
-    public function notificarDisponible(User $usuario, EvaluacionInduccion $evaluacion, bool $presentadaPorRh): void
+    public function notificarDisponible(User $usuario, EvaluacionInduccion $evaluacion): void
     {
         $this->notificador->notificar(
             [$usuario],
             'induccion_evaluacion_disponible',
-            $presentadaPorRh ? self::TITULO_AVISO_PRESENTADA : 'Ya puedes presentar tu evaluación de inducción',
-            $presentadaPorRh
-                ? 'Recursos Humanos te presentó la Inducción Mr. Lana. Entra a tu app y contesta tu evaluación: al aprobarla quedas listo para empezar a laborar.'
-                : 'Entra a "Mis pendientes" para responderla.',
+            self::TITULO_AVISO_PRESENTADA,
+            'Terminaste de ver tu Inducción Mr. Lana. Entra a "Mis pendientes" y contesta tu evaluación: al aprobarla quedas listo para empezar a laborar.',
             $evaluacion,
             'presentar_evaluacion_induccion',
             'alta',
@@ -202,21 +183,6 @@ class EvaluacionInduccionService
         }
 
         return $marcados;
-    }
-
-    /**
-     * Última sesión PRESENTADA en la que estuvo este colaborador.
-     */
-    private function sesionPresentadaPara(int $colaboradorId): ?SesionInduccion
-    {
-        $asistencia = SesionInduccionColaborador::query()
-            ->where('colaborador_id', $colaboradorId)
-            ->whereHas('sesion', fn (Builder $q) => $q->where('estado', EstadoSesionInduccion::Presentada->value))
-            ->with('sesion')
-            ->latest('id')
-            ->first();
-
-        return $asistencia?->sesion;
     }
 
     /**

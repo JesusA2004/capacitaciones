@@ -52,7 +52,9 @@ class RecursoMultimediaController extends Controller
         $tipo = TipoRecursoMultimedia::from($request->string('tipo')->toString());
         $nombreInterno = $this->storage->nombreInterno($archivo->getClientOriginalName());
 
-        $rutaDestino = $tipo === TipoRecursoMultimedia::Video
+        // El audio (narración de inducción) se guarda como original y se sirve
+        // tal cual con soporte Range, sin HLS ni transcodificar.
+        $rutaDestino = in_array($tipo, [TipoRecursoMultimedia::Video, TipoRecursoMultimedia::Audio], true)
             ? $this->storage->rutaOriginal($nombreInterno)
             : $this->storage->rutaDocumento($nombreInterno);
 

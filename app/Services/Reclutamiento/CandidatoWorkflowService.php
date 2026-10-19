@@ -25,6 +25,7 @@ use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
 use App\Services\Vacantes\VacantesListadoService;
+use App\Support\FechaMexico;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
@@ -442,7 +443,7 @@ class CandidatoWorkflowService
                 'relacion_puesto' => isset($datos['relacion_puesto']) ? (string) $datos['relacion_puesto'] : null,
                 'resultado' => ResultadoReferencia::from((string) $datos['resultado']),
                 'observaciones' => isset($datos['observaciones']) ? (string) $datos['observaciones'] : null,
-                'fecha_validacion' => isset($datos['fecha_validacion']) ? (string) $datos['fecha_validacion'] : now()->toDateString(),
+                'fecha_validacion' => isset($datos['fecha_validacion']) ? (string) $datos['fecha_validacion'] : FechaMexico::hoy(),
                 'validada_por' => $actor->id,
             ]);
 

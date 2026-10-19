@@ -138,7 +138,13 @@ export type SeccionDocumentosProceso = {
     negativa?: {
         registrada_en: string;
         documentos: string[];
-        testigos: { nombre: string; cargo: string }[];
+        testigos: {
+            colaborador_id?: number | null;
+            nombre: string;
+            cargo: string;
+            sucursal?: string | null;
+            externo?: boolean;
+        }[];
         participantes: Record<string, string>;
         finiquito_a_disposicion: boolean;
         observaciones: string | null;

@@ -9,6 +9,7 @@ use App\Models\Colaborador;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Expedientes\DocumentoStorageService;
+use App\Support\FechaMexico;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -63,8 +64,9 @@ class AltaImssService
                 'alta_imss_subido_en' => now(),
                 'alta_imss_subido_por' => $actor->id,
                 'estatus_imss' => EstatusImss::ConImss,
-                // La fecha de alta capturada por RH se respeta; si no había, hoy.
-                'fecha_alta_imss' => $colaborador->fecha_alta_imss ?? now()->toDateString(),
+                // La fecha de alta capturada por RH se respeta; si no había, hoy
+                // (día calendario de México, no UTC: ver FechaMexico y P1-28).
+                'fecha_alta_imss' => $colaborador->fecha_alta_imss ?? FechaMexico::hoy(),
             ])->save();
         });
 

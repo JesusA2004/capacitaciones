@@ -22,6 +22,14 @@ const emits = defineEmits<{
 const isMobile = useMediaQuery("(max-width: 768px)")
 const openMobile = ref(false)
 
+// Expansión temporal al pasar el mouse sobre la barra contraída (sin clic).
+// Solo aplica en escritorio con puntero fino; en touch/tablet nunca se usa
+// hover (se gobierna con el toggle/overlay móvil que ya trae shadcn).
+const hovered = ref(false)
+function setHovered(value: boolean) {
+  hovered.value = value
+}
+
 const open = useVModel(props, "open", emits, {
   defaultValue: props.defaultOpen ?? false,
   passive: (props.open === undefined) as false,
@@ -50,14 +58,20 @@ useEventListener("keydown", (event: KeyboardEvent) => {
   }
 })
 
-// We add a state so that we can do data-state="expanded" or "collapsed".
-// This makes it easier to style the sidebar with Tailwind classes.
-const state = computed(() => open.value ? "expanded" : "collapsed")
+// Estado VISIBLE: expandido si el usuario lo fijó abierto (`open`) o si está
+// pasando el mouse por encima de la barra contraída (`hovered`). Todo el
+// contenido (etiquetas, tooltips, grupos colapsables) reacciona a este
+// estado; el ancho que empuja al contenido sigue el estado FIJADO (`open`),
+// para que el hover solo superponga la barra sin mover la app — ver
+// Sidebar.vue.
+const state = computed(() => (open.value || hovered.value) ? "expanded" : "collapsed")
 
 provideSidebarContext({
   state,
   open,
   setOpen,
+  hovered,
+  setHovered,
   isMobile,
   openMobile,
   setOpenMobile,

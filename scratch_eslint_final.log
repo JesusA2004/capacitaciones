@@ -1,0 +1,2 @@
+npm notice run lint:check
+npm notice run eslint .

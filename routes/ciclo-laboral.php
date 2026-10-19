@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Portal\InduccionReproduccionController;
 use App\Http\Controllers\Portal\MiProcesoController;
 use App\Http\Controllers\Rh\AcuseDescriptivoPuestoController;
 use App\Http\Controllers\Rh\CicloColaboradorController;
@@ -8,6 +9,7 @@ use App\Http\Controllers\Rh\DocumentoLaboralController;
 use App\Http\Controllers\Rh\EvaluacionCapacitacionController;
 use App\Http\Controllers\Rh\EvaluacionInduccionPdfController;
 use App\Http\Controllers\Rh\EvaluacionPeriodoPruebaController;
+use App\Http\Controllers\Rh\MaterialInduccionController;
 use App\Http\Controllers\Rh\OnboardingController;
 use App\Http\Controllers\Rh\PendienteController;
 use App\Http\Controllers\Rh\ReingresoController;
@@ -38,10 +40,34 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('mi-proceso/induccion/{evaluacion}/presentar', [MiProcesoController::class, 'presentarInduccion'])
             ->name('portal.induccion.presentar')
             ->middleware('throttle:10,1');
+
+        // Nuevo flujo: material de explicación (audio XOR video) que el
+        // colaborador ve SOLO entre las hojas y su evaluación. El video tiene
+        // anti-adelanto respaldado por el servidor (manifiesto/segmentos
+        // firmados + heartbeat); el audio es narración continua.
+        Route::get('mi-proceso/induccion/material/{avance}', [InduccionReproduccionController::class, 'material'])->name('portal.induccion.material');
+        Route::post('mi-proceso/induccion/video/{avance}/iniciar', [InduccionReproduccionController::class, 'videoIniciar'])->name('portal.induccion.video.iniciar');
+        Route::post('mi-proceso/induccion/video/{avance}/heartbeat', [InduccionReproduccionController::class, 'videoHeartbeat'])->name('portal.induccion.video.heartbeat');
+        Route::post('mi-proceso/induccion/audio/{avance}/progreso', [InduccionReproduccionController::class, 'audioProgreso'])->name('portal.induccion.audio-progreso');
+
+        Route::middleware('signed')->group(function () {
+            Route::get('mi-proceso/induccion/video/{avance}/manifiesto/master.m3u8', [InduccionReproduccionController::class, 'manifiestoMaestro'])->name('portal.induccion.video.manifiesto-maestro');
+            Route::get('mi-proceso/induccion/video/{avance}/manifiesto/{altura}.m3u8', [InduccionReproduccionController::class, 'variante'])->name('portal.induccion.video.variante');
+            Route::get('mi-proceso/induccion/video/{avance}/segmento/{altura}/{archivo}', [InduccionReproduccionController::class, 'segmento'])->name('portal.induccion.video.segmento');
+            Route::get('mi-proceso/induccion/audio/{avance}/stream', [InduccionReproduccionController::class, 'audio'])->name('portal.induccion.audio');
+        });
     });
 
     Route::prefix('rh')->name('rh.')->group(function () {
         Route::get('pendientes', [PendienteController::class, 'index'])->name('pendientes.index');
+
+        // Índices agregados del ciclo:
+        //  · «3 · Onboarding» → Inducción al puesto (estado del acuse del
+        //    descriptivo de puesto por colaborador en onboarding).
+        //  · «7 · Cierres laborales» → Bajas y finiquitos (panorama de lectura;
+        //    las acciones se ejecutan en la ficha, nunca las del flujo legacy).
+        Route::get('induccion-puesto', [AcuseDescriptivoPuestoController::class, 'index'])->name('induccion-puesto.index');
+        Route::get('cierres', [CierreLaboralController::class, 'index'])->name('cierres.index');
 
         Route::get('colaboradores/{colaborador}/ciclo', [CicloColaboradorController::class, 'show'])->name('colaboradores.ciclo')->withTrashed();
         Route::post('colaboradores/{colaborador}/cierres', [CierreLaboralController::class, 'store'])->name('colaboradores.cierres.store');
@@ -64,11 +90,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('induccion/intentos/{intento}/pdf/descargar', [EvaluacionInduccionPdfController::class, 'descargar'])->name('induccion.pdf.descargar');
             Route::post('induccion/intentos/{intento}/pdf/expediente', [EvaluacionInduccionPdfController::class, 'guardarEnExpediente'])->name('induccion.pdf.expediente');
             Route::post('induccion/{evaluacion}/retroalimentacion', [OnboardingController::class, 'retroalimentarInduccion'])->name('induccion.retroalimentar');
+
+            // Material de explicación (audio XOR video) que el colaborador ve
+            // solo. Reutiliza el pipeline multimedia SIN feature:capacitacion
+            // (onboarding.gestionar lo autoriza en el controlador/Service).
+            Route::post('induccion/material', [MaterialInduccionController::class, 'store'])->name('induccion.material.store')->middleware('throttle:20,1');
+            Route::post('induccion/material/activar', [MaterialInduccionController::class, 'activar'])->name('induccion.material.activar');
+            Route::delete('induccion/material', [MaterialInduccionController::class, 'destroy'])->name('induccion.material.destroy');
         });
 
-        // Sesiones de presentación de la Inducción Mr. Lana: RH elige a quién
-        // se la presenta, presenta y al terminar «Envía la evaluación».
-        Route::prefix('induccion/sesiones')->name('induccion.sesiones.')->group(function () {
+        // FLUJO LEGACY (feature:induccion_sesiones_legacy, apagado por defecto):
+        // sesiones de presentación en vivo de la inducción. Se conservan para
+        // historial/compatibilidad; con la bandera apagada responden
+        // 403/Proximamente (EnsureFeatureEnabled). Ver docs/INDUCCION_NUEVO_FLUJO.md.
+        Route::prefix('induccion/sesiones')->name('induccion.sesiones.')->middleware('feature:induccion_sesiones_legacy')->group(function () {
             Route::get('colaboradores', [SesionInduccionController::class, 'colaboradores'])->name('colaboradores');
             Route::post('/', [SesionInduccionController::class, 'store'])->name('store');
             Route::post('{sesion}/enviar', [SesionInduccionController::class, 'enviar'])->name('enviar');
@@ -99,6 +134,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('finiquito/conceptos/{concepto}', [CierreLaboralController::class, 'eliminarConceptoFiniquito'])->name('finiquito.conceptos.destroy');
             Route::get('finiquito/vista-previa', [CierreLaboralController::class, 'vistaPreviaFiniquito'])->name('finiquito.vistaPrevia');
             Route::post('finiquito/entrega', [CierreLaboralController::class, 'entregarFiniquito'])->name('entregarFiniquito');
+            // COMPATIBILIDAD LEGACY (flujo anterior del finiquito: programar
+            // pago → cita → firma → confirmar pago). El flujo vigente cierra el
+            // cierre con «Registrar entrega de finiquito»; CierreLaboralService
+            // rechaza estos pasos sobre cierres nuevos (solo cierran expedientes
+            // legacy o con features.cierre_flujo_legacy).
             Route::post('pago/programar', [CierreLaboralController::class, 'programarPago'])->name('programarPago');
             Route::post('cita', [CierreLaboralController::class, 'cita'])->name('cita');
             Route::post('finiquito/firmado', [CierreLaboralController::class, 'finiquitoFirmado'])->name('finiquitoFirmado');
@@ -117,6 +157,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('descargar', [DocumentoLaboralController::class, 'descargar'])->name('descargar');
             Route::post('imprimir', [DocumentoLaboralController::class, 'imprimir'])->name('imprimir');
             Route::post('firma-fisica', [DocumentoLaboralController::class, 'firmaFisica'])->name('firmaFisica');
+            // COMPATIBILIDAD LEGACY (flujo anterior: envío a corporativo →
+            // recepción → escaneo). El flujo nuevo concluye en la firma física;
+            // FlujoDocumentalService bloquea estos pasos sobre documentos nuevos
+            // (solo cierran expedientes legacy o con features.documentos_flujo_legacy).
             Route::post('envio', [DocumentoLaboralController::class, 'envio'])->name('envio');
             Route::post('recepcion', [DocumentoLaboralController::class, 'recepcion'])->name('recepcion');
             Route::post('escaneo', [DocumentoLaboralController::class, 'escaneo'])->name('escaneo');

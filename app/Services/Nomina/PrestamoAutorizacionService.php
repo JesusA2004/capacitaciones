@@ -2,7 +2,6 @@
 
 namespace App\Services\Nomina;
 
-use App\Enums\EstadoFlujoDocumento;
 use App\Enums\PrioridadTarea;
 use App\Enums\TipoSolicitudInterna;
 use App\Enums\TipoTarea;
@@ -13,6 +12,7 @@ use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\DocumentosLaborales\FirmaDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
 use App\Services\Solicitudes\SolicitudesService;
@@ -283,10 +283,16 @@ class PrestamoAutorizacionService
         return $datos;
     }
 
+    /**
+     * Un título de crédito (pagaré) o contrato de préstamo solo puede
+     * resguardarse cuando QUEDÓ CONCLUIDO según su flujo: si la plantilla pide
+     * impresión/firma física, exige el original físico firmado (no basta un
+     * pagaré recién «Impreso» ni «PendienteFirmaFisica»). El criterio es el
+     * compartido en FirmaDocumentalService, no estaFirmado() (que mentía en
+     * estados pre-firma). Ver P0-2.
+     */
     private function firmado(?GeneratedDocument $documento): bool
     {
-        $estado = $documento?->estado_flujo;
-
-        return $estado instanceof EstadoFlujoDocumento && $estado->estaFirmado();
+        return app(FirmaDocumentalService::class)->documentoConcluidoSegunFlujo($documento);
     }
 }

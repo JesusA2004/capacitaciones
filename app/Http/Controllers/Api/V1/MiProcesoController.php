@@ -6,12 +6,16 @@ use App\Http\Controllers\Controller;
 use App\Models\Colaborador;
 use App\Models\EvaluacionInduccion;
 use App\Models\OnboardingAvance;
+use App\Models\User;
 use App\Services\Administracion\JerarquiaPuestoService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Onboarding\AccesoInduccionColaboradorService;
 use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\InduccionPdfService;
+use App\Services\Onboarding\MaterialInduccionService;
 use App\Services\Onboarding\OnboardingService;
+use App\Services\Onboarding\ReproduccionVideoInduccionService;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -30,6 +34,8 @@ class MiProcesoController extends Controller
         private readonly JerarquiaPuestoService $jerarquia,
         private readonly InduccionPdfService $induccionPdf,
         private readonly AccesoInduccionColaboradorService $accesoInduccion,
+        private readonly MaterialInduccionService $materialInduccion,
+        private readonly ReproduccionVideoInduccionService $videoInduccion,
     ) {}
 
     public function show(Request $request): JsonResponse
@@ -177,6 +183,78 @@ class MiProcesoController extends Controller
         abort_unless($organigrama !== null, 404, 'Vista de organigrama no reconocida.');
 
         return response()->json(['data' => $organigrama]);
+    }
+
+    /**
+     * Material de explicación (audio/video) activo de la inducción asignada:
+     * tipo + URL firmada (audio) o si el video ya está listo (el reproductor
+     * usa los endpoints de video). Mismo MaterialInduccionService que la web.
+     */
+    public function materialInduccion(Request $request, OnboardingAvance $avance): JsonResponse
+    {
+        $this->autorizarInduccion($request->user(), $avance);
+
+        return response()->json(['data' => $this->materialInduccion->datosParaColaborador($avance)]);
+    }
+
+    /**
+     * Arranca el VIDEO obligatorio de la inducción (mismo shape que
+     * MiCapacitacion\ReproduccionController::iniciar). El anti-adelanto y el
+     * «completado» los decide el servidor (ReproduccionVideoInduccionService).
+     */
+    public function videoIniciarInduccion(Request $request, OnboardingAvance $avance): JsonResponse
+    {
+        $usuario = $request->user();
+        $this->autorizarInduccion($usuario, $avance);
+        $recurso = $this->videoInduccion->recurso($avance);
+        abort_unless($recurso !== null && $recurso->estaDisponible(), 422, 'El video de la inducción no está disponible todavía.');
+
+        return response()->json(['data' => $this->videoInduccion->iniciarSesion($usuario, $avance)]);
+    }
+
+    public function videoHeartbeatInduccion(Request $request, OnboardingAvance $avance): JsonResponse
+    {
+        $usuario = $request->user();
+        $this->autorizarInduccion($usuario, $avance);
+        $datos = $request->validate(['posicion_segundos' => ['required', 'integer', 'min:0']]);
+
+        return response()->json(['data' => $this->videoInduccion->registrarHeartbeat($usuario, $avance, (int) $datos['posicion_segundos'])]);
+    }
+
+    public function audioProgresoInduccion(Request $request, OnboardingAvance $avance): JsonResponse
+    {
+        $usuario = $request->user();
+        $this->autorizarInduccion($usuario, $avance);
+        $datos = $request->validate(['posicion_segundos' => ['required', 'integer', 'min:0']]);
+
+        $progreso = (array) ($avance->progreso_contenido ?? []);
+        $audio = (array) ($progreso['audio'] ?? []);
+        $avance->update(['progreso_contenido' => [
+            ...$progreso,
+            'audio' => [
+                ...$audio,
+                'ultima_posicion' => (int) $datos['posicion_segundos'],
+                'max_posicion' => max((int) ($audio['max_posicion'] ?? 0), (int) $datos['posicion_segundos']),
+                'ultima_vez' => now()->toIso8601String(),
+            ],
+        ]]);
+
+        return response()->json(['data' => ['ok' => true]]);
+    }
+
+    /**
+     * @throws AuthorizationException
+     */
+    private function autorizarInduccion(User $usuario, OnboardingAvance $avance): void
+    {
+        $avance->loadMissing('proceso', 'modulo');
+
+        if ($usuario->colaborador_id === null || $usuario->colaborador_id !== $avance->proceso->colaborador_id) {
+            throw new AuthorizationException('Solo el colaborador titular ve el material de su inducción.');
+        }
+
+        abort_if($avance->modulo->evaluacion_formal_clave === null, 404);
+        $this->accesoInduccion->exigirContenidoVisible($usuario);
     }
 
     public function presentarInduccion(Request $request, EvaluacionInduccion $evaluacion): JsonResponse

@@ -2,7 +2,6 @@
 
 use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
-use App\Models\SolicitudVacaciones;
 use App\Models\Sucursal;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -11,28 +10,33 @@ beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
 });
 
+// Las vacaciones ya NO viven en `solicitudes_vacaciones`: son un `tipo` de
+// solicitud interna (motor unificado). La bandeja las cuenta como solicitudes
+// abiertas, no desde la tabla legacy que ya no recibe altas.
 test('la bandeja de pendientes pagina y trae acciones_permitidas', function () {
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
 
     SolicitudInterna::factory()->count(3)->create(['estado' => 'enviada']);
-    SolicitudVacaciones::factory()->count(2)->create(['estado' => 'pendiente']);
+    SolicitudInterna::factory()->count(2)->create(['estado' => 'enviada', 'tipo' => 'vacaciones']);
 
     $respuesta = $this->withHeaders(['Authorization' => 'Bearer '.$rh->createToken('test')->plainTextToken])
         ->getJson('/api/v1/rh/pendientes?per_page=2')
         ->assertOk();
 
     expect($respuesta->json('meta.total'))->toBe(5)
+        ->and($respuesta->json('meta.vacaciones'))->toBe(2)
+        ->and($respuesta->json('meta.solicitudes'))->toBe(3)
         ->and(count($respuesta->json('data')))->toBe(2)
         ->and($respuesta->json('data.0.acciones_permitidas'))->toContain('ver');
 });
 
-test('el filtro tipo=solicitud solo trae solicitudes', function () {
+test('el filtro tipo=solicitud excluye las vacaciones', function () {
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
 
     SolicitudInterna::factory()->count(2)->create(['estado' => 'enviada']);
-    SolicitudVacaciones::factory()->count(2)->create(['estado' => 'pendiente']);
+    SolicitudInterna::factory()->count(2)->create(['estado' => 'enviada', 'tipo' => 'vacaciones']);
 
     $respuesta = $this->withHeaders(['Authorization' => 'Bearer '.$rh->createToken('test')->plainTextToken])
         ->getJson('/api/v1/rh/pendientes?tipo=solicitud')
@@ -41,6 +45,23 @@ test('el filtro tipo=solicitud solo trae solicitudes', function () {
     expect($respuesta->json('meta.total'))->toBe(2);
     foreach ($respuesta->json('data') as $item) {
         expect($item['tipo'])->toBe('solicitud');
+    }
+});
+
+test('la baja de colaborador no aparece en la bandeja de pendientes', function () {
+    $rh = User::factory()->create();
+    $rh->assignRole('rh_admin');
+
+    SolicitudInterna::factory()->create(['estado' => 'enviada']);
+    SolicitudInterna::factory()->create(['estado' => 'enviada', 'tipo' => 'baja_colaborador']);
+
+    $respuesta = $this->withHeaders(['Authorization' => 'Bearer '.$rh->createToken('test')->plainTextToken])
+        ->getJson('/api/v1/rh/pendientes')
+        ->assertOk();
+
+    expect($respuesta->json('meta.total'))->toBe(1);
+    foreach ($respuesta->json('data') as $item) {
+        expect($item['titulo'])->not->toBe('Baja de colaborador');
     }
 });
 

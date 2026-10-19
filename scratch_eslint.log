@@ -1,0 +1,20 @@
+npm notice run lint:check
+npm notice run eslint .
+
+C:\wamp64\www\mrlanaPeople\resources\js\pages\Administracion\ImportarDatos\Index.vue
+  13:20  error  Prefer using a top-level type-only import instead of inline type specifiers  import/consistent-type-specifier-style
+
+C:\wamp64\www\mrlanaPeople\resources\js\pages\Rh\Contratacion\ContratosIngreso.vue
+  6:1  error  `@/components/Common/EmptyState.vue` import should occur before import of `@/components/DataTable/CrudPageHeader.vue`  import/order
+
+C:\wamp64\www\mrlanaPeople\resources\js\pages\Rh\Contratacion\Index.vue
+  6:1  error  `@/components/Common/EmptyState.vue` import should occur before import of `@/components/DataTable/CrudPageHeader.vue`  import/order
+
+C:\wamp64\www\mrlanaPeople\resources\js\pages\Rh\Contratacion\ValidacionDocumentos.vue
+  14:1  error  `@/components/Common/EmptyState.vue` import should occur before import of `@/components/DataTable/CrudPageHeader.vue`  import/order
+  16:1  error  `@/components/DataTable/PaginacionTabla.vue` import should occur before import of `@/components/InputError.vue`        import/order
+  29:1  error  `@/components/ui/table` import should occur before import of `@/components/ui/textarea`                                import/order
+
+✖ 6 problems (6 errors, 0 warnings)
+  6 errors and 0 warnings potentially fixable with the `--fix` option.
+

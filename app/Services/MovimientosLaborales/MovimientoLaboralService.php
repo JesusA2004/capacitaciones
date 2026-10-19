@@ -12,7 +12,7 @@ use App\Models\Puesto;
 use App\Models\User;
 use App\Models\Vacante;
 use App\Services\MatrizComercial\MatrizComercialService;
-use App\Services\Vacantes\VacanteAutoGenerationService;
+use App\Support\FechaMexico;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -29,7 +29,6 @@ use Illuminate\Support\Facades\DB;
 class MovimientoLaboralService
 {
     public function __construct(
-        private readonly VacanteAutoGenerationService $vacantesAutomaticas,
         private readonly MatrizComercialService $matriz,
     ) {}
 
@@ -78,18 +77,16 @@ class MovimientoLaboralService
             'candidato_id' => $alta?->candidato_id,
             'alta_digital_id' => $alta?->id,
             'motivo' => 'Alta de colaborador',
-            'fecha_movimiento' => $colaborador->fecha_ingreso ?? now(),
+            'fecha_movimiento' => $colaborador->fecha_ingreso ?? FechaMexico::hoy(),
             'registrado_por' => $registradoPor->id,
         ]);
 
-        // La plantilla actual acaba de subir con este alta: sincroniza la
-        // vacante automática de (sucursal, puesto) para que sus plazas
-        // bajen o se cierre sola si ya no hace falta (ver
-        // App\Services\Vacantes\VacanteAutoGenerationService).
-        if ($colaborador->sucursal_principal_id !== null && $colaborador->puesto_id !== null) {
-            $this->vacantesAutomaticas->sincronizar($colaborador->sucursal_principal_id, $colaborador->puesto_id);
-        }
-
+        // La sincronización de la vacante automática de (sucursal, puesto) la
+        // hace ColaboradorPlantillaObserver al guardar el colaborador
+        // (DB::afterCommit + sincronizarSinFallar, que nunca relanza): el alta
+        // entra por su rama wasRecentlyCreated. Antes se repetía aquí con la
+        // variante que sí relanza, con riesgo de un 500 espurio (mismo patrón
+        // que ya se quitó de registrarCambioPuesto, P2-8).
         return $movimiento;
     }
 
@@ -131,7 +128,7 @@ class MovimientoLaboralService
                 'puesto_nuevo_id' => $despues['puesto_id'],
                 'vacante_id' => $vacanteId,
                 'motivo' => $motivo,
-                'fecha_movimiento' => now(),
+                'fecha_movimiento' => FechaMexico::hoy(),
                 'registrado_por' => $registradoPor->id,
             ]);
         }
@@ -142,7 +139,7 @@ class MovimientoLaboralService
                 'sucursal_anterior_id' => $antes['sucursal_id'],
                 'sucursal_nueva_id' => $despues['sucursal_id'],
                 'motivo' => $motivo,
-                'fecha_movimiento' => now(),
+                'fecha_movimiento' => FechaMexico::hoy(),
                 'registrado_por' => $registradoPor->id,
             ]);
         }
@@ -153,7 +150,7 @@ class MovimientoLaboralService
                 'departamento_anterior_id' => $antes['departamento_id'],
                 'departamento_nuevo_id' => $despues['departamento_id'],
                 'motivo' => $motivo,
-                'fecha_movimiento' => now(),
+                'fecha_movimiento' => FechaMexico::hoy(),
                 'registrado_por' => $registradoPor->id,
             ]);
         }
@@ -169,7 +166,7 @@ class MovimientoLaboralService
                 'jefe_anterior_colaborador_id' => $antes['jefe_id'],
                 'jefe_nuevo_colaborador_id' => $despues['jefe_id'],
                 'motivo' => $motivo,
-                'fecha_movimiento' => now(),
+                'fecha_movimiento' => FechaMexico::hoy(),
                 'registrado_por' => $registradoPor->id,
             ]);
         }
@@ -180,7 +177,7 @@ class MovimientoLaboralService
                 'empresa_anterior_id' => $antes['empresa_id'],
                 'empresa_nueva_id' => $despues['empresa_id'],
                 'motivo' => $motivo,
-                'fecha_movimiento' => now(),
+                'fecha_movimiento' => FechaMexico::hoy(),
                 'registrado_por' => $registradoPor->id,
             ]);
         }
@@ -196,21 +193,15 @@ class MovimientoLaboralService
                 'tipo_movimiento' => TipoMovimientoLaboral::CambioSueldo->value,
                 'motivo' => $motivo,
                 'observaciones' => sprintf('Sueldo mensual: $%s → $%s', $sueldoAntes ?? '0.00', $sueldoDespues ?? '0.00'),
-                'fecha_movimiento' => now(),
+                'fecha_movimiento' => FechaMexico::hoy(),
                 'registrado_por' => $registradoPor->id,
             ]);
         }
 
-        // Cambió de plaza: el lugar que deja puede quedar con vacante y el
-        // lugar al que llega puede cerrar la suya (headcount → vacantes).
-        if ($antes['puesto_id'] !== $despues['puesto_id'] || $antes['sucursal_id'] !== $despues['sucursal_id']) {
-            foreach ([[$antes['sucursal_id'], $antes['puesto_id']], [$despues['sucursal_id'], $despues['puesto_id']]] as [$sucursalId, $puestoId]) {
-                if ($sucursalId !== null && $puestoId !== null) {
-                    $this->vacantesAutomaticas->sincronizar($sucursalId, $puestoId);
-                }
-            }
-        }
-
+        // La sincronización de vacantes de los pares origen/destino la hace
+        // ColaboradorPlantillaObserver al guardar el colaborador (DB::afterCommit
+        // + sincronizarSinFallar, que nunca relanza). Antes se repetía aquí con
+        // la variante que sí relanza, con riesgo de un 500 espurio (P2-8).
         return $movimientos;
     }
 
@@ -241,7 +232,7 @@ class MovimientoLaboralService
                     'puesto_id' => $colaborador->puesto_id,
                     'motivo' => MotivoVacante::BajaColaborador->value,
                     'estado' => EstadoVacante::Abierta->value,
-                    'fecha_apertura' => now(),
+                    'fecha_apertura' => FechaMexico::hoy(),
                     'observaciones' => $motivo,
                     'creado_por' => $registradoPor->id,
                 ]);
@@ -259,7 +250,7 @@ class MovimientoLaboralService
                 'jefe_anterior_colaborador_id' => $colaborador->jefe_id,
                 'vacante_id' => $vacante?->id,
                 'motivo' => $motivo,
-                'fecha_movimiento' => now(),
+                'fecha_movimiento' => FechaMexico::hoy(),
                 'registrado_por' => $registradoPor->id,
             ]);
 

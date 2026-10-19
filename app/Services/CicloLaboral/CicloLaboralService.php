@@ -37,6 +37,7 @@ use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
+use App\Support\FechaMexico;
 use Carbon\CarbonInterface;
 
 /**
@@ -419,7 +420,7 @@ class CicloLaboralService
             }
         }
 
-        $dias = (int) now()->startOfDay()->diffInDays($fin, false);
+        $dias = (int) FechaMexico::inicioDeHoy()->diffInDays($fin, false);
 
         return [
             'estado' => $estado,

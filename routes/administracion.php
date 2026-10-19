@@ -5,6 +5,7 @@ use App\Http\Controllers\Administracion\CoberturaPuestoController;
 use App\Http\Controllers\Administracion\ConfiguracionController;
 use App\Http\Controllers\Administracion\DepartamentoController;
 use App\Http\Controllers\Administracion\EmpresaController;
+use App\Http\Controllers\Administracion\ImportarDatosController;
 use App\Http\Controllers\Administracion\JerarquiaPuestoController;
 use App\Http\Controllers\Administracion\MatrizComercialController;
 use App\Http\Controllers\Administracion\NotificacionSistemaController;
@@ -40,6 +41,15 @@ Route::middleware(['auth', 'verified'])
             Route::post('parametros-rh/preguntas-filtro', [ConfiguracionController::class, 'crearPreguntaFiltro'])->name('parametros-rh.preguntas-filtro.store');
             Route::put('parametros-rh/preguntas-filtro/{preguntaFiltro}', [ConfiguracionController::class, 'guardarPreguntaFiltro'])->name('parametros-rh.preguntas-filtro.update');
         });
+
+        // HUB único «Importar datos» (grupo Configuración): índice que agrupa
+        // las importaciones administrativas que ya existen dispersas y enlaza
+        // a cada flujo real (no reimplementa ningún lector). Cada tarjeta se
+        // gatea por su permiso en ImportarDatosController; el hub exige al
+        // menos un permiso de importación. Las importaciones en sí viven en
+        // sus propios módulos (rh.importaciones, rh.expedientes.migracion,
+        // reportes.rotacion, rh.perfiles-puesto).
+        Route::get('importar-datos', [ImportarDatosController::class, 'index'])->name('importar-datos.index');
 
         Route::prefix('empresas')->name('empresas.')->group(function () {
             Route::get('/', [EmpresaController::class, 'index'])->name('index');
@@ -119,8 +129,10 @@ Route::middleware(['auth', 'verified'])
             // establecer-password (el admin la pega en el body, no se
             // regenera aquí), ver UsuarioController::enviarPasswordCorreo().
             Route::post('{usuario}/enviar-password-correo', [UsuarioController::class, 'enviarPasswordCorreo'])->name('enviar-password-correo');
-            // Eliminación definitiva (solo super_admin): revisa dependencias
-            // y purga en una transacción, ver PurgaUsuarioService.
+            // Purga INTEGRAL de la persona (solo super_admin, para registros
+            // erróneos/de prueba): revisa dependencias y borra físicamente
+            // cuenta + expediente + todo lo suyo en una transacción,
+            // conservando los archivos del NAS — ver PurgaPersonaService.
             Route::get('{usuario}/purga', [UsuarioController::class, 'revisarPurga'])->name('purga.revisar')->withTrashed();
             Route::delete('{usuario}/purga', [UsuarioController::class, 'purgar'])->name('purga.eliminar')->withTrashed();
         });

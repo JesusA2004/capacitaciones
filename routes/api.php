@@ -237,6 +237,14 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('induccion/{evaluacion}/presentar', [MiProcesoController::class, 'presentarInduccion'])
                 ->name('induccion.presentar')
                 ->middleware('throttle:10,1');
+            // Nuevo flujo: material de explicación (audio XOR video) que el
+            // colaborador ve solo antes de su evaluación. El video arranca con
+            // iniciar/heartbeat (shape de ReproduccionController); su manifiesto
+            // HLS firmado se sirve por la ruta web portal.induccion.video.*.
+            Route::get('induccion/material/{avance}', [MiProcesoController::class, 'materialInduccion'])->name('induccion.material');
+            Route::post('induccion/video/{avance}/iniciar', [MiProcesoController::class, 'videoIniciarInduccion'])->name('induccion.video.iniciar');
+            Route::post('induccion/video/{avance}/heartbeat', [MiProcesoController::class, 'videoHeartbeatInduccion'])->name('induccion.video.heartbeat');
+            Route::post('induccion/audio/{avance}/progreso', [MiProcesoController::class, 'audioProgresoInduccion'])->name('induccion.audio-progreso');
             // Descriptivo de puesto que RH envía tras aprobar la inducción:
             // leerlo y dar «OK, enterado» + comentario (AcuseDescriptivoPuestoService).
             Route::get('descriptivo-puesto', [DescriptivoPuestoColaboradorController::class, 'show'])->name('descriptivo-puesto.show');
@@ -348,9 +356,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             // AcuseDescriptivoPuestoService que la web).
             Route::get('colaboradores/{colaborador}/descriptivo-puesto', [RhAcuseDescriptivoPuestoController::class, 'show'])->name('colaboradores.descriptivo-puesto.show');
             Route::post('colaboradores/{colaborador}/descriptivo-puesto/enviar', [RhAcuseDescriptivoPuestoController::class, 'enviar'])->name('colaboradores.descriptivo-puesto.enviar');
-            // Sesiones de presentación de la inducción (mismo
-            // SesionInduccionService que la web).
-            Route::prefix('induccion/sesiones')->name('induccion.sesiones.')->group(function () {
+            // FLUJO LEGACY (feature:induccion_sesiones_legacy, apagado por
+            // defecto): sesiones de presentación en vivo de la inducción. Con la
+            // bandera apagada responden 403. Mismo SesionInduccionService que la web.
+            Route::prefix('induccion/sesiones')->name('induccion.sesiones.')->middleware('feature:induccion_sesiones_legacy')->group(function () {
                 Route::get('/', [RhSesionInduccionController::class, 'index'])->name('index');
                 Route::get('colaboradores', [RhSesionInduccionController::class, 'colaboradores'])->name('colaboradores');
                 Route::post('/', [RhSesionInduccionController::class, 'store'])->name('store');
@@ -512,6 +521,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             */
             Route::prefix('documentos-proceso')->name('documentos-proceso.')->group(function () {
                 Route::get('colaborador/{colaborador}', [DocumentoProcesoController::class, 'colaborador'])->name('colaborador')->withTrashed();
+                Route::get('testigos', [DocumentoProcesoController::class, 'buscarTestigos'])->name('testigos')->middleware('throttle:60,1');
                 Route::get('{tipo}/{id}', [DocumentoProcesoController::class, 'show'])->name('show')->whereIn('tipo', ['contrato', 'cierre', 'solicitud', 'prestamo', 'evaluacion', 'entrega_activo', 'acta', 'colaborador'])->whereNumber('id');
                 Route::post('{tipo}/{id}/generar', [DocumentoProcesoController::class, 'generar'])->name('generar')->whereIn('tipo', ['contrato', 'cierre', 'solicitud', 'prestamo', 'evaluacion', 'entrega_activo', 'acta', 'colaborador'])->whereNumber('id')->middleware('throttle:30,1');
                 Route::post('{tipo}/{id}/paquete', [DocumentoProcesoController::class, 'paquete'])->name('paquete')->whereIn('tipo', ['contrato', 'cierre', 'prestamo'])->whereNumber('id')->middleware('throttle:10,1');
@@ -529,6 +539,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('{documento}/descargar', [DocumentoLaboralController::class, 'descargar'])->name('descargar');
                 Route::post('{documento}/imprimir', [DocumentoLaboralController::class, 'imprimir'])->name('imprimir');
                 Route::post('{documento}/firma-fisica', [DocumentoLaboralController::class, 'firmaFisica'])->name('firma-fisica');
+                // COMPATIBILIDAD LEGACY (envío/recepción/escaneo del flujo
+                // anterior): FlujoDocumentalService los bloquea sobre documentos
+                // nuevos; solo cierran expedientes legacy. El flujo nuevo concluye
+                // en firma-fisica.
                 Route::post('{documento}/envio', [DocumentoLaboralController::class, 'envio'])->name('envio')->middleware('throttle:api-cargas');
                 Route::post('{documento}/recepcion', [DocumentoLaboralController::class, 'recepcion'])->name('recepcion');
                 Route::post('{documento}/escaneo', [DocumentoLaboralController::class, 'escaneo'])->name('escaneo')->middleware('throttle:api-cargas');
@@ -542,6 +556,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('/', [CierreLaboralController::class, 'index'])->name('index');
                 Route::get('{cierre}', [CierreLaboralController::class, 'show'])->name('show');
                 // Baja aplicada al iniciarla: sin preautorizar/autorizar/rechazar/devolver/reenviar.
+                // COMPATIBILIDAD LEGACY (flujo anterior del finiquito): el flujo
+                // vigente cierra el cierre con «finiquito/entrega».
+                // CierreLaboralService rechaza programar pago / cita / firma /
+                // confirmar pago sobre cierres nuevos (solo expedientes legacy o
+                // con features.cierre_flujo_legacy).
                 Route::post('{cierre}/pago/programar', [CierreLaboralController::class, 'programarPago'])->name('pago.programar');
                 Route::post('{cierre}/cita', [CierreLaboralController::class, 'cita'])->name('cita');
                 Route::post('{cierre}/cerrar', [CierreLaboralController::class, 'cerrar'])->name('cerrar');
@@ -556,6 +575,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 // registra su entrega, que cierra el cierre laboral.
                 Route::post('{cierre}/finiquito/entrega', [CierreLaboralController::class, 'entregarFiniquito'])->name('finiquito.entrega');
                 Route::post('{cierre}/finiquito/documento', [CierreLaboralController::class, 'generarFiniquito'])->name('finiquito.documento');
+                // COMPATIBILIDAD LEGACY (firma/huella y confirmación de pago del
+                // flujo anterior): gated por features.cierre_flujo_legacy.
                 Route::post('{cierre}/finiquito/firmado', [CierreLaboralController::class, 'finiquitoFirmado'])->name('finiquito.firmado')->middleware('throttle:api-cargas');
                 Route::post('{cierre}/finiquito/pago', [CierreLaboralController::class, 'confirmarPago'])->name('finiquito.pago');
                 Route::post('{cierre}/ejecutar-baja', [CierreLaboralController::class, 'ejecutarBaja'])->name('ejecutar-baja');

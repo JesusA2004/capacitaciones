@@ -18,6 +18,7 @@ use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\DocumentosLaborales\FirmaDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Permisos\AlcanceModuloService;
@@ -466,9 +467,16 @@ class ActaService
         $estadoDocumento = $acta->documento?->estado_flujo;
 
         if ($acta->formato !== self::FORMATO_CIRCUNSTANCIADA) {
-            $firmada = $acta->estado === EstadoActa::Firmada || ($estadoDocumento?->estaFirmado() ?? false);
+            // Actas históricas (formato null): se cierran con la firma física
+            // REAL del acta impresa (criterio compartido en
+            // FirmaDocumentalService) o con la negativa a firmar asentada.
+            // Antes bastaba estaFirmado() —true desde que el documento estaba
+            // impreso— más una comparación muerta a EstadoActa::Firmada (estado
+            // que no se asigna en ningún punto del código), de modo que un acta
+            // disciplinaria podía cerrarse sin firma física real. Ver P1-6.
+            $firmada = app(FirmaDocumentalService::class)->documentoConcluidoSegunFlujo($acta->documento);
 
-            return $firmada || $acta->negativa_firma ? null : 'Registra la firma del acta o asienta la negativa a firmar antes de cerrarla.';
+            return $firmada || $acta->negativa_firma ? null : 'Registra la firma física del acta o asienta la negativa a firmar antes de cerrarla.';
         }
 
         if ($acta->generated_document_id === null || $estadoDocumento === null || $estadoDocumento === EstadoFlujoDocumento::Cancelado) {
@@ -492,7 +500,7 @@ class ActaService
             throw ValidationException::withMessages(['acta' => $motivo]);
         }
 
-        $firmada = $acta->documento?->estado_flujo?->estaFirmado() ?? false;
+        $firmada = app(FirmaDocumentalService::class)->documentoConcluidoSegunFlujo($acta->documento);
 
         $acta->update([
             'estado' => EstadoActa::Cerrada,

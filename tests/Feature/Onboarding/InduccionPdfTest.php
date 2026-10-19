@@ -9,16 +9,15 @@ use App\Models\OnboardingModulo;
 use App\Models\User;
 use App\Services\Onboarding\InduccionPdfService;
 use App\Services\Onboarding\OnboardingService;
-use App\Services\Onboarding\SesionInduccionService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 
 /*
-| La inducción se ve en el PDF OFICIAL (docs/onboarding), nunca en una
-| reconstrucción HTML. RH la presenta sin registrar progreso; el
-| colaborador solo la ve DURANTE la sesión de RH que lo incluye (ahí el
-| visor puede registrar las páginas mostradas).
+| Nuevo flujo: la inducción se ASIGNA al colaborador al iniciar su onboarding
+| y la ve SOLO en el PDF OFICIAL (docs/onboarding), sin que RH la presente en
+| vivo. El visor registra las páginas mostradas; al terminar (todas las hojas)
+| se marca el contenido visto y se habilita la evaluación.
 */
 
 beforeEach(function () {
@@ -48,35 +47,37 @@ beforeEach(function () {
     $proceso = app(OnboardingService::class)->iniciar($this->colaborador, ContratoLaboral::factory()->create(['colaborador_id' => $this->colaborador->id]), $this->rh);
     $this->avance = $proceso->avances()->firstOrFail();
     $this->paginas = app(InduccionPdfService::class)->totalPaginas();
-    // RH inicia la sesión que incluye al colaborador (solo así puede verla).
-    $this->enSesion = fn () => app(SesionInduccionService::class)->iniciar($this->rh, [$this->colaborador->id]);
 });
 
-test('el endpoint sirve exactamente el PDF oficial del repositorio, solo con sesión', function () {
+test('la inducción asignada deja ver el PDF oficial del repositorio, sin sesión', function () {
     $oficial = base_path('docs/onboarding/Induccion_Mr_Lana_Rediseno (5).pdf');
-    ($this->enSesion)();
 
     $respuesta = $this->actingAs($this->usuario)->get(route('induccion.pdf'))
         ->assertOk()
         ->assertHeader('Content-Type', 'application/pdf');
     expect(hash_file('sha256', $respuesta->baseResponse->getFile()->getPathname()))->toBe(hash_file('sha256', $oficial))
         ->and($this->paginas)->toBe(30)
-        // Nombre amigable; el del archivo fuente nunca se ve.
         ->and($respuesta->headers->get('Content-Disposition'))->toContain('Induccion Mr. Lana.pdf')
         ->toContain(rawurlencode('Inducción Mr. Lana.pdf'))
         ->not->toContain('Rediseno');
 
     Sanctum::actingAs($this->usuario);
     $this->get('/api/v1/induccion/pdf')->assertOk()->assertHeader('Content-Type', 'application/pdf');
-
 });
 
-test('sin sesión no hay PDF de inducción', function () {
+test('sin inducción asignada no hay PDF', function () {
+    $ajeno = Colaborador::factory()->create();
+    $usuarioAjeno = User::factory()->create(['colaborador_id' => $ajeno->id]);
+    $usuarioAjeno->assignRole('colaborador');
+
+    $this->actingAs($usuarioAjeno)->get(route('induccion.pdf'))->assertForbidden();
+});
+
+test('un invitado sin sesión es redirigido al login', function () {
     $this->get(route('induccion.pdf'))->assertRedirect();
-    $this->getJson('/api/v1/induccion/pdf')->assertUnauthorized();
 });
 
-test('Presentar inducción muestra el visor del PDF (sin capítulos HTML) y no registra progreso', function () {
+test('«Presentar inducción» muestra el visor del PDF (sin capítulos HTML) y RH no registra progreso', function () {
     $this->actingAs($this->rh)->get(route('induccion.presentacion'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('Portal/Induccion')
@@ -90,13 +91,9 @@ test('Presentar inducción muestra el visor del PDF (sin capítulos HTML) y no r
     expect($this->avance->refresh()->progreso_contenido)->toBeNull();
 });
 
-test('durante la sesión de RH el visor registra páginas mostradas, no termina antes y al terminar pasa a la evaluación', function () {
-    ($this->enSesion)();
-
-    // El enlace anterior por avance lleva a la inducción de Mi espacio.
+test('el colaborador registra páginas, no termina antes y al terminar pasa a la evaluación', function () {
     $this->actingAs($this->usuario)->get(route('portal.induccion.capitulos', $this->avance))
         ->assertRedirect(route('portal.induccion.ver'));
-    $this->actingAs($this->rh)->get(route('portal.induccion.capitulos', $this->avance))->assertForbidden();
 
     $this->actingAs($this->usuario)->postJson(route('portal.induccion.pagina', $this->avance), ['pagina' => 1])
         ->assertOk()
@@ -120,11 +117,8 @@ test('durante la sesión de RH el visor registra páginas mostradas, no termina 
         ->and(EvaluacionInduccion::query()->where('colaborador_id', $this->colaborador->id)->exists())->toBeTrue();
 });
 
-test('API móvil: mismo avance por página (solo en sesión) y terminar habilita la evaluación', function () {
+test('API móvil: mismo avance por página (con asignación) y terminar habilita la evaluación', function () {
     Sanctum::actingAs($this->usuario);
-
-    $this->getJson("/api/v1/colaborador/induccion/capitulos/{$this->avance->id}")->assertForbidden();
-    ($this->enSesion)();
 
     $this->getJson("/api/v1/colaborador/induccion/capitulos/{$this->avance->id}")
         ->assertOk()

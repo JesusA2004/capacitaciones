@@ -33,7 +33,7 @@ class ExpedientesInitialMigrationService
     private const LOCK = 'expedientes:migracion-inicial';
 
     public function __construct(
-        private readonly LectorExcelMigracion $lector,
+        private readonly FabricaLectorMigracion $lector,
         private readonly PlanificadorMigracion $planificador,
         private readonly EjecutorMigracion $ejecutor,
         private readonly InventarioNasHistorico $inventario,
@@ -42,10 +42,16 @@ class ExpedientesInitialMigrationService
     ) {}
 
     /**
-     * Dry run. El Excel se guarda en storage local (no en el NAS) para que
-     * la ejecución use exactamente el mismo archivo analizado.
+     * Dry run. El/los Excel se guardan en storage local (no en el NAS) para
+     * que quede registro del archivo analizado.
+     *
+     * El formato se detecta solo (FabricaLectorMigracion): hoja BASE_GENERAL
+     * (formato único) o hojas Sucursales/Corporativo (formato por sucursales,
+     * SEMANA 41). En el formato nuevo, el puesto/departamento vienen del
+     * roster nominal adjunto (2º archivo opcional); sin él, esas filas quedan
+     * «en revisión». El hash de la corrida combina ambos archivos.
      */
-    public function analizar(string $rutaExcel, string $nombreOriginal, ?User $actor): MigracionExpedientes
+    public function analizar(string $rutaExcel, string $nombreOriginal, ?User $actor, ?string $rutaRoster = null, ?string $nombreRoster = null): MigracionExpedientes
     {
         $hash = hash_file('sha256', $rutaExcel) ?: '';
         $copia = sprintf('migraciones-expedientes/%s.xlsx', $hash);
@@ -54,20 +60,35 @@ class ExpedientesInitialMigrationService
             Storage::disk('local')->put($copia, (string) file_get_contents($rutaExcel));
         }
 
-        $plan = $this->planificador->planificar($this->lector->leer($rutaExcel));
+        $hashRoster = null;
+
+        if ($rutaRoster !== null && $rutaRoster !== '') {
+            $hashRoster = hash_file('sha256', $rutaRoster) ?: '';
+            $copiaRoster = sprintf('migraciones-expedientes/roster-%s.xlsx', $hashRoster);
+
+            if ($hashRoster !== '' && ! Storage::disk('local')->exists($copiaRoster)) {
+                Storage::disk('local')->put($copiaRoster, (string) file_get_contents($rutaRoster));
+            }
+        }
+
+        // Idempotencia con roster: la corrida se identifica por el PAR de
+        // archivos (el mismo par vuelve a dar sin_cambios al reanalizar).
+        $hashCorrida = $hashRoster !== null && $hashRoster !== '' ? hash('sha256', $hash.':'.$hashRoster) : $hash;
+
+        $plan = $this->planificador->planificar($this->lector->leer($rutaExcel, $rutaRoster));
 
         $migracion = MigracionExpedientes::query()->create([
             'user_id' => $actor?->id,
-            'archivo_nombre' => $nombreOriginal,
+            'archivo_nombre' => $nombreRoster !== null && $nombreRoster !== '' ? sprintf('%s + %s', $nombreOriginal, $nombreRoster) : $nombreOriginal,
             'archivo_path' => $copia,
-            'archivo_hash' => $hash,
+            'archivo_hash' => $hashCorrida,
             'estado' => 'analizado',
             'totales' => $plan['totales'],
             'plan' => json_encode($plan, JSON_UNESCAPED_UNICODE),
             'decisiones' => ['filas' => [], 'carpetas' => []],
         ]);
 
-        $this->auditoria->registrar('migracion_expedientes_analizada', $migracion, $actor, ['archivo' => $nombreOriginal, 'hash' => $hash, 'totales' => $plan['totales']]);
+        $this->auditoria->registrar('migracion_expedientes_analizada', $migracion, $actor, ['archivo' => $migracion->archivo_nombre, 'hash' => $hashCorrida, 'totales' => $plan['totales']]);
 
         return $migracion;
     }
@@ -178,13 +199,13 @@ class ExpedientesInitialMigrationService
 
             fwrite($salida, "\xEF\xBB\xBF");
             // Usuario propuesto/Estado cuenta: para verificar los usernames antes de aplicar.
-            fputcsv($salida, ['Fila', 'Clave', 'Nombre', 'Empresa', 'Sucursal', 'Departamento', 'Puesto', 'Usuario propuesto', 'Estado cuenta', 'Estado importación', 'CURP', 'Colaborador ID', 'Carpeta NAS', 'PDF', 'Tipo de match', 'Score', 'Conflictos', 'Advertencias', 'Operación', 'Nombre normalizado (match)', 'Carpetas candidatas', 'Mejor carpeta', 'Mejor score', 'Razón match NAS']);
+            fputcsv($salida, ['Fila', 'Hoja origen', 'Clave', 'Nombre', 'Empresa', 'Sucursal', 'Departamento', 'Puesto', 'Usuario propuesto', 'Estado cuenta', 'Estado importación', 'CURP', 'Colaborador ID', 'Carpeta NAS', 'PDF', 'Tipo de match', 'Score', 'Conflictos', 'Advertencias', 'Operación', 'Nombre normalizado (match)', 'Carpetas candidatas', 'Mejor carpeta', 'Mejor score', 'Razón match NAS']);
 
             foreach ($plan['filas'] ?? [] as $f) {
                 $estadoCuenta = EstadoCuentaMigracion::tryFrom((string) ($f['cuenta']['estado'] ?? '')) ?? EstadoCuentaMigracion::NoAplica;
 
                 fputcsv($salida, [
-                    $f['fila'], $f['clave'], $f['nombre_completo'], $f['empresa_nombre'] ?? $f['empresa_excel'] ?? '', $f['sucursal_nombre'] ?? $f['sucursal_excel'],
+                    $f['fila'], $f['hoja_origen'] ?? '', $f['clave'], $f['nombre_completo'], $f['empresa_nombre'] ?? $f['empresa_excel'] ?? '', $f['sucursal_nombre'] ?? $f['sucursal_excel'],
                     $f['departamento_nombre'] ?? $f['departamento_excel'] ?? '', $f['puesto_nombre'] ?? $f['puesto_excel'],
                     $f['cuenta']['usuario'] ?? '', $estadoCuenta->etiqueta(), $f['operacion'],
                     $f['curp'], $f['colaborador_id'], $f['nas']['carpeta'] ?? '', count($f['nas']['pdfs'] ?? []), $f['nas']['tipo'], $f['nas']['score'],
@@ -193,6 +214,7 @@ class ExpedientesInitialMigrationService
                         'crear' => 'Alta nueva',
                         'actualizar' => 'Actualiza: '.implode(', ', array_keys((array) $f['cambios'])),
                         'conflicto' => 'No se aplica',
+                        'en_revision' => 'EN REVISIÓN: falta puesto/departamento (no se aplica)',
                         'omitir' => 'Se omite',
                         default => 'Ya está igual',
                     },

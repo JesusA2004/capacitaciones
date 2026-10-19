@@ -17,6 +17,7 @@ use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Headcount\HeadcountService;
 use App\Services\Vacantes\VacantesListadoService;
+use App\Support\FechaMexico;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -198,7 +199,7 @@ class IndicadoresRhService
         return ContratoLaboral::query()
             ->where('estado', EstadoContratoLaboral::Vigente->value)
             ->whereNotNull('fecha_fin')
-            ->whereDate('fecha_fin', '<=', now()->addDays($dias)->toDateString())
+            ->whereDate('fecha_fin', '<=', FechaMexico::inicioDeHoy()->addDays($dias)->toDateString())
             ->whereIn('colaborador_id', $this->colaboradores($sucursales, $empresaId)->select('id'))
             ->count();
     }

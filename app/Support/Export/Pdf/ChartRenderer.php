@@ -10,16 +10,31 @@ use App\Support\Export\ChartData;
  * y cajas con dimensiones fijas de forma mucho más confiable que SVG con
  * arcos/paths, así que en vez de una dona real se dibuja una barra
  * horizontal 100%-apilada + leyenda (visualmente equivalente, cero riesgo de
- * artefactos de render). Misma paleta de marca que el Dashboard
- * (resources/css/app.css: --brand-primary/--brand-secondary/--chart-3/4/5).
- * Los estilos (.grafica, .barra-apilada, .grafica-barras, ...) viven una
- * sola vez en resources/views/pdf/layout.blade.php.
+ * artefactos de render). La secuencia de color es la institucional PEOPLE
+ * y vive una sola vez en config/pdf_identidad.php ('grafica'); los estilos
+ * (.grafica, .barra-apilada, .grafica-barras, ...) viven una sola vez en
+ * resources/views/pdf/layout.blade.php.
  */
 final class ChartRenderer
 {
-    private const PALETA = ['#0d3e43', '#af8b51', '#225c54', '#2f5937', '#754711'];
-
     private const ALTO_BARRA_PX = 110;
+
+    /**
+     * Secuencia categórica institucional (config/pdf_identidad.php), con
+     * respaldo a la misma paleta por si la config no estuviera disponible.
+     *
+     * @return list<string>
+     */
+    private static function paleta(): array
+    {
+        $valor = config('pdf_identidad.grafica');
+
+        if (is_array($valor) && $valor !== []) {
+            return array_values(array_map('strval', $valor));
+        }
+
+        return ['#315B59', '#C7A66B', '#6E9B8F', '#A98252', '#3F7558'];
+    }
 
     public static function render(ChartData $datos, string $titulo = ''): string
     {
@@ -36,6 +51,7 @@ final class ChartRenderer
     {
         $valores = $datos->series[0]['valores'];
         $total = array_sum($valores) ?: 1;
+        $paleta = self::paleta();
 
         $segmentos = '';
         $leyenda = '';
@@ -43,7 +59,7 @@ final class ChartRenderer
         foreach ($datos->categorias as $i => $categoria) {
             $valor = $valores[$i];
             $porcentaje = round(($valor / $total) * 100, 1);
-            $color = self::PALETA[$i % count(self::PALETA)];
+            $color = $paleta[$i % count($paleta)];
 
             if ($valor > 0) {
                 $segmentos .= '<td style="width:'.max($porcentaje, 0.5).'%;background-color:'.$color.';">&nbsp;</td>';
@@ -78,6 +94,7 @@ final class ChartRenderer
 
         $maxValor = $maxValor ?: 1.0;
         $multiSerie = count($datos->series) > 1;
+        $paleta = self::paleta();
 
         $columnas = '';
         $etiquetas = '';
@@ -88,7 +105,7 @@ final class ChartRenderer
             foreach ($datos->series as $s => $serie) {
                 $valor = $serie['valores'][$i];
                 $alto = $valor > 0 ? max(2, (int) round(($valor / $maxValor) * self::ALTO_BARRA_PX)) : 0;
-                $color = self::PALETA[$s % count(self::PALETA)];
+                $color = $paleta[$s % count($paleta)];
 
                 $barrasSerie .= '<td class="barra-celda" style="width:'.(int) (100 / max(count($datos->series), 1)).'%;">'
                     .($valor > 0 ? '<div class="valor-barra">'.self::formatoNumero($valor).'</div>' : '')
@@ -106,7 +123,7 @@ final class ChartRenderer
 
         if ($multiSerie) {
             foreach ($datos->series as $s => $serie) {
-                $color = self::PALETA[$s % count(self::PALETA)];
+                $color = $paleta[$s % count($paleta)];
                 $leyendaSeries .= '<div class="leyenda-item"><span class="leyenda-punto" style="background-color:'.$color.';"></span>'.e($serie['nombre']).'</div>';
             }
         }

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\EstadoContratoLaboral;
 use App\Enums\TipoContratacion;
+use App\Support\FechaMexico;
 use Database\Factories\ContratoLaboralFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -70,7 +71,7 @@ class ContratoLaboral extends Model
             return null;
         }
 
-        return (int) now()->startOfDay()->diffInDays($this->fecha_fin->copy()->startOfDay(), false);
+        return (int) FechaMexico::inicioDeHoy()->diffInDays($this->fecha_fin->copy()->startOfDay(), false);
     }
 
     /**

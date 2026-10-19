@@ -10,6 +10,7 @@ use App\Models\SolicitudExcepcionPeriodoPrueba;
 use App\Models\User;
 use App\Notifications\Mobile\PendienteRhNotification;
 use App\Services\MobilePush\PushNotifier;
+use App\Support\FechaMexico;
 use Carbon\CarbonInterface;
 use DateTimeInterface;
 use Illuminate\Database\Eloquent\Model;
@@ -319,7 +320,7 @@ class NotificacionEventosService
         $estado = $aviso->recurso?->getAttribute('updated_at');
         $estado = $estado instanceof DateTimeInterface ? $estado->format('U') : '-';
 
-        return substr(sha1(sprintf('%s|%s|%s|%s', $aviso->titulo, $aviso->mensaje, $estado, now()->toDateString())), 0, 16);
+        return substr(sha1(sprintf('%s|%s|%s|%s', $aviso->titulo, $aviso->mensaje, $estado, FechaMexico::hoy())), 0, 16);
     }
 
     /**

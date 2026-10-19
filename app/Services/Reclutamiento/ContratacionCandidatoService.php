@@ -25,6 +25,7 @@ use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Incorporacion\IncorporacionInvitacionService;
 use App\Services\Tareas\TareaService;
 use App\Services\Vacantes\VacantesListadoService;
+use App\Support\FechaMexico;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -374,7 +375,7 @@ class ContratacionCandidatoService
             'plazas_cubiertas' => $cubiertas,
             'plazas_disponibles' => max($requeridas - $cubiertas, 0),
             'estado' => $completa ? EstadoVacante::Cubierta : $vacante->estado,
-            'fecha_cierre' => $completa ? now()->toDateString() : null,
+            'fecha_cierre' => $completa ? FechaMexico::hoy() : null,
         ]);
     }
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Administracion;
 
 use App\Enums\EstadoCierreLaboral;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Administracion\PurgarPersonaRequest;
 use App\Http\Requests\Administracion\StoreUsuarioRequest;
 use App\Http\Requests\Administracion\UpdateUsuarioRequest;
 use App\Models\CierreLaboral;
@@ -12,7 +13,7 @@ use App\Models\User;
 use App\Notifications\CredencialesActualizadasNotification;
 use App\Services\Administracion\AccesoCuentaService;
 use App\Services\Administracion\GeneradorPasswordService;
-use App\Services\Administracion\PurgaUsuarioService;
+use App\Services\Administracion\PurgaPersonaService;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\RolPermisoService;
 use App\Support\Paginacion;
@@ -186,22 +187,30 @@ class UsuarioController extends Controller
     }
 
     /**
-     * Qué eliminaría, desvincularía o impediría la purga definitiva (no
-     * modifica nada). Solo super_admin (PurgaUsuarioService).
+     * Qué eliminaría, desvincularía e impediría la PURGA INTEGRAL de la
+     * persona (cuenta + expediente + todo lo suyo) y qué archivos quedan en
+     * el NAS. No modifica nada. Solo super_admin (PurgaPersonaService).
      */
-    public function revisarPurga(Request $request, User $usuario, PurgaUsuarioService $purga): JsonResponse
+    public function revisarPurga(Request $request, User $usuario, PurgaPersonaService $purga): JsonResponse
     {
+        $this->authorize('purgarDefinitivamente', $usuario);
+
         return response()->json(['data' => $purga->revisar($usuario, $request->user())]);
     }
 
-    /** Eliminación definitiva de la cuenta, confirmada por escrito. */
-    public function purgar(Request $request, User $usuario, PurgaUsuarioService $purga): RedirectResponse
+    /**
+     * Purga integral de la persona: borra FÍSICAMENTE la cuenta y el
+     * expediente completo (solicitudes, vacaciones, asistencias, onboarding,
+     * contratos, cierres, finiquitos, responsivas, actas, préstamos,
+     * recibos, documentos lógicos…). Los archivos del NAS se conservan. Solo
+     * para registros erróneos/de prueba y confirmada por escrito.
+     */
+    public function purgar(PurgarPersonaRequest $request, User $usuario, PurgaPersonaService $purga): RedirectResponse
     {
-        $datos = $request->validate(['confirmacion' => ['required', 'string', 'max:191']], ['confirmacion.required' => 'Escribe ELIMINAR o el usuario para confirmar.']);
-        $nombre = $usuario->username;
-        $purga->purgar($usuario, $request->user(), $datos['confirmacion']);
+        $persona = $usuario->colaborador?->nombreCompleto() ?? $usuario->username;
+        $purga->purgar($usuario, $request->user());
 
-        return to_route('administracion.usuarios.index')->with('toast', ['type' => 'success', 'message' => sprintf('La cuenta «%s» se eliminó definitivamente.', $nombre)]);
+        return to_route('administracion.usuarios.index')->with('toast', ['type' => 'success', 'message' => sprintf('Se purgó definitivamente a «%s»: cuenta y expediente eliminados.', $persona)]);
     }
 
     public function restablecerAcceso(Request $request, User $usuario): RedirectResponse

@@ -328,7 +328,7 @@ const enlace =
                     class="h-2"
                 />
 
-                <div class="grid grid-cols-4 gap-3 text-center">
+                <div class="grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
                     <div
                         class="rounded-xl p-2 transition-colors hover:bg-[var(--mrl-fondo)]"
                     >

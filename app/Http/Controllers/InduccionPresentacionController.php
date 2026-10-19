@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\TipoModuloOnboarding;
+use App\Models\OnboardingModulo;
 use App\Services\Onboarding\InduccionPdfService;
+use App\Services\Onboarding\MaterialInduccionService;
 use App\Services\Onboarding\SesionInduccionService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\Request;
@@ -23,6 +26,7 @@ class InduccionPresentacionController extends Controller
     public function __construct(
         private readonly InduccionPdfService $pdf,
         private readonly SesionInduccionService $sesiones,
+        private readonly MaterialInduccionService $materiales,
     ) {}
 
     /**
@@ -36,11 +40,55 @@ class InduccionPresentacionController extends Controller
             throw new AuthorizationException('Solo Recursos Humanos presenta la inducción.');
         }
 
+        // El flujo de «sesión en vivo» quedó tras el flag legacy; por defecto RH
+        // ya no presenta en vivo, solo repasa el PDF y gestiona el material que
+        // el colaborador verá solo (audio/video).
+        $legacy = (bool) config('features.induccion_sesiones_legacy');
+
         return Inertia::render('Portal/Induccion', [
             'modoPresentacion' => true,
             'pdf' => $this->pdf->datosVisor(),
-            'sesionRh' => $this->sesiones->datosPantalla($usuario),
+            'sesionRh' => $legacy ? $this->sesiones->datosPantalla($usuario) : null,
+            'materialRh' => $this->materialRh(),
+            'rutasMaterial' => [
+                'store' => route('rh.onboarding.induccion.material.store'),
+                'destroy' => route('rh.onboarding.induccion.material.destroy'),
+            ],
         ]);
+    }
+
+    /**
+     * Material de explicación vigente de la inducción para la pantalla de RH
+     * (tipo + estado del recurso). null si no hay módulo o material.
+     *
+     * @return array{tipo: string, tipo_etiqueta: string, recurso_nombre: string|null, recurso_estado: string, duracion_segundos: int|null}|null
+     */
+    private function materialRh(): ?array
+    {
+        $modulo = OnboardingModulo::query()
+            ->whereNotNull('evaluacion_formal_clave')
+            ->where('tipo', TipoModuloOnboarding::Institucional->value)
+            ->where('activo', true)
+            ->orderBy('orden')
+            ->first();
+
+        if ($modulo === null) {
+            return null;
+        }
+
+        $material = $this->materiales->materialActivo($modulo);
+
+        if ($material === null) {
+            return null;
+        }
+
+        return [
+            'tipo' => $material->tipo->value,
+            'tipo_etiqueta' => $material->tipo->etiqueta(),
+            'recurso_nombre' => $material->recurso?->nombre_original,
+            'recurso_estado' => $material->recurso?->estado->value ?? 'desconocido',
+            'duracion_segundos' => $material->recurso?->duracion_segundos,
+        ];
     }
 
     /**

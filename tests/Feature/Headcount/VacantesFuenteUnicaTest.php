@@ -7,7 +7,6 @@ use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\Vacante;
 use App\Services\Reportes\IndicadoresRhService;
-use App\Services\Reportes\MetricasRhDashboardService;
 use App\Services\Reportes\ReportesRhService;
 use App\Services\Reportes\TableroRhService;
 use App\Services\Vacantes\VacanteAutoGenerationService;
@@ -128,7 +127,7 @@ test('un cambio de sucursal resincroniza origen y destino', function () {
         ->and(vfAbierta($cordoba, $this->coordinadora))->toBeNull();
 });
 
-test('Tablero, Métricas, Indicadores y Reportes RH tampoco cuentan la automática vieja ya sin faltante', function () {
+test('Tablero, Indicadores y Reportes RH tampoco cuentan la automática vieja ya sin faltante', function () {
     vfAutorizar($this->cuernavaca, $this->coordinadora, 1);
     // Misma fila vieja del caso Maribel: automática abierta cuya plaza ya
     // está ocupada porque la persona entró sin pasar por la sincronización.
@@ -141,10 +140,42 @@ test('Tablero, Métricas, Indicadores y Reportes RH tampoco cuentan la automáti
 
     $rh = clUsuario('rh_admin');
 
-    expect(app(TableroRhService::class)->construir($rh)['summary']['vacantes_abiertas']['valor'])->toBe(0)
-        ->and(app(MetricasRhDashboardService::class)->global($rh)['cards']['vacantes_disponibles'])->toBe(0)
+    // La fuente única viva: VacantesListadoService::consulta() (CLAUDE.md §13)
+    // no lista la automática vieja, y los tres consumidores vivos (tablero,
+    // indicadores y reportes) heredan ese 0 sin recalcular por su cuenta.
+    expect(app(VacantesListadoService::class)->consulta($rh)->get())->toBeEmpty()
+        ->and(app(TableroRhService::class)->construir($rh)['summary']['vacantes_abiertas']['valor'])->toBe(0)
         ->and(app(IndicadoresRhService::class)->calcular($rh)['vacantes_abiertas'])->toBe(0)
         ->and(app(ReportesRhService::class)->generar('vacantes_abiertas', $rh, [])['filas'])->toBe([]);
+});
+
+test('una vacante manual y una automática del mismo puesto no duplican las plazas del listado (P2-9)', function () {
+    // Autorizadas 2, ocupadas 0 → faltante real 2. Coexisten una manual (RH)
+    // y una automática del MISMO par: antes cada una reclamaba el faltante
+    // completo y el listado/resumen contaba 4 plazas donde solo faltan 2.
+    vfAutorizar($this->cuernavaca, $this->coordinadora, 2);
+
+    $manual = Vacante::factory()->create([
+        'sucursal_id' => $this->cuernavaca->id, 'puesto_id' => $this->coordinadora->id, 'generada_automaticamente' => false,
+        'estado' => EstadoVacante::Abierta->value, 'plazas_requeridas' => 2, 'plazas_disponibles' => 2,
+    ]);
+    $automatica = Vacante::factory()->create([
+        'sucursal_id' => $this->cuernavaca->id, 'puesto_id' => $this->coordinadora->id, 'generada_automaticamente' => true,
+        'estado' => EstadoVacante::Abierta->value, 'plazas_requeridas' => 2, 'plazas_disponibles' => 2,
+    ]);
+
+    $rh = clUsuario('rh_admin');
+    $listado = app(VacantesListadoService::class);
+    $vacantes = $listado->consulta($rh)->get();
+    $filas = $listado->filas($vacantes);
+    $resumen = $listado->resumen($filas);
+
+    // Conservador: NINGUNA vacante se cancela (ambas se listan), pero el total
+    // de plazas disponibles es el faltante real (2), no la suma duplicada (4).
+    expect($vacantes->pluck('id')->all())->toContain($manual->id, $automatica->id)
+        ->and($resumen['plazas'])->toBe(2)
+        ->and(array_sum(array_map(fn (array $f) => $f['plazas_disponibles'], $filas)))->toBe(2)
+        ->and($listado->plazasPorSucursal(collect([$this->cuernavaca->id]))->get($this->cuernavaca->id))->toBe(2);
 });
 
 test('el comando no toca vacantes manuales de RH y --simular no escribe', function () {

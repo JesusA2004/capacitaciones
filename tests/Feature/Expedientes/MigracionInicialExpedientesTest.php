@@ -544,3 +544,237 @@ test('un nombre contenido en otro con dos palabras de más no es automático', f
 
     expect($nas['tipo'])->toBe('revision');
 });
+
+/*
+ * Formato NUEVO por sucursales («BASE DE DATOS MR. LANA PEOPLE SEMANA 41»):
+ * dos hojas (Sucursales + Corporativo) con SOLO la identidad del colaborador
+ * y un roster nominal aparte que aporta puesto/departamento. El adaptador de
+ * entrada (LectorBaseSemana41 + LectorRosterNominal + CombinadorRosterNominal,
+ * elegidos por FabricaLectorMigracion) emite la MISMA estructura canónica que
+ * el formato único, así que el motor NAS/carpetas/manifiesto no cambia.
+ *
+ * Los encabezados van en un orden DISTINTO al formato único y no traen puesto
+ * ni departamento: se reconocen por nombre (sinónimos), nunca por posición.
+ */
+function miExcelSemana41(array $sucursales, array $corporativo = []): string
+{
+    $libro = new Spreadsheet;
+    $hoja = $libro->getActiveSheet();
+    $hoja->setTitle('Sucursales');
+    $encabezadosSuc = ['Sucursal oficial', 'Estatus laboral', 'CURP', 'Nombre completo', 'Apellido materno', 'Apellido paterno', 'Nombre', 'Correo electrónico', 'Fecha de nacimiento', 'Clave'];
+    $hoja->fromArray($encabezadosSuc, null, 'A1');
+
+    foreach ($sucursales as $i => $f) {
+        $hoja->fromArray(array_map(fn ($e) => $f[$e] ?? null, $encabezadosSuc), null, 'A'.($i + 2));
+    }
+
+    // Corporativo: sin columna de sucursal (el adaptador la fija en «Corporativo»).
+    $corp = $libro->createSheet();
+    $corp->setTitle('Corporativo');
+    $encabezadosCorp = ['Estatus laboral', 'CURP', 'Nombre completo', 'Apellido materno', 'Apellido paterno', 'Nombre', 'Correo electrónico', 'Fecha de nacimiento', 'Clave'];
+    $corp->fromArray($encabezadosCorp, null, 'A1');
+
+    foreach ($corporativo as $i => $f) {
+        $corp->fromArray(array_map(fn ($e) => $f[$e] ?? null, $encabezadosCorp), null, 'A'.($i + 2));
+    }
+
+    $ruta = tempnam(sys_get_temp_dir(), 'migs41').'.xlsx';
+    (new Xlsx($libro))->save($ruta);
+
+    return $ruta;
+}
+
+/** @return array<string, string|null> */
+function miFilaS41(array $extra = []): array
+{
+    return [
+        'Nombre' => 'José Alberto', 'Apellido paterno' => 'Carlos', 'Apellido materno' => 'Bueno',
+        'Nombre completo' => 'José Alberto Carlos Bueno', 'Correo electrónico' => 'jose.carlos@mrlana.test',
+        'CURP' => 'CABA900101HMSRNL09', 'Fecha de nacimiento' => '01/01/1990', 'Estatus laboral' => 'Alta',
+        'Sucursal oficial' => 'CUERNAVACA', 'Clave' => '130',
+        ...$extra,
+    ];
+}
+
+/** Roster columnar simple (una fila por persona): Clave/Nombre completo/Puesto/Departamento. */
+function miRosterNominal(array $personas): string
+{
+    $libro = new Spreadsheet;
+    $hoja = $libro->getActiveSheet();
+    $hoja->setTitle('Roster');
+    $encabezados = ['Departamento', 'Puesto', 'Nombre completo', 'Clave'];
+    $hoja->fromArray($encabezados, null, 'A1');
+
+    foreach ($personas as $i => $p) {
+        $hoja->fromArray(array_map(fn ($e) => $p[$e] ?? null, $encabezados), null, 'A'.($i + 2));
+    }
+
+    $ruta = tempnam(sys_get_temp_dir(), 'roster').'.xlsx';
+    (new Xlsx($libro))->save($ruta);
+
+    return $ruta;
+}
+
+/** @return array<string, string|null> */
+function miRosterFila(string $clave, string $nombre, string $puesto = 'Gestor', string $departamento = 'Ventas'): array
+{
+    return ['Clave' => $clave, 'Nombre completo' => $nombre, 'Puesto' => $puesto, 'Departamento' => $departamento];
+}
+
+test('SEMANA 41: identidad que ya existe (misma CURP) + roster queda sin cambios y no se duplica', function () {
+    $excel = miExcelSemana41([miFilaS41()]);
+    $roster = miRosterNominal([miRosterFila('130', 'José Alberto Carlos Bueno')]);
+
+    $this->servicio->aplicar($this->servicio->analizar($excel, 'base.xlsx', $this->rh, $roster, 'roster.xlsx'), $this->rh);
+
+    $segunda = $this->servicio->analizar($excel, 'base.xlsx', $this->rh, $roster, 'roster.xlsx');
+    $fila = $segunda->planArray()['filas'][0];
+
+    expect($segunda->totales['sin_cambios'])->toBe(1)
+        ->and($fila['operacion'])->toBe('sin_cambios')
+        ->and($fila['puesto_nombre'])->toBe('Gestor')
+        ->and($fila['departamento_nombre'])->toBe('Ventas');
+
+    $this->servicio->aplicar($segunda, $this->rh);
+    expect(Colaborador::query()->where('curp', 'CABA900101HMSRNL09')->count())->toBe(1);
+});
+
+test('SEMANA 41 + roster: alta nueva crea colaborador, su cuenta y registra el PDF del NAS', function () {
+    miPdf('expedientes/Mr. Lana/CUERNAVACA/JOSE ALBERTO CARLOS BUENO/expediente.pdf');
+    $excel = miExcelSemana41([miFilaS41()]);
+    $roster = miRosterNominal([miRosterFila('130', 'José Alberto Carlos Bueno')]);
+
+    $migracion = $this->servicio->analizar($excel, 'base.xlsx', $this->rh, $roster, 'roster.xlsx');
+    $fila = $migracion->planArray()['filas'][0];
+
+    expect($fila['operacion'])->toBe('crear')
+        ->and($fila['hoja_origen'])->toBe('Sucursales')
+        ->and($fila['puesto_nombre'])->toBe('Gestor')
+        ->and($fila['departamento_nombre'])->toBe('Ventas')
+        ->and($fila['nas']['tipo'])->toBe('exacto');
+
+    $resultado = $this->servicio->aplicar($migracion, $this->rh);
+    $colaborador = Colaborador::query()->where('curp', 'CABA900101HMSRNL09')->firstOrFail();
+
+    expect($resultado['creados'])->toBe(1)
+        ->and($resultado['cuentas_creadas'])->toBe(1)
+        ->and($resultado['pdfs_registrados'])->toBe(1)
+        ->and($colaborador->puesto?->nombre)->toBe('Gestor')
+        ->and($colaborador->clave_legacy)->toBe('130');
+});
+
+test('SEMANA 41: identidad válida sin puesto en el roster queda EN REVISIÓN y no se aplica', function () {
+    $excel = miExcelSemana41([miFilaS41()]);
+    // El roster no trae a esta persona: sin puesto/departamento → en revisión.
+    $roster = miRosterNominal([miRosterFila('999', 'Otra Persona Distinta')]);
+
+    $migracion = $this->servicio->analizar($excel, 'base.xlsx', $this->rh, $roster, 'roster.xlsx');
+    $fila = $migracion->planArray()['filas'][0];
+
+    expect($fila['operacion'])->toBe('en_revision')
+        ->and($fila['puesto_nombre'])->toBeNull()
+        ->and($migracion->totales['en_revision'])->toBe(1)
+        ->and(implode(' ', $fila['motivos']))->toContain('pendiente');
+
+    $resultado = $this->servicio->aplicar($migracion, $this->rh);
+
+    expect($resultado['creados'])->toBe(0)
+        ->and($resultado['revision_estructural'])->toBe(1)
+        ->and(Colaborador::query()->where('curp', 'CABA900101HMSRNL09')->exists())->toBeFalse();
+});
+
+test('SEMANA 41: alias de sucursal resuelve, fuera de whitelist es conflicto, nunca crea sucursales', function () {
+    $cordoba = miCordoba($this->cuernavaca);
+    $sucursalesAntes = Sucursal::query()->count();
+
+    $excel = miExcelSemana41([
+        miFilaS41(['Sucursal oficial' => 'ATLACOMULC']),
+        miFilaS41(['Sucursal oficial' => 'CÓRDOBA', 'CURP' => 'MEQR880215MDFLNS03', 'Nombre completo' => 'Maria Perez Luna', 'Nombre' => 'Maria', 'Apellido paterno' => 'Perez', 'Apellido materno' => 'Luna', 'Correo electrónico' => 'maria@mrlana.test', 'Clave' => '131']),
+        miFilaS41(['Sucursal oficial' => 'PACHUCA', 'CURP' => 'LOGA850320HMCRRN08', 'Nombre completo' => 'Luis Gomez Ramirez', 'Nombre' => 'Luis', 'Apellido paterno' => 'Gomez', 'Apellido materno' => 'Ramirez', 'Correo electrónico' => 'luis@mrlana.test', 'Clave' => '132']),
+    ]);
+    $roster = miRosterNominal([
+        miRosterFila('130', 'José Alberto Carlos Bueno'),
+        miRosterFila('131', 'Maria Perez Luna'),
+        miRosterFila('132', 'Luis Gomez Ramirez'),
+    ]);
+
+    $plan = $this->servicio->analizar($excel, 'base.xlsx', $this->rh, $roster, 'roster.xlsx')->planArray();
+
+    expect($plan['filas'][0]['sucursal_id'])->toBe($this->atlacomulco->id)
+        ->and($plan['filas'][0]['operacion'])->toBe('crear')
+        ->and($plan['filas'][1]['sucursal_id'])->toBe($cordoba->id)
+        ->and($plan['filas'][1]['operacion'])->toBe('crear')
+        ->and($plan['filas'][2]['operacion'])->toBe('conflicto');
+    expect(Sucursal::query()->count())->toBe($sucursalesAntes);
+});
+
+test('SEMANA 41: la hoja Corporativo se procesa con sucursal «Corporativo» y su ausencia no da de baja', function () {
+    // El seeder deja una sucursal «Corporativo» sin empresa; se vincula a la
+    // monoempresa para que coincida con la que trae el archivo (Mr. Lana).
+    Sucursal::query()->where('nombre', 'Corporativo')->update(['empresa_id' => Empresa::query()->where('nombre', 'Mr. Lana')->value('id')]);
+
+    $excel = miExcelSemana41(
+        [miFilaS41()],
+        [miFilaS41(['CURP' => 'LOGA850320HMCRRN08', 'Nombre completo' => 'Luis Gomez Ramirez', 'Nombre' => 'Luis', 'Apellido paterno' => 'Gomez', 'Apellido materno' => 'Ramirez', 'Correo electrónico' => 'luis@mrlana.test', 'Clave' => '200'])],
+    );
+    $roster = miRosterNominal([
+        miRosterFila('130', 'José Alberto Carlos Bueno'),
+        miRosterFila('200', 'Luis Gomez Ramirez'),
+    ]);
+
+    $migracion = $this->servicio->analizar($excel, 'base.xlsx', $this->rh, $roster, 'roster.xlsx');
+    $filas = collect($migracion->planArray()['filas'])->keyBy('nombre_completo');
+
+    expect($filas['Luis Gomez Ramirez']['hoja_origen'])->toBe('Corporativo')
+        ->and($filas['Luis Gomez Ramirez']['sucursal_nombre'])->toBe('Corporativo')
+        ->and($filas['Luis Gomez Ramirez']['operacion'])->toBe('crear')
+        ->and($migracion->totales['corporativo'])->toBe(1);
+
+    $this->servicio->aplicar($migracion, $this->rh);
+    $corp = Colaborador::query()->where('curp', 'LOGA850320HMCRRN08')->firstOrFail();
+    expect($corp->sucursalPrincipal?->nombre)->toBe('Corporativo')
+        ->and($corp->estatus)->toBe(EstadoUsuario::Activo);
+
+    // Reanalizar/aplicar SIN la fila de Corporativo: ausencia nunca es baja.
+    $this->servicio->aplicar($this->servicio->analizar(miExcelSemana41([miFilaS41()]), 'base.xlsx', $this->rh, miRosterNominal([miRosterFila('130', 'José Alberto Carlos Bueno')]), 'roster.xlsx'), $this->rh);
+    expect($corp->fresh()->estatus)->toBe(EstadoUsuario::Activo);
+});
+
+test('SEMANA 41: un colaborador activo en BD ausente del archivo sigue activo (ausencia ≠ baja)', function () {
+    $otra = Colaborador::factory()->create(['sucursal_principal_id' => $this->cuernavaca->id, 'estatus' => EstadoUsuario::Activo->value, 'curp' => 'ROHM920710MMCDRN05']);
+    $excel = miExcelSemana41([miFilaS41()]);
+    $roster = miRosterNominal([miRosterFila('130', 'José Alberto Carlos Bueno')]);
+
+    $this->servicio->aplicar($this->servicio->analizar($excel, 'base.xlsx', $this->rh, $roster, 'roster.xlsx'), $this->rh);
+
+    expect($otra->fresh()->estatus)->toBe(EstadoUsuario::Activo)
+        ->and(Colaborador::query()->where('curp', 'CABA900101HMSRNL09')->value('estatus'))->toBe(EstadoUsuario::Activo);
+});
+
+test('SEMANA 41 + roster: reanalizar y aplicar el mismo par es idempotente', function () {
+    miPdf('expedientes/Mr. Lana/CUERNAVACA/JOSE ALBERTO CARLOS BUENO/expediente.pdf');
+    $excel = miExcelSemana41([miFilaS41()]);
+    $roster = miRosterNominal([miRosterFila('130', 'José Alberto Carlos Bueno')]);
+
+    $this->servicio->aplicar($this->servicio->analizar($excel, 'base.xlsx', $this->rh, $roster, 'roster.xlsx'), $this->rh);
+    $segunda = $this->servicio->analizar($excel, 'base.xlsx', $this->rh, $roster, 'roster.xlsx');
+
+    expect($segunda->totales['sin_cambios'])->toBe($segunda->totales['filas']);
+    $this->servicio->aplicar($segunda, $this->rh);
+
+    expect(Colaborador::query()->where('curp', 'CABA900101HMSRNL09')->count())->toBe(1)
+        ->and(ExpedienteHistorico::query()->count())->toBe(1)
+        ->and(User::query()->where('username', 'Jose Carlos')->count())->toBe(1);
+});
+
+test('detección de formato: BASE_GENERAL usa el lector único; Sucursales/Corporativo usa el de SEMANA 41', function () {
+    $base = $this->servicio->analizar(miExcel([miFila()]), 'base.xlsx', $this->rh);
+    expect($base->planArray()['excel']['hoja'])->toBe('BASE_GENERAL')
+        ->and($base->planArray()['filas'][0]['operacion'])->toBe('crear');
+
+    $excel = miExcelSemana41([miFilaS41()]);
+    $roster = miRosterNominal([miRosterFila('130', 'José Alberto Carlos Bueno')]);
+    $s41 = $this->servicio->analizar($excel, 'base.xlsx', $this->rh, $roster, 'roster.xlsx');
+    expect($s41->planArray()['excel']['hoja'])->toBe('Sucursales + Corporativo')
+        ->and($s41->planArray()['filas'][0]['operacion'])->toBe('crear');
+});

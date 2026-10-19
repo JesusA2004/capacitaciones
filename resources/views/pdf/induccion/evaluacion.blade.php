@@ -12,6 +12,8 @@
     bloques: Chrome y DomPDF lo imprimen igual. Sin fuentes remotas.
 --}}
 @php
+    // Identidad institucional PEOPLE: paleta única en config/pdf_identidad.php.
+    $pal = config('pdf_identidad');
     $r = $d['r'];
     $letra = fn (int $i) => chr(97 + $i);
     $puntos = fn (?float $p) => $p === null ? '—' : rtrim(rtrim(number_format($p, 2), '0'), '.');
@@ -35,90 +37,90 @@
         table { width: 100%; border-collapse: collapse; }
 
         /* Banda institucional (como el formato oficial) */
-        .banda { background: #0d3e43; }
+        .banda { background: {{ $pal['petroleo'] }}; }
         .banda td { padding: 3mm 4mm; vertical-align: middle; }
         .banda .logo { height: 11mm; }
         .banda .marca-texto { color: #ffffff; font-size: 14pt; font-weight: bold; letter-spacing: 0.6pt; }
         .banda .empresa { text-align: right; color: #ffffff; font-size: 8pt; line-height: 1.4; }
-        .banda .empresa strong { color: #b08d57; font-size: 8.4pt; }
+        .banda .empresa strong { color: {{ $pal['dorado'] }}; font-size: 8.4pt; }
 
         .titulo { text-align: center; margin: 6mm 0 1mm; }
-        .titulo h1 { margin: 0; font-size: 15pt; letter-spacing: 0.8pt; color: #0d3e43; }
-        .titulo .sub { color: #8a6a3a; font-style: italic; font-size: 9.6pt; margin-top: 1mm; }
+        .titulo h1 { margin: 0; font-size: 15pt; letter-spacing: 0.8pt; color: {{ $pal['petroleo'] }}; }
+        .titulo .sub { color: {{ $pal['alerta_texto'] }}; font-style: italic; font-size: 9.6pt; margin-top: 1mm; }
         .titulo .clave { margin-top: 1.5mm; font-size: 8.4pt; color: #52606d; }
         .titulo .clave strong { color: #1f2933; }
-        .filete { height: 0.5mm; background: #b08d57; margin: 3mm 0 4mm; }
+        .filete { height: 0.5mm; background: {{ $pal['dorado'] }}; margin: 3mm 0 4mm; }
 
         /* Datos del colaborador */
         .ficha td { border: 0.25mm solid #d8dee4; padding: 1.8mm 2.4mm; font-size: 9.2pt; vertical-align: top; }
-        .ficha .etq { width: 19%; background: #f3f5f2; color: #0d3e43; font-weight: bold; }
+        .ficha .etq { width: 19%; background: {{ $pal['salvia'] }}; color: {{ $pal['petroleo'] }}; font-weight: bold; }
         .ficha .val { width: 31%; }
 
         /* Encabezado de sección (A, B, C, D, E) */
         .seccion { margin-top: 6mm; }
         .cabeza { margin-bottom: 1.5mm; page-break-after: avoid; }
         .cabeza td { padding: 2mm 3mm; vertical-align: middle; }
-        .cabeza .letra { width: 11mm; background: #b08d57; color: #ffffff; text-align: center; font-weight: bold; font-size: 12pt; }
-        .cabeza .nombre { background: #0d3e43; color: #ffffff; font-weight: bold; font-size: 10.6pt; }
-        .cabeza .valor { width: 34mm; background: #f3f5f2; color: #0d3e43; text-align: center; font-weight: bold; }
+        .cabeza .letra { width: 11mm; background: {{ $pal['dorado'] }}; color: #ffffff; text-align: center; font-weight: bold; font-size: 12pt; }
+        .cabeza .nombre { background: {{ $pal['petroleo'] }}; color: #ffffff; font-weight: bold; font-size: 10.6pt; }
+        .cabeza .valor { width: 34mm; background: {{ $pal['salvia'] }}; color: {{ $pal['petroleo'] }}; text-align: center; font-weight: bold; }
         .indicacion { color: #52606d; font-style: italic; font-size: 8.8pt; margin: 0 0 3mm; }
 
         /* Preguntas de opción múltiple */
         .pregunta { margin: 0 0 3.5mm; page-break-inside: avoid; }
         .pregunta .enunciado { font-weight: bold; margin-bottom: 1mm; }
-        .pregunta .enunciado .num { color: #0d3e43; }
+        .pregunta .enunciado .num { color: {{ $pal['petroleo'] }}; }
         .opciones td { padding: 0.6mm 2mm; font-size: 9.2pt; vertical-align: top; }
         .opciones .casilla { width: 9mm; text-align: center; white-space: nowrap; color: #52606d; }
         .opciones .elegida { font-weight: bold; }
-        .opciones .correcta-fila td { background: #dcfce7; }
-        .opciones .error-fila td { background: #fee2e2; }
+        .opciones .correcta-fila td { background: {{ $pal['exito_suave'] }}; }
+        .opciones .error-fila td { background: {{ $pal['peligro_suave'] }}; }
         .opciones .nota-op { width: 30mm; text-align: right; font-size: 8pt; color: #52606d; }
 
         .badge { display: inline-block; padding: 0.3mm 2mm; border-radius: 1mm; font-size: 7.8pt; font-weight: bold; white-space: nowrap; }
-        .ok { background: #dcfce7; color: #166534; }
-        .mal { background: #fee2e2; color: #991b1b; }
-        .pend { background: #fef3c7; color: #92400e; }
+        .ok { background: {{ $pal['exito_suave'] }}; color: {{ $pal['exito_texto'] }}; }
+        .mal { background: {{ $pal['peligro_suave'] }}; color: {{ $pal['peligro_texto'] }}; }
+        .pend { background: {{ $pal['alerta_suave'] }}; color: {{ $pal['alerta_texto'] }}; }
 
         /* Tablas de sección */
-        .tabla th { background: #0d3e43; color: #ffffff; font-size: 8.6pt; padding: 1.8mm 2mm; text-align: left; }
+        .tabla th { background: {{ $pal['petroleo'] }}; color: #ffffff; font-size: 8.6pt; padding: 1.8mm 2mm; text-align: left; }
         .tabla td { border: 0.25mm solid #d8dee4; padding: 1.6mm 2mm; font-size: 9pt; vertical-align: middle; }
         .tabla tr { page-break-inside: avoid; }
-        .tabla .num { width: 9mm; text-align: center; font-weight: bold; color: #0d3e43; }
+        .tabla .num { width: 9mm; text-align: center; font-weight: bold; color: {{ $pal['petroleo'] }}; }
         .tabla .centro { text-align: center; white-space: nowrap; }
         .tabla tr.par td { background: #f9fafb; }
 
         .descripciones td { padding: 1.2mm 2mm; font-size: 8.8pt; border-bottom: 0.2mm solid #e4e9eb; vertical-align: top; }
-        .descripciones .let { width: 7mm; font-weight: bold; color: #b08d57; }
+        .descripciones .let { width: 7mm; font-weight: bold; color: {{ $pal['dorado'] }}; }
 
         /* Casos prácticos */
         .caso { margin: 0 0 5mm; page-break-inside: avoid; }
         .caso .enunciado { margin-bottom: 1.5mm; text-align: justify; }
-        .caso .enunciado .num { color: #0d3e43; font-weight: bold; }
-        .caso .enunciado .pts { color: #b08d57; font-weight: bold; }
-        .respuesta { border-left: 0.8mm solid #b08d57; background: #f9fafb; padding: 2.2mm 3mm; margin-bottom: 2mm; white-space: pre-line; }
+        .caso .enunciado .num { color: {{ $pal['petroleo'] }}; font-weight: bold; }
+        .caso .enunciado .pts { color: {{ $pal['dorado'] }}; font-weight: bold; }
+        .respuesta { border-left: 0.8mm solid {{ $pal['dorado'] }}; background: #f9fafb; padding: 2.2mm 3mm; margin-bottom: 2mm; white-space: pre-line; }
         .respuesta.vacia { color: #6b7280; font-style: italic; }
         .rubrica td { padding: 1mm 2mm; font-size: 8.8pt; vertical-align: top; border-bottom: 0.2mm solid #e4e9eb; }
-        .rubrica .pt { width: 12mm; color: #8a6a3a; font-weight: bold; white-space: nowrap; }
+        .rubrica .pt { width: 12mm; color: {{ $pal['alerta_texto'] }}; font-weight: bold; white-space: nowrap; }
         .rubrica .estado { width: 24mm; text-align: right; }
-        .subtotal { text-align: right; font-size: 9pt; margin-top: 1.2mm; color: #0d3e43; font-weight: bold; }
+        .subtotal { text-align: right; font-size: 9pt; margin-top: 1.2mm; color: {{ $pal['petroleo'] }}; font-weight: bold; }
 
-        .comentario { margin-top: 2mm; padding: 2.5mm 3mm; background: #f3f5f2; border-left: 0.8mm solid #0d3e43; page-break-inside: avoid; }
-        .comentario .t { font-weight: bold; color: #0d3e43; margin-bottom: 1mm; }
+        .comentario { margin-top: 2mm; padding: 2.5mm 3mm; background: {{ $pal['salvia'] }}; border-left: 0.8mm solid {{ $pal['petroleo'] }}; page-break-inside: avoid; }
+        .comentario .t { font-weight: bold; color: {{ $pal['petroleo'] }}; margin-bottom: 1mm; }
 
         /* Resultado */
-        .resultado th { background: #f3f5f2; color: #0d3e43; font-size: 8.8pt; padding: 1.8mm; border: 0.25mm solid #d8dee4; text-align: center; }
-        .resultado th.total { background: #0d3e43; color: #ffffff; }
+        .resultado th { background: {{ $pal['salvia'] }}; color: {{ $pal['petroleo'] }}; font-size: 8.8pt; padding: 1.8mm; border: 0.25mm solid #d8dee4; text-align: center; }
+        .resultado th.total { background: {{ $pal['petroleo'] }}; color: #ffffff; }
         .resultado td { border: 0.25mm solid #d8dee4; padding: 3mm 1.8mm; text-align: center; font-size: 12pt; font-weight: bold; color: #1f2933; }
-        .resultado td.total { color: #0d3e43; font-size: 13pt; }
+        .resultado td.total { color: {{ $pal['petroleo'] }}; font-size: 13pt; }
         .veredicto { margin-top: 3mm; font-weight: bold; }
         .veredicto .op { margin-right: 8mm; white-space: nowrap; }
-        .veredicto .op.activa { color: #0d3e43; }
+        .veredicto .op.activa { color: {{ $pal['petroleo'] }}; }
         .veredicto .op.inactiva { color: #9ca3af; font-weight: normal; }
 
         /* Firmas */
         .firmas { margin-top: 16mm; page-break-inside: avoid; }
         .firmas td { width: 33.3%; padding: 0 4mm; vertical-align: bottom; text-align: center; }
-        .firmas .linea { border-top: 0.3mm solid #0d3e43; padding-top: 1.5mm; font-weight: bold; color: #0d3e43; font-size: 9.2pt; }
+        .firmas .linea { border-top: 0.3mm solid {{ $pal['petroleo'] }}; padding-top: 1.5mm; font-weight: bold; color: {{ $pal['petroleo'] }}; font-size: 9.2pt; }
         .firmas .nombre-firma { font-size: 8.8pt; color: #1f2933; min-height: 4mm; }
         .firmas .det { font-size: 8pt; color: #6b7280; }
     </style>

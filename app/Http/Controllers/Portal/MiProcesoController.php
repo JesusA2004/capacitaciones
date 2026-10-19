@@ -10,7 +10,9 @@ use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Onboarding\AccesoInduccionColaboradorService;
 use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\InduccionPdfService;
+use App\Services\Onboarding\MaterialInduccionService;
 use App\Services\Onboarding\OnboardingService;
+use App\Services\Onboarding\ReproduccionVideoInduccionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -31,6 +33,8 @@ class MiProcesoController extends Controller
         private readonly EvaluacionInduccionService $evaluacionInduccion,
         private readonly InduccionPdfService $induccionPdf,
         private readonly AccesoInduccionColaboradorService $accesoInduccion,
+        private readonly MaterialInduccionService $materialInduccion,
+        private readonly ReproduccionVideoInduccionService $videoInduccion,
     ) {}
 
     public function show(Request $request): Response
@@ -97,10 +101,25 @@ class MiProcesoController extends Controller
         abort_unless($colaborador instanceof Colaborador, 403);
 
         $acceso = $this->accesoInduccion->resumen($colaborador);
+        $avance = $acceso['puede_ver_contenido'] ? $this->accesoInduccion->avanceInduccion($colaborador) : null;
 
         return Inertia::render('Portal/Induccion', [
             'pdf' => $acceso['puede_ver_contenido'] ? $this->induccionPdf->datosVisor() : null,
             'acceso' => $acceso,
+            // Nuevo flujo: la inducción se ve sola (hojas + material) antes de
+            // la evaluación. El avance titular es el que lleva el progreso.
+            'avanceId' => $avance?->id,
+            'material' => $avance !== null ? $this->materialInduccion->datosParaColaborador($avance) : null,
+            'videoCompletado' => $avance !== null && $this->videoInduccion->videoCompletado($avance),
+            // URLs ya resueltas de los endpoints (evita depender de helpers de
+            // Wayfinder recién generados para las rutas nuevas).
+            'rutas' => $avance !== null ? [
+                'pagina' => route('portal.induccion.pagina', $avance),
+                'terminar' => route('portal.induccion.terminar', $avance),
+                'video_iniciar' => route('portal.induccion.video.iniciar', $avance),
+                'video_heartbeat' => route('portal.induccion.video.heartbeat', $avance),
+                'audio_progreso' => route('portal.induccion.audio-progreso', $avance),
+            ] : null,
         ]);
     }
 

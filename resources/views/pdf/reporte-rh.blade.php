@@ -49,7 +49,7 @@
                 </td>
                 @if ($totalGeneral !== null)
                     <td style="width: 33%;">
-                        <div class="kpi-tarjeta" style="border-left-color:#2dc7d3;">
+                        <div class="kpi-tarjeta acento-info">
                             <p class="kpi-etiqueta">Total general</p>
                             <p class="kpi-valor">{{ number_format($totalGeneral, 0, ',', '.') }}</p>
                         </div>
@@ -57,7 +57,7 @@
                 @endif
                 @if ($categoriaPrincipal !== null)
                     <td style="width: {{ $totalGeneral !== null ? '33%' : '50%' }};">
-                        <div class="kpi-tarjeta" style="border-left-color:#e9c468;">
+                        <div class="kpi-tarjeta acento-alerta">
                             <p class="kpi-etiqueta">Mayor valor</p>
                             <p class="kpi-valor" style="font-size: 13px;">{{ \Illuminate\Support\Str::limit($categoriaPrincipal, 26) }}</p>
                         </div>

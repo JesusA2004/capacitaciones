@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { SidebarProps } from "."
+import { useMediaQuery } from "@vueuse/core"
+import { computed } from "vue"
 import { cn } from "@/lib/utils"
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import SheetDescription from '@/components/ui/sheet/SheetDescription.vue'
@@ -17,7 +19,32 @@ const props = withDefaults(defineProps<SidebarProps>(), {
   collapsible: "offcanvas",
 })
 
-const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
+const { isMobile, state, open, setHovered, openMobile, setOpenMobile } = useSidebar()
+
+// Solo escritorio con puntero fino expande al pasar el mouse; en touch no.
+const canHover = useMediaQuery("(hover: hover) and (pointer: fine)")
+
+// El contenido lo empuja el ancho del estado FIJADO por el usuario (`open`),
+// no el estado visible: así la expansión temporal al pasar el mouse solo
+// superpone la barra y la app no se mueve.
+const pinnedCollapsed = computed(() => !open.value)
+const gapWidth = computed(() => {
+  if (!pinnedCollapsed.value)
+    return "var(--sidebar-width)"
+  if (props.collapsible === "offcanvas")
+    return "0px"
+  if (props.variant === "floating" || props.variant === "inset")
+    return "calc(var(--sidebar-width-icon) + 1rem)"
+  return "var(--sidebar-width-icon)"
+})
+
+function alEntrarMouse() {
+  if (canHover.value && pinnedCollapsed.value)
+    setHovered(true)
+}
+function alSalirMouse() {
+  setHovered(false)
+}
 </script>
 
 <template>
@@ -56,24 +83,25 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
     class="group peer text-sidebar-foreground hidden md:block"
     data-slot="sidebar"
     :data-state="state"
+    :data-pinned-state="open ? 'expanded' : 'collapsed'"
+    :data-pinned-collapsible="pinnedCollapsed ? collapsible : ''"
     :data-collapsible="state === 'collapsed' ? collapsible : ''"
     :data-variant="variant"
     :data-side="side"
   >
-    <!-- This is what handles the sidebar gap on desktop  -->
+    <!-- Hueco que reserva el espacio del sidebar en escritorio. Su ancho
+         sigue el estado FIJADO (gapWidth), no el visible: por eso al pasar
+         el mouse la barra se expande SUPERPUESTA y el contenido no se mueve. -->
     <div
       :class="cn(
-        'relative w-(--sidebar-width) bg-transparent transition-[width] duration-200 ease-linear',
-        'group-data-[collapsible=offcanvas]:w-0',
+        'relative bg-transparent transition-[width] duration-200 ease-linear',
         'group-data-[side=right]:rotate-180',
-        variant === 'floating' || variant === 'inset'
-          ? 'group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4)))]'
-          : 'group-data-[collapsible=icon]:w-(--sidebar-width-icon)',
       )"
+      :style="{ width: gapWidth }"
     />
     <div
       :class="cn(
-        'fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex',
+        'fixed inset-y-0 z-30 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex',
         side === 'left'
           ? 'left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]'
           : 'right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]',
@@ -84,6 +112,8 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
         props.class,
       )"
       v-bind="$attrs"
+      @mouseenter="alEntrarMouse"
+      @mouseleave="alSalirMouse"
     >
       <div
         data-sidebar="sidebar"

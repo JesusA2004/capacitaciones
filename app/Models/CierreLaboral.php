@@ -56,7 +56,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property list<string>|null $negativa_documentos Claves de los documentos que se intentaron entregar.
  * @property string|null $negativa_observaciones
  * @property array<string, string>|null $negativa_participantes rh_nombre, rh_cargo, jefe_nombre, jefe_cargo, lugar_acta, domicilio_acta, hora_acta.
- * @property list<array{nombre: string, cargo: string}>|null $testigos
+ * @property list<array{colaborador_id: int|null, nombre: string, cargo: string, sucursal: string|null, externo: bool}>|null $testigos snapshot inmutable del acta de negativa (colaborador elegido del buscador o testigo externo)
  * @property bool $finiquito_a_disposicion
  * @property Carbon|null $notificacion_electronica_en
  * @property int|null $notificacion_electronica_por

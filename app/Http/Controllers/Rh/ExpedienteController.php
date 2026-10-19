@@ -30,6 +30,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Avisos\AvisoService;
 use App\Services\Colaboradores\AltaImssService;
 use App\Services\Colaboradores\FotoColaboradorService;
+use App\Services\Compensacion\CompensacionService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\AvisoPrivacidadService;
 use App\Services\Expedientes\DatosFaltantesService;
@@ -79,6 +80,7 @@ class ExpedienteController extends Controller
         private readonly JefeDirectoService $jefes,
         private readonly DocumentoProcesoService $documentoProceso,
         private readonly AltaImssService $altaImss,
+        private readonly CompensacionService $compensacion,
     ) {}
 
     /**
@@ -621,35 +623,40 @@ class ExpedienteController extends Controller
     {
         $antes = $this->movimientos->snapshot($colaborador);
 
+        // El sueldo NO se escribe directo en el modelo: CompensacionService es
+        // el ÚNICO escritor de compensación, para que `sueldo_mensual` y
+        // `salario_diario` queden SIEMPRE sincronizados (la nómina lee el
+        // mensual y el finiquito el diario) y quede rastro en
+        // historial_salarios. Aquí solo se guardan los campos estructurales.
         $datosLaborales = $request->safe()->only([
-            'sucursal_principal_id', 'departamento_id', 'puesto_id', 'sueldo_mensual',
+            'sucursal_principal_id', 'departamento_id', 'puesto_id',
         ]);
+
+        $motivo = $request->safe()->string('motivo')->toString() ?: null;
 
         // Un campo de sueldo vacío en este guardado NUNCA borra un sueldo que
         // ya existía (el middleware ConvertEmptyStringsToNull convierte "" en
-        // null antes de llegar aquí, y sin este `unset` ese null se habría
-        // guardado tal cual, pisando el valor real). Solo se completa con el
-        // salario mínimo cuando el colaborador NUNCA tuvo un sueldo
-        // capturado. Si falta la variable de entorno SALARIO_MINIMO_DIARIO
-        // no se inventa un monto (ver config/nomina.php): se avisa y el
-        // colaborador se guarda sin sueldo, pendiente de captura manual.
+        // null antes de llegar aquí). Solo se completa con el salario mínimo
+        // cuando el colaborador NUNCA tuvo un sueldo capturado. Si falta la
+        // variable de entorno SALARIO_MINIMO_DIARIO no se inventa un monto
+        // (ver config/nomina.php): se avisa y el colaborador se guarda sin
+        // sueldo, pendiente de captura manual.
+        $sueldoCapturado = $request->validated('sueldo_mensual');
+        $nuevoSueldoMensual = null;
         $avisoSueldoSinConfigurar = false;
 
-        if (empty($datosLaborales['sueldo_mensual'])) {
-            if ($colaborador->sueldo_mensual !== null) {
-                unset($datosLaborales['sueldo_mensual']);
-            } else {
-                $salarioMinimoMensual = config('nomina.salario_minimo_mensual');
+        if (! empty($sueldoCapturado)) {
+            $nuevoSueldoMensual = (float) $sueldoCapturado;
+        } elseif ($colaborador->sueldo_mensual === null) {
+            $salarioMinimoMensual = config('nomina.salario_minimo_mensual');
 
-                if ($salarioMinimoMensual !== null) {
-                    $datosLaborales['sueldo_mensual'] = $salarioMinimoMensual;
-                } else {
-                    unset($datosLaborales['sueldo_mensual']);
-                    $avisoSueldoSinConfigurar = true;
-                    Log::warning('ExpedienteController::actualizarDatosLaborales(): SALARIO_MINIMO_DIARIO no está definida en el entorno — no se pudo asignar un sueldo por defecto.', [
-                        'colaborador_id' => $colaborador->id,
-                    ]);
-                }
+            if ($salarioMinimoMensual !== null) {
+                $nuevoSueldoMensual = (float) $salarioMinimoMensual;
+            } else {
+                $avisoSueldoSinConfigurar = true;
+                Log::warning('ExpedienteController::actualizarDatosLaborales(): SALARIO_MINIMO_DIARIO no está definida en el entorno — no se pudo asignar un sueldo por defecto.', [
+                    'colaborador_id' => $colaborador->id,
+                ]);
             }
         }
 
@@ -659,12 +666,30 @@ class ExpedienteController extends Controller
         // petición) para que el movimiento laboral registre el cambio de jefe.
         $this->jefes->sincronizar($request->user());
 
+        // El movimiento del sueldo lo registra CompensacionService (abajo); el
+        // snapshot no cambió el sueldo, así que registrarCambioPuesto solo
+        // emite los movimientos estructurales (puesto/sucursal/depto/jefe).
         $this->movimientos->registrarCambioPuesto(
             $colaborador->fresh(),
             $antes,
             $request->user(),
-            $request->safe()->string('motivo')->toString() ?: null,
+            $motivo,
         );
+
+        // Sueldo canónico: convertimos el mensual capturado a diario y dejamos
+        // que CompensacionService sincronice ambos campos + el ledger. Solo si
+        // de verdad cambia el diario (evita rastros idénticos en el historial).
+        if ($nuevoSueldoMensual !== null && $nuevoSueldoMensual > 0) {
+            $diarioNuevo = $this->compensacion->diarioDesdeMensual($nuevoSueldoMensual);
+            $diarioActual = $colaborador->salario_diario !== null ? (float) $colaborador->salario_diario : null;
+
+            if ($diarioActual === null || abs($diarioActual - $diarioNuevo) > 0.001) {
+                $this->compensacion->actualizarSalario($colaborador, $diarioNuevo, null, $request->user(), [
+                    'fuente' => 'datos_laborales',
+                    'motivo' => $motivo ?? 'Actualización de sueldo desde Datos laborales.',
+                ]);
+            }
+        }
 
         if ($avisoSueldoSinConfigurar) {
             return back()->with('toast', [

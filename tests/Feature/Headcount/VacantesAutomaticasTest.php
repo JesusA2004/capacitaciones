@@ -54,6 +54,30 @@ test('dar de alta a un colaborador baja las plazas disponibles de la vacante aut
     expect($vacante->plazas_requeridas)->toBe(1);
 });
 
+test('registrarAlta no lanza y la vacante se sincroniza una sola vez vía observer (P2-8)', function () {
+    $sucursal = Sucursal::factory()->create();
+    $puesto = Puesto::factory()->create();
+    HeadcountTarget::factory()->create(['sucursal_id' => $sucursal->id, 'puesto_id' => $puesto->id, 'plantilla_autorizada' => 2]);
+    app(VacanteAutoGenerationService::class)->sincronizar($sucursal->id, $puesto->id);
+
+    $sistema = User::factory()->create();
+    $nuevo = Colaborador::factory()->create(['sucursal_principal_id' => $sucursal->id, 'puesto_id' => $puesto->id, 'estatus' => 'activo']);
+
+    // Antes registrarAlta sincronizaba inline con la variante que RELANZA
+    // (riesgo de 500 espurio) duplicando lo que ya hace el observer: ahora
+    // no debe lanzar y la plaza se consume una sola vez (no 0 por doble sync).
+    $registrar = fn () => app(MovimientoLaboralService::class)->registrarAlta($nuevo, $sistema);
+    expect($registrar)->not->toThrow(Throwable::class);
+
+    $vacante = Vacante::where('sucursal_id', $sucursal->id)
+        ->where('puesto_id', $puesto->id)
+        ->where('generada_automaticamente', true)
+        ->first();
+
+    expect($vacante->plazas_disponibles)->toBe(1)
+        ->and($vacante->plazas_requeridas)->toBe(1);
+});
+
 test('dar de baja a un colaborador sube las plazas disponibles de la vacante automatica', function () {
     $sucursal = Sucursal::factory()->create();
     $puesto = Puesto::factory()->create();

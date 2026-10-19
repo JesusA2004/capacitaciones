@@ -21,7 +21,8 @@ use Throwable;
 class ImportarExpedientesInicialCommand extends Command
 {
     protected $signature = 'expedientes:importar-inicial
-                            {archivo : Ruta del Excel (hoja BASE_GENERAL)}
+                            {archivo : Ruta del Excel (hoja BASE_GENERAL o formato por sucursales: Sucursales + Corporativo)}
+                            {--roster= : Ruta del roster nominal (puesto/departamento) para el formato por sucursales}
                             {--dry-run : Solo analiza (es el comportamiento por defecto)}
                             {--apply : Ejecuta la migración}
                             {--confirm : Confirma la ejecución sin preguntar}
@@ -50,8 +51,16 @@ class ImportarExpedientesInicialCommand extends Command
             return self::FAILURE;
         }
 
+        $roster = $this->option('roster') !== null ? (string) $this->option('roster') : null;
+
+        if ($roster !== null && ! is_file($roster)) {
+            $this->error("No existe el roster: {$roster}");
+
+            return self::FAILURE;
+        }
+
         try {
-            $migracion = $servicio->analizar($archivo, basename($archivo), $actor);
+            $migracion = $servicio->analizar($archivo, basename($archivo), $actor, $roster, $roster !== null ? basename($roster) : null);
         } catch (Throwable $e) {
             $this->error($e->getMessage());
 

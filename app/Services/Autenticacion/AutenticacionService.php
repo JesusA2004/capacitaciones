@@ -50,16 +50,33 @@ class AutenticacionService
     }
 
     /**
-     * Activo o en incorporación (este último solo ve su checklist) y sin
-     * el acceso revocado. Una cuenta sin colaborador no entra.
+     * ¿La cuenta puede iniciar sesión? Nunca si el acceso está revocado.
+     * Entran:
+     *  - un colaborador Activo o EnIncorporacion (este último solo ve su
+     *    checklist);
+     *  - una cuenta OPERATIVA sin colaborador enlazado (p. ej. el super_admin
+     *    de arranque creado con `people:crear-admin`): no es un empleado, no
+     *    aparece en expedientes/plantilla, pero administra el sistema. Se
+     *    reconoce por tener modo operativo (`dashboard.*.ver`), igual que
+     *    App\Services\Navigation\NavigationService.
+     *
+     * Un colaborador dado de baja/suspendido (estatus presente pero distinto
+     * de Activo/EnIncorporacion) NO entra, aunque tenga un rol operativo.
      */
     public function puedeIniciarSesion(User $cuenta): bool
     {
+        if ($cuenta->acceso_bloqueado_en !== null) {
+            return false;
+        }
+
         $estatus = $cuenta->colaborador?->estatus;
 
-        return $estatus !== null
-            && in_array($estatus, [EstadoUsuario::Activo, EstadoUsuario::EnIncorporacion], true)
-            && $cuenta->acceso_bloqueado_en === null;
+        if (in_array($estatus, [EstadoUsuario::Activo, EstadoUsuario::EnIncorporacion], true)) {
+            return true;
+        }
+
+        return $cuenta->colaborador === null
+            && ($cuenta->can('dashboard.global.ver') || $cuenta->can('dashboard.sucursal.ver'));
     }
 
     /** Único punto de escritura de `ultimo_acceso` (web y app). */

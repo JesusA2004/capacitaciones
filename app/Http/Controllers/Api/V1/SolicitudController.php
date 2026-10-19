@@ -93,12 +93,17 @@ class SolicitudController extends Controller
     }
 
     /**
-     * Adjunta un archivo a una solicitud propia. Nunca a la de otro
-     * colaborador (403), ni PDF/JPG/PNG fuera del limite configurado.
+     * Adjunta un archivo a una solicitud que el usuario puede ver (la propia,
+     * o una de su alcance si es RH) — mismo criterio que la web. Rechaza
+     * archivos fuera del límite/extensiones configurados.
      */
     public function adjuntos(Request $request, SolicitudInterna $solicitud): JsonResponse
     {
-        abort_unless($solicitud->user_id === $request->user()->id, 403);
+        // Mismo gate que la web (SubirDocumentoSolicitudRequest usa can('view')):
+        // el dueño adjunta evidencia a la suya y RH a las de su alcance, sin
+        // dos reglas distintas por canal (P2-15). SolicitudInternaPolicy::view
+        // ya resuelve «propia» vs. alcance de módulo.
+        $this->authorize('view', $solicitud);
 
         $datos = $request->validate([
             'archivo' => [

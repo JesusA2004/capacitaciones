@@ -1,8 +1,10 @@
+@php($pal = config('pdf_identidad'))
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="utf-8">
     <title>{{ $titulo ?? 'Reporte' }}</title>
+    {{-- Identidad institucional PEOPLE: paleta única en config/pdf_identidad.php. --}}
     <style>
         @page { margin: 34px 36px 46px; }
 
@@ -10,7 +12,7 @@
 
         body {
             font-family: 'Helvetica', sans-serif;
-            color: #1f2937;
+            color: {{ $pal['texto'] }};
             font-size: 11px;
             line-height: 1.4;
         }
@@ -20,16 +22,16 @@
             font-weight: bold;
             letter-spacing: 2px;
             text-transform: uppercase;
-            color: #2dc7d3;
+            color: {{ $pal['bronce'] }};
             margin: 0 0 4px;
         }
 
-        h1 { font-size: 20px; margin: 0 0 4px; color: #274754; }
+        h1 { font-size: 20px; margin: 0 0 4px; color: {{ $pal['petroleo'] }}; }
 
-        .meta { font-size: 9.5px; color: #6b7280; margin: 0 0 16px; }
+        .meta { font-size: 9.5px; color: {{ $pal['texto_suave'] }}; margin: 0 0 16px; }
 
         .encabezado {
-            border-bottom: 2px solid #274754;
+            border-bottom: 2px solid {{ $pal['petroleo'] }};
             padding-bottom: 10px;
             margin-bottom: 16px;
         }
@@ -39,24 +41,29 @@
         .kpi-fila td { padding: 0 6px 0 0; vertical-align: top; }
         .kpi-fila td:last-child { padding-right: 0; }
         .kpi-tarjeta {
-            border: 1px solid #e5e7eb;
-            border-left: 4px solid #64d64b;
+            border: 1px solid {{ $pal['borde'] }};
+            border-left: 4px solid {{ $pal['esmeralda'] }};
             border-radius: 6px;
             padding: 8px 10px;
         }
+        /* Acentos semánticos del borde KPI (semáforo institucional). */
+        .kpi-tarjeta.acento-info { border-left-color: {{ $pal['esmeralda'] }}; }
+        .kpi-tarjeta.acento-alerta { border-left-color: {{ $pal['dorado'] }}; }
+        .kpi-tarjeta.acento-peligro { border-left-color: {{ $pal['peligro'] }}; }
+        .kpi-tarjeta.acento-exito { border-left-color: {{ $pal['verde'] }}; }
         .kpi-etiqueta {
             font-size: 8.5px;
             font-weight: bold;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            color: #6b7280;
+            color: {{ $pal['texto_suave'] }};
             margin: 0 0 3px;
         }
-        .kpi-valor { font-size: 19px; font-weight: bold; color: #274754; margin: 0; }
+        .kpi-valor { font-size: 19px; font-weight: bold; color: {{ $pal['petroleo'] }}; margin: 0; }
 
         /* --- Gráficas --- */
         .grafica { margin: 0 0 18px; }
-        .grafica-titulo { font-size: 11.5px; font-weight: bold; color: #274754; margin: 0 0 8px; }
+        .grafica-titulo { font-size: 11.5px; font-weight: bold; color: {{ $pal['petroleo'] }}; margin: 0 0 8px; }
         .grafica-nota { font-size: 8.5px; color: #9ca3af; font-style: italic; margin: 4px 0 0; }
 
         .barra-apilada {
@@ -102,7 +109,7 @@
         .seccion-titulo {
             font-size: 12.5px;
             font-weight: bold;
-            color: #274754;
+            color: {{ $pal['petroleo'] }};
             margin: 4px 0 8px;
             padding-top: 4px;
             border-top: 1px solid #e5e7eb;
@@ -115,8 +122,8 @@
             font-size: 9.5px;
         }
         table.detalle th {
-            background: #274754;
-            color: #ffffff;
+            background: {{ $pal['petroleo'] }};
+            color: {{ $pal['blanco'] }};
             font-weight: bold;
             font-size: 9px;
             text-transform: uppercase;
@@ -131,10 +138,10 @@
             font-size: 8.5px;
             font-weight: bold;
         }
-        .badge-ok { background: #dcfce7; color: #166534; }
-        .badge-warn { background: #fef3c7; color: #92400e; }
-        .badge-danger { background: #fee2e2; color: #991b1b; }
-        .badge-neutral { background: #f3f4f6; color: #374151; }
+        .badge-ok { background: {{ $pal['exito_suave'] }}; color: {{ $pal['exito_texto'] }}; }
+        .badge-warn { background: {{ $pal['alerta_suave'] }}; color: {{ $pal['alerta_texto'] }}; }
+        .badge-danger { background: {{ $pal['peligro_suave'] }}; color: {{ $pal['peligro_texto'] }}; }
+        .badge-neutral { background: {{ $pal['salvia'] }}; color: {{ $pal['texto_suave'] }}; }
 
         .vacio { color: #9ca3af; font-style: italic; padding: 14px 0; text-align: center; }
 

@@ -79,13 +79,19 @@ const {
         </SidebarHeader>
 
         <SidebarContent>
-            <!-- Un grupo por proceso: Reclutamiento → Desarrollo → Personal →
-                 Organización → Administración (useMainNavItems). -->
+            <!-- Un grupo por etapa del ciclo laboral + bloques transversales
+                 (useMainNavItems): Inicio · 1 Reclutamiento · 2 Contratación ·
+                 3 Onboarding · 4 Cierre del periodo de prueba · 5 Permanencia ·
+                 6 Desarrollo · 7 Cierres laborales · Organización · Reportes ·
+                 Configuración. -->
             <NavMain
                 v-for="grupo in navGroups"
-                :key="grupo.titulo"
+                :key="grupo.id"
+                :id="grupo.id"
                 :items="grupo.items"
                 :titulo="grupo.titulo"
+                :numero="grupo.numero"
+                :icono="grupo.icono"
             />
         </SidebarContent>
 

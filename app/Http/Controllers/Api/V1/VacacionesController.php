@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api\V1;
 use App\Enums\TipoSolicitudInterna;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Vacaciones\StoreSolicitudVacacionesRequest;
-use App\Http\Resources\Api\V1\SolicitudVacacionesResource;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Vacaciones\VacacionesService;
 use Illuminate\Http\JsonResponse;
@@ -34,8 +33,12 @@ class VacacionesController extends Controller
 
     public function solicitudes(Request $request): JsonResponse
     {
+        // Lee la fuente viva (`solicitudes_internas`, donde ahora se crean
+        // TODAS las vacaciones vía el motor unificado), combinada con el
+        // histórico legacy — nunca solo `solicitudes_vacaciones`, que ya no
+        // recibe altas (si no, la solicitud recién creada «desaparecía»).
         return response()->json([
-            'data' => SolicitudVacacionesResource::collection($this->vacaciones->misSolicitudes($request->user())),
+            'data' => $this->vacaciones->misSolicitudesUnificadas($request->user()),
         ]);
     }
 

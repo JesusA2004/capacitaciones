@@ -16,15 +16,21 @@ use Throwable;
  * La inducción se ve en el PDF OFICIAL (config('induccion.pdf_oficial')):
  * el visor pdf.js dibuja sus páginas tal cual (diseño, logos, organigrama).
  * Este servicio lo sirve protegido y lleva el avance del COLABORADOR por
- * página realmente mostrada; "Presentar inducción" (RH) usa el mismo PDF
- * sin registrar nada. El colaborador solo lo ve durante la sesión de RH
- * que lo incluye (AccesoInduccionColaboradorService). La evaluación formal sigue en
- * EvaluacionInduccionService (se habilita cuando el avance queda completo).
+ * página realmente mostrada. El colaborador lo ve mientras su inducción está
+ * asignada y por ver (AccesoInduccionColaboradorService).
+ *
+ * «Terminé la inducción» (terminar()) es la ÚNICA fuente del gate que marca
+ * contenido_visto_en: exige que se recorrieran TODAS las hojas y, si el
+ * material activo del módulo es un VIDEO, que el video se haya visto completo
+ * (ReproduccionVideoInduccionService). La evaluación formal se habilita cuando
+ * ese gate queda cumplido (EvaluacionInduccionService::habilitarPara()).
  */
 class InduccionPdfService
 {
     public function __construct(
         private readonly AccesoInduccionColaboradorService $acceso,
+        private readonly MaterialInduccionService $materiales,
+        private readonly ReproduccionVideoInduccionService $video,
     ) {}
 
     public function ruta(): string
@@ -137,8 +143,9 @@ class InduccionPdfService
 
     /**
      * «Terminé la inducción»: solo si el colaborador recorrió TODAS las
-     * páginas. Marca el contenido visto (mismo gate que habilita la
-     * evaluación formal).
+     * páginas Y —cuando el material activo del módulo es un VIDEO— vio ese
+     * video completo. Marca el contenido visto (única fuente del gate que
+     * habilita la evaluación formal).
      *
      * @throws AuthorizationException
      * @throws ValidationException
@@ -151,6 +158,14 @@ class InduccionPdfService
 
         if ($total < 1 || $vistas < $total) {
             throw ValidationException::withMessages(['induccion' => sprintf('Te faltan %d página(s) por revisar antes de terminar.', max(1, $total - $vistas))]);
+        }
+
+        // El video de explicación (si el material activo es video) es
+        // obligatorio: la evaluación queda bloqueada hasta verlo completo.
+        $material = $this->materiales->materialActivoDeAvance($avance);
+
+        if ($material !== null && $material->tipo->bloqueaEvaluacion() && ! $this->video->videoCompletado($avance)) {
+            throw ValidationException::withMessages(['induccion' => 'Primero ve completo el video de la inducción antes de terminar.']);
         }
 
         if ($avance->contenido_visto_en === null) {
@@ -175,7 +190,7 @@ class InduccionPdfService
             throw ValidationException::withMessages(['induccion' => 'Este módulo no es la inducción institucional.']);
         }
 
-        // Solo durante la sesión de RH que lo incluye.
+        // Solo mientras su inducción esté asignada y por ver.
         $this->acceso->exigirContenidoVisible($usuario);
     }
 }

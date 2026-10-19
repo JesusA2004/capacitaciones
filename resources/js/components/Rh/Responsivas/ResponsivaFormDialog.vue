@@ -1,17 +1,10 @@
 <script setup lang="ts">
-import {
-    ArrowLeft,
-    Eye,
-    FileSignature,
-    Loader2,
-    Plus,
-    Printer,
-    Trash2,
-} from '@lucide/vue';
+import { ArrowLeft, Eye, FileSignature, Loader2, Printer } from '@lucide/vue';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
@@ -38,7 +31,8 @@ import {
     vistaPrevia as vistaPreviaResponsiva,
 } from '@/routes/rh/responsivas';
 import type {
-    ActivoResponsivaForm,
+    CatalogosResponsiva,
+    DatosResponsivaForm,
     OpcionResponsiva,
     ResponsivaForm,
     ResponsivaItem,
@@ -47,14 +41,13 @@ import type {
 } from '@/types';
 
 /**
- * «Generar responsiva»: el gerente o RH describe el equipo que entrega
- * (laptop, casco, celular…) y PEOPLE llena la responsiva con los datos del
- * colaborador, la empresa y quien entrega. Vista previa → generar → abrir
- * el PDF para imprimir y firmar. La autorización real está en el backend.
+ * «Generar responsiva»: el gerente o RH elige la familia (bien mueble, equipo
+ * electrónico o vehículo) y captura los campos de ese formato oficial; PEOPLE
+ * llena el resto con los datos del colaborador, la empresa y quien entrega.
+ * Vista previa → generar → abrir el PDF para imprimir y firmar. La
+ * autorización real está en el backend.
  */
-const props = defineProps<{
-    colaboradorId: number;
-}>();
+const props = defineProps<{ colaboradorId: number }>();
 
 const abierto = defineModel<boolean>('open', { default: false });
 const emit = defineEmits<{ generada: [responsiva: ResponsivaItem] }>();
@@ -66,44 +59,114 @@ const vistaPreviaUrl = ref<string | null>(null);
 const generada = ref<ResponsivaItem | null>(null);
 const valores = ref<ValoresInicialesResponsiva | null>(null);
 const tipos = ref<OpcionResponsiva[]>([]);
-const condiciones = ref<OpcionResponsiva[]>([]);
+const catalogos = ref<CatalogosResponsiva | null>(null);
 const error = ref<string | null>(null);
 
 const hoy = new Date().toLocaleDateString('en-CA');
 
-function activoVacio(): ActivoResponsivaForm {
+function datosVacios(): DatosResponsivaForm {
     return {
-        descripcion: '',
+        tipo_mueble: '',
+        tipo_mueble_otro: '',
+        numero_inventario: '',
+        material: '',
+        tamano: '',
+        ubicacion_lugar: '',
+        ubicacion_area: '',
+        tipo_equipo: '',
+        tipo_equipo_otro: '',
+        imei1: '',
+        imei2: '',
+        numero_telefonico: '',
+        submarca: '',
+        modelo_anio: '',
+        niv: '',
+        numero_motor: '',
+        placas: '',
+        kilometraje: '',
+        combustible: 'lleno',
+        estado_exterior: 'bueno',
+        estado_interior: 'bueno',
         marca: '',
         modelo: '',
         numero_serie: '',
         color: '',
-        cantidad: 1,
-        estado: 'nuevo',
-        caracteristicas: '',
-        accesorios: '',
+        estado: 'buen_estado',
+        danos: '',
+        accesorios: [],
+        accesorios_otro: '',
     };
 }
 
 const form = ref<ResponsivaForm>({
-    tipo: 'equipo_trabajo',
+    tipo: 'bien_mueble',
     lugar: '',
     fecha_entrega: hoy,
     responsable_entrega_id: 0,
     observaciones: '',
-    activos: [activoVacio()],
+    datos: datosVacios(),
 });
 
-const completo = computed(
-    () =>
-        form.value.lugar.trim() !== '' &&
-        form.value.fecha_entrega !== '' &&
-        form.value.activos.length > 0 &&
-        form.value.activos.every((a) => a.descripcion.trim() !== ''),
+// Al cambiar de familia se reinician los campos (los accesorios, por ejemplo,
+// pertenecen a catálogos distintos entre equipo y vehículo).
+watch(
+    () => form.value.tipo,
+    () => {
+        form.value.datos = datosVacios();
+    },
 );
 
-// Responsable de entrega elegido (quien realmente entregó): por defecto el
-// capturador; RH puede elegir a otro dentro de su alcance.
+const esMueble = computed(() => form.value.tipo === 'bien_mueble');
+const esEquipo = computed(() => form.value.tipo === 'equipo_electronico');
+const esVehiculo = computed(() => form.value.tipo === 'vehiculo');
+const esCelular = computed(() =>
+    ['celular', 'tablet'].includes(form.value.datos.tipo_equipo),
+);
+const accesoriosCatalogo = computed<OpcionResponsiva[]>(() =>
+    esEquipo.value
+        ? (catalogos.value?.accesorios_equipo ?? [])
+        : (catalogos.value?.accesorios_vehiculo ?? []),
+);
+const muestraAccesorioOtro = computed(() =>
+    form.value.datos.accesorios.includes('otro'),
+);
+
+const completo = computed(() => {
+    const d = form.value.datos;
+    const base = form.value.lugar.trim() !== '' && form.value.fecha_entrega !== '';
+
+    if (!base) {
+        return false;
+    }
+
+    if (esMueble.value) {
+        return (
+            d.tipo_mueble !== '' &&
+            (d.tipo_mueble !== 'otro' || d.tipo_mueble_otro.trim() !== '') &&
+            d.numero_inventario.trim() !== '' &&
+            d.estado !== '' &&
+            d.ubicacion_lugar.trim() !== ''
+        );
+    }
+
+    if (esEquipo.value) {
+        return (
+            d.tipo_equipo !== '' &&
+            (d.tipo_equipo !== 'otro' || d.tipo_equipo_otro.trim() !== '') &&
+            d.marca.trim() !== '' &&
+            d.estado !== ''
+        );
+    }
+
+    return (
+        d.marca.trim() !== '' &&
+        d.placas.trim() !== '' &&
+        d.combustible !== '' &&
+        d.estado_exterior !== '' &&
+        d.estado_interior !== ''
+    );
+});
+
 const responsableSeleccionado = computed(
     () =>
         valores.value?.responsables.find(
@@ -111,13 +174,24 @@ const responsableSeleccionado = computed(
         ) ?? null,
 );
 
-// El componente Select trabaja con strings; convertimos a número al guardar.
 const responsableIdStr = computed<string>({
     get: () => String(form.value.responsable_entrega_id),
     set: (valor) => {
         form.value.responsable_entrega_id = Number(valor);
     },
 });
+
+function toggleAccesorio(value: string, marcado: boolean) {
+    const set = new Set(form.value.datos.accesorios);
+
+    if (marcado) {
+        set.add(value);
+    } else {
+        set.delete(value);
+    }
+
+    form.value.datos.accesorios = [...set];
+}
 
 async function cargar() {
     cargando.value = true;
@@ -139,15 +213,15 @@ async function cargar() {
 
         valores.value = datos.valores_iniciales;
         tipos.value = datos.tipos;
-        condiciones.value = datos.condiciones;
+        catalogos.value = datos.catalogos;
         form.value = {
-            tipo: 'equipo_trabajo',
+            tipo: 'bien_mueble',
             lugar: datos.valores_iniciales.lugar,
             fecha_entrega: datos.valores_iniciales.fecha_entrega,
             responsable_entrega_id:
                 datos.valores_iniciales.responsable_entrega_id,
             observaciones: '',
-            activos: [activoVacio()],
+            datos: datosVacios(),
         };
     } catch {
         error.value =
@@ -164,14 +238,6 @@ watch(abierto, (valor) => {
         limpiarVistaPrevia();
     }
 });
-
-function agregarActivo() {
-    form.value.activos.push(activoVacio());
-}
-
-function quitarActivo(indice: number) {
-    form.value.activos.splice(indice, 1);
-}
 
 function limpiarVistaPrevia() {
     if (vistaPreviaUrl.value !== null) {
@@ -262,11 +328,12 @@ async function generar() {
             <DialogHeader class="border-b border-border/60 px-6 pt-6 pb-4">
                 <DialogTitle class="flex items-center gap-2">
                     <FileSignature class="size-5 text-primary" />
-                    Generar responsiva de equipo
+                    Generar responsiva
                 </DialogTitle>
                 <DialogDescription>
-                    Describe lo que entregas; la responsiva se llena con los
-                    datos del colaborador, se imprime y se firma.
+                    Elige el formato y captura los datos del bien; la responsiva
+                    se llena con la información del colaborador, se imprime y se
+                    firma.
                 </DialogDescription>
             </DialogHeader>
 
@@ -302,8 +369,8 @@ async function generar() {
                         </p>
                         <p class="mt-1 text-sm text-muted-foreground">
                             Quedó guardada en el expediente. Imprímela, recaba
-                            las firmas de quien recibe y de quien entrega, y
-                            después sube el escaneo firmado.
+                            las firmas de quien recibe y del apoderado legal, y
+                            márcala como firmada físicamente.
                         </p>
                     </div>
                     <Button as-child>
@@ -346,9 +413,6 @@ async function generar() {
                                     [
                                         valores.receptor.puesto,
                                         valores.receptor.sucursal,
-                                        valores.receptor.numero_empleado
-                                            ? `No. ${valores.receptor.numero_empleado}`
-                                            : null,
                                     ]
                                         .filter(Boolean)
                                         .join(' · ')
@@ -359,11 +423,8 @@ async function generar() {
                             <p
                                 class="text-xs tracking-wide text-muted-foreground uppercase"
                             >
-                                Entrega
+                                Entrega (apoderado legal)
                             </p>
-                            <!-- RH puede elegir al responsable real de entrega
-                                 cuando captura por otro; si no, se asume quien
-                                 captura. -->
                             <template v-if="valores.puede_elegir_responsable">
                                 <Select v-model="responsableIdStr">
                                     <SelectTrigger
@@ -415,14 +476,12 @@ async function generar() {
                         </div>
                     </div>
 
+                    <!-- Familia, lugar y fecha -->
                     <div class="grid gap-4 sm:grid-cols-3">
                         <div class="grid gap-1.5">
-                            <Label for="responsiva-tipo">Tipo de equipo</Label>
+                            <Label for="responsiva-tipo">Tipo de responsiva</Label>
                             <Select v-model="form.tipo">
-                                <SelectTrigger
-                                    id="responsiva-tipo"
-                                    class="w-full"
-                                >
+                                <SelectTrigger id="responsiva-tipo" class="w-full">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -446,9 +505,7 @@ async function generar() {
                             />
                         </div>
                         <div class="grid gap-1.5">
-                            <Label for="responsiva-fecha"
-                                >Fecha de entrega</Label
-                            >
+                            <Label for="responsiva-fecha">Fecha de entrega</Label>
                             <DatePicker
                                 id="responsiva-fecha"
                                 v-model="form.fecha_entrega"
@@ -457,159 +514,330 @@ async function generar() {
                         </div>
                     </div>
 
-                    <div class="flex flex-col gap-3">
-                        <div class="flex items-center justify-between">
-                            <p class="text-sm font-semibold">
-                                Equipo que se entrega
-                            </p>
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                :disabled="form.activos.length >= 20"
-                                @click="agregarActivo"
-                            >
-                                <Plus class="size-3.5" />
-                                Agregar otro equipo
-                            </Button>
-                        </div>
-
-                        <div
-                            v-for="(activo, i) in form.activos"
-                            :key="i"
-                            class="rounded-2xl border border-border/60 bg-card p-4"
-                        >
-                            <div class="mb-3 flex items-center justify-between">
-                                <span
-                                    class="rounded-full bg-salvia/60 px-2.5 py-0.5 text-xs font-semibold"
-                                >
-                                    Equipo {{ i + 1 }}
-                                </span>
-                                <Button
-                                    v-if="form.activos.length > 1"
-                                    type="button"
-                                    size="icon-sm"
-                                    variant="ghost"
-                                    class="text-destructive"
-                                    :aria-label="`Quitar equipo ${i + 1}`"
-                                    @click="quitarActivo(i)"
-                                >
-                                    <Trash2 class="size-4" />
-                                </Button>
-                            </div>
-
-                            <div class="grid gap-3 sm:grid-cols-6">
-                                <div class="grid gap-1.5 sm:col-span-4">
-                                    <Label :for="`activo-${i}-descripcion`"
-                                        >Descripción *</Label
-                                    >
-                                    <Input
-                                        :id="`activo-${i}-descripcion`"
-                                        v-model="activo.descripcion"
-                                        placeholder="Casco, laptop, celular, uniforme…"
-                                        maxlength="160"
-                                    />
-                                </div>
-                                <div class="grid gap-1.5 sm:col-span-2">
-                                    <Label :for="`activo-${i}-cantidad`"
-                                        >Cantidad</Label
-                                    >
-                                    <Input
-                                        :id="`activo-${i}-cantidad`"
-                                        v-model.number="activo.cantidad"
-                                        type="number"
-                                        min="1"
-                                        max="999"
-                                    />
-                                </div>
-                                <div class="grid gap-1.5 sm:col-span-2">
-                                    <Label :for="`activo-${i}-marca`"
-                                        >Marca</Label
-                                    >
-                                    <Input
-                                        :id="`activo-${i}-marca`"
-                                        v-model="activo.marca"
-                                        maxlength="120"
-                                    />
-                                </div>
-                                <div class="grid gap-1.5 sm:col-span-2">
-                                    <Label :for="`activo-${i}-modelo`"
-                                        >Modelo</Label
-                                    >
-                                    <Input
-                                        :id="`activo-${i}-modelo`"
-                                        v-model="activo.modelo"
-                                        maxlength="120"
-                                    />
-                                </div>
-                                <div class="grid gap-1.5 sm:col-span-2">
-                                    <Label :for="`activo-${i}-serie`"
-                                        >Número de serie</Label
-                                    >
-                                    <Input
-                                        :id="`activo-${i}-serie`"
-                                        v-model="activo.numero_serie"
-                                        maxlength="120"
-                                    />
-                                </div>
-                                <div class="grid gap-1.5 sm:col-span-2">
-                                    <Label :for="`activo-${i}-color`"
-                                        >Color</Label
-                                    >
-                                    <Input
-                                        :id="`activo-${i}-color`"
-                                        v-model="activo.color"
-                                        maxlength="60"
-                                    />
-                                </div>
-                                <div class="grid gap-1.5 sm:col-span-4">
-                                    <Label :for="`activo-${i}-estado`"
-                                        >Estado en que se entrega</Label
-                                    >
-                                    <Select v-model="activo.estado">
-                                        <SelectTrigger
-                                            :id="`activo-${i}-estado`"
-                                            class="w-full"
+                    <!-- ============ BIEN MUEBLE ============ -->
+                    <div v-if="esMueble" class="flex flex-col gap-4">
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div class="grid gap-1.5">
+                                <Label for="mueble-tipo">Tipo de mueble *</Label>
+                                <Select v-model="form.datos.tipo_mueble">
+                                    <SelectTrigger id="mueble-tipo" class="w-full">
+                                        <SelectValue placeholder="Elige…" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="o in catalogos?.tipos_mueble ?? []"
+                                            :key="o.value"
+                                            :value="o.value"
                                         >
-                                            <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem
-                                                v-for="condicion in condiciones"
-                                                :key="condicion.value"
-                                                :value="condicion.value"
-                                            >
-                                                {{ condicion.label }}
-                                            </SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div class="grid gap-1.5 sm:col-span-3">
-                                    <Label :for="`activo-${i}-caracteristicas`"
-                                        >Características (una por
-                                        renglón)</Label
-                                    >
-                                    <Textarea
-                                        :id="`activo-${i}-caracteristicas`"
-                                        v-model="activo.caracteristicas"
-                                        rows="3"
-                                        maxlength="2000"
-                                        placeholder="Procesador: Intel Core i5&#10;Memoria RAM: 16 GB&#10;Talla: M"
-                                    />
-                                </div>
-                                <div class="grid gap-1.5 sm:col-span-3">
-                                    <Label :for="`activo-${i}-accesorios`"
-                                        >Accesorios</Label
-                                    >
-                                    <Textarea
-                                        :id="`activo-${i}-accesorios`"
-                                        v-model="activo.accesorios"
-                                        rows="3"
-                                        maxlength="255"
-                                        placeholder="Cargador original, funda…"
-                                    />
-                                </div>
+                                            {{ o.label }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
+                            <div
+                                v-if="form.datos.tipo_mueble === 'otro'"
+                                class="grid gap-1.5"
+                            >
+                                <Label for="mueble-otro">¿Qué mueble? *</Label>
+                                <Input
+                                    id="mueble-otro"
+                                    v-model="form.datos.tipo_mueble_otro"
+                                    maxlength="160"
+                                />
+                            </div>
+                        </div>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div class="grid gap-1.5">
+                                <Label for="mueble-marca">Marca (si tiene)</Label>
+                                <Input id="mueble-marca" v-model="form.datos.marca" maxlength="120" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="mueble-modelo">Modelo (si tiene)</Label>
+                                <Input id="mueble-modelo" v-model="form.datos.modelo" maxlength="120" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="mueble-inv">Número de inventario *</Label>
+                                <Input id="mueble-inv" v-model="form.datos.numero_inventario" maxlength="120" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="mueble-serie">Número de serie (si tiene)</Label>
+                                <Input id="mueble-serie" v-model="form.datos.numero_serie" maxlength="120" />
+                            </div>
+                        </div>
+                        <div class="grid gap-4 sm:grid-cols-3">
+                            <div class="grid gap-1.5">
+                                <Label for="mueble-color">Color</Label>
+                                <Input id="mueble-color" v-model="form.datos.color" maxlength="60" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="mueble-material">Material</Label>
+                                <Input id="mueble-material" v-model="form.datos.material" maxlength="120" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="mueble-tamano">Tamaño / características</Label>
+                                <Input id="mueble-tamano" v-model="form.datos.tamano" maxlength="255" />
+                            </div>
+                        </div>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div class="grid gap-1.5">
+                                <Label for="mueble-estado">Estado del mueble *</Label>
+                                <Select v-model="form.datos.estado">
+                                    <SelectTrigger id="mueble-estado" class="w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="o in catalogos?.estados_fisicos ?? []"
+                                            :key="o.value"
+                                            :value="o.value"
+                                        >
+                                            {{ o.label }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="mueble-danos">Daños o detalles</Label>
+                                <Input id="mueble-danos" v-model="form.datos.danos" maxlength="2000" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="mueble-lugar">Lugar donde quedará *</Label>
+                                <Input id="mueble-lugar" v-model="form.datos.ubicacion_lugar" maxlength="255" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="mueble-area">Sucursal / Oficina / Área</Label>
+                                <Input id="mueble-area" v-model="form.datos.ubicacion_area" maxlength="255" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ============ EQUIPO ELECTRÓNICO ============ -->
+                    <div v-else-if="esEquipo" class="flex flex-col gap-4">
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div class="grid gap-1.5">
+                                <Label for="eq-tipo">Tipo de equipo *</Label>
+                                <Select v-model="form.datos.tipo_equipo">
+                                    <SelectTrigger id="eq-tipo" class="w-full">
+                                        <SelectValue placeholder="Elige…" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="o in catalogos?.tipos_equipo ?? []"
+                                            :key="o.value"
+                                            :value="o.value"
+                                        >
+                                            {{ o.label }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div
+                                v-if="form.datos.tipo_equipo === 'otro'"
+                                class="grid gap-1.5"
+                            >
+                                <Label for="eq-otro">¿Qué equipo? *</Label>
+                                <Input id="eq-otro" v-model="form.datos.tipo_equipo_otro" maxlength="160" />
+                            </div>
+                        </div>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div class="grid gap-1.5">
+                                <Label for="eq-marca">Marca *</Label>
+                                <Input id="eq-marca" v-model="form.datos.marca" maxlength="120" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="eq-modelo">Modelo</Label>
+                                <Input id="eq-modelo" v-model="form.datos.modelo" maxlength="120" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="eq-serie">Número de serie</Label>
+                                <Input id="eq-serie" v-model="form.datos.numero_serie" maxlength="120" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="eq-inv">Número de inventario</Label>
+                                <Input id="eq-inv" v-model="form.datos.numero_inventario" maxlength="120" />
+                            </div>
+                        </div>
+                        <div v-if="esCelular" class="grid gap-4 sm:grid-cols-3">
+                            <div class="grid gap-1.5">
+                                <Label for="eq-imei1">IMEI 1</Label>
+                                <Input id="eq-imei1" v-model="form.datos.imei1" maxlength="60" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="eq-imei2">IMEI 2</Label>
+                                <Input id="eq-imei2" v-model="form.datos.imei2" maxlength="60" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="eq-tel">Número telefónico</Label>
+                                <Input id="eq-tel" v-model="form.datos.numero_telefonico" maxlength="40" />
+                            </div>
+                        </div>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div class="grid gap-1.5">
+                                <Label for="eq-estado">Estado del equipo *</Label>
+                                <Select v-model="form.datos.estado">
+                                    <SelectTrigger id="eq-estado" class="w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="o in catalogos?.estados_fisicos ?? []"
+                                            :key="o.value"
+                                            :value="o.value"
+                                        >
+                                            {{ o.label }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="eq-danos">Daños o detalles</Label>
+                                <Input id="eq-danos" v-model="form.datos.danos" maxlength="2000" />
+                            </div>
+                        </div>
+                        <div class="grid gap-2">
+                            <Label>Accesorios entregados</Label>
+                            <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                <label
+                                    v-for="o in accesoriosCatalogo"
+                                    :key="o.value"
+                                    class="flex items-center gap-2 text-sm"
+                                >
+                                    <Checkbox
+                                        :model-value="form.datos.accesorios.includes(o.value)"
+                                        @update:model-value="(v: boolean | 'indeterminate') => toggleAccesorio(o.value, v === true)"
+                                    />
+                                    {{ o.label }}
+                                </label>
+                            </div>
+                            <Input
+                                v-if="muestraAccesorioOtro"
+                                v-model="form.datos.accesorios_otro"
+                                placeholder="¿Qué otro accesorio?"
+                                maxlength="160"
+                            />
+                        </div>
+                    </div>
+
+                    <!-- ============ VEHÍCULO ============ -->
+                    <div v-else-if="esVehiculo" class="flex flex-col gap-4">
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div class="grid gap-1.5">
+                                <Label for="veh-marca">Marca *</Label>
+                                <Input id="veh-marca" v-model="form.datos.marca" maxlength="120" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="veh-submarca">Submarca / Tipo</Label>
+                                <Input id="veh-submarca" v-model="form.datos.submarca" maxlength="120" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="veh-modelo">Modelo / Año</Label>
+                                <Input id="veh-modelo" v-model="form.datos.modelo_anio" maxlength="60" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="veh-color">Color</Label>
+                                <Input id="veh-color" v-model="form.datos.color" maxlength="60" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="veh-niv">NIV / VIN</Label>
+                                <Input id="veh-niv" v-model="form.datos.niv" maxlength="40" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="veh-motor">Número de motor</Label>
+                                <Input id="veh-motor" v-model="form.datos.numero_motor" maxlength="60" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="veh-placas">Placas *</Label>
+                                <Input id="veh-placas" v-model="form.datos.placas" maxlength="20" />
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="veh-km">Kilometraje</Label>
+                                <Input
+                                    id="veh-km"
+                                    v-model="form.datos.kilometraje"
+                                    type="number"
+                                    min="0"
+                                    inputmode="numeric"
+                                />
+                            </div>
+                        </div>
+                        <div class="grid gap-4 sm:grid-cols-3">
+                            <div class="grid gap-1.5">
+                                <Label for="veh-comb">Combustible *</Label>
+                                <Select v-model="form.datos.combustible">
+                                    <SelectTrigger id="veh-comb" class="w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="o in catalogos?.niveles_combustible ?? []"
+                                            :key="o.value"
+                                            :value="o.value"
+                                        >
+                                            {{ o.label }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="veh-ext">Estado exterior *</Label>
+                                <Select v-model="form.datos.estado_exterior">
+                                    <SelectTrigger id="veh-ext" class="w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="o in catalogos?.estados_conservacion ?? []"
+                                            :key="o.value"
+                                            :value="o.value"
+                                        >
+                                            {{ o.label }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div class="grid gap-1.5">
+                                <Label for="veh-int">Estado interior *</Label>
+                                <Select v-model="form.datos.estado_interior">
+                                    <SelectTrigger id="veh-int" class="w-full">
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem
+                                            v-for="o in catalogos?.estados_conservacion ?? []"
+                                            :key="o.value"
+                                            :value="o.value"
+                                        >
+                                            {{ o.label }}
+                                        </SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        <div class="grid gap-1.5">
+                            <Label for="veh-danos">Daños o detalles existentes</Label>
+                            <Textarea id="veh-danos" v-model="form.datos.danos" rows="2" maxlength="2000" />
+                        </div>
+                        <div class="grid gap-2">
+                            <Label>Accesorios y documentos recibidos</Label>
+                            <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                <label
+                                    v-for="o in accesoriosCatalogo"
+                                    :key="o.value"
+                                    class="flex items-center gap-2 text-sm"
+                                >
+                                    <Checkbox
+                                        :model-value="form.datos.accesorios.includes(o.value)"
+                                        @update:model-value="(v: boolean | 'indeterminate') => toggleAccesorio(o.value, v === true)"
+                                    />
+                                    {{ o.label }}
+                                </label>
+                            </div>
+                            <Input
+                                v-if="muestraAccesorioOtro"
+                                v-model="form.datos.accesorios_otro"
+                                placeholder="¿Qué otro accesorio o documento?"
+                                maxlength="160"
+                            />
                         </div>
                     </div>
 

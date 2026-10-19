@@ -83,11 +83,12 @@ class VacantesListadoService
         $sucursales = $vacantes->pluck('sucursal_id')->filter()->unique()->values();
         $autorizadas = $this->headcount->plantillaAutorizadaPorSucursalPuesto($sucursales);
         $actuales = $this->headcount->plantillaActualPorSucursalPuesto($sucursales);
+        $plazasPorVacante = $this->plazasSinDuplicar($vacantes, $autorizadas, $actuales);
 
         $filas = [];
 
         foreach ($vacantes as $vacante) {
-            $filas[] = $this->fila($vacante, $autorizadas, $actuales);
+            $filas[] = $this->fila($vacante, $autorizadas, $actuales, $plazasPorVacante[(int) $vacante->id] ?? 0);
         }
 
         return $filas;
@@ -205,6 +206,63 @@ class VacantesListadoService
     }
 
     /**
+     * Reparte el faltante real de cada (sucursal, puesto) entre TODAS sus
+     * vacantes abiertas —manuales y automáticas— para que la suma del listado
+     * nunca exceda las plazas que de verdad faltan. Sin esto, una vacante
+     * manual y una automática del mismo par reclamaban cada una el faltante
+     * completo y el listado/resumen contaba doble las mismas plazas (P2-9):
+     * ahora el faltante es un cupo compartido que la primera vacante consume
+     * y deja menos para las siguientes del mismo par. QUÉ vacante conviene
+     * conservar o cancelar cuando coexisten una manual y una automática es
+     * una decisión de negocio de RH y NO se toca aquí (no se cancela ninguna).
+     *
+     * @param  EloquentCollection<int, Vacante>  $vacantes
+     * @param  Collection<string, int>  $autorizadas
+     * @param  Collection<non-falsy-string, int>  $actuales
+     * @return array<int, int> vacante_id => plazas (sin doble conteo por par)
+     */
+    private function plazasSinDuplicar(EloquentCollection $vacantes, Collection $autorizadas, Collection $actuales): array
+    {
+        /** @var array<string, int|null> $restante faltante que aún queda por repartir en cada par */
+        $restante = [];
+        $resultado = [];
+
+        foreach ($vacantes as $vacante) {
+            $id = (int) $vacante->id;
+            $abierta = in_array($vacante->estado->value, EstadoVacante::valoresAbiertos(), true);
+
+            if (! $abierta) {
+                $resultado[$id] = (int) $vacante->plazas_disponibles;
+
+                continue;
+            }
+
+            $clave = $this->clave($vacante);
+            $individual = $this->plazasDe($vacante, $autorizadas, $actuales);
+
+            if (! array_key_exists($clave, $restante)) {
+                $autorizada = $autorizadas->get($clave);
+                $restante[$clave] = $autorizada !== null ? max((int) $autorizada - (int) ($actuales[$clave] ?? 0), 0) : null;
+            }
+
+            $cupo = $restante[$clave];
+
+            if ($cupo === null) {
+                // Sin plantilla autorizada el faltante no existe: plazasDe() ya devolvió 0.
+                $resultado[$id] = $individual;
+
+                continue;
+            }
+
+            $plazas = min($individual, $cupo);
+            $restante[$clave] = $cupo - $plazas;
+            $resultado[$id] = $plazas;
+        }
+
+        return $resultado;
+    }
+
+    /**
      * Plazas reales abiertas por sucursal (misma regla que `fila()`, pero
      * ya acumulada): para dashboards/reportes que necesitan un único total
      * por sucursal en vez del listado completo de vacantes. Nunca cuenta
@@ -231,12 +289,13 @@ class VacantesListadoService
 
         $autorizadas = $this->headcount->plantillaAutorizadaPorSucursalPuesto($sucursalesIds);
         $actuales = $this->headcount->plantillaActualPorSucursalPuesto($sucursalesIds);
+        $plazasPorVacante = $this->plazasSinDuplicar($vacantes, $autorizadas, $actuales);
 
         /** Solo sucursales con plaza real: una suma en cero no es vacante. */
         $plazas = collect();
 
         foreach ($vacantes as $vacante) {
-            $reales = $this->plazasDe($vacante, $autorizadas, $actuales);
+            $reales = $plazasPorVacante[(int) $vacante->id] ?? 0;
 
             if ($reales > 0) {
                 $plazas->put((int) $vacante->sucursal_id, (int) $plazas->get((int) $vacante->sucursal_id, 0) + $reales);
@@ -285,15 +344,16 @@ class VacantesListadoService
      * @param  Collection<non-falsy-string, int>  $actuales
      * @return array<string, mixed>
      */
-    private function fila(Vacante $vacante, Collection $autorizadas, Collection $actuales): array
+    private function fila(Vacante $vacante, Collection $autorizadas, Collection $actuales, int $plazas): array
     {
         $clave = $this->clave($vacante);
         $autorizada = $autorizadas->get($clave);
         $actual = (int) ($actuales[$clave] ?? 0);
         $faltantes = $autorizada !== null ? max($autorizada - $actual, 0) : null;
         $abierta = in_array($vacante->estado->value, EstadoVacante::valoresAbiertos(), true);
-        // Abierta: regla única (faltante real; una manual nunca más que eso).
-        $plazas = $abierta ? $this->plazasDe($vacante, $autorizadas, $actuales) : $vacante->plazas_disponibles;
+        // $plazas ya viene repartido por plazasSinDuplicar(): regla única
+        // (faltante real; una manual nunca más que eso) y, cuando coexisten
+        // varias vacantes del mismo par, sin doble conteo del faltante (P2-9).
 
         return [
             'id' => $vacante->id,

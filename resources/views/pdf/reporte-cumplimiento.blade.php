@@ -31,19 +31,19 @@
                 </div>
             </td>
             <td style="width: 25%;">
-                <div class="kpi-tarjeta" style="border-left-color:#2dc7d3;">
+                <div class="kpi-tarjeta acento-info">
                     <p class="kpi-etiqueta">Completadas</p>
                     <p class="kpi-valor">{{ number_format($resumen['completadas'], 0, ',', '.') }}</p>
                 </div>
             </td>
             <td style="width: 25%;">
-                <div class="kpi-tarjeta" style="border-left-color:#ef4444;">
+                <div class="kpi-tarjeta acento-peligro">
                     <p class="kpi-etiqueta">Vencidas</p>
                     <p class="kpi-valor">{{ number_format($resumen['vencidas'], 0, ',', '.') }}</p>
                 </div>
             </td>
             <td style="width: 25%;">
-                <div class="kpi-tarjeta" style="border-left-color:#e9c468;">
+                <div class="kpi-tarjeta acento-alerta">
                     <p class="kpi-etiqueta">Cumplimiento</p>
                     <p class="kpi-valor">{{ number_format($resumen['porcentaje_cumplimiento'], 1) }}%</p>
                 </div>

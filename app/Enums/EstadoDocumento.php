@@ -19,6 +19,20 @@ enum EstadoDocumento: string
     /** RH autorizo el reemplazo solicitado: el colaborador ya puede subir la nueva version (ver IncorporacionService::autorizarCambio). */
     case CambioAutorizado = 'cambio_autorizado';
 
+    /**
+     * Estados en los que un documento de expediente YA tiene archivo cargado
+     * y espera una decisión de RH (bandeja de validación de documentos).
+     * «pendiente» no entra: significa que todavía no se ha subido nada, no es
+     * algo que RH pueda revisar. Fuente única: la usan tanto la bandeja web
+     * (ContratacionListaService) como la móvil (RhPendientesService).
+     *
+     * @return array<int, string>
+     */
+    public static function porRevisarValues(): array
+    {
+        return [self::Cargado->value, self::EnRevision->value, self::CambioSolicitado->value];
+    }
+
     public function etiqueta(): string
     {
         return match ($this) {

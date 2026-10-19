@@ -326,9 +326,18 @@ class PeopleDiagnosticoCommand extends Command
         $ruta = 'diagnostico/'.uniqid('write-test-', true).'.tmp';
 
         try {
-            Storage::disk('nas')->put($ruta, 'ok');
-            Storage::disk('nas')->delete($ruta);
-            $this->ok('El disco «nas» es escribible.');
+            // El disco «nas» tiene throw=false: un put() fallido devuelve false
+            // en vez de lanzar. Verificar SOLO que no lanzó daría un falso
+            // positivo («escribible») en un deploy con el NAS mal montado o sin
+            // permisos. Se confirma el retorno Y que el archivo quedó escrito.
+            $escrito = Storage::disk('nas')->put($ruta, 'ok');
+
+            if ($escrito === false || ! Storage::disk('nas')->exists($ruta)) {
+                $this->fallo('El disco «nas» no confirmó una escritura de prueba (put() devolvió false o el archivo no quedó escrito) — revisa montaje, permisos y espacio del NAS.');
+            } else {
+                Storage::disk('nas')->delete($ruta);
+                $this->ok('El disco «nas» es escribible (archivo de prueba escrito, verificado y borrado).');
+            }
         } catch (Throwable $e) {
             $this->fallo('El disco «nas» no es escribible: '.$e->getMessage());
         }

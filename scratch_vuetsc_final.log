@@ -1,0 +1,17 @@
+npm notice run types:check
+npm notice run vue-tsc --noEmit
+resources/js/pages/Administracion/ImportarDatos/Index.vue(67,18): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(getter: ComputedGetter<Tarjeta[]>, debugOptions?: DebuggerOptions | undefined): ComputedRef<Tarjeta[]>', gave the following error.
+    Type '({ clave: string; titulo: string; descripcion: string; flujo: string[]; icono: LucideIcon; href: string; nota?: undefined; } | { clave: string; titulo: string; descripcion: string; flujo: string[]; icono: LucideIcon; href: null; nota: string; } | null)[]' is not assignable to type 'Tarjeta[]'.
+      Type '{ clave: string; titulo: string; descripcion: string; flujo: string[]; icono: LucideIcon; href: string; nota?: undefined; } | { clave: string; titulo: string; descripcion: string; flujo: string[]; icono: LucideIcon; href: null; nota: string; } | null' is not assignable to type 'Tarjeta'.
+        Type 'null' is not assignable to type 'Tarjeta'.
+  Overload 2 of 2, '(options: WritableComputedOptions<Tarjeta[], Tarjeta[]>, debugOptions?: DebuggerOptions | undefined): WritableComputedRef<Tarjeta[], Tarjeta[]>', gave the following error.
+    Argument of type '() => ({ clave: string; titulo: string; descripcion: string; flujo: string[]; icono: LucideIcon; href: string; nota?: undefined; } | { clave: string; titulo: string; descripcion: string; flujo: string[]; icono: LucideIcon; href: null; nota: string; } | null)[]' is not assignable to parameter of type 'WritableComputedOptions<Tarjeta[], Tarjeta[]>'.
+resources/js/pages/Administracion/ImportarDatos/Index.vue(152,24): error TS2677: A type predicate's type must be assignable to its parameter's type.
+  Type 'Tarjeta' is not assignable to type '{ clave: string; titulo: string; descripcion: string; flujo: string[]; icono: LucideIcon; href: string; nota?: undefined; } | { clave: string; titulo: string; descripcion: string; flujo: string[]; icono: LucideIcon; href: null; nota: string; } | null'.
+    Type 'Tarjeta' is not assignable to type '{ clave: string; titulo: string; descripcion: string; flujo: string[]; icono: LucideIcon; href: string; nota?: undefined; } | { clave: string; titulo: string; descripcion: string; flujo: string[]; icono: LucideIcon; href: null; nota: string; }'.
+      Type 'Tarjeta' is not assignable to type '{ clave: string; titulo: string; descripcion: string; flujo: string[]; icono: LucideIcon; href: null; nota: string; }'.
+        Types of property 'icono' are incompatible.
+          Type 'Component' is not assignable to type 'LucideIcon'.
+            Type 'ComponentOptions<any, any, any, ComputedOptions, MethodOptions, any, any, any, string, {}, {}, string, {}, {}, {}, string, ComponentProvideOptions>' is not assignable to type 'FunctionalComponent<LucideProps, {}, any, {}>'.
+              Type 'ComponentOptionsBase<any, any, any, ComputedOptions, MethodOptions, any, any, any, string, {}, {}, string, {}, {}, {}, string, ComponentProvideOptions> & ThisType<...>' provides no match for the signature '(props: LucideProps & {}, ctx: Omit<{ attrs: Attrs; slots: Readonly<InternalSlots>; emit: (event: string, ...args: any[]) => void; expose: <Exposed extends Record<string, any> = Record<...>>(exposed?: Exposed | undefined) => void; }, "expose">): any'.

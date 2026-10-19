@@ -10,6 +10,7 @@ use App\Models\Colaborador;
 use App\Models\TareaRh;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Support\FechaMexico;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -248,7 +249,7 @@ class TareaService
         return [
             'abiertas' => (clone $base)->count(),
             'no_leidas' => (clone $base)->whereNull('read_at')->count(),
-            'vencidas' => (clone $base)->whereNotNull('vence_en')->whereDate('vence_en', '<', now()->toDateString())->count(),
+            'vencidas' => (clone $base)->whereNotNull('vence_en')->whereDate('vence_en', '<', FechaMexico::hoy())->count(),
         ];
     }
 
@@ -332,10 +333,10 @@ class TareaService
             ->when($tiposEtapa !== null, fn (Builder $q) => $q->whereIn('tipo', $tiposEtapa ?? []))
             ->when((bool) ($filtros['solo_ciclo'] ?? false), fn (Builder $q) => $q->whereIn('tipo', array_map(fn (TipoTarea $t) => $t->value, TipoTarea::delCiclo())))
             ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, int|string $sucursal) => $q->where('sucursal_id', (int) $sucursal))
-            ->when($urgencia === 'vencidas', fn (Builder $q) => $q->whereNotNull('vence_en')->whereDate('vence_en', '<', now()->toDateString()))
+            ->when($urgencia === 'vencidas', fn (Builder $q) => $q->whereNotNull('vence_en')->whereDate('vence_en', '<', FechaMexico::hoy()))
             ->when($urgencia === 'urgentes', fn (Builder $q) => $q->where(fn (Builder $u) => $u
                 ->whereIn('prioridad', [PrioridadTarea::Alta->value, PrioridadTarea::Urgente->value])
-                ->orWhere(fn (Builder $v) => $v->whereNotNull('vence_en')->whereDate('vence_en', '<=', now()->addDays(3)->toDateString()))));
+                ->orWhere(fn (Builder $v) => $v->whereNotNull('vence_en')->whereDate('vence_en', '<=', FechaMexico::inicioDeHoy()->addDays(3)->toDateString()))));
     }
 
     private function clave(TipoTarea $tipo, ?Model $relacionado, ?User $usuario, ?string $permiso): string
@@ -373,7 +374,7 @@ class TareaService
             ] : null,
             'sucursal' => $tarea->sucursal?->nombre,
             'antiguedad_dias' => $tarea->created_at !== null ? (int) $tarea->created_at->diffInDays(now()) : 0,
-            'vencida' => $tarea->vence_en !== null && $tarea->vence_en->lt(now()->startOfDay()),
+            'vencida' => $tarea->vence_en !== null && $tarea->vence_en->lt(FechaMexico::inicioDeHoy()),
             'colaborador' => $tarea->colaborador !== null ? [
                 'id' => $tarea->colaborador->id,
                 'nombre' => $tarea->colaborador->nombreCompleto(),

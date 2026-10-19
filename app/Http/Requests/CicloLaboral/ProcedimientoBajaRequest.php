@@ -31,6 +31,11 @@ class ProcedimientoBajaRequest extends FormRequest
             'observaciones' => ['nullable', 'string', 'max:1000'],
             'finiquito_a_disposicion' => ['sometimes', 'boolean'],
             'testigos' => ['nullable', 'array', 'max:2'],
+            // El testigo se elige del buscador (colaborador_id) y el backend
+            // congela su nombre/puesto/sucursal reales; solo un testigo
+            // externo se captura a mano (nombre + cargo). Ver TestigoDocumentalService.
+            'testigos.*.colaborador_id' => ['nullable', 'integer'],
+            'testigos.*.externo' => ['sometimes', 'boolean'],
             'testigos.*.nombre' => ['nullable', 'string', 'max:160'],
             'testigos.*.cargo' => ['nullable', 'string', 'max:120'],
             'participantes' => ['nullable', 'array'],

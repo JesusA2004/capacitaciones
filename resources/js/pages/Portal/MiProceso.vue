@@ -359,15 +359,11 @@ const claseBoton =
                     </article>
                 </section>
 
-                <!-- La inducción la presenta RH: aquí solo se ve durante su sesión. -->
+                <!-- Inducción asignada: el colaborador la ve solo (hojas + material). -->
                 <article
                     v-if="
                         accesoInduccion &&
-                        (accesoInduccion.estado === 'en_sesion' ||
-                            (accesoInduccion.estado ===
-                                'pendiente_presentacion' &&
-                                induccionContenido &&
-                                !induccionContenido.completado))
+                        accesoInduccion.estado === 'disponible'
                     "
                     class="flex flex-col gap-3 rounded-3xl border bg-[var(--mrl-surface)] p-5 transition-all duration-200"
                     :class="

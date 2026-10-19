@@ -69,7 +69,14 @@ type Fila = {
             'nueva' | 'existente' | 'colision_resuelta' | 'baja' | 'no_aplica';
     };
     curp: string | null;
-    operacion: 'crear' | 'actualizar' | 'sin_cambios' | 'conflicto' | 'omitir';
+    operacion:
+        | 'crear'
+        | 'actualizar'
+        | 'sin_cambios'
+        | 'conflicto'
+        | 'en_revision'
+        | 'omitir';
+    hoja_origen?: string | null;
     colaborador_id: number | null;
     motivos: string[];
     advertencias: string[];
@@ -191,7 +198,13 @@ function analizarExcel() {
 const plan = computed(() => props.migracion?.plan ?? null);
 const totales = computed(() => props.migracion?.totales ?? {});
 const filtro = ref<
-    'todos' | 'conflicto' | 'revision' | 'sin_match' | 'omitir' | 'aplicables'
+    | 'todos'
+    | 'conflicto'
+    | 'en_revision'
+    | 'revision'
+    | 'sin_match'
+    | 'omitir'
+    | 'aplicables'
 >('todos');
 const busqueda = ref('');
 const limite = ref(150);
@@ -201,6 +214,7 @@ const etiquetaOperacion: Record<Fila['operacion'], string> = {
     actualizar: 'Actualizar',
     sin_cambios: 'Sin cambios',
     conflicto: 'Conflicto',
+    en_revision: 'En revisión',
     omitir: 'Omitir',
 };
 
@@ -227,6 +241,8 @@ const filasFiltradas = computed(() => {
         const pasa =
             filtro.value === 'todos' ||
             (filtro.value === 'conflicto' && f.operacion === 'conflicto') ||
+            (filtro.value === 'en_revision' &&
+                f.operacion === 'en_revision') ||
             (filtro.value === 'omitir' && f.operacion === 'omitir') ||
             (filtro.value === 'revision' && f.nas.tipo === 'revision') ||
             (filtro.value === 'sin_match' &&
@@ -339,7 +355,7 @@ async function ejecutar() {
     if (
         !(await confirmarAccion(
             'Ejecutar migración',
-            `Se crearán ${t.crear ?? 0} y actualizarán ${t.actualizar ?? 0} colaboradores, y se registrarán sus expedientes históricos. Las ${t.conflictos ?? 0} filas en conflicto y los matches en revisión sin decidir NO se aplican. Nunca se borra ni se sobrescribe nada.`,
+            `Se crearán ${t.crear ?? 0} y actualizarán ${t.actualizar ?? 0} colaboradores, y se registrarán sus expedientes históricos. Las ${t.conflictos ?? 0} filas en conflicto, las ${t.en_revision ?? 0} en revisión (falta puesto/departamento) y los matches en revisión sin decidir NO se aplican. Nunca se borra ni se sobrescribe nada.`,
             'Ejecutar',
         ))
     ) {
@@ -442,6 +458,7 @@ function colorOperacion(op: Fila['operacion']): string {
         actualizar: 'bg-info/15 text-info',
         sin_cambios: 'bg-muted text-muted-foreground',
         conflicto: 'bg-destructive/15 text-destructive',
+        en_revision: 'bg-warning/15 text-warning',
         omitir: 'bg-muted text-muted-foreground',
     }[op];
 }
@@ -649,6 +666,13 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                         :icono="AlertTriangle"
                         color-clase="text-destructive"
                     />
+                    <MetricCard
+                        v-if="(totales.en_revision ?? 0) > 0"
+                        etiqueta="En revisión (falta puesto)"
+                        :valor="totales.en_revision ?? 0"
+                        :icono="AlertTriangle"
+                        color-clase="text-warning"
+                    />
                 </div>
                 <ul
                     v-if="
@@ -692,6 +716,10 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                                 { value: 'todos', label: 'Todos' },
                                 { value: 'aplicables', label: 'Se aplican' },
                                 { value: 'conflicto', label: 'Conflictos' },
+                                {
+                                    value: 'en_revision',
+                                    label: 'En revisión (falta puesto)',
+                                },
                                 {
                                     value: 'revision',
                                     label: 'Revisión manual NAS',
@@ -857,6 +885,14 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                                     <template
                                         v-else-if="f.operacion === 'conflicto'"
                                         >No se aplica</template
+                                    >
+                                    <template
+                                        v-else-if="
+                                            f.operacion === 'en_revision'
+                                        "
+                                        >En revisión: falta
+                                        puesto/departamento (no se
+                                        aplica)</template
                                     >
                                     <template
                                         v-else-if="f.operacion === 'omitir'"

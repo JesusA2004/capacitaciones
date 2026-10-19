@@ -368,10 +368,14 @@ class CumpleanosService
             return;
         }
 
-        $destinatarios = User::role(['super_admin', 'rh_admin', 'rh_auxiliar'])
+        // Por PERMISO (rh.cumpleanos.ver), nunca por nombres de rol
+        // hardcodeados: cualquier rol que Administración → Roles configure con
+        // ese permiso recibe el recordatorio, sin tocar código (P2-11).
+        $destinatarios = User::query()
+            ->permission('rh.cumpleanos.ver')
+            ->whereNull('acceso_bloqueado_en')
             ->whereHas('colaborador', fn (Builder $q) => $q->where('estatus', EstadoUsuario::Activo->value))
-            ->get()
-            ->filter(fn (User $u) => $u->can('rh.cumpleanos.ver'));
+            ->get();
 
         foreach ($destinatarios as $destinatario) {
             $hoy = $this->cumpleanosDeHoy($destinatario);

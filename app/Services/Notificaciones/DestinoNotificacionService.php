@@ -19,6 +19,7 @@ use App\Models\SolicitudVacaciones;
 use App\Models\TareaRh;
 use App\Models\User;
 use App\Services\Celebraciones\FechasCelebracion;
+use App\Services\DocumentosLaborales\FirmaDocumentalService;
 use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -504,7 +505,11 @@ class DestinoNotificacionService
             return self::inexistente($url, 'Este documento ya no existe.');
         }
 
-        $atendido = $estado->estaFirmado() || $estado->esFinal();
+        // «Atendido» = el documento concluyó de verdad según su flujo (firma
+        // física cuando la plantilla la pide; no basta con que esté impreso) o
+        // ya es terminal (archivado/cancelado). No usar estaFirmado() aquí:
+        // mentía marcando «atendido» un documento apenas impreso. Ver P2-3.
+        $atendido = app(FirmaDocumentalService::class)->documentoConcluidoSegunFlujo($documento) || $estado->esFinal();
 
         return self::destino(
             $url,

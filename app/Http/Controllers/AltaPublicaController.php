@@ -12,8 +12,10 @@ use App\Models\AltaDigitalDocumento;
 use App\Models\DocumentType;
 use App\Services\AltaDigital\AltaDigitalStorageService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 class AltaPublicaController extends Controller
 {
@@ -128,17 +130,44 @@ class AltaPublicaController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Tu información fue enviada a Recursos Humanos.']);
     }
 
+    /**
+     * Valida y guarda la firma manuscrita (canvas) que llega como data URL
+     * `data:image/...;base64,...`. Rechaza (422) cualquier cadena que no sea
+     * una imagen base64 decodificable ANTES de tocar nada: así el
+     * consentimiento no queda marcado como aceptado con una firma vacía o
+     * corrupta, y no se borra la firma anterior válida si la nueva es inválida.
+     *
+     * @throws ValidationException Si la firma no es un data URL de imagen con base64 válido.
+     * @throws RuntimeException Si el NAS no confirma la escritura del archivo.
+     */
     private function guardarFirmaBase64(AltaDigital $alta, string $dataUrl): string
     {
+        if (preg_match('#^data:image/[A-Za-z0-9.+-]+;base64,#', $dataUrl) !== 1) {
+            throw ValidationException::withMessages([
+                'firma' => 'La firma no es una imagen válida. Vuelve a firmar en el recuadro.',
+            ]);
+        }
+
+        [, $datosCodificados] = array_pad(explode(',', $dataUrl, 2), 2, '');
+        $binario = base64_decode(trim($datosCodificados), true);
+
+        if ($binario === false || $binario === '') {
+            throw ValidationException::withMessages([
+                'firma' => 'La firma no se pudo procesar. Vuelve a firmar en el recuadro.',
+            ]);
+        }
+
+        // Solo tras validar: borra la firma anterior (si la había) y escribe
+        // la nueva, confirmando que el NAS realmente la guardó.
         if ($alta->firma_path) {
             $this->storage->eliminar($alta->firma_path);
         }
 
-        [, $datosCodificados] = array_pad(explode(',', $dataUrl, 2), 2, '');
-        $binario = base64_decode($datosCodificados, true) ?: '';
-
         $ruta = $this->storage->ruta($alta->id, 'firma', $this->storage->nombreInterno('firma.png'));
-        $this->storage->disco()->put($ruta, $binario);
+
+        if ($this->storage->disco()->put($ruta, $binario) === false || ! $this->storage->disco()->exists($ruta)) {
+            throw new RuntimeException("No se pudo guardar la firma en el almacenamiento: {$ruta}");
+        }
 
         return $ruta;
     }

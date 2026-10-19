@@ -10,6 +10,7 @@ use App\Models\Colaborador;
 use App\Models\NodoComercial;
 use App\Models\Puesto;
 use App\Models\User;
+use App\Support\FechaMexico;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -70,7 +71,7 @@ class CoberturaPuestoService
                 'region_id' => $regionId,
                 'motivo' => MotivoCobertura::from($datos['motivo']),
                 'nota' => $datos['nota'] ?? null,
-                'fecha_inicio' => $datos['fecha_inicio'] ?? now()->toDateString(),
+                'fecha_inicio' => $datos['fecha_inicio'] ?? FechaMexico::hoy(),
                 'activa' => true,
                 'registrada_por' => $actor->id,
             ]);
@@ -93,7 +94,7 @@ class CoberturaPuestoService
 
         $cobertura->update([
             'activa' => false,
-            'fecha_fin' => now()->toDateString(),
+            'fecha_fin' => FechaMexico::hoy(),
             'finalizada_por' => $actor->id,
         ]);
 

@@ -11,6 +11,7 @@ use App\Models\GeneratedDocument;
 use App\Services\CierreLaboral\ProcedimientoBajaService;
 use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
+use App\Services\DocumentosLaborales\TestigoDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -34,7 +35,37 @@ class DocumentoProcesoController extends Controller
         protected readonly FlujoDocumentalService $flujo,
         protected readonly ProcedimientoBajaService $procedimiento,
         protected readonly MotorDocumentalService $motor,
+        protected readonly TestigoDocumentalService $testigosDocumentales,
     ) {}
+
+    /**
+     * Buscador de testigos para los instrumentos de la baja (negativa a
+     * firmar y firma física): colaboradores ACTIVOS del alcance de quien
+     * opera, los del centro de trabajo del afectado primero, excluyendo al
+     * propio afectado. Mismo estándar que el buscador de testigos de las
+     * actas; nunca se captura un testigo interno a mano.
+     */
+    public function buscarTestigos(Request $request): JsonResponse
+    {
+        $actor = $request->user();
+        abort_unless(
+            $actor->can('documentos_laborales.generar')
+                || $actor->can('documentos_laborales.operar_fisico')
+                || $actor->can('cierres.gestionar'),
+            403,
+        );
+
+        $datos = $request->validate([
+            'colaborador' => ['nullable', 'integer'],
+            'q' => ['nullable', 'string', 'max:80'],
+            'excluir' => ['nullable', 'integer'],
+        ]);
+
+        $afectado = isset($datos['colaborador']) ? Colaborador::query()->where('id', (int) $datos['colaborador'])->first() : null;
+        $excluir = isset($datos['excluir']) ? [(int) $datos['excluir']] : [];
+
+        return response()->json(['data' => $this->testigosDocumentales->buscar($actor, $afectado, (string) ($datos['q'] ?? ''), $excluir)]);
+    }
 
     /**
      * Secciones documentales de la ficha del colaborador (contratación y renovación).
@@ -115,7 +146,11 @@ class DocumentoProcesoController extends Controller
             'fecha' => ['nullable', 'date', 'before_or_equal:now'],
             'huella_registrada' => ['sometimes', 'boolean'],
             'testigos' => ['nullable', 'array', 'max:5'],
-            'testigos.*.nombre' => ['required_with:testigos', 'string', 'max:160'],
+            // Testigo por selector (colaborador_id); el backend congela su
+            // nombre/puesto/sucursal reales. Texto a mano solo para externos.
+            'testigos.*.colaborador_id' => ['nullable', 'integer'],
+            'testigos.*.externo' => ['sometimes', 'boolean'],
+            'testigos.*.nombre' => ['nullable', 'string', 'max:160'],
             'testigos.*.puesto' => ['nullable', 'string', 'max:120'],
             'paqueteria' => [$accion === 'envio' ? 'required' : 'nullable', 'string', 'max:80'],
             'numero_guia' => [$accion === 'envio' ? 'required' : 'nullable', 'string', 'max:80'],
@@ -185,7 +220,11 @@ class DocumentoProcesoController extends Controller
     }
 
     /**
-     * @return list<array{nombre: string, cargo: string}>
+     * Testigos elegidos del buscador (colaborador_id) o capturados como
+     * externos. El backend (TestigoDocumentalService) congela el snapshot
+     * real; aquí solo se pasa lo capturado.
+     *
+     * @return list<array{colaborador_id: int|null, nombre: string, cargo: string, externo: bool}>
      */
     private function testigosDe(ProcedimientoBajaRequest $request): array
     {
@@ -193,7 +232,12 @@ class DocumentoProcesoController extends Controller
 
         foreach ((array) $request->validated('testigos', []) as $testigo) {
             if (is_array($testigo)) {
-                $testigos[] = ['nombre' => (string) ($testigo['nombre'] ?? ''), 'cargo' => (string) ($testigo['cargo'] ?? '')];
+                $testigos[] = [
+                    'colaborador_id' => is_numeric($testigo['colaborador_id'] ?? null) ? (int) $testigo['colaborador_id'] : null,
+                    'nombre' => (string) ($testigo['nombre'] ?? ''),
+                    'cargo' => (string) ($testigo['cargo'] ?? ''),
+                    'externo' => (bool) ($testigo['externo'] ?? false),
+                ];
             }
         }
 

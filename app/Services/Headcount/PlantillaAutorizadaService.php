@@ -8,7 +8,7 @@ use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Vacantes\VacanteAutoGenerationService;
-use Illuminate\Support\Carbon;
+use App\Support\FechaMexico;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -52,7 +52,7 @@ class PlantillaAutorizadaService
                     'empresa_id' => $sucursal->empresa_id,
                     'plantilla_autorizada' => $plantilla,
                     'fuente' => 'captura',
-                    'fecha_corte' => Carbon::today(),
+                    'fecha_corte' => FechaMexico::hoy(),
                     'updated_by_id' => $actor->id,
                     'created_by_id' => $existente->created_by_id ?? $actor->id,
                 ],

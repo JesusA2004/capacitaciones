@@ -3,10 +3,10 @@
 namespace App\Enums;
 
 /**
- * Ciclo de una responsiva de equipo (App\Models\Responsiva):
+ * Ciclo de una responsiva (App\Models\Responsiva):
  *
- *   generada → firmada (se subió el escaneo firmado)
- *   generada/firmada → devuelta (el colaborador regresó el equipo)
+ *   generada → firmada (se firmó en papel y se marcó «firmada físicamente»)
+ *   generada/firmada → devuelta (el colaborador regresó el bien)
  *   generada/firmada → cancelada (se generó por error; queda como historial)
  */
 enum EstadoResponsiva: string

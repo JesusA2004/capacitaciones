@@ -29,7 +29,7 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
 </script>
 
 <template>
-    <div class="px-4 py-6">
+    <div class="pagina-media">
         <Heading
             title="Configuración"
             description="Administra tu perfil y las preferencias de tu cuenta"

@@ -364,7 +364,8 @@ function eliminarConcepto(id: number) {
 
             <!-- Desglose: automáticos (solo lectura) + capturados por RH
                  (editables/eliminables) — misma fuente que el PDF. -->
-            <table class="w-full text-sm">
+            <div class="tabla-scroll">
+            <table class="w-full min-w-[32rem] text-sm">
                 <tbody class="divide-y divide-border/60">
                     <tr v-if="ajustandoClave" class="bg-warning-soft/40">
                         <td colspan="4" class="p-2">
@@ -579,6 +580,7 @@ function eliminarConcepto(id: number) {
                     </tr>
                 </tbody>
             </table>
+            </div>
 
             <!-- Agregar un concepto manual (percepción o deducción). -->
             <div v-if="puedeEditarAjustes" class="flex flex-col gap-2">

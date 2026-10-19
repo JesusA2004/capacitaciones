@@ -160,8 +160,13 @@ test('registrar la entrega congela el finiquito y deja el cierre laboral complet
 });
 
 test('un cierre del flujo anterior (finiquito autorizado) tampoco se queda atorado: la entrega lo cierra', function () {
+    // El cierre "legacy" solo puede fabricarse con la bandera encendida
+    // (autorizarFiniquito es un paso del flujo anterior); la entrega moderna
+    // debe cerrarlo aunque la bandera vuelva a apagarse.
+    config(['features.cierre_flujo_legacy' => true]);
     $this->cierres->calcularFiniquito($this->cierre, $this->rh);
     $cierre = $this->cierres->autorizarFiniquito($this->cierre->refresh(), $this->rh);
+    config(['features.cierre_flujo_legacy' => false]);
     expect($cierre->estado)->toBe(EstadoCierreLaboral::FiniquitoAutorizado);
 
     $acciones = collect($this->cierres->accionesPermitidas($cierre, $this->rh))->pluck('clave')->all();

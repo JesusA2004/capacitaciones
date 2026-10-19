@@ -15,6 +15,7 @@ use App\Models\OnboardingProceso;
 use App\Models\User;
 use App\Services\Asignaciones\AsignacionService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Compensacion\CompensacionService;
 use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
@@ -68,6 +69,7 @@ class AltaColaboradorService
         private readonly IdentidadColaboradorService $identidad,
         private readonly JefeDirectoService $jefes,
         private readonly AvisoAltaBajaService $avisoAltaBaja,
+        private readonly CompensacionService $compensacion,
     ) {}
 
     /**
@@ -104,7 +106,9 @@ class AltaColaboradorService
                 'departamento_id' => $datos['departamento_id'] ?? null,
                 'puesto_id' => $datos['puesto_id'],
                 'gerente_id' => $datos['gerente_id'] ?? null,
-                'sueldo_mensual' => $datos['sueldo_mensual'],
+                // El sueldo NO se escribe directo: lo fija CompensacionService
+                // abajo para que `salario_diario` quede sincronizado y haya
+                // asiento en historial_salarios desde el alta (P0-1/P2-18).
                 'fecha_ingreso' => $inicio->toDateString(),
                 'estatus' => EstadoUsuario::EnIncorporacion,
                 'estado_alta' => EstadoAltaColaborador::PendienteDocumentos,
@@ -117,6 +121,26 @@ class AltaColaboradorService
             // Expediente: fija la carpeta del colaborador en el NAS desde el
             // primer momento (identidad documental estable).
             $this->storage->asignarRutaBaseColaborador($colaborador);
+
+            // Sueldo canónico: el mensual capturado se convierte a diario y
+            // CompensacionService sincroniza ambos campos y abre el ledger de
+            // salario (sin MovimientoLaboral de cambio: es el alta inicial).
+            $sueldoMensual = (float) ($datos['sueldo_mensual'] ?? 0);
+
+            if ($sueldoMensual > 0) {
+                $this->compensacion->actualizarSalario(
+                    $colaborador,
+                    $this->compensacion->diarioDesdeMensual($sueldoMensual),
+                    null,
+                    $actor,
+                    ['fuente' => 'alta_colaborador', 'fecha_efectiva' => $inicio->toDateString(), 'motivo' => 'Salario inicial al dar de alta al colaborador.'],
+                );
+
+                // actualizarSalario escribe sobre una instancia bloqueada
+                // aparte: refrescamos para que el modelo en memoria (auditoría,
+                // movimientos y respuesta) refleje el sueldo ya sincronizado.
+                $colaborador->refresh()->load('sucursalPrincipal.empresa');
+            }
 
             $contrato = $this->contratos->crearContrato($colaborador, $tipo, $inicio, $fin, $actor);
 

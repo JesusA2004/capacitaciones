@@ -131,10 +131,17 @@ class MediaStorageService
                 throw new \RuntimeException('No se pudo leer el archivo ensamblado.');
             }
 
-            $disco->put($rutaDestino, $flujoLectura);
+            $resultado = $disco->put($rutaDestino, $flujoLectura);
 
             if (is_resource($flujoLectura)) {
                 fclose($flujoLectura);
+            }
+
+            // El disco 'nas' no lanza al fallar (throw=false): confirmar que
+            // el ensamblado quedó realmente escrito antes de seguir, para no
+            // crear un recurso que apunte a un archivo inexistente.
+            if ($resultado === false || ! $disco->exists($rutaDestino)) {
+                throw new \RuntimeException("No se pudo escribir el archivo ensamblado en el almacenamiento: {$rutaDestino}");
             }
         } finally {
             if (is_resource($recursoDestino)) {
@@ -148,6 +155,16 @@ class MediaStorageService
     /**
      * Guarda un archivo subido (o un stream/ruta local) en la ruta logica
      * indicada, sin cargarlo completo en memoria.
+     *
+     * El disco 'nas' tiene `throw=false` (config/filesystems.php), así que una
+     * escritura fallida (NAS caído, sin espacio, permisos) NO lanza por sí
+     * sola: put()/putFileAs() solo devuelven false. Sin esta verificación
+     * explícita se marcaría un recurso como «Disponible» (o se ensamblaría una
+     * carga) apuntando a un archivo que nunca se escribió. Por eso se confirma
+     * el retorno Y la existencia antes de regresar la ruta (CLAUDE.md: una
+     * escritura al NAS debe confirmarse antes de persistir).
+     *
+     * @throws \RuntimeException Si el almacenamiento no confirma la escritura.
      */
     public function guardar(UploadedFile|string $archivo, string $rutaDestino): string
     {
@@ -155,7 +172,7 @@ class MediaStorageService
         $nombre = basename($rutaDestino);
 
         if ($archivo instanceof UploadedFile) {
-            $this->disco()->putFileAs($carpeta, $archivo, $nombre);
+            $resultado = $this->disco()->putFileAs($carpeta, $archivo, $nombre);
         } else {
             $flujo = fopen($archivo, 'r');
 
@@ -163,8 +180,15 @@ class MediaStorageService
                 throw new \RuntimeException("No se pudo abrir el archivo origen: {$archivo}");
             }
 
-            $this->disco()->put($rutaDestino, $flujo);
-            fclose($flujo);
+            $resultado = $this->disco()->put($rutaDestino, $flujo);
+
+            if (is_resource($flujo)) {
+                fclose($flujo);
+            }
+        }
+
+        if ($resultado === false || ! $this->disco()->exists($rutaDestino)) {
+            throw new \RuntimeException("No se pudo guardar el archivo en el almacenamiento multimedia: {$rutaDestino}");
         }
 
         return $rutaDestino;

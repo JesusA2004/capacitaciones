@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Rh;
 
+use App\Enums\EstadoCierreLaboral;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\ArchivoLaboralRequest;
 use App\Http\Requests\CicloLaboral\DecisionAprobacionRequest;
@@ -19,6 +20,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
+use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 
 /**
  * Cierre laboral (Etapa 6) en la web. Delgado: autoriza el objeto con la
@@ -30,6 +33,41 @@ class CierreLaboralController extends Controller
         private readonly CierreLaboralService $cierres,
         private readonly FiniquitoService $finiquitos,
     ) {}
+
+    /**
+     * Panorama de bajas y finiquitos (índice web, grupo «7 · Cierres
+     * laborales»). Lista los cierres dentro del alcance con el estado del
+     * cierre y del finiquito; la acción se ejecuta en la ficha per-persona.
+     * NO expone acciones del flujo legacy (preautorizar / autorizar baja /
+     * programar pago / cita / autorizar finiquito): el panorama es de lectura.
+     */
+    public function index(Request $request): InertiaResponse
+    {
+        $usuario = $request->user();
+        abort_unless($usuario->can('cierres.ver'), 403);
+
+        $puedeVerFiniquito = $usuario->can('finiquitos.ver');
+        $listado = $this->cierres
+            ->panorama($usuario, $request->only(['estado', 'busqueda', 'per_page']))
+            ->withQueryString();
+        $finiquitos = $this->cierres->finiquitosDeCierres($listado->getCollection());
+
+        $listado->getCollection()->transform(fn (CierreLaboral $c): array => $this->cierres->filaPanorama(
+            $c,
+            $c->solicitud_interna_id !== null ? $finiquitos->get($c->solicitud_interna_id) : null,
+            $puedeVerFiniquito,
+        ));
+
+        return Inertia::render('Rh/Cierres/Index', [
+            'cierres' => $listado,
+            'filtros' => [
+                'estado' => $request->query('estado'),
+                'busqueda' => (string) $request->query('busqueda', ''),
+            ],
+            'estados' => array_map(fn (EstadoCierreLaboral $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], EstadoCierreLaboral::cases()),
+            'puede_ver_finiquito' => $puedeVerFiniquito,
+        ]);
+    }
 
     public function store(SolicitarCierreRequest $request, Colaborador $colaborador): RedirectResponse
     {

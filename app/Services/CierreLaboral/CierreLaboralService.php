@@ -32,12 +32,14 @@ use App\Services\Finiquitos\FiniquitoService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
+use App\Support\FechaMexico;
 use App\Support\Paginacion;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -53,10 +55,12 @@ use Throwable;
  *   2. documentos de la causa generados por el sistema (plantillas de
  *      Jurídico/RH; sin plantilla = pendiente explícito): la renuncia sigue
  *      Generado → Impreso → Firmado físicamente
- *   4. finiquito: RH genera / revisa / ajusta (auditado)
- *   5. regional de coordinación PROGRAMA el pago (fecha, monto, método)
- *   6. gerente cita al excolaborador → firma/huella del finiquito → pago
- *   7. cierre: baja (solo desde la fecha efectiva) + expediente cerrado
+ *   3. finiquito: RH calcula / revisa / ajusta por concepto (auditado) y
+ *      REGISTRA SU ENTREGA (registrarEntregaFiniquito): la entrega congela el
+ *      finiquito, ejecuta la baja (solo desde la fecha efectiva) y cierra el
+ *      expediente en una sola operación. No hay autorización del finiquito,
+ *      programación del pago ni cita: ese flujo anterior quedó apagado
+ *      (features.cierre_flujo_legacy, solo para expedientes legacy).
  *
  * Al INICIAR la baja se suspende de inmediato el acceso de la persona
  * (cuenta inactiva, AccesoCuentaService) y se avisa a regionales y RH, que
@@ -384,7 +388,7 @@ class CierreLaboralService
             EstadoCierreLaboral::Pagado, EstadoCierreLaboral::BajaEjecutada,
         ]);
 
-        if ($cierre->fecha_efectiva->isAfter(now()->startOfDay())) {
+        if ($cierre->fecha_efectiva->isAfter(FechaMexico::inicioDeHoy())) {
             throw ValidationException::withMessages(['fecha' => sprintf('La baja es efectiva el %s: registra la entrega del finiquito a partir de esa fecha.', $cierre->fecha_efectiva->format('d/m/Y'))]);
         }
 
@@ -437,13 +441,16 @@ class CierreLaboralService
     }
 
     /**
-     * LEGACY: ya no tiene ruta ni acción (RH no autoriza el finiquito: lo
-     * calcula y registra su entrega con registrarEntregaFiniquito()). Se
-     * conserva solo para reproducir cierres del flujo anterior en datos de
-     * demostración y pruebas.
+     * LEGACY (flujo anterior del finiquito): ya no tiene ruta ni acción (RH no
+     * autoriza el finiquito: lo calcula y registra su entrega con
+     * registrarEntregaFiniquito()). Bloqueado salvo features.cierre_flujo_legacy;
+     * se conserva solo para reproducir/cerrar cierres del flujo anterior en
+     * datos de demostración y pruebas.
      */
     public function autorizarFiniquito(CierreLaboral $cierre, User $actor): CierreLaboral
     {
+        $this->exigirFlujoLegacyHabilitado();
+
         if (! $actor->can(OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH) || ! $actor->can('finiquitos.revisar')) {
             throw new AuthorizationException('Solo RH autoriza el finiquito.');
         }
@@ -472,12 +479,16 @@ class CierreLaboralService
     }
 
     /**
-     * Regional de coordinación: programa el pago según flujo de efectivo.
+     * LEGACY (flujo anterior del finiquito): la regional de coordinación
+     * programaba el pago. Bloqueado salvo features.cierre_flujo_legacy — hoy
+     * RH registra la entrega del finiquito (registrarEntregaFiniquito), que
+     * cierra el cierre laboral.
      *
      * @param  array{fecha: string, monto?: float|int|string|null, metodo: string, responsable_user_id?: int|null, observaciones?: string|null}  $datos
      */
     public function programarPago(CierreLaboral $cierre, User $actor, array $datos): CierreLaboral
     {
+        $this->exigirFlujoLegacyHabilitado();
         $cierre->loadMissing('colaborador');
 
         if (! $actor->can(self::PERMISO_PROGRAMAR_PAGO) || ! $this->alcance->alcanzaColaborador($actor, $cierre->colaborador)) {
@@ -514,10 +525,13 @@ class CierreLaboralService
     }
 
     /**
-     * El gerente registra la cita con el excolaborador para firma y pago.
+     * LEGACY (flujo anterior del finiquito): el gerente registraba la cita con
+     * el excolaborador para firma y pago. Bloqueado salvo
+     * features.cierre_flujo_legacy.
      */
     public function registrarCita(CierreLaboral $cierre, User $actor, string $fecha): CierreLaboral
     {
+        $this->exigirFlujoLegacyHabilitado();
         $this->exigirOperacion($cierre, $actor);
 
         $cierre = DB::transaction(function () use ($cierre, $actor, $fecha): CierreLaboral {
@@ -551,10 +565,13 @@ class CierreLaboralService
     }
 
     /**
-     * Firma y huella del finiquito (después de programar el pago).
+     * LEGACY (flujo anterior del finiquito): firma y huella del finiquito
+     * (después de programar el pago). Bloqueado salvo
+     * features.cierre_flujo_legacy.
      */
     public function registrarFiniquitoFirmado(CierreLaboral $cierre, UploadedFile $archivo, User $actor): CierreLaboral
     {
+        $this->exigirFlujoLegacyHabilitado();
         $this->exigirOperacion($cierre, $actor);
         $this->exigirEstado($cierre, [EstadoCierreLaboral::PagoProgramado, EstadoCierreLaboral::FiniquitoFirmado, EstadoCierreLaboral::Pagado]);
         $this->finiquitos->subirFirmado($this->exigirFiniquito($cierre), $archivo, $actor);
@@ -565,8 +582,13 @@ class CierreLaboralService
         return $cierre;
     }
 
+    /**
+     * LEGACY (flujo anterior del finiquito): confirmación del pago con
+     * referencia. Bloqueado salvo features.cierre_flujo_legacy.
+     */
     public function confirmarPago(CierreLaboral $cierre, User $actor, string $referencia): CierreLaboral
     {
+        $this->exigirFlujoLegacyHabilitado();
         $this->exigirOperacion($cierre, $actor);
         $this->exigirEstado($cierre, [EstadoCierreLaboral::PagoProgramado, EstadoCierreLaboral::FiniquitoFirmado]);
         $finiquito = $this->exigirFiniquito($cierre);
@@ -599,7 +621,7 @@ class CierreLaboralService
             throw ValidationException::withMessages(['estado' => 'La baja ya fue ejecutada.']);
         }
 
-        if ($cierre->fecha_efectiva->isAfter(now()->startOfDay())) {
+        if ($cierre->fecha_efectiva->isAfter(FechaMexico::inicioDeHoy())) {
             throw ValidationException::withMessages(['fecha_efectiva' => sprintf('La baja no puede ejecutarse antes de su fecha efectiva (%s).', $cierre->fecha_efectiva->format('d/m/Y'))]);
         }
 
@@ -726,7 +748,7 @@ class CierreLaboralService
 
         CierreLaboral::query()
             ->where('estado', EstadoCierreLaboral::Pagado->value)
-            ->whereDate('fecha_efectiva', '<=', now()->toDateString())
+            ->whereDate('fecha_efectiva', '<=', FechaMexico::hoy())
             ->with('colaborador')
             ->each(function (CierreLaboral $cierre) use (&$abiertos): void {
                 $tarea = $this->tareas->abrir(TipoTarea::CierrePorConcluir, $cierre, [
@@ -766,6 +788,123 @@ class CierreLaboralService
             ->when($filtros['colaborador_id'] ?? null, fn (Builder $q, int|string $v) => $q->where('colaborador_id', (int) $v))
             ->orderByDesc('id')
             ->paginate(Paginacion::porPagina(20, $filtros['per_page'] ?? null));
+    }
+
+    /**
+     * Panorama de bajas y finiquitos para el índice web (Rh/Cierres/Index.vue):
+     * lista liviana (sin documentos ni aprobaciones por fila), con el MISMO
+     * alcance del módulo «cierres» que listar(). La fila se arma con
+     * filaPanorama(); las acciones se ejecutan en la ficha per-persona, nunca
+     * desde aquí (y NUNCA las del flujo legacy).
+     *
+     * @param  array<string, mixed>  $filtros  estado?, busqueda?, per_page?
+     * @return LengthAwarePaginator<int, CierreLaboral>
+     */
+    public function panorama(User $usuario, array $filtros = []): LengthAwarePaginator
+    {
+        $query = CierreLaboral::query()->with([
+            'colaborador:id,name,apellidos,numero_empleado,puesto_id,sucursal_principal_id,jefe_id',
+            'colaborador.puesto:id,nombre',
+            'colaborador.sucursalPrincipal:id,nombre',
+            'iniciadoPor:id,name,apellidos,colaborador_id',
+            'iniciadoPor.colaborador',
+        ]);
+
+        $this->alcance->limitarPorModulo($query, $usuario, 'cierres', 'colaborador_id', true);
+
+        $estado = isset($filtros['estado']) && is_string($filtros['estado']) && $filtros['estado'] !== '' ? $filtros['estado'] : null;
+        $busqueda = isset($filtros['busqueda']) && is_string($filtros['busqueda']) ? trim($filtros['busqueda']) : '';
+
+        return $query
+            ->when($estado === 'abiertos', fn (Builder $q) => $q->whereIn('estado', array_map(fn (EstadoCierreLaboral $e) => $e->value, EstadoCierreLaboral::abiertos())))
+            ->when($estado !== null && $estado !== 'abiertos', fn (Builder $q) => $q->where('estado', $estado))
+            ->when($busqueda !== '', fn (Builder $q) => $q->whereHas('colaborador', fn (Builder $c) => $c->where(fn (Builder $w) => $w
+                ->where('name', 'like', sprintf('%%%s%%', $busqueda))
+                ->orWhere('apellidos', 'like', sprintf('%%%s%%', $busqueda))
+                ->orWhere('numero_empleado', 'like', sprintf('%%%s%%', $busqueda)))))
+            ->orderByDesc('id')
+            ->paginate(Paginacion::porPagina(20, $filtros['per_page'] ?? null));
+    }
+
+    /**
+     * Finiquitos de una página de cierres, indexados por la solicitud interna
+     * que comparten cierre y finiquito. Un solo query (evita N+1 en el índice).
+     *
+     * @param  iterable<int, CierreLaboral>  $cierres
+     * @return SupportCollection<int, FiniquitoCalculo>
+     */
+    public function finiquitosDeCierres(iterable $cierres): SupportCollection
+    {
+        $solicitudIds = collect($cierres)
+            ->map(fn (CierreLaboral $c): ?int => $c->solicitud_interna_id)
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($solicitudIds === []) {
+            return collect();
+        }
+
+        return FiniquitoCalculo::query()
+            ->whereIn('solicitud_interna_id', $solicitudIds)
+            ->get()
+            ->keyBy('solicitud_interna_id');
+    }
+
+    /**
+     * Fila del panorama: datos del colaborador, estado del cierre y (si el
+     * usuario tiene finiquitos.ver) el estado y neto del finiquito, más la
+     * etiqueta del siguiente paso vigente.
+     *
+     * @return array<string, mixed>
+     */
+    public function filaPanorama(CierreLaboral $cierre, ?FiniquitoCalculo $finiquito, bool $puedeVerFiniquito): array
+    {
+        return [
+            'id' => $cierre->id,
+            'colaborador' => [
+                'id' => $cierre->colaborador->id,
+                'nombre' => $cierre->colaborador->nombreCompleto(),
+                'numero_empleado' => $cierre->colaborador->numero_empleado,
+                'puesto' => $cierre->colaborador->puesto?->nombre,
+                'sucursal' => $cierre->colaborador->sucursalPrincipal?->nombre,
+            ],
+            'tipo_baja' => $cierre->tipo_baja->value,
+            'tipo_baja_etiqueta' => $cierre->tipo_baja->etiqueta(),
+            'fecha_efectiva' => $cierre->fecha_efectiva->toDateString(),
+            'estado' => $cierre->estado->value,
+            'estado_etiqueta' => $cierre->estado->etiqueta(),
+            'solicitado_por' => $cierre->iniciadoPor?->nombreCompleto(),
+            'finiquito' => $puedeVerFiniquito && $finiquito !== null ? [
+                'estado' => $finiquito->estado->value,
+                'estado_etiqueta' => $finiquito->estado->etiqueta(),
+                'neto' => $finiquito->neto,
+            ] : null,
+            'siguiente_accion' => $this->siguienteAccionPanorama($cierre, $finiquito),
+        ];
+    }
+
+    /**
+     * Etiqueta corta del siguiente paso VIGENTE (nunca acciones del flujo
+     * legacy: preautorizar / autorizar baja / programar pago / cita /
+     * autorizar finiquito). Es informativa; la acción se ejecuta en la ficha.
+     */
+    private function siguienteAccionPanorama(CierreLaboral $cierre, ?FiniquitoCalculo $finiquito): string
+    {
+        if ($cierre->estado->esFinal()) {
+            return $cierre->estado === EstadoCierreLaboral::ExpedienteCerrado ? 'Cierre concluido' : $cierre->estado->etiqueta();
+        }
+
+        if ($finiquito === null) {
+            return 'Calcular finiquito';
+        }
+
+        if (! in_array($finiquito->estado, [EstadoFiniquito::Firmado, EstadoFiniquito::Pagado], true)) {
+            return 'Registrar entrega de finiquito';
+        }
+
+        return 'Concluir cierre laboral';
     }
 
     /**
@@ -1063,6 +1202,24 @@ class CierreLaboralService
         }
 
         $this->acceso->restablecer($cuenta, $actor, $motivo);
+    }
+
+    /**
+     * Pasos del FLUJO ANTERIOR del finiquito (autorizar → programar pago →
+     * cita → firma → confirmar pago). El flujo vigente es: RH calcula/ajusta
+     * el finiquito y registra su entrega (registrarEntregaFiniquito), que lo
+     * congela y cierra el cierre — también los cierres que venían del tramo
+     * anterior, para que ninguno se quede atorado. Estos pasos quedan
+     * bloqueados salvo que features.cierre_flujo_legacy esté encendido (solo
+     * para reproducir/cerrar expedientes legacy en pruebas y demostración).
+     */
+    private function exigirFlujoLegacyHabilitado(): void
+    {
+        if (! (bool) config('features.cierre_flujo_legacy', false)) {
+            throw ValidationException::withMessages([
+                'flujo' => 'Este paso pertenece al flujo anterior del finiquito. Ahora RH registra la entrega del finiquito, que cierra el cierre laboral.',
+            ]);
+        }
     }
 
     private function exigirSinCierreAbierto(Colaborador $colaborador): void

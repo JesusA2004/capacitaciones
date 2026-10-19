@@ -7,6 +7,7 @@ use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Notificaciones\NotificationFeedService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Vacaciones\VacacionesService;
+use App\Support\FechaMexico;
 
 /**
  * Datos "básicos" del propio colaborador para el portal web (/mi-portal) y
@@ -55,7 +56,9 @@ class ColaboradorPerfilService
             'empresa' => $colaborador?->empresa()?->nombre,
             'jefe_directo' => $colaborador?->jefe?->nombreCompleto(),
             'fecha_ingreso' => $colaborador?->fecha_ingreso?->toDateString(),
-            'antiguedad_anios' => (int) ($colaborador?->fecha_ingreso?->diffInYears(now()) ?? 0),
+            // Antigüedad contra el día calendario de México, no UTC, para no
+            // desfasarse respecto al saldo de vacaciones (que ya usa México). P2-5.
+            'antiguedad_anios' => (int) ($colaborador?->fecha_ingreso?->diffInYears(FechaMexico::inicioDeHoy()) ?? 0),
             // Mismo cálculo que el banner "Expediente incompleto" del
             // sitio web (completitudAlta): el colaborador solo ve qué le
             // falta, nunca edita el porcentaje ni el cálculo.

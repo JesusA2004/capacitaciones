@@ -39,7 +39,7 @@ class ResponsivaPolicy
         return $this->verDe($usuario, $responsiva->colaborador);
     }
 
-    /** Subir el escaneo firmado o registrar la devolución del equipo. */
+    /** Marcar firmada físicamente o registrar la devolución del bien. */
     public function operar(User $usuario, Responsiva $responsiva): bool
     {
         return $responsiva->estado->vigente() && $this->generar($usuario, $responsiva->colaborador);

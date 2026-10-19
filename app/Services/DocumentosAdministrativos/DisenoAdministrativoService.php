@@ -33,12 +33,13 @@ class DisenoAdministrativoService
     {
         return [
             // Medidas, colores y tipografía tomados del formato oficial
-            // (docs/formatosRH/*.docx): carta, Arial/Helvetica, azul
-            // institucional #0D1B4B en bandas, barra bronce junto al logo.
+            // (docs/formatosRH/*.docx): carta, Arial/Helvetica, PETRÓLEO
+            // institucional #315B59 en bandas, acento dorado junto al logo.
+            // La paleta vive una sola vez en config/pdf_identidad.php.
             'page' => ['size' => 'letter', 'orientation' => 'portrait', 'margins_mm' => ['top' => 12, 'right' => 14, 'bottom' => 12, 'left' => 14]],
-            'typography' => ['font_family' => 'Helvetica', 'base_size_pt' => 8.5, 'line_height' => 1.3, 'color' => '#111111', 'weight' => 400],
+            'typography' => ['font_family' => 'Helvetica', 'base_size_pt' => 8.5, 'line_height' => 1.3, 'color' => $this->token('texto'), 'weight' => 400],
             'paragraph' => ['indent_left_mm' => 0, 'indent_right_mm' => 0, 'first_line_mm' => 0, 'space_before_pt' => 0, 'space_after_pt' => 4, 'align' => 'left'],
-            'colors' => ['primary' => '#0d1b4b', 'accent' => '#a8834a', 'muted' => '#5f6b7a', 'table_header_bg' => '#0d1b4b', 'table_header_text' => '#ffffff', 'total_bg' => '#fbf3e6', 'total_text' => '#0d1b4b', 'fondo_suave' => '#f3f6fa'],
+            'colors' => ['primary' => $this->token('petroleo'), 'accent' => $this->token('dorado'), 'muted' => $this->token('texto_suave'), 'table_header_bg' => $this->token('petroleo'), 'table_header_text' => $this->token('blanco'), 'total_bg' => $this->token('fondo_total'), 'total_text' => $this->token('petroleo'), 'fondo_suave' => $this->token('fondo_suave')],
             // Encabezado patronal: la razón social REAL del colaborador
             // (CLAUDE.md §21), nunca "MR. LANA PEOPLE" (eso es el sistema,
             // no el patrón). El placeholder lo resuelve DocumentoAdministrativoService::html()
@@ -48,9 +49,9 @@ class DisenoAdministrativoService
             // el sistema, no el patrón); RH puede activarlo si lo desea.
             'footer' => ['show' => false, 'text' => '', 'page_numbers' => false, 'distance_mm' => 8],
             'background' => ['asset_id' => null, 'apply_to' => 'all_pages', 'fit' => 'stretch', 'opacity' => 100, 'position' => 'center', 'safe_area_mm' => 0],
-            'tables' => ['font_size_pt' => 9, 'padding_mm' => 1.8, 'border_color' => '#9aa5b8', 'border_width_px' => 0.8, 'header_style' => 'solid', 'repeat_header' => true, 'avoid_row_break' => true, 'zebra' => false],
+            'tables' => ['font_size_pt' => 9, 'padding_mm' => 1.8, 'border_color' => $this->token('borde'), 'border_width_px' => 0.8, 'header_style' => 'solid', 'repeat_header' => true, 'avoid_row_break' => true, 'zebra' => false],
             'signatures' => ['show' => $familia->firmasPorDefecto() !== [], 'line_width_mm' => 62, 'gap_mm' => 18, 'position' => 'split', 'blocks' => $familia->firmasPorDefecto()],
-            'sections' => ['spacing_mm' => 5, 'title_size_pt' => 8, 'title_color' => '#0d1b4b', 'divider' => true, 'visibles' => array_map(fn () => true, $familia->secciones())],
+            'sections' => ['spacing_mm' => 5, 'title_size_pt' => 8, 'title_color' => $this->token('petroleo'), 'divider' => true, 'visibles' => array_map(fn () => true, $familia->secciones())],
             'content' => $familia->contenidoPorDefecto(),
         ];
     }
@@ -179,6 +180,18 @@ class DisenoAdministrativoService
 
         return array_values(DocumentAsset::query()->whereIn('id', $ids)->orderBy('id')->get(['id', 'tipo', 'sha256'])
             ->map(fn (DocumentAsset $a) => ['id' => $a->id, 'tipo' => $a->tipo->value, 'sha256' => $a->sha256])->all());
+    }
+
+    /**
+     * Lee un token de color de la paleta institucional (config/pdf_identidad.php),
+     * la ÚNICA fuente de identidad de los PDF. El respaldo es petróleo (el
+     * primario) por si el token no existe; nunca se reintroduce azul genérico.
+     */
+    private function token(string $clave): string
+    {
+        $valor = config("pdf_identidad.{$clave}");
+
+        return is_string($valor) ? $valor : '#315b59';
     }
 
     private function numero(mixed $valor, float $minimo, float $maximo): float

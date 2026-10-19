@@ -593,14 +593,15 @@ export type InduccionContenidoResumen = {
 };
 
 /**
- * Cuándo el colaborador puede VER la Inducción Mr. Lana (la presenta RH):
- * solo durante la sesión que lo incluye — ver
+ * Cuándo el colaborador puede VER la Inducción Mr. Lana. Nuevo flujo (2026):
+ * se le ASIGNA al iniciar su onboarding y la ve solo (hojas del PDF +
+ * material de audio/video) antes de su evaluación — ver
  * AccesoInduccionColaboradorService::resumen().
  */
 export type AccesoInduccionColaborador = {
     estado:
-        | 'pendiente_presentacion'
-        | 'en_sesion'
+        | 'sin_asignar'
+        | 'disponible'
         | 'evaluacion_pendiente'
         | 'en_revision'
         | 'completada';
@@ -608,6 +609,13 @@ export type AccesoInduccionColaborador = {
     mensaje: string;
     puede_ver_contenido: boolean;
     puede_contestar_evaluacion: boolean;
+};
+
+/** Material de explicación (audio XOR video) activo de la inducción. */
+export type MaterialInduccion = {
+    tipo: 'audio' | 'video' | null;
+    audio_url: string | null;
+    video_disponible: boolean;
 };
 
 /** Asistente de una sesión de presentación de inducción. */

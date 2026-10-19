@@ -59,6 +59,7 @@ class FlujoDocumentalService
         private readonly NotificadorRhService $notificador,
         private readonly AuditoriaService $auditoria,
         private readonly DocumentoStorageService $expediente,
+        private readonly TestigoDocumentalService $testigos,
         private readonly ?Request $request = null,
     ) {}
 
@@ -142,7 +143,13 @@ class FlujoDocumentalService
     }
 
     /**
-     * @param  array{huella_registrada?: bool, testigos?: array<int, array{nombre: string, puesto?: string|null}>, observaciones?: string|null, fecha?: string|null}  $datos
+     * Testigos de la firma física: se eligen del buscador de personas activas
+     * del alcance (TestigoDocumentalService) y se CONGELAN como snapshot
+     * inmutable (colaborador_id, nombre, puesto, sucursal) del titular del
+     * acto; el titular del documento nunca es su propio testigo, no se
+     * admiten duplicados y solo un testigo externo se captura a mano.
+     *
+     * @param  array{huella_registrada?: bool, testigos?: list<array{colaborador_id?: int|string|null, nombre?: string|null, puesto?: string|null, cargo?: string|null, externo?: bool}>, observaciones?: string|null, fecha?: string|null}  $datos
      */
     public function registrarFirmaFisica(GeneratedDocument $documento, User $actor, array $datos = []): GeneratedDocument
     {
@@ -154,15 +161,19 @@ class FlujoDocumentalService
                 throw ValidationException::withMessages(['huella_registrada' => 'Este documento requiere huella: confirma que se recabó.']);
             }
 
-            if ($documento->requiere_testigos && count($datos['testigos'] ?? []) === 0) {
-                throw ValidationException::withMessages(['testigos' => 'Este documento requiere testigos: captura al menos uno.']);
+            $documento->loadMissing('colaborador');
+            $capturados = is_array($datos['testigos'] ?? null) ? $datos['testigos'] : [];
+            $testigos = $this->testigos->resolver($actor, $documento->colaborador, $capturados, max(1, count($capturados)));
+
+            if ($documento->requiere_testigos && $testigos === []) {
+                throw ValidationException::withMessages(['testigos' => 'Este documento requiere testigos: elige al menos uno del buscador.']);
             }
 
             $this->seguimiento($documento)->fill([
                 'firmado_fisico_en' => $this->fecha($datos['fecha'] ?? null),
                 'firma_fisica_registrada_por' => $actor->id,
                 'huella_registrada' => (bool) ($datos['huella_registrada'] ?? false),
-                'testigos' => $datos['testigos'] ?? null,
+                'testigos' => $testigos !== [] ? $testigos : null,
             ])->save();
 
             $documento->update(['status' => EstadoDocumentoGenerado::Firmado]);
@@ -179,7 +190,12 @@ class FlujoDocumentalService
     {
         return DB::transaction(function () use ($documento, $actor, $datos, $comprobante): GeneratedDocument {
             $documento = $this->bloquear($documento);
-            $this->exigirEstado($documento, [E::FirmadoFisicamente, E::Impreso], 'registrar el envío');
+            $this->exigirFlujoLegacyHabilitado($documento, 'registrar el envío a corporativo');
+            // El envío SOLO procede desde el original ya firmado físicamente:
+            // nunca desde «Impreso», para que un documento no salte a enviado
+            // sin pasar por registrarFirmaFisica() (firmaFisicaRegistrada()
+            // mentiría). Ver P1-8.
+            $this->exigirEstado($documento, [E::FirmadoFisicamente], 'registrar el envío');
 
             $seguimiento = $this->seguimiento($documento);
             $seguimiento->fill([
@@ -223,6 +239,7 @@ class FlujoDocumentalService
     {
         return DB::transaction(function () use ($documento, $actor, $observaciones, $fecha): GeneratedDocument {
             $documento = $this->bloquear($documento);
+            $this->exigirFlujoLegacyHabilitado($documento, 'registrar la recepción en corporativo');
             $this->exigirEstado($documento, [E::EnviadoCorporativo], 'registrar la recepción');
 
             $this->seguimiento($documento)->fill(['recibido_en' => $this->fecha($fecha), 'recibido_por' => $actor->id])->save();
@@ -243,6 +260,7 @@ class FlujoDocumentalService
     {
         return DB::transaction(function () use ($documento, $actor, $archivo, $observaciones): GeneratedDocument {
             $documento = $this->bloquear($documento);
+            $this->exigirFlujoLegacyHabilitado($documento, 'registrar el escaneo');
             $this->exigirEstado($documento, [E::RecibidoCorporativo, E::FirmadoFisicamente, E::Impreso], 'registrar el escaneo');
 
             $documento->loadMissing(['colaborador', 'plantilla.tipoDocumento']);
@@ -307,8 +325,8 @@ class FlujoDocumentalService
         return DB::transaction(function () use ($documento, $actor, $motivo): GeneratedDocument {
             $documento = $this->bloquear($documento);
 
-            if ($documento->estado_flujo?->esFinal()) {
-                throw ValidationException::withMessages(['documento' => 'Un documento archivado o cancelado ya no puede cancelarse.']);
+            if ($documento->estado_flujo?->estaConcluido()) {
+                throw ValidationException::withMessages(['documento' => 'Un documento ya firmado físicamente, archivado o cancelado no puede cancelarse: usa el proceso de anulación auditado para dejar sin efecto un original ya firmado.']);
             }
 
             $documento->update(['motivo_cancelacion' => $motivo]);
@@ -346,6 +364,30 @@ class FlujoDocumentalService
         $bloqueado = GeneratedDocument::query()->lockForUpdate()->findOrFail($documento->id);
 
         return $bloqueado;
+    }
+
+    /**
+     * Compuerta de COMPATIBILIDAD LEGACY (envío a corporativo / recepción /
+     * escaneo): el flujo nuevo concluye al registrar la firma física y ya no
+     * exige estos pasos. Se permiten SOLO para cerrar expedientes antiguos:
+     *  - cuando el documento ya venía dentro del tramo legacy
+     *    (EnviadoCorporativo/RecibidoCorporativo), para poder finalizarlo, o
+     *  - cuando se habilita explícitamente la bandera features.documentos_flujo_legacy.
+     * Para cualquier documento NUEVO (que concluye en FirmadoFisicamente) estos
+     * pasos quedan bloqueados, evitando que un original firmado "retroceda"
+     * al flujo anterior.
+     */
+    private function exigirFlujoLegacyHabilitado(GeneratedDocument $documento, string $accion): void
+    {
+        $legacyEnCurso = in_array($documento->estado_flujo, [E::EnviadoCorporativo, E::RecibidoCorporativo], true);
+
+        if ($legacyEnCurso || (bool) config('features.documentos_flujo_legacy', false)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'estado' => sprintf('No se puede %s: ese paso pertenece al flujo documental anterior (envío a corporativo, recepción y escaneo). El documento concluye al registrar su firma física; esos pasos solo se conservan para cerrar expedientes antiguos.', $accion),
+        ]);
     }
 
     /**

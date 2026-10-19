@@ -10,6 +10,7 @@ use App\Models\Sucursal;
 use App\Models\Vacante;
 use App\Services\Headcount\HeadcountService;
 use App\Services\Headcount\PuestosPlantillaService;
+use App\Support\FechaMexico;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -84,7 +85,7 @@ class VacanteAutoGenerationService
                     'puesto_id' => $puestoId,
                     'motivo' => MotivoVacante::Crecimiento->value,
                     'estado' => EstadoVacante::Abierta->value,
-                    'fecha_apertura' => now(),
+                    'fecha_apertura' => FechaMexico::hoy(),
                     'observaciones' => 'Generada automáticamente: plantilla autorizada por encima de la actual.',
                     'generada_automaticamente' => true,
                     'headcount_target_id' => $target?->id,
@@ -123,7 +124,7 @@ class VacanteAutoGenerationService
                     'plazas_requeridas' => 0,
                     'plazas_cubiertas' => $cubiertas,
                     'plazas_disponibles' => 0,
-                    'fecha_cierre' => now()->toDateString(),
+                    'fecha_cierre' => FechaMexico::hoy(),
                 ]);
 
                 return [...$resultado, 'accion' => 'cerrada', 'plazas_despues' => 0];
@@ -196,7 +197,7 @@ class VacanteAutoGenerationService
                 'motivo_cancelacion' => 'Unificada: ya hay otra vacante automática abierta para la misma plaza.',
                 'plazas_requeridas' => 0,
                 'plazas_disponibles' => 0,
-                'fecha_cierre' => now()->toDateString(),
+                'fecha_cierre' => FechaMexico::hoy(),
             ]);
         }
     }

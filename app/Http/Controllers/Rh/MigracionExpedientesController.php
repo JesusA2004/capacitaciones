@@ -55,11 +55,24 @@ class MigracionExpedientesController extends Controller
     public function analizar(Request $request): RedirectResponse
     {
         $this->exigir($request);
-        $request->validate(['archivo' => ['required', 'file', 'mimes:xlsx,xls', 'max:20480']]);
+        $request->validate([
+            'archivo' => ['required', 'file', 'mimes:xlsx,xls', 'max:20480'],
+            // Roster nominal OPCIONAL (puesto/departamento) para el formato por
+            // sucursales (SEMANA 41). En BASE_GENERAL se ignora.
+            'roster' => ['nullable', 'file', 'mimes:xlsx,xls', 'max:20480'],
+        ]);
         $archivo = $request->file('archivo');
         abort_unless($archivo instanceof UploadedFile, 422);
+        $roster = $request->file('roster');
+        $roster = $roster instanceof UploadedFile ? $roster : null;
 
-        $migracion = $this->migracion->analizar((string) $archivo->getRealPath(), $archivo->getClientOriginalName(), $request->user());
+        $migracion = $this->migracion->analizar(
+            (string) $archivo->getRealPath(),
+            $archivo->getClientOriginalName(),
+            $request->user(),
+            $roster !== null ? (string) $roster->getRealPath() : null,
+            $roster?->getClientOriginalName(),
+        );
 
         return redirect()->route('rh.expedientes.migracion.index', ['migracion' => $migracion->id])
             ->with('toast', ['type' => 'success', 'message' => 'Análisis listo: revisa el resumen y los conflictos antes de ejecutar. No se modificó nada.']);

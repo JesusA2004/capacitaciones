@@ -131,22 +131,6 @@ class SolicitudesService
             $datos['motivo'] = trim((string) ($datos['motivo'] ?? '')) !== '' ? $datos['motivo'] : $this->actualizacionDatos->motivoPorDefecto($datos['datos_propuestos'], $datos['datos_base'] ?? []);
         }
 
-        if ($tipo === TipoSolicitudInterna::Vacaciones) {
-            $saldo = $this->vacaciones->saldo($solicitante);
-
-            if (! $saldo['puede_solicitar']) {
-                throw ValidationException::withMessages([
-                    $campoDias => $saldo['motivo_no_disponible'] ?? 'Todavía no puedes solicitar vacaciones.',
-                ]);
-            }
-
-            if ((int) $datos['dias_solicitados'] > $saldo['dias_disponibles']) {
-                throw ValidationException::withMessages([
-                    $campoDias => sprintf('Pediste %d días y tienes %d disponibles.', (int) $datos['dias_solicitados'], $saldo['dias_disponibles']),
-                ]);
-            }
-        }
-
         $colaboradorObjetivo = null;
 
         if ($tipo === TipoSolicitudInterna::BajaColaborador) {
@@ -159,7 +143,35 @@ class SolicitudesService
             }
         }
 
-        $solicitud = DB::transaction(function () use ($solicitante, $datos, $colaboradorObjetivo): SolicitudInterna {
+        $solicitud = DB::transaction(function () use ($solicitante, $datos, $colaboradorObjetivo, $tipo, $campoDias): SolicitudInterna {
+            // Saldo de vacaciones: el chequeo y la creación viven en la MISMA
+            // transacción, con un lock sobre la fila del colaborador, para que
+            // dos solicitudes concurrentes del mismo colaborador (doble clic,
+            // dos dispositivos) se serialicen — la segunda ya ve los días «en
+            // solicitud» de la primera y nunca rebasa el saldo (P2-17). El
+            // lock se toma sobre `colaboradores` porque es la identidad real
+            // que suma el saldo (SolicitudesService + tabla legacy), aunque
+            // las solicitudes sigan ligadas por `user_id`.
+            if ($tipo === TipoSolicitudInterna::Vacaciones) {
+                if ($solicitante->colaborador_id !== null) {
+                    Colaborador::query()->whereKey($solicitante->colaborador_id)->lockForUpdate()->first();
+                }
+
+                $saldo = $this->vacaciones->saldo($solicitante);
+
+                if (! $saldo['puede_solicitar']) {
+                    throw ValidationException::withMessages([
+                        $campoDias => $saldo['motivo_no_disponible'] ?? 'Todavía no puedes solicitar vacaciones.',
+                    ]);
+                }
+
+                if ((int) $datos['dias_solicitados'] > $saldo['dias_disponibles']) {
+                    throw ValidationException::withMessages([
+                        $campoDias => sprintf('Pediste %d días y tienes %d disponibles.', (int) $datos['dias_solicitados'], $saldo['dias_disponibles']),
+                    ]);
+                }
+            }
+
             // El folio final se deriva del id autoincremental real de la
             // fila (asignado de forma atómica por la base de datos), nunca
             // de un max(id)+1 leído antes del insert: dos requests
@@ -412,6 +424,21 @@ class SolicitudesService
                         ->orWhere('motivo', 'like', "%{$busqueda}%");
                 });
             });
+    }
+
+    /**
+     * Acota una consulta de solicitudes al alcance de REVISIÓN del usuario
+     * (alcance del módulo «Solicitudes»), el MISMO que usan paraRevision()/
+     * el Portal web y `/rh/solicitudes` — para que la bandeja móvil de
+     * pendientes (RhPendientesService) devuelva exactamente el mismo conjunto
+     * que esas superficies y no dos recortes distintos por pantalla (P1-12).
+     *
+     * @param  Builder<SolicitudInterna>  $query
+     * @return Builder<SolicitudInterna>
+     */
+    public function limitarRevisionPorAlcance(Builder $query, User $revisor): Builder
+    {
+        return $this->limitarPorAlcance($query, $revisor);
     }
 
     /**

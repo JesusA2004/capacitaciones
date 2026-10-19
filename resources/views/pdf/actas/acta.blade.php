@@ -7,28 +7,30 @@
     previa y el final usan esta misma vista con los mismos datos.
     Solo tablas y bloques simples: Chrome y DomPDF lo imprimen igual.
 --}}
+@php($pal = config('pdf_identidad'))
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="utf-8">
     <title>{{ $d['titulo'] }} {{ $d['folio'] }}</title>
+    {{-- Identidad institucional PEOPLE: paleta única en config/pdf_identidad.php. --}}
     <style>
         @page {
             @if ($motor === 'browsershot') size: letter portrait; @endif
             margin: 16mm 18mm 20mm 18mm;
         }
         * { box-sizing: border-box; }
-        body { margin: 0; padding: 0; font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10.5pt; line-height: 1.45; color: #1f2933; }
+        body { margin: 0; padding: 0; font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10.5pt; line-height: 1.45; color: {{ $pal['texto'] }}; }
         table { width: 100%; border-collapse: collapse; }
         .encabezado td { vertical-align: middle; }
         .logo { height: 15mm; }
         .titulo { text-align: right; }
-        .titulo h1 { margin: 0; font-size: 15pt; letter-spacing: 1.5pt; color: #0d3e43; }
-        .titulo .folio { font-size: 9.5pt; color: #4b5563; margin-top: 1mm; }
-        .barra { height: 1.2mm; background: #b08d57; margin: 3mm 0 4mm; }
-        .datos td { padding: 1.2mm 2mm; border: 0.3mm solid #d8dee4; font-size: 9.5pt; vertical-align: top; }
-        .datos .etiqueta { width: 22%; background: #f3f5f2; color: #4b5563; font-weight: bold; }
-        h2 { font-size: 10pt; letter-spacing: 1pt; color: #0d3e43; border-bottom: 0.4mm solid #0d3e43; padding-bottom: 1mm; margin: 6mm 0 2mm; text-transform: uppercase; page-break-after: avoid; }
+        .titulo h1 { margin: 0; font-size: 15pt; letter-spacing: 1.5pt; color: {{ $pal['petroleo'] }}; }
+        .titulo .folio { font-size: 9.5pt; color: {{ $pal['texto_suave'] }}; margin-top: 1mm; }
+        .barra { height: 1.2mm; background: {{ $pal['dorado'] }}; margin: 3mm 0 4mm; }
+        .datos td { padding: 1.2mm 2mm; border: 0.3mm solid {{ $pal['borde_claro'] }}; font-size: 9.5pt; vertical-align: top; }
+        .datos .etiqueta { width: 22%; background: {{ $pal['salvia'] }}; color: {{ $pal['texto_suave'] }}; font-weight: bold; }
+        h2 { font-size: 10pt; letter-spacing: 1pt; color: {{ $pal['petroleo'] }}; border-bottom: 0.4mm solid {{ $pal['petroleo'] }}; padding-bottom: 1mm; margin: 6mm 0 2mm; text-transform: uppercase; page-break-after: avoid; }
         .texto { white-space: pre-line; text-align: justify; margin: 0; }
         .manifestacion { margin: 0 0 2mm; }
         .manifestacion strong { display: block; margin-bottom: 0.5mm; }

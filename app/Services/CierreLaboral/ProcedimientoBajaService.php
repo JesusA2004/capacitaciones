@@ -6,6 +6,7 @@ use App\Models\CierreLaboral;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\DocumentosLaborales\TestigoDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Tareas\NotificadorRhService;
@@ -49,13 +50,14 @@ class ProcedimientoBajaService
         private readonly NotificadorRhService $notificador,
         private readonly DocumentoProcesoService $documentos,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly TestigoDocumentalService $testigosDocumentales,
     ) {}
 
     /**
      * El colaborador se negó a firmar/recibir los documentos de la baja.
      * Habilita el Acta administrativa de negativa (rama del proceso).
      *
-     * @param  array{documentos?: list<string>, observaciones?: string|null, finiquito_a_disposicion?: bool, testigos?: list<array{nombre?: string|null, cargo?: string|null}>, participantes?: array<string, string|null>}  $datos
+     * @param  array{documentos?: list<string>, observaciones?: string|null, finiquito_a_disposicion?: bool, testigos?: list<array{colaborador_id?: int|string|null, nombre?: string|null, cargo?: string|null, externo?: bool}>, participantes?: array<string, string|null>}  $datos
      */
     public function registrarNegativa(CierreLaboral $cierre, array $datos, User $actor): CierreLaboral
     {
@@ -90,7 +92,7 @@ class ProcedimientoBajaService
             ]);
 
             if (isset($datos['testigos']) || isset($datos['participantes'])) {
-                $this->guardarTestigos($cierre, $datos['testigos'] ?? [], $datos['participantes'] ?? []);
+                $this->guardarTestigos($cierre, $datos['testigos'] ?? [], $datos['participantes'] ?? [], $actor);
             }
         });
 
@@ -118,7 +120,7 @@ class ProcedimientoBajaService
      * Testigos (nombre y cargo; la firma es física) y participantes del
      * acta (RH, jefe inmediato, lugar, hora).
      *
-     * @param  list<array{nombre?: string|null, cargo?: string|null}>  $testigos
+     * @param  list<array{colaborador_id?: int|string|null, nombre?: string|null, cargo?: string|null, externo?: bool}>  $testigos
      * @param  array<string, string|null>  $participantes
      */
     public function capturarTestigos(CierreLaboral $cierre, array $testigos, array $participantes, User $actor): CierreLaboral
@@ -129,7 +131,7 @@ class ProcedimientoBajaService
             throw ValidationException::withMessages(['cierre' => 'Primero registra la negativa del colaborador.']);
         }
 
-        $this->guardarTestigos($cierre, $testigos, $participantes);
+        $this->guardarTestigos($cierre, $testigos, $participantes, $actor);
         $this->auditoria->registrar('cierre_testigos_acta', $cierre, $actor, ['colaborador_id' => $cierre->colaborador_id, 'testigos' => count((array) $cierre->testigos)]);
 
         return $cierre->refresh();
@@ -225,27 +227,26 @@ class ProcedimientoBajaService
     }
 
     /**
-     * @param  list<array{nombre?: string|null, cargo?: string|null}>  $testigos
+     * Congela los testigos del acta de negativa como snapshot inmutable
+     * (colaborador_id, nombre, puesto/cargo y sucursal reales de PEOPLE), no
+     * el texto que mande el cliente: el testigo se elige del buscador de
+     * personas activas del alcance (TestigoDocumentalService), el afectado
+     * nunca es su propio testigo y no se admiten duplicados; solo un testigo
+     * externo se captura a mano. Se mantiene la llave `cargo` por
+     * compatibilidad con el formato del acta y los expedientes ya guardados.
+     *
+     * @param  list<array{colaborador_id?: int|string|null, nombre?: string|null, cargo?: string|null, externo?: bool}>  $testigos
      * @param  array<string, string|null>  $participantes
      */
-    private function guardarTestigos(CierreLaboral $cierre, array $testigos, array $participantes): void
+    private function guardarTestigos(CierreLaboral $cierre, array $testigos, array $participantes, User $actor): void
     {
-        $limpios = [];
-
-        foreach (array_slice($testigos, 0, 2) as $testigo) {
-            $nombre = trim((string) ($testigo['nombre'] ?? ''));
-            $cargo = trim((string) ($testigo['cargo'] ?? ''));
-
-            if ($nombre === '' && $cargo === '') {
-                continue;
-            }
-
-            if ($nombre === '' || $cargo === '') {
-                throw ValidationException::withMessages(['testigos' => 'Cada testigo necesita nombre y cargo.']);
-            }
-
-            $limpios[] = ['nombre' => $nombre, 'cargo' => $cargo];
-        }
+        $limpios = array_map(fn (array $t): array => [
+            'colaborador_id' => $t['colaborador_id'],
+            'nombre' => $t['nombre'],
+            'cargo' => $t['puesto'],
+            'sucursal' => $t['sucursal'],
+            'externo' => $t['externo'],
+        ], $this->testigosDocumentales->resolver($actor, $cierre->colaborador, $testigos, 2));
 
         $permitidos = ['rh_nombre', 'rh_cargo', 'jefe_nombre', 'jefe_cargo', 'lugar_acta', 'domicilio_acta', 'hora_acta'];
         $actuales = (array) ($cierre->negativa_participantes ?? []);

@@ -4,18 +4,19 @@ namespace App\Services\RhMobile;
 
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoSolicitudInterna;
-use App\Enums\EstadoSolicitudVacaciones;
 use App\Enums\EstadoUsuario;
+use App\Enums\TipoSolicitudInterna;
 use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
 use App\Models\SolicitudInterna;
-use App\Models\SolicitudVacaciones;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Incorporacion\IncorporacionService;
+use App\Services\Solicitudes\SolicitudesService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
 /**
@@ -39,6 +40,7 @@ class RhPendientesService
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly IncorporacionService $incorporacion,
+        private readonly SolicitudesService $solicitudes,
     ) {}
 
     /**
@@ -49,29 +51,25 @@ class RhPendientesService
     {
         $tipo = $filtros['tipo'] ?? 'todos';
         $items = [];
-        $conteos = ['solicitudes' => 0, 'vacaciones' => 0, 'documentos' => 0, 'incorporaciones' => 0];
 
-        if (in_array($tipo, ['todos', 'solicitud'], true) && $usuario->can('rh.solicitudes.ver')) {
-            $solicitudes = $this->solicitudes($usuario, $filtros);
-            $conteos['solicitudes'] = $solicitudes->count();
+        // Solicitudes y vacaciones son el MISMO recurso (solicitudes_internas):
+        // las vacaciones son un `tipo` del motor unificado, no una tabla
+        // aparte. Se gobiernan con la MISMA SolicitudInternaPolicy + alcance de
+        // módulo que /rh/solicitudes y el Portal web (P1-12), nunca con un gate
+        // o alcance distinto por pantalla. La baja de colaborador se excluye:
+        // se gestiona en el Cierre laboral, no se aprueba/rechaza aquí (P1-9).
+        if (in_array($tipo, ['todos', 'solicitud', 'vacaciones'], true) && Gate::forUser($usuario)->allows('viewAny', SolicitudInterna::class)) {
+            $solicitudes = $this->solicitudes($usuario, $filtros, soloVacaciones: $tipo === 'vacaciones', sinVacaciones: $tipo === 'solicitud');
             $items = array_merge($items, $solicitudes->all());
-        }
-
-        if (in_array($tipo, ['todos', 'vacaciones'], true) && $usuario->can('rh.vacaciones.ver')) {
-            $vacaciones = $this->vacaciones($usuario, $filtros);
-            $conteos['vacaciones'] = $vacaciones->count();
-            $items = array_merge($items, $vacaciones->all());
         }
 
         if (in_array($tipo, ['todos', 'documento'], true) && $usuario->can('rh.documentos.ver')) {
             $documentos = $this->documentos($usuario, $filtros);
-            $conteos['documentos'] = $documentos->count();
             $items = array_merge($items, $documentos->all());
         }
 
         if (in_array($tipo, ['todos', 'incorporacion'], true) && $usuario->can('rh.incorporaciones.ver')) {
             $incorporaciones = $this->incorporaciones($usuario, $filtros);
-            $conteos['incorporaciones'] = $incorporaciones->count();
             $items = array_merge($items, $incorporaciones->all());
         }
 
@@ -93,8 +91,21 @@ class RhPendientesService
      */
     public function resumenConteos(User $usuario): array
     {
-        $solicitudes = $usuario->can('rh.solicitudes.ver') ? $this->solicitudes($usuario, [])->count() : 0;
-        $vacaciones = $usuario->can('rh.vacaciones.ver') ? $this->vacaciones($usuario, [])->count() : 0;
+        $vacaciones = 0;
+        $solicitudes = 0;
+
+        if (Gate::forUser($usuario)->allows('viewAny', SolicitudInterna::class)) {
+            // Conteo directo en SQL (sin materializar), mismo alcance de módulo
+            // que la bandeja y /rh/solicitudes. Las vacaciones son un subtipo
+            // de solicitud, así que la baldosa «vacaciones» es un subconjunto
+            // de las solicitudes abiertas — nunca se cuentan dos veces en el
+            // total (P1-11: antes leía la tabla legacy y daba 0).
+            $base = $this->solicitudes->limitarRevisionPorAlcance($this->queryBasePendientes(), $usuario);
+
+            $vacaciones = (clone $base)->where('tipo', TipoSolicitudInterna::Vacaciones->value)->count();
+            $solicitudes = $base->count() - $vacaciones;
+        }
+
         $documentos = $usuario->can('rh.documentos.ver') ? $this->documentos($usuario, [])->count() : 0;
         $incorporaciones = $usuario->can('rh.incorporaciones.ver') ? $this->incorporaciones($usuario, [])->count() : 0;
 
@@ -108,13 +119,34 @@ class RhPendientesService
     }
 
     /**
+     * Base común de «pendientes de revisión» del motor unificado: estados
+     * abiertos (Recibida / Pendiente de autorizar), sin la baja de colaborador
+     * (vive en el Cierre laboral, P1-9). El alcance de módulo se aplica aparte
+     * con SolicitudesService::limitarRevisionPorAlcance().
+     *
+     * @return Builder<SolicitudInterna>
+     */
+    private function queryBasePendientes(): Builder
+    {
+        return SolicitudInterna::query()
+            ->whereIn('estado', [EstadoSolicitudInterna::Enviada->value, EstadoSolicitudInterna::EnRevision->value])
+            ->where('tipo', '!=', TipoSolicitudInterna::BajaColaborador->value);
+    }
+
+    /**
+     * Solicitudes internas abiertas dentro del alcance de revisión del usuario.
+     * Las vacaciones son un `tipo` de solicitud, no una tabla aparte: la app
+     * las abre y aprueba por el MISMO flujo unificado (`/rh/solicitudes/*`),
+     * por eso el item siempre viaja como `tipo: 'solicitud'` (titulado según su
+     * tipo real, p. ej. «Vacaciones»). `$soloVacaciones`/`$sinVacaciones`
+     * recortan la sub-pestaña que pidió la app sin cambiar ese contrato.
+     *
      * @param  array<string, mixed>  $filtros
      * @return Collection<int, array<string, mixed>>
      */
-    private function solicitudes(User $usuario, array $filtros): Collection
+    private function solicitudes(User $usuario, array $filtros, bool $soloVacaciones = false, bool $sinVacaciones = false): Collection
     {
-        $query = SolicitudInterna::query()
-            ->whereIn('estado', [EstadoSolicitudInterna::Enviada->value, EstadoSolicitudInterna::EnRevision->value])
+        $query = $this->queryBasePendientes()
             ->with([
                 'colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id',
                 'colaborador.sucursalPrincipal:id,nombre',
@@ -124,7 +156,15 @@ class RhPendientesService
                 'usuario.colaborador.puesto:id,nombre',
             ]);
 
-        $query = $this->limitarPorAlcanceViaUsuario($query, $usuario, 'user_id');
+        if ($soloVacaciones) {
+            $query->where('tipo', TipoSolicitudInterna::Vacaciones->value);
+        }
+
+        if ($sinVacaciones) {
+            $query->where('tipo', '!=', TipoSolicitudInterna::Vacaciones->value);
+        }
+
+        $query = $this->solicitudes->limitarRevisionPorAlcance($query, $usuario);
         $query = $this->aplicarFiltrosComunes($query, $filtros, 'usuario');
 
         if ($busqueda = $filtros['q'] ?? null) {
@@ -139,43 +179,9 @@ class RhPendientesService
                 'prioridad' => 'normal',
                 'titulo' => $s->tipo->etiqueta(),
                 'colaborador' => $this->colaboradorResumen($s->personaSolicitante()),
-                'resumen' => Str::limit($s->motivo, 120),
+                'resumen' => Str::limit((string) $s->motivo, 120),
                 'creado_en' => $s->created_at?->toIso8601String(),
                 'acciones_permitidas' => $this->accionesRapidasSolicitud($usuario),
-            ]));
-    }
-
-    /**
-     * @param  array<string, mixed>  $filtros
-     * @return Collection<int, array<string, mixed>>
-     */
-    private function vacaciones(User $usuario, array $filtros): Collection
-    {
-        $query = SolicitudVacaciones::query()
-            ->where('estado', EstadoSolicitudVacaciones::Pendiente->value)
-            ->with([
-                'colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id',
-                'colaborador.sucursalPrincipal:id,nombre',
-                'colaborador.puesto:id,nombre',
-                'usuario.colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id',
-                'usuario.colaborador.sucursalPrincipal:id,nombre',
-                'usuario.colaborador.puesto:id,nombre',
-            ]);
-
-        $query = $this->limitarPorAlcanceViaUsuario($query, $usuario, 'user_id');
-        $query = $this->aplicarFiltrosComunes($query, $filtros, 'usuario');
-
-        return $query->orderByDesc('created_at')->limit(self::LIMITE_POR_TIPO)->get()
-            ->map(fn (SolicitudVacaciones $v) => $this->item([
-                'id' => "vacaciones:{$v->id}",
-                'tipo' => 'vacaciones',
-                'resource_id' => $v->id,
-                'prioridad' => 'normal',
-                'titulo' => 'Solicitud de vacaciones',
-                'colaborador' => $this->colaboradorResumen($v->personaSolicitante()),
-                'resumen' => "Del {$v->fecha_inicio->toDateString()} al {$v->fecha_fin->toDateString()} ({$v->dias_solicitados} días)",
-                'creado_en' => $v->created_at?->toIso8601String(),
-                'acciones_permitidas' => $this->accionesRapidasVacacion($usuario),
             ]));
     }
 
@@ -186,7 +192,7 @@ class RhPendientesService
     private function documentos(User $usuario, array $filtros): Collection
     {
         $query = EmployeeDocument::query()
-            ->whereIn('status', [EstadoDocumento::Cargado->value, EstadoDocumento::EnRevision->value, EstadoDocumento::CambioSolicitado->value])
+            ->whereIn('status', EstadoDocumento::porRevisarValues())
             ->with(['colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id', 'colaborador.sucursalPrincipal:id,nombre', 'colaborador.puesto:id,nombre', 'tipo:id,nombre']);
 
         $query = $this->limitarPorAlcanceViaColaborador($query, $usuario, 'colaborador_id');
@@ -252,23 +258,6 @@ class RhPendientesService
     private function item(array $item): array
     {
         return $item;
-    }
-
-    /**
-     * @template TModel of \Illuminate\Database\Eloquent\Model
-     *
-     * @param  Builder<TModel>  $query
-     * @return Builder<TModel>
-     */
-    private function limitarPorAlcanceViaUsuario($query, User $usuario, string $columnaUserId)
-    {
-        if ($this->alcance->tieneAlcanceGlobal($usuario)) {
-            return $query;
-        }
-
-        $idsVisibles = $this->alcance->limitarUsuariosPorAlcance(User::query(), $usuario)->pluck('id');
-
-        return $query->whereIn($columnaUserId, $idsVisibles);
     }
 
     /**
@@ -346,18 +335,6 @@ class RhPendientesService
             'ver',
             $usuario->can('rh.solicitudes.aprobar') ? 'aprobar' : null,
             $usuario->can('rh.solicitudes.rechazar') ? 'rechazar' : null,
-        ]));
-    }
-
-    /**
-     * @return array<int, string>
-     */
-    private function accionesRapidasVacacion(User $usuario): array
-    {
-        return array_values(array_filter([
-            'ver',
-            $usuario->can('rh.vacaciones.aprobar') ? 'aprobar' : null,
-            $usuario->can('rh.vacaciones.rechazar') ? 'rechazar' : null,
         ]));
     }
 

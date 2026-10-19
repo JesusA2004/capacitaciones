@@ -18,11 +18,14 @@ use App\Services\Colaboradores\AvisoAltaBajaService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Reclutamiento\CvStorageService;
+use App\Support\FechaMexico;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use RuntimeException;
+use Throwable;
 
 /**
  * Convierte un alta digital aprobada en un colaborador real: crea el
@@ -103,10 +106,11 @@ class ConversionColaboradorService
                 $extension = pathinfo($alta->foto_original_name ?? 'foto.jpg', PATHINFO_EXTENSION);
                 $rutaDestino = $this->documentoStorage->rutaFoto($colaborador, $extension);
 
-                $this->documentoStorage->disco()->put(
-                    $rutaDestino,
-                    $this->altaStorage->disco()->get($alta->foto_path),
-                );
+                // Copia verificada (SHA-256) del alta al expediente: si el NAS
+                // no confirma la escritura, copiarDesdeDisco() lanza y toda la
+                // conversión se revierte — nunca se deja foto_path apuntando a
+                // un archivo inexistente (CLAUDE.md: confirmar antes de persistir).
+                $this->documentoStorage->copiarDesdeDisco($this->altaStorage->disco(), $alta->foto_path, $rutaDestino);
 
                 $colaborador->update(['foto_path' => $rutaDestino]);
             }
@@ -116,10 +120,10 @@ class ConversionColaboradorService
                 $extension = pathinfo($documentoAlta->original_name, PATHINFO_EXTENSION);
                 $rutaDestino = $this->documentoStorage->rutaDocumento($colaborador, $tipoDocumento, 1, $extension);
 
-                $this->documentoStorage->disco()->put(
-                    $rutaDestino,
-                    $this->altaStorage->disco()->get($documentoAlta->path),
-                );
+                // Copia verificada antes de registrar la fila: si la escritura
+                // al NAS no se confirma, lanza y revierte (nunca un
+                // EmployeeDocument que apunte a un archivo que no se guardó).
+                $copia = $this->documentoStorage->copiarDesdeDisco($this->altaStorage->disco(), $documentoAlta->path, $rutaDestino);
 
                 EmployeeDocument::create([
                     'colaborador_id' => $colaborador->id,
@@ -134,7 +138,7 @@ class ConversionColaboradorService
                     'mime' => $documentoAlta->mime,
                     'extension' => $extension !== '' ? $extension : null,
                     'size' => $documentoAlta->size,
-                    'hash' => $this->documentoStorage->hashSha256($rutaDestino),
+                    'hash' => $copia['hash'],
                     'version' => 1,
                     'status' => EstadoDocumento::Cargado,
                     'uploaded_by' => $aprobadoPor->id,
@@ -173,16 +177,11 @@ class ConversionColaboradorService
                     'estado' => EstadoVacante::Cubierta,
                     'candidato_contratado_id' => $alta->candidato_id,
                     'colaborador_contratado_id' => $colaborador->id,
-                    'fecha_cierre' => now()->toDateString(),
+                    'fecha_cierre' => FechaMexico::hoy(),
                 ]);
             }
 
             $this->movimientos->registrarAlta($colaborador, $aprobadoPor, $alta, $alta->vacante_id);
-
-            // Sin correo no hay enlace: RH entrega el acceso con «Generar credenciales».
-            if ($usuario->email !== null) {
-                Password::broker()->sendResetLink(['email' => $usuario->email]);
-            }
 
             return $usuario;
         });
@@ -190,6 +189,22 @@ class ConversionColaboradorService
         // ALTA → RH + Sistemas, ya fuera de la transacción.
         if ($usuario->colaborador !== null) {
             $this->avisoAltaBaja->alta($usuario->colaborador);
+        }
+
+        // Enlace de acceso FUERA de la transacción y envuelto en try/catch:
+        // un fallo de SMTP (o del broker) nunca debe revertir el colaborador,
+        // su usuario ni sus documentos ya creados (mismo patrón que
+        // AltaColaboradorService::registrar). Sin correo no hay enlace: RH
+        // entrega el acceso con «Generar credenciales».
+        if ($usuario->email !== null) {
+            try {
+                Password::broker()->sendResetLink(['email' => $usuario->email]);
+            } catch (Throwable $e) {
+                Log::warning('ConversionColaboradorService: no se pudo enviar el correo de acceso.', [
+                    'user_id' => $usuario->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         return $usuario;
@@ -207,10 +222,9 @@ class ConversionColaboradorService
         $extension = pathinfo($nombreOriginal, PATHINFO_EXTENSION);
         $rutaDestino = $this->documentoStorage->rutaDocumento($colaborador, $tipoCv, 1, $extension);
 
-        $this->documentoStorage->disco()->put(
-            $rutaDestino,
-            $this->cvStorage->disco()->get($alta->candidato->cv_path),
-        );
+        // Copia verificada del CV del candidato al expediente (lanza y
+        // revierte si el NAS no confirma la escritura).
+        $copia = $this->documentoStorage->copiarDesdeDisco($this->cvStorage->disco(), $alta->candidato->cv_path, $rutaDestino);
 
         EmployeeDocument::create([
             'colaborador_id' => $colaborador->id,
@@ -225,7 +239,7 @@ class ConversionColaboradorService
             'mime' => $alta->candidato->cv_mime,
             'extension' => $extension !== '' ? $extension : null,
             'size' => $alta->candidato->cv_size,
-            'hash' => $this->documentoStorage->hashSha256($rutaDestino),
+            'hash' => $copia['hash'],
             'version' => 1,
             'status' => EstadoDocumento::Cargado,
             'uploaded_by' => $aprobadoPor->id,

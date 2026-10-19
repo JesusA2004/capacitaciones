@@ -7,9 +7,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * Un mes de rotación de una sucursal según el Excel de RH (no se calcula
- * de los movimientos del sistema: para eso está el KPI en vivo de
- * App\Services\Reportes\MetricasRhDashboardService::rotacion()).
+ * Un mes de rotación de una sucursal según el Excel de RH: la fuente
+ * canónica del índice de rotación, que consultan
+ * App\Services\Rotacion\RotacionConsultaService y el tablero de RH
+ * (App\Services\Reportes\TableroRhService).
  *
  * @property int $id
  * @property int $sucursal_id

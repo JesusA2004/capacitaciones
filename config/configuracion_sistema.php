@@ -150,6 +150,13 @@ return [
             'destinatarios' => ['rh'],
             'fallback' => ['gerencia_rh'],
         ],
+        'expediente_completo' => [
+            'etiqueta' => 'Expediente completo (generar paquete de contratación)',
+            'descripcion' => 'El expediente del colaborador quedó completo: RH genera el paquete de contratación de su puesto desde su ficha. Solo quien puede generar documentos y tiene a la persona dentro de su alcance; nunca toda la plantilla.',
+            'destinatarios' => ['usuarios_con_permiso'],
+            'permiso' => 'documentos_laborales.generar',
+            'fallback' => ['rh'],
+        ],
         'contratos_listos' => [
             'etiqueta' => 'Contratos listos para imprimir',
             'descripcion' => 'Expediente completo: hay que imprimir, recabar firma/huella y enviar el original.',
@@ -244,6 +251,13 @@ return [
             'descripcion' => 'El jefe directo o RH inició la baja (sin preautorización); RH la autoriza.',
             'destinatarios' => ['rh'],
             'fallback' => ['gerencia_rh'],
+        ],
+        'cierre_negativa_firma' => [
+            'etiqueta' => 'El colaborador se negó a firmar/recibir la baja',
+            'descripcion' => 'Se registró que el colaborador se negó a firmar/recibir los documentos de su baja: RH debe generar el acta de negativa con dos testigos. Solo RH que puede gestionar el cierre y tiene a la persona dentro de su alcance.',
+            'destinatarios' => ['usuarios_con_permiso'],
+            'permiso' => 'cierres.gestionar',
+            'fallback' => ['rh'],
         ],
         'pago_por_programar' => [
             'etiqueta' => 'Pago de finiquito por programar',

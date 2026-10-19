@@ -237,7 +237,7 @@ class SesionInduccionService
             }
 
             $previa = EvaluacionInduccion::query()->where('onboarding_proceso_id', $proceso->id)->first();
-            $evaluacion = $this->evaluaciones->habilitarPara($proceso, $sesion);
+            $evaluacion = $this->evaluaciones->habilitarPara($proceso);
 
             $resultadoAsistente = match (true) {
                 $evaluacion === null => ResultadoAsistenciaInduccion::SinProcesoIngreso,
@@ -250,7 +250,7 @@ class SesionInduccionService
             $usuario = $asistente->colaborador->user;
 
             if ($previa !== null && $evaluacion !== null && $evaluacion->estado->permitePresentar() && $usuario !== null) {
-                $this->evaluaciones->notificarDisponible($usuario, $evaluacion, true);
+                $this->evaluaciones->notificarDisponible($usuario, $evaluacion);
             }
 
             $asistente->update([

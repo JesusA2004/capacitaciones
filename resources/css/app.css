@@ -198,6 +198,77 @@
     }
 }
 
+/*
+ * Plegado de grupos del sidebar (NavMain.vue): animación corta sobre la
+ * altura que expone reka-ui en --reka-collapsible-content-height.
+ */
+@keyframes colapsable-abrir {
+    from {
+        height: 0;
+        opacity: 0;
+    }
+    to {
+        height: var(--reka-collapsible-content-height);
+        opacity: 1;
+    }
+}
+
+@keyframes colapsable-cerrar {
+    from {
+        height: var(--reka-collapsible-content-height);
+        opacity: 1;
+    }
+    to {
+        height: 0;
+        opacity: 0;
+    }
+}
+
+@utility animate-colapsable-abrir {
+    animation: colapsable-abrir 180ms ease-out;
+
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+    }
+}
+
+@utility animate-colapsable-cerrar {
+    animation: colapsable-cerrar 160ms ease-in;
+
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+    }
+}
+
+/*
+ * Contenedor de tabla con scroll horizontal LOCAL (nunca scroll global de
+ * la página). Envuelve cualquier <table> ancha: el desbordamiento queda
+ * dentro de la tarjeta/sección, no en el <body>. Reemplaza los
+ * `overflow-x-auto` sueltos repartidos por las páginas.
+ */
+@utility tabla-scroll {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+/*
+ * Rejilla responsiva automática: el navegador decide cuántas columnas caben
+ * según un ancho mínimo por tarjeta, evitando el anti-patrón de «4 columnas
+ * fijas que se amontonan a media pantalla». El ancho mínimo por defecto es
+ * 16rem; se ajusta con --rejilla-min (p. ej. style="--rejilla-min: 20rem").
+ */
+@utility rejilla-auto {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(
+        auto-fill,
+        minmax(min(var(--rejilla-min, 16rem), 100%), 1fr)
+    );
+}
+
 @utility pagina-media {
     width: 100%;
     min-width: 0;

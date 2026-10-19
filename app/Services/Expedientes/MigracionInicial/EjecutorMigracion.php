@@ -72,7 +72,7 @@ class EjecutorMigracion
         $plan = $migracion->planArray();
         $decisiones = $migracion->decisiones ?? [];
         $this->manifiesto = [];
-        $this->conteo = array_fill_keys(['creados', 'actualizados', 'sin_cambios', 'conflictos', 'omitidos', 'pdfs_registrados', 'pdfs_copiados', 'pdfs_duplicados', 'pdfs_conflicto', 'historicos_creados', 'pendientes_vincular', 'sin_match', 'revision_pendiente', 'cuentas_creadas', 'cuentas_existentes', 'cuentas_reactivadas', 'errores'], 0);
+        $this->conteo = array_fill_keys(['creados', 'actualizados', 'sin_cambios', 'conflictos', 'omitidos', 'revision_estructural', 'pdfs_registrados', 'pdfs_copiados', 'pdfs_duplicados', 'pdfs_conflicto', 'historicos_creados', 'pendientes_vincular', 'sin_match', 'revision_pendiente', 'cuentas_creadas', 'cuentas_existentes', 'cuentas_reactivadas', 'errores'], 0);
         $this->procesados = [];
         $this->reactivados = [];
         $migracion->update(['estado' => 'aplicando', 'etapa' => 'Colaboradores y expedientes', 'modo' => $modo, 'iniciada_en' => now(), 'progreso' => 0, 'progreso_total' => count($plan['filas'] ?? []) + count($plan['carpetas_sin_persona'] ?? []), 'error' => null]);
@@ -87,8 +87,14 @@ class EjecutorMigracion
         foreach ($plan['filas'] ?? [] as $fila) {
             $this->paso($migracion);
 
-            if (in_array($fila['operacion'], ['conflicto', 'omitir'], true)) {
-                $this->conteo[$fila['operacion'] === 'conflicto' ? 'conflictos' : 'omitidos']++;
+            // «en_revision» (falta puesto/departamento del roster) es terminal
+            // como «conflicto»/«omitir»: nunca se aplica a medias.
+            if (in_array($fila['operacion'], ['conflicto', 'omitir', 'en_revision'], true)) {
+                $this->conteo[match ($fila['operacion']) {
+                    'conflicto' => 'conflictos',
+                    'en_revision' => 'revision_estructural',
+                    default => 'omitidos',
+                }]++;
 
                 continue;
             }

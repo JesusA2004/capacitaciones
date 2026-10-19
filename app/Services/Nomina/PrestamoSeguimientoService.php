@@ -2,11 +2,11 @@
 
 namespace App\Services\Nomina;
 
-use App\Enums\EstadoFlujoDocumento;
 use App\Enums\EstadoSolicitudInterna;
 use App\Models\GeneratedDocument;
 use App\Models\SolicitudAprobacion;
 use App\Models\SolicitudInterna;
+use App\Services\DocumentosLaborales\FirmaDocumentalService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
 
 /**
@@ -19,15 +19,6 @@ use App\Services\Solicitudes\AprobacionJerarquicaService;
  */
 class PrestamoSeguimientoService
 {
-    private const FIRMADOS = [
-        EstadoFlujoDocumento::FirmadoDigitalmente,
-        EstadoFlujoDocumento::FirmadoFisicamente,
-        EstadoFlujoDocumento::EnviadoCorporativo,
-        EstadoFlujoDocumento::RecibidoCorporativo,
-        EstadoFlujoDocumento::Escaneado,
-        EstadoFlujoDocumento::Archivado,
-    ];
-
     public function __construct(private readonly AprobacionJerarquicaService $aprobaciones) {}
 
     /**
@@ -102,8 +93,14 @@ class PrestamoSeguimientoService
         ];
     }
 
+    /**
+     * La etapa «Firma de contrato y pagaré» del seguimiento del colaborador
+     * se da por cumplida con el MISMO criterio que el resguardo: el documento
+     * concluido según su flujo (firma física cuando la plantilla la pide; no
+     * basta que esté impreso). Centralizado en FirmaDocumentalService. Ver P2-3.
+     */
     private function firmado(?GeneratedDocument $documento): bool
     {
-        return $documento !== null && in_array($documento->estado_flujo, self::FIRMADOS, true);
+        return app(FirmaDocumentalService::class)->documentoConcluidoSegunFlujo($documento);
     }
 }

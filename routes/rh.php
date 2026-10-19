@@ -6,6 +6,7 @@ use App\Http\Controllers\Rh\CambioFotoController;
 use App\Http\Controllers\Rh\CampanaReclutamientoController;
 use App\Http\Controllers\Rh\CandidatoController;
 use App\Http\Controllers\Rh\CelebracionRhController;
+use App\Http\Controllers\Rh\ContratacionController;
 use App\Http\Controllers\Rh\CredencialesController;
 use App\Http\Controllers\Rh\CumpleanosConfiguracionController;
 use App\Http\Controllers\Rh\CumpleanosController;
@@ -194,6 +195,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::post('reprocesar', [DocumentExtraccionController::class, 'reprocesar'])->name('reprocesar');
             });
         });
+
+        // Bandejas-lista de la Etapa 2 (contratación y expediente). Agrupan en
+        // una sola vista lo que antes solo existía por-persona o embebido:
+        //  - contratacion: personas en contratación (absorbe Altas digitales).
+        //  - validacion-documentos: documentos de expediente por revisar
+        //    (misma consulta que la bandeja móvil; las acciones reutilizan
+        //    rh.documentos.aprobar/rechazar/solicitar-correccion).
+        //  - contratos-ingreso: contratos y documentos laborales iniciales
+        //    por persona (solo lectura; la generación vive por-persona).
+        // Toda la lógica está en App\Services\CicloLaboral\ContratacionListaService.
+        Route::get('contratacion', [ContratacionController::class, 'index'])->name('contratacion.index');
+        Route::get('validacion-documentos', [ContratacionController::class, 'validacionDocumentos'])->name('validacion-documentos.index');
+        Route::get('contratos-ingreso', [ContratacionController::class, 'contratosIngreso'])->name('contratos-ingreso.index');
 
         // Invitaciones de incorporacion por QR temporal: unica puerta de
         // entrada para que un colaborador pueda registrarse en la app (ver

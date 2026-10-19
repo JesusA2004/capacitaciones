@@ -50,6 +50,16 @@ return [
         'disco_origen' => env('EXPEDIENTES_LEGACY_DISK', 'nas_legacy'),
         'ruta_origen' => env('EXPEDIENTES_LEGACY_RUTA', 'RH/Martha/EXPEDIENTES DIGITALES'),
         'hoja' => 'BASE_GENERAL',
+
+        // Formato NUEVO por sucursales («BASE DE DATOS MR. LANA PEOPLE
+        // SEMANA 41»): hojas que el adaptador LectorBaseSemana41 concatena.
+        // La detección de formato (FabricaLectorMigracion) elige este lector
+        // cuando el .xlsx trae cualquiera de estas hojas y no la BASE_GENERAL.
+        'hojas_semana41' => [
+            'sucursales' => 'Sucursales',
+            'corporativo' => 'Corporativo',
+        ],
+
         'empresa' => env('EXPEDIENTES_MIGRACION_EMPRESA', 'Mr. Lana'),
 
         // WHITELIST: las únicas sucursales que existen (11 operativas +

@@ -25,7 +25,7 @@
     $mm = fn ($v) => sprintf('%.2fmm', (float) $v);
     $pt = fn ($v) => sprintf('%.2fpt', (float) $v);
     $borde = (float) $tb['border_width_px'] > 0 ? sprintf('%.2fpx solid %s', (float) $tb['border_width_px'], $tb['border_color']) : 'none';
-    $suave = $c['fondo_suave'] ?? '#f3f6fa';
+    $suave = $c['fondo_suave'] ?? config('pdf_identidad.fondo_suave');
     $empresa = is_array($d['empresa'] ?? null) ? $d['empresa'] : [];
     $caja = is_array($d['caja'] ?? null) ? $d['caja'] : [];
 @endphp

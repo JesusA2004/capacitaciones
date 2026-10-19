@@ -7,6 +7,7 @@ use App\Models\Colaborador;
 use App\Models\HistorialSalario;
 use App\Models\MovimientoLaboral;
 use App\Models\User;
+use App\Support\FechaMexico;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -152,7 +153,8 @@ class CompensacionService
                 'salario_diario_nuevo' => $nuevoDiario,
                 'salario_diario_integrado_anterior' => $integradoAnterior,
                 'salario_diario_integrado_nuevo' => $nuevoIntegrado,
-                'fecha_efectiva' => $meta['fecha_efectiva'] ?? now()->toDateString(),
+                // Vigencia del salario: día calendario de México, no UTC (P1-28).
+                'fecha_efectiva' => $meta['fecha_efectiva'] ?? FechaMexico::hoy(),
                 'fuente' => $meta['fuente'],
                 'importacion_id' => $meta['importacion_id'] ?? null,
                 'actor_id' => $actor->id,

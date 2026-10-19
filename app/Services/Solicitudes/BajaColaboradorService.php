@@ -10,6 +10,7 @@ use App\Services\Administracion\AccesoCuentaService;
 use App\Services\Colaboradores\AvisoAltaBajaService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Vacantes\VacanteAutoGenerationService;
+use App\Support\FechaMexico;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -52,7 +53,7 @@ class BajaColaboradorService
             $colaborador->update([
                 'estatus' => EstadoUsuario::Inactivo,
                 'estado_alta' => EstadoAltaColaborador::Baja,
-                'fecha_baja' => $colaborador->fecha_baja ?? now()->toDateString(),
+                'fecha_baja' => $colaborador->fecha_baja ?? FechaMexico::hoy(),
             ]);
 
             // Soft-delete (SoftDeletes en App\Models\Colaborador): lo que

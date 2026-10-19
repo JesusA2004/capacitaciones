@@ -26,6 +26,7 @@ use App\Services\Formatos\GeneradorFormatoService;
 use App\Services\Plantillas\PlaceholderResolver;
 use App\Services\Solicitudes\SolicitudDocumentoStorageService;
 use App\Services\Vacaciones\VacacionesService;
+use App\Support\FechaMexico;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -837,7 +838,9 @@ class FiniquitoService
     private function calcularAutomaticos(SolicitudInterna $solicitud, Colaborador $colaborador, float $sueldoMensual, float $sueldoPendiente = 0): array
     {
         $fechaIngreso = Carbon::parse($colaborador->fecha_ingreso);
-        $fechaBaja = $solicitud->fecha_efectiva !== null ? Carbon::parse($solicitud->fecha_efectiva) : Carbon::now();
+        // Sin fecha efectiva capturada, la baja se toma al día calendario de
+        // México (no UTC, que de noche ya cuenta el día siguiente). P1-28.
+        $fechaBaja = $solicitud->fecha_efectiva !== null ? Carbon::parse($solicitud->fecha_efectiva) : FechaMexico::inicioDeHoy();
 
         if ($fechaBaja->lt($fechaIngreso)) {
             throw ValidationException::withMessages(['fecha_baja' => 'La fecha de baja no puede ser anterior a la fecha de ingreso.']);

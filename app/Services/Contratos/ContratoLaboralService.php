@@ -14,9 +14,11 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Compensacion\CompensacionService;
+use App\Services\DocumentosLaborales\FirmaDocumentalService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Tareas\TareaService;
+use App\Support\FechaMexico;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -241,21 +243,8 @@ class ContratoLaboralService
      */
     public function documentoFirmadoSegunFlujo(GeneratedDocument $documento): bool
     {
-        $estado = $documento->estado_flujo;
-
-        if ($estado === null) {
-            return false;
-        }
-
-        if ($documento->requiere_firma_fisica || $documento->requiere_impresion) {
-            return $estado->firmaFisicaRegistrada();
-        }
-
-        if ($documento->requiere_firma_digital) {
-            return $estado->estaFirmado();
-        }
-
-        return true;
+        // Criterio ÚNICO compartido con préstamos, actas y notificaciones.
+        return app(FirmaDocumentalService::class)->documentoConcluidoSegunFlujo($documento);
     }
 
     /**
@@ -349,7 +338,7 @@ class ContratoLaboralService
             }
 
             $anterior->update(['estado' => EstadoContratoLaboral::Renovado]);
-            $inicio = $anterior->fecha_fin !== null ? $anterior->fecha_fin->copy()->addDay() : now()->startOfDay();
+            $inicio = $anterior->fecha_fin !== null ? $anterior->fecha_fin->copy()->addDay() : FechaMexico::inicioDeHoy();
 
             return $this->crearContrato($anterior->colaborador, TipoContratacion::Indeterminado, $inicio, null, $actor, $anterior);
         });
@@ -404,7 +393,7 @@ class ContratoLaboralService
         return $this->queryVisibles($usuario)
             ->where('estado', EstadoContratoLaboral::Vigente->value)
             ->whereNotNull('fecha_fin')
-            ->whereDate('fecha_fin', '<=', now()->addDays($dias)->toDateString())
+            ->whereDate('fecha_fin', '<=', FechaMexico::inicioDeHoy()->addDays($dias)->toDateString())
             ->with(['colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,jefe_id', 'evaluacion'])
             ->orderBy('fecha_fin')
             ->get();

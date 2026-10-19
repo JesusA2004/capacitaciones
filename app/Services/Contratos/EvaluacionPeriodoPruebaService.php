@@ -16,6 +16,7 @@ use App\Services\CicloLaboral\AprobacionService;
 use App\Services\CierreLaboral\CierreLaboralService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
+use App\Support\FechaMexico;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -310,7 +311,7 @@ class EvaluacionPeriodoPruebaService
             $evaluacion->update(['contrato_renovacion_id' => $nuevo->id]);
         } else {
             $contrato = $evaluacion->contrato;
-            $fecha = isset($datos['fecha_efectiva']) ? (string) $datos['fecha_efectiva'] : ($contrato->fecha_fin?->toDateString() ?? now()->toDateString());
+            $fecha = isset($datos['fecha_efectiva']) ? (string) $datos['fecha_efectiva'] : ($contrato->fecha_fin?->toDateString() ?? FechaMexico::hoy());
 
             // La no renovación ya tiene preautorización (jefe) y autorización
             // RH: el cierre nace autorizado, genera sus documentos y la baja

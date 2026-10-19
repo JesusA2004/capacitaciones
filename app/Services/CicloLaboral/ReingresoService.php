@@ -25,11 +25,13 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Colaboradores\AltaColaboradorService;
 use App\Services\Colaboradores\IdentidadColaboradorService;
+use App\Services\Compensacion\CompensacionService;
 use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
+use App\Support\FechaMexico;
 use App\Support\Paginacion;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\QueryException;
@@ -70,6 +72,7 @@ class ReingresoService
         private readonly AuditoriaService $auditoria,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly AccesoCuentaService $acceso,
+        private readonly CompensacionService $compensacion,
     ) {}
 
     /**
@@ -382,7 +385,7 @@ class ReingresoService
     private function reactivar(Reingreso $reingreso, User $actor): void
     {
         $colaborador = Colaborador::withTrashed()->lockForUpdate()->findOrFail($reingreso->colaborador_id);
-        $inicio = $reingreso->fecha_reingreso !== null ? Carbon::parse($reingreso->fecha_reingreso)->startOfDay() : now()->startOfDay();
+        $inicio = $reingreso->fecha_reingreso !== null ? Carbon::parse($reingreso->fecha_reingreso)->startOfDay() : FechaMexico::inicioDeHoy();
 
         if ($colaborador->trashed()) {
             $colaborador->restore();
@@ -394,7 +397,8 @@ class ReingresoService
             'puesto_id' => $reingreso->puesto_id ?? $colaborador->puesto_id,
             'sucursal_principal_id' => $reingreso->sucursal_id ?? $colaborador->sucursal_principal_id,
             // jefe_id no se toca: sale del organigrama (JefeDirectoService).
-            'sueldo_mensual' => $reingreso->sueldo_mensual ?? $colaborador->sueldo_mensual,
+            // El sueldo tampoco se escribe aquí: lo fija CompensacionService
+            // abajo para mantener sincronizados mensual↔diario y el ledger.
             'fecha_ingreso' => $inicio->toDateString(),
             'fecha_baja' => null,
             'expediente_cerrado_en' => null,
@@ -402,6 +406,29 @@ class ReingresoService
             'incorporacion_decision' => null,
             'activado_en' => null,
         ]);
+
+        // Sueldo del reingreso por la fuente canónica: convierte el mensual a
+        // diario, sincroniza ambos campos y deja asiento en historial_salarios.
+        // Solo si de verdad cambia el diario (evita rastros idénticos).
+        $sueldoMensual = $reingreso->sueldo_mensual !== null ? (float) $reingreso->sueldo_mensual : null;
+
+        if ($sueldoMensual !== null && $sueldoMensual > 0) {
+            $diarioNuevo = $this->compensacion->diarioDesdeMensual($sueldoMensual);
+            $diarioActual = $colaborador->salario_diario !== null ? (float) $colaborador->salario_diario : null;
+
+            if ($diarioActual === null || abs($diarioActual - $diarioNuevo) > 0.001) {
+                $this->compensacion->actualizarSalario($colaborador, $diarioNuevo, null, $actor, [
+                    'fuente' => 'reingreso',
+                    'fecha_efectiva' => $inicio->toDateString(),
+                    'motivo' => 'Salario del reingreso autorizado.',
+                ]);
+
+                // actualizarSalario escribe sobre una instancia bloqueada
+                // aparte: refrescamos para que el contrato del reingreso tome
+                // el sueldo ya sincronizado.
+                $colaborador->refresh();
+            }
+        }
 
         $porRenovar = $this->documentosARenovar($colaborador, $reingreso->documentos_requeridos ?? []);
         $vigentes = $this->expediente->documentosVigentes($colaborador);

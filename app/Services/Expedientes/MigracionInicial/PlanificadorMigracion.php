@@ -41,7 +41,7 @@ class PlanificadorMigracion
     ) {}
 
     /**
-     * @param  array{filas: list<array<string, mixed>>, columnas: array<string, string>, sin_reconocer: list<string>, hoja: string}  $excel
+     * @param  array{filas: list<array<string, mixed>>, columnas: array<string, string>, sin_reconocer: list<string>, hoja: string, formato?: string}  $excel
      * @return array<string, mixed>
      */
     public function planificar(array $excel): array
@@ -51,7 +51,14 @@ class PlanificadorMigracion
         $this->catalogo->recargar();
         $excluidas = array_values(array_map(fn ($n) => Normalizador::clave((string) $n), (array) config('expedientes.migracion_inicial.personas_excluidas', [])));
 
-        $filas = array_map(fn (array $f) => $this->planFila($f, $excluidas), $excel['filas']);
+        // En el formato nuevo por sucursales (SEMANA 41) el puesto/departamento
+        // (y, en su caso, sucursal/empresa) pueden faltar porque el roster aún
+        // no los aporta: esa carencia de DATO ESTRUCTURAL deja la fila «en
+        // revisión» (no es un conflicto de catálogo). En el formato único
+        // (BASE_GENERAL) un dato faltante sigue siendo conflicto como siempre.
+        $permiteRevision = ($excel['formato'] ?? null) === 'semana41';
+
+        $filas = array_map(fn (array $f) => $this->planFila($f, $excluidas, $permiteRevision), $excel['filas']);
         $filas = $this->identificar($filas, $colaboradores);
         $filas = $this->proponerCuentas($filas);
 
@@ -84,11 +91,15 @@ class PlanificadorMigracion
      * @param  array<string, mixed>  $f
      * @return array<string, mixed>
      */
-    private function planFila(array $f, array $excluidas): array
+    private function planFila(array $f, array $excluidas, bool $permiteRevision = false): array
     {
         $advertencias = [];
         $motivos = [];
         $operacion = null;
+        // Motivos de «en revisión»: faltan datos estructurales (puesto,
+        // departamento, sucursal, empresa) que RH completará antes de aplicar.
+        // Solo degradan a «en_revision» si la fila no terminó en conflicto.
+        $revision = [];
 
         if (in_array(Normalizador::clave((string) $f['nombre_completo']), $excluidas, true)) {
             $operacion = 'omitir';
@@ -105,8 +116,14 @@ class PlanificadorMigracion
                 $sucursal = $this->inventario->resolverSucursal($f['sucursal']);
 
                 if ($sucursal === null) {
-                    $operacion = 'conflicto';
-                    $motivos[] = $f['sucursal'] === null ? 'Sin «Sucursal oficial» en el Excel.' : sprintf('Sucursal «%s» fuera de la whitelist: no se crea sola; agrégala o un alias.', $f['sucursal']);
+                    // Sin dato de sucursal → en revisión; con dato fuera de la
+                    // whitelist → conflicto (nunca se crea una sucursal sola).
+                    if ($f['sucursal'] === null && $permiteRevision) {
+                        $revision[] = 'Sin sucursal: pendiente de completar antes de aplicar.';
+                    } else {
+                        $operacion = 'conflicto';
+                        $motivos[] = $f['sucursal'] === null ? 'Sin «Sucursal oficial» en el Excel.' : sprintf('Sucursal «%s» fuera de la whitelist: no se crea sola; agrégala o un alias.', $f['sucursal']);
+                    }
                 }
             }
         }
@@ -124,8 +141,12 @@ class PlanificadorMigracion
 
         if (($f['empresa'] ?? null) === null) {
             if ($operacion !== 'omitir') {
-                $operacion = 'conflicto';
-                $motivos[] = 'Falta «Empresa».';
+                if ($permiteRevision) {
+                    $revision[] = 'Sin empresa: pendiente de completar antes de aplicar.';
+                } else {
+                    $operacion = 'conflicto';
+                    $motivos[] = 'Falta «Empresa».';
+                }
             }
         } else {
             $empresa = $this->catalogo->empresa($f['empresa']);
@@ -145,8 +166,14 @@ class PlanificadorMigracion
 
         if (($f['departamento'] ?? null) === null) {
             if ($operacion !== 'omitir') {
-                $operacion = 'conflicto';
-                $motivos[] = 'Falta «Departamento».';
+                // Sin dato (no vino en el roster) → en revisión; presente pero
+                // no reconocido en el catálogo → conflicto (más abajo).
+                if ($permiteRevision) {
+                    $revision[] = 'Sin departamento (no vino en el roster): pendiente de completar antes de aplicar.';
+                } else {
+                    $operacion = 'conflicto';
+                    $motivos[] = 'Falta «Departamento».';
+                }
             }
         } else {
             $departamentoExcel = $this->catalogo->departamento($f['departamento']);
@@ -175,8 +202,14 @@ class PlanificadorMigracion
         $puesto = $resuelto['puesto'];
 
         if ($puesto === null && $operacion !== 'omitir') {
-            $operacion = 'conflicto';
-            $motivos[] = (string) $resuelto['motivo'];
+            // Sin puesto (no vino en el roster) → en revisión; con un puesto
+            // que el catálogo/alias no reconoce → conflicto.
+            if (Normalizador::clave($f['puesto']) === '' && $permiteRevision) {
+                $revision[] = 'Sin puesto/departamento (no vino en el roster): pendiente de completar antes de aplicar.';
+            } else {
+                $operacion = 'conflicto';
+                $motivos[] = (string) $resuelto['motivo'];
+            }
         }
 
         $departamento = $puesto?->departamento_id !== null ? $this->departamentoPorId($puesto->departamento_id) : $departamentoExcel;
@@ -195,8 +228,23 @@ class PlanificadorMigracion
                 : 'Sin estatus laboral: se importa como activo.';
         }
 
+        // Cruce con el roster nominal (formato por sucursales): si fue ambiguo,
+        // no se asignó puesto y queda registrado para que RH lo revise.
+        if (($f['advertencia_roster'] ?? null) !== null) {
+            $advertencias[] = (string) $f['advertencia_roster'];
+        }
+
+        // Faltan datos estructurales pero la identidad es válida: «en revisión»
+        // (terminal, no se aplica) en vez de conflicto. Un conflicto real ya
+        // detectado manda sobre la revisión.
+        if ($operacion === null && $revision !== []) {
+            $operacion = 'en_revision';
+            $motivos = [...$motivos, ...$revision];
+        }
+
         return [
             'fila' => $f['fila'],
+            'hoja_origen' => $f['hoja_origen'] ?? null,
             'clave' => $f['clave'],
             'nombre_completo' => $f['nombre_completo'],
             'tokens' => $f['tokens'],
@@ -276,7 +324,7 @@ class PlanificadorMigracion
                 $filas[$i]['advertencias'][] = sprintf('La Clave %s está repetida en el Excel: solo se guarda como referencia (clave_legacy).', $f['clave']);
             }
 
-            if (in_array($f['operacion'], ['omitir', 'conflicto'], true)) {
+            if (in_array($f['operacion'], ['omitir', 'conflicto', 'en_revision'], true)) {
                 continue;
             }
 
@@ -369,7 +417,7 @@ class PlanificadorMigracion
         $reservados = [];
 
         foreach ($filas as $i => $f) {
-            if (in_array($f['operacion'], ['conflicto', 'omitir'], true)) {
+            if (in_array($f['operacion'], ['conflicto', 'omitir', 'en_revision'], true)) {
                 continue;
             }
 
@@ -442,7 +490,9 @@ class PlanificadorMigracion
         $candidatos = [];
 
         foreach ($filas as $i => $f) {
-            if ($f['operacion'] === 'omitir') {
+            // «en_revision» es terminal igual que «omitir»: no se le asigna
+            // expediente porque la fila no se va a aplicar.
+            if (in_array($f['operacion'], ['omitir', 'en_revision'], true)) {
                 continue;
             }
 
@@ -509,7 +559,7 @@ class PlanificadorMigracion
         }
 
         foreach ($filas as $i => $f) {
-            if ($f['operacion'] !== 'omitir') {
+            if (! in_array($f['operacion'], ['omitir', 'en_revision'], true)) {
                 $filas[$i]['nas']['diagnostico'] = $this->diagnosticoNas($f, $candidatos[$i] ?? [], $carpetas, $alto);
             }
         }
@@ -632,6 +682,12 @@ class PlanificadorMigracion
             'actualizar' => $op('actualizar'),
             'sin_cambios' => $op('sin_cambios'),
             'conflictos' => $op('conflicto'),
+            // Identidad válida pero falta puesto/departamento (roster): la fila
+            // espera a que RH complete los datos; no se aplica ni es conflicto.
+            'en_revision' => $op('en_revision'),
+            // Filas de la hoja Corporativo (se procesan y conservan igual que
+            // las operativas); su ausencia nunca da de baja a nadie.
+            'corporativo' => $cuenta($filas, fn (array $f) => Normalizador::clave((string) ($f['sucursal_nombre'] ?? $f['sucursal_excel'] ?? '')) === 'CORPORATIVO'),
             'omitidos' => $op('omitir'),
             'match_exacto' => $match('exacto'),
             'match_alto' => $match('alto'),

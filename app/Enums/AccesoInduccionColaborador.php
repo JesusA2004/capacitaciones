@@ -4,18 +4,22 @@ namespace App\Enums;
 
 /**
  * Qué puede hacer el colaborador con la Inducción Mr. Lana en «Mi espacio».
- * La inducción la PRESENTA Recursos Humanos: el colaborador solo ve el
- * contenido mientras está en una sesión «En curso» que lo incluye; después
- * contesta su evaluación. Antes y después el contenido no se le muestra.
+ *
+ * NUEVO FLUJO (2026): la inducción se le ASIGNA (aviso) al iniciar su
+ * onboarding y la ve SOLO —hojas del PDF oficial + material de audio/video—
+ * sin que Recursos Humanos la presente en vivo. Ya no depende de ninguna
+ * «sesión en curso» (el flujo legacy quedó tras el flag
+ * features.induccion_sesiones_legacy). El acceso al contenido depende solo de
+ * tener un avance institucional ASIGNADO y aún no aprobado.
  * Ver App\Services\Onboarding\AccesoInduccionColaboradorService.
  */
 enum AccesoInduccionColaborador: string
 {
-    // Ninguna sesión lo incluye todavía (o ya se canceló).
-    case PendientePresentacion = 'pendiente_presentacion';
-    // RH lo eligió en una sesión que sigue «En curso»: puede ver el contenido.
-    case EnSesion = 'en_sesion';
-    // RH terminó y le envió la evaluación: toca contestarla.
+    // No tiene inducción institucional asignada todavía (o ya no aplica).
+    case SinAsignar = 'sin_asignar';
+    // Asignada y por ver: hojas del PDF + material (audio/video).
+    case Disponible = 'disponible';
+    // Ya vio el contenido y la evaluación quedó habilitada: toca contestarla.
     case EvaluacionPendiente = 'evaluacion_pendiente';
     // Ya contestó: RH califica o lo retroalimenta antes de reabrirla.
     case EnRevision = 'en_revision';
@@ -24,8 +28,8 @@ enum AccesoInduccionColaborador: string
     public function etiqueta(): string
     {
         return match ($this) {
-            self::PendientePresentacion => 'Por presentar',
-            self::EnSesion => 'En sesión con Recursos Humanos',
+            self::SinAsignar => 'Sin asignar',
+            self::Disponible => 'Por ver',
             self::EvaluacionPendiente => 'Evaluación por contestar',
             self::EnRevision => 'En revisión de Recursos Humanos',
             self::Completada => 'Completada',
@@ -35,17 +39,20 @@ enum AccesoInduccionColaborador: string
     public function mensaje(): string
     {
         return match ($this) {
-            self::PendientePresentacion => 'Recursos Humanos te presentará la Inducción Mr. Lana. Podrás verla aquí en cuanto inicie la sesión en la que te incluyan.',
-            self::EnSesion => 'Recursos Humanos te está presentando la Inducción Mr. Lana. Al terminar te enviará tu evaluación.',
-            self::EvaluacionPendiente => 'Recursos Humanos ya te presentó la Inducción Mr. Lana. Ahora contesta tu evaluación.',
+            self::SinAsignar => 'Todavía no tienes asignada la Inducción Mr. Lana. Aparecerá aquí en cuanto inicie tu proceso de ingreso.',
+            self::Disponible => 'Tienes tu Inducción Mr. Lana asignada: revisa las hojas y el material, y al terminar presentarás tu evaluación.',
+            self::EvaluacionPendiente => 'Ya revisaste la Inducción Mr. Lana. Ahora contesta tu evaluación.',
             self::EnRevision => 'Ya contestaste tu evaluación de inducción. Recursos Humanos la está revisando.',
             self::Completada => 'Ya completaste tu Inducción Mr. Lana.',
         };
     }
 
-    /** Solo durante la sesión de RH se muestra el contenido. */
+    /** El contenido (hojas + material) se ve mientras está asignada y no aprobada. */
     public function puedeVerContenido(): bool
     {
-        return $this === self::EnSesion;
+        return match ($this) {
+            self::Disponible, self::EvaluacionPendiente, self::EnRevision => true,
+            self::SinAsignar, self::Completada => false,
+        };
     }
 }

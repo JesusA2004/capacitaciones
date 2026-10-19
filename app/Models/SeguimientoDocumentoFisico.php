@@ -19,7 +19,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $firmado_fisico_en
  * @property int|null $firma_fisica_registrada_por
  * @property bool $huella_registrada
- * @property array<int, array{nombre: string, puesto?: string|null}>|null $testigos
+ * @property array<int, array{colaborador_id: int|null, nombre: string, puesto: string, sucursal?: string|null, externo?: bool}>|null $testigos snapshot inmutable de la firma física
  * @property int|null $sucursal_origen_id
  * @property Carbon|null $enviado_en
  * @property int|null $enviado_por

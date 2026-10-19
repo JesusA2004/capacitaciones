@@ -200,8 +200,8 @@ const titulos: Record<Accion, string> = {
                     Responsivas de equipo
                 </CardTitle>
                 <CardDescription>
-                    Equipo entregado bajo resguardo (laptop, casco, celular…).
-                    Solo lo ven el gerente y RH.
+                    Bienes entregados bajo resguardo (mobiliario, equipo
+                    electrónico, vehículos). Solo lo ven el gerente y RH.
                 </CardDescription>
             </div>
             <Button v-if="puedeGenerar" size="sm" @click="emit('generar')">
@@ -326,22 +326,16 @@ const titulos: Record<Accion, string> = {
                         </div>
                     </div>
 
-                    <ul class="mt-3 flex flex-wrap gap-2">
+                    <ul
+                        v-if="r.resumen.length > 0"
+                        class="mt-3 flex flex-wrap gap-2"
+                    >
                         <li
-                            v-for="(a, i) in r.activos"
+                            v-for="(chip, i) in r.resumen"
                             :key="i"
                             class="rounded-xl bg-salvia/40 px-3 py-1.5 text-xs"
                         >
-                            <span class="font-medium">{{ a.descripcion }}</span>
-                            <span v-if="a.cantidad > 1">
-                                × {{ a.cantidad }}</span
-                            >
-                            <span
-                                v-if="a.detalle"
-                                class="text-muted-foreground"
-                            >
-                                · {{ a.detalle }}</span
-                            >
+                            <span class="font-medium">{{ chip }}</span>
                         </li>
                     </ul>
 

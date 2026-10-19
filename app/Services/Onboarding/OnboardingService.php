@@ -25,8 +25,12 @@ use App\Services\Colaboradores\AltaColaboradorService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
+use App\Support\FechaMexico;
+use App\Support\Paginacion;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -67,6 +71,39 @@ class OnboardingService
         private readonly MotorDocumentalService $motor,
         private readonly AlcanceOrganizacionalService $alcance,
     ) {}
+
+    /**
+     * Colaboradores en onboarding, para el índice «Inducción al puesto»
+     * (Rh\AcuseDescriptivoPuestoController::index → Rh/Onboarding/InduccionPuesto.vue).
+     * Usa el MISMO scoping del módulo onboarding que AcuseDescriptivoPuestoService
+     * y excluye los procesos cancelados; el estado del acuse del descriptivo de
+     * cada persona lo aporta ese servicio (no se duplica aquí).
+     *
+     * @param  array<string, mixed>  $filtros  busqueda?, per_page?
+     * @return LengthAwarePaginator<int, OnboardingProceso>
+     */
+    public function panoramaInduccionPuesto(User $usuario, array $filtros = []): LengthAwarePaginator
+    {
+        $query = OnboardingProceso::query()
+            ->where('estado', '!=', EstadoOnboarding::Cancelado->value)
+            ->with([
+                'colaborador:id,name,apellidos,numero_empleado,puesto_id,sucursal_principal_id,jefe_id,gerente_id',
+                'colaborador.puesto:id,nombre',
+                'colaborador.sucursalPrincipal:id,nombre',
+            ]);
+
+        $this->alcance->limitarPorModulo($query, $usuario, SesionInduccionService::MODULO, 'colaborador_id', true);
+
+        $busqueda = isset($filtros['busqueda']) && is_string($filtros['busqueda']) ? trim($filtros['busqueda']) : '';
+
+        return $query
+            ->when($busqueda !== '', fn (Builder $q) => $q->whereHas('colaborador', fn (Builder $c) => $c->where(fn (Builder $w) => $w
+                ->where('name', 'like', sprintf('%%%s%%', $busqueda))
+                ->orWhere('apellidos', 'like', sprintf('%%%s%%', $busqueda))
+                ->orWhere('numero_empleado', 'like', sprintf('%%%s%%', $busqueda)))))
+            ->orderByDesc('id')
+            ->paginate(Paginacion::porPagina(20, $filtros['per_page'] ?? null));
+    }
 
     /**
      * Abre el onboarding del contrato (idempotente: un solo proceso por
@@ -128,7 +165,7 @@ class OnboardingService
         $usuario = $colaborador->user;
 
         if ($usuario !== null) {
-            $this->notificador->notificar([$usuario], 'onboarding_habilitado', 'Tienes lecciones de bienvenida', 'Entra a "Mis pendientes" en tu portal para revisarlas y responderlas.', $proceso, 'ver_onboarding', 'alta');
+            $this->notificador->notificar([$usuario], 'onboarding_habilitado', 'Tienes tu Inducción Mr. Lana asignada', 'Entra a verla: revisa las hojas y el material, y al terminar presentarás tu evaluación.', $proceso, 'ver_onboarding', 'alta');
         }
 
         // Si RH ya le presentó la Inducción Mr. Lana antes de que existiera
@@ -328,7 +365,7 @@ class OnboardingService
                 'tipo_activo_id' => $tipo->id,
                 'identificador' => $datos['identificador'] ?? null,
                 'descripcion' => $datos['descripcion'] ?? null,
-                'entregado_en' => $datos['entregado_en'] ?? now()->toDateString(),
+                'entregado_en' => $datos['entregado_en'] ?? FechaMexico::hoy(),
                 'entregado_por' => $actor->id,
                 'estado' => EstadoEntregaActivo::Entregado,
                 'observaciones' => $datos['observaciones'] ?? null,

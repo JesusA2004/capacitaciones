@@ -27,6 +27,7 @@ class StoreRecursoMultimediaRequest extends FormRequest
                 'max:'.(config('media.max_upload_mb') * 1024),
                 match ($this->input('tipo')) {
                     'video' => 'mimetypes:video/mp4,video/quicktime,video/webm,video/x-matroska',
+                    'audio' => 'mimetypes:audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/wav,audio/x-wav,audio/webm',
                     'imagen' => 'mimes:jpg,jpeg,png,webp',
                     default => 'mimes:pdf,doc,docx,ppt,pptx,xls,xlsx',
                 },

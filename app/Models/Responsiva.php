@@ -26,6 +26,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $registrado_por
  * @property string|null $observaciones
  * @property array<string, mixed> $snapshot
+ * @property array<string, mixed>|null $datos Campos legales propios de la familia (bien mueble / equipo / vehículo).
  * @property EstadoResponsiva $estado
  * @property string|null $pdf_path
  * @property string|null $firmada_path
@@ -57,7 +58,7 @@ class Responsiva extends Model
     protected $table = 'responsivas';
 
     protected $fillable = [
-        'folio', 'colaborador_id', 'tipo', 'lugar', 'fecha_entrega', 'entregado_por', 'registrado_por', 'observaciones', 'snapshot', 'estado',
+        'folio', 'colaborador_id', 'tipo', 'lugar', 'fecha_entrega', 'entregado_por', 'registrado_por', 'observaciones', 'snapshot', 'datos', 'estado',
         'pdf_path', 'firmada_path', 'firmada_subida_en', 'firmada_subida_por', 'firmada_fisicamente_en', 'firmada_fisicamente_por',
         'devuelta_en', 'observaciones_devolucion', 'devolucion_registrada_por',
         'cancelada_en', 'cancelada_por', 'motivo_cancelacion',
@@ -70,6 +71,7 @@ class Responsiva extends Model
             'estado' => EstadoResponsiva::class,
             'fecha_entrega' => 'date',
             'snapshot' => 'array',
+            'datos' => 'array',
             'firmada_subida_en' => 'datetime',
             'firmada_fisicamente_en' => 'datetime',
             'devuelta_en' => 'date',

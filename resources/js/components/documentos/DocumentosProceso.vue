@@ -12,6 +12,7 @@ import { toast } from 'vue-sonner';
 import Casilla from '@/components/Common/Casilla.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import TimePicker from '@/components/Common/TimePicker.vue';
+import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
 import CamposDatosFaltantes from '@/components/documentos/CamposDatosFaltantes.vue';
 import SeccionDocumentosProceso from '@/components/documentos/SeccionDocumentosProceso.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
@@ -40,13 +41,23 @@ import {
     useDocumentosProceso,
 } from '@/composables/useDocumentosProceso';
 import { columnaDatoFaltante } from '@/lib/datosFaltantes';
+import { testigos as buscarTestigosDocumento } from '@/routes/rh/documentos-proceso';
 import type {
     AccionDocumento,
+    ColaboradorBusqueda,
     DatoFaltante,
     ItemDocumentoProceso,
     SeccionDocumentosProceso as Seccion,
     TipoRegistroDocumental,
 } from '@/types';
+
+/** Testigo capturado: elegido del buscador (colaborador_id) o externo a mano. */
+type TestigoCaptura = {
+    colaborador_id: number | null;
+    nombre: string;
+    puesto: string;
+    externo: boolean;
+};
 
 /**
  * "Documentos del proceso" en contexto: ficha del colaborador (tipo
@@ -76,6 +87,63 @@ const cargando = ref(true);
 /** Acción en curso ("clave:accion" o "seccion:accion"): un solo click a la vez. */
 const ocupado = ref<string | null>(null);
 const error = ref<string | null>(null);
+
+// ───────── Selector de testigos (negativa + firma física) ─────────
+// El testigo se elige del buscador de personas activas del alcance; el
+// backend congela su nombre/puesto/sucursal reales. Nunca se captura un
+// testigo interno a mano (solo externos, fuera de este componente).
+function urlTestigos(
+    colaboradorId: number | null | undefined,
+    excluir: number | null,
+) {
+    return (texto: string) =>
+        buscarTestigosDocumento.url({
+            query: {
+                ...(colaboradorId ? { colaborador: colaboradorId } : {}),
+                ...(excluir ? { excluir } : {}),
+                q: texto,
+            },
+        });
+}
+
+/** Snapshot guardado → forma que entiende BuscadorColaborador (chip elegido). */
+function testigoModelo(t: TestigoCaptura): ColaboradorBusqueda | null {
+    return t.colaborador_id
+        ? {
+              id: t.colaborador_id,
+              nombre: t.nombre,
+              numero_empleado: null,
+              puesto: t.puesto || null,
+              sucursal: null,
+          }
+        : null;
+}
+
+function elegirTestigo(
+    lista: TestigoCaptura[],
+    i: number,
+    c: ColaboradorBusqueda | null,
+) {
+    lista[i] = c
+        ? {
+              colaborador_id: c.id,
+              nombre: c.nombre,
+              puesto: c.puesto ?? '',
+              externo: false,
+          }
+        : { colaborador_id: null, nombre: '', puesto: '', externo: false };
+}
+
+/** El otro testigo ya elegido (para no ofrecerlo de nuevo en el buscador). */
+function otroTestigoId(lista: TestigoCaptura[], i: number): number | null {
+    for (let j = 0; j < lista.length; j++) {
+        if (j !== i && lista[j]?.colaborador_id) {
+            return lista[j].colaborador_id;
+        }
+    }
+
+    return null;
+}
 
 async function cargar() {
     cargando.value = true;
@@ -317,7 +385,7 @@ const formPaso = ref({
     fecha: '',
     paqueteria: '',
     numero_guia: '',
-    testigos: [] as { nombre: string; puesto: string }[],
+    testigos: [] as TestigoCaptura[],
 });
 const archivos = ref<File[]>([]);
 
@@ -405,9 +473,14 @@ async function alAccionar(
         testigos: item.requiere.testigos
             ? Array.from(
                   { length: Math.max(1, item.requiere.cantidad_testigos) },
-                  () => ({ nombre: '', puesto: '' }),
+                  (): TestigoCaptura => ({
+                      colaborador_id: null,
+                      nombre: '',
+                      puesto: '',
+                      externo: false,
+                  }),
               )
-            : [],
+            : ([] as TestigoCaptura[]),
     };
     archivos.value = [];
     paso.value = { item, seccion, accion: destino };
@@ -447,10 +520,18 @@ async function confirmarPaso() {
     if (paso.value.accion === 'firma-fisica') {
         datos.append('huella_registrada', f.huella_registrada ? '1' : '0');
         f.testigos
-            .filter((t) => t.nombre.trim() !== '')
+            .filter((t) => t.colaborador_id !== null || t.nombre.trim() !== '')
             .forEach((t, i) => {
-                datos.append(`testigos[${i}][nombre]`, t.nombre);
-                datos.append(`testigos[${i}][puesto]`, t.puesto);
+                if (t.colaborador_id !== null) {
+                    datos.append(
+                        `testigos[${i}][colaborador_id]`,
+                        String(t.colaborador_id),
+                    );
+                } else {
+                    datos.append(`testigos[${i}][externo]`, '1');
+                    datos.append(`testigos[${i}][nombre]`, t.nombre);
+                    datos.append(`testigos[${i}][puesto]`, t.puesto);
+                }
             });
     }
 
@@ -493,9 +574,9 @@ const formBaja = ref({
     observaciones: '',
     finiquito_a_disposicion: true,
     testigos: [
-        { nombre: '', cargo: '' },
-        { nombre: '', cargo: '' },
-    ],
+        { colaborador_id: null, nombre: '', puesto: '', externo: false },
+        { colaborador_id: null, nombre: '', puesto: '', externo: false },
+    ] as TestigoCaptura[],
     participantes: {
         rh_nombre: '',
         rh_cargo: '',
@@ -536,10 +617,16 @@ function alAccionSeccion(seccion: Seccion, accion: AccionDocumento) {
     formBaja.value.documentos = seccion.documentos
         .filter((d) => d.documento)
         .map((d) => d.clave);
-    formBaja.value.testigos = [0, 1].map((i) => ({
-        nombre: actual?.testigos[i]?.nombre ?? '',
-        cargo: actual?.testigos[i]?.cargo ?? '',
-    }));
+    formBaja.value.testigos = [0, 1].map((i): TestigoCaptura => {
+        const t = actual?.testigos[i];
+
+        return {
+            colaborador_id: t?.colaborador_id ?? null,
+            nombre: t?.nombre ?? '',
+            puesto: t?.cargo ?? '',
+            externo: t?.externo ?? false,
+        };
+    });
     formBaja.value.participantes = {
         ...formBaja.value.participantes,
         ...(actual?.participantes ?? {}),
@@ -551,7 +638,7 @@ function alAccionSeccion(seccion: Seccion, accion: AccionDocumento) {
 
 const testigosCompletos = computed(() =>
     formBaja.value.testigos.every(
-        (t) => t.nombre.trim() !== '' && t.cargo.trim() !== '',
+        (t) => t.colaborador_id !== null || t.nombre.trim() !== '',
     ),
 );
 
@@ -573,10 +660,20 @@ async function confirmarBaja() {
     }
 
     if (tipo !== 'etapa') {
-        f.testigos.forEach((t, i) => {
-            datos.append(`testigos[${i}][nombre]`, t.nombre);
-            datos.append(`testigos[${i}][cargo]`, t.cargo);
-        });
+        f.testigos
+            .filter((t) => t.colaborador_id !== null || t.nombre.trim() !== '')
+            .forEach((t, i) => {
+                if (t.colaborador_id !== null) {
+                    datos.append(
+                        `testigos[${i}][colaborador_id]`,
+                        String(t.colaborador_id),
+                    );
+                } else {
+                    datos.append(`testigos[${i}][externo]`, '1');
+                    datos.append(`testigos[${i}][nombre]`, t.nombre);
+                    datos.append(`testigos[${i}][cargo]`, t.puesto);
+                }
+            });
         Object.entries(f.participantes).forEach(
             ([k, v]) => v && datos.append(`participantes[${k}]`, v),
         );
@@ -793,14 +890,30 @@ async function confirmarBaja() {
                     <div
                         v-for="(t, i) in formPaso.testigos"
                         :key="i"
-                        class="grid gap-2 sm:grid-cols-2"
+                        class="flex flex-col gap-1"
                     >
-                        <Input
-                            v-model="t.nombre"
-                            :placeholder="`Testigo ${i + 1}: nombre`"
+                        <Label class="text-xs text-[var(--mrl-texto-suave)]"
+                            >Testigo {{ i + 1 }}</Label
+                        >
+                        <BuscadorColaborador
+                            :model-value="testigoModelo(t)"
+                            :buscar-url="
+                                urlTestigos(
+                                    paso?.item
+                                        ? paso.seccion.colaborador.id
+                                        : null,
+                                    otroTestigoId(formPaso.testigos, i),
+                                )
+                            "
+                            @update:model-value="
+                                (c) => elegirTestigo(formPaso.testigos, i, c)
+                            "
                         />
-                        <Input v-model="t.puesto" placeholder="Cargo" />
                     </div>
+                    <p class="text-xs text-[var(--mrl-texto-suave)]">
+                        El testigo se elige de las personas activas del centro
+                        de trabajo; su nombre y puesto se toman de PEOPLE.
+                    </p>
                 </template>
                 <template v-if="paso.accion === 'envio'">
                     <Input
@@ -869,8 +982,9 @@ async function confirmarBaja() {
                 </DialogTitle>
                 <DialogDescription v-if="dialogoBaja?.tipo === 'negativa'">
                     No se tratará como firmado. Se habilita el Acta
-                    administrativa de negativa con dos testigos (nombre y
-                    cargo); las firmas quedan en blanco para firmarse en papel.
+                    administrativa de negativa con dos testigos elegidos del
+                    buscador (personas activas del centro de trabajo); las
+                    firmas quedan en blanco para firmarse en papel.
                 </DialogDescription>
             </DialogHeader>
             <div v-if="dialogoBaja" class="flex flex-col gap-3">
@@ -893,25 +1007,31 @@ async function confirmarBaja() {
                     </label>
                 </template>
                 <template v-if="dialogoBaja.tipo !== 'etapa'">
+                    <Label>Testigos del acta</Label>
                     <div
                         v-for="(t, i) in formBaja.testigos"
                         :key="i"
-                        class="grid gap-2 sm:grid-cols-2"
+                        class="flex flex-col gap-1"
                     >
-                        <Input
-                            v-model="t.nombre"
-                            :placeholder="`Testigo ${i + 1}: nombre`"
-                        />
-                        <Input
-                            v-model="t.cargo"
-                            :placeholder="`Testigo ${i + 1}: cargo`"
+                        <BuscadorColaborador
+                            :model-value="testigoModelo(t)"
+                            :buscar-url="
+                                urlTestigos(
+                                    dialogoBaja.seccion.colaborador.id,
+                                    otroTestigoId(formBaja.testigos, i),
+                                )
+                            "
+                            @update:model-value="
+                                (c) => elegirTestigo(formBaja.testigos, i, c)
+                            "
                         />
                     </div>
                     <p
                         v-if="!testigosCompletos"
                         class="text-xs text-warning"
                     >
-                        El acta exige nombre y cargo de los dos testigos{{
+                        El acta exige dos testigos elegidos del buscador (activos
+                        del centro de trabajo){{
                             dialogoBaja.tipo === 'negativa'
                                 ? ' (puedes capturarlos después, antes de generarla)'
                                 : ''

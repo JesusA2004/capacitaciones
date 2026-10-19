@@ -64,12 +64,16 @@ encolado (no vuelve a crear la notificación).
 | Candidato / entrevista / psicométricos / socioeconómico / referencias / contratación | RH / gerente | — | Ruteo del evento de la etapa | — | `Candidato` |
 | Intervención | Gerente | — | Regional / Dirección Comercial | Gerente | `IntervencionCandidato` → `Candidato` |
 | Alta / contrato / documentos por firma | RH | — | Colaborador (`documento_firma_pendiente`), RH | Colaborador | `GeneratedDocument` |
+| Alta de colaborador (cuenta, accesos, equipo) | RH | — | RH + **Sistemas** + gerente del colaborador (`colaborador_alta`). Nunca Regional ni toda la plantilla | — | `Colaborador` · `ver_expediente` |
+| Expediente completo (generar paquete de contratación) | RH / Scheduler | — | Quien puede generar documentos con alcance sobre la persona (`expediente_completo`, `documentos_laborales.generar`) | — | `Colaborador` |
+| Baja de colaborador (retirar accesos, cuentas, equipo) | RH | — | RH + **Sistemas** (`colaborador_baja`). Nunca toda la plantilla | — | `Colaborador` · `ver_expediente` |
 | Inducción / onboarding / activos | Sistema / RH | — | Colaborador, RH (`onboarding.gestionar`) | Colaborador | `OnboardingAvance` |
 | Evaluación de periodo de prueba | Sistema / jefe | — | Evaluador, RH (`evaluaciones.autorizar`) | Colaborador | `EvaluacionPeriodoPrueba` |
 | Excepción de Dirección General | RH | — | `excepciones.autorizar` | RH | `SolicitudExcepcionPeriodoPrueba` |
 | Préstamo autorizado | RH / Dirección | — | — | Colaborador (`prestamo_autorizado`) | `Prestamo` |
-| Baja (cierre laboral) | Gerente / RH | "Baja solicitada" | Preautorizador, RH (`cierre_autorizacion_rh`), pago, cita | — | `CierreLaboral` |
-| Finiquito | RH | — | `cierres.programar_pago` | — | `CierreLaboral` |
+| Baja solicitada (cierre laboral) | Gerente / RH | "Baja solicitada" (accesos suspendidos) | Regional + RH (`cierre_baja_solicitada`), luego RH para autorizar (`cierre_autorizacion_rh`). **Sin preautorización de un superior** | — | `CierreLaboral` |
+| Negativa a firmar/recibir la baja | RH | — | RH que gestiona el cierre, para generar el acta de negativa con dos testigos (`cierre_negativa_firma`, `cierres.gestionar`) | — | `CierreLaboral` |
+| Finiquito / documentos de la baja por firmar | RH | — | Colaborador (`documento_firma_pendiente`) y RH que opera el documento | Colaborador | `GeneratedDocument` / `CierreLaboral` |
 | Acta administrativa | Gerente / RH | — | RH (`actas.gestionar`) | — | `ActaAdministrativa` |
 | Recibo de nómina | RH | — | — | Colaborador (si `features.recibos_colaborador`) | `ReciboNomina` |
 | Contrato por vencer / expediente incompleto / datos faltantes | Scheduler | — | RH / colaborador | — | `ContratoLaboral` / `Colaborador` |
@@ -77,6 +81,29 @@ encolado (no vuelve a crear la notificación).
 
 Al abrir un aviso viejo, `DestinoNotificacionService` consulta el estado actual
 del recurso y responde "Ya fue atendida" en vez de mandar a una pantalla rota.
+
+### Flujo de baja vigente vs. legacy (histórico)
+
+El flujo de baja **vigente** es: *baja solicitada* → *autorización de RH*
+(`cierre_autorizacion_rh`, sin preautorización de un superior) → generación y
+firma de los documentos; si el colaborador se niega, *acta de negativa con dos
+testigos* (`cierre_negativa_firma`). Al **ejecutarse** la baja, RH y **Sistemas**
+reciben `colaborador_baja` para retirar accesos, cuentas y equipo. El alta
+dispara el espejo: `colaborador_alta` a RH, Sistemas y el gerente del
+colaborador. Ninguno de estos eventos notifica a toda la plantilla.
+
+Los siguientes eventos son **legacy / histórico** del flujo anterior y **ya no
+se disparan** (sus claves se conservan en `config/configuracion_sistema.php`
+solo para avisos ya enviados y registros previos; las migraciones
+`2026_10_16_120000_baja_inmediata_sin_autorizacion_rh` y
+`2026_10_16_140000_cierre_retira_avisos_de_autorizacion_y_pago` retiraron sus
+tareas y avisos):
+
+- **Preautorización de la baja** (`cierre_preautorizacion`): la baja ya no se
+  preautoriza; esa clave hoy solo avisa a quien inició una baja que RH devolvió
+  para corregir.
+- **Pago de finiquito por programar** (`pago_por_programar`) y **cita de
+  finiquito** (`cita_finiquito`): el flujo nuevo no abre estas tareas.
 
 ## Diagnóstico
 

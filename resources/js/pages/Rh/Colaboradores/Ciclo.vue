@@ -16,7 +16,6 @@ import CicloTimeline from '@/components/ciclo/CicloTimeline.vue';
 import FiniquitoCierreDialog from '@/components/ciclo/FiniquitoCierreDialog.vue';
 import Casilla from '@/components/Common/Casilla.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
-import DateTimePicker from '@/components/Common/DateTimePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
@@ -143,21 +142,11 @@ const plantillas: Record<string, () => FormularioAccion> = {
         sueldo_mensual: sueldoMensualInicial(),
         sueldo_pendiente: finiquitoCierre.value?.sueldo_pendiente ?? '0',
     }),
-    programar_pago: () => ({
-        fecha: hoy,
-        monto:
-            (props.cierre?.finiquito as { neto?: string } | null)?.neto ?? '',
-        metodo: 'transferencia',
-        observaciones: '',
-    }),
-    registrar_cita: () => ({ fecha: `${hoy}T10:00` }),
-    finiquito_firmado: () => ({ archivo: null }),
-    confirmar_pago: () => ({ referencia: '' }),
     cerrar: () => ({}),
     cancelar: () => ({ motivo: '' }),
 };
 
-const conArchivos = ['registrar_aviso', 'finiquito_firmado'];
+const conArchivos = ['registrar_aviso'];
 
 // Acciones propias de esta pantalla que se suman a las del proceso.
 const accionesExtra = computed<AccionCiclo[]>(() => [
@@ -386,10 +375,6 @@ function destino(clave: string): string {
 const aliasCierre: Record<string, string> = {
     registrar_aviso: 'aviso',
     calcular_finiquito: 'calcularFiniquito',
-    programar_pago: 'programarPago',
-    registrar_cita: 'cita',
-    finiquito_firmado: 'finiquitoFirmado',
-    confirmar_pago: 'confirmarPago',
 };
 
 function enviar() {
@@ -1278,21 +1263,9 @@ const etiquetaFecha: Record<string, string> = {
                     </div>
                 </template>
 
-                <template
-                    v-else-if="
-                        ['registrar_aviso', 'finiquito_firmado'].includes(
-                            accion?.clave ?? '',
-                        )
-                    "
-                >
+                <template v-else-if="accion?.clave === 'registrar_aviso'">
                     <div class="grid gap-1.5">
-                        <Label
-                            >{{
-                                accion?.clave === 'registrar_aviso'
-                                    ? 'Renuncia / aviso firmado'
-                                    : 'Finiquito firmado con huella'
-                            }}
-                            (PDF o imagen)</Label
+                        <Label>Renuncia / aviso firmado (PDF o imagen)</Label
                         ><PeopleFileDropzone
                             :model-value="
                                 form.archivo ? [form.archivo as File] : []
@@ -1352,58 +1325,6 @@ const etiquetaFecha: Record<string, string> = {
                             min="0"
                             step="0.01"
                         /><InputError :message="form.errors.sueldo_pendiente" />
-                    </div>
-                </template>
-
-                <template v-else-if="accion?.clave === 'programar_pago'">
-                    <div class="grid gap-3 sm:grid-cols-2">
-                        <div class="grid gap-1.5">
-                            <Label>Fecha de pago</Label
-                            ><DatePicker
-                                v-model="form.fecha as string"
-                            /><InputError :message="form.errors.fecha" />
-                        </div>
-                        <div class="grid gap-1.5">
-                            <Label>Monto final</Label
-                            ><Input
-                                v-model="form.monto as string"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                            />
-                        </div>
-                    </div>
-                    <div class="grid gap-1.5">
-                        <Label>Método</Label
-                        ><Input
-                            v-model="form.metodo as string"
-                            placeholder="Transferencia, efectivo…"
-                        /><InputError :message="form.errors.metodo" />
-                    </div>
-                    <div class="grid gap-1.5">
-                        <Label>Observaciones</Label
-                        ><Textarea
-                            v-model="form.observaciones as string"
-                            rows="2"
-                        />
-                    </div>
-                </template>
-
-                <template v-else-if="accion?.clave === 'registrar_cita'">
-                    <div class="grid gap-1.5">
-                        <Label>Fecha y hora de la cita</Label
-                        ><DateTimePicker
-                            v-model="form.fecha as string"
-                        /><InputError :message="form.errors.fecha" />
-                    </div>
-                </template>
-
-                <template v-else-if="accion?.clave === 'confirmar_pago'">
-                    <div class="grid gap-1.5">
-                        <Label>Referencia del pago</Label
-                        ><Input
-                            v-model="form.referencia as string"
-                        /><InputError :message="form.errors.referencia" />
                     </div>
                 </template>
 

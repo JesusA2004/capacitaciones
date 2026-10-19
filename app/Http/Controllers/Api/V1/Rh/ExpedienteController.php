@@ -187,7 +187,10 @@ class ExpedienteController extends Controller
     public function aprobarIncorporacion(Request $request, Colaborador $colaborador): JsonResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('rh.expedientes.incorporacion.aprobar'), 403);
+        // Misma acción que IncorporacionController::aprobar: acepta las DOS
+        // familias de permiso (explorador de expedientes vs. bandeja de
+        // incorporaciones) para no quitarle el acceso a ningún rol (P2-14).
+        abort_unless($usuario->can('rh.expedientes.incorporacion.aprobar') || $usuario->can('rh.incorporaciones.aprobar'), 403);
         abort_unless($this->puedeVerDetalle($usuario, $colaborador), 403);
 
         try {
@@ -202,7 +205,7 @@ class ExpedienteController extends Controller
     public function rechazarIncorporacion(Request $request, Colaborador $colaborador): JsonResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('rh.expedientes.incorporacion.rechazar'), 403);
+        abort_unless($usuario->can('rh.expedientes.incorporacion.rechazar') || $usuario->can('rh.incorporaciones.rechazar'), 403);
         abort_unless($this->puedeVerDetalle($usuario, $colaborador), 403);
 
         $datos = $request->validate(['motivo' => ['required', 'string', 'max:500']]);

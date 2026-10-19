@@ -671,6 +671,11 @@ test('PDF etapa 2: contratos impresos → firma física → envío → recepció
     expect($contratos)->toHaveCount(3);
 
     $flujo = app(FlujoDocumentalService::class);
+    // Expediente que recorre el flujo ANTERIOR (envío → recepción → escaneo →
+    // archivo): hoy esos pasos son compatibilidad legacy y requieren habilitar
+    // la bandera explícitamente (FlujoDocumentalService los bloquea sobre
+    // documentos nuevos, que concluyen en la firma física).
+    config(['features.documentos_flujo_legacy' => true]);
     $this->actingAs($this->gerenteA);
     foreach ($contratos as $documento) {
         $flujo->marcarImpreso($documento, $this->gerenteA);
@@ -778,6 +783,10 @@ test('PDF etapas 6-7: el gerente inicia la baja → aplicada y acceso fuera al i
         ->and($colaborador->refresh()->estatus)->toBe(EstadoUsuario::Activo)
         ->and($cierre->acceso_suspendido_en)->not->toBeNull();
 
+    // Este caso reproduce el flujo ANTERIOR del finiquito (autorizar →
+    // programar pago → cita → firma → confirmar pago), hoy apagado: se habilita
+    // features.cierre_flujo_legacy solo para reproducirlo end-to-end.
+    config(['features.cierre_flujo_legacy' => true]);
     $this->actingAs($this->rh);
     $cierres->calcularFiniquito($cierre, $this->rh, 12000);
     $cierre = $cierres->autorizarFiniquito($cierre->refresh(), $this->rh);
@@ -786,6 +795,7 @@ test('PDF etapas 6-7: el gerente inicia la baja → aplicada y acceso fuera al i
     $cierres->registrarCita($cierre, $this->gerenteA, now()->addDays(3)->setTime(10, 0)->toDateTimeString());
     $cierres->registrarFiniquitoFirmado($cierre->refresh(), clArchivoPdf('finiquito-firmado.pdf'), $this->gerenteA);
     $cierre = $cierres->confirmarPago($cierre->refresh(), $this->gerenteA, 'SPEI-123');
+    config(['features.cierre_flujo_legacy' => false]);
 
     // Pagado pero antes de la fecha efectiva: todavía no es baja laboral.
     expect($colaborador->refresh()->estatus)->toBe(EstadoUsuario::Activo);

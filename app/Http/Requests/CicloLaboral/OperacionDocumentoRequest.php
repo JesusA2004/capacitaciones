@@ -25,8 +25,13 @@ class OperacionDocumentoRequest extends FormRequest
             'observaciones' => ['nullable', 'string', 'max:1000'],
             'fecha' => ['nullable', 'date', 'before_or_equal:now'],
             'huella_registrada' => ['sometimes', 'boolean'],
+            // El testigo se elige del buscador (colaborador_id); el backend
+            // congela su nombre/puesto/sucursal reales. Solo un testigo externo
+            // se captura a mano (nombre + puesto). Ver TestigoDocumentalService.
             'testigos' => ['nullable', 'array', 'max:5'],
-            'testigos.*.nombre' => ['required_with:testigos', 'string', 'max:160'],
+            'testigos.*.colaborador_id' => ['nullable', 'integer'],
+            'testigos.*.externo' => ['sometimes', 'boolean'],
+            'testigos.*.nombre' => ['nullable', 'string', 'max:160'],
             'testigos.*.puesto' => ['nullable', 'string', 'max:120'],
             'paqueteria' => ['sometimes', 'required', 'string', 'max:80'],
             'numero_guia' => ['sometimes', 'required', 'string', 'max:80'],

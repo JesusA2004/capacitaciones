@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\EstadoFlujoDocumento;
 use App\Enums\TipoTarea;
 use App\Models\Colaborador;
 use App\Models\GeneratedDocument;
@@ -7,6 +8,7 @@ use App\Models\Prestamo;
 use App\Models\SolicitudInterna;
 use App\Models\TareaRh;
 use App\Models\User;
+use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -94,6 +96,50 @@ test('préstamo: solicitud → visto bueno del jefe → autorización con monto/
     $this->getJson('/api/v1/colaborador/prestamos')->assertOk()->assertJsonCount(1, 'data');
 
     Sanctum::actingAs($this->rh);
+    $this->postJson("/api/v1/rh/prestamos/{$prestamo['id']}/resguardar")->assertOk();
+    expect(Prestamo::query()->findOrFail($prestamo['id'])->resguardado_en)->not->toBeNull();
+});
+
+test('resguardo de un préstamo FÍSICO exige la firma física real: un pagaré impreso o pendiente de firma no basta (P0-2)', function () {
+    // El pagaré es un título de crédito: su plantilla exige impresión + firma
+    // física. No debe poder resguardarse mientras no exista el original firmado.
+    foreach (['prestamo_contrato', 'prestamo_pagare', 'prestamo_consentimiento_retencion'] as $clave) {
+        clPlantilla($clave, ['requiere_impresion' => true, 'requiere_firma_fisica' => true]);
+    }
+
+    $solicitudId = clSolicitarPrestamo($this->cuenta);
+
+    Sanctum::actingAs($this->jefe);
+    $this->postJson("/api/v1/equipo/solicitudes/{$solicitudId}/visto-bueno", ['aprobado' => true, 'comentario' => 'De acuerdo'])->assertOk();
+
+    Sanctum::actingAs($this->direccion);
+    $prestamo = $this->postJson("/api/v1/rh/solicitudes/{$solicitudId}/prestamo/autorizar", ['monto_autorizado' => 8000, 'plazo_autorizado' => 8])
+        ->assertCreated()->json('data');
+
+    expect($prestamo['contrato']['estado'])->toBe('pendiente_impresion')
+        ->and($prestamo['pagare']['estado'])->toBe('pendiente_impresion');
+
+    // Recién generado (PendienteImpresion): el resguardo NO procede.
+    Sanctum::actingAs($this->rh);
+    $this->postJson("/api/v1/rh/prestamos/{$prestamo['id']}/resguardar")->assertUnprocessable();
+
+    $flujo = app(FlujoDocumentalService::class);
+    $contrato = GeneratedDocument::query()->findOrFail($prestamo['contrato']['id']);
+    $pagare = GeneratedDocument::query()->findOrFail($prestamo['pagare']['id']);
+
+    // Impreso → PendienteFirmaFisica: un pagaré todavía sin firmar no basta.
+    foreach ([$contrato, $pagare] as $documento) {
+        $flujo->marcarImpreso($documento, $this->rh);
+    }
+    expect($contrato->refresh()->estado_flujo)->toBe(EstadoFlujoDocumento::PendienteFirmaFisica)
+        ->and($pagare->refresh()->estado_flujo)->toBe(EstadoFlujoDocumento::PendienteFirmaFisica);
+    $this->postJson("/api/v1/rh/prestamos/{$prestamo['id']}/resguardar")->assertUnprocessable();
+
+    // Firmados físicamente (original resguardado): ahora sí procede el resguardo.
+    foreach ([$contrato, $pagare] as $documento) {
+        $flujo->registrarFirmaFisica($documento->refresh(), $this->rh, ['huella_registrada' => false]);
+    }
+    expect($pagare->refresh()->estado_flujo)->toBe(EstadoFlujoDocumento::FirmadoFisicamente);
     $this->postJson("/api/v1/rh/prestamos/{$prestamo['id']}/resguardar")->assertOk();
     expect(Prestamo::query()->findOrFail($prestamo['id'])->resguardado_en)->not->toBeNull();
 });

@@ -64,3 +64,15 @@ Con `CAPACITACION_ENABLED=false` (valor por defecto):
 ### Pruebas
 
 `phpunit.xml` fuerza `CAPACITACION_ENABLED=true` en el entorno de pruebas, para que la suite existente siga ejercitando esas rutas exactamente igual que antes, sin importar el valor por defecto en producción.
+
+## Módulos de Desarrollo (etapa 6) aún no liberados
+
+La etapa **6 · Desarrollo** del sidebar (ver `docs/ROLES_Y_NAVEGACION.md`) incluye módulos que todavía no tienen pantalla real. En lugar de mostrar accesos falsos, cada uno queda **detrás de su propia bandera, apagada por defecto** — regla del plan: «no mostrar pantallas falsas, usar feature flag hasta estar realmente funcional».
+
+| Bandera | Env | Default | Oculta |
+|---|---|---|---|
+| `evaluacion_desempeno` | `EVALUACION_DESEMPENO_ENABLED` | `false` | «Evaluación del desempeño» (evaluación técnica/por puesto, KPIs, ciclos). |
+| `nine_box` | `NINE_BOX_ENABLED` | `false` | «Matriz 9 box y planes» (desempeño × potencial, planes de desarrollo/mejora). |
+| `certificacion` | `CERTIFICACION_ENABLED` | `false` | «Certificación Mr. Lana» (programa de certificación por puesto). |
+
+Con la bandera apagada, el acceso **no se muestra a nadie** en el menú (el `href` es un marcador `'#'`). Al construir cada módulo real se cambia el `href` por su ruta y se enciende la bandera; mientras tanto la etapa Desarrollo sí existe en el orden del menú con «Capacitación continua» (detrás de `capacitacion`). Estas tres banderas se exponen al frontend en `App\Http\Middleware\HandleInertiaRequests` (`features`).

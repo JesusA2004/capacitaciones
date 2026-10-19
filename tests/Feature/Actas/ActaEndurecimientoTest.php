@@ -146,6 +146,33 @@ test('acta histórica (formato null): se cierra solo firmada o con negativa', fu
     expect($historica->refresh()->estado)->toBe(EstadoActa::Cerrada);
 });
 
+test('acta NO circunstanciada con documento solo «Impreso» no se cierra: exige firma física real o negativa (P1-6)', function () {
+    // Documento físico apenas impreso: estaFirmado() devolvía true aquí, así
+    // que un acta disciplinaria se cerraba sin firma física real. Ahora se
+    // exige la firma física de verdad (firmaFisicaRegistrada) o la negativa.
+    $documento = GeneratedDocument::factory()->create([
+        'colaborador_id' => $this->trabajador->id,
+        'estado_flujo' => EstadoFlujoDocumento::Impreso,
+        'requiere_impresion' => true,
+        'requiere_firma_fisica' => true,
+    ]);
+
+    $acta = ActaAdministrativa::query()->create([
+        'colaborador_id' => $this->trabajador->id, 'tipo' => 'administrativa', 'estado' => EstadoActa::Generada,
+        'formato' => null, 'generated_document_id' => $documento->id,
+        'fecha' => now()->subMonth()->toDateString(), 'hechos' => 'Histórica impresa', 'creado_por' => $this->rh->id,
+    ]);
+
+    expect(aeErrorCerrar($this, $acta))->toContain('firma física');
+    $this->actingAs($this->rh)->post(route('rh.actas.cerrar', $acta))->assertSessionHasErrors('acta');
+    expect($acta->refresh()->estado)->toBe(EstadoActa::Generada);
+
+    // Firmado físicamente → ya se puede cerrar (histórica: sin constancia de entrega).
+    $documento->update(['estado_flujo' => EstadoFlujoDocumento::FirmadoFisicamente]);
+    $this->actingAs($this->rh)->post(route('rh.actas.cerrar', $acta))->assertSessionHasNoErrors();
+    expect($acta->refresh()->estado)->toBe(EstadoActa::Cerrada);
+});
+
 test('negativa a firmar y entrega de copia: solo sobre el acta definitiva y abierta (web y API)', function () {
     $acta = aeLevantar($this, aeDatos());
 

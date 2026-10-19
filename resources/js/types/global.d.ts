@@ -22,6 +22,12 @@ declare module '@inertiajs/core' {
             features: {
                 capacitacion: boolean;
                 recibos_colaborador: boolean;
+                // Módulos de Desarrollo (etapa 6) aún no liberados: se ocultan
+                // del menú hasta tener ruta + pantalla reales (no pantallas
+                // falsas, ver docs/ROLES_Y_NAVEGACION.md §Desarrollo).
+                evaluacion_desempeno: boolean;
+                nine_box: boolean;
+                certificacion: boolean;
             };
             // Modo de navegación (App\Services\Navigation\NavigationService):
             // separa la experiencia personal ("colaborador") de la operativa

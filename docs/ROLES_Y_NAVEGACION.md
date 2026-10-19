@@ -2,8 +2,8 @@
 
 MR. LANA PEOPLE separa dos experiencias completamente distintas dentro del mismo sistema — ver `App\Services\Navigation\NavigationService`:
 
-- **Modo colaborador**: el portal personal de cualquier empleado (mi portal, mis solicitudes, mi expediente, mis notificaciones, mi perfil).
-- **Modo operativo**: las herramientas de RH/gerencia/dirección para operar el sistema (dashboard, colaboradores, solicitudes por revisar, vacantes, candidatos, organigrama, formatos, reportes, cumpleaños, administración).
+- **Modo colaborador**: el portal personal de cualquier empleado (Mi inicio, Mi expediente, Mis solicitudes, Mi recibo, Mis notificaciones, Mi inducción, Celebraciones, Ayuda).
+- **Modo operativo**: las herramientas de RH/gerencia/dirección ordenadas por el **ciclo de vida laboral del colaborador** (Inicio → 1 Reclutamiento → 2 Contratación → 3 Onboarding → 4 Cierre del periodo de prueba → 5 Permanencia → 6 Desarrollo → 7 Cierres laborales), más los bloques transversales Organización, Reportes y Configuración.
 
 Un usuario **nunca** ve ambos mezclados en el mismo menú. Una misma CUENTA puede representar a la vez a un colaborador real y a alguien con permisos operativos; ninguna capacidad depende del nombre del rol:
 
@@ -20,11 +20,50 @@ Solo aparece cuando `NavigationService::modosDisponibles()` devuelve los dos mod
 
 Sin cookie y con ambos modos disponibles, el sistema prioriza **operativo** por default (es la herramienta de trabajo principal de quien administra el sistema).
 
-## Qué se ve en cada modo
+## Estructura canónica del menú (navegación operativa)
 
-**Colaborador**: Mi portal, Mis solicitudes, Mi expediente (si tiene `expedientes.ver`), Mis notificaciones, Mi perfil, Capacitación (si el feature flag está activo).
+La navegación vive en **una sola fuente declarativa**: `resources/js/composables/useMainNavItems.ts` (`NavGroup[]`), consumida por `AppSidebar.vue` (sidebar completo) y `MobileBottomNav.vue` (barra inferior móvil). Nunca se duplica en otro componente. Cada grupo declara `id`, `numero` (etapa 1–7; los transversales no lo llevan), `titulo`, `icono` e `items`, y cada acceso se muestra **solo si el usuario tiene el permiso real que exige su controlador**.
 
-**Operativo**: Inicio (dashboard), Expedientes (listado completo, solo con `expedientes.ver_todos`/`ver_sucursal`), Solicitudes (bandeja de revisión, con `solicitudes.revisar`/`aprobar`), Organigrama (con `organigrama.ver`), Vacantes, Candidatos, Altas digitales, Invitaciones QR, Formatos, Plantillas avanzadas, Reportes, Rotación de personal (con `rotacion.ver`), Cumpleaños, Capacitación (si aplica) — y, aparte, un grupo "Administración" (Empresas, Usuarios, Sucursales, Departamentos, Puestos, Roles y permisos, Versiones de app).
+El orden es exactamente el ciclo de vida laboral + transversales:
+
+| # | Grupo | Accesos | Permiso de cada acceso | Ruta |
+|---|---|---|---|---|
+| — | **Inicio** | Tablero de RH | abierto (contenido por `dashboard.*.ver`) | `dashboard` |
+| | | Pendientes | `ciclo.*`/`evaluaciones.*`/`onboarding.entregar_activos`/`cierres.*`/`expedientes.revisar`/`solicitudes.*`/`nomina.recibos.crear` | `rh.pendientes.index` |
+| 1 | **Reclutamiento y selección** | Vacantes | `vacantes.ver` | `rh.vacantes.index` |
+| | | Campañas | `reclutamiento.campanas.ver` | `rh.campanas.index` |
+| | | Candidatos | `candidatos.ver` | `rh.candidatos.index` |
+| | | Invitaciones QR | `rh.incorporacion.invitaciones.ver` | `rh.incorporacion.invitaciones.index` |
+| 2 | **Contratación y expediente** | Personas en contratación | `contratos.ver` | `rh.contratacion.index` |
+| | | Validación de documentos | `documentos.revisar` | `rh.validacion-documentos.index` |
+| | | Contratos de ingreso | `contratos.ver` | `rh.contratos-ingreso.index` |
+| 3 | **Onboarding** | Inducción institucional | `onboarding.gestionar` | `induccion.presentacion` |
+| | | Inducción al puesto | `onboarding.gestionar` | `rh.induccion-puesto.index` |
+| | | Calificaciones y refuerzo | `evaluaciones.*` | `rh.evaluaciones.index?estado=autorizada` |
+| | | Activos y responsivas | `responsivas.ver` | `rh.activos-responsivas.index` |
+| 4 | **Cierre del periodo de prueba** | Periodos por vencer | `evaluaciones.*` | `rh.evaluaciones.index?estado=pendiente` |
+| | | Evaluación y decisión | `evaluaciones.*` | `rh.evaluaciones.index?estado=capturada` |
+| 5 | **Permanencia** | Colaboradores | `expedientes.ver_todos`/`ver_region`/`ver_sucursal`/`ver_equipo` | `rh.expedientes.index` |
+| | | Solicitudes | `solicitudes.revisar`/`aprobar` | `rh.solicitudes.index` |
+| | | Actas administrativas | `actas.ver` | `rh.actas.index` |
+| | | Recibo simple de pago | `nomina.recibos.ver` | `rh.nomina.lotes.index` |
+| | | Celebraciones | `rh.cumpleanos.ver`/`celebraciones.ver` | `rh.cumpleanos.index` / `rh.aniversarios.index` |
+| 6 | **Desarrollo** | Capacitación continua | feature `capacitacion` | `cursos.index` |
+| | | Evaluación del desempeño · Matriz 9 box y planes · Certificación Mr. Lana | features `evaluacion_desempeno` / `nine_box` / `certificacion` (apagados: aún sin pantalla real, no se muestran) | — |
+| 7 | **Cierres laborales** | Bajas y finiquitos | `cierres.ver` | `rh.cierres.index` |
+| | | Reingresos | `reingresos.solicitar`/`gestionar` | `rh.reingresos.index` |
+| — | **Organización** | Organigrama | `organigrama.ver` | `administracion.jerarquia-puestos.index` |
+| | | Puestos y tabulador | `puestos.administrar` | `administracion.puestos.index` |
+| | | Sucursales y departamentos | `sucursales.administrar`/`departamentos.administrar` | `administracion.sucursales.index` |
+| — | **Reportes** | Reportes de RH (incluye Rotación) | `reportes_rh.ver` | `reportes.index` |
+| — | **Configuración** · solo administrador | Documentos maestros | `plantillas_documentales.administrar` | `rh.documentos-maestros.index` |
+| | | Usuarios y permisos | `usuarios.ver`/`roles.administrar` | `administracion.usuarios.index` |
+| | | Importar datos | `expedientes.migrar`/`headcount.importar`/`colaboradores.importar_salarios_vacaciones`/`rotacion.cargar`/`perfiles_puesto.editar` | `administracion.importar-datos.index` |
+| | | Ajustes y notificaciones | `configuracion.ver`/`notificaciones.ver_todas` | `administracion.configuracion.index` |
+
+Las tres vistas de **evaluación de capacitación inicial** (Calificaciones y refuerzo, Periodos por vencer, Evaluación y decisión) son filtros `?estado=` reales de la **misma** pantalla (`rh.evaluaciones.index`), no pantallas duplicadas.
+
+**Colaborador ("Mi espacio")**: Mi inicio, Mi expediente (si `expedientes.ver`), Mis solicitudes (si `portal.solicitudes.ver`/`solicitudes.crear`), Mi recibo (solo si `features.recibos_colaborador`), Mis notificaciones, Mi inducción, Mi capacitación (si `features.capacitacion`), Celebraciones, Ayuda.
 
 ## Expedientes vs. Usuarios vs. Roles y permisos
 
@@ -36,7 +75,7 @@ Tres conceptos relacionados pero distintos, cada uno con su propia pantalla:
 
 La cuenta de acceso de un colaborador puede administrarse desde cualquiera de los dos lugares con datos de esa cuenta — la pestaña «Cuenta» del expediente (contextual, cuando ya estás viendo a ese colaborador) o el listado global de Usuarios (para gestionar cuentas sin pasar por un expediente primero) — ambos llaman a los mismos endpoints de `UsuarioController`, así que nunca quedan desincronizados.
 
-Lo que **ya no existe** como entrada de menú (aunque las rutas sigan vivas por compatibilidad): "Vacaciones" y "Vacaciones (revisión)" como módulos aparte (vacaciones vive dentro de Solicitudes), "Reclutamiento" (se resume en Vacantes), "Reportes RH" duplicado (queda solo "Reportes"), y "Jerarquía de puestos" como texto visible (la pantalla y el menú dicen "Organigrama" — ver `docs/ORGANIGRAMA.md`).
+Lo que **ya no existe** como entrada de menú (aunque las rutas sigan vivas por compatibilidad): "Vacaciones" y "Vacaciones (revisión)" como módulos aparte (vacaciones vive dentro de Solicitudes), "Reclutamiento" (se resume en Vacantes), "Reportes RH" duplicado (queda solo "Reportes de RH"), "Jerarquía de puestos" como texto visible (la pantalla y el menú dicen "Organigrama" — ver `docs/ORGANIGRAMA.md`), **"Rotación de personal" como entrada suelta** (ahora vive dentro de Reportes de RH; su fuente canónica sigue siendo `RotacionPeriodo`), **"Directorio" aparte** (es "Colaboradores" en Permanencia — una sola fuente de personas), y el **grupo "Administración"** disperso (Empresas, Usuarios, Sucursales, Departamentos, Puestos, Roles, Versiones de app): esas entradas se reagruparon en **Organización** y **Configuración** según corresponde. Cumpleaños + Aniversarios + Muro se unifican en **"Celebraciones"**.
 
 ## Permisos personales vs operativos
 

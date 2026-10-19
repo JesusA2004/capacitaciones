@@ -53,9 +53,6 @@ Route::middleware('auth')->prefix('cambiar-contrasena')->name('contrasena-tempor
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('dashboard/rotacion', [DashboardController::class, 'rotacion'])->name('dashboard.rotacion');
-    Route::get('dashboard/rotacion/excel', [DashboardController::class, 'rotacionExcel'])->name('dashboard.rotacion.excel');
-    Route::get('dashboard/rotacion/pdf', [DashboardController::class, 'rotacionPdf'])->name('dashboard.rotacion.pdf');
 
     Route::post('modo-navegacion', [NavigationModeController::class, 'update'])->name('modo-navegacion.update');
 
