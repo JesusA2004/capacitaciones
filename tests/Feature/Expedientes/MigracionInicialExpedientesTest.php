@@ -778,3 +778,52 @@ test('detección de formato: BASE_GENERAL usa el lector único; Sucursales/Corpo
     expect($s41->planArray()['excel']['hoja'])->toBe('Sucursales + Corporativo')
         ->and($s41->planArray()['filas'][0]['operacion'])->toBe('crear');
 });
+
+/*
+ * Forma REAL de los archivos del negocio (docs/datosReales, no versionados):
+ * la hoja Sucursales trae la sucursal en «Clasificación» y el encabezado en la
+ * fila 5; el directorio de gerencias (mismas personas, por «NO. NOI» = Clave)
+ * trae su encabezado en la fila 11, renglones separadores por sucursal y el
+ * contacto corporativo que alimenta el módulo Directorio.
+ */
+test('SEMANA 41 real: «Clasificación» es la sucursal y el directorio aporta puesto, correo y teléfono corporativos', function () {
+    $ventas = $this->departamento;
+    Puesto::factory()->create(['nombre' => 'Gerente de Sucursal', 'departamento_id' => $ventas->id]);
+    $operaciones = Departamento::factory()->create(['nombre' => 'Operaciones']);
+    Puesto::factory()->create(['nombre' => 'Coordinadora de Sucursal', 'departamento_id' => $operaciones->id]);
+
+    $libro = new Spreadsheet;
+    $suc = $libro->getActiveSheet();
+    $suc->setTitle('Sucursales');
+    $suc->fromArray(['Clave', 'Nombre', 'Apellido paterno', 'Apellido materno', 'CURP', 'Clasificación', 'Estatus'], null, 'A5');
+    $suc->fromArray(['20', 'Mario', 'Prueba', 'Uno', 'PRUM900101HMSRNL01', 'Cuernavaca', 'Alta'], null, 'A6');
+    $suc->fromArray(['8', 'Laura', 'Prueba', 'Dos', 'PRDL900101MMSRNL02', 'Atlacomulc', 'Alta'], null, 'A7');
+    $suc->fromArray(['99', 'Sin', 'Directorio', 'Nadie', 'SIDN900101HMSRNL01', 'Cuernavaca', 'Alta'], null, 'A8');
+    $excel = tempnam(sys_get_temp_dir(), 'migs41real').'.xlsx';
+    (new Xlsx($libro))->save($excel);
+
+    $dir = new Spreadsheet;
+    $hoja = $dir->getActiveSheet();
+    $hoja->setTitle('Directorio');
+    $hoja->setCellValue('A6', 'DIRECTORIO DE GERENCIAS Y COORDINACIONES');
+    $hoja->fromArray(['NO. NOI', 'NOMBRE DEL COLABORADOR', 'SUCURSAL', 'PUESTO', 'CORREO INSTITUCIONAL', 'NO. TELEFÓNICO'], null, 'A11');
+    $hoja->fromArray(['▎ SUCURSAL CUERNAVACA', null, null, null, '1 colaboradores'], null, 'A12');
+    $hoja->fromArray(['20', 'MARIO PRUEBA UNO', 'CUERNAVACA', 'GERENTE', 'mario.prueba@mrlana.test', '5550000001'], null, 'A13');
+    $hoja->fromArray(['8', 'LAURA PRUEBA DOS', 'ATLACOMULCO', 'COORDINADORA', 'laura.prueba@mrlana.test', '555 000 0002'], null, 'A14');
+    $roster = tempnam(sys_get_temp_dir(), 'directorio').'.xlsx';
+    (new Xlsx($dir))->save($roster);
+
+    $filas = collect($this->servicio->analizar($excel, 'base.xlsx', $this->rh, $roster, 'directorio.xlsx')->planArray()['filas'])->keyBy(fn ($f) => $f['datos']['clave_legacy']);
+
+    expect($filas['20']['operacion'])->toBe('crear')
+        ->and($filas['20']['puesto_nombre'])->toBe('Gerente de Sucursal')
+        ->and($filas['20']['datos']['sucursal_principal_id'])->toBe($this->cuernavaca->id)
+        ->and($filas['20']['datos']['departamento_id'])->toBe($ventas->id)
+        ->and($filas['20']['datos']['correo_corporativo'])->toBe('mario.prueba@mrlana.test')
+        ->and($filas['8']['puesto_nombre'])->toBe('Coordinadora de Sucursal')
+        ->and($filas['8']['datos']['sucursal_principal_id'])->toBe($this->atlacomulco->id)
+        ->and($filas['8']['datos']['correo_corporativo'])->toBe('laura.prueba@mrlana.test')
+        // Quien no está en el directorio no recibe un puesto inventado.
+        ->and($filas['99']['operacion'])->toBe('en_revision')
+        ->and($filas['99']['datos']['puesto_id'])->toBeNull();
+});

@@ -12,6 +12,8 @@ use App\Services\ImportadorTrabajadores\ImportadorTrabajadoresService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
+use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Shared\Date as FechaExcel;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
@@ -472,4 +474,30 @@ test('people:auditar-fechas-importadas propone RESTAURAR solo cuando hay fecha a
     expect($restaurable->refresh()->fecha_ingreso->toDateString())->toBe('2025-12-01')
         ->and($sinAnterior->refresh()->fecha_ingreso->toDateString())->toBe('2024-05-01')
         ->and($editadaDespues->refresh()->fecha_ingreso->toDateString())->toBe('2023-02-02');
+});
+
+test('FECHA INGRESO como fecha real de Excel (serie con formato m/d/yyyy, como el reporte real) se lee bien; el texto dd/mm también', function () {
+    Colaborador::factory()->create(['name' => 'Ana', 'apellidos' => 'Serie Uno', 'sucursal_principal_id' => $this->sucursal->id, 'estatus' => 'activo', 'fecha_ingreso' => '2020-01-01', 'salario_diario' => 300]);
+    Colaborador::factory()->create(['name' => 'Beto', 'apellidos' => 'Serie Dos', 'sucursal_principal_id' => $this->sucursal->id, 'estatus' => 'activo', 'fecha_ingreso' => '2020-01-01', 'salario_diario' => 300]);
+    Colaborador::factory()->create(['name' => 'Ceci', 'apellidos' => 'Texto Tres', 'sucursal_principal_id' => $this->sucursal->id, 'estatus' => 'activo', 'fecha_ingreso' => '2020-01-01', 'salario_diario' => 300]);
+
+    $archivo = itvArchivo([
+        ['Ana Serie Uno', 'ATLACOMULC', '', 12, 0, 12, 320],
+        ['Beto Serie Dos', 'ATLACOMULC', '', 12, 0, 12, 320],
+        ['Ceci Texto Tres', 'ATLACOMULC', '29/06/2021', 12, 0, 12, 320],
+    ]);
+
+    // Igual que el archivo real: número de serie con formato de fecha
+    // estadounidense. 5 de marzo (ambigua al leerla como dd/mm) y 17 de
+    // junio (día > 12: nula al leerla como dd/mm).
+    $libro = IOFactory::load($archivo->getRealPath());
+    $hoja = $libro->getActiveSheet();
+    $hoja->setCellValue('C5', FechaExcel::PHPToExcel(new DateTime('2026-03-05')));
+    $hoja->setCellValue('C6', FechaExcel::PHPToExcel(new DateTime('2021-06-17')));
+    $hoja->getStyle('C5:C6')->getNumberFormat()->setFormatCode('m/d/yyyy');
+    (new Xlsx($libro))->save($archivo->getRealPath());
+
+    $detalle = $this->importador->analizar($archivo, $this->actor)->detalle;
+
+    expect(array_column($detalle, 'fecha_ingreso_reportada_archivo'))->toBe(['2026-03-05', '2021-06-17', '2021-06-29']);
 });

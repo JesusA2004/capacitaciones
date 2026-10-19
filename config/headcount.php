@@ -19,4 +19,15 @@ return [
     'puestos_equivalentes' => [
         'Gestor Volante' => 'Gestor',
     ],
+
+    /*
+    | Nombre de sucursal en el Excel de headcount => nombre EXACTO en el
+    | catálogo. Lista cerrada, solo alias confirmados por el negocio (el
+    | mismo que config/expedientes.php migracion_inicial.alias_sucursales);
+    | cualquier otro nombre sin coincidencia exacta se reporta como
+    | pendiente, nunca se aproxima.
+    */
+    'alias_sucursales' => [
+        'TULA DE ALLENDE' => 'Tula',
+    ],
 ];

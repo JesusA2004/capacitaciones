@@ -44,3 +44,7 @@ yarn-error.log
 
 # Logs temporales de verificación local
 scratch_*.log
+
+# Archivos REALES del negocio (CURP/RFC/IMSS/salarios). El repo es público:
+# nunca se versionan; se copian al servidor por fuera de git (scp).
+/docs/datosReales/

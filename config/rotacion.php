@@ -33,6 +33,8 @@ return [
     // negocio confirmó; cualquier otro nombre que no coincida se reporta.
     'alias_sucursales' => [
         // 'san luis' => 'SLP01',
+        // Confirmado (config/expedientes.php y SucursalSeeder: ciudad de Tula).
+        'tula de allende' => 'Tula',
     ],
 
 ];

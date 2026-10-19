@@ -163,19 +163,12 @@ class PlanificadorMigracion
         // Departamento del Excel: debe ser reconocible (exacto normalizado o
         // alias explícito). Nunca aproximado ni se crea.
         $departamentoExcel = null;
+        // Sin departamento en el archivo: se decide DESPUÉS de resolver el
+        // puesto, porque el que se guarda es el del puesto canónico; solo
+        // falta de verdad si el puesto tampoco lo aporta.
+        $sinDepartamento = ($f['departamento'] ?? null) === null;
 
-        if (($f['departamento'] ?? null) === null) {
-            if ($operacion !== 'omitir') {
-                // Sin dato (no vino en el roster) → en revisión; presente pero
-                // no reconocido en el catálogo → conflicto (más abajo).
-                if ($permiteRevision) {
-                    $revision[] = 'Sin departamento (no vino en el roster): pendiente de completar antes de aplicar.';
-                } else {
-                    $operacion = 'conflicto';
-                    $motivos[] = 'Falta «Departamento».';
-                }
-            }
-        } else {
+        if (! $sinDepartamento) {
             $departamentoExcel = $this->catalogo->departamento($f['departamento']);
 
             if ($departamentoExcel === null && $operacion !== 'omitir') {
@@ -209,6 +202,18 @@ class PlanificadorMigracion
             } else {
                 $operacion = 'conflicto';
                 $motivos[] = (string) $resuelto['motivo'];
+            }
+        }
+
+        // BASE_GENERAL (sin revisión) exige la columna; el formato por
+        // sucursales + roster acepta el departamento del puesto canónico.
+        if ($sinDepartamento && $operacion !== 'omitir') {
+            if (! $permiteRevision) {
+                $operacion = 'conflicto';
+                $motivos[] = 'Falta «Departamento».';
+            } elseif ($puesto !== null && $puesto->departamento_id === null) {
+                // Sin puesto ya se reportó arriba: no se duplica el motivo.
+                $revision[] = 'Sin departamento (ni en el archivo ni en su puesto): pendiente de completar antes de aplicar.';
             }
         }
 
@@ -281,7 +286,8 @@ class PlanificadorMigracion
                 'nss' => $f['nss'],
                 'correo_personal' => $f['correo'],
                 'telefono' => $f['telefono_personal'] ?? $f['telefono'],
-                'telefono_corporativo' => $f['telefono_personal'] !== null ? $f['telefono'] : null,
+                'telefono_corporativo' => $f['telefono_corporativo'] ?? ($f['telefono_personal'] !== null ? $f['telefono'] : null),
+                'correo_corporativo' => $f['correo_corporativo'] ?? null,
                 'fecha_nacimiento' => $f['fecha_nacimiento'],
                 'fecha_ingreso' => $f['fecha_alta'],
                 'estatus' => $f['estatus'] === 'baja' ? 'inactivo' : 'activo',

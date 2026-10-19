@@ -706,7 +706,13 @@ class ImportadorTrabajadoresService
     {
         try {
             $libro = IOFactory::load((string) $archivo->getRealPath());
-            $hoja = $libro->getActiveSheet()->toArray(null, true, true, false);
+            // Valores crudos (formatData = false): con el formato aplicado,
+            // una fecha real del Excel (número de serie con formato
+            // m/d/yyyy) llegaría como texto «3/5/2026» y parsearFecha() la
+            // leería como dd/mm (5 de marzo → 3 de mayo, o nula si el día
+            // pasa de 12). El texto capturado a mano («29/06/2021») sigue
+            // llegando como texto dd/mm.
+            $hoja = $libro->getActiveSheet()->toArray(null, true, false, false);
         } catch (Throwable) {
             throw ValidationException::withMessages(['archivo' => 'No se pudo leer el archivo. Debe ser el XLSX real de REPORTE_TRABAJADORES_VAC.']);
         }

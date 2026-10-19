@@ -18,7 +18,7 @@ class CombinadorRosterNominal
 {
     /**
      * @param  array{filas: list<array<string, mixed>>, columnas: array<string, string>, sin_reconocer: list<string>, hoja: string, formato: string}  $excel
-     * @param  array{entradas: list<array{clave: string|null, nombre_clave: string, puesto: string|null, departamento: string|null}>, sin_reconocer: list<string>}  $roster
+     * @param  array{entradas: list<array{clave: string|null, nombre_clave: string, puesto: string|null, departamento: string|null, correo_corporativo: string|null, telefono_corporativo: string|null}>, sin_reconocer: list<string>}  $roster
      * @return array{filas: list<array<string, mixed>>, columnas: array<string, string>, sin_reconocer: list<string>, hoja: string, formato: string}
      */
     public function combinar(array $excel, array $roster): array
@@ -75,13 +75,15 @@ class CombinadorRosterNominal
 
     /**
      * @param  array<string, mixed>  $fila
-     * @param  array{clave: string|null, nombre_clave: string, puesto: string|null, departamento: string|null}  $entrada
+     * @param  array{clave: string|null, nombre_clave: string, puesto: string|null, departamento: string|null, correo_corporativo: string|null, telefono_corporativo: string|null}  $entrada
      * @return array<string, mixed>
      */
     private function aplicar(array $fila, array $entrada, string $regla): array
     {
         $fila['puesto'] = $entrada['puesto'];
         $fila['departamento'] = $entrada['departamento'];
+        $fila['correo_corporativo'] = $entrada['correo_corporativo'];
+        $fila['telefono_corporativo'] = $entrada['telefono_corporativo'];
         $fila['roster_match'] = $regla;
 
         return $fila;

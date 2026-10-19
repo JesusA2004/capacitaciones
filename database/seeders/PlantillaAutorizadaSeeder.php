@@ -34,7 +34,7 @@ class PlantillaAutorizadaSeeder extends Seeder
         $usuario = User::query()->role('super_admin')->first();
         $resultado = app(HeadcountImportService::class)->importar($ruta, $usuario, soloFaltantes: true);
 
-        foreach ([...$resultado['sucursales_sin_match'], ...$resultado['puestos_sin_match'], ...$resultado['conflictos']] as $pendiente) {
+        foreach ([...$resultado['sucursales_sin_match'], ...$resultado['puestos_sin_match'], ...$resultado['conflictos'], ...$resultado['filas_incompletas']] as $pendiente) {
             // Auditable: nunca se ignora en silencio (ver CLAUDE.md).
             Log::warning('PlantillaAutorizadaSeeder: pendiente de revisar en el Excel de headcount.', ['detalle' => $pendiente]);
         }

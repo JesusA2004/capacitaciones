@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
@@ -56,6 +57,7 @@ class HeadcountImportService
      *     sucursales_sin_match: array<int, string>,
      *     puestos_sin_match: array<int, string>,
      *     conflictos: array<int, string>,
+     *     filas_incompletas: array<int, string>,
      * }
      */
     public function importar(string $rutaArchivo, ?User $usuario, bool $soloFaltantes = false): array
@@ -69,10 +71,19 @@ class HeadcountImportService
             'sucursales_sin_match' => [],
             'puestos_sin_match' => [],
             'conflictos' => [],
+            'filas_incompletas' => [],
         ];
 
         $sucursalesPorNombre = Sucursal::query()->get(['id', 'nombre'])
             ->keyBy(fn (Sucursal $s) => $this->normalizar($s->nombre));
+
+        // Nombres del Excel que el negocio confirmó como otra sucursal del
+        // catálogo («TULA DE ALLENDE» = «Tula»). Lista cerrada en
+        // config/headcount.php: nunca por prefijo ni parecido.
+        $alias = [];
+        foreach ((array) config('headcount.alias_sucursales', []) as $nombreExcel => $nombreCatalogo) {
+            $alias[$this->normalizar((string) $nombreExcel)] = $this->normalizar((string) $nombreCatalogo);
+        }
 
         $puestosPorNombre = Puesto::query()->get(['id', 'nombre'])
             ->keyBy(fn (Puesto $p) => $this->normalizar($p->nombre));
@@ -89,7 +100,12 @@ class HeadcountImportService
             foreach ($this->bloquesDeSucursal($hoja) as $bloque) {
                 $sucursalNombre = $bloque['sucursal'];
                 $sucursalNormalizada = $this->normalizar($sucursalNombre);
-                $sucursal = $sucursalesPorNombre->get($sucursalNormalizada);
+                $sucursal = $sucursalesPorNombre->get($sucursalNormalizada)
+                    ?? $sucursalesPorNombre->get($alias[$sucursalNormalizada] ?? '');
+
+                foreach ($bloque['incompletas'] as $incompleta) {
+                    $resultado['filas_incompletas'][] = sprintf('%s (hoja %s, sucursal %s)', $incompleta, trim($nombreHoja), $sucursalNombre);
+                }
 
                 if ($sucursal === null) {
                     if (! in_array($sucursalNombre, $resultado['sucursales_sin_match'], true)) {
@@ -176,74 +192,73 @@ class HeadcountImportService
     }
 
     /**
-     * Recorre la hoja fila por fila y arma bloques {sucursal, filas[]}.
+     * Recorre la hoja y arma bloques {sucursal, filas[], incompletas[]}.
      * Cada hoja tiene DOS bloques por fila de sucursal (columnas A-D y
      * F-I), tratados de forma independiente.
      *
-     * @return array<int, array{sucursal: string, filas: array<int, array{modalidad: string, plantilla_autorizada: int}>}>
+     * Un bloque empieza en la celda con el nombre de la sucursal cuya fila
+     * siguiente dice MODALIDAD, y termina en la fila «Totales:» (que en el
+     * Excel real cae en B, C o G, no en la columna de modalidad), en la
+     * primera fila vacía, o justo antes del nombre de la sucursal siguiente
+     * cuando el Excel no deja renglón en blanco entre bloques (hoja Q1 del
+     * 16-10-2026: IXTLAHUACA pegado a ATLACOMULCO). Una fila con número
+     * pero sin modalidad, o con modalidad pero sin número, no se adivina:
+     * se devuelve en «incompletas» para reportarla.
+     *
+     * @return array<int, array{sucursal: string, filas: array<int, array{modalidad: string, plantilla_autorizada: int}>, incompletas: array<int, string>}>
      */
     private function bloquesDeSucursal(Worksheet $hoja): array
     {
         $bloques = [];
         $highestRow = $hoja->getHighestRow();
 
-        foreach ([['nombre' => 1, 'modalidad' => 1, 'autorizada' => 2], ['nombre' => 6, 'modalidad' => 6, 'autorizada' => 7]] as $columnas) {
+        // Primera columna de cada bloque: A (A-D) y F (F-I).
+        foreach ([1, 6] as $columna) {
             $filaActual = 1;
 
-            while ($filaActual <= $highestRow) {
-                $celdaNombre = $hoja->getCellByColumnAndRow($columnas['nombre'], $filaActual)->getCalculatedValue();
+            while ($filaActual < $highestRow) {
+                $nombre = $this->textoCelda($hoja, $columna, $filaActual);
 
-                if (! is_string($celdaNombre) || trim($celdaNombre) === '' || mb_strtoupper(trim($celdaNombre)) === 'MODALIDAD') {
+                if ($nombre === '' || $this->esEncabezado($nombre) || ! $this->esEncabezado($this->textoCelda($hoja, $columna, $filaActual + 1))) {
                     $filaActual++;
 
                     continue;
                 }
 
-                $siguienteEsEncabezado = mb_strtoupper(trim((string) ($hoja->getCellByColumnAndRow($columnas['modalidad'], $filaActual + 1)->getCalculatedValue() ?? ''))) === 'MODALIDAD';
-
-                if (! $siguienteEsEncabezado) {
-                    $filaActual++;
-
-                    continue;
-                }
-
-                $bloque = ['sucursal' => trim($celdaNombre), 'filas' => []];
+                $bloque = ['sucursal' => $nombre, 'filas' => [], 'incompletas' => []];
                 $filaDatos = $filaActual + 2;
 
-                while ($filaDatos <= $highestRow) {
-                    $modalidad = $hoja->getCellByColumnAndRow($columnas['modalidad'], $filaDatos)->getCalculatedValue();
-                    $primerCelda = $hoja->getCellByColumnAndRow(1, $filaDatos)->getCalculatedValue();
+                for (; $filaDatos <= $highestRow; $filaDatos++) {
+                    $textos = array_map(fn (int $c): string => $this->textoCelda($hoja, $c, $filaDatos), range($columna, $columna + 3));
 
-                    if (is_string($primerCelda) && Str::startsWith(mb_strtoupper(trim((string) $primerCelda)), 'TOTALES')) {
+                    if (array_filter($textos, fn (string $t): bool => Str::startsWith(mb_strtoupper($t), 'TOTALES')) !== []) {
+                        $filaDatos++;
+
                         break;
                     }
 
-                    if (is_string($hoja->getCellByColumnAndRow($columnas['modalidad'], $filaDatos)->getCalculatedValue() ?? null)
-                        && Str::startsWith(mb_strtoupper(trim((string) $modalidad)), 'TOTALES')) {
+                    $esInicioDeOtroBloque = $textos[0] !== '' && $this->esEncabezado($this->textoCelda($hoja, $columna, $filaDatos + 1));
+
+                    $filaVacia = array_filter(range($columna, $columna + 3), function (int $c) use ($hoja, $filaDatos): bool {
+                        $valor = $hoja->getCellByColumnAndRow($c, $filaDatos)->getCalculatedValue();
+
+                        return $valor !== null && trim(is_scalar($valor) ? (string) $valor : '') !== '';
+                    }) === [];
+
+                    if ($filaVacia || $esInicioDeOtroBloque) {
                         break;
                     }
 
-                    if (is_string($modalidad) && trim($modalidad) !== '') {
-                        $autorizada = $hoja->getCellByColumnAndRow($columnas['autorizada'], $filaDatos)->getCalculatedValue();
+                    $modalidad = $textos[0];
+                    $autorizada = $hoja->getCellByColumnAndRow($columna + 1, $filaDatos)->getCalculatedValue();
+                    $celda = Coordinate::stringFromColumnIndex($columna).$filaDatos;
 
-                        if (is_numeric($autorizada)) {
-                            $bloque['filas'][] = [
-                                'modalidad' => trim($modalidad),
-                                'plantilla_autorizada' => (int) $autorizada,
-                            ];
-                        }
-                    }
-
-                    $filaDatos++;
-
-                    // Fin defensivo: una fila totalmente vacía en ambas
-                    // columnas de nombre marca el fin del bloque aunque no
-                    // haya "Totales:" explícito.
-                    $nombreVacio = trim((string) ($hoja->getCellByColumnAndRow(1, $filaDatos)->getCalculatedValue() ?? '')) === ''
-                        && trim((string) ($hoja->getCellByColumnAndRow(6, $filaDatos)->getCalculatedValue() ?? '')) === '';
-
-                    if ($nombreVacio && $filaDatos > $filaActual + 8) {
-                        break;
+                    if ($modalidad !== '' && is_numeric($autorizada)) {
+                        $bloque['filas'][] = ['modalidad' => $modalidad, 'plantilla_autorizada' => (int) $autorizada];
+                    } elseif ($modalidad === '' && is_numeric($autorizada)) {
+                        $bloque['incompletas'][] = sprintf('Fila %d sin modalidad (celda %s vacía) con plantilla autorizada %d: no se importa', $filaDatos, $celda, (int) $autorizada);
+                    } elseif ($modalidad !== '' && ! in_array(mb_strtoupper($modalidad), self::MODALIDADES_EXCLUIDAS, true)) {
+                        $bloque['incompletas'][] = sprintf('%s (celda %s) sin número de plantilla autorizada: no se importa', $modalidad, $celda);
                     }
                 }
 
@@ -253,6 +268,18 @@ class HeadcountImportService
         }
 
         return $bloques;
+    }
+
+    private function textoCelda(Worksheet $hoja, int $columna, int $fila): string
+    {
+        $valor = $hoja->getCellByColumnAndRow($columna, $fila)->getCalculatedValue();
+
+        return is_string($valor) ? trim($valor) : '';
+    }
+
+    private function esEncabezado(string $texto): bool
+    {
+        return mb_strtoupper($texto) === 'MODALIDAD';
     }
 
     private function normalizar(string $texto): string

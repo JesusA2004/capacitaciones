@@ -29,7 +29,7 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 class LectorRosterNominal
 {
     /**
-     * @return array{entradas: list<array{clave: string|null, nombre_clave: string, puesto: string|null, departamento: string|null}>, sin_reconocer: list<string>}
+     * @return array{entradas: list<array{clave: string|null, nombre_clave: string, puesto: string|null, departamento: string|null, correo_corporativo: string|null, telefono_corporativo: string|null}>, sin_reconocer: list<string>}
      */
     public function leer(string $ruta): array
     {
@@ -41,8 +41,11 @@ class LectorRosterNominal
             throw ValidationException::withMessages(['roster' => 'No se pudo leer el roster nominal: '.$e->getMessage()]);
         }
 
-        $datos = $libro->getActiveSheet()->toArray(null, true, false, false);
-        [$filaEncabezado, $mapa, $sinReconocer] = NormalizadorFilaMigracion::mapaEncabezados($datos);
+        // Primera hoja (no la activa: el libro puede guardarse parado en una
+        // hoja de resumen). Hasta 20 filas: el directorio de gerencias trae
+        // su encabezado en la fila 11, debajo del título y la fecha de corte.
+        $datos = $libro->getSheet(0)->toArray(null, true, false, false);
+        [$filaEncabezado, $mapa, $sinReconocer] = NormalizadorFilaMigracion::mapaEncabezados($datos, 20);
 
         $tieneIdentidad = isset($mapa['clave']) || isset($mapa['nombre_completo']) || (isset($mapa['nombre']) && isset($mapa['apellido_paterno']));
 
@@ -67,7 +70,9 @@ class LectorRosterNominal
             $puesto = $valor('puesto');
             $departamento = $valor('departamento');
 
-            if ($clave === null && $nombreCompleto === '') {
+            // Sin identidad, o renglón separador sin puesto («▎ SUCURSAL
+            // ATLACOMULCO · 2 colaboradores»): no aporta nada al cruce.
+            if (($clave === null && $nombreCompleto === '') || $puesto === null) {
                 continue;
             }
 
@@ -76,6 +81,10 @@ class LectorRosterNominal
                 'nombre_clave' => Normalizador::clave($nombreCompleto),
                 'puesto' => $puesto,
                 'departamento' => $departamento,
+                // Contacto CORPORATIVO (directorio de gerencias) para el
+                // módulo Directorio: misma persona, no un registro nuevo.
+                'correo_corporativo' => Normalizador::correo($valor('correo_corporativo')),
+                'telefono_corporativo' => Normalizador::telefono($valor('telefono_corporativo')),
             ];
         }
 

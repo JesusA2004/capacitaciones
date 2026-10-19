@@ -28,11 +28,16 @@ final class NormalizadorFilaMigracion
         'contacto_direccion' => ['DIRECCION CONTACTO EMERGENCIA', 'DIRECCION DEL CONTACTO DE EMERGENCIA', 'DIRECCION DEL CONTACTO', 'DIRECCION CONTACTO', 'DOMICILIO DEL CONTACTO', 'DOMICILIO CONTACTO'],
         'contacto_nombre' => ['CONTACTO DE EMERGENCIA', 'CONTACTO EMERGENCIA', 'NOMBRE DEL CONTACTO', 'NOMBRE CONTACTO', 'NOMBRE CONTACTO EMERGENCIA'],
         'parentesco' => ['PARENTESCO', 'PARENTESCO CONTACTO', 'PARENTESCO DEL CONTACTO'],
-        'nombre_completo' => ['NOMBRE COMPLETO', 'NOMBRE COMPLETO DEL COLABORADOR', 'COLABORADOR'],
+        'nombre_completo' => ['NOMBRE COMPLETO', 'NOMBRE COMPLETO DEL COLABORADOR', 'NOMBRE DEL COLABORADOR', 'COLABORADOR'],
         'apellido_paterno' => ['APELLIDO PATERNO', 'PATERNO', 'A PATERNO', 'AP PATERNO'],
         'apellido_materno' => ['APELLIDO MATERNO', 'MATERNO', 'A MATERNO', 'AP MATERNO'],
         'nombre' => ['NOMBRE', 'NOMBRES', 'NOMBRE S'],
-        'clave' => ['CLAVE', 'CLAVE EMPLEADO', 'NO EMPLEADO', 'NUM EMPLEADO', 'NUMERO DE EMPLEADO'],
+        // «NO NOI» = número de empleado de nómina (NOI): la misma «Clave» de
+        // la base SEMANA 41 (DIRECTORIO_GERENCIAS_MRLANA.xlsx).
+        'clave' => ['CLAVE', 'CLAVE EMPLEADO', 'NO EMPLEADO', 'NUM EMPLEADO', 'NUMERO DE EMPLEADO', 'NO NOI'],
+        // Contacto corporativo (directorio de gerencias): solo lo usa el roster.
+        'correo_corporativo' => ['CORREO INSTITUCIONAL', 'CORREO CORPORATIVO'],
+        'telefono_corporativo' => ['NO TELEFONICO', 'TELEFONO CORPORATIVO', 'TELEFONO INSTITUCIONAL'],
         'correo' => ['CORREO ELECTRONICO', 'CORREO', 'EMAIL', 'E MAIL', 'MAIL'],
         'telefono' => ['TELEFONO BD', 'TELEFONO', 'TEL', 'CELULAR', 'TELEFONO CELULAR'],
         'rfc' => ['RFC'],

@@ -32,6 +32,13 @@ class ResolutorCatalogoMigracion
 
     public const COORDINADORA_ADMINISTRATIVA = 'COORDINADORA ADMINISTRATIVA';
 
+    /** Nombres cortos del directorio de gerencias (DIRECTORIO_GERENCIAS_MRLANA). */
+    public const GERENTE_REGIONAL = 'GERENTE REGIONAL';
+
+    public const GERENTE = 'GERENTE';
+
+    public const COORDINADORA = 'COORDINADORA';
+
     private const CLAVE_CORPORATIVO = 'CORP01';
 
     /** @var Collection<int, Departamento>|null */
@@ -131,7 +138,7 @@ class ResolutorCatalogoMigracion
 
         return match ($clave) {
             // El regional depende de la REGIÓN de su sucursal (matriz).
-            self::REGIONAL_OPERACIONES => (function () use ($sucursal, $esCorporativo): array {
+            self::REGIONAL_OPERACIONES, self::GERENTE_REGIONAL => (function () use ($sucursal, $esCorporativo): array {
                 $region = $esCorporativo ? null : $this->regionDe($sucursal);
 
                 return $region !== null && ($puesto = $this->porNombre(Normalizador::clave('Gerente Regional '.$region))) !== null
@@ -151,6 +158,16 @@ class ResolutorCatalogoMigracion
             self::COORDINADORA_ADMINISTRATIVA => $esCorporativo
                 ? ['puesto' => null, 'regla' => null, 'motivo' => 'CONFLICTO: «Coordinadora Administrativa» en Corporativo: en el organigrama Corporativo no tiene Coordinadora de Sucursal (¿es la Coordinadora Regional / «Regional Administrativa»?).']
                 : $this->resultado('Coordinadora de Sucursal', 'sucursal'),
+            // «Coordinadora» a secas: en sucursal es la de sucursal; en
+            // Corporativo, la única Coordinadora Regional del organigrama.
+            self::COORDINADORA => $esCorporativo
+                ? $this->resultado('Coordinadora Regional', 'corporativo')
+                : $this->resultado('Coordinadora de Sucursal', 'sucursal'),
+            // «Gerente» a secas en una sucursal = Gerente de Sucursal; en
+            // Corporativo hay varias gerencias y no se adivina cuál.
+            self::GERENTE => $esCorporativo || $sucursal === null
+                ? ['puesto' => null, 'regla' => null, 'motivo' => 'CONFLICTO: «Gerente» sin sucursal operativa: en Corporativo hay varias gerencias; asígnale el puesto exacto.']
+                : $this->resultado('Gerente de Sucursal', 'sucursal'),
             default => null,
         };
     }

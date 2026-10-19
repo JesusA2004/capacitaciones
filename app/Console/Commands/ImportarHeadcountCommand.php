@@ -69,6 +69,13 @@ class ImportarHeadcountCommand extends Command
             }
         }
 
+        if ($resultado['filas_incompletas'] !== []) {
+            $this->warn('Filas incompletas en el Excel (no se importaron; corrígelas en el Excel o captúralas en Sucursales → detalle):');
+            foreach ($resultado['filas_incompletas'] as $fila) {
+                $this->line("  - {$fila}");
+            }
+        }
+
         $sincronizacion = $vacantes->sincronizarTodo();
         $this->info("Vacantes automáticas sincronizadas: {$sincronizacion['abiertas']} abiertas, {$sincronizacion['cerradas']} cerradas.");
 

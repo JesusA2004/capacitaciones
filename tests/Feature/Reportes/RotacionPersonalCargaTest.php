@@ -323,3 +323,21 @@ test('un archivo que no es Excel se rechaza con un mensaje claro', function () {
 
     expect(RotacionCarga::query()->count())->toBe(0);
 });
+
+test('«TULA DE ALLENDE» del Excel real entra a «Tula» por el alias confirmado, sin advertencia de coincidencia aproximada', function () {
+    $rh = rotxUsuario('rh_admin');
+
+    $this->actingAs($rh)
+        ->post(route('reportes.rotacion.analizar'), ['archivo' => rotxExcel(function ($hoja) {
+            rotxBloque($hoja, 9, 'TULA DE ALLENDE', 10, [1 => [0, 0], 2 => [1, 0]]);
+        })])
+        ->assertRedirect();
+
+    $carga = RotacionCarga::query()->sole();
+    $mensajes = collect($carga->detalle['hallazgos'])->pluck('mensaje')->implode("\n");
+
+    expect($carga->periodos_detectados)->toBe(2)
+        ->and($carga->resumen['sucursales'])->toBe(['Tula'])
+        ->and($carga->resumen['sucursales_sin_catalogo'])->toBe([])
+        ->and($mensajes)->not->toContain('coincidencia aproximada');
+});

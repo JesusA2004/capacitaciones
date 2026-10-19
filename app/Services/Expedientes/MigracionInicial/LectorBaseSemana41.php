@@ -94,6 +94,20 @@ class LectorBaseSemana41 implements LectorMigracion
             throw ValidationException::withMessages(['archivo' => sprintf('No se encontraron los encabezados «Nombre» y «Apellido paterno» en la hoja «%s».', $nombreHoja)]);
         }
 
+        // En la hoja Sucursales del Excel real la sucursal viene en la
+        // columna «Clasificación» (ORIZABA, CORDOBA, Atlacomulc…): solo aquí
+        // se lee como sucursal; la resuelve después la whitelist + alias.
+        if (! $esCorporativo && ! isset($mapa['sucursal'])) {
+            foreach ((array) ($datos[$filaEncabezado] ?? []) as $columna => $celda) {
+                if (is_scalar($celda) && Normalizador::clave((string) $celda) === 'CLASIFICACION') {
+                    $mapa['sucursal'] = (int) $columna;
+                    $sinReconocer = array_values(array_filter($sinReconocer, fn (string $e) => Normalizador::clave($e) !== 'CLASIFICACION'));
+
+                    break;
+                }
+            }
+        }
+
         $filas = [];
 
         foreach ($datos as $indice => $renglon) {
