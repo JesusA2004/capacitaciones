@@ -40,7 +40,7 @@ class MigracionExpedientesController extends Controller
             'migracion' => $actual !== null ? $this->resumen($actual, true) : null,
             // Accesos generados: solo para quien migra (permiso validado arriba).
             'credenciales' => $actual !== null ? $this->migracion->credenciales($actual) : [],
-            'historial' => MigracionExpedientes::query()->with('usuario:id,name,apellidos')->latest('id')->limit(10)->get()->map(fn (MigracionExpedientes $m) => $this->resumen($m, false))->values(),
+            'historial' => MigracionExpedientes::query()->where('tipo', 'migracion')->with('usuario:id,name,apellidos')->latest('id')->limit(10)->get()->map(fn (MigracionExpedientes $m) => $this->resumen($m, false))->values(),
             'colaboradores' => Colaborador::withTrashed()->with('sucursalPrincipal:id,nombre')->orderBy('name')->get(['id', 'name', 'apellidos', 'numero_empleado', 'sucursal_principal_id'])
                 ->map(fn (Colaborador $c) => ['id' => $c->id, 'nombre' => $c->nombreCompleto(), 'numero_empleado' => $c->numero_empleado, 'sucursal' => $c->sucursalPrincipal?->nombre])->values(),
             'config' => [

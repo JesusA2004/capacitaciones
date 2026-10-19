@@ -41,6 +41,15 @@ class PlanificadorMigracion
     ) {}
 
     /**
+     * El MISMO resolutor que usa este planificador: la carga inicial maestra
+     * le inyecta catálogos provisionales antes de planificar.
+     */
+    public function resolutor(): ResolutorCatalogoMigracion
+    {
+        return $this->catalogo;
+    }
+
+    /**
      * @param  array{filas: list<array<string, mixed>>, columnas: array<string, string>, sin_reconocer: list<string>, hoja: string, formato?: string}  $excel
      * @return array<string, mixed>
      */
@@ -56,10 +65,15 @@ class PlanificadorMigracion
         // no los aporta: esa carencia de DATO ESTRUCTURAL deja la fila «en
         // revisión» (no es un conflicto de catálogo). En el formato único
         // (BASE_GENERAL) un dato faltante sigue siendo conflicto como siempre.
-        $permiteRevision = ($excel['formato'] ?? null) === 'semana41';
+        // La carga inicial maestra (MR_LANA_PEOPLE_CARGA_INICIAL.xlsx) igual:
+        // sus 4 personas sin puesto quedan «en revisión», no en conflicto.
+        $formato = $excel['formato'] ?? null;
+        $permiteRevision = in_array($formato, ['semana41', 'maestra'], true);
 
         $filas = array_map(fn (array $f) => $this->planFila($f, $excluidas, $permiteRevision), $excel['filas']);
-        $filas = $this->identificar($filas, $colaboradores);
+        // Solo en la carga maestra CLAVE_NOI es llave (validada con CURP/RFC):
+        // ahí viene depurada y única; en BASE_GENERAL la Clave se repite.
+        $filas = $this->identificar($filas, $colaboradores, $formato === 'maestra');
         $filas = $this->proponerCuentas($filas);
 
         $nas = $this->inventario->inventario();
@@ -311,8 +325,10 @@ class PlanificadorMigracion
      * @param  Collection<int, Colaborador>  $colaboradores
      * @return list<array<string, mixed>>
      */
-    private function identificar(array $filas, Collection $colaboradores): array
+    private function identificar(array $filas, Collection $colaboradores, bool $claveEsLlave = false): array
     {
+        $porClave = $colaboradores->filter(fn (Colaborador $c) => trim((string) $c->clave_legacy) !== '')->groupBy(fn (Colaborador $c): string => trim((string) $c->clave_legacy));
+
         // Duplicados DENTRO del Excel: una llave repetida no identifica.
         $conteo = fn (string $campo, callable $valida) => collect($filas)->filter(fn ($f) => $valida($f[$campo]))->countBy(fn ($f) => (string) $f[$campo]);
         $curps = $conteo('curp', fn ($v) => Normalizador::curpValida($v));
@@ -342,6 +358,15 @@ class PlanificadorMigracion
             }
 
             $encontrados = [];
+
+            // Primero CLAVE_NOI; CURP/RFC/correo la VALIDAN: si apuntan a otro
+            // colaborador, la fila queda en conflicto (nunca se reemplaza).
+            // Una CLAVE_NOI repetida en el archivo (la 130 son dos personas
+            // distintas) no identifica: esas filas se identifican solo por
+            // CURP/RFC/correo/nombre, como en BASE_GENERAL.
+            if ($claveEsLlave && $f['clave'] !== null && (int) ($claves[(string) $f['clave']] ?? 0) === 1) {
+                $encontrados['CLAVE_NOI'] = $porClave->get((string) $f['clave'], collect())->pluck('id')->all();
+            }
 
             if (Normalizador::curpValida($f['curp'])) {
                 $encontrados['CURP'] = $porCurp->get($f['curp'], collect())->pluck('id')->all();

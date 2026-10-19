@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property int|null $user_id
+ * @property string $tipo migracion (RH → Expedientes) | carga_inicial (Carga inicial PEOPLE)
  * @property string $archivo_nombre
  * @property string|null $archivo_path
  * @property string $archivo_hash
@@ -40,7 +41,7 @@ class MigracionExpedientes extends Model
     protected $table = 'migraciones_expedientes';
 
     protected $fillable = [
-        'user_id', 'archivo_nombre', 'archivo_path', 'archivo_hash', 'modo', 'estado', 'totales', 'plan', 'decisiones',
+        'user_id', 'tipo', 'archivo_nombre', 'archivo_path', 'archivo_hash', 'modo', 'estado', 'totales', 'plan', 'decisiones',
         'resultado', 'manifiesto_path', 'progreso', 'progreso_total', 'error', 'iniciada_en', 'terminada_en', 'etapa', 'credenciales_path',
     ];
 

@@ -7,6 +7,7 @@ export * from './auth';
 export * from './avisos';
 export * from './calendario';
 export * from './campanas';
+export * from './cargaInicial';
 export * from './celebraciones';
 export * from './cicloLaboral';
 export * from './induccion';

@@ -9,6 +9,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role;
 use Throwable;
 
@@ -42,7 +43,7 @@ class CrearAdminCommand extends Command
         $rol = (string) $this->option('rol');
 
         if (! Role::query()->where('name', $rol)->where('guard_name', 'web')->exists()) {
-            $this->components->error("El rol «{$rol}» no existe todavía. Corre primero: php artisan migrate --force && php artisan people:sincronizar-permisos");
+            $this->components->error("El rol «{$rol}» no existe todavía. Corre primero: php artisan people:bootstrap-produccion (o php artisan people:sincronizar-permisos)");
 
             return self::FAILURE;
         }
@@ -76,14 +77,24 @@ class CrearAdminCommand extends Command
             return self::FAILURE;
         }
 
-        // ¿Ya existe una cuenta con ese correo? (El username se deriva del
-        // nombre y puede repetirse con sufijo; el correo es el mejor ancla.)
+        // ¿Ya existe la cuenta? (El username se deriva del nombre y puede
+        // repetirse con sufijo; el correo es el mejor ancla.) Sin correo, o
+        // si ninguna cuenta lo tiene, se busca una cuenta OPERATIVA (sin
+        // colaborador) con el mismo nombre y apellidos — sin distinguir
+        // mayúsculas ni acentos — para no duplicar al correr el comando dos
+        // veces.
         $existente = $correo !== ''
             ? User::query()->where('email', $correo)->first()
             : null;
+        $ancla = 'ese correo';
+
+        if ($existente === null) {
+            $existente = $this->cuentaOperativaPorNombre($nombre, $apellidos);
+            $ancla = 'ese nombre y apellidos';
+        }
 
         if ($existente !== null && ! $this->option('force')
-            && ! $this->confirm("Ya existe la cuenta «{$existente->username}» con ese correo. ¿Actualizar su contraseña y asegurar el rol «{$rol}»?")) {
+            && ! $this->confirm("Ya existe la cuenta «{$existente->username}» con {$ancla}. ¿Actualizar su contraseña y asegurar el rol «{$rol}»?")) {
             $this->components->warn('Operación cancelada.');
 
             return self::FAILURE;
@@ -131,5 +142,38 @@ class CrearAdminCommand extends Command
         $this->components->warn('Entra con el USUARIO mostrado arriba (no el correo) y tu contraseña. Cambia la contraseña tras el primer acceso.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Cuenta operativa (colaborador_id null) con el mismo nombre completo,
+     * comparado sin mayúsculas, acentos ni espacios repetidos. Si hubiera
+     * varias, se reutiliza la más antigua y se avisa de las demás (nunca se
+     * borra ninguna).
+     */
+    private function cuentaOperativaPorNombre(string $nombre, string $apellidos): ?User
+    {
+        $buscado = $this->normalizar($nombre.' '.$apellidos);
+
+        $coincidencias = User::query()
+            ->whereNull('colaborador_id')
+            ->orderBy('id')
+            ->get()
+            ->filter(fn (User $u): bool => $this->normalizar(sprintf('%s %s', $u->name, $u->apellidos)) === $buscado)
+            ->values();
+
+        if ($coincidencias->count() > 1) {
+            $this->components->warn(sprintf(
+                'Hay %d cuentas operativas con ese nombre (%s): se actualiza la más antigua; revisa las demás a mano.',
+                $coincidencias->count(),
+                $coincidencias->map(fn (User $u): string => (string) $u->username)->implode(', '),
+            ));
+        }
+
+        return $coincidencias->first();
+    }
+
+    private function normalizar(string $texto): string
+    {
+        return Str::of($texto)->ascii()->lower()->squish()->toString();
     }
 }

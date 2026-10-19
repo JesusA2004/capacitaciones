@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Administracion\AppReleaseController;
+use App\Http\Controllers\Administracion\CargaInicialController;
 use App\Http\Controllers\Administracion\CoberturaPuestoController;
 use App\Http\Controllers\Administracion\ConfiguracionController;
 use App\Http\Controllers\Administracion\DepartamentoController;
@@ -50,6 +51,17 @@ Route::middleware(['auth', 'verified'])
         // sus propios módulos (rh.importaciones, rh.expedientes.migracion,
         // reportes.rotacion, rh.perfiles-puesto).
         Route::get('importar-datos', [ImportarDatosController::class, 'index'])->name('importar-datos.index');
+
+        // «Carga inicial PEOPLE»: un solo .xlsx maestro inicializa
+        // colaboradores, catálogos, salarios, vacaciones, headcount,
+        // vacantes, rotación y NAS (CargaInicialPeopleService). Exige
+        // expedientes.migrar + headcount.importar en cada endpoint.
+        Route::prefix('importar-datos/carga-inicial')->name('importar-datos.carga-inicial.')->group(function () {
+            Route::get('/', [CargaInicialController::class, 'index'])->name('index');
+            Route::post('analizar', [CargaInicialController::class, 'analizar'])->name('analizar');
+            Route::post('{migracion}/aplicar', [CargaInicialController::class, 'aplicar'])->name('aplicar');
+            Route::get('{migracion}/estado', [CargaInicialController::class, 'estado'])->name('estado');
+        });
 
         Route::prefix('empresas')->name('empresas.')->group(function () {
             Route::get('/', [EmpresaController::class, 'index'])->name('index');

@@ -15,6 +15,7 @@ import type { Component } from 'vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
+import { index as cargaInicialIndex } from '@/routes/administracion/importar-datos/carga-inicial';
 import { index as rotacionIndex } from '@/routes/reportes/rotacion';
 import { index as migracionIndex } from '@/routes/rh/expedientes/migracion';
 import { index as importacionesIndex } from '@/routes/rh/importaciones';
@@ -29,6 +30,7 @@ import { importacion as perfilesImportacion } from '@/routes/rh/perfiles-puesto'
  */
 const props = defineProps<{
     puede: {
+        carga_inicial: boolean;
         migracion: boolean;
         headcount: boolean;
         salarios_vacaciones: boolean;
@@ -165,6 +167,40 @@ const tarjetas = computed<Tarjeta[]>(() => {
             :icono="Upload"
             detalle
         />
+
+        <!-- Carga inicial PEOPLE: la importación principal -->
+        <Link
+            v-if="puede.carga_inicial"
+            :href="cargaInicialIndex().url"
+            class="flex tarjeta-interactiva flex-col gap-4 rounded-2xl border border-primary/40 bg-[var(--mrl-superficie)] p-5 sm:flex-row sm:items-center sm:p-6"
+        >
+            <span
+                class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+            >
+                <DatabaseZap class="size-6" />
+            </span>
+            <div class="min-w-0 flex-1">
+                <h2 class="text-lg font-semibold">Carga inicial PEOPLE</h2>
+                <p class="mt-0.5 text-sm text-muted-foreground">
+                    Importa en una sola operación colaboradores, estructura,
+                    salarios, vacaciones, headcount, rotación y expedientes
+                    históricos.
+                </p>
+            </div>
+            <span
+                class="inline-flex items-center gap-1.5 self-start rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground sm:self-auto"
+            >
+                Abrir
+                <ArrowRight class="size-4" />
+            </span>
+        </Link>
+
+        <h2
+            v-if="tarjetas.length"
+            class="text-sm font-semibold tracking-wide text-muted-foreground uppercase"
+        >
+            Actualizaciones posteriores
+        </h2>
 
         <div class="rejilla-auto" style="--rejilla-min: 20rem">
             <article

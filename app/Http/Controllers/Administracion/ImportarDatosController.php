@@ -47,6 +47,10 @@ class ImportarDatosController extends Controller
             $tieneAlguno = $tieneAlguno || $puede[$clave];
         }
 
+        // Tarjeta principal «Carga inicial PEOPLE»: exige a la vez migrar
+        // expedientes e importar headcount (CargaInicialController::PERMISOS).
+        $puede['carga_inicial'] = CargaInicialController::puede($usuario);
+
         // Sin ningún permiso de importación no hay nada que mostrar: el hub
         // no es una pantalla genérica, es el índice de lo que este usuario
         // sí puede importar.

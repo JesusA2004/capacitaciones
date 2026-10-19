@@ -53,11 +53,44 @@ class ResolutorCatalogoMigracion
     /** @var array<int, string>|null sucursal_id => Q1|Q3 (matriz comercial) */
     private ?array $regionPorSucursal = null;
 
+    /**
+     * Catálogos que la carga inicial maestra CREARÁ desde su hoja
+     * CATALOGO_PUESTOS (modelos sin guardar, id null). Solo existen durante
+     * el análisis para que el preview no los reporte como conflicto; al
+     * aplicar se crean de verdad y el plan se vuelve a armar con sus ids.
+     *
+     * @var list<Departamento>
+     */
+    private array $departamentosProvisionales = [];
+
+    /** @var list<Puesto> */
+    private array $puestosProvisionales = [];
+
+    /**
+     * @param  list<Departamento>  $departamentos
+     * @param  list<Puesto>  $puestos
+     */
+    public function conProvisionales(array $departamentos, array $puestos): static
+    {
+        $this->departamentosProvisionales = $departamentos;
+        $this->puestosProvisionales = $puestos;
+
+        return $this->recargar();
+    }
+
+    public function sinProvisionales(): static
+    {
+        $this->departamentosProvisionales = [];
+        $this->puestosProvisionales = [];
+
+        return $this->recargar();
+    }
+
     /** Vuelve a leer los catálogos (cada análisis parte de lo que hay en BD). */
     public function recargar(): static
     {
-        $this->departamentos = Departamento::query()->get(['id', 'nombre']);
-        $this->puestos = Puesto::query()->orderByDesc('activo')->get(['id', 'nombre', 'departamento_id', 'activo']);
+        $this->departamentos = Departamento::query()->get(['id', 'nombre'])->concat($this->departamentosProvisionales);
+        $this->puestos = Puesto::query()->orderByDesc('activo')->get(['id', 'nombre', 'departamento_id', 'activo'])->concat($this->puestosProvisionales);
         $this->empresas = Empresa::query()->get(['id', 'nombre']);
         $this->regionPorSucursal = NodoComercial::query()
             ->where('tipo', TipoNodoComercial::Zona->value)
@@ -127,6 +160,21 @@ class ResolutorCatalogoMigracion
         }
 
         return ($this->regionPorSucursal ?? [])[$sucursal->id] ?? null;
+    }
+
+    /** ¿El nombre se resuelve por regla de contexto (sucursal/región/departamento) y no por catálogo? */
+    public function esDeContexto(?string $nombre): bool
+    {
+        return in_array(Normalizador::clave($nombre), [self::REGIONAL_OPERACIONES, self::ASISTENTE_DIRECCION, self::COORDINADORA_ADMINISTRATIVA, self::GERENTE_REGIONAL, self::GERENTE, self::COORDINADORA], true);
+    }
+
+    /** Nombre ya traducido por alias explícito (normalizado), para auditar qué alias se aplicó. */
+    public function aliasPuesto(?string $nombre): ?string
+    {
+        $clave = Normalizador::clave($nombre);
+        $buscado = $this->conAlias('alias_puestos', (string) $nombre);
+
+        return $clave !== '' && $buscado !== $clave ? ($this->porNombre($buscado)->nombre ?? null) : null;
     }
 
     /**
