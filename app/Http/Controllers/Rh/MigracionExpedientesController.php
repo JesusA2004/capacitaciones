@@ -178,8 +178,32 @@ class MigracionExpedientesController extends Controller
             'creada_en' => $m->created_at?->toIso8601String(),
             'terminada_en' => $m->terminada_en?->toIso8601String(),
             'decisiones' => $m->decisiones,
-            'plan' => $conPlan ? $m->planArray() : null,
+            'plan' => $conPlan ? $this->planLegible($m) : null,
+            'plan_error' => $conPlan ? $this->errorDePlan($m) : null,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function planLegible(MigracionExpedientes $m): ?array
+    {
+        try {
+            return $m->planArray();
+        } catch (\RuntimeException) {
+            return null;
+        }
+    }
+
+    private function errorDePlan(MigracionExpedientes $m): ?string
+    {
+        try {
+            $m->planArray();
+
+            return null;
+        } catch (\RuntimeException $e) {
+            return $e->getMessage();
+        }
     }
 
     private function exigir(Request $request): void

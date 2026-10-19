@@ -77,6 +77,17 @@ class ExpedientesInitialMigrationService
 
         $plan = $this->planificador->planificar($this->lector->leer($rutaExcel, $rutaRoster));
 
+        // Nombres de carpetas/archivos del NAS pueden traer bytes que no son
+        // UTF-8 válido (SMB/Latin-1): sin SUBSTITUTE, json_encode devuelve
+        // false y la corrida quedaba «analizada» con plan "0". Solo se
+        // sustituyen bytes inválidos (U+FFFD); nunca se guarda un plan que
+        // no vuelva a decodificarse a arreglo.
+        $planJson = json_encode($plan, JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR);
+
+        if (! is_array(json_decode($planJson, true, 512, JSON_THROW_ON_ERROR))) {
+            throw new RuntimeException('El plan de la migración no se pudo serializar a JSON válido.');
+        }
+
         $migracion = MigracionExpedientes::query()->create([
             'user_id' => $actor?->id,
             'archivo_nombre' => $nombreRoster !== null && $nombreRoster !== '' ? sprintf('%s + %s', $nombreOriginal, $nombreRoster) : $nombreOriginal,
@@ -84,7 +95,7 @@ class ExpedientesInitialMigrationService
             'archivo_hash' => $hashCorrida,
             'estado' => 'analizado',
             'totales' => $plan['totales'],
-            'plan' => json_encode($plan, JSON_UNESCAPED_UNICODE),
+            'plan' => $planJson,
             'decisiones' => ['filas' => [], 'carpetas' => []],
         ]);
 

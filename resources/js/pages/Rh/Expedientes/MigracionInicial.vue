@@ -106,6 +106,7 @@ type CarpetaSinPersona = {
 
 type Migracion = {
     id: number;
+    plan_error?: string | null;
     archivo: string;
     hash: string;
     estado: string;
@@ -183,11 +184,21 @@ defineOptions({
 const { confirmarAccion } = useAlertas();
 
 // --- Paso 1: Excel -----------------------------------------------------------
-const formExcel = useForm({ archivo: null as File | null });
+// Base SEMANA 41 (obligatoria) + Directorio de gerencias (opcional): el
+// directorio NO crea personas; se cruza por NO. NOI = Clave y aporta puesto,
+// correo y teléfono corporativos.
+const formExcel = useForm({
+    archivo: null as File | null,
+    roster: null as File | null,
+});
 const arrastrando = ref(false);
 
 function elegir(archivo: File | undefined | null) {
     formExcel.archivo = archivo ?? null;
+}
+
+function elegirRoster(archivo: File | undefined | null) {
+    formExcel.roster = archivo ?? null;
 }
 
 function analizarExcel() {
@@ -195,20 +206,25 @@ function analizarExcel() {
 }
 
 // --- Revisión -----------------------------------------------------------------
-// Un análisis guardado por una versión anterior (o cuyo plan quedó vacío)
-// no trae la forma actual: se trata como «sin plan» y se pide reanalizar,
-// en vez de romper la pantalla al leer plan.origen.
+// Solo se exige la estructura que la revisión necesita (origen + filas,
+// aunque estén vacías); lo secundario se completa con vacíos en vez de
+// declarar ilegible un plan válido.
 const plan = computed(() => {
     const p = props.migracion?.plan ?? null;
 
-    return p &&
-        p.origen &&
-        Array.isArray(p.filas) &&
-        Array.isArray(p.carpetas_sin_persona) &&
-        Array.isArray(p.sucursales_no_autorizadas_nas) &&
-        Array.isArray(p.excel?.sin_reconocer)
-        ? p
-        : null;
+    if (!p || !p.origen || !Array.isArray(p.filas)) {
+        return null;
+    }
+
+    return {
+        ...p,
+        carpetas_sin_persona: p.carpetas_sin_persona ?? [],
+        sucursales_no_autorizadas_nas: p.sucursales_no_autorizadas_nas ?? [],
+        excel: {
+            columnas: p.excel?.columnas ?? {},
+            sin_reconocer: p.excel?.sin_reconocer ?? [],
+        },
+    };
 });
 const planIlegible = computed(
     () => props.migracion !== null && plan.value === null,
@@ -535,11 +551,15 @@ function colorMatch(t: Fila['nas']['tipo']): string {
         <!-- Paso 1: Excel -->
         <section class="rounded-2xl border border-border/60 bg-card p-5">
             <h2 class="mb-1 text-base font-semibold">
-                1. Excel de la base general
+                1. Base Semana 41 y Directorio de Gerencias
             </h2>
             <p class="mb-4 text-sm text-muted-foreground">
-                Archivo tipo MR_LANA_PEOPLE_BASE_GENERAL_MIGRACION.xlsx, hoja
-                BASE_GENERAL. La hoja CONTACTOS_SIN_MATCH no se importa.
+                Sube la Base Semana 41 y, opcionalmente, el Directorio de
+                Gerencias para completar puesto y datos corporativos. El
+                directorio no crea personas: se cruza por NO. NOI = Clave.
+            </p>
+            <p class="mb-2 text-sm font-medium">
+                Base Semana 41 <span class="text-destructive">*</span>
             </p>
             <label
                 class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-center transition"
@@ -574,6 +594,49 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                 />
             </label>
             <InputError :message="formExcel.errors.archivo" class="mt-2" />
+
+            <p class="mt-4 mb-2 text-sm font-medium">
+                Directorio de Gerencias / roster
+                <span class="font-normal text-muted-foreground"
+                    >(opcional)</span
+                >
+            </p>
+            <label
+                class="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-border p-4 text-sm transition hover:border-primary/50"
+            >
+                <FileSpreadsheet
+                    class="size-5 shrink-0 text-muted-foreground"
+                />
+                <span class="font-medium">{{
+                    formExcel.roster
+                        ? formExcel.roster.name
+                        : 'Elegir DIRECTORIO_GERENCIAS_MRLANA.xlsx (puesto, correo y teléfono corporativos)'
+                }}</span>
+                <input
+                    type="file"
+                    accept=".xlsx,.xls"
+                    class="hidden"
+                    @change="
+                        (e: Event) =>
+                            elegirRoster(
+                                (e.target as HTMLInputElement).files?.[0],
+                            )
+                    "
+                />
+            </label>
+            <InputError :message="formExcel.errors.roster" class="mt-2" />
+            <p
+                v-if="formExcel.archivo"
+                class="mt-3 text-xs text-muted-foreground"
+            >
+                Se analizará: <strong>{{ formExcel.archivo.name }}</strong>
+                <template v-if="formExcel.roster">
+                    + <strong>{{ formExcel.roster.name }}</strong></template
+                >
+                <template v-else>
+                    (sin directorio: los puestos quedan en revisión)</template
+                >
+            </p>
             <div class="mt-4 flex items-center gap-3">
                 <Button
                     :disabled="!formExcel.archivo || formExcel.processing"
@@ -600,10 +663,11 @@ function colorMatch(t: Fila['nas']['tipo']): string {
             v-if="planIlegible"
             class="rounded-xl bg-warning/10 p-3 text-sm text-warning"
         >
-            Este análisis ({{ migracion?.archivo }}) no tiene un plan de
-            revisión que esta versión pueda mostrar (se hizo con una versión
-            anterior o quedó incompleto). Vuelve a subir el Excel en el paso 1
-            para analizarlo de nuevo.
+            {{
+                migracion?.plan_error ??
+                `Este análisis (${migracion?.archivo}) no tiene un plan de revisión que esta versión pueda mostrar.`
+            }}
+            Vuelve a subir los archivos en el paso 1 para analizarlos de nuevo.
         </div>
 
         <template v-if="migracion && plan">

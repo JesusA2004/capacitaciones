@@ -10,11 +10,14 @@ use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Expedientes\MigracionInicial\ExpedientesInitialMigrationService;
+use App\Services\Expedientes\MigracionInicial\PlanificadorMigracion;
 use Database\Seeders\DocumentTypeSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
@@ -826,4 +829,88 @@ test('SEMANA 41 real: «Clasificación» es la sucursal y el directorio aporta p
         // Quien no está en el directorio no recibe un puesto inventado.
         ->and($filas['99']['operacion'])->toBe('en_revision')
         ->and($filas['99']['datos']['puesto_id'])->toBeNull();
+});
+
+/*
+ * Persistencia del plan (producción: json_encode devolvía false por bytes
+ * UTF-8 inválidos en nombres del NAS y la corrida quedaba con plan "0").
+ */
+function miPlanCrudo(MigracionExpedientes $m): array
+{
+    return json_decode((string) $m->fresh()->getRawOriginal('plan'), true, 512, JSON_THROW_ON_ERROR);
+}
+
+test('SEMANA 41 sin roster: el plan persistido es JSON válido y las filas sin puesto quedan en revisión', function () {
+    $excel = miExcelSemana41([miFilaS41(), miFilaS41(['CURP' => 'PRUE900101HMSRNL05', 'Nombre' => 'Otro', 'Nombre completo' => 'Otro Carlos Bueno', 'Correo electrónico' => null, 'Clave' => '131'])]);
+
+    $m = $this->servicio->analizar($excel, 'base.xlsx', $this->rh);
+    $plan = miPlanCrudo($m);
+
+    expect($plan['filas'])->toHaveCount(2)
+        ->and(array_unique(array_column($plan['filas'], 'operacion')))->toBe(['en_revision'])
+        ->and($m->planArray())->toBe($plan);
+});
+
+test('SEMANA 41 + roster: plan válido, cruza por Clave y el roster no crea personas nuevas', function () {
+    $excel = miExcelSemana41([miFilaS41()]);
+    $roster = miRosterNominal([miRosterFila('130', 'Otro Nombre Distinto'), miRosterFila('999', 'Persona Solo En Roster')]);
+
+    $m = $this->servicio->analizar($excel, 'base.xlsx', $this->rh, $roster, 'roster.xlsx');
+    $plan = miPlanCrudo($m);
+
+    expect($plan['filas'])->toHaveCount(1)
+        ->and($plan['filas'][0]['operacion'])->toBe('crear')
+        ->and($plan['filas'][0]['puesto_nombre'])->toBe('Gestor');
+
+    $this->servicio->aplicar($m, $this->rh);
+    expect(Colaborador::query()->where('clave_legacy', '999')->exists())->toBeFalse();
+});
+
+test('UTF-8 inválido en nombres/rutas del NAS: el plan se guarda y se vuelve a leer (nunca "0")', function () {
+    $excel = miExcelSemana41([miFilaS41()]);
+    $real = app(PlanificadorMigracion::class);
+    $this->mock(PlanificadorMigracion::class, function ($mock) use ($real) {
+        $mock->shouldReceive('planificar')->andReturnUsing(function (array $excel) use ($real) {
+            $plan = $real->planificar($excel);
+            $plan['carpetas_sin_persona'][] = ['ruta' => "expedientes/Mr. Lana/CUERNAVACA/JOS\xC9 P\xC9REZ", 'pdfs' => [['nombre' => "acta \xD1.pdf"]]];
+
+            return $plan;
+        });
+    });
+
+    $m = app(ExpedientesInitialMigrationService::class)->analizar($excel, 'base.xlsx', $this->rh);
+    $plan = miPlanCrudo($m);
+
+    expect($m->fresh()->getRawOriginal('plan'))->not->toBe('0')
+        ->and($plan['carpetas_sin_persona'][0]['ruta'])->toBe("expedientes/Mr. Lana/CUERNAVACA/JOS\u{FFFD} P\u{FFFD}REZ")
+        ->and($plan['filas'])->toHaveCount(1);
+});
+
+test('un plan guardado dañado no se esconde: planArray falla y la pantalla muestra el error', function () {
+    $m = $this->servicio->analizar(miExcelSemana41([miFilaS41()]), 'base.xlsx', $this->rh);
+    MigracionExpedientes::query()->whereKey($m->id)->update(['plan' => '0']);
+
+    expect(fn () => $m->fresh()->planArray())->toThrow(RuntimeException::class);
+
+    $this->actingAs($this->rh)->get(route('rh.expedientes.migracion.index', ['migracion' => $m->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $p) => $p->where('migracion.plan', null)->where('migracion.plan_error', fn ($e) => str_contains((string) $e, 'vuelve a analizar')));
+});
+
+test('POST web: llegan la base y el roster, y Inertia renderiza el plan guardado', function () {
+    $base = new UploadedFile(miExcelSemana41([miFilaS41()]), 'BASE SEMANA 41.xlsx', null, null, true);
+    $roster = new UploadedFile(miRosterNominal([miRosterFila('130', 'José Alberto Carlos Bueno')]), 'DIRECTORIO_GERENCIAS_MRLANA.xlsx', null, null, true);
+
+    $this->actingAs($this->rh)->post(route('rh.expedientes.migracion.analizar'), ['archivo' => $base, 'roster' => $roster])->assertRedirect();
+
+    $m = MigracionExpedientes::query()->latest('id')->firstOrFail();
+    expect($m->archivo_nombre)->toBe('BASE SEMANA 41.xlsx + DIRECTORIO_GERENCIAS_MRLANA.xlsx')
+        ->and(miPlanCrudo($m)['filas'][0]['puesto_nombre'])->toBe('Gestor');
+
+    $this->actingAs($this->rh)->get(route('rh.expedientes.migracion.index', ['migracion' => $m->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $p) => $p->component('Rh/Expedientes/MigracionInicial')
+            ->has('migracion.plan.filas', 1)
+            ->where('migracion.plan.filas.0.operacion', 'crear')
+            ->where('migracion.plan_error', null));
 });

@@ -72,8 +72,18 @@ class MigracionExpedientes extends Model
      */
     public function planArray(): array
     {
-        $plan = json_decode((string) $this->plan, true);
+        // Nunca se esconde un plan dañado tras un [] silencioso: aplicar o
+        // revisar una corrida sin plan válido debe fallar a la vista.
+        try {
+            $plan = json_decode((string) $this->plan, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException $e) {
+            throw new \RuntimeException(sprintf('El plan guardado de la migración #%d no es JSON válido (%s): vuelve a analizar el archivo.', $this->id, $e->getMessage()), 0, $e);
+        }
 
-        return is_array($plan) ? $plan : [];
+        if (! is_array($plan)) {
+            throw new \RuntimeException(sprintf('El plan guardado de la migración #%d está vacío o dañado: vuelve a analizar el archivo.', $this->id));
+        }
+
+        return $plan;
     }
 }
