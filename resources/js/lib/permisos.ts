@@ -248,6 +248,8 @@ const ETIQUETAS_PERMISO: Record<string, string> = {
     'evaluaciones.capturar': 'Evaluar el periodo de prueba de su equipo',
     'evaluaciones.ver': 'Ver evaluaciones de periodo de prueba',
     'finiquitos.calcular': 'Calcular finiquitos',
+    'finiquitos.causales_rotacion':
+        'Administrar causales de rotación (motivos de baja)',
     'finiquitos.confirmar_pago': 'Confirmar el pago de finiquitos',
     'finiquitos.revisar': 'Revisar finiquitos',
     'finiquitos.subir_firmado': 'Subir el finiquito firmado',

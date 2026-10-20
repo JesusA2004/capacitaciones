@@ -3,6 +3,7 @@
 namespace App\Http\Requests\AltaPublica;
 
 use App\Models\AltaDigital;
+use App\Services\Colaboradores\DomicilioService;
 use Illuminate\Foundation\Http\FormRequest;
 
 class GuardarDatosPersonalesRequest extends FormRequest
@@ -29,9 +30,19 @@ class GuardarDatosPersonalesRequest extends FormRequest
             'curp' => ['required', 'string', 'max:18'],
             'rfc' => ['nullable', 'string', 'max:13'],
             'nss' => ['nullable', 'string', 'max:11'],
-            'domicilio' => ['required', 'string', 'max:255'],
+            // Domicilio estructurado (todo menos el número interior es
+            // obligatorio): el texto `domicilio` se compone al guardar.
+            ...app(DomicilioService::class)->reglas(requerido: true),
             'contacto_emergencia_nombre' => ['required', 'string', 'max:150'],
             'contacto_emergencia_telefono' => ['required', 'string', 'max:30'],
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return app(DomicilioService::class)->mensajes();
     }
 }

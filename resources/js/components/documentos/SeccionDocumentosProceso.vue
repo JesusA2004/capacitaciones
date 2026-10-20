@@ -7,6 +7,7 @@ import {
     Circle,
     CircleDot,
     Download,
+    Eye,
     FileDown,
     FilePlus2,
     FileText,
@@ -89,6 +90,8 @@ function variante(estado: string): Variante {
 }
 
 const iconoAccion: Record<string, Component> = {
+    vista_previa: Eye,
+    vista_previa_paquete: Eye,
     generar: FilePlus2,
     regenerar: RefreshCcw,
     nueva_revision: ShieldAlert,
@@ -105,10 +108,21 @@ function principal(item: ItemDocumentoProceso): AccionDocumento | null {
     return item.acciones.find((a) => a.tipo === 'primaria') ?? null;
 }
 
+/**
+ * «Vista previa» junto a «Generar» va como botón visible ANTES de generar
+ * (no en el menú); ya generado (antes de regenerar) sí va en el menú.
+ */
+function vistaPrevia(item: ItemDocumentoProceso): AccionDocumento | null {
+    return item.documento
+        ? null
+        : (item.acciones.find((a) => a.clave === 'vista_previa') ?? null);
+}
+
 function secundarias(item: ItemDocumentoProceso): AccionDocumento[] {
     const p = principal(item);
+    const previa = vistaPrevia(item);
 
-    return item.acciones.filter((a) => a !== p);
+    return item.acciones.filter((a) => a !== p && a !== previa);
 }
 
 function clave(item: ItemDocumentoProceso, accion: AccionDocumento): string {
@@ -156,6 +170,10 @@ function clave(item: ItemDocumentoProceso, accion: AccionDocumento): string {
                     <Loader2
                         v-if="ocupado === `seccion:${a.clave}`"
                         class="size-4 animate-spin"
+                    />
+                    <Eye
+                        v-else-if="a.clave === 'vista_previa_paquete'"
+                        class="size-4"
                     />
                     {{ a.etiqueta }}
                 </Button>
@@ -335,6 +353,16 @@ function clave(item: ItemDocumentoProceso, accion: AccionDocumento): string {
                     v-if="item.acciones.length || item.historial.length"
                     class="mt-3 flex flex-wrap items-center gap-2"
                 >
+                    <Button
+                        v-if="vistaPrevia(item)"
+                        size="sm"
+                        variant="outline"
+                        :disabled="ocupado !== null"
+                        @click="emit('accion', item, vistaPrevia(item)!)"
+                    >
+                        <Eye class="size-4" />
+                        {{ vistaPrevia(item)!.etiqueta }}
+                    </Button>
                     <Button
                         v-if="principal(item)"
                         size="sm"

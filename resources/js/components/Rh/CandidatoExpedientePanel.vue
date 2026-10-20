@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import {
-    Download,
+    Eye,
     FileText,
     FolderOpen,
     Image,
@@ -24,11 +24,13 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
-import { cv } from '@/routes/rh/candidatos';
 import {
-    desdeBandeja,
-    descargar as descargarCv,
-} from '@/routes/rh/candidatos/cv';
+    claseDeArchivo,
+    formatearTamano,
+    formatoDeArchivo,
+} from '@/lib/archivos';
+import { cv } from '@/routes/rh/candidatos';
+import { desdeBandeja } from '@/routes/rh/candidatos/cv';
 import { store as guardarEvidencias } from '@/routes/rh/candidatos/evidencias';
 import type {
     EvidenciaCandidato,
@@ -53,7 +55,10 @@ const props = defineProps<{
     hayReferencias: boolean;
 }>();
 
-const emit = defineEmits<{ ver: [evidencia: EvidenciaCandidato] }>();
+const emit = defineEmits<{
+    ver: [evidencia: EvidenciaCandidato];
+    verCv: [];
+}>();
 
 const ACEPTA: Record<string, string> = {
     socioeconomico: '.mp4,.mov,.m4v,.3gp,.webm,.jpg,.jpeg,.png,.webp,.pdf',
@@ -123,18 +128,10 @@ function tomarDeBandeja() {
     });
 }
 
-function icono(tipo: string) {
-    return tipo === 'video' ? Video : tipo === 'fotografia' ? Image : FileText;
-}
+function icono(ev: EvidenciaCandidato) {
+    const clase = claseDeArchivo(ev);
 
-function tamano(bytes: number | null): string {
-    if (!bytes) {
-        return '';
-    }
-
-    return bytes >= 1024 * 1024
-        ? `${(bytes / 1024 / 1024).toFixed(1)} MB`
-        : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+    return clase === 'video' ? Video : clase === 'imagen' ? Image : FileText;
 }
 
 const errorArchivos = computed(
@@ -183,16 +180,37 @@ const errorArchivos = computed(
                     />
                 </label>
             </div>
-            <a
+            <button
                 v-if="expediente.cv"
-                :href="descargarCv.url(candidatoId)"
-                class="mt-1 inline-flex items-center gap-1 text-xs text-[var(--mrl-petroleo)] hover:underline"
+                type="button"
+                class="mt-2 flex w-full min-w-0 tarjeta-interactiva items-center gap-2.5 rounded-lg border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] px-2.5 py-2 text-left"
+                :aria-label="`Ver ${expediente.cv.nombre}`"
+                @click="emit('verCv')"
             >
-                <Download class="size-3" /> {{ expediente.cv.nombre }}
-                <span class="text-muted-foreground">{{
-                    tamano(expediente.cv.tamano)
-                }}</span>
-            </a>
+                <span
+                    class="flex size-8 shrink-0 items-center justify-center rounded-md bg-danger-soft text-danger"
+                >
+                    <FileText class="size-4" />
+                </span>
+                <span class="min-w-0 flex-1">
+                    <span class="block truncate text-xs font-medium">{{
+                        expediente.cv.nombre
+                    }}</span>
+                    <span class="block text-[11px] text-muted-foreground">{{
+                        [
+                            formatoDeArchivo({ nombre: expediente.cv.nombre }),
+                            formatearTamano(expediente.cv.tamano),
+                        ]
+                            .filter(Boolean)
+                            .join(' · ')
+                    }}</span>
+                </span>
+                <span
+                    class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-[var(--mrl-petroleo)]"
+                >
+                    <Eye class="size-3.5" /> Ver
+                </span>
+            </button>
             <p v-else class="mt-1 text-xs text-muted-foreground">
                 Sin CV todavía.
             </p>
@@ -249,14 +267,20 @@ const errorArchivos = computed(
                 <li v-for="ev in grupo.archivos" :key="ev.id">
                     <button
                         type="button"
-                        class="inline-flex min-h-8 items-center gap-1.5 text-left text-xs text-[var(--mrl-petroleo)] hover:underline"
+                        class="group inline-flex min-h-8 max-w-full items-center gap-1.5 rounded-md px-1 text-left text-xs text-[var(--mrl-petroleo)] hover:bg-[var(--mrl-superficie)]"
+                        :aria-label="`Ver ${ev.nombre}`"
                         @click="emit('ver', ev)"
                     >
-                        <component :is="icono(ev.tipo)" class="size-3.5" />
-                        {{ ev.nombre }}
-                        <span class="text-muted-foreground">{{
-                            tamano(ev.tamano)
+                        <component :is="icono(ev)" class="size-3.5 shrink-0" />
+                        <span class="truncate group-hover:underline">{{
+                            ev.nombre
                         }}</span>
+                        <span class="shrink-0 text-muted-foreground">{{
+                            formatearTamano(ev.tamano)
+                        }}</span>
+                        <Eye
+                            class="size-3.5 shrink-0 opacity-60 transition-opacity group-hover:opacity-100"
+                        />
                     </button>
                 </li>
             </ul>

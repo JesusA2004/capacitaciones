@@ -6,7 +6,6 @@ use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoFiniquito;
 use App\Enums\FamiliaAdministrativa;
-use App\Enums\TipoBaja;
 use App\Enums\TipoConceptoNomina;
 use App\Enums\TipoFormatoOficial;
 use App\Models\Colaborador;
@@ -959,7 +958,13 @@ class FiniquitoService
             return 0.0;
         }
 
-        if (in_array($solicitud->tipo_baja, [TipoBaja::Renuncia, TipoBaja::Abandono, null], true)) {
+        // Decide el TIPO (renuncia nunca) y, dentro del tipo, la causal de
+        // rotación (p. ej. abandono de trabajo la excluye).
+        if ($solicitud->tipo_baja === null || ! $solicitud->tipo_baja->contemplaIndemnizacion()) {
+            return 0.0;
+        }
+
+        if ($solicitud->causalRotacion?->excluye_indemnizacion === true) {
             return 0.0;
         }
 

@@ -390,6 +390,8 @@ class CicloLaboralDemoSeeder extends Seeder
             'clave_elector' => sprintf('DEMCPR9501%02dH000', $n),
             'profesion' => 'Bachillerato',
             'domicilio' => 'Calle Demostración 10, Col. Centro, Cuernavaca, Morelos',
+            'domicilio_calle' => 'Calle Demostración',
+            'domicilio_numero_exterior' => '10',
             'domicilio_colonia' => 'Centro',
             'domicilio_municipio' => 'Cuernavaca',
             'domicilio_estado' => 'Morelos',

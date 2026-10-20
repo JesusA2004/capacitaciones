@@ -5,6 +5,7 @@ import {
     Copy,
     Eye,
     EyeOff,
+    FileSearch,
     KeyRound,
     Mail,
     ShieldAlert,
@@ -26,7 +27,10 @@ import { Spinner } from '@/components/ui/spinner';
 import { useAlertas } from '@/composables/useAlertas';
 import { leerCookie } from '@/lib/http';
 import { credenciales } from '@/routes/rh/colaboradores';
-import { correo as correoCredenciales } from '@/routes/rh/colaboradores/credenciales';
+import {
+    correo as correoCredenciales,
+    correoVistaPrevia,
+} from '@/routes/rh/colaboradores/credenciales';
 
 /**
  * «Generar credenciales» (docs/AUTENTICACION.md): crea la cuenta si no
@@ -168,6 +172,59 @@ async function enviarCorreo() {
     }
 }
 
+// Vista previa del correo ANTES de enviarlo: el backend renderiza el mismo
+// correo con la contraseña enmascarada (aquí nunca se manda la contraseña).
+type VistaPreviaCorreo = { asunto: string; destinatario: string; html: string };
+const vistaPreviaCorreo = ref<VistaPreviaCorreo | null>(null);
+const vistaPreviaCorreoAbierta = ref(false);
+const cargandoVistaPreviaCorreo = ref(false);
+
+async function verVistaPreviaCorreo() {
+    if (cargandoVistaPreviaCorreo.value) {
+        return;
+    }
+
+    cargandoVistaPreviaCorreo.value = true;
+
+    try {
+        const respuesta = await fetch(
+            correoVistaPrevia.url(props.colaboradorId),
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    'X-XSRF-TOKEN': leerCookie('XSRF-TOKEN') ?? '',
+                },
+                credentials: 'same-origin',
+                body: '{}',
+            },
+        );
+        const datos = (await respuesta.json().catch(() => ({}))) as {
+            data?: VistaPreviaCorreo;
+            message?: string;
+            errors?: Record<string, string[]>;
+        };
+
+        if (!respuesta.ok || !datos.data) {
+            mostrarError(
+                Object.values(datos.errors ?? {})[0]?.[0] ??
+                    datos.message ??
+                    'No se pudo preparar la vista previa del correo.',
+            );
+
+            return;
+        }
+
+        vistaPreviaCorreo.value = datos.data;
+        vistaPreviaCorreoAbierta.value = true;
+    } catch {
+        mostrarError('No se pudo preparar la vista previa del correo.');
+    } finally {
+        cargandoVistaPreviaCorreo.value = false;
+    }
+}
+
 async function copiar(que: 'usuario' | 'contrasena' | 'ambos') {
     if (!resultado.value) {
         return;
@@ -201,6 +258,8 @@ function cerrar() {
     manual.value = '';
     errorPassword.value = null;
     correoEnviado.value = false;
+    vistaPreviaCorreo.value = null;
+    vistaPreviaCorreoAbierta.value = false;
     modo.value = 'generar';
     emit('update:open', false);
 }
@@ -381,6 +440,16 @@ function cerrar() {
                         <Button
                             v-if="resultado.correo"
                             variant="outline"
+                            :disabled="cargandoVistaPreviaCorreo"
+                            @click="verVistaPreviaCorreo"
+                        >
+                            <Spinner v-if="cargandoVistaPreviaCorreo" />
+                            <FileSearch v-else class="size-4" />
+                            Ver correo
+                        </Button>
+                        <Button
+                            v-if="resultado.correo"
+                            variant="outline"
                             :disabled="enviando || correoEnviado"
                             @click="enviarCorreo"
                         >
@@ -396,6 +465,55 @@ function cerrar() {
                     <Button @click="cerrar">Listo</Button>
                 </DialogFooter>
             </template>
+        </DialogContent>
+    </Dialog>
+
+    <Dialog v-model:open="vistaPreviaCorreoAbierta">
+        <DialogContent
+            class="flex h-[85vh] w-[calc(100vw-2rem)] max-w-none flex-col gap-3 sm:w-[min(92vw,760px)]"
+        >
+            <DialogHeader>
+                <DialogTitle class="flex items-center gap-2">
+                    <Mail class="size-4 text-primary" />
+                    Vista previa del correo de accesos
+                </DialogTitle>
+                <DialogDescription v-if="vistaPreviaCorreo">
+                    Para {{ vistaPreviaCorreo.destinatario }} · «{{
+                        vistaPreviaCorreo.asunto
+                    }}». La contraseña aparece enmascarada; el correo real la
+                    lleva completa.
+                </DialogDescription>
+            </DialogHeader>
+            <!-- sandbox vacío: el HTML del correo no ejecuta nada. -->
+            <iframe
+                v-if="vistaPreviaCorreo"
+                :srcdoc="vistaPreviaCorreo.html"
+                sandbox=""
+                title="Vista previa del correo de accesos"
+                class="min-h-0 w-full flex-1 rounded-lg border bg-card"
+            />
+            <DialogFooter class="gap-2">
+                <Button
+                    variant="outline"
+                    @click="vistaPreviaCorreoAbierta = false"
+                >
+                    Cerrar
+                </Button>
+                <Button
+                    :disabled="enviando || correoEnviado"
+                    @click="
+                        vistaPreviaCorreoAbierta = false;
+                        enviarCorreo();
+                    "
+                >
+                    <Mail class="size-4" />
+                    {{
+                        correoEnviado
+                            ? 'Correo enviado'
+                            : 'Enviar accesos por correo'
+                    }}
+                </Button>
+            </DialogFooter>
         </DialogContent>
     </Dialog>
 </template>

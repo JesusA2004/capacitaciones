@@ -10,6 +10,7 @@ use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Services\Actas\ActaPdfService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
+use App\Services\DocumentosMaestros\FirmaPatronService;
 use App\Services\Pdf\OpcionesPdf;
 use App\Services\Pdf\PdfRendererFactory;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -47,6 +48,7 @@ class EvaluacionInduccionPdfService
         private readonly PdfRendererFactory $pdf,
         private readonly MotorDocumentalService $motor,
         private readonly EvaluacionInduccionService $evaluaciones,
+        private readonly FirmaPatronService $firmaPatron,
     ) {}
 
     /** Bytes del PDF (mismo render para vista previa, descarga y expediente). */
@@ -170,13 +172,12 @@ class EvaluacionInduccionPdfService
         $empresa = $evaluacion->colaborador->sucursalPrincipal?->empresa;
         $revision = $this->evaluaciones->detalleRevision($intento);
         $fecha = fn (?string $f): ?string => $f !== null && $f !== '' ? Carbon::parse($f)->settings(['locale' => 'es'])->isoFormat('D [de] MMMM [de] YYYY') : null;
-        $aplico = $intento->calificado_por !== null ? User::query()->where('id', $intento->calificado_por)->first() : null;
         $seccionD = (array) config('induccion_evaluacion.seccion_d', []);
 
         return [
             'clave' => self::CLAVE,
             'logo' => $this->logo($empresa?->logo_path),
-            'empresa' => $empresa->razon_social ?? 'PRODUCTOS Y SERVICIOS MR LANA, S.A.P.I. DE C.V.',
+            'empresa' => $this->firmaPatron->razonSocialDeEmpresa($empresa),
             'colaborador' => [
                 'nombre' => $colaborador['nombre'],
                 'numero_empleado' => $colaborador['numero_empleado'],
@@ -187,7 +188,8 @@ class EvaluacionInduccionPdfService
             ],
             'fecha_evaluacion' => $fecha($intento->presentado_en->toDateString()),
             'intento' => $intento->numero,
-            'aplico' => $aplico?->nombreCompleto(),
+            // Aplicó: el área, nunca la cuenta que calificó (su nombre y firma van a pluma).
+            'aplico' => $intento->calificado_por !== null ? 'Recursos Humanos' : null,
             'maximos' => [
                 'a' => count((array) config('induccion_evaluacion.seccion_a', [])),
                 'b' => count((array) config('induccion_evaluacion.seccion_b', [])),

@@ -5,6 +5,7 @@ namespace App\Http\Requests\Rh;
 use App\Models\Colaborador;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\DomicilioService;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ActualizarDatosPersonalesRequest extends FormRequest
@@ -38,11 +39,22 @@ class ActualizarDatosPersonalesRequest extends FormRequest
             'curp' => ['nullable', 'string', 'max:18'],
             'rfc' => ['nullable', 'string', 'max:13'],
             'nss' => ['nullable', 'string', 'max:11'],
+            // Texto único legado: si vienen los campos estructurados, el
+            // modelo lo recompone a partir de ellos (DomicilioService).
             'domicilio' => ['nullable', 'string', 'max:255'],
+            ...app(DomicilioService::class)->reglas(),
             'correo_personal' => ['nullable', 'email', 'max:255'],
             'correo_corporativo' => ['nullable', 'email', 'max:255'],
             'contacto_emergencia_nombre' => ['nullable', 'string', 'max:150'],
             'contacto_emergencia_telefono' => ['nullable', 'string', 'max:30'],
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return app(DomicilioService::class)->mensajes();
     }
 }

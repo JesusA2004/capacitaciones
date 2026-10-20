@@ -2,7 +2,6 @@
 
 namespace App\Services\Actas;
 
-use App\Enums\CaracterLevantamientoActa;
 use App\Enums\CategoriaDocumento;
 use App\Enums\MotorPdf;
 use App\Enums\RelacionTestigoActa;
@@ -13,6 +12,7 @@ use App\Models\ActaAnexo;
 use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
+use App\Services\DocumentosMaestros\FirmaPatronService;
 use App\Services\Pdf\OpcionesPdf;
 use App\Services\Pdf\PdfRendererFactory;
 use Illuminate\Support\Carbon;
@@ -36,6 +36,7 @@ class ActaPdfService
     public function __construct(
         private readonly PdfRendererFactory $pdf,
         private readonly MotorDocumentalService $motor,
+        private readonly FirmaPatronService $firmaPatron,
     ) {}
 
     /** Actas con formato propio de PEOPLE (la circunstanciada y las históricas en borrador). */
@@ -72,7 +73,6 @@ class ActaPdfService
             ($c['incidencia']['tipo'] ?? null) === null => 'Indica el tipo de incidencia.',
             ($c['incidencia']['fecha_hechos'] ?? null) === null => 'Indica la fecha o el período en que ocurrieron los hechos.',
             trim((string) $acta->hechos) === '' => 'Describe los hechos de manera circunstanciada.',
-            ($c['responsable']['caracter'] ?? null) === null => 'Indica el carácter con el que interviene quien levanta el acta.',
             $manifesto === null => 'Registra la manifestación del trabajador o que no quiso manifestar.',
             $manifesto === true && ($c['trabajador']['manifestacion'] ?? null) === null => 'Captura lo que manifestó el trabajador.',
             $sinRelacion !== [] => 'Indica la relación de cada testigo con los hechos.',
@@ -214,9 +214,11 @@ class ActaPdfService
         $tipo = TipoIncidenciaActa::tryFrom((string) ($c['incidencia']['tipo'] ?? ''));
         $responsable = (array) ($c['responsable'] ?? []);
         $jefe = ($c['jefe']['participa'] ?? false) ? (array) $c['jefe'] : null;
-        // Responsable y jefe son la misma persona (mismo colaborador_id, nunca
-        // por nombre: dos homónimos son personas distintas): una sola
-        // manifestación y una sola firma.
+        // Por la empresa interviene y firma SIEMPRE su representante legal, con
+        // el nombre en blanco (pluma): la cuenta que capturó el acta nunca se
+        // imprime. Si quien capturó es además el jefe que participa (mismo
+        // colaborador_id, nunca por nombre), lo que manifestó es del JEFE: se
+        // le atribuye a él (actas anteriores guardaban una sola manifestación).
         $jefeEsResponsable = $jefe !== null
             && is_numeric($jefe['colaborador_id'] ?? null)
             && is_numeric($responsable['colaborador_id'] ?? null)
@@ -234,7 +236,7 @@ class ActaPdfService
         return [
             'folio' => (string) $acta->folio,
             'logo' => $this->logo($empresa?->logo_path),
-            'empresa' => $empresa->razon_social ?? $empresa->nombre ?? 'MR. LANA',
+            'empresa' => $this->firmaPatron->razonSocialDeEmpresa($empresa),
             'centro' => $sucursal?->nombre,
             'domicilio' => $domicilio !== '' ? $domicilio : null,
             'lugar' => $texto($acta->lugar),
@@ -258,18 +260,16 @@ class ActaPdfService
             ],
             'hechos' => trim((string) $acta->hechos),
             'responsable' => [
-                'nombre' => $texto($responsable['nombre'] ?? null),
-                'puesto' => $texto($responsable['puesto'] ?? null),
-                'area' => $texto($responsable['area'] ?? null),
-                'caracter' => CaracterLevantamientoActa::tryFrom((string) ($responsable['caracter'] ?? ''))?->etiqueta(),
-                'manifestacion' => $texto($responsable['manifestacion'] ?? null),
+                'nombre' => null,
+                'cargo' => $this->firmaPatron->cargo(),
+                'manifestacion' => $jefeEsResponsable && $texto($jefe['manifestacion'] ?? null) === null ? null : $texto($responsable['manifestacion'] ?? null),
             ],
             'jefe' => $jefe === null ? null : [
                 'nombre' => $texto($jefe['nombre'] ?? null),
                 'puesto' => $texto($jefe['puesto'] ?? null),
                 'area' => $texto($jefe['area'] ?? null),
-                'manifestacion' => $texto($jefe['manifestacion'] ?? null),
-                'es_responsable' => $jefeEsResponsable,
+                'manifestacion' => $texto($jefe['manifestacion'] ?? null) ?? ($jefeEsResponsable ? $texto($responsable['manifestacion'] ?? null) : null),
+                'es_responsable' => false,
             ],
             'testigos_hechos' => array_map(fn (array $t): array => [
                 'nombre' => (string) ($t['nombre'] ?? ''),
@@ -296,12 +296,15 @@ class ActaPdfService
                 'fecha' => $fecha($cierre['fecha'] ?? null) ?? $fecha(Carbon::now('America/Mexico_City')->toDateString()),
                 'hora' => $cierre['hora'] ?? Carbon::now('America/Mexico_City')->format('H:i'),
             ],
-            'entrega' => (array) ($c['entrega'] ?? ['estado' => 'pendiente']),
+            // Quién entregó la copia o integró el expediente queda en el
+            // historial del acta, nunca impreso: el formato lleva línea en
+            // blanco (entrega) y el área (integración).
+            'entrega' => array_diff_key((array) ($c['entrega'] ?? ['estado' => 'pendiente']), ['por' => true]),
             'control' => [
                 'hojas' => $paginas,
                 'anexos' => count($anexos),
                 'fecha_integracion' => $fecha($control['fecha_integracion'] ?? null),
-                'integrado_por' => $texto($control['integrado_por'] ?? null),
+                'integrado_por' => $texto($control['fecha_integracion'] ?? null) !== null ? 'Recursos Humanos' : null,
             ],
         ];
     }
@@ -313,13 +316,12 @@ class ActaPdfService
      */
     public function datos(ActaAdministrativa $acta): array
     {
-        $acta->loadMissing(['colaborador.puesto', 'colaborador.jefe.puesto', 'colaborador.sucursalPrincipal.empresa', 'responsable.colaborador.puesto', 'anexos']);
+        $acta->loadMissing(['colaborador.puesto', 'colaborador.jefe.puesto', 'colaborador.sucursalPrincipal.empresa', 'anexos']);
         $colaborador = $acta->colaborador;
         $sucursal = $colaborador->sucursalPrincipal;
         $empresa = $sucursal?->empresa;
         $declaraciones = array_values($acta->declaraciones ?? []);
         $testigos = array_values($acta->testigos ?? []);
-        $responsable = $acta->responsable;
 
         return [
             'titulo' => mb_strtoupper($acta->tipo->etiqueta(), 'UTF-8'),
@@ -327,7 +329,7 @@ class ActaPdfService
             'fecha' => $acta->fecha->copy()->settings(['locale' => 'es'])->isoFormat('D [de] MMMM [de] YYYY'),
             'hora' => $acta->hora !== null && $acta->hora !== '' ? substr((string) $acta->hora, 0, 5) : null,
             'lugar' => $acta->lugar,
-            'empresa' => $empresa->razon_social ?? $empresa->nombre ?? 'MR. LANA',
+            'empresa' => $this->firmaPatron->razonSocialDeEmpresa($empresa),
             'sucursal' => $sucursal?->nombre,
             'ciudad' => $sucursal->ciudad ?? $sucursal->municipio ?? null,
             'colaborador' => [
@@ -341,9 +343,12 @@ class ActaPdfService
             'manifestacion_colaborador' => isset($declaraciones[0]) ? $declaraciones[0]['declaracion'] : 'No quiso manifestar nada.',
             'otras_manifestaciones' => array_values(array_filter(array_slice($declaraciones, 1), fn (array $d): bool => trim($d['declaracion']) !== '')),
             'testigos' => array_map(fn (array $t): array => ['nombre' => $t['nombre'], 'cargo' => (string) ($t['puesto'] ?? '')], $testigos),
+            // Por la empresa firma SIEMPRE su representante legal, con el
+            // nombre en blanco (se escribe y firma con pluma). Nunca la
+            // cuenta que capturó el acta.
             'levanta' => [
-                'nombre' => $responsable !== null ? trim($responsable->name.' '.($responsable->apellidos ?? '')) : '',
-                'cargo' => $responsable?->colaborador?->puesto?->nombre,
+                'nombre' => '',
+                'cargo' => $this->firmaPatron->cargo(),
             ],
             'anexos' => $acta->anexos->map(fn ($a): string => (string) ($a->descripcion ?: $a->original_name))->values()->all(),
             'logo' => $this->logo($empresa?->logo_path),

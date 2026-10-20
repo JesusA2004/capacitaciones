@@ -14,6 +14,7 @@ use App\Models\DocumentTemplate;
 use App\Models\DocumentType;
 use App\Models\Empresa;
 use App\Models\FiniquitoCalculo;
+use App\Models\Prestamo;
 use App\Models\Puesto;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudInternaDocumento;
@@ -160,6 +161,29 @@ class SolicitudController extends Controller
         }
     }
 
+    /**
+     * Vista previa del documento que se emitirá al aprobar (comprobante,
+     * constancia, formato de permiso o formato oficial) con los datos reales
+     * de la solicitud. Solo quien puede aprobar; no guarda nada.
+     */
+    public function vistaPreviaDocumento(Request $request, SolicitudInterna $solicitud, string $documento): HttpResponse
+    {
+        $this->authorize('aprobar', $solicitud);
+
+        try {
+            $pdf = $this->solicitudes->vistaPreviaDocumento($solicitud, $documento, $request->user());
+        } catch (ValidationException $e) {
+            abort(422, (string) collect($e->errors())->flatten()->first());
+        }
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => sprintf('inline; filename="%s-%s-vista-previa.pdf"', $documento, $solicitud->folio),
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
     public function show(Request $request, SolicitudInterna $solicitud): Response
     {
         $this->authorize('view', $solicitud);
@@ -197,6 +221,14 @@ class SolicitudController extends Controller
             'puedeRevisar' => $acciones['revisar'],
             'puedeAprobar' => $acciones['aprobar'],
             'puedeRechazar' => $acciones['rechazar'],
+            // Préstamo: no se aprueba con el botón genérico; RH lo autoriza
+            // con monto, plazo y datos del contrato (PrestamoPolicy).
+            'puedeAutorizarPrestamo' => $solicitud->tipo === TipoSolicitudInterna::PrestamoInterno
+                && ! $solicitud->estado->esFinal()
+                && $solicitud->prestamo === null
+                && $request->user()->can('autorizarSolicitud', [Prestamo::class, $solicitud]),
+            // Documentos que se emitirán al aprobar: RH los ve ANTES de autorizar.
+            'vistasPrevias' => $acciones['aprobar'] && ! $esBaja ? $this->solicitudes->vistasPreviasAprobacion($solicitud) : [],
             // Una baja (histórica) se consulta aquí en solo lectura; se
             // gestiona en el Cierre laboral del colaborador.
             'bajaEnCierre' => $esBaja ? [
@@ -204,7 +236,10 @@ class SolicitudController extends Controller
                 'colaboradorId' => $solicitud->colaboradorDeBaja()?->id,
             ] : null,
             'tipoEtiqueta' => $this->solicitudes->etiquetaTipo($solicitud),
-            'tipoBajaEtiqueta' => $solicitud->tipo_baja?->etiqueta(),
+            // Tipo + causal de rotación («Rescisión · Bajo desempeño»).
+            'tipoBajaEtiqueta' => $solicitud->tipo_baja !== null
+                ? implode(' · ', array_filter([$solicitud->tipo_baja->etiqueta(), $solicitud->causalRotacion?->nombre]))
+                : null,
             // Permiso: el formato oficial se libera SOLO con la autorización de RH.
             'permiso' => $this->solicitudes->resumenPermiso($solicitud),
             // Actualización de datos: qué cambia en el expediente al autorizar.

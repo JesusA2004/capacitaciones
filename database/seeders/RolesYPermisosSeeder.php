@@ -75,6 +75,10 @@ class RolesYPermisosSeeder extends Seeder
         // (sin él, solo los de su jefe directo; el personal corporativo los
         // ve por su ubicación). Nombre, puesto, área y sucursal los ve todos.
         'directorio.contactos.ver_todos',
+        // Edición rápida del Directorio (contacto corporativo, puesto,
+        // sucursal y departamento sin abrir cada expediente). Solo
+        // super_admin; nunca la propia fila (DirectorioEdicionService).
+        'directorio.editar',
         'integraciones.administrar',
         'configuracion.administrar',
         'auditoria.ver',
@@ -285,6 +289,9 @@ class RolesYPermisosSeeder extends Seeder
         'finiquitos.calcular',
         'finiquitos.revisar',
         'finiquitos.subir_firmado',
+        // Bajas y finiquitos → «Causales de rotación» (motivo de cada tipo
+        // de baja): alta, edición, activar/desactivar y orden.
+        'finiquitos.causales_rotacion',
 
         // --- Headcount / plantilla autorizada ---
         'headcount.ver',
@@ -494,7 +501,7 @@ class RolesYPermisosSeeder extends Seeder
             'rh.cumpleanos.configurar', 'rh.cumpleanos.frases.gestionar', 'rh.cumpleanos.notificaciones.gestionar', 'rh.cumpleanos.muro.gestionar',
             'app_releases.ver', 'app_releases.crear', 'app_releases.publicar', 'app_releases.eliminar', 'app_releases.descargar',
             'solicitudes.bajas.crear', 'solicitudes.bajas.aprobar',
-            'finiquitos.ver', 'finiquitos.calcular', 'finiquitos.revisar', 'finiquitos.subir_firmado',
+            'finiquitos.ver', 'finiquitos.calcular', 'finiquitos.revisar', 'finiquitos.subir_firmado', 'finiquitos.causales_rotacion',
             'headcount.ver', 'headcount.editar', 'headcount.importar',
             'organigrama.ver', 'organigrama.editar',
             // Ciclo laboral completo (docs/backend-rh-completion.md).
@@ -780,8 +787,10 @@ class RolesYPermisosSeeder extends Seeder
             'onboarding.ver',
         ],
 
-        // Dirección: autorizaciones finales (evaluaciones, préstamos, bajas)
-        // e indicadores globales; no opera la captura diaria de RH.
+        // Dirección: autorizaciones finales (evaluaciones, bajas) e
+        // indicadores globales; no opera la captura diaria de RH. El
+        // PRÉSTAMO lo autoriza SOLO RH (prestamos.autorizar): Dirección
+        // consulta (2026-10-20, migración 2026_10_20_170200).
         'direccion' => [
             'directorio.contactos.ver_todos',
             'perfiles_puesto.ver',
@@ -793,7 +802,7 @@ class RolesYPermisosSeeder extends Seeder
             'solicitudes.ver', 'solicitudes.aprobar', 'solicitudes.bajas.aprobar',
             'rh.solicitudes.ver', 'rh.solicitudes.detalle', 'rh.solicitudes.aprobar', 'rh.solicitudes.rechazar',
             'contratos.ver', 'evaluaciones.ver', 'evaluaciones.autorizar', 'excepciones.autorizar',
-            'prestamos.ver', 'prestamos.autorizar',
+            'prestamos.ver',
             'cierres.ver', 'finiquitos.ver', 'finiquitos.revisar',
             'documentos_laborales.ver', 'actas.ver', 'nomina.recibos.ver',
             'mobile.bootstrap.ver', 'app.config.ver',

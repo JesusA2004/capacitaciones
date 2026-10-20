@@ -12,9 +12,7 @@ import {
     Sparkles,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
-import RadioMarca from '@/components/Common/RadioMarca.vue';
-import InputError from '@/components/InputError.vue';
-import { Button } from '@/components/ui/button';
+import LeccionOnboardingContenido from '@/components/ciclo/LeccionOnboardingContenido.vue';
 import { dashboard } from '@/routes';
 import {
     contenido as induccionEvaluacionUrl,
@@ -281,80 +279,19 @@ const claseBoton =
 
                         <div
                             v-if="abierta === l.avance_id"
-                            class="mt-4 flex flex-col gap-4 border-t border-[var(--mrl-borde)] pt-4"
+                            class="mt-4 border-t border-[var(--mrl-borde)] pt-4"
                         >
-                            <p
-                                v-if="l.retroalimentacion"
-                                class="rounded-xl bg-[var(--mrl-gold)]/10 p-3 text-sm"
-                            >
-                                Comentario de Recursos Humanos:
-                                {{ l.retroalimentacion }}
-                            </p>
-                            <p
-                                v-if="l.descripcion"
-                                class="text-sm text-[var(--mrl-texto-suave)]"
-                            >
-                                {{ l.descripcion }}
-                            </p>
-                            <a
-                                v-if="l.contenido_url"
-                                :href="l.contenido_url"
-                                target="_blank"
-                                rel="noopener"
-                                class="inline-flex w-fit items-center gap-2 rounded-xl border border-[var(--mrl-primary)]/40 px-3 py-2 text-sm font-medium text-[var(--mrl-primary)] transition-colors hover:bg-[var(--mrl-primary)]/10"
-                            >
-                                Ver el material <ArrowRight class="size-4" />
-                            </a>
-                            <p
-                                v-if="l.contenido"
-                                class="max-w-prose text-sm whitespace-pre-line"
-                            >
-                                {{ l.contenido }}
-                            </p>
-
-                            <form
-                                v-if="l.puede_presentar && l.preguntas.length"
-                                class="flex flex-col gap-4"
-                                @submit.prevent="presentar(l)"
-                            >
-                                <fieldset
-                                    v-for="p in l.preguntas"
-                                    :key="p.indice"
-                                    class="flex flex-col gap-1.5"
-                                >
-                                    <legend class="mb-1 text-sm font-medium">
-                                        {{ p.indice + 1 }}. {{ p.pregunta }}
-                                    </legend>
-                                    <label
-                                        v-for="(opcion, i) in p.opciones"
-                                        :key="i"
-                                        class="flex cursor-pointer items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-sm transition-colors hover:border-[var(--mrl-borde)] hover:bg-[var(--mrl-fondo)] has-[:checked]:border-[var(--mrl-primary)]/40 has-[:checked]:bg-[var(--mrl-primary)]/5"
-                                    >
-                                        <RadioMarca
-                                            v-model="form.respuestas[p.indice]"
-                                            :value="i"
-                                            :name="`p${l.avance_id}-${p.indice}`"
-                                        />
-                                        {{ opcion }}
-                                    </label>
-                                </fieldset>
-                                <InputError
-                                    :message="
-                                        (form.errors as Record<string, string>)
-                                            .onboarding
-                                    "
-                                />
-                                <Button
-                                    type="submit"
-                                    class="w-fit"
-                                    :disabled="
-                                        form.processing ||
-                                        Object.keys(form.respuestas).length <
-                                            l.preguntas.length
-                                    "
-                                    >Enviar respuestas</Button
-                                >
-                            </form>
+                            <LeccionOnboardingContenido
+                                v-model:respuestas="form.respuestas"
+                                :leccion="l"
+                                :grupo="`p${l.avance_id}`"
+                                :error="
+                                    (form.errors as Record<string, string>)
+                                        .onboarding
+                                "
+                                :procesando="form.processing"
+                                @presentar="presentar(l)"
+                            />
                         </div>
                     </article>
                 </section>

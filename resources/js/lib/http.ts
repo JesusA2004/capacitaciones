@@ -122,3 +122,45 @@ export async function enviarJson<T>(
 
     return datos as T;
 }
+
+/**
+ * Vista previa de un documento que todavía NO se genera (recibo, correo de
+ * accesos…): envía lo capturado por POST (sin datos sensibles en la URL ni
+ * en los logs del servidor) y regresa una blob: URL lista para el visor.
+ * Con error, lanza ErrorSolicitud con el mensaje legible del backend. El
+ * caller revoca la URL (URL.revokeObjectURL) al cerrar el visor.
+ */
+export async function vistaPreviaPost(
+    url: string,
+    cuerpo: unknown,
+): Promise<string> {
+    const respuesta = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/pdf, text/html, application/json',
+            'X-XSRF-TOKEN': leerCookie('XSRF-TOKEN') ?? '',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify(cuerpo),
+    });
+
+    if (!respuesta.ok) {
+        const datos = (await respuesta.json().catch(() => null)) as {
+            message?: string;
+            errors?: Record<string, string[]>;
+        } | null;
+        const primerError = datos?.errors
+            ? Object.values(datos.errors)[0]?.[0]
+            : undefined;
+
+        throw new ErrorSolicitud(
+            primerError ??
+                datos?.message ??
+                'No se pudo generar la vista previa.',
+            respuesta.status,
+        );
+    }
+
+    return URL.createObjectURL(await respuesta.blob());
+}

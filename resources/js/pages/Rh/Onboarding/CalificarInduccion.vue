@@ -18,7 +18,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
 import { dashboard } from '@/routes';
 import { presentacion as presentacionInduccion } from '@/routes/induccion';
-import { calificar, retroalimentar } from '@/routes/rh/onboarding/induccion';
+import {
+    calificar,
+    retroalimentar,
+    vistaPrevia as vistaPreviaEvaluacion,
+} from '@/routes/rh/onboarding/induccion';
 import * as pdf from '@/routes/rh/onboarding/induccion/pdf';
 import type {
     EvaluacionInduccionResumen,
@@ -235,6 +239,12 @@ function letra(indice: number): string {
                         target="_blank"
                         rel="noopener"
                         ><Eye class="size-4" /> Vista previa del formato</a
+                    >
+                </Button>
+                <Button as-child variant="outline" size="sm">
+                    <Link :href="vistaPreviaEvaluacion()"
+                        ><Eye class="size-4" /> Ver evaluación como
+                        colaborador</Link
                     >
                 </Button>
                 <Button as-child variant="outline" size="sm">

@@ -272,12 +272,6 @@ export function faltantesActa(f: FormularioCircunstanciada): string[] {
         faltan.push('Describe los hechos de manera circunstanciada.');
     }
 
-    if (!c.responsable.caracter) {
-        faltan.push(
-            'Indica el carácter con el que interviene quien levanta el acta.',
-        );
-    }
-
     if (c.trabajador.manifesto === null) {
         faltan.push(
             'Registra la manifestación del trabajador o que no quiso manifestar.',

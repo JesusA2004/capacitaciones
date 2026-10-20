@@ -12,6 +12,7 @@ use App\Enums\TipoBienMueble;
 use App\Enums\TipoEquipoElectronico;
 use App\Enums\TipoResponsiva;
 use App\Models\Responsiva;
+use App\Services\DocumentosMaestros\FirmaPatronService;
 use App\Services\Pdf\OpcionesPdf;
 use App\Services\Pdf\PdfRendererException;
 use App\Services\Pdf\PdfRendererFactory;
@@ -25,7 +26,8 @@ use Illuminate\Validation\ValidationException;
  * diseño son fieles a los formatos oficiales en docs/responsiva/*.docx: mismo
  * encabezado (PRODUCTOS Y SERVICIOS MR LANA, S.A.P.I. DE C.V.), fundamento
  * (artículos 132, 134 y 135 de la Ley Federal del Trabajo), declaración y
- * firmas (apoderado legal / trabajador). Cada familia (bien mueble, equipo
+ * firmas (razón social y «Representante legal» / trabajador; ver
+ * FirmaPatronService). Cada familia (bien mueble, equipo
  * electrónico, vehículo) imprime sus propias secciones.
  *
  * Todos los datos salen del snapshot congelado y de `datos` (ambos
@@ -36,7 +38,10 @@ use Illuminate\Validation\ValidationException;
  */
 class ResponsivaPdfService
 {
-    public function __construct(private readonly PdfRendererFactory $pdf) {}
+    public function __construct(
+        private readonly PdfRendererFactory $pdf,
+        private readonly FirmaPatronService $firmaPatron,
+    ) {}
 
     /**
      * @return array{pdf: string, motor: MotorPdf}
@@ -95,7 +100,10 @@ class ResponsivaPdfService
             'denominacion' => $responsiva->tipo->denominacion(),
             'lugar' => $responsiva->lugar,
             'fecha' => $responsiva->fecha_entrega->copy()->settings(['locale' => 'es'])->isoFormat('DD [de] MMMM [de] YYYY'),
-            'empresa' => mb_strtoupper($texto($empresa['razon_social'] ?? null) ?? $texto($empresa['nombre'] ?? null) ?? 'PRODUCTOS Y SERVICIOS MR LANA, S.A.P.I. DE C.V.', 'UTF-8'),
+            // Razón social legal del patrón (nunca el nombre corto del
+            // catálogo): va ARRIBA de la línea de firma y en el encabezado.
+            'empresa' => $this->firmaPatron->razonSocial($texto($empresa['nombre'] ?? null), $texto($empresa['razon_social'] ?? null)),
+            'firma_patron_cargo' => mb_strtoupper($this->firmaPatron->cargo(), 'UTF-8'),
             'logo' => $this->logo($texto($empresa['logo_path'] ?? null)),
             'receptor' => [
                 'nombre' => mb_strtoupper((string) ($receptor['nombre'] ?? ''), 'UTF-8'),

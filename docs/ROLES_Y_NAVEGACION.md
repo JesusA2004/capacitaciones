@@ -37,11 +37,13 @@ El orden es exactamente el ciclo de vida laboral + transversales:
 | 2 | **Contratación y expediente** | Personas en contratación | `contratos.ver` | `rh.contratacion.index` |
 | | | Validación de documentos | `documentos.revisar` | `rh.validacion-documentos.index` |
 | | | Contratos de ingreso | `contratos.ver` | `rh.contratos-ingreso.index` |
+| | | Contratos (toda la plantilla activa por fecha de ingreso; «Generar todos») | `contratos.ver` (generar: `documentos_laborales.generar`) | `rh.contratos.index` |
 | 3 | **Onboarding** | Inducción institucional | `onboarding.gestionar` | `induccion.presentacion` |
 | | | Inducción al puesto | `onboarding.gestionar` | `rh.induccion-puesto.index` |
-| | | Calificaciones y refuerzo | `evaluaciones.*` | `rh.evaluaciones.index?estado=autorizada` |
+| | | Calificaciones y refuerzo (inducción FO-RH-EI + lecciones, retroalimentación y reevaluación) | `onboarding.gestionar` | `rh.onboarding.calificaciones` |
 | | | Activos y responsivas | `responsivas.ver` | `rh.activos-responsivas.index` |
-| 4 | **Cierre del periodo de prueba** | Periodos por vencer | `evaluaciones.*` | `rh.evaluaciones.index?estado=pendiente` |
+| 4 | **Cierre del periodo de prueba** | Evaluaciones de periodo de prueba | `evaluaciones.*` | `rh.evaluaciones.index` |
+| | | Periodos por vencer (calculado por fecha de ingreso + duración del puesto) | `evaluaciones.*` | `rh.periodos-prueba.index` |
 | | | Evaluación y decisión | `evaluaciones.*` | `rh.evaluaciones.index?estado=capturada` |
 | 5 | **Permanencia** | Colaboradores | `expedientes.ver_todos`/`ver_region`/`ver_sucursal`/`ver_equipo` | `rh.expedientes.index` |
 | | | Solicitudes | `solicitudes.revisar`/`aprobar` | `rh.solicitudes.index` |
@@ -61,7 +63,9 @@ El orden es exactamente el ciclo de vida laboral + transversales:
 | | | Importar datos | `expedientes.migrar`/`headcount.importar`/`colaboradores.importar_salarios_vacaciones`/`rotacion.cargar`/`perfiles_puesto.editar` | `administracion.importar-datos.index` |
 | | | Ajustes y notificaciones | `configuracion.ver`/`notificaciones.ver_todas` | `administracion.configuracion.index` |
 
-Las tres vistas de **evaluación de capacitación inicial** (Calificaciones y refuerzo, Periodos por vencer, Evaluación y decisión) son filtros `?estado=` reales de la **misma** pantalla (`rh.evaluaciones.index`), no pantallas duplicadas.
+Las vistas de **evaluación de periodo de prueba** (Evaluaciones de periodo de prueba, Evaluación y decisión) son filtros `?estado=` reales de la **misma** pantalla (`rh.evaluaciones.index`), no pantallas duplicadas. «Calificaciones y refuerzo» (grupo 3) es otra cosa: las calificaciones de la **inducción** (`rh.onboarding.calificaciones`, SesionInduccionService::calificacionesRh).
+
+«Periodos por vencer» (`rh.periodos-prueba.index`, `PeriodosPruebaService`) es pantalla propia: detecta por **fecha de ingreso** y `puestos.meses_periodo_prueba` a quien sigue en periodo de prueba aunque su contrato o su evaluación todavía no existan en el sistema (alerta a `contratos.regularizacion.dias_alerta_periodo_prueba` = 15 días naturales; el aviso automático que abre la evaluación sigue en días hábiles). «Contratos» (`rh.contratos.index`, `RegularizacionContratosService`) muestra qué contratos le corresponden a cada colaborador activo y genera los que falten (individual o en lote en la cola, idempotente).
 
 **Colaborador ("Mi espacio")**: Mi inicio, Mi expediente (si `expedientes.ver`), Mis solicitudes (si `portal.solicitudes.ver`/`solicitudes.crear`), Mi recibo (solo si `features.recibos_colaborador`), Mis notificaciones, Mi inducción, Mi capacitación (si `features.capacitacion`), Celebraciones, Ayuda.
 

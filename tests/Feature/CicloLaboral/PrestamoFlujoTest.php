@@ -50,8 +50,13 @@ test('préstamo: solicitud → visto bueno del jefe → autorización con monto/
     // El pendiente nace para el jefe inmediato (visto bueno).
     expect(TareaRh::query()->where('tipo', TipoTarea::PrestamoPendiente->value)->where('asignado_user_id', $this->jefe->id)->exists())->toBeTrue();
 
-    // RH/Dirección no puede autorizar sin el visto bueno del jefe.
+    // El préstamo lo autoriza SOLO RH: Dirección solo consulta (403).
     Sanctum::actingAs($this->direccion);
+    $this->postJson("/api/v1/rh/solicitudes/{$solicitudId}/prestamo/autorizar", ['monto_autorizado' => 8000, 'plazo_autorizado' => 8])
+        ->assertForbidden();
+
+    // RH no puede autorizar sin el visto bueno del jefe.
+    Sanctum::actingAs($this->rh);
     $this->postJson("/api/v1/rh/solicitudes/{$solicitudId}/prestamo/autorizar", ['monto_autorizado' => 8000, 'plazo_autorizado' => 8])
         ->assertUnprocessable()
         ->assertJsonValidationErrors('visto_bueno');
@@ -65,8 +70,8 @@ test('préstamo: solicitud → visto bueno del jefe → autorización con monto/
     $this->postJson("/api/v1/equipo/solicitudes/{$solicitudId}/visto-bueno", ['aprobado' => true, 'comentario' => 'De acuerdo'])->assertOk();
     $this->postJson("/api/v1/equipo/solicitudes/{$solicitudId}/visto-bueno", ['aprobado' => true])->assertUnprocessable();
 
-    // Dirección autoriza con monto y plazo distintos a lo solicitado.
-    Sanctum::actingAs($this->direccion);
+    // RH autoriza con monto y plazo distintos a lo solicitado.
+    Sanctum::actingAs($this->rh);
     $prestamo = $this->postJson("/api/v1/rh/solicitudes/{$solicitudId}/prestamo/autorizar", [
         'monto_autorizado' => 8000,
         'plazo_autorizado' => 8,
@@ -112,7 +117,7 @@ test('resguardo de un préstamo FÍSICO exige la firma física real: un pagaré 
     Sanctum::actingAs($this->jefe);
     $this->postJson("/api/v1/equipo/solicitudes/{$solicitudId}/visto-bueno", ['aprobado' => true, 'comentario' => 'De acuerdo'])->assertOk();
 
-    Sanctum::actingAs($this->direccion);
+    Sanctum::actingAs($this->rh);
     $prestamo = $this->postJson("/api/v1/rh/solicitudes/{$solicitudId}/prestamo/autorizar", ['monto_autorizado' => 8000, 'plazo_autorizado' => 8])
         ->assertCreated()->json('data');
 
@@ -168,7 +173,7 @@ test('el boton generico "Aprobar" nunca autoriza un prestamo: solo "Autorizar pr
     // auditoría: sin este guardado, PrestamoService::crearDesdeSolicitud()
     // caía en sus defaults (monto tal cual lo pidió el colaborador, plazo
     // inventado) como si RH sí hubiera autorizado algo.
-    Sanctum::actingAs($this->direccion);
+    Sanctum::actingAs($this->rh);
     $this->postJson("/api/v1/rh/solicitudes/{$solicitudId}/aprobar", ['comentario' => 'ok'])
         ->assertUnprocessable()
         ->assertJsonValidationErrors('monto_autorizado');

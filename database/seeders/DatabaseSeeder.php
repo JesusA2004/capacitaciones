@@ -44,6 +44,8 @@ class DatabaseSeeder extends Seeder
             InduccionMrLanaModuloSeeder::class,
             BirthdayPhraseSeeder::class,
             MotivosRechazoCandidatoSeeder::class,
+            // Motivos (causales de rotación) de los tres tipos de baja.
+            CausalesRotacionSeeder::class,
             // Necesita puestos y el motivo «no_cumple_requisito».
             PreguntasFiltroCandidatoSeeder::class,
         ]);

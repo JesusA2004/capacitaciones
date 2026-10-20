@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { Contact, Mail, Phone, Search } from '@lucide/vue';
+import { Contact, Mail, Pencil, Phone, Search } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import EdicionFilaDirectorio from '@/components/Directorio/EdicionFilaDirectorio.vue';
+import type { OpcionesEdicionDirectorio } from '@/components/Directorio/EdicionFilaDirectorio.vue';
 import { Input } from '@/components/ui/input';
 import { dashboard } from '@/routes';
 
@@ -18,6 +20,7 @@ type ColaboradorDirectorio = {
     es_corporativo: boolean;
     area: string;
     departamento: string | null;
+    departamento_id: number | null;
     correo_corporativo: string | null;
     telefono_corporativo: string | null;
     /** El backend solo manda el contacto a quien puede verlo. */
@@ -31,7 +34,34 @@ const props = defineProps<{
     colaboradores: ColaboradorDirectorio[];
     filtros: { busqueda?: string; vista?: string };
     veTodosLosContactos?: boolean;
+    /** Solo llega a quien puede editar (directorio.editar); si no, null. */
+    edicion?: {
+        opciones: OpcionesEdicionDirectorio;
+        editables: number[];
+    } | null;
 }>();
+
+// Copia local: la edición rápida reemplaza la fila guardada sin recargar.
+const lista = ref<ColaboradorDirectorio[]>([...props.colaboradores]);
+
+watch(
+    () => props.colaboradores,
+    (nuevos) => {
+        lista.value = [...nuevos];
+    },
+);
+
+const editables = computed(() => new Set(props.edicion?.editables ?? []));
+const editandoId = ref<number | null>(null);
+
+function alGuardar(id: number, fila: Record<string, unknown> | null) {
+    editandoId.value = null;
+    lista.value = fila
+        ? lista.value.map((c) =>
+              c.id === id ? (fila as unknown as ColaboradorDirectorio) : c,
+          )
+        : lista.value.filter((c) => c.id !== id);
+}
 
 defineOptions({
     layout: {
@@ -91,10 +121,10 @@ const filtrados = computed(() => {
     const palabras = plegar(busqueda.value.trim()).split(/\s+/).filter(Boolean);
 
     if (palabras.length === 0) {
-        return props.colaboradores;
+        return lista.value;
     }
 
-    return props.colaboradores.filter((c) => {
+    return lista.value.filter((c) => {
         const texto = plegar(
             [c.nombre, c.puesto, c.sucursal, c.area, c.numero_empleado]
                 .filter(Boolean)
@@ -274,19 +304,47 @@ function detalle(c: ColaboradorDirectorio): string {
                     :key="c.id"
                     class="flex flex-col gap-1.5 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4"
                 >
-                    <p class="text-sm font-semibold text-[var(--mrl-texto)]">
-                        {{ c.nombre }}
-                        <span
-                            v-if="c.es_mi_jefe"
-                            class="ml-1 rounded-full bg-salvia px-2 py-0.5 text-[10px] font-medium text-[var(--mrl-petroleo)]"
-                            >Tu jefe directo</span
+                    <div class="flex items-start justify-between gap-2">
+                        <p
+                            class="text-sm font-semibold text-[var(--mrl-texto)]"
                         >
-                    </p>
+                            {{ c.nombre }}
+                            <span
+                                v-if="c.es_mi_jefe"
+                                class="ml-1 rounded-full bg-salvia px-2 py-0.5 text-[10px] font-medium text-[var(--mrl-petroleo)]"
+                                >Tu jefe directo</span
+                            >
+                        </p>
+                        <button
+                            v-if="
+                                edicion &&
+                                editables.has(c.id) &&
+                                editandoId !== c.id
+                            "
+                            type="button"
+                            class="inline-flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-[var(--mrl-fondo)] hover:text-[var(--mrl-texto)]"
+                            :aria-label="`Editar a ${c.nombre}`"
+                            title="Editar"
+                            @click="editandoId = c.id"
+                        >
+                            <Pencil class="size-3.5" />
+                        </button>
+                    </div>
                     <p class="text-xs text-muted-foreground">
                         {{ detalle(c) }}
                     </p>
 
-                    <div class="mt-1 flex flex-col gap-1 text-sm">
+                    <EdicionFilaDirectorio
+                        v-if="edicion && editandoId === c.id"
+                        :key="`edicion-${c.id}`"
+                        class="mt-2"
+                        :fila="c"
+                        :opciones="edicion.opciones"
+                        @cancelar="editandoId = null"
+                        @guardado="(fila) => alGuardar(c.id, fila)"
+                    />
+
+                    <div v-else class="mt-1 flex flex-col gap-1 text-sm">
                         <a
                             v-if="c.correo_corporativo"
                             :href="`mailto:${c.correo_corporativo}`"

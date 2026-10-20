@@ -19,6 +19,7 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * «Enviar descriptivo de puesto» (después de la inducción):
@@ -282,7 +283,7 @@ class AcuseDescriptivoPuestoService
      * Estado para RH (seguimiento de inducción y revisión de la
      * evaluación): el último envío, si puede enviarlo y por qué no.
      *
-     * @return array{acuse: array<string, mixed>|null, puede_enviar: bool, motivo: string|null}
+     * @return array{acuse: array<string, mixed>|null, puede_enviar: bool, motivo: string|null, vista_previa: array{url: string, nombre: string}|null}
      */
     public function resumenRh(Colaborador $colaborador, User $actor): array
     {
@@ -298,7 +299,7 @@ class AcuseDescriptivoPuestoService
      * resumenRh() para varias personas con una sola consulta de acuses.
      *
      * @param  Collection<int, Colaborador>  $colaboradores
-     * @return array<int, array{acuse: array<string, mixed>|null, puede_enviar: bool, motivo: string|null}>
+     * @return array<int, array{acuse: array<string, mixed>|null, puede_enviar: bool, motivo: string|null, vista_previa: array{url: string, nombre: string}|null}>
      */
     public function resumenesRh(Collection $colaboradores, User $actor): array
     {
@@ -408,7 +409,7 @@ class AcuseDescriptivoPuestoService
     }
 
     /**
-     * @return array{acuse: array<string, mixed>|null, puede_enviar: bool, motivo: string|null}
+     * @return array{acuse: array<string, mixed>|null, puede_enviar: bool, motivo: string|null, vista_previa: array{url: string, nombre: string}|null}
      */
     private function armarResumenRh(Colaborador $colaborador, User $actor, ?AcuseDescriptivoPuesto $ultimo): array
     {
@@ -421,11 +422,36 @@ class AcuseDescriptivoPuestoService
         $vigente = $colaborador->puesto_id !== null ? $this->descriptivos->vigenteDePuesto($colaborador->puesto_id) : null;
         $yaEnterado = $ultimo !== null && $ultimo->acusado_en !== null && $vigente !== null && $ultimo->descriptivo_puesto_id === $vigente->id;
 
+        // «Ver lo que recibirá»: el PDF oficial de la versión vigente, antes
+        // de enviarlo (regla: RH ve tal cual lo que se le presenta).
+        $vistaPrevia = $puedeGestionar && $vigente !== null ? [
+            'url' => route('rh.colaboradores.descriptivo-puesto.vista-previa', $colaborador),
+            'nombre' => sprintf('Descriptivo de puesto · %s (v%d)', $vigente->nombre_puesto, $vigente->version),
+        ] : null;
+
         return [
             'acuse' => $ultimo !== null ? $this->aArray($ultimo) : null,
             'puede_enviar' => $puedeGestionar && $motivo === null && ! $yaEnterado,
             'motivo' => $motivo,
+            'vista_previa' => $vistaPrevia,
         ];
+    }
+
+    /**
+     * PDF oficial del descriptivo VIGENTE del puesto del colaborador: lo
+     * mismo que enviar() le mandaría. Solo lectura: no crea acuse, tarea,
+     * aviso ni auditoría.
+     *
+     * @throws AuthorizationException sin permiso o fuera de alcance
+     */
+    public function pdfVistaPrevia(Colaborador $colaborador, User $actor): StreamedResponse
+    {
+        $this->autorizarGestion($actor, $colaborador);
+
+        $vigente = $colaborador->puesto_id !== null ? $this->descriptivos->vigenteDePuesto($colaborador->puesto_id) : null;
+        abort_if($vigente === null, 404, 'El puesto del colaborador todavía no tiene descriptivo oficial importado.');
+
+        return $this->descriptivos->respuestaPdf($vigente, false);
     }
 
     /**

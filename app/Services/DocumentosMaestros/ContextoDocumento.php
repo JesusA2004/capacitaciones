@@ -22,6 +22,7 @@ final class ContextoDocumento
 {
     /**
      * @param  array<string, string>  $manuales  Datos capturados en el acto (testigos, hora, lugar del acta…).
+     * @param  bool  $prestamoDeEjemplo  El préstamo es de EJEMPLO (prueba de un master con alguien sin préstamo): sus datos se marcan como tales.
      */
     public function __construct(
         public readonly Colaborador $colaborador,
@@ -33,6 +34,7 @@ final class ContextoDocumento
         public readonly ?User $actor = null,
         public readonly array $manuales = [],
         public readonly ?CarbonImmutable $fecha = null,
+        public readonly bool $prestamoDeEjemplo = false,
     ) {}
 
     public function fechaDocumento(): CarbonImmutable
@@ -45,6 +47,14 @@ final class ContextoDocumento
      */
     public function conManuales(array $manuales): self
     {
-        return new self($this->colaborador, $this->contrato, $this->cierre, $this->evaluacion, $this->solicitud, $this->prestamo, $this->actor, [...$this->manuales, ...$manuales], $this->fecha);
+        return new self($this->colaborador, $this->contrato, $this->cierre, $this->evaluacion, $this->solicitud, $this->prestamo, $this->actor, [...$this->manuales, ...$manuales], $this->fecha, $this->prestamoDeEjemplo);
+    }
+
+    /**
+     * Mismo contexto con un préstamo (real, propuesto en memoria o de ejemplo).
+     */
+    public function conPrestamo(Prestamo $prestamo, bool $deEjemplo = false): self
+    {
+        return new self($this->colaborador, $this->contrato, $this->cierre, $this->evaluacion, $this->solicitud, $prestamo, $this->actor, $this->manuales, $this->fecha, $deEjemplo);
     }
 }

@@ -68,7 +68,12 @@ test('el candidato puede completar el wizard publico por token y enviarlo', func
         'correo' => 'juana.perez@example.com',
         'fecha_nacimiento' => now()->subYears(25)->toDateString(),
         'curp' => 'PEPJ990101MNLRRN01',
-        'domicilio' => 'Calle Falsa 123',
+        'domicilio_calle' => 'Calle Falsa',
+        'domicilio_numero_exterior' => '123',
+        'domicilio_colonia' => 'Centro',
+        'domicilio_cp' => '64000',
+        'domicilio_municipio' => 'Monterrey',
+        'domicilio_estado' => 'Nuevo León',
         'contacto_emergencia_nombre' => 'María Pérez',
         'contacto_emergencia_telefono' => '8187654321',
     ])->assertSessionHasNoErrors();

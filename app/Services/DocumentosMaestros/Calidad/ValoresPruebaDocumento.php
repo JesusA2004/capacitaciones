@@ -106,6 +106,8 @@ class ValoresPruebaDocumento
             str_contains($campo, 'domicilio_municipio'), str_contains($campo, 'municipio') => 'Pachuca de Soto',
             str_contains($campo, 'domicilio_estado'), str_contains($campo, '_estado') => 'Hidalgo',
             str_contains($campo, '_cp'), $campo === 'cp' => '62270',
+            str_contains($campo, 'domicilio_numero_exterior') => '1520',
+            str_contains($campo, 'domicilio_numero_interior') => 'Depto. 3-B',
             str_contains($campo, 'domicilio') => self::DOMICILIO,
             str_contains($campo, 'sucursal_numero') => '127',
             str_contains($campo, 'sucursal') => self::SUCURSAL,

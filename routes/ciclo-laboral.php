@@ -3,6 +3,8 @@
 use App\Http\Controllers\Portal\InduccionReproduccionController;
 use App\Http\Controllers\Portal\MiProcesoController;
 use App\Http\Controllers\Rh\AcuseDescriptivoPuestoController;
+use App\Http\Controllers\Rh\CalificacionInduccionController;
+use App\Http\Controllers\Rh\CausalRotacionController;
 use App\Http\Controllers\Rh\CicloColaboradorController;
 use App\Http\Controllers\Rh\CierreLaboralController;
 use App\Http\Controllers\Rh\DocumentoLaboralController;
@@ -14,6 +16,7 @@ use App\Http\Controllers\Rh\OnboardingController;
 use App\Http\Controllers\Rh\PendienteController;
 use App\Http\Controllers\Rh\ReingresoController;
 use App\Http\Controllers\Rh\SesionInduccionController;
+use App\Http\Controllers\Rh\VistaPreviaInduccionController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -68,11 +71,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
         //    las acciones se ejecutan en la ficha, nunca las del flujo legacy).
         Route::get('induccion-puesto', [AcuseDescriptivoPuestoController::class, 'index'])->name('induccion-puesto.index');
         Route::get('cierres', [CierreLaboralController::class, 'index'])->name('cierres.index');
+        // Bajas y finiquitos → «Causales de rotación»: subcatálogo (motivo)
+        // de los tres tipos de baja. Sin borrado de las ya usadas.
+        Route::prefix('causales-rotacion')->name('causales-rotacion.')->group(function () {
+            Route::post('/', [CausalRotacionController::class, 'store'])->name('store');
+            Route::put('{causal}', [CausalRotacionController::class, 'update'])->name('update');
+            Route::patch('{causal}/activo', [CausalRotacionController::class, 'activo'])->name('activo');
+            Route::post('{causal}/mover', [CausalRotacionController::class, 'mover'])->name('mover');
+            Route::delete('{causal}', [CausalRotacionController::class, 'destroy'])->name('destroy');
+        });
 
         Route::get('colaboradores/{colaborador}/ciclo', [CicloColaboradorController::class, 'show'])->name('colaboradores.ciclo')->withTrashed();
         Route::post('colaboradores/{colaborador}/cierres', [CierreLaboralController::class, 'store'])->name('colaboradores.cierres.store');
         // «Enviar descriptivo de puesto» tras aprobar la inducción.
         Route::post('colaboradores/{colaborador}/descriptivo-puesto/enviar', [AcuseDescriptivoPuestoController::class, 'enviar'])->name('colaboradores.descriptivo-puesto.enviar');
+        // «Ver lo que recibirá»: PDF del descriptivo vigente antes de enviarlo.
+        Route::get('colaboradores/{colaborador}/descriptivo-puesto/vista-previa', [AcuseDescriptivoPuestoController::class, 'vistaPrevia'])->name('colaboradores.descriptivo-puesto.vista-previa');
 
         Route::prefix('onboarding')->name('onboarding.')->group(function () {
             Route::get('configuracion', [OnboardingController::class, 'configuracion'])->name('configuracion');
@@ -81,6 +95,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('tipos-activo', [OnboardingController::class, 'guardarTipoActivo'])->name('tiposActivo.store');
             Route::put('tipos-activo/{tipoActivo}', [OnboardingController::class, 'actualizarTipoActivo'])->name('tiposActivo.update');
             Route::post('{proceso}/activos', [OnboardingController::class, 'entregarActivo'])->name('activos');
+            Route::post('{proceso}/activos/vista-previa', [OnboardingController::class, 'vistaPreviaResponsiva'])->name('responsiva.vista-previa')->middleware('throttle:30,1');
             Route::post('{proceso}/completar', [OnboardingController::class, 'completar'])->name('completar');
             Route::post('avances/{avance}/retroalimentacion', [OnboardingController::class, 'retroalimentar'])->name('retroalimentar');
             Route::get('induccion/intentos/{intento}', [OnboardingController::class, 'mostrarInduccion'])->name('induccion.mostrar');
@@ -97,6 +112,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('induccion/material', [MaterialInduccionController::class, 'store'])->name('induccion.material.store')->middleware('throttle:20,1');
             Route::post('induccion/material/activar', [MaterialInduccionController::class, 'activar'])->name('induccion.material.activar');
             Route::delete('induccion/material', [MaterialInduccionController::class, 'destroy'])->name('induccion.material.destroy');
+
+            // «Calificaciones y refuerzo»: resultados de la inducción (FO-RH-EI
+            // + lecciones), retroalimentación y reevaluación.
+            Route::get('calificaciones', [CalificacionInduccionController::class, 'index'])->name('calificaciones');
+
+            // Vistas previas de RH (tal cual lo verá el colaborador, sin
+            // crear evaluación/intento ni registrar avance). Ver
+            // Rh\VistaPreviaInduccionController.
+            Route::get('induccion/vista-previa', [VistaPreviaInduccionController::class, 'evaluacion'])->name('induccion.vista-previa');
+            Route::get('induccion/material/vista-previa', [VistaPreviaInduccionController::class, 'material'])->name('induccion.material.vista-previa.datos');
+            Route::middleware('signed')->prefix('induccion/material/vista-previa')->name('induccion.material.vista-previa.')->group(function () {
+                Route::get('video/master.m3u8', [VistaPreviaInduccionController::class, 'manifiestoMaestro'])->name('maestro');
+                Route::get('video/{altura}.m3u8', [VistaPreviaInduccionController::class, 'variante'])->whereNumber('altura')->name('variante');
+                Route::get('video/segmento/{altura}/{archivo}', [VistaPreviaInduccionController::class, 'segmento'])->whereNumber('altura')->name('segmento');
+                Route::get('audio', [VistaPreviaInduccionController::class, 'audio'])->name('audio');
+            });
         });
 
         // FLUJO LEGACY (feature:induccion_sesiones_legacy, apagado por defecto):

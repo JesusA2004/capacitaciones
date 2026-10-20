@@ -8,7 +8,8 @@ namespace App\Enums;
  * campos legales (ver App\Http\Requests\Rh\GuardarResponsivaRequest y
  * App\Services\Responsivas\ResponsivaService), pero comparten el mismo
  * encabezado, fundamento (artículos 132, 134 y 135 de la Ley Federal del
- * Trabajo), declaración y firmas (apoderado legal / trabajador).
+ * Trabajo), declaración y firmas (razón social del patrón con «Representante
+ * legal» bajo la línea / trabajador).
  */
 enum TipoResponsiva: string
 {

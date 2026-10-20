@@ -11,8 +11,8 @@ use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
 
 /**
- * Proceso de cierre laboral de un colaborador (no renovación, renuncia u
- * otro motivo de App\Enums\TipoBaja). Reutiliza la solicitud interna de
+ * Proceso de cierre laboral de un colaborador (renuncia, rescisión o fin de
+ * contrato — App\Enums\TipoBaja — y su causal de rotación). Reutiliza la solicitud interna de
  * baja existente (solicitud_interna_id) — y con ella el cálculo de finiquito
  * (FiniquitoCalculo) y la baja real (BajaColaboradorService) — en vez de
  * duplicar ese flujo. Ver App\Services\CierreLaboral\CierreLaboralService.
@@ -22,6 +22,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property int|null $solicitud_interna_id
  * @property int|null $evaluacion_id
  * @property TipoBaja $tipo_baja
+ * @property int|null $causal_rotacion_id
+ * @property string|null $tipo_baja_original Valor anterior a la migración a tres tipos.
  * @property string $motivo
  * @property Carbon $fecha_efectiva
  * @property EstadoCierreLaboral $estado
@@ -78,7 +80,7 @@ class CierreLaboral extends Model
     protected $table = 'cierres_laborales';
 
     protected $fillable = [
-        'colaborador_id', 'solicitud_interna_id', 'evaluacion_id', 'tipo_baja', 'motivo',
+        'colaborador_id', 'solicitud_interna_id', 'evaluacion_id', 'tipo_baja', 'causal_rotacion_id', 'tipo_baja_original', 'motivo',
         'fecha_efectiva', 'estado', 'aviso_registrado_en', 'aviso_documento_id',
         'pago_confirmado_en', 'pago_confirmado_por', 'referencia_pago',
         'baja_ejecutada_en', 'expediente_cerrado_en', 'iniciado_por', 'observaciones',
@@ -124,6 +126,16 @@ class CierreLaboral extends Model
             'aviso_interno_en' => 'datetime',
             'consignacion_preventiva_en' => 'datetime',
         ];
+    }
+
+    /**
+     * Causal de rotación (desglose del tipo de baja).
+     *
+     * @return BelongsTo<CausalRotacion, $this>
+     */
+    public function causalRotacion(): BelongsTo
+    {
+        return $this->belongsTo(CausalRotacion::class, 'causal_rotacion_id');
     }
 
     /**
@@ -177,7 +189,7 @@ class CierreLaboral extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['estado', 'tipo_baja', 'fecha_efectiva', 'pago_confirmado_en', 'referencia_pago', 'baja_ejecutada_en', 'expediente_cerrado_en'])
+            ->logOnly(['estado', 'tipo_baja', 'causal_rotacion_id', 'fecha_efectiva', 'pago_confirmado_en', 'referencia_pago', 'baja_ejecutada_en', 'expediente_cerrado_en'])
             ->logOnlyDirty()
             ->dontSubmitEmptyLogs();
     }

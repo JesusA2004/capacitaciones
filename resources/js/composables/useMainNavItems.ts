@@ -82,6 +82,7 @@ import { index as indexCandidatos } from '@/routes/rh/candidatos';
 import { index as indexCierres } from '@/routes/rh/cierres';
 import { index as indexContactosEmergencia } from '@/routes/rh/contactos-emergencia';
 import { index as indexContratacion } from '@/routes/rh/contratacion';
+import { index as indexContratos } from '@/routes/rh/contratos';
 import { index as indexContratosIngreso } from '@/routes/rh/contratos-ingreso';
 import { index as indexCumpleanos } from '@/routes/rh/cumpleanos';
 import { index as indexDocumentosMaestros } from '@/routes/rh/documentos-maestros';
@@ -91,9 +92,13 @@ import { index as indexImportaciones } from '@/routes/rh/importaciones';
 import { index as indexIncorporacionInvitaciones } from '@/routes/rh/incorporacion/invitaciones';
 import { index as indexInduccionPuesto } from '@/routes/rh/induccion-puesto';
 import { index as indexLotesNomina } from '@/routes/rh/nomina/lotes';
-import { configuracion as configuracionOnboarding } from '@/routes/rh/onboarding';
+import {
+    calificaciones as calificacionesInduccion,
+    configuracion as configuracionOnboarding,
+} from '@/routes/rh/onboarding';
 import { index as indexPendientes } from '@/routes/rh/pendientes';
 import { index as indexPerfilesPuesto } from '@/routes/rh/perfiles-puesto';
+import { index as indexPeriodosPrueba } from '@/routes/rh/periodos-prueba';
 import { index as indexReingresos } from '@/routes/rh/reingresos';
 import { index as indexRhSolicitudes } from '@/routes/rh/solicitudes';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
@@ -291,6 +296,13 @@ export function useMainNavItems() {
                         href: indexContratosIngreso(),
                         icon: ScrollText,
                     },
+                    // Contratos que le corresponden a TODA la plantilla activa
+                    // por fecha de ingreso (generar los que falten).
+                    tienePermiso('contratos.ver') && {
+                        title: 'Contratos',
+                        href: indexContratos(),
+                        icon: FileSignature,
+                    },
                 ],
             ),
 
@@ -325,20 +337,12 @@ export function useMainNavItems() {
                         href: indexEvaluaciones(),
                         icon: ClipboardCheck,
                     },
-                    // Mismo motor de «Evaluación de capacitación inicial»
-                    // (rh.evaluaciones), aquí filtrado a las ya autorizadas =
-                    // calificaciones/resultados e historial. Es una vista real
-                    // (filtro `estado` que la pantalla ya soporta), no una
-                    // pantalla duplicada (una sola fuente, ver §18 del plan).
-                    algunPermiso(
-                        'evaluaciones.capturar',
-                        'evaluaciones.autorizar',
-                        'evaluaciones.ver_todos',
-                    ) && {
+                    // Calificaciones de la INDUCCIÓN (FO-RH-EI + lecciones),
+                    // retroalimentación y reevaluación. Las evaluaciones de
+                    // PERIODO DE PRUEBA viven en el grupo «4».
+                    tienePermiso('onboarding.gestionar') && {
                         title: 'Calificaciones y refuerzo',
-                        href: indexEvaluaciones({
-                            query: { estado: 'autorizada' },
-                        }),
+                        href: calificacionesInduccion(),
                         icon: ClipboardCheck,
                     },
                     tienePermiso('responsivas.ver') && {
@@ -375,9 +379,9 @@ export function useMainNavItems() {
                         'evaluaciones.ver_todos',
                     ) && {
                         title: 'Periodos por vencer',
-                        href: indexEvaluaciones({
-                            query: { estado: 'pendiente' },
-                        }),
+                        // Calculado por fecha de ingreso (no depende de que
+                        // el contrato o la evaluación ya existan).
+                        href: indexPeriodosPrueba(),
                         icon: CalendarClock,
                     },
                     algunPermiso(

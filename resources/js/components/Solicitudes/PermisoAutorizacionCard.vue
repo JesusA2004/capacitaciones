@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { BadgeCheck, Eye, Hourglass, Printer } from '@lucide/vue';
-import { ref } from 'vue';
+import { BadgeCheck, Eye, FileSearch, Hourglass, Printer } from '@lucide/vue';
+import { computed, ref } from 'vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -15,12 +15,28 @@ import type { PermisoResumen } from '@/types';
  * Humanos ya autorizó (el backend responde 403 antes). Se conservan las tres
  * firmas físicas; aquí solo se previsualiza o se imprime.
  */
-const props = defineProps<{
-    permiso: PermisoResumen;
-    pdfUrl: string;
-}>();
+const props = withDefaults(
+    defineProps<{
+        permiso: PermisoResumen;
+        pdfUrl: string;
+        /** Vista previa ANTES de autorizar (solo quien puede aprobar). */
+        vistaPreviaUrl?: string | null;
+    }>(),
+    { vistaPreviaUrl: null },
+);
 
 const previsualizar = ref(false);
+const esVistaPrevia = ref(false);
+const urlVisor = computed(() =>
+    esVistaPrevia.value && props.vistaPreviaUrl
+        ? props.vistaPreviaUrl
+        : props.pdfUrl,
+);
+
+function abrirVisor(vistaPrevia: boolean) {
+    esVistaPrevia.value = vistaPrevia;
+    previsualizar.value = true;
+}
 
 function imprimir() {
     const ventana = window.open(props.pdfUrl, '_blank', 'noopener');
@@ -95,7 +111,7 @@ const fecha = (valor: string | null) =>
                 </div>
             </div>
             <div class="flex flex-wrap gap-2">
-                <Button variant="outline" @click="previsualizar = true">
+                <Button variant="outline" @click="abrirVisor(false)">
                     <Eye class="size-4" /> Previsualizar permiso
                 </Button>
                 <Button @click="imprimir">
@@ -109,11 +125,21 @@ const fecha = (valor: string | null) =>
             class="flex items-start gap-3 rounded-xl border border-dashed border-border p-4"
         >
             <Hourglass class="mt-0.5 size-5 shrink-0 text-muted-foreground" />
-            <p class="text-sm text-muted-foreground">
-                El formato oficial de permiso se libera cuando
-                <strong class="text-foreground">Recursos Humanos</strong> lo
-                autoriza. Antes no se puede descargar ni imprimir.
-            </p>
+            <div class="flex flex-1 flex-col gap-3">
+                <p class="text-sm text-muted-foreground">
+                    El formato oficial de permiso se libera cuando
+                    <strong class="text-foreground">Recursos Humanos</strong>
+                    lo autoriza. Antes no se puede descargar ni imprimir.
+                </p>
+                <Button
+                    v-if="vistaPreviaUrl"
+                    variant="outline"
+                    class="self-start"
+                    @click="abrirVisor(true)"
+                >
+                    <FileSearch class="size-4" /> Vista previa del formato
+                </Button>
+            </div>
         </div>
     </section>
 
@@ -122,10 +148,18 @@ const fecha = (valor: string | null) =>
             class="h-[90vh] w-[calc(100vw-2rem)] max-w-none gap-2 p-3 sm:w-[min(92vw,900px)]"
         >
             <DialogHeader class="px-2">
-                <DialogTitle>Solicitud de permiso</DialogTitle>
+                <DialogTitle>
+                    Solicitud de permiso
+                    <span
+                        v-if="esVistaPrevia"
+                        class="text-sm font-normal text-muted-foreground"
+                    >
+                        · vista previa, todavía sin autorizar
+                    </span>
+                </DialogTitle>
             </DialogHeader>
             <iframe
-                :src="pdfUrl"
+                :src="urlVisor"
                 title="Formato de permiso"
                 class="h-full w-full rounded-lg border"
             />

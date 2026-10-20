@@ -9,6 +9,7 @@ use App\Enums\EstadoFiniquito;
 use App\Enums\EstadoFlujoDocumento as E;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\ResultadoEvaluacion;
+use App\Enums\TipoBaja;
 use App\Enums\TipoSolicitudInterna;
 use App\Enums\TipoTarea;
 use App\Exceptions\DatosDocumentoFaltantesException;
@@ -167,7 +168,11 @@ class DocumentoProcesoService
             'colaborador' => $this->resumenColaborador($colaborador),
             'expediente_completo' => $estado['completo'],
             'bloqueo' => $bloqueo,
-            'acciones' => count($porGenerar) > 0 ? [['clave' => 'generar_paquete', 'etiqueta' => 'Generar paquete de contratación', 'tipo' => 'primaria']] : [],
+            'acciones' => count($porGenerar) > 0 ? [
+                // Ver cada documento del paquete ANTES de generarlo.
+                ['clave' => 'vista_previa_paquete', 'etiqueta' => 'Vista previa del paquete', 'tipo' => 'secundaria'],
+                ['clave' => 'generar_paquete', 'etiqueta' => 'Generar paquete de contratación', 'tipo' => 'primaria'],
+            ] : [],
             'documentos' => $items,
             'cobertura_url' => $this->puedeVerCobertura($viewer) ? '/rh/documentos-maestros/cobertura' : null,
         ];
@@ -590,7 +595,10 @@ class DocumentoProcesoService
             'colaborador' => $this->resumenColaborador($prestamo->colaborador),
             'bloqueo' => $bloqueo,
             'acciones' => $bloqueo === null && count(array_filter($items, fn (array $i): bool => in_array('generar', array_column($i['acciones'], 'clave'), true))) > 1
-                ? [['clave' => 'generar_paquete', 'etiqueta' => 'Generar documentos del préstamo', 'tipo' => 'primaria']]
+                ? [
+                    ['clave' => 'vista_previa_paquete', 'etiqueta' => 'Vista previa de los documentos', 'tipo' => 'secundaria'],
+                    ['clave' => 'generar_paquete', 'etiqueta' => 'Generar documentos del préstamo', 'tipo' => 'primaria'],
+                ]
                 : [],
             'documentos' => $items,
         ];
@@ -886,13 +894,125 @@ class DocumentoProcesoService
     }
 
     /**
-     * Guarda en la ficha los datos que faltaban (solo columnas permitidas
-     * y solo si el usuario puede editarlas). Lo que ya existe no se pide de
-     * nuevo; esto completa el expediente para futuros documentos.
+     * Vista previa REAL del documento del proceso (mismo formato oficial,
+     * mismos datos y mismo registro que usaría generar()), SIN escribir nada:
+     * ni GeneratedDocument, ni archivo en el expediente, ni datos de la
+     * ficha. Regla: todo formato para un colaborador se puede VER antes de
+     * generarlo.
+     *
+     * Mismas reglas de acceso que generar() (alcance sobre la persona +
+     * permiso de generar ESA clave + la clave corresponde al proceso). No
+     * aplica el bloqueo de generación: ver el documento antes de que se
+     * habilite no cambia nada. El registro puede ser uno EN MEMORIA (no
+     * guardado) armado con los datos de un formulario antes de confirmar
+     * (VistaPreviaFlujoService).
+     *
+     * Los datos que falten quedan EN BLANCO en el PDF (marca «VISTA PREVIA —
+     * NO VÁLIDA PARA FIRMA») y se cuentan en `faltantes`.
+     *
+     * @param  array<string, string>  $manuales  Datos del acto (testigos, hora…), igual que en generar().
+     * @param  array<string, mixed>  $completar  Datos faltantes capturados en el modal: se aplican SOLO en memoria.
+     * @return array{pdf: string, nombre: string, faltantes: int}
+     */
+    public function vistaPrevia(string $proceso, Model $registro, string $clave, User $actor, array $manuales = [], array $completar = []): array
+    {
+        // Igual que generar(): el formato de evaluación vive en el cierre de
+        // la no renovación.
+        if ($registro instanceof EvaluacionPeriodoPrueba && $clave === 'evaluacion_capacitacion' && $registro->exists) {
+            $registro = CierreLaboral::query()->where('evaluacion_id', $registro->id)->latest('id')->first() ?? $registro;
+        }
+
+        $colaborador = $this->colaboradorDe($registro);
+        $this->exigirVer($actor, $colaborador);
+        $this->exigirPuedeGenerar($actor, $clave);
+        $this->exigirClaveDelProceso($proceso, $registro, $clave, $colaborador);
+
+        if ($completar !== []) {
+            $this->aplicarEnMemoria($colaborador, $completar);
+        }
+
+        // Acta administrativa / de hechos: formato propio de PEOPLE.
+        if ($registro instanceof ActaAdministrativa && $this->esFormatoPropio($clave, $registro)) {
+            return [
+                'pdf' => app(ActaPdfService::class)->vistaPrevia($registro),
+                'nombre' => $registro->tipo->etiqueta(),
+                'faltantes' => 0,
+            ];
+        }
+
+        $master = $this->masterPara($clave, $colaborador, $proceso);
+        // Mismo filtro que generar(): los testigos de un acta nunca vienen del modal.
+        $manualesSeguros = $registro instanceof ActaAdministrativa
+            ? array_diff_key($manuales, array_flip(['testigo_1_nombre', 'testigo_1_cargo', 'testigo_2_nombre', 'testigo_2_cargo']))
+            : $manuales;
+        $extra = [...$this->extraPorClave($clave, $registro), ...$manualesSeguros];
+        $nombre = $this->titulo($master, $colaborador);
+
+        // Plantilla heredada (clave sin documento maestro): motor anterior.
+        if ($master->estado_master === null) {
+            return ['pdf' => $this->motor->previsualizar($colaborador, $master, $extra, $registro, $actor), 'nombre' => $nombre, 'faltantes' => 0];
+        }
+
+        $render = $this->motor->previsualizarMaestro($master, $this->motor->contextoDesde($colaborador, $registro, $actor, $extra));
+
+        return ['pdf' => $render['pdf'], 'nombre' => $nombre, 'faltantes' => count($render['faltantes'])];
+    }
+
+    /**
+     * Claves del proceso que hoy se generarían (sin documento vigente y sin
+     * bloqueo) y que quien mira puede generar: lo que muestra la vista
+     * previa de un paquete o de un flujo que genera al confirmar. Con
+     * $soloPermitidas = false incluye también las que quien mira no puede
+     * generar (para responder 403, no «no corresponde», en la vista previa).
+     *
+     * @return list<string>
+     */
+    public function clavesPorGenerar(string $proceso, Model $registro, User $viewer, bool $soloPermitidas = true): array
+    {
+        $colaborador = $this->colaboradorDe($registro);
+        $this->exigirVer($viewer, $colaborador);
+
+        return array_values(array_filter(
+            $this->clavesDeProceso($proceso, $registro, $colaborador),
+            fn (string $clave): bool => (! $soloPermitidas || $this->puedeGenerar($viewer, $clave))
+                && $this->bloqueoGeneracion($proceso, $registro, $clave) === null
+                && (! $registro->exists || $this->documentoVigente($registro, $clave) === null),
+        ));
+    }
+
+    /**
+     * Datos capturados en el modal de faltantes aplicados SOLO en memoria
+     * (vista previa): misma lista blanca y mismas reglas que completarDatos(),
+     * sin guardar nada ni exigir el permiso de editar la ficha.
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    private function aplicarEnMemoria(Colaborador $colaborador, array $datos): void
+    {
+        [$validosColaborador, $validosSucursal] = $this->validarCompletar(...$this->separarCompletar($datos));
+        $limpiar = fn (array $valores): array => array_map(fn (mixed $v): mixed => is_string($v) ? trim($v) : $v, $valores);
+
+        if ($validosColaborador !== []) {
+            $colaborador->fill($limpiar($validosColaborador));
+        }
+
+        if ($validosSucursal !== []) {
+            $colaborador->loadMissing('sucursalPrincipal');
+            $colaborador->sucursalPrincipal?->fill($limpiar($validosSucursal));
+        }
+    }
+
+    /**
+     * Separa lo capturado en el modal: solo columnas de la lista blanca
+     * (colaborador / sucursal). Un dato del acto (manual: testigos, hora…)
+     * o un campo que se corrige en su módulo (salario, puesto…) puede venir
+     * en el mismo envío: se ignora en silencio en vez de rechazar TODO el
+     * bloque.
      *
      * @param  array<string, mixed>  $datos  columna => valor (prefijo "sucursal." para la sucursal).
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>}
      */
-    public function completarDatos(Colaborador $colaborador, array $datos, User $actor): void
+    private function separarCompletar(array $datos): array
     {
         $deColaborador = [];
         $deSucursal = [];
@@ -907,15 +1027,44 @@ class DocumentoProcesoService
             }
         }
 
-        // Solo se guardan las columnas de la lista blanca (colaborador /
-        // sucursal). Un dato del acto (manual: testigos, hora…) o un campo que
-        // se corrige en su módulo (salario, puesto…) puede venir en el mismo
-        // envío: se ignora en silencio en vez de rechazar TODO el bloque —
-        // antes un solo campo no-guardable tiraba también los datos válidos.
-        $deColaborador = array_intersect_key($deColaborador, DatosDocumentoService::columnasEditablesColaborador());
-        $deSucursal = array_intersect_key($deSucursal, DatosDocumentoService::columnasEditablesSucursal());
+        return [
+            array_intersect_key($deColaborador, DatosDocumentoService::columnasEditablesColaborador()),
+            array_intersect_key($deSucursal, DatosDocumentoService::columnasEditablesSucursal()),
+        ];
+    }
+
+    /**
+     * Valida lo ya separado con las reglas de la lista blanca (todo dato
+     * capturado es obligatorio).
+     *
+     * @param  array<string, mixed>  $deColaborador
+     * @param  array<string, mixed>  $deSucursal
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>}
+     */
+    private function validarCompletar(array $deColaborador, array $deSucursal): array
+    {
         $reglasColaborador = array_intersect_key(DatosDocumentoService::columnasEditablesColaborador(), $deColaborador);
         $reglasSucursal = array_intersect_key(DatosDocumentoService::columnasEditablesSucursal(), $deSucursal);
+
+        return [
+            Validator::make($deColaborador, array_map(fn (string $r): string => str_replace('nullable', 'required', $r), $reglasColaborador))->validate(),
+            Validator::make($deSucursal, array_map(fn (string $r): string => str_replace('nullable', 'required', $r), $reglasSucursal))->validate(),
+        ];
+    }
+
+    /**
+     * Guarda en la ficha los datos que faltaban (solo columnas permitidas
+     * y solo si el usuario puede editarlas). Lo que ya existe no se pide de
+     * nuevo; esto completa el expediente para futuros documentos.
+     *
+     * @param  array<string, mixed>  $datos  columna => valor (prefijo "sucursal." para la sucursal).
+     */
+    public function completarDatos(Colaborador $colaborador, array $datos, User $actor): void
+    {
+        // Solo se guardan las columnas de la lista blanca (colaborador /
+        // sucursal); antes un solo campo no-guardable tiraba también los
+        // datos válidos.
+        [$deColaborador, $deSucursal] = $this->separarCompletar($datos);
 
         if ($deColaborador !== [] && ! ($actor->can('expedientes.editar') || $actor->can('colaboradores.alta'))) {
             throw new AuthorizationException('No tienes permiso para completar datos del expediente.');
@@ -925,8 +1074,7 @@ class DocumentoProcesoService
             throw new AuthorizationException('Solo quien administra sucursales puede completar su domicilio. Pídelo a RH.');
         }
 
-        $validosColaborador = Validator::make($deColaborador, array_map(fn (string $r): string => str_replace('nullable', 'required', $r), $reglasColaborador))->validate();
-        $validosSucursal = Validator::make($deSucursal, array_map(fn (string $r): string => str_replace('nullable', 'required', $r), $reglasSucursal))->validate();
+        [$validosColaborador, $validosSucursal] = $this->validarCompletar($deColaborador, $deSucursal);
 
         DB::transaction(function () use ($colaborador, $validosColaborador, $validosSucursal): void {
             if ($validosColaborador !== []) {
@@ -1142,6 +1290,9 @@ class DocumentoProcesoService
 
         if ($documento === null) {
             if (($master !== null || $formatoPropio) && $bloqueo === null && $genera) {
+                // Regla: todo formato para un colaborador se puede VER antes
+                // de generarlo (PDF real, sin guardar nada: vistaPrevia()).
+                $primarias[] = ['clave' => 'vista_previa', 'etiqueta' => 'Vista previa', 'tipo' => 'secundaria'];
                 $primarias[] = ['clave' => 'generar', 'etiqueta' => 'Generar', 'tipo' => 'primaria'];
             }
 
@@ -1189,6 +1340,8 @@ class DocumentoProcesoService
         }
 
         if ($genera && in_array($estado, [E::Generado, E::PendienteImpresion], true) && ($master !== null || $formatoPropio)) {
+            // Antes de regenerar: ver cómo quedaría con los datos actuales.
+            $secundarias[] = ['clave' => 'vista_previa', 'etiqueta' => 'Vista previa con datos actuales', 'tipo' => 'secundaria'];
             $secundarias[] = ['clave' => 'regenerar', 'etiqueta' => 'Regenerar con datos actuales', 'tipo' => 'secundaria'];
         }
 
@@ -1397,7 +1550,7 @@ class DocumentoProcesoService
      */
     private function checklistCierre(CierreLaboral $cierre): ?array
     {
-        if (! in_array($cierre->tipo_baja->value, ['no_renovacion', 'fin_contrato'], true)) {
+        if ($cierre->tipo_baja !== TipoBaja::FinContrato) {
             return null;
         }
 

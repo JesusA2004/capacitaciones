@@ -29,8 +29,13 @@ use Illuminate\Validation\ValidationException;
  * Flujo completo del préstamo personal:
  *
  *   colaborador solicita (SolicitudInterna tipo "prestamo")
- *   → jefe inmediato da visto bueno (VistoBuenoService)
- *   → RH/Dirección autoriza con monto y plazo autorizados (o rechaza)
+ *   → VISTOS BUENOS de la cadena jerárquica (AprobacionJerarquicaService):
+ *     gerente de su sucursal → regional → Dirección Comercial (solo si el
+ *     solicitante es de gerencia o superior). Solo visto bueno: no autorizan.
+ *   → RH AUTORIZA (único con prestamos.autorizar; web y API llaman aquí) con
+ *     monto, plazo y los datos que se capturan a mano del contrato de
+ *     crédito (cargo, I.V.A., monto total, No. de cheque, primer y último
+ *     pago) — o rechaza
  *   → contrato de préstamo + pagaré (motor documental) → firma → resguardo.
  *
  * MR. LANA PEOPLE NO ejecuta descuentos de nómina ni se integra con el
@@ -40,6 +45,12 @@ use Illuminate\Validation\ValidationException;
 class PrestamoAutorizacionService
 {
     public const PERMISO_AUTORIZAR = 'prestamos.autorizar';
+
+    /**
+     * Datos del «Contrato de crédito para trabajadores» que RH captura A
+     * MANO al autorizar (nunca se calculan: lo capturado es lo que se imprime).
+     */
+    public const CAMPOS_CONTRATO = ['cargo_sin_iva', 'iva', 'monto_total_con_iva', 'numero_cheque', 'fecha_primer_descuento', 'fecha_ultimo_pago'];
 
     public function __construct(
         private readonly SolicitudesService $solicitudes,
@@ -51,7 +62,7 @@ class PrestamoAutorizacionService
     ) {}
 
     /**
-     * @param  array<string, mixed>  $datos  monto_autorizado, plazo_autorizado, periodicidad?, pago_programado?, observaciones? (validado por AutorizarPrestamoRequest).
+     * @param  array<string, mixed>  $datos  monto_autorizado, plazo_autorizado, periodicidad?, pago_programado?, observaciones? y los datos manuales del contrato de crédito (CAMPOS_CONTRATO, todos opcionales: la app instalada no los manda). Validado por AutorizarPrestamoRequest.
      */
     public function autorizar(SolicitudInterna $solicitud, array $datos, User $actor): Prestamo
     {
@@ -74,6 +85,7 @@ class PrestamoAutorizacionService
             'periodicidad' => isset($datos['periodicidad']) ? (string) $datos['periodicidad'] : 'quincenal',
             'pago_programado' => $pagoProgramado ?? round($monto / $plazo, 2),
             'observaciones' => $observaciones,
+            ...$this->datosContrato($datos),
         ]);
 
         $prestamo = Prestamo::query()->where('solicitud_id', $solicitud->id)->firstOrFail();
@@ -94,6 +106,20 @@ class PrestamoAutorizacionService
         }
 
         return $prestamo->refresh();
+    }
+
+    /**
+     * Solo los datos manuales del contrato que sí llegaron (vacío = no se capturó).
+     *
+     * @param  array<string, mixed>  $datos
+     * @return array<string, mixed>
+     */
+    public function datosContrato(array $datos): array
+    {
+        return array_filter(
+            array_intersect_key($datos, array_flip(self::CAMPOS_CONTRATO)),
+            fn (mixed $v): bool => $v !== null && $v !== '',
+        );
     }
 
     public function rechazar(SolicitudInterna $solicitud, User $actor, string $motivo): SolicitudInterna
@@ -129,7 +155,19 @@ class PrestamoAutorizacionService
             'saldo_prestamo' => sprintf('$%s', number_format((float) $prestamo->saldo, 2)),
             'periodicidad_prestamo' => (string) $prestamo->periodicidad,
             'motivo_prestamo' => (string) $prestamo->motivo,
+            'cargo_prestamo' => $this->moneda($prestamo->cargo_sin_iva),
+            'iva_prestamo' => $this->moneda($prestamo->iva),
+            'monto_total_prestamo' => $this->moneda($prestamo->monto_total_con_iva),
+            'numero_cheque_prestamo' => (string) $prestamo->numero_cheque,
         ];
+    }
+
+    /**
+     * «$1,234.56» de un monto capturado; vacío si no se capturó.
+     */
+    private function moneda(?string $monto): string
+    {
+        return $monto === null ? '' : sprintf('$%s', number_format((float) $monto, 2));
     }
 
     /**
@@ -252,6 +290,13 @@ class PrestamoAutorizacionService
             'plazo_autorizado' => $prestamo->plazo,
             'periodicidad' => $prestamo->periodicidad,
             'pago_programado' => $prestamo->pago_programado,
+            // Datos del contrato de crédito capturados por RH (campos nuevos: aditivos para la app).
+            'cargo_sin_iva' => $prestamo->cargo_sin_iva,
+            'iva' => $prestamo->iva,
+            'monto_total_con_iva' => $prestamo->monto_total_con_iva,
+            'numero_cheque' => $prestamo->numero_cheque,
+            'fecha_primer_pago' => $prestamo->fecha_primer_descuento?->toDateString(),
+            'fecha_ultimo_pago' => $prestamo->fecha_ultimo_pago?->toDateString(),
             'saldo_informativo' => $prestamo->saldo,
             'motivo' => $prestamo->motivo,
             'fecha_solicitud' => $prestamo->fecha_solicitud?->toDateString(),

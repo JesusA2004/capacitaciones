@@ -169,7 +169,8 @@ class DatosDocumentoAdministrativo
                 'hora_entrada' => $horaEntrada,
             ],
             'observaciones' => trim(implode(' · ', array_filter([(string) $solicitud->motivo, (string) ($solicitud->observaciones ?? '')]))),
-            'autorizo' => $solicitud->revisadoPor !== null ? trim($solicitud->revisadoPor->name.' '.$solicitud->revisadoPor->apellidos) : '',
+            // El área, nunca la cuenta que autorizó en PEOPLE (las firmas van a pluma).
+            'autorizo' => $solicitud->revisado_por !== null ? 'Recursos Humanos' : '',
             'fecha_autorizacion' => $solicitud->revisado_en?->timezone('America/Mexico_City')->format('d-m-Y H:i') ?? '',
         ];
     }
@@ -198,7 +199,8 @@ class DatosDocumentoAdministrativo
             'dias' => $solicitud->dias_solicitados !== null ? (string) $solicitud->dias_solicitados : '',
             'dias_detalle' => $dias,
             'motivo' => (string) $solicitud->motivo,
-            'autorizo' => $solicitud->revisadoPor !== null ? trim($solicitud->revisadoPor->name.' '.$solicitud->revisadoPor->apellidos) : '—',
+            // El área, nunca la cuenta que autorizó en PEOPLE.
+            'autorizo' => $solicitud->revisado_por !== null ? 'Recursos Humanos' : '—',
             'fecha_autorizacion' => $this->fecha($solicitud->revisado_en),
             'observaciones' => (string) ($solicitud->observaciones ?? ''),
         ];

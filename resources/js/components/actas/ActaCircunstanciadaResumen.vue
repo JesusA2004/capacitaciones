@@ -91,12 +91,15 @@ const manifestacion = computed(() => {
                 </dd>
             </div>
             <div>
-                <dt class="text-xs text-muted-foreground">Levanta el acta</dt>
+                <dt class="text-xs text-muted-foreground">
+                    Firma por la empresa
+                </dt>
                 <dd>
-                    {{ c.responsable.nombre || '—' }}
-                    <span class="block text-xs text-muted-foreground">{{
-                        etiqueta('caracteres', c.responsable.caracter)
-                    }}</span>
+                    Representante legal
+                    <span class="block text-xs text-muted-foreground"
+                        >Nombre en blanco, a pluma. Capturó:
+                        {{ c.responsable.nombre || '—' }} (no se imprime)</span
+                    >
                 </dd>
             </div>
             <div>

@@ -244,7 +244,7 @@ test('no renovación: evaluación + aviso; negativa de firma habilita el acta co
         'decision_renovar' => false,
     ]);
     $cierre = CierreLaboral::query()->create([
-        'colaborador_id' => $colaborador->id, 'evaluacion_id' => $evaluacion->id, 'tipo_baja' => TipoBaja::NoRenovacion, 'motivo' => 'No acredita',
+        'colaborador_id' => $colaborador->id, 'evaluacion_id' => $evaluacion->id, 'tipo_baja' => TipoBaja::FinContrato, 'motivo' => 'No acredita',
         'fecha_efectiva' => '2026-12-04', 'estado' => EstadoCierreLaboral::Iniciado, 'iniciado_por' => $this->rh->id, 'autorizado_rh_en' => now(),
     ]);
 

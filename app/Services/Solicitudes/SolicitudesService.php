@@ -64,6 +64,11 @@ class SolicitudesService
      */
     public const MENSAJE_BAJA_EN_CIERRE = 'La baja se gestiona en el Cierre laboral del colaborador.';
 
+    /** Documentos con vista previa antes de aprobar (ruta {documento}). */
+    public const VISTA_PREVIA_COMPROBANTE = 'comprobante';
+
+    public const VISTA_PREVIA_FORMATO_OFICIAL = 'formato-oficial';
+
     /**
      * Resultado del último intento de generación automática de documento
      * oficial (ver cambiarEstado()) — los controladores lo leen justo
@@ -189,6 +194,9 @@ class SolicitudesService
                 'objetivo_colaborador_id' => $colaboradorObjetivo?->id,
                 'fecha_efectiva' => $datos['fecha_efectiva'] ?? null,
                 'tipo_baja' => $datos['tipo_baja'] ?? null,
+                // Causal de rotación: la valida quien crea la baja
+                // (CierreLaboralService vía CausalRotacionService::resolver).
+                'causal_rotacion_id' => $datos['causal_rotacion_id'] ?? null,
                 'tipo' => $datos['tipo'],
                 'estado' => EstadoSolicitudInterna::Enviada,
                 'fecha_inicio' => $datos['fecha_inicio'] ?? null,
@@ -835,6 +843,48 @@ class SolicitudesService
     public function respuestaPermiso(SolicitudInterna $solicitud): StreamedResponse
     {
         return $this->comprobantes->respuestaPermiso($solicitud);
+    }
+
+    /**
+     * Documentos que se generarán al aprobar y que RH puede ver ANTES de
+     * autorizar (web y app): comprobante/constancia/formato de permiso y
+     * formato oficial automático. Vacío si la solicitud ya es final.
+     *
+     * @return list<array{documento: string, titulo: string}>
+     */
+    public function vistasPreviasAprobacion(SolicitudInterna $solicitud): array
+    {
+        if ($solicitud->estado->esFinal()) {
+            return [];
+        }
+
+        $lista = [];
+        $titulo = $this->comprobantes->tituloDocumento($solicitud);
+
+        if ($titulo !== null) {
+            $lista[] = ['documento' => self::VISTA_PREVIA_COMPROBANTE, 'titulo' => $titulo];
+        }
+
+        if ($this->formatoOficial->tieneVistaPrevia($solicitud)) {
+            $lista[] = ['documento' => self::VISTA_PREVIA_FORMATO_OFICIAL, 'titulo' => (string) $this->formatoOficial->formatoEsperado($solicitud)?->nombre];
+        }
+
+        return $lista;
+    }
+
+    /**
+     * PDF de vista previa (no guarda nada) de uno de los documentos de
+     * vistasPreviasAprobacion().
+     *
+     * @throws ValidationException Documento que no aplica o datos insuficientes.
+     */
+    public function vistaPreviaDocumento(SolicitudInterna $solicitud, string $documento, User $actor): string
+    {
+        return match ($documento) {
+            self::VISTA_PREVIA_COMPROBANTE => $this->comprobantes->vistaPreviaPdf($solicitud, $actor),
+            self::VISTA_PREVIA_FORMATO_OFICIAL => $this->formatoOficial->vistaPreviaPdf($solicitud, $actor),
+            default => throw ValidationException::withMessages(['documento' => 'Documento de vista previa no reconocido.']),
+        };
     }
 
     public function registrarHistorial(SolicitudInterna $solicitud, ?User $actor, string $accion, ?string $comentario = null): void

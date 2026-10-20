@@ -1617,8 +1617,8 @@ function siguientePorRevisar() {
                             Usa {{ prueba.datos_usados }} dato{{
                                 prueba.datos_usados === 1 ? '' : 's'
                             }}
-                            distinto{{ prueba.datos_usados === 1 ? '' : 's' }}; a
-                            {{ prueba.colaborador.nombre }} le falta{{
+                            distinto{{ prueba.datos_usados === 1 ? '' : 's' }};
+                            a {{ prueba.colaborador.nombre }} le falta{{
                                 prueba.faltantes.length === 1 ? '' : 'n'
                             }}
                             {{ prueba.faltantes.length }}:
@@ -1641,6 +1641,16 @@ function siguientePorRevisar() {
                         class="rounded-lg bg-success-soft px-3 py-2 text-success"
                     >
                         ✓ Tiene todos los datos que pide el documento.
+                    </p>
+                    <p
+                        v-if="prueba.prestamo"
+                        :class="
+                            prueba.prestamo.origen === 'ejemplo'
+                                ? 'rounded-lg bg-warning-soft px-3 py-2 text-xs text-warning'
+                                : 'rounded-lg border px-3 py-2 text-xs text-muted-foreground'
+                        "
+                    >
+                        {{ prueba.prestamo.descripcion }}
                     </p>
 
                     <div v-if="completando" class="rounded-lg border p-3">

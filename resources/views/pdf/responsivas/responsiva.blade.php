@@ -4,7 +4,7 @@
     Fuente: docs/responsiva/*.docx (tres familias: bien mueble, equipo
     electrónico, vehículo). Encabezado PRODUCTOS Y SERVICIOS MR LANA, S.A.P.I.
     DE C.V., fundamento (artículos 132, 134 y 135 LFT), declaración y firmas
-    (apoderado legal / trabajador) literales del formato; cada familia imprime
+    (razón social + «Representante legal» / trabajador) del formato; cada familia imprime
     sus propias secciones (sección 1 «DATOS DE QUIEN RECIBE» es común).
 
     Todo dato sale de $d (App\Services\Responsivas\ResponsivaPdfService::datos),
@@ -72,7 +72,8 @@
         .firmas { margin-top: 14mm; page-break-inside: avoid; }
         .firmas td { width: 50%; padding: 0 8mm; vertical-align: bottom; text-align: center; }
         .firmas .espacio { height: 20mm; }
-        .firmas .empresa { font-size: 8.6pt; font-weight: bold; color: #315B59; margin-bottom: 1mm; }
+        .firmas tr.lineas td { vertical-align: top; }
+        .firmas .empresa { font-size: 8.2pt; font-weight: bold; color: #315B59; margin: 0 -6mm 1mm; white-space: nowrap; }
         .firmas .rol { display: inline-block; padding: 0.7mm 4mm; border-radius: 3mm; background: #eef3ef; color: #315B59; font-size: 7.6pt; font-weight: bold; letter-spacing: 1pt; text-transform: uppercase; }
         .firmas .linea { border-top: 0.3mm solid #27332f; padding-top: 1.6mm; font-weight: bold; font-size: 9.2pt; }
         .firmas .puesto { font-size: 8.2pt; color: #5f6f69; font-weight: bold; }
@@ -167,22 +168,18 @@
 
     <table class="firmas">
         <tr>
-            <td>
-                <div class="empresa">{{ $d['empresa'] }}</div>
-                <span class="rol">Apoderado legal</span>
-            </td>
+            {{-- Firma patronal como el formato oficial: razón social ARRIBA de
+                 la línea y el cargo ABAJO. Quien entrega no firma por la empresa. --}}
+            <td><div class="empresa">{{ $d['empresa'] }}</div></td>
             <td><span class="rol">Trabajador</span></td>
         </tr>
         <tr>
             <td class="espacio"></td>
             <td class="espacio"></td>
         </tr>
-        <tr>
+        <tr class="lineas">
             <td>
-                <div class="linea">{{ $d['otorgante']['nombre'] }}</div>
-                @if ($d['otorgante']['puesto'])
-                    <div class="puesto">{{ $d['otorgante']['puesto'] }}</div>
-                @endif
+                <div class="linea">{{ $d['firma_patron_cargo'] }}</div>
             </td>
             <td>
                 <div class="linea">{{ $d['receptor']['nombre'] }}</div>

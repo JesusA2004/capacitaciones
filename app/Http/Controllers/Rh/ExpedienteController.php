@@ -11,6 +11,7 @@ use App\Http\Requests\Rh\ActualizarDatosLaboralesRequest;
 use App\Http\Requests\Rh\ActualizarDatosPersonalesRequest;
 use App\Http\Requests\Rh\GenerarReciboNominaRequest;
 use App\Http\Requests\Rh\RegistrarAvisosRequest;
+use App\Http\Requests\Rh\VistaPreviaReciboNominaRequest;
 use App\Models\AltaDigital;
 use App\Models\Colaborador;
 use App\Models\Departamento;
@@ -29,19 +30,18 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Avisos\AvisoService;
 use App\Services\Colaboradores\AltaImssService;
+use App\Services\Colaboradores\DomicilioService;
 use App\Services\Colaboradores\FotoColaboradorService;
-use App\Services\Compensacion\CompensacionService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\AvisoPrivacidadService;
+use App\Services\Expedientes\DatosExpedienteService;
 use App\Services\Expedientes\DatosFaltantesService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Expedientes\MigracionInicial\ExpedientesInitialMigrationService;
-use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Nomina\PrestamoService;
 use App\Services\Nomina\ReciboNominaService;
 use App\Services\Onboarding\ChecklistAdministrativoService;
-use App\Services\Organigrama\JefeDirectoService;
 use App\Services\Solicitudes\BajaColaboradorService;
 use App\Services\Vacaciones\VacacionesService;
 use App\Support\Paginacion;
@@ -52,7 +52,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -73,14 +72,13 @@ class ExpedienteController extends Controller
         private readonly DocumentoStorageService $documentoStorage,
         private readonly AvisoPrivacidadService $avisoPrivacidad,
         private readonly BajaColaboradorService $baja,
-        private readonly MovimientoLaboralService $movimientos,
         private readonly ReciboNominaService $reciboNomina,
         private readonly PrestamoService $prestamoService,
         private readonly FotoColaboradorService $fotos,
-        private readonly JefeDirectoService $jefes,
         private readonly DocumentoProcesoService $documentoProceso,
         private readonly AltaImssService $altaImss,
-        private readonly CompensacionService $compensacion,
+        private readonly DatosExpedienteService $datosExpediente,
+        private readonly DomicilioService $domicilios,
     ) {}
 
     /**
@@ -322,6 +320,8 @@ class ExpedienteController extends Controller
             // Nadie edita su propio expediente (ni RH ni administración): en
             // "Mi expediente" se ofrece "Solicitar corrección".
             'puedeEditar' => $usuario->can('expedientes.editar') && ! $esCuentaPropia,
+            // Recibos de nómina: solo RH (nomina.recibos.crear), nunca el propio.
+            'puedeGenerarRecibos' => $usuario->can('nomina.recibos.crear') && ! $esCuentaPropia,
             'puedeReactivar' => $usuario->can('usuarios.reactivar'),
             // Acceso al Ciclo laboral (contratos, onboarding, evaluación,
             // «Iniciar baja» con su finiquito): antes solo se llegaba desde
@@ -408,6 +408,8 @@ class ExpedienteController extends Controller
                 'rfc' => $colaborador->rfc,
                 'nss' => $colaborador->nss,
                 'domicilio' => $colaborador->domicilio,
+                // Domicilio estructurado (calle, número, colonia, C.P., municipio, estado).
+                ...$this->domicilios->valores($colaborador),
                 'correo_personal' => $colaborador->correo_personal,
                 'contacto_emergencia_nombre' => $colaborador->contacto_emergencia_nombre,
                 'contacto_emergencia_telefono' => $colaborador->contacto_emergencia_telefono,
@@ -613,88 +615,28 @@ class ExpedienteController extends Controller
 
     public function actualizarDatosPersonales(ActualizarDatosPersonalesRequest $request, Colaborador $colaborador): RedirectResponse
     {
-        $colaborador->update($request->validated());
+        $this->datosExpediente->actualizarPersonales($colaborador, $request->validated());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Datos personales actualizados correctamente.']);
     }
 
     /**
-     * Cambia empresa (vía sucursal)/sucursal/departamento/puesto/jefe/sueldo
-     * directamente, sin pasar por una vacante — mismo patrón
-     * snapshot → update → registrarCambioPuesto() que ya usa
-     * VacanteController::cubrir(), aquí con $vacanteId = null.
+     * Cambia empresa (vía sucursal)/sucursal/departamento/puesto/sueldo
+     * directamente, sin pasar por una vacante. La regla completa (jefe
+     * derivado del organigrama, movimiento laboral, sueldo canónico por
+     * CompensacionService) vive en DatosExpedienteService — la misma que usa
+     * la edición rápida del Directorio.
      */
     public function actualizarDatosLaborales(ActualizarDatosLaboralesRequest $request, Colaborador $colaborador): RedirectResponse
     {
-        $antes = $this->movimientos->snapshot($colaborador);
-
-        // El sueldo NO se escribe directo en el modelo: CompensacionService es
-        // el ÚNICO escritor de compensación, para que `sueldo_mensual` y
-        // `salario_diario` queden SIEMPRE sincronizados (la nómina lee el
-        // mensual y el finiquito el diario) y quede rastro en
-        // historial_salarios. Aquí solo se guardan los campos estructurales.
-        $datosLaborales = $request->safe()->only([
-            'sucursal_principal_id', 'departamento_id', 'puesto_id',
-        ]);
-
-        $motivo = $request->safe()->string('motivo')->toString() ?: null;
-
-        // Un campo de sueldo vacío en este guardado NUNCA borra un sueldo que
-        // ya existía (el middleware ConvertEmptyStringsToNull convierte "" en
-        // null antes de llegar aquí). Solo se completa con el salario mínimo
-        // cuando el colaborador NUNCA tuvo un sueldo capturado. Si falta la
-        // variable de entorno SALARIO_MINIMO_DIARIO no se inventa un monto
-        // (ver config/nomina.php): se avisa y el colaborador se guarda sin
-        // sueldo, pendiente de captura manual.
-        $sueldoCapturado = $request->validated('sueldo_mensual');
-        $nuevoSueldoMensual = null;
-        $avisoSueldoSinConfigurar = false;
-
-        if (! empty($sueldoCapturado)) {
-            $nuevoSueldoMensual = (float) $sueldoCapturado;
-        } elseif ($colaborador->sueldo_mensual === null) {
-            $salarioMinimoMensual = config('nomina.salario_minimo_mensual');
-
-            if ($salarioMinimoMensual !== null) {
-                $nuevoSueldoMensual = (float) $salarioMinimoMensual;
-            } else {
-                $avisoSueldoSinConfigurar = true;
-                Log::warning('ExpedienteController::actualizarDatosLaborales(): SALARIO_MINIMO_DIARIO no está definida en el entorno — no se pudo asignar un sueldo por defecto.', [
-                    'colaborador_id' => $colaborador->id,
-                ]);
-            }
-        }
-
-        $colaborador->update($datosLaborales);
-
-        // El jefe sale del organigrama: se recalcula YA (no al terminar la
-        // petición) para que el movimiento laboral registre el cambio de jefe.
-        $this->jefes->sincronizar($request->user());
-
-        // El movimiento del sueldo lo registra CompensacionService (abajo); el
-        // snapshot no cambió el sueldo, así que registrarCambioPuesto solo
-        // emite los movimientos estructurales (puesto/sucursal/depto/jefe).
-        $this->movimientos->registrarCambioPuesto(
-            $colaborador->fresh(),
-            $antes,
+        // Este formulario siempre incluye el sueldo (aunque venga vacío): así
+        // se conserva la regla de «completar con el salario mínimo» si nunca
+        // tuvo uno capturado.
+        $avisoSueldoSinConfigurar = $this->datosExpediente->actualizarLaborales(
+            $colaborador,
+            [...$request->validated(), 'sueldo_mensual' => $request->validated('sueldo_mensual')],
             $request->user(),
-            $motivo,
         );
-
-        // Sueldo canónico: convertimos el mensual capturado a diario y dejamos
-        // que CompensacionService sincronice ambos campos + el ledger. Solo si
-        // de verdad cambia el diario (evita rastros idénticos en el historial).
-        if ($nuevoSueldoMensual !== null && $nuevoSueldoMensual > 0) {
-            $diarioNuevo = $this->compensacion->diarioDesdeMensual($nuevoSueldoMensual);
-            $diarioActual = $colaborador->salario_diario !== null ? (float) $colaborador->salario_diario : null;
-
-            if ($diarioActual === null || abs($diarioActual - $diarioNuevo) > 0.001) {
-                $this->compensacion->actualizarSalario($colaborador, $diarioNuevo, null, $request->user(), [
-                    'fuente' => 'datos_laborales',
-                    'motivo' => $motivo ?? 'Actualización de sueldo desde Datos laborales.',
-                ]);
-            }
-        }
 
         if ($avisoSueldoSinConfigurar) {
             return back()->with('toast', [
@@ -731,6 +673,30 @@ class ExpedienteController extends Controller
     }
 
     /**
+     * Vista previa del recibo con lo capturado en el formulario, ANTES de
+     * «Generar»: mismo formato vigente, sin crear el recibo ni archivar nada
+     * (ReciboNominaService::vistaPreviaPdf()).
+     */
+    public function vistaPreviaReciboNomina(VistaPreviaReciboNominaRequest $request, Colaborador $colaborador): HttpResponse
+    {
+        $pdf = $this->reciboNomina->vistaPreviaPdf($colaborador, [
+            'periodo_inicio' => (string) $request->validated('periodo_inicio'),
+            'periodo_fin' => (string) $request->validated('periodo_fin'),
+            'fecha_pago' => (string) $request->validated('fecha_pago'),
+            'sueldo_base' => (float) $request->validated('sueldo_base'),
+            'percepciones' => $request->validated('percepciones') ?? [],
+            'deducciones' => $request->validated('deducciones') ?? [],
+        ]);
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="recibo-nomina-vista-previa.pdf"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
+    /**
      * Descarga el PDF ya guardado de un recibo de nómina existente. Si el
      * PDF no se pudo guardar en su momento (ver ReciboNominaService), no hay
      * nada que descargar — se avisa explícitamente en vez de fallar en
@@ -756,7 +722,8 @@ class ExpedienteController extends Controller
         $recibo->loadMissing('colaborador');
 
         abort_unless($this->alcance->puedeVerExpediente($request->user(), $recibo->colaborador), 403);
-        abort_unless($request->user()->can('expedientes.editar'), 403);
+        // Solo RH genera recibos, nunca el suyo propio.
+        abort_unless($request->user()->can('nomina.recibos.crear') && $request->user()->colaborador_id !== $recibo->colaborador_id, 403);
 
         try {
             $this->reciboNomina->regenerarPdf($recibo, $request->user());

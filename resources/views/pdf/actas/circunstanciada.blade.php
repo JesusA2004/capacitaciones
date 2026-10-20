@@ -17,9 +17,12 @@
     $romano = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII'];
     $ficha = fn (?string $puesto, ?string $area) => collect([$puesto, $area])->filter()->implode(' · ');
     $firmas = [];
-    $firmas[] = ['nombre' => $d['responsable']['nombre'], 'puesto' => $d['responsable']['puesto'], 'caracter' => 'Responsable del levantamiento'.($d['jefe'] && $d['jefe']['es_responsable'] ? ' y jefe inmediato' : '')];
+    // Por la empresa firma su representante legal: línea con el nombre EN
+    // BLANCO (se escribe y firma con pluma), cargo y razón social. La cuenta
+    // que capturó el acta nunca se imprime.
+    $firmas[] = ['nombre' => '', 'puesto' => $d['responsable']['cargo'], 'caracter' => $d['empresa']];
     $firmas[] = ['nombre' => $d['trabajador']['nombre'], 'puesto' => $d['trabajador']['puesto'], 'caracter' => 'Trabajador involucrado'];
-    if ($d['jefe'] && ! $d['jefe']['es_responsable']) {
+    if ($d['jefe']) {
         $firmas[] = ['nombre' => $d['jefe']['nombre'], 'puesto' => $d['jefe']['puesto'], 'caracter' => 'Jefe inmediato o superior jerárquico'];
     }
     foreach ($d['testigos_hechos'] as $i => $t) {
@@ -188,23 +191,21 @@
     <div class="seccion">
         <h2><span class="num">{{ $romano[4] }}.</span>Personas que intervienen</h2>
 
-        <h3>A. Responsable del levantamiento</h3>
+        <h3>A. Por parte del patrón</h3>
         <div class="persona">
-            <div class="nombre">{{ $d['responsable']['nombre'] }}</div>
-            <div class="det">{{ $ficha($d['responsable']['puesto'], $d['responsable']['area']) }}@if ($d['responsable']['caracter']) · Interviene con el carácter de {{ $d['responsable']['caracter'] }}@endif</div>
+            <div class="nombre">{{ $d['empresa'] }}</div>
+            <div class="det">Interviene por conducto de su {{ mb_strtolower($d['responsable']['cargo'], 'UTF-8') }}, cuyo nombre y firma se asientan de puño y letra al calce de la presente acta.</div>
         </div>
 
-        @if ($d['jefe'] && ! $d['jefe']['es_responsable'])
+        @if ($d['jefe'])
             <h3>B. Jefe inmediato o superior jerárquico</h3>
             <div class="persona">
                 <div class="nombre">{{ $d['jefe']['nombre'] }}</div>
                 <div class="det">{{ $ficha($d['jefe']['puesto'], $d['jefe']['area']) }}</div>
             </div>
-        @elseif ($d['jefe'] && $d['jefe']['es_responsable'])
-            <p class="nota">El responsable del levantamiento interviene también como jefe inmediato del trabajador.</p>
         @endif
 
-        <h3>{{ $d['jefe'] && ! $d['jefe']['es_responsable'] ? 'C' : 'B' }}. Testigos de hechos</h3>
+        <h3>{{ $d['jefe'] ? 'C' : 'B' }}. Testigos de hechos</h3>
         @forelse ($d['testigos_hechos'] as $i => $t)
             <div class="persona">
                 <div class="nombre">{{ $i === 0 ? 'Primer testigo' : 'Segundo testigo' }}: {{ $t['nombre'] }}</div>
@@ -214,7 +215,7 @@
             <p class="nota">No se registraron testigos de hechos.</p>
         @endforelse
 
-        <h3>{{ $d['jefe'] && ! $d['jefe']['es_responsable'] ? 'D' : 'C' }}. Testigos de asistencia</h3>
+        <h3>{{ $d['jefe'] ? 'D' : 'C' }}. Testigos de asistencia</h3>
         @forelse ($d['testigos_asistencia'] as $i => $t)
             <div class="persona">
                 <div class="nombre">{{ $i === 0 ? 'Primer testigo de asistencia' : 'Segundo testigo de asistencia' }}: {{ $t['nombre'] }}</div>
@@ -231,14 +232,14 @@
 
         @php $letra = 'A'; @endphp
         @if ($d['responsable']['manifestacion'] || ($d['jefe'] && $d['jefe']['manifestacion']))
-            <h3>{{ $letra++ }}. Manifestaciones del responsable del levantamiento{{ $d['jefe'] && ! $d['jefe']['es_responsable'] ? ' y del jefe inmediato' : '' }}</h3>
+            <h3>{{ $letra++ }}. Manifestaciones {{ $d['responsable']['manifestacion'] ? 'por parte del patrón' : '' }}{{ $d['responsable']['manifestacion'] && $d['jefe'] && $d['jefe']['manifestacion'] ? ' y ' : '' }}{{ $d['jefe'] && $d['jefe']['manifestacion'] ? 'del jefe inmediato' : '' }}</h3>
             @if ($d['responsable']['manifestacion'])
                 <div class="manifestacion">
-                    <p class="quien">En uso de la palabra, {{ $d['responsable']['nombre'] }}, quien se desempeña como {{ $d['responsable']['puesto'] ?? 'responsable del levantamiento' }}{{ $d['jefe'] && $d['jefe']['es_responsable'] ? ' y es jefe inmediato del trabajador' : '' }}, manifiesta lo siguiente:</p>
+                    <p class="quien">En uso de la palabra, el {{ mb_strtolower($d['responsable']['cargo'], 'UTF-8') }} de {{ $d['empresa'] }} manifiesta lo siguiente:</p>
                     @foreach ($parrafos($d['responsable']['manifestacion']) as $p)<p>{!! nl2br(e($p)) !!}</p>@endforeach
                 </div>
             @endif
-            @if ($d['jefe'] && ! $d['jefe']['es_responsable'] && $d['jefe']['manifestacion'])
+            @if ($d['jefe'] && $d['jefe']['manifestacion'])
                 <div class="manifestacion">
                     <p class="quien">En uso de la palabra, {{ $d['jefe']['nombre'] }}, quien se desempeña como {{ $d['jefe']['puesto'] ?? 'jefe inmediato' }}, manifiesta lo siguiente:</p>
                     @foreach ($parrafos($d['jefe']['manifestacion']) as $p)<p>{!! nl2br(e($p)) !!}</p>@endforeach
@@ -339,7 +340,7 @@
                 <tr>
                     @foreach ($fila as $f)
                         <td>
-                            <div class="linea">{{ $f['nombre'] }}</div>
+                            <div class="linea">{!! $f['nombre'] !== '' ? e($f['nombre']) : '&nbsp;' !!}</div>
                             @if ($f['puesto'])<div class="puesto">{{ $f['puesto'] }}</div>@endif
                             <div class="caracter">{{ $f['caracter'] }}</div>
                         </td>
@@ -354,9 +355,21 @@
     <div class="seccion">
         <h2><span class="num">{{ $romano[11] }}.</span>Constancia de entrega de copia al trabajador</h2>
         @if (($d['entrega']['estado'] ?? 'pendiente') === 'entregada')
-            <p>Se hace constar que se entregó copia de la presente acta y de sus anexos al trabajador.@if (! empty($d['entrega']['por'])) La entrega la realizó {{ $d['entrega']['por'] }}.@endif</p>
+            <p>Se hace constar que se entregó copia de la presente acta y de sus anexos al trabajador.</p>
         @elseif (($d['entrega']['estado'] ?? 'pendiente') === 'no_posible')
             <p>Se hace constar que no fue posible realizar la entrega de la copia por las siguientes circunstancias: {{ $d['entrega']['motivo'] }}</p>
+        @endif
+        @if (in_array($d['entrega']['estado'] ?? 'pendiente', ['entregada', 'no_posible'], true))
+            {{-- Nombre y firma de quien entrega: a pluma, nunca la cuenta que lo registró. --}}
+            <table class="firmas">
+                <tr>
+                    <td>
+                        <div class="linea">&nbsp;</div>
+                        <div class="caracter">Nombre y firma de quien realiza la entrega o deja constancia</div>
+                    </td>
+                    <td></td>
+                </tr>
+            </table>
         @else
             <p class="nota">Constancia de entrega: pendiente de formalización.</p>
         @endif

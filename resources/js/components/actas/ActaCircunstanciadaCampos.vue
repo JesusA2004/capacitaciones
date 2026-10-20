@@ -114,17 +114,6 @@ function agregarTestigoAsistencia() {
     });
 }
 
-/**
- * Responsable y jefe son la misma persona (mismo colaborador, nunca por
- * nombre: dos homónimos son personas distintas): una sola manifestación (y firma).
- */
-const jefeEsResponsable = computed(
-    () =>
-        c.value.jefe.participa &&
-        props.responsable?.colaborador_id != null &&
-        props.responsable.colaborador_id === c.value.jefe.colaborador_id,
-);
-
 function cerrarAhora() {
     const { fecha, hora } = ahoraLocal();
     c.value.cierre.fecha = fecha;
@@ -356,46 +345,20 @@ function cerrarAhora() {
         <section
             class="flex flex-col gap-3 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4"
         >
-            <h3 class="text-sm font-semibold">Quien levanta el acta</h3>
-            <dl
-                v-if="responsable?.nombre"
-                class="grid gap-2 text-sm sm:grid-cols-3"
-            >
+            <h3 class="text-sm font-semibold">Firma por la empresa</h3>
+            <dl class="grid gap-2 text-sm sm:grid-cols-2">
+                <div>
+                    <dt class="text-xs text-muted-foreground">Firma</dt>
+                    <dd class="font-medium">Representante legal</dd>
+                </div>
                 <div>
                     <dt class="text-xs text-muted-foreground">Nombre</dt>
-                    <dd class="font-medium">{{ responsable.nombre }}</dd>
-                </div>
-                <div>
-                    <dt class="text-xs text-muted-foreground">Puesto</dt>
-                    <dd>{{ responsable.puesto || 'Sin puesto en PEOPLE' }}</dd>
-                </div>
-                <div>
-                    <dt class="text-xs text-muted-foreground">Área</dt>
-                    <dd>{{ responsable.area || 'Sin área en PEOPLE' }}</dd>
+                    <dd>En blanco: se escribe y firma con pluma</dd>
                 </div>
             </dl>
-            <div class="flex flex-col gap-1.5 sm:max-w-xs">
-                <Label for="acta-caracter"
-                    >Carácter con el que interviene</Label
-                >
-                <NativeSelect
-                    id="acta-caracter"
-                    v-model="c.responsable.caracter"
-                >
-                    <NativeSelectOption value="" disabled
-                        >Elige…</NativeSelectOption
-                    >
-                    <NativeSelectOption
-                        v-for="op in catalogos.caracteres"
-                        :key="op.value"
-                        :value="op.value"
-                        >{{ op.label }}</NativeSelectOption
-                    >
-                </NativeSelect>
-                <InputError
-                    :message="error('circunstanciada.responsable.caracter')"
-                />
-            </div>
+            <p class="text-xs text-muted-foreground">
+                El acta nunca imprime el nombre de la cuenta que la captura.
+            </p>
         </section>
 
         <section
@@ -754,24 +717,22 @@ function cerrarAhora() {
             class="flex flex-col gap-3 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4"
         >
             <h3 class="text-sm font-semibold">
-                Quien levanta el acta<template v-if="jefeEsResponsable">
-                    y jefe inmediato</template
-                >
+                Por parte de la empresa (representante legal)
             </h3>
             <Textarea
                 v-model="c.responsable.manifestacion"
                 rows="3"
-                aria-label="Manifestación de quien levanta el acta"
-                placeholder="Lo que constató o conoce de los hechos (opcional)"
+                aria-label="Manifestación por parte de la empresa"
+                placeholder="Lo que la empresa constató o conoce de los hechos (opcional)"
             />
-            <p v-if="jefeEsResponsable" class="text-xs text-muted-foreground">
-                Es la misma persona que el jefe inmediato: se registra una sola
-                manifestación.
+            <p class="text-xs text-muted-foreground">
+                Se imprime como manifestación del representante legal, sin
+                nombre. Lo que diga el jefe inmediato va en su propio recuadro.
             </p>
         </section>
 
         <section
-            v-if="c.jefe.participa && !jefeEsResponsable"
+            v-if="c.jefe.participa"
             class="flex flex-col gap-3 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4"
         >
             <h3 class="text-sm font-semibold">

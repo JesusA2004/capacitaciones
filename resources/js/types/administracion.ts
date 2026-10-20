@@ -83,6 +83,8 @@ export type PuestoItem = {
     descripcion: string | null;
     activo: boolean;
     colaboradores_count: number;
+    /** Duración del periodo de prueba (capacitación inicial), en meses. */
+    meses_periodo_prueba: number | null;
 };
 
 export type OpcionSimple = {

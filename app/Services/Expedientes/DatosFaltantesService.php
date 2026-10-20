@@ -55,13 +55,37 @@ class DatosFaltantesService
         'profesion' => 'Profesión u oficio',
         'telefono' => 'Teléfono celular',
         'correo_personal' => 'Correo electrónico',
-        'domicilio' => 'Domicilio',
+        // Domicilio ESTRUCTURADO (DomicilioService): los contratos de
+        // préstamo/pagaré piden cada parte en su celda. El texto único
+        // `domicilio` se compone de estos campos; un registro con solo el
+        // texto queda pendiente de capturarlos (no se parte adivinando).
+        'domicilio_calle' => 'Calle',
+        'domicilio_numero_exterior' => 'Número exterior',
+        'domicilio_colonia' => 'Colonia',
         'domicilio_cp' => 'Código postal',
+        'domicilio_municipio' => 'Municipio o alcaldía',
+        'domicilio_estado' => 'Estado',
         'contacto_emergencia_nombre' => 'Contacto de emergencia',
         'contacto_emergencia_parentesco' => 'Parentesco del contacto de emergencia',
         'contacto_emergencia_telefono' => 'Teléfono de emergencia',
         'beneficiario_nombre' => 'Beneficiario',
         'beneficiario_parentesco' => 'Parentesco del beneficiario',
+    ];
+
+    /**
+     * Datos personales que se CAPTURAN junto con los anteriores pero nunca
+     * cuentan como faltantes (un domicilio sin número interior está completo).
+     */
+    public const PERSONALES_OPCIONALES = [
+        'domicilio_numero_interior' => 'Número interior',
+    ];
+
+    /**
+     * Claves que solo se aceptan por compatibilidad (APKs anteriores que
+     * mandan el domicilio en un solo texto); ya no se piden.
+     */
+    public const PERSONALES_LEGADO = [
+        'domicilio' => 'Domicilio',
     ];
 
     /** columna => etiqueta (lo captura RH). */
@@ -81,7 +105,7 @@ class DatosFaltantesService
         'identidad' => ['Identidad', ['genero', 'fecha_nacimiento', 'nacionalidad', 'estado_civil', 'lugar_nacimiento', 'curp', 'clave_elector', 'profesion']],
         'fiscal' => ['Fiscal', ['rfc', 'nss']],
         'laboral' => ['Laboral', ['puesto_id', 'sucursal_principal_id', 'fecha_ingreso', 'sueldo_mensual', 'tipo_contratacion']],
-        'domicilio' => ['Domicilio', ['domicilio', 'domicilio_cp']],
+        'domicilio' => ['Domicilio', ['domicilio_calle', 'domicilio_numero_exterior', 'domicilio_colonia', 'domicilio_cp', 'domicilio_municipio', 'domicilio_estado']],
         'contacto' => ['Contacto', ['telefono', 'correo_personal']],
         'emergencia' => ['Contacto de emergencia', ['contacto_emergencia_nombre', 'contacto_emergencia_parentesco', 'contacto_emergencia_telefono']],
         'beneficiario' => ['Beneficiario', ['beneficiario_nombre', 'beneficiario_parentesco']],

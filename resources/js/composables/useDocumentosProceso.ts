@@ -1,6 +1,8 @@
 import { leerCookie } from '@/lib/http';
 import type {
     DatoFaltante,
+    DocumentoVistaPrevia,
+    FlujoVistaPrevia,
     SeccionDocumentosProceso,
     TipoRegistroDocumental,
 } from '@/types';
@@ -144,6 +146,59 @@ export function useDocumentosProceso() {
                 `/rh/cierres/${cierreId}/procedimiento/${accion}`,
                 cuerpo,
             ),
+
+        /** Vista previa REAL (PDF inline, no guarda nada) de un documento del proceso. */
+        urlVistaPrevia: (
+            tipo: TipoRegistroDocumental,
+            id: number,
+            parametros: {
+                clave: string;
+                proceso?: string;
+                completar?: Record<string, string>;
+                manuales?: Record<string, string>;
+            },
+        ) => {
+            const consulta = new URLSearchParams({ clave: parametros.clave });
+
+            if (parametros.proceso) {
+                consulta.set('proceso', parametros.proceso);
+            }
+
+            for (const [grupo, valores] of [
+                ['completar', parametros.completar],
+                ['manuales', parametros.manuales],
+            ] as const) {
+                Object.entries(valores ?? {}).forEach(([k, v]) =>
+                    consulta.set(`${grupo}[${k}]`, v),
+                );
+            }
+
+            return `${base}/${tipo}/${id}/vista-previa?${consulta.toString()}`;
+        },
+
+        /**
+         * Documentos que un flujo generará al confirmarse (renovación, no
+         * renovación, baja, préstamo), con la URL de vista previa de cada uno
+         * armada con los datos del formulario. Nada se guarda.
+         */
+        previaFlujo: (
+            flujo: FlujoVistaPrevia,
+            id: number,
+            datos: Record<string, string | number | null | undefined>,
+        ) => {
+            const consulta = new URLSearchParams();
+
+            Object.entries(datos).forEach(([k, v]) => {
+                if (v !== null && v !== undefined && v !== '') {
+                    consulta.set(k, String(v));
+                }
+            });
+
+            return solicitar<{ data: DocumentoVistaPrevia[] }>(
+                'GET',
+                `${base}/previa/${flujo}/${id}?${consulta.toString()}`,
+            ).then((r) => r.data);
+        },
 
         urlDescarga: (documentoId: number) =>
             `/rh/documentos-laborales/${documentoId}/descargar`,

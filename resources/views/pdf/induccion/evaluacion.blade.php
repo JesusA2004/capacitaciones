@@ -389,7 +389,7 @@
                 </td>
                 <td>
                     <div class="linea">Aplicó · Recursos Humanos</div>
-                    <div class="nombre-firma">{{ $d['aplico'] ?? '' }}</div>
+                    <div class="nombre-firma">&nbsp;</div>
                     <div class="det">Nombre y firma</div>
                 </td>
                 <td>

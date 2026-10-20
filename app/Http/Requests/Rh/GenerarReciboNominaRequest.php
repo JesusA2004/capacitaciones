@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Rh;
 
 use App\Models\Colaborador;
+use App\Services\AlcanceOrganizacionalService;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -15,13 +16,24 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class GenerarReciboNominaRequest extends FormRequest
 {
+    /**
+     * Solo RH (nomina.recibos.crear) genera recibos, dentro de su alcance y
+     * nunca el suyo propio: el colaborador no genera ni ve sus recibos.
+     */
     public function authorize(): bool
     {
+        $usuario = $this->user();
         $colaborador = $this->route('colaborador');
-        $colaboradorId = $colaborador instanceof Colaborador ? $colaborador->id : null;
 
-        return ($this->user()?->can('expedientes.editar') ?? false)
-            || $this->user()?->colaborador_id === $colaboradorId;
+        if ($usuario === null || ! $colaborador instanceof Colaborador || ! $usuario->can('nomina.recibos.crear')) {
+            return false;
+        }
+
+        if ($usuario->colaborador_id === $colaborador->id) {
+            return false;
+        }
+
+        return app(AlcanceOrganizacionalService::class)->puedeVerExpediente($usuario, $colaborador);
     }
 
     /**

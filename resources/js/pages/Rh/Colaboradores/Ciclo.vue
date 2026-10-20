@@ -3,6 +3,7 @@ import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     CheckCircle2,
     Circle,
+    FileSearch,
     FileText,
     FolderOpen,
     UserRound,
@@ -19,7 +20,9 @@ import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
+import VistaPreviaFlujo from '@/components/documentos/VistaPreviaFlujo.vue';
 import InputError from '@/components/InputError.vue';
+import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -34,6 +37,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { formatearFecha } from '@/lib/fechas';
+import { vistaPreviaPost } from '@/lib/http';
 import { dashboard } from '@/routes';
 import cierres from '@/routes/rh/cierres';
 import colaboradores from '@/routes/rh/colaboradores';
@@ -50,6 +54,7 @@ import type {
     FiniquitoCierre,
     FormularioAccion,
     OnboardingDetalle,
+    TipoBajaOpcion,
 } from '@/types';
 
 type DocumentoLaboral = {
@@ -79,7 +84,9 @@ const props = defineProps<{
     puede_solicitar_excepcion: boolean;
     puede_resolver_excepcion: boolean;
     opciones: {
-        causas: { value: string; etiqueta: string }[];
+        // Tipos de baja (renuncia / rescisión / fin de contrato) con sus
+        // causales de rotación activas.
+        causas: TipoBajaOpcion[];
         criterios: string[];
     };
 }>();
@@ -97,6 +104,25 @@ defineOptions({
 const accion = ref<AccionCiclo | null>(null);
 const form = useForm<FormularioAccion>({});
 const hoy = new Date().toISOString().slice(0, 10);
+
+// «Iniciar baja»: el motivo (causal de rotación) depende del tipo elegido.
+const tipoBajaElegido = computed(
+    () => props.opciones.causas.find((c) => c.value === form.tipo_baja) ?? null,
+);
+const opcionesCausal = computed(() =>
+    (tipoBajaElegido.value?.causales ?? []).map((c) => ({
+        value: c.id,
+        label: c.nombre,
+    })),
+);
+
+function elegirTipoBaja(valor: string) {
+    if (form.tipo_baja !== valor) {
+        form.tipo_baja = valor;
+        // La causal de otro tipo no aplica: se vuelve a elegir.
+        form.causal_rotacion_id = null;
+    }
+}
 
 const plantillas: Record<string, () => FormularioAccion> = {
     entregar_activos: () => ({
@@ -132,6 +158,9 @@ const plantillas: Record<string, () => FormularioAccion> = {
     devolver_evaluacion: () => ({ motivo: '' }),
     solicitar_baja: () => ({
         tipo_baja: props.opciones.causas[0]?.value ?? 'renuncia',
+        // El motivo (causal de rotación) se elige siempre a conciencia:
+        // nunca se preselecciona.
+        causal_rotacion_id: null,
         motivo: '',
         fecha_efectiva: hoy,
     }),
@@ -395,6 +424,60 @@ function destino(clave: string): string {
             )[aliasCierre[clave] ?? clave].url(cierreId.value);
     }
 }
+
+// ───── Entrega de activos: vista previa de la carta responsiva ─────
+// Antes de confirmar la entrega, RH ve la responsiva con el activo y la
+// serie capturados (el backend no registra la entrega ni archiva nada).
+const vistaPreviaResponsivaUrl = ref<string | null>(null);
+const vistaPreviaResponsivaAbierta = ref(false);
+const cargandoVistaPreviaResponsiva = ref(false);
+const errorVistaPreviaResponsiva = ref<string | null>(null);
+
+function limpiarVistaPreviaResponsiva() {
+    if (vistaPreviaResponsivaUrl.value) {
+        URL.revokeObjectURL(vistaPreviaResponsivaUrl.value);
+        vistaPreviaResponsivaUrl.value = null;
+    }
+}
+
+async function verVistaPreviaResponsiva() {
+    if (!props.onboarding) {
+        return;
+    }
+
+    cargandoVistaPreviaResponsiva.value = true;
+    errorVistaPreviaResponsiva.value = null;
+
+    try {
+        const url = await vistaPreviaPost(
+            onboardingRutas.responsiva.vistaPrevia.url(props.onboarding.id),
+            {
+                tipo_activo_id: form.tipo_activo_id,
+                identificador: form.identificador,
+            },
+        );
+        limpiarVistaPreviaResponsiva();
+        vistaPreviaResponsivaUrl.value = url;
+        vistaPreviaResponsivaAbierta.value = true;
+    } catch (e) {
+        errorVistaPreviaResponsiva.value =
+            e instanceof Error
+                ? e.message
+                : 'No se pudo generar la vista previa de la responsiva.';
+    } finally {
+        cargandoVistaPreviaResponsiva.value = false;
+    }
+}
+
+watch(vistaPreviaResponsivaAbierta, (abierta) => {
+    if (!abierta) {
+        limpiarVistaPreviaResponsiva();
+    }
+});
+
+watch(accion, () => {
+    errorVistaPreviaResponsiva.value = null;
+});
 
 const aliasCierre: Record<string, string> = {
     registrar_aviso: 'aviso',
@@ -1026,6 +1109,28 @@ const etiquetaFecha: Record<string, string> = {
                             rows="2"
                         />
                     </div>
+                    <div class="flex flex-col gap-1.5">
+                        <Button
+                            type="button"
+                            variant="outline"
+                            class="self-start"
+                            :disabled="
+                                !form.tipo_activo_id ||
+                                cargandoVistaPreviaResponsiva
+                            "
+                            @click="verVistaPreviaResponsiva"
+                        >
+                            <FileSearch class="size-4" />
+                            {{
+                                cargandoVistaPreviaResponsiva
+                                    ? 'Preparando vista previa…'
+                                    : 'Vista previa de la responsiva'
+                            }}
+                        </Button>
+                        <InputError
+                            :message="errorVistaPreviaResponsiva ?? ''"
+                        />
+                    </div>
                 </template>
 
                 <template
@@ -1225,24 +1330,73 @@ const etiquetaFecha: Record<string, string> = {
                             rows="2"
                         />
                     </div>
+                    <!-- Lo que se genera al autorizar, visto ANTES de confirmar. -->
+                    <VistaPreviaFlujo
+                        v-if="evaluacionId"
+                        :flujo="form.renovar ? 'renovacion' : 'no_renovacion'"
+                        :id="evaluacionId"
+                        :datos="
+                            form.renovar
+                                ? {}
+                                : {
+                                      motivo: form.motivo_no_renovacion as string,
+                                      fecha_efectiva:
+                                          form.fecha_efectiva as string,
+                                  }
+                        "
+                        :disabled="form.processing"
+                    />
                     <InputError :message="form.errors.aprobacion" />
                     <InputError :message="form.errors.renovar" />
                 </template>
 
                 <template v-else-if="accion?.clave === 'solicitar_baja'">
-                    <div class="flex flex-wrap gap-2">
-                        <Button
-                            v-for="c in opciones.causas"
-                            :key="c.value"
-                            type="button"
-                            :variant="
-                                form.tipo_baja === c.value
-                                    ? 'default'
-                                    : 'outline'
-                            "
-                            @click="form.tipo_baja = c.value"
-                            >{{ c.etiqueta }}</Button
+                    <div class="grid gap-1.5">
+                        <Label>Tipo de baja</Label>
+                        <div
+                            class="grid gap-2 sm:grid-cols-3"
+                            role="radiogroup"
+                            aria-label="Tipo de baja"
                         >
+                            <Button
+                                v-for="c in opciones.causas"
+                                :key="c.value"
+                                type="button"
+                                role="radio"
+                                :aria-checked="form.tipo_baja === c.value"
+                                :variant="
+                                    form.tipo_baja === c.value
+                                        ? 'default'
+                                        : 'outline'
+                                "
+                                @click="elegirTipoBaja(c.value)"
+                                >{{ c.etiqueta }}</Button
+                            >
+                        </div>
+                        <p
+                            v-if="tipoBajaElegido"
+                            class="text-xs text-muted-foreground"
+                        >
+                            {{ tipoBajaElegido.descripcion }}
+                        </p>
+                        <InputError :message="form.errors.tipo_baja" />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label for="baja-causal">Motivo</Label>
+                        <SelectSimple
+                            id="baja-causal"
+                            v-model="form.causal_rotacion_id as number | null"
+                            :opciones="opcionesCausal"
+                            numerico
+                            :disabled="!opcionesCausal.length"
+                            :placeholder="
+                                opcionesCausal.length
+                                    ? 'Elige el motivo…'
+                                    : 'Sin motivos activos para este tipo'
+                            "
+                            aria-label="Motivo (causal de rotación)"
+                        />
+                        <InputError :message="form.errors.causal_rotacion_id" />
                     </div>
                     <div class="grid gap-1.5">
                         <Label>Fecha efectiva</Label
@@ -1251,17 +1405,36 @@ const etiquetaFecha: Record<string, string> = {
                         /><InputError :message="form.errors.fecha_efectiva" />
                     </div>
                     <div class="grid gap-1.5">
-                        <Label>Motivo</Label
+                        <Label for="baja-detalle"
+                            >Observaciones / detalle (opcional)</Label
                         ><Textarea
+                            id="baja-detalle"
                             v-model="form.motivo as string"
                             rows="3"
+                            placeholder="Lo que pasó, acuerdos, contexto…"
                         /><InputError :message="form.errors.motivo" />
                     </div>
                     <p class="text-xs text-muted-foreground">
                         La baja se aplica de inmediato: sus accesos se suspenden
-                        al confirmar. El sistema genera la renuncia o el aviso
-                        para imprimir y firmar; después sigue el finiquito.
+                        al confirmar.
+                        {{
+                            form.tipo_baja === 'rescision'
+                                ? 'La rescisión no genera documento: sigue directo el finiquito.'
+                                : 'El sistema genera los documentos del tipo para imprimir y firmar; después sigue el finiquito.'
+                        }}
                     </p>
+                    <!-- Documentos de la causa, vistos ANTES de aplicar la baja
+                         (sin documentos para la causa, no aparece). -->
+                    <VistaPreviaFlujo
+                        flujo="baja"
+                        :id="colaborador.id"
+                        :datos="{
+                            tipo_baja: form.tipo_baja as string,
+                            fecha_efectiva: form.fecha_efectiva as string,
+                            motivo: form.motivo as string,
+                        }"
+                        :disabled="form.processing"
+                    />
                     <InputError :message="form.errors.colaborador" />
                     <InputError :message="form.errors.tipo_baja" />
                 </template>
@@ -1376,6 +1549,15 @@ const etiquetaFecha: Record<string, string> = {
             </form>
         </DialogContent>
     </Dialog>
+
+    <DocumentPreviewDialog
+        :open="vistaPreviaResponsivaAbierta"
+        :preview-url="vistaPreviaResponsivaUrl"
+        nombre="Carta responsiva (vista previa).pdf"
+        mime="application/pdf"
+        estado="Vista previa — la entrega aún no se registra"
+        @update:open="(v) => (vistaPreviaResponsivaAbierta = v)"
+    />
 
     <FiniquitoCierreDialog
         v-if="cierre"

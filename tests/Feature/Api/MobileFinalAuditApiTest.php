@@ -74,7 +74,8 @@ test('counts.tasks refleja las tareas abiertas reales del usuario', function () 
 
 test('el detalle RH de un prestamo expone lo solicitado y el visto bueno antes de autorizar', function () {
     Notification::fake();
-    $direccion = clUsuario('direccion');
+    // El préstamo lo autoriza SOLO RH (Dirección solo consulta).
+    $direccion = clUsuario('rh_admin');
     $jefe = clUsuario('jefe_directo');
     $colaborador = Colaborador::factory()->create(['jefe_id' => $jefe->colaborador_id]);
     $cuenta = User::factory()->create(['colaborador_id' => $colaborador->id]);

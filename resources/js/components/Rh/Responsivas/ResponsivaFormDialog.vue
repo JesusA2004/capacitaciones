@@ -370,7 +370,8 @@ async function generar() {
                         </p>
                         <p class="mt-1 text-sm text-muted-foreground">
                             Quedó guardada en el expediente. Imprímela, recaba
-                            las firmas de quien recibe y del apoderado legal, y
+                            las firmas de quien recibe y del representante
+                            legal de la empresa, y
                             márcala como firmada físicamente.
                         </p>
                     </div>
@@ -424,7 +425,7 @@ async function generar() {
                             <p
                                 class="text-xs tracking-wide text-muted-foreground uppercase"
                             >
-                                Entrega (apoderado legal)
+                                Responsable de la entrega
                             </p>
                             <template v-if="valores.puede_elegir_responsable">
                                 <Select v-model="responsableIdStr">

@@ -50,6 +50,7 @@ const columnas: ColumnaDataTable[] = [
     { clave: 'nombre', etiqueta: 'Puesto' },
     { clave: 'departamento', etiqueta: 'Departamento' },
     { clave: 'colaboradores_count', etiqueta: 'Colaboradores' },
+    { clave: 'meses_periodo_prueba', etiqueta: 'Periodo de prueba (meses)' },
     { clave: 'activo', etiqueta: 'Estado' },
 ];
 
@@ -162,6 +163,12 @@ async function eliminar(puesto: PuestoItem) {
                     <Users class="size-3.5" />
                     {{ fila.colaboradores_count }}
                 </span>
+            </template>
+            <template #celda-meses_periodo_prueba="{ fila }">
+                <span v-if="fila.meses_periodo_prueba">{{
+                    fila.meses_periodo_prueba
+                }}</span>
+                <span v-else class="text-xs text-warning">Sin configurar</span>
             </template>
             <template #celda-activo="{ fila }">
                 <EstadoBadge :estado="fila.activo ? 'activo' : 'inactivo'" />

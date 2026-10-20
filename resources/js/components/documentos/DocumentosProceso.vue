@@ -2,6 +2,7 @@
 import { Link } from '@inertiajs/vue3';
 import {
     AlertTriangle,
+    Eye,
     FileWarning,
     Loader2,
     ServerCrash,
@@ -15,6 +16,7 @@ import TimePicker from '@/components/Common/TimePicker.vue';
 import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
 import CamposDatosFaltantes from '@/components/documentos/CamposDatosFaltantes.vue';
 import SeccionDocumentosProceso from '@/components/documentos/SeccionDocumentosProceso.vue';
+import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,6 +42,7 @@ import {
     ErrorDocumento,
     useDocumentosProceso,
 } from '@/composables/useDocumentosProceso';
+import { useVistaPreviaPdf } from '@/composables/useVistaPreviaPdf';
 import { columnaDatoFaltante } from '@/lib/datosFaltantes';
 import { testigos as buscarTestigosDocumento } from '@/routes/rh/documentos-proceso';
 import type {
@@ -282,15 +285,8 @@ const completo = computed(() =>
     ),
 );
 
-async function ejecutarGeneracion(
-    p: Pendiente,
-    completar: Record<string, string> = {},
-) {
-    ocupado.value =
-        p.clave === null
-            ? 'seccion:generar_paquete'
-            : `${p.clave}:${p.revision ? 'nueva_revision' : p.regenerar ? 'regenerar' : 'generar'}`;
-    const { registro, proceso } = p.seccion;
+/** Lo capturado en el modal: datos del acto (solo el documento) vs. de la ficha. */
+function separarCapturados(completar: Record<string, string>) {
     const manuales: Record<string, string> = {};
     const datosColaborador: Record<string, string> = {};
 
@@ -303,6 +299,20 @@ async function ejecutarGeneracion(
             datosColaborador[columna] = valor;
         }
     }
+
+    return { manuales, datosColaborador };
+}
+
+async function ejecutarGeneracion(
+    p: Pendiente,
+    completar: Record<string, string> = {},
+) {
+    ocupado.value =
+        p.clave === null
+            ? 'seccion:generar_paquete'
+            : `${p.clave}:${p.revision ? 'nueva_revision' : p.regenerar ? 'regenerar' : 'generar'}`;
+    const { registro, proceso } = p.seccion;
+    const { manuales, datosColaborador } = separarCapturados(completar);
 
     try {
         const respuesta =
@@ -345,15 +355,69 @@ async function ejecutarGeneracion(
     }
 }
 
+function capturados(): Record<string, string> {
+    return Object.fromEntries(
+        Object.entries(valores.value).filter(([, v]) => v.trim() !== ''),
+    );
+}
+
 function completarYGenerar() {
     if (!pendiente.value || !completo.value) {
         return;
     }
 
-    const completar = Object.fromEntries(
-        Object.entries(valores.value).filter(([, v]) => v.trim() !== ''),
+    void ejecutarGeneracion(pendiente.value, capturados());
+}
+
+// ───────── Vista previa (PDF real, sin guardar nada) ─────────
+// Regla: todo formato para un colaborador se puede VER antes de generarlo.
+const visor = useVistaPreviaPdf(mostrarError);
+
+/** Documentos de la sección que hoy se generarían (los que ofrecen «Vista previa» junto a «Generar»). */
+function porGenerar(seccion: Seccion): ItemDocumentoProceso[] {
+    return seccion.documentos.filter((d) =>
+        d.acciones.some((a) => a.clave === 'generar'),
     );
-    void ejecutarGeneracion(pendiente.value, completar);
+}
+
+function verPrevias(
+    seccion: Seccion,
+    items: ItemDocumentoProceso[],
+    completar: Record<string, string> = {},
+) {
+    const { manuales, datosColaborador } = separarCapturados(completar);
+
+    void visor.abrir(
+        items.map((item) => ({
+            clave: item.clave,
+            nombre: item.nombre,
+            url: api.urlVistaPrevia(
+                seccion.registro.tipo,
+                seccion.registro.id,
+                {
+                    clave: item.clave,
+                    proceso: seccion.proceso,
+                    completar: datosColaborador,
+                    manuales,
+                },
+            ),
+        })),
+    );
+}
+
+/** «Previsualizar» del modal de datos faltantes: con lo capturado, sin guardarlo. */
+function previsualizarCapturados() {
+    const p = pendiente.value;
+
+    if (!p) {
+        return;
+    }
+
+    const items =
+        p.clave === null
+            ? porGenerar(p.seccion)
+            : p.seccion.documentos.filter((d) => d.clave === p.clave);
+    verPrevias(p.seccion, items, capturados());
 }
 
 // ───────── Nueva revisión de un documento firmado ─────────
@@ -421,6 +485,12 @@ async function alAccionar(
 
     if (accion.clave === 'calcular_finiquito') {
         emit('calcularFiniquito');
+
+        return;
+    }
+
+    if (accion.clave === 'vista_previa') {
+        verPrevias(seccion, [item]);
 
         return;
     }
@@ -603,6 +673,13 @@ const etapas: Record<string, string> = {
 function alAccionSeccion(seccion: Seccion, accion: AccionDocumento) {
     if (accion.clave === 'generar_paquete') {
         void ejecutarGeneracion({ seccion, clave: null, regenerar: false });
+
+        return;
+    }
+
+    // Cada documento del paquete en la galería del visor.
+    if (accion.clave === 'vista_previa_paquete') {
+        verPrevias(seccion, porGenerar(seccion));
 
         return;
     }
@@ -794,6 +871,19 @@ async function confirmarBaja() {
                     @click="pendiente = null"
                     >Cancelar</Button
                 >
+                <!-- Con lo capturado, sin guardarlo en la ficha. -->
+                <Button
+                    variant="outline"
+                    :disabled="ocupado !== null || visor.cargando.value"
+                    @click="previsualizarCapturados"
+                >
+                    <Loader2
+                        v-if="visor.cargando.value"
+                        class="size-4 animate-spin"
+                    />
+                    <Eye v-else class="size-4" />
+                    Previsualizar
+                </Button>
                 <Button
                     :disabled="
                         ocupado !== null || !completo || editables.length === 0
@@ -809,6 +899,15 @@ async function confirmarBaja() {
             </DialogFooter>
         </DialogContent>
     </Dialog>
+
+    <!-- Vista previa (uno o la galería del paquete) -->
+    <DocumentPreviewDialog
+        :open="visor.abierto.value"
+        :archivos="visor.archivos.value"
+        :indice="visor.indice.value"
+        @update:open="visor.alCambiarAbierto"
+        @update:indice="(i: number) => (visor.indice.value = i)"
+    />
 
     <!-- Nueva revisión de un documento firmado -->
     <Dialog

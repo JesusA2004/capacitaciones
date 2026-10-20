@@ -66,18 +66,8 @@ class ContratoLaboralService
         if ($fin !== null && $fin->lt($inicio)) {
             throw ValidationException::withMessages(['fecha_fin_contrato' => 'La fecha de vencimiento no puede ser anterior al inicio.']);
         }
-        $contrato = ContratoLaboral::query()->create([
-            'colaborador_id' => $colaborador->id,
-            'tipo' => $tipo,
-            'fecha_inicio' => $inicio->toDateString(),
-            'fecha_fin' => $tipo->tieneVencimiento() ? $fin?->toDateString() : null,
-            'estado' => EstadoContratoLaboral::Vigente,
-            'sueldo_mensual' => $colaborador->sueldo_mensual,
-            'puesto_id' => $colaborador->puesto_id,
-            'sucursal_id' => $colaborador->sucursal_principal_id,
-            'contrato_anterior_id' => $anterior?->id,
-            'creado_por' => $actor->id,
-        ]);
+        $contrato = $this->nuevoContrato($colaborador, $tipo, $inicio, $fin, $actor, $anterior);
+        $contrato->save();
 
         $colaborador->update([
             'tipo_contratacion' => $tipo,
@@ -93,6 +83,51 @@ class ContratoLaboralService
         ]);
 
         return $contrato;
+    }
+
+    /**
+     * Contrato vigente SIN guardar (mismos datos que crearContrato()): lo
+     * guarda crearContrato() y lo usa en memoria la vista previa.
+     */
+    private function nuevoContrato(Colaborador $colaborador, TipoContratacion $tipo, CarbonInterface $inicio, ?CarbonInterface $fin, User $actor, ?ContratoLaboral $anterior): ContratoLaboral
+    {
+        return ContratoLaboral::query()->make([
+            'colaborador_id' => $colaborador->id,
+            'tipo' => $tipo,
+            'fecha_inicio' => $inicio->toDateString(),
+            'fecha_fin' => $tipo->tieneVencimiento() ? $fin?->toDateString() : null,
+            'estado' => EstadoContratoLaboral::Vigente,
+            'sueldo_mensual' => $colaborador->sueldo_mensual,
+            'puesto_id' => $colaborador->puesto_id,
+            'sucursal_id' => $colaborador->sucursal_principal_id,
+            'contrato_anterior_id' => $anterior?->id,
+            'creado_por' => $actor->id,
+        ]);
+    }
+
+    /**
+     * Contrato indeterminado que nacería al renovar (mismas fechas y datos
+     * que renovar()), EN MEMORIA: para ver sus documentos antes de autorizar
+     * la renovación. No guarda nada.
+     */
+    public function propuestaRenovacion(ContratoLaboral $anterior, User $actor): ContratoLaboral
+    {
+        if ($anterior->estado !== EstadoContratoLaboral::Vigente) {
+            throw ValidationException::withMessages(['contrato' => 'Solo un contrato vigente puede renovarse.']);
+        }
+
+        $nuevo = $this->nuevoContrato($anterior->colaborador, TipoContratacion::Indeterminado->normalizada(), $this->inicioRenovacion($anterior), null, $actor, $anterior);
+        $nuevo->setRelation('colaborador', $anterior->colaborador);
+
+        return $nuevo;
+    }
+
+    /**
+     * El indeterminado empieza al día siguiente del vencimiento del anterior.
+     */
+    private function inicioRenovacion(ContratoLaboral $anterior): CarbonInterface
+    {
+        return $anterior->fecha_fin !== null ? $anterior->fecha_fin->copy()->addDay() : FechaMexico::inicioDeHoy();
     }
 
     /**
@@ -338,9 +373,8 @@ class ContratoLaboralService
             }
 
             $anterior->update(['estado' => EstadoContratoLaboral::Renovado]);
-            $inicio = $anterior->fecha_fin !== null ? $anterior->fecha_fin->copy()->addDay() : FechaMexico::inicioDeHoy();
 
-            return $this->crearContrato($anterior->colaborador, TipoContratacion::Indeterminado, $inicio, null, $actor, $anterior);
+            return $this->crearContrato($anterior->colaborador, TipoContratacion::Indeterminado, $this->inicioRenovacion($anterior), null, $actor, $anterior);
         });
 
         $this->auditoria->registrar('contrato_renovado', $nuevo, $actor, ['contrato_anterior_id' => $anterior->id]);

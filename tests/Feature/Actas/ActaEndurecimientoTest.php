@@ -265,18 +265,26 @@ test('quien levanta es siempre quien registra: responsable_id ajeno se rechaza a
     expect($acta->refresh()->responsable_id)->toBe($this->rh->id);
 });
 
-test('jefe = responsable se decide por colaborador_id, no por nombre (homónimos son personas distintas)', function () {
+test('por la empresa firma el representante legal sin nombre; lo que manifestó quien levanta y es jefe se atribuye al jefe', function () {
     // Homónimo: otra persona con el mismo nombre que quien levanta.
     $homonimo = Colaborador::factory()->create(['name' => 'Rocío', 'apellidos' => 'Hernández Paz', 'sucursal_principal_id' => $this->centro->id, 'estatus' => EstadoUsuario::Activo]);
-    $acta = aeLevantar($this, aeDatos(['jefe' => ['participa' => true, 'colaborador_id' => $homonimo->id]]));
+    $acta = aeLevantar($this, aeDatos(['jefe' => ['participa' => true, 'colaborador_id' => $homonimo->id], 'responsable' => ['manifestacion' => 'Constaté el faltante.']]));
     $datos = app(ActaPdfService::class)->datosCircunstanciada($acta->refresh());
 
-    expect($datos['jefe']['nombre'])->toBe($datos['responsable']['nombre'])
+    // La cuenta que levantó nunca se imprime: representante legal en blanco.
+    expect($datos['responsable']['nombre'])->toBeNull()
+        ->and($datos['responsable']['cargo'])->toBe('Representante legal')
+        ->and($datos['responsable']['manifestacion'])->toBe('Constaté el faltante.')
+        ->and($datos['jefe']['nombre'])->toBe('Rocío Hernández Paz')
         ->and($datos['jefe']['es_responsable'])->toBeFalse();
 
-    // Quien levanta ES el jefe que participa: una sola persona.
-    $mismo = aeLevantar($this, aeDatos(['jefe' => ['participa' => true, 'colaborador_id' => $this->rh->colaborador_id]]));
-    expect(app(ActaPdfService::class)->datosCircunstanciada($mismo->refresh())['jefe']['es_responsable'])->toBeTrue();
+    // Quien levanta ES el jefe que participa (mismo colaborador_id): su
+    // manifestación es del jefe, nunca del representante legal.
+    $mismo = aeLevantar($this, aeDatos(['jefe' => ['participa' => true, 'colaborador_id' => $this->rh->colaborador_id], 'responsable' => ['manifestacion' => 'Lo vi en el arqueo.']]));
+    $datosMismo = app(ActaPdfService::class)->datosCircunstanciada($mismo->refresh());
+
+    expect($datosMismo['jefe']['manifestacion'])->toBe('Lo vi en el arqueo.')
+        ->and($datosMismo['responsable']['manifestacion'])->toBeNull();
 });
 
 test('el cierre no puede ser anterior al levantamiento ni futuro (hora de México)', function () {

@@ -444,7 +444,7 @@
 |---|---|
 | **Capítulo** | Baja, finiquito y reingreso |
 | **Pantalla** | Ciclo laboral → Iniciar baja (`/rh/colaboradores/:colaborador/ciclo`) |
-| **Acción** | Abrir «Iniciar baja», elegir la causa, el motivo y la fecha efectiva. |
+| **Acción** | Abrir «Iniciar baja», elegir el tipo, el motivo y la fecha efectiva. |
 | **Zoom** | Zoom al diálogo |
 | **Texto en pantalla** | El jefe o RH inicia → documentos |
 | **Captura / clip** | `31-baja.png` |

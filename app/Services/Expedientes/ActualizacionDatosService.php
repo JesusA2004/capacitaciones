@@ -3,12 +3,14 @@
 namespace App\Services\Expedientes;
 
 use App\Enums\EstadoCivil;
+use App\Enums\EstadoRepublica;
 use App\Enums\Genero;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Colaboradores\DomicilioService;
 use BackedEnum;
 use DateTimeInterface;
 use Illuminate\Validation\Rule;
@@ -27,7 +29,10 @@ use Illuminate\Validation\ValidationException;
  */
 class ActualizacionDatosService
 {
-    public function __construct(private readonly AuditoriaService $auditoria) {}
+    public function __construct(
+        private readonly AuditoriaService $auditoria,
+        private readonly DomicilioService $domicilios,
+    ) {}
 
     /**
      * Cómo se captura cada dato (la app y la web dibujan el control).
@@ -44,15 +49,17 @@ class ActualizacionDatosService
             'contacto_emergencia_telefono' => 'tel',
             'correo_personal' => 'email',
             'domicilio_cp' => 'number',
+            'domicilio_estado' => 'opciones',
             'nss' => 'number',
         ];
         $opciones = [
             'genero' => array_map(fn (Genero $g) => ['value' => $g->value, 'label' => $g->etiqueta()], [Genero::Femenino, Genero::Masculino]),
             'estado_civil' => EstadoCivil::opciones(),
+            'domicilio_estado' => EstadoRepublica::opciones(),
         ];
         $campos = [];
 
-        foreach (DatosFaltantesService::PERSONALES as $campo => $etiqueta) {
+        foreach ($this->capturables() as $campo => $etiqueta) {
             $fila = ['campo' => $campo, 'etiqueta' => $etiqueta, 'tipo' => $tipos[$campo] ?? 'text'];
 
             if (isset($opciones[$campo])) {
@@ -75,8 +82,53 @@ class ActualizacionDatosService
     public function conCaptura(array $faltan): array
     {
         $captura = collect($this->camposCaptura())->keyBy('campo');
+        $campos = array_column($faltan, 'campo');
 
-        return array_values(array_filter(array_map(fn (array $f) => $captura->get($f['campo']), $faltan)));
+        // El número interior nunca «falta» (es opcional), pero se ofrece
+        // junto con la calle y el número exterior al capturar el domicilio.
+        if (array_intersect($campos, ['domicilio_calle', 'domicilio_numero_exterior']) !== [] && ! in_array('domicilio_numero_interior', $campos, true)) {
+            $despues = in_array('domicilio_numero_exterior', $campos, true) ? 'domicilio_numero_exterior' : 'domicilio_calle';
+            array_splice($campos, (int) array_search($despues, $campos, true) + 1, 0, ['domicilio_numero_interior']);
+        }
+
+        return array_values(array_filter(array_map(fn (string $campo) => $captura->get($campo), $campos)));
+    }
+
+    /**
+     * Datos que se capturan (obligatorios + opcionales), en orden: el
+     * número interior va justo después del exterior.
+     *
+     * @return array<string, string>
+     */
+    public function capturables(): array
+    {
+        $campos = [];
+
+        foreach (DatosFaltantesService::PERSONALES as $campo => $etiqueta) {
+            $campos[$campo] = $etiqueta;
+
+            if ($campo === 'domicilio_numero_exterior') {
+                $campos = [...$campos, ...DatosFaltantesService::PERSONALES_OPCIONALES];
+            }
+        }
+
+        return [...$campos, ...DatosFaltantesService::PERSONALES_OPCIONALES];
+    }
+
+    /**
+     * Todo lo que una solicitud puede proponer: lo capturable más el
+     * `domicilio` en texto único de las APKs anteriores.
+     *
+     * @return array<string, string>
+     */
+    private function aceptados(): array
+    {
+        return [...$this->capturables(), ...DatosFaltantesService::PERSONALES_LEGADO];
+    }
+
+    private function etiquetaCampo(string $campo): string
+    {
+        return $this->aceptados()[$campo] ?? $campo;
     }
 
     /**
@@ -88,7 +140,7 @@ class ActualizacionDatosService
     {
         return [
             // Solo datos personales: un dato laboral (puesto, sueldo…) lo captura RH.
-            'datos' => ['nullable', sprintf('array:%s', implode(',', array_keys(DatosFaltantesService::PERSONALES))), 'min:1'],
+            'datos' => ['nullable', sprintf('array:%s', implode(',', array_keys($this->aceptados()))), 'min:1'],
             'datos.*' => ['nullable', 'string', 'max:255'],
             'datos.genero' => ['nullable', Rule::in([Genero::Femenino->value, Genero::Masculino->value])],
             'datos.estado_civil' => ['nullable', Rule::enum(EstadoCivil::class)],
@@ -99,7 +151,8 @@ class ActualizacionDatosService
             'datos.telefono' => ['nullable', 'regex:/^\d{10}$/'],
             'datos.contacto_emergencia_telefono' => ['nullable', 'regex:/^\d{10}$/'],
             'datos.correo_personal' => ['nullable', 'email', 'max:150'],
-            'datos.domicilio_cp' => ['nullable', 'digits:5'],
+            // Calle, número, colonia, C.P. (5 dígitos), municipio y estado (de la lista).
+            ...$this->domicilios->reglas(prefijo: 'datos.'),
         ];
     }
 
@@ -115,7 +168,7 @@ class ActualizacionDatosService
             'datos.nss.digits' => 'El NSS son 11 dígitos.',
             'datos.telefono.regex' => 'El teléfono son 10 dígitos.',
             'datos.contacto_emergencia_telefono.regex' => 'El teléfono de emergencia son 10 dígitos.',
-            'datos.domicilio_cp.digits' => 'El código postal son 5 dígitos.',
+            ...$this->domicilios->mensajes('datos.'),
             'datos.fecha_nacimiento.before' => 'Revisa la fecha de nacimiento.',
             'datos.correo_personal.email' => 'Escribe un correo válido.',
         ];
@@ -137,6 +190,24 @@ class ActualizacionDatosService
     }
 
     /**
+     * Domicilio estructurado con su valor vigente (la app arma «Solicitar
+     * cambio de domicilio» con esto) y el texto completo registrado.
+     *
+     * @return array{texto: string|null, completo: bool, campos: list<array<string, mixed>>}
+     */
+    public function domicilioConValor(Colaborador $colaborador): array
+    {
+        return [
+            'texto' => $this->comoTexto($colaborador->domicilio),
+            'completo' => $this->domicilios->completo($colaborador),
+            'campos' => array_values(array_filter(
+                $this->camposConValor($colaborador),
+                fn (array $c): bool => in_array($c['campo'], DomicilioService::CAMPOS, true),
+            )),
+        ];
+    }
+
+    /**
      * Normaliza lo propuesto: solo campos personales conocidos y con valor
      * (CURP/RFC en mayúsculas). Un valor igual al del expediente no es un
      * cambio y se descarta. Sin ningún dato, error claro.
@@ -150,14 +221,19 @@ class ActualizacionDatosService
     {
         $limpios = [];
 
-        foreach (array_keys(DatosFaltantesService::PERSONALES) as $campo) {
+        foreach (array_keys($this->aceptados()) as $campo) {
             $valor = trim((string) ($datos[$campo] ?? ''));
 
             if ($valor === '') {
                 continue;
             }
 
-            $valor = in_array($campo, ['curp', 'rfc'], true) ? mb_strtoupper($valor) : $valor;
+            $valor = match (true) {
+                in_array($campo, ['curp', 'rfc'], true) => mb_strtoupper($valor),
+                // Estado con su nombre oficial, C.P. solo dígitos.
+                in_array($campo, DomicilioService::CAMPOS, true) => (string) $this->domicilios->normalizar($campo, $valor),
+                default => $valor,
+            };
 
             if ($colaborador !== null && $valor === $this->comoTexto($colaborador->getAttribute($campo))) {
                 continue;
@@ -232,9 +308,9 @@ class ActualizacionDatosService
 
         foreach (array_keys($datos) as $campo) {
             if (($base[$campo] ?? null) === null) {
-                $completar[] = DatosFaltantesService::PERSONALES[$campo];
+                $completar[] = $this->etiquetaCampo($campo);
             } else {
-                $cambiar[] = DatosFaltantesService::PERSONALES[$campo];
+                $cambiar[] = $this->etiquetaCampo($campo);
             }
         }
 
@@ -273,7 +349,7 @@ class ActualizacionDatosService
 
             $filas[] = [
                 'campo' => $campo,
-                'etiqueta' => DatosFaltantesService::PERSONALES[$campo] ?? $campo,
+                'etiqueta' => $this->etiquetaCampo($campo),
                 'actual' => $this->legible($campo, $actual),
                 'propuesto' => (string) $this->legible($campo, $valor),
                 'clase' => $alSolicitar === null ? 'completar' : 'cambio',
@@ -307,7 +383,7 @@ class ActualizacionDatosService
         $base = $solicitud->datos_base;
 
         foreach ($propuestos as $campo => $valor) {
-            if (! array_key_exists($campo, DatosFaltantesService::PERSONALES)) {
+            if (! array_key_exists($campo, $this->aceptados())) {
                 continue;
             }
 
@@ -319,7 +395,7 @@ class ActualizacionDatosService
             if ($base !== null && array_key_exists($campo, $base) && $base[$campo] !== $vigente) {
                 throw ValidationException::withMessages(['datos' => sprintf(
                     '«%s» cambió en el expediente después de la solicitud (antes: %s; ahora: %s). Rechaza esta solicitud para que se pida de nuevo sobre el valor vigente.',
-                    DatosFaltantesService::PERSONALES[$campo],
+                    $this->etiquetaCampo($campo),
                     $this->legible($campo, $base[$campo]) ?? 'vacío',
                     $this->legible($campo, $vigente) ?? 'vacío',
                 )]);
@@ -327,6 +403,12 @@ class ActualizacionDatosService
 
             $anteriores[$campo] = $this->comoTexto($colaborador->getAttribute($campo));
             $cambios[$campo] = $valor;
+        }
+
+        // Si cambian campos del domicilio, el modelo recompone el texto
+        // `domicilio`: lo anterior queda también en la solicitud.
+        if (array_intersect_key($cambios, array_flip(DomicilioService::CAMPOS)) !== [] && ! array_key_exists('domicilio', $anteriores)) {
+            $anteriores['domicilio'] = $this->comoTexto($colaborador->domicilio);
         }
 
         $colaborador->update($cambios);

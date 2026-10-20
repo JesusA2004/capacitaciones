@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Rh;
 
 use App\Enums\EstadoCierreLaboral;
+use App\Enums\TipoBaja;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\ArchivoLaboralRequest;
 use App\Http\Requests\CicloLaboral\DecisionAprobacionRequest;
@@ -11,9 +12,11 @@ use App\Http\Requests\CicloLaboral\FiniquitoCierreRequest;
 use App\Http\Requests\CicloLaboral\ProgramarPagoRequest;
 use App\Http\Requests\CicloLaboral\SolicitarCierreRequest;
 use App\Http\Requests\Rh\AjustarConceptoFiniquitoRequest;
+use App\Models\CausalRotacion;
 use App\Models\CierreLaboral;
 use App\Models\Colaborador;
 use App\Models\FiniquitoConcepto;
+use App\Services\CierreLaboral\CausalRotacionService;
 use App\Services\CierreLaboral\CierreLaboralService;
 use App\Services\Finiquitos\FiniquitoService;
 use Illuminate\Http\RedirectResponse;
@@ -32,6 +35,7 @@ class CierreLaboralController extends Controller
     public function __construct(
         private readonly CierreLaboralService $cierres,
         private readonly FiniquitoService $finiquitos,
+        private readonly CausalRotacionService $causales,
     ) {}
 
     /**
@@ -66,6 +70,11 @@ class CierreLaboralController extends Controller
             ],
             'estados' => array_map(fn (EstadoCierreLaboral $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], EstadoCierreLaboral::cases()),
             'puede_ver_finiquito' => $puedeVerFiniquito,
+            // Pestaña «Causales de rotación» (subcatálogo del tipo de baja):
+            // solo para quien la administra.
+            'causales' => $usuario->can('administrar', CausalRotacion::class) ? $this->causales->listado() : null,
+            'tipos_baja' => array_map(fn (TipoBaja $t): array => ['value' => $t->value, 'label' => $t->etiqueta()], TipoBaja::cases()),
+            'seccion' => $request->query('seccion') === 'causales' ? 'causales' : 'bajas',
         ]);
     }
 

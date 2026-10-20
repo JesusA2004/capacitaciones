@@ -4,9 +4,12 @@ namespace App\Services\DocumentosMaestros;
 
 use App\Enums\EstadoValidacionVisual;
 use App\Enums\FidelidadConversion;
+use App\Enums\TipoSolicitudInterna;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\DocumentTemplate;
+use App\Models\Prestamo;
+use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
@@ -15,6 +18,8 @@ use App\Services\DocumentosMaestros\Calidad\DiagnosticoFuentesService;
 use App\Services\DocumentosMaestros\Calidad\ValidacionVisualMaestroService;
 use App\Services\DocumentosMaestros\Docx\LimpiadorMarcasEditoriales;
 use App\Services\Formatos\Motor\ConversorDocxPdf;
+use App\Services\Nomina\PrestamoService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -296,8 +301,7 @@ class DocumentosMaestrosAdminService
             throw ValidationException::withMessages(['master' => 'Este documento es de referencia: no se genera para colaboradores.']);
         }
 
-        $contrato = ContratoLaboral::query()->where('colaborador_id', $colaborador->id)->orderByDesc('fecha_inicio')->first();
-        $contexto = $this->motor->contextoDesde($colaborador, $contrato, $actor);
+        [$contexto, $origenPrestamo] = $this->contextoPrueba($master, $colaborador, $actor);
         $resultado = $this->motor->previsualizarMaestro($master, $contexto);
         $token = (string) Str::uuid();
         $this->almacen->disco()->put($this->rutaPrueba($master, $token), $resultado['pdf']);
@@ -325,6 +329,9 @@ class DocumentosMaestrosAdminService
             'desbordes' => $resultado['desbordes'],
             'fuentes' => ['ok' => array_filter($fuentes, fn (array $f): bool => ! $f['disponible']) === [], 'detalle' => $fuentes],
             'patron' => $origenes,
+            // Documentos de préstamo: de dónde salieron monto, plazo y fechas
+            // (préstamo real, solicitud o valores de EJEMPLO). null = no aplica.
+            'prestamo' => $origenPrestamo,
             'url_resultado' => sprintf('/rh/documentos-maestros/%d/prueba/%s', $master->id, $token),
             'url_original' => sprintf('/rh/documentos-maestros/%d/original-pdf', $master->id),
         ];
@@ -346,6 +353,63 @@ class DocumentosMaestrosAdminService
         $this->auditoria->registrar('documento_maestro_probado', $master, $actor, ['familia' => $master->familia, 'version' => $master->version, 'colaborador_id' => $colaborador->id]);
 
         return $resumen;
+    }
+
+    /**
+     * Contexto de la PRUEBA de un master: los datos del colaborador siempre
+     * reales. Un documento de préstamo necesita además un préstamo: el más
+     * reciente del colaborador (autorizado primero); si no tiene, una
+     * propuesta en memoria desde su última solicitud de préstamo; y si
+     * tampoco, uno de EJEMPLO (folio «EJEMPLO», nunca se guarda) — así la
+     * prueba nunca se queda en «Préstamo autorizado» por falta de préstamo
+     * y solo reporta lo que de verdad le falta a la persona.
+     *
+     * @return array{0: ContextoDocumento, 1: array{origen: string, descripcion: string}|null}
+     */
+    public function contextoPrueba(DocumentTemplate $master, Colaborador $colaborador, User $actor): array
+    {
+        $contrato = ContratoLaboral::query()->where('colaborador_id', $colaborador->id)->orderByDesc('fecha_inicio')->first();
+        $contexto = $this->motor->contextoDesde($colaborador, $contrato, $actor);
+        $proceso = $this->catalogo->definicion((string) $master->familia)['proceso'] ?? $master->proceso;
+
+        if ($proceso !== 'prestamo') {
+            return [$contexto, null];
+        }
+
+        $prestamo = Prestamo::query()->where('colaborador_id', $colaborador->id)->orderByRaw('autorizado_en IS NULL')->orderByDesc('id')->first();
+
+        if ($prestamo !== null) {
+            return [$contexto->conPrestamo($prestamo), ['origen' => 'prestamo', 'descripcion' => sprintf('Datos del préstamo PRE-%06d del colaborador.', $prestamo->id)]];
+        }
+
+        $usuarioId = $colaborador->user()->value('id');
+        $solicitud = SolicitudInterna::query()
+            ->where('tipo', TipoSolicitudInterna::PrestamoInterno->value)
+            ->where(fn (Builder $q) => $q->where('colaborador_id', $colaborador->id)->when($usuarioId !== null, fn (Builder $q) => $q->orWhere('user_id', $usuarioId)))
+            ->orderByDesc('id')
+            ->first();
+
+        if ($solicitud !== null) {
+            $propuesta = app(PrestamoService::class)->propuestaDesdeSolicitud($solicitud, [], $actor);
+
+            return [$contexto->conPrestamo($propuesta), ['origen' => 'solicitud', 'descripcion' => sprintf('Monto y plazo de la solicitud de préstamo #%d (aún sin autorizar: las fechas de pago quedan en blanco).', $solicitud->id)]];
+        }
+
+        $hoy = $contexto->fechaDocumento();
+        $ejemplo = Prestamo::query()->make([
+            'colaborador_id' => $colaborador->id,
+            'monto_original' => 5000,
+            'saldo' => 5000,
+            'plazo' => 10,
+            'periodicidad' => 'semanal',
+            'pago_programado' => 500,
+            'fecha_solicitud' => $hoy->toDateString(),
+            'fecha_otorgamiento' => $hoy->toDateString(),
+            'fecha_primer_descuento' => $hoy->addWeek()->toDateString(),
+            'estado' => 'pendiente_entrega',
+        ]);
+
+        return [$contexto->conPrestamo($ejemplo, true), ['origen' => 'ejemplo', 'descripcion' => 'El colaborador no tiene préstamo ni solicitud de préstamo: monto, plazo y fechas son de EJEMPLO ($5,000.00 a 10 pagos semanales; folio «EJEMPLO»). Los datos del colaborador son los reales.']];
     }
 
     public function pdfPrueba(DocumentTemplate $master, string $token): ?string

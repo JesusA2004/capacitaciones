@@ -78,25 +78,11 @@ class ReciboNominaService
         }
 
         $conceptos = $this->normalizarConceptos($datos);
+        $atributos = $this->atributosRecibo($colaborador, $datos, $conceptos);
+        $periodoInicio = $atributos['periodo_inicio'];
+        $periodoFin = $atributos['periodo_fin'];
 
-        if ($conceptos === []) {
-            throw ValidationException::withMessages(['conceptos' => 'Captura al menos un concepto.']);
-        }
-
-        $periodoInicio = Carbon::parse($datos['periodo_inicio'])->startOfDay();
-        $periodoFin = Carbon::parse($datos['periodo_fin'])->startOfDay();
-        $tipoPeriodo = (string) ($datos['tipo_periodo'] ?? (isset($datos['conceptos']) ? self::TIPO_PERIODO_SEMANAL : 'libre'));
-
-        if ($periodoFin->lt($periodoInicio)) {
-            throw ValidationException::withMessages(['periodo_fin' => 'La fecha final no puede ser anterior a la inicial.']);
-        }
-
-        $percepciones = array_values(array_filter($conceptos, fn (array $c) => $c['tipo'] === TipoConceptoNomina::Percepcion->value));
-        $deducciones = array_values(array_filter($conceptos, fn (array $c) => $c['tipo'] === TipoConceptoNomina::Deduccion->value));
-        $totalPercepciones = round(array_sum(array_column($percepciones, 'importe')), 2);
-        $totalDeducciones = round(array_sum(array_column($deducciones, 'importe')), 2);
-
-        $recibo = DB::transaction(function () use ($colaborador, $datos, $generadoPor, $conceptos, $percepciones, $deducciones, $totalPercepciones, $totalDeducciones, $periodoInicio, $periodoFin, $tipoPeriodo, $lote): ReciboNomina {
+        $recibo = DB::transaction(function () use ($colaborador, $generadoPor, $conceptos, $atributos, $periodoInicio, $periodoFin, $lote): ReciboNomina {
             // Bloqueo por colaborador: dos capturas/importaciones simultáneas
             // no pueden emitir dos recibos del mismo periodo.
             Colaborador::query()->whereKey($colaborador->id)->lockForUpdate()->first();
@@ -116,39 +102,7 @@ class ReciboNominaService
             }
 
             $recibo = ReciboNomina::query()->create([
-                'colaborador_id' => $colaborador->id,
-                'periodo_inicio' => $periodoInicio,
-                'periodo_fin' => $periodoFin,
-                'fecha_pago' => Carbon::parse($datos['fecha_pago'] ?? $periodoFin),
-                'tipo_periodo' => $tipoPeriodo,
-                'ejercicio' => $tipoPeriodo === self::TIPO_PERIODO_QUINCENAL ? $periodoInicio->year : (int) $periodoInicio->isoFormat('GGGG'),
-                'numero_periodo' => match ($tipoPeriodo) {
-                    self::TIPO_PERIODO_SEMANAL => $periodoInicio->isoWeek(),
-                    // 1–24: dos quincenas por mes.
-                    self::TIPO_PERIODO_QUINCENAL => ($periodoInicio->month - 1) * 2 + ($periodoInicio->day <= 15 ? 1 : 2),
-                    default => null,
-                },
-                // Siempre nace como borrador: solo emitir() lo marca emitido, y
-                // únicamente DESPUÉS de que su PDF quedó guardado.
-                'estado' => EstadoReciboNomina::Borrador,
-                'nomina_lote_id' => isset($datos['nomina_lote_id']) ? (int) $datos['nomina_lote_id'] : null,
-                'dias_pagados' => isset($datos['dias_pagados']) ? round((float) $datos['dias_pagados'], 2) : null,
-                'dias_falta' => isset($datos['dias_falta']) ? round((float) $datos['dias_falta'], 2) : null,
-                'dias_incapacidad' => isset($datos['dias_incapacidad']) ? round((float) $datos['dias_incapacidad'], 2) : null,
-                'advertencias' => isset($datos['advertencias']) && is_array($datos['advertencias']) && $datos['advertencias'] !== [] ? array_values($datos['advertencias']) : null,
-                'sueldo_base' => round((float) ($datos['sueldo_base'] ?? $percepciones[0]['importe'] ?? 0), 2),
-                // Snapshot JSON compatible con el portal existente.
-                'percepciones' => array_map(fn (array $c) => ['concepto' => $c['concepto'], 'monto' => $c['importe']], $percepciones),
-                'deducciones' => array_map(fn (array $c) => array_filter([
-                    'concepto' => $c['concepto'],
-                    'monto' => $c['importe'],
-                    'tipo' => $c['clasificacion'] ?? null,
-                    'prestamo_id' => $c['prestamo_id'] ?? null,
-                ], fn ($v) => $v !== null), $deducciones),
-                'total_percepciones' => $totalPercepciones,
-                'total_deducciones' => $totalDeducciones,
-                'neto' => round($totalPercepciones - $totalDeducciones, 2),
-                'observaciones' => $datos['observaciones'] ?? null,
+                ...$atributos,
                 'lote_importacion' => $lote,
                 'generado_por' => $generadoPor?->id,
             ]);
@@ -188,6 +142,91 @@ class ReciboNominaService
         }
 
         return $recibo->refresh();
+    }
+
+    /**
+     * Vista previa REAL del recibo (mismo diseño vigente y mismos datos que
+     * generar() + emitir()) con lo capturado en el formulario, SIN crear el
+     * recibo, sin PDF en el expediente, sin auditoría ni avisos: RH revisa
+     * antes de «Generar». El folio aún no existe (se asigna al generarlo).
+     *
+     * @param  array<string, mixed>  $datos  Misma forma que generar().
+     *
+     * @throws ValidationException Sin conceptos o periodo inválido.
+     */
+    public function vistaPreviaPdf(Colaborador $colaborador, array $datos): string
+    {
+        $recibo = new ReciboNomina($this->atributosRecibo($colaborador, $datos, $this->normalizarConceptos($datos)));
+        $recibo->folio = 'VISTA PREVIA';
+        $recibo->setRelation('colaborador', $colaborador);
+
+        return $this->documentosAdministrativos->renderizarVigente(FamiliaAdministrativa::ReciboNomina, $this->datosDocumento->recibo($recibo));
+    }
+
+    /**
+     * Atributos del recibo (periodo, totales y snapshot de conceptos) a
+     * partir de lo capturado: única fuente para generar() y la vista previa.
+     *
+     * @param  array<string, mixed>  $datos
+     * @param  list<array{tipo: string, clave?: string|null, concepto: string, cantidad: float, importe: float, observaciones: string|null, clasificacion?: string|null, prestamo_id?: int|null}>  $conceptos
+     * @return array<string, mixed>&array{periodo_inicio: Carbon, periodo_fin: Carbon}
+     *
+     * @throws ValidationException Sin conceptos o periodo inválido.
+     */
+    private function atributosRecibo(Colaborador $colaborador, array $datos, array $conceptos): array
+    {
+        if ($conceptos === []) {
+            throw ValidationException::withMessages(['conceptos' => 'Captura al menos un concepto.']);
+        }
+
+        $periodoInicio = Carbon::parse($datos['periodo_inicio'])->startOfDay();
+        $periodoFin = Carbon::parse($datos['periodo_fin'])->startOfDay();
+        $tipoPeriodo = (string) ($datos['tipo_periodo'] ?? (isset($datos['conceptos']) ? self::TIPO_PERIODO_SEMANAL : 'libre'));
+
+        if ($periodoFin->lt($periodoInicio)) {
+            throw ValidationException::withMessages(['periodo_fin' => 'La fecha final no puede ser anterior a la inicial.']);
+        }
+
+        $percepciones = array_values(array_filter($conceptos, fn (array $c) => $c['tipo'] === TipoConceptoNomina::Percepcion->value));
+        $deducciones = array_values(array_filter($conceptos, fn (array $c) => $c['tipo'] === TipoConceptoNomina::Deduccion->value));
+        $totalPercepciones = round(array_sum(array_column($percepciones, 'importe')), 2);
+        $totalDeducciones = round(array_sum(array_column($deducciones, 'importe')), 2);
+
+        return [
+            'colaborador_id' => $colaborador->id,
+            'periodo_inicio' => $periodoInicio,
+            'periodo_fin' => $periodoFin,
+            'fecha_pago' => Carbon::parse($datos['fecha_pago'] ?? $periodoFin),
+            'tipo_periodo' => $tipoPeriodo,
+            'ejercicio' => $tipoPeriodo === self::TIPO_PERIODO_QUINCENAL ? $periodoInicio->year : (int) $periodoInicio->isoFormat('GGGG'),
+            'numero_periodo' => match ($tipoPeriodo) {
+                self::TIPO_PERIODO_SEMANAL => $periodoInicio->isoWeek(),
+                // 1–24: dos quincenas por mes.
+                self::TIPO_PERIODO_QUINCENAL => ($periodoInicio->month - 1) * 2 + ($periodoInicio->day <= 15 ? 1 : 2),
+                default => null,
+            },
+            // Siempre nace como borrador: solo emitir() lo marca emitido, y
+            // únicamente DESPUÉS de que su PDF quedó guardado.
+            'estado' => EstadoReciboNomina::Borrador,
+            'nomina_lote_id' => isset($datos['nomina_lote_id']) ? (int) $datos['nomina_lote_id'] : null,
+            'dias_pagados' => isset($datos['dias_pagados']) ? round((float) $datos['dias_pagados'], 2) : null,
+            'dias_falta' => isset($datos['dias_falta']) ? round((float) $datos['dias_falta'], 2) : null,
+            'dias_incapacidad' => isset($datos['dias_incapacidad']) ? round((float) $datos['dias_incapacidad'], 2) : null,
+            'advertencias' => isset($datos['advertencias']) && is_array($datos['advertencias']) && $datos['advertencias'] !== [] ? array_values($datos['advertencias']) : null,
+            'sueldo_base' => round((float) ($datos['sueldo_base'] ?? $percepciones[0]['importe'] ?? 0), 2),
+            // Snapshot JSON compatible con el portal existente.
+            'percepciones' => array_map(fn (array $c) => ['concepto' => $c['concepto'], 'monto' => $c['importe']], $percepciones),
+            'deducciones' => array_map(fn (array $c) => array_filter([
+                'concepto' => $c['concepto'],
+                'monto' => $c['importe'],
+                'tipo' => $c['clasificacion'] ?? null,
+                'prestamo_id' => $c['prestamo_id'] ?? null,
+            ], fn ($v) => $v !== null), $deducciones),
+            'total_percepciones' => $totalPercepciones,
+            'total_deducciones' => $totalDeducciones,
+            'neto' => round($totalPercepciones - $totalDeducciones, 2),
+            'observaciones' => $datos['observaciones'] ?? null,
+        ];
     }
 
     /**

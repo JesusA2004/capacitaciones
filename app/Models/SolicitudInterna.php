@@ -33,6 +33,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property int|null $colaborador_objetivo_id
  * @property Carbon|null $fecha_efectiva
  * @property TipoBaja|null $tipo_baja
+ * @property int|null $causal_rotacion_id
+ * @property string|null $tipo_baja_original Valor anterior a la migración a tres tipos.
  * @property TipoSolicitudInterna $tipo
  * @property EstadoSolicitudInterna $estado
  * @property Carbon|null $fecha_inicio
@@ -72,6 +74,8 @@ class SolicitudInterna extends Model
         'objetivo_colaborador_id',
         'fecha_efectiva',
         'tipo_baja',
+        'causal_rotacion_id',
+        'tipo_baja_original',
         'tipo',
         'estado',
         'fecha_inicio',
@@ -114,6 +118,16 @@ class SolicitudInterna extends Model
             'datos_anteriores' => 'array',
             'datos_base' => 'array',
         ];
+    }
+
+    /**
+     * Causal de rotación de una baja (desglose del tipo de baja).
+     *
+     * @return BelongsTo<CausalRotacion, $this>
+     */
+    public function causalRotacion(): BelongsTo
+    {
+        return $this->belongsTo(CausalRotacion::class, 'causal_rotacion_id');
     }
 
     /**

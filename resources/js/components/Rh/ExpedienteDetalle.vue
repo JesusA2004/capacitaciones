@@ -14,6 +14,7 @@ import {
     CircleDashed,
     ClipboardList,
     Clock,
+    FileSearch,
     Fingerprint,
     FolderOpen,
     Hexagon,
@@ -46,10 +47,12 @@ import {
     X,
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
+import CamposDomicilio from '@/components/Common/CamposDomicilio.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import FotoPerfilCaptura from '@/components/Common/FotoPerfilCaptura.vue';
 import InputError from '@/components/InputError.vue';
+import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import AvisosComunicaciones from '@/components/Rh/AvisosComunicaciones.vue';
 import type { AvisoComunicacion } from '@/components/Rh/AvisosComunicaciones.vue';
 import CampoInfo from '@/components/Rh/CampoInfo.vue';
@@ -99,6 +102,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import VacacionesAntiguedad from '@/components/Vacaciones/VacacionesAntiguedad.vue';
 import { useAlertas } from '@/composables/useAlertas';
 import { formatearFecha } from '@/lib/fechas';
+import { vistaPreviaPost } from '@/lib/http';
 import {
     restablecerAcceso,
     revocarAcceso,
@@ -116,6 +120,7 @@ import {
     descargar as descargarRecibo,
     regenerarPdf as regenerarPdfReciboRoute,
     store as generarReciboNomina,
+    vistaPrevia as vistaPreviaReciboNomina,
 } from '@/routes/rh/expedientes/recibos-nomina';
 import { show as showSolicitud } from '@/routes/rh/solicitudes';
 import { edit as editSeguridad } from '@/routes/security';
@@ -148,6 +153,8 @@ const ETIQUETA_MOVIMIENTO: Record<PrestamoMovimientoTipo, string> = {
 const props = defineProps<{
     esPropio: boolean;
     puedeEditar: boolean;
+    /** Solo RH (nomina.recibos.crear) genera recibos, nunca el propio. */
+    puedeGenerarRecibos?: boolean;
     puedeReactivar: boolean;
     /** Ficha del Ciclo laboral (contratos, onboarding, evaluación, baja). */
     cicloUrl?: string | null;
@@ -256,7 +263,16 @@ const form = useForm({
     curp: props.colaborador.curp ?? '',
     rfc: props.colaborador.rfc ?? '',
     nss: props.colaborador.nss ?? '',
-    domicilio: props.colaborador.domicilio ?? '',
+    // Domicilio estructurado: el texto completo lo compone el backend.
+    domicilio_calle: props.colaborador.domicilio_calle ?? '',
+    domicilio_numero_exterior:
+        props.colaborador.domicilio_numero_exterior ?? '',
+    domicilio_numero_interior:
+        props.colaborador.domicilio_numero_interior ?? '',
+    domicilio_colonia: props.colaborador.domicilio_colonia ?? '',
+    domicilio_cp: props.colaborador.domicilio_cp ?? '',
+    domicilio_municipio: props.colaborador.domicilio_municipio ?? '',
+    domicilio_estado: props.colaborador.domicilio_estado ?? '',
     correo_personal: props.colaborador.correo_personal ?? '',
     contacto_emergencia_nombre:
         props.colaborador.contacto_emergencia_nombre ?? '',
@@ -601,6 +617,48 @@ function generarRecibo() {
             mostrarError('No fue posible generar el recibo de nómina.'),
     });
 }
+
+// Vista previa del recibo con lo capturado, ANTES de «Generar» (el backend
+// no crea el recibo ni archiva nada). Blob en memoria: los montos no viajan
+// en la URL.
+const vistaPreviaReciboUrl = ref<string | null>(null);
+const vistaPreviaReciboAbierta = ref(false);
+const cargandoVistaPreviaRecibo = ref(false);
+
+function limpiarVistaPreviaRecibo() {
+    if (vistaPreviaReciboUrl.value) {
+        URL.revokeObjectURL(vistaPreviaReciboUrl.value);
+        vistaPreviaReciboUrl.value = null;
+    }
+}
+
+async function verVistaPreviaRecibo() {
+    cargandoVistaPreviaRecibo.value = true;
+
+    try {
+        const url = await vistaPreviaPost(
+            vistaPreviaReciboNomina.url(props.colaborador.id),
+            formRecibo.data(),
+        );
+        limpiarVistaPreviaRecibo();
+        vistaPreviaReciboUrl.value = url;
+        vistaPreviaReciboAbierta.value = true;
+    } catch (e) {
+        mostrarError(
+            e instanceof Error
+                ? e.message
+                : 'No se pudo generar la vista previa del recibo.',
+        );
+    } finally {
+        cargandoVistaPreviaRecibo.value = false;
+    }
+}
+
+watch(vistaPreviaReciboAbierta, (abierta) => {
+    if (!abierta) {
+        limpiarVistaPreviaRecibo();
+    }
+});
 
 const formRegenerarPdf = useForm({});
 const reciboRegenerandoId = ref<number | null>(null);
@@ -1265,19 +1323,6 @@ function irACompletarExpediente() {
                                                 "
                                             />
                                         </div>
-                                        <div class="grid gap-2 sm:col-span-2">
-                                            <Label for="domicilio"
-                                                >Domicilio</Label
-                                            >
-                                            <Input
-                                                id="domicilio"
-                                                v-model="form.domicilio"
-                                                :disabled="!puedeEditar"
-                                            />
-                                            <InputError
-                                                :message="form.errors.domicilio"
-                                            />
-                                        </div>
                                         <div class="grid gap-2">
                                             <Label for="correo_personal"
                                                 >Correo personal</Label
@@ -1313,6 +1358,34 @@ function irACompletarExpediente() {
                                             </p>
                                         </div>
                                     </div>
+                                </div>
+
+                                <div class="flex flex-col gap-3 border-t pt-4">
+                                    <p
+                                        class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
+                                    >
+                                        <Home class="size-3.5" />
+                                        Domicilio
+                                    </p>
+                                    <CamposDomicilio
+                                        v-model:calle="form.domicilio_calle"
+                                        v-model:numero-exterior="
+                                            form.domicilio_numero_exterior
+                                        "
+                                        v-model:numero-interior="
+                                            form.domicilio_numero_interior
+                                        "
+                                        v-model:colonia="form.domicilio_colonia"
+                                        v-model:cp="form.domicilio_cp"
+                                        v-model:municipio="
+                                            form.domicilio_municipio
+                                        "
+                                        v-model:estado="form.domicilio_estado"
+                                        :errores="form.errors"
+                                        :disabled="!puedeEditar"
+                                        :texto-anterior="colaborador.domicilio"
+                                        prefijo="expediente_domicilio"
+                                    />
                                 </div>
 
                                 <div class="flex flex-col gap-3 border-t pt-4">
@@ -2477,7 +2550,10 @@ function irACompletarExpediente() {
                                 Recibos de nómina
                             </CardTitle>
                             <Button
-                                v-if="puedeEditar && colaborador.sueldo_mensual"
+                                v-if="
+                                    puedeGenerarRecibos &&
+                                    colaborador.sueldo_mensual
+                                "
                                 size="sm"
                                 type="button"
                                 @click="abrirDialogoRecibo"
@@ -2529,7 +2605,7 @@ function irACompletarExpediente() {
                                         disponible.</span
                                     >
                                     <Button
-                                        v-if="puedeEditar"
+                                        v-if="puedeGenerarRecibos"
                                         size="sm"
                                         variant="outline"
                                         type="button"
@@ -2948,6 +3024,18 @@ function irACompletarExpediente() {
                     >
                         Cancelar
                     </Button>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        :disabled="
+                            cargandoVistaPreviaRecibo || formRecibo.processing
+                        "
+                        @click="verVistaPreviaRecibo"
+                    >
+                        <Spinner v-if="cargandoVistaPreviaRecibo" />
+                        <FileSearch v-else class="size-4" />
+                        Vista previa
+                    </Button>
                     <Button type="submit" :disabled="formRecibo.processing">
                         Generar recibo
                     </Button>
@@ -2955,4 +3043,13 @@ function irACompletarExpediente() {
             </form>
         </DialogContent>
     </Dialog>
+
+    <DocumentPreviewDialog
+        :open="vistaPreviaReciboAbierta"
+        :preview-url="vistaPreviaReciboUrl"
+        nombre="Recibo de nómina (vista previa).pdf"
+        mime="application/pdf"
+        estado="Vista previa — todavía no se genera"
+        @update:open="(v) => (vistaPreviaReciboAbierta = v)"
+    />
 </template>

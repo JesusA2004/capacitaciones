@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ClipboardList, Send } from '@lucide/vue';
+import { ClipboardList, Eye, Send } from '@lucide/vue';
 import { useDebounceFn } from '@vueuse/core';
 import { ref, watch } from 'vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
+import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -40,6 +41,8 @@ type Fila = {
     acuse: Acuse | null;
     puede_enviar: boolean;
     motivo: string | null;
+    /** PDF oficial del descriptivo vigente («Ver lo que recibirá»). */
+    vista_previa: { url: string; nombre: string } | null;
 };
 
 type Paginador = {
@@ -87,7 +90,47 @@ function filtrar() {
 
 watch(termino, useDebounceFn(filtrar, 300));
 
+// «Ver lo que recibirá»: el primer envío pasa SIEMPRE por la vista previa
+// del PDF oficial y al cerrarla se confirma (RH ve tal cual lo que recibe).
+const filaVista = ref<Fila | null>(null);
+const verVistaPrevia = ref(false);
+const porConfirmar = ref<Fila | null>(null);
+
+function verLoQueRecibira(fila: Fila) {
+    filaVista.value = fila;
+    verVistaPrevia.value = true;
+}
+
+watch(verVistaPrevia, (abierto) => {
+    if (abierto) {
+        return;
+    }
+
+    const fila = porConfirmar.value;
+    porConfirmar.value = null;
+
+    if (
+        fila &&
+        window.confirm(
+            `¿Enviar «${fila.vista_previa?.nombre ?? 'el descriptivo'}» a ${fila.colaborador.nombre}? Es exactamente lo que acabas de revisar.`,
+        )
+    ) {
+        enviarDirecto(fila);
+    }
+});
+
 function enviar(fila: Fila) {
+    if (!fila.acuse && fila.vista_previa) {
+        verLoQueRecibira(fila);
+        porConfirmar.value = fila;
+
+        return;
+    }
+
+    enviarDirecto(fila);
+}
+
+function enviarDirecto(fila: Fila) {
     enviandoId.value = fila.colaborador.id;
     router.post(
         enviarDescriptivo.url(fila.colaborador.id),
@@ -226,6 +269,15 @@ function enviar(fila: Fila) {
                             </td>
                             <td class="px-4 py-3 text-right">
                                 <Button
+                                    v-if="f.vista_previa"
+                                    size="sm"
+                                    variant="ghost"
+                                    class="mr-1"
+                                    @click="verLoQueRecibira(f)"
+                                >
+                                    <Eye class="size-3.5" /> Ver lo que recibirá
+                                </Button>
+                                <Button
                                     v-if="f.puede_enviar"
                                     size="sm"
                                     :disabled="enviandoId === f.colaborador.id"
@@ -301,6 +353,15 @@ function enviar(fila: Fila) {
                         {{ f.motivo ?? 'Sin enviar' }}
                     </p>
                     <Button
+                        v-if="f.vista_previa"
+                        size="sm"
+                        variant="outline"
+                        class="mt-3 mr-2"
+                        @click="verLoQueRecibira(f)"
+                    >
+                        <Eye class="size-3.5" /> Ver lo que recibirá
+                    </Button>
+                    <Button
                         v-if="f.puede_enviar"
                         size="sm"
                         class="mt-3"
@@ -315,5 +376,14 @@ function enviar(fila: Fila) {
 
             <PaginacionTabla :datos="colaboradores" />
         </template>
+
+        <DocumentPreviewDialog
+            v-model:open="verVistaPrevia"
+            :preview-url="filaVista?.vista_previa?.url ?? null"
+            :nombre="filaVista?.vista_previa?.nombre ?? ''"
+            tipo="pdf"
+            mime="application/pdf"
+            estado="Vista previa — así lo recibirá el colaborador"
+        />
     </div>
 </template>

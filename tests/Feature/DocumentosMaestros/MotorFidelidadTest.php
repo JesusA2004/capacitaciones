@@ -7,6 +7,7 @@ use App\Enums\EstadoValidacionVisual;
 use App\Enums\ResultadoEvaluacion;
 use App\Enums\TipoBaja;
 use App\Enums\TipoContratacion;
+use App\Enums\TipoSolicitudInterna;
 use App\Models\CierreLaboral;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
@@ -19,7 +20,11 @@ use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\CierreLaboral\CierreLaboralService;
+use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\CatalogoMaestrosService;
+use App\Services\DocumentosMaestros\ContextoDocumento;
+use App\Services\DocumentosMaestros\DatosDocumentoService;
+use App\Services\DocumentosMaestros\DocumentosMaestrosAdminService;
 use App\Services\DocumentosMaestros\ImportadorFormatosJuridicosService;
 use App\Services\Formatos\FormatoPreviewService;
 use App\Services\Formatos\Motor\ConversorDocxPdf;
@@ -478,7 +483,7 @@ test('evaluación ACREDITA: el formato de NO acreditación no se genera; NO ACRE
         ->assertUnprocessable()->assertJsonPath('errors.documento.0', 'Se genera con la no renovación: primero se abre el cierre laboral.');
 
     CierreLaboral::query()->create([
-        'colaborador_id' => $colaborador->id, 'evaluacion_id' => $evaluacion->id, 'tipo_baja' => TipoBaja::NoRenovacion, 'motivo' => 'No acredita',
+        'colaborador_id' => $colaborador->id, 'evaluacion_id' => $evaluacion->id, 'tipo_baja' => TipoBaja::FinContrato, 'motivo' => 'No acredita',
         'fecha_efectiva' => '2026-12-04', 'estado' => EstadoCierreLaboral::Iniciado, 'iniciado_por' => $this->rh->id, 'autorizado_rh_en' => now(),
     ]);
     $this->postJson("/api/v1/rh/documentos-proceso/evaluacion/{$evaluacion->id}/generar", ['clave' => 'evaluacion_capacitacion', 'proceso' => 'evaluacion'])->assertCreated();
@@ -492,7 +497,7 @@ test('acta de negativa: solo después de registrar la negativa y con dos testigo
     $colaborador = mfColaborador('gestor');
     mfContrato($colaborador);
     $cierre = CierreLaboral::query()->create([
-        'colaborador_id' => $colaborador->id, 'tipo_baja' => TipoBaja::NoRenovacion, 'motivo' => 'No acredita', 'fecha_efectiva' => '2026-12-04',
+        'colaborador_id' => $colaborador->id, 'tipo_baja' => TipoBaja::FinContrato, 'motivo' => 'No acredita', 'fecha_efectiva' => '2026-12-04',
         'estado' => EstadoCierreLaboral::Iniciado, 'iniciado_por' => $this->rh->id, 'autorizado_rh_en' => now(),
     ]);
 
@@ -572,6 +577,84 @@ test('préstamo: contrato, pagaré y retención salen con TODOS sus campos lleno
         ->and($pagare->payload['marca_pagos_semanales'])->toBe('X')
         ->and($pagare->payload['marca_pagos_diarios'])->toBe('')
         ->and($pagare->payload['primer_pago_dia'])->toBe('15');
+});
+
+test('préstamo: nombre, apellidos, No. de sucursal y domicilio salen del colaborador aunque el contexto no traiga préstamo', function () {
+    $colaborador = mfColaborador('gestor');
+    $colaborador->sucursalPrincipal()->update(['clave' => 'CUE01']);
+    $datos = app(DatosDocumentoService::class)->resolver(new ContextoDocumento($colaborador->fresh()));
+
+    expect($datos['nombre_mayusculas'])->toBe('JUAN')
+        ->and($datos['apellido_paterno_mayusculas'])->toBe('PÉREZ')
+        ->and($datos['apellido_materno_mayusculas'])->toBe('LÓPEZ')
+        ->and($datos['sucursal_numero'])->toBe('CUE01')
+        ->and($datos['domicilio_colonia_mayusculas'])->toBe('CENTRO')
+        ->and($datos['domicilio_municipio_mayusculas'])->toBe('CUERNAVACA')
+        ->and($datos['domicilio_estado_mayusculas'])->toBe('MORELOS')
+        ->and($datos['domicilio_cp'])->toBe('62000')
+        // Celda «Calle»: sin los segmentos que ya van en su propia celda.
+        ->and($datos['domicilio_calle_mayusculas'])->toBe('CALLE MORELOS 10');
+
+    // Domicilio capturado como un solo texto, sin datos estructurados: nunca
+    // se parte adivinando (sale completo y colonia/municipio/estado/C.P. faltan).
+    $colaborador->update(['domicilio' => 'AVENIDA ZEMPOALA 5, HUITZILAC MORELOS', 'domicilio_colonia' => null, 'domicilio_municipio' => null, 'domicilio_estado' => null, 'domicilio_cp' => null]);
+    $datos = app(DatosDocumentoService::class)->resolver(new ContextoDocumento($colaborador->fresh()));
+
+    expect($datos['domicilio_calle_mayusculas'])->toBe('AVENIDA ZEMPOALA 5, HUITZILAC MORELOS')
+        ->and($datos['domicilio_colonia_mayusculas'])->toBe('')
+        ->and($datos['nombre_mayusculas'])->toBe('JUAN');
+});
+
+test('préstamo: el representante legal NO es requerido (se firma a mano) y nunca bloquea ni se imprime', function () {
+    mfImportar(['prestamo_contrato.general']);
+    $colaborador = mfColaborador('gestor');
+    $colaborador->sucursalPrincipal->empresa()->update(['representante_legal_nombre' => null]);
+    $prestamo = Prestamo::factory()->create([
+        'colaborador_id' => $colaborador->id, 'monto_original' => 4000, 'saldo' => 4000, 'plazo' => 8, 'periodicidad' => 'semanal',
+        'pago_programado' => 500, 'fecha_primer_descuento' => '2026-10-15', 'autorizado_en' => now(), 'autorizado_por' => $this->rh->id, 'fecha_solicitud' => '2026-10-01',
+    ]);
+    $master = DocumentTemplate::query()->where('familia', 'prestamo_contrato.general')->where('activo', true)->firstOrFail();
+    $motor = app(MotorDocumentalService::class);
+    $faltantes = $motor->faltantesDe($master, app(DatosDocumentoService::class)->resolver($motor->contextoDesde($colaborador->fresh(), $prestamo, $this->rh)));
+
+    expect(array_column($faltantes, 'base'))->not->toContain('representante_legal')
+        ->and(array_keys($motor->basesRequeridasDe($master)))->not->toContain('representante_legal');
+
+    $this->postJson("/api/v1/rh/documentos-proceso/prestamo/{$prestamo->id}/generar", ['clave' => 'prestamo_contrato', 'proceso' => 'prestamo'])->assertCreated();
+
+    expect(GeneratedDocument::query()->where('clave_plantilla', 'prestamo_contrato')->firstOrFail()->payload)->not->toHaveKey('representante_legal_mayusculas');
+});
+
+test('prueba de un master de préstamo con alguien SIN préstamo: datos del colaborador reales y préstamo de EJEMPLO marcado, sin bloquear', function () {
+    mfImportar(['prestamo_contrato.general', 'prestamo_pagare.general']);
+    $colaborador = mfColaborador('gestor');
+    $admin = app(DocumentosMaestrosAdminService::class);
+    $motor = app(MotorDocumentalService::class);
+
+    foreach (['prestamo_contrato.general', 'prestamo_pagare.general'] as $familia) {
+        $master = DocumentTemplate::query()->where('familia', $familia)->where('activo', true)->firstOrFail();
+        [$contexto, $origen] = $admin->contextoPrueba($master, $colaborador, $this->rh);
+        $resultado = $motor->previsualizarMaestro($master, $contexto);
+
+        expect($origen['origen'] ?? null)->toBe('ejemplo')
+            ->and($resultado['faltantes'])->toBe([])
+            ->and($resultado['valores']['nombre_completo_mayusculas'])->toBe('JUAN PÉREZ LÓPEZ')
+            ->and($resultado['valores']['apellido_paterno_mayusculas'])->toBe('PÉREZ');
+    }
+
+    expect($resultado['valores']['monto_prestamo_numero'])->toBe('5,000.00');
+    expect(Prestamo::query()->count())->toBe(0);
+
+    // Con una solicitud de préstamo: monto y plazo de la solicitud (en memoria).
+    SolicitudInterna::factory()->create(['colaborador_id' => $colaborador->id, 'user_id' => $this->rh->id, 'tipo' => TipoSolicitudInterna::PrestamoInterno, 'monto_solicitado' => 7000, 'plazo_meses' => 6]);
+    $master = DocumentTemplate::query()->where('familia', 'prestamo_contrato.general')->where('activo', true)->firstOrFail();
+    [$contexto, $origen] = $admin->contextoPrueba($master, $colaborador, $this->rh);
+    $valores = $motor->previsualizarMaestro($master, $contexto)['valores'];
+
+    expect($origen['origen'] ?? null)->toBe('solicitud')
+        ->and($valores['monto_prestamo'])->toBe('$7,000.00')
+        ->and($valores['prestamo_folio'])->toBe('POR ASIGNAR')
+        ->and(Prestamo::query()->count())->toBe(0);
 });
 
 test('renuncia: al solicitar la baja por renuncia queda generada, con nombre, puesto, sucursal y fecha llenos, lista para imprimir', function () {

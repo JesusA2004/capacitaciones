@@ -5,6 +5,7 @@ namespace App\Http\Requests\CicloLaboral;
 use App\Enums\Genero;
 use App\Enums\TipoContratacion;
 use App\Models\Colaborador;
+use App\Services\Colaboradores\DomicilioService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -47,7 +48,10 @@ class AltaColaboradorRequest extends FormRequest
             'curp' => ['nullable', 'string', 'size:18', 'regex:/^[A-Za-z0-9]{18}$/'],
             'rfc' => ['nullable', 'string', 'min:12', 'max:13', 'regex:/^[A-Za-z&Ññ0-9]{12,13}$/u'],
             'nss' => ['nullable', 'digits:11'],
+            // Texto único legado (APKs anteriores); los campos estructurados
+            // lo recomponen al guardar (DomicilioService).
             'domicilio' => ['nullable', 'string', 'max:255'],
+            ...app(DomicilioService::class)->reglas(),
             'contacto_emergencia_nombre' => ['nullable', 'string', 'max:160'],
             'contacto_emergencia_telefono' => ['nullable', 'string', 'max:20'],
             'numero_empleado' => ['nullable', 'string', 'max:30', 'unique:colaboradores,numero_empleado'],
@@ -81,6 +85,7 @@ class AltaColaboradorRequest extends FormRequest
     public function messages(): array
     {
         return [
+            ...app(DomicilioService::class)->mensajes(),
             'fecha_fin_contrato.required_unless' => 'Captura la fecha de vencimiento del contrato (periodo de prueba/capacitación/determinado).',
             'email.unique' => 'Ya existe una cuenta con ese correo.',
             'numero_empleado.unique' => 'Ese número de empleado ya está asignado.',

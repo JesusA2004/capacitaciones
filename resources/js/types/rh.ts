@@ -66,6 +66,13 @@ export type ExpedienteColaborador = {
     rfc: string | null;
     nss: string | null;
     domicilio: string | null;
+    domicilio_calle: string | null;
+    domicilio_numero_exterior: string | null;
+    domicilio_numero_interior: string | null;
+    domicilio_colonia: string | null;
+    domicilio_cp: string | null;
+    domicilio_municipio: string | null;
+    domicilio_estado: string | null;
     correo_personal: string | null;
     contacto_emergencia_nombre: string | null;
     contacto_emergencia_telefono: string | null;

@@ -221,9 +221,12 @@ test('el PDF de cada familia lleva el formato oficial, los datos del colaborador
     expect($html[0])
         ->toContain('RESPONSIVA DE BIEN MUEBLE')
         ->toContain('JUAN MANUEL PANTALEÓN CRUZ')
-        ->toContain('PRODUCTOS Y SERVICIOS MR LANA SAPI DE C.V.')
+        ->toContain('PRODUCTOS Y SERVICIOS MR LANA, S.A.P.I. DE C.V.')
+        ->not->toContain('PRODUCTOS Y SERVICIOS MR LANA SAPI DE C.V.')
         ->toContain('artículos 132, fracción III')
-        ->toContain('Apoderado legal')
+        ->toContain('REPRESENTANTE LEGAL')
+        ->not->toContain('Apoderado legal')
+        ->not->toContain('APODERADO')
         ->toContain('Trabajador')
         ->toContain('Escritorio')
         ->toContain('INV-0001')
@@ -244,6 +247,24 @@ test('el PDF de cada familia lleva el formato oficial, los datos del colaborador
         ->toContain('ABC-12-34')
         ->toContain('15230 km')
         ->toContain('recibí físicamente el vehículo');
+});
+
+test('firma patronal: razón social legal arriba y «Representante legal» abajo; nunca el nombre corto de la empresa ni quien entrega', function () {
+    // Empresa con nombre comercial y sin razón social (lo que en producción
+    // imprimía «SISTEMAS MR LANA»).
+    $this->centro->empresa->update(['nombre' => 'Sistemas Mr Lana', 'razon_social' => null]);
+    config(['pdf.renderer' => 'browsershot']);
+    $html = new ArrayObject;
+    $this->app->instance(BrowsershotRenderer::class, fakeBrowsershot($html));
+
+    $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsEquipo())->assertCreated();
+
+    $firmas = (string) preg_replace('/\s+/', ' ', strip_tags((string) strstr($html[0], '<table class="firmas">')));
+
+    expect($firmas)
+        ->toContain('PRODUCTOS Y SERVICIOS MR LANA, S.A.P.I. DE C.V. Trabajador REPRESENTANTE LEGAL JUAN MANUEL PANTALEÓN CRUZ')
+        ->not->toContain('LAURA GÓMEZ RUIZ')
+        ->and(mb_strtoupper($html[0], 'UTF-8'))->not->toContain('SISTEMAS MR LANA')->not->toContain('APODERADO');
 });
 
 test('la vista previa devuelve el PDF sin guardar nada', function () {

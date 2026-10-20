@@ -14,7 +14,6 @@ use App\Enums\EstadoReingreso;
 use App\Enums\EstadoUsuario;
 use App\Enums\EtapaCicloLaboral;
 use App\Enums\ProcesoAprobacion;
-use App\Enums\TipoBaja;
 use App\Enums\TipoContratacion;
 use App\Enums\TipoTarea;
 use App\Models\Candidato;
@@ -29,6 +28,7 @@ use App\Models\Reingreso;
 use App\Models\TareaRh;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\CierreLaboral\CausalRotacionService;
 use App\Services\CierreLaboral\CierreLaboralService;
 use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Contratos\EvaluacionPeriodoPruebaService;
@@ -69,6 +69,7 @@ class CicloLaboralService
         private readonly OrganizacionJerarquiaService $jerarquia,
         private readonly EvaluacionPeriodoPruebaService $evaluaciones,
         private readonly DocumentoProcesoService $documentosProceso,
+        private readonly CausalRotacionService $causales,
     ) {}
 
     /**
@@ -700,10 +701,9 @@ class CicloLaboralService
             'puede_solicitar_excepcion' => $usuario->can('evaluaciones.autorizar'),
             'puede_resolver_excepcion' => $usuario->can(SolicitudExcepcionPeriodoPruebaService::PERMISO_AUTORIZAR),
             'opciones' => [
-                'causas' => array_values(array_map(
-                    fn (TipoBaja $t) => ['value' => $t->value, 'etiqueta' => $t->etiqueta()],
-                    array_filter(TipoBaja::cases(), fn (TipoBaja $t) => $usuario->can(CierreLaboralService::PERMISO_GESTIONAR) || in_array($t->value, (array) config('ciclo_laboral.cierre.causas_solicitables', []), true)),
-                )),
+                // «Iniciar baja»: los tres tipos permitidos al usuario, cada
+                // uno con sus causales de rotación activas.
+                'causas' => $this->causales->opcionesIniciarBaja($usuario),
                 'criterios' => array_values(array_filter((array) config('contratos.criterios_evaluacion', []), 'is_string')),
             ],
         ];

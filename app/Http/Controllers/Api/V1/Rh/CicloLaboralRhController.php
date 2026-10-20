@@ -18,6 +18,7 @@ use App\Services\Reportes\TableroRhService;
 use App\Services\Tareas\TareaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
  * Ciclo laboral para aprobadores en la app (gerente, regional, RH): tablero,
@@ -105,6 +106,27 @@ class CicloLaboralRhController extends Controller
         $this->onboarding->entregarActivo($proceso, $request->user(), $datos);
 
         return response()->json(['data' => $this->onboarding->aArray($proceso->refresh(), $request->user())]);
+    }
+
+    /**
+     * Vista previa (PDF inline, no guarda nada) de la carta responsiva antes
+     * de confirmar la entrega: mismo OnboardingService que la web.
+     */
+    public function vistaPreviaResponsiva(Request $request, OnboardingProceso $proceso): HttpResponse
+    {
+        $datos = $request->validate([
+            'tipo_activo_id' => ['required', 'integer', 'exists:tipos_activo,id'],
+            'identificador' => ['nullable', 'string', 'max:120'],
+            'descripcion' => ['nullable', 'string', 'max:190'],
+            'entregado_en' => ['nullable', 'date', 'before_or_equal:today'],
+        ]);
+
+        return response($this->onboarding->vistaPreviaResponsiva($proceso, $request->user(), $datos), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="responsiva-vista-previa.pdf"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'no-store',
+        ]);
     }
 
     public function completar(Request $request, OnboardingProceso $proceso): JsonResponse

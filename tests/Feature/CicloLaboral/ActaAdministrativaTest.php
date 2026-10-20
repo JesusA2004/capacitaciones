@@ -111,7 +111,8 @@ test('precarga: empresa, centro, domicilio y datos del trabajador salen de PEOPL
     $html = acHtml($acta);
 
     expect($html)
-        ->toContain('MR LANA SA DE CV')->toContain('Cuernavaca')->toContain('Av. Morelos 123')->toContain('C.P. 62000')
+        // Razón social legal del formato oficial, no la capturada a mano.
+        ->toContain('PRODUCTOS Y SERVICIOS MR LANA, S.A.P.I. DE C.V.')->not->toContain('MR LANA SA DE CV')->toContain('Cuernavaca')->toContain('Av. Morelos 123')->toContain('C.P. 62000')
         ->toContain('Adriana Cortés Lima')->toContain('EMP-4521')->toContain('Cajera')->toContain('Operaciones')
         ->toContain('1 de marzo de 2024')->toContain('Luis Garay Pérez')
         ->toContain('de las 09:00 a las 09:30 horas')

@@ -7,10 +7,12 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * Inicio de baja (jefe directo o RH): causa, motivo y fecha efectiva. Sin
- * archivos: la baja se aplica de inmediato y el sistema genera la renuncia
- * o el aviso. La autorización real (alcance, cadena de mando, causas
- * permitidas por rol) vive en CierreLaboralService::solicitar().
+ * Inicio de baja (jefe directo o RH): tipo (solo renuncia, rescisión o fin
+ * de contrato), motivo = causal de rotación del tipo, detalle libre opcional
+ * y fecha efectiva. Sin archivos: la baja se aplica de inmediato y el
+ * sistema genera los documentos del tipo. La autorización real (alcance,
+ * cadena de mando, tipos permitidos por rol) y que la causal pertenezca al
+ * tipo viven en CierreLaboralService::solicitar() / CausalRotacionService.
  */
 class SolicitarCierreRequest extends FormRequest
 {
@@ -26,9 +28,21 @@ class SolicitarCierreRequest extends FormRequest
     {
         return [
             'tipo_baja' => ['required', Rule::enum(TipoBaja::class)],
-            'motivo' => ['required', 'string', 'max:2000'],
+            'causal_rotacion_id' => ['nullable', 'integer'],
+            'motivo' => ['nullable', 'string', 'max:2000'],
             'fecha_efectiva' => ['required', 'date'],
             'observaciones' => ['nullable', 'string', 'max:2000'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'tipo_baja.required' => 'Elige el tipo de baja: renuncia, rescisión o fin de contrato.',
+            'tipo_baja.enum' => 'Elige el tipo de baja: renuncia, rescisión o fin de contrato.',
         ];
     }
 }

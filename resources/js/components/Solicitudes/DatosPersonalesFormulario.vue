@@ -120,6 +120,7 @@ function error(campo: string): string | undefined {
                         v-else
                         :id="`dato-${c.campo}`"
                         :type="tipoInput(c.tipo)"
+                        :maxlength="c.campo === 'domicilio_cp' ? 5 : undefined"
                         :inputmode="
                             c.tipo === 'number' || c.tipo === 'tel'
                                 ? 'numeric'
@@ -222,6 +223,9 @@ function error(campo: string): string | undefined {
                             v-else
                             :id="`dato-${c.campo}`"
                             :type="tipoInput(c.tipo)"
+                            :maxlength="
+                                c.campo === 'domicilio_cp' ? 5 : undefined
+                            "
                             :model-value="valor(c.campo)"
                             @update:model-value="(v) => poner(c.campo, v)"
                         />

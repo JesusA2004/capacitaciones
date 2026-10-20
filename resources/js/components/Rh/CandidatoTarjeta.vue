@@ -18,11 +18,19 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
-import CandidatoEvidenciaPreviewDialog from '@/components/Rh/CandidatoEvidenciaPreviewDialog.vue';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import cv from '@/routes/rh/candidatos/cv';
-import type { CandidatoItem, EvidenciaCandidato, OpcionEnum } from '@/types';
+import {
+    archivoCvCandidato,
+    archivoEvidenciaCandidato,
+    claveEvidencia,
+} from '@/lib/archivosCandidato';
+import type {
+    ArchivoPrevisualizable,
+    CandidatoItem,
+    EvidenciaCandidato,
+    OpcionEnum,
+} from '@/types';
 
 const props = defineProps<{
     candidato: CandidatoItem;
@@ -101,18 +109,64 @@ function detenerArrastre(evento: Event) {
     evento.stopPropagation();
 }
 
-const previewAbierto = ref(false);
-const evidenciaAbierta = ref<EvidenciaCandidato | null>(null);
+/**
+ * Lo que la tarjeta puede mostrar sin salir del tablero (CV + accesos
+ * rápidos), como una galería del visor único: se abre en lo que se tocó y
+ * se navega al resto con las flechas.
+ */
+const archivos = computed<ArchivoPrevisualizable[]>(() => {
+    const c = props.candidato;
+    const lista: ArchivoPrevisualizable[] = [];
+
+    if (c.tiene_cv) {
+        lista.push(archivoCvCandidato(c.id, { nombre: c.cv_original_name }));
+    }
+
+    const vistos = new Set<number>();
+
+    for (const ev of [
+        c.accesos_rapidos?.psicometrico,
+        c.accesos_rapidos?.socioeconomico,
+        c.accesos_rapidos?.video,
+    ]) {
+        if (ev && !vistos.has(ev.id)) {
+            vistos.add(ev.id);
+            lista.push(archivoEvidenciaCandidato(c.id, ev));
+        }
+    }
+
+    return lista;
+});
+
+const visorAbierto = ref(false);
+const indiceVisor = ref(0);
+
+function abrirEnVisor(evento: Event, clave: string) {
+    detenerArrastre(evento);
+    indiceVisor.value = Math.max(
+        archivos.value.findIndex((a) => a.clave === clave),
+        0,
+    );
+    visorAbierto.value = true;
+}
 
 function abrirEvidencia(evento: Event, evidencia: EvidenciaCandidato) {
-    evento.stopPropagation();
-    evidenciaAbierta.value = evidencia;
+    abrirEnVisor(evento, claveEvidencia(evidencia));
 }
 
 function abrirPreview(evento: Event) {
-    detenerArrastre(evento);
-    previewAbierto.value = true;
+    abrirEnVisor(evento, 'cv');
 }
+
+const psicometrico = computed(
+    () => props.candidato.accesos_rapidos?.psicometrico ?? null,
+);
+const socioeconomico = computed(
+    () =>
+        props.candidato.accesos_rapidos?.socioeconomico ??
+        props.candidato.accesos_rapidos?.video ??
+        null,
+);
 </script>
 
 <template>
@@ -219,23 +273,42 @@ function abrirPreview(evento: Event) {
             }}</span>
         </p>
 
-        <div class="flex flex-wrap items-center gap-2 text-[11px]">
-            <span
-                class="flex items-center gap-1"
-                :class="
-                    candidato.tiene_cv
-                        ? 'text-success'
-                        : 'text-muted-foreground'
-                "
+        <!-- Estado del expediente: con archivo, el chip abre la vista previa. -->
+        <div class="flex flex-wrap items-center gap-1.5 text-[11px]">
+            <button
+                v-if="candidato.tiene_cv"
+                type="button"
+                class="flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 font-medium text-success transition-colors hover:bg-success/20"
+                title="Ver CV"
+                draggable="false"
+                @click="abrirPreview"
+                @dragstart="detenerArrastre"
             >
-                <component
-                    :is="candidato.tiene_cv ? ShieldCheck : CircleDashed"
-                    class="size-3.5"
-                />
-                CV
-            </span>
+                <ShieldCheck class="size-3.5" /> CV
+                <Eye class="size-3" />
+            </button>
             <span
-                class="flex items-center gap-1"
+                v-else
+                class="flex items-center gap-1 px-1 text-muted-foreground"
+            >
+                <CircleDashed class="size-3.5" /> CV
+            </span>
+
+            <button
+                v-if="psicometrico"
+                type="button"
+                class="flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 font-medium text-success transition-colors hover:bg-success/20"
+                title="Ver psicométrico"
+                draggable="false"
+                @click="abrirEvidencia($event, psicometrico)"
+                @dragstart="detenerArrastre"
+            >
+                <ShieldCheck class="size-3.5" /> Psicométricos
+                <Eye class="size-3" />
+            </button>
+            <span
+                v-else
+                class="flex items-center gap-1 px-1"
                 :class="
                     candidato.psicometricas_count > 0
                         ? 'text-success'
@@ -252,8 +325,22 @@ function abrirPreview(evento: Event) {
                 />
                 Psicométricos
             </span>
+
+            <button
+                v-if="socioeconomico"
+                type="button"
+                class="flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 font-medium text-success transition-colors hover:bg-success/20"
+                title="Ver socioeconómico"
+                draggable="false"
+                @click="abrirEvidencia($event, socioeconomico)"
+                @dragstart="detenerArrastre"
+            >
+                <ShieldCheck class="size-3.5" /> Socioeco
+                <Eye class="size-3" />
+            </button>
             <span
-                class="flex items-center gap-1"
+                v-else
+                class="flex items-center gap-1 px-1"
                 :class="
                     candidato.socioeconomicos_count > 0
                         ? 'text-success'
@@ -349,24 +436,10 @@ function abrirPreview(evento: Event) {
         </div>
     </div>
 
-    <CandidatoEvidenciaPreviewDialog
-        v-if="evidenciaAbierta"
-        :open="evidenciaAbierta !== null"
-        :candidato-id="candidato.id"
-        :evidencia-id="evidenciaAbierta.id"
-        :nombre-archivo="evidenciaAbierta.nombre"
-        :tipo="evidenciaAbierta.tipo"
-        :mime="evidenciaAbierta.mime"
-        @update:open="
-            (abierto: boolean) => !abierto && (evidenciaAbierta = null)
-        "
-    />
-
     <DocumentPreviewDialog
-        v-if="candidato.tiene_cv"
-        v-model:open="previewAbierto"
-        :preview-url="cv.previsualizar.url(candidato.id)"
-        :download-url="cv.descargar.url(candidato.id)"
-        :nombre="candidato.cv_original_name ?? 'CV del candidato'"
+        v-if="archivos.length"
+        v-model:open="visorAbierto"
+        :archivos="archivos"
+        :indice="indiceVisor"
     />
 </template>

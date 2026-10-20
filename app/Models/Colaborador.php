@@ -8,6 +8,7 @@ use App\Enums\EstadoUsuario;
 use App\Enums\EstatusImss;
 use App\Enums\Genero;
 use App\Enums\TipoContratacion;
+use App\Models\Concerns\SincronizaDomicilio;
 use Database\Factories\ColaboradorFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -71,6 +72,9 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property string|null $rfc
  * @property string|null $nss
  * @property string|null $domicilio
+ * @property string|null $domicilio_calle
+ * @property string|null $domicilio_numero_exterior
+ * @property string|null $domicilio_numero_interior
  * @property string|null $correo_personal
  * @property string|null $nacionalidad
  * @property EstadoCivil|null $estado_civil
@@ -124,11 +128,12 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'incorporacion_decision', 'incorporacion_decidida_por', 'incorporacion_decidida_en', 'incorporacion_motivo_rechazo',
     'nacionalidad', 'estado_civil', 'lugar_nacimiento', 'clave_elector', 'profesion', 'beneficiario_nombre', 'beneficiario_parentesco',
     'domicilio_colonia', 'domicilio_municipio', 'domicilio_estado', 'domicilio_cp',
+    'domicilio_calle', 'domicilio_numero_exterior', 'domicilio_numero_interior',
 ])]
 class Colaborador extends Model
 {
     /** @use HasFactory<ColaboradorFactory> */
-    use HasFactory, LogsActivity, SoftDeletes;
+    use HasFactory, LogsActivity, SincronizaDomicilio, SoftDeletes;
 
     protected $table = 'colaboradores';
 

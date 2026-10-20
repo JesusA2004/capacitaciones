@@ -18,6 +18,7 @@ use App\Models\Responsiva;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\DocumentosMaestros\FirmaPatronService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
@@ -54,6 +55,7 @@ class ResponsivaService
         private readonly DocumentoStorageService $expediente,
         private readonly AuditoriaService $auditoria,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly FirmaPatronService $firmaPatron,
     ) {}
 
     /**
@@ -155,7 +157,7 @@ class ResponsivaService
                 'sucursal' => $snapshot['receptor']['sucursal'],
             ],
             'otorgante' => $snapshot['otorgante'],
-            'empresa' => $snapshot['empresa']['razon_social'] ?? $snapshot['empresa']['nombre'],
+            'empresa' => $this->firmaPatron->razonSocial($snapshot['empresa']['nombre'], $snapshot['empresa']['razon_social']),
             'responsable_entrega_id' => $actor->id,
             'responsables' => $responsables,
             // Solo tiene sentido elegir a otro responsable si hay más de uno

@@ -15,6 +15,7 @@ use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Services\Asignaciones\AsignacionService;
 use App\Services\Colaboradores\AvisoAltaBajaService;
+use App\Services\Colaboradores\DomicilioService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Reclutamiento\CvStorageService;
@@ -72,6 +73,8 @@ class ConversionColaboradorService
                 'rfc' => $alta->rfc,
                 'nss' => $alta->nss,
                 'domicilio' => $alta->domicilio,
+                // Domicilio estructurado tal cual lo capturó la persona.
+                ...app(DomicilioService::class)->valores($alta),
                 'contacto_emergencia_nombre' => $alta->contacto_emergencia_nombre,
                 'contacto_emergencia_telefono' => $alta->contacto_emergencia_telefono,
                 'candidato_id' => $alta->candidato_id,

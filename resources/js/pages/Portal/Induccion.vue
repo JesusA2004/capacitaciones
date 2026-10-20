@@ -4,10 +4,12 @@ import {
     ArrowRight,
     CheckCircle2,
     Clock,
+    Eye,
     Volume2,
     Video as VideoIcon,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import MaterialInduccionVistaPreviaRh from '@/components/ciclo/MaterialInduccionVistaPreviaRh.vue';
 import PresentacionInduccionRh from '@/components/ciclo/PresentacionInduccionRh.vue';
 import ReproductorVideoInduccion from '@/components/ciclo/ReproductorVideoInduccion.vue';
 import VisorPdf from '@/components/documentos/VisorPdf.vue';
@@ -15,6 +17,7 @@ import { postJson } from '@/lib/http';
 import { dashboard } from '@/routes';
 import { miProceso } from '@/routes/portal';
 import { contenido as evaluacionInduccion } from '@/routes/portal/induccion';
+import { vistaPrevia as vistaPreviaEvaluacion } from '@/routes/rh/onboarding/induccion';
 import type {
     AccesoInduccionColaborador,
     MaterialInduccion,
@@ -225,6 +228,13 @@ function retirarMaterial() {
             <p v-else class="text-sm text-[var(--mrl-texto-suave)]">
                 No hay material cargado: el colaborador solo verá las hojas.
             </p>
+            <MaterialInduccionVistaPreviaRh v-if="materialRh" />
+            <Link
+                :href="vistaPreviaEvaluacion()"
+                class="inline-flex w-fit items-center gap-2 text-sm font-medium text-primary underline-offset-4 hover:underline"
+            >
+                <Eye class="size-4" /> Ver evaluación como colaborador
+            </Link>
 
             <form
                 class="flex flex-wrap items-end gap-3"

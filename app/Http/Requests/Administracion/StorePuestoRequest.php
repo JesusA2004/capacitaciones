@@ -22,6 +22,17 @@ class StorePuestoRequest extends FormRequest
             'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
             'descripcion' => ['nullable', 'string', 'max:1000'],
             'activo' => ['boolean'],
+            // Duración del contrato de capacitación inicial (periodo de prueba)
+            // en meses; sin ella no se calculan contratos ni vencimientos.
+            'meses_periodo_prueba' => ['nullable', 'integer', 'min:1', 'max:12'],
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return ['meses_periodo_prueba' => 'duración del periodo de prueba (meses)'];
     }
 }

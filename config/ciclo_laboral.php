@@ -69,19 +69,14 @@ return [
     ],
 
     'cierre' => [
-        // Documentos que se generan al autorizar RH un cierre, según la causa.
-        'documentos_por_causa' => [
-            'renuncia' => ['carta_renuncia'],
-            'no_renovacion' => ['aviso_no_renovacion'],
-            'bajo_desempeno' => ['aviso_termino'],
-            'baja_inmediata' => ['aviso_rescision'],
-        ],
-        // Causas que puede elegir un jefe/gerente al solicitar una baja.
+        // Los documentos por tipo de baja viven en
+        // config/documentos_maestros.php `documentos_por_causa`.
+        // Tipos de baja (App\Enums\TipoBaja) que puede elegir un jefe/gerente
+        // al iniciar una baja; RH siempre puede los tres.
         'causas_solicitables' => [
             'renuncia',
-            'no_renovacion',
-            'bajo_desempeno',
-            'baja_inmediata',
+            'rescision',
+            'fin_contrato',
         ],
     ],
 

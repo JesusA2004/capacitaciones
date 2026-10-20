@@ -97,9 +97,8 @@
                 @foreach ($d['testigos'] as $t)
                     <li>{{ $t['nombre'] }}@if ($t['cargo']) — {{ $t['cargo'] }}@endif (testigo)</li>
                 @endforeach
-                @if ($d['levanta']['nombre'])
-                    <li>{{ $d['levanta']['nombre'] }}@if ($d['levanta']['cargo']) — {{ $d['levanta']['cargo'] }}@endif (levanta el acta)</li>
-                @endif
+                {{-- Por la empresa: su representante legal, nombre a pluma (nunca la cuenta que capturó). --}}
+                <li>{{ $d['empresa'] }} — {{ $d['levanta']['cargo'] }}</li>
             </ul>
     </div>
 
@@ -147,8 +146,9 @@
                 <div class="cargo">Colaborador</div>
             </td>
             <td>
-                <div class="linea">{{ $d['levanta']['nombre'] ?: ' ' }}</div>
-                <div class="cargo">Quien levanta el acta{{ $d['levanta']['cargo'] ? ' · '.$d['levanta']['cargo'] : '' }}</div>
+                <div class="linea">&nbsp;</div>
+                <div class="cargo">{{ $d['levanta']['cargo'] }}</div>
+                <div class="cargo">{{ $d['empresa'] }}</div>
             </td>
         </tr>
         <tr>

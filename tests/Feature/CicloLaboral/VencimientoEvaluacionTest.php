@@ -142,7 +142,7 @@ test('si RH decide no renovar se inicia automáticamente el cierre laboral por n
 
     $cierre = CierreLaboral::query()->where('colaborador_id', $this->colaborador->id)->firstOrFail();
 
-    expect($cierre->tipo_baja->value)->toBe('no_renovacion')
+    expect($cierre->tipo_baja->value)->toBe('fin_contrato')
         ->and($cierre->evaluacion_id)->toBe($evaluacion->id)
         ->and($cierre->estado)->toBe(EstadoCierreLaboral::Iniciado)
         ->and($cierre->fecha_efectiva->toDateString())->toBe($this->contrato->fecha_fin?->toDateString())

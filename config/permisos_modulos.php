@@ -120,7 +120,7 @@ return [
             'grupo' => 'Nómina',
             'acceso' => 'finiquitos.ver',
             'alcances' => ['todos' => 'finiquitos.ver_todos', 'region' => 'finiquitos.ver_region', 'sucursal' => 'finiquitos.ver_sucursal', 'equipo' => 'finiquitos.ver_equipo'],
-            'acciones' => ['finiquitos.calcular' => 'Calcular', 'finiquitos.revisar' => 'Revisar', 'finiquitos.subir_firmado' => 'Subir firmado', 'finiquitos.confirmar_pago' => 'Confirmar pago'],
+            'acciones' => ['finiquitos.calcular' => 'Calcular', 'finiquitos.revisar' => 'Revisar', 'finiquitos.subir_firmado' => 'Subir firmado', 'finiquitos.confirmar_pago' => 'Confirmar pago', 'finiquitos.causales_rotacion' => 'Administrar causales de rotación'],
         ],
         'cierres' => [
             'etiqueta' => 'Bajas (cierres laborales)',

@@ -864,12 +864,13 @@ class ActaService
 
         // Variables de las plantillas anteriores (HTML) de actas: se conservan
         // para que un formato ya cargado con ellas siga llenándose igual.
-        $acta->loadMissing('responsable');
+        // responsable_acta: por la empresa firma su representante legal con el
+        // nombre en blanco (pluma); la cuenta que capturó nunca se imprime.
         $variables += [
             'folio_acta' => (string) $acta->folio,
             'tipo_acta' => $acta->tipo->etiqueta(),
             'fecha_acta' => $acta->fecha->format('d/m/Y'),
-            'responsable_acta' => $acta->responsable !== null ? trim($acta->responsable->name.' '.$acta->responsable->apellidos) : '',
+            'responsable_acta' => '',
             'testigos_acta' => collect($testigos)->map(fn (array $t): string => trim($t['nombre'].(isset($t['puesto']) && $t['puesto'] ? " ({$t['puesto']})" : '')))->implode(', '),
             'declaraciones_acta' => $variables['manifestaciones_acta'],
         ];

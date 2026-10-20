@@ -71,7 +71,6 @@ const CAMPOS_POR_PASO: [number, string[]][] = [
     [
         3,
         [
-            'circunstanciada.responsable.caracter',
             'circunstanciada.jefe.colaborador_id',
             'circunstanciada.testigos_hechos',
             'circunstanciada.testigos_asistencia',

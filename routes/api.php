@@ -55,6 +55,7 @@ use App\Http\Controllers\Api\V1\Rh\VacanteController as RhVacanteController;
 use App\Http\Controllers\Api\V1\SolicitudController;
 use App\Http\Controllers\Api\V1\TareaController;
 use App\Http\Controllers\Api\V1\VacacionesController;
+use App\Services\DocumentosMaestros\VistaPreviaFlujoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
@@ -344,6 +345,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('ciclo/pendientes', [CicloLaboralRhController::class, 'pendientes'])->name('ciclo.pendientes');
             Route::get('colaboradores/{colaborador}/ciclo', [CicloLaboralRhController::class, 'ciclo'])->name('colaboradores.ciclo')->withTrashed();
             Route::post('onboarding/{proceso}/activos', [CicloLaboralRhController::class, 'entregarActivo'])->name('onboarding.activos');
+            Route::post('onboarding/{proceso}/activos/vista-previa', [CicloLaboralRhController::class, 'vistaPreviaResponsiva'])->name('onboarding.responsiva.vista-previa')->middleware('throttle:30,1');
             Route::post('onboarding/{proceso}/completar', [CicloLaboralRhController::class, 'completar'])->name('onboarding.completar');
             Route::post('onboarding/avances/{avance}/retroalimentacion', [CicloLaboralRhController::class, 'retroalimentar'])->name('onboarding.retroalimentar');
             Route::get('induccion/intentos/{intento}', [CicloLaboralRhController::class, 'mostrarInduccion'])->name('induccion.mostrar');
@@ -398,6 +400,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('/', [RhSolicitudController::class, 'index'])->name('index');
                 Route::get('{solicitud}', [RhSolicitudController::class, 'show'])->name('show');
                 Route::get('{solicitud}/permiso-pdf', [RhSolicitudController::class, 'permisoPdf'])->name('permiso-pdf');
+                Route::get('{solicitud}/vista-previa/{documento}', [RhSolicitudController::class, 'vistaPreviaDocumento'])->name('vista-previa')->whereIn('documento', ['comprobante', 'formato-oficial'])->middleware('throttle:30,1');
                 Route::post('{solicitud}/aprobar', [RhSolicitudController::class, 'aprobar'])->name('aprobar');
                 Route::post('{solicitud}/rechazar', [RhSolicitudController::class, 'rechazar'])->name('rechazar');
                 Route::post('{solicitud}/correccion', [RhSolicitudController::class, 'correccion'])->name('correccion');
@@ -525,6 +528,11 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('{tipo}/{id}', [DocumentoProcesoController::class, 'show'])->name('show')->whereIn('tipo', ['contrato', 'cierre', 'solicitud', 'prestamo', 'evaluacion', 'entrega_activo', 'acta', 'colaborador'])->whereNumber('id');
                 Route::post('{tipo}/{id}/generar', [DocumentoProcesoController::class, 'generar'])->name('generar')->whereIn('tipo', ['contrato', 'cierre', 'solicitud', 'prestamo', 'evaluacion', 'entrega_activo', 'acta', 'colaborador'])->whereNumber('id')->middleware('throttle:30,1');
                 Route::post('{tipo}/{id}/paquete', [DocumentoProcesoController::class, 'paquete'])->name('paquete')->whereIn('tipo', ['contrato', 'cierre', 'prestamo'])->whereNumber('id')->middleware('throttle:10,1');
+                // Vista previa (PDF inline, no-store, sin guardar nada): del
+                // documento del proceso y de los flujos que generan al confirmar.
+                Route::get('{tipo}/{id}/vista-previa', [DocumentoProcesoController::class, 'vistaPrevia'])->name('vista-previa')->whereIn('tipo', ['contrato', 'cierre', 'solicitud', 'prestamo', 'evaluacion', 'entrega_activo', 'acta', 'colaborador'])->whereNumber('id')->middleware('throttle:30,1');
+                Route::get('previa/{flujo}/{id}', [DocumentoProcesoController::class, 'documentosPrevia'])->name('previa.documentos')->whereIn('flujo', VistaPreviaFlujoService::FLUJOS)->whereNumber('id')->middleware('throttle:60,1');
+                Route::get('previa/{flujo}/{id}/pdf', [DocumentoProcesoController::class, 'pdfPrevia'])->name('previa.pdf')->whereIn('flujo', VistaPreviaFlujoService::FLUJOS)->whereNumber('id')->middleware('throttle:30,1');
                 Route::get('documento/{documento}/word', [DocumentoProcesoController::class, 'word'])->name('word');
                 Route::post('documento/{documento}/{accion}', [DocumentoProcesoController::class, 'operar'])->name('operar')->whereIn('accion', ['imprimir', 'firma-fisica', 'envio', 'recepcion', 'escaneo', 'archivar'])->middleware('throttle:api-cargas');
             });

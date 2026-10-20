@@ -27,6 +27,18 @@ class CredencialesController extends Controller
     }
 
     /**
+     * Vista previa del correo de accesos (HTML, contraseña enmascarada) antes
+     * de enviarlo: no envía nada.
+     */
+    public function vistaPreviaCorreo(Request $request, Colaborador $colaborador): JsonResponse
+    {
+        abort_unless($this->credenciales->puedeGenerar($request->user(), $colaborador), 403);
+
+        return response()->json(['data' => $this->credenciales->vistaPreviaCorreo($colaborador)])
+            ->header('Cache-Control', 'no-store');
+    }
+
+    /**
      * «Enviar accesos por correo» tras mostrar la contraseña: si el correo
      * falla, la contraseña sigue actualizada y se dice explícitamente.
      */

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
 import {
     Building2,
     Briefcase,
     ClipboardCheck,
+    Eye,
     GraduationCap,
     Package,
     PlayCircle,
@@ -11,17 +12,26 @@ import {
     Trash2,
 } from '@lucide/vue';
 import { ref } from 'vue';
+import LeccionOnboardingContenido from '@/components/ciclo/LeccionOnboardingContenido.vue';
 import Casilla from '@/components/Common/Casilla.vue';
 import RadioMarca from '@/components/Common/RadioMarca.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { dashboard } from '@/routes';
 import onboarding from '@/routes/rh/onboarding';
+import { vistaPrevia as vistaPreviaEvaluacion } from '@/routes/rh/onboarding/induccion';
 
 type Pregunta = { pregunta: string; opciones: string[]; correcta: number };
 type Modulo = {
@@ -153,6 +163,51 @@ function guardarActivo() {
     }
 }
 
+// --- Vista previa de la lección tal cual la verá el colaborador ---
+// Mismo componente que «Mis pendientes» (LeccionOnboardingContenido) y la
+// misma limpieza que hace el servidor al guardar (OnboardingCatalogoService:
+// sin opciones vacías) y que publica OnboardingModulo::preguntasPublicas()
+// (sin la respuesta correcta). Funciona con los cambios sin guardar.
+type VistaPreviaLeccion = {
+    titulo: string;
+    descripcion: string | null;
+    contenido_url: string | null;
+    contenido: string | null;
+    preguntas: { indice: number; pregunta: string; opciones: string[] }[];
+    puede_presentar: boolean;
+};
+
+const vistaPrevia = ref<VistaPreviaLeccion | null>(null);
+const respuestasPrueba = ref<Record<number, number>>({});
+
+function texto(valor: string | null | undefined): string | null {
+    const limpio = (valor ?? '').trim();
+
+    return limpio === '' ? null : limpio;
+}
+
+function abrirVistaPrevia(m: {
+    titulo: string;
+    descripcion: string | null;
+    contenido_url: string | null;
+    contenido: string | null;
+    preguntas: Pregunta[];
+}) {
+    respuestasPrueba.value = {};
+    vistaPrevia.value = {
+        titulo: m.titulo.trim() || 'Lección sin título',
+        descripcion: texto(m.descripcion),
+        contenido_url: texto(m.contenido_url),
+        contenido: texto(m.contenido),
+        preguntas: m.preguntas.map((p, indice) => ({
+            indice,
+            pregunta: p.pregunta.trim(),
+            opciones: p.opciones.map((o) => o.trim()).filter((o) => o !== ''),
+        })),
+        puede_presentar: true,
+    };
+}
+
 void props;
 </script>
 
@@ -171,6 +226,12 @@ void props;
             <Button variant="secondary" @click="editarActivo(null)"
                 ><Plus class="size-4" /> Tipo de contenido</Button
             >
+            <Button as-child variant="outline">
+                <Link :href="vistaPreviaEvaluacion()"
+                    ><Eye class="size-4" /> Ver evaluación de inducción como
+                    colaborador</Link
+                >
+            </Button>
         </CrudPageHeader>
 
         <form
@@ -304,6 +365,11 @@ void props;
                     >Guardar</Button
                 ><Button
                     type="button"
+                    variant="outline"
+                    @click="abrirVistaPrevia(modulo)"
+                    ><Eye class="size-4" /> Vista previa</Button
+                ><Button
+                    type="button"
                     variant="ghost"
                     @click="editandoModulo = null"
                     >Cancelar</Button
@@ -380,64 +446,129 @@ void props;
                 Todavía no hay secciones de capacitación.
             </p>
             <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                <button
+                <div
                     v-for="m in modulos"
                     :key="m.id"
-                    type="button"
-                    class="group flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 text-left transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                    class="flex flex-col rounded-2xl border border-border bg-card transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
                     :class="m.activo ? '' : 'opacity-60'"
-                    @click="editarModulo(m)"
                 >
-                    <div class="flex items-start gap-3">
-                        <span
-                            class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
-                        >
-                            <component
-                                :is="
-                                    m.tipo === 'institucional'
-                                        ? Building2
-                                        : Briefcase
-                                "
-                                class="size-5"
-                            />
-                        </span>
-                        <div class="min-w-0 flex-1">
-                            <p
-                                class="text-xs font-semibold text-muted-foreground"
+                    <button
+                        type="button"
+                        class="group flex flex-1 flex-col gap-3 rounded-2xl p-4 text-left"
+                        @click="editarModulo(m)"
+                    >
+                        <div class="flex items-start gap-3">
+                            <span
+                                class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
                             >
-                                Sección {{ m.orden }} ·
-                                {{
-                                    m.tipo === 'institucional'
-                                        ? 'Institucional'
-                                        : (m.puesto ?? 'Al puesto')
-                                }}
-                            </p>
-                            <p class="truncate font-semibold">{{ m.titulo }}</p>
+                                <component
+                                    :is="
+                                        m.tipo === 'institucional'
+                                            ? Building2
+                                            : Briefcase
+                                    "
+                                    class="size-5"
+                                />
+                            </span>
+                            <div class="min-w-0 flex-1">
+                                <p
+                                    class="text-xs font-semibold text-muted-foreground"
+                                >
+                                    Sección {{ m.orden }} ·
+                                    {{
+                                        m.tipo === 'institucional'
+                                            ? 'Institucional'
+                                            : (m.puesto ?? 'Al puesto')
+                                    }}
+                                </p>
+                                <p class="truncate font-semibold">
+                                    {{ m.titulo }}
+                                </p>
+                            </div>
                         </div>
+                        <div class="flex flex-wrap gap-2 text-xs">
+                            <span
+                                class="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5"
+                                ><ClipboardCheck class="size-3.5" />
+                                {{ m.preguntas.length }} preguntas</span
+                            >
+                            <span
+                                class="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5"
+                                >Mínimo {{ m.calificacion_minima }}</span
+                            >
+                            <span
+                                v-if="m.contenido_url"
+                                class="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5"
+                                ><PlayCircle class="size-3.5" /> Material</span
+                            >
+                            <span
+                                v-if="!m.activo"
+                                class="rounded-full bg-destructive/10 px-2 py-0.5 text-destructive"
+                                >Inactiva</span
+                            >
+                        </div>
+                    </button>
+                    <div class="border-t px-4 py-2">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            @click="abrirVistaPrevia(m)"
+                            ><Eye class="size-4" /> Vista previa</Button
+                        >
                     </div>
-                    <div class="flex flex-wrap gap-2 text-xs">
-                        <span
-                            class="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5"
-                            ><ClipboardCheck class="size-3.5" />
-                            {{ m.preguntas.length }} preguntas</span
-                        >
-                        <span
-                            class="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5"
-                            >Mínimo {{ m.calificacion_minima }}</span
-                        >
-                        <span
-                            v-if="m.contenido_url"
-                            class="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5"
-                            ><PlayCircle class="size-3.5" /> Material</span
-                        >
-                        <span
-                            v-if="!m.activo"
-                            class="rounded-full bg-destructive/10 px-2 py-0.5 text-destructive"
-                            >Inactiva</span
-                        >
-                    </div>
-                </button>
+                </div>
             </div>
+
+            <Dialog
+                :open="vistaPrevia !== null"
+                @update:open="(v: boolean) => !v && (vistaPrevia = null)"
+            >
+                <DialogContent
+                    class="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+                >
+                    <DialogHeader>
+                        <DialogTitle>
+                            Vista previa — así lo verá el colaborador
+                        </DialogTitle>
+                        <DialogDescription>
+                            Puedes marcar respuestas para probarla; no se envía
+                            ni se guarda nada. Las opciones vacías no se
+                            publican.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <article
+                        v-if="vistaPrevia"
+                        class="rounded-2xl border border-[var(--mrl-primary)]/40 p-4"
+                    >
+                        <div class="flex items-center gap-3">
+                            <PlayCircle
+                                class="size-5 shrink-0 text-[var(--mrl-primary)]"
+                            />
+                            <span class="min-w-0 flex-1">
+                                <span
+                                    class="block font-medium text-[var(--mrl-texto)]"
+                                    >{{ vistaPrevia.titulo }}</span
+                                >
+                                <span
+                                    class="block text-xs text-[var(--mrl-texto-suave)]"
+                                    >Lista para responder</span
+                                >
+                            </span>
+                        </div>
+                        <div
+                            class="mt-4 border-t border-[var(--mrl-borde)] pt-4"
+                        >
+                            <LeccionOnboardingContenido
+                                v-model:respuestas="respuestasPrueba"
+                                :leccion="vistaPrevia"
+                                grupo="vista-previa"
+                                vista-previa
+                            />
+                        </div>
+                    </article>
+                </DialogContent>
+            </Dialog>
         </section>
 
         <section data-tour="onboarding-activos" class="flex flex-col gap-3">

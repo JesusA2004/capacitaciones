@@ -667,6 +667,22 @@ export type SeguimientoInduccion = {
     ultimo_intento_id: number | null;
     calificacion: number | null;
     fecha_limite_reevaluacion: string | null;
+    mejor_calificacion: number | null;
+    intentos_count: number;
+    retroalimentacion: string | null;
+    retroalimentado_en: string | null;
+    /** Lecciones de bienvenida (quiz por módulo, no la FO-RH-EI). */
+    modulos: {
+        avance_id: number;
+        titulo: string;
+        estado: string;
+        estado_etiqueta: string;
+        calificacion: number | null;
+        calificacion_minima: number;
+        intentos_count: number;
+        retroalimentacion: string | null;
+        requiere_refuerzo: boolean;
+    }[];
     onboarding_estado: string;
     laborando: boolean;
     /** Solo en filas con la inducción aprobada. */
@@ -693,6 +709,8 @@ export type ResumenDescriptivoPuestoRh = {
     acuse: AcuseDescriptivoPuesto | null;
     puede_enviar: boolean;
     motivo: string | null;
+    /** PDF oficial del descriptivo vigente («Ver lo que recibirá»). */
+    vista_previa?: { url: string; nombre: string } | null;
 };
 
 /** Lado de RH de «Presentar inducción» (SesionInduccionService::datosPantalla()). */
@@ -782,4 +800,39 @@ export type LimitesArchivosCandidato = {
     max_documento_mb: number;
     max_video_mb: number;
     max_cv_mb: number;
+};
+
+/**
+ * Causal de rotación (motivo) de un tipo de baja, tal como la ofrece el
+ * diálogo «Iniciar baja» (CausalRotacionService::opcionesIniciarBaja).
+ */
+export type CausalRotacionOpcion = {
+    id: number;
+    nombre: string;
+    descripcion: string | null;
+};
+
+/** Uno de los tres tipos de baja (App\Enums\TipoBaja) con sus causales activas. */
+export type TipoBajaOpcion = {
+    value: string;
+    etiqueta: string;
+    descripcion: string;
+    causales: CausalRotacionOpcion[];
+};
+
+/**
+ * Fila de la administración de causales de rotación (Bajas y finiquitos →
+ * «Causales de rotación», CausalRotacionService::listado).
+ */
+export type CausalRotacionAdmin = {
+    id: number;
+    tipo: string;
+    tipo_etiqueta: string;
+    clave: string | null;
+    nombre: string;
+    descripcion: string | null;
+    excluye_indemnizacion: boolean;
+    activo: boolean;
+    orden: number;
+    usos: number;
 };

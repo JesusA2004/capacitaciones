@@ -11,6 +11,7 @@ use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\IncorporacionInvitacion;
 use App\Models\User;
+use App\Services\Colaboradores\DomicilioService;
 use App\Services\Colaboradores\IdentidadColaboradorService;
 use BaconQrCode\Renderer\GDLibRenderer;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
@@ -45,7 +46,10 @@ class IncorporacionInvitacionService
     /** Vigencia máxima de un QR de incorporación: nunca días, solo horas. */
     private const MAX_HORAS_VIGENCIA = 24;
 
-    public function __construct(private readonly IdentidadColaboradorService $identidad) {}
+    public function __construct(
+        private readonly IdentidadColaboradorService $identidad,
+        private readonly DomicilioService $domicilios,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $datos
@@ -358,6 +362,7 @@ class IncorporacionInvitacionService
                     'nss' => $datos['nss'] ?? null,
                     'fecha_nacimiento' => $datos['fecha_nacimiento'] ?? null,
                     'domicilio' => $datos['direccion'] ?? null,
+                    ...$this->domicilios->extraer(array_diff_key($datos, ['domicilio' => true])),
                     'contacto_emergencia_nombre' => $datos['contacto_emergencia_nombre'] ?? null,
                     'contacto_emergencia_telefono' => $datos['contacto_emergencia_telefono'] ?? null,
                     'sucursal_principal_id' => $invitacion->sucursal_id,
@@ -420,6 +425,7 @@ class IncorporacionInvitacionService
             'nss' => $datos['nss'] ?? null,
             'fecha_nacimiento' => $datos['fecha_nacimiento'] ?? null,
             'domicilio' => $datos['direccion'] ?? null,
+            ...$this->domicilios->extraer(array_diff_key($datos, ['domicilio' => true])),
             'contacto_emergencia_nombre' => $datos['contacto_emergencia_nombre'] ?? null,
             'contacto_emergencia_telefono' => $datos['contacto_emergencia_telefono'] ?? null,
         ], fn ($valor) => $valor !== null && $valor !== ''));

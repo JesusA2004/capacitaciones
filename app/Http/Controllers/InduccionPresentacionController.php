@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Enums\TipoModuloOnboarding;
-use App\Models\OnboardingModulo;
 use App\Services\Onboarding\InduccionPdfService;
 use App\Services\Onboarding\MaterialInduccionService;
 use App\Services\Onboarding\SesionInduccionService;
@@ -65,12 +63,7 @@ class InduccionPresentacionController extends Controller
      */
     private function materialRh(): ?array
     {
-        $modulo = OnboardingModulo::query()
-            ->whereNotNull('evaluacion_formal_clave')
-            ->where('tipo', TipoModuloOnboarding::Institucional->value)
-            ->where('activo', true)
-            ->orderBy('orden')
-            ->first();
+        $modulo = $this->materiales->moduloInstitucional();
 
         if ($modulo === null) {
             return null;

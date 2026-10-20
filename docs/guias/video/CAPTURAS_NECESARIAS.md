@@ -39,7 +39,7 @@ Lista exacta de pantallas, en orden. Los PNG reales están en [capturas/](captur
 | 29 | `28-nomina-lotes.png` → `28-nomina-lotes.mp4` | Personal → Recibos de nómina | `/rh/nomina/lotes` | Preparar un lote quincenal; abrirlo y recorrer recibos con Anterior y Siguiente. |
 | 30 | `29-nomina-emitir.png` → `29-nomina-emitir.mp4` | Lote de nómina → Emitir | `/rh/nomina/lotes/:lote` | Pulsar «Emitir N recibos» e imprimir el PDF. |
 | 31 | `30-avisos.png` → `30-avisos.mp4` | Personal → Avisos | `/rh/avisos` | Redactar un aviso para toda la empresa con imagen; mostrar Celebraciones. |
-| 32 | `31-baja.png` → `31-baja.mp4` | Ciclo laboral → Iniciar baja | `/rh/colaboradores/:colaborador/ciclo` | Abrir «Iniciar baja», elegir la causa, el motivo y la fecha efectiva. |
+| 32 | `31-baja.png` → `31-baja.mp4` | Ciclo laboral → Iniciar baja | `/rh/colaboradores/:colaborador/ciclo` | Abrir «Iniciar baja», elegir el tipo, el motivo y la fecha efectiva. |
 | 33 | `32-finiquito.png` → `32-finiquito.mp4` | Solicitud de baja → Finiquito | `/rh/solicitudes/:solicitud` | Mostrar los conceptos del finiquito, ajustar uno con motivo y ver la vista previa. |
 | 34 | `33-reingresos.png` → `33-reingresos.mp4` | Desarrollo → Reingresos | `/rh/reingresos` | Buscar a una persona dada de baja y mostrar su causa de salida. |
 | 35 | `34-guia.png` → `34-guia.mp4` | Ayuda → Guía del sistema | `/ayuda` | Mostrar el centro de Guía: buscador, recorrido completo, procesos y roles. |

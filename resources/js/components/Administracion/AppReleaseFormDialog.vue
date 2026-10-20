@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -34,13 +35,59 @@ const form = useForm({
     minimum_required: false as boolean,
 });
 
+const preparando = ref(false);
+const errorLocal = ref<string | null>(null);
+
+/**
+ * Copia el APK a memoria al elegirlo: si el archivo cambia en disco antes
+ * de terminar la subida (build que se sobrescribe, carpeta sincronizada de
+ * OneDrive/Drive), Chrome aborta con ERR_UPLOAD_FILE_CHANGED. Con la copia
+ * se sube exactamente lo que se eligió.
+ */
+async function elegirApk(archivos: File[]) {
+    errorLocal.value = null;
+    const archivo = archivos[0] ?? null;
+
+    if (!archivo) {
+        form.apk = null;
+
+        return;
+    }
+
+    preparando.value = true;
+
+    try {
+        const contenido = await archivo.arrayBuffer();
+        form.apk = new File([contenido], archivo.name, {
+            type: archivo.type || 'application/vnd.android.package-archive',
+            lastModified: archivo.lastModified,
+        });
+    } catch {
+        form.apk = null;
+        errorLocal.value =
+            'No se pudo leer el APK: el archivo cambió o se está escribiendo todavía. Espera a que termine el build, cópialo a una carpeta local (no OneDrive/Drive) y vuelve a seleccionarlo.';
+    } finally {
+        preparando.value = false;
+    }
+}
+
 function enviar() {
+    errorLocal.value = null;
+    let exito = false;
+
     form.post(store.url(), {
         forceFormData: true,
         preserveScroll: true,
         onSuccess: () => {
+            exito = true;
             emit('update:open', false);
             form.reset();
+        },
+        onFinish: () => {
+            if (!exito && Object.keys(form.errors).length === 0) {
+                errorLocal.value =
+                    'La subida se interrumpió (conexión o archivo cambiado). Revisa tu conexión y vuelve a intentarlo.';
+            }
         },
     });
 }
@@ -65,10 +112,25 @@ function enviar() {
                     accept=".apk"
                     :max-size-mb="maxUploadMb"
                     label="Arrastra el APK aquí"
-                    @update:model-value="(f) => (form.apk = f[0] ?? null)"
+                    :loading="preparando"
+                    @update:model-value="elegirApk"
                 />
                 <p v-if="form.errors.apk" class="text-xs text-destructive">
                     {{ form.errors.apk }}
+                </p>
+                <p
+                    v-if="errorLocal"
+                    class="text-xs text-destructive"
+                    role="alert"
+                >
+                    {{ errorLocal }}
+                </p>
+                <p
+                    v-if="form.progress"
+                    class="text-xs text-muted-foreground"
+                    role="status"
+                >
+                    Subiendo… {{ form.progress.percentage }}%
                 </p>
             </div>
 
@@ -100,7 +162,12 @@ function enviar() {
 
             <DialogFooter>
                 <Button
-                    :disabled="form.processing || !form.apk || !form.version"
+                    :disabled="
+                        form.processing ||
+                        preparando ||
+                        !form.apk ||
+                        !form.version
+                    "
                     @click="enviar"
                 >
                     <Spinner v-if="form.processing" />

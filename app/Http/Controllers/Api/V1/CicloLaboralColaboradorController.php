@@ -135,7 +135,8 @@ class CicloLaboralColaboradorController extends Controller
      */
     public function datosFaltantes(Request $request, DatosFaltantesService $datos, ActualizacionDatosService $actualizacion): JsonResponse
     {
-        $resumen = $datos->resumen($this->colaborador($request));
+        $colaborador = $this->colaborador($request);
+        $resumen = $datos->resumen($colaborador);
 
         return response()->json(['data' => [
             'completo' => $resumen['personales'] === [],
@@ -145,6 +146,9 @@ class CicloLaboralColaboradorController extends Controller
             // Faltante accionable aparte (nunca mezclado con `faltan`): la
             // app muestra "Foto de perfil" + botón "Subir foto".
             'foto_pendiente' => $resumen['foto_perfil_pendiente'],
+            // Nuevo (opcional para APKs anteriores): domicilio estructurado
+            // con su valor vigente, para «Solicitar cambio de domicilio».
+            'domicilio' => $actualizacion->domicilioConValor($colaborador),
         ]]);
     }
 

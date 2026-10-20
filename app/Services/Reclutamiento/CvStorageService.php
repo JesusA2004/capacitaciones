@@ -8,7 +8,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Unica puerta de entrada al almacenamiento de CVs de candidatos (disco
@@ -18,6 +20,55 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class CvStorageService
 {
+    /**
+     * Content-Type por extensión, para cuando el mime guardado falta o es
+     * genérico (CVs viejos sin mime, archivos tomados de la bandeja del NAS
+     * por SFTP, donde el disco no siempre sabe detectarlo). Sin esto el
+     * navegador recibe application/octet-stream y descarga en vez de mostrar.
+     */
+    private const MIME_POR_EXTENSION = [
+        'pdf' => 'application/pdf',
+        'png' => 'image/png',
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'jpe' => 'image/jpeg',
+        'jfif' => 'image/jpeg',
+        'webp' => 'image/webp',
+        'gif' => 'image/gif',
+        'bmp' => 'image/bmp',
+        'svg' => 'image/svg+xml',
+        'avif' => 'image/avif',
+        'heic' => 'image/heic',
+        'heif' => 'image/heif',
+        'tif' => 'image/tiff',
+        'tiff' => 'image/tiff',
+        'mp4' => 'video/mp4',
+        'm4v' => 'video/x-m4v',
+        'mov' => 'video/quicktime',
+        'webm' => 'video/webm',
+        '3gp' => 'video/3gpp',
+        'mp3' => 'audio/mpeg',
+        'm4a' => 'audio/mp4',
+        'ogg' => 'audio/ogg',
+        'wav' => 'audio/wav',
+        'txt' => 'text/plain',
+        'csv' => 'text/csv',
+        'doc' => 'application/msword',
+        'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'xls' => 'application/vnd.ms-excel',
+        'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'ppt' => 'application/vnd.ms-powerpoint',
+        'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    ];
+
+    /** Mimes que no dicen nada del contenido: se resuelven por extensión. */
+    private const MIMES_GENERICOS = [
+        'application/octet-stream',
+        'application/zip',
+        'application/x-empty',
+        'binary/octet-stream',
+    ];
+
     public function disco(): Filesystem
     {
         return Storage::disk(config('reclutamiento.disk'));
@@ -138,6 +189,78 @@ class CvStorageService
         ]);
 
         return $respuesta;
+    }
+
+    /**
+     * Archivo del mini expediente (CV o evidencia) listo para el visor
+     * embebido: `inline` por default (iframe/img/video), `attachment` solo
+     * cuando se pide descargar. Content-Type correcto aunque el mime guardado
+     * falte, nombre con acentos codificado según RFC 6266 y soporte de Range
+     * para adelantar videos. Un archivo que ya no está en el NAS es 404, no
+     * un error 500.
+     */
+    public function respuestaArchivo(
+        Request $request,
+        string $ruta,
+        string $nombreOriginal,
+        ?string $mimeGuardado = null,
+        bool $descargar = false,
+    ): StreamedResponse {
+        if (! $this->disco()->exists($ruta)) {
+            throw new NotFoundHttpException('El archivo ya no está disponible en el NAS.');
+        }
+
+        $nombre = $nombreOriginal !== '' ? $nombreOriginal : basename($ruta);
+        $mime = $this->mimeDe($ruta, $nombre, $mimeGuardado);
+
+        $headers = [
+            'Content-Type' => $mime,
+            'Content-Disposition' => $this->disposicion($descargar ? HeaderUtils::DISPOSITION_ATTACHMENT : HeaderUtils::DISPOSITION_INLINE, $nombre),
+            'Cache-Control' => 'private, max-age=0, must-revalidate',
+        ];
+
+        // Un SVG abierto directamente en una pestaña podría ejecutar scripts
+        // con la sesión del usuario: se sirve aislado (como en <img>).
+        if ($mime === 'image/svg+xml') {
+            $headers['Content-Security-Policy'] = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+        }
+
+        return $this->respuestaConRango($request, $ruta, $headers);
+    }
+
+    /**
+     * Mime real del archivo: el guardado al subirlo (detectado por contenido)
+     * salvo que sea genérico; si no, por extensión del nombre original; al
+     * final, lo que diga el disco.
+     */
+    public function mimeDe(string $ruta, ?string $nombreOriginal = null, ?string $mimeGuardado = null): string
+    {
+        $guardado = strtolower(trim((string) $mimeGuardado));
+
+        if ($guardado !== '' && ! in_array($guardado, self::MIMES_GENERICOS, true)) {
+            return $guardado;
+        }
+
+        foreach ([$nombreOriginal, $ruta] as $fuente) {
+            $extension = strtolower(pathinfo((string) $fuente, PATHINFO_EXTENSION));
+
+            if (isset(self::MIME_POR_EXTENSION[$extension])) {
+                return self::MIME_POR_EXTENSION[$extension];
+            }
+        }
+
+        $delDisco = $this->disco()->mimeType($ruta);
+
+        return is_string($delDisco) && $delDisco !== '' ? $delDisco : 'application/octet-stream';
+    }
+
+    private function disposicion(string $tipo, string $nombre): string
+    {
+        // Respaldo ASCII sin "/", "\" ni "%" (requisito de HeaderUtils) para
+        // navegadores viejos; el nombre real va en filename*= (UTF-8).
+        $respaldo = (string) preg_replace('/[^A-Za-z0-9._ -]+/', '_', Str::ascii($nombre));
+
+        return HeaderUtils::makeDisposition($tipo, $nombre, $respaldo !== '' ? $respaldo : 'archivo');
     }
 
     /**

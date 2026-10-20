@@ -3,6 +3,7 @@
 namespace App\Services\Onboarding;
 
 use App\Enums\EstadoAltaColaborador;
+use App\Enums\EstadoAvanceOnboarding;
 use App\Enums\EstadoEvaluacionInduccion;
 use App\Enums\EstadoOnboarding;
 use App\Enums\EstadoSesionInduccion;
@@ -400,15 +401,18 @@ class SesionInduccionService
      * alcance — pendiente de presentar → presentada, por contestar → por
      * calificar (D) → aprobada / reforzamiento, y si ya labora.
      *
+     * Con $historial incluye también los onboardings ya completados (sin el
+     * corte de 30 días) — lo usa «Calificaciones y refuerzo».
+     *
      * @return list<array<string, mixed>>
      */
-    public function seguimiento(User $actor): array
+    public function seguimiento(User $actor, bool $historial = false): array
     {
         $procesos = OnboardingProceso::query()
             ->where('estado', '!=', EstadoOnboarding::Cancelado->value)
-            ->where(fn (Builder $q) => $q
+            ->when(! $historial, fn (Builder $consulta) => $consulta->where(fn (Builder $q) => $q
                 ->where('estado', '!=', EstadoOnboarding::Completado->value)
-                ->orWhere('completado_en', '>=', now()->subDays(30)))
+                ->orWhere('completado_en', '>=', now()->subDays(30))))
             ->whereHas('avances.modulo', fn (Builder $q) => $q
                 ->where('tipo', TipoModuloOnboarding::Institucional->value)
                 ->whereNotNull('evaluacion_formal_clave'))
@@ -469,6 +473,27 @@ class SesionInduccionService
                 'ultimo_intento_id' => $ultimo?->id,
                 'calificacion' => $evaluacion?->ultima_calificacion !== null ? (float) $evaluacion->ultima_calificacion : null,
                 'fecha_limite_reevaluacion' => $evaluacion?->fecha_limite_reevaluacion?->toDateString(),
+                'mejor_calificacion' => $evaluacion?->mejor_calificacion !== null ? (float) $evaluacion->mejor_calificacion : null,
+                'intentos_count' => $evaluacion->intentos_count ?? 0,
+                'retroalimentacion' => $evaluacion?->retroalimentacion,
+                'retroalimentado_en' => $evaluacion?->retroalimentado_en?->toIso8601String(),
+                // Lecciones de bienvenida (módulos con quiz, no la FO-RH-EI).
+                'modulos' => $proceso->avances
+                    ->filter(fn (OnboardingAvance $a): bool => $a->modulo->evaluacion_formal_clave === null)
+                    ->sortBy('orden')
+                    ->map(fn (OnboardingAvance $a): array => [
+                        'avance_id' => $a->id,
+                        'titulo' => $a->modulo->titulo,
+                        'estado' => $a->estado->value,
+                        'estado_etiqueta' => $a->estado->etiqueta(),
+                        'calificacion' => $a->ultima_calificacion !== null ? (float) $a->ultima_calificacion : null,
+                        'calificacion_minima' => (float) $a->modulo->calificacion_minima,
+                        'intentos_count' => $a->intentos_count,
+                        'retroalimentacion' => $a->retroalimentacion,
+                        'requiere_refuerzo' => $a->estado === EstadoAvanceOnboarding::RequiereRefuerzo,
+                    ])
+                    ->values()
+                    ->all(),
                 'onboarding_estado' => $proceso->estado->value,
                 'laborando' => $colaborador->activado_en !== null,
                 'descriptivo_puesto' => $descriptivos[$colaborador->id] ?? null,
@@ -477,6 +502,23 @@ class SesionInduccionService
             ->sortBy(fn (array $fila): string => sprintf('%d %s', $orden[$fila['etapa']], Str::lower(Str::ascii($fila['colaborador']['nombre']))))
             ->values()
             ->all());
+    }
+
+    /**
+     * «Calificaciones y refuerzo» (grupo 3 · Onboarding): el resultado de
+     * cada persona en la evaluación de inducción FO-RH-EI y en sus lecciones,
+     * con retroalimentación y reevaluación — incluido el historial. Mismo
+     * alcance que el seguimiento (limitarPorModulo).
+     *
+     * @return list<array<string, mixed>>
+     *
+     * @throws AuthorizationException sin onboarding.gestionar
+     */
+    public function calificacionesRh(User $actor): array
+    {
+        $this->exigirPermiso($actor);
+
+        return $this->seguimiento($actor, true);
     }
 
     /**

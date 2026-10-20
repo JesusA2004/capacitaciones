@@ -282,7 +282,9 @@ class CatalogoVariablesFormato
             $this->v('fecha.actual', 'Fecha de hoy', 'fechas', tipo: 'fecha', ejemplo: now()->format('d/m/Y'), sinonimos: ['fecha', 'fecha actual', 'fecha de expedicion', 'a los'], contexto: 'siempre'),
 
             // --- Otros ---
-            $this->v('otros.generado_por', 'Nombre de quien genera', 'otros', ejemplo: 'Laura Martínez', sinonimos: ['elaboro', 'elaborado por'], contexto: 'siempre'),
+            // Se conserva para formatos ya mapeados, pero SIEMPRE sale en blanco
+            // (a pluma): un documento nunca imprime la cuenta que lo genera.
+            $this->v('otros.generado_por', 'Elaboró (en blanco, se llena a pluma)', 'otros', ejemplo: '', sinonimos: ['elaboro', 'elaborado por'], contexto: 'siempre'),
             $this->v('otros.referencia', 'Referencia del documento', 'otros', ejemplo: 'FO-8K2J4M', sinonimos: ['referencia'], contexto: 'siempre'),
         ];
     }

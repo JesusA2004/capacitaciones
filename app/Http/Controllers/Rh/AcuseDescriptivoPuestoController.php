@@ -11,6 +11,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * «Enviar descriptivo de puesto» (web, RH) después de aprobar la
@@ -47,7 +48,7 @@ class AcuseDescriptivoPuestoController extends Controller
 
         $listado->getCollection()->transform(function (OnboardingProceso $p) use ($resumenes): array {
             $colaborador = $p->colaborador;
-            $resumen = $resumenes[$colaborador->id] ?? ['acuse' => null, 'puede_enviar' => false, 'motivo' => null];
+            $resumen = $resumenes[$colaborador->id] ?? ['acuse' => null, 'puede_enviar' => false, 'motivo' => null, 'vista_previa' => null];
 
             return [
                 'colaborador' => [
@@ -62,6 +63,7 @@ class AcuseDescriptivoPuestoController extends Controller
                 'acuse' => $resumen['acuse'],
                 'puede_enviar' => $resumen['puede_enviar'],
                 'motivo' => $resumen['motivo'],
+                'vista_previa' => $resumen['vista_previa'],
             ];
         });
 
@@ -69,6 +71,15 @@ class AcuseDescriptivoPuestoController extends Controller
             'colaboradores' => $listado,
             'filtros' => ['busqueda' => (string) $request->query('busqueda', '')],
         ]);
+    }
+
+    /**
+     * «Ver lo que recibirá»: PDF oficial del descriptivo vigente (inline),
+     * antes de enviarlo. No registra nada.
+     */
+    public function vistaPrevia(Request $request, Colaborador $colaborador): StreamedResponse
+    {
+        return $this->acuses->pdfVistaPrevia($colaborador, $request->user());
     }
 
     public function enviar(Request $request, Colaborador $colaborador): RedirectResponse

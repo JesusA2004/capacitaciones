@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Concerns\PasswordValidationRules;
+use App\Services\Colaboradores\DomicilioService;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -37,9 +38,20 @@ class RegistrarDesdeQrRequest extends FormRequest
             'rfc' => ['nullable', 'string', 'max:13'],
             'nss' => ['nullable', 'string', 'max:11'],
             'fecha_nacimiento' => ['nullable', 'date'],
+            // Texto único (APKs anteriores) y, opcionales, los campos
+            // estructurados del domicilio (DomicilioService).
             'direccion' => ['nullable', 'string', 'max:255'],
+            ...app(DomicilioService::class)->reglas(),
             'contacto_emergencia_nombre' => ['nullable', 'string', 'max:150'],
             'contacto_emergencia_telefono' => ['nullable', 'string', 'max:30'],
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return app(DomicilioService::class)->mensajes();
     }
 }

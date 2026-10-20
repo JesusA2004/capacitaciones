@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EstadoAltaDigital;
+use App\Models\Concerns\SincronizaDomicilio;
 use Database\Factories\AltaDigitalFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -31,6 +32,13 @@ use Illuminate\Support\Carbon;
  * @property string|null $rfc
  * @property string|null $nss
  * @property string|null $domicilio
+ * @property string|null $domicilio_calle
+ * @property string|null $domicilio_numero_exterior
+ * @property string|null $domicilio_numero_interior
+ * @property string|null $domicilio_colonia
+ * @property string|null $domicilio_cp
+ * @property string|null $domicilio_municipio
+ * @property string|null $domicilio_estado
  * @property string|null $contacto_emergencia_nombre
  * @property string|null $contacto_emergencia_telefono
  * @property Carbon|null $fecha_ingreso_propuesta
@@ -55,7 +63,7 @@ use Illuminate\Support\Carbon;
 class AltaDigital extends Model
 {
     /** @use HasFactory<AltaDigitalFactory> */
-    use HasFactory, SoftDeletes;
+    use HasFactory, SincronizaDomicilio, SoftDeletes;
 
     protected $table = 'altas_digitales';
 
@@ -83,6 +91,13 @@ class AltaDigital extends Model
         'rfc',
         'nss',
         'domicilio',
+        'domicilio_calle',
+        'domicilio_numero_exterior',
+        'domicilio_numero_interior',
+        'domicilio_colonia',
+        'domicilio_cp',
+        'domicilio_municipio',
+        'domicilio_estado',
         'contacto_emergencia_nombre',
         'contacto_emergencia_telefono',
         'fecha_ingreso_propuesta',

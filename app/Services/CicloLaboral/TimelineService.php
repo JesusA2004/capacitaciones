@@ -329,9 +329,10 @@ class TimelineService
     {
         foreach (['motivo', 'comentario', 'tipo_baja', 'referencia'] as $clave) {
             if (isset($p[$clave]) && is_string($p[$clave]) && $p[$clave] !== '') {
-                // La causa se guarda como clave del enum («baja_inmediata»): se
+                // El tipo se guarda como clave del enum («rescision», o una
+                // causa anterior como «baja_inmediata» en el historial): se
                 // muestra su etiqueta en español.
-                return $clave === 'tipo_baja' ? (TipoBaja::tryFrom($p[$clave])?->etiqueta() ?? $p[$clave]) : $p[$clave];
+                return $clave === 'tipo_baja' ? TipoBaja::etiquetaDeValor($p[$clave]) : $p[$clave];
             }
         }
 

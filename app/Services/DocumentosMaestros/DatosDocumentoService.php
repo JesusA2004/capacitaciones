@@ -13,6 +13,7 @@ use App\Models\Empresa;
 use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\Colaboradores\DomicilioService;
 use App\Services\Compensacion\CompensacionService;
 use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Formatos\Variables\NumeroALetras;
@@ -68,6 +69,8 @@ class DatosDocumentoService
         'domicilio_municipio' => ['colaborador', 'domicilio_municipio', 'Municipio del domicilio', 'texto'],
         'domicilio_estado' => ['colaborador', 'domicilio_estado', 'Estado del domicilio', 'texto'],
         'domicilio_cp' => ['colaborador', 'domicilio_cp', 'C.P. del domicilio', 'texto'],
+        'domicilio_numero_exterior' => ['colaborador', 'domicilio_numero_exterior', 'Número exterior del domicilio', 'texto'],
+        'domicilio_numero_interior' => ['colaborador', 'domicilio_numero_interior', 'Número interior del domicilio', 'texto'],
         'beneficiario_nombre' => ['colaborador', 'beneficiario_nombre', 'Beneficiario', 'texto'],
         'beneficiario_parentesco' => ['colaborador', 'beneficiario_parentesco', 'Parentesco del beneficiario', 'texto'],
         'contacto_emergencia_nombre' => ['colaborador', 'contacto_emergencia_nombre', 'Contacto de emergencia: nombre', 'texto'],
@@ -172,6 +175,7 @@ class DatosDocumentoService
         // un dato base — la advertencia pide «Préstamo autorizado» o
         // «Apellidos», nunca la clave técnica de cada casilla.
         'nombre_mayusculas' => 'nombre', 'apellido_paterno_mayusculas' => 'apellidos', 'apellido_materno_mayusculas' => 'apellidos',
+        'domicilio_calle' => 'domicilio', 'domicilio_calle_mayusculas' => 'domicilio',
         'domicilio_colonia_mayusculas' => 'domicilio_colonia', 'domicilio_municipio_mayusculas' => 'domicilio_municipio',
         'domicilio_estado_mayusculas' => 'domicilio_estado', 'tipo_identificacion' => 'clave_elector',
         'sucursal_numero' => 'sucursal_clave', 'lugar_y_fecha_documento_corta' => 'sucursal_ciudad',
@@ -182,6 +186,7 @@ class DatosDocumentoService
         'primer_pago_dia' => 'prestamo', 'primer_pago_mes' => 'prestamo', 'primer_pago_anio_corto' => 'prestamo',
         'ultimo_pago_dia' => 'prestamo', 'ultimo_pago_mes' => 'prestamo', 'ultimo_pago_anio_corto' => 'prestamo',
         'suscripcion_dia' => 'prestamo', 'suscripcion_mes' => 'prestamo', 'suscripcion_anio' => 'prestamo',
+        'cargo_prestamo' => 'prestamo', 'iva_prestamo' => 'prestamo', 'monto_total_prestamo' => 'prestamo', 'numero_cheque_prestamo' => 'prestamo',
     ];
 
     public function __construct(
@@ -232,6 +237,7 @@ class DatosDocumentoService
         // el contrato por un beneficiario vacío si ya hay contacto de emergencia.
         $beneficiarioNombre = trim((string) $c->beneficiario_nombre) !== '' ? trim((string) $c->beneficiario_nombre) : trim((string) $c->contacto_emergencia_nombre);
         $beneficiarioParentesco = trim((string) $c->beneficiario_parentesco) !== '' ? trim((string) $c->beneficiario_parentesco) : trim((string) $c->contacto_emergencia_parentesco);
+        [$paterno, $materno] = $this->apellidos((string) $c->apellidos);
         $datos = [
             'nombre_completo' => $nombre,
             'nombre_completo_mayusculas' => $this->mayus($nombre),
@@ -264,6 +270,20 @@ class DatosDocumentoService
             'domicilio_estado' => trim((string) $c->domicilio_estado),
             'domicilio_cp' => trim((string) $c->domicilio_cp),
             'domicilio_completo' => $this->domicilioCompleto($c),
+            // Celdas separadas de los formatos (préstamo: «Nombre», «Apellido
+            // paterno», «Colonia», «Calle»…). Son datos del COLABORADOR: salen
+            // siempre, haya o no un préstamo en el contexto.
+            'nombre_mayusculas' => $this->mayus((string) $c->name),
+            'apellido_paterno_mayusculas' => $this->mayus($paterno),
+            'apellido_materno_mayusculas' => $this->mayus($materno),
+            'domicilio_calle' => $this->domicilioCalle($c),
+            'domicilio_calle_mayusculas' => $this->mayus($this->domicilioCalle($c)),
+            'domicilio_numero_exterior' => trim((string) $c->domicilio_numero_exterior),
+            'domicilio_numero_interior' => trim((string) $c->domicilio_numero_interior),
+            'domicilio_colonia_mayusculas' => $this->mayus((string) $c->domicilio_colonia),
+            'domicilio_municipio_mayusculas' => $this->mayus((string) $c->domicilio_municipio),
+            'domicilio_estado_mayusculas' => $this->mayus((string) $c->domicilio_estado),
+            'tipo_identificacion' => trim((string) $c->clave_elector) !== '' ? 'INE' : '',
             'beneficiario_nombre' => $this->mayus($beneficiarioNombre),
             'beneficiario_parentesco' => $beneficiarioParentesco,
             // Contacto de emergencia: cada dato por separado y el «completo»
@@ -286,6 +306,8 @@ class DatosDocumentoService
             'salario_diario_integrado' => $c->salario_diario_integrado !== null ? number_format((float) $c->salario_diario_integrado, 2) : '',
             'sucursal_nombre' => (string) $sucursal?->nombre,
             'sucursal_nombre_mayusculas' => $this->mayus((string) $sucursal?->nombre),
+            // «No. de sucursal»: la clave de la sucursal principal (Administración → Sucursales).
+            'sucursal_numero' => trim((string) $sucursal?->clave),
             'sucursal_domicilio' => $this->domicilioSucursal($sucursal),
             'sucursal_domicilio_con_nombre' => $sucursal !== null && $this->domicilioSucursal($sucursal) !== '' ? sprintf('%s (sucursal %s)', $this->domicilioSucursal($sucursal), $sucursal->nombre) : '',
             'sucursal_direccion_mayusculas' => $this->mayus((string) $sucursal?->direccion),
@@ -450,6 +472,9 @@ class DatosDocumentoService
             'domicilio_municipio' => 'nullable|string|max:120',
             'domicilio_estado' => 'nullable|string|max:80',
             'domicilio_cp' => 'nullable|string|max:10',
+            'domicilio_calle' => 'nullable|string|max:150',
+            'domicilio_numero_exterior' => 'nullable|string|max:20',
+            'domicilio_numero_interior' => 'nullable|string|max:20',
             'beneficiario_nombre' => 'nullable|string|max:191',
             'beneficiario_parentesco' => 'nullable|string|max:60',
             'contacto_emergencia_nombre' => 'nullable|string|max:191',
@@ -503,7 +528,8 @@ class DatosDocumentoService
 
         $datos['resultado_acredita'] = $acreditaGlobal === null ? '' : ($acreditaGlobal ? '☒' : '☐');
         $datos['resultado_no_acredita'] = $acreditaGlobal === null ? '' : ($acreditaGlobal ? '☐' : '☒');
-        $datos['elaboro_nombre_cargo'] = $this->nombreYCargo($evaluacion->capturadaPor);
+        // ELABORÓ: en blanco (pluma). Nunca la cuenta que capturó la evaluación.
+        $datos['elaboro_nombre_cargo'] = '';
         $datos['valido_nombre_cargo'] = $this->nombreYCargo($evaluacion->autorizadaPor);
         $datos['fecha_elaboro_larga'] = $this->fechaLarga($evaluacion->capturada_en);
         $datos['fecha_valido_larga'] = $this->fechaLarga($evaluacion->autorizada_en);
@@ -583,7 +609,6 @@ class DatosDocumentoService
         $cierre = $contexto->cierre;
         $manual = $contexto->manuales;
         $jefe = $contexto->colaborador->jefe;
-        $actorColaborador = $contexto->actor?->colaborador;
         $datos = [];
 
         if ($cierre !== null) {
@@ -610,9 +635,11 @@ class DatosDocumentoService
             }
         }
 
-        // Valores propuestos cuando nadie los capturó todavía.
-        $datos['rh_nombre'] = ($datos['rh_nombre'] ?? '') !== '' ? $datos['rh_nombre'] : $this->mayus((string) ($actorColaborador?->nombreCompleto() ?? $contexto->actor->name ?? ''));
-        $datos['rh_cargo'] = ($datos['rh_cargo'] ?? '') !== '' ? $datos['rh_cargo'] : (string) ($actorColaborador->puesto->nombre ?? '');
+        // Valores propuestos cuando nadie los capturó todavía. El
+        // representante de RH NUNCA se propone con la cuenta que genera el
+        // documento: si RH no lo capturó explícitamente, queda en blanco (pluma).
+        $datos['rh_nombre'] = (string) ($datos['rh_nombre'] ?? '');
+        $datos['rh_cargo'] = (string) ($datos['rh_cargo'] ?? '');
         $datos['jefe_nombre'] = ($datos['jefe_nombre'] ?? '') !== '' ? $datos['jefe_nombre'] : $this->mayus((string) ($jefe?->nombreCompleto() ?? ''));
         $datos['jefe_cargo'] = ($datos['jefe_cargo'] ?? '') !== '' ? $datos['jefe_cargo'] : (string) ($jefe->puesto->nombre ?? '');
         // Acta fuera de un cierre (PRO-ADP-08): la ciudad y el domicilio de
@@ -687,7 +714,10 @@ class DatosDocumentoService
         $fechaSolicitud = $prestamo->fecha_solicitud ?? $prestamo->created_at;
         $otorgamiento = $prestamo->fecha_otorgamiento ?? $prestamo->autorizado_en ?? $contexto->fechaDocumento();
         $primero = $prestamo->fecha_primer_descuento;
-        $ultimo = $primero !== null ? $this->ultimoPago(CarbonImmutable::instance($primero), (string) $prestamo->periodicidad, (int) $prestamo->plazo) : null;
+        // «Último pago parcial»: el que RH capturó al autorizar; solo un
+        // préstamo anterior a esa captura conserva la fecha derivada del plazo.
+        $ultimo = $prestamo->fecha_ultimo_pago
+            ?? ($primero !== null ? $this->ultimoPago(CarbonImmutable::instance($primero), (string) $prestamo->periodicidad, (int) $prestamo->plazo) : null);
         $periodicidad = mb_strtolower((string) $prestamo->periodicidad);
         $unidad = match (true) {
             str_contains($periodicidad, 'seman') => 'semanas',
@@ -696,12 +726,17 @@ class DatosDocumentoService
             str_contains($periodicidad, 'diar') => 'días',
             default => 'pagos',
         };
-        $c = $contexto->colaborador;
-        [$paterno, $materno] = $this->apellidos((string) $c->apellidos);
         $suscripcion = $contexto->fechaDocumento();
+        // Préstamo aún no guardado: el de ejemplo de una prueba (marcado) o
+        // una propuesta en memoria (vista previa de un flujo antes de confirmar).
+        $folio = match (true) {
+            $contexto->prestamoDeEjemplo => 'EJEMPLO (SIN PRÉSTAMO)',
+            ! $prestamo->exists => 'POR ASIGNAR',
+            default => sprintf('PRE-%06d', $prestamo->id),
+        };
 
         return [
-            'prestamo_folio' => sprintf('PRE-%06d', $prestamo->id),
+            'prestamo_folio' => $folio,
             'monto_prestamo' => sprintf('$%s', number_format($monto, 2)),
             'monto_prestamo_numero' => number_format($monto, 2),
             'monto_prestamo_letra' => $this->letras->moneda($monto),
@@ -726,17 +761,20 @@ class DatosDocumentoService
             'suscripcion_dia' => $suscripcion->format('d'),
             'suscripcion_mes' => self::MESES[$suscripcion->month - 1],
             'suscripcion_anio' => $suscripcion->format('Y'),
-            'nombre_mayusculas' => $this->mayus((string) $c->name),
-            'apellido_paterno_mayusculas' => $this->mayus($paterno),
-            'apellido_materno_mayusculas' => $this->mayus($materno),
-            'domicilio_colonia_mayusculas' => $this->mayus((string) $c->domicilio_colonia),
-            'domicilio_municipio_mayusculas' => $this->mayus((string) $c->domicilio_municipio),
-            'domicilio_estado_mayusculas' => $this->mayus((string) $c->domicilio_estado),
-            'domicilio_cp' => (string) $c->domicilio_cp,
-            'sucursal_numero' => (string) $c->sucursalPrincipal?->clave,
-            'tipo_identificacion' => trim((string) $c->clave_elector) !== '' ? 'INE' : '',
-            'representante_legal_mayusculas' => $this->mayus(trim((string) $c->sucursalPrincipal?->empresa?->representante_legal_nombre)),
+            // Contrato de crédito: tal cual lo capturó RH (vacío si no aplica).
+            'cargo_prestamo' => $this->monedaCapturada($prestamo->cargo_sin_iva),
+            'iva_prestamo' => $this->monedaCapturada($prestamo->iva),
+            'monto_total_prestamo' => $this->monedaCapturada($prestamo->monto_total_con_iva),
+            'numero_cheque_prestamo' => trim((string) $prestamo->numero_cheque),
         ];
+    }
+
+    /**
+     * «$1,234.56» de un monto capturado a mano; vacío si no se capturó.
+     */
+    private function monedaCapturada(?string $monto): string
+    {
+        return $monto === null ? '' : sprintf('$%s', number_format((float) $monto, 2));
     }
 
     /**
@@ -950,6 +988,48 @@ class DatosDocumentoService
     }
 
     /**
+     * Celda «Calle» de un formato que además trae Colonia / Municipio /
+     * Estado / C.P. en celdas propias: el domicilio capturado SIN los
+     * segmentos finales («…, Col. Centro, Cuernavaca, Morelos») que repiten
+     * exactamente un dato estructurado ya capturado — esos se imprimen en su
+     * celda. Nunca se adivina: si un segmento no coincide con lo capturado
+     * (o no hay datos estructurados), el domicilio sale completo.
+     *
+     * Con la calle capturada en su campo (domicilio estructurado), sale
+     * directo: «calle número exterior Int. interior».
+     */
+    private function domicilioCalle(Colaborador $c): string
+    {
+        if (trim((string) $c->domicilio_calle) !== '') {
+            return app(DomicilioService::class)->calleYNumero(app(DomicilioService::class)->valores($c));
+        }
+
+        $calle = trim((string) $c->domicilio);
+        $normalizar = fn (string $t): string => trim((string) preg_replace('/\s+/', ' ', (string) preg_replace('/^(colonia|col\.|col(?=\s)|c\.?\s*p\.?(?=[\s\d])|c[oó]digo postal)\s*/iu', '', mb_strtolower(trim($t)))), " .\t");
+        $municipio = $normalizar((string) $c->domicilio_municipio);
+        $estado = $normalizar((string) $c->domicilio_estado);
+        $conocidos = array_values(array_filter([
+            $normalizar((string) $c->domicilio_colonia),
+            $municipio,
+            $estado,
+            $normalizar((string) $c->domicilio_cp),
+            $municipio !== '' && $estado !== '' ? sprintf('%s %s', $municipio, $estado) : '',
+        ], fn (string $p): bool => $p !== ''));
+
+        if ($calle === '' || $conocidos === []) {
+            return $calle;
+        }
+
+        $segmentos = array_map('trim', explode(',', $calle));
+
+        while (count($segmentos) > 1 && in_array($normalizar((string) end($segmentos)), $conocidos, true)) {
+            array_pop($segmentos);
+        }
+
+        return implode(', ', $segmentos);
+    }
+
+    /**
      * «María López (Madre) · Tel. 7771234567 · Calle Ejemplo 123»: solo con
      * el nombre capturado; las demás partes se omiten si están vacías.
      */
@@ -1019,9 +1099,16 @@ class DatosDocumentoService
             return '';
         }
 
+        // Solo personas reales (colaborador ligado): una cuenta sin
+        // colaborador (sistemas, técnica) nunca se imprime en un documento.
         $colaborador = $usuario->colaborador;
-        $nombre = $this->mayus($colaborador?->nombreCompleto() ?: $usuario->name);
-        $cargo = (string) $colaborador?->puesto?->nombre;
+
+        if ($colaborador === null) {
+            return '';
+        }
+
+        $nombre = $this->mayus($colaborador->nombreCompleto());
+        $cargo = (string) $colaborador->puesto?->nombre;
 
         return $cargo !== '' ? sprintf('%s, %s', $nombre, $cargo) : $nombre;
     }

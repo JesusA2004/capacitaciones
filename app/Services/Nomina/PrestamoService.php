@@ -50,35 +50,71 @@ class PrestamoService
                 return $existente;
             }
 
-            $monto = (float) ($datos['monto_autorizado'] ?? $datos['monto'] ?? $solicitud->monto_solicitado ?? 0);
-            $plazo = (int) ($datos['plazo_autorizado'] ?? $datos['plazo'] ?? $solicitud->plazo_meses ?? 1);
-            $plazo = max($plazo, 1);
-            $periodicidad = $datos['periodicidad'] ?? 'quincenal';
-            $pagoProgramado = (float) ($datos['pago_programado'] ?? round($monto / $plazo, 2));
-
-            /** @var Prestamo $prestamo */
-            $prestamo = Prestamo::query()->create([
-                'colaborador_id' => $colaborador->id,
-                'solicitud_id' => $solicitud->id,
-                'monto_original' => $monto,
-                'saldo' => $monto,
-                'plazo' => $plazo,
-                'periodicidad' => $periodicidad,
-                'pago_programado' => $pagoProgramado,
-                'fecha_otorgamiento' => $datos['fecha_otorgamiento'] ?? null,
-                'fecha_primer_descuento' => $datos['fecha_primer_descuento'] ?? null,
-                'estado' => 'pendiente_entrega',
-                'monto_solicitado' => $solicitud->monto_solicitado,
-                'plazo_solicitado' => $solicitud->plazo_meses,
-                'motivo' => $solicitud->motivo,
-                'fecha_solicitud' => $solicitud->created_at?->copy()->setTimezone(FechaMexico::ZONA)->toDateString(),
-                'observaciones' => $datos['observaciones'] ?? null,
-                'autorizado_por' => $registradoPor->id,
-                'autorizado_en' => now(),
-            ]);
+            $prestamo = $this->nuevoDesdeSolicitud($solicitud, $colaborador->id, $datos, $registradoPor);
+            $prestamo->save();
 
             return $prestamo;
         });
+    }
+
+    /**
+     * Préstamo que nacería al autorizar la solicitud con estos datos, EN
+     * MEMORIA (mismos cálculos que crearDesdeSolicitud()): para ver el
+     * contrato de crédito, el pagaré y la carta de retención ANTES de
+     * autorizar. No guarda nada.
+     *
+     * @param  array<string, mixed>  $datos  monto_autorizado, plazo_autorizado, periodicidad?, pago_programado? y los datos manuales del contrato (cargo_sin_iva?, iva?, monto_total_con_iva?, numero_cheque?, fecha_primer_descuento?, fecha_ultimo_pago?)
+     */
+    public function propuestaDesdeSolicitud(SolicitudInterna $solicitud, array $datos, User $registradoPor): Prestamo
+    {
+        $colaborador = $solicitud->personaSolicitante();
+
+        if ($colaborador === null) {
+            throw ValidationException::withMessages(['solicitud' => 'La solicitud de préstamo no tiene un colaborador enlazado.']);
+        }
+
+        $prestamo = $this->nuevoDesdeSolicitud($solicitud, $colaborador->id, $datos, $registradoPor);
+        $prestamo->setRelation('colaborador', $colaborador);
+
+        return $prestamo;
+    }
+
+    /**
+     * @param  array<string, mixed>  $datos
+     */
+    private function nuevoDesdeSolicitud(SolicitudInterna $solicitud, int $colaboradorId, array $datos, User $registradoPor): Prestamo
+    {
+        $monto = (float) ($datos['monto_autorizado'] ?? $datos['monto'] ?? $solicitud->monto_solicitado ?? 0);
+        $plazo = (int) ($datos['plazo_autorizado'] ?? $datos['plazo'] ?? $solicitud->plazo_meses ?? 1);
+        $plazo = max($plazo, 1);
+        $periodicidad = $datos['periodicidad'] ?? 'quincenal';
+        $pagoProgramado = (float) ($datos['pago_programado'] ?? round($monto / $plazo, 2));
+
+        return Prestamo::query()->make([
+            'colaborador_id' => $colaboradorId,
+            'solicitud_id' => $solicitud->id,
+            'monto_original' => $monto,
+            'saldo' => $monto,
+            'plazo' => $plazo,
+            'periodicidad' => $periodicidad,
+            'pago_programado' => $pagoProgramado,
+            'fecha_otorgamiento' => $datos['fecha_otorgamiento'] ?? null,
+            'fecha_primer_descuento' => $datos['fecha_primer_descuento'] ?? null,
+            // Contrato de crédito: lo que RH captura A MANO, tal cual (nunca se calcula).
+            'fecha_ultimo_pago' => $datos['fecha_ultimo_pago'] ?? null,
+            'cargo_sin_iva' => $datos['cargo_sin_iva'] ?? null,
+            'iva' => $datos['iva'] ?? null,
+            'monto_total_con_iva' => $datos['monto_total_con_iva'] ?? null,
+            'numero_cheque' => $datos['numero_cheque'] ?? null,
+            'estado' => 'pendiente_entrega',
+            'monto_solicitado' => $solicitud->monto_solicitado,
+            'plazo_solicitado' => $solicitud->plazo_meses,
+            'motivo' => $solicitud->motivo,
+            'fecha_solicitud' => $solicitud->created_at?->copy()->setTimezone(FechaMexico::ZONA)->toDateString(),
+            'observaciones' => $datos['observaciones'] ?? null,
+            'autorizado_por' => $registradoPor->id,
+            'autorizado_en' => now(),
+        ]);
     }
 
     /**

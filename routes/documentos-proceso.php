@@ -4,6 +4,7 @@ use App\Http\Controllers\Rh\DisenoDocumentoController;
 use App\Http\Controllers\Rh\DocumentoAdministrativoController;
 use App\Http\Controllers\Rh\DocumentoMaestroController;
 use App\Http\Controllers\Rh\DocumentoProcesoController;
+use App\Services\DocumentosMaestros\VistaPreviaFlujoService;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -24,6 +25,14 @@ Route::middleware(['auth', 'verified'])->prefix('rh')->name('rh.')->group(functi
         Route::get('{tipo}/{id}', [DocumentoProcesoController::class, 'show'])->name('show')->whereIn('tipo', ['contrato', 'cierre', 'solicitud', 'prestamo', 'evaluacion', 'entrega_activo', 'acta', 'colaborador'])->whereNumber('id');
         Route::post('{tipo}/{id}/generar', [DocumentoProcesoController::class, 'generar'])->name('generar')->whereIn('tipo', ['contrato', 'cierre', 'solicitud', 'prestamo', 'evaluacion', 'entrega_activo', 'acta', 'colaborador'])->whereNumber('id')->middleware('throttle:30,1');
         Route::post('{tipo}/{id}/paquete', [DocumentoProcesoController::class, 'paquete'])->name('paquete')->whereIn('tipo', ['contrato', 'cierre', 'prestamo'])->whereNumber('id')->middleware('throttle:10,1');
+        // Vista previa REAL (PDF inline, no-store, sin guardar nada): todo
+        // formato para un colaborador se puede ver antes de generarlo.
+        Route::get('{tipo}/{id}/vista-previa', [DocumentoProcesoController::class, 'vistaPrevia'])->name('vista-previa')->whereIn('tipo', ['contrato', 'cierre', 'solicitud', 'prestamo', 'evaluacion', 'entrega_activo', 'acta', 'colaborador'])->whereNumber('id')->middleware('throttle:30,1');
+        // Flujos que generan sus documentos AL CONFIRMAR (renovación, no
+        // renovación, baja, préstamo): el registro se arma en memoria con los
+        // datos del formulario (VistaPreviaFlujoService).
+        Route::get('previa/{flujo}/{id}', [DocumentoProcesoController::class, 'documentosPrevia'])->name('previa.documentos')->whereIn('flujo', VistaPreviaFlujoService::FLUJOS)->whereNumber('id')->middleware('throttle:60,1');
+        Route::get('previa/{flujo}/{id}/pdf', [DocumentoProcesoController::class, 'pdfPrevia'])->name('previa.pdf')->whereIn('flujo', VistaPreviaFlujoService::FLUJOS)->whereNumber('id')->middleware('throttle:30,1');
         Route::get('documento/{documento}/word', [DocumentoProcesoController::class, 'word'])->name('word');
         // 'envio', 'recepcion' y 'escaneo' son pasos de COMPATIBILIDAD LEGACY:
         // el flujo nuevo concluye en 'firma-fisica' y FlujoDocumentalService los

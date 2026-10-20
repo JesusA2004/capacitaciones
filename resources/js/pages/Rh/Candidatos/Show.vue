@@ -4,6 +4,7 @@ import {
     Brain,
     FileText,
     Home,
+    Paperclip,
     Pencil,
     QrCode,
     ShieldAlert,
@@ -28,7 +29,6 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
-import CandidatoEvidenciaPreviewDialog from '@/components/Rh/CandidatoEvidenciaPreviewDialog.vue';
 import CandidatoExpedientePanel from '@/components/Rh/CandidatoExpedientePanel.vue';
 import CandidatoFormDialog from '@/components/Rh/CandidatoFormDialog.vue';
 import CandidatoPerfilPuesto from '@/components/Rh/CandidatoPerfilPuesto.vue';
@@ -44,6 +44,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+    archivoCvCandidato,
+    archivosDelExpediente,
+    claveEvidencia,
+} from '@/lib/archivosCandidato';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import {
@@ -57,7 +62,6 @@ import {
     rechazar,
     socioeconomico,
 } from '@/routes/rh/candidatos';
-import cv from '@/routes/rh/candidatos/cv';
 import psicometricas from '@/routes/rh/candidatos/psicometricas';
 import referencias from '@/routes/rh/candidatos/referencias';
 import socioeconomicoRutas from '@/routes/rh/candidatos/socioeconomico';
@@ -265,6 +269,18 @@ function url(clave: string): string {
     )[clave];
 }
 
+/** Error de un campo de archivos múltiples: el general o el del primer archivo (`archivos.0`). */
+function errorDeArchivos(campo: string): string | undefined {
+    const errores = form.errors as Record<string, string | undefined>;
+
+    return (
+        errores[campo] ??
+        Object.entries(errores).find(([clave]) =>
+            clave.startsWith(`${campo}.`),
+        )?.[1]
+    );
+}
+
 function alElegirMotivoRechazoForm(id: string) {
     const motivoId = id ? Number(id) : null;
     form.motivo_rechazo_id = motivoId;
@@ -320,6 +336,56 @@ function enviar() {
 
 const cvAbierto = ref(false);
 const accesos = computed(() => props.candidato.accesos_rapidos);
+
+/**
+ * Todo el mini expediente (CV + evidencias de cada fase) como una sola
+ * galería del visor: se abre en el archivo que se tocó y se puede pasar al
+ * siguiente sin cerrar.
+ */
+const archivosVisor = computed(() => {
+    const c = props.candidato;
+    const extras = [
+        ...c.psicometricas.flatMap((p) => p.evidencias),
+        ...c.socioeconomicos.flatMap((s) => s.evidencias),
+        ...c.referencias.flatMap((r) => r.evidencias),
+        ...[
+            accesos.value?.psicometrico,
+            accesos.value?.socioeconomico,
+            accesos.value?.video,
+        ].filter((ev): ev is EvidenciaCandidato => Boolean(ev)),
+    ];
+    const archivos = archivosDelExpediente(c.id, c.expediente, extras);
+
+    if (c.tiene_cv && !archivos.some((a) => a.clave === 'cv')) {
+        archivos.unshift(
+            archivoCvCandidato(c.id, { nombre: c.expediente.cv?.nombre }),
+        );
+    }
+
+    return archivos;
+});
+
+const visorAbierto = computed(
+    () => cvAbierto.value || evidenciaActiva.value !== null,
+);
+
+const indiceVisor = computed(() => {
+    const clave = evidenciaActiva.value
+        ? claveEvidencia(evidenciaActiva.value)
+        : 'cv';
+
+    return Math.max(
+        archivosVisor.value.findIndex((a) => a.clave === clave),
+        0,
+    );
+});
+
+function cerrarVisor(abierto: boolean) {
+    if (!abierto) {
+        cvAbierto.value = false;
+        evidenciaActiva.value = null;
+    }
+}
 
 /** Evidencia de la etapa que corresponde revisar en este momento. */
 const evidenciaDeLaRevision = computed(() => {
@@ -599,6 +665,7 @@ function fecha(valor: string | null): string {
                     "
                     :hay-referencias="candidato.referencias.length > 0"
                     @ver="(ev) => (evidenciaActiva = ev)"
+                    @ver-cv="cvAbierto = true"
                 />
 
                 <section
@@ -750,6 +817,21 @@ function fecha(valor: string | null): string {
                         <p v-if="item.observaciones" class="mt-1">
                             {{ item.observaciones }}
                         </p>
+                        <div
+                            v-if="item.evidencias.length"
+                            class="mt-2 flex flex-wrap gap-2"
+                        >
+                            <Button
+                                v-for="ev in item.evidencias"
+                                :key="ev.id"
+                                size="sm"
+                                variant="outline"
+                                @click="evidenciaActiva = ev"
+                            >
+                                <Paperclip class="size-4" /> Soporte ·
+                                {{ ev.nombre }}
+                            </Button>
+                        </div>
                     </article>
                 </section>
 
@@ -980,19 +1062,212 @@ function fecha(valor: string | null): string {
                             v-model="form.realizada_en as string"
                         /><InputError :message="form.errors.realizada_en" />
                     </div>
+                    <div class="flex gap-2">
+                        <Button
+                            type="button"
+                            :variant="
+                                form.resultado === 'viable'
+                                    ? 'default'
+                                    : 'outline'
+                            "
+                            @click="form.resultado = 'viable'"
+                            >Sigue viable</Button
+                        >
+                        <Button
+                            type="button"
+                            :variant="
+                                form.resultado === 'no_viable'
+                                    ? 'destructive'
+                                    : 'outline'
+                            "
+                            @click="form.resultado = 'no_viable'"
+                            >No viable</Button
+                        >
+                    </div>
+                    <InputError :message="form.errors.resultado" />
                     <div class="grid gap-1.5">
-                        <Label>Observaciones</Label
+                        <Label
+                            >Observaciones
+                            {{
+                                form.resultado === 'no_viable'
+                                    ? '(motivo obligatorio)'
+                                    : '(opcional)'
+                            }}</Label
                         ><Textarea
                             v-model="form.observaciones as string"
                             rows="3"
                         /><InputError :message="form.errors.observaciones" />
                     </div>
+                    <template v-if="form.resultado === 'no_viable'">
+                        <div class="grid gap-1.5">
+                            <Label>Motivo del rechazo *</Label>
+                            <SelectSimple
+                                :model-value="
+                                    form.motivo_rechazo_id
+                                        ? String(form.motivo_rechazo_id)
+                                        : ''
+                                "
+                                @update:model-value="alElegirMotivoRechazoForm"
+                                :opciones="
+                                    (opciones.motivosRechazo ?? []).map(
+                                        (m) => ({
+                                            value: String(m.id),
+                                            label: m.etiqueta,
+                                        }),
+                                    )
+                                "
+                                placeholder="Elige un motivo"
+                            />
+                            <InputError
+                                :message="form.errors.motivo_rechazo_id"
+                            />
+                        </div>
+                        <label class="flex min-h-11 items-center gap-2 text-sm">
+                            <Casilla v-model="form.recontratable as boolean" />
+                            ¿Puede considerarse nuevamente?
+                        </label>
+                    </template>
+                </template>
+
+                <template
+                    v-else-if="accionActiva?.clave === 'enviar_psicometricas'"
+                >
+                    <div class="grid gap-1.5">
+                        <Label for="link-psicometricas"
+                            >Link de las pruebas</Label
+                        ><Input
+                            id="link-psicometricas"
+                            v-model="form.link as string"
+                            type="url"
+                            placeholder="https://"
+                        /><InputError :message="form.errors.link" />
+                    </div>
+                </template>
+
+                <template
+                    v-else-if="
+                        accionActiva?.clave ===
+                        'registrar_resultados_psicometricas'
+                    "
+                >
+                    <p
+                        class="rounded-lg bg-salvia/50 p-2 text-xs text-muted-foreground"
+                    >
+                        Cargar los resultados no los aprueba: quedan pendientes
+                        de revisión y el responsable decide si el candidato está
+                        en perfil.
+                    </p>
+                    <div class="grid gap-1.5">
+                        <Label for="resumen-psicometricas"
+                            >Resumen de resultados</Label
+                        ><Textarea
+                            id="resumen-psicometricas"
+                            v-model="form.resumen as string"
+                            rows="4"
+                        /><InputError :message="form.errors.resumen" />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label
+                            >Reportes (PDF, imagen, Word o Excel; puedes subir
+                            varios)</Label
+                        ><PeopleFileDropzone
+                            :model-value="(form.archivos as File[]) ?? []"
+                            multiple
+                            :accept="ACEPTA_DOCUMENTOS"
+                            :max-size-mb="limitesArchivos.max_documento_mb"
+                            label="Arrastra los archivos"
+                            @update:model-value="(f) => (form.archivos = f)"
+                        />
+                        <InputError :message="errorDeArchivos('archivos')" />
+                    </div>
+                </template>
+
+                <template
+                    v-else-if="
+                        accionActiva?.clave === 'registrar_socioeconomico'
+                    "
+                >
                     <p
                         class="rounded-lg bg-salvia/50 p-2 text-xs text-muted-foreground"
                     >
                         Cargar el estudio no lo aprueba: queda pendiente de
                         revisión y el responsable decide si es viable.
                     </p>
+                    <div class="grid gap-3 sm:grid-cols-2">
+                        <div class="grid gap-1.5">
+                            <Label>Fecha de visita</Label
+                            ><DatePicker
+                                v-model="form.fecha_visita as string"
+                            /><InputError :message="form.errors.fecha_visita" />
+                        </div>
+                        <div class="grid gap-1.5">
+                            <Label for="arraigo">Arraigo (años)</Label
+                            ><Input
+                                id="arraigo"
+                                v-model.number="
+                                    (form.checklist as Record<string, number>)
+                                        .arraigo_anios
+                                "
+                                type="number"
+                                min="0"
+                            />
+                        </div>
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label for="direccion-visita">Dirección visitada</Label
+                        ><Input
+                            id="direccion-visita"
+                            v-model="form.direccion as string"
+                        /><InputError :message="form.errors.direccion" />
+                    </div>
+                    <fieldset class="grid gap-2 text-sm">
+                        <legend class="mb-1 text-sm font-medium">
+                            Criterios (informativos)
+                        </legend>
+                        <label class="flex items-center gap-2"
+                            ><Casilla
+                                v-model="
+                                    (form.checklist as Record<string, boolean>)
+                                        .vivienda_en_orden
+                                "
+                            />
+                            Vivienda en orden</label
+                        >
+                        <label class="flex items-center gap-2"
+                            ><Casilla
+                                v-model="
+                                    (form.checklist as Record<string, boolean>)
+                                        .vive_con_familia
+                                "
+                            />
+                            Vive con familia</label
+                        >
+                        <label class="flex items-center gap-2"
+                            ><Casilla
+                                v-model="
+                                    (form.checklist as Record<string, boolean>)
+                                        .resguardo_motocicleta
+                                "
+                            />
+                            Espacio para resguardar la motocicleta</label
+                        >
+                    </fieldset>
+                    <div class="grid gap-1.5">
+                        <Label for="riesgos">Riesgos o inconsistencias</Label
+                        ><Textarea
+                            id="riesgos"
+                            v-model="form.riesgos as string"
+                            rows="2"
+                        />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label for="obs-socioeconomico">Observaciones</Label
+                        ><Textarea
+                            id="obs-socioeconomico"
+                            v-model="form.observaciones as string"
+                            rows="2"
+                        /><InputError :message="form.errors.observaciones" />
+                    </div>
                     <div class="grid gap-1.5">
                         <Label
                             >Videos, fotografías o PDF (puedes subir varios; se
@@ -1005,6 +1280,7 @@ function fecha(valor: string | null): string {
                             label="Arrastra videos, fotos o PDF"
                             @update:model-value="(f) => (form.evidencias = f)"
                         />
+                        <InputError :message="errorDeArchivos('evidencias')" />
                     </div>
                 </template>
 
@@ -1066,7 +1342,7 @@ function fecha(valor: string | null): string {
                             label="Arrastra los archivos"
                             @update:model-value="(f) => (form.archivos = f)"
                         />
-                        <InputError :message="form.errors.archivos" />
+                        <InputError :message="errorDeArchivos('archivos')" />
                     </div>
                 </template>
 
@@ -1334,24 +1610,11 @@ function fecha(valor: string | null): string {
         </DialogContent>
     </Dialog>
 
+    <!-- Visor único del expediente: CV, psicométricos, socioeconómico, referencias. -->
     <DocumentPreviewDialog
-        v-if="candidato.tiene_cv"
-        v-model:open="cvAbierto"
-        :preview-url="cv.previsualizar.url(candidato.id)"
-        :download-url="cv.descargar.url(candidato.id)"
-        nombre="CV del candidato"
-    />
-
-    <CandidatoEvidenciaPreviewDialog
-        v-if="evidenciaActiva"
-        :open="evidenciaActiva !== null"
-        :candidato-id="candidato.id"
-        :evidencia-id="evidenciaActiva.id"
-        :nombre-archivo="evidenciaActiva.nombre"
-        :tipo="evidenciaActiva.tipo"
-        :mime="evidenciaActiva.mime"
-        @update:open="
-            (abierto: boolean) => !abierto && (evidenciaActiva = null)
-        "
+        :open="visorAbierto"
+        :archivos="archivosVisor"
+        :indice="indiceVisor"
+        @update:open="cerrarVisor"
     />
 </template>

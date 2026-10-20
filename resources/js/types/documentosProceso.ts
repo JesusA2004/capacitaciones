@@ -13,8 +13,21 @@ export type TipoRegistroDocumental =
     | 'entrega_activo'
     | 'acta';
 
+/** Flujos que generan sus documentos al confirmar (VistaPreviaFlujoService). */
+export type FlujoVistaPrevia =
+    'renovacion' | 'no_renovacion' | 'baja' | 'prestamo';
+
+/** Documento que un flujo generará, con la URL de su vista previa (PDF inline). */
+export type DocumentoVistaPrevia = {
+    clave: string;
+    nombre: string;
+    url: string;
+};
+
 export type AccionDocumento = {
     clave:
+        | 'vista_previa'
+        | 'vista_previa_paquete'
         | 'generar'
         | 'regenerar'
         | 'nueva_revision'
@@ -359,6 +372,11 @@ export type ResultadoPruebaMaster = {
             modo?: 'empresa' | 'fijo_juridico' | 'no_aplica' | string;
         };
     };
+    /** Documentos de préstamo: de dónde salieron monto, plazo y fechas. */
+    prestamo?: {
+        origen: 'prestamo' | 'solicitud' | 'ejemplo';
+        descripcion: string;
+    } | null;
     url_resultado: string;
     url_original: string;
 };

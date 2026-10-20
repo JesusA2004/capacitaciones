@@ -317,7 +317,9 @@ class EvaluacionPeriodoPruebaService
             // RH: el cierre nace autorizado, genera sus documentos y la baja
             // NO se ejecuta antes de la fecha efectiva.
             $this->cierres->iniciarDesdeEvaluacion($evaluacion->colaborador, [
-                'tipo_baja' => TipoBaja::NoRenovacion->value,
+                // No renovación = fin de contrato con la causal «No acredita
+                // periodo de prueba» (CierreLaboralService::iniciarDesdeEvaluacion).
+                'tipo_baja' => TipoBaja::FinContrato->value,
                 'motivo' => isset($datos['motivo_no_renovacion']) ? (string) $datos['motivo_no_renovacion'] : 'No renovación de contrato tras evaluación de periodo de prueba.',
                 'fecha_efectiva' => $fecha,
             ], $actor, $evaluacion);

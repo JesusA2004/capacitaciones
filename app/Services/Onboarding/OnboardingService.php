@@ -23,6 +23,7 @@ use App\Services\Auditoria\AuditoriaService;
 use App\Services\CicloLaboral\ReingresoService;
 use App\Services\Colaboradores\AltaColaboradorService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
+use App\Services\DocumentosMaestros\ResolvedorMaestroService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
 use App\Support\FechaMexico;
@@ -70,6 +71,7 @@ class OnboardingService
         private readonly AuditoriaService $auditoria,
         private readonly MotorDocumentalService $motor,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly ResolvedorMaestroService $maestros,
     ) {}
 
     /**
@@ -341,12 +343,7 @@ class OnboardingService
     {
         $proceso->loadMissing('colaborador');
         $this->exigirPermiso($actor, self::PERMISO_ENTREGAR, $proceso->colaborador);
-
-        $tipo = TipoActivo::query()->where('activo', true)->findOrFail($datos['tipo_activo_id']);
-
-        if ($tipo->requiere_identificador && trim((string) ($datos['identificador'] ?? '')) === '') {
-            throw ValidationException::withMessages(['identificador' => "Captura la serie/identificador de {$tipo->nombre}."]);
-        }
+        $tipo = $this->tipoActivoAEntregar($datos);
 
         $entrega = DB::transaction(function () use ($proceso, $actor, $datos, $tipo): EntregaActivo {
             $proceso = OnboardingProceso::query()->lockForUpdate()->findOrFail($proceso->id);
@@ -380,6 +377,76 @@ class OnboardingService
     }
 
     /**
+     * Vista previa de la carta responsiva con lo capturado en el diálogo de
+     * entrega, ANTES de confirmar: misma plantilla y motor que
+     * generarResponsiva() (documento maestro rotulado «VISTA PREVIA»), sin
+     * crear la entrega, sin archivar nada y sin abrir pendientes.
+     *
+     * @param  array{tipo_activo_id: int, identificador?: string|null, descripcion?: string|null, entregado_en?: string|null, observaciones?: string|null}  $datos
+     *
+     * @throws ValidationException Activo inválido o sin plantilla de responsiva cargada.
+     */
+    public function vistaPreviaResponsiva(OnboardingProceso $proceso, User $actor, array $datos): string
+    {
+        $proceso->loadMissing('colaborador');
+        $this->exigirPermiso($actor, self::PERMISO_ENTREGAR, $proceso->colaborador);
+        $tipo = $this->tipoActivoAEntregar($datos);
+        $colaborador = $proceso->colaborador;
+
+        // Entrega en memoria (nunca se guarda) para armar las mismas variables.
+        $entrega = new EntregaActivo([
+            'colaborador_id' => $colaborador->id,
+            'onboarding_proceso_id' => $proceso->id,
+            'tipo_activo_id' => $tipo->id,
+            'identificador' => $datos['identificador'] ?? null,
+            'descripcion' => $datos['descripcion'] ?? null,
+            'entregado_en' => $datos['entregado_en'] ?? FechaMexico::hoy(),
+        ]);
+        $entrega->setRelation('tipo', $tipo);
+        $variables = $this->variablesResponsiva($entrega);
+        $clave = (string) $tipo->plantilla_responsiva;
+
+        if ($this->maestros->esClaveMaestra($clave)) {
+            $maestro = $this->maestros->resolver($clave, $colaborador);
+
+            return $this->motor->previsualizarMaestro($maestro, $this->motor->contextoDesde($colaborador, null, $actor, $variables))['pdf'];
+        }
+
+        return $this->motor->previsualizar($colaborador, $clave, $variables);
+    }
+
+    /**
+     * Tipo de activo activo a entregar, con su identificador obligatorio.
+     *
+     * @param  array{tipo_activo_id: int, identificador?: string|null}  $datos
+     */
+    private function tipoActivoAEntregar(array $datos): TipoActivo
+    {
+        $tipo = TipoActivo::query()->where('activo', true)->findOrFail($datos['tipo_activo_id']);
+
+        if ($tipo->requiere_identificador && trim((string) ($datos['identificador'] ?? '')) === '') {
+            throw ValidationException::withMessages(['identificador' => "Captura la serie/identificador de {$tipo->nombre}."]);
+        }
+
+        return $tipo;
+    }
+
+    /**
+     * Variables de la carta responsiva (generación y vista previa).
+     *
+     * @return array<string, string>
+     */
+    private function variablesResponsiva(EntregaActivo $entrega): array
+    {
+        return [
+            'activo' => $entrega->tipo->nombre,
+            'activo_identificador' => (string) $entrega->identificador,
+            'activo_descripcion' => (string) $entrega->descripcion,
+            'fecha_entrega' => $entrega->entregado_en->format('d/m/Y'),
+        ];
+    }
+
+    /**
      * Genera (o reintenta) la carta responsiva. Sin plantilla cargada no se
      * inventa el documento: queda un pendiente explícito para RH/Jurídico.
      */
@@ -392,12 +459,7 @@ class OnboardingService
         $entrega->loadMissing(['tipo', 'colaborador']);
 
         try {
-            $documento = $this->motor->generar($entrega->colaborador, $entrega->tipo->plantilla_responsiva, $actor, [
-                'activo' => $entrega->tipo->nombre,
-                'activo_identificador' => (string) $entrega->identificador,
-                'activo_descripcion' => (string) $entrega->descripcion,
-                'fecha_entrega' => $entrega->entregado_en->format('d/m/Y'),
-            ], $entrega, sprintf('Carta responsiva · %s', $entrega->tipo->nombre));
+            $documento = $this->motor->generar($entrega->colaborador, $entrega->tipo->plantilla_responsiva, $actor, $this->variablesResponsiva($entrega), $entrega, sprintf('Carta responsiva · %s', $entrega->tipo->nombre));
 
             $entrega->update(['generated_document_id' => $documento->id]);
             $this->tareas->resolver(TipoTarea::PlantillaFaltante, $entrega, $actor);

@@ -146,7 +146,7 @@ Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más 
 
 #### Pasos
 
-1. **«Iniciar baja»** _(Gerente)_ — Expedientes → la persona de tu equipo → Ciclo laboral → «Iniciar baja»: causa (renuncia, no renovación, bajo desempeño, baja inmediata…), motivo y fecha efectiva. No se sube ningún archivo. Al confirmar, la baja queda aplicada (sin autorización de RH) y el sistema prepara los documentos de la causa.
+1. **«Iniciar baja»** _(Gerente)_ — Expedientes → la persona de tu equipo → Ciclo laboral → «Iniciar baja»: tipo (renuncia, rescisión o fin de contrato), motivo (causal de rotación del tipo), observaciones opcionales y fecha efectiva. No se sube ningún archivo. Al confirmar, la baja queda aplicada (sin autorización de RH) y el sistema prepara los documentos del tipo: carta de renuncia, o evaluación + aviso de no renovación; la rescisión no genera documento.
 2. **Renuncia / aviso en «Documentos de la baja»** _(RH)_ — El sistema genera la renuncia (o el aviso de terminación): «Imprimir» y, ya firmada en papel, «Marcar como firmado físicamente». No se sube ningún archivo. Si la persona se niega a firmar, «El colaborador se negó a firmar/recibir».
 3. **«Calcular finiquito»** _(RH)_ — Muestra al momento el desglose por concepto; «Ver / editar finiquito» para ajustar montos con motivo (ver el artículo de finiquito). No hay que autorizarlo.
 4. **«Registrar entrega de finiquito»** _(RH)_ — Desde la fecha efectiva: fecha de entrega, forma de pago y comentario. El finiquito se congela, la baja se ejecuta y el cierre laboral queda completo.

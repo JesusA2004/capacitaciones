@@ -105,9 +105,9 @@ return [
         'rh.causas_cierre_solicitables' => [
             'grupo' => 'rh',
             'tipo' => 'lista',
-            'etiqueta' => 'Causas de baja que puede solicitar un jefe',
-            'descripcion' => 'RH siempre puede usar cualquier causa; un jefe/gerente solo las marcadas.',
-            'defecto' => ['renuncia', 'no_renovacion', 'bajo_desempeno', 'baja_inmediata'],
+            'etiqueta' => 'Tipos de baja que puede iniciar un jefe',
+            'descripcion' => 'RH siempre puede usar cualquier tipo; un jefe/gerente solo los marcados. El motivo (causal de rotación) se administra en Bajas y finiquitos.',
+            'defecto' => ['renuncia', 'rescision', 'fin_contrato'],
             'reglas' => ['required', 'array', 'min:1'],
             'opciones_enum' => TipoBaja::class,
             'config' => 'ciclo_laboral.cierre.causas_solicitables',

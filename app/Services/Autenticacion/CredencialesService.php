@@ -33,6 +33,9 @@ use Throwable;
  */
 class CredencialesService
 {
+    /** Lo que ve RH en la vista previa del correo en lugar de la contraseña. */
+    public const CONTRASENA_ENMASCARADA = '••••••••';
+
     public function __construct(
         private readonly NombreUsuarioService $nombres,
         private readonly GeneradorPasswordService $generador,
@@ -153,6 +156,36 @@ class CredencialesService
         $this->auditoria->registrar('credenciales_enviadas_por_correo', $cuenta, $actor, ['colaborador_id' => $colaborador->id]);
 
         return true;
+    }
+
+    /**
+     * Vista previa del correo de accesos ANTES de «Enviar por correo»: el
+     * mismo Notification renderizado a HTML, sin enviar nada ni auditar. La
+     * contraseña NUNCA viaja ni se pinta: va enmascarada.
+     *
+     * @return array{asunto: string, destinatario: string, html: string}
+     *
+     * @throws ValidationException Sin cuenta o sin correo registrado.
+     */
+    public function vistaPreviaCorreo(Colaborador $colaborador): array
+    {
+        $cuenta = User::query()->where('colaborador_id', $colaborador->id)->first();
+
+        if ($cuenta === null) {
+            throw ValidationException::withMessages(['password' => 'El colaborador todavía no tiene cuenta: genera sus credenciales primero.']);
+        }
+
+        if (blank($cuenta->email)) {
+            throw ValidationException::withMessages(['password' => 'La cuenta no tiene correo registrado: entrega los accesos en privado.']);
+        }
+
+        $mensaje = (new CredencialesActualizadasNotification(self::CONTRASENA_ENMASCARADA))->toMail($cuenta);
+
+        return [
+            'asunto' => (string) $mensaje->subject,
+            'destinatario' => (string) $cuenta->email,
+            'html' => (string) $mensaje->render(),
+        ];
     }
 
     private function correoLibre(?string $correo): ?string

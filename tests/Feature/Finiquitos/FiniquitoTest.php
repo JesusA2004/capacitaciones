@@ -39,7 +39,7 @@ function crearSolicitudBaja(array $atributos = []): SolicitudInterna
         'estado' => 'en_revision',
         'objetivo_colaborador_id' => $colaborador->id,
         'fecha_efectiva' => now()->addWeek(),
-        'tipo_baja' => 'despido',
+        'tipo_baja' => 'rescision',
         ...$atributos,
     ]);
 }

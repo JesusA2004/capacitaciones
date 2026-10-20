@@ -70,6 +70,7 @@ class AltaColaboradorService
         private readonly JefeDirectoService $jefes,
         private readonly AvisoAltaBajaService $avisoAltaBaja,
         private readonly CompensacionService $compensacion,
+        private readonly DomicilioService $domicilios,
     ) {}
 
     /**
@@ -100,6 +101,9 @@ class AltaColaboradorService
                 'rfc' => isset($datos['rfc']) ? strtoupper((string) $datos['rfc']) : null,
                 'nss' => $datos['nss'] ?? null,
                 'domicilio' => $datos['domicilio'] ?? null,
+                // Campos estructurados (calle, número, colonia, C.P.…): con
+                // calle capturada, `domicilio` se recompone al guardar.
+                ...$this->domicilios->extraer($datos),
                 'contacto_emergencia_nombre' => $datos['contacto_emergencia_nombre'] ?? null,
                 'contacto_emergencia_telefono' => $datos['contacto_emergencia_telefono'] ?? null,
                 'sucursal_principal_id' => $datos['sucursal_principal_id'],

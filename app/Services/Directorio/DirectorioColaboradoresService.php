@@ -82,18 +82,40 @@ class DirectorioColaboradoresService
             ->orderBy('name')
             ->orderBy('apellidos')
             ->get()
-            ->map(fn (Colaborador $c): array => [
-                ...$this->aArray($c, $viewer),
-                'puesto_id' => $c->puesto_id,
-                'nivel' => $c->puesto->nivel_jerarquico ?? 99,
-                'sucursal_id' => $c->sucursal_principal_id,
-                'es_corporativo' => (bool) ($c->sucursalPrincipal->es_corporativo ?? false),
-                // Área: en Corporativo, el departamento del puesto (Sistemas,
-                // Contraloría, RH…); en sucursal, el puesto (Gerentes,
-                // Subgerentes, Coordinadoras…).
-                'area' => $this->area($c),
-            ])
+            ->map(fn (Colaborador $c): array => $this->filaWeb($c, $viewer))
             ->all());
+    }
+
+    /**
+     * Una fila del directorio web, recién leída (tras la edición rápida). Null
+     * si con el cambio dejó de aparecer (p. ej. pasó a un puesto excluido).
+     *
+     * @return array<string, mixed>|null
+     */
+    public function filaWebDe(int $colaboradorId, ?User $viewer = null): ?array
+    {
+        $colaborador = $this->consulta()->whereKey($colaboradorId)->first();
+
+        return $colaborador instanceof Colaborador ? $this->filaWeb($colaborador, $viewer) : null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function filaWeb(Colaborador $c, ?User $viewer): array
+    {
+        return [
+            ...$this->aArray($c, $viewer),
+            'puesto_id' => $c->puesto_id,
+            'nivel' => $c->puesto->nivel_jerarquico ?? 99,
+            'sucursal_id' => $c->sucursal_principal_id,
+            'departamento_id' => $c->departamento_id,
+            'es_corporativo' => (bool) ($c->sucursalPrincipal->es_corporativo ?? false),
+            // Área: en Corporativo, el departamento del puesto (Sistemas,
+            // Contraloría, RH…); en sucursal, el puesto (Gerentes,
+            // Subgerentes, Coordinadoras…).
+            'area' => $this->area($c),
+        ];
     }
 
     private function area(Colaborador $c): string

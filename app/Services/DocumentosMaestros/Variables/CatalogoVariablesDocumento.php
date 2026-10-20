@@ -67,6 +67,9 @@ class CatalogoVariablesDocumento
         'correo' => ['Correo personal', 'colaborador', 'jose.hernandez@correo.com', ['correo electronico', 'correo', 'e mail', 'email'], true, 'texto'],
         // ── Domicilio ──
         'domicilio' => ['Calle y número', 'domicilio', 'Av. Emiliano Zapata 1234, interior 5', ['domicilio', 'con domicilio en', 'calle'], true, 'texto'],
+        'domicilio_calle' => ['Calle y número (sin colonia/municipio/estado/C.P. ya capturados)', 'domicilio', 'Av. Emiliano Zapata 1234, interior 5', ['calle'], true, 'texto'],
+        'domicilio_numero_exterior' => ['Número exterior', 'domicilio', '1234', ['numero exterior', 'no exterior', 'num ext'], false, 'texto'],
+        'domicilio_numero_interior' => ['Número interior', 'domicilio', '5', ['numero interior', 'no interior', 'num int'], false, 'texto'],
         'domicilio_colonia' => ['Colonia', 'domicilio', 'Lomas de la Selva', ['colonia'], false, 'texto'],
         'domicilio_municipio' => ['Municipio', 'domicilio', 'Cuernavaca', ['municipio', 'alcaldia'], false, 'texto'],
         'domicilio_estado' => ['Estado', 'domicilio', 'Morelos', ['entidad federativa'], false, 'texto'],
@@ -97,8 +100,10 @@ class CatalogoVariablesDocumento
         'empresa_razon_social' => ['Razón social', 'empresa', 'Productos y Servicios Mr. Lana, S.A.P.I. de C.V.', ['razon social', 'la empresa', 'el patron'], true, 'texto'],
         'empresa_rfc' => ['RFC de la empresa', 'empresa', 'PSM150101AB1', ['rfc de la empresa', 'rfc del patron'], true, 'texto'],
         'empresa_registro_patronal' => ['Registro patronal', 'empresa', 'A1234567101', ['registro patronal'], true, 'texto'],
-        'representante_legal' => ['Representante legal', 'empresa', 'Lesli Maribel Rodríguez Herrera', ['representante legal', 'representada por'], true, 'texto'],
-        'representante_legal_cargo' => ['Cargo del representante', 'empresa', 'Representante Legal', [], true, 'texto'],
+        // No bloquea nunca: la firma de la empresa se escribe y firma a mano
+        // («Nombre y firma del representante legal»).
+        'representante_legal' => ['Representante legal', 'empresa', 'Lesli Maribel Rodríguez Herrera', ['representante legal', 'representada por'], false, 'texto'],
+        'representante_legal_cargo' => ['Cargo del representante', 'empresa', 'Representante Legal', [], false, 'texto'],
         'empresa_domicilio' => ['Domicilio del patrón', 'empresa', 'Subida al Club 114, col. Reforma, Cuernavaca, Morelos', ['domicilio fiscal', 'domicilio de la empresa', 'domicilio del patron'], true, 'texto'],
         'empresa_cp' => ['C.P. fiscal', 'empresa', '62260', [], true, 'texto'],
         // ── Contrato ──
@@ -124,6 +129,7 @@ class CatalogoVariablesDocumento
         'edad_mayusculas' => ['edad', TransformacionTexto::Mayusculas],
         'estado_civil_mayusculas' => ['estado_civil', TransformacionTexto::Mayusculas],
         'domicilio_mayusculas' => ['domicilio', TransformacionTexto::Mayusculas],
+        'domicilio_calle_mayusculas' => ['domicilio_calle', TransformacionTexto::Mayusculas],
         'contacto_emergencia_nombre_mayusculas' => ['contacto_emergencia_nombre', TransformacionTexto::Mayusculas],
         'puesto_mayusculas' => ['puesto', TransformacionTexto::Mayusculas],
         'departamento_mayusculas' => ['departamento', TransformacionTexto::Mayusculas],

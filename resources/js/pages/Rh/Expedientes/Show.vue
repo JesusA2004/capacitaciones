@@ -29,6 +29,7 @@ import type {
 const props = defineProps<{
     esPropio: boolean;
     puedeEditar: boolean;
+    puedeGenerarRecibos?: boolean;
     puedeReactivar: boolean;
     cicloUrl: string | null;
     puedeIniciarBaja?: boolean;
@@ -125,6 +126,7 @@ defineOptions({
     <ExpedienteDetalle
         :es-propio="esPropio"
         :puede-editar="puedeEditar"
+        :puede-generar-recibos="puedeGenerarRecibos"
         :puede-reactivar="puedeReactivar"
         :ciclo-url="cicloUrl"
         :puede-iniciar-baja="puedeIniciarBaja"

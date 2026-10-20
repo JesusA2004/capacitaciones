@@ -27,7 +27,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
             {
                 titulo: '«Iniciar baja»',
                 detalle:
-                    'Expedientes → la persona de tu equipo → Ciclo laboral → «Iniciar baja»: causa (renuncia, no renovación, bajo desempeño, baja inmediata…), motivo y fecha efectiva. No se sube ningún archivo. Al confirmar, la baja queda aplicada (sin autorización de RH) y el sistema prepara los documentos de la causa.',
+                    'Expedientes → la persona de tu equipo → Ciclo laboral → «Iniciar baja»: tipo (renuncia, rescisión o fin de contrato), motivo (causal de rotación del tipo), observaciones opcionales y fecha efectiva. No se sube ningún archivo. Al confirmar, la baja queda aplicada (sin autorización de RH) y el sistema prepara los documentos del tipo: carta de renuncia, o evaluación + aviso de no renovación; la rescisión no genera documento.',
                 quien: 'gerente',
             },
             {

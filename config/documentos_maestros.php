@@ -186,6 +186,20 @@ return [
     ],
 
     /*
+    | Firma patronal de los documentos legales que genera PEOPLE (responsivas,
+    | actas, evaluación de inducción). Es el texto fijo del formato oficial de
+    | Jurídico (docs/responsiva/*.docx: «…devolverlo cuando sea requerido por
+    | PRODUCTOS Y SERVICIOS MR LANA, S.A.P.I. DE C.V.»): ARRIBA de la línea va
+    | la razón social y ABAJO el cargo. Nunca un nombre comercial, el nombre
+    | corto del catálogo de empresas ni la cuenta de quien captura. Lo resuelve
+    | App\Services\DocumentosMaestros\FirmaPatronService.
+    */
+    'firma_patron' => [
+        'razon_social' => 'PRODUCTOS Y SERVICIOS MR LANA, S.A.P.I. DE C.V.',
+        'cargo' => 'Representante legal',
+    ],
+
+    /*
     | Domicilio del patrón que se imprime donde el formato dice «…el ubicado
     | en ____»: 'fiscal' (empresa) o 'sucursal' (la del colaborador; si no
     | tiene domicilio capturado se usa el fiscal). RH lo cambia en
@@ -320,13 +334,15 @@ return [
     ],
 
     /*
-    | Documentos del cierre laboral según la causa (tipo_baja). El finiquito
-    | lo produce el módulo de finiquitos (cálculo + respaldo) y aparece en
-    | la misma tarjeta "Documentos de la baja".
+    | Documentos del cierre laboral según el TIPO de baja (App\Enums\TipoBaja:
+    | solo renuncia, rescisión y fin de contrato). El finiquito lo produce el
+    | módulo de finiquitos (cálculo + respaldo) y aparece en la misma tarjeta
+    | "Documentos de la baja". Rescisión: ninguno por decisión del negocio
+    | (sin aviso de rescisión; tampoco carta de renuncia, que sería falsa).
     */
     'documentos_por_causa' => [
         'renuncia' => ['carta_renuncia'],
-        'no_renovacion' => ['evaluacion_capacitacion', 'aviso_terminacion'],
+        'rescision' => [],
         'fin_contrato' => ['evaluacion_capacitacion', 'aviso_terminacion'],
     ],
 
@@ -887,6 +903,10 @@ return [
                 ['tipo' => 'texto', 'buscar' => 'LESLI MARIBEL RODRÍGUEZ HERRERA', 'campo' => 'representante_legal_mayusculas'],
             ],
             'ejemplos' => ['JESUS ENRIQUE', 'OCAMPO PEREZ', '16 de Julio'],
+            // Firma del patrón: línea + «Representante legal» con el nombre EN
+            // BLANCO (se escribe y firma a mano). Aplica también a versiones ya
+            // guardadas: el motor lo lee de aquí por familia al renderizar.
+            'firma_patron_en_blanco' => true,
             'observaciones' => [
                 'El ejemplo traía una persona, fechas y duración concretas (Jesús Enrique Ocampo Pérez, 16/07/2026, dos meses): todo se vuelve dato del colaborador y de su contrato.',
                 'Representante: el aviso es una comunicación operativa; el nombre se toma de la empresa (Empresas → representante legal) con respaldo en documentos_maestros.empresa_defecto.',
@@ -942,6 +962,12 @@ return [
                 ['tipo' => 'entre', 'desde' => 'Fecha:', 'hasta' => '', 'parrafo' => 'Firma:', 'campo' => 'fecha_entrega_larga'],
             ],
             'ejemplos' => ['Tres meses', 'de enero de 2026'],
+            // ELABORÓ nunca lleva la cuenta que capturó la evaluación (se
+            // escribe a pluma); VALIDÓ solo con el colaborador real que autorizó.
+            'blancos_intencionales' => [
+                'elaboro_nombre_cargo' => 'Se escribe a pluma: nunca se imprime la cuenta que capturó la evaluación.',
+                'valido_nombre_cargo' => 'Solo se llena con la persona (colaborador) que validó; si no hay, a pluma.',
+            ],
             'observaciones' => [
                 'El formato es de NO acreditación: la sección VI ("DETERMINACIÓN") solo aplica cuando el colaborador no acredita. Con resultado ACREDITA PEOPLE no lo genera (no se altera el texto jurídico). Si RH requiere constancia de acreditación, Jurídico debe entregar la variante.',
                 'Los criterios y su descripción están redactados para Gerente de sucursal ("dirección y coordinación del subgerente y asesores de crédito"); se usan tal cual para cualquier puesto. Confirmar con Jurídico si se requieren variantes por puesto.',
@@ -982,6 +1008,14 @@ return [
                 ['tipo' => 'blanco', 'antes' => 'C.', 'parrafo' => 'C. ', 'campo' => 'nombre_completo_mayusculas'],
             ],
             'ejemplos' => ['Gerente de Sucursal', 'de enero de 2026', 'de 2025'],
+            // Firma del patrón con el nombre EN BLANCO (a pluma).
+            'firma_patron_en_blanco' => true,
+            // Nunca se propone con la cuenta que genera: si RH no capturó a su
+            // representante, el renglón queda en blanco y se llena a pluma.
+            'blancos_intencionales' => [
+                'rh_nombre' => 'Lo captura RH al registrar la negativa; si no, se escribe a pluma (nunca la cuenta que genera).',
+                'rh_cargo' => 'Lo captura RH al registrar la negativa; si no, se escribe a pluma (nunca la cuenta que genera).',
+            ],
             'observaciones' => [
                 'Solo se genera dentro del cierre laboral, cuando se registró que el colaborador se negó a firmar/recibir (Fase 3, escenario B del procedimiento integral de baja). Nunca como acta genérica.',
                 'Lugar y domicilio: el ejemplo traía Cuernavaca y el domicilio corporativo; PEOPLE propone la ciudad y domicilio de la sucursal donde ocurre la entrega y RH puede corregirlos al registrar la negativa.',
@@ -1027,6 +1061,13 @@ return [
                 ['tipo' => 'blanco', 'antes' => 'C.', 'parrafo' => 'C. ', 'campo' => 'nombre_completo_mayusculas'],
             ],
             'ejemplos' => ['Gerente de Sucursal', 'de enero de 2026', 'de 2025'],
+            // Firma del patrón con el nombre EN BLANCO (a pluma).
+            'firma_patron_en_blanco' => true,
+            // Nunca se propone con la cuenta que levanta/genera el acta.
+            'blancos_intencionales' => [
+                'rh_nombre' => 'Se escribe a pluma salvo que RH lo capture (nunca la cuenta que genera el acta).',
+                'rh_cargo' => 'Se escribe a pluma salvo que RH lo capture (nunca la cuenta que genera el acta).',
+            ],
             'observaciones' => [
                 'Derivado del acta oficial «ACTA ADMINISTRATIVA-POR NEGATIVA DE FIRMA Y RECEPCIÓN DE DOCUMENTOS.docx» (mismo diseño, encabezado, personas, datos del colaborador, testigos y firmas). Se retiraron solo los hechos y la manifestación propios de la negativa; el motivo, los hechos y las manifestaciones los escribe quien levanta el acta. Pendiente: validación del texto por Jurídico.',
                 '"Tipo de contrato" y sus fechas salen del contrato más reciente del colaborador; un contrato por tiempo indeterminado dice "Tiempo indeterminado" en la conclusión.',
@@ -1118,7 +1159,8 @@ return [
             'representante' => 'no_aplica',
             'campos' => [
                 ['campo' => 'nombre_completo_mayusculas', 'pagina' => 1, 'x' => 76.6, 'y' => 91.4, 'ancho' => 72, 'alto' => 4.4, 'tamano' => 9],
-                ['campo' => 'puesto_mayusculas', 'pagina' => 1, 'x' => 123.6, 'y' => 103.0, 'ancho' => 60, 'alto' => 4.4, 'tamano' => 8.5],
+                // Empieza DESPUÉS de «puesto de» impreso (antes se le encimaba).
+                ['campo' => 'puesto_mayusculas', 'pagina' => 1, 'x' => 131, 'y' => 103.0, 'ancho' => 52, 'alto' => 4.4, 'tamano' => 8.5],
                 ['campo' => 'clave_elector', 'pagina' => 1, 'x' => 12.5, 'y' => 111.4, 'ancho' => 67, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'rfc', 'pagina' => 1, 'x' => 93, 'y' => 111.4, 'ancho' => 39.7, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'monto_prestamo', 'pagina' => 1, 'x' => 150.8, 'y' => 116.4, 'ancho' => 36.5, 'alto' => 4.4, 'tamano' => 9],
@@ -1136,10 +1178,14 @@ return [
             'fuentes' => ['2fcbe22255e187dfda0d70d7aaa747d20322ed189884d206ea5d9fbb11b93679' => ['version' => 1, 'activa' => true]],
             'paginas' => [2, 3],
             'banderas' => ['requiere_impresion' => true, 'requiere_firma_fisica' => true, 'requiere_huella' => true, 'requiere_envio_corporativo' => true],
-            'representante' => 'empresa',
+            // «Nombre y firma del representante legal»: el formato deja la línea
+            // en blanco; se escribe y firma a mano (nunca bloquea ni se imprime).
+            'representante' => 'no_aplica',
             'campos' => [
                 ['campo' => 'fecha_otorgamiento_corta', 'pagina' => 2, 'x' => 13, 'y' => 72.6, 'ancho' => 36, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'sucursal_numero', 'pagina' => 2, 'x' => 51.5, 'y' => 72.6, 'ancho' => 36, 'alto' => 4.4, 'tamano' => 9],
+                // «No. de cheque»: lo captura RH al autorizar.
+                ['campo' => 'numero_cheque_prestamo', 'pagina' => 2, 'x' => 90.5, 'y' => 72.6, 'ancho' => 54, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'prestamo_folio', 'pagina' => 2, 'x' => 148, 'y' => 72.6, 'ancho' => 55, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'puesto_mayusculas', 'pagina' => 2, 'x' => 13, 'y' => 84.8, 'ancho' => 190, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'nombre_mayusculas', 'pagina' => 2, 'x' => 13, 'y' => 96.9, 'ancho' => 36, 'alto' => 4.4, 'tamano' => 8.5],
@@ -1153,17 +1199,31 @@ return [
                 ['campo' => 'telefono', 'pagina' => 2, 'x' => 176.5, 'y' => 108.9, 'ancho' => 27, 'alto' => 4.4, 'tamano' => 9],
                 // Celda "Calle": el domicilio se captura completo en un solo campo;
                 // hasta 3 renglones dentro de la celda (nunca encima de Nacionalidad).
-                ['campo' => 'domicilio_mayusculas', 'pagina' => 2, 'x' => 13, 'y' => 119.2, 'ancho' => 68, 'alto' => 6.6, 'tamano' => 7, 'tamano_minimo' => 5, 'multilinea' => true, 'interlineado' => 3.1],
+                ['campo' => 'domicilio_calle_mayusculas', 'pagina' => 2, 'x' => 13, 'y' => 119.2, 'ancho' => 68, 'alto' => 6.6, 'tamano' => 7, 'tamano_minimo' => 5, 'multilinea' => true, 'interlineado' => 3.1],
                 ['campo' => 'nacionalidad_mayusculas', 'pagina' => 2, 'x' => 84, 'y' => 120.8, 'ancho' => 63, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'curp', 'pagina' => 2, 'x' => 149, 'y' => 120.8, 'ancho' => 54, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'monto_prestamo', 'pagina' => 2, 'x' => 13, 'y' => 133, 'ancho' => 34, 'alto' => 4.4, 'tamano' => 9],
+                // Cargo (sin I.V.A.), I.V.A. y Monto total (con I.V.A.): tal
+                // cual los captura RH al autorizar (nunca se calculan).
+                ['campo' => 'cargo_prestamo', 'pagina' => 2, 'x' => 49.5, 'y' => 133, 'ancho' => 35, 'alto' => 4.4, 'tamano' => 9],
+                ['campo' => 'iva_prestamo', 'pagina' => 2, 'x' => 88, 'y' => 133, 'ancho' => 20, 'alto' => 4.4, 'tamano' => 9],
+                ['campo' => 'monto_total_prestamo', 'pagina' => 2, 'x' => 111.5, 'y' => 133, 'ancho' => 35, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'plazo_prestamo_texto', 'pagina' => 2, 'x' => 149, 'y' => 131.5, 'ancho' => 24, 'alto' => 6, 'tamano' => 9, 'fondo' => '#E3E3E3'],
                 ['campo' => 'plazo_prestamo', 'pagina' => 2, 'x' => 176.5, 'y' => 133, 'ancho' => 27, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'fecha_primer_pago_corta', 'pagina' => 2, 'x' => 13, 'y' => 145.2, 'ancho' => 95, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'fecha_ultimo_pago_corta', 'pagina' => 2, 'x' => 110.5, 'y' => 145.2, 'ancho' => 93, 'alto' => 4.4, 'tamano' => 9],
-                ['campo' => 'nombre_completo_mayusculas', 'pagina' => 3, 'x' => 32, 'y' => 217.6, 'ancho' => 58, 'alto' => 4, 'tamano' => 7.5, 'alineacion' => 'C'],
-                ['campo' => 'nombre_completo_mayusculas', 'pagina' => 3, 'x' => 32, 'y' => 252.3, 'ancho' => 58, 'alto' => 4, 'tamano' => 7.5, 'alineacion' => 'C'],
-                ['campo' => 'representante_legal_mayusculas', 'pagina' => 3, 'x' => 124, 'y' => 252.3, 'ancho' => 61, 'alto' => 4, 'tamano' => 7.5, 'alineacion' => 'C'],
+                // Firmas del deudor: todo el ancho del recuadro gris (mismo
+                // centro que la línea) para que un nombre largo quepa completo.
+                ['campo' => 'nombre_completo_mayusculas', 'pagina' => 3, 'x' => 17, 'y' => 217.6, 'ancho' => 88, 'alto' => 4, 'tamano' => 7.5, 'alineacion' => 'C'],
+                ['campo' => 'nombre_completo_mayusculas', 'pagina' => 3, 'x' => 17, 'y' => 252.3, 'ancho' => 88, 'alto' => 4, 'tamano' => 7.5, 'alineacion' => 'C'],
+            ],
+            'blancos_intencionales' => [
+                'apellido_materno_mayusculas' => 'Solo aplica si el colaborador tiene segundo apellido.',
+                // Capturados por RH al autorizar; la app instalada no los manda.
+                'numero_cheque_prestamo' => 'Lo captura RH al autorizar el préstamo; en blanco si no aplica.',
+                'cargo_prestamo' => 'Lo captura RH al autorizar el préstamo; en blanco si no aplica.',
+                'iva_prestamo' => 'Lo captura RH al autorizar el préstamo; en blanco si no aplica.',
+                'monto_total_prestamo' => 'Lo captura RH al autorizar el préstamo; en blanco si no aplica.',
             ],
         ],
 
@@ -1197,7 +1257,7 @@ return [
                 ['campo' => 'nombre_mayusculas', 'pagina' => 4, 'x' => 13, 'y' => 188, 'ancho' => 60, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'apellido_paterno_mayusculas', 'pagina' => 4, 'x' => 75.6, 'y' => 188, 'ancho' => 60, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'apellido_materno_mayusculas', 'pagina' => 4, 'x' => 139, 'y' => 188, 'ancho' => 60, 'alto' => 4.4, 'tamano' => 9],
-                ['campo' => 'domicilio_mayusculas', 'pagina' => 4, 'x' => 12.5, 'y' => 199.8, 'ancho' => 56, 'alto' => 6.0, 'tamano' => 7, 'tamano_minimo' => 5, 'multilinea' => true, 'interlineado' => 3.1],
+                ['campo' => 'domicilio_calle_mayusculas', 'pagina' => 4, 'x' => 12.5, 'y' => 199.8, 'ancho' => 56, 'alto' => 6.0, 'tamano' => 7, 'tamano_minimo' => 5, 'multilinea' => true, 'interlineado' => 3.1],
                 ['campo' => 'domicilio_colonia_mayusculas', 'pagina' => 4, 'x' => 70.6, 'y' => 200.5, 'ancho' => 42, 'alto' => 4.4, 'tamano' => 8],
                 ['campo' => 'domicilio_municipio_mayusculas', 'pagina' => 4, 'x' => 116.2, 'y' => 200.5, 'ancho' => 37, 'alto' => 4.4, 'tamano' => 8],
                 ['campo' => 'domicilio_estado_mayusculas', 'pagina' => 4, 'x' => 156, 'y' => 200.5, 'ancho' => 25, 'alto' => 4.4, 'tamano' => 8],
@@ -1205,7 +1265,10 @@ return [
                 ['campo' => 'fecha_otorgamiento_corta', 'pagina' => 4, 'x' => 13, 'y' => 213.4, 'ancho' => 55, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'tipo_identificacion', 'pagina' => 4, 'x' => 70.6, 'y' => 213.4, 'ancho' => 42, 'alto' => 4.4, 'tamano' => 9],
                 ['campo' => 'clave_elector', 'pagina' => 4, 'x' => 116.2, 'y' => 213.4, 'ancho' => 83, 'alto' => 4.4, 'tamano' => 9],
-                ['campo' => 'nombre_completo_mayusculas', 'pagina' => 4, 'x' => 77.6, 'y' => 246, 'ancho' => 61, 'alto' => 4, 'tamano' => 8, 'alineacion' => 'C'],
+                ['campo' => 'nombre_completo_mayusculas', 'pagina' => 4, 'x' => 45, 'y' => 246, 'ancho' => 126, 'alto' => 4, 'tamano' => 8, 'alineacion' => 'C'],
+            ],
+            'blancos_intencionales' => [
+                'apellido_materno_mayusculas' => 'Solo aplica si el colaborador tiene segundo apellido.',
             ],
             'observaciones' => [
                 'Intereses moratorios: el pagaré deja la cantidad en blanco y PEOPLE no la tiene definida; se deja en blanco para llenado de RH/Jurídico.',

@@ -9,6 +9,7 @@ use App\Enums\FamiliaAdministrativa;
 use App\Enums\GocePermiso;
 use App\Enums\TipoPermisoSolicitado;
 use App\Enums\TipoSolicitudInterna;
+use App\Models\DocumentTemplate;
 use App\Models\GeneratedDocument;
 use App\Models\SolicitudInterna;
 use App\Models\User;
@@ -16,6 +17,7 @@ use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
 use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
 use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -200,6 +202,80 @@ class ComprobanteSolicitudService
 
             return null;
         }
+    }
+
+    /**
+     * Título del documento que se emitirá al aprobar (para la vista previa).
+     */
+    public function tituloDocumento(SolicitudInterna $solicitud): ?string
+    {
+        if ($this->clave($solicitud) === null) {
+            return null;
+        }
+
+        return match ($solicitud->tipo) {
+            TipoSolicitudInterna::Permiso => 'Formato de permiso',
+            TipoSolicitudInterna::Vacaciones => 'Comprobante de vacaciones',
+            TipoSolicitudInterna::ConstanciaLaboral => 'Constancia laboral',
+            default => 'Comprobante de permiso',
+        };
+    }
+
+    /**
+     * Vista previa REAL (mismo diseño y motor que generarSiAplica()) con los
+     * datos de la solicitud, ANTES de aprobarla: no registra documento, no
+     * archiva nada ni toca la solicitud. Los datos de autorización (quién y
+     * cuándo) se simulan en memoria con quien está por aprobar.
+     *
+     * @throws ValidationException El tipo no emite comprobante o no hay colaborador.
+     */
+    public function vistaPreviaPdf(SolicitudInterna $solicitud, User $actor): string
+    {
+        $clave = $this->clave($solicitud);
+
+        if ($clave === null) {
+            throw ValidationException::withMessages(['solicitud' => 'Este tipo de solicitud no emite comprobante al aprobarse.']);
+        }
+
+        $solicitud->loadMissing(['colaborador', 'usuario.colaborador', 'revisadoPor', 'diasVacaciones']);
+        $colaborador = $solicitud->personaSolicitante();
+
+        if ($colaborador === null) {
+            throw ValidationException::withMessages(['solicitud' => 'La solicitud no tiene un colaborador asociado.']);
+        }
+
+        // Copia en memoria: nunca se guarda (clone no persiste nada).
+        $copia = clone $solicitud;
+
+        if ($copia->estado !== EstadoSolicitudInterna::Aprobada) {
+            $copia->setRelation('revisadoPor', $actor);
+            $copia->revisado_en = Carbon::now();
+        }
+
+        if ($solicitud->tipo === TipoSolicitudInterna::Permiso) {
+            return $this->documentosAdministrativos->renderizarVigente(FamiliaAdministrativa::Permiso, $this->datosDocumento->permiso($copia, $colaborador));
+        }
+
+        $heredada = $this->motor->plantillaActiva($clave);
+
+        if ($heredada !== null) {
+            return $this->motor->previsualizar($colaborador, $heredada, $this->variables($copia));
+        }
+
+        $maestro = DocumentTemplate::query()
+            ->where('clave', $clave)
+            ->where('estado_master', 'listo')
+            ->where('activo', true)
+            ->orderByDesc('version')
+            ->first();
+
+        if ($maestro !== null) {
+            return $this->motor->previsualizarMaestro($maestro, $this->motor->contextoDesde($colaborador, $copia, $actor, $this->variables($copia)))['pdf'];
+        }
+
+        return $solicitud->tipo === TipoSolicitudInterna::ConstanciaLaboral
+            ? $this->documentosAdministrativos->renderizarVigente(FamiliaAdministrativa::ConstanciaLaboral, $this->datosDocumento->constancia($colaborador))
+            : $this->documentosAdministrativos->renderizarVigente(FamiliaAdministrativa::ComprobanteSolicitud, $this->datosDocumento->comprobante($copia, $colaborador));
     }
 
     private function clave(SolicitudInterna $solicitud): ?string

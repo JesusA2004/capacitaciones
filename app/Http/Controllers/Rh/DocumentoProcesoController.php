@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Rh;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\GenerarDocumentoProcesoRequest;
 use App\Http\Requests\CicloLaboral\ProcedimientoBajaRequest;
+use App\Http\Requests\CicloLaboral\VistaPreviaDocumentoRequest;
 use App\Models\CierreLaboral;
 use App\Models\Colaborador;
 use App\Models\GeneratedDocument;
@@ -13,9 +14,13 @@ use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosLaborales\TestigoDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
+use App\Services\DocumentosMaestros\VistaPreviaFlujoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -36,6 +41,7 @@ class DocumentoProcesoController extends Controller
         protected readonly ProcedimientoBajaService $procedimiento,
         protected readonly MotorDocumentalService $motor,
         protected readonly TestigoDocumentalService $testigosDocumentales,
+        protected readonly VistaPreviaFlujoService $vistaPreviaFlujo,
     ) {}
 
     /**
@@ -116,6 +122,68 @@ class DocumentoProcesoController extends Controller
             'documentos' => array_map(fn (GeneratedDocument $d): int => $d->id, $generados),
             'data' => $this->documentos->seccion($proceso, $registro->refresh(), $request->user()),
         ], 201);
+    }
+
+    /**
+     * Vista previa REAL del documento del proceso (PDF inline, no-store), sin
+     * guardar nada. Con `completar`/`manuales` muestra cómo quedaría con lo
+     * capturado en el modal de datos faltantes, también sin guardarlo.
+     */
+    public function vistaPrevia(VistaPreviaDocumentoRequest $request, string $tipo, int $id): Response
+    {
+        $registro = $this->documentos->registro($tipo, $id);
+        $proceso = (string) ($request->validated('proceso') ?? $this->procesoPorDefecto($tipo));
+
+        return $this->respuestaPdf($this->documentos->vistaPrevia(
+            $proceso,
+            $registro,
+            (string) $request->validated('clave'),
+            $request->user(),
+            $request->manuales(),
+            $request->completar(),
+        ));
+    }
+
+    /**
+     * Documentos que un flujo generaría al confirmarse (renovación, no
+     * renovación, baja, préstamo), cada uno con la URL de su vista previa
+     * armada con los mismos datos del formulario.
+     */
+    public function documentosPrevia(VistaPreviaDocumentoRequest $request, string $flujo, int $id): JsonResponse
+    {
+        $datos = $request->datosFlujo();
+        $documentos = $this->vistaPreviaFlujo->documentos($flujo, $id, $datos, $request->user());
+
+        return response()->json(['data' => array_map(fn (array $d): array => [
+            ...$d,
+            'url' => sprintf('%s/pdf?%s', $request->url(), http_build_query([...$datos, 'clave' => $d['clave']])),
+        ], $documentos)]);
+    }
+
+    /**
+     * PDF de vista previa de un documento de un flujo antes de confirmarlo
+     * (registro armado en memoria, nada se guarda).
+     */
+    public function pdfPrevia(VistaPreviaDocumentoRequest $request, string $flujo, int $id): Response
+    {
+        return $this->respuestaPdf($this->vistaPreviaFlujo->pdf($flujo, $id, (string) $request->validated('clave'), $request->datosFlujo(), $request->user()));
+    }
+
+    /**
+     * @param  array{pdf: string, nombre: string, faltantes: int}  $previa
+     */
+    private function respuestaPdf(array $previa): Response
+    {
+        // Sin «/», «\», «%» ni comillas: no son válidos en Content-Disposition.
+        $nombre = sprintf('Vista previa - %s.pdf', preg_replace('#[/\\\\%"]+#', '-', $previa['nombre']));
+
+        return response($previa['pdf'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_INLINE, $nombre, Str::ascii($nombre)),
+            'Cache-Control' => 'no-store',
+            // Datos que faltan (quedan en blanco en la vista previa).
+            'X-Datos-Faltantes' => (string) $previa['faltantes'],
+        ]);
     }
 
     /**

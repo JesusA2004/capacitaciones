@@ -316,43 +316,43 @@ class CandidatoController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'CV cargado correctamente.']);
     }
 
-    public function descargarCv(Candidato $candidato): StreamedResponse
+    public function descargarCv(Request $request, Candidato $candidato): StreamedResponse
     {
         $this->authorize('view', $candidato);
 
         abort_unless($candidato->cv_path !== null, 404);
 
-        return $this->cvStorage->respuesta($candidato->cv_path, [
-            'Content-Disposition' => 'attachment; filename="'.$candidato->cv_original_name.'"',
-        ]);
+        return $this->cvStorage->respuestaArchivo($request, $candidato->cv_path, (string) $candidato->cv_original_name, descargar: true);
     }
 
     /** Vista previa embebida (iframe/img, nunca descarga forzada) — mismo patrón que descargarEvidencia(). */
-    public function previsualizarCv(Candidato $candidato): StreamedResponse
+    public function previsualizarCv(Request $request, Candidato $candidato): StreamedResponse
     {
         $this->authorize('view', $candidato);
 
         abort_unless($candidato->cv_path !== null, 404);
 
-        return $this->cvStorage->respuesta($candidato->cv_path, [
-            'Content-Disposition' => 'inline; filename="'.$candidato->cv_original_name.'"',
-        ]);
+        return $this->cvStorage->respuestaArchivo($request, $candidato->cv_path, (string) $candidato->cv_original_name);
     }
 
     /**
-     * Evidencia privada (socioeconómico/psicométricas): Policy + alcance,
-     * nunca URL pública. Con soporte de HTTP Range (CLAUDE.md §8-9): un
-     * video pesado se puede adelantar/retroceder sin descargarlo completo.
+     * Evidencia privada (socioeconómico/psicométricas/referencias): Policy +
+     * alcance, nunca URL pública. Inline por default para el visor embebido;
+     * `?descargar=1` la entrega como descarga. Con soporte de HTTP Range
+     * (CLAUDE.md §8-9): un video pesado se puede adelantar sin bajarlo completo.
      */
     public function descargarEvidencia(Request $request, Candidato $candidato, CandidatoEvidencia $evidencia): StreamedResponse
     {
         $this->authorize('view', $candidato);
         abort_unless($evidencia->candidato_id === $candidato->id, 404);
 
-        return $this->cvStorage->respuestaConRango($request, $evidencia->path, [
-            'Content-Type' => $evidencia->mime ?? 'application/octet-stream',
-            'Content-Disposition' => 'inline; filename="'.$evidencia->original_name.'"',
-        ]);
+        return $this->cvStorage->respuestaArchivo(
+            $request,
+            $evidencia->path,
+            $evidencia->original_name,
+            $evidencia->mime,
+            $request->boolean('descargar'),
+        );
     }
 
     /**

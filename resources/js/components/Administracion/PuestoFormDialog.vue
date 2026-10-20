@@ -40,6 +40,9 @@ const form = useForm({
         : '',
     descripcion: props.puesto?.descripcion ?? '',
     activo: props.puesto?.activo ?? true,
+    meses_periodo_prueba: props.puesto?.meses_periodo_prueba
+        ? String(props.puesto.meses_periodo_prueba)
+        : '',
 });
 
 function enviar() {
@@ -50,6 +53,9 @@ function enviar() {
     const transformado = form.transform((datos) => ({
         ...datos,
         departamento_id: datos.departamento_id || null,
+        meses_periodo_prueba: datos.meses_periodo_prueba
+            ? Number(datos.meses_periodo_prueba)
+            : null,
     }));
 
     if (props.puesto) {
@@ -99,6 +105,25 @@ function enviar() {
                     <Label for="descripcion">Descripción</Label>
                     <Input id="descripcion" v-model="form.descripcion" />
                     <InputError :message="form.errors.descripcion" />
+                </div>
+
+                <div class="grid gap-2">
+                    <Label for="meses_periodo_prueba"
+                        >Duración del periodo de prueba (meses)</Label
+                    >
+                    <Input
+                        id="meses_periodo_prueba"
+                        v-model="form.meses_periodo_prueba"
+                        type="number"
+                        min="1"
+                        max="12"
+                        placeholder="Sin configurar"
+                    />
+                    <p class="text-xs text-muted-foreground">
+                        Contrato de capacitación inicial. Sin esta duración no
+                        se calculan sus contratos ni su vencimiento.
+                    </p>
+                    <InputError :message="form.errors.meses_periodo_prueba" />
                 </div>
 
                 <label class="flex items-center gap-2 text-sm">

@@ -44,7 +44,9 @@ class ResolvedorVariablesFormato
             ...$this->contrato($contexto),
             ...$this->finiquito($contexto),
             'fecha.actual' => $hoy,
-            'otros.generado_por' => $contexto->generador?->colaborador?->nombreCompleto() ?? $contexto->generador?->name,
+            // Nunca se imprime la cuenta que genera el documento: el renglón
+            // «Elaboró» queda en blanco y se llena a pluma.
+            'otros.generado_por' => null,
             'otros.referencia' => $contexto->referencia !== '' ? $contexto->referencia : null,
         ];
     }
@@ -220,7 +222,9 @@ class ResolvedorVariablesFormato
             'solicitud.monto' => $s?->monto_solicitado,
             'solicitud.plazo_meses' => $s?->plazo_meses,
             'solicitud.fecha_resolucion' => $s?->revisado_en,
-            'solicitud.autorizo' => $s?->revisadoPor?->colaborador?->nombreCompleto() ?? $s?->revisadoPor?->name,
+            // Solo la persona real (colaborador) que autorizó; una cuenta sin
+            // colaborador (sistemas, técnica) nunca se imprime.
+            'solicitud.autorizo' => $s?->revisadoPor?->colaborador?->nombreCompleto(),
         ];
     }
 

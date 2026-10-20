@@ -4,6 +4,7 @@ namespace App\Services\CierreLaboral;
 
 use App\Enums\EstadoCierreLaboral;
 use App\Enums\EstadoContratoLaboral;
+use App\Enums\EstadoEvaluacionPrueba;
 use App\Enums\EstadoFiniquito;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\FormaPagoFiniquito;
@@ -13,6 +14,7 @@ use App\Enums\TipoBaja;
 use App\Enums\TipoSolicitudInterna;
 use App\Enums\TipoTarea;
 use App\Exceptions\DatosDocumentoFaltantesException;
+use App\Models\CausalRotacion;
 use App\Models\CierreLaboral;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
@@ -95,6 +97,7 @@ class CierreLaboralService
         private readonly NotificadorRhService $notificador,
         private readonly AccesoCuentaService $acceso,
         private readonly DocumentoProcesoService $documentosProceso,
+        private readonly CausalRotacionService $causales,
     ) {}
 
     /**
@@ -127,15 +130,22 @@ class CierreLaboralService
             throw new AuthorizationException('Solo el jefe directo de la persona o RH pueden iniciar su baja.');
         }
 
+        // Solo tres tipos (renuncia, rescisión, fin de contrato) + su causal
+        // de rotación (subcatálogo que RH administra en Bajas y finiquitos).
         $tipoBaja = TipoBaja::from((string) $datos['tipo_baja']);
 
-        if (! $esRh && ! in_array($tipoBaja->value, (array) config('ciclo_laboral.cierre.causas_solicitables', []), true)) {
-            throw ValidationException::withMessages(['tipo_baja' => 'Elige una causa válida: renuncia, no renovación, bajo desempeño o baja inmediata.']);
+        if (! in_array($tipoBaja, $this->causales->tiposPermitidos($actor), true)) {
+            throw ValidationException::withMessages(['tipo_baja' => sprintf('No puedes iniciar una baja por %s: pídela a RH.', mb_strtolower($tipoBaja->etiqueta()))]);
         }
+
+        $causal = $this->causales->resolver($tipoBaja, $datos['causal_rotacion_id'] ?? null);
 
         $this->exigirSinCierreAbierto($colaborador);
 
-        $motivo = trim((string) $datos['motivo']);
+        // El texto libre (observaciones / detalle) es opcional: sin él, el
+        // motivo registrado es la causal elegida.
+        $motivo = trim((string) ($datos['motivo'] ?? ''));
+        $motivo = $motivo !== '' ? $motivo : ($causal->nombre ?? $tipoBaja->etiqueta());
         $fechaEfectiva = (string) $datos['fecha_efectiva'];
         $observaciones = isset($datos['observaciones']) ? (string) $datos['observaciones'] : null;
 
@@ -143,7 +153,7 @@ class CierreLaboralService
         // de mando del organigrama, o Recursos Humanos.
         $aplicadaPor = $enCadena ? 'jefe directo' : 'Recursos Humanos';
 
-        $cierre = DB::transaction(function () use ($colaborador, $actor, $tipoBaja, $motivo, $fechaEfectiva, $observaciones, $aplicadaPor): CierreLaboral {
+        $cierre = DB::transaction(function () use ($colaborador, $actor, $tipoBaja, $causal, $motivo, $fechaEfectiva, $observaciones, $aplicadaPor): CierreLaboral {
             Colaborador::query()->lockForUpdate()->findOrFail($colaborador->id);
             $this->exigirSinCierreAbierto($colaborador);
 
@@ -153,24 +163,15 @@ class CierreLaboralService
                 'tipo' => TipoSolicitudInterna::BajaColaborador->value,
                 'colaborador_objetivo_id' => $colaborador->id,
                 'tipo_baja' => $tipoBaja->value,
+                'causal_rotacion_id' => $causal?->id,
                 'fecha_efectiva' => $fechaEfectiva,
                 'motivo' => $motivo,
                 'observaciones' => $observaciones,
             ]);
 
             // Baja inmediata: sin preautorización ni autorización de RH.
-            $cierre = CierreLaboral::query()->create([
-                'colaborador_id' => $colaborador->id,
-                'solicitud_interna_id' => $solicitud->id,
-                'tipo_baja' => $tipoBaja,
-                'motivo' => $motivo,
-                'fecha_efectiva' => $fechaEfectiva,
-                'estado' => EstadoCierreLaboral::Iniciado,
-                'iniciado_por' => $actor->id,
-                'autorizado_rh_en' => now(),
-                'autorizado_rh_por' => $actor->id,
-                'observaciones' => $observaciones,
-            ]);
+            $cierre = $this->nuevoCierre($colaborador, $tipoBaja, $motivo, $fechaEfectiva, $actor, $solicitud->id, null, $observaciones, $causal?->id);
+            $cierre->save();
 
             $this->solicitudes->marcarEnRevision($solicitud, $actor, sprintf('Baja aplicada por %s.', $aplicadaPor), desdeCierreLaboral: true);
 
@@ -191,7 +192,7 @@ class CierreLaboralService
             $colaborador,
             ['solicitante' => $actor, 'excluir' => [$actor->id]],
             'Baja aplicada',
-            sprintf('%s aplicó la baja de %s (%s, efectiva %s). Sus accesos ya se suspendieron; puedes rehabilitarlos desde Usuarios.', $actor->name, $nombre, $tipoBaja->etiqueta(), $cierre->fecha_efectiva->format('d/m/Y')),
+            sprintf('%s aplicó la baja de %s (%s, efectiva %s). Sus accesos ya se suspendieron; puedes rehabilitarlos desde Usuarios.', $actor->name, $nombre, $causal !== null ? sprintf('%s · %s', $tipoBaja->etiqueta(), $causal->nombre) : $tipoBaja->etiqueta(), $cierre->fecha_efectiva->format('d/m/Y')),
             $cierre,
             'ver_cierre',
             'alta',
@@ -200,6 +201,7 @@ class CierreLaboralService
         $this->auditoria->registrar('cierre_laboral_aplicado', $cierre, $actor, [
             'colaborador_id' => $colaborador->id,
             'tipo_baja' => $tipoBaja->value,
+            'causal_rotacion' => $causal?->nombre,
             'fecha_efectiva' => $cierre->fecha_efectiva->toDateString(),
             'aplicada_por' => $aplicadaPor,
         ]);
@@ -245,30 +247,28 @@ class CierreLaboralService
         $tipoBaja = TipoBaja::from((string) $datos['tipo_baja']);
         $motivo = (string) $datos['motivo'];
         $fechaEfectiva = (string) $datos['fecha_efectiva'];
+        // Causal automática: «No acredita periodo de prueba» (si RH la quitó
+        // del catálogo, la baja queda sin causal y sigue su curso).
+        $causal = isset($datos['causal_rotacion_id'])
+            ? $this->causales->resolver($tipoBaja, $datos['causal_rotacion_id'])
+            : $this->causales->porClave((string) config('causales_rotacion.clave_no_renovacion'), $tipoBaja);
 
-        $cierre = DB::transaction(function () use ($colaborador, $actor, $evaluacion, $tipoBaja, $motivo, $fechaEfectiva): CierreLaboral {
+        $cierre = DB::transaction(function () use ($colaborador, $actor, $evaluacion, $tipoBaja, $causal, $motivo, $fechaEfectiva): CierreLaboral {
             $solicitud = $this->solicitudes->crear($actor, [
                 'tipo' => TipoSolicitudInterna::BajaColaborador->value,
                 'colaborador_objetivo_id' => $colaborador->id,
                 'tipo_baja' => $tipoBaja->value,
+                'causal_rotacion_id' => $causal?->id,
                 'fecha_efectiva' => $fechaEfectiva,
                 'motivo' => $motivo,
             ]);
 
             $this->solicitudes->marcarEnRevision($solicitud, $actor, 'No renovación autorizada por RH en la evaluación del periodo de prueba.', desdeCierreLaboral: true);
 
-            return CierreLaboral::query()->create([
-                'colaborador_id' => $colaborador->id,
-                'solicitud_interna_id' => $solicitud->id,
-                'evaluacion_id' => $evaluacion->id,
-                'tipo_baja' => $tipoBaja,
-                'motivo' => $motivo,
-                'fecha_efectiva' => $fechaEfectiva,
-                'estado' => EstadoCierreLaboral::Iniciado,
-                'iniciado_por' => $actor->id,
-                'autorizado_rh_en' => now(),
-                'autorizado_rh_por' => $actor->id,
-            ]);
+            $cierre = $this->nuevoCierre($colaborador, $tipoBaja, $motivo, $fechaEfectiva, $actor, $solicitud->id, $evaluacion->id, null, $causal?->id);
+            $cierre->save();
+
+            return $cierre;
         });
 
         $this->auditoria->registrar('cierre_laboral_aplicado', $cierre, $actor, [
@@ -281,6 +281,66 @@ class CierreLaboralService
 
         $this->generarDocumentosDeCausa($cierre, $actor, $this->documentosProceso->clavesCausa($cierre));
         $this->sincronizarPendientes($cierre->refresh(), $actor);
+
+        return $cierre;
+    }
+
+    /**
+     * Cierre aplicado SIN guardar (mismos datos con los que solicitar() e
+     * iniciarDesdeEvaluacion() lo crean): baja inmediata, sin
+     * preautorización ni autorización posterior de RH.
+     */
+    private function nuevoCierre(Colaborador $colaborador, TipoBaja $tipoBaja, string $motivo, string $fechaEfectiva, User $actor, ?int $solicitudId, ?int $evaluacionId = null, ?string $observaciones = null, ?int $causalId = null): CierreLaboral
+    {
+        return CierreLaboral::query()->make([
+            'colaborador_id' => $colaborador->id,
+            'solicitud_interna_id' => $solicitudId,
+            'evaluacion_id' => $evaluacionId,
+            'tipo_baja' => $tipoBaja,
+            'causal_rotacion_id' => $causalId,
+            'motivo' => $motivo,
+            'fecha_efectiva' => $fechaEfectiva,
+            'estado' => EstadoCierreLaboral::Iniciado,
+            'iniciado_por' => $actor->id,
+            'autorizado_rh_en' => now(),
+            'autorizado_rh_por' => $actor->id,
+            'observaciones' => $observaciones,
+        ]);
+    }
+
+    /**
+     * Cierre que nacería al confirmar la baja (o la no renovación de una
+     * evaluación) con estos datos, EN MEMORIA: para ver la renuncia, el aviso
+     * de terminación o el formato de evaluación ANTES de confirmar. No guarda
+     * nada (ni solicitud, ni cierre, ni suspensión de acceso).
+     *
+     * Con evaluación (no renovación desde el periodo de prueba): la
+     * evaluación se ve como quedará al autorizarla (validada por RH, sin
+     * renovar), igual que la verá la generación real.
+     *
+     * @param  array<string, mixed>  $datos  tipo_baja, motivo?, fecha_efectiva?
+     */
+    public function propuesta(Colaborador $colaborador, array $datos, User $actor, ?EvaluacionPeriodoPrueba $evaluacion = null): CierreLaboral
+    {
+        $tipoBaja = TipoBaja::from((string) $datos['tipo_baja']);
+        $motivo = trim((string) ($datos['motivo'] ?? ''));
+        $fechaEfectiva = isset($datos['fecha_efectiva']) && is_string($datos['fecha_efectiva']) && $datos['fecha_efectiva'] !== ''
+            ? $datos['fecha_efectiva']
+            : ($evaluacion?->contrato?->fecha_fin?->toDateString() ?? FechaMexico::hoy());
+
+        // Vista previa: la causal es opcional (si viene y es del tipo, su
+        // nombre es el motivo por defecto, igual que al confirmar).
+        $causalId = $datos['causal_rotacion_id'] ?? null;
+        $causal = is_numeric($causalId) ? CausalRotacion::query()->where('id', (int) $causalId)->where('tipo', $tipoBaja->value)->first() : null;
+        $cierre = $this->nuevoCierre($colaborador, $tipoBaja, $motivo !== '' ? $motivo : ($causal->nombre ?? $tipoBaja->etiqueta()), $fechaEfectiva, $actor, null, $evaluacion?->id, null, $causal?->id);
+        $cierre->setRelation('colaborador', $colaborador);
+
+        if ($evaluacion !== null) {
+            $autorizada = $evaluacion->replicate();
+            $autorizada->id = $evaluacion->id;
+            $autorizada->forceFill(['estado' => EstadoEvaluacionPrueba::Autorizada, 'decision_renovar' => false]);
+            $cierre->setRelation('evaluacion', $autorizada);
+        }
 
         return $cierre;
     }
@@ -323,6 +383,12 @@ class CierreLaboralService
     public function generarAviso(CierreLaboral $cierre, User $actor): GeneratedDocument
     {
         $this->exigirAutorizado($cierre);
+
+        // Rescisión: por decisión del negocio NO se genera aviso de rescisión
+        // (la baja se aplica y sigue el finiquito).
+        if ($cierre->tipo_baja === TipoBaja::Rescision) {
+            throw ValidationException::withMessages(['aviso' => 'La rescisión no genera aviso: la baja ya está aplicada y sigue el finiquito.']);
+        }
 
         // Vencimiento de capacitación: el aviso oficial de Jurídico (master).
         if (in_array('aviso_terminacion', $this->documentosProceso->clavesCausa($cierre), true)) {
@@ -813,6 +879,7 @@ class CierreLaboralService
             'colaborador.sucursalPrincipal:id,nombre',
             'iniciadoPor:id,name,apellidos,colaborador_id',
             'iniciadoPor.colaborador',
+            'causalRotacion:id,nombre',
         ]);
 
         $this->alcance->limitarPorModulo($query, $usuario, 'cierres', 'colaborador_id', true);
@@ -877,6 +944,7 @@ class CierreLaboralService
             ],
             'tipo_baja' => $cierre->tipo_baja->value,
             'tipo_baja_etiqueta' => $cierre->tipo_baja->etiqueta(),
+            'causal_rotacion' => $cierre->causalRotacion?->nombre,
             'fecha_efectiva' => $cierre->fecha_efectiva->toDateString(),
             'estado' => $cierre->estado->value,
             'estado_etiqueta' => $cierre->estado->etiqueta(),
@@ -1004,7 +1072,7 @@ class CierreLaboralService
     public function aArray(CierreLaboral $cierre, bool $detalle = false, ?User $viewer = null): array
     {
         $finiquito = $this->finiquito($cierre);
-        $cierre->loadMissing(['colaborador.sucursalPrincipal', 'iniciadoPor', 'pagoResponsable']);
+        $cierre->loadMissing(['colaborador.sucursalPrincipal', 'iniciadoPor', 'pagoResponsable', 'causalRotacion']);
 
         $datosFiniquito = $finiquito !== null ? [
             'id' => $finiquito->id,
@@ -1073,6 +1141,8 @@ class CierreLaboralService
             'evaluacion_id' => $cierre->evaluacion_id,
             'tipo_baja' => $cierre->tipo_baja->value,
             'tipo_baja_etiqueta' => $cierre->tipo_baja->etiqueta(),
+            'causal_rotacion_id' => $cierre->causal_rotacion_id,
+            'causal_rotacion' => $cierre->causalRotacion?->nombre,
             'motivo' => $cierre->motivo,
             'fecha_efectiva' => $cierre->fecha_efectiva->toDateString(),
             'estado' => $cierre->estado->value,

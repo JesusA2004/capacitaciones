@@ -131,6 +131,51 @@ class SolicitudFormatoOficialService
     }
 
     /**
+     * true si al aprobar se generaría el formato oficial (tipo mapeado,
+     * formato activo y configurado, y todavía no generado).
+     */
+    public function tieneVistaPrevia(SolicitudInterna $solicitud): bool
+    {
+        $formato = $this->formatoEsperado($solicitud);
+
+        return $formato !== null && $formato->is_active && $formato->tieneConfiguracion()
+            && ! OfficialFormatGeneration::query()->where('solicitud_interna_id', $solicitud->id)->exists();
+    }
+
+    /**
+     * Vista previa del formato oficial automático con los datos REALES de la
+     * solicitud, con el mismo motor que generarSiAplica() pero sin registrar
+     * la generación ni subir nada al expediente (rotulada como vista previa).
+     *
+     * @throws ValidationException Sin formato configurado, sin colaborador o con datos faltantes.
+     */
+    public function vistaPreviaPdf(SolicitudInterna $solicitud, User $actor): string
+    {
+        $formato = $this->formatoEsperado($solicitud);
+
+        if ($formato === null || ! $formato->is_active || ! $formato->tieneConfiguracion()) {
+            throw ValidationException::withMessages(['solicitud' => 'No hay un formato oficial configurado para este tipo de solicitud.']);
+        }
+
+        $solicitud->loadMissing(['colaborador', 'usuario.colaborador', 'revisadoPor.colaborador']);
+        $persona = $solicitud->personaSolicitante();
+
+        if ($persona === null) {
+            throw ValidationException::withMessages(['solicitud' => 'La solicitud no tiene un colaborador asociado.']);
+        }
+
+        $contexto = $this->generador->contexto($persona, $solicitud->id, null, null, $actor);
+        $preparacion = $this->generador->preparar($this->generador->versionParaGenerar($formato), $contexto, [], $actor->can('formatos_oficiales.datos_salariales'));
+        $bloqueo = $this->generador->motivoBloqueo($preparacion);
+
+        if ($bloqueo !== null) {
+            throw ValidationException::withMessages(['solicitud' => $bloqueo]);
+        }
+
+        return $this->generador->vistaPrevia($preparacion);
+    }
+
+    /**
      * Traduce la excepción capturada a un mensaje de negocio entendible por
      * RH — nunca el mensaje crudo (puede traer rutas de servidor, nombres de
      * clase o detalle técnico que no le sirve a quien aprueba la solicitud).

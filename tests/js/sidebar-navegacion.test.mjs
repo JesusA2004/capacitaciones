@@ -59,6 +59,7 @@ const ESPERADO = [
             'Personas en contratación',
             'Validación de documentos',
             'Contratos de ingreso',
+            'Contratos',
         ],
     ],
     [
@@ -74,7 +75,11 @@ const ESPERADO = [
     ],
     [
         'Cierre del periodo de prueba',
-        ['Periodos por vencer', 'Evaluación y decisión'],
+        [
+            'Evaluaciones de periodo de prueba',
+            'Periodos por vencer',
+            'Evaluación y decisión',
+        ],
     ],
     [
         'Permanencia',
@@ -84,6 +89,7 @@ const ESPERADO = [
             'Actas administrativas',
             'Recibo simple de pago',
             'Importar salarios y vacaciones',
+            'Contactos de emergencia',
             'Enviar notificación',
             'Celebraciones',
         ],

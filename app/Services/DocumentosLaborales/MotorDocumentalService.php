@@ -26,6 +26,7 @@ use App\Services\Auditoria\AuditoriaService;
 use App\Services\DocumentosMaestros\AlmacenMaestrosService;
 use App\Services\DocumentosMaestros\ContextoDocumento;
 use App\Services\DocumentosMaestros\DatosDocumentoService;
+use App\Services\DocumentosMaestros\DefinicionMaestroService;
 use App\Services\DocumentosMaestros\Docx\RellenadorDocx;
 use App\Services\DocumentosMaestros\LayoutDocumentoService;
 use App\Services\DocumentosMaestros\Pdf\RenderizadorOverlayMaestro;
@@ -289,12 +290,13 @@ class MotorDocumentalService
      *
      * @param  array<string, mixed>  $extra
      */
-    public function previsualizar(Colaborador $colaborador, DocumentTemplate|string $plantilla, array $extra = []): string
+    public function previsualizar(Colaborador $colaborador, DocumentTemplate|string $plantilla, array $extra = [], ?Model $documentable = null, ?User $actor = null): string
     {
         $plantilla = $this->resolverPlantilla($plantilla);
+        $colaborador->loadMissing(['sucursalPrincipal.empresa', 'puesto', 'departamento', 'jefe.jefe', 'gerente', 'user']);
         $payload = $this->resolver->resolver($colaborador, [...$extra, 'referencia_documento' => 'VISTA-PREVIA']);
 
-        return $this->renderizar($plantilla, $payload, $plantilla->nombre, 'VISTA-PREVIA', $colaborador);
+        return $this->renderizar($plantilla, $payload, $plantilla->nombre, 'VISTA-PREVIA', $colaborador, $documentable, $actor);
     }
 
     /**
@@ -510,6 +512,15 @@ class MotorDocumentalService
             $expandidos = [...$expandidos, ...(is_array($especificacion) ? $this->expresiones->variablesDe($especificacion)['requeridas'] : [$campo])];
         }
 
+        // Nunca bloquean: el representante legal (la firma de la empresa se
+        // escribe y firma a mano: «Nombre y firma del representante legal») y
+        // los blancos intencionales del registro (aplican también a versiones
+        // ya guardadas cuyo mapa los marcó como requeridos).
+        $definicion = config('documentos_maestros.documentos', [])[(string) $master->familia] ?? [];
+        $blancos = is_array($definicion) ? DefinicionMaestroService::blancosIntencionales($definicion) : [];
+        $expandidos = array_filter($expandidos, fn (string $campo): bool => ! isset($blancos[$campo])
+            && ! in_array($this->datos->fuente($campo)['base'], ['representante_legal', 'representante_legal_cargo'], true));
+
         return array_values(array_unique($expandidos));
     }
 
@@ -575,6 +586,17 @@ class MotorDocumentalService
     private function renderizarMaestro(DocumentTemplate $master, array $valores, ?string $leyenda = null, bool $definitivo = true): array
     {
         $mapping = (array) ($master->mapping ?? []);
+        $definicion = config('documentos_maestros.documentos', [])[(string) $master->familia] ?? [];
+
+        // Firma del patrón con el nombre EN BLANCO en todos los formatos: la
+        // línea y «Representante legal» del formato quedan y el nombre se
+        // escribe a mano (solo una familia con firma_patron_en_blanco=false
+        // lo imprime). Espacio duro y no cadena vacía: vacío, la vista previa
+        // restauraría el nombre de ejemplo del formato.
+        if (! is_array($definicion) || ($definicion['firma_patron_en_blanco'] ?? true) !== false) {
+            $valores['representante_legal'] = "\u{00A0}";
+            $valores['representante_legal_mayusculas'] = "\u{00A0}";
+        }
 
         if ($definitivo && ! $master->disenoValidado()) {
             throw ValidacionVisualPendienteException::para($master, $master->visual_validation_status === EstadoValidacionVisual::Fallida

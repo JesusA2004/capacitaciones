@@ -24,8 +24,13 @@ use Illuminate\Support\Carbon;
  * @property int $plazo
  * @property string $periodicidad
  * @property string $pago_programado
+ * @property string|null $cargo_sin_iva
+ * @property string|null $iva
+ * @property string|null $monto_total_con_iva
+ * @property string|null $numero_cheque
  * @property Carbon|null $fecha_otorgamiento
  * @property Carbon|null $fecha_primer_descuento
+ * @property Carbon|null $fecha_ultimo_pago
  * @property string $estado
  * @property string|null $monto_solicitado
  * @property int|null $plazo_solicitado
@@ -56,8 +61,14 @@ class Prestamo extends Model
         'plazo',
         'periodicidad',
         'pago_programado',
+        // Capturados A MANO por RH al autorizar (contrato de crédito): nunca se calculan.
+        'cargo_sin_iva',
+        'iva',
+        'monto_total_con_iva',
+        'numero_cheque',
         'fecha_otorgamiento',
         'fecha_primer_descuento',
+        'fecha_ultimo_pago',
         'estado',
         'monto_solicitado',
         'plazo_solicitado',
@@ -79,8 +90,12 @@ class Prestamo extends Model
             'saldo' => 'decimal:2',
             'plazo' => 'integer',
             'pago_programado' => 'decimal:2',
+            'cargo_sin_iva' => 'decimal:2',
+            'iva' => 'decimal:2',
+            'monto_total_con_iva' => 'decimal:2',
             'fecha_otorgamiento' => 'date',
             'fecha_primer_descuento' => 'date',
+            'fecha_ultimo_pago' => 'date',
             'monto_solicitado' => 'decimal:2',
             'plazo_solicitado' => 'integer',
             'fecha_solicitud' => 'date',

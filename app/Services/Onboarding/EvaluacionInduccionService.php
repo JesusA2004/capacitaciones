@@ -314,6 +314,24 @@ class EvaluacionInduccionService
     }
 
     /**
+     * «Ver evaluación como colaborador» (RH): exactamente el mismo contenido
+     * público que recibe el colaborador, solo para revisarlo antes de
+     * habilitarlo. No crea evaluación, intento ni registro alguno.
+     *
+     * @return array<string, mixed>
+     *
+     * @throws AuthorizationException sin onboarding.gestionar
+     */
+    public function vistaPreviaRh(User $actor): array
+    {
+        if (! $actor->can(OnboardingService::PERMISO_GESTIONAR)) {
+            throw new AuthorizationException('Solo Recursos Humanos puede ver la vista previa de la evaluación de inducción.');
+        }
+
+        return $this->contenidoPublico();
+    }
+
+    /**
      * Califica A/B/C en el servidor y deja D pendiente de RH.
      *
      * @param  array{a?: array<int, int>, b?: array<int, bool>, c?: array<int, string>, d?: array<string, string>}  $respuestas

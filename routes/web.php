@@ -60,6 +60,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // colaborador autenticado, GLOBAL (no acotado por alcance) y solo con
     // contacto corporativo — ver DirectorioColaboradoresService.
     Route::get('directorio', [DirectorioController::class, 'index'])->name('directorio.index');
+    // Edición rápida por fila: solo `directorio.editar` (super_admin), nunca
+    // la propia fila — autorización en ActualizarFilaDirectorioRequest.
+    Route::patch('directorio/{colaborador}', [DirectorioController::class, 'actualizar'])->name('directorio.actualizar');
 
     // «Presentar inducción» (solo RH con onboarding.gestionar, p. ej. por
     // Meet): el PDF oficial en el visor, sin registrar progreso. El PDF lo
@@ -118,6 +121,7 @@ require __DIR__.'/rh.php';
 require __DIR__.'/responsivas.php';
 require __DIR__.'/ciclo-laboral.php';
 require __DIR__.'/documentos-proceso.php';
+require __DIR__.'/contratos.php';
 require __DIR__.'/solicitudes.php';
 require __DIR__.'/portal.php';
 require __DIR__.'/alta-publica.php';

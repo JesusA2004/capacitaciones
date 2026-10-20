@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ClipboardList, Eye, Lock } from '@lucide/vue';
+import { ClipboardList, Eye, FileSearch, Lock } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -8,6 +8,7 @@ import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import FiniquitoPanel from '@/components/Rh/FiniquitoPanel.vue';
+import AutorizarPrestamoDialog from '@/components/Solicitudes/AutorizarPrestamoDialog.vue';
 import type { NivelVistoBueno } from '@/components/Solicitudes/CadenaAutorizacion.vue';
 import CadenaAutorizacion from '@/components/Solicitudes/CadenaAutorizacion.vue';
 import ComparativoDatos from '@/components/Solicitudes/ComparativoDatos.vue';
@@ -27,7 +28,7 @@ import {
     requerirCorreccion,
     revisar,
 } from '@/routes/rh/solicitudes';
-import { permisoPdf } from '@/routes/rh/solicitudes';
+import { permisoPdf, vistaPrevia } from '@/routes/rh/solicitudes';
 import { ver as verDocumento } from '@/routes/rh/solicitudes/documentos';
 import { store as subirDocumentoSolicitud } from '@/routes/solicitudes/documentos';
 import type {
@@ -64,6 +65,12 @@ const props = defineProps<{
     puedeRevisar: boolean;
     puedeAprobar: boolean;
     puedeRechazar: boolean;
+    /** Préstamo: solo RH lo autoriza (monto, plazo y datos del contrato). */
+    puedeAutorizarPrestamo: boolean;
+    vistasPrevias: {
+        documento: 'comprobante' | 'formato-oficial';
+        titulo: string;
+    }[];
     bajaEnCierre: { mensaje: string; colaboradorId: number | null } | null;
 }>();
 
@@ -107,8 +114,16 @@ const tieneAcciones = computed(
     () =>
         !esFinal.value &&
         !props.bajaEnCierre &&
-        (props.puedeRevisar || props.puedeAprobar || props.puedeRechazar),
+        (props.puedeRevisar ||
+            props.puedeAprobar ||
+            props.puedeRechazar ||
+            props.puedeAutorizarPrestamo),
 );
+
+// Un préstamo nunca se aprueba con el botón genérico: RH lo autoriza con el
+// diálogo «Autorizar préstamo» (el gerente/regional solo dan visto bueno).
+const esPrestamo = computed(() => props.solicitud.tipo === 'prestamo');
+const autorizandoPrestamo = ref(false);
 
 const archivosEvidencia = ref<File[]>([]);
 const formEvidencia = useForm({ archivo: null as File | null });
@@ -168,6 +183,26 @@ const previewActivo = ref<{
     nombre: string;
 } | null>(null);
 
+// Documento que se emitirá al aprobar, con los datos reales de esta
+// solicitud: RH lo revisa ANTES de autorizar (el backend no guarda nada).
+function previsualizarAntesDeAprobar(
+    documento: 'comprobante' | 'formato-oficial',
+    titulo: string,
+) {
+    previewActivo.value = {
+        url: vistaPrevia.url([props.solicitud.id, documento]),
+        nombre: `${titulo} (vista previa).pdf`,
+    };
+    previewAbierto.value = true;
+}
+
+const vistaPreviaPermiso = computed(() =>
+    props.permiso &&
+    props.vistasPrevias.some((v) => v.documento === 'comprobante')
+        ? vistaPrevia.url([props.solicitud.id, 'comprobante'])
+        : null,
+);
+
 function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
     previewActivo.value = {
         url: verDocumento.url([props.solicitud.id, doc.id]),
@@ -205,6 +240,7 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                     v-if="permiso"
                     :permiso="permiso"
                     :pdf-url="permisoPdf.url(solicitud.id)"
+                    :vista-previa-url="vistaPreviaPermiso"
                 />
                 <!-- Actualización de datos: al autorizar, lo propuesto pasa al expediente. -->
                 <ComparativoDatos
@@ -507,8 +543,45 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                             @click="pedirCorreccion"
                             >Pedir corrección</Button
                         >
+                        <div
+                            v-if="puedeAprobar && vistasPrevias.length"
+                            class="flex flex-col gap-2 rounded-xl border border-dashed border-border p-3"
+                        >
+                            <p class="text-xs text-muted-foreground">
+                                Revisa el documento que se generará al aprobar:
+                            </p>
+                            <Button
+                                v-for="v in vistasPrevias"
+                                :key="v.documento"
+                                variant="outline"
+                                size="sm"
+                                @click="
+                                    previsualizarAntesDeAprobar(
+                                        v.documento,
+                                        v.titulo,
+                                    )
+                                "
+                            >
+                                <FileSearch class="size-4" />
+                                Vista previa: {{ v.titulo }}
+                            </Button>
+                        </div>
                         <Button
-                            v-if="puedeAprobar && !faltanVistosBuenos"
+                            v-if="
+                                esPrestamo &&
+                                puedeAutorizarPrestamo &&
+                                !faltanVistosBuenos
+                            "
+                            variant="success"
+                            @click="autorizandoPrestamo = true"
+                            >Autorizar préstamo</Button
+                        >
+                        <Button
+                            v-if="
+                                !esPrestamo &&
+                                puedeAprobar &&
+                                !faltanVistosBuenos
+                            "
                             variant="success"
                             :disabled="formAccion.processing"
                             @click="aprobarSolicitud"
@@ -574,6 +647,13 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
             </div>
         </div>
     </div>
+
+    <AutorizarPrestamoDialog
+        v-if="esPrestamo && puedeAutorizarPrestamo"
+        v-model:open="autorizandoPrestamo"
+        :solicitud-id="solicitud.id"
+        :monto-solicitado="solicitud.monto_solicitado"
+    />
 
     <DocumentPreviewDialog
         :open="previewAbierto"

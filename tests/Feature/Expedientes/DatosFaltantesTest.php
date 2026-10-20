@@ -82,7 +82,7 @@ test('la app muestra «Completa tu información» y se recalcula sola cuando los
         'genero' => 'femenino', 'fecha_nacimiento' => '1990-01-01', 'nacionalidad' => 'Mexicana', 'estado_civil' => 'soltero',
         'lugar_nacimiento' => 'Cuernavaca, Morelos', 'curp' => 'XEXX900101MNEXXXA4', 'rfc' => 'XEXX900101AB1', 'nss' => '12345678901',
         'clave_elector' => 'XEXX900101HNEXXX01', 'profesion' => 'Licenciada',
-        'telefono' => '7770000000', 'correo_personal' => 'ana@example.com', 'domicilio' => 'Calle 1', 'domicilio_cp' => '62000',
+        'telefono' => '7770000000', 'correo_personal' => 'ana@example.com', 'domicilio_calle' => 'Calle 1', 'domicilio_numero_exterior' => '10', 'domicilio_colonia' => 'Centro', 'domicilio_cp' => '62000', 'domicilio_municipio' => 'Cuernavaca', 'domicilio_estado' => 'Morelos',
         'contacto_emergencia_nombre' => 'Luis', 'contacto_emergencia_parentesco' => 'Hermano', 'contacto_emergencia_telefono' => '7771111111',
         'beneficiario_nombre' => 'Luis', 'beneficiario_parentesco' => 'Hermano',
     ]);
@@ -132,7 +132,7 @@ test('completar mis datos: la app propone, RH autoriza, el expediente se actuali
 });
 
 test('la completitud se muestra por sección (Identidad, Fiscal, Domicilio, Contacto de emergencia…), no solo como porcentaje', function () {
-    $this->persona->update(['domicilio' => null, 'domicilio_cp' => null]);
+    $this->persona->update(['domicilio' => null, 'domicilio_calle' => null, 'domicilio_numero_exterior' => null, 'domicilio_colonia' => null, 'domicilio_cp' => null, 'domicilio_municipio' => null, 'domicilio_estado' => null]);
 
     $secciones = collect(app(DatosFaltantesService::class)->resumen($this->persona->refresh())['secciones'])->keyBy('clave');
 
@@ -144,7 +144,7 @@ test('la completitud se muestra por sección (Identidad, Fiscal, Domicilio, Cont
         ->and($secciones['domicilio']['estado'])->toBe('faltante')
         ->and($secciones['emergencia']['estado'])->toBe('faltante');
 
-    $this->persona->update(['domicilio' => 'Calle 1', 'domicilio_cp' => '62000', 'contacto_emergencia_nombre' => 'Ana', 'contacto_emergencia_parentesco' => 'Hermana', 'contacto_emergencia_telefono' => '7770000000']);
+    $this->persona->update(['domicilio_calle' => 'Calle 1', 'domicilio_numero_exterior' => '10', 'domicilio_colonia' => 'Centro', 'domicilio_cp' => '62000', 'domicilio_municipio' => 'Cuernavaca', 'domicilio_estado' => 'Morelos', 'contacto_emergencia_nombre' => 'Ana', 'contacto_emergencia_parentesco' => 'Hermana', 'contacto_emergencia_telefono' => '7770000000']);
     $secciones = collect(app(DatosFaltantesService::class)->resumen($this->persona->refresh())['secciones'])->keyBy('clave');
 
     expect($secciones['domicilio']['estado'])->toBe('completo')

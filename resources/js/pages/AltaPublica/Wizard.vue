@@ -2,6 +2,7 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import { CheckCircle2, ChevronLeft, ChevronRight, Upload } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
+import CamposDomicilio from '@/components/Common/CamposDomicilio.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -32,7 +33,14 @@ const formDatos = useForm({
     curp: props.alta.curp ?? '',
     rfc: props.alta.rfc ?? '',
     nss: props.alta.nss ?? '',
-    domicilio: props.alta.domicilio ?? '',
+    // Domicilio estructurado: el texto completo lo compone el backend.
+    domicilio_calle: props.alta.domicilio_calle ?? '',
+    domicilio_numero_exterior: props.alta.domicilio_numero_exterior ?? '',
+    domicilio_numero_interior: props.alta.domicilio_numero_interior ?? '',
+    domicilio_colonia: props.alta.domicilio_colonia ?? '',
+    domicilio_cp: props.alta.domicilio_cp ?? '',
+    domicilio_municipio: props.alta.domicilio_municipio ?? '',
+    domicilio_estado: props.alta.domicilio_estado ?? '',
     contacto_emergencia_nombre: props.alta.contacto_emergencia_nombre ?? '',
     contacto_emergencia_telefono: props.alta.contacto_emergencia_telefono ?? '',
 });
@@ -261,8 +269,23 @@ function enviarAlta() {
                     </div>
                 </div>
                 <div class="grid gap-2">
-                    <Label for="domicilio">Domicilio</Label>
-                    <Input id="domicilio" v-model="formDatos.domicilio" />
+                    <Label>Domicilio</Label>
+                    <CamposDomicilio
+                        v-model:calle="formDatos.domicilio_calle"
+                        v-model:numero-exterior="
+                            formDatos.domicilio_numero_exterior
+                        "
+                        v-model:numero-interior="
+                            formDatos.domicilio_numero_interior
+                        "
+                        v-model:colonia="formDatos.domicilio_colonia"
+                        v-model:cp="formDatos.domicilio_cp"
+                        v-model:municipio="formDatos.domicilio_municipio"
+                        v-model:estado="formDatos.domicilio_estado"
+                        :errores="formDatos.errors"
+                        :texto-anterior="alta.domicilio"
+                        requerido
+                    />
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div class="grid gap-2">

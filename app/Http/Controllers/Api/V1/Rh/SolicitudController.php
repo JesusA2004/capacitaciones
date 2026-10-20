@@ -16,6 +16,7 @@ use App\Services\Solicitudes\SolicitudesService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -98,6 +99,10 @@ class SolicitudController extends Controller
                 'permiso_pdf' => $solicitud->tipo === TipoSolicitudInterna::Permiso ? route('api.v1.rh.solicitudes.permiso-pdf', $solicitud->id, false) : null,
                 // Actualización de datos: qué cambia en el expediente al autorizar.
                 'datos_propuestos' => $this->solicitudes->comparativoDatos($solicitud),
+                // Documentos que se emitirán al aprobar, visibles ANTES de autorizar.
+                'vistas_previas' => $usuario->can('aprobar', $solicitud) && $solicitud->tipo !== TipoSolicitudInterna::BajaColaborador
+                    ? array_map(fn (array $v) => [...$v, 'url' => route('api.v1.rh.solicitudes.vista-previa', [$solicitud->id, $v['documento']], false)], $this->solicitudes->vistasPreviasAprobacion($solicitud))
+                    : [],
                 'acciones_permitidas' => $flujo['acciones_permitidas'],
                 'workflow' => $flujo['workflow'],
                 // Cadena de vistos buenos jerárquicos (Gerente → Regional →
@@ -245,6 +250,28 @@ class SolicitudController extends Controller
      * Formato oficial de permiso para el gerente/RH en la app: solo cuando
      * Recursos Humanos ya lo autorizó.
      */
+    /**
+     * Vista previa (PDF inline, no guarda nada) del documento que se emitirá
+     * al aprobar: mismo SolicitudesService que la web.
+     */
+    public function vistaPreviaDocumento(Request $request, SolicitudInterna $solicitud, string $documento): HttpResponse
+    {
+        $this->authorize('aprobar', $solicitud);
+
+        try {
+            $pdf = $this->solicitudes->vistaPreviaDocumento($solicitud, $documento, $request->user());
+        } catch (ValidationException $e) {
+            abort(422, (string) collect($e->errors())->flatten()->first());
+        }
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => sprintf('inline; filename="%s-%s-vista-previa.pdf"', $documento, $solicitud->folio),
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
     public function permisoPdf(Request $request, SolicitudInterna $solicitud): StreamedResponse
     {
         $this->authorize('view', $solicitud);

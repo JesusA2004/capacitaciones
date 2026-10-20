@@ -64,6 +64,39 @@ return [
     // Paquete que se genera al renovar (evaluación aprobada con renovación).
     'paquete_renovacion' => ['contrato_indeterminado'],
 
+    /*
+    | Módulo «Contratos» (RH → Contratación y expediente): regularización de
+    | los contratos que le corresponden a cada colaborador activo según su
+    | fecha de ingreso (App\Services\Contratos\RegularizacionContratosService).
+    |
+    | - 'equivalentes_generados': un documento ya generado con otra clave
+    |   cuenta como el mismo contrato (los contratos de «periodo de prueba»
+    |   anteriores son la misma etapa que la capacitación inicial).
+    | - 'tipos_expediente': tipo de documento del expediente (document_types.
+    |   clave) que es el original FIRMADO físicamente de ese contrato (p. ej.
+    |   el escaneo que se subió en la migración). Solo se muestra como
+    |   información («Firmado cargado»): NO cuenta como generado y el
+    |   documento del sistema se puede generar igual. «Contrato laboral» no
+    |   distingue cuál contrato es; se asocia al contrato de ingreso.
+    | - 'dias_alerta_periodo_prueba': «Periodos por vencer» alerta cuando el
+    |   periodo de prueba vence en estos días NATURALES o menos. (El aviso
+    |   automático que abre la evaluación, VencimientoContratosService, sigue
+    |   con 'dias_aviso_vencimiento' en días HÁBILES — FO-RH-EPP-001.)
+    */
+    'regularizacion' => [
+        'equivalentes_generados' => [
+            'contrato_capacitacion' => ['contrato_periodo_prueba'],
+            'contrato_periodo_prueba' => ['contrato_capacitacion'],
+        ],
+        'tipos_expediente' => [
+            'contrato_capacitacion' => ['contrato'],
+            'contrato_periodo_prueba' => ['contrato'],
+            'contrato_confidencialidad' => ['carta_confidencialidad'],
+            'contrato_no_competencia' => ['contrato_no_competencia'],
+        ],
+        'dias_alerta_periodo_prueba' => (int) env('CONTRATOS_DIAS_ALERTA_PERIODO_PRUEBA', 15),
+    ],
+
     // Documentos del préstamo autorizado.
     'paquete_prestamo' => ['contrato_prestamo', 'pagare'],
 

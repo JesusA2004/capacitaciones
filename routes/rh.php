@@ -24,6 +24,7 @@ use App\Http\Controllers\Rh\LoteNominaController;
 use App\Http\Controllers\Rh\MigracionExpedientesController;
 use App\Http\Controllers\Rh\NominaController;
 use App\Http\Controllers\Rh\PerfilPuestoController;
+use App\Http\Controllers\Rh\PrestamoAutorizacionController;
 use App\Http\Controllers\Rh\ReporteRhController;
 use App\Http\Controllers\Rh\SolicitudController;
 use App\Http\Controllers\Rh\VacanteController;
@@ -47,6 +48,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('colaboradores.credenciales')->middleware('throttle:20,1');
         Route::post('colaboradores/{colaborador}/credenciales/correo', [CredencialesController::class, 'enviarCorreo'])
             ->name('colaboradores.credenciales.correo')->middleware('throttle:10,1');
+        Route::post('colaboradores/{colaborador}/credenciales/correo/vista-previa', [CredencialesController::class, 'vistaPreviaCorreo'])
+            ->name('colaboradores.credenciales.correo-vista-previa')->middleware('throttle:30,1');
 
         // Importador de salarios y vacaciones históricas (CLAUDE.md §21-36):
         // subir → analizar (preview) → revisar → aplicar.
@@ -184,6 +187,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('{colaborador}/datos-personales', [ExpedienteController::class, 'actualizarDatosPersonales'])->name('datos-personales.update');
             Route::put('{colaborador}/datos-laborales', [ExpedienteController::class, 'actualizarDatosLaborales'])->name('datos-laborales.update');
             Route::post('{colaborador}/recibos-nomina', [ExpedienteController::class, 'generarReciboNomina'])->name('recibos-nomina.store');
+            Route::post('{colaborador}/recibos-nomina/vista-previa', [ExpedienteController::class, 'vistaPreviaReciboNomina'])->name('recibos-nomina.vista-previa')->middleware('throttle:30,1');
             Route::get('recibos-nomina/{recibo}/descargar', [ExpedienteController::class, 'descargarReciboNomina'])->name('recibos-nomina.descargar');
             Route::post('recibos-nomina/{recibo}/regenerar-pdf', [ExpedienteController::class, 'regenerarPdfReciboNomina'])->name('recibos-nomina.regenerar-pdf');
             Route::post('prestamos/{prestamo}/movimientos', [ExpedienteController::class, 'registrarPagoPrestamo'])->name('prestamos.movimientos.store');
@@ -379,12 +383,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('exportar-pdf', [SolicitudController::class, 'exportarPdf'])->name('exportarPdf');
             Route::get('{solicitud}', [SolicitudController::class, 'show'])->name('show');
             Route::get('{solicitud}/permiso-pdf', [SolicitudController::class, 'permisoPdf'])->name('permiso-pdf');
+            Route::get('{solicitud}/vista-previa/{documento}', [SolicitudController::class, 'vistaPreviaDocumento'])->name('vista-previa')->whereIn('documento', ['comprobante', 'formato-oficial'])->middleware('throttle:30,1');
             Route::get('{solicitud}/documentos/{documento}/ver', [SolicitudController::class, 'verDocumento'])->name('documentos.ver');
             Route::post('{solicitud}/revisar', [SolicitudController::class, 'revisar'])->name('revisar');
             Route::post('{solicitud}/requerir-correccion', [SolicitudController::class, 'requerirCorreccion'])->name('requerir-correccion');
             Route::post('{solicitud}/visto-bueno', [SolicitudController::class, 'vistoBueno'])->name('visto-bueno');
             Route::post('{solicitud}/aprobar', [SolicitudController::class, 'aprobar'])->name('aprobar');
             Route::post('{solicitud}/rechazar', [SolicitudController::class, 'rechazar'])->name('rechazar');
+            // Préstamo: lo autoriza SOLO RH con monto, plazo y los datos del
+            // contrato de crédito (mismo servicio que la API móvil).
+            Route::post('{solicitud}/prestamo/autorizar', [PrestamoAutorizacionController::class, 'autorizar'])->name('prestamo.autorizar');
             Route::patch('{solicitud}/estado', [SolicitudController::class, 'actualizarEstado'])->name('actualizar-estado');
 
             Route::prefix('{solicitud}/finiquito')->name('finiquito.')->group(function () {

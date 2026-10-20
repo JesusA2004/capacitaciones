@@ -407,7 +407,7 @@ const ESCENAS: EscenaBase[] = [
         pantalla: 'Ciclo laboral → Iniciar baja',
         ruta: '/rh/colaboradores/:colaborador/ciclo',
         captura: '31-baja.png',
-        accion: 'Abrir «Iniciar baja», elegir la causa, el motivo y la fecha efectiva.',
+        accion: 'Abrir «Iniciar baja», elegir el tipo, el motivo y la fecha efectiva.',
         zoom: 'Zoom al diálogo',
         textoPantalla: 'El jefe o RH inicia → documentos',
         narracion:

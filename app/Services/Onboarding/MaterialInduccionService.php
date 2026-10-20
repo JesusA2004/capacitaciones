@@ -3,6 +3,7 @@
 namespace App\Services\Onboarding;
 
 use App\Enums\TipoMaterialInduccion;
+use App\Enums\TipoModuloOnboarding;
 use App\Models\InduccionMaterialExplicacion;
 use App\Models\OnboardingAvance;
 use App\Models\OnboardingModulo;
@@ -80,6 +81,76 @@ class MaterialInduccionService
             ) : null,
             'video_disponible' => false,
         ];
+    }
+
+    /**
+     * Módulo institucional de la Inducción Mr. Lana (el que lleva la
+     * evaluación formal FO-RH-EI), o null si no está configurado.
+     */
+    public function moduloInstitucional(): ?OnboardingModulo
+    {
+        return OnboardingModulo::query()
+            ->whereNotNull('evaluacion_formal_clave')
+            ->where('tipo', TipoModuloOnboarding::Institucional->value)
+            ->where('activo', true)
+            ->orderBy('orden')
+            ->first();
+    }
+
+    /**
+     * Vista previa para RH del material vigente (lo que verá/escuchará el
+     * colaborador). RH no está sujeto al anti-adelanto ni registra avance:
+     * las URLs firmadas apuntan a endpoints de RH que sirven el video HLS
+     * completo y la narración original, sin tocar OnboardingAvance ni
+     * induccion_video_intervalos.
+     *
+     * @return array{tipo: string, tipo_etiqueta: string, disponible: bool, audio_url: string|null, video_url: string|null}|null
+     *
+     * @throws AuthorizationException sin permiso de gestión de onboarding
+     */
+    public function vistaPreviaRh(User $actor): ?array
+    {
+        $this->exigirPermiso($actor);
+
+        $modulo = $this->moduloInstitucional();
+        $material = $modulo !== null ? $this->materialActivo($modulo) : null;
+
+        if ($material === null) {
+            return null;
+        }
+
+        $recurso = $material->recurso;
+        $esVideo = $material->tipo->bloqueaEvaluacion();
+        $disponible = $recurso !== null && ($esVideo ? $recurso->estaDisponible() && $recurso->ruta_hls_manifiesto !== null : true);
+        $caduca = now()->addSeconds((int) config('media.token_ttl'));
+
+        return [
+            'tipo' => $material->tipo->value,
+            'tipo_etiqueta' => $material->tipo->etiqueta(),
+            'disponible' => $disponible,
+            'audio_url' => $disponible && ! $esVideo ? URL::temporarySignedRoute('rh.onboarding.induccion.material.vista-previa.audio', $caduca) : null,
+            'video_url' => $disponible && $esVideo ? URL::temporarySignedRoute('rh.onboarding.induccion.material.vista-previa.maestro', $caduca) : null,
+        ];
+    }
+
+    /**
+     * Recurso del material vigente para la vista previa de RH: el video
+     * ($video = true) o el audio; null si el vigente es de otro tipo o no hay.
+     *
+     * @throws AuthorizationException sin permiso de gestión de onboarding
+     */
+    public function recursoVistaPreviaRh(User $actor, bool $video): ?RecursoMultimedia
+    {
+        $this->exigirPermiso($actor);
+
+        $modulo = $this->moduloInstitucional();
+        $material = $modulo !== null ? $this->materialActivo($modulo) : null;
+
+        if ($material === null || $material->tipo->bloqueaEvaluacion() !== $video) {
+            return null;
+        }
+
+        return $material->recurso;
     }
 
     /**
