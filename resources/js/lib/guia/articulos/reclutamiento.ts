@@ -19,7 +19,7 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
         queEs: 'Una vacante es una plaza autorizada que hoy no tiene titular. Nadie escribe «vacante abierta»: PEOPLE compara, para cada sucursal y puesto, la plantilla autorizada contra los colaboradores vigentes que ocupan ese puesto, y lo que falta es la vacante real.',
         quien: ['rh', 'regional', 'direccion_comercial'],
         quienDetalle:
-            'Gerencia de RH captura la plantilla autorizada (Administración → Sucursales). Todos los demás solo consultan Vacantes: la pantalla es informativa.',
+            'Gerencia de RH captura la plantilla autorizada (Organización → Sucursales). Todos los demás solo consultan Vacantes: la pantalla es informativa.',
         antes: [
             'La sucursal y el puesto deben existir en Administración.',
             'La plantilla autorizada de ese puesto en esa sucursal debe estar capturada (viene del Excel de headcount de Dirección y Gerencia de RH la mantiene).',
@@ -56,7 +56,7 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
             {
                 problema: '«No veo una vacante que debería existir.»',
                 solucion:
-                    'Revisa la plantilla autorizada de ese puesto en Administración → Sucursales → detalle. Si la plantilla ya está completa, no hay vacante. Si la sucursal no es de tu alcance, tampoco la verás.',
+                    'Revisa la plantilla autorizada de ese puesto en Organización → Sucursales → detalle. Si la plantilla ya está completa, no hay vacante. Si la sucursal no es de tu alcance, tampoco la verás.',
             },
             {
                 problema: '«Quiero crear una vacante a mano.»',

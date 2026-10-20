@@ -76,8 +76,17 @@ class ColaboradorPolicy
             return true;
         }
 
+        if ($this->esPropio($usuario, $colaborador)) {
+            return false;
+        }
+
+        // Gerente con alcance sobre la persona en el módulo de Bajas (su
+        // personal / sucursal), igual que BajaService::puedeSolicitarPara().
+        if ($usuario->can('bajas.solicitar') && $this->alcance->alcanzaColaboradorEnModulo($usuario, $colaborador, 'bajas')) {
+            return true;
+        }
+
         return $usuario->can('cierres.solicitar')
-            && ! $this->esPropio($usuario, $colaborador)
             && $usuario->colaborador !== null
             && app(OrganizacionJerarquiaService::class)->estaEnCadenaDeMando($usuario->colaborador, $colaborador);
     }
@@ -90,6 +99,22 @@ class ColaboradorPolicy
     public function crearActa(User $usuario, Colaborador $colaborador): bool
     {
         return $this->administrativo($usuario, $colaborador, 'actas.crear');
+    }
+
+    /**
+     * Organigrama: subir/bajar/mover a alguien de plaza (pasa por el
+     * movimiento laboral + jefe derivado). Solo RH (organigrama.editar) con
+     * alcance, nunca sobre uno mismo (super_admin sí, ver trait).
+     */
+    public function moverEnOrganigrama(User $usuario, Colaborador $colaborador): bool
+    {
+        return $this->administrativo($usuario, $colaborador, 'organigrama.editar');
+    }
+
+    /** Organigrama: clasificar a un Gerente de Sucursal en Q1 o Q3. */
+    public function clasificarRegion(User $usuario, Colaborador $colaborador): bool
+    {
+        return $this->administrativo($usuario, $colaborador, 'organigrama.editar');
     }
 
     private function esPropio(User $usuario, Colaborador $colaborador): bool

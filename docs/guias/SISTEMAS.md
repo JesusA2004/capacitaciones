@@ -127,7 +127,7 @@ Colaborador, Gerente, Regional, Dirección Comercial, Sistemas, RH.
 
 ### Baja de un colaborador (forma de salida y causal)
 
-> El gerente solicita la baja en «Solicitudes de baja» (o RH / el jefe directo la aplica desde el ciclo laboral): elige cómo se va (renuncia voluntaria, no renovación o rescisión) y por qué (la causal), adjunta los documentos y la envía a RH. Al enviarla se suspende el acceso; RH valida, la manda a Jurídico si la causal lo pide y la cierra cuando los documentos están completos.
+> La baja NO es una solicitud: el gerente (de su personal) o RH la registra en «Bajas» y queda aplicada en ese momento. Antes de confirmar ves la renuncia o el formato que se generará y el finiquito propuesto. Después se completan los documentos, Jurídico revisa si la causal lo pide y RH la cierra.
 
 #### Qué es
 
@@ -135,23 +135,23 @@ Es el expediente de la baja con folio BAJ-AAAA-NNNN: forma de salida y causal de
 
 #### Quién lo hace
 
-Captura y envía el gerente (solo su personal). RH valida, rechaza con motivo, corrige la causal con motivo, cierra y reabre. Jurídico revisa las causales que lo requieren y no cierra. Contraloría consulta las de faltantes (RE-02) y robo o fraude (RE-03). Dirección solo ve el tablero de rotación.
+Registra el gerente (solo su personal) o RH. RH corrige la causal con motivo, completa datos, cierra, reabre y marca «No procede». Jurídico revisa las causales que lo requieren y no cierra. Contraloría consulta las de faltantes (RE-02) y robo o fraude (RE-03). Nadie más entra a «Bajas»; Dirección solo ve el tablero de rotación y Sistemas recibe el aviso para retirar accesos y equipo.
 
-> **Importante:** Al ENVIAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si RH decide que la baja no procede, se cancela y el acceso vuelve.
+> **Importante:** Al REGISTRAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si RH decide que no procede, la revierte y el acceso vuelve.
 
 > **Importante:** En rescisión, «¿Recontratable?» es «No» y solo RH lo cambia. El aviso de rescisión se adjunta (el sistema no lo genera).
 
 #### Antes de empezar
 
-- La persona está activa y es de tu sucursal o equipo (o eres RH).
+- La persona está activa y es de tu sucursal (o eres RH).
 - Solo puede haber una baja abierta por persona.
 
 #### Pasos
 
-1. **«Solicitar baja»** _(Gerente)_ — Cierres laborales → Solicitudes de baja → «Solicitar baja»: 1 colaborador (sucursal, puesto e ingreso salen solos), 2 ¿cómo se va? (tres tarjetas), 3 ¿por qué se va? (causal con su ayuda, comentario —obligatorio en RV-05 y en rescisión, mínimo 20 caracteres—, último día laborado y ¿recontratable?; en rescisión además fecha en que se conoció la falta y entrega del aviso), 4 documentos.
-2. **«Guardar borrador» o «Enviar a RH»** _(Gerente)_ — El borrador no afecta a nadie. Al enviarla, el acceso de la persona se suspende de inmediato y la baja queda «En revisión RH». Puedes enviarla aunque falten documentos: los adjuntas después.
-3. **RH valida (y Jurídico revisa si aplica)** _(RH)_ — En el expediente de la baja: «Validar», «Enviar a Jurídico» (si la causal lo requiere), «Rechazar» con motivo (regresa al gerente) o «Cambiar causal» con motivo. Todo queda en la bitácora.
-4. **Finiquito y «Cerrar baja»** _(RH)_ — RH calcula y entrega el finiquito (Bajas y finiquitos). Con los documentos obligatorios completos, «Cerrar baja»: la persona queda inactiva y su acceso bloqueado de forma definitiva. Una baja cerrada solo se reabre con motivo.
+1. **«Registrar baja»** _(Gerente)_ — Cierres laborales → Bajas → «Registrar baja»: 1 ¿quién se va? (sucursal, puesto e ingreso salen solos), 2 ¿cómo se va? (tres tarjetas), 3 ¿por qué se va? (causal con su ayuda, comentario —obligatorio en RV-05 y en rescisión, mínimo 20 caracteres—, último día laborado y ¿recontratable?; en rescisión además fecha en que se conoció la falta y entrega del aviso).
+2. **Vista previa y confirmar** _(Gerente)_ — «Vista previa» abre la renuncia (renuncia voluntaria) o el formato de la causal y el finiquito propuesto, con flechas para pasar de uno a otro. Nada se guarda hasta «Sí, registrar baja». Al confirmar: accesos suspendidos, documentos generados y finiquito propuesto. En rescisión no se genera documento: el aviso de rescisión se adjunta.
+3. **Documentos y Jurídico** _(RH)_ — En el expediente de la baja o en Bajas y finiquitos → «Documentos»: imprime y firma lo generado, adjunta lo que falta. Si la causal lo requiere, la baja pasa sola a Jurídico, que la aprueba o la devuelve a RH con observaciones.
+4. **Finiquito y «Cerrar baja»** _(RH)_ — RH revisa / ajusta el finiquito y registra su entrega (Bajas y finiquitos). Con los documentos obligatorios completos, «Cerrar baja»: la persona queda inactiva y su acceso bloqueado de forma definitiva. Una baja cerrada solo se reabre con motivo; «No procede» la revierte y devuelve el acceso.
 
 #### Qué pasa después
 
@@ -161,7 +161,8 @@ Captura y envía el gerente (solo su personal). RH valida, rechaza con motivo, c
 
 #### Notificaciones
 
-- «Baja por revisar» a RH al enviarla; «Baja aplicada» a regionales y RH.
+- «Baja registrada» a RH, a la regional y a Sistemas: quién la dio, a quién, forma · causal y último día.
+- Causal con Jurídico: «Baja por revisar (Jurídico)».
 - RV-04 (clima laboral): correo a RH para entrevista de salida y NOM-035.
 - RE-02 y RE-03: aviso a Contraloría (RE-03 también a Jurídico).
 - Antigüedad menor a 90 días: rotación temprana a RH.
@@ -179,7 +180,7 @@ Captura y envía el gerente (solo su personal). RH valida, rechaza con motivo, c
 
 #### Errores comunes
 
-- **«No me deja enviar.»** Faltan forma, causal, último día laborado o ¿recontratable? (y en rescisión los datos del aviso). La pantalla marca cada campo.
+- **«No me deja registrar.»** Faltan persona, forma, causal, último día laborado o ¿recontratable? (y en rescisión los datos del aviso). La pantalla marca cada campo.
 - **«RH no puede cerrar.»** Falta un documento obligatorio, la revisión de Jurídico o el finiquito revisado. El expediente dice exactamente qué falta.
 
 #### Relacionado con
@@ -190,7 +191,8 @@ Captura y envía el gerente (solo su personal). RH valida, rechaza con motivo, c
 
 #### En el sistema
 
-- **Ir a Solicitudes de baja** → `/rh/bajas` _(permiso: bajas.ver o bajas.revisar_juridico o bajas.consulta_contraloria)_
+- **Ir a Bajas** → `/rh/bajas` _(permiso: bajas.ver o bajas.revisar_juridico o bajas.consulta_contraloria)_
+- **Documentos de las bajas** → `/rh/cierres` _(permiso: cierres.ver)_
 - **Tablero de rotación** → `/reportes/rotacion/tablero` _(permiso: bajas.tablero.ver)_
 - Guía en pantalla → `/ayuda/articulo/baja`
 

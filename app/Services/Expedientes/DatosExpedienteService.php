@@ -90,20 +90,7 @@ class DatosExpedienteService
         }
 
         DB::transaction(function () use ($colaborador, $estructurales, $antes, $actor, $motivo, $nuevoSueldoMensual): void {
-            $colaborador->update($estructurales);
-
-            // El jefe sale del organigrama: se recalcula YA para que el
-            // movimiento laboral registre el cambio de jefe.
-            $this->jefes->sincronizar($actor);
-
-            // El snapshot no cambió el sueldo: aquí solo salen los movimientos
-            // estructurales (puesto/sucursal/depto/jefe).
-            $this->movimientos->registrarCambioPuesto(
-                $colaborador->fresh() ?? $colaborador,
-                $antes,
-                $actor,
-                $motivo,
-            );
+            $this->aplicarEstructurales([['colaborador' => $colaborador, 'antes' => $antes, 'cambios' => $estructurales]], $actor, $motivo);
 
             // Sueldo canónico: CompensacionService sincroniza mensual + diario
             // + ledger. Solo si de verdad cambia el diario.
@@ -121,5 +108,66 @@ class DatosExpedienteService
         });
 
         return $avisoSueldoSinConfigurar;
+    }
+
+    /**
+     * Cambia el departamento de varios colaboradores con la MISMA regla que
+     * la pestaña «Datos laborales» del expediente (snapshot → update →
+     * jefe derivado del organigrama → movimiento laboral por persona), pero
+     * recalculando el organigrama una sola vez para todo el lote. Lo usa
+     * «Departamentos → mover personas» (MovimientoDepartamentoService).
+     *
+     * La autorización y el filtrado (alcance, «nadie se mueve a sí mismo»,
+     * idempotencia) los resuelve quien llama.
+     *
+     * @param  iterable<Colaborador>  $colaboradores
+     */
+    public function cambiarDepartamentoEnLote(iterable $colaboradores, int $departamentoId, User $actor, ?string $motivo): void
+    {
+        $lote = [];
+
+        foreach ($colaboradores as $colaborador) {
+            $lote[] = [
+                'colaborador' => $colaborador,
+                'antes' => $this->movimientos->snapshot($colaborador),
+                'cambios' => ['departamento_id' => $departamentoId],
+            ];
+        }
+
+        if ($lote === []) {
+            return;
+        }
+
+        DB::transaction(fn () => $this->aplicarEstructurales($lote, $actor, $motivo));
+    }
+
+    /**
+     * Núcleo compartido de los cambios estructurales (sucursal, departamento,
+     * puesto): escribe, recalcula el jefe derivado del organigrama UNA vez y
+     * registra los movimientos laborales de cada persona contra su snapshot.
+     * Debe llamarse dentro de una transacción.
+     *
+     * @param  list<array{colaborador: Colaborador, antes: array{empresa_id: int|null, sucursal_id: int|null, departamento_id: int|null, puesto_id: int|null, jefe_id: int|null, nivel_jerarquico: int|null, sueldo_mensual: string|null}, cambios: array<string, mixed>}>  $lote
+     */
+    private function aplicarEstructurales(array $lote, User $actor, ?string $motivo): void
+    {
+        foreach ($lote as $item) {
+            $item['colaborador']->update($item['cambios']);
+        }
+
+        // El jefe sale del organigrama: se recalcula YA para que el
+        // movimiento laboral registre el cambio de jefe.
+        $this->jefes->sincronizar($actor);
+
+        // El snapshot no cambió el sueldo: aquí solo salen los movimientos
+        // estructurales (puesto/sucursal/depto/jefe).
+        foreach ($lote as $item) {
+            $this->movimientos->registrarCambioPuesto(
+                $item['colaborador']->fresh() ?? $item['colaborador'],
+                $item['antes'],
+                $actor,
+                $motivo,
+            );
+        }
     }
 }

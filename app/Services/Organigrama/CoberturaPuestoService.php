@@ -4,13 +4,17 @@ namespace App\Services\Organigrama;
 
 use App\Enums\EstadoUsuario;
 use App\Enums\MotivoCobertura;
+use App\Enums\TipoMovimientoLaboral;
 use App\Enums\TipoNodoComercial;
 use App\Models\CoberturaPuesto;
 use App\Models\Colaborador;
+use App\Models\MovimientoLaboral;
 use App\Models\NodoComercial;
 use App\Models\Puesto;
 use App\Models\User;
+use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Support\FechaMexico;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -23,8 +27,10 @@ use Illuminate\Validation\ValidationException;
  */
 class CoberturaPuestoService
 {
+    public function __construct(private readonly MovimientoLaboralService $movimientos) {}
+
     /**
-     * @param  array{colaborador_id: int, puesto_id: int, sucursal_id?: int|null, region_id?: int|null, motivo: string, nota?: string|null, fecha_inicio?: string|null}  $datos
+     * @param  array{colaborador_id: int, puesto_id: int, sucursal_id?: int|null, region_id?: int|null, motivo?: string|null, nota?: string|null, fecha_inicio?: string|null}  $datos
      */
     public function asignar(array $datos, User $actor): CoberturaPuesto
     {
@@ -37,8 +43,17 @@ class CoberturaPuestoService
         $sucursalId = $datos['sucursal_id'] ?? null;
         $regionId = $datos['region_id'] ?? null;
 
-        if ($sucursalId === null && $regionId === null) {
+        // Un puesto CORPORATIVO (Asistente de Dirección General, Contraloría…)
+        // se cubre sin sucursal ni región; uno de sucursal o de región, no.
+        // (Se resuelve al vuelo: OrganigramaPersonasService depende de este
+        // servicio y no puede inyectarse aquí.)
+        if ($sucursalId === null && $regionId === null
+            && app(OrganigramaPersonasService::class)->ambitoDePuesto($datos['puesto_id']) !== 'corporativo') {
             throw ValidationException::withMessages(['sucursal_id' => 'Indica la sucursal o la región que se va a cubrir.']);
+        }
+
+        if ($sucursalId === null && $regionId === null && $colaborador->puesto_id === $datos['puesto_id']) {
+            throw ValidationException::withMessages(['colaborador_id' => 'Esa persona ya es titular de ese puesto.']);
         }
 
         if ($regionId !== null && ! NodoComercial::query()->whereKey($regionId)->where('tipo', TipoNodoComercial::Region->value)->exists()) {
@@ -64,17 +79,29 @@ class CoberturaPuestoService
                 ]);
             }
 
-            return CoberturaPuesto::query()->create([
+            $nueva = CoberturaPuesto::query()->create([
                 'colaborador_id' => $colaborador->id,
                 'puesto_id' => $datos['puesto_id'],
                 'sucursal_id' => $sucursalId,
                 'region_id' => $regionId,
-                'motivo' => MotivoCobertura::from($datos['motivo']),
+                // «Cubre temporalmente este puesto» no pide motivo ni fechas:
+                // sin motivo es «Puesto vacante» y empieza hoy.
+                'motivo' => MotivoCobertura::tryFrom((string) ($datos['motivo'] ?? '')) ?? MotivoCobertura::Vacante,
                 'nota' => $datos['nota'] ?? null,
                 'fecha_inicio' => $datos['fecha_inicio'] ?? FechaMexico::hoy(),
                 'activa' => true,
                 'registrada_por' => $actor->id,
             ]);
+
+            // Auditable también en la línea de tiempo del expediente de quien
+            // cubre (movimiento «Cobertura temporal», sin fecha de fin).
+            $puesto = Puesto::query()->whereKey($datos['puesto_id'])->first();
+
+            if ($puesto !== null) {
+                $this->movimientos->registrarCoberturaTemporal($colaborador, $puesto, $actor, Carbon::parse($nueva->fecha_inicio->toDateString()), null, $nueva->nota);
+            }
+
+            return $nueva;
         });
 
         activity('organigrama')
@@ -92,11 +119,21 @@ class CoberturaPuestoService
             return $cobertura;
         }
 
-        $cobertura->update([
-            'activa' => false,
-            'fecha_fin' => FechaMexico::hoy(),
-            'finalizada_por' => $actor->id,
-        ]);
+        DB::transaction(function () use ($cobertura, $actor): void {
+            $cobertura->update([
+                'activa' => false,
+                'fecha_fin' => FechaMexico::hoy(),
+                'finalizada_por' => $actor->id,
+            ]);
+
+            // Cierra el movimiento «Cobertura temporal» que la abrió.
+            MovimientoLaboral::query()
+                ->where('colaborador_id', $cobertura->colaborador_id)
+                ->where('tipo_movimiento', TipoMovimientoLaboral::CoberturaTemporal->value)
+                ->where('puesto_nuevo_id', $cobertura->puesto_id)
+                ->whereNull('fecha_fin_cobertura')
+                ->update(['fecha_fin_cobertura' => FechaMexico::hoy()]);
+        });
 
         activity('organigrama')
             ->performedOn($cobertura)
@@ -117,7 +154,7 @@ class CoberturaPuestoService
         return CoberturaPuesto::query()
             ->where('activa', true)
             ->whereHas('colaborador', fn ($query) => $query->where('estatus', EstadoUsuario::Activo->value))
-            ->with(['colaborador.sucursalPrincipal:id,nombre', 'puesto:id,nombre'])
+            ->with(['colaborador.sucursalPrincipal:id,nombre', 'colaborador.puesto:id,nombre', 'puesto:id,nombre', 'registradaPor:id,name'])
             ->get();
     }
 
@@ -129,6 +166,8 @@ class CoberturaPuestoService
             ->where('puesto_id', $puestoId)
             ->when($sucursalId !== null, fn ($query) => $query->where('sucursal_id', $sucursalId))
             ->when($regionId !== null, fn ($query) => $query->where('region_id', $regionId))
+            // Corporativo: el mismo puesto sin sucursal ni región.
+            ->when($sucursalId === null && $regionId === null, fn ($query) => $query->whereNull('sucursal_id')->whereNull('region_id'))
             ->when($bloquear, fn ($query) => $query->lockForUpdate())
             ->first();
     }

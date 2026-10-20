@@ -173,6 +173,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('partes/{parte}', [DivisionExpedienteHistoricoController::class, 'verParte'])->name('partes.ver');
                 Route::post('partes/{parte}/asignar', [DivisionExpedienteHistoricoController::class, 'asignarParte'])->name('partes.asignar');
                 Route::post('{division}/datos/aplicar', [DivisionExpedienteHistoricoController::class, 'aplicarDato'])->name('datos.aplicar');
+                // Editor de hojas: asignar por hoja, continuar/partir/mover
+                // documentos, vista previa (no escribe) y confirmar (versionado).
+                Route::get('{division}/editor', [DivisionExpedienteHistoricoController::class, 'editor'])->name('editor');
+                Route::post('{division}/editor/vista-previa', [DivisionExpedienteHistoricoController::class, 'vistaPrevia'])->name('editor.vista-previa')->middleware('throttle:60,1');
+                Route::get('{division}/editor/pdf', [DivisionExpedienteHistoricoController::class, 'pdfVistaPrevia'])->name('editor.pdf')->middleware('throttle:120,1');
+                Route::post('{division}/editor/confirmar', [DivisionExpedienteHistoricoController::class, 'confirmarEditor'])->name('editor.confirmar')->middleware('throttle:20,1');
                 Route::get('{colaborador}', [DivisionExpedienteHistoricoController::class, 'show'])->name('show')->withTrashed();
             });
             // withTrashed(): un colaborador dado de baja (soft-deleted, ver

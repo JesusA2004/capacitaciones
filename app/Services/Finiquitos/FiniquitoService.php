@@ -26,6 +26,7 @@ use App\Services\Plantillas\PlaceholderResolver;
 use App\Services\Solicitudes\SolicitudDocumentoStorageService;
 use App\Services\Vacaciones\VacacionesService;
 use App\Support\FechaMexico;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -353,6 +354,56 @@ class FiniquitoService
         $finiquito->loadMissing(['colaborador', 'solicitudInterna']);
 
         return $this->documentosAdministrativos->renderizarVigente(FamiliaAdministrativa::Finiquito, $this->datosDocumento->finiquito($finiquito, $this->desglose($finiquito)));
+    }
+
+    /**
+     * Finiquito PROPUESTO de una baja que todavía no se registra, armado EN
+     * MEMORIA con las mismas fórmulas que calcular() (la vista previa del
+     * formulario de baja, docs/BAJAS_Y_CAUSALES.md). No guarda nada: ni
+     * solicitud, ni finiquito, ni historial. $solicitud es la solicitud de
+     * baja sin guardar (tipo_baja, fecha_efectiva, causal).
+     */
+    public function propuestaEnMemoria(SolicitudInterna $solicitud, Colaborador $colaborador, float $sueldoMensual, float $sueldoPendiente = 0): FiniquitoCalculo
+    {
+        if ($colaborador->fecha_ingreso === null) {
+            throw ValidationException::withMessages(['colaborador_id' => 'El colaborador no tiene fecha de ingreso registrada: no se puede calcular el finiquito.']);
+        }
+
+        $automaticos = $this->calcularAutomaticos($solicitud, $colaborador, $sueldoMensual, $sueldoPendiente);
+        $finiquito = new FiniquitoCalculo;
+        $finiquito->forceFill([
+            'colaborador_id' => $colaborador->id,
+            'fecha_calculo' => now(),
+            ...$automaticos,
+            'bonos_extra' => 0,
+            'descuentos' => 0,
+            'adeudos' => 0,
+            'total_ajustado' => $automaticos['total_calculado'],
+            'estado' => EstadoFiniquito::Borrador->value,
+        ]);
+        $finiquito->setRelation('colaborador', $colaborador);
+        $finiquito->setRelation('solicitudInterna', $solicitud);
+        $finiquito->setRelation('ajustes', new EloquentCollection);
+
+        $percepciones = 0.0;
+        $deducciones = 0.0;
+
+        foreach ($this->desglose($finiquito) as $renglon) {
+            if ($renglon['tipo'] === TipoConceptoNomina::Percepcion->value) {
+                $percepciones += $renglon['importe'];
+            } else {
+                $deducciones += $renglon['importe'];
+            }
+        }
+
+        $finiquito->forceFill([
+            'total_percepciones' => round($percepciones, 2),
+            'total_deducciones' => round($deducciones, 2),
+            'neto' => round($percepciones - $deducciones, 2),
+            'total_ajustado' => round($percepciones - $deducciones, 2),
+        ]);
+
+        return $finiquito;
     }
 
     /**

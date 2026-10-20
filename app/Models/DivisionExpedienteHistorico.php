@@ -98,4 +98,23 @@ class DivisionExpedienteHistorico extends Model
     {
         return $this->hasMany(ParteDivisionHistorico::class, 'division_id')->orderBy('orden');
     }
+
+    /**
+     * Las partes que valen hoy: las que ninguna corrección manual reemplazó
+     * (las reemplazadas se conservan como evidencia).
+     *
+     * @return HasMany<ParteDivisionHistorico, $this>
+     */
+    public function partesVigentes(): HasMany
+    {
+        return $this->hasMany(ParteDivisionHistorico::class, 'division_id')->whereNull('reemplazada_por_revision_id')->orderBy('orden');
+    }
+
+    /**
+     * @return HasMany<RevisionDivisionHistorico, $this>
+     */
+    public function revisiones(): HasMany
+    {
+        return $this->hasMany(RevisionDivisionHistorico::class, 'division_id')->orderByDesc('version');
+    }
 }

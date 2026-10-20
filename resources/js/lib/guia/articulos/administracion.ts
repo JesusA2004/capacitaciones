@@ -83,7 +83,7 @@ export const ARTICULOS_ADMINISTRACION: ArticuloGuia[] = [
             {
                 titulo: 'Plantilla autorizada',
                 detalle:
-                    'Administración → Sucursales → detalle de la sucursal → lápiz en el puesto (o «Agregar puesto»): nueva cifra y motivo obligatorio. La vacante del par se recalcula al guardar.',
+                    'Organización → Sucursales → detalle de la sucursal → lápiz en el puesto (o «Agregar puesto»): nueva cifra y motivo obligatorio. La vacante del par se recalcula al guardar.',
                 canal: 'web',
             },
             {
@@ -101,11 +101,21 @@ export const ARTICULOS_ADMINISTRACION: ArticuloGuia[] = [
                 detalle:
                     'Organización → Organigrama: quién reporta a quién. De aquí sale el jefe directo de cada persona.',
             },
+            {
+                titulo: 'Mover personas entre departamentos',
+                detalle:
+                    'Organización → Departamentos → abre el departamento: marca a todas o a algunas personas (el buscador filtra la lista mientras escribes), elige el departamento destino, revisa el resumen («Vas a mover 3 personas de Ventas a Operaciones») y confirma. Cada persona queda con su movimiento laboral «Cambio de departamento».',
+                canal: 'web',
+            },
         ],
         llamados: [
             {
                 tono: 'importante',
                 texto: 'Organigrama, Matriz comercial, Headcount y Vacantes son cosas distintas: el organigrama dice quién reporta a quién; la matriz, qué ruta cubre cada gestor; el headcount, cuántas plazas hay; las vacantes, cuántas faltan.',
+            },
+            {
+                tono: 'info',
+                texto: 'Sucursales y Departamentos son módulos distintos: en Sucursales vive la plantilla autorizada de cada sucursal; en Departamentos, el catálogo de áreas y el cambio de departamento en lote. Cambiar de departamento no cambia puesto, sucursal ni plantilla.',
             },
         ],
         despues: ['Cada cambio queda en la bitácora con antes → después.'],
@@ -113,6 +123,11 @@ export const ARTICULOS_ADMINISTRACION: ArticuloGuia[] = [
             {
                 problema: '«No puedo editar la plantilla.»',
                 solucion: 'Solo Gerencia de RH (permiso de editar headcount).',
+            },
+            {
+                problema: '«No aparece la casilla para moverme a mí.»',
+                solucion:
+                    'Nadie cambia su propio departamento: pídeselo a otra persona de RH.',
             },
         ],
         registro: [
@@ -138,11 +153,18 @@ export const ARTICULOS_ADMINISTRACION: ArticuloGuia[] = [
                 permisos: ['organigrama.ver'],
                 modo: 'operativo',
             },
+            {
+                etiqueta: 'Ir a Departamentos',
+                ruta: '/administracion/departamentos',
+                permisos: ['departamentos.administrar'],
+                modo: 'operativo',
+            },
         ],
         preguntas: [
             '¿Cómo cambio la plantilla autorizada?',
             '¿Dónde configuro la duración del contrato por puesto?',
             '¿Cómo cambio el jefe de alguien?',
+            '¿Cómo muevo a varias personas de departamento?',
         ],
     },
     {
@@ -431,26 +453,31 @@ export const ARTICULOS_ADMINISTRACION: ArticuloGuia[] = [
         proceso: 'administracion',
         resumen:
             'Carga el reporte de RH con vista previa: actualiza salario diario y registra días de vacaciones tomados antes de PEOPLE. Nunca crea personas.',
-        queEs: 'El importador lee el Excel oficial, busca a cada persona por nombre EXACTO dentro de su sucursal y propone cambios. Nada se aplica hasta que RH confirma.',
-        quien: ['rh'],
+        queEs: 'El importador lee el Excel oficial, busca a cada persona por nombre EXACTO dentro de su sucursal y propone cambios. Nada se aplica hasta que el super administrador confirma.',
+        // Las importaciones y cargas masivas son solo del super
+        // administrador (2026-10-20): RH no lo ve; consulta el resultado en
+        // el historial de cada persona.
+        quien: [],
         antes: ['Tener el archivo REPORTE_TRABAJADORES_VAC.xlsx del periodo.'],
         pasos: [
             {
                 titulo: 'Subir y previsualizar',
                 detalle:
-                    'Personal → «Importar salarios y vacaciones». Cada fila queda como Aplicable, Requiere revisión, Sin cambios, No encontrado o Error, con su motivo.',
-                quien: 'rh',
+                    'Configuración → «Importar datos» → Salarios y vacaciones (o Permanencia → «Importar salarios y vacaciones»). Cada fila queda como Aplicable, Requiere revisión, Sin cambios, No encontrado o Error, con su motivo.',
                 canal: 'web',
             },
             {
                 titulo: 'Aplicar',
                 detalle:
                     'Solo las filas «Aplicable». El salario mensual se recalcula como diario × 30 y queda en el historial de salarios.',
-                quien: 'rh',
                 canal: 'web',
             },
         ],
         llamados: [
+            {
+                tono: 'aviso',
+                texto: 'Solo el super administrador importa datos (carga inicial, salarios y vacaciones, contactos de emergencia, rotación, recibos por archivo, descriptivos). RH consulta los resultados, pero no ve estas pantallas.',
+            },
             {
                 tono: 'importante',
                 texto: 'Quien no cumple 1 año de antigüedad NO recibe ajuste de vacaciones anuales aunque el Excel traiga días otorgados/tomados (el salario sí se actualiza). Un nombre que coincide con 2+ personas va a revisión, nunca se adivina.',

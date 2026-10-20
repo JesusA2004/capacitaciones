@@ -6,7 +6,7 @@ También en `/ayuda/preguntas`.
 
 ## ¿Por qué no veo una vacante?
 
-Porque ya no falta: la plantilla autorizada de ese puesto y sucursal está completa, o la sucursal no es de tu alcance. Gerencia de RH revisa la plantilla en Administración → Sucursales.
+Porque ya no falta: la plantilla autorizada de ese puesto y sucursal está completa, o la sucursal no es de tu alcance. Gerencia de RH revisa la plantilla en Organización → Sucursales.
 
 → [De dónde nace una vacante](FLUJO_COMPLETO.md#articulo-plantilla-y-vacantes)
 
@@ -58,9 +58,9 @@ No se registra como candidato nuevo: se busca en Reingresos y, si RH lo aprueba,
 
 → [Reingreso de un excolaborador](FLUJO_COMPLETO.md#articulo-reingreso)
 
-## ¿Dónde inicio una baja?
+## ¿Dónde registro una baja?
 
-En el Ciclo laboral de la persona (Expedientes → la persona → «Ciclo laboral») con «Iniciar baja»: solo su jefe directo o RH. No es una solicitud ni requiere otra autorización; después siguen los documentos, el finiquito y el registro de su entrega.
+En Cierres laborales → «Bajas» → «Registrar baja» (o en el Ciclo laboral de la persona con «Iniciar baja»): solo el gerente de su personal o RH. No es una solicitud ni requiere autorización: queda aplicada al confirmar, después de ver la vista previa de la renuncia y del finiquito. Siguen los documentos, Jurídico si aplica y el cierre.
 
 → [Baja de un colaborador (forma de salida y causal)](FLUJO_COMPLETO.md#articulo-baja)
 

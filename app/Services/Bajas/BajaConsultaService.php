@@ -17,8 +17,9 @@ use Illuminate\Pagination\LengthAwarePaginator;
  * la bandeja con filtros y el buscador de colaboradores del formulario.
  *
  *  - bajas.ver: las de su alcance del módulo «bajas» (gerente: su sucursal;
- *    jefe directo: su equipo; regional: su región; RH: todas). Un borrador
- *    solo lo ve quien lo capturó (y RH).
+ *    regional: su región; RH: todas). Solo gerentes, RH y super admin lo
+ *    tienen. Un borrador del flujo anterior solo lo ve quien lo capturó (y
+ *    RH).
  *  - bajas.revisar_juridico: las que requieren Jurídico y las rescisiones.
  *  - bajas.consulta_contraloria: solo las de causales con aviso a
  *    Contraloría (RE-02 y RE-03), solo lectura.
@@ -54,6 +55,11 @@ class BajaConsultaService
         return $query->where(function (Builder $q) use ($usuario, $porAlcance, $juridico, $contraloria): void {
             if ($porAlcance) {
                 $q->orWhere(function (Builder $s) use ($usuario): void {
+                    // Con alcance «Todos» limitarPorModulo no agrega nada y un
+                    // grupo vacío se descarta del OR: sin esta condición, quien
+                    // además tiene Jurídico/Contraloría (super_admin) solo vería
+                    // esas bajas.
+                    $s->whereNotNull('bajas.id');
                     $this->alcance->limitarPorModulo($s, $usuario, self::MODULO, 'colaborador_id', true);
 
                     if (! $usuario->can('bajas.gestionar')) {
@@ -128,6 +134,23 @@ class BajaConsultaService
     }
 
     /**
+     * Números grandes de la bandeja (dentro del alcance de quien mira).
+     *
+     * @return array{en_tramite: int, juridico: int, cerradas: int, no_procede: int}
+     */
+    public function resumen(User $usuario): array
+    {
+        $conteos = $this->consulta($usuario)->selectRaw('estatus, count(*) as total')->groupBy('estatus')->pluck('total', 'estatus');
+
+        return [
+            'en_tramite' => (int) ($conteos[EstatusBaja::EnRevisionRh->value] ?? 0),
+            'juridico' => (int) ($conteos[EstatusBaja::EnRevisionJuridico->value] ?? 0),
+            'cerradas' => (int) ($conteos[EstatusBaja::Cerrada->value] ?? 0),
+            'no_procede' => (int) ($conteos[EstatusBaja::Cancelada->value] ?? 0),
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function fila(Baja $baja): array
@@ -150,7 +173,9 @@ class BajaConsultaService
             'estatus_etiqueta' => $baja->estatus->etiqueta(),
             'fecha_baja' => $baja->fecha_baja?->toDateString(),
             'enviado_en' => $baja->enviado_en?->toDateTimeString(),
+            // Días desde que se registró (abierta): cuánto lleva en trámite.
             'dias_en_espera' => $baja->estatus->esAbierta() && $baja->enviado_en !== null ? (int) $baja->enviado_en->copy()->startOfDay()->diffInDays(now()->startOfDay()) : null,
+            'documentos_total' => count(array_filter($this->documentos->espacios($baja), fn (array $e): bool => $e['obligatorio'])),
             'documentos_completos' => $faltantes === [],
             'documentos_faltantes' => count($faltantes),
             'requiere_juridico' => $baja->requiereJuridico(),

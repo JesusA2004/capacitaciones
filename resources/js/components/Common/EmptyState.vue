@@ -20,9 +20,16 @@ withDefaults(
     <div
         class="flex flex-col items-center justify-center gap-2 px-6 py-12 text-center"
     >
-        <component :is="icono" class="size-8 text-muted-foreground" />
-        <p class="text-sm font-medium">{{ titulo }}</p>
-        <p class="text-sm text-muted-foreground">{{ descripcion }}</p>
+        <span
+            class="mb-1 flex size-16 items-center justify-center rounded-3xl bg-crema text-bronce"
+            aria-hidden="true"
+        >
+            <component :is="icono" class="size-8" />
+        </span>
+        <p class="text-base font-semibold">{{ titulo }}</p>
+        <p class="max-w-md text-sm text-pretty text-muted-foreground">
+            {{ descripcion }}
+        </p>
         <div v-if="$slots.default" class="mt-2">
             <slot />
         </div>

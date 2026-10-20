@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Check, LoaderCircle, X } from '@lucide/vue';
+import { Check, Info, LoaderCircle, Mail, Phone, X } from '@lucide/vue';
 import { reactive, ref } from 'vue';
 import { toast } from 'vue-sonner';
 import InputError from '@/components/InputError.vue';
@@ -135,99 +135,119 @@ async function guardar() {
 </script>
 
 <template>
-    <form class="flex flex-col gap-3" @submit.prevent="guardar">
-        <div class="grid gap-1.5">
-            <Label :for="`dir-correo-${fila.id}`">Correo corporativo</Label>
-            <Input
-                :id="`dir-correo-${fila.id}`"
-                v-model="form.correo_corporativo"
-                type="email"
-                autocomplete="off"
-                placeholder="nombre@mr-lana.com"
-            />
-            <InputError :message="errores.correo_corporativo" />
-        </div>
-        <div class="grid gap-1.5">
-            <Label :for="`dir-telefono-${fila.id}`">Teléfono corporativo</Label>
-            <Input
-                :id="`dir-telefono-${fila.id}`"
-                v-model="form.telefono_corporativo"
-                type="tel"
-                autocomplete="off"
-            />
-            <InputError :message="errores.telefono_corporativo" />
-        </div>
-        <div class="grid gap-1.5">
-            <Label>Puesto</Label>
-            <Select
-                :model-value="form.puesto_id"
-                @update:model-value="(v) => (form.puesto_id = String(v ?? ''))"
-            >
-                <SelectTrigger class="w-full">
-                    <SelectValue placeholder="Selecciona un puesto" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem
-                        v-for="puesto in opciones.puestos"
-                        :key="puesto.id"
-                        :value="String(puesto.id)"
-                    >
-                        {{ puesto.nombre }}
-                    </SelectItem>
-                </SelectContent>
-            </Select>
-            <InputError :message="errores.puesto_id" />
-        </div>
-        <div class="grid gap-1.5">
-            <Label>Sucursal</Label>
-            <Select
-                :model-value="form.sucursal_principal_id"
-                @update:model-value="
-                    (v) => (form.sucursal_principal_id = String(v ?? ''))
-                "
-            >
-                <SelectTrigger class="w-full">
-                    <SelectValue placeholder="Selecciona una sucursal" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem
-                        v-for="sucursal in opciones.sucursales"
-                        :key="sucursal.id"
-                        :value="String(sucursal.id)"
-                    >
-                        {{ sucursal.nombre }}
-                    </SelectItem>
-                </SelectContent>
-            </Select>
-            <InputError :message="errores.sucursal_principal_id" />
-        </div>
-        <div class="grid gap-1.5">
-            <Label>Departamento</Label>
-            <Select
-                :model-value="form.departamento_id"
-                @update:model-value="
-                    (v) => (form.departamento_id = String(v ?? ''))
-                "
-            >
-                <SelectTrigger class="w-full">
-                    <SelectValue placeholder="Selecciona un departamento" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem
-                        v-for="departamento in opciones.departamentos"
-                        :key="departamento.id"
-                        :value="String(departamento.id)"
-                    >
-                        {{ departamento.nombre }}
-                    </SelectItem>
-                </SelectContent>
-            </Select>
-            <InputError :message="errores.departamento_id" />
+    <form class="flex flex-col gap-4" @submit.prevent="guardar">
+        <div class="grid gap-4 sm:grid-cols-2">
+            <div class="grid gap-1.5">
+                <Label :for="`dir-correo-${fila.id}`">Correo corporativo</Label>
+                <div class="relative">
+                    <Mail
+                        class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                    />
+                    <Input
+                        :id="`dir-correo-${fila.id}`"
+                        v-model="form.correo_corporativo"
+                        type="email"
+                        autocomplete="off"
+                        placeholder="nombre@mr-lana.com"
+                        class="h-11 pl-9"
+                    />
+                </div>
+                <InputError :message="errores.correo_corporativo" />
+            </div>
+            <div class="grid gap-1.5">
+                <Label :for="`dir-telefono-${fila.id}`"
+                    >Teléfono corporativo</Label
+                >
+                <div class="relative">
+                    <Phone
+                        class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                    />
+                    <Input
+                        :id="`dir-telefono-${fila.id}`"
+                        v-model="form.telefono_corporativo"
+                        type="tel"
+                        autocomplete="off"
+                        class="h-11 pl-9"
+                    />
+                </div>
+                <InputError :message="errores.telefono_corporativo" />
+            </div>
+            <div class="grid gap-1.5">
+                <Label>Puesto</Label>
+                <Select
+                    :model-value="form.puesto_id"
+                    @update:model-value="
+                        (v) => (form.puesto_id = String(v ?? ''))
+                    "
+                >
+                    <SelectTrigger class="h-11 w-full">
+                        <SelectValue placeholder="Selecciona un puesto" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem
+                            v-for="puesto in opciones.puestos"
+                            :key="puesto.id"
+                            :value="String(puesto.id)"
+                        >
+                            {{ puesto.nombre }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
+                <InputError :message="errores.puesto_id" />
+            </div>
+            <div class="grid gap-1.5">
+                <Label>Sucursal</Label>
+                <Select
+                    :model-value="form.sucursal_principal_id"
+                    @update:model-value="
+                        (v) => (form.sucursal_principal_id = String(v ?? ''))
+                    "
+                >
+                    <SelectTrigger class="h-11 w-full">
+                        <SelectValue placeholder="Selecciona una sucursal" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem
+                            v-for="sucursal in opciones.sucursales"
+                            :key="sucursal.id"
+                            :value="String(sucursal.id)"
+                        >
+                            {{ sucursal.nombre }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
+                <InputError :message="errores.sucursal_principal_id" />
+            </div>
+            <div class="grid gap-1.5">
+                <Label>Departamento</Label>
+                <Select
+                    :model-value="form.departamento_id"
+                    @update:model-value="
+                        (v) => (form.departamento_id = String(v ?? ''))
+                    "
+                >
+                    <SelectTrigger class="h-11 w-full">
+                        <SelectValue placeholder="Selecciona un departamento" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem
+                            v-for="departamento in opciones.departamentos"
+                            :key="departamento.id"
+                            :value="String(departamento.id)"
+                        >
+                            {{ departamento.nombre }}
+                        </SelectItem>
+                    </SelectContent>
+                </Select>
+                <InputError :message="errores.departamento_id" />
+            </div>
         </div>
 
-        <p class="text-xs text-muted-foreground">
-            El jefe directo no se edita: sale del organigrama según el puesto y
-            la sucursal.
+        <p
+            class="flex items-start gap-2 rounded-xl bg-info-soft px-3 py-2 text-xs text-[var(--mrl-texto)]"
+        >
+            <Info class="mt-0.5 size-4 shrink-0 text-info" />
+            El jefe directo sale solo del organigrama.
         </p>
 
         <p
@@ -238,17 +258,17 @@ async function guardar() {
             {{ errorGeneral }}
         </p>
 
-        <div class="flex justify-end gap-2">
+        <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button
                 type="button"
                 variant="outline"
-                size="sm"
+                size="lg"
                 :disabled="guardando"
                 @click="emit('cancelar')"
             >
                 <X class="size-4" /> Cancelar
             </Button>
-            <Button type="submit" size="sm" :disabled="guardando">
+            <Button type="submit" size="lg" :disabled="guardando">
                 <LoaderCircle v-if="guardando" class="size-4 animate-spin" />
                 <Check v-else class="size-4" />
                 {{ guardando ? 'Guardando…' : 'Guardar' }}

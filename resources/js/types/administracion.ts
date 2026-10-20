@@ -1,3 +1,4 @@
+import type { ClasificacionRegionNodo, LadosComerciales } from './organigrama';
 import type { MovimientoLaboralItem } from './rh';
 
 export type EmpresaItem = {
@@ -73,6 +74,44 @@ export type DepartamentoItem = {
     activo: boolean;
     puestos_count: number;
     colaboradores_count: number;
+};
+
+/** Detalle de un departamento (Organización → Departamentos → abrir). */
+export type DepartamentoDetalle = {
+    id: number;
+    nombre: string;
+    descripcion: string | null;
+    activo: boolean;
+    puestos: number;
+};
+
+/** Persona vigente de un departamento, lista para moverse en lote. */
+export type PersonaDepartamento = {
+    id: number;
+    nombre: string;
+    numero_empleado: string | null;
+    puesto: string | null;
+    sucursal: string | null;
+    foto_url: string | null;
+    en_incorporacion: boolean;
+    /** false = no se puede mover (p. ej. eres tú). */
+    movible: boolean;
+    motivo_no_movible: string | null;
+};
+
+export type DestinoDepartamento = {
+    id: number;
+    nombre: string;
+    descripcion: string | null;
+    personas: number;
+};
+
+/** Resultado de «mover personas» (flash `movimientoDepartamento`). */
+export type ResultadoMovimientoDepartamento = {
+    origen: string;
+    destino: string;
+    movidos: { id: number; nombre: string }[];
+    omitidos: { id: number; nombre: string; motivo: string }[];
 };
 
 export type PuestoItem = {
@@ -229,7 +268,12 @@ export type NodoOrganigramaPersona = {
         nota: string | null;
         /** Puesto titular de quien cubre (no cambia por cubrir). */
         titular_de?: string | null;
+        /** Auditable: quién marcó la cobertura y cuándo. */
+        registrada_por?: string | null;
+        registrada_en?: string | null;
     } | null;
+    /** Solo Gerente de Sucursal: lado Q1/Q3 (o «Por clasificar»). */
+    clasificacion?: ClasificacionRegionNodo | null;
 };
 
 /** Datos para asignar/terminar coberturas desde el organigrama. */
@@ -299,6 +343,8 @@ export type LaminasOrganigrama = {
             hijos: CajaLamina[];
         })[];
         leyenda: { directa?: string; apoyo?: string };
+        /** Q1 / Q3: cada Gerente de Sucursal de un solo lado. */
+        lados?: LadosComerciales;
     };
     sucursal: {
         puestos: Record<

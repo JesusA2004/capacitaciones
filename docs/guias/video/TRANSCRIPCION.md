@@ -76,8 +76,8 @@ Desde la app, el colaborador pide permisos, vacaciones y préstamos. El gerente 
 
 ## Baja, finiquito y reingreso (12:13)
 
-La baja no es una solicitud ni requiere otra autorización: el jefe directo o Recursos Humanos la inicia desde el ciclo laboral de la persona. Al iniciarla, el acceso de la persona se suspende de inmediato, pero nunca se borra nada. El finiquito se calcula con sueldo pendiente, aguinaldo proporcional, vacaciones, prima vacacional e ISR. Recursos Humanos revisa, ajusta los conceptos autorizados con su motivo, genera el PDF y, al registrar su entrega, el cierre queda completo. Recursos Humanos y Sistemas reciben el aviso para retirar accesos y equipo. Si alguien regresa, no se crea una persona nueva: se busca en Reingresos, Recursos Humanos decide, y la misma persona inicia un nuevo ciclo laboral conservando todo su historial.
+La baja no es una solicitud ni requiere autorización: el gerente o Recursos Humanos la registra en «Bajas» (o desde el ciclo laboral) después de ver la vista previa de la renuncia y del finiquito. Al registrarla, el acceso de la persona se suspende de inmediato, pero nunca se borra nada. El finiquito se calcula con sueldo pendiente, aguinaldo proporcional, vacaciones, prima vacacional e ISR. Recursos Humanos revisa, ajusta los conceptos autorizados con su motivo, genera el PDF y, al registrar su entrega, el cierre queda completo. Recursos Humanos y Sistemas reciben el aviso para retirar accesos y equipo. Si alguien regresa, no se crea una persona nueva: se busca en Reingresos, Recursos Humanos decide, y la misma persona inicia un nuevo ciclo laboral conservando todo su historial.
 
-## Cierre (13:25)
+## Cierre (13:30)
 
 Siempre que tengas una duda, abre Ayuda. Puedes buscar con tus propias palabras, por ejemplo cómo contrato un candidato, ver el recorrido completo, la guía por proceso o lo que te toca según tu rol. En cada pantalla importante, el botón Cómo funciona te lleva directo a su explicación. Con MR. LANA PEOPLE cada persona sabe qué hacer, dónde hacerlo, quién lo hace y qué pasa después. Gracias por ver este recorrido.

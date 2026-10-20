@@ -225,7 +225,7 @@ test('importar crea un lote de borradores y reporta las filas con error', functi
         ."NO-EXISTE,percepcion,Sueldo,100,001\n";
     $archivo = UploadedFile::fake()->createWithContent('lote.csv', $csv);
 
-    $this->actingAs($this->rh)->post(route('rh.nomina.lotes.store'), [
+    $this->actingAs(clUsuario('super_admin'))->post(route('rh.nomina.lotes.store'), [
         'periodicidad' => 'semanal', 'fecha' => '2026-10-08', 'origen' => 'importacion', 'archivo' => $archivo,
     ])->assertRedirect();
 
@@ -249,7 +249,7 @@ test('importar un colaborador corporativo en periodicidad semanal no genera su r
     $csv = "numero_empleado,tipo,concepto,importe,clave\nCORP-1,percepcion,Sueldo,2100,001\n";
     $archivo = UploadedFile::fake()->createWithContent('lote.csv', $csv);
 
-    $this->actingAs($this->rh)->post(route('rh.nomina.lotes.store'), [
+    $this->actingAs(clUsuario('super_admin'))->post(route('rh.nomina.lotes.store'), [
         'periodicidad' => 'semanal', 'fecha' => '2026-10-08', 'origen' => 'importacion', 'archivo' => $archivo,
     ])->assertRedirect();
 
@@ -264,7 +264,7 @@ test('importar un colaborador de sucursal en periodicidad quincenal no genera su
     $csv = "numero_empleado,tipo,concepto,importe,clave\n{$this->colaborador->numero_empleado},percepcion,Sueldo,2100,001\n";
     $archivo = UploadedFile::fake()->createWithContent('lote.csv', $csv);
 
-    $this->actingAs($this->rh)->post(route('rh.nomina.lotes.store'), [
+    $this->actingAs(clUsuario('super_admin'))->post(route('rh.nomina.lotes.store'), [
         'periodicidad' => 'quincenal', 'fecha' => '2026-10-08', 'origen' => 'importacion', 'archivo' => $archivo,
     ])->assertRedirect();
 
@@ -282,7 +282,7 @@ test('importar un colaborador corporativo en periodicidad quincenal si genera su
     $csv = "numero_empleado,tipo,concepto,importe,clave\nCORP-2,percepcion,Sueldo,2100,001\n";
     $archivo = UploadedFile::fake()->createWithContent('lote.csv', $csv);
 
-    $this->actingAs($this->rh)->post(route('rh.nomina.lotes.store'), [
+    $this->actingAs(clUsuario('super_admin'))->post(route('rh.nomina.lotes.store'), [
         'periodicidad' => 'quincenal', 'fecha' => '2026-10-08', 'origen' => 'importacion', 'archivo' => $archivo,
     ])->assertRedirect();
 

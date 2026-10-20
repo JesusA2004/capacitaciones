@@ -8,7 +8,8 @@ import type { PuestoConPerfil } from '@/types';
 
 const props = defineProps<{
     puestos: PuestoConPerfil[];
-    puedeEditar: boolean;
+    /** Importar los PDF oficiales: solo super_admin (perfiles_puesto.importar). */
+    puedeImportar: boolean;
 }>();
 
 defineOptions({
@@ -95,7 +96,7 @@ const CIRC = 2 * Math.PI * 16;
             </div>
             <div class="grid grid-cols-2 gap-3 sm:flex sm:items-stretch">
                 <Link
-                    v-if="puedeEditar"
+                    v-if="puedeImportar"
                     :href="importacion.url()"
                     class="col-span-2 inline-flex min-h-11 items-center justify-center gap-2 self-center rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] px-4 text-sm font-medium text-[var(--mrl-petroleo)] hover:bg-[var(--mrl-fondo)] sm:col-span-1"
                 >

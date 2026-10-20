@@ -46,7 +46,7 @@ Nunca borra al usuario ni su expediente. El bloqueo de login (web y móvil) y el
 
 Existe también una baja administrativa **directa**, sin pasar por una solicitud (`Administracion\UsuarioController::destroy()`, botón "Desactivar" en Colaboradores) — para cuando RH necesita dar de baja de inmediato sin flujo de aprobación. Ambos caminos alimentan el mismo `movimientos_laborales`, así que los KPIs de rotación del dashboard (`docs/REPORTES.md`) cuentan bajas de los dos orígenes sin duplicar ni perder ninguna.
 
-La forma de salida, la causal, los documentos y la bitácora de cada baja viven en el **módulo de Bajas y Causales** (modelo `Baja`, ver `docs/BAJAS_Y_CAUSALES.md`): el cierre laboral (y su solicitud) se crea al enviar la baja a RH o desde el atajo del ciclo laboral, y la baja se cierra cuando sus documentos obligatorios están completos.
+La forma de salida, la causal, los documentos y la bitácora de cada baja viven en el **módulo de Bajas y Causales** (modelo `Baja`, ver `docs/BAJAS_Y_CAUSALES.md`): la baja es DIRECTA: el cierre laboral (y su solicitud) se crea al REGISTRARLA (gerente de su personal o RH, en «Bajas» o desde el ciclo laboral) sin aprobación de por medio, y la baja se cierra cuando sus documentos obligatorios están completos.
 
 ## Formatos oficiales por tipo
 

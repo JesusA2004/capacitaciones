@@ -95,7 +95,7 @@ export const GLOSARIO: TerminoGlosario[] = [
     {
         termino: 'Cierre laboral',
         definicion:
-            'El proceso completo de baja: el jefe directo (o RH) la inicia (sin preautorización ni autorización posterior de RH), documentos, finiquito, registro de su entrega y cierre.',
+            'El proceso completo de baja: el gerente (o RH) la registra y queda aplicada (sin solicitud ni autorización), documentos, finiquito, registro de su entrega y cierre.',
         articulo: 'baja',
     },
     {
@@ -117,7 +117,7 @@ export const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
     {
         pregunta: '¿Por qué no veo una vacante?',
         respuesta:
-            'Porque ya no falta: la plantilla autorizada de ese puesto y sucursal está completa, o la sucursal no es de tu alcance. Gerencia de RH revisa la plantilla en Administración → Sucursales.',
+            'Porque ya no falta: la plantilla autorizada de ese puesto y sucursal está completa, o la sucursal no es de tu alcance. Gerencia de RH revisa la plantilla en Organización → Sucursales.',
         articulo: 'plantilla-y-vacantes',
         roles: ['rh', 'gerente', 'regional', 'direccion_comercial'],
     },
@@ -178,9 +178,9 @@ export const PREGUNTAS_FRECUENTES: PreguntaFrecuente[] = [
         roles: ['rh', 'gerente'],
     },
     {
-        pregunta: '¿Dónde inicio una baja?',
+        pregunta: '¿Dónde registro una baja?',
         respuesta:
-            'En el Ciclo laboral de la persona (Expedientes → la persona → «Ciclo laboral») con «Iniciar baja»: solo su jefe directo o RH. No es una solicitud ni requiere otra autorización; después siguen los documentos, el finiquito y el registro de su entrega.',
+            'En Cierres laborales → «Bajas» → «Registrar baja» (o en el Ciclo laboral de la persona con «Iniciar baja»): solo el gerente de su personal o RH. No es una solicitud ni requiere autorización: queda aplicada al confirmar, después de ver la vista previa de la renuncia y del finiquito. Siguen los documentos, Jurídico si aplica y el cierre.',
         articulo: 'baja',
         roles: ['rh', 'gerente', 'sistemas'],
     },

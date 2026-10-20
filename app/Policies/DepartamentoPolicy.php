@@ -31,4 +31,16 @@ class DepartamentoPolicy
     {
         return $usuario->can('departamentos.administrar');
     }
+
+    /**
+     * Mover personas de este departamento a otro: es un cambio de datos
+     * laborales en el expediente, así que además del catálogo exige
+     * `expedientes.editar` (RH / super administración). El alcance y «nadie
+     * se mueve a sí mismo» se revisan por persona en
+     * MovimientoDepartamentoService.
+     */
+    public function moverColaboradores(User $usuario, Departamento $departamento): bool
+    {
+        return $usuario->can('departamentos.administrar') && $usuario->can('expedientes.editar');
+    }
 }

@@ -11,7 +11,7 @@ Lista exacta de pantallas, en orden. Los PNG reales están en [capturas/](captur
 | 01 | `00-portada.png` → `00-portada.mp4` | Portada | — | Portada con el logotipo y el título del video sobre fondo crema. |
 | 02 | `01-login.png` → `01-login.mp4` | Inicio de sesión | `/login` | Escribir el usuario (nombre y primer apellido) y entrar. La contraseña se escribe fuera de cuadro. |
 | 03 | `02-dashboard-rh.png` → `02-dashboard-rh.mp4` | Inicio (tablero de RH) | `/dashboard` | Recorrer los indicadores y el menú lateral agrupado por proceso. |
-| 04 | `03-plantilla-sucursal.png` → `03-plantilla-sucursal.mp4` | Administración → Sucursales → detalle | `/administracion/sucursales/:sucursal` | Abrir la sucursal del gerente demo y mostrar la plantilla autorizada contra la ocupada del puesto Gestor. |
+| 04 | `03-plantilla-sucursal.png` → `03-plantilla-sucursal.mp4` | Organización → Sucursales → detalle | `/administracion/sucursales/:sucursal` | Abrir la sucursal del gerente demo y mostrar la plantilla autorizada contra la ocupada del puesto Gestor. |
 | 05 | `04-vacantes.png` → `04-vacantes.mp4` | Reclutamiento → Vacantes | `/rh/vacantes` | Mostrar el resumen por puesto y una fila «Gestor» con plaza disponible. |
 | 06 | `05-campana-nueva.png` → `05-campana-nueva.mp4` | Reclutamiento → Campañas → Nueva campaña | `/rh/campanas` | Abrir «Nueva campaña», elegir una vacante de Gestor y llenar canal, fechas, gasto, sueldo publicado, copy y liga. |
 | 07 | `06-campana-metricas.png` → `06-campana-metricas.mp4` | Campañas (tarjeta con embudo) | `/rh/campanas` | Mostrar la tarjeta de la campaña con su embudo y costos; abrir un adjunto PDF. |

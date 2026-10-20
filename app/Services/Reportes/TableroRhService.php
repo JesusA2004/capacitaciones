@@ -125,15 +125,31 @@ class TableroRhService
      * incompletos los agrega el controlador desde DatosFaltantesService).
      * Ligero: sin embudo, tendencias ni costos — eso vive en el tablero completo.
      *
-     * @return array{vacantes: int, en_proceso: int, por_vencer: int}
+     * `plantilla` = headcount del alcance (HeadcountService::totalesGenerales,
+     * la misma cifra que Organización → Sucursales): plazas autorizadas,
+     * ocupadas por colaboradores vigentes y personas fuera de plantilla.
+     * `vacantes` = plazas por cubrir de RH → Vacantes (misma consulta y
+     * resumen que esa pantalla, VacantesListadoService).
+     *
+     * @return array{vacantes: int, en_proceso: int, por_vencer: int, dias_por_vencer: int, plantilla: array{autorizada: int, ocupada: int, vacantes: int, cumplimiento: float, personas_activas: int, fuera_de_plantilla: int}}
      */
     public function inicio(User $usuario): array
     {
         $global = $this->alcance->tieneAlcanceGlobal($usuario);
         $sucursales = $this->alcance->sucursalesVisiblesIds($usuario);
+        $headcount = $this->headcount->totalesGenerales($sucursales);
 
         return [
-            'vacantes' => (int) $this->vacantesListado->plazasPorSucursal($sucursales)->sum(),
+            'vacantes' => (int) array_sum(array_column($this->filasVacantes($usuario, $sucursales, $global), 'plazas_disponibles')),
+            'plantilla' => [
+                'autorizada' => $headcount['plantilla_autorizada'],
+                'ocupada' => $headcount['plantilla_actual'],
+                'vacantes' => $headcount['vacantes'],
+                'cumplimiento' => $headcount['cumplimiento'],
+                'personas_activas' => $headcount['personas_activas'],
+                'fuera_de_plantilla' => $headcount['fuera_de_plantilla'],
+            ],
+            'dias_por_vencer' => $this->diasAvisoVencimiento(),
             'en_proceso' => $this->candidatos($sucursales, $global)
                 ->whereNotIn('estado', array_map(fn (EstadoCandidato $e) => $e->value, array_filter(EstadoCandidato::cases(), fn (EstadoCandidato $e) => $e->esTerminal())))
                 ->count(),
@@ -156,10 +172,12 @@ class TableroRhService
         // headcount_by_branch; así la tarjeta ya no se contradice consigo misma.
         $cobertura = $this->headcount->totalesGenerales($sucursales);
 
-        $corporativas = Sucursal::query()->whereIn('id', $sucursales)->where('es_corporativo', true)->pluck('id');
-        $plazasPorSucursal = $this->vacantesListado->plazasPorSucursal($sucursales);
-        $vacantesCorporativo = (int) $plazasPorSucursal->filter(fn (int $_, int $sucursalId) => $corporativas->contains($sucursalId))->sum();
-        $vacantesSucursales = (int) $plazasPorSucursal->sum() - $vacantesCorporativo;
+        // Vacantes = plazas por cubrir de RH → Vacantes (misma consulta y
+        // regla que esa pantalla), acotadas a las sucursales del tablero.
+        $corporativas = Sucursal::query()->whereIn('id', $sucursales)->where('es_corporativo', true)->pluck('id')->map(fn ($id) => (int) $id);
+        $filasVacantes = collect($this->filasVacantes($usuario, $sucursales, $todas));
+        $vacantesCorporativo = (int) $filasVacantes->filter(fn (array $f): bool => $corporativas->contains((int) ($f['sucursal_id'] ?? 0)))->sum('plazas_disponibles');
+        $vacantesSucursales = (int) $filasVacantes->sum('plazas_disponibles') - $vacantesCorporativo;
 
         // Costo por contratación e inversión en campañas: el módulo canónico
         // (CostoReclutamientoService, ANSI/SHRM), scopeado a las sucursales del
@@ -173,8 +191,10 @@ class TableroRhService
             ->get(['created_at', 'contratado_en']);
         $dias = $contratados->map(fn (Candidato $c) => $c->created_at !== null && $c->contratado_en !== null ? $c->created_at->diffInDays($c->contratado_en) : null)->filter(fn ($d) => $d !== null);
 
+        // Plantilla vigente = mismo criterio que headcount (activo / en
+        // incorporación); una baja nunca cuenta.
         $antiguedades = $this->colaboradores($sucursales)
-            ->where('estatus', EstadoUsuario::Activo->value)
+            ->whereIn('estatus', EstadoUsuario::valoresVigentes())
             ->whereNotNull('fecha_ingreso')
             ->pluck('fecha_ingreso')
             ->map(fn ($f) => CarbonImmutable::parse($f)->diffInMonths(now()));
@@ -188,7 +208,14 @@ class TableroRhService
             ->count();
 
         return [
-            'plantilla_activa' => ['valor' => $cobertura['plantilla_actual'], 'autorizada' => $cobertura['plantilla_autorizada'], 'porcentaje' => $cobertura['cumplimiento']],
+            'plantilla_activa' => [
+                'valor' => $cobertura['plantilla_actual'],
+                'autorizada' => $cobertura['plantilla_autorizada'],
+                'porcentaje' => $cobertura['cumplimiento'],
+                'vacantes' => $cobertura['vacantes'],
+                'personas_activas' => $cobertura['personas_activas'],
+                'fuera_de_plantilla' => $cobertura['fuera_de_plantilla'],
+            ],
             'vacantes_abiertas' => ['valor' => $vacantesSucursales + $vacantesCorporativo, 'sucursales' => $vacantesSucursales, 'corporativo' => $vacantesCorporativo],
             'rotacion_mes' => ['porcentaje' => $rotacionMes['porcentaje'], 'bajas' => $rotacionMes['bajas'], 'plantilla_final' => $rotacionMes['plantilla_final']],
             'costo_por_contratacion' => ['valor' => $costo['costo_por_contratacion'], 'inversion' => $costo['gasto_total'], 'contratados' => $costo['contrataciones']],
@@ -197,6 +224,28 @@ class TableroRhService
             'contratos_por_vencer' => ['valor' => $porVencer, 'dias' => $diasAviso],
             'inversion_campanas_mes' => ['valor' => $costo['gasto_total'], 'campanas' => $costo['campanas']],
         ];
+    }
+
+    /**
+     * Filas de RH → Vacantes (VacantesListadoService::consulta + filas, el
+     * mismo camino que esa pantalla, con su alcance del módulo «vacantes»)
+     * acotadas a las sucursales del tablero. Con alcance global y sin filtro
+     * también entran las vacantes sin sucursal, igual que en la pantalla.
+     *
+     * @param  Collection<int, int>  $sucursales
+     * @return list<array<string, mixed>>
+     */
+    private function filasVacantes(User $usuario, Collection $sucursales, bool $todas): array
+    {
+        $filas = $this->vacantesListado->filas($this->vacantesListado->consulta($usuario)->get());
+
+        if ($todas) {
+            return $filas;
+        }
+
+        $ids = $sucursales->map(fn (int|string $id): int => (int) $id);
+
+        return array_values(array_filter($filas, fn (array $f): bool => $ids->contains((int) ($f['sucursal_id'] ?? 0))));
     }
 
     private function diasAvisoVencimiento(): int

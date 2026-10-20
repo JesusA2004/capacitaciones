@@ -15,13 +15,13 @@ import AgregarSubordinadoDialog from '@/components/Administracion/AgregarSubordi
 import JerarquiaPuestoDialog from '@/components/Administracion/JerarquiaPuestoDialog.vue';
 import OrganigramaAccordion from '@/components/Administracion/OrganigramaAccordion.vue';
 import OrganigramaArbol from '@/components/Administracion/OrganigramaArbol.vue';
-import OrganigramaGeneral from '@/components/Administracion/OrganigramaGeneral.vue';
 import OrganigramaLaminas from '@/components/Administracion/OrganigramaLaminas.vue';
 import OrganigramaPersona from '@/components/Administracion/OrganigramaPersona.vue';
 import OrganigramaPersonasArbol from '@/components/Administracion/OrganigramaPersonasArbol.vue';
 import OrganigramaPersonasLista from '@/components/Administracion/OrganigramaPersonasLista.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
+import OrganigramaEditable from '@/components/Organigrama/OrganigramaEditable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
@@ -82,6 +82,7 @@ import type {
     PuestoJerarquiaFiltros,
     PuestoJerarquiaItem,
     PuestoJerarquiaOpciones,
+    RegionOrganigrama,
     SeccionOrganigrama,
 } from '@/types';
 
@@ -93,6 +94,7 @@ const props = defineProps<{
     opciones: PuestoJerarquiaOpciones;
     secciones: SeccionOrganigrama[];
     laminas: LaminasOrganigrama;
+    regiones: RegionOrganigrama[];
 }>();
 
 // Corporativo, Dirección Comercial y Sucursal se ven como las láminas del
@@ -640,13 +642,17 @@ watch(
             :laminas="laminas"
         />
 
-        <!-- General «Por personas»: la composición de las tres láminas
-             (una sola verdad). «Por puestos» conserva el árbol editable. -->
-        <OrganigramaGeneral
+        <!-- General «Por personas»: una tarjeta por persona o plaza, con
+             Q1/Q3, coberturas y subir/bajar/mover (solo RH). «Por puestos»
+             conserva el catálogo editable de puestos. -->
+        <OrganigramaEditable
             v-else-if="
                 vista === 'personas' && seccionActiva?.valor === 'general'
             "
-            :laminas="laminas"
+            :nodos="personas"
+            :regiones="regiones"
+            :puede-editar="coberturas.puedeEditar"
+            :candidatos="coberturas.colaboradores"
         />
 
         <template v-else>

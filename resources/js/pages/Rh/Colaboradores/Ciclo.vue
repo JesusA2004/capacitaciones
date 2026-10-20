@@ -10,6 +10,7 @@ import {
 } from '@lucide/vue';
 import { computed, onMounted, ref, watch } from 'vue';
 import CamposBaja from '@/components/bajas/CamposBaja.vue';
+import VistaPreviaBaja from '@/components/bajas/VistaPreviaBaja.vue';
 import AccionesCiclo from '@/components/ciclo/AccionesCiclo.vue';
 import AprobacionesResumen from '@/components/ciclo/AprobacionesResumen.vue';
 import CicloEstadoPanel from '@/components/ciclo/CicloEstadoPanel.vue';
@@ -40,8 +41,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatearFecha } from '@/lib/fechas';
 import { vistaPreviaPost } from '@/lib/http';
 import { dashboard } from '@/routes';
+import rutasBajas from '@/routes/rh/bajas';
 import cierres from '@/routes/rh/cierres';
-import colaboradores from '@/routes/rh/colaboradores';
 import documentosLaborales from '@/routes/rh/documentos-laborales';
 import evaluaciones from '@/routes/rh/evaluaciones';
 import evaluacionesExcepcion from '@/routes/rh/evaluaciones/excepcion';
@@ -113,9 +114,10 @@ const accion = ref<AccionCiclo | null>(null);
 const form = useForm<FormularioAccion>({});
 const hoy = new Date().toISOString().slice(0, 10);
 
-// «Iniciar baja» (atajo de RH / jefe directo): mismos campos que la
-// solicitud del gerente (CamposBaja). Se traducen al formulario del cierre
-// (tipo_baja, causal, fecha efectiva, motivo) al confirmar.
+// «Iniciar baja» (gerente o RH): el MISMO registro directo de «Bajas»
+// (BajaService::registrar, rh.bajas.store) con los mismos campos
+// (CamposBaja) y la vista previa de la renuncia / formato y del finiquito
+// antes de confirmar.
 const formasAtajo = computed<FormaSalidaOpcion[]>(() =>
     props.opciones.causas.map((c) => ({
         value: c.forma,
@@ -149,14 +151,16 @@ const tipoBajaAtajo = computed(
 function volcarAtajo() {
     const c = camposAtajo.value;
     Object.assign(form, {
-        tipo_baja: tipoBajaAtajo.value,
+        colaborador_id: props.colaborador.id,
+        forma_salida: c.forma_salida,
         causal_rotacion_id: c.causal_rotacion_id,
-        fecha_efectiva: c.fecha_baja,
-        motivo: c.comentarios,
+        fecha_baja: c.fecha_baja,
+        comentarios: c.comentarios,
         recontratable: c.recontratable || null,
         fecha_conocimiento_falta: c.fecha_conocimiento_falta || null,
         entrega_aviso_rescision: c.entrega_aviso_rescision || null,
         fecha_entrega_aviso: c.fecha_entrega_aviso || null,
+        volver: 'ciclo',
     });
 }
 
@@ -197,10 +201,12 @@ const plantillas: Record<string, () => FormularioAccion> = {
         camposAtajo.value = camposVacios();
 
         return {
-            tipo_baja: '',
+            colaborador_id: props.colaborador.id,
+            forma_salida: null,
             causal_rotacion_id: null,
-            motivo: '',
-            fecha_efectiva: hoy,
+            comentarios: '',
+            fecha_baja: hoy,
+            volver: 'ciclo',
         };
     },
     registrar_aviso: () => ({ archivo: null }),
@@ -453,7 +459,7 @@ function destino(clave: string): string {
         case 'devolver_evaluacion':
             return evaluaciones.devolver.url(evaluacionId.value);
         case 'solicitar_baja':
-            return colaboradores.cierres.store.url(props.colaborador.id);
+            return rutasBajas.store.url();
         default:
             return (
                 cierres as unknown as Record<
@@ -1394,10 +1400,9 @@ const etiquetaFecha: Record<string, string> = {
                 </template>
 
                 <template v-else-if="accion?.clave === 'solicitar_baja'">
-                    <!-- Atajo de RH / jefe directo: mismos campos que la
-                         solicitud del gerente (módulo de Bajas). La baja queda
-                         aplicada y «En revisión RH»; sus documentos se
-                         adjuntan en el expediente de la baja. -->
+                    <!-- Registro directo (mismo que «Bajas»): queda aplicada
+                         al confirmar; sus documentos se completan después en
+                         el expediente de la baja. -->
                     <CamposBaja
                         v-model="camposAtajo"
                         :formas="formasAtajo"
@@ -1409,27 +1414,15 @@ const etiquetaFecha: Record<string, string> = {
                         etiqueta-fecha="Fecha efectiva (último día laborado)"
                     />
                     <p class="text-xs text-muted-foreground">
-                        La baja se aplica de inmediato: sus accesos se suspenden
-                        al confirmar y queda «En revisión RH» con su folio.
-                        {{
-                            camposAtajo.forma_salida === 'RE'
-                                ? 'La rescisión no genera documento: el aviso de rescisión se adjunta en el expediente de la baja.'
-                                : 'El sistema genera los documentos que correspondan para imprimir y firmar; después sigue el finiquito.'
-                        }}
+                        Se aplica al confirmar: sus accesos se suspenden, se
+                        generan sus documentos y el finiquito propuesto.
                     </p>
-                    <!-- Documentos de la causa, vistos ANTES de aplicar la baja
-                         (sin documentos para la causa, no aparece). -->
-                    <VistaPreviaFlujo
-                        v-if="tipoBajaAtajo"
-                        flujo="baja"
-                        :id="colaborador.id"
-                        :datos="{
-                            tipo_baja: tipoBajaAtajo,
-                            causal_rotacion_id:
-                                camposAtajo.causal_rotacion_id ?? undefined,
-                            fecha_efectiva: camposAtajo.fecha_baja,
-                            motivo: camposAtajo.comentarios,
-                        }"
+                    <!-- Renuncia / formato de la causal y finiquito, vistos
+                         ANTES de registrar (no se guarda nada). -->
+                    <VistaPreviaBaja
+                        :colaborador-id="colaborador.id"
+                        :campos="camposAtajo"
+                        :tipo-baja="tipoBajaAtajo"
                         :disabled="form.processing"
                     />
                     <InputError :message="form.errors.colaborador" />

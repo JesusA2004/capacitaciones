@@ -1,11 +1,26 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
-import { AlertTriangle, CheckCircle2, FileSpreadsheet } from '@lucide/vue';
+import {
+    AlertTriangle,
+    ArrowRight,
+    Ban,
+    CheckCircle2,
+    ChevronDown,
+    FileSpreadsheet,
+    MinusCircle,
+    PhoneOff,
+    UserSearch,
+} from '@lucide/vue';
+import type { Component } from 'vue';
 import { computed, ref, watch } from 'vue';
-import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
+import ChipEstado from '@/components/people/ChipEstado.vue';
+import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import { formatearFecha } from '@/lib/fechas';
+import type { Tono } from '@/lib/tonos';
 import { dashboard } from '@/routes';
 import {
     aplicar as aplicarImportacion,
@@ -106,33 +121,55 @@ const CAMPOS_EXCEL: Record<string, string> = {
     contacto_direccion: 'Dirección del contacto',
 };
 
-const ESTADOS: Record<Estado, { texto: string; clase: string }> = {
-    aplicable: { texto: 'Con cambios', clase: 'bg-success/10 text-success' },
-    sin_cambios: {
-        texto: 'Sin cambios',
-        clase: 'bg-[var(--mrl-fondo)] text-[var(--mrl-texto-suave)]',
-    },
-    revision: { texto: 'Ambiguo', clase: 'bg-warning-soft text-warning' },
+type InfoEstado = { texto: string; tono: Tono; icono: Component };
+
+const ESTADOS: Record<Estado, InfoEstado> = {
+    aplicable: { texto: 'Con cambios', tono: 'exito', icono: CheckCircle2 },
+    sin_cambios: { texto: 'Sin cambios', tono: 'neutro', icono: MinusCircle },
+    revision: { texto: 'Ambiguo', tono: 'alerta', icono: UserSearch },
     no_encontrado: {
         texto: 'No encontrado',
-        clase: 'bg-warning-soft text-warning',
+        tono: 'alerta',
+        icono: UserSearch,
     },
-    omitido: {
-        texto: 'Omitido',
-        clase: 'bg-[var(--mrl-fondo)] text-[var(--mrl-texto-suave)]',
-    },
-    error: { texto: 'Error', clase: 'bg-destructive/10 text-destructive' },
+    omitido: { texto: 'Omitido', tono: 'neutro', icono: MinusCircle },
+    error: { texto: 'Error', tono: 'peligro', icono: Ban },
 };
 
-const RESULTADOS: Record<
-    NonNullable<FilaDetalle['resultado']>,
-    { texto: string; clase: string }
-> = {
-    actualizado: { texto: 'Actualizado', clase: 'bg-success/10 text-success' },
+const RESULTADOS: Record<NonNullable<FilaDetalle['resultado']>, InfoEstado> = {
+    actualizado: {
+        texto: 'Actualizado',
+        tono: 'exito',
+        icono: CheckCircle2,
+    },
     sin_cambios: ESTADOS.sin_cambios,
     omitido: ESTADOS.omitido,
     error: ESTADOS.error,
 };
+
+function infoDe(fila: FilaDetalle): InfoEstado {
+    return yaAplicada.value && fila.resultado
+        ? RESULTADOS[fila.resultado]
+        : ESTADOS[fila.estado];
+}
+
+const verColumnas = ref(false);
+
+const normalizar = (t: string) =>
+    t
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+
+/** ¿El nombre del Excel es el mismo que el del sistema (sin acentos ni mayúsculas)? */
+function mismoNombre(fila: FilaDetalle): boolean {
+    return (
+        normalizar(fila.nombre_excel ?? '') ===
+        normalizar(fila.nombre_sistema ?? '')
+    );
+}
 
 const yaAplicada = computed(() => props.importacion.estado === 'aplicado');
 
@@ -141,19 +178,47 @@ const cuenta = (estados: Estado[]) =>
 
 type Filtro = 'todas' | 'aplicable' | 'pendiente' | 'sin_cambios' | 'omitido';
 
-const FILTROS: { clave: Filtro; texto: string; estados: Estado[] | null }[] = [
-    { clave: 'todas', texto: 'Todas', estados: null },
-    { clave: 'aplicable', texto: 'Con cambios', estados: ['aplicable'] },
+const FILTROS: {
+    clave: Filtro;
+    texto: string;
+    estados: Estado[] | null;
+    tono: Tono;
+    icono: Component;
+}[] = [
+    {
+        clave: 'todas',
+        texto: 'Todas',
+        estados: null,
+        tono: 'primario',
+        icono: FileSpreadsheet,
+    },
+    {
+        clave: 'aplicable',
+        texto: 'Con cambios',
+        estados: ['aplicable'],
+        tono: 'exito',
+        icono: CheckCircle2,
+    },
     {
         clave: 'pendiente',
         texto: 'Elegir colaborador',
         estados: ['revision', 'no_encontrado'],
+        tono: 'alerta',
+        icono: UserSearch,
     },
-    { clave: 'sin_cambios', texto: 'Sin cambios', estados: ['sin_cambios'] },
+    {
+        clave: 'sin_cambios',
+        texto: 'Sin cambios',
+        estados: ['sin_cambios'],
+        tono: 'neutro',
+        icono: MinusCircle,
+    },
     {
         clave: 'omitido',
         texto: 'Omitidas / errores',
         estados: ['omitido', 'error'],
+        tono: 'peligro',
+        icono: Ban,
     },
 ];
 
@@ -266,362 +331,406 @@ const buscarUrl = (texto: string) =>
 <template>
     <Head title="Vista previa de contactos de emergencia" />
 
-    <div class="pagina-ancha flex flex-col gap-5">
-        <CrudPageHeader
-            :titulo="importacion.nombre_archivo"
-            :descripcion="
-                yaAplicada
-                    ? `Aplicada el ${formatearFecha(importacion.aplicado_en)} por ${importacion.aplicado_por ?? '—'}`
-                    : 'Vista previa: todavía no se ha guardado nada. Revisa, elige a los colaboradores que no cuadraron y confirma.'
-            "
-            :icono="FileSpreadsheet"
+    <div
+        class="pagina-ancha flex flex-col gap-5"
+        :class="!yaAplicada && 'pb-28 md:pb-8'"
+    >
+        <!-- Encabezado: archivo, estado y la acción principal -->
+        <header
+            class="flex flex-col gap-4 rounded-2xl border border-border/60 bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:p-5"
         >
-            <Button
-                v-if="!yaAplicada"
-                :disabled="seleccionadas.length === 0 || form.processing"
-                @click="confirmar"
-            >
-                <CheckCircle2 class="size-4" />
-                Confirmar {{ seleccionadas.length }} fila(s)
-            </Button>
-        </CrudPageHeader>
-
-        <p class="text-xs text-muted-foreground">
-            Subido por {{ importacion.subido_por ?? '—' }} el
-            {{ formatearFecha(importacion.creado_en) }}.
-            <template v-if="importacion.reanalisis_de">
-                Este mismo archivo ya se aplicó antes (importación #{{
-                    importacion.reanalisis_de
-                }}): solo verás como cambio lo que difiere de hoy.
+            <div class="flex min-w-0 flex-1 items-center gap-3">
+                <span
+                    class="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-success-soft text-success"
+                >
+                    <FileSpreadsheet class="size-6" />
+                </span>
+                <div class="min-w-0">
+                    <h1
+                        class="truncate text-lg font-semibold sm:text-xl"
+                        :title="importacion.nombre_archivo"
+                    >
+                        {{ importacion.nombre_archivo }}
+                    </h1>
+                    <p class="text-sm text-muted-foreground">
+                        {{ importacion.subido_por ?? '—' }} ·
+                        {{ formatearFecha(importacion.creado_en) }}
+                    </p>
+                </div>
+            </div>
+            <ChipEstado
+                v-if="yaAplicada"
+                :etiqueta="`Aplicada ${formatearFecha(importacion.aplicado_en)}`"
+                tono="exito"
+                :icono="CheckCircle2"
+                tamano="md"
+                :titulo="`Por ${importacion.aplicado_por ?? '—'}`"
+            />
+            <template v-else>
+                <ChipEstado
+                    etiqueta="Vista previa · nada guardado"
+                    tono="oro"
+                    tamano="md"
+                    class="hidden lg:inline-flex"
+                />
+                <Button
+                    size="lg"
+                    class="hidden h-11 md:inline-flex"
+                    :disabled="seleccionadas.length === 0 || form.processing"
+                    @click="confirmar"
+                >
+                    <Spinner v-if="form.processing" />
+                    <CheckCircle2 v-else class="size-5" />
+                    Guardar {{ seleccionadas.length }}
+                    {{ seleccionadas.length === 1 ? 'fila' : 'filas' }}
+                </Button>
             </template>
+        </header>
+
+        <p
+            v-if="importacion.reanalisis_de"
+            class="flex items-start gap-2 rounded-xl bg-info-soft px-3 py-2 text-sm text-info"
+        >
+            <AlertTriangle class="mt-0.5 size-4 shrink-0" />
+            Este archivo ya se aplicó (importación #{{
+                importacion.reanalisis_de
+            }}): solo se marca como cambio lo que difiere de hoy.
         </p>
 
-        <!-- Resumen final (después de confirmar) -->
+        <!-- Resumen final -->
         <section
             v-if="yaAplicada && importacion.resumen"
-            class="grid gap-3 sm:grid-cols-3"
+            class="grid grid-cols-3 gap-2.5 sm:gap-3"
         >
-            <div class="rounded-2xl bg-success-soft p-4">
-                <p class="text-2xl font-semibold">
-                    {{ importacion.resumen.actualizados }}
-                </p>
-                <p class="text-sm">Actualizados</p>
-            </div>
-            <div
-                class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4"
-            >
-                <p class="text-2xl font-semibold">
-                    {{ importacion.resumen.sin_cambios }}
-                </p>
-                <p class="text-sm">Sin cambios</p>
-            </div>
-            <div class="rounded-2xl bg-warning-soft p-4">
-                <p class="text-2xl font-semibold">
-                    {{ importacion.resumen.omitidos }}
-                </p>
-                <p class="text-sm">Omitidos (ver motivo en cada fila)</p>
-            </div>
+            <TarjetaMetrica
+                etiqueta="Actualizados"
+                :valor="importacion.resumen.actualizados"
+                :icono="CheckCircle2"
+                tono="exito"
+            />
+            <TarjetaMetrica
+                etiqueta="Sin cambios"
+                :valor="importacion.resumen.sin_cambios"
+                :icono="MinusCircle"
+            />
+            <TarjetaMetrica
+                etiqueta="Omitidos"
+                :valor="importacion.resumen.omitidos"
+                :icono="Ban"
+                tono="alerta"
+            />
         </section>
 
-        <!-- Conteos de la vista previa -->
-        <section v-else class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <div class="rounded-2xl bg-success-soft p-4">
-                <p class="text-2xl font-semibold">
-                    {{ cuenta(['aplicable']) }}
-                </p>
-                <p class="text-sm">Con cambios</p>
-            </div>
-            <div class="rounded-2xl bg-warning-soft p-4">
-                <p class="text-2xl font-semibold">
-                    {{ cuenta(['revision', 'no_encontrado']) }}
-                </p>
-                <p class="text-sm">Elegir colaborador a mano</p>
-            </div>
-            <div
-                class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4"
-            >
-                <p class="text-2xl font-semibold">
-                    {{ cuenta(['sin_cambios']) }}
-                </p>
-                <p class="text-sm">Sin cambios</p>
-            </div>
-            <div
-                class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4"
-            >
-                <p class="text-2xl font-semibold">
-                    {{ cuenta(['omitido', 'error']) }}
-                </p>
-                <p class="text-sm">Omitidas / errores</p>
-            </div>
-            <div
-                class="rounded-2xl p-4"
-                :class="
-                    pendientesDeConfirmar > 0
-                        ? 'bg-warning-soft'
-                        : 'border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)]'
-                "
-            >
-                <p class="text-2xl font-semibold">
-                    {{ pendientesDeConfirmar }}
-                </p>
-                <p class="text-sm">
-                    Teléfonos sin 10 dígitos por confirmar (si no, no se
-                    guardan)
-                </p>
-            </div>
-        </section>
-
-        <details
-            class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 text-sm"
+        <!-- Conteos (también filtran) -->
+        <section
+            class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 xl:grid-cols-6"
+            aria-label="Filtrar filas"
         >
-            <summary class="cursor-pointer font-medium">
-                Columnas detectadas en el archivo
-            </summary>
-            <ul class="mt-2 grid gap-1 text-xs sm:grid-cols-2 xl:grid-cols-3">
-                <li
-                    v-for="(encabezado, campo) in importacion.columnas"
-                    :key="campo"
-                >
-                    <span class="font-medium">{{
-                        CAMPOS_EXCEL[campo] ?? campo
-                    }}</span>
-                    ← «{{ encabezado }}»
-                </li>
-            </ul>
-            <p
-                v-if="importacion.columnas_ignoradas.length"
-                class="mt-2 text-xs text-muted-foreground"
-            >
-                Columnas ignoradas:
-                {{ importacion.columnas_ignoradas.join(' · ') }}
-            </p>
-        </details>
-
-        <div class="flex flex-wrap gap-2">
-            <Button
+            <TarjetaMetrica
                 v-for="f in FILTROS"
                 :key="f.clave"
-                size="sm"
-                :variant="filtro === f.clave ? 'default' : 'outline'"
-                @click="filtro = f.clave"
-            >
-                {{ f.texto }}
-                <span class="opacity-70">{{
+                :etiqueta="f.texto"
+                :valor="
                     f.estados ? cuenta(f.estados) : importacion.detalle.length
-                }}</span>
-            </Button>
+                "
+                :icono="f.icono"
+                :tono="f.tono"
+                clicable
+                :activa="filtro === f.clave"
+                @click="filtro = f.clave"
+            />
+            <TarjetaMetrica
+                v-if="!yaAplicada"
+                etiqueta="Teléfonos por confirmar"
+                :valor="pendientesDeConfirmar"
+                :icono="PhoneOff"
+                :tono="pendientesDeConfirmar > 0 ? 'alerta' : 'neutro'"
+                detalle="Sin 10 dígitos"
+            />
+        </section>
+
+        <!-- Columnas detectadas -->
+        <div class="rounded-2xl border border-border/60 bg-card">
+            <button
+                type="button"
+                class="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium"
+                :aria-expanded="verColumnas"
+                @click="verColumnas = !verColumnas"
+            >
+                Columnas detectadas
+                <span class="text-muted-foreground tabular-nums"
+                    >({{ Object.keys(importacion.columnas).length }})</span
+                >
+                <ChevronDown
+                    class="ml-auto size-4 transition-transform"
+                    :class="verColumnas && 'rotate-180'"
+                />
+            </button>
+            <div v-if="verColumnas" class="flex flex-col gap-2 px-4 pb-4">
+                <ul class="grid gap-1.5 text-xs sm:grid-cols-2 xl:grid-cols-3">
+                    <li
+                        v-for="(encabezado, campo) in importacion.columnas"
+                        :key="campo"
+                        class="flex min-w-0 items-center gap-1.5 rounded-lg bg-[var(--mrl-fondo)] px-2.5 py-1.5"
+                    >
+                        <span class="shrink-0 font-semibold">{{
+                            CAMPOS_EXCEL[campo] ?? campo
+                        }}</span>
+                        <ArrowRight
+                            class="size-3 shrink-0 rotate-180 text-muted-foreground"
+                        />
+                        <span
+                            class="truncate text-muted-foreground"
+                            :title="encabezado"
+                            >{{ encabezado }}</span
+                        >
+                    </li>
+                </ul>
+                <p
+                    v-if="importacion.columnas_ignoradas.length"
+                    class="text-xs text-muted-foreground"
+                >
+                    Ignoradas:
+                    {{ importacion.columnas_ignoradas.join(' · ') }}
+                </p>
+            </div>
         </div>
 
-        <section
-            class="overflow-x-auto rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
-        >
-            <table class="w-full text-left text-sm">
-                <thead class="text-xs text-muted-foreground">
-                    <tr>
-                        <th v-if="!yaAplicada" class="py-2 pr-3">Aplicar</th>
-                        <th class="py-2 pr-3">Fila</th>
-                        <th class="py-2 pr-3">Nombre en el archivo</th>
-                        <th class="py-2 pr-3">Colaborador</th>
-                        <th class="py-2 pr-3">Estado</th>
-                        <th class="py-2 pr-3">Qué cambia (actual → nuevo)</th>
-                        <th class="py-2 pr-3">Advertencias</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr
-                        v-for="fila in filasVisibles"
-                        :key="fila.fila"
-                        class="border-t border-[var(--mrl-borde)] align-top"
+        <!-- Filas -->
+        <EmptyState
+            v-if="filasVisibles.length === 0"
+            class="rounded-2xl border border-dashed border-border bg-card"
+            :icono="FileSpreadsheet"
+            titulo="Nada en este filtro"
+            descripcion="Elige otra tarjeta de arriba para ver más filas."
+        />
+        <ul v-else class="grid grid-cols-1 gap-3 xl:grid-cols-2">
+            <li
+                v-for="fila in filasVisibles"
+                :key="fila.fila"
+                class="flex min-w-0 flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm"
+                :class="
+                    !yaAplicada &&
+                    fila.estado === 'aplicable' &&
+                    seleccionadas.includes(fila.fila)
+                        ? 'border-success/50'
+                        : 'border-border/60'
+                "
+            >
+                <!-- Quién: Excel → sistema -->
+                <div class="flex items-start gap-3">
+                    <label
+                        v-if="!yaAplicada && fila.estado === 'aplicable'"
+                        class="-m-1 flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-lg hover:bg-accent"
                     >
-                        <td v-if="!yaAplicada" class="py-2 pr-3">
-                            <input
-                                v-if="fila.estado === 'aplicable'"
-                                type="checkbox"
-                                class="size-4 accent-primary"
-                                :aria-label="`Aplicar fila ${fila.fila}`"
-                                :checked="seleccionadas.includes(fila.fila)"
-                                @change="
-                                    seleccionadas = alternar(
-                                        seleccionadas,
-                                        fila.fila,
-                                        ($event.target as HTMLInputElement)
-                                            .checked,
-                                    )
-                                "
+                        <input
+                            type="checkbox"
+                            class="size-5 accent-primary"
+                            :aria-label="`Aplicar fila ${fila.fila}`"
+                            :checked="seleccionadas.includes(fila.fila)"
+                            @change="
+                                seleccionadas = alternar(
+                                    seleccionadas,
+                                    fila.fila,
+                                    ($event.target as HTMLInputElement).checked,
+                                )
+                            "
+                        />
+                    </label>
+                    <div class="flex min-w-0 flex-1 flex-col gap-1">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span
+                                class="text-xs text-muted-foreground tabular-nums"
+                                >Fila {{ fila.fila
+                                }}<template v-if="fila.sucursal_excel">
+                                    · {{ fila.sucursal_excel }}</template
+                                ></span
+                            >
+                            <ChipEstado
+                                class="ml-auto"
+                                :etiqueta="infoDe(fila).texto"
+                                :tono="infoDe(fila).tono"
+                                :icono="infoDe(fila).icono"
                             />
-                        </td>
-                        <td class="py-2 pr-3">{{ fila.fila }}</td>
-                        <td class="py-2 pr-3">
+                        </div>
+                        <p class="text-base leading-snug font-semibold">
                             {{ fila.nombre_excel || '—' }}
-                            <span
-                                v-if="fila.sucursal_excel"
-                                class="block text-xs text-muted-foreground"
-                                >{{ fila.sucursal_excel }}</span
-                            >
-                        </td>
-                        <td class="min-w-64 py-2 pr-3">
-                            <template v-if="fila.nombre_sistema">
-                                {{ fila.nombre_sistema }}
-                                <span
-                                    class="block text-xs text-muted-foreground"
-                                    >{{ fila.sucursal_sistema ?? 'Sin sucursal'
-                                    }}<template v-if="fila.match === 'manual'">
-                                        · elegido a mano</template
-                                    ></span
-                                >
-                            </template>
-                            <div
-                                v-else-if="
-                                    !yaAplicada &&
-                                    (fila.estado === 'revision' ||
-                                        fila.estado === 'no_encontrado')
-                                "
-                                class="flex flex-col gap-2"
-                            >
-                                <div
-                                    v-if="fila.sugerencias.length"
-                                    class="flex flex-wrap gap-1"
-                                >
-                                    <Button
-                                        v-for="s in fila.sugerencias"
-                                        :key="s.id"
-                                        size="sm"
-                                        variant="outline"
-                                        :disabled="asignando !== null"
-                                        @click="asignar(fila.fila, s.id)"
-                                    >
-                                        {{ s.nombre }}
-                                        <span class="opacity-70">{{
-                                            s.sucursal ?? 'Sin sucursal'
-                                        }}</span>
-                                    </Button>
-                                </div>
-                                <BuscadorColaborador
-                                    v-model="elegidos[fila.fila]"
-                                    :buscar-url="buscarUrl"
-                                />
-                                <Button
-                                    v-if="elegidos[fila.fila]"
-                                    size="sm"
-                                    :disabled="asignando !== null"
-                                    @click="
-                                        asignar(
-                                            fila.fila,
-                                            elegidos[fila.fila]!.id,
-                                        )
-                                    "
-                                >
-                                    Usar este colaborador
-                                </Button>
-                            </div>
-                            <span v-else class="text-muted-foreground">—</span>
-                        </td>
-                        <td class="py-2 pr-3">
-                            <span
-                                v-if="yaAplicada && fila.resultado"
-                                class="rounded-full px-2 py-0.5 text-xs"
-                                :class="RESULTADOS[fila.resultado].clase"
-                                >{{ RESULTADOS[fila.resultado].texto }}</span
-                            >
-                            <span
-                                v-else
-                                class="rounded-full px-2 py-0.5 text-xs"
-                                :class="ESTADOS[fila.estado].clase"
-                                >{{ ESTADOS[fila.estado].texto }}</span
-                            >
-                            <span
-                                v-if="motivoDe(fila)"
-                                class="mt-1 block max-w-64 text-xs text-muted-foreground"
-                                >{{ motivoDe(fila) }}</span
-                            >
-                        </td>
-                        <td class="py-2 pr-3">
-                            <ul
-                                v-if="cambiosDe(fila).length"
-                                class="flex flex-col gap-0.5 text-xs"
-                            >
-                                <li
-                                    v-for="c in cambiosDe(fila)"
-                                    :key="c.columna"
-                                >
-                                    <span class="font-medium">{{
-                                        c.etiqueta
-                                    }}</span
-                                    >:
-                                    <span class="text-muted-foreground">{{
-                                        c.cambio.antes ?? '(vacío)'
-                                    }}</span>
-                                    →
-                                    <span
-                                        :class="
-                                            c.cambio.invalido
-                                                ? 'text-warning'
-                                                : ''
-                                        "
-                                        >{{ c.cambio.despues }}</span
-                                    >
-                                </li>
-                            </ul>
-                            <span v-else class="text-xs text-muted-foreground"
-                                >—</span
-                            >
-                            <label
-                                v-if="
-                                    !yaAplicada &&
-                                    fila.estado === 'aplicable' &&
-                                    fila.requiere_confirmacion
-                                "
-                                class="mt-2 flex items-center gap-2 text-xs text-warning"
-                            >
-                                <input
-                                    type="checkbox"
-                                    class="size-4"
-                                    :checked="confirmadas.includes(fila.fila)"
-                                    @change="
-                                        confirmadas = alternar(
-                                            confirmadas,
-                                            fila.fila,
-                                            ($event.target as HTMLInputElement)
-                                                .checked,
-                                        )
-                                    "
-                                />
-                                Guardar el teléfono tal cual aunque no tenga 10
-                                dígitos
-                            </label>
-                        </td>
-                        <td class="py-2 pr-3">
-                            <ul
-                                v-if="fila.advertencias.length"
-                                class="flex flex-col gap-0.5 text-xs text-warning"
-                            >
-                                <li
-                                    v-for="a in fila.advertencias"
-                                    :key="a"
-                                    class="flex gap-1"
-                                >
-                                    <AlertTriangle
-                                        class="mt-0.5 size-3 shrink-0"
-                                        aria-hidden="true"
-                                    />
-                                    <span>{{ a }}</span>
-                                </li>
-                            </ul>
-                            <span v-else class="text-xs text-muted-foreground"
-                                >—</span
-                            >
-                        </td>
-                    </tr>
-                    <tr v-if="filasVisibles.length === 0">
-                        <td
-                            colspan="7"
-                            class="py-6 text-center text-sm text-muted-foreground"
+                        </p>
+                        <p
+                            v-if="fila.nombre_sistema"
+                            class="flex min-w-0 flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground"
                         >
-                            No hay filas en este filtro.
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-        </section>
+                            <ArrowRight class="size-3.5 shrink-0" />
+                            <span
+                                v-if="
+                                    fila.match === 'manual' ||
+                                    mismoNombre(fila) === false
+                                "
+                                class="font-medium text-foreground"
+                                >{{ fila.nombre_sistema }}</span
+                            >
+                            <span v-else>Coincide</span>
+                            <span
+                                >· {{ fila.sucursal_sistema ?? 'Sin sucursal'
+                                }}{{
+                                    fila.match === 'manual'
+                                        ? ' · elegido a mano'
+                                        : ''
+                                }}</span
+                            >
+                        </p>
+                    </div>
+                </div>
+
+                <p
+                    v-if="motivoDe(fila)"
+                    class="rounded-lg bg-[var(--mrl-fondo)] px-3 py-2 text-xs text-muted-foreground"
+                >
+                    {{ motivoDe(fila) }}
+                </p>
+
+                <!-- Elegir colaborador a mano -->
+                <div
+                    v-if="
+                        !fila.nombre_sistema &&
+                        !yaAplicada &&
+                        (fila.estado === 'revision' ||
+                            fila.estado === 'no_encontrado')
+                    "
+                    class="flex flex-col gap-2 rounded-xl bg-warning-soft/60 p-3"
+                >
+                    <p class="text-xs font-semibold text-warning">¿Quién es?</p>
+                    <div
+                        v-if="fila.sugerencias.length"
+                        class="flex flex-wrap gap-2"
+                    >
+                        <Button
+                            v-for="s in fila.sugerencias"
+                            :key="s.id"
+                            variant="outline"
+                            class="h-auto min-h-10 justify-start py-1.5 text-left whitespace-normal"
+                            :disabled="asignando !== null"
+                            @click="asignar(fila.fila, s.id)"
+                        >
+                            <Spinner v-if="asignando === fila.fila" />
+                            <span class="flex flex-col">
+                                <span>{{ s.nombre }}</span>
+                                <span class="text-xs text-muted-foreground">{{
+                                    s.sucursal ?? 'Sin sucursal'
+                                }}</span>
+                            </span>
+                        </Button>
+                    </div>
+                    <div class="flex flex-col gap-2 sm:flex-row">
+                        <div class="min-w-0 flex-1">
+                            <BuscadorColaborador
+                                v-model="elegidos[fila.fila]"
+                                :buscar-url="buscarUrl"
+                            />
+                        </div>
+                        <Button
+                            v-if="elegidos[fila.fila]"
+                            class="h-10"
+                            :disabled="asignando !== null"
+                            @click="asignar(fila.fila, elegidos[fila.fila]!.id)"
+                        >
+                            <Spinner v-if="asignando === fila.fila" />
+                            Usar este
+                        </Button>
+                    </div>
+                </div>
+
+                <!-- Qué cambia -->
+                <ul
+                    v-if="cambiosDe(fila).length"
+                    class="flex flex-col divide-y divide-border/50 rounded-xl border border-border/60 text-sm"
+                >
+                    <li
+                        v-for="c in cambiosDe(fila)"
+                        :key="c.columna"
+                        class="flex flex-col gap-0.5 px-3 py-2 sm:flex-row sm:items-baseline sm:gap-3"
+                    >
+                        <span
+                            class="shrink-0 text-xs font-semibold text-muted-foreground sm:w-40"
+                            >{{ c.etiqueta }}</span
+                        >
+                        <span
+                            class="flex min-w-0 flex-wrap items-center gap-x-1.5"
+                        >
+                            <span
+                                class="text-muted-foreground line-through decoration-muted-foreground/40"
+                                >{{ c.cambio.antes ?? '(vacío)' }}</span
+                            >
+                            <ArrowRight
+                                class="size-3.5 shrink-0 text-muted-foreground"
+                            />
+                            <span
+                                class="font-medium break-words"
+                                :class="c.cambio.invalido && 'text-warning'"
+                                >{{ c.cambio.despues }}</span
+                            >
+                        </span>
+                    </li>
+                </ul>
+
+                <label
+                    v-if="
+                        !yaAplicada &&
+                        fila.estado === 'aplicable' &&
+                        fila.requiere_confirmacion
+                    "
+                    class="flex cursor-pointer items-center gap-2 rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning"
+                >
+                    <input
+                        type="checkbox"
+                        class="size-5 accent-primary"
+                        :checked="confirmadas.includes(fila.fila)"
+                        @change="
+                            confirmadas = alternar(
+                                confirmadas,
+                                fila.fila,
+                                ($event.target as HTMLInputElement).checked,
+                            )
+                        "
+                    />
+                    Guardar el teléfono aunque no tenga 10 dígitos
+                </label>
+
+                <ul
+                    v-if="fila.advertencias.length"
+                    class="flex flex-wrap gap-1.5"
+                >
+                    <li
+                        v-for="a in fila.advertencias"
+                        :key="a"
+                        class="inline-flex max-w-full items-start gap-1 rounded-full bg-warning-soft px-2.5 py-0.5 text-xs text-warning"
+                    >
+                        <AlertTriangle
+                            class="mt-0.5 size-3 shrink-0"
+                            aria-hidden="true"
+                        />
+                        <span>{{ a }}</span>
+                    </li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+
+    <!-- Móvil: guardar siempre a la mano -->
+    <div
+        v-if="!yaAplicada"
+        class="fixed inset-x-0 bottom-16 z-30 border-t border-border/60 bg-card/95 p-3 shadow-lg backdrop-blur md:hidden"
+    >
+        <Button
+            size="lg"
+            class="h-12 w-full text-base"
+            :disabled="seleccionadas.length === 0 || form.processing"
+            @click="confirmar"
+        >
+            <Spinner v-if="form.processing" />
+            <CheckCircle2 v-else class="size-5" />
+            Guardar {{ seleccionadas.length }}
+            {{ seleccionadas.length === 1 ? 'fila' : 'filas' }}
+        </Button>
     </div>
 </template>

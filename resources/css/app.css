@@ -189,6 +189,36 @@
     }
 }
 
+/*
+ * Brillo de carga (skeleton): una franja clara recorre el bloque mientras
+ * algo se genera (vista previa de un PDF, una tarjeta que llega). Sobre
+ * cualquier fondo pastel (bg-crema, bg-salvia…).
+ */
+@keyframes brillo-carga {
+    from {
+        background-position: 150% 0;
+    }
+    to {
+        background-position: -50% 0;
+    }
+}
+
+@utility brillo-carga {
+    background-image: linear-gradient(
+        100deg,
+        transparent 30%,
+        color-mix(in oklab, var(--pastel-superficie) 85%, transparent) 50%,
+        transparent 70%
+    );
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    animation: brillo-carga 1.4s ease-in-out infinite;
+
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+    }
+}
+
 @utility pagina-ancha {
     width: 100%;
     min-width: 0;

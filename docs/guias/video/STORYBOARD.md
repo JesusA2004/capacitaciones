@@ -2,7 +2,7 @@
 
 # Storyboard — MR. LANA PEOPLE — Flujo completo de Recursos Humanos
 
-36 escenas · 14:10. Cada escena se graba con datos ficticios del escenario de [DATOS_DEMO.md](../DATOS_DEMO.md).
+36 escenas · 14:15. Cada escena se graba con datos ficticios del escenario de [DATOS_DEMO.md](../DATOS_DEMO.md).
 
 ## Escena 01 · 00:00–00:24
 
@@ -51,7 +51,7 @@
 | | |
 |---|---|
 | **Capítulo** | Plantilla y vacantes reales |
-| **Pantalla** | Administración → Sucursales → detalle (`/administracion/sucursales/:sucursal`) |
+| **Pantalla** | Organización → Sucursales → detalle (`/administracion/sucursales/:sucursal`) |
 | **Acción** | Abrir la sucursal del gerente demo y mostrar la plantilla autorizada contra la ocupada del puesto Gestor. |
 | **Zoom** | Zoom al renglón Gestor: autorizados contra ocupados |
 | **Texto en pantalla** | Plantilla autorizada − ocupados = vacantes reales |
@@ -438,7 +438,7 @@
 
 **Narración:** Recursos Humanos envía avisos con título, mensaje e imagen a toda la empresa o a una persona; llegan por push y quedan en su bandeja. Los cumpleaños y aniversarios se felicitan solos a las ocho de la mañana.
 
-## Escena 32 · 12:13–12:38
+## Escena 32 · 12:13–12:42
 
 | | |
 |---|---|
@@ -446,13 +446,13 @@
 | **Pantalla** | Ciclo laboral → Iniciar baja (`/rh/colaboradores/:colaborador/ciclo`) |
 | **Acción** | Abrir «Iniciar baja», elegir el tipo, el motivo y la fecha efectiva. |
 | **Zoom** | Zoom al diálogo |
-| **Texto en pantalla** | El jefe o RH inicia → documentos |
+| **Texto en pantalla** | El gerente o RH la registra → documentos |
 | **Captura / clip** | `31-baja.png` |
 | **Transición** | Corte |
 
-**Narración:** La baja no es una solicitud ni requiere otra autorización: el jefe directo o Recursos Humanos la inicia desde el ciclo laboral de la persona. Al iniciarla, el acceso de la persona se suspende de inmediato, pero nunca se borra nada.
+**Narración:** La baja no es una solicitud ni requiere autorización: el gerente o Recursos Humanos la registra en «Bajas» (o desde el ciclo laboral) después de ver la vista previa de la renuncia y del finiquito. Al registrarla, el acceso de la persona se suspende de inmediato, pero nunca se borra nada.
 
-## Escena 33 · 12:38–13:06
+## Escena 33 · 12:42–13:10
 
 | | |
 |---|---|
@@ -466,7 +466,7 @@
 
 **Narración:** El finiquito se calcula con sueldo pendiente, aguinaldo proporcional, vacaciones, prima vacacional e ISR. Recursos Humanos revisa, ajusta los conceptos autorizados con su motivo, genera el PDF y, al registrar su entrega, el cierre queda completo. Recursos Humanos y Sistemas reciben el aviso para retirar accesos y equipo.
 
-## Escena 34 · 13:06–13:25
+## Escena 34 · 13:10–13:30
 
 | | |
 |---|---|
@@ -480,7 +480,7 @@
 
 **Narración:** Si alguien regresa, no se crea una persona nueva: se busca en Reingresos, Recursos Humanos decide, y la misma persona inicia un nuevo ciclo laboral conservando todo su historial.
 
-## Escena 35 · 13:25–13:54
+## Escena 35 · 13:30–13:58
 
 | | |
 |---|---|
@@ -494,7 +494,7 @@
 
 **Narración:** Siempre que tengas una duda, abre Ayuda. Puedes buscar con tus propias palabras, por ejemplo cómo contrato un candidato, ver el recorrido completo, la guía por proceso o lo que te toca según tu rol. En cada pantalla importante, el botón Cómo funciona te lleva directo a su explicación.
 
-## Escena 36 · 13:54–14:10
+## Escena 36 · 13:58–14:15
 
 | | |
 |---|---|

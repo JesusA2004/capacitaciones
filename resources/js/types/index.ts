@@ -24,6 +24,7 @@ export * from './editorDocumentos';
 export * from './dashboardRh';
 export * from './formatos-oficiales';
 export * from './matrizComercial';
+export * from './organigrama';
 export * from './micapacitacion';
 export * from './multimedia';
 export * from './navigation';

@@ -48,7 +48,8 @@ Observaciones del Excel real (28-08-2026), reportadas sin corregir: San Juan del
 
 ### Dónde se ve
 
-- **Administración > Sucursales > detalle**: el headcount de esa sucursal — plantilla autorizada vs. ocupada por puesto (barras), dona de cobertura, personas por departamento, domicilio/teléfono y su **Gerente de Sucursal** (no existe otra figura de "responsable").
+- **Inicio operativo (Tablero de RH)** → bloque «Plantilla»: plantilla activa (plazas ocupadas por colaboradores vigentes), capacidad autorizada y vacantes reales, todo de `HeadcountService::totalesGenerales()` + `VacantesListadoService` (mismo camino que RH → Vacantes). Nunca cuenta expedientes/carpetas del NAS: una baja (`inactivo`/`suspendido`) no ocupa plaza aunque su expediente siga ahí; «en incorporación» sí ocupa plaza. `DashboardHeadcountTest` verifica que Inicio, tablero, Sucursales y Vacantes den las mismas cifras.
+- **Organización > Sucursales > detalle**: el headcount de esa sucursal — plantilla autorizada vs. ocupada por puesto (barras), dona de cobertura, personas por departamento, domicilio/teléfono y su **Gerente de Sucursal** (no existe otra figura de "responsable").
 - **RH > Vacantes**: la lista de vacantes reales (ver abajo), no la tabla de plantilla por sucursal.
 
 ## Corporativo

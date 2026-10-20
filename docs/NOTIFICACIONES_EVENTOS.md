@@ -71,8 +71,8 @@ encolado (no vuelve a crear la notificación).
 | Evaluación de periodo de prueba | Sistema / jefe | — | Evaluador, RH (`evaluaciones.autorizar`) | Colaborador | `EvaluacionPeriodoPrueba` |
 | Excepción de Dirección General | RH | — | `excepciones.autorizar` | RH | `SolicitudExcepcionPeriodoPrueba` |
 | Préstamo autorizado | RH / Dirección | — | — | Colaborador (`prestamo_autorizado`) | `Prestamo` |
-| Baja aplicada (cierre laboral) | Jefe directo / RH | "Baja aplicada" (accesos suspendidos) | Regional + RH (`cierre_baja_solicitada`), solo para enterarse (pueden rehabilitar accesos). **Sin preautorización ni autorización posterior de RH**; nunca genera «solicitud por revisar» | — | `CierreLaboral` |
-| Baja enviada a RH / alertas del módulo de bajas (docs/BAJAS_Y_CAUSALES.md) | Gerente / RH / Jurídico | «Baja enviada a RH» | RH (`baja_por_revisar`), Jurídico (`baja_revision_juridico`, `baja_alerta_juridico`), Contraloría (`baja_alerta_contraloria`, RE-02/RE-03), RH con correo (`baja_alerta_clima_laboral`, RV-04), RH (`baja_rotacion_temprana`) | Gerente (`baja_resuelta`: rechazo, cierre, no procede) | `Baja` · `baja` |
+| Baja registrada (directa, cierre laboral aplicado) | Gerente / RH | "Baja registrada" (accesos suspendidos) | RH + Regional + **Sistemas** (`cierre_baja_solicitada`): quién la dio, a quién (puesto · sucursal), forma · causal y último día; solo para enterarse (RH puede rehabilitar accesos, Sistemas retira cuentas y equipo). **Sin solicitud ni aprobación**; nunca genera «solicitud por revisar» | — | `CierreLaboral` |
+| Alertas del módulo de bajas (docs/BAJAS_Y_CAUSALES.md) | Gerente / RH / Jurídico | — | Jurídico (`baja_revision_juridico` al registrar una causal que lo requiere, `baja_alerta_juridico`), RH (`baja_por_revisar` cuando Jurídico aprueba o devuelve), Contraloría (`baja_alerta_contraloria`, RE-02/RE-03), RH con correo (`baja_alerta_clima_laboral`, RV-04), RH (`baja_rotacion_temprana`) | Quien la registró (`baja_resuelta`: cierre, no procede) | `Baja` · `baja` |
 | Negativa a firmar/recibir la baja | RH | — | RH que gestiona el cierre, para generar el acta de negativa con dos testigos (`cierre_negativa_firma`, `cierres.gestionar`) | — | `CierreLaboral` |
 | Finiquito / documentos de la baja por firmar | RH | — | Colaborador (`documento_firma_pendiente`) y RH que opera el documento | Colaborador | `GeneratedDocument` / `CierreLaboral` |
 | Acta administrativa | Gerente / RH | — | RH (`actas.gestionar`) | — | `ActaAdministrativa` |
@@ -85,9 +85,9 @@ del recurso y responde "Ya fue atendida" en vez de mandar a una pantalla rota.
 
 ### Flujo de baja vigente vs. legacy (histórico)
 
-El flujo de baja **vigente** es: el *jefe directo* (cadena de mando del
-organigrama) o *RH* **inicia la baja y queda aplicada de inmediato** (accesos
-suspendidos; aviso `cierre_baja_solicitada` a regionales y RH) → *documentos* de
+El flujo de baja **vigente** es: el *gerente* (su personal, por alcance) o
+*RH* **registra la baja en «Bajas» y queda aplicada de inmediato** (accesos
+suspendidos; aviso `cierre_baja_solicitada` a RH, regionales y Sistemas) → *documentos* de
 la causa (generados → impresos → firmados físicamente; si el colaborador se
 niega, *acta de negativa con dos testigos*, `cierre_negativa_firma`) →
 *finiquito* (RH calcula/ajusta) → *registrar entrega del finiquito* → *cierre*.

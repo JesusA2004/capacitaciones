@@ -5,10 +5,11 @@ use App\Http\Controllers\Rh\BajaController;
 use Illuminate\Support\Facades\Route;
 
 /*
-| Módulo de Bajas y Causales (docs/BAJAS_Y_CAUSALES.md). Cada acción
-| autoriza con BajaPolicy (permisos bajas.*) + alcance y delega a
-| BajaService, el mismo de la API v1. El catálogo de causales se administra
-| en Bajas y finiquitos → «Causales» (rh.causales-rotacion.*).
+| Módulo de Bajas y Causales (docs/BAJAS_Y_CAUSALES.md). La baja es
+| DIRECTA: «store» la registra y la aplica de inmediato (sin borrador, envío
+| ni aprobación). Cada acción autoriza con BajaPolicy (permisos bajas.*) +
+| alcance y delega a BajaService, el mismo de la API v1. El catálogo de
+| causales se administra en Bajas y finiquitos → «Causales».
 */
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('rh/bajas')->name('rh.bajas.')->group(function () {
@@ -16,14 +17,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('nueva', [BajaController::class, 'create'])->name('create');
         Route::post('/', [BajaController::class, 'store'])->name('store');
         Route::get('colaboradores', [BajaController::class, 'colaboradores'])->name('colaboradores')->middleware('throttle:60,1');
+        // Vista previa del finiquito propuesto ANTES de registrar (PDF, no guarda nada).
+        Route::get('previa/finiquito', [BajaController::class, 'previaFiniquito'])->name('previa.finiquito')->middleware('throttle:30,1');
         Route::get('{baja}', [BajaController::class, 'show'])->name('show');
-        Route::get('{baja}/editar', [BajaController::class, 'edit'])->name('edit');
-        Route::put('{baja}', [BajaController::class, 'update'])->name('update');
-        Route::post('{baja}/enviar', [BajaController::class, 'enviar'])->name('enviar');
-        Route::post('{baja}/validar', [BajaController::class, 'validar'])->name('validar');
         Route::post('{baja}/enviar-juridico', [BajaController::class, 'enviarJuridico'])->name('enviar-juridico');
         Route::post('{baja}/aprobar-juridico', [BajaController::class, 'aprobarJuridico'])->name('aprobar-juridico');
-        Route::post('{baja}/rechazar', [BajaController::class, 'rechazar'])->name('rechazar');
+        Route::post('{baja}/devolver-juridico', [BajaController::class, 'devolverJuridico'])->name('devolver-juridico');
         Route::post('{baja}/cambiar-causal', [BajaController::class, 'cambiarCausal'])->name('cambiar-causal');
         Route::patch('{baja}/datos', [BajaController::class, 'actualizar'])->name('actualizar');
         Route::post('{baja}/cerrar', [BajaController::class, 'cerrar'])->name('cerrar');

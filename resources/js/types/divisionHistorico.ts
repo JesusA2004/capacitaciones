@@ -3,7 +3,7 @@
  * (docs/DIVISION_EXPEDIENTE_HISTORICO.md) —
  * Rh\DivisionExpedienteHistoricoController::show.
  */
-export type ConfianzaDivision = 'alta' | 'media' | 'baja';
+export type ConfianzaDivision = 'alta' | 'media' | 'baja' | 'manual';
 
 export type PaginaDivision = {
     pagina: number;
@@ -16,6 +16,8 @@ export type PaginaDivision = {
     metodo: 'texto' | 'ocr' | 'sin_texto';
     metodo_etiqueta: string | null;
     motivo: string | null;
+    /** Corregida a mano por RH (el OCR ya no la cambia). */
+    manual?: boolean;
 };
 
 export type ParteDivision = {
@@ -62,6 +64,14 @@ export type DivisionHistorico = {
     ocr_motor: string | null;
     error: string | null;
     vigente: boolean;
+    editor_url: string;
+    paginas_manuales: number;
+    revision: {
+        version: number;
+        por: string | null;
+        en: string | null;
+        cambios: number;
+    } | null;
     advertencias: string[];
     paginas: PaginaDivision[];
     partes: ParteDivision[];
@@ -102,4 +112,66 @@ export type DetalleDivisionHistorico = {
     historicos: HistoricoDivision[];
     checklist: ChecklistDivision;
     ocr: { disponible: boolean; motor: string; motivo: string | null };
+};
+
+/**
+ * Editor de hojas del PDF histórico —
+ * Rh\DivisionExpedienteHistoricoController::editor.
+ */
+export type DocumentoPlanEditor = {
+    document_type_id: number | null;
+    paginas: number[];
+};
+
+export type HojaEditorDivision = {
+    pagina: number;
+    /** Lo que dijo el OCR (nombre del tipo), aunque RH la haya corregido. */
+    tipo_ocr: string | null;
+    confianza: ConfianzaDivision | null;
+    metodo: 'texto' | 'ocr' | 'sin_texto' | null;
+    motivo: string | null;
+    manual: boolean;
+};
+
+export type TipoEditor = { id: number; nombre: string; clave: string };
+
+export type RevisionEditor = {
+    version: number;
+    por: string | null;
+    en: string | null;
+    cambios: number;
+    detalle: CambioHoja[];
+};
+
+export type CambioHoja = { pagina: number; de: string; a: string };
+
+export type AccionDocumentoReorganizado =
+    | 'sin_cambios'
+    | 'nueva_version'
+    | 'carga_nueva'
+    | 'ya_cubierta'
+    | 'duplicado'
+    | 'sin_clasificar';
+
+export type DocumentoResultanteHojas = {
+    orden: number;
+    document_type_id: number | null;
+    tipo: string | null;
+    paginas: number[];
+    rango: string;
+    total_paginas: number;
+    accion: AccionDocumentoReorganizado;
+    accion_etiqueta: string;
+    parte_id: number | null;
+    pdf_url: string;
+};
+
+export type VistaPreviaEditor = {
+    hash_plan: string;
+    documentos: DocumentoResultanteHojas[];
+    cambios: CambioHoja[];
+    advertencias: { nivel: 'aviso' | 'info'; mensaje: string }[];
+    faltantes: string[];
+    sin_cambios: boolean;
+    revision_actual: number;
 };

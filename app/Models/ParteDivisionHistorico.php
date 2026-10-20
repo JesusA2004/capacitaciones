@@ -26,6 +26,9 @@ use Illuminate\Support\Carbon;
  * @property int|null $employee_document_id
  * @property int|null $asignado_por
  * @property Carbon|null $asignado_en
+ * @property int|null $revision_id Revisión manual donde nació (null = la generó el OCR).
+ * @property int|null $reemplazada_por_revision_id Revisión que la dejó sin efecto (nunca se borra).
+ * @property Carbon|null $reemplazada_en
  * @property-read DivisionExpedienteHistorico $division
  * @property-read DocumentType|null $tipo
  * @property-read EmployeeDocument|null $documento
@@ -36,7 +39,7 @@ class ParteDivisionHistorico extends Model
 
     protected $fillable = [
         'division_id', 'document_type_id', 'orden', 'paginas', 'confianza', 'estado', 'disk', 'path', 'hash', 'size',
-        'employee_document_id', 'asignado_por', 'asignado_en',
+        'employee_document_id', 'asignado_por', 'asignado_en', 'revision_id', 'reemplazada_por_revision_id', 'reemplazada_en',
     ];
 
     protected $hidden = ['disk', 'path'];
@@ -49,6 +52,9 @@ class ParteDivisionHistorico extends Model
             'orden' => 'integer',
             'size' => 'integer',
             'asignado_en' => 'datetime',
+            'reemplazada_en' => 'datetime',
+            'revision_id' => 'integer',
+            'reemplazada_por_revision_id' => 'integer',
         ];
     }
 

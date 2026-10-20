@@ -2,7 +2,6 @@
 import { Link } from '@inertiajs/vue3';
 import {
     AlertTriangle,
-    Eye,
     FileWarning,
     Loader2,
     ServerCrash,
@@ -16,6 +15,7 @@ import TimePicker from '@/components/Common/TimePicker.vue';
 import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
 import CamposDatosFaltantes from '@/components/documentos/CamposDatosFaltantes.vue';
 import SeccionDocumentosProceso from '@/components/documentos/SeccionDocumentosProceso.vue';
+import BotonVistaPrevia from '@/components/people/BotonVistaPrevia.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
@@ -380,12 +380,23 @@ function porGenerar(seccion: Seccion): ItemDocumentoProceso[] {
     );
 }
 
+/** Qué botón pidió la vista previa en curso (spinner solo en ese). */
+const origenPrevia = ref<{ seccion: Seccion; clave: string } | null>(null);
+
+function previaCargandoDe(seccion: Seccion): string | null {
+    return visor.cargando.value && origenPrevia.value?.seccion === seccion
+        ? origenPrevia.value.clave
+        : null;
+}
+
 function verPrevias(
     seccion: Seccion,
     items: ItemDocumentoProceso[],
     completar: Record<string, string> = {},
+    origen: string = items.length === 1 ? items[0].clave : 'paquete',
 ) {
     const { manuales, datosColaborador } = separarCapturados(completar);
+    origenPrevia.value = { seccion, clave: origen };
 
     void visor.abrir(
         items.map((item) => ({
@@ -417,7 +428,7 @@ function previsualizarCapturados() {
         p.clave === null
             ? porGenerar(p.seccion)
             : p.seccion.documentos.filter((d) => d.clave === p.clave);
-    verPrevias(p.seccion, items, capturados());
+    verPrevias(p.seccion, items, capturados(), 'faltantes');
 }
 
 // ───────── Nueva revisión de un documento firmado ─────────
@@ -803,6 +814,8 @@ async function confirmarBaja() {
             :key="`${s.proceso}-${s.registro.tipo}-${s.registro.id}`"
             :seccion="s"
             :ocupado="ocupado"
+            :previa-cargando="previaCargandoDe(s)"
+            :previa-ocupada="visor.cargando.value"
             @accion="(item, accion) => alAccionar(s, item, accion)"
             @accion-seccion="(accion) => alAccionSeccion(s, accion)"
         />
@@ -848,7 +861,9 @@ async function confirmarBaja() {
             (v: boolean) => !v && ocupado === null && (pendiente = null)
         "
     >
-        <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent
+            class="max-h-[100svh] overflow-y-auto max-sm:h-[100svh] max-sm:max-w-none max-sm:rounded-none sm:max-h-[90vh] sm:max-w-lg"
+        >
             <DialogHeader>
                 <DialogTitle>
                     Faltan {{ faltantes.length }} dato{{
@@ -872,18 +887,12 @@ async function confirmarBaja() {
                     >Cancelar</Button
                 >
                 <!-- Con lo capturado, sin guardarlo en la ficha. -->
-                <Button
-                    variant="outline"
-                    :disabled="ocupado !== null || visor.cargando.value"
+                <BotonVistaPrevia
+                    texto="Previsualizar"
+                    :cargando="visor.cargando.value"
+                    :deshabilitado="ocupado !== null"
                     @click="previsualizarCapturados"
-                >
-                    <Loader2
-                        v-if="visor.cargando.value"
-                        class="size-4 animate-spin"
-                    />
-                    <Eye v-else class="size-4" />
-                    Previsualizar
-                </Button>
+                />
                 <Button
                     :disabled="
                         ocupado !== null || !completo || editables.length === 0
@@ -905,6 +914,8 @@ async function confirmarBaja() {
         :open="visor.abierto.value"
         :archivos="visor.archivos.value"
         :indice="visor.indice.value"
+        :cargando="visor.cargando.value"
+        :titulo-carga="visor.tituloCarga.value"
         @update:open="visor.alCambiarAbierto"
         @update:indice="(i: number) => (visor.indice.value = i)"
     />
@@ -970,7 +981,9 @@ async function confirmarBaja() {
         :open="paso !== null"
         @update:open="(v: boolean) => !v && ocupado === null && (paso = null)"
     >
-        <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent
+            class="max-h-[100svh] overflow-y-auto max-sm:h-[100svh] max-sm:max-w-none max-sm:rounded-none sm:max-h-[90vh] sm:max-w-lg"
+        >
             <DialogHeader>
                 <DialogTitle>{{
                     paso ? tituloPaso[paso.accion] : ''
@@ -1068,7 +1081,9 @@ async function confirmarBaja() {
             (v: boolean) => !v && ocupado === null && (dialogoBaja = null)
         "
     >
-        <DialogContent class="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+        <DialogContent
+            class="max-h-[100svh] overflow-y-auto max-sm:h-[100svh] max-sm:max-w-none max-sm:rounded-none sm:max-h-[90vh] sm:max-w-xl"
+        >
             <DialogHeader>
                 <DialogTitle>
                     {{

@@ -11,6 +11,7 @@ use App\Models\MovimientoLaboral;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Services\Administracion\JerarquiaPuestoService;
+use App\Services\Organigrama\ClasificacionRegionService;
 use App\Services\Organigrama\LaminasOrganigramaService;
 use App\Services\Organigrama\MiniOrganigramaService;
 use App\Services\Organigrama\OrganigramaPersonasService;
@@ -28,6 +29,7 @@ class JerarquiaPuestoController extends Controller
         private readonly OrganigramaPersonasService $organigramaPersonas,
         private readonly MiniOrganigramaService $miniOrganigrama,
         private readonly LaminasOrganigramaService $laminas,
+        private readonly ClasificacionRegionService $clasificaciones,
     ) {}
 
     public function index(Request $request): Response
@@ -37,7 +39,9 @@ class JerarquiaPuestoController extends Controller
         $usuario = $request->user();
         $puestos = $this->jerarquia->arbol($request);
         $this->jerarquia->agregarOcupantes($puestos, $usuario, $request);
-        $puedeEditar = $usuario->can('organigrama.editar') || $usuario->can('puestos.administrar');
+        // Editar el organigrama (coberturas, Q1/Q3, subir/bajar/mover): solo
+        // RH / super admin; el backend lo vuelve a validar con Policies.
+        $puedeEditar = $usuario->can('organigrama.editar');
 
         return Inertia::render('Administracion/JerarquiaPuestos/Index', [
             'puestos' => $puestos,
@@ -49,6 +53,8 @@ class JerarquiaPuestoController extends Controller
                 'motivos' => MotivoCobertura::opciones(),
                 'colaboradores' => $puedeEditar ? $this->organigramaPersonas->candidatosCobertura($usuario) : [],
             ],
+            // Q1 / Q3: regiones de la matriz comercial (chips y clasificación).
+            'regiones' => $this->clasificaciones->regiones(),
             // Secciones como el PDF de Inducción (cap. 4): General (todo),
             // Corporativo, Dirección Comercial y Sucursal — cada una es la
             // rama real de su puesto raíz (config organigrama.vistas_induccion);

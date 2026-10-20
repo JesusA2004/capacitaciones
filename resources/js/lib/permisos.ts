@@ -18,6 +18,7 @@ const ETIQUETAS_MODULO: Record<string, string> = {
     candidatos: 'Candidatos',
     colaborador: 'Portal del colaborador',
     configuracion: 'Configuración',
+    contactos_emergencia: 'Contactos de emergencia',
     cuestionarios: 'Cuestionarios',
     cursos: 'Cursos',
     dashboard: 'Dashboard',
@@ -233,6 +234,9 @@ const ETIQUETAS_PERMISO: Record<string, string> = {
         'Pedir el cambio de un documento propio',
     'colaboradores.activar': 'Activar colaboradores',
     'colaboradores.alta': 'Dar de alta colaboradores',
+    'contactos_emergencia.importar':
+        'Importar contactos de emergencia (Excel)',
+    'perfiles_puesto.importar': 'Importar descriptivos de puesto (PDF)',
     'configuracion.apariencia': 'Cambiar colores institucionales',
     'configuracion.notificaciones': 'Configurar a quién le llegan los avisos',
     'configuracion.organizacion': 'Configurar la organización',

@@ -136,8 +136,8 @@ const tarjetas = computed(() => [
         valor: numero.format(s.value.plantilla_activa.valor),
         // Misma base que "Cobertura de plantilla": plazas autorizadas
         // ocupadas (quien está en un puesto sin plantilla no cubre plaza).
-        detalle: `${numero.format(totalesCobertura.value.ocupada)} de ${numero.format(totalesCobertura.value.autorizada)} plazas autorizadas cubiertas`,
-        avance: Math.min(100, totalesCobertura.value.porcentaje),
+        detalle: `${numero.format(s.value.plantilla_activa.valor)} de ${numero.format(s.value.plantilla_activa.autorizada)} plazas autorizadas ocupadas · ${numero.format(s.value.plantilla_activa.vacantes)} por cubrir`,
+        avance: Math.min(100, s.value.plantilla_activa.porcentaje),
     },
     {
         clave: 'vacantes',
@@ -196,7 +196,7 @@ const tarjetas = computed(() => [
         titulo: 'Contratos por vencer',
         icono: CalendarClock,
         valor: numero.format(s.value.contratos_por_vencer.valor),
-        detalle: 'periodos de prueba · próximos 30 días',
+        detalle: `periodos de prueba · próximos ${s.value.contratos_por_vencer.dias} días`,
     },
     {
         clave: 'inversion',

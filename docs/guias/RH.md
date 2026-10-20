@@ -52,7 +52,7 @@ Una vacante es una plaza autorizada que hoy no tiene titular. Nadie escribe «va
 
 #### Quién lo hace
 
-Gerencia de RH captura la plantilla autorizada (Administración → Sucursales). Todos los demás solo consultan Vacantes: la pantalla es informativa.
+Gerencia de RH captura la plantilla autorizada (Organización → Sucursales). Todos los demás solo consultan Vacantes: la pantalla es informativa.
 
 > **Importante:** Una sola fuente para todos: Vacantes, Campañas, Candidatos y la contratación consultan el mismo cálculo (plantilla autorizada − ocupados). No existen listas de vacantes paralelas.
 
@@ -80,7 +80,7 @@ Gerencia de RH captura la plantilla autorizada (Administración → Sucursales).
 
 #### Errores comunes
 
-- **«No veo una vacante que debería existir.»** Revisa la plantilla autorizada de ese puesto en Administración → Sucursales → detalle. Si la plantilla ya está completa, no hay vacante. Si la sucursal no es de tu alcance, tampoco la verás.
+- **«No veo una vacante que debería existir.»** Revisa la plantilla autorizada de ese puesto en Organización → Sucursales → detalle. Si la plantilla ya está completa, no hay vacante. Si la sucursal no es de tu alcance, tampoco la verás.
 - **«Quiero crear una vacante a mano.»** No se puede y no hace falta: Vacantes es 100 % derivada. Si Dirección autorizó una plaza nueva, Gerencia de RH la agrega a la plantilla y la vacante aparece.
 - **«Alguien cubre temporalmente la plaza y la vacante sigue abierta.»** Es correcto: una cobertura temporal no cuenta como ocupado. La plaza sigue sin titular.
 
@@ -1605,7 +1605,7 @@ RH.
 #### Pasos
 
 1. **Elige la periodicidad** _(Web)_ — Personal → Recibos de nómina. Semanal: lunes a domingo. Quincenal: del 1 al 15 y del 16 al último día real del mes (octubre 16–31, abril 16–30, febrero 16–28 o 29).
-2. **«Preparar lote»** — Desde el sueldo de cada persona o importando el archivo de RH. TODOS quedan como borrador: no se publican, no se notifican y el trabajador no los ve.
+2. **«Preparar lote»** — Desde el sueldo de cada persona (importar el lote desde un archivo es solo del super administrador). TODOS quedan como borrador: no se publican, no se notifican y el trabajador no los ve.
 3. **«Revisar lote»** — Resumen: esperados, preparados, errores, advertencias, percepciones, deducciones y neto. Filtra correctos, advertencias o errores.
 4. **Revisa persona por persona** — Vista previa del PDF real con el formato oficial, con «Anterior» y «Siguiente». Corrige conceptos si hace falta.
 5. **«Emitir N recibos»** — Solo entonces cada recibo se marca emitido y se congela su PDF en el expediente. RH lo imprime y lo entrega al colaborador: el recibo NO se publica en Mi espacio (web ni app).
@@ -1877,7 +1877,7 @@ RH.
 
 ### Baja de un colaborador (forma de salida y causal)
 
-> El gerente solicita la baja en «Solicitudes de baja» (o RH / el jefe directo la aplica desde el ciclo laboral): elige cómo se va (renuncia voluntaria, no renovación o rescisión) y por qué (la causal), adjunta los documentos y la envía a RH. Al enviarla se suspende el acceso; RH valida, la manda a Jurídico si la causal lo pide y la cierra cuando los documentos están completos.
+> La baja NO es una solicitud: el gerente (de su personal) o RH la registra en «Bajas» y queda aplicada en ese momento. Antes de confirmar ves la renuncia o el formato que se generará y el finiquito propuesto. Después se completan los documentos, Jurídico revisa si la causal lo pide y RH la cierra.
 
 #### Qué es
 
@@ -1885,23 +1885,23 @@ Es el expediente de la baja con folio BAJ-AAAA-NNNN: forma de salida y causal de
 
 #### Quién lo hace
 
-Captura y envía el gerente (solo su personal). RH valida, rechaza con motivo, corrige la causal con motivo, cierra y reabre. Jurídico revisa las causales que lo requieren y no cierra. Contraloría consulta las de faltantes (RE-02) y robo o fraude (RE-03). Dirección solo ve el tablero de rotación.
+Registra el gerente (solo su personal) o RH. RH corrige la causal con motivo, completa datos, cierra, reabre y marca «No procede». Jurídico revisa las causales que lo requieren y no cierra. Contraloría consulta las de faltantes (RE-02) y robo o fraude (RE-03). Nadie más entra a «Bajas»; Dirección solo ve el tablero de rotación y Sistemas recibe el aviso para retirar accesos y equipo.
 
-> **Importante:** Al ENVIAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si RH decide que la baja no procede, se cancela y el acceso vuelve.
+> **Importante:** Al REGISTRAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si RH decide que no procede, la revierte y el acceso vuelve.
 
 > **Importante:** En rescisión, «¿Recontratable?» es «No» y solo RH lo cambia. El aviso de rescisión se adjunta (el sistema no lo genera).
 
 #### Antes de empezar
 
-- La persona está activa y es de tu sucursal o equipo (o eres RH).
+- La persona está activa y es de tu sucursal (o eres RH).
 - Solo puede haber una baja abierta por persona.
 
 #### Pasos
 
-1. **«Solicitar baja»** _(Gerente)_ — Cierres laborales → Solicitudes de baja → «Solicitar baja»: 1 colaborador (sucursal, puesto e ingreso salen solos), 2 ¿cómo se va? (tres tarjetas), 3 ¿por qué se va? (causal con su ayuda, comentario —obligatorio en RV-05 y en rescisión, mínimo 20 caracteres—, último día laborado y ¿recontratable?; en rescisión además fecha en que se conoció la falta y entrega del aviso), 4 documentos.
-2. **«Guardar borrador» o «Enviar a RH»** _(Gerente)_ — El borrador no afecta a nadie. Al enviarla, el acceso de la persona se suspende de inmediato y la baja queda «En revisión RH». Puedes enviarla aunque falten documentos: los adjuntas después.
-3. **RH valida (y Jurídico revisa si aplica)** _(RH)_ — En el expediente de la baja: «Validar», «Enviar a Jurídico» (si la causal lo requiere), «Rechazar» con motivo (regresa al gerente) o «Cambiar causal» con motivo. Todo queda en la bitácora.
-4. **Finiquito y «Cerrar baja»** _(RH)_ — RH calcula y entrega el finiquito (Bajas y finiquitos). Con los documentos obligatorios completos, «Cerrar baja»: la persona queda inactiva y su acceso bloqueado de forma definitiva. Una baja cerrada solo se reabre con motivo.
+1. **«Registrar baja»** _(Gerente)_ — Cierres laborales → Bajas → «Registrar baja»: 1 ¿quién se va? (sucursal, puesto e ingreso salen solos), 2 ¿cómo se va? (tres tarjetas), 3 ¿por qué se va? (causal con su ayuda, comentario —obligatorio en RV-05 y en rescisión, mínimo 20 caracteres—, último día laborado y ¿recontratable?; en rescisión además fecha en que se conoció la falta y entrega del aviso).
+2. **Vista previa y confirmar** _(Gerente)_ — «Vista previa» abre la renuncia (renuncia voluntaria) o el formato de la causal y el finiquito propuesto, con flechas para pasar de uno a otro. Nada se guarda hasta «Sí, registrar baja». Al confirmar: accesos suspendidos, documentos generados y finiquito propuesto. En rescisión no se genera documento: el aviso de rescisión se adjunta.
+3. **Documentos y Jurídico** _(RH)_ — En el expediente de la baja o en Bajas y finiquitos → «Documentos»: imprime y firma lo generado, adjunta lo que falta. Si la causal lo requiere, la baja pasa sola a Jurídico, que la aprueba o la devuelve a RH con observaciones.
+4. **Finiquito y «Cerrar baja»** _(RH)_ — RH revisa / ajusta el finiquito y registra su entrega (Bajas y finiquitos). Con los documentos obligatorios completos, «Cerrar baja»: la persona queda inactiva y su acceso bloqueado de forma definitiva. Una baja cerrada solo se reabre con motivo; «No procede» la revierte y devuelve el acceso.
 
 #### Qué pasa después
 
@@ -1911,7 +1911,8 @@ Captura y envía el gerente (solo su personal). RH valida, rechaza con motivo, c
 
 #### Notificaciones
 
-- «Baja por revisar» a RH al enviarla; «Baja aplicada» a regionales y RH.
+- «Baja registrada» a RH, a la regional y a Sistemas: quién la dio, a quién, forma · causal y último día.
+- Causal con Jurídico: «Baja por revisar (Jurídico)».
 - RV-04 (clima laboral): correo a RH para entrevista de salida y NOM-035.
 - RE-02 y RE-03: aviso a Contraloría (RE-03 también a Jurídico).
 - Antigüedad menor a 90 días: rotación temprana a RH.
@@ -1929,7 +1930,7 @@ Captura y envía el gerente (solo su personal). RH valida, rechaza con motivo, c
 
 #### Errores comunes
 
-- **«No me deja enviar.»** Faltan forma, causal, último día laborado o ¿recontratable? (y en rescisión los datos del aviso). La pantalla marca cada campo.
+- **«No me deja registrar.»** Faltan persona, forma, causal, último día laborado o ¿recontratable? (y en rescisión los datos del aviso). La pantalla marca cada campo.
 - **«RH no puede cerrar.»** Falta un documento obligatorio, la revisión de Jurídico o el finiquito revisado. El expediente dice exactamente qué falta.
 
 #### Relacionado con
@@ -1940,7 +1941,8 @@ Captura y envía el gerente (solo su personal). RH valida, rechaza con motivo, c
 
 #### En el sistema
 
-- **Ir a Solicitudes de baja** → `/rh/bajas` _(permiso: bajas.ver o bajas.revisar_juridico o bajas.consulta_contraloria)_
+- **Ir a Bajas** → `/rh/bajas` _(permiso: bajas.ver o bajas.revisar_juridico o bajas.consulta_contraloria)_
+- **Documentos de las bajas** → `/rh/cierres` _(permiso: cierres.ver)_
 - **Tablero de rotación** → `/reportes/rotacion/tablero` _(permiso: bajas.tablero.ver)_
 - Guía en pantalla → `/ayuda/articulo/baja`
 
@@ -1960,7 +1962,7 @@ RH.
 
 #### Antes de empezar
 
-- La baja ya está aplicada (se inició desde el ciclo laboral).
+- La baja ya está registrada (Bajas o ciclo laboral): el finiquito propuesto se calcula al registrarla.
 
 #### Pasos
 
@@ -2108,16 +2110,19 @@ La plantilla autorizada solo la cambia Gerencia de RH (y super administración).
 
 > **Importante:** Organigrama, Matriz comercial, Headcount y Vacantes son cosas distintas: el organigrama dice quién reporta a quién; la matriz, qué ruta cubre cada gestor; el headcount, cuántas plazas hay; las vacantes, cuántas faltan.
 
+> **Nota:** Sucursales y Departamentos son módulos distintos: en Sucursales vive la plantilla autorizada de cada sucursal; en Departamentos, el catálogo de áreas y el cambio de departamento en lote. Cambiar de departamento no cambia puesto, sucursal ni plantilla.
+
 #### Antes de empezar
 
 - Tener permisos de administración de catálogos.
 
 #### Pasos
 
-1. **Plantilla autorizada** _(Web)_ — Administración → Sucursales → detalle de la sucursal → lápiz en el puesto (o «Agregar puesto»): nueva cifra y motivo obligatorio. La vacante del par se recalcula al guardar.
+1. **Plantilla autorizada** _(Web)_ — Organización → Sucursales → detalle de la sucursal → lápiz en el puesto (o «Agregar puesto»): nueva cifra y motivo obligatorio. La vacante del par se recalcula al guardar.
 2. **Duración de capacitación por puesto** — Administración → Configuración → Parámetros de RH: meses de capacitación inicial de cada puesto (por ejemplo, Gestor 2; Gerente y Regional 3) y su grupo (Gestores, Gerencia…).
 3. **Otros parámetros de RH** — Calificación mínima del onboarding, días de aviso antes del vencimiento (15), calificación mínima de la evaluación, causas de baja solicitables, domicilio del patrón en documentos y vigencia de documentos.
 4. **Organigrama** — Organización → Organigrama: quién reporta a quién. De aquí sale el jefe directo de cada persona.
+5. **Mover personas entre departamentos** _(Web)_ — Organización → Departamentos → abre el departamento: marca a todas o a algunas personas (el buscador filtra la lista mientras escribes), elige el departamento destino, revisa el resumen («Vas a mover 3 personas de Ventas a Operaciones») y confirma. Cada persona queda con su movimiento laboral «Cambio de departamento».
 
 #### Qué pasa después
 
@@ -2130,6 +2135,7 @@ La plantilla autorizada solo la cambia Gerencia de RH (y super administración).
 #### Errores comunes
 
 - **«No puedo editar la plantilla.»** Solo Gerencia de RH (permiso de editar headcount).
+- **«No aparece la casilla para moverme a mí.»** Nadie cambia su propio departamento: pídeselo a otra persona de RH.
 
 #### Relacionado con
 
@@ -2141,6 +2147,7 @@ La plantilla autorizada solo la cambia Gerencia de RH (y super administración).
 - **Ir a Sucursales** → `/administracion/sucursales` _(permiso: sucursales.administrar)_
 - **Ir a Parámetros de RH** → `/administracion/configuracion/parametros-rh` _(permiso: configuracion.rh)_
 - **Ir al Organigrama** → `/administracion/jerarquia-puestos` _(permiso: organigrama.ver)_
+- **Ir a Departamentos** → `/administracion/departamentos` _(permiso: departamentos.administrar)_
 - Guía en pantalla → `/ayuda/articulo/estructura-y-plantilla`
 
 <a id="articulo-usuarios-y-roles"></a>
@@ -2324,54 +2331,6 @@ Colaborador, Gerente, Regional, Dirección Comercial, Sistemas, RH.
 - **Ir al Directorio** → `/directorio`
 - Guía en pantalla → `/ayuda/articulo/directorio`
 
-<a id="articulo-importador-salarios"></a>
-
-### Importar salarios y vacaciones (REPORTE_TRABAJADORES_VAC)
-
-> Carga el reporte de RH con vista previa: actualiza salario diario y registra días de vacaciones tomados antes de PEOPLE. Nunca crea personas.
-
-#### Qué es
-
-El importador lee el Excel oficial, busca a cada persona por nombre EXACTO dentro de su sucursal y propone cambios. Nada se aplica hasta que RH confirma.
-
-#### Quién lo hace
-
-RH.
-
-> **Importante:** Quien no cumple 1 año de antigüedad NO recibe ajuste de vacaciones anuales aunque el Excel traiga días otorgados/tomados (el salario sí se actualiza). Un nombre que coincide con 2+ personas va a revisión, nunca se adivina.
-
-#### Antes de empezar
-
-- Tener el archivo REPORTE_TRABAJADORES_VAC.xlsx del periodo.
-
-#### Pasos
-
-1. **Subir y previsualizar** _(RH · Web)_ — Personal → «Importar salarios y vacaciones». Cada fila queda como Aplicable, Requiere revisión, Sin cambios, No encontrado o Error, con su motivo.
-2. **Aplicar** _(RH · Web)_ — Solo las filas «Aplicable». El salario mensual se recalcula como diario × 30 y queda en el historial de salarios.
-
-#### Qué pasa después
-
-- El mismo archivo no se puede aplicar dos veces (se reconoce por su huella).
-- Los cambios aparecen en el historial (timeline) de cada persona.
-
-#### Qué queda registrado
-
-- Historial de salarios y ajustes de vacaciones con quién los aplicó y desde qué importación.
-
-#### Errores comunes
-
-- **«La sucursal no se encontró.»** El nombre de sucursal debe coincidir con el catálogo. Solo se aceptan los recortes conocidos del reporte (p. ej. ATLACOMULC, SAN LUIS P).
-
-#### Relacionado con
-
-- [Vacaciones](#articulo-vacaciones)
-- [Historial (timeline) de una persona](#articulo-historial-persona)
-
-#### En el sistema
-
-- **Ir a Importar salarios y vacaciones** → `/rh/importaciones` _(permiso: colaboradores.importar_salarios_vacaciones)_
-- Guía en pantalla → `/ayuda/articulo/importador-salarios`
-
 <a id="articulo-historial-persona"></a>
 
 ### Historial (timeline) de una persona
@@ -2392,4 +2351,4 @@ RH, Gerente.
 
 #### Relacionado con
 
-- [Importar salarios y vacaciones (REPORTE_TRABAJADORES_VAC)](#articulo-importador-salarios)
+- [Importar salarios y vacaciones (REPORTE_TRABAJADORES_VAC)](FLUJO_COMPLETO.md#articulo-importador-salarios)

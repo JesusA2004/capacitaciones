@@ -7,6 +7,7 @@ import {
     Eye,
     FileStack,
     FileText,
+    ListChecks,
     ScanText,
     Split,
 } from '@lucide/vue';
@@ -79,6 +80,7 @@ const CONFIANZA: Record<
     alta: { etiqueta: 'Alta', variante: 'success' },
     media: { etiqueta: 'Media', variante: 'info' },
     baja: { etiqueta: 'Baja', variante: 'warning' },
+    manual: { etiqueta: 'Asignada por RH', variante: 'success' },
 };
 
 function varianteParte(
@@ -127,7 +129,7 @@ async function dividirHistorico(h: HistoricoDivision): Promise<void> {
         repetir &&
         !(await confirmarAccion(
             'Volver a dividir',
-            'Se genera una división nueva con las reglas actuales. Lo que ya se cargó al checklist no se borra ni se reemplaza.',
+            'Se genera una división nueva con las reglas actuales. Lo que ya se cargó al checklist no se borra ni se reemplaza, y las hojas que RH corrigió a mano se respetan.',
             'Sí, volver a dividir',
         ))
     ) {
@@ -456,6 +458,44 @@ async function aplicarDato(
                                 <span>{{ a }}</span>
                             </li>
                         </ul>
+
+                        <!-- Editor de hojas -->
+                        <div
+                            class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-salvia/50 p-4"
+                        >
+                            <div class="min-w-0">
+                                <p class="text-sm font-semibold">
+                                    ¿El OCR juntó o dejó fuera hojas?
+                                </p>
+                                <p class="text-sm text-muted-foreground">
+                                    Corrige hoja por hoja: asigna cada hoja a su
+                                    documento, une hojas al documento anterior o
+                                    parte un bloque.
+                                    <template v-if="h.division.revision">
+                                        Última corrección: revisión
+                                        {{ h.division.revision.version }}
+                                        {{
+                                            h.division.revision.por
+                                                ? `por ${h.division.revision.por}`
+                                                : ''
+                                        }}
+                                        ({{ h.division.revision.cambios }}
+                                        hoja(s)).
+                                    </template>
+                                    <template
+                                        v-else-if="h.division.paginas_manuales"
+                                    >
+                                        {{ h.division.paginas_manuales }}
+                                        hoja(s) corregidas por RH.
+                                    </template>
+                                </p>
+                            </div>
+                            <Button as-child>
+                                <Link :href="h.division.editor_url">
+                                    <ListChecks class="size-4" /> Corregir hojas
+                                </Link>
+                            </Button>
+                        </div>
 
                         <!-- Partes -->
                         <section class="flex flex-col gap-2">

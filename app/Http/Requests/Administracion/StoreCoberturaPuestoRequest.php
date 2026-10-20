@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Administracion;
 
 use App\Enums\MotivoCobertura;
+use App\Models\CoberturaPuesto;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -16,7 +17,8 @@ class StoreCoberturaPuestoRequest extends FormRequest
     {
         $usuario = $this->user();
 
-        return $usuario !== null && ($usuario->can('organigrama.editar') || $usuario->can('puestos.administrar'));
+        // Solo RH / super admin (CoberturaPuestoPolicy::create).
+        return $usuario !== null && $usuario->can('create', CoberturaPuesto::class);
     }
 
     /**
@@ -27,9 +29,11 @@ class StoreCoberturaPuestoRequest extends FormRequest
         return [
             'colaborador_id' => ['required', 'integer', Rule::exists('colaboradores', 'id')],
             'puesto_id' => ['required', 'integer', Rule::exists('puestos', 'id')->where('activo', true)],
-            'sucursal_id' => ['nullable', 'integer', Rule::exists('sucursales', 'id'), 'required_without:region_id'],
-            'region_id' => ['nullable', 'integer', Rule::exists('nodos_comerciales', 'id'), 'required_without:sucursal_id'],
-            'motivo' => ['required', Rule::enum(MotivoCobertura::class)],
+            'sucursal_id' => ['nullable', 'integer', Rule::exists('sucursales', 'id')],
+            'region_id' => ['nullable', 'integer', Rule::exists('nodos_comerciales', 'id')],
+            // «Cubre temporalmente este puesto»: sin motivo ni fechas (el
+            // servicio usa «Puesto vacante» y la fecha de hoy).
+            'motivo' => ['nullable', Rule::enum(MotivoCobertura::class)],
             'nota' => ['nullable', 'string', 'max:500'],
             'fecha_inicio' => ['nullable', 'date'],
         ];
@@ -42,9 +46,6 @@ class StoreCoberturaPuestoRequest extends FormRequest
     {
         return [
             'colaborador_id.required' => 'Elige a quién va a cubrir el puesto.',
-            'motivo.required' => 'Indica el motivo de la cobertura.',
-            'sucursal_id.required_without' => 'Indica la sucursal o la región que se va a cubrir.',
-            'region_id.required_without' => 'Indica la sucursal o la región que se va a cubrir.',
         ];
     }
 }

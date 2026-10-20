@@ -19,21 +19,21 @@ class CoberturaPuestoController extends Controller
 
     public function store(StoreCoberturaPuestoRequest $request): RedirectResponse
     {
-        /** @var array{colaborador_id: int, puesto_id: int, sucursal_id?: int|null, region_id?: int|null, motivo: string, nota?: string|null, fecha_inicio?: string|null} $datos */
+        /** @var array{colaborador_id: int, puesto_id: int, sucursal_id?: int|null, region_id?: int|null, motivo?: string|null, nota?: string|null, fecha_inicio?: string|null} $datos */
         $datos = $request->validated();
 
         $this->coberturas->asignar($datos, $request->user());
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Cobertura registrada: ya aparece en el organigrama.']);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Listo: ya se ve en el organigrama quién cubre temporalmente este puesto.']);
     }
 
     public function finalizar(Request $request, CoberturaPuesto $cobertura): RedirectResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('organigrama.editar') || $usuario->can('puestos.administrar'), 403);
+        $this->authorize('finalizar', $cobertura);
 
         $this->coberturas->finalizar($cobertura, $usuario);
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Cobertura terminada.']);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Se quitó la cobertura temporal: la plaza vuelve a verse vacante.']);
     }
 }

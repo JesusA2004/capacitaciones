@@ -46,6 +46,20 @@ class BajaRegistroService
      */
     public function nueva(Colaborador $colaborador, array $atributos, ?User $actor, OrigenBaja $origen = OrigenBaja::Sistema): Baja
     {
+        $baja = $this->preparar($colaborador, $atributos, $actor, $origen);
+        $baja->folio = $this->siguienteFolio((int) now()->year);
+
+        return $baja;
+    }
+
+    /**
+     * Igual que nueva() pero SIN folio (no toca la base): para validar la
+     * captura completa antes de abrir la transacción del registro.
+     *
+     * @param  array<string, mixed>  $atributos
+     */
+    public function preparar(Colaborador $colaborador, array $atributos, ?User $actor, OrigenBaja $origen = OrigenBaja::Sistema): Baja
+    {
         $baja = new Baja([
             'colaborador_id' => $colaborador->id,
             'nombre_colaborador' => Str::limit($colaborador->nombreCompleto(), 200, ''),
@@ -55,12 +69,11 @@ class BajaRegistroService
             'departamento_id' => $colaborador->departamento_id,
             'fecha_ingreso' => $colaborador->fecha_ingreso?->toDateString(),
             'origen' => $origen,
-            'estatus' => EstatusBaja::Borrador,
+            'estatus' => EstatusBaja::EnRevisionRh,
             'es_rotacion' => true,
             'creado_por' => $actor?->id,
             ...$atributos,
         ]);
-        $baja->folio = $this->siguienteFolio((int) now()->year);
         $this->recalcularAntiguedad($baja);
 
         return $baja;
@@ -112,10 +125,10 @@ class BajaRegistroService
 
     /**
      * Liga el cierre laboral recién aplicado con su expediente de baja: la
-     * baja enviada por el gerente (si viene) o una nueva «En revisión RH»
-     * para el atajo de RH / jefe directo (ciclo laboral, API móvil) y la no
-     * renovación desde la evaluación. Corre dentro de la transacción del
-     * cierre.
+     * baja registrada en el módulo de Bajas (si viene) o una nueva «En
+     * trámite» (o «En revisión Jurídico» si la causal lo requiere) para el
+     * atajo de la API móvil y la no renovación desde la evaluación. Corre
+     * dentro de la transacción del cierre.
      *
      * @param  array<string, mixed>  $datos  recontratable, comentarios/motivo, fecha_conocimiento_falta, entrega_aviso_rescision, fecha_entrega_aviso.
      */
@@ -152,15 +165,14 @@ class BajaRegistroService
             'fecha_conocimiento_falta' => $esRescision ? $fechaOpcional('fecha_conocimiento_falta') : null,
             'entrega_aviso_rescision' => $esRescision ? EntregaAvisoRescision::tryFrom((string) ($datos['entrega_aviso_rescision'] ?? '')) : null,
             'fecha_entrega_aviso' => $esRescision ? $fechaOpcional('fecha_entrega_aviso') : null,
-            'estatus' => EstatusBaja::EnRevisionRh,
+            'estatus' => $cierre->causalRotacion?->requiere_juridico === true ? EstatusBaja::EnRevisionJuridico : EstatusBaja::EnRevisionRh,
             'solicitado_por' => $actor->id,
             'enviado_en' => now(),
             'acceso_suspendido_en' => $cierre->acceso_suspendido_en,
         ], $actor);
         $baja->save();
 
-        $this->bitacora($baja, $actor, AccionBitacoraBaja::Creo, motivo: sprintf('Baja aplicada por %s desde el ciclo laboral (cierre #%d).', $aplicadaPor, $cierre->id));
-        $this->bitacora($baja, $actor, AccionBitacoraBaja::Envio, 'estatus', null, EstatusBaja::EnRevisionRh->etiqueta());
+        $this->bitacora($baja, $actor, AccionBitacoraBaja::Registro, 'estatus', null, $baja->estatus->etiqueta(), sprintf('Baja aplicada por %s (cierre #%d).', $aplicadaPor, $cierre->id));
 
         return $baja;
     }

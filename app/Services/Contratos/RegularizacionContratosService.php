@@ -55,7 +55,7 @@ use Throwable;
  *  - registro y documentos: ContratoLaboralService (crearContrato, renovar,
  *    generarDocumento) — mismo camino que el alta.
  *
- * @phpstan-type Documento array{clave: string, nombre: string, estado: string, estado_etiqueta: string, documento_id: int|null, descargar_url: string|null, faltantes: list<array<string, mixed>>, motivo: string|null, firmado_cargado: array{etiqueta: string, url: string}|null}
+ * @phpstan-type Documento array{clave: string, nombre: string, estado: string, estado_etiqueta: string, documento_id: int|null, descargar_url: string|null, faltantes: list<array<string, mixed>>, motivo: string|null, firmado_cargado: array{etiqueta: string, url: string, nombre: string, mime: string|null}|null}
  * @phpstan-type Etapa array{etapa: string, etiqueta: string, tipo: string, tipo_etiqueta: string, contrato_id: int|null, estado_contrato: string|null, fecha_inicio: string, fecha_fin: string|null, documentos: list<Documento>, pendiente_evaluacion: bool}
  * @phpstan-type Plan array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, fecha_ingreso: string|null, meses_periodo_prueba: int|null, fin_periodo_prueba: string|null, periodo_vencido: bool, expediente_url: string, ciclo_url: string, estado: string, estado_etiqueta: string, motivo: string|null, contratos: list<Etapa>, faltantes: list<array<string, mixed>>, bloqueos: list<array{etiqueta: string, detalle: string, configurar_url: string|null}>, generable: bool}
  */
@@ -480,6 +480,10 @@ class RegularizacionContratosService
                 $firmado = [
                     'etiqueta' => sprintf('Firmado cargado: %s · v%d · %s', $cargado->tipo->nombre, $cargado->version, $cargado->status->etiqueta()),
                     'url' => route('rh.documentos.descargar', $cargado->id, false),
+                    // Para abrirlo en el visor embebido (PDF o imagen) sin
+                    // que el navegador tenga que adivinar el tipo.
+                    'nombre' => $cargado->original_name,
+                    'mime' => $cargado->mime,
                 ];
 
                 break;

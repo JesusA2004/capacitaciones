@@ -10,6 +10,7 @@ use App\Http\Controllers\Administracion\ImportarDatosController;
 use App\Http\Controllers\Administracion\JerarquiaPuestoController;
 use App\Http\Controllers\Administracion\MatrizComercialController;
 use App\Http\Controllers\Administracion\NotificacionSistemaController;
+use App\Http\Controllers\Administracion\OrganigramaAccionesController;
 use App\Http\Controllers\Administracion\PuestoController;
 use App\Http\Controllers\Administracion\RolController;
 use App\Http\Controllers\Administracion\SucursalController;
@@ -90,6 +91,10 @@ Route::middleware(['auth', 'verified'])
         Route::prefix('departamentos')->name('departamentos.')->group(function () {
             Route::get('/', [DepartamentoController::class, 'index'])->name('index');
             Route::post('/', [DepartamentoController::class, 'store'])->name('store');
+            // Detalle + mover personas en lote a otro departamento
+            // (MovimientoDepartamentoService → DatosExpedienteService).
+            Route::get('{departamento}', [DepartamentoController::class, 'show'])->name('show');
+            Route::post('{departamento}/mover-colaboradores', [DepartamentoController::class, 'moverColaboradores'])->name('mover-colaboradores');
             Route::put('{departamento}', [DepartamentoController::class, 'update'])->name('update');
             Route::delete('{departamento}', [DepartamentoController::class, 'destroy'])->name('destroy');
         });
@@ -109,6 +114,12 @@ Route::middleware(['auth', 'verified'])
             // sucursal/región sin dejar el suyo).
             Route::post('coberturas', [CoberturaPuestoController::class, 'store'])->name('coberturas.store');
             Route::post('coberturas/{cobertura}/finalizar', [CoberturaPuestoController::class, 'finalizar'])->name('coberturas.finalizar');
+            // Acciones por persona desde el organigrama (solo RH): lado
+            // Q1/Q3 y subir / bajar / mover bajo… (OrganigramaAccionesController).
+            Route::put('personas/{colaborador}/clasificacion', [OrganigramaAccionesController::class, 'clasificar'])->name('personas.clasificar');
+            Route::get('personas/{colaborador}/opciones', [OrganigramaAccionesController::class, 'opciones'])->name('personas.opciones');
+            Route::post('personas/{colaborador}/vista-previa', [OrganigramaAccionesController::class, 'vistaPrevia'])->name('personas.vista-previa');
+            Route::post('personas/{colaborador}/mover', [OrganigramaAccionesController::class, 'mover'])->name('personas.mover');
         });
 
         // Matriz comercial / territorial: vista B del Organigrama, árbol

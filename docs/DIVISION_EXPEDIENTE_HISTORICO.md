@@ -81,6 +81,32 @@ Se reusan los existentes y además se valida el alcance (`AlcanceOrganizacionalS
 
 El propio expediente devuelve 403.
 
+## Corregir hojas a mano (editor de hojas)
+
+Cuando el OCR deja un bloque sin clasificar (p. ej. 5-7) o no detecta que las hojas 9-11 siguen al contrato que empieza en la 8, RH lo corrige **hoja por hoja** en **Dividir PDF histórico → Corregir hojas** (`/rh/expedientes/division-historico/{división}/editor`).
+
+- **Miniaturas de todas las hojas**, dibujadas en el navegador con pdf.js desde el PDF original (una sola descarga; cada miniatura se dibuja al entrar en pantalla). Cada hoja muestra su clasificación con color por tipo; «Sin clasificar» va resaltado con borde punteado.
+- **Selección:** clic, Mayús+clic (rango), Ctrl/Cmd+clic (sumar), o escribiendo «5-7, 9». Con teclado: flechas, Espacio, Mayús+flechas, Enter (ver en grande), Ctrl+A, Esc. En móvil cada toque suma o quita y las acciones salen en una barra inferior.
+- **Acciones:** asignar tipo (por hoja o en lote; si ya hay un documento de ese tipo, las hojas se le unen, salvo «como documento aparte»), «Continúa el documento anterior» (las hojas se unen al documento de la hoja previa, en el MISMO documento), «Nuevo documento desde esta hoja» (partir), «Mover a…» y reordenar hojas dentro del documento. Zoom de cualquier hoja.
+- **Deshacer/rehacer** (Ctrl+Z / Ctrl+Y) durante la sesión. Nada cambia en el expediente hasta **Guardar**, que primero muestra la **vista previa**: documentos resultantes (tipo, hojas, nº de páginas, qué pasará en el expediente), el PDF de cada uno (armado en memoria, no se guarda) y advertencias: hojas que quedan sin clasificar, documentos requeridos que siguen faltando, tipos repetidos (el expediente guarda una versión vigente por tipo), tipos ya cubiertos por otro origen y documentos que se quedan sin hojas.
+
+Al **confirmar** (`EditorPaginasDivisionService::confirmar`):
+
+1. Se generan los PDFs solo de los documentos que cambiaron, en `…/Division por checklist/{división}/Revision {n}/`. El PDF original nunca se toca.
+2. En una `DB::transaction`: se crea la revisión `n` (`revisiones_division_historico`: plan, hash, auditoría hoja por hoja «de → a», advertencias, autor); las partes anteriores quedan con `reemplazada_por_revision_id` (no se borran, ni su copia); nacen las partes nuevas (`revision_id`).
+3. En el expediente: si el tipo vino de este PDF, se sube **nueva versión en revisión** (la anterior se archiva con `subirVersion`); si el tipo no estaba cubierto, se carga en revisión; si ya hay un documento vigente de otro origen, no se reemplaza (solo se guarda la copia). Un documento de este PDF que se queda sin hojas se **archiva** si seguía en revisión; si ya estaba aprobado no se toca y se advierte.
+4. Bitácora: `expediente_historico.hojas_corregidas` (AuditoriaService).
+
+Es **idempotente**: el mismo plan dos veces no crea nada la segunda. Con concurrencia, si otra persona guardó antes, la revisión base vieja se rechaza («recarga»). Solo se corrige la división más reciente de cada PDF.
+
+**Volver a dividir no pisa lo corregido:** las hojas corregidas quedan `manual` en `divisiones_expediente_historico.paginas` (con `tipo_ocr` = lo que dijo el OCR). Al re-procesar el mismo archivo (mismo SHA-256), cada documento con al menos una hoja manual se conserva entero tal como RH lo dejó y el OCR solo clasifica el resto; se agrega la advertencia «Se respetaron las hojas que RH corrigió a mano». Asignar una parte completa con «Asignar a…» también marca sus hojas como manuales.
+
+| Acción del editor | Permiso |
+|---|---|
+| Abrir el editor, vista previa y PDF de vista previa | `rh.documentos.extraccion.ver` |
+| Guardar la corrección | `expedientes.editar` |
+
+Con alcance organizacional y nunca sobre el propio expediente (403). Pruebas: `tests/Feature/Expedientes/EditorHojasDivisionTest.php` (PDF sintético de 12 hojas).
 ## OCR en el servidor (Linux VPS)
 
 ```bash

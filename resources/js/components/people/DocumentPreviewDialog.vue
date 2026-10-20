@@ -19,6 +19,7 @@ import {
 import { useResizeObserver } from '@vueuse/core';
 import type { Component } from 'vue';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import EsqueletoDocumento from '@/components/people/EsqueletoDocumento.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -27,7 +28,6 @@ import {
     DialogDescription,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Spinner } from '@/components/ui/spinner';
 import {
     claseDeArchivo,
     extensionDe,
@@ -73,6 +73,14 @@ const props = withDefaults(
         estado?: string | null;
         subidoPor?: string | null;
         fecha?: string | null;
+        /**
+         * El documento aún se está generando (p. ej. useVistaPreviaPdf pide
+         * el PDF al backend): el visor abre de inmediato con el esqueleto
+         * animado en vez de esperar en silencio.
+         */
+        cargando?: boolean;
+        /** Título mientras se genera (aún no hay archivo). */
+        tituloCarga?: string | null;
     }>(),
     {
         archivos: null,
@@ -87,6 +95,8 @@ const props = withDefaults(
         estado: null,
         subidoPor: null,
         fecha: null,
+        cargando: false,
+        tituloCarga: null,
     },
 );
 
@@ -247,6 +257,18 @@ function fechaLegible(valor: string): string {
               year: 'numeric',
           });
 }
+
+/** Texto del esqueleto: lo generado «se genera», lo subido «se abre». */
+const textoCarga = computed(() => {
+    const a = actual.value;
+    const pista = [a?.nombre, a?.etiqueta, a?.estado, props.tituloCarga]
+        .filter(Boolean)
+        .join(' ');
+
+    return props.cargando || /vista previa/i.test(pista)
+        ? 'Generando vista previa…'
+        : 'Abriendo archivo…';
+});
 
 const urlDescarga = computed(
     () => actual.value?.downloadUrl ?? actual.value?.previewUrl ?? null,
@@ -541,7 +563,7 @@ watch(indiceActual, async (indice) => {
                         class="truncate text-sm font-semibold sm:text-base"
                         :title="actual?.nombre"
                     >
-                        {{ actual?.nombre ?? 'Vista previa' }}
+                        {{ actual?.nombre ?? tituloCarga ?? 'Vista previa' }}
                     </DialogTitle>
                     <DialogDescription
                         class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground"
@@ -572,6 +594,7 @@ watch(indiceActual, async (indice) => {
 
                 <div class="flex shrink-0 items-center gap-1.5">
                     <Button
+                        v-if="urlDescarga"
                         as-child
                         size="sm"
                         variant="outline"
@@ -804,36 +827,9 @@ watch(indiceActual, async (indice) => {
                         <!-- Cargando -->
                         <div
                             v-if="estadoCarga === 'cargando' && embebible"
-                            class="pointer-events-none absolute inset-0 flex items-center justify-center p-6"
+                            class="pointer-events-none absolute inset-0 flex items-center justify-center bg-[var(--mrl-fondo)] p-6"
                         >
-                            <div
-                                class="flex w-full max-w-sm flex-col items-center gap-4"
-                            >
-                                <div
-                                    class="flex aspect-[3/4] w-40 flex-col gap-2 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 shadow-sm"
-                                    aria-hidden="true"
-                                >
-                                    <span
-                                        class="h-2.5 w-3/4 animate-pulse rounded bg-crema"
-                                    />
-                                    <span
-                                        class="h-2 w-full animate-pulse rounded bg-crema/70"
-                                    />
-                                    <span
-                                        class="h-2 w-5/6 animate-pulse rounded bg-crema/70"
-                                    />
-                                    <span
-                                        class="mt-2 flex-1 animate-pulse rounded-md bg-crema/50"
-                                    />
-                                </div>
-                                <p
-                                    class="flex items-center gap-2 text-sm text-muted-foreground"
-                                    role="status"
-                                >
-                                    <Spinner class="size-4" />
-                                    Cargando vista previa…
-                                </p>
-                            </div>
+                            <EsqueletoDocumento :texto="textoCarga" />
                         </div>
                     </div>
 
@@ -908,6 +904,16 @@ watch(indiceActual, async (indice) => {
                         </Button>
                     </template>
                 </template>
+
+                <div
+                    v-else-if="cargando"
+                    class="flex size-full items-center justify-center p-6"
+                >
+                    <EsqueletoDocumento
+                        texto="Generando vista previa…"
+                        detalle="Puede tardar unos segundos."
+                    />
+                </div>
 
                 <div
                     v-else

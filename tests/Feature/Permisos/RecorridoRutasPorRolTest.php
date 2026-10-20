@@ -85,7 +85,12 @@ test('rh_admin no recibe 403 en ninguna pantalla PEOPLE/RH', function () {
     // Fuera de PEOPLE/RH por diseño: roles y apariencia son de super_admin;
     // capacitación (cursos, asignaciones, calificaciones…) es otro módulo
     // y en producción está detrás del feature flag `capacitacion`.
-    $fueraDeRh = ['/administracion/roles', '/administracion/configuracion/apariencia', '/cursos', '/asignaciones', '/multimedia', '/bancos-preguntas', '/calificaciones', '/reportes/cumplimiento'];
+    // Importaciones y cargas masivas: solo super_admin (2026-10-20,
+    // ImportacionesSoloSuperAdminTest) — RH conserva las pantallas de consulta.
+    $fueraDeRh = [
+        '/administracion/roles', '/administracion/configuracion/apariencia', '/cursos', '/asignaciones', '/multimedia', '/bancos-preguntas', '/calificaciones', '/reportes/cumplimiento',
+        '/administracion/importar-datos', '/rh/importaciones', '/rh/contactos-emergencia', '/rh/expedientes/migracion-inicial', '/rh/perfiles-puesto/importar',
+    ];
 
     $prohibidas = array_values(array_filter(rrProhibidas($rh, false), function (string $ruta) use ($fueraDeRh): bool {
         foreach ($fueraDeRh as $prefijo) {

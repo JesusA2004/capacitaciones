@@ -174,7 +174,8 @@ test('un contrato firmado cargado en el expediente se informa pero no impide gen
 
     expect($principal['clave'])->toBe('contrato_capacitacion')
         ->and($principal['estado'])->toBe('por_generar')
-        ->and($principal['firmado_cargado'])->not->toBeNull();
+        ->and($principal['firmado_cargado'])->not->toBeNull()
+        ->and($principal['firmado_cargado'])->toHaveKeys(['url', 'nombre', 'mime']);
 
     $this->actingAs($this->rh)->post(route('rh.contratos.generar', $colaborador))->assertRedirect();
 

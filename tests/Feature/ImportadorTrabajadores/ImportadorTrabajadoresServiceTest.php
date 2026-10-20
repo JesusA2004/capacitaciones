@@ -53,7 +53,8 @@ function itvArchivo(array $filas): UploadedFile
 beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
     $this->importador = app(ImportadorTrabajadoresService::class);
-    $this->actor = clUsuario('rh_admin');
+    // Importar salarios y vacaciones es solo de super_admin (2026-10-20).
+    $this->actor = clUsuario('super_admin');
     $this->sucursal = Sucursal::factory()->create(['nombre' => 'Atlacomulco', 'activo' => true]);
 });
 

@@ -61,7 +61,7 @@ const ESCENAS: EscenaBase[] = [
     },
     {
         capitulo: 'Plantilla y vacantes reales',
-        pantalla: 'Administración → Sucursales → detalle',
+        pantalla: 'Organización → Sucursales → detalle',
         ruta: '/administracion/sucursales/:sucursal',
         captura: '03-plantilla-sucursal.png',
         accion: 'Abrir la sucursal del gerente demo y mostrar la plantilla autorizada contra la ocupada del puesto Gestor.',
@@ -409,9 +409,9 @@ const ESCENAS: EscenaBase[] = [
         captura: '31-baja.png',
         accion: 'Abrir «Iniciar baja», elegir el tipo, el motivo y la fecha efectiva.',
         zoom: 'Zoom al diálogo',
-        textoPantalla: 'El jefe o RH inicia → documentos',
+        textoPantalla: 'El gerente o RH la registra → documentos',
         narracion:
-            'La baja no es una solicitud ni requiere otra autorización: el jefe directo o Recursos Humanos la inicia desde el ciclo laboral de la persona. Al iniciarla, el acceso de la persona se suspende de inmediato, pero nunca se borra nada.',
+            'La baja no es una solicitud ni requiere autorización: el gerente o Recursos Humanos la registra en «Bajas» (o desde el ciclo laboral) después de ver la vista previa de la renuncia y del finiquito. Al registrarla, el acceso de la persona se suspende de inmediato, pero nunca se borra nada.',
         transicion: 'Corte',
     },
     {

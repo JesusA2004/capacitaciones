@@ -14,29 +14,35 @@ use App\Models\Baja;
 use App\Models\BajaBitacora;
 use App\Models\CausalRotacion;
 use App\Models\Colaborador;
+use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\CierreLaboral\CausalRotacionService;
 use App\Services\CierreLaboral\CierreLaboralService;
+use App\Services\Finiquitos\FiniquitoService;
 use App\Support\FechaMexico;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Flujo de la baja (especificación de RH, docs/BAJAS_Y_CAUSALES.md). Lo usan
  * la web (Rh\BajaController) y la API v1 (Api\V1\BajaController): una sola
  * fuente de reglas.
  *
- *   Gerente: Borrador → «Enviar a RH» (En revisión RH; el acceso de la
- *   persona se suspende de inmediato y se aplica el cierre laboral:
- *   documentos generados y finiquito) → RH valida / envía a Jurídico /
- *   rechaza (regresa al gerente con motivo) / cambia causal con motivo →
- *   Jurídico aprueba o rechaza → RH cierra (documentos obligatorios
- *   completos, RN-05): colaborador Inactivo + bloqueo definitivo de acceso
- *   (tokens Sanctum, dispositivos) → RH puede reabrir con motivo.
+ * La baja es DIRECTA: el gerente (su personal, por alcance) o RH la
+ * REGISTRA y queda aplicada en ese mismo momento —sin borrador, sin «enviar
+ * a RH» y sin aprobación—: expediente de la baja con folio, cierre laboral
+ * «Baja aplicada», acceso suspendido, documentos de la forma/causal
+ * generados y finiquito propuesto. Lo que sigue: completar/adjuntar
+ * documentos, revisión de Jurídico si la causal lo requiere (RN-06), el
+ * finiquito y el CIERRE por RH (documentos obligatorios completos, RN-05):
+ * colaborador Inactivo + bloqueo definitivo. RH puede marcarla «No
+ * procede» (devuelve el acceso) o reabrirla con motivo.
  *
  * Nunca borra usuarios, colaboradores ni expedientes. Todo cambio queda en
  * la bitácora (RN-13).
@@ -64,133 +70,123 @@ class BajaService
         private readonly CierreLaboralService $cierres,
         private readonly CausalRotacionService $causales,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly FiniquitoService $finiquitos,
     ) {}
 
     /**
-     * Crea o actualiza el borrador del gerente (también una baja Rechazada
-     * que el gerente corrige). Valida al guardar solo lo que ya se capturó;
-     * lo completo se exige al enviar.
+     * REGISTRA la baja y la aplica de inmediato (RN-01…RN-11 completas antes
+     * de tocar nada). En una transacción: expediente con folio, cierre
+     * laboral aplicado, acceso suspendido y documentos de la causa
+     * generados. Después (sin deshacer la baja si falla): finiquito
+     * propuesto y avisos por la capa única de notificaciones.
      *
-     * @param  array<string, mixed>  $datos  colaborador_id (solo al crear), forma_salida, causal_rotacion_id, fecha_baja, recontratable, comentarios, fecha_conocimiento_falta, entrega_aviso_rescision, fecha_entrega_aviso
+     * @param  array<string, mixed>  $datos  colaborador_id, forma_salida, causal_rotacion_id, fecha_baja, recontratable, comentarios, fecha_conocimiento_falta, entrega_aviso_rescision, fecha_entrega_aviso
      */
-    public function guardar(?Baja $baja, array $datos, User $actor): Baja
+    public function registrar(array $datos, User $actor): Baja
     {
-        if ($baja === null) {
-            $colaborador = Colaborador::query()->where('id', (int) ($datos['colaborador_id'] ?? 0))->first();
-
-            if ($colaborador === null) {
-                throw ValidationException::withMessages(['colaborador_id' => 'Elige al colaborador (busca por nombre o número de empleado).']);
-            }
-
-            $this->exigirPuedeSolicitar($actor, $colaborador);
-
-            if (! in_array($colaborador->estatus->value, EstadoUsuario::valoresVigentes(), true)) {
-                throw ValidationException::withMessages(['colaborador_id' => sprintf('%s ya no está activo.', $colaborador->nombreCompleto())]);
-            }
-        } else {
-            $this->exigirEditablePorSolicitante($baja, $actor);
-            $colaborador = $baja->colaborador;
-        }
-
-        if (! $colaborador instanceof Colaborador) {
-            throw ValidationException::withMessages(['colaborador_id' => 'La baja no tiene colaborador.']);
-        }
-
-        return DB::transaction(function () use ($baja, $colaborador, $datos, $actor): Baja {
-            Colaborador::query()->lockForUpdate()->where('id', $colaborador->id)->first();
-            $this->registro->exigirSinBajaAbierta($colaborador, $baja?->id);
-
-            $nueva = $baja === null;
-            $baja ??= $this->registro->nueva($colaborador, [], $actor);
-            $antes = $nueva ? [] : $this->instantanea($baja);
-
-            $this->aplicarCaptura($baja, $datos, $actor);
-            $this->validarCaptura($baja);
-            $baja->save();
-
-            if ($nueva) {
-                $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::Creo, 'estatus', null, $baja->estatus->etiqueta());
-            } else {
-                $this->registrarCambios($baja, $actor, $antes, null);
-            }
-
-            return $baja->refresh();
-        });
-    }
-
-    /**
-     * «Enviar a RH» (RN-01…RN-10 completas). Primera vez: se aplica el cierre
-     * laboral (acceso suspendido, documentos generados, finiquito). Reenvío
-     * tras un rechazo: el cierre se sincroniza con lo corregido.
-     */
-    public function enviar(Baja $baja, User $actor): Baja
-    {
-        $this->exigirEditablePorSolicitante($baja, $actor);
-        $baja->loadMissing(['causal', 'colaborador']);
+        $colaborador = $this->colaboradorVigente($datos, $actor);
+        $baja = $this->registro->preparar($colaborador, [], $actor);
+        $this->aplicarCaptura($baja, $datos, $actor);
+        $this->validarCaptura($baja);
+        $baja->unsetRelation('causal');
         $this->reglas->exigirCompleta($baja);
         $this->exigirFormaPermitida($baja, $actor);
 
-        $baja = DB::transaction(function () use ($baja, $actor): Baja {
-            $bloqueada = Baja::query()->lockForUpdate()->findOrFail($baja->id);
+        $baja = DB::transaction(function () use ($baja, $colaborador, $actor): Baja {
+            Colaborador::query()->lockForUpdate()->where('id', $colaborador->id)->first();
+            $this->registro->exigirSinBajaAbierta($colaborador);
 
-            if (! $bloqueada->estatus->editablePorSolicitante()) {
-                throw ValidationException::withMessages(['estatus' => sprintf('La baja ya está «%s».', $bloqueada->estatus->etiqueta())]);
-            }
+            $juridico = $baja->requiereJuridico();
+            $baja->folio = $this->registro->siguienteFolio((int) now()->year);
+            $baja->forceFill([
+                'estatus' => $juridico ? EstatusBaja::EnRevisionJuridico : EstatusBaja::EnRevisionRh,
+                'solicitado_por' => $actor->id,
+                'enviado_en' => now(),
+            ])->save();
 
-            $anterior = $baja->estatus;
-            $cierre = $baja->cierre;
+            $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::Registro, 'estatus', null, $baja->estatus->etiqueta());
 
-            if ($cierre === null || $cierre->estado->esFinal()) {
-                $cierre = $this->cierres->aplicarDesdeBaja($baja, $actor);
-            } else {
-                $this->cierres->sincronizarDesdeBaja($cierre, $baja, $actor);
-                $this->cierres->suspenderAccesoPorBaja($cierre->refresh(), $actor);
-            }
+            // Cierre laboral aplicado: solicitud (folio del trámite), cierre
+            // «Baja aplicada», acceso suspendido y documentos de la causa.
+            $cierre = $this->cierres->aplicarDesdeBaja($baja, $actor);
 
             $baja->forceFill([
                 'cierre_laboral_id' => $cierre->id,
-                'estatus' => EstatusBaja::EnRevisionRh,
-                'solicitado_por' => $baja->solicitado_por ?? $actor->id,
-                'enviado_en' => now(),
                 'acceso_suspendido_en' => $cierre->refresh()->acceso_suspendido_en ?? $baja->acceso_suspendido_en,
-                'rechazado_por' => null,
-                'rechazado_en' => null,
-                'rechazado_area' => null,
-                'motivo_rechazo' => null,
-                'validado_por' => null,
-                'validado_en' => null,
             ])->save();
 
-            $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::Envio, 'estatus', $anterior->etiqueta(), EstatusBaja::EnRevisionRh->etiqueta());
+            if ($juridico) {
+                $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::EnvioJuridico, 'estatus', null, EstatusBaja::EnRevisionJuridico->etiqueta(), 'La causal requiere revisión de Jurídico antes del cierre (RN-06).');
+            }
 
             return $baja;
         });
 
-        $this->alertas->alEnviar($baja->refresh(), $actor);
+        $this->proponerFiniquito($baja, $actor);
+        $this->alertas->alRegistrar($baja->refresh(), $actor);
 
         return $baja;
     }
 
     /**
-     * RH valida causal, documentos y fechas (no cierra todavía).
+     * Vista previa del FINIQUITO que se propondrá al registrar la baja, con
+     * los datos del formulario y el salario registrado. Se arma en memoria:
+     * no guarda nada (ni baja, ni solicitud, ni finiquito).
+     *
+     * @param  array<string, mixed>  $datos  colaborador_id, forma_salida, causal_rotacion_id?, fecha_baja?
      */
-    public function validar(Baja $baja, User $actor): Baja
+    public function vistaPreviaFiniquito(array $datos, User $actor): string
     {
-        $this->exigirRh($actor);
-        $this->exigirEstatus($baja, [EstatusBaja::EnRevisionRh]);
-        $baja->loadMissing('causal');
-        $this->reglas->exigirCompleta($baja);
+        $colaborador = $this->colaboradorVigente($datos, $actor);
+        $forma = FormaSalida::tryFrom((string) ($datos['forma_salida'] ?? ''));
 
-        DB::transaction(function () use ($baja, $actor): void {
-            $baja->update(['validado_por' => $actor->id, 'validado_en' => now()]);
-            $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::Valido, motivo: $baja->requiereJuridico() && $baja->juridico_en === null ? 'La causal requiere revisión de Jurídico antes del cierre.' : null);
-        });
+        if ($forma === null) {
+            throw ValidationException::withMessages(['forma_salida' => 'Elige cómo se va la persona para ver su finiquito.']);
+        }
 
-        return $baja->refresh();
+        $causalId = $datos['causal_rotacion_id'] ?? null;
+        $causal = is_numeric($causalId) ? CausalRotacion::query()->activas()->where('id', (int) $causalId)->first() : null;
+        $causal = $causal !== null && $causal->forma() === $forma ? $causal : null;
+        $fecha = is_string($datos['fecha_baja'] ?? null) && $datos['fecha_baja'] !== '' ? Carbon::parse($datos['fecha_baja'])->startOfDay() : FechaMexico::inicioDeHoy();
+
+        $solicitud = new SolicitudInterna;
+        $solicitud->forceFill([
+            'folio' => 'Vista previa',
+            'tipo_baja' => $forma->tipoBaja(),
+            'causal_rotacion_id' => $causal?->id,
+            'fecha_efectiva' => $fecha->toDateString(),
+        ]);
+        $solicitud->setRelation('causalRotacion', $causal);
+
+        $sueldo = $this->finiquitos->sueldoMensualSugerido($colaborador);
+
+        if ($sueldo <= 0) {
+            throw ValidationException::withMessages(['finiquito' => sprintf('%s no tiene salario registrado: el finiquito lo calcula RH capturando el sueldo.', $colaborador->nombreCompleto())]);
+        }
+
+        return $this->finiquitos->vistaPreviaPdf($this->finiquitos->propuestaEnMemoria($solicitud, $colaborador, $sueldo));
     }
 
     /**
-     * RN-06: RH la envía a Jurídico (la valida en el mismo paso).
+     * Compatibilidad (API v1 «enviar»): la baja ya quedó aplicada al
+     * registrarla; no hay paso de envío.
+     */
+    public function enviar(Baja $baja, User $actor): Baja
+    {
+        if (! in_array($baja->estatus, [EstatusBaja::EnRevisionRh, EstatusBaja::EnRevisionJuridico], true)) {
+            throw ValidationException::withMessages(['estatus' => sprintf('La baja está «%s»: ya no hay nada que enviar.', $baja->estatus->etiqueta())]);
+        }
+
+        if (! $this->puedeVerComoResponsable($baja, $actor)) {
+            throw new AuthorizationException('No puedes modificar esta baja.');
+        }
+
+        return $baja;
+    }
+
+    /**
+     * RN-06: RH la manda (otra vez) a Jurídico — p. ej. tras corregir la
+     * causal o cuando Jurídico la devolvió con observaciones.
      */
     public function enviarJuridico(Baja $baja, User $actor): Baja
     {
@@ -200,13 +196,7 @@ class BajaService
         $this->reglas->exigirCompleta($baja);
 
         DB::transaction(function () use ($baja, $actor): void {
-            $baja->update([
-                'estatus' => EstatusBaja::EnRevisionJuridico,
-                'validado_por' => $baja->validado_por ?? $actor->id,
-                'validado_en' => $baja->validado_en ?? now(),
-                'juridico_por' => null,
-                'juridico_en' => null,
-            ]);
+            $baja->update(['estatus' => EstatusBaja::EnRevisionJuridico, 'juridico_por' => null, 'juridico_en' => null]);
             $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::EnvioJuridico, 'estatus', EstatusBaja::EnRevisionRh->etiqueta(), EstatusBaja::EnRevisionJuridico->etiqueta());
         });
 
@@ -220,57 +210,44 @@ class BajaService
      */
     public function aprobarJuridico(Baja $baja, User $actor, ?string $comentario): Baja
     {
-        if (! $actor->can(self::PERMISO_JURIDICO)) {
-            throw new AuthorizationException('Solo Jurídico revisa esta baja.');
-        }
-
+        $this->exigirJuridico($actor);
         $this->exigirEstatus($baja, [EstatusBaja::EnRevisionJuridico]);
 
         DB::transaction(function () use ($baja, $actor, $comentario): void {
-            $baja->update(['estatus' => EstatusBaja::EnRevisionRh, 'juridico_por' => $actor->id, 'juridico_en' => now()]);
+            $baja->update(['estatus' => EstatusBaja::EnRevisionRh, 'juridico_por' => $actor->id, 'juridico_en' => now(), 'motivo_rechazo' => null, 'rechazado_area' => null]);
             $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::AproboJuridico, 'estatus', EstatusBaja::EnRevisionJuridico->etiqueta(), EstatusBaja::EnRevisionRh->etiqueta(), $this->textoOpcional($comentario));
         });
 
-        $this->alertas->alAprobarJuridico($baja, $actor);
+        $this->alertas->alResolverJuridico($baja, $actor, true);
 
         return $baja->refresh();
     }
 
     /**
-     * RH (en revisión RH) o Jurídico (en revisión Jurídico) la regresan al
-     * gerente con motivo. El acceso sigue suspendido: si la baja no procede,
-     * RH la marca «No procede» (devuelve el acceso) o lo rehabilita desde
-     * Usuarios, como hoy.
+     * Jurídico la DEVUELVE a RH con observaciones (no la aprueba): sigue en
+     * trámite —la baja ya está aplicada— y RH corrige (causal, datos,
+     * documentos) y la vuelve a enviar, o la marca «No procede».
      */
-    public function rechazar(Baja $baja, User $actor, string $motivo): Baja
+    public function devolverJuridico(Baja $baja, User $actor, string $motivo): Baja
     {
-        $area = match ($baja->estatus) {
-            EstatusBaja::EnRevisionRh => $actor->can(self::PERMISO_GESTIONAR) ? 'rh' : null,
-            EstatusBaja::EnRevisionJuridico => $actor->can(self::PERMISO_JURIDICO) ? 'juridico' : ($actor->can(self::PERMISO_GESTIONAR) ? 'rh' : null),
-            default => throw ValidationException::withMessages(['estatus' => sprintf('La baja está «%s»: no se puede rechazar.', $baja->estatus->etiqueta())]),
-        };
-
-        if ($area === null) {
-            throw new AuthorizationException('No puedes rechazar esta baja.');
-        }
-
+        $this->exigirJuridico($actor);
+        $this->exigirEstatus($baja, [EstatusBaja::EnRevisionJuridico]);
         $motivo = $this->exigirMotivo($motivo);
 
-        DB::transaction(function () use ($baja, $actor, $motivo, $area): void {
-            $anterior = $baja->estatus;
+        DB::transaction(function () use ($baja, $actor, $motivo): void {
             $baja->update([
-                'estatus' => EstatusBaja::Rechazada,
+                'estatus' => EstatusBaja::EnRevisionRh,
+                'juridico_por' => null,
+                'juridico_en' => null,
                 'rechazado_por' => $actor->id,
                 'rechazado_en' => now(),
-                'rechazado_area' => $area,
+                'rechazado_area' => 'juridico',
                 'motivo_rechazo' => $motivo,
-                'validado_por' => null,
-                'validado_en' => null,
             ]);
-            $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::Rechazo, 'estatus', $anterior->etiqueta(), EstatusBaja::Rechazada->etiqueta(), $motivo);
+            $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::DevolvioJuridico, 'estatus', EstatusBaja::EnRevisionJuridico->etiqueta(), EstatusBaja::EnRevisionRh->etiqueta(), $motivo);
         });
 
-        $this->alertas->resultado($baja, $actor, sprintf('Baja rechazada: %s', $baja->folio), sprintf('%s rechazó la baja de %s: %s Corrígela y vuelve a enviarla.', $area === 'juridico' ? 'Jurídico' : 'RH', $baja->nombre_colaborador, $motivo));
+        $this->alertas->alResolverJuridico($baja, $actor, false, $motivo);
 
         return $baja->refresh();
     }
@@ -279,12 +256,12 @@ class BajaService
      * RH corrige la causal (también de otra forma de salida) con motivo; el
      * cambio queda en la bitácora con usuario, fecha, valor anterior y nuevo
      * (criterio de aceptación 8). Si la nueva causal requiere Jurídico, la
-     * revisión de Jurídico vuelve a ser necesaria.
+     * baja pasa (otra vez) a «En revisión Jurídico».
      */
     public function cambiarCausal(Baja $baja, User $actor, int $causalId, string $motivo): Baja
     {
         $this->exigirRh($actor);
-        $this->exigirEstatus($baja, [EstatusBaja::EnRevisionRh, EstatusBaja::EnRevisionJuridico, EstatusBaja::Rechazada]);
+        $this->exigirEstatus($baja, [EstatusBaja::EnRevisionRh, EstatusBaja::EnRevisionJuridico]);
         $motivo = $this->exigirMotivo($motivo);
         $nueva = CausalRotacion::query()->activas()->where('id', $causalId)->first();
 
@@ -299,7 +276,9 @@ class BajaService
             throw ValidationException::withMessages(['causal_rotacion_id' => 'Es la misma causal que ya tiene la baja.']);
         }
 
-        DB::transaction(function () use ($baja, $actor, $nueva, $anterior, $motivo): void {
+        $aJuridico = false;
+
+        DB::transaction(function () use ($baja, $actor, $nueva, $anterior, $motivo, &$aJuridico): void {
             $forma = $nueva->forma();
             $formaAnterior = $baja->forma_salida;
             $cambios = ['causal_rotacion_id' => $nueva->id, 'forma_salida' => $forma, 'causal_migrada_de' => null];
@@ -307,6 +286,11 @@ class BajaService
             if ($nueva->requiere_juridico) {
                 $cambios['juridico_por'] = null;
                 $cambios['juridico_en'] = null;
+                $aJuridico = $baja->estatus === EstatusBaja::EnRevisionRh;
+
+                if ($aJuridico) {
+                    $cambios['estatus'] = EstatusBaja::EnRevisionJuridico;
+                }
             }
 
             // RN-09: al pasar a rescisión, «No» por defecto si no estaba capturado.
@@ -321,10 +305,18 @@ class BajaService
             $baja->update($cambios);
             $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::CambioCausal, 'causal', $anterior !== null ? sprintf('%s (%s)', $anterior->etiquetaConClave(), $formaAnterior?->etiqueta() ?? '—') : 'Sin causal', sprintf('%s (%s)', $nueva->etiquetaConClave(), $forma->etiqueta()), $motivo);
 
+            if ($aJuridico) {
+                $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::EnvioJuridico, 'estatus', EstatusBaja::EnRevisionRh->etiqueta(), EstatusBaja::EnRevisionJuridico->etiqueta(), 'La nueva causal requiere revisión de Jurídico (RN-06).');
+            }
+
             if ($baja->cierre !== null) {
                 $this->cierres->sincronizarDesdeBaja($baja->cierre, $baja->refresh(), $actor);
             }
         });
+
+        if ($aJuridico) {
+            $this->alertas->alEnviarJuridico($baja->refresh(), $actor);
+        }
 
         $this->alertas->alertas($baja->refresh(), $actor);
 
@@ -332,7 +324,7 @@ class BajaService
     }
 
     /**
-     * RH completa o corrige datos de la baja en revisión (fecha, comentario,
+     * RH completa o corrige datos de la baja en trámite (fecha, comentario,
      * recontratable —RN-09: solo RH lo cambia en rescisión—, datos del aviso
      * de rescisión) y marca si cuenta en rotación (movimiento interno). Todo
      * con bitácora.
@@ -342,7 +334,7 @@ class BajaService
     public function actualizarPorRh(Baja $baja, User $actor, array $datos): Baja
     {
         $this->exigirRh($actor);
-        $this->exigirEstatus($baja, [EstatusBaja::EnRevisionRh, EstatusBaja::EnRevisionJuridico, EstatusBaja::Rechazada]);
+        $this->exigirEstatus($baja, [EstatusBaja::EnRevisionRh, EstatusBaja::EnRevisionJuridico]);
         $baja->loadMissing('causal');
 
         DB::transaction(function () use ($baja, $actor, $datos): void {
@@ -368,22 +360,23 @@ class BajaService
     }
 
     /**
-     * RH cierra la baja (RN-05, RN-06, RN-11): validada, Jurídico aprobado
-     * si la causal lo requiere, documentos obligatorios completos y ya
-     * pasó el último día laborado. El colaborador queda Inactivo y su
+     * RH cierra la baja (RN-05, RN-06, RN-11): datos completos, Jurídico
+     * aprobado si la causal lo requiere, documentos obligatorios completos y
+     * ya pasó el último día laborado. El colaborador queda Inactivo y su
      * acceso bloqueado de forma definitiva (cuenta, tokens Sanctum,
      * dispositivos). Nunca se borra nada.
      */
     public function cerrar(Baja $baja, User $actor): Baja
     {
         $this->exigirRh($actor);
+
+        if ($baja->estatus === EstatusBaja::EnRevisionJuridico) {
+            throw ValidationException::withMessages(['estatus' => 'La baja está en revisión de Jurídico: se cierra cuando Jurídico la apruebe.']);
+        }
+
         $this->exigirEstatus($baja, [EstatusBaja::EnRevisionRh]);
         $baja->loadMissing(['causal', 'cierre']);
         $this->reglas->exigirCompleta($baja);
-
-        if ($baja->validado_en === null) {
-            throw ValidationException::withMessages(['estatus' => 'Primero valida la baja (causal, documentos y fechas).']);
-        }
 
         if ($baja->requiereJuridico() && $baja->juridico_en === null) {
             throw ValidationException::withMessages(['estatus' => 'La causal requiere revisión de Jurídico antes del cierre: envíala a Jurídico.']);
@@ -409,7 +402,7 @@ class BajaService
 
             if (config('finiquitos.exigir_finiquito_revisado_para_aprobar_baja') && ! $actor->can('solicitudes.bajas.omitir_finiquito')
                 && ($finiquito === null || ! in_array($finiquito->estado, [EstadoFiniquito::Revisado, EstadoFiniquito::Aprobado, EstadoFiniquito::Firmado, EstadoFiniquito::Pagado], true))) {
-                throw ValidationException::withMessages(['finiquito' => 'Antes de cerrar la baja, calcula y revisa el finiquito (Bajas y finiquitos). Al registrar su entrega, la baja laboral se ejecuta.']);
+                throw ValidationException::withMessages(['finiquito' => 'Antes de cerrar la baja, revisa el finiquito o registra su entrega (Bajas y finiquitos). Al registrar su entrega, la baja laboral se ejecuta.']);
             }
         }
 
@@ -422,7 +415,7 @@ class BajaService
                 $this->cierres->ejecutarBaja($cierre, $actor, exigirFiniquito: false);
             }
 
-            $baja->update(['estatus' => EstatusBaja::Cerrada, 'cerrado_por' => $actor->id, 'cerrado_en' => now()]);
+            $baja->update(['estatus' => EstatusBaja::Cerrada, 'cerrado_por' => $actor->id, 'cerrado_en' => now(), 'validado_por' => $baja->validado_por ?? $actor->id, 'validado_en' => $baja->validado_en ?? now()]);
             $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::Cerro, 'estatus', EstatusBaja::EnRevisionRh->etiqueta(), EstatusBaja::Cerrada->etiqueta());
         });
 
@@ -433,7 +426,7 @@ class BajaService
 
     /**
      * RN-13: una baja cerrada no se edita; RH puede reabrirla con motivo
-     * (regresa a «En revisión RH»; el colaborador sigue inactivo).
+     * (regresa a «En trámite»; el colaborador sigue inactivo).
      */
     public function reabrir(Baja $baja, User $actor, string $motivo): Baja
     {
@@ -450,20 +443,16 @@ class BajaService
     }
 
     /**
-     * La baja no procede: el gerente descarta su borrador / baja rechazada, o
-     * RH la marca en cualquier estado abierto. Si ya tenía cierre laboral, se
-     * cancela (y el acceso suspendido se devuelve). Nunca se borra.
+     * «No procede» (solo RH): revierte la baja abierta —la persona sigue
+     * laborando—, cancela su cierre laboral y le devuelve el acceso. Nunca se
+     * borra nada.
      */
     public function cancelar(Baja $baja, User $actor, string $motivo): Baja
     {
-        $esRh = $actor->can(self::PERMISO_GESTIONAR);
+        $this->exigirRh($actor);
 
         if (! $baja->estatus->esAbierta()) {
             throw ValidationException::withMessages(['estatus' => sprintf('La baja ya está «%s».', $baja->estatus->etiqueta())]);
-        }
-
-        if (! $esRh) {
-            $this->exigirEditablePorSolicitante($baja, $actor);
         }
 
         $motivo = $this->exigirMotivo($motivo);
@@ -504,31 +493,25 @@ class BajaService
     {
         $acciones = [];
         $rh = $usuario->can(self::PERMISO_GESTIONAR);
-        $solicitante = $this->puedeEditarComoSolicitante($baja, $usuario);
+        $abiertaVigente = in_array($baja->estatus, [EstatusBaja::EnRevisionRh, EstatusBaja::EnRevisionJuridico], true);
 
-        if ($solicitante && $baja->estatus->editablePorSolicitante()) {
-            array_push($acciones, 'editar', 'enviar', 'cancelar');
-        }
-
-        if ($baja->estatus->esAbierta() && ($rh || $this->puedeOperarComoSolicitante($baja, $usuario))) {
+        // Completar / adjuntar documentos: RH y el gerente con alcance.
+        if ($abiertaVigente && ($rh || $this->puedeOperarComoSolicitante($baja, $usuario))) {
             $acciones[] = 'adjuntar';
         }
 
         if ($rh) {
             if ($baja->estatus === EstatusBaja::EnRevisionRh) {
-                array_push($acciones, 'validar', 'enviar_juridico', 'rechazar', 'cerrar');
+                $acciones[] = 'cerrar';
+                $baja->loadMissing('causal');
+
+                if ($baja->requiereJuridico() && $baja->juridico_en === null) {
+                    $acciones[] = 'enviar_juridico';
+                }
             }
 
-            if ($baja->estatus === EstatusBaja::EnRevisionJuridico) {
-                $acciones[] = 'rechazar';
-            }
-
-            if (in_array($baja->estatus, [EstatusBaja::EnRevisionRh, EstatusBaja::EnRevisionJuridico, EstatusBaja::Rechazada], true)) {
-                array_push($acciones, 'cambiar_causal', 'actualizar');
-            }
-
-            if ($baja->estatus->esAbierta() && ! in_array('cancelar', $acciones, true)) {
-                $acciones[] = 'cancelar';
+            if ($abiertaVigente) {
+                array_push($acciones, 'cambiar_causal', 'actualizar', 'cancelar');
             }
 
             if ($baja->estatus === EstatusBaja::Cerrada) {
@@ -537,7 +520,7 @@ class BajaService
         }
 
         if ($usuario->can(self::PERMISO_JURIDICO) && $baja->estatus === EstatusBaja::EnRevisionJuridico) {
-            array_push($acciones, 'aprobar_juridico', 'rechazar');
+            array_push($acciones, 'aprobar_juridico', 'devolver_juridico');
         }
 
         return array_values(array_unique($acciones));
@@ -607,42 +590,8 @@ class BajaService
     }
 
     /**
-     * Datos de un borrador/baja para el formulario del gerente.
-     *
-     * @return array<string, mixed>
-     */
-    public function formulario(Baja $baja): array
-    {
-        $baja->loadMissing(['sucursal:id,nombre', 'puesto:id,nombre']);
-
-        return [
-            'id' => $baja->id,
-            'folio' => $baja->folio,
-            'estatus' => $baja->estatus->value,
-            'estatus_etiqueta' => $baja->estatus->etiqueta(),
-            'motivo_rechazo' => $baja->motivo_rechazo,
-            'colaborador' => [
-                'id' => (int) $baja->colaborador_id,
-                'nombre' => $baja->nombre_colaborador,
-                'numero_empleado' => $baja->numero_empleado,
-                'puesto' => $baja->puesto?->nombre,
-                'sucursal' => $baja->sucursal?->nombre,
-                'fecha_ingreso' => $baja->fecha_ingreso?->toDateString(),
-            ],
-            'forma_salida' => $baja->forma_salida?->value,
-            'causal_rotacion_id' => $baja->causal_rotacion_id,
-            'fecha_baja' => $baja->fecha_baja?->toDateString(),
-            'recontratable' => $baja->recontratable?->value,
-            'comentarios' => $baja->comentarios,
-            'fecha_conocimiento_falta' => $baja->fecha_conocimiento_falta?->toDateString(),
-            'entrega_aviso_rescision' => $baja->entrega_aviso_rescision?->value,
-            'fecha_entrega_aviso' => $baja->fecha_entrega_aviso?->toDateString(),
-            'documentos' => $this->documentos->espacios($baja),
-        ];
-    }
-
-    /**
-     * Gerente (o RH) con alcance sobre la persona; nunca sobre sí mismo.
+     * Gerente (bajas.solicitar + alcance del módulo «bajas»: su personal /
+     * sucursal / región) o RH; nunca sobre sí mismo.
      */
     public function puedeSolicitarPara(User $actor, Colaborador $colaborador): bool
     {
@@ -655,6 +604,46 @@ class BajaService
         }
 
         return $actor->can(self::PERMISO_SOLICITAR) && $this->alcance->alcanzaColaboradorEnModulo($actor, $colaborador, BajaConsultaService::MODULO);
+    }
+
+    /**
+     * Finiquito propuesto al registrar la baja (salario registrado y fecha de
+     * baja). Si no se puede (sin salario, sin fecha de ingreso…) la baja
+     * sigue aplicada y queda el pendiente «Finiquito pendiente» para RH.
+     */
+    private function proponerFiniquito(Baja $baja, User $actor): void
+    {
+        $cierre = $baja->cierre()->first();
+
+        if ($cierre === null) {
+            return;
+        }
+
+        try {
+            $this->cierres->calcularFiniquito($cierre, $actor);
+        } catch (Throwable $e) {
+            Log::warning('BajaService: no se pudo proponer el finiquito al registrar la baja; RH lo calcula después.', ['baja_id' => $baja->id, 'cierre_id' => $cierre->id, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $datos
+     */
+    private function colaboradorVigente(array $datos, User $actor): Colaborador
+    {
+        $colaborador = Colaborador::query()->where('id', (int) ($datos['colaborador_id'] ?? 0))->first();
+
+        if ($colaborador === null) {
+            throw ValidationException::withMessages(['colaborador_id' => 'Elige al colaborador (busca por nombre o número de empleado).']);
+        }
+
+        $this->exigirPuedeSolicitar($actor, $colaborador);
+
+        if (! in_array($colaborador->estatus->value, EstadoUsuario::valoresVigentes(), true)) {
+            throw ValidationException::withMessages(['colaborador_id' => sprintf('%s ya no está activo.', $colaborador->nombreCompleto())]);
+        }
+
+        return $colaborador;
     }
 
     /**
@@ -723,7 +712,7 @@ class BajaService
     }
 
     /**
-     * Lo que se valida al guardar (no la completitud): RN-02 y RN-10.
+     * Lo que se valida de la captura además de la completitud: RN-02 y RN-10.
      */
     private function validarCaptura(Baja $baja): void
     {
@@ -801,19 +790,17 @@ class BajaService
     private function exigirPuedeSolicitar(User $actor, Colaborador $colaborador): void
     {
         if ($actor->colaborador_id === $colaborador->id) {
-            throw new AuthorizationException('No puedes solicitar tu propia baja desde aquí: si deseas renunciar, platícalo con tu jefe o con RH.');
+            throw new AuthorizationException('No puedes registrar tu propia baja: si deseas renunciar, platícalo con tu jefe o con RH.');
         }
 
         if (! $this->puedeSolicitarPara($actor, $colaborador)) {
-            throw new AuthorizationException('Solo puedes solicitar la baja de personal de tu sucursal o equipo.');
+            throw new AuthorizationException('Solo puedes registrar la baja de personal de tu sucursal o equipo.');
         }
     }
 
-    private function puedeEditarComoSolicitante(Baja $baja, User $usuario): bool
-    {
-        return $baja->creado_por === $usuario->id || $usuario->can(self::PERMISO_GESTIONAR) || $this->puedeOperarComoSolicitante($baja, $usuario);
-    }
-
+    /**
+     * Gerente con alcance sobre la persona (completa documentos de la baja).
+     */
     private function puedeOperarComoSolicitante(Baja $baja, User $usuario): bool
     {
         $colaborador = $baja->colaborador;
@@ -822,24 +809,18 @@ class BajaService
             && $this->alcance->alcanzaColaboradorEnModulo($usuario, $colaborador, BajaConsultaService::MODULO);
     }
 
-    private function exigirEditablePorSolicitante(Baja $baja, User $actor): void
+    private function puedeVerComoResponsable(Baja $baja, User $usuario): bool
     {
-        if (! $baja->estatus->editablePorSolicitante()) {
-            throw ValidationException::withMessages(['estatus' => sprintf('La baja está «%s»: el gerente ya no puede cambiarla (RH corrige la causal con motivo).', $baja->estatus->etiqueta())]);
-        }
-
-        if (! $this->puedeEditarComoSolicitante($baja, $actor)) {
-            throw new AuthorizationException('No puedes modificar esta baja.');
-        }
+        return $usuario->can(self::PERMISO_GESTIONAR) || $baja->creado_por === $usuario->id || $this->puedeOperarComoSolicitante($baja, $usuario);
     }
 
     /**
-     * Formas que el usuario puede iniciar (ciclo_laboral.cierre.causas_solicitables).
+     * Formas que el usuario puede registrar (ciclo_laboral.cierre.causas_solicitables).
      */
     private function exigirFormaPermitida(Baja $baja, User $actor): void
     {
         if ($baja->forma_salida !== null && ! in_array($baja->forma_salida, $this->causales->formasPermitidas($actor), true)) {
-            throw ValidationException::withMessages(['forma_salida' => sprintf('No puedes solicitar una baja por %s: pídela a RH.', mb_strtolower($baja->forma_salida->etiqueta()))]);
+            throw ValidationException::withMessages(['forma_salida' => sprintf('No puedes registrar una baja por %s: pídela a RH.', mb_strtolower($baja->forma_salida->etiqueta()))]);
         }
     }
 
@@ -847,6 +828,13 @@ class BajaService
     {
         if (! $actor->can(self::PERMISO_GESTIONAR)) {
             throw new AuthorizationException('Solo RH puede hacer esto.');
+        }
+    }
+
+    private function exigirJuridico(User $actor): void
+    {
+        if (! $actor->can(self::PERMISO_JURIDICO)) {
+            throw new AuthorizationException('Solo Jurídico revisa esta baja.');
         }
     }
 

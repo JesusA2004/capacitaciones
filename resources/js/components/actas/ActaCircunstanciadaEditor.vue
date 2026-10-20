@@ -9,12 +9,13 @@ import {
     Save,
     TriangleAlert,
 } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import ActaAnexos from '@/components/actas/ActaAnexos.vue';
 import ActaCircunstanciadaCampos from '@/components/actas/ActaCircunstanciadaCampos.vue';
 import ActaCircunstanciadaResumen from '@/components/actas/ActaCircunstanciadaResumen.vue';
 import ActaPasos from '@/components/actas/ActaPasos.vue';
+import BotonVistaPrevia from '@/components/people/BotonVistaPrevia.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -134,8 +135,22 @@ const urlPrevia = computed(() =>
     vistaPrevia.url(props.acta.id, { query: { v: versionPrevia.value } }),
 );
 
+/** Guardando antes de abrir la vista previa: el botón muestra spinner. */
+const preparandoPrevia = ref(false);
+
+watch(
+    () => form.processing,
+    (procesando) => {
+        if (!procesando) {
+            preparandoPrevia.value = false;
+        }
+    },
+);
+
 function abrirPrevia() {
+    preparandoPrevia.value = true;
     guardar(() => {
+        preparandoPrevia.value = false;
         versionPrevia.value = Date.now();
         previaAbierta.value = true;
     });
@@ -245,13 +260,13 @@ async function generarDefinitiva() {
                 </div>
 
                 <div class="flex flex-wrap gap-2">
-                    <Button
-                        variant="outline"
-                        :disabled="faltantes.length > 0 || form.processing"
+                    <BotonVistaPrevia
+                        texto="Vista previa PDF"
+                        :icono="FileSearch"
+                        :cargando="preparandoPrevia"
+                        :deshabilitado="faltantes.length > 0 || form.processing"
                         @click="abrirPrevia"
-                    >
-                        <FileSearch class="size-4" /> Vista previa PDF
-                    </Button>
+                    />
                     <Button
                         :disabled="faltantes.length > 0 || form.processing"
                         @click="pedirDefinitiva"

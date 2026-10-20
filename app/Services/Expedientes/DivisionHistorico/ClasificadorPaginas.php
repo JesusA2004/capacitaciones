@@ -17,7 +17,7 @@ use Illuminate\Support\Str;
  * elige uno al azar.
  *
  * @phpstan-type PaginaLeida array{pagina: int, texto: string, metodo: MetodoLecturaPagina}
- * @phpstan-type PaginaClasificada array{pagina: int, tipo: string|null, sugerido: string|null, confianza: string|null, puntaje: int, coincidencias: list<string>, metodo: string, motivo: string|null}
+ * @phpstan-type PaginaClasificada array{pagina: int, tipo: string|null, sugerido: string|null, confianza: string|null, puntaje: int, coincidencias: list<string>, metodo: string, motivo: string|null, manual?: bool, tipo_ocr?: string|null}
  * @phpstan-type Parte array{tipo: string|null, paginas: list<int>, confianza: string|null}
  */
 class ClasificadorPaginas

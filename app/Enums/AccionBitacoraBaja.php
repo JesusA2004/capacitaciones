@@ -9,12 +9,15 @@ namespace App\Enums;
 enum AccionBitacoraBaja: string
 {
     case Creo = 'creo';
+    case Registro = 'registro';
     case Actualizo = 'actualizo';
     case Envio = 'envio';
     case Valido = 'valido';
     case EnvioJuridico = 'envio_juridico';
     case AproboJuridico = 'aprobo_juridico';
     case Rechazo = 'rechazo';
+    case DevolvioJuridico = 'devolvio_juridico';
+    case ConversionFlujo = 'conversion_flujo';
     case CambioCausal = 'cambio_causal';
     case CambioRecontratable = 'cambio_recontratable';
     case CambioRotacion = 'cambio_rotacion';
@@ -30,12 +33,15 @@ enum AccionBitacoraBaja: string
     {
         return match ($this) {
             self::Creo => 'Creó la baja',
+            self::Registro => 'Registró la baja (aplicada de inmediato)',
             self::Actualizo => 'Actualizó datos',
-            self::Envio => 'Envió a RH',
-            self::Valido => 'RH validó',
+            self::Envio => 'Envió a RH (flujo anterior)',
+            self::Valido => 'RH validó (flujo anterior)',
             self::EnvioJuridico => 'Envió a Jurídico',
             self::AproboJuridico => 'Jurídico aprobó',
-            self::Rechazo => 'Rechazó',
+            self::Rechazo => 'Rechazó (flujo anterior)',
+            self::DevolvioJuridico => 'Jurídico la devolvió a RH',
+            self::ConversionFlujo => 'Convertida al flujo de baja directa',
             self::CambioCausal => 'Cambió la causal',
             self::CambioRecontratable => 'Cambió «¿Recontratable?»',
             self::CambioRotacion => 'Cambió «cuenta en rotación»',

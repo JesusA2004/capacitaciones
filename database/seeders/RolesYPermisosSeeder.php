@@ -305,6 +305,10 @@ class RolesYPermisosSeeder extends Seeder
         // --- Perfiles de puesto: perfil del candidato + descripción del puesto ---
         'perfiles_puesto.ver',
         'perfiles_puesto.editar',
+        // Importar descriptivos oficiales (PDF de la carpeta): solo
+        // super_admin (2026-10-20, las importaciones/cargas masivas no son
+        // de RH). Editar un perfil sigue siendo perfiles_puesto.editar.
+        'perfiles_puesto.importar',
 
         // --- Modulo de cumpleanos (docs/CUMPLEANOS.md) ---
         'rh.cumpleanos.ver',
@@ -355,6 +359,13 @@ class RolesYPermisosSeeder extends Seeder
         // Importador de REPORTE_TRABAJADORES_VAC.xlsx: salarios y
         // vacaciones históricas (CLAUDE.md §21-36).
         'colaboradores.importar_salarios_vacaciones',
+        // Importador del Excel de contactos de emergencia (Google Forms).
+        // Las importaciones y cargas masivas (este, expedientes.migrar,
+        // headcount.importar, colaboradores.importar_salarios_vacaciones,
+        // rotacion.cargar, nomina.recibos.importar, perfiles_puesto.importar)
+        // son SOLO de super_admin (2026-10-20); en bases existentes las
+        // revoca la migración 2026_10_20_230000_importaciones_solo_super_admin.
+        'contactos_emergencia.importar',
         'prestamos.ver',
         'prestamos.autorizar',
         // --- Cierre definitivo del ciclo laboral (docs/CICLO_LABORAL_FINAL_IMPLEMENTADO.md) ---
@@ -463,13 +474,14 @@ class RolesYPermisosSeeder extends Seeder
             'sucursales.administrar', 'departamentos.administrar', 'puestos.administrar',
             'empresas.ver', 'empresas.crear', 'empresas.editar',
             'expedientes.ver', 'expedientes.ver_todos', 'expedientes.crear', 'expedientes.editar', 'expedientes.revisar',
-            'expedientes.migrar', 'expedientes.datos_medicos.ver',
+            // Sin importaciones/cargas masivas (solo super_admin, 2026-10-20).
+            'expedientes.datos_medicos.ver',
             'documentos.ver', 'documentos.subir', 'documentos.descargar', 'documentos.revisar', 'documentos.aprobar', 'documentos.rechazar', 'documentos.versiones',
             'altas.ver', 'altas.crear', 'altas.enviar', 'altas.revisar', 'altas.aprobar', 'altas.cancelar',
             'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar', 'vacaciones.rechazar', 'vacaciones.ajustar', 'vacaciones.reportes',
             'solicitudes.ver', 'solicitudes.crear', 'solicitudes.revisar', 'solicitudes.aprobar', 'solicitudes.rechazar',
             'reportes_rh.ver', 'reportes_rh.exportar', 'reportes_rh.globales', 'reportes_rh.sucursal',
-            'rotacion.ver', 'rotacion.cargar',
+            'rotacion.ver',
             'auditoria.ver',
             'vacantes.ver', 'vacantes.ver_todos', 'vacantes.crear', 'vacantes.editar', 'vacantes.cerrar', 'vacantes.eliminar',
             'candidatos.ver', 'candidatos.ver_todos', 'candidatos.crear', 'candidatos.editar', 'candidatos.aprobar', 'candidatos.rechazar', 'candidatos.eliminar',
@@ -505,7 +517,7 @@ class RolesYPermisosSeeder extends Seeder
             // Módulo de Bajas y Causales: RH valida, rechaza, cambia causal,
             // cierra y reabre (docs/BAJAS_Y_CAUSALES.md).
             'bajas.ver', 'bajas.solicitar', 'bajas.gestionar', 'bajas.tablero.ver',
-            'headcount.ver', 'headcount.editar', 'headcount.importar',
+            'headcount.ver', 'headcount.editar',
             'organigrama.ver', 'organigrama.editar',
             // Ciclo laboral completo (docs/backend-rh-completion.md).
             'colaboradores.alta', 'colaboradores.activar', 'candidatos.contratar',
@@ -513,8 +525,9 @@ class RolesYPermisosSeeder extends Seeder
             'documentos_laborales.ver', 'documentos_laborales.generar', 'documentos_laborales.operar_fisico', 'documentos_laborales.cancelar', 'documentos_laborales.revisar_firmado',
             'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'evaluaciones.autorizar',
             'cierres.ver', 'cierres.gestionar', 'cierres.ejecutar_baja', 'finiquitos.confirmar_pago',
-            'nomina.recibos.ver', 'nomina.recibos.crear', 'nomina.recibos.importar',
-            'colaboradores.importar_salarios_vacaciones',
+            // Generar/emitir recibos sí; importarlos por Excel, no (solo
+            // super_admin, igual que salarios y vacaciones — 2026-10-20).
+            'nomina.recibos.ver', 'nomina.recibos.crear',
             'prestamos.ver', 'prestamos.autorizar', 'prestamos.resguardar',
             'actas.ver', 'actas.crear', 'actas.gestionar', 'indicadores.ver',
             // Responsivas de equipo (docs/responsiva).
@@ -568,7 +581,7 @@ class RolesYPermisosSeeder extends Seeder
             'colaboradores.alta', 'candidatos.contratar', 'plantillas_documentales.ver',
             'documentos_laborales.ver', 'documentos_laborales.generar', 'documentos_laborales.operar_fisico',
             'contratos.ver', 'evaluaciones.ver', 'cierres.ver',
-            'nomina.recibos.ver', 'nomina.recibos.crear', 'nomina.recibos.importar',
+            'nomina.recibos.ver', 'nomina.recibos.crear',
             'prestamos.ver', 'actas.ver', 'actas.crear', 'indicadores.ver',
             'responsivas.ver', 'responsivas.generar',
             'onboarding.ver', 'onboarding.gestionar', 'reingresos.solicitar',
@@ -754,8 +767,10 @@ class RolesYPermisosSeeder extends Seeder
             'organigrama.ver',
             // Ciclo laboral completo (docs/backend-rh-completion.md).
             'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'prestamos.ver',
-            'ciclo.preautorizar', 'onboarding.ver', 'cierres.ver', 'cierres.solicitar', 'solicitudes.bajas.crear',
-            'bajas.ver', 'bajas.solicitar',
+            // «Bajas» es solo de gerentes, RH y super admin (2026-10-20): el
+            // jefe directo ya no registra ni ve bajas (migración
+            // 2026_10_20_250000_bajas_directas_sin_borrador).
+            'ciclo.preautorizar', 'onboarding.ver', 'cierres.ver',
         ],
 
         'colaborador' => self::PERMISOS_ROL_COLABORADOR,
@@ -798,7 +813,8 @@ class RolesYPermisosSeeder extends Seeder
             'contratos.ver', 'evaluaciones.ver', 'cierres.ver',
             'documentos_laborales.ver', 'plantillas_documentales.ver', 'indicadores.ver',
             'onboarding.ver',
-            'bajas.ver', 'bajas.tablero.ver',
+            // Sin «Bajas» (solo gerentes, RH y super admin); conserva el tablero.
+            'bajas.tablero.ver',
         ],
 
         // Dirección: autorizaciones finales (evaluaciones, bajas) e
@@ -874,7 +890,9 @@ class RolesYPermisosSeeder extends Seeder
             'nomina.recibos.ver', 'finiquitos.ver', 'cierres.ver', 'onboarding.ver', 'altas.ver',
             'empresas.ver', 'headcount.ver', 'organigrama.ver', 'perfiles_puesto.ver', 'indicadores.ver',
             'reportes_rh.ver', 'reportes_rh.globales', 'rotacion.ver', 'reclutamiento.campanas.ver', 'celebraciones.ver',
-            'bajas.ver', 'bajas.tablero.ver',
+            // Sin «Bajas» (solo gerentes, RH y super admin): Sistemas recibe el
+            // aviso «Baja registrada» y entra por el expediente / ciclo laboral.
+            'bajas.tablero.ver',
             'formatos.ver', 'formatos.preview', 'formatos_oficiales.ver', 'plantillas.ver', 'plantillas_documentales.ver',
             // Consulta (sin acciones) también desde la app.
             'rh.mobile.dashboard.ver', 'rh.pendientes.ver',

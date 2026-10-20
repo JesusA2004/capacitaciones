@@ -14,45 +14,45 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
         titulo: 'Baja de un colaborador (forma de salida y causal)',
         proceso: 'baja',
         resumen:
-            'El gerente solicita la baja en «Solicitudes de baja» (o RH / el jefe directo la aplica desde el ciclo laboral): elige cómo se va (renuncia voluntaria, no renovación o rescisión) y por qué (la causal), adjunta los documentos y la envía a RH. Al enviarla se suspende el acceso; RH valida, la manda a Jurídico si la causal lo pide y la cierra cuando los documentos están completos.',
+            'La baja NO es una solicitud: el gerente (de su personal) o RH la registra en «Bajas» y queda aplicada en ese momento. Antes de confirmar ves la renuncia o el formato que se generará y el finiquito propuesto. Después se completan los documentos, Jurídico revisa si la causal lo pide y RH la cierra.',
         queEs: 'Es el expediente de la baja con folio BAJ-AAAA-NNNN: forma de salida y causal de lista cerrada (sin «Otro»), documentos, bitácora de cambios y el cierre laboral (finiquito). Con esos datos se mide la rotación. Nunca borra a la persona: bloquea su acceso y conserva todo para un posible reingreso.',
         quien: ['gerente', 'regional', 'rh', 'sistemas'],
         quienDetalle:
-            'Captura y envía el gerente (solo su personal). RH valida, rechaza con motivo, corrige la causal con motivo, cierra y reabre. Jurídico revisa las causales que lo requieren y no cierra. Contraloría consulta las de faltantes (RE-02) y robo o fraude (RE-03). Dirección solo ve el tablero de rotación.',
+            'Registra el gerente (solo su personal) o RH. RH corrige la causal con motivo, completa datos, cierra, reabre y marca «No procede». Jurídico revisa las causales que lo requieren y no cierra. Contraloría consulta las de faltantes (RE-02) y robo o fraude (RE-03). Nadie más entra a «Bajas»; Dirección solo ve el tablero de rotación y Sistemas recibe el aviso para retirar accesos y equipo.',
         antes: [
-            'La persona está activa y es de tu sucursal o equipo (o eres RH).',
+            'La persona está activa y es de tu sucursal (o eres RH).',
             'Solo puede haber una baja abierta por persona.',
         ],
         pasos: [
             {
-                titulo: '«Solicitar baja»',
+                titulo: '«Registrar baja»',
                 detalle:
-                    'Cierres laborales → Solicitudes de baja → «Solicitar baja»: 1 colaborador (sucursal, puesto e ingreso salen solos), 2 ¿cómo se va? (tres tarjetas), 3 ¿por qué se va? (causal con su ayuda, comentario —obligatorio en RV-05 y en rescisión, mínimo 20 caracteres—, último día laborado y ¿recontratable?; en rescisión además fecha en que se conoció la falta y entrega del aviso), 4 documentos.',
+                    'Cierres laborales → Bajas → «Registrar baja»: 1 ¿quién se va? (sucursal, puesto e ingreso salen solos), 2 ¿cómo se va? (tres tarjetas), 3 ¿por qué se va? (causal con su ayuda, comentario —obligatorio en RV-05 y en rescisión, mínimo 20 caracteres—, último día laborado y ¿recontratable?; en rescisión además fecha en que se conoció la falta y entrega del aviso).',
                 quien: 'gerente',
             },
             {
-                titulo: '«Guardar borrador» o «Enviar a RH»',
+                titulo: 'Vista previa y confirmar',
                 detalle:
-                    'El borrador no afecta a nadie. Al enviarla, el acceso de la persona se suspende de inmediato y la baja queda «En revisión RH». Puedes enviarla aunque falten documentos: los adjuntas después.',
+                    '«Vista previa» abre la renuncia (renuncia voluntaria) o el formato de la causal y el finiquito propuesto, con flechas para pasar de uno a otro. Nada se guarda hasta «Sí, registrar baja». Al confirmar: accesos suspendidos, documentos generados y finiquito propuesto. En rescisión no se genera documento: el aviso de rescisión se adjunta.',
                 quien: 'gerente',
             },
             {
-                titulo: 'RH valida (y Jurídico revisa si aplica)',
+                titulo: 'Documentos y Jurídico',
                 detalle:
-                    'En el expediente de la baja: «Validar», «Enviar a Jurídico» (si la causal lo requiere), «Rechazar» con motivo (regresa al gerente) o «Cambiar causal» con motivo. Todo queda en la bitácora.',
+                    'En el expediente de la baja o en Bajas y finiquitos → «Documentos»: imprime y firma lo generado, adjunta lo que falta. Si la causal lo requiere, la baja pasa sola a Jurídico, que la aprueba o la devuelve a RH con observaciones.',
                 quien: 'rh',
             },
             {
                 titulo: 'Finiquito y «Cerrar baja»',
                 detalle:
-                    'RH calcula y entrega el finiquito (Bajas y finiquitos). Con los documentos obligatorios completos, «Cerrar baja»: la persona queda inactiva y su acceso bloqueado de forma definitiva. Una baja cerrada solo se reabre con motivo.',
+                    'RH revisa / ajusta el finiquito y registra su entrega (Bajas y finiquitos). Con los documentos obligatorios completos, «Cerrar baja»: la persona queda inactiva y su acceso bloqueado de forma definitiva. Una baja cerrada solo se reabre con motivo; «No procede» la revierte y devuelve el acceso.',
                 quien: 'rh',
             },
         ],
         llamados: [
             {
                 tono: 'importante',
-                texto: 'Al ENVIAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si RH decide que la baja no procede, se cancela y el acceso vuelve.',
+                texto: 'Al REGISTRAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si RH decide que no procede, la revierte y el acceso vuelve.',
             },
             {
                 tono: 'importante',
@@ -65,7 +65,8 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
             'Si alguien con baja «No recontratable» vuelve como candidato, Reclutamiento ve una alerta.',
         ],
         notificaciones: [
-            '«Baja por revisar» a RH al enviarla; «Baja aplicada» a regionales y RH.',
+            '«Baja registrada» a RH, a la regional y a Sistemas: quién la dio, a quién, forma · causal y último día.',
+            'Causal con Jurídico: «Baja por revisar (Jurídico)».',
             'RV-04 (clima laboral): correo a RH para entrevista de salida y NOM-035.',
             'RE-02 y RE-03: aviso a Contraloría (RE-03 también a Jurídico).',
             'Antigüedad menor a 90 días: rotación temprana a RH.',
@@ -78,9 +79,9 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
         ],
         errores: [
             {
-                problema: '«No me deja enviar.»',
+                problema: '«No me deja registrar.»',
                 solucion:
-                    'Faltan forma, causal, último día laborado o ¿recontratable? (y en rescisión los datos del aviso). La pantalla marca cada campo.',
+                    'Faltan persona, forma, causal, último día laborado o ¿recontratable? (y en rescisión los datos del aviso). La pantalla marca cada campo.',
             },
             {
                 problema: '«RH no puede cerrar.»',
@@ -94,13 +95,19 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
         relacionados: ['finiquito', 'reingreso', 'usuarios-y-roles'],
         accesos: [
             {
-                etiqueta: 'Ir a Solicitudes de baja',
+                etiqueta: 'Ir a Bajas',
                 ruta: '/rh/bajas',
                 permisos: [
                     'bajas.ver',
                     'bajas.revisar_juridico',
                     'bajas.consulta_contraloria',
                 ],
+                modo: 'operativo',
+            },
+            {
+                etiqueta: 'Documentos de las bajas',
+                ruta: '/rh/cierres',
+                permisos: ['cierres.ver'],
                 modo: 'operativo',
             },
             {
@@ -113,7 +120,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
         preguntas: [
             '¿Cómo hago una baja?',
             '¿Qué pasa con la cuenta de alguien que se va?',
-            '¿Quién autoriza una baja?',
+            '¿La baja necesita autorización?',
             '¿Qué causal elijo?',
         ],
     },
@@ -125,7 +132,9 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
             'PEOPLE calcula sueldo pendiente, aguinaldo, vacaciones, prima vacacional e ISR; RH revisa, ajusta montos y registra la entrega, que cierra la baja.',
         queEs: 'Es el cálculo del pago final de la persona que se va.',
         quien: ['rh'],
-        antes: ['La baja ya está aplicada (se inició desde el ciclo laboral).'],
+        antes: [
+            'La baja ya está registrada (Bajas o ciclo laboral): el finiquito propuesto se calcula al registrarla.',
+        ],
         pasos: [
             {
                 titulo: '«Calcular finiquito»',

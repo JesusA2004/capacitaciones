@@ -3,14 +3,19 @@
 namespace App\Enums;
 
 /**
- * Estatus de una baja (expediente de la baja, App\Models\Baja):
+ * Estatus de una baja (expediente de la baja, App\Models\Baja). La baja es
+ * DIRECTA (docs/BAJAS_Y_CAUSALES.md): el gerente o RH la registra y queda
+ * aplicada de inmediato (cierre laboral, acceso suspendido, documentos
+ * generados, finiquito propuesto).
  *
- *   Borrador (gerente) → En revisión RH → [En revisión Jurídico si la
- *   causal lo requiere] → Cerrada (RH)
- *   Rechazada: RH o Jurídico la regresan al gerente con motivo; el gerente
- *   corrige y la vuelve a enviar.
- *   Cancelada: la baja no procede (la persona sigue laborando); el acceso
- *   suspendido al enviarla se devuelve. Nunca se borra la baja.
+ *   En trámite (en_revision_rh) → [En revisión Jurídico si la causal lo
+ *   requiere] → Cerrada (RH, con los documentos obligatorios completos)
+ *   No procede (cancelada): RH la revierte; la persona sigue laborando y se
+ *   le devuelve el acceso. Nunca se borra la baja.
+ *
+ * LEGADO (flujo anterior, ya no se crean): Borrador y Rechazada. La
+ * migración 2026_10_20_230000_bajas_directas convierte los registros que
+ * hubiera; los casos se conservan para leer la bitácora anterior.
  */
 enum EstatusBaja: string
 {
@@ -24,10 +29,10 @@ enum EstatusBaja: string
     public function etiqueta(): string
     {
         return match ($this) {
-            self::Borrador => 'Borrador',
-            self::EnRevisionRh => 'En revisión RH',
+            self::Borrador => 'Borrador (flujo anterior)',
+            self::EnRevisionRh => 'En trámite',
             self::EnRevisionJuridico => 'En revisión Jurídico',
-            self::Rechazada => 'Rechazada',
+            self::Rechazada => 'Rechazada (flujo anterior)',
             self::Cerrada => 'Cerrada',
             self::Cancelada => 'No procede',
         };
@@ -42,11 +47,20 @@ enum EstatusBaja: string
     }
 
     /**
-     * El gerente captura/corrige todo (forma, causal, fechas) solo aquí.
+     * Estatus del flujo anterior (borrador del gerente / rechazo): ya no se
+     * crean ni se ofrecen en filtros.
      */
-    public function editablePorSolicitante(): bool
+    public function esLegado(): bool
     {
         return in_array($this, [self::Borrador, self::Rechazada], true);
+    }
+
+    /**
+     * @return list<self>
+     */
+    public static function vigentes(): array
+    {
+        return array_values(array_filter(self::cases(), fn (self $e): bool => ! $e->esLegado()));
     }
 
     /**

@@ -167,8 +167,20 @@ class HeadcountService
     }
 
     /**
+     * Totales de headcount de un alcance — la cifra que muestran el Inicio
+     * operativo, el tablero de RH y (por sucursal) Organización → Sucursales:
+     *  - plantilla_autorizada: plazas autorizadas (capacidad);
+     *  - plantilla_actual: plazas autorizadas OCUPADAS por colaboradores
+     *    vigentes (por par sucursal-puesto, nunca más que lo autorizado);
+     *  - vacantes: autorizada − ocupada;
+     *  - personas_activas: colaboradores vigentes (activo / en incorporación)
+     *    con sucursal en el alcance — una baja nunca cuenta, aunque su
+     *    expediente siga en el NAS;
+     *  - fuera_de_plantilla: personas vigentes que no ocupan una plaza
+     *    autorizada (puesto sin plantilla en su sucursal, o excedente).
+     *
      * @param  Collection<int, int>|null  $sucursalesIds
-     * @return array{plantilla_autorizada: int, plantilla_actual: int, vacantes: int, cumplimiento: float, sucursales_bajo_cobertura: int}
+     * @return array{plantilla_autorizada: int, plantilla_actual: int, vacantes: int, cumplimiento: float, sucursales_bajo_cobertura: int, personas_activas: int, fuera_de_plantilla: int}
      */
     public function totalesGenerales(?Collection $sucursalesIds = null): array
     {
@@ -176,6 +188,7 @@ class HeadcountService
 
         $autorizada = (int) $porSucursal->sum('plantilla_autorizada');
         $actual = (int) $porSucursal->sum('plantilla_actual');
+        $personas = (int) $this->plantillaActualPorSucursal($sucursalesIds)->sum();
 
         return [
             'plantilla_autorizada' => $autorizada,
@@ -183,6 +196,8 @@ class HeadcountService
             'vacantes' => max($autorizada - $actual, 0),
             'cumplimiento' => $autorizada > 0 ? round(($actual / $autorizada) * 100, 1) : 0.0,
             'sucursales_bajo_cobertura' => $porSucursal->filter(fn (array $fila) => $fila['vacantes'] > 0)->count(),
+            'personas_activas' => $personas,
+            'fuera_de_plantilla' => max($personas - $actual, 0),
         ];
     }
 

@@ -25,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property bool $activa
  * @property int|null $registrada_por
  * @property int|null $finalizada_por
+ * @property Carbon|null $created_at
  */
 class CoberturaPuesto extends Model
 {
@@ -79,6 +80,14 @@ class CoberturaPuesto extends Model
     public function sucursal(): BelongsTo
     {
         return $this->belongsTo(Sucursal::class, 'sucursal_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function registradaPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'registrada_por');
     }
 
     /**

@@ -1,13 +1,28 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ArrowRight, ClipboardList, DoorOpen, ListTree } from '@lucide/vue';
+import {
+    ArrowRight,
+    ClipboardList,
+    DoorOpen,
+    FileWarning,
+    FolderOpen,
+    Hourglass,
+    ListTree,
+    Lock,
+    Scale,
+    Search,
+    UserMinus,
+} from '@lucide/vue';
 import { useDebounceFn } from '@vueuse/core';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
+import TarjetaDocumentosBaja from '@/components/bajas/TarjetaDocumentosBaja.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
+import ChipEstado from '@/components/people/ChipEstado.vue';
+import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
+import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import CausalesRotacionPanel from '@/components/Rh/CausalesRotacionPanel.vue';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,11 +30,29 @@ import { usePermisos } from '@/composables/usePermisos';
 import { formatearFecha } from '@/lib/fechas';
 import { cn, formatoMoneda } from '@/lib/utils';
 import { dashboard } from '@/routes';
-import { index as indexBajas } from '@/routes/rh/bajas';
+import rutasBajas from '@/routes/rh/bajas';
+import documentosBaja from '@/routes/rh/bajas/documentos';
 import { ciclo as cicloColaborador } from '@/routes/rh/colaboradores';
-import type { CausalRotacionAdmin } from '@/types';
+import type {
+    ArchivoPrevisualizable,
+    CausalRotacionAdmin,
+    DocumentoRecopilacion,
+    ResumenRecopilacion,
+    TarjetaRecopilacion,
+} from '@/types';
 
-type Fila = {
+/**
+ * Bajas y finiquitos (grupo «7 · Cierres laborales»):
+ *  - «Documentos» (por defecto): recopilación por persona dada de baja —
+ *    tarjetas con su forma · causal, estatus, avance N/M y todos sus
+ *    documentos con vista previa en galería, descarga y «adjuntar el que
+ *    falta» sin ir a Expedientes (BajaRecopilacionService).
+ *  - «Cierres y finiquitos»: estado del cierre laboral y del finiquito; la
+ *    acción se ejecuta en el ciclo laboral de la persona.
+ *  - «Causales»: catálogo (solo RH).
+ * Solo se calcula la pestaña abierta; el alcance lo aplica el backend.
+ */
+type FilaCierre = {
     id: number;
     colaborador: {
         id: number;
@@ -39,8 +72,8 @@ type Fila = {
     siguiente_accion: string;
 };
 
-type Paginador = {
-    data: Fila[];
+type Paginador<T> = {
+    data: T[];
     current_page: number;
     last_page: number;
     per_page: number;
@@ -50,46 +83,34 @@ type Paginador = {
     links?: { url: string | null; label: string; active: boolean }[];
 };
 
+type Seccion = 'documentos' | 'cierres' | 'causales';
+type Opcion = { value: string; label: string };
+
 const props = defineProps<{
-    cierres: Paginador;
+    cierres: Paginador<FilaCierre> | null;
+    recopilacion: Paginador<TarjetaRecopilacion> | null;
+    resumen: ResumenRecopilacion;
     filtros: { estado: string | null; busqueda: string };
-    estados: { value: string; label: string }[];
+    filtros_documentos: {
+        estatus: string;
+        sucursal_id: number | null;
+        forma: string | null;
+        documentos: string | null;
+        busqueda: string;
+    };
+    opciones_documentos: {
+        estatus: Opcion[];
+        formas: (Opcion & { token: string })[];
+        sucursales: { value: number; label: string }[];
+    };
+    limites_documentos: { max_kb: number; mimes: string[] };
+    estados: Opcion[];
     puede_ver_finiquito: boolean;
     /** null = sin permiso para administrar las causales de rotación. */
     causales: CausalRotacionAdmin[] | null;
-    tipos_baja: { value: string; label: string }[];
-    seccion: 'bajas' | 'causales';
+    tipos_baja: Opcion[];
+    seccion: Seccion;
 }>();
-
-// Pestañas: Bajas | Causales de baja (solo RH, que las administra; la misma
-// pantalla se abre desde Configuración → «Catálogo de bajas»).
-const seccion = ref<'bajas' | 'causales'>(
-    props.causales ? props.seccion : 'bajas',
-);
-
-function cambiarSeccion(valor: 'bajas' | 'causales') {
-    seccion.value = valor;
-    const url = new URL(window.location.href);
-
-    if (valor === 'causales') {
-        url.searchParams.set('seccion', 'causales');
-    } else {
-        url.searchParams.delete('seccion');
-    }
-
-    window.history.replaceState(window.history.state, '', url);
-}
-
-const claseTab = (activo: boolean) =>
-    cn(
-        '-mb-px inline-flex h-10 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-        activo
-            ? 'border-primary text-foreground'
-            : 'border-transparent text-muted-foreground hover:text-foreground',
-    );
-
-const { tienePermiso } = usePermisos();
-const puedeVerSolicitudes = tienePermiso('bajas.ver');
 
 defineOptions({
     layout: {
@@ -100,13 +121,227 @@ defineOptions({
     },
 });
 
-const termino = ref(props.filtros.busqueda);
-const estado = ref(props.filtros.estado ?? '');
+const { tienePermiso, tieneAlgunPermiso } = usePermisos();
+const puedeVerBajas = tieneAlgunPermiso([
+    'bajas.ver',
+    'bajas.revisar_juridico',
+    'bajas.consulta_contraloria',
+]);
+const puedeRegistrar =
+    tienePermiso('bajas.solicitar') || tienePermiso('bajas.gestionar');
 
-function filtrar() {
+// ───── Pestañas (cada una pide sus datos al backend) ─────
+function cambiarSeccion(valor: Seccion) {
+    if (valor === props.seccion) {
+        return;
+    }
+
+    router.get(
+        window.location.pathname,
+        valor === 'documentos' ? {} : { seccion: valor },
+        { preserveScroll: true, replace: true },
+    );
+}
+
+const claseTab = (activo: boolean) =>
+    cn(
+        '-mb-px inline-flex h-11 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+        activo
+            ? 'border-primary text-foreground'
+            : 'border-transparent text-muted-foreground hover:text-foreground',
+    );
+
+// ───── Documentos: filtros ─────
+const fd = props.filtros_documentos;
+const busquedaDoc = ref(fd.busqueda);
+const estatusDoc = ref(fd.estatus);
+const sucursalDoc = ref<number | null>(fd.sucursal_id);
+const formaDoc = ref(fd.forma ?? '');
+const documentosDoc = ref(fd.documentos ?? '');
+
+function filtrarDocumentos() {
     router.get(
         window.location.pathname,
         {
+            busqueda: busquedaDoc.value || undefined,
+            estatus:
+                estatusDoc.value && estatusDoc.value !== 'abiertas'
+                    ? estatusDoc.value
+                    : undefined,
+            sucursal_id: sucursalDoc.value ?? undefined,
+            forma: formaDoc.value || undefined,
+            documentos: documentosDoc.value || undefined,
+        },
+        {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+            only: ['recopilacion', 'filtros_documentos'],
+        },
+    );
+}
+
+watch(busquedaDoc, useDebounceFn(filtrarDocumentos, 300));
+watch([estatusDoc, sucursalDoc, formaDoc, documentosDoc], filtrarDocumentos);
+
+const opcionesDocumentos: Opcion[] = [
+    { value: 'incompletos', label: 'Faltan documentos' },
+    { value: 'completos', label: 'Completos' },
+];
+
+/** Las tarjetas grandes también filtran (en la pestaña Documentos). */
+function filtroRapido(
+    clave: 'en_tramite' | 'juridico' | 'pendientes' | 'cerradas',
+) {
+    if (props.seccion !== 'documentos') {
+        router.get(window.location.pathname, rapidoAQuery(clave), {
+            preserveScroll: true,
+        });
+
+        return;
+    }
+
+    const q = rapidoAQuery(clave);
+    estatusDoc.value = q.estatus ?? 'abiertas';
+    documentosDoc.value = q.documentos ?? '';
+}
+
+function rapidoAQuery(clave: string): {
+    estatus?: string;
+    documentos?: string;
+} {
+    switch (clave) {
+        case 'juridico':
+            return { estatus: 'en_revision_juridico' };
+        case 'pendientes':
+            return { documentos: 'incompletos' };
+        case 'cerradas':
+            return { estatus: 'cerrada' };
+        default:
+            return { estatus: 'en_revision_rh' };
+    }
+}
+
+const rapidoActivo = computed(() => {
+    if (props.seccion !== 'documentos') {
+        return null;
+    }
+
+    if (
+        documentosDoc.value === 'incompletos' &&
+        estatusDoc.value === 'abiertas'
+    ) {
+        return 'pendientes';
+    }
+
+    return (
+        (
+            {
+                en_revision_rh: 'en_tramite',
+                en_revision_juridico: 'juridico',
+                cerrada: 'cerradas',
+            } as Record<string, string>
+        )[estatusDoc.value] ?? null
+    );
+});
+
+// ───── Documentos: visor (galería por persona) ─────
+const visorAbierto = ref(false);
+const visorArchivos = ref<ArchivoPrevisualizable[]>([]);
+const visorIndice = ref(0);
+
+function verDocumentos(tarjeta: TarjetaRecopilacion, clave: string | null) {
+    const archivos = tarjeta.documentos
+        .filter((d) => d.url !== null)
+        .map((d): ArchivoPrevisualizable => ({
+            clave: d.clave,
+            nombre: d.mime === 'application/pdf' ? `${d.nombre}.pdf` : d.nombre,
+            previewUrl: d.url as string,
+            downloadUrl: d.url_descarga ?? d.url,
+            mime: d.mime,
+            etiqueta: `${tarjeta.colaborador} · ${d.estado_etiqueta}`,
+            fecha: d.fecha,
+        }));
+
+    if (!archivos.length) {
+        return;
+    }
+
+    visorArchivos.value = archivos;
+    visorIndice.value = Math.max(
+        0,
+        clave === null ? 0 : archivos.findIndex((a) => a.clave === clave),
+    );
+    visorAbierto.value = true;
+}
+
+// ───── Documentos: adjuntar el que falta ─────
+const entrada = ref<HTMLInputElement | null>(null);
+const pendiente = ref<{
+    tarjeta: TarjetaRecopilacion;
+    documento: DocumentoRecopilacion;
+} | null>(null);
+const subiendo = ref<string | null>(null);
+const errorCarga = ref<string | null>(null);
+const accept = computed(() =>
+    props.limites_documentos.mimes.map((m) => `.${m}`).join(','),
+);
+
+function pedirArchivo(
+    tarjeta: TarjetaRecopilacion,
+    documento: DocumentoRecopilacion,
+) {
+    pendiente.value = { tarjeta, documento };
+    errorCarga.value = null;
+    entrada.value?.click();
+}
+
+function alElegirArchivo(evento: Event) {
+    const input = evento.target as HTMLInputElement;
+    const archivo = input.files?.[0];
+    input.value = '';
+    const destino = pendiente.value;
+
+    if (!archivo || !destino || destino.documento.requerido_id === null) {
+        return;
+    }
+
+    if (archivo.size > props.limites_documentos.max_kb * 1024) {
+        errorCarga.value = `El archivo pesa más de ${Math.round(props.limites_documentos.max_kb / 1024)} MB.`;
+
+        return;
+    }
+
+    subiendo.value = destino.documento.clave;
+    router.post(
+        documentosBaja.store.url(destino.tarjeta.id),
+        { archivo, documento_requerido_id: destino.documento.requerido_id },
+        {
+            forceFormData: true,
+            preserveScroll: true,
+            only: ['recopilacion', 'resumen', 'flash'],
+            onError: (e) =>
+                (errorCarga.value =
+                    e.archivo ??
+                    e.documento_requerido_id ??
+                    'No se pudo subir el archivo.'),
+            onFinish: () => {
+                subiendo.value = null;
+                pendiente.value = null;
+            },
+        },
+    );
+}
+
+// ───── Cierres y finiquitos ─────
+const termino = ref(props.filtros.busqueda);
+const estado = ref(props.filtros.estado ?? '');
+
+function filtrarCierres() {
+    router.get(
+        window.location.pathname,
+        {
+            seccion: 'cierres',
             busqueda: termino.value || undefined,
             estado: estado.value || undefined,
         },
@@ -114,10 +349,10 @@ function filtrar() {
     );
 }
 
-watch(termino, useDebounceFn(filtrar, 300));
-watch(estado, filtrar);
+watch(termino, useDebounceFn(filtrarCierres, 300));
+watch(estado, filtrarCierres);
 
-function neto(fila: Fila): string {
+function neto(fila: FilaCierre): string {
     return fila.finiquito ? formatoMoneda(Number(fila.finiquito.neto)) : '—';
 }
 </script>
@@ -128,49 +363,210 @@ function neto(fila: Fila): string {
     <div class="pagina-ancha flex flex-col gap-5">
         <CrudPageHeader
             titulo="Bajas y finiquitos"
-            descripcion="Cierres laborales de los colaboradores de tu alcance y el estado de su finiquito. Cada baja se gestiona en la ficha del colaborador."
+            descripcion="Documentos, finiquito y cierre de cada persona dada de baja."
             :icono="DoorOpen"
         >
-            <Button v-if="puedeVerSolicitudes" variant="outline" as-child>
-                <Link :href="indexBajas()"
-                    ><ClipboardList class="size-4" />Solicitudes de baja</Link
+            <Button v-if="puedeVerBajas" variant="outline" as-child>
+                <Link :href="rutasBajas.index()"
+                    ><ClipboardList class="size-4" />Bajas</Link
+                >
+            </Button>
+            <Button v-if="puedeRegistrar" as-child>
+                <Link :href="rutasBajas.create()"
+                    ><UserMinus class="size-4" />Registrar baja</Link
                 >
             </Button>
         </CrudPageHeader>
 
+        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <TarjetaMetrica
+                etiqueta="En trámite"
+                :valor="resumen.en_tramite"
+                :icono="Hourglass"
+                tono="info"
+                clicable
+                :activa="rapidoActivo === 'en_tramite'"
+                @click="filtroRapido('en_tramite')"
+            />
+            <TarjetaMetrica
+                etiqueta="Faltan documentos"
+                :valor="resumen.documentos_pendientes"
+                :icono="FileWarning"
+                tono="alerta"
+                clicable
+                :activa="rapidoActivo === 'pendientes'"
+                @click="filtroRapido('pendientes')"
+            />
+            <TarjetaMetrica
+                etiqueta="En Jurídico"
+                :valor="resumen.juridico"
+                :icono="Scale"
+                tono="oro"
+                clicable
+                :activa="rapidoActivo === 'juridico'"
+                @click="filtroRapido('juridico')"
+            />
+            <TarjetaMetrica
+                etiqueta="Cerradas"
+                :valor="resumen.cerradas"
+                :icono="Lock"
+                tono="exito"
+                clicable
+                :activa="rapidoActivo === 'cerradas'"
+                @click="filtroRapido('cerradas')"
+            />
+        </div>
+
         <nav
-            v-if="causales"
             class="scroll-x-limpio flex max-w-full border-b"
             aria-label="Secciones de bajas y finiquitos"
         >
             <button
                 type="button"
-                :class="claseTab(seccion === 'bajas')"
-                :aria-current="seccion === 'bajas' ? 'page' : undefined"
-                @click="cambiarSeccion('bajas')"
+                :class="claseTab(seccion === 'documentos')"
+                :aria-current="seccion === 'documentos' ? 'page' : undefined"
+                @click="cambiarSeccion('documentos')"
             >
-                <DoorOpen class="size-4" />Bajas
+                <FolderOpen class="size-4" />Documentos
             </button>
             <button
+                type="button"
+                :class="claseTab(seccion === 'cierres')"
+                :aria-current="seccion === 'cierres' ? 'page' : undefined"
+                @click="cambiarSeccion('cierres')"
+            >
+                <DoorOpen class="size-4" />Cierres y finiquitos
+            </button>
+            <button
+                v-if="causales"
                 type="button"
                 :class="claseTab(seccion === 'causales')"
                 :aria-current="seccion === 'causales' ? 'page' : undefined"
                 @click="cambiarSeccion('causales')"
             >
-                <ListTree class="size-4" />Causales de baja
+                <ListTree class="size-4" />Causales
             </button>
         </nav>
 
+        <!-- ───── Documentos (recopilación por persona) ───── -->
+        <template v-if="seccion === 'documentos' && recopilacion">
+            <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                <div class="sm:col-span-2 xl:col-span-1">
+                    <Label
+                        for="buscar-baja-doc"
+                        class="mb-1.5 text-xs text-muted-foreground"
+                        >Buscar</Label
+                    >
+                    <div class="relative">
+                        <Search
+                            class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                        />
+                        <Input
+                            id="buscar-baja-doc"
+                            v-model="busquedaDoc"
+                            class="pl-9"
+                            placeholder="Nombre, número o folio"
+                        />
+                    </div>
+                </div>
+                <div>
+                    <Label class="mb-1.5 text-xs text-muted-foreground"
+                        >Estatus</Label
+                    >
+                    <SelectSimple
+                        v-model="estatusDoc"
+                        :opciones="opciones_documentos.estatus"
+                    />
+                </div>
+                <div>
+                    <Label class="mb-1.5 text-xs text-muted-foreground"
+                        >Sucursal</Label
+                    >
+                    <SelectSimple
+                        v-model="sucursalDoc"
+                        :opciones="opciones_documentos.sucursales"
+                        numerico
+                        opcion-vacia="Todas"
+                        placeholder="Todas"
+                    />
+                </div>
+                <div>
+                    <Label class="mb-1.5 text-xs text-muted-foreground"
+                        >Forma de salida</Label
+                    >
+                    <SelectSimple
+                        v-model="formaDoc"
+                        :opciones="opciones_documentos.formas"
+                        opcion-vacia="Todas"
+                        placeholder="Todas"
+                    />
+                </div>
+                <div>
+                    <Label class="mb-1.5 text-xs text-muted-foreground"
+                        >Documentos</Label
+                    >
+                    <SelectSimple
+                        v-model="documentosDoc"
+                        :opciones="opcionesDocumentos"
+                        opcion-vacia="Todos"
+                        placeholder="Todos"
+                    />
+                </div>
+            </div>
+
+            <p
+                v-if="errorCarga"
+                class="rounded-2xl bg-danger-soft px-4 py-3 text-sm text-destructive"
+                role="alert"
+            >
+                {{ errorCarga }}
+            </p>
+
+            <p
+                v-if="!recopilacion.data.length"
+                class="rounded-2xl border border-border/60 bg-card px-4 py-12 text-center text-sm text-muted-foreground"
+            >
+                No hay bajas con estos filtros.
+            </p>
+
+            <div
+                v-else
+                class="grid gap-4 min-[1800px]:grid-cols-4 md:grid-cols-2 xl:grid-cols-3"
+            >
+                <TarjetaDocumentosBaja
+                    v-for="t in recopilacion.data"
+                    :key="t.id"
+                    :tarjeta="t"
+                    :subiendo="subiendo"
+                    @ver="verDocumentos"
+                    @adjuntar="pedirArchivo"
+                />
+            </div>
+
+            <PaginacionTabla :datos="recopilacion" />
+
+            <input
+                ref="entrada"
+                type="file"
+                class="hidden"
+                :accept="accept"
+                aria-hidden="true"
+                tabindex="-1"
+                @change="alElegirArchivo"
+            />
+        </template>
+
         <CausalesRotacionPanel
-            v-if="causales && seccion === 'causales'"
+            v-else-if="seccion === 'causales' && causales"
             :causales="causales"
             :tipos="tipos_baja"
         />
 
-        <template v-else>
+        <!-- ───── Cierres y finiquitos ───── -->
+        <template v-else-if="seccion === 'cierres' && cierres">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
                 <div class="flex-1">
-                    <Label class="mb-1.5 text-xs text-[var(--mrl-texto-suave)]"
+                    <Label class="mb-1.5 text-xs text-muted-foreground"
                         >Buscar colaborador</Label
                     >
                     <Input
@@ -179,7 +575,7 @@ function neto(fila: Fila): string {
                     />
                 </div>
                 <div class="w-full sm:w-64">
-                    <Label class="mb-1.5 text-xs text-[var(--mrl-texto-suave)]"
+                    <Label class="mb-1.5 text-xs text-muted-foreground"
                         >Estado del cierre</Label
                     >
                     <SelectSimple
@@ -199,19 +595,18 @@ function neto(fila: Fila): string {
 
             <p
                 v-if="!cierres.data.length"
-                class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] px-4 py-8 text-center text-sm text-[var(--mrl-texto-suave)]"
+                class="rounded-2xl border border-border/60 bg-card px-4 py-12 text-center text-sm text-muted-foreground"
             >
                 No hay cierres laborales en tu alcance con estos filtros.
             </p>
 
             <template v-else>
-                <!-- Tabla (pantallas anchas) -->
                 <div
-                    class="hidden tabla-scroll rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] md:block"
+                    class="hidden tabla-scroll rounded-2xl border border-border/60 bg-card shadow-sm md:block"
                 >
                     <table class="w-full text-left text-sm">
                         <thead
-                            class="border-b border-[var(--mrl-borde)] text-xs text-[var(--mrl-texto-suave)]"
+                            class="border-b border-border/60 text-xs text-muted-foreground"
                         >
                             <tr>
                                 <th class="px-4 py-3 font-medium">
@@ -236,7 +631,7 @@ function neto(fila: Fila): string {
                                     Finiquito
                                 </th>
                                 <th class="px-4 py-3 text-right font-medium">
-                                    Acción siguiente
+                                    Siguiente paso
                                 </th>
                             </tr>
                         </thead>
@@ -244,15 +639,13 @@ function neto(fila: Fila): string {
                             <tr
                                 v-for="c in cierres.data"
                                 :key="c.id"
-                                class="border-b border-[var(--mrl-borde)] last:border-0"
+                                class="border-b border-border/60 last:border-0"
                             >
                                 <td class="px-4 py-3">
                                     <p class="font-medium">
                                         {{ c.colaborador.nombre }}
                                     </p>
-                                    <p
-                                        class="text-xs text-[var(--mrl-texto-suave)]"
-                                    >
+                                    <p class="text-xs text-muted-foreground">
                                         {{
                                             c.colaborador.numero_empleado ?? '—'
                                         }}
@@ -260,18 +653,15 @@ function neto(fila: Fila): string {
                                 </td>
                                 <td class="px-4 py-3 text-xs">
                                     {{ c.colaborador.puesto ?? '—' }}<br />
-                                    <span
-                                        class="text-[var(--mrl-texto-suave)]"
-                                        >{{
-                                            c.colaborador.sucursal ?? '—'
-                                        }}</span
-                                    >
+                                    <span class="text-muted-foreground">{{
+                                        c.colaborador.sucursal ?? '—'
+                                    }}</span>
                                 </td>
                                 <td class="px-4 py-3 text-xs">
                                     {{ c.tipo_baja_etiqueta
                                     }}<span
                                         v-if="c.causal_rotacion"
-                                        class="block text-[var(--mrl-texto-suave)]"
+                                        class="block text-muted-foreground"
                                         >{{ c.causal_rotacion }}</span
                                     >
                                 </td>
@@ -279,9 +669,10 @@ function neto(fila: Fila): string {
                                     {{ formatearFecha(c.fecha_efectiva) }}
                                 </td>
                                 <td class="px-4 py-3">
-                                    <Badge variant="info">{{
-                                        c.estado_etiqueta
-                                    }}</Badge>
+                                    <ChipEstado
+                                        :etiqueta="c.estado_etiqueta"
+                                        tono="info"
+                                    />
                                 </td>
                                 <td
                                     v-if="puede_ver_finiquito"
@@ -290,13 +681,11 @@ function neto(fila: Fila): string {
                                     <template v-if="c.finiquito">
                                         {{ c.finiquito.estado_etiqueta }}<br />
                                         <span
-                                            class="font-medium tabular-nums"
+                                            class="font-semibold tabular-nums"
                                             >{{ neto(c) }}</span
                                         >
                                     </template>
-                                    <span
-                                        v-else
-                                        class="text-[var(--mrl-texto-suave)]"
+                                    <span v-else class="text-muted-foreground"
                                         >Sin calcular</span
                                     >
                                 </td>
@@ -323,22 +712,22 @@ function neto(fila: Fila): string {
                     </table>
                 </div>
 
-                <!-- Tarjetas (pantallas estrechas): una columna -->
                 <ul class="flex flex-col gap-3 md:hidden">
                     <li
                         v-for="c in cierres.data"
                         :key="c.id"
-                        class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 text-sm"
+                        class="rounded-2xl border border-border/60 bg-card p-4 text-sm shadow-sm"
                     >
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span class="font-medium">{{
+                        <div class="flex items-start justify-between gap-2">
+                            <span class="font-semibold">{{
                                 c.colaborador.nombre
                             }}</span>
-                            <Badge variant="info">{{
-                                c.estado_etiqueta
-                            }}</Badge>
+                            <ChipEstado
+                                :etiqueta="c.estado_etiqueta"
+                                tono="info"
+                            />
                         </div>
-                        <p class="mt-0.5 text-xs text-[var(--mrl-texto-suave)]">
+                        <p class="mt-0.5 text-xs text-muted-foreground">
                             {{ c.colaborador.puesto ?? '—' }} ·
                             {{ c.colaborador.sucursal ?? '—' }}
                         </p>
@@ -347,25 +736,24 @@ function neto(fila: Fila): string {
                             }}<template v-if="c.causal_rotacion">
                                 ({{ c.causal_rotacion }})</template
                             >
-                            · Baja
-                            {{ formatearFecha(c.fecha_efectiva) }}
+                            · {{ formatearFecha(c.fecha_efectiva) }}
                         </p>
                         <p v-if="puede_ver_finiquito" class="mt-1 text-xs">
                             Finiquito:
                             <template v-if="c.finiquito">
                                 {{ c.finiquito.estado_etiqueta }} ·
-                                <span class="font-medium tabular-nums">{{
+                                <span class="font-semibold tabular-nums">{{
                                     neto(c)
                                 }}</span>
                             </template>
-                            <span v-else class="text-[var(--mrl-texto-suave)]"
+                            <span v-else class="text-muted-foreground"
                                 >sin calcular</span
                             >
                         </p>
                         <Button
                             size="sm"
                             variant="outline"
-                            class="mt-3"
+                            class="mt-3 w-full"
                             as-child
                         >
                             <Link
@@ -382,4 +770,12 @@ function neto(fila: Fila): string {
             </template>
         </template>
     </div>
+
+    <DocumentPreviewDialog
+        :open="visorAbierto"
+        :archivos="visorArchivos"
+        :indice="visorIndice"
+        @update:open="(v: boolean) => (visorAbierto = v)"
+        @update:indice="(i: number) => (visorIndice = i)"
+    />
 </template>

@@ -21,7 +21,12 @@ export type DocumentoCorrespondiente = {
     faltantes: DatoFaltante[];
     motivo: string | null;
     /** Original firmado físicamente cargado en el expediente (solo informativo). */
-    firmado_cargado: { etiqueta: string; url: string } | null;
+    firmado_cargado: {
+        etiqueta: string;
+        url: string;
+        nombre: string;
+        mime: string | null;
+    } | null;
 };
 
 export type EtapaContrato = {

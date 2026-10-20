@@ -49,21 +49,24 @@ El orden es exactamente el ciclo de vida laboral + transversales:
 | | | Solicitudes | `solicitudes.revisar`/`aprobar` | `rh.solicitudes.index` |
 | | | Actas administrativas | `actas.ver` | `rh.actas.index` |
 | | | Recibo simple de pago | `nomina.recibos.ver` | `rh.nomina.lotes.index` |
+| | | Importar salarios y vacaciones · solo super_admin | `colaboradores.importar_salarios_vacaciones` | `rh.importaciones.index` |
+| | | Contactos de emergencia (solo importación por Excel) · solo super_admin | `contactos_emergencia.importar` | `rh.contactos-emergencia.index` |
 | | | Celebraciones | `rh.cumpleanos.ver`/`celebraciones.ver` | `rh.cumpleanos.index` / `rh.aniversarios.index` |
 | 6 | **Desarrollo** | Capacitación continua | feature `capacitacion` | `cursos.index` |
 | | | Evaluación del desempeño · Matriz 9 box y planes · Certificación Mr. Lana | features `evaluacion_desempeno` / `nine_box` / `certificacion` (apagados: aún sin pantalla real, no se muestran) | — |
-| 7 | **Cierres laborales** | Solicitudes de baja (bandeja, solicitud del gerente, expediente — docs/BAJAS_Y_CAUSALES.md) | `bajas.ver`/`bajas.revisar_juridico`/`bajas.consulta_contraloria` | `rh.bajas.index` |
-| | | Bajas y finiquitos | `cierres.ver` | `rh.cierres.index` |
+| 7 | **Cierres laborales** | Bajas (bandeja, registro directo del gerente o RH, expediente — docs/BAJAS_Y_CAUSALES.md). Solo gerentes, RH y super admin; Jurídico y Contraloría de lectura | `bajas.ver`/`bajas.revisar_juridico`/`bajas.consulta_contraloria` | `rh.bajas.index` |
+| | | Bajas y finiquitos (pestañas Documentos —recopilación por persona—, Cierres y finiquitos, Causales) | `cierres.ver` | `rh.cierres.index` |
 | | | Reingresos | `reingresos.solicitar`/`gestionar` | `rh.reingresos.index` |
 | — | **Organización** | Organigrama | `organigrama.ver` | `administracion.jerarquia-puestos.index` |
 | | | Puestos y tabulador | `puestos.administrar` | `administracion.puestos.index` |
-| | | Sucursales y departamentos | `sucursales.administrar`/`departamentos.administrar` | `administracion.sucursales.index` |
+| | | Sucursales | `sucursales.administrar` | `administracion.sucursales.index` |
+| | | Departamentos (catálogo + mover personas en lote entre departamentos) | `departamentos.administrar` (mover: + `expedientes.editar`) | `administracion.departamentos.index` |
 | — | **Reportes** | Reportes de RH (incluye Rotación) | `reportes_rh.ver` | `reportes.index` |
 | | | Rotación de personal (tablero: Excel histórico + bajas del sistema; sin `bajas.tablero.ver` abre el histórico del Excel) | `bajas.tablero.ver`/`rotacion.ver` | `reportes.rotacion.tablero.index` / `reportes.rotacion.index` |
 | — | **Configuración** · solo administrador | Documentos maestros | `plantillas_documentales.administrar` | `rh.documentos-maestros.index` |
 | | | Catálogo de bajas (misma pantalla que Bajas y finiquitos → «Causales») | `finiquitos.causales_rotacion` + `finiquitos.ver` | `rh.cierres.index?seccion=causales` |
 | | | Usuarios y permisos | `usuarios.ver`/`roles.administrar` | `administracion.usuarios.index` |
-| | | Importar datos | `expedientes.migrar`/`headcount.importar`/`colaboradores.importar_salarios_vacaciones`/`rotacion.cargar`/`perfiles_puesto.editar` | `administracion.importar-datos.index` |
+| | | Importar datos · solo super_admin | `expedientes.migrar`/`headcount.importar`/`colaboradores.importar_salarios_vacaciones`/`rotacion.cargar`/`perfiles_puesto.importar`/`contactos_emergencia.importar`/`nomina.recibos.importar` | `administracion.importar-datos.index` |
 | | | Ajustes y notificaciones | `configuracion.ver`/`notificaciones.ver_todas` | `administracion.configuracion.index` |
 
 Las vistas de **evaluación de periodo de prueba** (Evaluaciones de periodo de prueba, Evaluación y decisión) son filtros `?estado=` reales de la **misma** pantalla (`rh.evaluaciones.index`), no pantallas duplicadas. «Calificaciones y refuerzo» (grupo 3) es otra cosa: las calificaciones de la **inducción** (`rh.onboarding.calificaciones`, SesionInduccionService::calificacionesRh).
@@ -107,7 +110,9 @@ Decisión del negocio: la **Coordinadora** (roles `coordinadora` y `coordinadora
 | Migración | Roles | Qué revoca |
 |---|---|---|
 | `2026_10_15_180000_coordinadoras_usan_people_como_colaboradoras` | `coordinadora`, `coordinadora_regional` | Todo lo operativo (expedientes/documentos de sucursal o región, revisar solicitudes, bandeja móvil RH, usuarios, reportes RH, organigrama, cierres/pago de finiquito, finiquitos, onboarding, contactos de todo el directorio). Quedan con el catálogo de `colaborador`. |
+| `2026_10_20_250000_bajas_directas_sin_borrador` | `jefe_directo`, `auditor`, `sistemas` | **Solo** los permisos de «Bajas» (bajas.ver, bajas.solicitar y sus alcances) y, a `jefe_directo`, el atajo `cierres.solicitar` / `solicitudes.bajas.crear`: «Bajas» es de gerentes, RH y super admin. Revocación puntual (no `alinearAlBase`): nada más de esos roles cambia. |
 | `2026_10_15_180100_auditor_minimo_privilegio` | `auditor` | Recibos de nómina, préstamos y actas (con sus permisos de alcance) y cualquier permiso fuera de su base: el auditor es solo lectura de empresas, expedientes, documentos, vacaciones, solicitudes, reportes RH, reclutamiento y ciclo laboral (contratos, evaluaciones, cierres, documentos laborales). |
+| `2026_10_20_230000_importaciones_solo_super_admin` | todos menos `super_admin` (roles y permisos directos de usuarios) | SOLO los permisos de importación/carga masiva: `expedientes.migrar` (migración y carga inicial), `headcount.importar`, `colaboradores.importar_salarios_vacaciones`, `rotacion.cargar`, `nomina.recibos.importar`, `contactos_emergencia.importar`, `perfiles_puesto.importar`. RH conserva la consulta (tablero e histórico de rotación, headcount, expedientes, recibos, perfiles) y generar recibos desde el sueldo. No usa `alinearAlBase`: no toca ningún otro permiso. |
 
 En producción basta `php artisan migrate --force` (seguido, como siempre, de `php artisan people:sincronizar-permisos`). Si después se personaliza uno de esos roles desde «Roles y permisos», la migración ya corrió y no lo vuelve a tocar.
 

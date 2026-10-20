@@ -41,26 +41,26 @@ Especificación funcional de la Gerencia de RH v1.0 (20-oct-2026). Cada baja de 
 
 El tipo de baja del cierre/solicitud se sincroniza con la forma de su causal (p. ej. «Bajo desempeño» pasa de rescisión a No renovación); el tipo anterior queda en `causal_rotacion_original`.
 
-## Flujo y estatus (`App\Enums\EstatusBaja`)
+## Flujo y estatus (`App\Enums\EstatusBaja`) — baja DIRECTA (2026-10-20)
 
-`Borrador` (gerente) → **Enviar a RH** → `En revisión RH` → [`En revisión Jurídico` si la causal lo requiere, RN-06] → `Cerrada` (RH). `Rechazada` regresa al gerente con motivo (RH o Jurídico). `No procede` (cancelada): la persona sigue laborando.
+La baja **no es una solicitud** ni pasa por aprobación. El gerente (de su personal, por alcance) o RH la **registra** y queda aplicada en ese momento. Antes de confirmar, en el mismo formulario, se ve la **vista previa** de lo que se generará: la renuncia / el formato de la causal (`GET /rh/documentos-proceso/previa/baja/{colaborador}`, `VistaPreviaFlujoService`) y el **finiquito propuesto** (`GET /rh/bajas/previa/finiquito`, `BajaService::vistaPreviaFiniquito` → `FiniquitoService::propuestaEnMemoria` + `vistaPreviaPdf`). Todo se arma en memoria: nada se guarda hasta confirmar.
 
-| Acción | Quién | Efecto |
+`En trámite` (`en_revision_rh`) → [`En revisión Jurídico` si la causal lo requiere, RN-06 — automático al registrar] → `Cerrada` (RH). `No procede` (`cancelada`): RH la revierte, la persona sigue laborando y recupera el acceso.
+
+**Legado** (ya no se crean): `Borrador` y `Rechazada`. La migración `2026_10_20_250000_bajas_directas_sin_borrador` (idempotente, con entrada en la bitácora) convierte `Borrador` → «No procede» (nunca se aplicó: convertirlo en baja aplicada dejaría sin acceso a alguien que sigue laborando; sus datos quedan intactos) y `Rechazada` → «En trámite» (ya estaba aplicada; el motivo se conserva).
+
+| Paso / acción | Quién | Efecto |
 |---|---|---|
-| Guardar borrador | Gerente (bajas.solicitar + alcance) | Nada fuera de la baja. Folio BAJ-AAAA-NNNN. |
-| Enviar a RH | Gerente | RN-01…RN-10 completas. **Suspende el acceso** de inmediato y aplica el cierre laboral (`CierreLaboralService::aplicarDesdeBaja`: solicitud, cierre «Baja aplicada», documentos generados de la causal, finiquito). Reenvío tras rechazo: sincroniza el cierre. |
-| Validar | RH (bajas.gestionar) | Revisa causal, documentos y fechas. |
-| Enviar a Jurídico / Aprobar (Jurídico) | RH / Jurídico (bajas.revisar_juridico) | Jurídico no cierra. |
-| Rechazar (motivo) | RH o Jurídico | Regresa al gerente; el acceso sigue suspendido (RH lo rehabilita desde Usuarios si hace falta, como hoy). |
-| Cambiar causal (motivo) | RH | Bitácora con usuario, fecha, valor anterior y nuevo; reinicia Jurídico si la nueva lo requiere; sincroniza el cierre. |
+| **Registrar baja** (`rh.bajas.store`, también «Iniciar baja» del ciclo laboral con `volver=ciclo`; API `POST /api/v1/rh/bajas`) | Gerente (`bajas.solicitar` + alcance) o RH (`bajas.gestionar`) | RN-01…RN-11 completas **antes** de tocar nada. En una transacción: folio BAJ-AAAA-NNNN, cierre laboral aplicado (`CierreLaboralService::aplicarDesdeBaja`: solicitud, cierre, **acceso suspendido**, documentos de la causa **generados** —renuncia en RV; evaluación/aviso en NR-02/NR-04 según `clavesCausa`; RE nada: el aviso de rescisión se adjunta). Después, sin deshacer la baja si falla: **finiquito propuesto** (`calcularFiniquito` con el salario registrado; sin salario queda «Finiquito pendiente» para RH) y avisos. Si la causal requiere Jurídico, nace «En revisión Jurídico». |
+| Completar / adjuntar documentos | Gerente (alcance) o RH | En el expediente de la baja o en Bajas y finiquitos → «Documentos». |
+| Aprobar / Devolver (Jurídico) | Jurídico (`bajas.revisar_juridico`) | Aprobar → regresa a «En trámite» lista para cerrar. Devolver con observaciones → «En trámite» con el motivo; RH corrige y la reenvía («Enviar a Jurídico») o la marca «No procede». Jurídico no cierra. |
+| Cambiar causal (motivo) | RH | Bitácora con usuario, fecha, valor anterior y nuevo; si la nueva requiere Jurídico, pasa sola a Jurídico; sincroniza el cierre. |
 | Completar / corregir datos | RH | Fecha, comentario, recontratable (RN-09), aviso de rescisión, «cuenta en rotación» (movimiento interno, RN-14). |
-| Cerrar | RH | Validada + Jurídico (si aplica) + documentos obligatorios completos (RN-05) + finiquito revisado + ya pasó el último día. Colaborador **Inactivo** y **bloqueo definitivo** (cuenta, tokens Sanctum, dispositivos, vacante — `CierreLaboralService::ejecutarBaja` → `BajaColaboradorService`) si la entrega del finiquito no lo había hecho ya. |
-| Reabrir (motivo) | RH | Cerrada → En revisión RH (RN-13). |
-| No procede (motivo) | RH, o el gerente en borrador/rechazada | Cancela el cierre laboral y devuelve el acceso. Nada se borra. |
+| Cerrar | RH | Datos completos + Jurídico (si aplica) + documentos obligatorios completos (RN-05) + finiquito revisado o entregado + ya pasó el último día. Colaborador **Inactivo** y **bloqueo definitivo** (`CierreLaboralService::ejecutarBaja` → `BajaColaboradorService`) si la entrega del finiquito no lo había hecho ya. |
+| Reabrir (motivo) | RH | Cerrada → En trámite (RN-13). |
+| No procede (motivo) | **Solo RH** | Cancela el cierre laboral y devuelve el acceso. Nada se borra. |
 
-**Conflicto resuelto**: la suspensión de acceso al ENVIAR (regla ya aprobada) se conserva; al CERRAR se marca Inactivo y el bloqueo es definitivo (RN-11).
-
-**Atajo de RH / jefe directo** (ciclo laboral → «Iniciar baja», web y `POST /api/v1/rh/colaboradores/{c}/cierres`): mismos campos (componente `CamposBaja.vue`), crea la baja ya «En revisión RH» con folio. Para las APK instaladas la causal y los campos nuevos son opcionales: la baja queda «causal pendiente» y RH no puede validarla ni cerrarla sin completarlos. Nunca se salta los documentos obligatorios para cerrar. La no renovación desde la evaluación del periodo de prueba crea su baja con NR-02.
+Ya no existen «Guardar borrador», «Enviar a RH», «Validar» ni el rechazo al gerente (rutas web retiradas). **API v1 compatible**: `store` registra directo (`enviar` se acepta y se ignora), `enviar` responde la baja sin cambios, `update` solo lo acepta RH (corrige datos) y `rechazar` es la devolución de Jurídico. Las APK instaladas siguen usando `POST /api/v1/rh/colaboradores/{c}/cierres` (atajo): crea la baja «En trámite» (causal y campos nuevos opcionales; RH no la cierra sin completarlos). La no renovación desde la evaluación del periodo de prueba crea su baja con NR-02.
 
 ### Reglas (BajaReglasService)
 
@@ -72,25 +72,31 @@ Por `NotificadorRhService` / `NotificacionEventosService` (eventos en `config/co
 
 | Evento | Destinatarios | Cuándo |
 |---|---|---|
-| `baja_por_revisar` | bajas.gestionar (RH) | Al enviar / atajo; cuando Jurídico aprueba |
-| `baja_revision_juridico` | bajas.revisar_juridico | RH la envía a Jurídico |
+| `cierre_baja_solicitada` «Baja registrada» | RH, regional de la persona y **Sistemas** (retirar accesos, cuentas y equipo) | Al registrar (módulo «Bajas», ciclo laboral, API): quién la dio, a quién (puesto · sucursal), forma · causal y último día. El actor recibe la confirmación «Baja registrada». |
+| `baja_revision_juridico` | bajas.revisar_juridico | Al registrar una causal con Jurídico; RH la (re)envía; la nueva causal lo requiere |
+| `baja_por_revisar` | bajas.gestionar (RH) | Jurídico aprobó o devolvió |
 | `baja_alerta_clima_laboral` (+ **correo**) | bajas.gestionar | RV-04 |
 | `baja_alerta_contraloria` | bajas.consulta_contraloria | RE-02, RE-03 |
 | `baja_alerta_juridico` | bajas.revisar_juridico | RE-03; RN-08 |
 | `baja_rotacion_temprana` | bajas.gestionar | antigüedad < 90 días |
-| `baja_resuelta` (resultado) | quien la solicitó | rechazo, cierre, no procede |
+| `baja_resuelta` (resultado) | quien la registró | cierre, no procede |
 
 ## Permisos (módulo «bajas» en `config/permisos_modulos.php`)
 
+«Bajas» es **solo** para gerentes (su personal, por alcance), RH y super admin; de solo lectura, Jurídico (su revisión) y Contraloría (RE-02/RE-03), como define la especificación.
+
 | Rol | Permisos | Ve |
 |---|---|---|
-| gerente_sucursal / gerente / gerente_regional | bajas.ver, bajas.solicitar, bajas.tablero.ver (+ alcance sucursal/región) | Sus bajas y su personal; tablero de su alcance |
-| jefe_directo | bajas.ver, bajas.solicitar (alcance equipo) | Su equipo |
+| gerente_sucursal / gerente / gerente_regional | bajas.ver, bajas.solicitar, bajas.tablero.ver (+ alcance sucursal/región) | Registra la baja de su personal; ve sus bajas; tablero de su alcance |
 | rh_admin | bajas.ver, bajas.solicitar, bajas.gestionar, bajas.tablero.ver | Todo |
-| rh_auxiliar, auditor, sistemas | bajas.ver, bajas.tablero.ver | Lectura |
-| juridico | bajas.revisar_juridico | Rescisiones y causales con Jurídico |
-| contraloria (rol nuevo) | bajas.consulta_contraloria | Solo RE-02 y RE-03, lectura |
-| direccion, director_comercial | bajas.tablero.ver | Solo el tablero |
+| super_admin | todo el catálogo operativo | Todo |
+| rh_auxiliar | bajas.ver, bajas.tablero.ver | Lectura (es RH; no registra) |
+| juridico | bajas.revisar_juridico | Rescisiones y causales con Jurídico (lectura + aprobar/devolver) |
+| contraloria | bajas.consulta_contraloria | Solo RE-02 y RE-03, lectura |
+| direccion, director_comercial, auditor, sistemas | bajas.tablero.ver | Solo el tablero de rotación (sin «Bajas») |
+| jefe_directo | — | Sin acceso a «Bajas» ni al atajo del ciclo laboral |
+
+La migración `2026_10_20_250000_bajas_directas_sin_borrador` revoca en bases existentes **solo** estos permisos: a `jefe_directo` bajas.ver/solicitar (+ alcances), cierres.solicitar y solicitudes.bajas.crear; a `auditor` y `sistemas` bajas.ver/solicitar (+ alcances). Nada más de esos roles. El atajo del ciclo laboral (`ColaboradorPolicy::iniciarCierre`, `CierreLaboralService::solicitar`) acepta RH con alcance, el gerente con `bajas.solicitar` y alcance del módulo «bajas», o el gerente en la cadena de mando con `cierres.solicitar`.
 
 Jurídico y Contraloría entran al modo operativo con su permiso de bajas (`NavigationService::tieneModoOperativo`) y su «Inicio» los lleva a la bandeja. Sincronizar en producción: `php artisan migrate --force && php artisan people:sincronizar-permisos`.
 
@@ -98,13 +104,18 @@ Jurídico y Contraloría entran al modo operativo con su permiso de bajas (`Navi
 
 | Pantalla | Ruta | Menú |
 |---|---|---|
-| Bandeja (folio, días en espera, semáforo de documentos, filtros) | `rh.bajas.index` (`/rh/bajas`) | 7 Cierres laborales → «Solicitudes de baja» |
-| Solicitud del gerente (4 bloques) | `rh.bajas.create`, `rh.bajas.edit` | botón «Solicitar baja» |
+| **Bajas** (bandeja: números grandes por estatus, colaborador, forma · causal, estatus, días en trámite, avance de documentos N/M, filtros) | `rh.bajas.index` (`/rh/bajas`) | 7 Cierres laborales → «Bajas» |
+| Registrar baja (¿quién?, ¿cómo se va?, ¿por qué?; vista previa de renuncia/formato y finiquito; confirmación) | `rh.bajas.create` → `rh.bajas.store` | botón «Registrar baja» |
 | Expediente (datos, documentos con vista previa, bitácora, acciones) | `rh.bajas.show` | — |
+| Vista previa del finiquito propuesto (PDF inline, no-store, sin escribir) | `rh.bajas.previa.finiquito` | — |
+| **Bajas y finiquitos → Documentos** (recopilación por persona: tarjetas con foto/iniciales, puesto, sucursal, forma · causal con su color, último día, estatus, avance N/M y la lista de documentos —generados, finiquito, entrega del finiquito, adjuntos— con estado generado/firmado/pendiente; botón grande «Vista previa» abre el visor en galería; adjuntar el que falta y descargar; filtros por estatus, sucursal, forma, documentos completos/incompletos y buscador sin mínimo) | `rh.cierres.index` (pestaña por defecto; `BajaRecopilacionService`, alcance del módulo «cierres») | 7 Cierres laborales → «Bajas y finiquitos» |
+| Cierres y finiquitos (estado del cierre y del finiquito) | `rh.cierres.index?seccion=cierres` | pestaña |
 | Catálogo | `rh.cierres.index?seccion=causales` | Bajas y finiquitos → «Causales» y Configuración → «Catálogo de bajas» |
 | Tablero de rotación | `reportes.rotacion.tablero.index` (+ `.excel`, `.pdf`) | Reportes → «Rotación de personal» |
 | Rotación histórica (carga del Excel) | `reportes.rotacion.index` | enlace «Histórico» desde el tablero |
-| API v1 | `api.v1.rh.bajas.*` (catálogo, listado, detalle, crear/actualizar, enviar, rechazar, adjuntar) | — |
+| API v1 | `api.v1.rh.bajas.*` (catálogo, listado, detalle, registrar, compatibilidad enviar/actualizar/rechazar, adjuntar) | — |
+
+En la recopilación, el avance N/M cuenta los documentos **obligatorios para cerrar** (los mismos de RN-05); el filtro «documentos completos/incompletos» y el número «Faltan documentos» se calculan sobre las 300 bajas más recientes del filtro (constante LIMITE_CALCULO de BajaRecopilacionService).
 
 ## Plantilla mensual (`plantilla_mensual`)
 

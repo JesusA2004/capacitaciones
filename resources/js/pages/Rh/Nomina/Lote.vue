@@ -20,6 +20,7 @@ import {
 import { computed, ref, watch } from 'vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import InputError from '@/components/InputError.vue';
+import EsqueletoDocumento from '@/components/people/EsqueletoDocumento.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -734,18 +735,17 @@ function guardarEdicion() {
                 <div class="relative flex-1 bg-muted/40">
                     <div
                         v-if="pdfUrl && cargandoPdf"
-                        class="absolute inset-0 flex items-center justify-center"
+                        class="absolute inset-0 z-10 flex items-center justify-center p-6"
                     >
-                        <div
-                            class="h-[85%] w-[70%] animate-pulse rounded-lg bg-muted"
-                        />
+                        <EsqueletoDocumento />
                     </div>
                     <iframe
                         v-if="pdfUrl"
                         :key="pdfUrl"
                         :src="pdfUrl"
                         title="Recibo de nómina (formato oficial)"
-                        class="relative h-full w-full"
+                        class="relative h-full w-full transition-opacity duration-300"
+                        :class="cargandoPdf ? 'opacity-0' : 'opacity-100'"
                         @load="cargandoPdf = false"
                     />
                     <div
@@ -794,13 +794,22 @@ function guardarEdicion() {
                     </Button>
                 </div>
             </SheetHeader>
-            <iframe
-                v-if="pdfUrl"
-                :key="`m${pdfUrl}`"
-                :src="pdfUrl"
-                title="Recibo de nómina"
-                class="h-full w-full"
-            />
+            <div v-if="pdfUrl" class="relative min-h-0 flex-1">
+                <div
+                    v-if="cargandoPdf"
+                    class="absolute inset-0 z-10 flex items-center justify-center p-6"
+                >
+                    <EsqueletoDocumento />
+                </div>
+                <iframe
+                    :key="`m${pdfUrl}`"
+                    :src="pdfUrl"
+                    title="Recibo de nómina"
+                    class="h-full w-full transition-opacity duration-300"
+                    :class="cargandoPdf ? 'opacity-0' : 'opacity-100'"
+                    @load="cargandoPdf = false"
+                />
+            </div>
             <p v-else class="p-6 text-sm text-destructive">
                 {{ seleccionado?.advertencias[0] }}
             </p>

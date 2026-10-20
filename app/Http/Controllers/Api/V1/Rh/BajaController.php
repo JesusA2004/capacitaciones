@@ -17,10 +17,14 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * Módulo de bajas en la API v1 (Sanctum): MISMO BajaService que la web.
- * Endpoints nuevos y aditivos: las APK instaladas siguen usando
+ * Módulo de bajas en la API v1 (Sanctum): MISMO BajaService que la web. La
+ * baja es DIRECTA: «store» la registra y la aplica de inmediato. Los
+ * endpoints del flujo anterior siguen respondiendo con la misma forma
+ * (compatibilidad): «enviar» ya no cambia nada (la baja ya está aplicada),
+ * «update» solo corrige datos si quien llama es RH y «rechazar» es la
+ * devolución de Jurídico a RH. Las APK instaladas siguen usando
  * /rh/colaboradores/{colaborador}/cierres (atajo), que también registra la
- * baja «En revisión RH».
+ * baja «En trámite».
  */
 class BajaController extends Controller
 {
@@ -59,23 +63,17 @@ class BajaController extends Controller
     public function store(GuardarBajaRequest $request): JsonResponse
     {
         $this->authorize('create', Baja::class);
-        $baja = $this->bajas->guardar(null, $request->datos(), $request->user());
-
-        if ($request->boolean('enviar')) {
-            $baja = $this->bajas->enviar($baja, $request->user());
-        }
+        $baja = $this->bajas->registrar($request->datos(), $request->user());
 
         return response()->json(['data' => $this->bajas->detalle($baja, $request->user())], 201);
     }
 
     public function update(GuardarBajaRequest $request, Baja $baja): JsonResponse
     {
-        $this->authorize('update', $baja);
-        $baja = $this->bajas->guardar($baja, $request->datos(), $request->user());
-
-        if ($request->boolean('enviar')) {
-            $baja = $this->bajas->enviar($baja, $request->user());
-        }
+        // Compatibilidad: la baja ya no se edita como borrador; RH corrige
+        // datos (fecha, comentario, recontratable, aviso de rescisión).
+        $this->authorize('gestionar', $baja);
+        $baja = $this->bajas->actualizarPorRh($baja, $request->user(), $request->datos());
 
         return response()->json(['data' => $this->bajas->detalle($baja, $request->user())]);
     }
@@ -89,9 +87,10 @@ class BajaController extends Controller
 
     public function rechazar(MotivoBajaRequest $request, Baja $baja): JsonResponse
     {
-        $this->authorize('rechazar', $baja);
+        // Compatibilidad: ya no hay rechazo al gerente; Jurídico devuelve a RH.
+        $this->authorize('revisarJuridico', $baja);
 
-        return response()->json(['data' => $this->bajas->detalle($this->bajas->rechazar($baja, $request->user(), $request->motivo()), $request->user())]);
+        return response()->json(['data' => $this->bajas->detalle($this->bajas->devolverJuridico($baja, $request->user(), $request->motivo()), $request->user())]);
     }
 
     public function adjuntar(AdjuntarDocumentoBajaRequest $request, Baja $baja): JsonResponse

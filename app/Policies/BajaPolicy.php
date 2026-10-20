@@ -8,13 +8,15 @@ use App\Services\Bajas\BajaConsultaService;
 use App\Services\Bajas\BajaService;
 
 /**
- * Permisos del módulo de bajas (docs/BAJAS_Y_CAUSALES.md):
+ * Permisos del módulo «Bajas» (docs/BAJAS_Y_CAUSALES.md). Solo entran el
+ * gerente (su personal, por alcance), RH y super admin; además, de solo
+ * lectura, Jurídico y Contraloría:
  *
- *  - Gerente / jefe directo / regional (bajas.solicitar + bajas.ver): crea y
- *    envía solicitudes de su personal, adjunta documentos, consulta sus
- *    bajas. No cierra ni cambia la causal después de enviarla.
- *  - RH (bajas.gestionar): valida, rechaza, cambia causal con motivo,
- *    cierra, reabre; ve todo.
+ *  - Gerente / regional (bajas.solicitar + bajas.ver): registra la baja de
+ *    su personal (queda aplicada de inmediato), completa sus documentos y
+ *    consulta sus bajas. No cierra ni cambia la causal.
+ *  - RH (bajas.gestionar): registra, cambia causal con motivo, corrige
+ *    datos, envía a Jurídico, cierra, reabre y marca «No procede»; ve todo.
  *  - Jurídico (bajas.revisar_juridico): revisa/aprueba las que lo requieren
  *    y consulta las rescisiones; no cierra.
  *  - Contraloría (bajas.consulta_contraloria): consulta RE-02 / RE-03, solo
@@ -55,14 +57,6 @@ class BajaPolicy
     public function revisarJuridico(User $user, Baja $baja): bool
     {
         return $user->can(BajaService::PERMISO_JURIDICO) && $this->view($user, $baja);
-    }
-
-    /**
-     * Rechazar: RH o Jurídico (el servicio decide según el estatus).
-     */
-    public function rechazar(User $user, Baja $baja): bool
-    {
-        return $this->gestionar($user, $baja) || $this->revisarJuridico($user, $baja);
     }
 
     public function verTablero(User $user): bool

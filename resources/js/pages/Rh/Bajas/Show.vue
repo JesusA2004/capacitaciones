@@ -3,12 +3,11 @@ import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
     AlertTriangle,
     CheckCircle2,
+    FolderOpen,
     History,
     Lock,
     Pencil,
     Scale,
-    Send,
-    ShieldCheck,
     Undo2,
     UserMinus,
     XCircle,
@@ -20,6 +19,8 @@ import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
+import ChipEstado from '@/components/people/ChipEstado.vue';
+import PeopleConfirmDialog from '@/components/people/PeopleConfirmDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -33,21 +34,23 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { usePermisos } from '@/composables/usePermisos';
-import { claseForma } from '@/lib/bajas';
+import { claseForma, estatusBaja } from '@/lib/bajas';
 import { formatearFecha, formatearFechaHora } from '@/lib/fechas';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import rutasBajas from '@/routes/rh/bajas';
+import { index as cierresIndex } from '@/routes/rh/cierres';
 import { ciclo as cicloColaborador } from '@/routes/rh/colaboradores';
 import type { BajaDetalle, FormaSalidaOpcion, LimitesBaja } from '@/types';
 
 /**
- * Expediente de la baja (especificación de RH §5): datos, documentos con
- * vista previa, bitácora y acciones según el rol — RH: Validar / Enviar a
- * Jurídico / Rechazar con motivo / Cerrar / Reabrir con motivo / cambiar
- * causal con motivo; Jurídico: aprobar o rechazar; gerente: editar y
- * enviar mientras esté en borrador o rechazada. El backend vuelve a validar
- * cada acción (BajaService).
+ * Expediente de la baja: datos, documentos con vista previa, bitácora y
+ * acciones según el rol. La baja ya está APLICADA desde que se registró —
+ * RH: completar/corregir datos, cambiar causal con motivo, enviar a
+ * Jurídico (si la causal lo requiere), Cerrar, Reabrir con motivo y «No
+ * procede»; Jurídico: aprobar o devolver a RH con observaciones; gerente:
+ * adjuntar documentos. El backend vuelve a validar cada acción
+ * (BajaService).
  */
 const props = defineProps<{
     baja: BajaDetalle;
@@ -61,7 +64,7 @@ defineOptions({
     layout: (pageProps: { baja: { folio: string } }) => ({
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Solicitudes de baja', href: rutasBajas.index() },
+            { title: 'Bajas', href: rutasBajas.index() },
             { title: pageProps.baja.folio, href: '' },
         ],
     }),
@@ -77,11 +80,7 @@ const erroresAccion = computed(() =>
 const puede = (accion: string) => props.baja.acciones.includes(accion);
 const procesando = ref(false);
 
-function accionDirecta(url: string, confirmar: string | null = null): void {
-    if (confirmar && !window.confirm(confirmar)) {
-        return;
-    }
-
+function accionDirecta(url: string): void {
     procesando.value = true;
     router.post(
         url,
@@ -90,23 +89,31 @@ function accionDirecta(url: string, confirmar: string | null = null): void {
     );
 }
 
-// ── Diálogo de motivo (rechazar, reabrir, no procede, aprobar Jurídico) ──
-type AccionMotivo = 'rechazar' | 'reabrir' | 'cancelar' | 'aprobar_juridico';
+const confirmarCierre = ref(false);
+
+function cerrarBaja() {
+    confirmarCierre.value = false;
+    accionDirecta(rutasBajas.cerrar.url(props.baja.id));
+}
+
+// ── Diálogo de motivo (Jurídico devuelve, reabrir, no procede, aprobar) ──
+type AccionMotivo =
+    'devolver_juridico' | 'reabrir' | 'cancelar' | 'aprobar_juridico';
 const accionMotivo = ref<AccionMotivo | null>(null);
 const formMotivo = useForm({ motivo: '' });
 const textosMotivo: Record<
     AccionMotivo,
     { titulo: string; boton: string; ayuda: string }
 > = {
-    rechazar: {
-        titulo: 'Rechazar la baja',
-        boton: 'Rechazar',
-        ayuda: 'Regresa al gerente con este motivo para que la corrija.',
+    devolver_juridico: {
+        titulo: 'Devolver a RH',
+        boton: 'Devolver con observaciones',
+        ayuda: 'La baja sigue aplicada: RH corrige y la vuelve a enviar, o la marca «No procede».',
     },
     reabrir: {
         titulo: 'Reabrir la baja',
         boton: 'Reabrir',
-        ayuda: 'Regresa a «En revisión RH». El motivo queda en la bitácora.',
+        ayuda: 'Regresa a «En trámite». El motivo queda en la bitácora.',
     },
     cancelar: {
         titulo: 'La baja no procede',
@@ -134,7 +141,7 @@ function enviarMotivo() {
     }
 
     const url = {
-        rechazar: rutasBajas.rechazar.url(props.baja.id),
+        devolver_juridico: rutasBajas.devolverJuridico.url(props.baja.id),
         reabrir: rutasBajas.reabrir.url(props.baja.id),
         cancelar: rutasBajas.cancelar.url(props.baja.id),
         aprobar_juridico: rutasBajas.aprobarJuridico.url(props.baja.id),
@@ -202,27 +209,7 @@ function guardarDatos() {
 const errores = computed(() => Object.values(props.baja.errores));
 const esRescision = computed(() => props.baja.forma === 'RE');
 
-const varianteEstatus = computed(
-    () =>
-        (
-            ({
-                borrador: 'secondary',
-                en_revision_rh: 'info',
-                en_revision_juridico: 'warning',
-                rechazada: 'destructive',
-                cerrada: 'success',
-                cancelada: 'outline',
-            }) as Record<
-                string,
-                | 'secondary'
-                | 'info'
-                | 'warning'
-                | 'destructive'
-                | 'success'
-                | 'outline'
-            >
-        )[props.baja.estatus] ?? 'secondary',
-);
+const chipEstatus = computed(() => estatusBaja(props.baja.estatus));
 
 const datos = computed(() => [
     { etiqueta: 'Colaborador', valor: props.baja.colaborador },
@@ -255,8 +242,11 @@ const datos = computed(() => [
         etiqueta: 'Cuenta en rotación',
         valor: props.baja.es_rotacion ? 'Sí' : 'No (movimiento interno)',
     },
-    { etiqueta: 'Solicitada por', valor: props.baja.solicitado_por ?? '—' },
-    { etiqueta: 'Enviada', valor: formatearFechaHora(props.baja.enviado_en) },
+    { etiqueta: 'Registrada por', valor: props.baja.solicitado_por ?? '—' },
+    {
+        etiqueta: 'Registrada',
+        valor: formatearFechaHora(props.baja.enviado_en),
+    },
     { etiqueta: 'Origen', valor: props.baja.origen_etiqueta },
 ]);
 </script>
@@ -270,24 +260,6 @@ const datos = computed(() => [
             :descripcion="`${baja.sucursal ?? 'Sin sucursal'} · ${baja.puesto ?? 'Sin puesto'}`"
             :icono="UserMinus"
         >
-            <Button v-if="puede('editar')" variant="outline" as-child>
-                <Link :href="rutasBajas.edit.url(baja.id)"
-                    ><Pencil class="size-4" />Editar</Link
-                >
-            </Button>
-            <Button
-                v-if="puede('enviar')"
-                :disabled="procesando"
-                @click="accionDirecta(rutasBajas.enviar.url(baja.id))"
-                ><Send class="size-4" />Enviar a RH</Button
-            >
-            <Button
-                v-if="puede('validar') && !baja.validado_en"
-                variant="outline"
-                :disabled="procesando"
-                @click="accionDirecta(rutasBajas.validar.url(baja.id))"
-                ><ShieldCheck class="size-4" />Validar</Button
-            >
             <Button
                 v-if="puede('enviar_juridico')"
                 variant="outline"
@@ -302,21 +274,16 @@ const datos = computed(() => [
                 ><CheckCircle2 class="size-4" />Aprobar (Jurídico)</Button
             >
             <Button
-                v-if="puede('rechazar')"
+                v-if="puede('devolver_juridico')"
                 variant="outline"
                 :disabled="procesando"
-                @click="abrirMotivo('rechazar')"
-                ><XCircle class="size-4" />Rechazar</Button
+                @click="abrirMotivo('devolver_juridico')"
+                ><XCircle class="size-4" />Devolver a RH</Button
             >
             <Button
                 v-if="puede('cerrar')"
                 :disabled="procesando"
-                @click="
-                    accionDirecta(
-                        rutasBajas.cerrar.url(baja.id),
-                        '¿Cerrar la baja? La persona quedará inactiva y su acceso se bloquea de forma definitiva.',
-                    )
-                "
+                @click="confirmarCierre = true"
                 ><Lock class="size-4" />Cerrar baja</Button
             >
             <Button
@@ -328,9 +295,12 @@ const datos = computed(() => [
         </CrudPageHeader>
 
         <div class="flex flex-wrap items-center gap-2">
-            <Badge :variant="varianteEstatus">{{
-                baja.estatus_etiqueta
-            }}</Badge>
+            <ChipEstado
+                :etiqueta="baja.estatus_etiqueta"
+                :tono="chipEstatus.tono"
+                :icono="chipEstatus.icono"
+                tamano="md"
+            />
             <span
                 v-if="baja.forma_etiqueta"
                 class="inline-flex items-center gap-1.5 text-sm"
@@ -351,9 +321,6 @@ const datos = computed(() => [
                 >Requiere Jurídico{{
                     baja.juridico_en ? ' · aprobada' : ''
                 }}</Badge
-            >
-            <Badge v-if="baja.validado_en" variant="success"
-                >Validada por RH</Badge
             >
             <Button
                 v-if="puede('cambiar_causal')"
@@ -378,13 +345,18 @@ const datos = computed(() => [
         </div>
 
         <p
-            v-if="baja.estatus === 'rechazada' && baja.motivo_rechazo"
-            class="rounded-2xl bg-danger-soft px-4 py-3 text-sm text-destructive"
+            v-if="
+                baja.estatus !== 'cerrada' &&
+                baja.estatus !== 'cancelada' &&
+                baja.motivo_rechazo
+            "
+            class="rounded-2xl bg-warning-soft px-4 py-3 text-sm text-warning"
         >
             <strong
-                >Rechazada por
-                {{
-                    baja.rechazado_area === 'juridico' ? 'Jurídico' : 'RH'
+                >{{
+                    baja.rechazado_area === 'juridico'
+                        ? 'Jurídico la devolvió'
+                        : 'Rechazada (flujo anterior)'
                 }}:</strong
             >
             {{ baja.motivo_rechazo }}
@@ -408,10 +380,10 @@ const datos = computed(() => [
                 <AlertTriangle class="mt-0.5 size-4 shrink-0" />{{ a.mensaje }}
             </p>
             <div
-                v-if="errores.length && baja.estatus !== 'borrador'"
+                v-if="errores.length"
                 class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] px-4 py-3 text-sm"
             >
-                <p class="font-medium">Falta para validar o cerrar:</p>
+                <p class="font-medium">Falta para cerrar:</p>
                 <ul class="mt-1 list-disc pl-5 text-[var(--mrl-texto-suave)]">
                     <li v-for="(e, i) in errores" :key="i">{{ e }}</li>
                 </ul>
@@ -531,7 +503,30 @@ const datos = computed(() => [
                 <section
                     class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
                 >
-                    <h3 class="mb-3 text-base font-semibold">Documentos</h3>
+                    <div
+                        class="mb-3 flex flex-wrap items-center justify-between gap-2"
+                    >
+                        <h3 class="text-base font-semibold">Documentos</h3>
+                        <Button
+                            v-if="tienePermiso('cierres.ver')"
+                            size="sm"
+                            variant="outline"
+                            as-child
+                        >
+                            <Link
+                                :href="
+                                    cierresIndex.url({
+                                        query: {
+                                            busqueda: baja.folio,
+                                            estatus: 'todas',
+                                        },
+                                    })
+                                "
+                                ><FolderOpen class="size-4" />Generados y
+                                finiquito</Link
+                            >
+                        </Button>
+                    </div>
                     <DocumentosBaja
                         :espacios="baja.documentos"
                         :baja-id="baja.id"
@@ -646,6 +641,16 @@ const datos = computed(() => [
             </form>
         </DialogContent>
     </Dialog>
+
+    <PeopleConfirmDialog
+        v-model:open="confirmarCierre"
+        titulo="¿Cerrar la baja?"
+        descripcion="La persona queda inactiva y su acceso se bloquea de forma definitiva. Nada se borra; RH puede reabrirla con motivo."
+        texto-confirmar="Cerrar baja"
+        destructivo
+        :cargando="procesando"
+        @confirm="cerrarBaja"
+    />
 
     <Dialog v-model:open="causalAbierto">
         <DialogContent class="sm:max-w-lg">

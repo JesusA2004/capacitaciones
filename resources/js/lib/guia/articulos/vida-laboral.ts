@@ -366,7 +366,7 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
             {
                 titulo: '«Preparar lote»',
                 detalle:
-                    'Desde el sueldo de cada persona o importando el archivo de RH. TODOS quedan como borrador: no se publican, no se notifican y el trabajador no los ve.',
+                    'Desde el sueldo de cada persona (importar el lote desde un archivo es solo del super administrador). TODOS quedan como borrador: no se publican, no se notifican y el trabajador no los ve.',
             },
             {
                 titulo: '«Revisar lote»',

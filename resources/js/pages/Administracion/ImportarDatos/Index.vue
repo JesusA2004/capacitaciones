@@ -6,6 +6,7 @@ import {
     FileSpreadsheet,
     ClipboardList,
     LayoutGrid,
+    ReceiptText,
     Siren,
     TrendingDown,
     Upload,
@@ -21,6 +22,7 @@ import { index as rotacionIndex } from '@/routes/reportes/rotacion';
 import { index as contactosEmergenciaIndex } from '@/routes/rh/contactos-emergencia';
 import { index as migracionIndex } from '@/routes/rh/expedientes/migracion';
 import { index as importacionesIndex } from '@/routes/rh/importaciones';
+import { index as lotesNominaIndex } from '@/routes/rh/nomina/lotes';
 import { importacion as perfilesImportacion } from '@/routes/rh/perfiles-puesto';
 
 /**
@@ -29,6 +31,7 @@ import { importacion as perfilesImportacion } from '@/routes/rh/perfiles-puesto'
  * reimplementa ningún lector ni flujo: solo enlaza a cada pantalla real y
  * muestra su flujo de preview. Cada tarjeta se gatea por su permiso desde el
  * backend (prop `puede`); el acceso al hub ya lo valida el controlador.
+ * Todas las importaciones son solo de super_admin (2026-10-20).
  */
 const props = defineProps<{
     puede: {
@@ -39,6 +42,7 @@ const props = defineProps<{
         rotacion: boolean;
         perfiles_puesto: boolean;
         contactos_emergencia: boolean;
+        recibos_nomina: boolean;
     };
 }>();
 
@@ -168,6 +172,22 @@ const tarjetas = computed<Tarjeta[]>(() => {
                   ],
                   icono: Siren,
                   href: contactosEmergenciaIndex().url,
+              }
+            : null,
+        props.puede.recibos_nomina
+            ? {
+                  clave: 'recibos_nomina',
+                  titulo: 'Recibos de nómina por archivo',
+                  descripcion:
+                      'Crea un lote de recibos desde el archivo CSV o Excel de nómina. Generar recibos desde el sueldo de cada persona sigue siendo de RH.',
+                  flujo: [
+                      'Nuevo lote',
+                      'Importar archivo',
+                      'Revisar borradores',
+                      'Emitir',
+                  ],
+                  icono: ReceiptText,
+                  href: lotesNominaIndex().url,
               }
             : null,
     ];

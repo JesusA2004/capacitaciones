@@ -1,10 +1,27 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { Download, FileSpreadsheet, FileUp, Trash2 } from '@lucide/vue';
+import {
+    CheckCircle2,
+    ChevronDown,
+    Clock,
+    Download,
+    Eye,
+    FileSpreadsheet,
+    FileUp,
+    HeartPulse,
+    SearchX,
+    Trash2,
+    TriangleAlert,
+} from '@lucide/vue';
+import { ref } from 'vue';
+import AyudaBoton from '@/components/Common/AyudaBoton.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
+import ChipEstado from '@/components/people/ChipEstado.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import rutasContactos, {
@@ -48,6 +65,7 @@ defineOptions({
 });
 
 const form = useForm<{ archivo: File[] }>({ archivo: [] });
+const verColumnas = ref(false);
 
 /** Solo las no aplicadas: las aplicadas son el historial de lo que cambió. */
 function quitar(i: ImportacionResumen) {
@@ -81,160 +99,232 @@ function analizar() {
     <Head title="Contactos de emergencia" />
 
     <div class="pagina-ancha flex flex-col gap-5">
-        <CrudPageHeader
-            titulo="Contactos de emergencia"
-            descripcion="Carga en bloque el contacto de emergencia, teléfono personal, condición médica y alergias de los colaboradores."
-            :icono="FileSpreadsheet"
-        />
+        <CrudPageHeader titulo="Contactos de emergencia" :icono="HeartPulse">
+            <Button variant="outline" class="w-full sm:w-auto" as-child>
+                <a :href="plantillaContactos.url()" download>
+                    <Download class="size-4" /> Plantilla vacía
+                </a>
+            </Button>
+        </CrudPageHeader>
 
-        <section
-            class="flex flex-col gap-4 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
+        <div
+            class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]"
         >
-            <div class="flex flex-wrap items-start justify-between gap-3">
-                <h2 class="text-sm font-semibold">
-                    Subir Excel de contactos de emergencia
-                </h2>
-                <Button variant="outline" size="sm" as-child>
-                    <a :href="plantillaContactos.url()" download>
-                        <Download class="size-4" /> Descargar plantilla vacía
-                    </a>
-                </Button>
-            </div>
-            <p class="text-xs text-muted-foreground">
-                Sube el Excel (.xlsx, por ejemplo el que exporta Google Forms)
-                con una fila por colaborador. Se empareja por nombre completo
-                exacto —sin importar acentos, mayúsculas ni espacios— y la
-                sucursal desambigua homónimos; solo rellena colaboradores que ya
-                existen, nunca crea personas nuevas. Primero verás una vista
-                previa: nada se guarda hasta que confirmes. El contacto de
-                emergencia también se usa como beneficiario del contrato cuando
-                no hay uno capturado aparte.
-            </p>
-            <div class="text-xs text-muted-foreground">
-                <p>
-                    Columnas obligatorias (en cualquier orden; columnas extra
-                    como «Marca temporal» se ignoran):
-                </p>
-                <ol class="mt-1 list-decimal pl-5">
-                    <li v-for="c in columnas" :key="c">{{ c }}</li>
-                </ol>
-            </div>
+            <!-- Subir -->
+            <section
+                class="flex flex-col gap-4 rounded-2xl border border-border/60 bg-card p-4 shadow-sm sm:p-5"
+            >
+                <div class="flex items-center gap-3">
+                    <span
+                        class="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-salvia text-primary"
+                    >
+                        <FileSpreadsheet class="size-5" />
+                    </span>
+                    <div class="min-w-0 flex-1">
+                        <h2 class="flex items-center gap-1.5 font-semibold">
+                            Subir Excel
+                            <AyudaBoton
+                                titulo="Cómo funciona"
+                                texto="Una fila por colaborador (por ejemplo, el Excel de Google Forms). Se empareja por nombre completo exacto —sin importar acentos, mayúsculas ni espacios— y la sucursal desambigua homónimos. Solo rellena colaboradores que ya existen; nunca crea personas. El contacto de emergencia también sirve como beneficiario del contrato si no hay uno aparte."
+                            />
+                        </h2>
+                        <p class="text-sm text-muted-foreground">
+                            Primero ves la vista previa; nada se guarda sin
+                            confirmar.
+                        </p>
+                    </div>
+                </div>
 
-            <form class="flex flex-col gap-3" @submit.prevent="analizar">
-                <PeopleFileDropzone
-                    v-model="form.archivo"
-                    accept=".xlsx,.xls"
-                    label="Arrastra el Excel de contactos de emergencia aquí"
-                    hint="Una fila por colaborador"
-                />
-                <InputError :message="form.errors.archivo" />
-                <div>
+                <form class="flex flex-col gap-3" @submit.prevent="analizar">
+                    <PeopleFileDropzone
+                        v-model="form.archivo"
+                        accept=".xlsx,.xls"
+                        label="Arrastra el Excel aquí"
+                        hint="Una fila por colaborador"
+                    />
+                    <InputError :message="form.errors.archivo" />
                     <Button
                         type="submit"
+                        size="lg"
+                        class="h-11 w-full"
                         :disabled="form.archivo.length === 0 || form.processing"
                     >
-                        <FileUp class="size-4" /> Subir y ver vista previa
+                        <Spinner v-if="form.processing" />
+                        <FileUp v-else class="size-5" />
+                        {{
+                            form.processing
+                                ? 'Analizando…'
+                                : 'Subir y ver vista previa'
+                        }}
                     </Button>
-                </div>
-            </form>
-        </section>
+                </form>
 
-        <section
-            class="flex flex-col gap-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
-        >
-            <h2 class="text-sm font-semibold">Cargas anteriores</h2>
-
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
-                    <thead class="text-xs text-muted-foreground">
-                        <tr>
-                            <th class="py-2 pr-3">Archivo</th>
-                            <th class="py-2 pr-3">Estado</th>
-                            <th class="py-2 pr-3">Filas</th>
-                            <th class="py-2 pr-3">Aplicadas</th>
-                            <th class="py-2 pr-3">Revisión</th>
-                            <th class="py-2 pr-3">No encontradas</th>
-                            <th class="py-2 pr-3">Subido por</th>
-                            <th class="py-2 pr-3">Fecha</th>
-                            <th class="py-2 pr-3">Aplicada por</th>
-                            <th class="py-2"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="i in importaciones.data"
-                            :key="i.id"
-                            class="border-t border-[var(--mrl-borde)]"
+                <div class="rounded-xl bg-[var(--mrl-fondo)]">
+                    <button
+                        type="button"
+                        class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-medium"
+                        :aria-expanded="verColumnas"
+                        @click="verColumnas = !verColumnas"
+                    >
+                        Columnas que debe traer ({{ columnas.length }})
+                        <ChevronDown
+                            class="ml-auto size-4 transition-transform"
+                            :class="verColumnas && 'rotate-180'"
+                        />
+                    </button>
+                    <ol
+                        v-if="verColumnas"
+                        class="flex flex-col gap-1 px-3 pb-3 text-xs"
+                    >
+                        <li
+                            v-for="(c, n) in columnas"
+                            :key="c"
+                            class="flex gap-2"
                         >
-                            <td class="py-2 pr-3">{{ i.nombre_archivo }}</td>
-                            <td class="py-2 pr-3">
-                                <span
-                                    class="rounded-full px-2 py-0.5 text-xs"
-                                    :class="
-                                        i.estado === 'aplicado'
-                                            ? 'bg-success/10 text-success'
-                                            : 'bg-[var(--mrl-fondo)] text-[var(--mrl-texto-suave)]'
-                                    "
-                                    >{{
-                                        i.estado === 'aplicado'
-                                            ? 'Aplicada'
-                                            : 'Previsualizada'
-                                    }}</span
-                                >
-                            </td>
-                            <td class="py-2 pr-3">{{ i.total_filas }}</td>
-                            <td class="py-2 pr-3">{{ i.filas_aplicadas }}</td>
-                            <td class="py-2 pr-3">{{ i.filas_revision }}</td>
-                            <td class="py-2 pr-3">
-                                {{ i.filas_no_encontradas }}
-                            </td>
-                            <td class="py-2 pr-3">{{ i.subido_por ?? '—' }}</td>
-                            <td class="py-2 pr-3">
-                                {{ formatearFecha(i.creado_en) }}
-                            </td>
-                            <td class="py-2 pr-3">
-                                <template v-if="i.aplicado_por">
-                                    {{ i.aplicado_por }}
-                                    <span
-                                        class="block text-xs text-muted-foreground"
-                                        >{{
-                                            formatearFecha(i.aplicado_en)
-                                        }}</span
-                                    >
-                                </template>
-                                <template v-else>—</template>
-                            </td>
-                            <td class="py-2 text-right">
-                                <div class="flex justify-end gap-2">
-                                    <Link :href="mostrarImportacion.url(i.id)">
-                                        <Button variant="outline" size="sm"
-                                            >Ver detalle</Button
-                                        >
-                                    </Link>
-                                    <Button
-                                        v-if="i.estado !== 'aplicado'"
-                                        variant="ghost"
-                                        size="sm"
-                                        class="text-destructive"
-                                        :aria-label="`Quitar ${i.nombre_archivo}`"
-                                        @click="quitar(i)"
-                                    >
-                                        <Trash2 class="size-4" /> Quitar
-                                    </Button>
-                                </div>
-                            </td>
-                        </tr>
-                        <tr v-if="importaciones.data.length === 0">
-                            <td
-                                colspan="10"
-                                class="py-6 text-center text-sm text-muted-foreground"
+                            <span
+                                class="flex size-5 shrink-0 items-center justify-center rounded-full bg-card font-semibold text-bronce tabular-nums"
+                                >{{ n + 1 }}</span
                             >
-                                Todavía no se ha subido ningún archivo.
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                            <span class="pt-0.5">{{ c }}</span>
+                        </li>
+                        <li class="pt-1 text-muted-foreground">
+                            En cualquier orden; las columnas extra se ignoran.
+                        </li>
+                    </ol>
+                </div>
+            </section>
+
+            <!-- Cargas anteriores -->
+            <section class="flex min-w-0 flex-col gap-3">
+                <h2 class="text-sm font-semibold text-muted-foreground">
+                    Cargas anteriores
+                </h2>
+
+                <EmptyState
+                    v-if="importaciones.data.length === 0"
+                    class="rounded-2xl border border-dashed border-border bg-card"
+                    :icono="FileSpreadsheet"
+                    titulo="Aún no hay cargas"
+                    descripcion="Cuando subas un Excel aparecerá aquí con su resultado."
+                />
+
+                <ul v-else class="grid grid-cols-1 gap-3 2xl:grid-cols-2">
+                    <li
+                        v-for="i in importaciones.data"
+                        :key="i.id"
+                        class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+                    >
+                        <div class="flex items-start gap-3">
+                            <span
+                                class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-success-soft text-success"
+                            >
+                                <FileSpreadsheet class="size-5" />
+                            </span>
+                            <div class="min-w-0 flex-1">
+                                <p
+                                    class="truncate font-semibold"
+                                    :title="i.nombre_archivo"
+                                >
+                                    {{ i.nombre_archivo }}
+                                </p>
+                                <p class="text-xs text-muted-foreground">
+                                    {{ i.subido_por ?? '—' }} ·
+                                    {{ formatearFecha(i.creado_en) }}
+                                </p>
+                            </div>
+                            <ChipEstado
+                                :etiqueta="
+                                    i.estado === 'aplicado'
+                                        ? 'Aplicada'
+                                        : 'Sin aplicar'
+                                "
+                                :tono="
+                                    i.estado === 'aplicado' ? 'exito' : 'oro'
+                                "
+                                :icono="
+                                    i.estado === 'aplicado'
+                                        ? CheckCircle2
+                                        : Clock
+                                "
+                            />
+                        </div>
+
+                        <div class="grid grid-cols-4 gap-2 text-center">
+                            <div class="rounded-xl bg-[var(--mrl-fondo)] p-2">
+                                <p class="text-xl font-bold tabular-nums">
+                                    {{ i.total_filas }}
+                                </p>
+                                <p class="text-[11px] text-muted-foreground">
+                                    Filas
+                                </p>
+                            </div>
+                            <div class="rounded-xl bg-success-soft p-2">
+                                <p
+                                    class="text-xl font-bold text-success tabular-nums"
+                                >
+                                    {{ i.filas_aplicadas }}
+                                </p>
+                                <p class="text-[11px] text-success">
+                                    Aplicadas
+                                </p>
+                            </div>
+                            <div class="rounded-xl bg-warning-soft p-2">
+                                <p
+                                    class="flex items-center justify-center gap-1 text-xl font-bold text-warning tabular-nums"
+                                >
+                                    <TriangleAlert class="size-3.5" />{{
+                                        i.filas_revision
+                                    }}
+                                </p>
+                                <p class="text-[11px] text-warning">Revisión</p>
+                            </div>
+                            <div class="rounded-xl bg-danger-soft p-2">
+                                <p
+                                    class="flex items-center justify-center gap-1 text-xl font-bold text-destructive tabular-nums"
+                                >
+                                    <SearchX class="size-3.5" />{{
+                                        i.filas_no_encontradas
+                                    }}
+                                </p>
+                                <p class="text-[11px] text-destructive">
+                                    No hallados
+                                </p>
+                            </div>
+                        </div>
+
+                        <p
+                            v-if="i.aplicado_por"
+                            class="text-xs text-muted-foreground"
+                        >
+                            Aplicada por {{ i.aplicado_por }} ·
+                            {{ formatearFecha(i.aplicado_en) }}
+                        </p>
+
+                        <div class="flex gap-2">
+                            <Button class="h-10 flex-1" as-child>
+                                <Link :href="mostrarImportacion.url(i.id)">
+                                    <Eye class="size-4" />
+                                    {{
+                                        i.estado === 'aplicado'
+                                            ? 'Ver detalle'
+                                            : 'Revisar y aplicar'
+                                    }}
+                                </Link>
+                            </Button>
+                            <Button
+                                v-if="i.estado !== 'aplicado'"
+                                variant="outline-destructive"
+                                class="h-10"
+                                :aria-label="`Quitar ${i.nombre_archivo}`"
+                                @click="quitar(i)"
+                            >
+                                <Trash2 class="size-4" />
+                                <span class="hidden sm:inline">Quitar</span>
+                            </Button>
+                        </div>
+                    </li>
+                </ul>
+            </section>
+        </div>
     </div>
 </template>

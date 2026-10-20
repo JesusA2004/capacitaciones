@@ -110,7 +110,7 @@ function rotxArchivoBase(): UploadedFile
 }
 
 test('analizar guarda el original en el NAS y reporta lo que no cuadró sin escribir periodos', function () {
-    $rh = rotxUsuario('rh_admin');
+    $rh = rotxUsuario('super_admin');
 
     $this->actingAs($rh)
         ->post(route('reportes.rotacion.analizar'), ['archivo' => rotxArchivoBase()])
@@ -143,7 +143,7 @@ test('analizar guarda el original en el NAS y reporta lo que no cuadró sin escr
 });
 
 test('aplicar carga los meses con el índice recalculado y lo audita', function () {
-    $rh = rotxUsuario('rh_admin');
+    $rh = rotxUsuario('super_admin');
     $this->actingAs($rh)->post(route('reportes.rotacion.analizar'), ['archivo' => rotxArchivoBase()]);
     $carga = RotacionCarga::query()->sole();
 
@@ -168,7 +168,7 @@ test('aplicar carga los meses con el índice recalculado y lo audita', function 
 });
 
 test('volver a subir un mes lo reemplaza y guarda los valores anteriores', function () {
-    $rh = rotxUsuario('rh_admin');
+    $rh = rotxUsuario('super_admin');
     $this->actingAs($rh)->post(route('reportes.rotacion.analizar'), ['archivo' => rotxArchivoBase()]);
     $this->actingAs($rh)->post(route('reportes.rotacion.aplicar', RotacionCarga::query()->sole()));
 
@@ -199,7 +199,7 @@ test('volver a subir un mes lo reemplaza y guarda los valores anteriores', funct
 });
 
 test('aplicar dos veces la misma carga no duplica periodos ni audita dos veces (idempotencia/concurrencia)', function () {
-    $rh = rotxUsuario('rh_admin');
+    $rh = rotxUsuario('super_admin');
     $this->actingAs($rh)->post(route('reportes.rotacion.analizar'), ['archivo' => rotxArchivoBase()]);
     $carga = RotacionCarga::query()->sole();
 
@@ -224,7 +224,7 @@ test('aplicar dos veces la misma carga no duplica periodos ni audita dos veces (
 });
 
 test('descartar no carga nada y conserva el registro', function () {
-    $rh = rotxUsuario('rh_admin');
+    $rh = rotxUsuario('super_admin');
     $this->actingAs($rh)->post(route('reportes.rotacion.analizar'), ['archivo' => rotxArchivoBase()]);
     $carga = RotacionCarga::query()->sole();
 
@@ -236,7 +236,7 @@ test('descartar no carga nada y conserva el registro', function () {
 });
 
 test('el tablero calcula el índice mensual consolidado de los últimos 12 meses', function () {
-    $rh = rotxUsuario('rh_admin');
+    $rh = rotxUsuario('super_admin');
     $this->actingAs($rh)->post(route('reportes.rotacion.analizar'), ['archivo' => rotxArchivoBase()]);
     $this->actingAs($rh)->post(route('reportes.rotacion.aplicar', RotacionCarga::query()->sole()));
 
@@ -256,11 +256,22 @@ test('el tablero calcula el índice mensual consolidado de los últimos 12 meses
 });
 
 test('sin rotacion.cargar se consulta pero no se sube; sin rotacion.ver no se entra', function () {
-    $auxiliar = rotxUsuario('rh_auxiliar');
-    $this->actingAs($auxiliar)->get(route('reportes.rotacion.index'))
-        ->assertOk()
-        ->assertInertia(fn (AssertableInertia $page) => $page->where('puedeCargar', false)->where('cargas', []));
-    $this->actingAs($auxiliar)->post(route('reportes.rotacion.analizar'), ['archivo' => rotxArchivoBase()])->assertForbidden();
+    // Cargar el Excel es solo de super_admin (2026-10-20): RH (admin y
+    // auxiliar) consulta el histórico, pero no sube, aplica ni descarta.
+    $admin = rotxUsuario('super_admin');
+    $this->actingAs($admin)->post(route('reportes.rotacion.analizar'), ['archivo' => rotxArchivoBase()]);
+    $carga = RotacionCarga::query()->sole();
+
+    foreach (['rh_admin', 'rh_auxiliar'] as $rol) {
+        $rh = rotxUsuario($rol);
+        $this->actingAs($rh)->get(route('reportes.rotacion.index'))
+            ->assertOk()
+            ->assertInertia(fn (AssertableInertia $page) => $page->where('puedeCargar', false)->where('cargas', []));
+        $this->actingAs($rh)->post(route('reportes.rotacion.analizar'), ['archivo' => rotxArchivoBase()])->assertForbidden();
+        $this->actingAs($rh)->post(route('reportes.rotacion.aplicar', $carga))->assertForbidden();
+        $this->actingAs($rh)->post(route('reportes.rotacion.descartar', $carga))->assertForbidden();
+        $this->actingAs($rh)->get(route('reportes.rotacion.archivo', $carga))->assertForbidden();
+    }
 
     $colaborador = rotxUsuario('colaborador');
     $this->actingAs($colaborador)->get(route('reportes.rotacion.index'))->assertForbidden();
@@ -268,7 +279,7 @@ test('sin rotacion.cargar se consulta pero no se sube; sin rotacion.ver no se en
 });
 
 test('con alcance de sucursal solo ve la rotación de sus sucursales', function () {
-    $rh = rotxUsuario('rh_admin');
+    $rh = rotxUsuario('super_admin');
     $this->actingAs($rh)->post(route('reportes.rotacion.analizar'), ['archivo' => rotxArchivoBase()]);
     $this->actingAs($rh)->post(route('reportes.rotacion.aplicar', RotacionCarga::query()->sole()));
 
@@ -287,7 +298,7 @@ test('con alcance de sucursal solo ve la rotación de sus sucursales', function 
 });
 
 test('el formato actualizado se descarga prellenado y el lector lo vuelve a leer igual', function () {
-    $rh = rotxUsuario('rh_admin');
+    $rh = rotxUsuario('super_admin');
     $this->actingAs($rh)->post(route('reportes.rotacion.analizar'), ['archivo' => rotxArchivoBase()]);
     $this->actingAs($rh)->post(route('reportes.rotacion.aplicar', RotacionCarga::query()->sole()));
 
@@ -315,7 +326,7 @@ test('el formato actualizado se descarga prellenado y el lector lo vuelve a leer
 });
 
 test('un archivo que no es Excel se rechaza con un mensaje claro', function () {
-    $rh = rotxUsuario('rh_admin');
+    $rh = rotxUsuario('super_admin');
 
     $this->actingAs($rh)
         ->post(route('reportes.rotacion.analizar'), ['archivo' => UploadedFile::fake()->create('rotacion.pdf', 10, 'application/pdf')])
@@ -325,7 +336,7 @@ test('un archivo que no es Excel se rechaza con un mensaje claro', function () {
 });
 
 test('«TULA DE ALLENDE» del Excel real entra a «Tula» por el alias confirmado, sin advertencia de coincidencia aproximada', function () {
-    $rh = rotxUsuario('rh_admin');
+    $rh = rotxUsuario('super_admin');
 
     $this->actingAs($rh)
         ->post(route('reportes.rotacion.analizar'), ['archivo' => rotxExcel(function ($hoja) {

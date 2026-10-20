@@ -39,7 +39,8 @@ beforeEach(function () {
     Sucursal::factory()->create(['nombre' => 'Corporativo', 'empresa_id' => $empresa->id]);
     $this->departamento = Departamento::factory()->create(['nombre' => 'Ventas']);
     $this->puesto = Puesto::factory()->create(['nombre' => 'Gestor', 'departamento_id' => $this->departamento->id]);
-    $this->rh = clUsuario('rh_admin');
+    // Quien migra: la migración inicial es solo de super_admin (2026-10-20).
+    $this->rh = clUsuario('super_admin');
     $this->servicio = app(ExpedientesInitialMigrationService::class);
 });
 
@@ -258,6 +259,7 @@ test('solo quien tiene expedientes.migrar ve y usa la migración', function () {
 
     $this->actingAs($colaborador)->get('/rh/expedientes/migracion-inicial')->assertForbidden();
     $this->actingAs($colaborador)->post('/rh/expedientes/migracion-inicial/analizar')->assertForbidden();
+    $this->actingAs(clUsuario('rh_admin'))->get('/rh/expedientes/migracion-inicial')->assertForbidden();
     $this->actingAs($this->rh)->get('/rh/expedientes/migracion-inicial')->assertOk();
 
     $migracion = MigracionExpedientes::query()->create(['archivo_nombre' => 'x.xlsx', 'archivo_hash' => 'x', 'estado' => 'analizado', 'plan' => '{}']);

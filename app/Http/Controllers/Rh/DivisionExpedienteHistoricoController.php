@@ -12,9 +12,13 @@ use App\Models\ParteDivisionHistorico;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Expedientes\DivisionHistorico\DivisionExpedienteHistoricoService;
+use App\Services\Expedientes\DivisionHistorico\EditorPaginasDivisionService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -29,6 +33,7 @@ class DivisionExpedienteHistoricoController extends Controller
     public function __construct(
         private readonly DivisionExpedienteHistoricoService $division,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly EditorPaginasDivisionService $editor,
     ) {}
 
     public function show(Request $request, Colaborador $colaborador): Response
@@ -95,6 +100,96 @@ class DivisionExpedienteHistoricoController extends Controller
         $this->division->aplicarDato($division, $datos['campo'], $datos['valor'], $usuario);
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Dato aplicado al colaborador.']);
+    }
+
+    /**
+     * Editor de hojas del PDF histórico (asignar por hoja, continuar, partir,
+     * mover, reordenar). Nada cambia en el expediente hasta «Guardar».
+     */
+    public function editor(Request $request, DivisionExpedienteHistorico $division): Response|RedirectResponse
+    {
+        $colaborador = $division->colaborador;
+        $usuario = $this->exigir($request, $colaborador, 'rh.documentos.extraccion.ver');
+
+        try {
+            $estado = $this->editor->estado($division);
+        } catch (ValidationException $e) {
+            return redirect()->route('rh.expedientes.division-historico.show', $colaborador->id)
+                ->with('toast', ['type' => 'error', 'message' => collect($e->errors())->flatten()->first() ?? 'Esta división no se puede corregir.']);
+        }
+
+        return Inertia::render('Rh/Expedientes/EditorHojasDivision', [
+            'colaborador' => [
+                'id' => $colaborador->id,
+                'nombre' => $colaborador->nombreCompleto(),
+                'numero_empleado' => $colaborador->numero_empleado,
+                'division_url' => route('rh.expedientes.division-historico.show', $colaborador->id),
+            ],
+            ...$estado,
+            'permisos' => ['guardar' => $usuario->can('expedientes.editar')],
+        ]);
+    }
+
+    public function vistaPrevia(Request $request, DivisionExpedienteHistorico $division): JsonResponse
+    {
+        $this->exigir($request, $division->colaborador, 'rh.documentos.extraccion.ver');
+        $previa = $this->editor->vistaPrevia($division, $this->planDe($request));
+
+        return response()->json([
+            ...$previa,
+            'documentos' => array_map(fn (array $d): array => [
+                ...$d,
+                'accion' => $d['accion']->value,
+                'accion_etiqueta' => $d['accion']->etiqueta(),
+                'pdf_url' => route('rh.expedientes.division-historico.editor.pdf', ['division' => $division->id, 'paginas' => implode(',', $d['paginas'])]),
+            ], $previa['documentos']),
+        ]);
+    }
+
+    public function pdfVistaPrevia(Request $request, DivisionExpedienteHistorico $division): HttpResponse
+    {
+        $this->exigir($request, $division->colaborador, 'rh.documentos.extraccion.ver');
+        $datos = $request->validate(['paginas' => ['required', 'string', 'max:2000', 'regex:/^\d+(,\d+)*$/']]);
+        $paginas = array_map('intval', explode(',', $datos['paginas']));
+
+        return response($this->editor->pdfVistaPrevia($division, $paginas), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="vista-previa.pdf"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'private, max-age=600',
+        ]);
+    }
+
+    public function confirmarEditor(Request $request, DivisionExpedienteHistorico $division): RedirectResponse
+    {
+        $usuario = $this->exigir($request, $division->colaborador, 'expedientes.editar');
+        $documentos = $this->planDe($request, true);
+
+        $revision = $this->editor->confirmar($division, $documentos, $request->integer('revision_base'), $usuario);
+
+        return back()->with('toast', $revision === null
+            ? ['type' => 'info', 'message' => 'No había cambios: el expediente quedó igual.']
+            : ['type' => 'success', 'message' => sprintf('Corrección guardada (revisión %d): %d hoja(s) reasignada(s).', $revision->version, count($revision->cambios))]);
+    }
+
+    /**
+     * Plan del editor ([{document_type_id, paginas}]) validado en forma; las
+     * reglas de negocio (cada hoja una vez, tipos del checklist) las valida
+     * EditorPaginasDivisionService.
+     *
+     * @return array<int|string, mixed>
+     */
+    private function planDe(Request $request, bool $conRevision = false): array
+    {
+        $datos = $request->validate([
+            'documentos' => ['required', 'array', 'min:1', 'max:1000'],
+            'documentos.*.document_type_id' => ['nullable', 'integer'],
+            'documentos.*.paginas' => ['required', 'array', 'min:1'],
+            'documentos.*.paginas.*' => ['integer', 'min:1'],
+            ...($conRevision ? ['revision_base' => ['required', 'integer', 'min:0']] : []),
+        ]);
+
+        return is_array($datos['documentos'] ?? null) ? $datos['documentos'] : [];
     }
 
     /**

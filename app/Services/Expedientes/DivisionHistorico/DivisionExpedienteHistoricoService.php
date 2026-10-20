@@ -177,7 +177,51 @@ class DivisionExpedienteHistoricoService
             'asignado_en' => now(),
         ]);
 
+        // Las hojas quedan marcadas «corregidas por RH»: volver a dividir
+        // con el OCR no las pisa (ver respetarCorreccionesManuales()).
+        $division = $parte->division;
+        $paginas = $this->paginasConAsignacion($division->paginas ?? [], $parte->paginas, $tipo->clave);
+        $division->update(['paginas' => $paginas, ...$this->contadoresPaginas($paginas)]);
+
         return $parte->fresh() ?? $parte;
+    }
+
+    /**
+     * `paginas` de la división con $numeros asignadas a $clave y marcadas
+     * como corregidas por RH (`manual`); conserva lo que dijo el OCR en
+     * `tipo_ocr` la primera vez que una hoja se corrige.
+     *
+     * @param  list<array<string, mixed>>  $paginas
+     * @param  list<int>  $numeros
+     * @return list<array<string, mixed>>
+     */
+    public function paginasConAsignacion(array $paginas, array $numeros, ?string $clave): array
+    {
+        foreach ($paginas as $i => $pagina) {
+            if (! in_array((int) ($pagina['pagina'] ?? 0), $numeros, true)) {
+                continue;
+            }
+
+            if (! array_key_exists('tipo_ocr', $pagina)) {
+                $paginas[$i]['tipo_ocr'] = $pagina['tipo'] ?? null;
+            }
+
+            $paginas[$i]['tipo'] = $clave;
+            $paginas[$i]['manual'] = true;
+        }
+
+        return $paginas;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $paginas
+     * @return array{paginas_clasificadas: int, paginas_sin_clasificar: int}
+     */
+    public function contadoresPaginas(array $paginas): array
+    {
+        $clasificadas = count(array_filter($paginas, fn (array $p): bool => ($p['tipo'] ?? null) !== null));
+
+        return ['paginas_clasificadas' => $clasificadas, 'paginas_sin_clasificar' => count($paginas) - $clasificadas];
     }
 
     /**
@@ -259,12 +303,12 @@ class DivisionExpedienteHistoricoService
         foreach ($historicos as $historico) {
             $division = DivisionExpedienteHistorico::query()
                 ->where('expediente_historico_id', $historico->id)
-                ->with(['partes.tipo', 'partes.documento', 'ejecutadoPor:id,name,apellidos'])
+                ->with(['partesVigentes.tipo', 'partesVigentes.documento', 'ejecutadoPor:id,name,apellidos', 'revisiones.autor:id,name,apellidos'])
                 ->latest('id')
                 ->first();
 
             if ($division !== null) {
-                foreach ($division->partes as $parte) {
+                foreach ($division->partesVigentes as $parte) {
                     if ($parte->employee_document_id !== null) {
                         $documentosDivision[$parte->employee_document_id] = $parte->rangoPaginas();
                     }
@@ -421,13 +465,7 @@ class DivisionExpedienteHistoricoService
     private function prepararPartes(array $analisis, Colaborador $colaborador, DivisionExpedienteHistorico $division, array &$copiasEnNas): array
     {
         $pdf = $analisis['pdf'];
-        $carpeta = sprintf(
-            '%s/%s/%s/%d',
-            $this->storage->asignarRutaBaseColaborador($colaborador),
-            $this->storage->sanitizarSegmento((string) config('expedientes.migracion_inicial.carpeta_historico', 'Historico')),
-            $this->storage->sanitizarSegmento((string) config('expedientes.division_historico.carpeta_partes', 'Division por checklist')),
-            $division->id,
-        );
+        $carpeta = $this->carpetaDivision($colaborador, $division);
         $tipos = $this->tiposChecklist()->keyBy('id');
         $preparadas = [];
 
@@ -535,6 +573,36 @@ class DivisionExpedienteHistoricoService
             $paginas[] = ['pagina' => $numero, 'tipo' => null, 'sugerido' => null, 'confianza' => null, 'puntaje' => 0, 'coincidencias' => [], 'metodo' => MetodoLecturaPagina::SinTexto->value, 'motivo' => sprintf('Fuera del límite de %d páginas por PDF; no se leyó.', $maximo)];
         }
 
+        // Lo que RH corrigió a mano en una división anterior de ESTE mismo
+        // archivo se respeta: el OCR nunca pisa una hoja corregida por humano.
+        $manuales = $this->documentosManualesPrevios($historico, $hash, $total);
+        $tiposPorId = $tipos->keyBy('id');
+        $documentoManualDe = [];
+
+        foreach ($manuales as $indice => $documentoManual) {
+            foreach ($documentoManual['paginas'] as $numero) {
+                $documentoManualDe[$numero] = $indice;
+            }
+        }
+
+        foreach ($paginas as $i => $pagina) {
+            $indice = $documentoManualDe[$pagina['pagina']] ?? null;
+
+            if ($indice === null) {
+                continue;
+            }
+
+            $documentoManual = $manuales[$indice];
+            $paginas[$i]['tipo_ocr'] = $pagina['tipo'];
+            $paginas[$i]['tipo'] = $documentoManual['tipo_id'] !== null ? $tiposPorId->get($documentoManual['tipo_id'])?->clave : null;
+            $paginas[$i]['manual'] = in_array($pagina['pagina'], $documentoManual['manuales'], true);
+            $paginas[$i]['motivo'] = 'Asignada por RH en una corrección anterior; se respeta al volver a dividir.';
+        }
+
+        if ($manuales !== []) {
+            $advertencias[] = sprintf('Se respetaron las hojas que RH corrigió a mano (%s); el OCR no las cambió.', ParteDivisionHistorico::formatearRango(array_keys($documentoManualDe)));
+        }
+
         if ($total > $maximo) {
             $advertencias[] = sprintf('El PDF tiene %d páginas; solo se leyeron las primeras %d (límite configurado).', $total, $maximo);
         }
@@ -561,7 +629,27 @@ class DivisionExpedienteHistoricoService
         $partes = [];
         $partesConTexto = [];
 
-        foreach ($this->clasificador->agrupar($paginas) as $grupo) {
+        // Las hojas de documentos corregidos por RH se agrupan tal como RH las
+        // dejó (mismo orden); el resto, con la agrupación normal del OCR. El
+        // centinela solo sirve para que un tramo «sin clasificar» no salte
+        // por encima de un documento manual.
+        $centinela = '__manual__';
+        $grupos = array_values(array_filter(
+            $this->clasificador->agrupar(array_map(fn (array $p): array => isset($documentoManualDe[$p['pagina']]) ? [...$p, 'tipo' => $centinela] : $p, $paginas)),
+            fn (array $g): bool => $g['tipo'] !== $centinela,
+        ));
+
+        foreach ($manuales as $documentoManual) {
+            $grupos[] = [
+                'tipo' => $documentoManual['tipo_id'] !== null ? $tiposPorId->get($documentoManual['tipo_id'])?->clave : null,
+                'paginas' => $documentoManual['paginas'],
+                'confianza' => 'manual',
+            ];
+        }
+
+        usort($grupos, fn (array $a, array $b): int => ($a['paginas'] === [] ? 0 : min($a['paginas'])) <=> ($b['paginas'] === [] ? 0 : min($b['paginas'])));
+
+        foreach ($grupos as $grupo) {
             $tipo = $grupo['tipo'] !== null ? $tiposPorClave->get($grupo['tipo']) : null;
             $partes[] = [
                 'tipo' => $grupo['tipo'],
@@ -618,14 +706,83 @@ class DivisionExpedienteHistoricoService
         ];
     }
 
-    private function tipoCubierto(Colaborador $colaborador, DocumentType $tipo): bool
+    /**
+     * {expediente}/Historico/Division por checklist/{división}: donde viven
+     * las copias de una división (y sus revisiones manuales).
+     */
+    public function carpetaDivision(Colaborador $colaborador, DivisionExpedienteHistorico $division): string
     {
-        $vigente = EmployeeDocument::query()
+        return sprintf(
+            '%s/%s/%s/%d',
+            $this->storage->asignarRutaBaseColaborador($colaborador),
+            $this->storage->sanitizarSegmento((string) config('expedientes.migracion_inicial.carpeta_historico', 'Historico')),
+            $this->storage->sanitizarSegmento((string) config('expedientes.division_historico.carpeta_partes', 'Division por checklist')),
+            $division->id,
+        );
+    }
+
+    /**
+     * Documento vigente (no archivado) del tipo para el colaborador.
+     */
+    /**
+     * Documentos que RH corrigió a mano en la última división completada de
+     * este MISMO archivo (mismo SHA-256): cada parte vigente que tenga al
+     * menos una hoja marcada `manual` se conserva entera, tal como RH la dejó.
+     *
+     * @return list<array{tipo_id: int|null, paginas: list<int>, manuales: list<int>}>
+     */
+    private function documentosManualesPrevios(ExpedienteHistorico $historico, string $hash, int $total): array
+    {
+        $previa = DivisionExpedienteHistorico::query()
+            ->where('expediente_historico_id', $historico->id)
+            ->where('estado', EstadoDivisionHistorico::Completada->value)
+            ->where('hash_origen', $hash)
+            ->latest('id')
+            ->first();
+
+        if ($previa === null) {
+            return [];
+        }
+
+        $manuales = [];
+
+        foreach ($previa->paginas ?? [] as $pagina) {
+            if (($pagina['manual'] ?? false) === true) {
+                $manuales[] = (int) ($pagina['pagina'] ?? 0);
+            }
+        }
+
+        if ($manuales === []) {
+            return [];
+        }
+
+        $documentos = [];
+
+        foreach ($previa->partesVigentes()->get() as $parte) {
+            $paginas = array_values(array_filter($parte->paginas, fn (int $n): bool => $n >= 1 && $n <= $total));
+            $tocadas = array_values(array_intersect($paginas, $manuales));
+
+            if ($tocadas !== []) {
+                $documentos[] = ['tipo_id' => $parte->document_type_id, 'paginas' => $paginas, 'manuales' => $tocadas];
+            }
+        }
+
+        return $documentos;
+    }
+
+    public function documentoVigente(Colaborador $colaborador, DocumentType $tipo): ?EmployeeDocument
+    {
+        return EmployeeDocument::query()
             ->where('colaborador_id', $colaborador->id)
             ->where('document_type_id', $tipo->id)
             ->where('status', '!=', EstadoDocumento::Archivado->value)
             ->orderByDesc('version')
             ->first();
+    }
+
+    public function tipoCubierto(Colaborador $colaborador, DocumentType $tipo): bool
+    {
+        $vigente = $this->documentoVigente($colaborador, $tipo);
 
         return $vigente !== null && in_array($vigente->status, self::ESTADOS_QUE_CUBREN, true);
     }
@@ -633,7 +790,7 @@ class DivisionExpedienteHistoricoService
     /**
      * @param  list<int>  $paginas
      */
-    private function cargarAlChecklist(Colaborador $colaborador, DocumentType $tipo, string $bytes, array $paginas, User $usuario): EmployeeDocument
+    public function cargarAlChecklist(Colaborador $colaborador, DocumentType $tipo, string $bytes, array $paginas, User $usuario): EmployeeDocument
     {
         $temporal = sys_get_temp_dir().DIRECTORY_SEPARATOR.'parte-'.Str::uuid().'.pdf';
         file_put_contents($temporal, $bytes);
@@ -650,7 +807,7 @@ class DivisionExpedienteHistoricoService
         }
     }
 
-    private function escribirSinSobrescribir(string $ruta, string $bytes): void
+    public function escribirSinSobrescribir(string $ruta, string $bytes): void
     {
         if ($this->storage->existe($ruta)) {
             throw new RuntimeException(sprintf('Ya existe «%s» en el NAS; no se sobrescribe.', $ruta));
@@ -703,7 +860,15 @@ class DivisionExpedienteHistoricoService
                 'tipo_nombre' => isset($p['tipo']) ? ($nombres[$p['tipo']] ?? $p['tipo']) : null,
                 'metodo_etiqueta' => MetodoLecturaPagina::tryFrom((string) ($p['metodo'] ?? ''))?->etiqueta(),
             ], $division->paginas ?? []),
-            'partes' => $division->partes->map(fn (ParteDivisionHistorico $parte): array => [
+            'editor_url' => route('rh.expedientes.division-historico.editor', $division),
+            'paginas_manuales' => count(array_filter($division->paginas ?? [], fn (array $p): bool => (bool) ($p['manual'] ?? false))),
+            'revision' => ($ultima = $division->revisiones->first()) !== null ? [
+                'version' => $ultima->version,
+                'por' => $ultima->autor?->nombreCompleto(),
+                'en' => $ultima->created_at?->toIso8601String(),
+                'cambios' => count($ultima->cambios),
+            ] : null,
+            'partes' => $division->partesVigentes->map(fn (ParteDivisionHistorico $parte): array => [
                 'id' => $parte->id,
                 'orden' => $parte->orden,
                 'tipo' => $parte->tipo?->nombre,
@@ -725,7 +890,7 @@ class DivisionExpedienteHistoricoService
         ];
     }
 
-    private function colaboradorDe(ExpedienteHistorico $historico): Colaborador
+    public function colaboradorDe(ExpedienteHistorico $historico): Colaborador
     {
         return $historico->colaborador ?? throw new InvalidArgumentException('Este expediente histórico no está vinculado a un colaborador.');
     }
@@ -741,7 +906,7 @@ class DivisionExpedienteHistoricoService
      * Nadie edita su propio expediente, ni RH (memoria del proyecto: en
      * «Mi expediente» se solicita corrección).
      */
-    private function exigirNoPropio(Colaborador $colaborador, User $usuario): void
+    public function exigirNoPropio(Colaborador $colaborador, User $usuario): void
     {
         if ($usuario->colaborador_id !== null && $usuario->colaborador_id === $colaborador->id) {
             throw ValidationException::withMessages(['colaborador' => 'No puedes modificar tu propio expediente; solicita la corrección a RH.']);

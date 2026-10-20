@@ -31,7 +31,8 @@ class PerfilPuestoController extends Controller
 
         return Inertia::render('Rh/PerfilesPuesto/Index', [
             'puestos' => $this->perfiles->listado(),
-            'puedeEditar' => $request->user()->can('perfiles_puesto.editar'),
+            // El único botón de esta lista es «Importar descriptivos».
+            'puedeImportar' => $request->user()->can('perfiles_puesto.importar'),
         ]);
     }
 
@@ -54,10 +55,14 @@ class PerfilPuestoController extends Controller
         return $this->descriptivos->respuestaPdf($descriptivo, $request->boolean('descargar'));
     }
 
-    /** Importar descriptivos oficiales: lee los PDF y RH confirma el puesto. */
+    /**
+     * Importar descriptivos oficiales: lee los PDF y se confirma el puesto.
+     * Carga masiva: solo super_admin (`perfiles_puesto.importar`, 2026-10-20);
+     * editar un perfil sigue siendo `perfiles_puesto.editar`.
+     */
     public function importacion(Request $request): Response
     {
-        abort_unless($request->user()?->can('perfiles_puesto.editar'), 403);
+        abort_unless($request->user()?->can('perfiles_puesto.importar'), 403);
 
         $archivos = array_map(
             fn (string $ruta): array => $this->descriptivos->analizar((string) file_get_contents($ruta), basename($ruta)),
@@ -72,7 +77,7 @@ class PerfilPuestoController extends Controller
 
     public function importar(Request $request): RedirectResponse
     {
-        abort_unless($request->user()?->can('perfiles_puesto.editar'), 403);
+        abort_unless($request->user()?->can('perfiles_puesto.importar'), 403);
         $datos = $request->validate([
             'sha256' => ['required', 'string', 'size:64'],
             'puestos' => ['required', 'array', 'min:1'],

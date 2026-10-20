@@ -139,13 +139,13 @@ return [
         // Módulo de Bajas y Causales (docs/BAJAS_Y_CAUSALES.md): la bandeja y
         // el expediente de la baja se acotan por la persona (colaborador_id).
         'bajas' => [
-            'etiqueta' => 'Bajas (solicitudes y expediente)',
+            'etiqueta' => 'Bajas (registro y expediente)',
             'grupo' => 'People',
             'acceso' => 'bajas.ver',
             'alcances' => ['todos' => 'bajas.ver_todos', 'region' => 'bajas.ver_region', 'sucursal' => 'bajas.ver_sucursal', 'equipo' => 'bajas.ver_equipo'],
             'acciones' => [
-                'bajas.solicitar' => 'Solicitar baja',
-                'bajas.gestionar' => 'Validar, rechazar, cambiar causal, cerrar y reabrir (RH)',
+                'bajas.solicitar' => 'Registrar baja (se aplica de inmediato)',
+                'bajas.gestionar' => 'Cambiar causal, corregir datos, cerrar, reabrir y «No procede» (RH)',
                 'bajas.revisar_juridico' => 'Revisión de Jurídico',
                 'bajas.consulta_contraloria' => 'Consulta de Contraloría (RE-02 / RE-03)',
                 'bajas.tablero.ver' => 'Tablero de rotación',

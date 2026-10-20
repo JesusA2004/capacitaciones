@@ -28,7 +28,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useInitials } from '@/composables/useInitials';
+import { usePermisos } from '@/composables/usePermisos';
 import { dashboard } from '@/routes';
+import { index as indexDepartamentos } from '@/routes/administracion/departamentos';
 import { index } from '@/routes/administracion/sucursales';
 import { update as actualizarPlantilla } from '@/routes/administracion/sucursales/plantilla';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
@@ -103,6 +105,7 @@ defineOptions({
 });
 
 const { getInitials } = useInitials();
+const { tienePermiso } = usePermisos();
 
 // Domicilio completo (el mismo que usan los documentos cuando Configuración
 // elige el domicilio de sucursal).
@@ -475,6 +478,15 @@ function porcentaje(fila: PlantillaPorPuesto): number {
                     :height="180"
                     empty-title="Sin colaboradores activos"
                 />
+                <!-- Los departamentos (catálogo y mover personas entre
+                     ellos) viven en su propio módulo; aquí solo se consulta. -->
+                <Link
+                    v-if="tienePermiso('departamentos.administrar')"
+                    :href="indexDepartamentos.url()"
+                    class="text-xs font-medium text-primary underline-offset-4 hover:underline sm:col-span-2 lg:col-span-1"
+                >
+                    Administrar departamentos o mover personas entre ellos →
+                </Link>
             </div>
         </div>
         <!-- Histórico de la plantilla autorizada: quién, cuándo, antes → después -->

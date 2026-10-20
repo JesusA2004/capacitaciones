@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Rh;
 
 use App\Enums\EstadoCierreLaboral;
+use App\Enums\EstatusBaja;
 use App\Enums\FormaSalida;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\ArchivoLaboralRequest;
@@ -16,6 +17,9 @@ use App\Models\CausalRotacion;
 use App\Models\CierreLaboral;
 use App\Models\Colaborador;
 use App\Models\FiniquitoConcepto;
+use App\Models\Sucursal;
+use App\Services\Bajas\BajaRecopilacionService;
+use App\Services\Bajas\TableroRotacionService;
 use App\Services\CierreLaboral\CausalRotacionService;
 use App\Services\CierreLaboral\CierreLaboralService;
 use App\Services\Finiquitos\FiniquitoService;
@@ -36,6 +40,8 @@ class CierreLaboralController extends Controller
         private readonly CierreLaboralService $cierres,
         private readonly FiniquitoService $finiquitos,
         private readonly CausalRotacionService $causales,
+        private readonly BajaRecopilacionService $recopilacion,
+        private readonly TableroRotacionService $tablero,
     ) {}
 
     /**
@@ -50,20 +56,58 @@ class CierreLaboralController extends Controller
         $usuario = $request->user();
         abort_unless($usuario->can('cierres.ver'), 403);
 
+        // Pestañas: «Documentos» (recopilación por persona, por defecto),
+        // «Cierres y finiquitos» (tabla) y «Causales» (solo RH). Solo se
+        // calcula la de la pestaña abierta.
+        $administraCausales = $usuario->can('administrar', CausalRotacion::class);
+        $seccion = match ($request->query('seccion')) {
+            'cierres', 'bajas' => 'cierres',
+            'causales' => $administraCausales ? 'causales' : 'documentos',
+            default => 'documentos',
+        };
         $puedeVerFiniquito = $usuario->can('finiquitos.ver');
-        $listado = $this->cierres
-            ->panorama($usuario, $request->only(['estado', 'busqueda', 'per_page']))
-            ->withQueryString();
-        $finiquitos = $this->cierres->finiquitosDeCierres($listado->getCollection());
+        $listado = null;
 
-        $listado->getCollection()->transform(fn (CierreLaboral $c): array => $this->cierres->filaPanorama(
-            $c,
-            $c->solicitud_interna_id !== null ? $finiquitos->get($c->solicitud_interna_id) : null,
-            $puedeVerFiniquito,
-        ));
+        if ($seccion === 'cierres') {
+            $listado = $this->cierres
+                ->panorama($usuario, $request->only(['estado', 'busqueda', 'per_page']))
+                ->withQueryString();
+            $finiquitos = $this->cierres->finiquitosDeCierres($listado->getCollection());
+
+            $listado->getCollection()->transform(fn (CierreLaboral $c): array => $this->cierres->filaPanorama(
+                $c,
+                $c->solicitud_interna_id !== null ? $finiquitos->get($c->solicitud_interna_id) : null,
+                $puedeVerFiniquito,
+            ));
+        }
+
+        $filtrosDocumentos = $request->only(['estatus', 'sucursal_id', 'forma', 'documentos', 'busqueda', 'per_page', 'page']);
 
         return Inertia::render('Rh/Cierres/Index', [
             'cierres' => $listado,
+            'recopilacion' => $seccion === 'documentos' ? $this->recopilacion->tarjetas($usuario, $filtrosDocumentos) : null,
+            'resumen' => $this->recopilacion->resumen($usuario),
+            'filtros_documentos' => [
+                'estatus' => is_string($filtrosDocumentos['estatus'] ?? null) && $filtrosDocumentos['estatus'] !== '' ? $filtrosDocumentos['estatus'] : 'abiertas',
+                'sucursal_id' => is_numeric($filtrosDocumentos['sucursal_id'] ?? null) ? (int) $filtrosDocumentos['sucursal_id'] : null,
+                'forma' => is_string($filtrosDocumentos['forma'] ?? null) ? $filtrosDocumentos['forma'] : null,
+                'documentos' => is_string($filtrosDocumentos['documentos'] ?? null) ? $filtrosDocumentos['documentos'] : null,
+                'busqueda' => (string) ($filtrosDocumentos['busqueda'] ?? ''),
+            ],
+            'opciones_documentos' => [
+                'estatus' => [
+                    ['value' => 'abiertas', 'label' => 'Abiertas'],
+                    ...array_map(fn (EstatusBaja $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], EstatusBaja::vigentes()),
+                    ['value' => 'todas', 'label' => 'Todas'],
+                ],
+                'formas' => array_map(fn (FormaSalida $f): array => ['value' => $f->value, 'label' => $f->etiqueta(), 'token' => $f->token()], FormaSalida::cases()),
+                'sucursales' => Sucursal::query()->whereIn('id', $this->tablero->sucursalesVisibles($usuario)->all())->orderBy('nombre')->get(['id', 'nombre'])
+                    ->map(fn (Sucursal $s): array => ['value' => $s->id, 'label' => $s->nombre])->values()->all(),
+            ],
+            'limites_documentos' => [
+                'max_kb' => (int) config('bajas.documentos.max_kb', 15360),
+                'mimes' => array_values(array_map('strval', (array) config('bajas.documentos.mimes', []))),
+            ],
             'filtros' => [
                 'estado' => $request->query('estado'),
                 'busqueda' => (string) $request->query('busqueda', ''),
@@ -72,10 +116,10 @@ class CierreLaboralController extends Controller
             'puede_ver_finiquito' => $puedeVerFiniquito,
             // Pestaña «Causales de rotación» (subcatálogo del tipo de baja):
             // solo para quien la administra.
-            'causales' => $usuario->can('administrar', CausalRotacion::class) ? $this->causales->listado() : null,
+            'causales' => $administraCausales ? $this->causales->listado() : null,
             // Formas de salida en su orden (RV, NR, RE) con el tipo de baja equivalente.
             'tipos_baja' => array_map(fn (FormaSalida $f): array => ['value' => $f->tipoBaja()->value, 'label' => $f->etiqueta(), 'forma' => $f->value, 'token' => $f->token()], FormaSalida::cases()),
-            'seccion' => $request->query('seccion') === 'causales' ? 'causales' : 'bajas',
+            'seccion' => $seccion,
         ]);
     }
 

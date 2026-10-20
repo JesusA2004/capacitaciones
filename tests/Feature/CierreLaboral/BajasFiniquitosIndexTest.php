@@ -46,7 +46,8 @@ beforeEach(function () {
 });
 
 test('RH ve el panorama de bajas y finiquitos con el siguiente paso vigente', function () {
-    $this->actingAs($this->rh)->get(route('rh.cierres.index'))
+    // Pestaña «Cierres y finiquitos» (la de «Documentos» es la de entrada).
+    $this->actingAs($this->rh)->get(route('rh.cierres.index', ['seccion' => 'cierres']))
         ->assertOk()
         ->assertInertia(fn (Assert $p) => $p
             ->component('Rh/Cierres/Index')
@@ -65,9 +66,12 @@ test('un gerente de otra sucursal no ve el cierre (respeta el alcance)', functio
     $otra = clEstructura()['sucursal'];
     $gerenteOtra = clUsuario('gerente_sucursal', ['sucursal_principal_id' => $otra->id]);
 
-    $this->actingAs($gerenteOtra)->get(route('rh.cierres.index'))
+    $this->actingAs($gerenteOtra)->get(route('rh.cierres.index', ['seccion' => 'cierres']))
         ->assertOk()
         ->assertInertia(fn (Assert $p) => $p->component('Rh/Cierres/Index')->has('cierres.data', 0));
+    $this->actingAs($gerenteOtra)->get(route('rh.cierres.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $p) => $p->component('Rh/Cierres/Index')->has('recopilacion.data', 0));
 });
 
 test('sin el permiso cierres.ver responde 403', function () {

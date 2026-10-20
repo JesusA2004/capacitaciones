@@ -1,28 +1,60 @@
+import {
+    CheckCircle2,
+    CircleDashed,
+    Hourglass,
+    Scale,
+    Undo2,
+} from '@lucide/vue';
+import type { Component } from 'vue';
+import type { Tono } from '@/lib/tonos';
+
 /**
  * Utilidades del módulo de bajas (pantalla del gerente, expediente y
  * tablero). Las reglas reales viven en el backend (BajaReglasService); aquí
  * solo se adelantan los avisos en pantalla.
  */
 
+/**
+ * Tono e ícono del estatus de una baja (chips de bandeja, expediente y
+ * recopilación). Borrador / Rechazada solo existen en el flujo anterior.
+ */
+export function estatusBaja(estatus: string): { tono: Tono; icono: Component } {
+    switch (estatus) {
+        case 'en_revision_rh':
+            return { tono: 'info', icono: Hourglass };
+        case 'en_revision_juridico':
+            return { tono: 'alerta', icono: Scale };
+        case 'cerrada':
+            return { tono: 'exito', icono: CheckCircle2 };
+        case 'cancelada':
+            return { tono: 'neutro', icono: Undo2 };
+        default:
+            return { tono: 'neutro', icono: CircleDashed };
+    }
+}
+
 /** Clases de color por forma de salida (tokens de resources/css/app.css). */
 export const CLASE_FORMA: Record<
     string,
-    { fondo: string; texto: string; borde: string }
+    { fondo: string; texto: string; borde: string; bordeIzq: string }
 > = {
     renuncia: {
         fondo: 'bg-forma-renuncia',
         texto: 'text-forma-renuncia',
         borde: 'border-forma-renuncia',
+        bordeIzq: 'border-l-forma-renuncia',
     },
     'no-renovacion': {
         fondo: 'bg-forma-no-renovacion',
         texto: 'text-forma-no-renovacion',
         borde: 'border-forma-no-renovacion',
+        bordeIzq: 'border-l-forma-no-renovacion',
     },
     rescision: {
         fondo: 'bg-forma-rescision',
         texto: 'text-forma-rescision',
         borde: 'border-forma-rescision',
+        bordeIzq: 'border-l-forma-rescision',
     },
 };
 
@@ -32,6 +64,7 @@ export function claseForma(token: string | null | undefined) {
             fondo: 'bg-muted-foreground',
             texto: 'text-muted-foreground',
             borde: 'border-border',
+            bordeIzq: 'border-l-border',
         }
     );
 }

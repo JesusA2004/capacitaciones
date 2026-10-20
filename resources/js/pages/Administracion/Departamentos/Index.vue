@@ -17,7 +17,7 @@ import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { dashboard } from '@/routes';
-import { destroy, index } from '@/routes/administracion/departamentos';
+import { destroy, index, show } from '@/routes/administracion/departamentos';
 import type {
     DepartamentoItem,
     EstadisticasActivoInactivo,
@@ -64,6 +64,11 @@ function abrirEditar(departamento: DepartamentoItem) {
     dialogAbierto.value = true;
 }
 
+/** Abrir un departamento = ver a su gente (y moverla en lote si eres RH). */
+function abrirDetalle(departamento: DepartamentoItem) {
+    router.visit(show.url(departamento.id));
+}
+
 async function eliminar(departamento: DepartamentoItem) {
     const confirmado = await confirmarEliminacion(
         `el departamento «${departamento.nombre}»`,
@@ -88,7 +93,7 @@ async function eliminar(departamento: DepartamentoItem) {
     <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Departamentos"
-            descripcion="Organiza a los colaboradores por área de la empresa y agrupa sus puestos."
+            descripcion="Organiza a los colaboradores por área de la empresa y agrupa sus puestos. Abre un departamento para ver a su gente o moverla a otro."
             :icono="Building2"
         >
             <Button @click="abrirCrear">
@@ -136,7 +141,7 @@ async function eliminar(departamento: DepartamentoItem) {
             :datos="departamentos"
             mensaje-vacio="No se encontraron departamentos."
             filas-clicables
-            @click-fila="abrirEditar"
+            @click-fila="abrirDetalle"
         >
             <template #vacio>
                 <CrudEmptyState
@@ -164,6 +169,9 @@ async function eliminar(departamento: DepartamentoItem) {
             </template>
             <template #acciones="{ fila }">
                 <CrudActionMenu>
+                    <DropdownMenuItem @select="abrirDetalle(fila)"
+                        >Ver y mover personas</DropdownMenuItem
+                    >
                     <DropdownMenuItem @select="abrirEditar(fila)"
                         >Editar</DropdownMenuItem
                     >
@@ -179,7 +187,7 @@ async function eliminar(departamento: DepartamentoItem) {
                 <CrudMobileCard
                     :titulo="fila.nombre"
                     :subtitulo="`${fila.puestos_count} puesto(s)`"
-                    @click="abrirEditar(fila)"
+                    @click="abrirDetalle(fila)"
                 >
                     <template #badge>
                         <EstadoBadge
@@ -192,6 +200,9 @@ async function eliminar(departamento: DepartamentoItem) {
                     </span>
                     <template #acciones>
                         <CrudActionMenu>
+                            <DropdownMenuItem @select="abrirDetalle(fila)"
+                                >Ver y mover personas</DropdownMenuItem
+                            >
                             <DropdownMenuItem @select="abrirEditar(fila)"
                                 >Editar</DropdownMenuItem
                             >

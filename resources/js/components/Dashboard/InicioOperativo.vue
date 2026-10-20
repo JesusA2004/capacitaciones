@@ -4,15 +4,19 @@ import {
     ArrowRight,
     BarChart3,
     BriefcaseBusiness,
+    Building,
     CalendarClock,
     CheckCircle2,
     ChevronDown,
     FolderOpen,
     UserRoundSearch,
+    Users,
 } from '@lucide/vue';
 import { computed, onMounted, ref, watch } from 'vue';
 import TableroRh from '@/components/Dashboard/TableroRh.vue';
 import { Button } from '@/components/ui/button';
+import { usePermisos } from '@/composables/usePermisos';
+import { index as sucursalesIndex } from '@/routes/administracion/sucursales';
 import { index as candidatosIndex } from '@/routes/rh/candidatos';
 import { index as expedientesIndex } from '@/routes/rh/expedientes';
 import { index as pendientesIndex } from '@/routes/rh/pendientes';
@@ -63,16 +67,51 @@ const saludo = computed(() => {
     return props.inicio.nombre ? `${parte}, ${props.inicio.nombre}` : parte;
 });
 
+const numero = new Intl.NumberFormat('es-MX');
+const { tienePermiso } = usePermisos();
+
+/**
+ * Headcount del alcance: TODAS las cifras salen de HeadcountService (plazas
+ * autorizadas vs. ocupadas por colaboradores vigentes) y de RH → Vacantes;
+ * nunca de contar expedientes o carpetas del NAS.
+ */
+const plantilla = computed(() => props.inicio.indicadores.plantilla);
+const cobertura = computed(() =>
+    Math.min(100, Math.max(0, plantilla.value.cumplimiento)),
+);
+const cifrasPlantilla = computed(() => [
+    {
+        clave: 'activa',
+        titulo: 'Plantilla activa',
+        valor: plantilla.value.ocupada,
+        nota: 'plazas ocupadas por colaboradores activos',
+        icono: Users,
+        href: tienePermiso('sucursales.administrar')
+            ? sucursalesIndex.url()
+            : null,
+    },
+    {
+        clave: 'capacidad',
+        titulo: 'Capacidad autorizada',
+        valor: plantilla.value.autorizada,
+        nota: 'plazas en el headcount',
+        icono: Building,
+        href: tienePermiso('sucursales.administrar')
+            ? sucursalesIndex.url()
+            : null,
+    },
+    {
+        clave: 'vacantes',
+        titulo: 'Vacantes reales',
+        valor: props.inicio.indicadores.vacantes,
+        nota: 'plazas autorizadas por cubrir',
+        icono: BriefcaseBusiness,
+        href: vacantesIndex.url(),
+    },
+]);
+
 const tarjetas = computed(() =>
     [
-        {
-            clave: 'vacantes',
-            titulo: 'Vacantes reales',
-            valor: props.inicio.indicadores.vacantes,
-            nota: 'plazas autorizadas sin cubrir',
-            icono: BriefcaseBusiness,
-            href: vacantesIndex.url(),
-        },
         {
             clave: 'proceso',
             titulo: 'Contrataciones en proceso',
@@ -97,7 +136,7 @@ const tarjetas = computed(() =>
             clave: 'vencer',
             titulo: 'Contratos por vencer',
             valor: props.inicio.indicadores.por_vencer,
-            nota: 'periodos de prueba · próximos 30 días',
+            nota: `periodos de prueba · próximos ${props.inicio.indicadores.dias_por_vencer} días`,
             icono: CalendarClock,
             href: pendientesIndex.url(),
         },
@@ -151,7 +190,82 @@ const tarjetas = computed(() =>
             </Button>
         </section>
 
-        <ul class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <!-- Headcount: plazas autorizadas vs. ocupadas por colaboradores
+             activos (HeadcountService) + vacantes reales (RH → Vacantes). -->
+        <section
+            class="rounded-2xl border bg-card p-4 sm:p-5"
+            aria-labelledby="inicio-plantilla"
+        >
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+                <h2
+                    id="inicio-plantilla"
+                    class="text-sm font-semibold tracking-tight"
+                >
+                    Plantilla
+                    <span class="font-normal text-muted-foreground"
+                        >· según el headcount autorizado</span
+                    >
+                </h2>
+                <p class="text-xs text-muted-foreground tabular-nums">
+                    {{ cobertura }}% de la capacidad cubierta
+                </p>
+            </div>
+
+            <div
+                class="mt-3 h-2 overflow-hidden rounded-full bg-crema"
+                role="progressbar"
+                :aria-valuenow="cobertura"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                :aria-label="`${cobertura}% de las plazas autorizadas ocupadas`"
+            >
+                <div
+                    class="h-full rounded-full bg-primary transition-[width] duration-500 motion-reduce:transition-none"
+                    :style="{ width: `${cobertura}%` }"
+                />
+            </div>
+
+            <ul class="mt-4 grid gap-3 sm:grid-cols-3">
+                <li v-for="c in cifrasPlantilla" :key="c.clave">
+                    <component
+                        :is="c.href ? Link : 'div'"
+                        :href="c.href ?? undefined"
+                        class="flex h-full flex-col gap-0.5 rounded-xl bg-crema/40 px-4 py-3"
+                        :class="c.href && 'tarjeta-interactiva'"
+                    >
+                        <span
+                            class="flex items-center justify-between text-xs text-muted-foreground"
+                        >
+                            {{ c.titulo }}
+                            <component :is="c.icono" class="size-4" />
+                        </span>
+                        <span class="text-2xl font-semibold tabular-nums">{{
+                            numero.format(c.valor)
+                        }}</span>
+                        <span class="text-xs text-muted-foreground">{{
+                            c.nota
+                        }}</span>
+                    </component>
+                </li>
+            </ul>
+
+            <p
+                v-if="plantilla.fuera_de_plantilla > 0"
+                class="mt-3 text-xs text-muted-foreground"
+            >
+                <span class="font-medium text-foreground tabular-nums">{{
+                    numero.format(plantilla.personas_activas)
+                }}</span>
+                colaboradores activos en total ·
+                <span class="tabular-nums">{{
+                    numero.format(plantilla.fuera_de_plantilla)
+                }}</span>
+                en puestos sin plaza autorizada en su sucursal (p. ej.
+                Corporativo). Las bajas no cuentan.
+            </p>
+        </section>
+
+        <ul class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <li
                 v-for="(t, i) in tarjetas"
                 :key="t.clave"

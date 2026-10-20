@@ -446,7 +446,9 @@ export function useMainNavItems() {
                         href: indexImportaciones(),
                         icon: FileSpreadsheet,
                     },
-                    tienePermiso('expedientes.editar') && {
+                    // Pantalla SOLO de importación por Excel: como toda
+                    // carga masiva, solo super_admin (2026-10-20).
+                    tienePermiso('contactos_emergencia.importar') && {
                         title: 'Contactos de emergencia',
                         href: indexContactosEmergencia(),
                         icon: FileSpreadsheet,
@@ -512,14 +514,15 @@ export function useMainNavItems() {
                     icono: DoorOpen,
                 },
                 [
-                    // Módulo de Bajas: solicitud del gerente, bandeja de RH,
-                    // revisión de Jurídico y consulta de Contraloría.
+                    // «Bajas» (no es una solicitud): el gerente o RH la
+                    // registra y queda aplicada. Solo gerentes, RH y super
+                    // admin (+ Jurídico y Contraloría de lectura).
                     algunPermiso(
                         'bajas.ver',
                         'bajas.revisar_juridico',
                         'bajas.consulta_contraloria',
                     ) && {
-                        title: 'Solicitudes de baja',
+                        title: 'Bajas',
                         href: indexBajas(),
                         icon: ClipboardList,
                     },
@@ -556,11 +559,10 @@ export function useMainNavItems() {
                         href: indexPuestos(),
                         icon: Briefcase,
                     },
-                    algunPermiso(
-                        'sucursales.administrar',
-                        'departamentos.administrar',
-                    ) && {
-                        title: 'Sucursales y departamentos',
+                    // Solo sucursales: los departamentos (y mover personas
+                    // entre ellos) viven en su propio módulo, abajo.
+                    tienePermiso('sucursales.administrar') && {
+                        title: 'Sucursales',
                         href: indexSucursales(),
                         icon: Building2,
                     },
@@ -635,12 +637,17 @@ export function useMainNavItems() {
                         href: indexRoles(),
                         icon: ShieldCheck,
                     },
+                    // Importaciones/cargas masivas: solo super_admin
+                    // (2026-10-20); mismos permisos que exige
+                    // ImportarDatosController.
                     algunPermiso(
                         'expedientes.migrar',
                         'headcount.importar',
                         'colaboradores.importar_salarios_vacaciones',
                         'rotacion.cargar',
-                        'perfiles_puesto.editar',
+                        'perfiles_puesto.importar',
+                        'contactos_emergencia.importar',
+                        'nomina.recibos.importar',
                     ) && {
                         title: 'Importar datos',
                         href: indexImportarDatos(),

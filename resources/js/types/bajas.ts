@@ -1,7 +1,8 @@
 /**
  * Módulo de Bajas y Causales (docs/BAJAS_Y_CAUSALES.md): catálogo de dos
- * niveles (forma de salida RV/NR/RE → causal), solicitud del gerente,
- * bandeja de RH, expediente de la baja y tablero de rotación.
+ * niveles (forma de salida RV/NR/RE → causal), registro DIRECTO de la baja
+ * (gerente o RH), bandeja «Bajas», expediente de la baja, recopilación de
+ * documentos (Bajas y finiquitos) y tablero de rotación.
  */
 
 export type FormaSalidaClave = 'RV' | 'NR' | 'RE';
@@ -93,25 +94,6 @@ export type CamposBaja = {
     fecha_entrega_aviso: string;
 };
 
-/** Baja en el formulario del gerente (BajaService::formulario). */
-export type BajaFormulario = {
-    id: number;
-    folio: string;
-    estatus: string;
-    estatus_etiqueta: string;
-    motivo_rechazo: string | null;
-    colaborador: ColaboradorBaja;
-    forma_salida: FormaSalidaClave | null;
-    causal_rotacion_id: number | null;
-    fecha_baja: string | null;
-    recontratable: string | null;
-    comentarios: string | null;
-    fecha_conocimiento_falta: string | null;
-    entrega_aviso_rescision: string | null;
-    fecha_entrega_aviso: string | null;
-    documentos: EspacioDocumentoBaja[];
-};
-
 /** Fila de la bandeja (BajaConsultaService::fila). */
 export type FilaBaja = {
     id: number;
@@ -132,8 +114,53 @@ export type FilaBaja = {
     dias_en_espera: number | null;
     documentos_completos: boolean;
     documentos_faltantes: number;
+    /** Obligatorios para cerrar (avance = total − faltantes). */
+    documentos_total: number;
     requiere_juridico: boolean;
     origen: string;
+};
+
+/** Números grandes de la bandeja (BajaConsultaService::resumen). */
+export type ResumenBajas = {
+    en_tramite: number;
+    juridico: number;
+    cerradas: number;
+    no_procede: number;
+};
+
+/** Estado de un documento en la recopilación. */
+export type EstadoDocumentoRecopilacion = 'generado' | 'firmado' | 'pendiente';
+
+/** Documento de una persona dada de baja (BajaRecopilacionService::tarjeta). */
+export type DocumentoRecopilacion = {
+    clave: string;
+    nombre: string;
+    origen: 'generado' | 'finiquito' | 'adjunto';
+    estado: EstadoDocumentoRecopilacion;
+    estado_etiqueta: string;
+    obligatorio: boolean;
+    /** Espacio de la baja al que se adjunta el que falta (o su firmado). */
+    requerido_id: number | null;
+    url: string | null;
+    url_descarga: string | null;
+    mime: string | null;
+    fecha: string | null;
+};
+
+/** Tarjeta por persona de «Bajas y finiquitos» → Documentos. */
+export type TarjetaRecopilacion = FilaBaja & {
+    colaborador_id: number | null;
+    cierre_id: number | null;
+    foto_url: string | null;
+    avance: { completos: number; total: number };
+    documentos: DocumentoRecopilacion[];
+    puede_adjuntar: boolean;
+    puede_ver_baja: boolean;
+};
+
+/** Resumen de la recopilación (BajaRecopilacionService::resumen). */
+export type ResumenRecopilacion = ResumenBajas & {
+    documentos_pendientes: number;
 };
 
 export type BitacoraBaja = {

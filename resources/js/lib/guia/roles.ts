@@ -69,7 +69,7 @@ export const ROLES_GUIA: RolGuia[] = [
         ],
         icono: 'Building2',
         resumen:
-            'Entrevista y revisa a los candidatos de su sucursal (psicométricos y socioeconómico: viable o no viable), da visto bueno a las solicitudes de su equipo, levanta actas, inicia la baja de alguien de su equipo, imprime y recaba firmas, entrega equipo y evalúa la capacitación inicial.',
+            'Entrevista y revisa a los candidatos de su sucursal (psicométricos y socioeconómico: viable o no viable), da visto bueno a las solicitudes de su equipo, levanta actas, registra la baja de alguien de su sucursal (queda aplicada al momento), imprime y recaba firmas, entrega equipo y evalúa la capacitación inicial.',
         dondeTrabaja: 'Web o app (Gestión RH: Pendientes, Equipo).',
         noLeToca: [
             'Autorizar una contratación (siempre es RH).',

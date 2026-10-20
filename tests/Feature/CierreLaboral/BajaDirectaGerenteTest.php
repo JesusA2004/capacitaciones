@@ -83,12 +83,25 @@ test('el jefe directo inicia la baja y queda APLICADA de inmediato: sin preautor
         ->assertInertia(fn ($page) => $page->where('solicitudes.total', 0));
 });
 
-test('un gerente fuera de la cadena de mando no puede iniciar la baja (aunque sea de la misma sucursal)', function () {
-    $this->actingAs($this->otroGerente)
+// Regla vigente (2026-10-20, «Bajas»): el gerente registra la baja de SU
+// personal por alcance (su sucursal), aunque no sea el jefe inmediato; uno
+// de otra sucursal, nunca.
+test('un gerente fuera de su alcance (otra sucursal, sin cadena de mando) no puede iniciar la baja', function () {
+    $otra = clEstructura()['sucursal'];
+    $gerenteOtra = clUsuario('gerente_sucursal', ['sucursal_principal_id' => $otra->id]);
+
+    $this->actingAs($gerenteOtra)
         ->post(route('rh.colaboradores.cierres.store', $this->persona), bajaDirectaDatos())
         ->assertForbidden();
 
     expect(CierreLaboral::query()->count())->toBe(0);
+
+    // El otro gerente de la MISMA sucursal sí (alcance de su personal).
+    $this->actingAs($this->otroGerente)
+        ->post(route('rh.colaboradores.cierres.store', $this->persona), bajaDirectaDatos())
+        ->assertSessionHasNoErrors();
+
+    expect(CierreLaboral::query()->count())->toBe(1);
 });
 
 test('RH inicia la baja de cualquier persona de su alcance y también queda aplicada de inmediato', function () {

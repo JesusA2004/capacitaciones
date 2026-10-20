@@ -67,7 +67,8 @@ function iceFila(ImportacionExcel $importacion, int $fila): array
 beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
     $this->importador = app(ImportadorContactosEmergenciaService::class);
-    $this->actor = clUsuario('rh_admin');
+    // Importar es solo de super_admin (2026-10-20); RH ya no lo ve.
+    $this->actor = clUsuario('super_admin');
     $this->atlacomulco = Sucursal::factory()->create(['nombre' => 'Atlacomulco', 'activo' => true]);
     $this->toluca = Sucursal::factory()->create(['nombre' => 'Toluca', 'activo' => true]);
     $this->luis = Colaborador::factory()->create([
@@ -253,15 +254,20 @@ test('nadie carga sus propios datos por esta vía', function () {
     expect(fn () => $this->importador->asignarColaborador($importacion, 2, $propio->id, $this->actor))->toThrow(ValidationException::class);
 });
 
-test('sin expedientes.editar no se puede ver, subir, descargar plantilla ni confirmar (403)', function () {
-    $sinPermiso = clUsuario('colaborador');
+test('sin contactos_emergencia.importar (colaborador, rh_admin, rh_auxiliar) no se puede ver, subir, descargar plantilla ni confirmar (403)', function () {
     $importacion = $this->importador->analizar(iceArchivo([iceFilaLuis()]), $this->actor);
 
-    $this->actingAs($sinPermiso)->get(route('rh.contactos-emergencia.index'))->assertForbidden();
-    $this->actingAs($sinPermiso)->get(route('rh.contactos-emergencia.plantilla'))->assertForbidden();
-    $this->actingAs($sinPermiso)->post(route('rh.contactos-emergencia.analizar'), ['archivo' => iceArchivo([iceFilaLuis()])])->assertForbidden();
-    $this->actingAs($sinPermiso)->post(route('rh.contactos-emergencia.aplicar', $importacion))->assertForbidden();
-    $this->actingAs($sinPermiso)->getJson(route('rh.contactos-emergencia.colaboradores'))->assertForbidden();
+    foreach (['colaborador', 'rh_admin', 'rh_auxiliar'] as $rol) {
+        $sinPermiso = clUsuario($rol);
+
+        $this->actingAs($sinPermiso)->get(route('rh.contactos-emergencia.index'))->assertForbidden();
+        $this->actingAs($sinPermiso)->get(route('rh.contactos-emergencia.show', $importacion))->assertForbidden();
+        $this->actingAs($sinPermiso)->get(route('rh.contactos-emergencia.plantilla'))->assertForbidden();
+        $this->actingAs($sinPermiso)->post(route('rh.contactos-emergencia.analizar'), ['archivo' => iceArchivo([iceFilaLuis()])])->assertForbidden();
+        $this->actingAs($sinPermiso)->post(route('rh.contactos-emergencia.aplicar', $importacion))->assertForbidden();
+        $this->actingAs($sinPermiso)->getJson(route('rh.contactos-emergencia.colaboradores'))->assertForbidden();
+        $this->actingAs($sinPermiso)->delete(route('rh.contactos-emergencia.destroy', $importacion))->assertForbidden();
+    }
 
     expect($this->luis->refresh()->telefono)->toBeNull();
 });

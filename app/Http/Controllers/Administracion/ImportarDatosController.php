@@ -19,6 +19,9 @@ use Inertia\Response;
  * La autorización real vive en cada controlador de destino; aquí solo se
  * decide qué tarjetas mostrar (UX) y que el hub no se abra sin al menos un
  * permiso de importación.
+ *
+ * Todos los permisos de importación son SOLO de super_admin (2026-10-20):
+ * RH conserva las pantallas de consulta, no las cargas masivas.
  */
 class ImportarDatosController extends Controller
 {
@@ -33,7 +36,9 @@ class ImportarDatosController extends Controller
         'headcount' => 'headcount.importar',
         'salarios_vacaciones' => 'colaboradores.importar_salarios_vacaciones',
         'rotacion' => 'rotacion.cargar',
-        'perfiles_puesto' => 'perfiles_puesto.editar',
+        'perfiles_puesto' => 'perfiles_puesto.importar',
+        'contactos_emergencia' => 'contactos_emergencia.importar',
+        'recibos_nomina' => 'nomina.recibos.importar',
     ];
 
     public function index(Request $request): Response
@@ -50,12 +55,6 @@ class ImportarDatosController extends Controller
         // Tarjeta principal «Carga inicial PEOPLE»: exige a la vez migrar
         // expedientes e importar headcount (CargaInicialController::PERMISOS).
         $puede['carga_inicial'] = CargaInicialController::puede($usuario);
-
-        // Contactos de emergencia, condición médica y alergias (Excel de
-        // Google Forms): misma pantalla que Permanencia → Contactos de
-        // emergencia, una sola implementación. Es una tarjeta más, no abre el
-        // hub por sí sola (no está en PERMISOS).
-        $puede['contactos_emergencia'] = $usuario->can('expedientes.editar');
 
         // Sin ningún permiso de importación no hay nada que mostrar: el hub
         // no es una pantalla genérica, es el índice de lo que este usuario

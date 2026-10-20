@@ -407,19 +407,38 @@ export type InicioOperativoDatos = {
     pendientes: number;
     vencidos: number;
     indicadores: {
+        /** Plazas por cubrir de RH → Vacantes (misma cifra que esa pantalla). */
         vacantes: number;
         en_proceso: number;
         por_vencer: number;
+        /** Ventana de aviso de contratos por vencer (config). */
+        dias_por_vencer: number;
+        /** Headcount del alcance (HeadcountService::totalesGenerales). */
+        plantilla: PlantillaHeadcount;
         expedientes_incompletos: number | null;
     };
+};
+
+/** Totales de headcount: plazas autorizadas vs ocupadas por vigentes. */
+export type PlantillaHeadcount = {
+    autorizada: number;
+    ocupada: number;
+    vacantes: number;
+    cumplimiento: number;
+    personas_activas: number;
+    fuera_de_plantilla: number;
 };
 
 export type TableroRhDatos = {
     summary: {
         plantilla_activa: {
+            /** Plazas autorizadas ocupadas por colaboradores vigentes. */
             valor: number;
             autorizada: number;
             porcentaje: number;
+            vacantes: number;
+            personas_activas: number;
+            fuera_de_plantilla: number;
         };
         vacantes_abiertas: {
             valor: number;

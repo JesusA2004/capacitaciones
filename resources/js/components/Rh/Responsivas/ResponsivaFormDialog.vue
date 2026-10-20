@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { ArrowLeft, Eye, FileSignature, Loader2, Printer } from '@lucide/vue';
+import { ArrowLeft, FileSignature, Loader2, Printer } from '@lucide/vue';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import BotonVistaPrevia from '@/components/people/BotonVistaPrevia.vue';
+import EsqueletoDocumento from '@/components/people/EsqueletoDocumento.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -370,9 +372,8 @@ async function generar() {
                         </p>
                         <p class="mt-1 text-sm text-muted-foreground">
                             Quedó guardada en el expediente. Imprímela, recaba
-                            las firmas de quien recibe y del representante
-                            legal de la empresa, y
-                            márcala como firmada físicamente.
+                            las firmas de quien recibe y del representante legal
+                            de la empresa, y márcala como firmada físicamente.
                         </p>
                     </div>
                     <Button as-child>
@@ -385,6 +386,14 @@ async function generar() {
                             Abrir para imprimir
                         </a>
                     </Button>
+                </div>
+
+                <!-- Generando la vista previa: esqueleto animado -->
+                <div
+                    v-else-if="previsualizando"
+                    class="flex min-h-[50vh] items-center justify-center py-6"
+                >
+                    <EsqueletoDocumento />
                 </div>
 
                 <!-- Vista previa -->
@@ -1049,18 +1058,11 @@ async function generar() {
                     <Button variant="ghost" @click="abierto = false">
                         Cancelar
                     </Button>
-                    <Button
-                        variant="outline"
-                        :disabled="!completo || previsualizando"
+                    <BotonVistaPrevia
+                        :cargando="previsualizando"
+                        :deshabilitado="!completo"
                         @click="verVistaPrevia"
-                    >
-                        <Loader2
-                            v-if="previsualizando"
-                            class="size-4 animate-spin"
-                        />
-                        <Eye v-else class="size-4" />
-                        Vista previa
-                    </Button>
+                    />
                 </template>
                 <Button :disabled="!completo || enviando" @click="generar">
                     <Loader2 v-if="enviando" class="size-4 animate-spin" />

@@ -45,7 +45,7 @@ export const AYUDA_POR_PANTALLA: { patron: RegExp; articulo: string }[] = [
         articulo: 'estructura-y-plantilla',
     },
     {
-        patron: /^\/administracion\/(puestos|departamentos|empresas|jerarquia-puestos)$/,
+        patron: /^\/administracion\/(puestos|departamentos(\/\d+)?|empresas|jerarquia-puestos)$/,
         articulo: 'estructura-y-plantilla',
     },
     {

@@ -105,14 +105,14 @@ const ESPERADO = [
     ],
     [
         'Cierres laborales',
-        ['Solicitudes de baja', 'Bajas y finiquitos', 'Reingresos'],
+        ['Bajas', 'Bajas y finiquitos', 'Reingresos'],
     ],
     [
         'Organización',
         [
             'Organigrama',
             'Puestos y tabulador',
-            'Sucursales y departamentos',
+            'Sucursales',
             'Departamentos',
             'Empresas',
         ],
@@ -176,6 +176,38 @@ test('cada acceso (salvo Tablero y Directorio) está condicionado por permiso o 
                 `«${titulo}» no está condicionado por permiso/bandera`,
             );
         }
+    }
+});
+
+test('las importaciones solo se ofrecen con permisos de importación (solo super_admin, 2026-10-20)', () => {
+    const permisosImportacion = [
+        'expedientes.migrar',
+        'headcount.importar',
+        'colaboradores.importar_salarios_vacaciones',
+        'rotacion.cargar',
+        'perfiles_puesto.importar',
+        'contactos_emergencia.importar',
+        'nomina.recibos.importar',
+    ];
+    const gate = {
+        'Importar salarios y vacaciones': /tienePermiso\(\s*'colaboradores\.importar_salarios_vacaciones',?\s*\)/,
+        'Contactos de emergencia': /tienePermiso\('contactos_emergencia\.importar'\)/,
+    };
+
+    for (const [titulo, patron] of Object.entries(gate)) {
+        assert.match(declaracion(titulo), patron, `«${titulo}» debe exigir su permiso de importación`);
+    }
+
+    const hub = declaracion('Importar datos');
+
+    for (const permiso of permisosImportacion) {
+        assert.ok(hub.includes(`'${permiso}'`), `«Importar datos» no considera ${permiso}`);
+    }
+
+    // Ningún permiso de RH de uso diario (editar expedientes o perfiles)
+    // abre una pantalla de importación.
+    for (const titulo of ['Importar datos', 'Contactos de emergencia', 'Importar salarios y vacaciones']) {
+        assert.doesNotMatch(declaracion(titulo), /'expedientes\.editar'|'perfiles_puesto\.editar'/);
     }
 });
 

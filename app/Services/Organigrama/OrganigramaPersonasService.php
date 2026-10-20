@@ -5,6 +5,7 @@ namespace App\Services\Organigrama;
 use App\Enums\EstadoUsuario;
 use App\Enums\TipoNodoComercial;
 use App\Models\AsignacionNodoComercial;
+use App\Models\ClasificacionRegion;
 use App\Models\CoberturaPuesto;
 use App\Models\Colaborador;
 use App\Models\NodoComercial;
@@ -51,8 +52,11 @@ use Illuminate\Support\Collection;
  *     region: Referencia|null,
  *     persona: array{id: int, nombre: string, foto_url: string|null, numero_empleado: string|null, expediente_url: string, sucursal: string|null}|null,
  *     rutas: list<array{nombre: string, tipo: string}>,
- *     cobertura: array{id: int, motivo: string, motivo_etiqueta: string, desde: string, nota: string|null, titular_de?: string|null}|null
+ *     cobertura: array{id: int, motivo: string, motivo_etiqueta: string, desde: string, nota: string|null, titular_de?: string|null, registrada_por?: string|null, registrada_en?: string|null}|null,
+ *     clasificacion?: Clasificacion|null
  * }
+ * @phpstan-type Clasificacion array{estado: 'clasificado'|'por_clasificar', region: Referencia|null, sugerida: Referencia|null, clasificada_por: string|null, clasificada_en: string|null}
+ * @phpstan-type Simulacion array<int, array{puesto_id: int, sucursal_principal_id: int|null, region_id?: int|null}>
  * @phpstan-type Ambito array{tipo: 'sucursal'|'region'|'corporativo', sucursal: int|null, region: int|null}
  */
 class OrganigramaPersonasService
@@ -107,6 +111,18 @@ class OrganigramaPersonasService
 
     /** @var array<string, NodoOrganigrama> */
     private array $nodos = [];
+
+    /**
+     * Lado Q1/Q3 que RH clasificó por colaborador (clasificaciones_region):
+     * colaborador_id => región. Solo cuenta para puestos clasificables
+     * (los que reportan a «el gerente regional de su región»).
+     *
+     * @var array<int, int>
+     */
+    private array $regionClasificada = [];
+
+    /** @var array<int, array{por: string|null, en: string|null}> */
+    private array $auditoriaClasificacion = [];
 
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
@@ -189,9 +205,138 @@ class OrganigramaPersonasService
      * vacante se sube por la cadena hasta la primera persona (o quien cubre
      * el puesto); null solo para quien encabeza la estructura.
      *
+     * `$simulacion` (vista previa de «Vas a mover a X…»): aplica en memoria,
+     * sin guardar nada, otro puesto/sucursal/región a esas personas.
+     *
+     * @param  Simulacion  $simulacion
      * @return array<int, int|null> colaborador_id => jefe colaborador_id
      */
-    public function jefesDerivados(): array
+    public function jefesDerivados(array $simulacion = []): array
+    {
+        $colaboradores = $this->construirEstructuraCompleta($simulacion);
+
+        $jefes = [];
+
+        foreach ($colaboradores as $colaborador) {
+            $jefes[$colaborador->id] = $this->personaArriba($this->nodos['p'.$colaborador->id]['padre'] ?? null, $colaborador->id);
+        }
+
+        return $jefes;
+    }
+
+    /**
+     * Todos los nodos de la estructura completa (sin alcance ni filtros):
+     * para elegir el destino de «Mover bajo…».
+     *
+     * @return array<string, NodoOrganigrama>
+     */
+    public function nodosEstructura(): array
+    {
+        $this->construirEstructuraCompleta([]);
+
+        return $this->nodos;
+    }
+
+    /**
+     * Q1 / Q3 en una línea (lámina de Dirección Comercial): por región, quién
+     * es su gerente regional (titular, quien cubre temporalmente o vacante)
+     * y cuántos Gerentes de Sucursal RH clasificó de ese lado; aparte, los
+     * que siguen «Por clasificar». Estructura completa, sin alcance (misma
+     * filosofía que las láminas: datos organizacionales mínimos).
+     *
+     * @return array{regiones: list<array{id: int, nombre: string, regional: string|null, cubre: string|null, gerentes: int}>, por_clasificar: list<array{id: int, nombre: string, sucursal: string|null, sugerida: string|null}>}
+     */
+    public function resumenLados(): array
+    {
+        $nodos = $this->nodosEstructura();
+        $regiones = [];
+
+        foreach ($this->puestoDeRegion as $regionId => $puestoId) {
+            $regiones[$regionId] = ['id' => $regionId, 'nombre' => $this->regionPorId($regionId)['nombre'] ?? '', 'regional' => null, 'cubre' => null, 'gerentes' => 0];
+        }
+
+        $porClasificar = [];
+
+        foreach ($nodos as $nodo) {
+            $regionId = $nodo['region']['id'] ?? null;
+
+            if ($regionId !== null && isset($regiones[$regionId]) && ($this->puestoDeRegion[$regionId] ?? null) === $nodo['puesto']['id']) {
+                if ($nodo['tipo'] === 'persona') {
+                    $regiones[$regionId]['regional'] ??= $nodo['persona']['nombre'] ?? null;
+                } elseif ($nodo['tipo'] === 'cobertura') {
+                    $regiones[$regionId]['cubre'] = $nodo['persona']['nombre'] ?? null;
+                }
+            }
+
+            $clasificacion = $nodo['clasificacion'] ?? null;
+
+            if ($clasificacion === null || $nodo['persona'] === null) {
+                continue;
+            }
+
+            if ($clasificacion['estado'] === 'clasificado' && isset($regiones[$clasificacion['region']['id'] ?? 0])) {
+                $regiones[$clasificacion['region']['id'] ?? 0]['gerentes']++;
+            } else {
+                $porClasificar[] = [
+                    'id' => $nodo['persona']['id'],
+                    'nombre' => $nodo['persona']['nombre'],
+                    'sucursal' => $nodo['sucursal']['nombre'] ?? null,
+                    'sugerida' => $clasificacion['sugerida']['nombre'] ?? null,
+                ];
+            }
+        }
+
+        return ['regiones' => array_values($regiones), 'por_clasificar' => $porClasificar];
+    }
+
+    /**
+     * Ámbito de un puesto en el organigrama: de SUCURSAL (rama propia por
+     * sucursal), de REGIÓN (gerente regional) o CORPORATIVO.
+     *
+     * @return 'sucursal'|'region'|'corporativo'
+     */
+    public function ambitoDePuesto(int $puestoId): string
+    {
+        $this->asegurarCatalogos();
+        $puesto = $this->puestos->get($puestoId);
+
+        return match (true) {
+            $puesto === null => 'corporativo',
+            $this->esDeSucursal($puesto) => 'sucursal',
+            $this->esDeRegion($puesto) => 'region',
+            default => 'corporativo',
+        };
+    }
+
+    /**
+     * Puesto clasificable en Q1/Q3: reporta a «el gerente regional de su
+     * región» (hoy, Gerente de Sucursal).
+     */
+    public function esPuestoClasificable(int $puestoId): bool
+    {
+        $this->asegurarCatalogos();
+        $puesto = $this->puestos->get($puestoId);
+
+        return $puesto !== null && $this->esClasificable($puesto);
+    }
+
+    /**
+     * Región de la matriz de la sucursal (zona → región), o null.
+     *
+     * @return Referencia|null
+     */
+    public function regionDeSucursal(?int $sucursalId): ?array
+    {
+        $this->asegurarCatalogos();
+
+        return $this->regionDe($sucursalId);
+    }
+
+    /**
+     * @param  Simulacion  $simulacion
+     * @return Collection<int, Colaborador>
+     */
+    private function construirEstructuraCompleta(array $simulacion): Collection
     {
         $this->prepararCatalogos();
 
@@ -202,17 +347,31 @@ class OrganigramaPersonasService
             ->orderBy('apellidos')
             ->get(['id', 'name', 'apellidos', 'numero_empleado', 'foto_path', 'puesto_id', 'sucursal_principal_id', 'jefe_id']);
 
+        foreach ($colaboradores as $colaborador) {
+            $cambio = $simulacion[$colaborador->id] ?? null;
+
+            if ($cambio === null) {
+                continue;
+            }
+
+            // Solo en memoria: nunca se guarda (vista previa).
+            $colaborador->setAttribute('puesto_id', $cambio['puesto_id']);
+            $colaborador->setAttribute('sucursal_principal_id', $cambio['sucursal_principal_id']);
+
+            if (array_key_exists('region_id', $cambio)) {
+                if ($cambio['region_id'] === null) {
+                    unset($this->regionClasificada[$colaborador->id]);
+                } else {
+                    $this->regionClasificada[$colaborador->id] = $cambio['region_id'];
+                }
+            }
+        }
+
         $sucursales = Sucursal::query()->where('activo', true)->pluck('id')->map(fn ($id) => (int) $id);
 
         $this->construirNodos($colaboradores, $sucursales);
 
-        $jefes = [];
-
-        foreach ($colaboradores as $colaborador) {
-            $jefes[$colaborador->id] = $this->personaArriba($this->nodos['p'.$colaborador->id]['padre'] ?? null, $colaborador->id);
-        }
-
-        return $jefes;
+        return $colaboradores;
     }
 
     /**
@@ -237,6 +396,14 @@ class OrganigramaPersonasService
         return null;
     }
 
+    /** Catálogos para las consultas sueltas (una sola carga por instancia). */
+    private function asegurarCatalogos(): void
+    {
+        if (! isset($this->puestos)) {
+            $this->prepararCatalogos();
+        }
+    }
+
     private function prepararCatalogos(): void
     {
         $this->nodos = [];
@@ -244,6 +411,73 @@ class OrganigramaPersonasService
             ->get(['id', 'nombre', 'nivel_jerarquico', 'tipo_puesto', 'puesto_superior_id', 'requiere_ruta', 'activo'])
             ->keyBy('id');
         $this->cargarRegiones();
+        $this->cargarClasificaciones();
+    }
+
+    /**
+     * Clasificaciones Q1/Q3 hechas por RH. Una que apunte a algo que ya no
+     * es región de la matriz no cuenta (la persona vuelve a «Por clasificar»).
+     */
+    private function cargarClasificaciones(): void
+    {
+        $this->regionClasificada = [];
+        $this->auditoriaClasificacion = [];
+        $filas = ClasificacionRegion::query()
+            ->whereHas('region', fn ($query) => $query->where('tipo', TipoNodoComercial::Region->value))
+            ->with('clasificadaPor:id,name')
+            ->get(['id', 'colaborador_id', 'region_id', 'clasificada_por', 'updated_at']);
+
+        foreach ($filas as $fila) {
+
+            $this->regionClasificada[$fila->colaborador_id] = $fila->region_id;
+            $this->auditoriaClasificacion[$fila->colaborador_id] = [
+                'por' => $fila->clasificadaPor?->name,
+                'en' => $fila->updated_at?->toIso8601String(),
+            ];
+        }
+    }
+
+    private function esClasificable(Puesto $puesto): bool
+    {
+        $superior = $puesto->puesto_superior_id !== null ? $this->puestos->get($puesto->puesto_superior_id) : null;
+
+        return $superior !== null && $this->esDeRegion($superior);
+    }
+
+    /**
+     * Región con la que se resuelve de quién cuelga esta persona: la que RH
+     * clasificó (si su puesto es clasificable) o, si no, la de su sucursal
+     * en la matriz comercial (provisional mientras esté «Por clasificar»).
+     */
+    private function regionParaColaborador(Colaborador $colaborador, ?Puesto $puesto): ?int
+    {
+        if ($puesto !== null && $this->esClasificable($puesto) && isset($this->regionClasificada[$colaborador->id])) {
+            return $this->regionClasificada[$colaborador->id];
+        }
+
+        return $this->regionDe($colaborador->sucursal_principal_id)['id'] ?? null;
+    }
+
+    /**
+     * @return Clasificacion|null
+     */
+    private function datosClasificacion(Colaborador $colaborador, Puesto $puesto): ?array
+    {
+        if (! $this->esClasificable($puesto)) {
+            return null;
+        }
+
+        $clasificada = $this->regionClasificada[$colaborador->id] ?? null;
+
+        return [
+            'estado' => $clasificada !== null ? 'clasificado' : 'por_clasificar',
+            'region' => $clasificada !== null ? $this->regionPorId($clasificada) : null,
+            // Lo que dice la matriz comercial para su sucursal: solo una
+            // sugerencia (RH confirma con un clic; nunca se clasifica solo).
+            'sugerida' => $this->regionDe($colaborador->sucursal_principal_id),
+            'clasificada_por' => $this->auditoriaClasificacion[$colaborador->id]['por'] ?? null,
+            'clasificada_en' => $this->auditoriaClasificacion[$colaborador->id]['en'] ?? null,
+        ];
     }
 
     /**
@@ -288,6 +522,7 @@ class OrganigramaPersonasService
                 'persona' => $this->datosPersona($colaborador),
                 'rutas' => $puesto->requiere_ruta ? ($rutas[$colaborador->id] ?? []) : [],
                 'cobertura' => null,
+                'clasificacion' => $this->datosClasificacion($colaborador, $puesto),
             ];
         }
 
@@ -301,10 +536,12 @@ class OrganigramaPersonasService
             $puesto = $this->puestos->get((int) $colaborador->puesto_id);
             $sucursalId = $colaborador->sucursal_principal_id;
 
+            // Gerente de Sucursal clasificado en Q1/Q3: cuelga del regional
+            // de ESE lado (no del de la región de su sucursal en la matriz).
             $this->nodos[$clave]['padre'] = $this->resolverPadre(
                 $puesto?->puesto_superior_id,
                 $sucursalId,
-                $this->regionDe($sucursalId)['id'] ?? null,
+                $this->regionParaColaborador($colaborador, $puesto),
                 $colaborador,
             );
         }
@@ -482,7 +719,11 @@ class OrganigramaPersonasService
                 // "Cubierto temporalmente por X · Titular de <su puesto>":
                 // la cobertura no cambia su puesto titular.
                 'titular_de' => $cobertura->colaborador->puesto?->nombre,
+                // Auditable: quién la marcó y cuándo.
+                'registrada_por' => $cobertura->registradaPor?->name,
+                'registrada_en' => $cobertura->created_at?->toIso8601String(),
             ],
+            'clasificacion' => null,
         ];
         $this->nodos[$clave]['padre'] = $this->resolverPadre(
             $puesto->puesto_superior_id,
@@ -565,9 +806,11 @@ class OrganigramaPersonasService
                 continue;
             }
 
-            $ambito = $cobertura->region_id !== null
-                ? ['tipo' => 'region', 'sucursal' => null, 'region' => $cobertura->region_id]
-                : ['tipo' => 'sucursal', 'sucursal' => $cobertura->sucursal_id, 'region' => $this->regionDe($cobertura->sucursal_id)['id'] ?? null];
+            $ambito = match (true) {
+                $cobertura->region_id !== null => ['tipo' => 'region', 'sucursal' => null, 'region' => $cobertura->region_id],
+                $cobertura->sucursal_id !== null => ['tipo' => 'sucursal', 'sucursal' => $cobertura->sucursal_id, 'region' => $this->regionDe($cobertura->sucursal_id)['id'] ?? null],
+                default => ['tipo' => 'corporativo', 'sucursal' => null, 'region' => null],
+            };
 
             $this->nodoCobertura($cobertura, $puesto, $ambito);
         }
@@ -733,6 +976,12 @@ class OrganigramaPersonasService
 
             if ($cobertura->sucursal_id !== null && $sucursalesVisibles->contains($cobertura->sucursal_id)) {
                 $this->coberturas[$this->llave($puesto->id, ['tipo' => 'sucursal', 'sucursal' => $cobertura->sucursal_id, 'region' => null])] = $cobertura;
+            }
+
+            // Puesto corporativo (sin sucursal ni región): p. ej. Asistente de
+            // Dirección General cubierto mientras se contrata.
+            if ($cobertura->sucursal_id === null) {
+                $this->coberturas[$this->llave($puesto->id, ['tipo' => 'corporativo', 'sucursal' => null, 'region' => null])] = $cobertura;
             }
         }
     }

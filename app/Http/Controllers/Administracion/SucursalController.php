@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Administracion;
 
+use App\Enums\EstadoUsuario;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Administracion\ActualizarPlantillaAutorizadaRequest;
 use App\Http\Requests\Administracion\StoreSucursalRequest;
@@ -33,7 +34,9 @@ class SucursalController extends Controller
         $this->authorize('viewAny', Sucursal::class);
 
         $sucursales = Sucursal::query()
-            ->withCount(['colaboradores' => fn ($q) => $q->where('estatus', 'activo')])
+            // Personas vigentes (activo / en incorporación): mismo criterio
+            // que la plantilla ocupada de HeadcountService.
+            ->withCount(['colaboradores' => fn ($q) => $q->whereIn('estatus', EstadoUsuario::valoresVigentes())])
             ->with(['responsable:id,name,apellidos', 'empresa:id,nombre'])
             ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
                 $query->where(function ($sub) use ($busqueda) {

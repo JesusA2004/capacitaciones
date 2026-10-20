@@ -25,15 +25,17 @@ use App\Services\CierreLaboral\CausalRotacionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Módulo de Bajas y Causales en la web (docs/BAJAS_Y_CAUSALES.md):
- * bandeja, solicitud del gerente (4 bloques), expediente de la baja con
- * documentos, bitácora y acciones de RH / Jurídico. Delgado: autoriza con
- * BajaPolicy y delega TODO a BajaService (el mismo de la API v1).
+ * Módulo «Bajas» en la web (docs/BAJAS_Y_CAUSALES.md): bandeja, registro
+ * DIRECTO de la baja (gerente de su personal o RH) con vista previa de los
+ * documentos y del finiquito, expediente de la baja con documentos,
+ * bitácora y acciones de RH / Jurídico. Delgado: autoriza con BajaPolicy y
+ * delega TODO a BajaService (el mismo de la API v1).
  */
 class BajaController extends Controller
 {
@@ -52,14 +54,12 @@ class BajaController extends Controller
         $usuario = $request->user();
         $filtros = $request->only(['estatus', 'sucursal_id', 'forma', 'busqueda', 'per_page']);
 
-        // RH entra a su bandeja «En revisión RH»; Jurídico a «En revisión
-        // Jurídico»; el resto ve sus bajas abiertas.
+        // Jurídico entra a «En revisión Jurídico»; RH y gerentes a las bajas
+        // abiertas (en trámite + en Jurídico).
         if (! isset($filtros['estatus'])) {
-            $filtros['estatus'] = match (true) {
-                $usuario->can(BajaService::PERMISO_GESTIONAR) => EstatusBaja::EnRevisionRh->value,
-                $usuario->can(BajaService::PERMISO_JURIDICO) && ! $usuario->can(BajaService::PERMISO_VER) => EstatusBaja::EnRevisionJuridico->value,
-                default => 'abiertas',
-            };
+            $filtros['estatus'] = $usuario->can(BajaService::PERMISO_JURIDICO) && ! $usuario->can(BajaService::PERMISO_VER)
+                ? EstatusBaja::EnRevisionJuridico->value
+                : 'abiertas';
         }
 
         return Inertia::render('Rh/Bajas/Index', [
@@ -72,16 +72,18 @@ class BajaController extends Controller
             ],
             'estatus' => [
                 ['value' => 'abiertas', 'label' => 'Abiertas'],
-                ...array_map(fn (EstatusBaja $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], EstatusBaja::cases()),
+                ...array_map(fn (EstatusBaja $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], EstatusBaja::vigentes()),
                 ['value' => 'todas', 'label' => 'Todas'],
             ],
             'formas' => array_map(fn (FormaSalida $f): array => ['value' => $f->value, 'label' => $f->etiqueta(), 'token' => $f->token()], FormaSalida::cases()),
             'sucursales' => Sucursal::query()->whereIn('id', $this->tablero->sucursalesVisibles($usuario)->all())->orderBy('nombre')->get(['id', 'nombre'])
                 ->map(fn (Sucursal $s): array => ['value' => $s->id, 'label' => $s->nombre])->values()->all(),
+            'resumen' => $this->consulta->resumen($usuario),
             'puede' => [
                 'solicitar' => $usuario->can('create', Baja::class),
                 'gestionar' => $usuario->can(BajaService::PERMISO_GESTIONAR),
                 'tablero' => $usuario->can(BajaService::PERMISO_TABLERO),
+                'recopilacion' => $usuario->can('cierres.ver'),
             ],
         ]);
     }
@@ -107,53 +109,43 @@ class BajaController extends Controller
         }
 
         return Inertia::render('Rh/Bajas/Formulario', [
-            'baja' => null,
             'colaborador' => $preseleccion,
             ...$this->opcionesFormulario($request),
         ]);
     }
 
+    /**
+     * Registra la baja y la aplica de inmediato (cierre laboral, acceso
+     * suspendido, documentos generados, finiquito propuesto). Desde el ciclo
+     * laboral (`volver=ciclo`) regresa a esa pantalla.
+     */
     public function store(GuardarBajaRequest $request): RedirectResponse
     {
         $this->authorize('create', Baja::class);
-        $baja = $this->bajas->guardar(null, $request->datos(), $request->user());
+        $baja = $this->bajas->registrar($request->datos(), $request->user());
+        $mensaje = sprintf('Baja %s registrada: los accesos de %s se suspendieron y sus documentos quedaron generados.', $baja->folio, $baja->nombre_colaborador);
 
-        if ($request->boolean('enviar')) {
-            $this->bajas->enviar($baja, $request->user());
-
-            return to_route('rh.bajas.show', $baja)->with('toast', ['type' => 'success', 'message' => sprintf('Baja %s enviada a RH. Los accesos de la persona se suspendieron.', $baja->folio)]);
+        if ($request->input('volver') === 'ciclo') {
+            return back()->with('toast', ['type' => 'success', 'message' => $mensaje]);
         }
 
-        return to_route('rh.bajas.edit', $baja)->with('toast', ['type' => 'success', 'message' => sprintf('Borrador %s guardado.', $baja->folio)]);
+        return to_route('rh.bajas.show', $baja)->with('toast', ['type' => 'success', 'message' => $mensaje]);
     }
 
-    public function edit(Request $request, Baja $baja): Response|RedirectResponse
+    /**
+     * Vista previa (PDF inline, no-store) del finiquito que se propondrá al
+     * registrar la baja con estos datos. No guarda nada.
+     */
+    public function previaFiniquito(GuardarBajaRequest $request): HttpResponse
     {
-        $this->authorize('update', $baja);
+        $this->authorize('create', Baja::class);
 
-        if (! $baja->estatus->editablePorSolicitante()) {
-            return to_route('rh.bajas.show', $baja);
-        }
-
-        return Inertia::render('Rh/Bajas/Formulario', [
-            'baja' => $this->bajas->formulario($baja),
-            'colaborador' => null,
-            ...$this->opcionesFormulario($request),
+        return response($this->bajas->vistaPreviaFiniquito($request->datos(), $request->user()), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="Vista previa - Finiquito.pdf"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'no-store',
         ]);
-    }
-
-    public function update(GuardarBajaRequest $request, Baja $baja): RedirectResponse
-    {
-        $this->authorize('update', $baja);
-        $baja = $this->bajas->guardar($baja, $request->datos(), $request->user());
-
-        if ($request->boolean('enviar')) {
-            $this->bajas->enviar($baja, $request->user());
-
-            return to_route('rh.bajas.show', $baja)->with('toast', ['type' => 'success', 'message' => sprintf('Baja %s enviada a RH.', $baja->folio)]);
-        }
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Borrador guardado.']);
     }
 
     public function show(Request $request, Baja $baja): Response
@@ -168,22 +160,6 @@ class BajaController extends Controller
             'entregas' => array_map(fn (EntregaAvisoRescision $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], EntregaAvisoRescision::cases()),
             'limites' => $this->limites(),
         ]);
-    }
-
-    public function enviar(Request $request, Baja $baja): RedirectResponse
-    {
-        $this->authorize('update', $baja);
-        $this->bajas->enviar($baja, $request->user());
-
-        return $this->ok('Baja enviada a RH.');
-    }
-
-    public function validar(Request $request, Baja $baja): RedirectResponse
-    {
-        $this->authorize('gestionar', $baja);
-        $baja = $this->bajas->validar($baja, $request->user());
-
-        return $this->ok($baja->requiereJuridico() && $baja->juridico_en === null ? 'Baja validada. La causal requiere Jurídico: envíala antes de cerrar.' : 'Baja validada: ya puedes cerrarla cuando estén los documentos.');
     }
 
     public function enviarJuridico(Request $request, Baja $baja): RedirectResponse
@@ -202,12 +178,12 @@ class BajaController extends Controller
         return $this->ok('Revisión de Jurídico registrada: la baja regresa a RH para el cierre.');
     }
 
-    public function rechazar(MotivoBajaRequest $request, Baja $baja): RedirectResponse
+    public function devolverJuridico(MotivoBajaRequest $request, Baja $baja): RedirectResponse
     {
-        $this->authorize('rechazar', $baja);
-        $this->bajas->rechazar($baja, $request->user(), $request->motivo());
+        $this->authorize('revisarJuridico', $baja);
+        $this->bajas->devolverJuridico($baja, $request->user(), $request->motivo());
 
-        return $this->ok('Baja rechazada: regresa al gerente con el motivo.');
+        return $this->ok('Baja devuelta a RH con tus observaciones.');
     }
 
     public function cambiarCausal(MotivoBajaRequest $request, Baja $baja): RedirectResponse
@@ -244,7 +220,7 @@ class BajaController extends Controller
 
     public function cancelar(MotivoBajaRequest $request, Baja $baja): RedirectResponse
     {
-        $this->authorize('update', $baja);
+        $this->authorize('gestionar', $baja);
         $this->bajas->cancelar($baja, $request->user(), $request->motivo());
 
         return $this->ok('La baja quedó como «No procede».');

@@ -9,9 +9,11 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * Captura de la baja por el gerente (Guardar borrador / Enviar a RH). Solo
- * valida formato: la completitud (RN-01…RN-10) la exige BajaReglasService
- * al enviar, y el permiso + alcance BajaService (mismo flujo web y API).
+ * Registro directo de la baja (gerente o RH) y su vista previa del
+ * finiquito. Solo valida formato: la completitud (RN-01…RN-10) la exige
+ * BajaReglasService al registrar, y el permiso + alcance BajaService (mismo
+ * flujo web y API). `enviar` se acepta por compatibilidad con clientes
+ * anteriores y ya no cambia nada: toda baja registrada queda aplicada.
  */
 class GuardarBajaRequest extends FormRequest
 {
@@ -36,6 +38,7 @@ class GuardarBajaRequest extends FormRequest
             'entrega_aviso_rescision' => ['nullable', Rule::enum(EntregaAvisoRescision::class)],
             'fecha_entrega_aviso' => ['nullable', 'date'],
             'enviar' => ['nullable', 'boolean'],
+            'volver' => ['nullable', 'string', 'in:ciclo'],
         ];
     }
 
@@ -58,6 +61,6 @@ class GuardarBajaRequest extends FormRequest
      */
     public function datos(): array
     {
-        return $this->safe()->except(['enviar']);
+        return $this->safe()->except(['enviar', 'volver']);
     }
 }

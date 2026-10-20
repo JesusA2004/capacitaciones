@@ -98,7 +98,8 @@ test('el colaborador solo consulta y descarga SUS recibos', function () {
 });
 
 test('importación masiva CSV: simula, reporta filas inválidas y no emite recibos incompletos', function () {
-    Sanctum::actingAs($this->rh);
+    // Importar recibos por archivo es solo de super_admin (2026-10-20).
+    Sanctum::actingAs(clUsuario('super_admin'));
     Colaborador::factory()->create(['numero_empleado' => 'EMP-0201']);
 
     $csv = "numero_empleado,tipo,concepto,importe,cantidad\n"

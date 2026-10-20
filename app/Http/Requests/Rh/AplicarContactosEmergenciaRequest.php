@@ -8,7 +8,7 @@ class AplicarContactosEmergenciaRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('expedientes.editar') ?? false;
+        return $this->user()?->can('contactos_emergencia.importar') ?? false;
     }
 
     /**

@@ -21,7 +21,9 @@ use Inertia\Response;
  * en bloque teléfono personal, contacto de emergencia, condición médica y
  * alergias sobre colaboradores ya existentes. Dos pasos: vista previa
  * (analizar, no guarda) → confirmar (aplicar). Toda la regla vive en
- * ImportadorContactosEmergenciaService; solo RH con `expedientes.editar`.
+ * ImportadorContactosEmergenciaService. Es SOLO importación (la consulta de
+ * esos datos vive en el expediente): permiso `contactos_emergencia.importar`,
+ * reservado a super_admin (2026-10-20).
  */
 class ContactosEmergenciaController extends Controller
 {
@@ -29,7 +31,7 @@ class ContactosEmergenciaController extends Controller
 
     public function index(Request $request): Response
     {
-        abort_unless($request->user()->can('expedientes.editar'), 403);
+        abort_unless($request->user()->can('contactos_emergencia.importar'), 403);
 
         return Inertia::render('Rh/ContactosEmergencia/Index', [
             'columnas' => array_values(ImportadorContactosEmergenciaService::COLUMNAS),
@@ -59,7 +61,7 @@ class ContactosEmergenciaController extends Controller
     /** Plantilla vacía con los encabezados oficiales. */
     public function plantilla(Request $request): HttpResponse
     {
-        abort_unless($request->user()->can('expedientes.editar'), 403);
+        abort_unless($request->user()->can('contactos_emergencia.importar'), 403);
 
         return response($this->importador->plantilla(), 200, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -79,7 +81,7 @@ class ContactosEmergenciaController extends Controller
 
     public function show(Request $request, ImportacionExcel $importacion): Response
     {
-        abort_unless($request->user()->can('expedientes.editar'), 403);
+        abort_unless($request->user()->can('contactos_emergencia.importar'), 403);
         abort_unless($importacion->tipo === ImportadorContactosEmergenciaService::TIPO, 404);
         $importacion->loadMissing(['subidoPor:id,name,apellidos', 'aplicadoPor:id,name,apellidos']);
 
@@ -106,7 +108,7 @@ class ContactosEmergenciaController extends Controller
     /** Buscador del selector manual (sin mínimo de letras). */
     public function colaboradores(Request $request): JsonResponse
     {
-        abort_unless($request->user()->can('expedientes.editar'), 403);
+        abort_unless($request->user()->can('contactos_emergencia.importar'), 403);
         $datos = $request->validate(['q' => ['nullable', 'string', 'max:80']]);
 
         return response()->json(['data' => $this->importador->buscarColaboradores($request->user(), (string) ($datos['q'] ?? ''))]);
@@ -140,7 +142,7 @@ class ContactosEmergenciaController extends Controller
 
     public function destroy(Request $request, ImportacionExcel $importacion): RedirectResponse
     {
-        abort_unless($request->user()->can('expedientes.editar'), 403);
+        abort_unless($request->user()->can('contactos_emergencia.importar'), 403);
         abort_unless($importacion->tipo === ImportadorContactosEmergenciaService::TIPO, 404);
         $this->importador->eliminar($importacion, $request->user());
 

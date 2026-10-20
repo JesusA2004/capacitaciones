@@ -8,6 +8,7 @@ use App\Enums\EstadoEvaluacionPrueba;
 use App\Enums\EstadoFiniquito;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\FormaPagoFiniquito;
+use App\Enums\FormaSalida;
 use App\Enums\PrioridadTarea;
 use App\Enums\ProcesoAprobacion;
 use App\Enums\TipoBaja;
@@ -119,20 +120,23 @@ class CierreLaboralService
     public function solicitar(Colaborador $colaborador, array $datos, User $actor): CierreLaboral
     {
         $esRh = $actor->can(self::PERMISO_GESTIONAR);
+        // Gerente con alcance sobre la persona en el módulo de Bajas (su
+        // personal / sucursal / región), igual que BajaService::registrar().
+        $porAlcance = $actor->can('bajas.solicitar') && $this->alcance->alcanzaColaboradorEnModulo($actor, $colaborador, 'bajas');
 
-        if (! $esRh && ! $actor->can(self::PERMISO_SOLICITAR)) {
-            throw new AuthorizationException('No tienes permiso para solicitar bajas.');
+        if (! $esRh && ! $actor->can(self::PERMISO_SOLICITAR) && ! $porAlcance) {
+            throw new AuthorizationException('No tienes permiso para registrar bajas.');
         }
 
-        $enCadena = $actor->colaborador !== null && $this->jerarquia->estaEnCadenaDeMando($actor->colaborador, $colaborador);
+        $enCadena = $actor->colaborador !== null && $actor->can(self::PERMISO_SOLICITAR) && $this->jerarquia->estaEnCadenaDeMando($actor->colaborador, $colaborador);
 
         // «Iniciar baja sin permiso» = sin solicitud previa, NO que cualquiera
-        // pueda dar de baja a cualquiera: el jefe directo real (cadena de
-        // mando) o RH con alcance sobre la persona.
+        // pueda dar de baja a cualquiera: el gerente / jefe en la cadena de
+        // mando, el gerente con alcance sobre la persona o RH con alcance.
         if ($actor->colaborador_id === $colaborador->id
             || ($esRh && ! $enCadena && ! $this->alcance->alcanzaColaborador($actor, $colaborador))
-            || (! $esRh && ! $enCadena)) {
-            throw new AuthorizationException('Solo el jefe directo de la persona o RH pueden iniciar su baja.');
+            || (! $esRh && ! $enCadena && ! $porAlcance)) {
+            throw new AuthorizationException('Solo el gerente de la persona o RH pueden registrar su baja.');
         }
 
         // Solo tres tipos (renuncia, rescisión, fin de contrato) + su causal
@@ -159,7 +163,11 @@ class CierreLaboralService
 
         // Quién aplicó la baja (timeline/aviso): el jefe directo en la cadena
         // de mando del organigrama, o Recursos Humanos.
-        $aplicadaPor = $enCadena ? 'jefe directo' : 'Recursos Humanos';
+        $aplicadaPor = match (true) {
+            $enCadena => 'jefe directo',
+            $esRh => 'Recursos Humanos',
+            default => 'gerente',
+        };
 
         return $this->aplicar($colaborador, $tipoBaja, $causal, $motivo, (string) $datos['fecha_efectiva'], isset($datos['observaciones']) ? (string) $datos['observaciones'] : null, $actor, $aplicadaPor, null, $datos);
     }
@@ -184,7 +192,9 @@ class CierreLaboralService
         $causal = $baja->causal;
         $motivo = trim((string) $baja->comentarios);
 
-        return $this->aplicar($colaborador, $forma->tipoBaja(), $causal, $motivo !== '' ? $motivo : ($causal->nombre ?? $forma->etiqueta()), $baja->fecha_baja->toDateString(), null, $actor, 'gerente (solicitud de baja)', $baja, []);
+        $aplicadaPor = $actor->can(self::PERMISO_GESTIONAR) ? 'Recursos Humanos' : 'gerente';
+
+        return $this->aplicar($colaborador, $forma->tipoBaja(), $causal, $motivo !== '' ? $motivo : ($causal->nombre ?? $forma->etiqueta()), $baja->fecha_baja->toDateString(), null, $actor, $aplicadaPor, $baja, []);
     }
 
     /**
@@ -231,17 +241,32 @@ class CierreLaboralService
             return $cierre;
         });
 
-        $nombre = $colaborador->nombreCompleto();
-        $this->notificador->notificarEvento(
-            'cierre_baja_solicitada',
-            $colaborador,
-            ['solicitante' => $actor, 'excluir' => [$actor->id]],
-            'Baja aplicada',
-            sprintf('%s aplicó la baja de %s (%s, efectiva %s). Sus accesos ya se suspendieron; puedes rehabilitarlos desde Usuarios.', $actor->name, $nombre, $causal !== null ? sprintf('%s · %s', $tipoBaja->etiqueta(), $causal->nombre) : $tipoBaja->etiqueta(), $cierre->fecha_efectiva->format('d/m/Y')),
-            $cierre,
-            'ver_cierre',
-            'alta',
-        );
+        // «Baja registrada» por la capa única (RH, regionales y Sistemas):
+        // quién la dio, a quién, forma · causal y fecha. Un fallo al
+        // notificar nunca deshace la baja.
+        try {
+            $this->notificador->notificarEvento(
+                'cierre_baja_solicitada',
+                $colaborador,
+                ['solicitante' => $actor, 'excluir' => [$actor->id]],
+                sprintf('Baja registrada: %s', $colaborador->nombreCompleto()),
+                sprintf(
+                    '%s registró la baja de %s (%s%s) por %s%s, último día %s. Sus accesos ya se suspendieron; RH puede rehabilitarlos desde Usuarios.',
+                    trim(sprintf('%s %s', $actor->name, $actor->apellidos)),
+                    $colaborador->nombreCompleto(),
+                    $colaborador->puesto->nombre ?? 'sin puesto',
+                    $colaborador->sucursalPrincipal !== null ? ' · '.$colaborador->sucursalPrincipal->nombre : '',
+                    mb_strtolower(FormaSalida::desdeTipoBaja($tipoBaja)->etiqueta()),
+                    $causal !== null ? sprintf(' · %s', $causal->etiquetaConClave()) : '',
+                    $cierre->fecha_efectiva->format('d/m/Y'),
+                ),
+                $cierre,
+                'ver_cierre',
+                'alta',
+            );
+        } catch (Throwable $e) {
+            Log::warning('CierreLaboralService: no se pudo avisar la baja registrada.', ['cierre_id' => $cierre->id, 'error' => $e->getMessage()]);
+        }
 
         $this->auditoria->registrar('cierre_laboral_aplicado', $cierre, $actor, [
             'colaborador_id' => $colaborador->id,
@@ -264,12 +289,12 @@ class CierreLaboralService
 
         $this->sincronizarPendientes($cierre->refresh(), $actor);
 
-        // Atajo (sin baja del gerente): la baja nace «En revisión RH» y avisa
-        // a RH + alertas de su causal. La del gerente la avisa BajaService.
+        // Atajo (sin baja del módulo): la baja nace «En trámite» con sus
+        // alertas. La del módulo de Bajas la avisa BajaService.
         $registrada = $baja === null ? $cierre->baja()->first() : null;
 
         if ($registrada !== null) {
-            $this->alertasBaja->alEnviar($registrada, $actor);
+            $this->alertasBaja->alRegistrar($registrada, $actor);
         }
 
         return $cierre;
@@ -342,7 +367,7 @@ class CierreLaboralService
         $registrada = $cierre->baja()->first();
 
         if ($registrada !== null) {
-            $this->alertasBaja->alEnviar($registrada, $actor);
+            $this->alertasBaja->alRegistrar($registrada, $actor);
         }
 
         return $cierre;

@@ -234,7 +234,7 @@ return [
         // Módulo de Bajas y Causales (docs/BAJAS_Y_CAUSALES.md).
         'baja_por_revisar' => [
             'etiqueta' => 'Baja por revisar (RH)',
-            'descripcion' => 'El gerente envió una baja (o RH/jefe directo la aplicó desde el ciclo laboral) o Jurídico ya la revisó: RH valida causal, documentos y fechas, y la cierra.',
+            'descripcion' => 'Jurídico aprobó o devolvió una baja: RH la completa (causal, documentos, fechas) y la cierra.',
             'destinatarios' => ['usuarios_con_permiso'],
             'permiso' => 'bajas.gestionar',
             'fallback' => ['rh'],
@@ -275,9 +275,9 @@ return [
             'fallback' => ['rh'],
         ],
         'cierre_baja_solicitada' => [
-            'etiqueta' => 'Baja solicitada (accesos suspendidos)',
-            'descripcion' => 'El gerente solicitó la baja: sus accesos ya se suspendieron. Regionales y RH se enteran y pueden rehabilitarlos.',
-            'destinatarios' => ['regional', 'rh'],
+            'etiqueta' => 'Baja registrada (accesos suspendidos)',
+            'descripcion' => 'El gerente o RH registró una baja (directa, sin aprobación): quién la dio, a quién, forma · causal y fecha. Sus accesos ya se suspendieron. RH, regionales y Sistemas (retirar accesos, cuentas y equipo) se enteran; RH puede rehabilitarlos.',
+            'destinatarios' => ['regional', 'rh', 'sistemas'],
             'fallback' => ['gerencia_rh'],
         ],
         // LEGACY ('legacy' => true): claves conservadas solo para leer avisos y

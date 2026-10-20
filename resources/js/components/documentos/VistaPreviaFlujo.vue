@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { Eye, Loader2 } from '@lucide/vue';
+import { FileText } from '@lucide/vue';
 import { onBeforeUnmount, ref, watch } from 'vue';
+import BotonVistaPrevia from '@/components/people/BotonVistaPrevia.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
-import { Button } from '@/components/ui/button';
 import { useDocumentosProceso } from '@/composables/useDocumentosProceso';
 import { useVistaPreviaPdf } from '@/composables/useVistaPreviaPdf';
 import type { DocumentoVistaPrevia, FlujoVistaPrevia } from '@/types';
@@ -74,30 +74,40 @@ function ver() {
 <template>
     <div
         v-if="documentos.length"
-        class="flex flex-col gap-1.5 rounded-xl border border-[var(--mrl-borde)] bg-crema p-3"
+        class="flex flex-col gap-3 rounded-2xl border border-[var(--mrl-borde)] bg-crema p-3 sm:flex-row sm:items-center sm:justify-between"
     >
-        <p class="text-xs text-[var(--mrl-texto-suave)]">
-            Al confirmar se genera{{ documentos.length === 1 ? '' : 'n' }}:
-            {{ documentos.map((d) => d.nombre).join(', ') }}.
-        </p>
-        <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            class="self-start"
-            :disabled="disabled || visor.cargando.value"
+        <div class="flex min-w-0 flex-col gap-1.5">
+            <p
+                class="text-xs font-semibold tracking-wide text-bronce uppercase"
+            >
+                Se genera{{ documentos.length === 1 ? '' : 'n' }} al confirmar
+            </p>
+            <ul class="flex flex-wrap gap-1.5">
+                <li
+                    v-for="d in documentos"
+                    :key="d.clave"
+                    class="inline-flex max-w-full items-center gap-1.5 rounded-full bg-card px-2.5 py-1 text-xs font-medium"
+                >
+                    <FileText class="size-3.5 shrink-0 text-bronce" />
+                    <span class="truncate">{{ d.nombre }}</span>
+                </li>
+            </ul>
+        </div>
+        <BotonVistaPrevia
+            class="w-full shrink-0 sm:w-auto"
+            :texto="etiqueta ?? 'Vista previa'"
+            :cargando="visor.cargando.value"
+            :deshabilitado="disabled"
             @click="ver"
-        >
-            <Loader2 v-if="visor.cargando.value" class="size-4 animate-spin" />
-            <Eye v-else class="size-4" />
-            {{ etiqueta ?? 'Vista previa' }}
-        </Button>
+        />
     </div>
 
     <DocumentPreviewDialog
         :open="visor.abierto.value"
         :archivos="visor.archivos.value"
         :indice="visor.indice.value"
+        :cargando="visor.cargando.value"
+        :titulo-carga="visor.tituloCarga.value"
         @update:open="visor.alCambiarAbierto"
         @update:indice="(i: number) => (visor.indice.value = i)"
     />

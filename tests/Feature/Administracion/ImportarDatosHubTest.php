@@ -32,7 +32,34 @@ test('el hub carga y muestra solo las tarjetas con permiso', function () {
             ->where('puede.migracion', false)
             ->where('puede.headcount', false)
             ->where('puede.salarios_vacaciones', false)
-            ->where('puede.perfiles_puesto', false));
+            ->where('puede.perfiles_puesto', false)
+            ->where('puede.contactos_emergencia', false)
+            ->where('puede.recibos_nomina', false));
+});
+
+test('super_admin ve todas las tarjetas; RH no abre el hub (importar es solo de super_admin)', function () {
+    $admin = User::factory()->create();
+    $admin->assignRole('super_admin');
+
+    $this->actingAs($admin)
+        ->get(route('administracion.importar-datos.index'))
+        ->assertOk()
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->where('puede.carga_inicial', true)
+            ->where('puede.migracion', true)
+            ->where('puede.headcount', true)
+            ->where('puede.salarios_vacaciones', true)
+            ->where('puede.rotacion', true)
+            ->where('puede.perfiles_puesto', true)
+            ->where('puede.contactos_emergencia', true)
+            ->where('puede.recibos_nomina', true));
+
+    foreach (['rh_admin', 'rh_auxiliar'] as $rol) {
+        $rh = User::factory()->create();
+        $rh->assignRole($rol);
+
+        $this->actingAs($rh)->get(route('administracion.importar-datos.index'))->assertForbidden();
+    }
 });
 
 test('cada permiso de importación habilita su propia tarjeta', function () {
