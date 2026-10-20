@@ -164,7 +164,10 @@ test('el PDF trae el formato oficial con las respuestas del colaborador, sin met
         ->toContain('Adriana Cortés Lima')
         ->toContain($this->estructura['puesto']->nombre)
         ->toContain($this->estructura['sucursal']->nombre)
-        ->toContain('Rocío Hernández Paz')
+        // «Aplicó (RH)» = el área; el nombre de la cuenta que calificó nunca
+        // se imprime (se escribe y firma a pluma).
+        ->toMatch('/Aplicó \(RH\)\s*Recursos Humanos/u')
+        ->not->toContain('Rocío Hernández Paz')
         ->toContain('Incorrecta') // la pregunta 1 se contestó mal
         ->toContain('Correcta')
         ->toContain('Buen dominio de los principios.')

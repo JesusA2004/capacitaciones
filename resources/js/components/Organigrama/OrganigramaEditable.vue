@@ -287,7 +287,7 @@ function moverNodo(
 </script>
 
 <template>
-    <div class="flex flex-col gap-3" data-tour="organigrama-arbol">
+    <div class="flex flex-col gap-3">
         <!-- Q1 / Q3 pendientes: nunca se ocultan -->
         <div
             v-if="porClasificar.length"

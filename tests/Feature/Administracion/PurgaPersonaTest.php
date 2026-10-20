@@ -62,13 +62,44 @@ function plHistorialVariado(User $cuenta, Colaborador $persona, User $rh): void
     ActaAdministrativa::factory()->create(['colaborador_id' => $persona->id]);
     Prestamo::factory()->create(['colaborador_id' => $persona->id]);
 
-    CierreLaboral::query()->create([
+    $cierre = CierreLaboral::query()->create([
         'colaborador_id' => $persona->id,
         'tipo_baja' => TipoBaja::Renuncia->value,
         'motivo' => 'Renuncia voluntaria.',
         'estado' => EstadoCierreLaboral::Iniciado->value,
         'fecha_efectiva' => now()->toDateString(),
         'iniciado_por' => $rh->id,
+    ]);
+
+    // Expediente de baja propio (RESTRICT a colaboradores y al cierre), con
+    // documento y bitácora capturados por un tercero (RH): se elimina con la
+    // persona y NO bloquea la purga.
+    $bajaId = DB::table('bajas')->insertGetId([
+        'folio' => 'BAJ-PURGA-1',
+        'colaborador_id' => $persona->id,
+        'cierre_laboral_id' => $cierre->id,
+        'nombre_colaborador' => 'Persona de prueba',
+        'estatus' => 'cerrada',
+        'creado_por' => $rh->id,
+        'solicitado_por' => $cuenta->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    DB::table('baja_documentos')->insert([
+        'baja_id' => $bajaId,
+        'nombre' => 'Carta de renuncia',
+        'nombre_original' => 'renuncia.pdf',
+        'disco' => 'nas',
+        'ruta' => 'bajas/renuncia.pdf',
+        'cargado_por' => $rh->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    DB::table('baja_bitacora')->insert([
+        'baja_id' => $bajaId,
+        'user_id' => $cuenta->id,
+        'accion' => 'creada',
+        'created_at' => now(),
     ]);
 
     DB::table('onboarding_procesos')->insert([
@@ -190,6 +221,9 @@ test('purga integral: borra físicamente cuenta y expediente y todo su historial
         ->and(DB::table('actas_administrativas')->where('colaborador_id', $this->persona->id)->count())->toBe(0)
         ->and(DB::table('prestamos')->where('colaborador_id', $this->persona->id)->count())->toBe(0)
         ->and(DB::table('cierres_laborales')->where('colaborador_id', $this->persona->id)->count())->toBe(0)
+        ->and(DB::table('bajas')->where('colaborador_id', $this->persona->id)->count())->toBe(0)
+        ->and(DB::table('baja_documentos')->count())->toBe(0)
+        ->and(DB::table('baja_bitacora')->count())->toBe(0)
         ->and(DB::table('onboarding_procesos')->where('colaborador_id', $this->persona->id)->count())->toBe(0)
         ->and(DB::table('responsivas')->where('colaborador_id', $this->persona->id)->count())->toBe(0)
         ->and(DB::table('responsiva_activos')->count())->toBe(0)
@@ -259,6 +293,34 @@ test('el material de explicación de la inducción subido por la persona detiene
         ->toThrow(ValidationException::class);
     expect(User::query()->whereKey($this->cuenta->id)->exists())->toBeTrue()
         ->and(DB::table('induccion_materiales_explicacion')->count())->toBe(1);
+});
+
+test('haber actuado en la baja de OTRA persona detiene la purga (auditoría ajena, FK restrict)', function () {
+    $otraPersona = Colaborador::factory()->create();
+    $bajaId = DB::table('bajas')->insertGetId([
+        'folio' => 'BAJ-AJENA-1',
+        'colaborador_id' => $otraPersona->id,
+        'nombre_colaborador' => 'Otra persona',
+        'estatus' => 'cerrada',
+        'creado_por' => $this->rh->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    DB::table('baja_bitacora')->insert([
+        'baja_id' => $bajaId,
+        'user_id' => $this->cuenta->id,
+        'accion' => 'validada',
+        'created_at' => now(),
+    ]);
+
+    $revision = app(PurgaPersonaService::class)->revisar($this->cuenta, $this->super);
+
+    expect($revision['puede'])->toBeFalse()
+        ->and(implode(' ', $revision['bloqueos']))->toContain('bitácora de bajas de otras personas');
+
+    expect(fn () => app(PurgaPersonaService::class)->purgar($this->cuenta, $this->super))
+        ->toThrow(ValidationException::class);
+    expect(DB::table('baja_bitacora')->where('baja_id', $bajaId)->count())->toBe(1);
 });
 
 test('un super_admin en papelera se puede purgar si queda otro super_admin vigente', function () {

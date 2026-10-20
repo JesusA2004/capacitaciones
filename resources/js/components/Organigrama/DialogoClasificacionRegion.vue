@@ -86,8 +86,8 @@ function elegir(nodo: NodoOrganigramaPersona, regionId: number | null): void {
                 >
                 <DialogDescription>
                     Cada gerente pertenece a UN lado. Con un clic queda
-                    clasificado y su jefe directo se recalcula. El punto
-                    dorado solo sugiere la región de su sucursal en la matriz
+                    clasificado y su jefe directo se recalcula. El punto dorado
+                    solo sugiere la región de su sucursal en la matriz
                     comercial; no se aplica sola.
                 </DialogDescription>
             </DialogHeader>

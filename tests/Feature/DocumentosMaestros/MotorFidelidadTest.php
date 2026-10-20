@@ -556,6 +556,8 @@ test('préstamo: contrato, pagaré y retención salen con TODOS sus campos lleno
         'colaborador_id' => $colaborador->id, 'monto_solicitado' => 6000, 'monto_original' => 6000, 'saldo' => 6000,
         'plazo' => 12, 'periodicidad' => 'semanal', 'pago_programado' => 500, 'fecha_primer_descuento' => '2026-10-15',
         'autorizado_en' => now(), 'autorizado_por' => $this->rh->id, 'fecha_solicitud' => '2026-10-01',
+        // Datos del contrato de crédito que RH captura a mano (no se calculan).
+        'cargo_sin_iva' => '300.00', 'iva' => '48.00', 'monto_total_con_iva' => '6348.00', 'numero_cheque' => '0001234',
     ]);
 
     $this->postJson("/api/v1/rh/documentos-proceso/prestamo/{$prestamo->id}/paquete", ['proceso' => 'prestamo'])->assertCreated();
@@ -577,6 +579,13 @@ test('préstamo: contrato, pagaré y retención salen con TODOS sus campos lleno
         ->and($pagare->payload['marca_pagos_semanales'])->toBe('X')
         ->and($pagare->payload['marca_pagos_diarios'])->toBe('')
         ->and($pagare->payload['primer_pago_dia'])->toBe('15');
+
+    // El contrato imprime exactamente lo que capturó RH.
+    $contrato = GeneratedDocument::query()->where('clave_plantilla', 'prestamo_contrato')->firstOrFail();
+    foreach (['cargo_prestamo' => '$300.00', 'iva_prestamo' => '$48.00', 'monto_total_prestamo' => '$6,348.00', 'numero_cheque_prestamo' => '0001234'] as $campo => $valor) {
+        expect($contrato->payload)->toHaveKey($campo)
+            ->and($contrato->payload[$campo])->toBe($valor);
+    }
 });
 
 test('préstamo: nombre, apellidos, No. de sucursal y domicilio salen del colaborador aunque el contexto no traiga préstamo', function () {

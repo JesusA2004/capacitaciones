@@ -73,12 +73,14 @@ function contenidoConImportados(string $ruta, array &$visitados = []): string
  * justifica en SIN_GUIA.
  */
 const SIDEBAR_A_GUIA = [
-    'Inicio' => ['dashboard'],
-    'Mis pendientes' => ['pendientes'],
-    'Onboarding' => ['onboarding'],
+    // Modo operativo (títulos del sidebar por etapas, 2026-10-19/20).
+    'Tablero de RH' => ['dashboard'],
+    'Pendientes' => ['pendientes'],
+    'Configuración de onboarding' => ['onboarding'],
+    'Inducción institucional' => ['presentar-induccion'],
     'Reingresos' => ['reingresos'],
-    'Configuración' => ['configuracion'],
-    'Expedientes' => ['expedientes'],
+    'Ajustes y notificaciones' => ['configuracion'],
+    'Colaboradores' => ['expedientes'],
     'Actas administrativas' => ['actas'],
     'Solicitudes' => ['solicitudes'],
     'Organigrama' => ['organigrama'],
@@ -86,45 +88,68 @@ const SIDEBAR_A_GUIA = [
     'Candidatos' => ['candidatos'],
     'Campañas' => ['campanas'],
     'Invitaciones QR' => ['invitaciones'],
-    'Reportes' => ['reportes'],
+    'Reportes de RH' => ['reportes'],
     'Celebraciones' => ['cumpleanos', 'aniversarios'],
     'Documentos maestros' => ['documentos-maestros'],
     'Empresas' => ['empresas'],
-    'Usuarios' => ['usuarios'],
+    'Usuarios y permisos' => ['usuarios'],
     'Sucursales' => ['sucursales'],
     'Departamentos' => ['departamentos'],
-    'Puestos' => ['puestos'],
+    'Puestos y tabulador' => ['puestos'],
     'Roles y permisos' => ['roles'],
     'Versiones de app' => ['app-releases'],
-    'Mi portal' => ['portal'],
-    'Mi expediente' => ['mi-expediente'],
-    'Mis solicitudes' => ['mis-solicitudes'],
-    'Directorio' => ['directorio', 'directorio-operativo'],
-    'Inducción Mr. Lana' => ['induccion'],
-    'Presentar inducción' => ['presentar-induccion'],
     'Descriptivos y perfiles' => ['perfiles-puesto'],
     'Rotación de personal' => ['rotacion'],
+    'Directorio' => ['directorio', 'directorio-operativo'],
+    // Modo colaborador.
+    'Mi inicio' => ['portal'],
+    'Mi expediente' => ['mi-expediente'],
+    'Mis solicitudes' => ['mis-solicitudes'],
+    'Mi inducción' => ['induccion'],
 ];
 
 const SIDEBAR_SIN_GUIA = [
     // Es la propia página de la guía (buscador + guía escrita + recorridos).
     'Ayuda',
-    // Oculto tras el feature flag `capacitacion` (docs/CAPACITACION_PROXIMAMENTE.md).
-    'Capacitación',
-    // Pantallas sencillas de un solo propósito (bandeja o lista plana): aún
-    // no tienen módulo de guía propio.
-    'Avisos',
-    // Bandeja propia de notificaciones (marcar leída / ir al registro).
-    'Notificaciones',
+    // Ocultos tras el feature flag `capacitacion` (docs/CAPACITACION_PROXIMAMENTE.md).
+    'Mi capacitación',
+    'Capacitación continua',
+    // Detrás de su feature flag apagado y con href '#': el menú nunca los
+    // pinta (no tienen pantalla real todavía).
+    'Evaluación del desempeño',
+    'Matriz 9 box y planes',
+    'Certificación Mr. Lana',
+    // Recibo impreso: el acceso del colaborador solo existe con
+    // features.recibos_colaborador (apagado).
+    'Mi recibo',
+    // Bandejas propias de notificaciones (marcar leída / ir al registro).
+    'Mis notificaciones',
+    'Notificaciones del sistema',
     // Formulario de un solo paso para enviar un aviso (artículo «avisos» de la Guía).
     'Enviar notificación',
-    'Mis recibos de nómina',
-    'Muro de felicitaciones',
-    'Recibos de nómina',
-    'Evaluación de capacitación inicial',
-    // Carga puntual de un archivo con vista previa (sin recorrido propio);
-    // el proceso completo está en la Guía maestra (artículo importador-salarios).
+    // Importaciones / cargas masivas: solo super_admin; carga puntual de un
+    // archivo con vista previa (el proceso está en la Guía maestra).
     'Importar salarios y vacaciones',
+    'Contactos de emergencia',
+    'Importar datos',
+    // Pantallas de las etapas nuevas del sidebar (contratación, onboarding,
+    // periodo de prueba, cierres): aún no tienen módulo de guía propio.
+    'Personas en contratación',
+    'Validación de documentos',
+    'Contratos de ingreso',
+    'Contratos',
+    'Inducción al puesto',
+    'Evaluación de capacitación inicial',
+    'Calificaciones y refuerzo',
+    'Activos y responsivas',
+    'Evaluaciones de periodo de prueba',
+    'Periodos por vencer',
+    'Evaluación y decisión',
+    'Recibo simple de pago',
+    'Bajas',
+    'Bajas y finiquitos',
+    // Sección «Causales» de Bajas y finiquitos (misma pantalla).
+    'Catálogo de bajas',
 ];
 
 test('todo acceso del sidebar tiene módulo de guía o una justificación explícita', function () {
@@ -148,6 +173,12 @@ test('todo acceso del sidebar tiene módulo de guía o una justificación explí
     }
 
     expect(count($titulos))->toBeGreaterThanOrEqual(20);
+
+    // Sin entradas huérfanas: un acceso renombrado o retirado del sidebar
+    // también se retira de los mapas (si no, su guía deja de cubrir nada).
+    foreach ([...array_keys(SIDEBAR_A_GUIA), ...SIDEBAR_SIN_GUIA] as $titulo) {
+        expect(in_array($titulo, $titulos, true))->toBeTrue("«{$titulo}» está en el mapa de la guía pero ya no es un acceso del sidebar.");
+    }
 });
 
 test('todo selector data-tour que usa la guía existe en alguna pantalla', function () {

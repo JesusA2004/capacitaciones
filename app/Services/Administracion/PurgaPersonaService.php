@@ -6,6 +6,7 @@ use App\Models\Colaborador;
 use App\Models\User;
 use App\Support\ReferenciasColaborador;
 use App\Support\ReferenciasUsuario;
+use Closure;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
@@ -52,6 +53,26 @@ class PurgaPersonaService
         ['rotacion_cargas', 'aplicado_por', null, 'cargas de rotación aplicadas'],
         ['rotacion_cargas', 'subido_por', null, 'cargas de rotación subidas'],
         ['intervenciones_candidato', 'gerente_solicitante_id', null, 'intervenciones de candidatos solicitadas'],
+        // Expediente de baja de OTRAS personas donde la cuenta actuó (FK
+        // RESTRICT: la auditoría de la baja ajena no se altera).
+        ['bajas', 'creado_por', 'colaborador_id', 'bajas de otras personas capturadas'],
+        ['bajas', 'solicitado_por', 'colaborador_id', 'bajas de otras personas solicitadas'],
+        ['bajas', 'validado_por', 'colaborador_id', 'bajas de otras personas validadas'],
+        ['bajas', 'juridico_por', 'colaborador_id', 'bajas de otras personas revisadas por Jurídico'],
+        ['bajas', 'rechazado_por', 'colaborador_id', 'bajas de otras personas rechazadas'],
+        ['bajas', 'cerrado_por', 'colaborador_id', 'bajas de otras personas cerradas'],
+        ['bajas', 'cancelado_por', 'colaborador_id', 'bajas de otras personas canceladas'],
+    ];
+
+    /**
+     * Hijos del expediente de baja (FK RESTRICT a users, sin columna de
+     * persona propia): solo detienen la purga cuando pertenecen a la baja de
+     * OTRA persona; los de la baja propia se eliminan con ella.
+     */
+    private const BLOQUEO_RESTRICT_BAJA = [
+        ['baja_documentos', 'cargado_por', 'documentos cargados en bajas de otras personas'],
+        ['baja_documentos', 'quitado_por', 'documentos quitados en bajas de otras personas'],
+        ['baja_bitacora', 'user_id', 'movimientos en la bitácora de bajas de otras personas'],
     ];
 
     /** Contenido COMPARTIDO que la persona creó y consumen terceros (FK cascade, pero borrarlo destruiría datos ajenos): detiene la purga. */
@@ -75,7 +96,11 @@ class PurgaPersonaService
         'birthday_greetings' => 'felicitaciones de cumpleaños',
         'cambios_foto_perfil' => 'cambios de foto de perfil',
         'certificados' => 'certificados',
+        'bajas' => 'expedientes de baja',
         'cierres_laborales' => 'cierres laborales',
+        'clasificaciones_region' => 'clasificación de región en el organigrama',
+        'lotes_generacion_contratos' => 'generaciones masivas de contratos',
+        'revisiones_division_historico' => 'revisiones de la división de históricos',
         'coberturas_puesto' => 'coberturas de puesto',
         'colaborador_datos_medicos' => 'datos médicos',
         'contratos_laborales' => 'contratos laborales',
@@ -266,7 +291,40 @@ class PurgaPersonaService
             }
         }
 
+        foreach (self::BLOQUEO_RESTRICT_BAJA as [$tabla, $columna, $etiqueta]) {
+            if (! Schema::hasTable($tabla)) {
+                continue;
+            }
+
+            $consulta = DB::table($tabla)->where($columna, $cuenta->id);
+
+            if ($colaborador !== null) {
+                $consulta->whereNotIn('baja_id', $this->bajasPropias($colaborador->id));
+            }
+
+            $filas = $consulta->count();
+
+            if ($filas > 0) {
+                $mensajes[] = sprintf('%d %s a su nombre.', $filas, $etiqueta);
+            }
+        }
+
         return $mensajes;
+    }
+
+    /**
+     * Subconsulta de los expedientes de baja de la persona: los suyos
+     * (`colaborador_id`) y los ligados a sus cierres laborales.
+     *
+     * @return Closure(Builder): void
+     */
+    private function bajasPropias(int $colaboradorId): Closure
+    {
+        return function (Builder $q) use ($colaboradorId): void {
+            $q->select('id')->from('bajas')
+                ->where('colaborador_id', $colaboradorId)
+                ->orWhereIn('cierre_laboral_id', fn (Builder $c) => $c->select('id')->from('cierres_laborales')->where('colaborador_id', $colaboradorId));
+        };
     }
 
     /**
@@ -360,10 +418,20 @@ class PurgaPersonaService
      */
     private function eliminarRamasColaborador(int $colaboradorId): void
     {
-        // Expediente histórico (RESTRICT en divisiones→expediente y en partes→división).
-        DB::table('partes_division_historico')
-            ->whereIn('division_id', fn (Builder $q) => $q->select('id')->from('divisiones_expediente_historico')->where('colaborador_id', $colaboradorId))
-            ->delete();
+        // Expediente de baja (RESTRICT a colaboradores y a cierres laborales;
+        // sus documentos y bitácora, RESTRICT a la baja). Las filas se borran;
+        // los archivos del NAS se conservan.
+        $bajas = DB::table('bajas')->whereIn('id', $this->bajasPropias($colaboradorId))->pluck('id')->all();
+
+        DB::table('baja_documentos')->whereIn('baja_id', $bajas)->delete();
+        DB::table('baja_bitacora')->whereIn('baja_id', $bajas)->delete();
+        DB::table('bajas')->whereIn('id', $bajas)->delete();
+
+        // Expediente histórico (RESTRICT en divisiones→expediente, en
+        // partes→división y en revisiones manuales→división).
+        $divisiones = fn (Builder $q) => $q->select('id')->from('divisiones_expediente_historico')->where('colaborador_id', $colaboradorId);
+        DB::table('partes_division_historico')->whereIn('division_id', $divisiones)->delete();
+        DB::table('revisiones_division_historico')->whereIn('division_id', $divisiones)->delete();
         DB::table('divisiones_expediente_historico')->where('colaborador_id', $colaboradorId)->delete();
         DB::table('document_extractions')->where('colaborador_id', $colaboradorId)->delete();
         DB::table('expedientes_historicos')->where('colaborador_id', $colaboradorId)->delete();

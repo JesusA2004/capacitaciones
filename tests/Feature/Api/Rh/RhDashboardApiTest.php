@@ -1,5 +1,7 @@
 <?php
 
+use App\Enums\EstadoSolicitudInterna;
+use App\Enums\TipoSolicitudInterna;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudVacaciones;
 use App\Models\User;
@@ -32,7 +34,14 @@ test('el dashboard cuenta correctamente las solicitudes y vacaciones pendientes'
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
 
-    SolicitudInterna::factory()->count(2)->create(['estado' => 'enviada']);
+    // Las vacaciones son un `tipo` del motor unificado (solicitudes_internas),
+    // no la tabla legacy `solicitudes_vacaciones`: la baldosa cuenta las
+    // abiertas de ese tipo y «solicitudes» el resto (nunca se suman dos veces).
+    SolicitudInterna::factory()->count(2)->create(['estado' => EstadoSolicitudInterna::Enviada->value]);
+    SolicitudInterna::factory()->count(2)->create(['tipo' => TipoSolicitudInterna::Vacaciones->value, 'estado' => EstadoSolicitudInterna::Enviada->value]);
+    SolicitudInterna::factory()->create(['tipo' => TipoSolicitudInterna::Vacaciones->value, 'estado' => EstadoSolicitudInterna::EnRevision->value]);
+    // Cerradas y legacy: no son pendientes.
+    SolicitudInterna::factory()->create(['tipo' => TipoSolicitudInterna::Vacaciones->value, 'estado' => EstadoSolicitudInterna::Aprobada->value]);
     SolicitudVacaciones::factory()->count(3)->create(['estado' => 'pendiente']);
 
     $respuesta = $this->withHeaders(['Authorization' => 'Bearer '.$rh->createToken('test')->plainTextToken])

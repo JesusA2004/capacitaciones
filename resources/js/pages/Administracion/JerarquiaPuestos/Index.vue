@@ -645,15 +645,21 @@ watch(
         <!-- General «Por personas»: una tarjeta por persona o plaza, con
              Q1/Q3, coberturas y subir/bajar/mover (solo RH). «Por puestos»
              conserva el catálogo editable de puestos. -->
-        <OrganigramaEditable
+        <!-- El anclaje de la guía vive solo en esta pantalla (un único
+             componente define [data-tour="organigrama-arbol"]). -->
+        <div
             v-else-if="
                 vista === 'personas' && seccionActiva?.valor === 'general'
             "
-            :nodos="personas"
-            :regiones="regiones"
-            :puede-editar="coberturas.puedeEditar"
-            :candidatos="coberturas.colaboradores"
-        />
+            data-tour="organigrama-arbol"
+        >
+            <OrganigramaEditable
+                :nodos="personas"
+                :regiones="regiones"
+                :puede-editar="coberturas.puedeEditar"
+                :candidatos="coberturas.colaboradores"
+            />
+        </div>
 
         <template v-else>
             <!-- Por personas: una tarjeta por colaborador, rama por sucursal. -->

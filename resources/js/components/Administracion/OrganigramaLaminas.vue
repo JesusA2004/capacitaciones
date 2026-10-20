@@ -321,15 +321,26 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                                 :key="lado.id"
                                 class="rounded-lg border border-[var(--mrl-dorado)]/70 bg-[var(--mrl-superficie)] px-1.5 py-1.5 text-center"
                             >
-                                <p class="text-[11px] font-bold tracking-wide text-[var(--mrl-petroleo)]">
+                                <p
+                                    class="text-[11px] font-bold tracking-wide text-[var(--mrl-petroleo)]"
+                                >
                                     {{ lado.nombre.replace('Región ', '') }}
                                 </p>
                                 <p class="truncate text-[10px] leading-tight">
-                                    {{ lado.regional ?? (lado.cubre ? `Cubre: ${lado.cubre}` : 'Vacante') }}
+                                    {{
+                                        lado.regional ??
+                                        (lado.cubre
+                                            ? `Cubre: ${lado.cubre}`
+                                            : 'Vacante')
+                                    }}
                                 </p>
                                 <p class="text-[10px] text-muted-foreground">
                                     {{ lado.gerentes }}
-                                    {{ lado.gerentes === 1 ? 'gerente' : 'gerentes' }}
+                                    {{
+                                        lado.gerentes === 1
+                                            ? 'gerente'
+                                            : 'gerentes'
+                                    }}
                                 </p>
                             </div>
                         </div>

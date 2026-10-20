@@ -31,17 +31,31 @@ test('un archivo que no es un zip valido se rechaza', function () {
 
 test('un zip cuyo contenido descomprimido excede el limite se rechaza (zip bomb)', function () {
     $ruta = sys_get_temp_dir().'/'.uniqid('zip_bomb', true).'.docx';
+    $fuente = sys_get_temp_dir().'/'.uniqid('zip_bomb_xml', true).'.xml';
 
-    $zip = new ZipArchive;
-    $zip->open($ruta, ZipArchive::CREATE);
     // 101 MB de un solo caracter repetido: comprime a unos cuantos KB con
     // deflate, pero declara 101 MB de tamaño descomprimido en el ZIP —
     // exactamente el patron de un "zip bomb" contra un lector ingenuo.
-    $zip->addFromString('word/document.xml', str_repeat('0', 101 * 1024 * 1024));
+    // Se escribe a disco en bloques de 1 MB y libzip lo comprime en streaming
+    // desde el archivo (addFile): la prueba nunca reserva 101 MB en memoria
+    // (antes str_repeat + addFromString tiraba la suite por memory_limit).
+    $bloque = str_repeat('0', 1024 * 1024);
+    $manejador = fopen($fuente, 'wb');
+    for ($i = 0; $i < 101; $i++) {
+        fwrite($manejador, $bloque);
+    }
+    fclose($manejador);
+    unset($bloque);
+
+    $zip = new ZipArchive;
+    $zip->open($ruta, ZipArchive::CREATE);
+    $zip->addFile($fuente, 'word/document.xml');
     $zip->setCompressionName('word/document.xml', ZipArchive::CM_DEFLATE, 9);
     $zip->close();
+    unlink($fuente);
 
-    expect(DocxUploadValidator::esZipSeguro(archivoSubidoDesde($ruta)))->toBeFalse();
+    expect(filesize($ruta))->toBeLessThan(1024 * 1024) // el .docx real pesa KB…
+        ->and(DocxUploadValidator::esZipSeguro(archivoSubidoDesde($ruta)))->toBeFalse(); // …pero declara 101 MB
 
     unlink($ruta);
 });

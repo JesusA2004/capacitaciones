@@ -35,6 +35,23 @@ final class ReferenciasUsuario
         // por el propio colaborador en su inducción.
         ['induccion_materiales_explicacion', 'subido_por', 'restrict'],
         ['induccion_video_intervalos', 'user_id', 'cascade'],
+        // Migraciones 2026-10-20: módulo de Bajas (expediente de la baja, sus
+        // documentos y su bitácora: actores RESTRICT), generación masiva de
+        // contratos, revisiones manuales de la división de históricos y
+        // clasificación de región de los gerentes en el organigrama.
+        ['baja_bitacora', 'user_id', 'restrict'],
+        ['baja_documentos', 'cargado_por', 'restrict'],
+        ['baja_documentos', 'quitado_por', 'restrict'],
+        ['bajas', 'cancelado_por', 'restrict'],
+        ['bajas', 'cerrado_por', 'restrict'],
+        ['bajas', 'creado_por', 'restrict'],
+        ['bajas', 'juridico_por', 'restrict'],
+        ['bajas', 'rechazado_por', 'restrict'],
+        ['bajas', 'solicitado_por', 'restrict'],
+        ['bajas', 'validado_por', 'restrict'],
+        ['clasificaciones_region', 'clasificada_por', 'set_null'],
+        ['lotes_generacion_contratos', 'iniciado_por', 'set_null'],
+        ['revisiones_division_historico', 'hecha_por', 'set_null'],
         ['acta_anexos', 'subido_por', 'set_null'],
         ['actas_administrativas', 'creado_por', 'set_null'],
         ['actas_administrativas', 'responsable_id', 'set_null'],

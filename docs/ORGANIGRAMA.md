@@ -60,10 +60,37 @@ VACANTE · cubierto temporalmente
 Fernanda …   Cubierto temporalmente por esta persona · Titular de Gerente Regional Q1
 ```
 
+### Q1 / Q3: de qué lado está cada Gerente de Sucursal (2026-10-20)
+
+**Q1 y Q3 son las dos REGIONES de la matriz comercial** (`nodos_comerciales` tipo `region`: «Región Q1», «Región Q3», `MatrizComercialSeeder`), cada una ligada a su puesto «Gerente Regional Q1/Q3» (`nodos_comerciales.puesto_id`). No son secciones de las láminas ni cuadrantes geográficos. Q2 no existe.
+
+Antes, el organigrama General (composición de las láminas) colgaba TODAS las sucursales de un solo «Regional Comercial» con los dos regionales juntos, así que cada gerente se veía de Q1 y de Q3 a la vez. Ahora RH **clasifica** a cada Gerente de Sucursal con un clic (Q1 · Q3 · Por clasificar):
+
+- Tabla `clasificaciones_region` (una fila por colaborador: `region_id`, `clasificada_por`, fechas; historial en `activity_log` `organigrama`/`region_clasificada`). Regla: `App\Services\Organigrama\ClasificacionRegionService`.
+- Solo se clasifica a quien ocupa un puesto **clasificable**: el que reporta a un puesto regional (hoy, Gerente de Sucursal). Su subgerente y gestores lo siguen.
+- **Sin clasificar = «Por clasificar»**, visible (aviso arriba del árbol, chip punteado en la tarjeta, lámina de Dirección Comercial). Nunca se clasifica solo: la región de su sucursal en la matriz se muestra como **sugerencia** (punto dorado) y, mientras tanto, su jefe directo sale provisionalmente de esa región (la regla de siempre).
+- Clasificado = cuelga del regional de ESE lado (o de quien lo cubra), aunque la matriz diga otra región para su sucursal. Clasificar recalcula el jefe directo y, si cambió, registra «Cambio de jefe» en su expediente.
+
+### Organigrama editable (General · Por personas)
+
+Una tarjeta por persona o plaza (foto/iniciales, nombre, puesto, sucursal, chip Q1/Q3, «Cubre temporalmente», vacante punteada), en un lienzo con zoom (Ctrl + rueda / botones) y arrastre; en celular, lista jerárquica desplegable. Al tocar una tarjeta se abre el panel con sus acciones (solo `organigrama.editar`: RH / super admin; el backend lo valida con `ColaboradorPolicy::moverEnOrganigrama/clasificarRegion` y `CoberturaPuestoPolicy`):
+
+| Tarjeta | Acciones |
+|---|---|
+| Persona | Subir de puesto · Bajar de puesto · Mover bajo… · (Gerente de Sucursal) Q1 / Q3 / Por clasificar |
+| Plaza vacante | Cubre temporalmente este puesto |
+| Plaza cubierta | Quitar cobertura (un clic) |
+
+**Subir / Bajar / Mover bajo…** (`MovimientoOrganigramaService`) nunca escriben el jefe: cambian la PLAZA (puesto, sucursal y, si aplica, lado Q1/Q3) por la misma puerta que «Datos laborales» (`DatosExpedienteService::actualizarLaborales` → movimiento laboral + `JefeDirectoService::sincronizar`). Antes de aplicar se muestra «Vas a mover a X de Y a Z» con el jefe actual → jefe nuevo, calculado sin guardar (`OrganigramaPersonasService::jefesDerivados($simulacion)`), y avisos de headcount. «Mover bajo…» ofrece las plazas del puesto superior (personas, vacantes o coberturas) en otras sucursales/lados; el Corporativo nunca es destino de un puesto de sucursal. Arrastrar y soltar no se implementó a propósito: el menú por nodo con confirmación es más estable y auditable.
+
+**Acomodo** (`resources/js/lib/organigramaLayout.ts`, probado en `tests/js/organigrama-layout.test.mjs`): cada nivel en su fila, ramas acercadas por contornos (una rama chica queda junto a la grande, el padre centrado sobre su primer y último hijo), hojas de un mismo jefe apiladas en columna y conectores ortogonales en SVG. Sustituye al árbol de flexbox anidado, donde cada rama se alineaba por su cuenta.
+
 ### Vacantes y coberturas en el árbol
 
 - Un puesto sin titular **se muestra como VACANTE**, nunca se oculta (incluye puestos corporativos y regionales sin nadie).
 - Una cobertura no cambia el puesto titular de quien cubre ni suma headcount: si el gerente de Córdoba cubre Cuernavaca, Cuernavaca sigue con su plaza de gerente **vacante** (headcount) y se ve «cubierto temporalmente» (organigrama).
+- **«Cubre temporalmente este puesto»** (botón en la plaza vacante): solo se elige a la persona (buscador con la lista completa desde el inicio). **Sin fechas ni motivo**: empieza hoy y queda como «Puesto vacante»; se quita con un clic. Auditable: `registrada_por`/`finalizada_por`, `activity_log` (`cobertura_asignada`/`cobertura_finalizada`) y un movimiento «Cobertura temporal» en el expediente de quien cubre (se cierra al quitarla). También aplica a plazas corporativas (sin sucursal ni región).
+- **Regla de jefe directo con cobertura:** mientras la plaza no tenga titular, quienes le reportan a esa plaza tienen como jefe directo a **quien la cubre**. Si quien cubre es uno de esos subordinados (p. ej. el subgerente cubre la gerencia de su sucursal), su propio jefe se resuelve subiendo a la siguiente persona de la cadena. En cuanto la plaza tiene titular, la cobertura deja de usarse para el jefe (el titular manda). Al quitarla, el jefe vuelve a subir por la cadena hasta la primera persona.
 
 ## Jefe directo = organigrama (2026-10-02)
 
