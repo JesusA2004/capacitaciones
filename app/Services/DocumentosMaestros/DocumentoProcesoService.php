@@ -907,12 +907,15 @@ class DocumentoProcesoService
             }
         }
 
+        // Solo se guardan las columnas de la lista blanca (colaborador /
+        // sucursal). Un dato del acto (manual: testigos, hora…) o un campo que
+        // se corrige en su módulo (salario, puesto…) puede venir en el mismo
+        // envío: se ignora en silencio en vez de rechazar TODO el bloque —
+        // antes un solo campo no-guardable tiraba también los datos válidos.
+        $deColaborador = array_intersect_key($deColaborador, DatosDocumentoService::columnasEditablesColaborador());
+        $deSucursal = array_intersect_key($deSucursal, DatosDocumentoService::columnasEditablesSucursal());
         $reglasColaborador = array_intersect_key(DatosDocumentoService::columnasEditablesColaborador(), $deColaborador);
         $reglasSucursal = array_intersect_key(DatosDocumentoService::columnasEditablesSucursal(), $deSucursal);
-
-        if (count($reglasColaborador) !== count($deColaborador) || count($reglasSucursal) !== count($deSucursal)) {
-            throw ValidationException::withMessages(['completar' => 'Uno de los datos no se puede capturar desde aquí.']);
-        }
 
         if ($deColaborador !== [] && ! ($actor->can('expedientes.editar') || $actor->can('colaboradores.alta'))) {
             throw new AuthorizationException('No tienes permiso para completar datos del expediente.');

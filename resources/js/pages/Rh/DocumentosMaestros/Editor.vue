@@ -1616,7 +1616,9 @@ function siguientePorRevisar() {
                         <p class="mt-0.5 text-xs">
                             Usa {{ prueba.datos_usados }} dato{{
                                 prueba.datos_usados === 1 ? '' : 's'
-                            }}; a {{ prueba.colaborador.nombre }} le falta{{
+                            }}
+                            distinto{{ prueba.datos_usados === 1 ? '' : 's' }}; a
+                            {{ prueba.colaborador.nombre }} le falta{{
                                 prueba.faltantes.length === 1 ? '' : 'n'
                             }}
                             {{ prueba.faltantes.length }}:
@@ -1675,7 +1677,7 @@ function siguientePorRevisar() {
                     <p class="text-xs text-muted-foreground">
                         {{ prueba.paginas.generado }} página(s) ·
                         {{ prueba.campos.llenos }} de
-                        {{ prueba.campos.total }} datos ·
+                        {{ prueba.campos.total }} campos del formato ·
                         <span
                             :class="
                                 prueba.desbordes.length

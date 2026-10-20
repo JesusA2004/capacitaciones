@@ -226,6 +226,12 @@ class DatosDocumentoService
         // falta, el motor bloquea y pide capturarlo (faltantesDe()).
         $representante = trim((string) $empresa?->representante_legal_nombre);
         $nacionalidad = trim((string) $c->nacionalidad);
+        // El beneficiario (art. 501 LFT) es el contacto de emergencia del
+        // colaborador cuando no se capturó uno aparte: el negocio no los
+        // distingue, así nunca se pide el mismo dato dos veces ni se bloquea
+        // el contrato por un beneficiario vacío si ya hay contacto de emergencia.
+        $beneficiarioNombre = trim((string) $c->beneficiario_nombre) !== '' ? trim((string) $c->beneficiario_nombre) : trim((string) $c->contacto_emergencia_nombre);
+        $beneficiarioParentesco = trim((string) $c->beneficiario_parentesco) !== '' ? trim((string) $c->beneficiario_parentesco) : trim((string) $c->contacto_emergencia_parentesco);
         $datos = [
             'nombre_completo' => $nombre,
             'nombre_completo_mayusculas' => $this->mayus($nombre),
@@ -258,8 +264,8 @@ class DatosDocumentoService
             'domicilio_estado' => trim((string) $c->domicilio_estado),
             'domicilio_cp' => trim((string) $c->domicilio_cp),
             'domicilio_completo' => $this->domicilioCompleto($c),
-            'beneficiario_nombre' => $this->mayus((string) $c->beneficiario_nombre),
-            'beneficiario_parentesco' => (string) $c->beneficiario_parentesco,
+            'beneficiario_nombre' => $this->mayus($beneficiarioNombre),
+            'beneficiario_parentesco' => $beneficiarioParentesco,
             // Contacto de emergencia: cada dato por separado y el «completo»
             // explícito. Ya NO existe un alias «contacto_emergencia» (antes
             // entregaba solo el nombre aunque el formato pidiera más).
@@ -374,12 +380,24 @@ class DatosDocumentoService
      *    del acta… solo vive en el snapshot del documento);
      *  - control + opciones: selector, fecha, hora, correo, texto.
      *
-     * @param  array{fuente: string, tipo: string, base: string}  $fuente
+     * @param  array{fuente: string, tipo: string, base: string, columna: string}  $fuente
      * @return array{editable: bool, persistencia: string, control: string, opciones: list<array{value: string, label: string}>, sugerencias: list<string>}
      */
     public function captura(array $fuente): array
     {
-        $editable = in_array($fuente['fuente'], ['colaborador', 'sucursal', 'manual'], true) && ! in_array($fuente['tipo'], ['relacion', 'proceso'], true);
+        // «Editable» significa que ESTE modal lo puede guardar: solo las
+        // columnas de la lista blanca del colaborador/sucursal, o un dato del
+        // acto (manual, vive en el snapshot del documento). Un campo del
+        // colaborador que NO está en la lista blanca (salario diario, sueldo,
+        // nombre…) se corrige en su módulo, nunca aquí — antes se mostraba
+        // editable y el guardado lo rechazaba en bloque (tirando también los
+        // datos válidos capturados junto a él).
+        $editable = match ($fuente['fuente']) {
+            'manual' => ! in_array($fuente['tipo'], ['relacion', 'proceso'], true),
+            'colaborador' => array_key_exists($fuente['columna'], self::columnasEditablesColaborador()),
+            'sucursal' => array_key_exists($fuente['columna'], self::columnasEditablesSucursal()),
+            default => false,
+        };
 
         return [
             'editable' => $editable,

@@ -6,6 +6,7 @@ use App\Http\Controllers\Rh\CambioFotoController;
 use App\Http\Controllers\Rh\CampanaReclutamientoController;
 use App\Http\Controllers\Rh\CandidatoController;
 use App\Http\Controllers\Rh\CelebracionRhController;
+use App\Http\Controllers\Rh\ContactosEmergenciaController;
 use App\Http\Controllers\Rh\ContratacionController;
 use App\Http\Controllers\Rh\CredencialesController;
 use App\Http\Controllers\Rh\CumpleanosConfiguracionController;
@@ -64,6 +65,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('{importacion}/filas/{fila}/confirmar', [ImportacionTrabajadoresController::class, 'confirmarMatch'])->name('filas.confirmar');
             // Quitar un archivo analizado que ya no se aplicará (las aplicadas son historial).
             Route::delete('{importacion}', [ImportacionTrabajadoresController::class, 'destroy'])->name('destroy');
+        });
+
+        // Importador de contactos de emergencia: rellena en bloque teléfono
+        // personal, contacto de emergencia (también usado como beneficiario del
+        // contrato), condición médica y alergias sobre colaboradores ya
+        // existentes. Mismo flujo subir → analizar → revisar → aplicar.
+        Route::prefix('contactos-emergencia')->name('contactos-emergencia.')->group(function () {
+            Route::get('/', [ContactosEmergenciaController::class, 'index'])->name('index');
+            Route::post('/', [ContactosEmergenciaController::class, 'analizar'])->name('analizar')->middleware('throttle:10,1');
+            Route::get('{importacion}', [ContactosEmergenciaController::class, 'show'])->name('show');
+            Route::post('{importacion}/aplicar', [ContactosEmergenciaController::class, 'aplicar'])->name('aplicar')->middleware('throttle:10,1');
+            Route::delete('{importacion}', [ContactosEmergenciaController::class, 'destroy'])->name('destroy');
         });
 
         // Actas administrativas (PRO-ADP-08): levantar, formato oficial,

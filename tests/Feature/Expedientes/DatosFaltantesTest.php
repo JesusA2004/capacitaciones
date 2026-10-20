@@ -79,8 +79,10 @@ test('la app muestra «Completa tu información» y se recalcula sola cuando los
 
     // RH aprueba la actualización de datos (se refleja en el colaborador).
     $this->persona->update([
-        'genero' => 'femenino', 'fecha_nacimiento' => '1990-01-01', 'estado_civil' => 'soltero', 'curp' => 'XEXX900101MNEXXXA4', 'rfc' => 'XEXX900101AB1',
-        'nss' => '12345678901', 'telefono' => '7770000000', 'correo_personal' => 'ana@example.com', 'domicilio' => 'Calle 1', 'domicilio_cp' => '62000',
+        'genero' => 'femenino', 'fecha_nacimiento' => '1990-01-01', 'nacionalidad' => 'Mexicana', 'estado_civil' => 'soltero',
+        'lugar_nacimiento' => 'Cuernavaca, Morelos', 'curp' => 'XEXX900101MNEXXXA4', 'rfc' => 'XEXX900101AB1', 'nss' => '12345678901',
+        'clave_elector' => 'XEXX900101HNEXXX01', 'profesion' => 'Licenciada',
+        'telefono' => '7770000000', 'correo_personal' => 'ana@example.com', 'domicilio' => 'Calle 1', 'domicilio_cp' => '62000',
         'contacto_emergencia_nombre' => 'Luis', 'contacto_emergencia_parentesco' => 'Hermano', 'contacto_emergencia_telefono' => '7771111111',
         'beneficiario_nombre' => 'Luis', 'beneficiario_parentesco' => 'Hermano',
     ]);

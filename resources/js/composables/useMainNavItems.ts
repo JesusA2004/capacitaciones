@@ -80,6 +80,7 @@ import { index as indexAvisos } from '@/routes/rh/avisos';
 import { index as indexCampanas } from '@/routes/rh/campanas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
 import { index as indexCierres } from '@/routes/rh/cierres';
+import { index as indexContactosEmergencia } from '@/routes/rh/contactos-emergencia';
 import { index as indexContratacion } from '@/routes/rh/contratacion';
 import { index as indexContratosIngreso } from '@/routes/rh/contratos-ingreso';
 import { index as indexCumpleanos } from '@/routes/rh/cumpleanos';
@@ -361,6 +362,18 @@ export function useMainNavItems() {
                         'evaluaciones.autorizar',
                         'evaluaciones.ver_todos',
                     ) && {
+                        // Lista completa (sin filtro): el acceso para VER todas
+                        // las evaluaciones de periodo de prueba, con el nombre
+                        // con que RH las busca. Misma pantalla (rh.evaluaciones).
+                        title: 'Evaluaciones de periodo de prueba',
+                        href: indexEvaluaciones(),
+                        icon: ClipboardCheck,
+                    },
+                    algunPermiso(
+                        'evaluaciones.capturar',
+                        'evaluaciones.autorizar',
+                        'evaluaciones.ver_todos',
+                    ) && {
                         title: 'Periodos por vencer',
                         href: indexEvaluaciones({
                             query: { estado: 'pendiente' },
@@ -424,6 +437,11 @@ export function useMainNavItems() {
                     ) && {
                         title: 'Importar salarios y vacaciones',
                         href: indexImportaciones(),
+                        icon: FileSpreadsheet,
+                    },
+                    tienePermiso('expedientes.editar') && {
+                        title: 'Contactos de emergencia',
+                        href: indexContactosEmergencia(),
                         icon: FileSpreadsheet,
                     },
                     tienePermiso('avisos.enviar') && {

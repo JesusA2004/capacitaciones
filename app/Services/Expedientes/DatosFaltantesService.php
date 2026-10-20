@@ -32,14 +32,27 @@ class DatosFaltantesService
     /** Horas mínimas entre dos avisos al mismo colaborador. */
     private const HORAS_ENTRE_AVISOS = 24;
 
-    /** columna => etiqueta (lo aporta el colaborador). */
+    /**
+     * columna => etiqueta (lo aporta el colaborador).
+     *
+     * Debe cubrir TODO lo que los contratos piden del colaborador (misma
+     * verdad que DatosDocumentoService::BASE): si un contrato exige un dato
+     * que no está aquí, el expediente diría "completo" mientras la generación
+     * sigue bloqueada por faltante. Por eso incluye nacionalidad, lugar de
+     * nacimiento, clave de elector y profesión (contrato de confidencialidad
+     * y no competencia).
+     */
     public const PERSONALES = [
         'genero' => 'Sexo',
         'fecha_nacimiento' => 'Fecha de nacimiento',
+        'nacionalidad' => 'Nacionalidad',
         'estado_civil' => 'Estado civil',
+        'lugar_nacimiento' => 'Lugar de nacimiento',
         'curp' => 'CURP',
         'rfc' => 'RFC',
         'nss' => 'Número de seguridad social (NSS)',
+        'clave_elector' => 'Clave de elector (INE)',
+        'profesion' => 'Profesión u oficio',
         'telefono' => 'Teléfono celular',
         'correo_personal' => 'Correo electrónico',
         'domicilio' => 'Domicilio',
@@ -65,7 +78,7 @@ class DatosFaltantesService
      * Domicilio ✗» en vez de solo un porcentaje. clave => [etiqueta, columnas].
      */
     public const SECCIONES = [
-        'identidad' => ['Identidad', ['genero', 'fecha_nacimiento', 'estado_civil', 'curp']],
+        'identidad' => ['Identidad', ['genero', 'fecha_nacimiento', 'nacionalidad', 'estado_civil', 'lugar_nacimiento', 'curp', 'clave_elector', 'profesion']],
         'fiscal' => ['Fiscal', ['rfc', 'nss']],
         'laboral' => ['Laboral', ['puesto_id', 'sucursal_principal_id', 'fecha_ingreso', 'sueldo_mensual', 'tipo_contratacion']],
         'domicilio' => ['Domicilio', ['domicilio', 'domicilio_cp']],

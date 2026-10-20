@@ -36,6 +36,7 @@ class ImportacionTrabajadoresController extends Controller
 
         return Inertia::render('Rh/Importaciones/Index', [
             'importaciones' => ImportacionExcel::query()
+                ->where('tipo', 'trabajadores_salarios_vacaciones')
                 ->with(['subidoPor:id,name,apellidos', 'aplicadoPor:id,name,apellidos'])
                 ->orderByDesc('id')
                 ->paginate(Paginacion::porPagina())

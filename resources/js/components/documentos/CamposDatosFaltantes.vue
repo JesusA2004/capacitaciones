@@ -34,6 +34,21 @@ function tipoInput(f: DatoFaltante): string {
             ? 'email'
             : 'text';
 }
+
+// Para los datos que NO se capturan aquí: decirle al usuario a qué módulo ir
+// a completarlos, en vez de solo "se completa en su módulo".
+function dondeSeArregla(f: DatoFaltante): string {
+    switch (f.fuente) {
+        case 'empresa':
+            return 'Configuración → Empresa';
+        case 'sucursal':
+            return 'Administración → Sucursales';
+        case 'proceso':
+            return 'se toma del proceso (contrato, evaluación o solicitud)';
+        default:
+            return 'en el catálogo del colaborador (puesto, departamento o jefe)';
+    }
+}
 </script>
 
 <template>
@@ -101,7 +116,10 @@ function tipoInput(f: DatoFaltante): string {
             </p>
             <ul class="mt-1 list-disc pl-5">
                 <li v-for="f in noEditables" :key="columnaDatoFaltante(f)">
-                    {{ f.etiqueta }}
+                    {{ f.etiqueta }} —
+                    <span class="text-[var(--mrl-texto-suave)]">{{
+                        dondeSeArregla(f)
+                    }}</span>
                 </li>
             </ul>
         </div>
