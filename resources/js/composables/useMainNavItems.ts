@@ -23,6 +23,7 @@ import {
     Inbox,
     Landmark,
     LayoutGrid,
+    ListTree,
     Megaphone,
     Network,
     Package,
@@ -73,10 +74,12 @@ import {
 import { ver as verInduccion } from '@/routes/portal/induccion';
 import { index as indexReportes } from '@/routes/reportes';
 import { index as indexRotacion } from '@/routes/reportes/rotacion';
+import { index as indexTableroRotacion } from '@/routes/reportes/rotacion/tablero';
 import { index as indexActas } from '@/routes/rh/actas';
 import { index as indexActivosResponsivas } from '@/routes/rh/activos-responsivas';
 import { index as indexAniversarios } from '@/routes/rh/aniversarios';
 import { index as indexAvisos } from '@/routes/rh/avisos';
+import { index as indexBajas } from '@/routes/rh/bajas';
 import { index as indexCampanas } from '@/routes/rh/campanas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
 import { index as indexCierres } from '@/routes/rh/cierres';
@@ -509,6 +512,17 @@ export function useMainNavItems() {
                     icono: DoorOpen,
                 },
                 [
+                    // Módulo de Bajas: solicitud del gerente, bandeja de RH,
+                    // revisión de Jurídico y consulta de Contraloría.
+                    algunPermiso(
+                        'bajas.ver',
+                        'bajas.revisar_juridico',
+                        'bajas.consulta_contraloria',
+                    ) && {
+                        title: 'Solicitudes de baja',
+                        href: indexBajas(),
+                        icon: ClipboardList,
+                    },
                     tienePermiso('cierres.ver') && {
                         title: 'Bajas y finiquitos',
                         href: indexCierres(),
@@ -575,9 +589,13 @@ export function useMainNavItems() {
                         href: indexReportes(),
                         icon: BarChart3,
                     },
-                    tienePermiso('rotacion.ver') && {
+                    // Un solo acceso: el tablero (Excel histórico + bajas del
+                    // sistema); quien solo tiene rotacion.ver ve el histórico.
+                    algunPermiso('bajas.tablero.ver', 'rotacion.ver') && {
                         title: 'Rotación de personal',
-                        href: indexRotacion(),
+                        href: tienePermiso('bajas.tablero.ver')
+                            ? indexTableroRotacion()
+                            : indexRotacion(),
                         icon: TrendingDown,
                     },
                 ],
@@ -598,6 +616,15 @@ export function useMainNavItems() {
                         href: indexDocumentosMaestros(),
                         icon: FileStack,
                     },
+                    // Misma pantalla que Bajas y finiquitos → «Causales» (RN-15).
+                    tienePermiso('finiquitos.causales_rotacion') &&
+                        tienePermiso('finiquitos.ver') && {
+                            title: 'Catálogo de bajas',
+                            href: indexCierres({
+                                query: { seccion: 'causales' },
+                            }),
+                            icon: ListTree,
+                        },
                     algunPermiso('usuarios.ver', 'roles.administrar') && {
                         title: 'Usuarios y permisos',
                         href: indexUsuarios(),

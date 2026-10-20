@@ -77,7 +77,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::prefix('contactos-emergencia')->name('contactos-emergencia.')->group(function () {
             Route::get('/', [ContactosEmergenciaController::class, 'index'])->name('index');
             Route::post('/', [ContactosEmergenciaController::class, 'analizar'])->name('analizar')->middleware('throttle:10,1');
+            Route::get('plantilla', [ContactosEmergenciaController::class, 'plantilla'])->name('plantilla');
+            Route::get('colaboradores', [ContactosEmergenciaController::class, 'colaboradores'])->name('colaboradores')->middleware('throttle:60,1');
             Route::get('{importacion}', [ContactosEmergenciaController::class, 'show'])->name('show');
+            // Fila ambigua o no encontrada: RH elige al colaborador a mano.
+            Route::post('{importacion}/filas/{fila}/asignar', [ContactosEmergenciaController::class, 'asignar'])->name('filas.asignar')->whereNumber('fila');
             Route::post('{importacion}/aplicar', [ContactosEmergenciaController::class, 'aplicar'])->name('aplicar')->middleware('throttle:10,1');
             Route::delete('{importacion}', [ContactosEmergenciaController::class, 'destroy'])->name('destroy');
         });

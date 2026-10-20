@@ -54,6 +54,20 @@ Schedule::command('cierres:revisar-fechas')
     ->withoutOverlapping()
     ->onOneServer();
 
+// Plantilla mensual por sucursal (denominador de la rotación,
+// docs/BAJAS_Y_CAUSALES.md): foto de activos el día 1 y el último día del
+// mes. Idempotente (una fila por mes y sucursal).
+Schedule::command('bajas:foto-plantilla --momento=inicio')
+    ->monthlyOn(1, '00:15')
+    ->timezone('America/Mexico_City')
+    ->withoutOverlapping()
+    ->onOneServer();
+Schedule::command('bajas:foto-plantilla --momento=cierre')
+    ->lastDayOfMonth('23:50')
+    ->timezone('America/Mexico_City')
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // Jefe directo = organigrama: red de seguridad por si un cambio entró por
 // un camino que no dispara la sincronización inmediata (SQL manual, etc.).
 Schedule::command('organigrama:sincronizar-jefes')

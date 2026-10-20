@@ -1073,7 +1073,7 @@ function irACompletarExpediente() {
                     value="onboarding"
                     class="justify-start gap-2 lg:w-full"
                 >
-                    <ListChecks class="size-4" /> Onboarding
+                    <ListChecks class="size-4" /> Checklist
                 </TabsTrigger>
                 <TabsTrigger
                     value="avisos"

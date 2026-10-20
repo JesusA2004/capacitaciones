@@ -9,6 +9,7 @@ import {
     UserRound,
 } from '@lucide/vue';
 import { computed, onMounted, ref, watch } from 'vue';
+import CamposBaja from '@/components/bajas/CamposBaja.vue';
 import AccionesCiclo from '@/components/ciclo/AccionesCiclo.vue';
 import AprobacionesResumen from '@/components/ciclo/AprobacionesResumen.vue';
 import CicloEstadoPanel from '@/components/ciclo/CicloEstadoPanel.vue';
@@ -49,10 +50,13 @@ import onboardingRutas from '@/routes/rh/onboarding';
 import { index as reingresos } from '@/routes/rh/reingresos';
 import type {
     AccionCiclo,
+    CamposBaja as CamposBajaDatos,
     EstadoCiclo,
     EvaluacionPeriodoPruebaResumen,
     FiniquitoCierre,
+    FormaSalidaOpcion,
     FormularioAccion,
+    LimitesBaja,
     OnboardingDetalle,
     TipoBajaOpcion,
 } from '@/types';
@@ -84,9 +88,13 @@ const props = defineProps<{
     puede_solicitar_excepcion: boolean;
     puede_resolver_excepcion: boolean;
     opciones: {
-        // Tipos de baja (renuncia / rescisión / fin de contrato) con sus
-        // causales de rotación activas.
+        // Formas de salida (renuncia / no renovación / rescisión) con sus
+        // causales activas, ayuda y reglas (módulo de Bajas).
         causas: TipoBajaOpcion[];
+        recontratable: { value: string; label: string }[];
+        entregas: { value: string; label: string }[];
+        limites_baja: LimitesBaja;
+        es_rh_bajas: boolean;
         criterios: string[];
     };
 }>();
@@ -105,23 +113,51 @@ const accion = ref<AccionCiclo | null>(null);
 const form = useForm<FormularioAccion>({});
 const hoy = new Date().toISOString().slice(0, 10);
 
-// «Iniciar baja»: el motivo (causal de rotación) depende del tipo elegido.
-const tipoBajaElegido = computed(
-    () => props.opciones.causas.find((c) => c.value === form.tipo_baja) ?? null,
-);
-const opcionesCausal = computed(() =>
-    (tipoBajaElegido.value?.causales ?? []).map((c) => ({
-        value: c.id,
-        label: c.nombre,
+// «Iniciar baja» (atajo de RH / jefe directo): mismos campos que la
+// solicitud del gerente (CamposBaja). Se traducen al formulario del cierre
+// (tipo_baja, causal, fecha efectiva, motivo) al confirmar.
+const formasAtajo = computed<FormaSalidaOpcion[]>(() =>
+    props.opciones.causas.map((c) => ({
+        value: c.forma,
+        etiqueta: c.etiqueta,
+        resumen: c.resumen,
+        descripcion: c.descripcion,
+        tipo_baja: c.value,
+        token: c.token,
+        causales: c.causales,
     })),
 );
 
-function elegirTipoBaja(valor: string) {
-    if (form.tipo_baja !== valor) {
-        form.tipo_baja = valor;
-        // La causal de otro tipo no aplica: se vuelve a elegir.
-        form.causal_rotacion_id = null;
-    }
+const camposVacios = (): CamposBajaDatos => ({
+    forma_salida: null,
+    causal_rotacion_id: null,
+    fecha_baja: hoy,
+    recontratable: '',
+    comentarios: '',
+    fecha_conocimiento_falta: '',
+    entrega_aviso_rescision: '',
+    fecha_entrega_aviso: '',
+});
+const camposAtajo = ref<CamposBajaDatos>(camposVacios());
+const tipoBajaAtajo = computed(
+    () =>
+        formasAtajo.value.find(
+            (f) => f.value === camposAtajo.value.forma_salida,
+        )?.tipo_baja ?? '',
+);
+
+function volcarAtajo() {
+    const c = camposAtajo.value;
+    Object.assign(form, {
+        tipo_baja: tipoBajaAtajo.value,
+        causal_rotacion_id: c.causal_rotacion_id,
+        fecha_efectiva: c.fecha_baja,
+        motivo: c.comentarios,
+        recontratable: c.recontratable || null,
+        fecha_conocimiento_falta: c.fecha_conocimiento_falta || null,
+        entrega_aviso_rescision: c.entrega_aviso_rescision || null,
+        fecha_entrega_aviso: c.fecha_entrega_aviso || null,
+    });
 }
 
 const plantillas: Record<string, () => FormularioAccion> = {
@@ -156,14 +192,17 @@ const plantillas: Record<string, () => FormularioAccion> = {
         motivo_no_renovacion: '',
     }),
     devolver_evaluacion: () => ({ motivo: '' }),
-    solicitar_baja: () => ({
-        tipo_baja: props.opciones.causas[0]?.value ?? 'renuncia',
-        // El motivo (causal de rotación) se elige siempre a conciencia:
-        // nunca se preselecciona.
-        causal_rotacion_id: null,
-        motivo: '',
-        fecha_efectiva: hoy,
-    }),
+    solicitar_baja: () => {
+        // Forma y causal se eligen siempre a conciencia: nunca se preseleccionan.
+        camposAtajo.value = camposVacios();
+
+        return {
+            tipo_baja: '',
+            causal_rotacion_id: null,
+            motivo: '',
+            fecha_efectiva: hoy,
+        };
+    },
     registrar_aviso: () => ({ archivo: null }),
     // Prellenado con el sueldo del cálculo anterior o el salario diario
     // registrado × 30: «Calcular» nunca exige capturar a mano lo que ya existe.
@@ -490,6 +529,10 @@ function enviar() {
     }
 
     const clave = accion.value.clave;
+
+    if (clave === 'solicitar_baja') {
+        volcarAtajo();
+    }
 
     form.post(destino(clave), {
         preserveScroll: true,
@@ -1351,92 +1394,46 @@ const etiquetaFecha: Record<string, string> = {
                 </template>
 
                 <template v-else-if="accion?.clave === 'solicitar_baja'">
-                    <div class="grid gap-1.5">
-                        <Label>Tipo de baja</Label>
-                        <div
-                            class="grid gap-2 sm:grid-cols-3"
-                            role="radiogroup"
-                            aria-label="Tipo de baja"
-                        >
-                            <Button
-                                v-for="c in opciones.causas"
-                                :key="c.value"
-                                type="button"
-                                role="radio"
-                                :aria-checked="form.tipo_baja === c.value"
-                                :variant="
-                                    form.tipo_baja === c.value
-                                        ? 'default'
-                                        : 'outline'
-                                "
-                                @click="elegirTipoBaja(c.value)"
-                                >{{ c.etiqueta }}</Button
-                            >
-                        </div>
-                        <p
-                            v-if="tipoBajaElegido"
-                            class="text-xs text-muted-foreground"
-                        >
-                            {{ tipoBajaElegido.descripcion }}
-                        </p>
-                        <InputError :message="form.errors.tipo_baja" />
-                    </div>
-                    <div class="grid gap-1.5">
-                        <Label for="baja-causal">Motivo</Label>
-                        <SelectSimple
-                            id="baja-causal"
-                            v-model="form.causal_rotacion_id as number | null"
-                            :opciones="opcionesCausal"
-                            numerico
-                            :disabled="!opcionesCausal.length"
-                            :placeholder="
-                                opcionesCausal.length
-                                    ? 'Elige el motivo…'
-                                    : 'Sin motivos activos para este tipo'
-                            "
-                            aria-label="Motivo (causal de rotación)"
-                        />
-                        <InputError :message="form.errors.causal_rotacion_id" />
-                    </div>
-                    <div class="grid gap-1.5">
-                        <Label>Fecha efectiva</Label
-                        ><DatePicker
-                            v-model="form.fecha_efectiva as string"
-                        /><InputError :message="form.errors.fecha_efectiva" />
-                    </div>
-                    <div class="grid gap-1.5">
-                        <Label for="baja-detalle"
-                            >Observaciones / detalle (opcional)</Label
-                        ><Textarea
-                            id="baja-detalle"
-                            v-model="form.motivo as string"
-                            rows="3"
-                            placeholder="Lo que pasó, acuerdos, contexto…"
-                        /><InputError :message="form.errors.motivo" />
-                    </div>
+                    <!-- Atajo de RH / jefe directo: mismos campos que la
+                         solicitud del gerente (módulo de Bajas). La baja queda
+                         aplicada y «En revisión RH»; sus documentos se
+                         adjuntan en el expediente de la baja. -->
+                    <CamposBaja
+                        v-model="camposAtajo"
+                        :formas="formasAtajo"
+                        :recontratable="opciones.recontratable"
+                        :entregas="opciones.entregas"
+                        :limites="opciones.limites_baja"
+                        :errores="form.errors"
+                        :es-rh="opciones.es_rh_bajas"
+                        etiqueta-fecha="Fecha efectiva (último día laborado)"
+                    />
                     <p class="text-xs text-muted-foreground">
                         La baja se aplica de inmediato: sus accesos se suspenden
-                        al confirmar.
+                        al confirmar y queda «En revisión RH» con su folio.
                         {{
-                            form.tipo_baja === 'rescision'
-                                ? 'La rescisión no genera documento: sigue directo el finiquito.'
-                                : 'El sistema genera los documentos del tipo para imprimir y firmar; después sigue el finiquito.'
+                            camposAtajo.forma_salida === 'RE'
+                                ? 'La rescisión no genera documento: el aviso de rescisión se adjunta en el expediente de la baja.'
+                                : 'El sistema genera los documentos que correspondan para imprimir y firmar; después sigue el finiquito.'
                         }}
                     </p>
                     <!-- Documentos de la causa, vistos ANTES de aplicar la baja
                          (sin documentos para la causa, no aparece). -->
                     <VistaPreviaFlujo
+                        v-if="tipoBajaAtajo"
                         flujo="baja"
                         :id="colaborador.id"
                         :datos="{
-                            tipo_baja: form.tipo_baja as string,
-                            fecha_efectiva: form.fecha_efectiva as string,
-                            motivo: form.motivo as string,
+                            tipo_baja: tipoBajaAtajo,
+                            causal_rotacion_id:
+                                camposAtajo.causal_rotacion_id ?? undefined,
+                            fecha_efectiva: camposAtajo.fecha_baja,
+                            motivo: camposAtajo.comentarios,
                         }"
                         :disabled="form.processing"
                     />
                     <InputError :message="form.errors.colaborador" />
-                    <InputError :message="form.errors.tipo_baja" />
+                    <InputError :message="form.errors.colaborador_id" />
                 </template>
 
                 <template

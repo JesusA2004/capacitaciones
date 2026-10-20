@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { FileSpreadsheet, FileUp, Trash2 } from '@lucide/vue';
+import { Download, FileSpreadsheet, FileUp, Trash2 } from '@lucide/vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
@@ -9,6 +9,7 @@ import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import rutasContactos, {
     destroy as quitarImportacion,
+    plantilla as plantillaContactos,
     show as mostrarImportacion,
 } from '@/routes/rh/contactos-emergencia';
 
@@ -29,6 +30,8 @@ type ImportacionResumen = {
 };
 
 defineProps<{
+    /** Encabezados oficiales (fila 1) que debe traer el Excel. */
+    columnas: string[];
     importaciones: {
         data: ImportacionResumen[];
         links: { url: string | null; label: string; active: boolean }[];
@@ -87,23 +90,35 @@ function analizar() {
         <section
             class="flex flex-col gap-4 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
         >
-            <h2 class="text-sm font-semibold">Subir contactos de emergencia</h2>
+            <div class="flex flex-wrap items-start justify-between gap-3">
+                <h2 class="text-sm font-semibold">
+                    Subir Excel de contactos de emergencia
+                </h2>
+                <Button variant="outline" size="sm" as-child>
+                    <a :href="plantillaContactos.url()" download>
+                        <Download class="size-4" /> Descargar plantilla vacía
+                    </a>
+                </Button>
+            </div>
             <p class="text-xs text-muted-foreground">
-                Sube un Excel (.xlsx) con una fila por colaborador. Se empareja
-                por nombre completo (la sucursal desambigua homónimos) y solo
-                rellena colaboradores que ya existen; nunca crea personas
-                nuevas. Primero se analiza (preview): nada se aplica hasta que lo
-                confirmes en la pantalla de revisión. El contacto de emergencia
-                también se usa como beneficiario del contrato cuando no hay uno
-                capturado aparte.
+                Sube el Excel (.xlsx, por ejemplo el que exporta Google Forms)
+                con una fila por colaborador. Se empareja por nombre completo
+                exacto —sin importar acentos, mayúsculas ni espacios— y la
+                sucursal desambigua homónimos; solo rellena colaboradores que ya
+                existen, nunca crea personas nuevas. Primero verás una vista
+                previa: nada se guarda hasta que confirmes. El contacto de
+                emergencia también se usa como beneficiario del contrato cuando
+                no hay uno capturado aparte.
             </p>
-            <p class="text-xs text-muted-foreground">
-                Columnas esperadas: <strong>Nombre completo del colaborador</strong>,
-                Sucursal, Número de teléfono personal, Condición médica crónica,
-                Alergias, <strong>Nombre de contacto de emergencia</strong>,
-                Parentesco, Número telefónico del contacto de emergencia y
-                Dirección del contacto de emergencia.
-            </p>
+            <div class="text-xs text-muted-foreground">
+                <p>
+                    Columnas obligatorias (en cualquier orden; columnas extra
+                    como «Marca temporal» se ignoran):
+                </p>
+                <ol class="mt-1 list-decimal pl-5">
+                    <li v-for="c in columnas" :key="c">{{ c }}</li>
+                </ol>
+            </div>
 
             <form class="flex flex-col gap-3" @submit.prevent="analizar">
                 <PeopleFileDropzone
@@ -118,7 +133,7 @@ function analizar() {
                         type="submit"
                         :disabled="form.archivo.length === 0 || form.processing"
                     >
-                        <FileUp class="size-4" /> Analizar archivo
+                        <FileUp class="size-4" /> Subir y ver vista previa
                     </Button>
                 </div>
             </form>
@@ -141,6 +156,7 @@ function analizar() {
                             <th class="py-2 pr-3">No encontradas</th>
                             <th class="py-2 pr-3">Subido por</th>
                             <th class="py-2 pr-3">Fecha</th>
+                            <th class="py-2 pr-3">Aplicada por</th>
                             <th class="py-2"></th>
                         </tr>
                     </thead>
@@ -176,6 +192,18 @@ function analizar() {
                             <td class="py-2 pr-3">
                                 {{ formatearFecha(i.creado_en) }}
                             </td>
+                            <td class="py-2 pr-3">
+                                <template v-if="i.aplicado_por">
+                                    {{ i.aplicado_por }}
+                                    <span
+                                        class="block text-xs text-muted-foreground"
+                                        >{{
+                                            formatearFecha(i.aplicado_en)
+                                        }}</span
+                                    >
+                                </template>
+                                <template v-else>—</template>
+                            </td>
                             <td class="py-2 text-right">
                                 <div class="flex justify-end gap-2">
                                     <Link :href="mostrarImportacion.url(i.id)">
@@ -198,7 +226,7 @@ function analizar() {
                         </tr>
                         <tr v-if="importaciones.data.length === 0">
                             <td
-                                colspan="9"
+                                colspan="10"
                                 class="py-6 text-center text-sm text-muted-foreground"
                             >
                                 Todavía no se ha subido ningún archivo.

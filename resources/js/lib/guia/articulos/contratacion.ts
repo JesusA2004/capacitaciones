@@ -497,7 +497,7 @@ export const ARTICULOS_CONTRATACION: ArticuloGuia[] = [
             },
         ],
         despues: [
-            'El colaborador ve su propio expediente en Mi expediente (sin la pestaña Cuenta ni Onboarding).',
+            'El colaborador ve su propio expediente en Mi expediente (sin la pestaña Cuenta ni Checklist).',
         ],
         errores: [
             {

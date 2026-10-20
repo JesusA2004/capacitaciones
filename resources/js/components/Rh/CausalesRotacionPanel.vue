@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { router, useForm } from '@inertiajs/vue3';
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from '@lucide/vue';
+import { ArrowDown, ArrowUp, Pencil, Plus } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import Casilla from '@/components/Common/Casilla.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
@@ -18,19 +18,22 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { claseForma } from '@/lib/bajas';
+import { cn } from '@/lib/utils';
 import causalesRotacion from '@/routes/rh/causales-rotacion';
 import type { CausalRotacionAdmin } from '@/types';
 
 /**
- * Bajas y finiquitos → «Causales de rotación»: el motivo de cada uno de los
- * tres tipos de baja (renuncia, rescisión, fin de contrato). Alta, edición,
- * activar/desactivar y orden; una causal ya usada no se elimina, se
- * desactiva (CausalRotacionService). La autorización real vive en
- * CausalRotacionPolicy.
+ * Catálogo de causales de baja (RN-15, solo RH): dos niveles — forma de
+ * salida (Renuncia voluntaria / No renovación / Rescisión) y su causal con
+ * clave (RV-01…), ayuda «cuándo usarla», revisión de Jurídico, comentario
+ * obligatorio y alerta. Las causales NUNCA se borran: se desactivan. Es la
+ * misma pantalla en Bajas y finiquitos → «Causales» y en Configuración →
+ * «Catálogo de bajas». La autorización real vive en CausalRotacionPolicy.
  */
 const props = defineProps<{
     causales: CausalRotacionAdmin[];
-    tipos: { value: string; label: string }[];
+    tipos: { value: string; label: string; forma?: string; token?: string }[];
 }>();
 
 const grupos = computed(() =>
@@ -46,6 +49,9 @@ const form = useForm({
     tipo: '',
     nombre: '',
     descripcion: '',
+    requiere_juridico: false,
+    comentario_obligatorio: false,
+    alerta: '',
     excluye_indemnizacion: false,
     activo: true,
 });
@@ -56,6 +62,9 @@ function nueva(tipo: string) {
     form.tipo = tipo;
     form.nombre = '';
     form.descripcion = '';
+    form.requiere_juridico = false;
+    form.comentario_obligatorio = tipo === 'rescision';
+    form.alerta = '';
     form.excluye_indemnizacion = false;
     form.activo = true;
     abierto.value = true;
@@ -67,6 +76,9 @@ function editar(c: CausalRotacionAdmin) {
     form.tipo = c.tipo;
     form.nombre = c.nombre;
     form.descripcion = c.descripcion ?? '';
+    form.requiere_juridico = c.requiere_juridico;
+    form.comentario_obligatorio = c.comentario_obligatorio;
+    form.alerta = c.alerta ?? '';
     form.excluye_indemnizacion = c.excluye_indemnizacion;
     form.activo = c.activo;
     abierto.value = true;
@@ -87,8 +99,6 @@ function guardar() {
     form.post(causalesRotacion.store.url(), opciones);
 }
 
-const errorFila = ref<string | null>(null);
-
 function alternar(c: CausalRotacionAdmin) {
     router.patch(
         causalesRotacion.activo.url(c.id),
@@ -104,29 +114,16 @@ function mover(c: CausalRotacionAdmin, direccion: 'arriba' | 'abajo') {
         { preserveScroll: true },
     );
 }
-
-function eliminar(c: CausalRotacionAdmin) {
-    if (!window.confirm(`¿Eliminar el motivo «${c.nombre}»?`)) {
-        return;
-    }
-
-    errorFila.value = null;
-    router.delete(causalesRotacion.destroy.url(c.id), {
-        preserveScroll: true,
-        onError: (e) => (errorFila.value = e.causal ?? null),
-    });
-}
 </script>
 
 <template>
     <div class="flex flex-col gap-4">
         <p class="text-sm text-[var(--mrl-texto-suave)]">
-            Al iniciar una baja se elige el tipo (renuncia, rescisión o fin de
-            contrato) y, debajo, su motivo. Un motivo que ya se usó no se
-            elimina: desactívalo para que ya no se ofrezca; el historial lo
-            conserva.
+            Al registrar una baja se elige primero cómo se va (forma de salida)
+            y después por qué (la causal de esa forma); la ayuda de cada causal
+            se muestra en pantalla. Las causales nunca se borran: desactívala
+            para que ya no se ofrezca; el historial la conserva.
         </p>
-        <InputError :message="errorFila ?? ''" />
 
         <section
             v-for="g in grupos"
@@ -136,14 +133,20 @@ function eliminar(c: CausalRotacionAdmin) {
             <header
                 class="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--mrl-borde)] px-4 py-3"
             >
-                <h3 class="text-sm font-semibold">
-                    {{ g.label }}
+                <h3 class="flex items-center gap-2 text-sm font-semibold">
+                    <span
+                        :class="
+                            cn('size-3 rounded-full', claseForma(g.token).fondo)
+                        "
+                        aria-hidden="true"
+                    />
+                    {{ g.forma ? `${g.forma} · ` : '' }}{{ g.label }}
                     <span class="font-normal text-[var(--mrl-texto-suave)]"
-                        >· {{ g.causales.length }} motivos</span
+                        >· {{ g.causales.length }} causales</span
                     >
                 </h3>
                 <Button size="sm" variant="outline" @click="nueva(g.value)">
-                    <Plus class="size-4" />Agregar motivo
+                    <Plus class="size-4" />Agregar causal
                 </Button>
             </header>
 
@@ -151,8 +154,7 @@ function eliminar(c: CausalRotacionAdmin) {
                 v-if="!g.causales.length"
                 class="px-4 py-6 text-center text-sm text-[var(--mrl-texto-suave)]"
             >
-                Sin motivos. Agrega al menos uno para poder elegirlo al iniciar
-                una baja de este tipo.
+                Sin causales. Agrega al menos una para poder elegirla.
             </p>
 
             <ul v-else class="divide-y divide-[var(--mrl-borde)]">
@@ -168,9 +170,25 @@ function eliminar(c: CausalRotacionAdmin) {
                                 !c.activo && 'text-[var(--mrl-texto-suave)]'
                             "
                         >
+                            <span
+                                v-if="c.clave"
+                                class="font-mono text-xs text-[var(--mrl-texto-suave)]"
+                                >{{ c.clave }}</span
+                            >
                             {{ c.nombre }}
                             <Badge v-if="!c.activo" variant="secondary"
-                                >Inactivo</Badge
+                                >Inactiva</Badge
+                            >
+                            <Badge v-if="c.requiere_juridico" variant="outline"
+                                >Jurídico</Badge
+                            >
+                            <Badge
+                                v-if="c.comentario_obligatorio"
+                                variant="outline"
+                                >Comentario obligatorio</Badge
+                            >
+                            <Badge v-if="c.alerta" variant="warning"
+                                >Alerta</Badge
                             >
                             <Badge
                                 v-if="c.excluye_indemnizacion"
@@ -181,11 +199,14 @@ function eliminar(c: CausalRotacionAdmin) {
                         <p class="text-xs text-[var(--mrl-texto-suave)]">
                             {{
                                 c.usos
-                                    ? `Usado en ${c.usos} ${c.usos === 1 ? 'baja' : 'bajas'}`
+                                    ? `Usada en ${c.usos} ${c.usos === 1 ? 'baja' : 'bajas'}`
                                     : 'Sin usar'
                             }}<template v-if="c.descripcion">
                                 · {{ c.descripcion }}</template
                             >
+                        </p>
+                        <p v-if="c.alerta" class="text-xs text-warning">
+                            {{ c.alerta }}
                         </p>
                     </div>
                     <div class="flex flex-wrap items-center gap-1">
@@ -218,14 +239,6 @@ function eliminar(c: CausalRotacionAdmin) {
                             @click="editar(c)"
                             ><Pencil class="size-4"
                         /></Button>
-                        <Button
-                            v-if="!c.usos && !c.clave"
-                            size="icon"
-                            variant="ghost"
-                            aria-label="Eliminar"
-                            @click="eliminar(c)"
-                            ><Trash2 class="size-4"
-                        /></Button>
                     </div>
                 </li>
             </ul>
@@ -236,17 +249,19 @@ function eliminar(c: CausalRotacionAdmin) {
         <DialogContent class="sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle>{{
-                    editando ? 'Editar motivo' : 'Nuevo motivo'
+                    editando
+                        ? `Editar causal ${editando.clave ?? ''}`
+                        : 'Nueva causal'
                 }}</DialogTitle>
                 <DialogDescription
-                    >Causal de rotación que se elige al iniciar una
-                    baja.</DialogDescription
+                    >Se elige al registrar una baja de esta forma de
+                    salida.</DialogDescription
                 >
             </DialogHeader>
 
             <form class="grid gap-4" @submit.prevent="guardar">
                 <div class="grid gap-1.5">
-                    <Label for="causal-tipo">Tipo de baja</Label>
+                    <Label for="causal-tipo">Forma de salida</Label>
                     <SelectSimple
                         id="causal-tipo"
                         v-model="form.tipo"
@@ -257,7 +272,7 @@ function eliminar(c: CausalRotacionAdmin) {
                         v-if="editando?.usos"
                         class="text-xs text-[var(--mrl-texto-suave)]"
                     >
-                        Ya se usó en bajas: no cambia de tipo.
+                        Ya se usó en bajas: no cambia de forma de salida.
                     </p>
                     <InputError :message="form.errors.tipo" />
                 </div>
@@ -266,32 +281,50 @@ function eliminar(c: CausalRotacionAdmin) {
                     <Input
                         id="causal-nombre"
                         v-model="form.nombre"
-                        maxlength="150"
+                        maxlength="80"
                     />
                     <InputError :message="form.errors.nombre" />
                 </div>
                 <div class="grid gap-1.5">
                     <Label for="causal-descripcion"
-                        >Descripción (opcional)</Label
+                        >Cuándo usarla (ayuda en pantalla)</Label
                     >
                     <Textarea
                         id="causal-descripcion"
                         v-model="form.descripcion"
                         rows="2"
-                        maxlength="500"
+                        maxlength="300"
                     />
                     <InputError :message="form.errors.descripcion" />
                 </div>
+                <div class="grid gap-1.5">
+                    <Label for="causal-alerta">Alerta (opcional)</Label>
+                    <Input
+                        id="causal-alerta"
+                        v-model="form.alerta"
+                        maxlength="200"
+                        placeholder="p. ej. Aviso a Contraloría"
+                    />
+                    <InputError :message="form.errors.alerta" />
+                </div>
+                <label class="flex items-start gap-2 text-sm">
+                    <Casilla v-model="form.requiere_juridico" />
+                    <span>Requiere revisión de Jurídico antes del cierre</span>
+                </label>
+                <label class="flex items-start gap-2 text-sm">
+                    <Casilla v-model="form.comentario_obligatorio" />
+                    <span>Comentario obligatorio (mínimo 20 caracteres)</span>
+                </label>
                 <label class="flex items-start gap-2 text-sm">
                     <Casilla v-model="form.excluye_indemnizacion" />
                     <span
-                        >No estimar indemnización en el finiquito (p. ej.
-                        abandono de trabajo). La renuncia nunca la estima.</span
+                        >No estimar indemnización en el finiquito (p. ej. faltas
+                        o abandono). La renuncia nunca la estima.</span
                     >
                 </label>
                 <label class="flex items-center gap-2 text-sm">
                     <Casilla v-model="form.activo" />
-                    <span>Activo (se ofrece al iniciar una baja)</span>
+                    <span>Activa (se ofrece al registrar una baja)</span>
                 </label>
                 <DialogFooter>
                     <Button
@@ -301,7 +334,7 @@ function eliminar(c: CausalRotacionAdmin) {
                         >Cancelar</Button
                     >
                     <Button type="submit" :disabled="form.processing">{{
-                        editando ? 'Guardar cambios' : 'Agregar motivo'
+                        editando ? 'Guardar cambios' : 'Agregar causal'
                     }}</Button>
                 </DialogFooter>
             </form>

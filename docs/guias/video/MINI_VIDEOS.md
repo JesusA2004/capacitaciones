@@ -67,7 +67,7 @@ Artículo de referencia: [Evaluación de capacitación inicial](FLUJO_COMPLETO.m
 
 ## Cómo hacer una baja · 01:36 min
 
-Artículo de referencia: [Baja de un colaborador (cierre laboral)](FLUJO_COMPLETO.md#articulo-baja)
+Artículo de referencia: [Baja de un colaborador (forma de salida y causal)](FLUJO_COMPLETO.md#articulo-baja)
 
 | # | Pantalla | Acción | Narración |
 |---|---|---|---|

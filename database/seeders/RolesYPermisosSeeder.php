@@ -502,6 +502,9 @@ class RolesYPermisosSeeder extends Seeder
             'app_releases.ver', 'app_releases.crear', 'app_releases.publicar', 'app_releases.eliminar', 'app_releases.descargar',
             'solicitudes.bajas.crear', 'solicitudes.bajas.aprobar',
             'finiquitos.ver', 'finiquitos.calcular', 'finiquitos.revisar', 'finiquitos.subir_firmado', 'finiquitos.causales_rotacion',
+            // Módulo de Bajas y Causales: RH valida, rechaza, cambia causal,
+            // cierra y reabre (docs/BAJAS_Y_CAUSALES.md).
+            'bajas.ver', 'bajas.solicitar', 'bajas.gestionar', 'bajas.tablero.ver',
             'headcount.ver', 'headcount.editar', 'headcount.importar',
             'organigrama.ver', 'organigrama.editar',
             // Ciclo laboral completo (docs/backend-rh-completion.md).
@@ -559,6 +562,7 @@ class RolesYPermisosSeeder extends Seeder
             'rh.cumpleanos.ver', 'rh.cumpleanos.calendario', 'rh.cumpleanos.descargar_imagen',
             'app_releases.ver',
             'finiquitos.ver', 'finiquitos.calcular', 'finiquitos.subir_firmado',
+            'bajas.ver', 'bajas.tablero.ver',
             'headcount.ver', 'organigrama.ver',
             // Ciclo laboral completo (docs/backend-rh-completion.md).
             'colaboradores.alta', 'candidatos.contratar', 'plantillas_documentales.ver',
@@ -603,6 +607,8 @@ class RolesYPermisosSeeder extends Seeder
             // Responsivas de equipo para su equipo y su subgerente.
             'responsivas.ver', 'responsivas.generar',
             'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
+            // Solicitud de baja de su personal + tablero de su alcance.
+            'bajas.ver', 'bajas.solicitar', 'bajas.tablero.ver',
         ],
         'supervisor' => [
             'perfiles_puesto.ver',
@@ -627,6 +633,8 @@ class RolesYPermisosSeeder extends Seeder
             'usuarios.ver',
             'empresas.ver',
             'reportes_rh.ver', 'reportes_rh.globales', 'reportes_rh.exportar', 'rotacion.ver',
+            // Tablero de rotación global y por sucursal, solo lectura.
+            'bajas.tablero.ver',
             'vacantes.ver', 'vacantes.ver_todos',
             'candidatos.ver', 'candidatos.ver_todos',
             // Backend movil v5: solo lectura, sin autoridad de aprobacion (igual criterio que en web).
@@ -670,6 +678,8 @@ class RolesYPermisosSeeder extends Seeder
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
             'solicitudes.bajas.crear', 'headcount.ver', 'organigrama.ver',
             'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
+            // Solicitud de baja de su personal + tablero de su alcance.
+            'bajas.ver', 'bajas.solicitar', 'bajas.tablero.ver',
             // Única autoridad que decide una intervención de Gestor/Volante
             // (CLAUDE.md §11-A) — la de SU región, nunca otra.
             'candidatos.intervencion_decidir',
@@ -702,6 +712,8 @@ class RolesYPermisosSeeder extends Seeder
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
             'solicitudes.bajas.crear', 'headcount.ver', 'organigrama.ver',
             'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
+            // Solicitud de baja de su personal + tablero de su alcance.
+            'bajas.ver', 'bajas.solicitar', 'bajas.tablero.ver',
             // Responsivas de equipo para su equipo y su subgerente.
             'responsivas.ver', 'responsivas.generar',
         ],
@@ -743,6 +755,7 @@ class RolesYPermisosSeeder extends Seeder
             // Ciclo laboral completo (docs/backend-rh-completion.md).
             'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'prestamos.ver',
             'ciclo.preautorizar', 'onboarding.ver', 'cierres.ver', 'cierres.solicitar', 'solicitudes.bajas.crear',
+            'bajas.ver', 'bajas.solicitar',
         ],
 
         'colaborador' => self::PERMISOS_ROL_COLABORADOR,
@@ -785,6 +798,7 @@ class RolesYPermisosSeeder extends Seeder
             'contratos.ver', 'evaluaciones.ver', 'cierres.ver',
             'documentos_laborales.ver', 'plantillas_documentales.ver', 'indicadores.ver',
             'onboarding.ver',
+            'bajas.ver', 'bajas.tablero.ver',
         ],
 
         // Dirección: autorizaciones finales (evaluaciones, bajas) e
@@ -804,6 +818,8 @@ class RolesYPermisosSeeder extends Seeder
             'contratos.ver', 'evaluaciones.ver', 'evaluaciones.autorizar', 'excepciones.autorizar',
             'prestamos.ver',
             'cierres.ver', 'finiquitos.ver', 'finiquitos.revisar',
+            // Dirección General: tablero de rotación global y por sucursal.
+            'bajas.tablero.ver',
             'documentos_laborales.ver', 'actas.ver', 'nomina.recibos.ver',
             'mobile.bootstrap.ver', 'app.config.ver',
             'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
@@ -816,7 +832,20 @@ class RolesYPermisosSeeder extends Seeder
             'expedientes.ver', 'expedientes.ver_todos', 'documentos.ver', 'documentos.descargar',
             'plantillas_documentales.ver', 'plantillas_documentales.administrar',
             'documentos_laborales.ver', 'contratos.ver', 'actas.ver', 'cierres.ver', 'finiquitos.ver',
+            // Revisa y aprueba las bajas que requieren Jurídico (RN-06) y
+            // consulta las rescisiones; no cierra.
+            'bajas.revisar_juridico',
             'formatos_oficiales.ver', 'formatos_oficiales.descargar',
+            'mobile.bootstrap.ver', 'app.config.ver',
+            'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
+            'notificaciones.leer_todas',
+        ],
+
+        // Contraloría: recibe los avisos de RE-02 (faltantes en caja o
+        // cartera) y RE-03 (falta de probidad, robo o fraude) y consulta esas
+        // bajas, solo lectura (docs/BAJAS_Y_CAUSALES.md).
+        'contraloria' => [
+            'bajas.consulta_contraloria',
             'mobile.bootstrap.ver', 'app.config.ver',
             'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
             'notificaciones.leer_todas',
@@ -845,6 +874,7 @@ class RolesYPermisosSeeder extends Seeder
             'nomina.recibos.ver', 'finiquitos.ver', 'cierres.ver', 'onboarding.ver', 'altas.ver',
             'empresas.ver', 'headcount.ver', 'organigrama.ver', 'perfiles_puesto.ver', 'indicadores.ver',
             'reportes_rh.ver', 'reportes_rh.globales', 'rotacion.ver', 'reclutamiento.campanas.ver', 'celebraciones.ver',
+            'bajas.ver', 'bajas.tablero.ver',
             'formatos.ver', 'formatos.preview', 'formatos_oficiales.ver', 'plantillas.ver', 'plantillas_documentales.ver',
             // Consulta (sin acciones) también desde la app.
             'rh.mobile.dashboard.ver', 'rh.pendientes.ver',

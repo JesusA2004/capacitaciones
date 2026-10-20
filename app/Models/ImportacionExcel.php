@@ -29,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @property int $filas_no_encontradas
  * @property int $filas_error
  * @property list<array<string, mixed>>|null $detalle
+ * @property array<string, mixed>|null $metadatos Hash del contenido, columnas detectadas/ignoradas y resumen de la aplicación.
  * @property Carbon|null $aplicado_en
  * @property int|null $aplicado_por
  * @property-read User $subidoPor
@@ -44,13 +45,14 @@ class ImportacionExcel extends Model
     protected $fillable = [
         'archivo_hash', 'nombre_archivo', 'tipo', 'subido_por', 'estado',
         'total_filas', 'filas_aplicadas', 'filas_revision', 'filas_sin_cambios',
-        'filas_no_encontradas', 'filas_error', 'detalle', 'aplicado_en', 'aplicado_por',
+        'filas_no_encontradas', 'filas_error', 'detalle', 'metadatos', 'aplicado_en', 'aplicado_por',
     ];
 
     protected function casts(): array
     {
         return [
             'detalle' => 'array',
+            'metadatos' => 'array',
             'aplicado_en' => 'datetime',
         ];
     }

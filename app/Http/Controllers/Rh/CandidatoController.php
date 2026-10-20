@@ -34,6 +34,7 @@ use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Bajas\AntecedenteBajaService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Puestos\PerfilPuestoService;
 use App\Services\Reclutamiento\BandejaCvService;
@@ -83,6 +84,7 @@ class CandidatoController extends Controller
         private readonly ExpedienteCandidatoService $expediente,
         private readonly PerfilPuestoService $perfilesPuesto,
         private readonly BandejaCvService $bandejaCv,
+        private readonly AntecedenteBajaService $antecedentes,
     ) {}
 
     public function index(Request $request): Response
@@ -237,6 +239,9 @@ class CandidatoController extends Controller
             'opciones' => $this->opciones($request->user()),
             'intervencionPendienteId' => $intervencionPendiente?->id,
             'puedeAdjuntar' => $request->user()?->can('adjuntar', $candidato) ?? false,
+            // RN-09: baja previa «No recontratable» / «Con reservas» → alerta
+            // en Reclutamiento (la causal solo la ve quien consulta bajas).
+            'antecedenteBaja' => $this->antecedenteBaja($candidato, $request),
             // Qué debe tener quien se postula (perfil de puesto de RH).
             'perfilPuesto' => $request->user()?->can('perfiles_puesto.ver') ? $this->perfilesPuesto->paraCandidato($candidato) : null,
             'limitesArchivos' => [
@@ -615,5 +620,24 @@ class CandidatoController extends Controller
         }
 
         return $mapa;
+    }
+
+    /**
+     * @return array<string, string|null>|null
+     */
+    private function antecedenteBaja(Candidato $candidato, Request $request): ?array
+    {
+        $antecedente = $this->antecedentes->deCandidato($candidato);
+
+        if ($antecedente === null) {
+            return null;
+        }
+
+        // Quien no consulta bajas ve la alerta sin la causal.
+        if (! ($request->user()?->can('bajas.ver') ?? false)) {
+            $antecedente['causal'] = null;
+        }
+
+        return $antecedente;
     }
 }

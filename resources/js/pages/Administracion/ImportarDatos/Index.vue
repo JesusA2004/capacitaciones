@@ -6,6 +6,7 @@ import {
     FileSpreadsheet,
     ClipboardList,
     LayoutGrid,
+    Siren,
     TrendingDown,
     Upload,
     Terminal,
@@ -17,6 +18,7 @@ import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
 import { index as cargaInicialIndex } from '@/routes/administracion/importar-datos/carga-inicial';
 import { index as rotacionIndex } from '@/routes/reportes/rotacion';
+import { index as contactosEmergenciaIndex } from '@/routes/rh/contactos-emergencia';
 import { index as migracionIndex } from '@/routes/rh/expedientes/migracion';
 import { index as importacionesIndex } from '@/routes/rh/importaciones';
 import { importacion as perfilesImportacion } from '@/routes/rh/perfiles-puesto';
@@ -36,6 +38,7 @@ const props = defineProps<{
         salarios_vacaciones: boolean;
         rotacion: boolean;
         perfiles_puesto: boolean;
+        contactos_emergencia: boolean;
     };
 }>();
 
@@ -149,6 +152,22 @@ const tarjetas = computed<Tarjeta[]>(() => {
                   ],
                   icono: ClipboardList,
                   href: perfilesImportacion().url,
+              }
+            : null,
+        props.puede.contactos_emergencia
+            ? {
+                  clave: 'contactos_emergencia',
+                  titulo: 'Contactos de emergencia',
+                  descripcion:
+                      'Sube el Excel de contactos de emergencia, teléfono personal, condición médica y alergias de los colaboradores (formato de Google Forms).',
+                  flujo: [
+                      'Subir Excel',
+                      'Vista previa',
+                      'Elegir colaborador si no cuadra',
+                      'Confirmar',
+                  ],
+                  icono: Siren,
+                  href: contactosEmergenciaIndex().url,
               }
             : null,
     ];

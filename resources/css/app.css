@@ -85,6 +85,13 @@
     --color-esmeralda: var(--pastel-esmeralda);
     --color-oro: var(--pastel-oro);
     --color-bronce: var(--pastel-bronce);
+
+    /* Bajas: forma de salida y semáforo del tablero de rotación. */
+    --color-forma-renuncia: var(--forma-salida-renuncia);
+    --color-forma-no-renovacion: var(--forma-salida-no-renovacion);
+    --color-forma-rescision: var(--forma-salida-rescision);
+    --color-semaforo-sube: var(--semaforo-sube);
+    --color-semaforo-baja: var(--semaforo-baja);
 }
 
 /*
@@ -341,6 +348,15 @@
     --pastel-warning: #f3e3b8;
     --pastel-danger: #eecbc7;
     --pastel-info: #cee2e3;
+
+    /* Módulo de bajas (especificación de RH): color por forma de salida en
+       el tablero de rotación y semáforo de sucursales. Úsalos con
+       bg-forma-renuncia, text-semaforo-sube, etc.; nunca el hex. */
+    --forma-salida-renuncia: #00aeef;
+    --forma-salida-no-renovacion: #af8b51;
+    --forma-salida-rescision: #0d1b4b;
+    --semaforo-sube: #d64550;
+    --semaforo-baja: #1fa774;
 
     --brand-primary: var(--pastel-petroleo);
     --brand-secondary: var(--pastel-oro);

@@ -6,6 +6,7 @@ export * from './archivos';
 export * from './asignaciones';
 export * from './auth';
 export * from './avisos';
+export * from './bajas';
 export * from './calendario';
 export * from './campanas';
 export * from './cargaInicial';

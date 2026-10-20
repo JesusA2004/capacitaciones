@@ -7,9 +7,11 @@ use App\Models\User;
 use App\Services\CierreLaboral\CausalRotacionService;
 
 /**
- * Causales de rotación (subcatálogo del tipo de baja): las administra RH
- * desde Bajas y finiquitos con `finiquitos.causales_rotacion` (además de
- * ver finiquitos). Elegirlas al iniciar una baja no requiere este permiso.
+ * Catálogo de causales de baja: lo administra SOLO RH (RN-15) con
+ * `finiquitos.causales_rotacion` (además de ver finiquitos), desde Bajas y
+ * finiquitos → «Causales» o Configuración → «Catálogo de bajas» (misma
+ * pantalla). Elegirlas al registrar una baja no requiere este permiso.
+ * Las causales nunca se borran: se desactivan.
  */
 class CausalRotacionPolicy
 {
@@ -28,8 +30,11 @@ class CausalRotacionPolicy
         return $this->administrar($user);
     }
 
+    /**
+     * RN-15: nunca se borra una causal (ni la que nunca se usó).
+     */
     public function delete(User $user, CausalRotacion $causal): bool
     {
-        return $this->administrar($user);
+        return false;
     }
 }

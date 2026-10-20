@@ -1550,7 +1550,10 @@ class DocumentoProcesoService
      */
     private function checklistCierre(CierreLaboral $cierre): ?array
     {
-        if ($cierre->tipo_baja !== TipoBaja::FinContrato) {
+        // Solo el vencimiento de la capacitación inicial (NR-02, o una no
+        // renovación anterior sin causal): bajo desempeño, reestructura,
+        // término de contrato… se documentan con los adjuntos de la baja.
+        if ($cierre->tipo_baja !== TipoBaja::FinContrato || ! $this->esVencimientoCapacitacion($cierre)) {
             return null;
         }
 
@@ -1616,7 +1619,28 @@ class DocumentoProcesoService
      */
     public function clavesCausa(CierreLaboral $cierre): array
     {
-        return array_values(array_filter((array) (config('documentos_maestros.documentos_por_causa', [])[$cierre->tipo_baja->value] ?? []), 'is_string'));
+        // Primero la causal (NR-02 evaluación + aviso, NR-04 aviso…); si la
+        // causal no está en el mapa (o no hay causal), el tipo de baja.
+        $clave = $cierre->causal_rotacion_id !== null ? $cierre->causalRotacion?->clave : null;
+        $porCausal = (array) config('documentos_maestros.documentos_por_causal', []);
+        $claves = $clave !== null && array_key_exists($clave, $porCausal)
+            ? $porCausal[$clave]
+            : (config('documentos_maestros.documentos_por_causa', [])[$cierre->tipo_baja->value] ?? []);
+
+        return array_values(array_filter((array) $claves, 'is_string'));
+    }
+
+    /**
+     * La no renovación por vencimiento de la capacitación inicial (NR-02) o
+     * una no renovación anterior al catálogo, sin causal.
+     */
+    private function esVencimientoCapacitacion(CierreLaboral $cierre): bool
+    {
+        if ($cierre->causal_rotacion_id === null) {
+            return true;
+        }
+
+        return $cierre->causalRotacion?->clave === (string) config('bajas.clave_no_renovacion', 'NR-02');
     }
 
     /**

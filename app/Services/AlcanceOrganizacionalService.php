@@ -34,7 +34,7 @@ class AlcanceOrganizacionalService
      *
      * @var array<int, string>
      */
-    private const ROLES_ALCANCE_GLOBAL = ['super_admin', 'administrador_capacitacion', 'auditor', 'rh_admin', 'rh_auxiliar', 'director_comercial', 'direccion', 'juridico', 'sistemas'];
+    private const ROLES_ALCANCE_GLOBAL = ['super_admin', 'administrador_capacitacion', 'auditor', 'rh_admin', 'rh_auxiliar', 'director_comercial', 'direccion', 'juridico', 'sistemas', 'contraloria'];
 
     /**
      * Roles restringidos a sus sucursales autorizadas (principal + adicionales

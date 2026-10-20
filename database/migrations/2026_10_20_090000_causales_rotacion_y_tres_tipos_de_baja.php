@@ -24,6 +24,52 @@ use Illuminate\Support\Facades\Schema;
  */
 return new class extends Migration
 {
+    /*
+    | Catálogo y mapeo de ESTA versión (antes vivían en
+    | config/causales_rotacion.php). Quedan fijos aquí para que la migración
+    | reproduzca exactamente lo que corrió el 20-oct-2026; el catálogo de la
+    | especificación de RH (17 causales RV/NR/RE) lo aplica
+    | 2026_10_20_200000_modulo_bajas_y_causales con config/bajas.php.
+    */
+    private const INICIALES = [
+        'renuncia' => [
+            'renuncia_voluntaria' => ['nombre' => 'Renuncia voluntaria'],
+            'mejor_oferta' => ['nombre' => 'Mejor oferta laboral'],
+            'cambio_residencia' => ['nombre' => 'Cambio de residencia'],
+            'motivos_personales' => ['nombre' => 'Motivos personales o familiares'],
+            'motivos_salud' => ['nombre' => 'Motivos de salud'],
+            'estudios' => ['nombre' => 'Estudios'],
+            'inconformidad_condiciones' => ['nombre' => 'Inconformidad con condiciones laborales'],
+            'mutuo_acuerdo' => ['nombre' => 'Mutuo acuerdo'],
+        ],
+        'rescision' => [
+            'bajo_desempeno' => ['nombre' => 'Bajo desempeño'],
+            'abandono_trabajo' => ['nombre' => 'Abandono de trabajo', 'excluye_indemnizacion' => true],
+            'falta_probidad' => ['nombre' => 'Falta de probidad u honradez'],
+            'faltas_injustificadas' => ['nombre' => 'Faltas injustificadas (más de 3 en 30 días)'],
+            'desobediencia' => ['nombre' => 'Desobediencia injustificada'],
+            'incumplimiento_reglamento' => ['nombre' => 'Incumplimiento del reglamento o políticas internas'],
+            'otra_art_47' => ['nombre' => 'Otra causal del art. 47 LFT'],
+        ],
+        'fin_contrato' => [
+            'no_acredita_periodo_prueba' => ['nombre' => 'No acredita periodo de prueba / capacitación inicial'],
+            'termino_contrato_determinado' => ['nombre' => 'Término de contrato por tiempo determinado'],
+            'conclusion_obra' => ['nombre' => 'Conclusión de obra o proyecto'],
+        ],
+    ];
+
+    private const LEGADO = [
+        'renuncia' => ['tipo' => 'renuncia', 'causal' => 'renuncia_voluntaria'],
+        'mutuo_acuerdo' => ['tipo' => 'renuncia', 'causal' => 'mutuo_acuerdo'],
+        'despido' => ['tipo' => 'rescision', 'causal' => 'otra_art_47'],
+        'baja_inmediata' => ['tipo' => 'rescision', 'causal' => 'otra_art_47'],
+        'bajo_desempeno' => ['tipo' => 'rescision', 'causal' => 'bajo_desempeno'],
+        'abandono' => ['tipo' => 'rescision', 'causal' => 'abandono_trabajo'],
+        'no_renovacion' => ['tipo' => 'fin_contrato', 'causal' => 'no_acredita_periodo_prueba'],
+        'fin_contrato' => ['tipo' => 'fin_contrato', 'causal' => 'termino_contrato_determinado'],
+        'otro' => ['tipo' => 'rescision', 'causal' => null],
+    ];
+
     public function up(): void
     {
         if (! Schema::hasTable('causales_rotacion')) {
@@ -54,7 +100,7 @@ return new class extends Migration
         }
 
         $ids = $this->sembrarCatalogo();
-        $legado = (array) config('causales_rotacion.legado', []);
+        $legado = self::LEGADO;
         $vigentes = ['renuncia', 'rescision', 'fin_contrato'];
 
         foreach (['cierres_laborales', 'solicitudes_internas'] as $tabla) {
@@ -80,7 +126,7 @@ return new class extends Migration
 
                 DB::table($tabla)->where('tipo_baja', $valor)->whereNull('tipo_baja_original')->update([
                     'tipo_baja_original' => $valor,
-                    'tipo_baja' => in_array($destino['tipo'], $vigentes, true) ? $destino['tipo'] : $valor,
+                    'tipo_baja' => $destino['tipo'],
                     'causal_rotacion_id' => $causal,
                 ]);
             }
@@ -115,7 +161,7 @@ return new class extends Migration
     {
         $orden = 0;
 
-        foreach ((array) config('causales_rotacion.iniciales', []) as $tipo => $causales) {
+        foreach (self::INICIALES as $tipo => $causales) {
             foreach ((array) $causales as $clave => $datos) {
                 $orden += 10;
 

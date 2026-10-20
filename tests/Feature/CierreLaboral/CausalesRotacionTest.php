@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\EstadoUsuario;
+use App\Enums\FormaSalida;
 use App\Enums\TipoBaja;
 use App\Models\CausalRotacion;
 use App\Models\CierreLaboral;
@@ -13,12 +14,15 @@ use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Finiquitos\FiniquitoService;
 use Database\Seeders\CausalesRotacionSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 
 /*
-| Solo tres tipos de baja (renuncia, rescisión, fin de contrato) y su motivo
-| = causal de rotación, administrada en Bajas y finiquitos.
+| Catálogo de bajas de la especificación de RH: 3 formas de salida
+| (RV / NR / RE) y 17 causales con clave; el cierre laboral guarda el tipo
+| equivalente (renuncia / fin_contrato / rescision).
 */
 
 beforeEach(function () {
@@ -44,49 +48,57 @@ function causalPorClave(string $clave): CausalRotacion
     return CausalRotacion::query()->where('clave', $clave)->firstOrFail();
 }
 
-test('solo existen tres tipos de baja y los valores anteriores se rechazan', function () {
-    expect(array_column(TipoBaja::cases(), 'value'))->toBe(['renuncia', 'rescision', 'fin_contrato']);
+test('el catálogo tiene exactamente las 17 causales de la especificación con sus claves y textos', function () {
+    $vigentes = CausalRotacion::query()->delCatalogo()->orderBy('clave')->get();
 
-    foreach (['despido', 'baja_inmediata', 'no_renovacion', 'bajo_desempeno', 'otro'] as $viejo) {
-        $this->actingAs($this->rh)
-            ->post(route('rh.colaboradores.cierres.store', $this->persona), [
-                'tipo_baja' => $viejo,
-                'fecha_efectiva' => now()->toDateString(),
-            ])
-            ->assertSessionHasErrors('tipo_baja');
+    expect($vigentes->pluck('clave')->all())->toBe([
+        'NR-01', 'NR-02', 'NR-03', 'NR-04', 'NR-05', 'NR-06',
+        'RE-01', 'RE-02', 'RE-03', 'RE-04', 'RE-05',
+        'RV-01', 'RV-02', 'RV-03', 'RV-04', 'RV-05', 'RV-06',
+    ]);
+
+    $nombres = $vigentes->pluck('nombre', 'clave');
+    expect($nombres['RV-01'])->toBe('Mejor oferta laboral o salarial')
+        ->and($nombres['RV-04'])->toBe('Relación con el jefe o clima laboral')
+        ->and($nombres['NR-02'])->toBe('No aprobó periodo de prueba / perfil no idóneo')
+        ->and($nombres['RE-02'])->toBe('Faltantes en caja o cartera (desfaces)')
+        ->and($nombres['RE-05'])->toBe('Incumplimiento de reglamento o políticas');
+
+    foreach ($vigentes as $causal) {
+        expect(str_starts_with((string) $causal->clave, $causal->forma()->value))->toBeTrue()
+            ->and($causal->tipo)->toBe($causal->forma()->tipoBaja())
+            ->and($causal->activo)->toBeTrue();
     }
 
-    expect(CierreLaboral::query()->count())->toBe(0);
+    // Jurídico y comentario obligatorio según la especificación.
+    expect($vigentes->where('requiere_juridico', true)->pluck('clave')->sort()->values()->all())
+        ->toBe(['NR-01', 'NR-03', 'NR-05', 'NR-06', 'RE-01', 'RE-02', 'RE-03', 'RE-04', 'RE-05'])
+        ->and($vigentes->where('comentario_obligatorio', true)->pluck('clave')->sort()->values()->all())
+        ->toBe(['RE-01', 'RE-02', 'RE-03', 'RE-04', 'RE-05', 'RV-05'])
+        ->and(causalPorClave('RV-04')->alerta)->toContain('NOM-035');
+
+    // Las causales del catálogo anterior quedan como legado: inactivas, nunca borradas.
+    expect(CausalRotacion::query()->where('legado', true)->where('activo', true)->count())->toBe(0);
 });
 
-test('el catálogo inicial se siembra sin duplicarse y cada tipo tiene causales', function () {
-    $total = CausalRotacion::query()->count();
+test('sembrar dos veces no duplica nada', function () {
+    $antes = [CausalRotacion::query()->count(), DB::table('documentos_requeridos_baja')->count(), DB::table('formas_salida')->count()];
     $this->seed(CausalesRotacionSeeder::class);
 
-    expect(CausalRotacion::query()->count())->toBe($total);
-
-    foreach (TipoBaja::cases() as $tipo) {
-        expect(CausalRotacion::query()->where('tipo', $tipo->value)->activas()->count())->toBeGreaterThan(0);
-    }
+    expect([CausalRotacion::query()->count(), DB::table('documentos_requeridos_baja')->count(), DB::table('formas_salida')->count()])->toBe($antes)
+        ->and($antes[2])->toBe(3);
 });
 
-test('la causal es obligatoria y debe pertenecer al tipo elegido', function () {
+test('la causal debe ser activa y de la forma elegida; el atajo acepta la causal vacía (APK instaladas)', function () {
     $this->actingAs($this->rh)
         ->post(route('rh.colaboradores.cierres.store', $this->persona), [
             'tipo_baja' => 'rescision',
+            'causal_rotacion_id' => causalPorClave('RV-01')->id,
             'fecha_efectiva' => now()->toDateString(),
         ])
         ->assertSessionHasErrors('causal_rotacion_id');
 
-    $this->actingAs($this->rh)
-        ->post(route('rh.colaboradores.cierres.store', $this->persona), [
-            'tipo_baja' => 'rescision',
-            'causal_rotacion_id' => causalPorClave('renuncia_voluntaria')->id,
-            'fecha_efectiva' => now()->toDateString(),
-        ])
-        ->assertSessionHasErrors('causal_rotacion_id');
-
-    $inactiva = causalPorClave('falta_probidad');
+    $inactiva = causalPorClave('RE-03');
     $inactiva->update(['activo' => false]);
 
     $this->actingAs($this->rh)
@@ -98,10 +110,22 @@ test('la causal es obligatoria y debe pertenecer al tipo elegido', function () {
         ->assertSessionHasErrors('causal_rotacion_id');
 
     expect(CierreLaboral::query()->count())->toBe(0);
+
+    // Sin causal: se aplica y la baja queda «causal pendiente» para RH.
+    $this->actingAs($this->rh)
+        ->post(route('rh.colaboradores.cierres.store', $this->persona), [
+            'tipo_baja' => 'rescision',
+            'fecha_efectiva' => now()->toDateString(),
+        ])
+        ->assertSessionHasNoErrors();
+
+    $cierre = CierreLaboral::query()->firstOrFail();
+    expect($cierre->causal_rotacion_id)->toBeNull()
+        ->and($cierre->baja()->firstOrFail()->causal_rotacion_id)->toBeNull();
 });
 
-test('la rescisión se aplica sin generar documentos y guarda tipo + causal en cierre y solicitud', function () {
-    $causal = causalPorClave('bajo_desempeno');
+test('la rescisión no genera documentos y guarda tipo + causal en cierre, solicitud y baja', function () {
+    $causal = causalPorClave('RE-05');
 
     $this->actingAs($this->rh)
         ->post(route('rh.colaboradores.cierres.store', $this->persona), [
@@ -116,64 +140,65 @@ test('la rescisión se aplica sin generar documentos y guarda tipo + causal en c
 
     expect($cierre->tipo_baja)->toBe(TipoBaja::Rescision)
         ->and($cierre->causal_rotacion_id)->toBe($causal->id)
-        ->and($cierre->motivo)->toBe('Bajo desempeño')
         ->and($solicitud->causal_rotacion_id)->toBe($causal->id)
+        ->and($cierre->baja()->firstOrFail()->forma_salida)->toBe(FormaSalida::Rescision)
         ->and(app(DocumentoProcesoService::class)->clavesCausa($cierre))->toBe([])
-        ->and(GeneratedDocument::query()->where('documentable_type', $cierre->getMorphClass())->where('documentable_id', $cierre->id)->count())->toBe(0)
-        // Ni aviso de rescisión ni carta de renuncia.
         ->and(GeneratedDocument::query()->whereIn('clave_plantilla', ['carta_renuncia', 'aviso_rescision', 'aviso_termino'])->count())->toBe(0);
 });
 
-test('renuncia conserva la carta de renuncia y fin de contrato la evaluación + aviso', function () {
+test('documentos generados por causal: renuncia → carta; NR-02 → evaluación + aviso; NR-04 → aviso; NR-01 → nada', function () {
     $documentos = app(DocumentoProcesoService::class);
+    $con = fn (TipoBaja $tipo, ?string $clave): CierreLaboral => new CierreLaboral(['tipo_baja' => $tipo, 'causal_rotacion_id' => $clave !== null ? causalPorClave($clave)->id : null]);
 
-    expect($documentos->clavesCausa(new CierreLaboral(['tipo_baja' => TipoBaja::Renuncia])))->toBe(['carta_renuncia'])
-        ->and($documentos->clavesCausa(new CierreLaboral(['tipo_baja' => TipoBaja::FinContrato])))->toBe(['evaluacion_capacitacion', 'aviso_terminacion'])
-        ->and($documentos->clavesCausa(new CierreLaboral(['tipo_baja' => TipoBaja::Rescision])))->toBe([]);
+    expect($documentos->clavesCausa($con(TipoBaja::Renuncia, 'RV-01')))->toBe(['carta_renuncia'])
+        ->and($documentos->clavesCausa($con(TipoBaja::FinContrato, 'NR-02')))->toBe(['evaluacion_capacitacion', 'aviso_terminacion'])
+        ->and($documentos->clavesCausa($con(TipoBaja::FinContrato, 'NR-04')))->toBe(['aviso_terminacion'])
+        ->and($documentos->clavesCausa($con(TipoBaja::FinContrato, 'NR-01')))->toBe([])
+        ->and($documentos->clavesCausa($con(TipoBaja::FinContrato, null)))->toBe(['evaluacion_capacitacion', 'aviso_terminacion'])
+        ->and($documentos->clavesCausa($con(TipoBaja::Rescision, 'RE-01')))->toBe([]);
 });
 
-test('el diálogo de iniciar baja ofrece los tres tipos con sus causales activas', function () {
+test('el diálogo de iniciar baja ofrece las tres formas en orden RV, NR, RE con causales, ayuda y reglas', function () {
     $opciones = app(CausalRotacionService::class)->opcionesIniciarBaja($this->rh);
 
-    expect(array_column($opciones, 'value'))->toBe(['renuncia', 'rescision', 'fin_contrato']);
+    expect(array_column($opciones, 'forma'))->toBe(['RV', 'NR', 'RE'])
+        ->and(array_column($opciones, 'value'))->toBe(['renuncia', 'fin_contrato', 'rescision']);
 
-    $rescision = collect($opciones)->firstWhere('value', 'rescision');
-    $nombres = array_column($rescision['causales'], 'nombre');
-    expect($nombres)->toContain('Bajo desempeño', 'Abandono de trabajo', 'Falta de probidad u honradez')
-        ->not->toContain('Renuncia voluntaria');
+    $rescision = collect($opciones)->firstWhere('forma', 'RE');
+    expect(array_column($rescision['causales'], 'clave'))->toBe(['RE-01', 'RE-02', 'RE-03', 'RE-04', 'RE-05'])
+        ->and($rescision['causales'][0]['ayuda'])->toContain('art. 47')
+        ->and($rescision['causales'][0]['comentario_obligatorio'])->toBeTrue();
 });
 
-test('RH administra las causales desde Bajas y finiquitos; sin permiso no', function () {
+test('RH administra el catálogo desde Bajas y finiquitos; las causales nunca se borran; sin permiso no', function () {
     $this->actingAs($this->rh)->get(route('rh.cierres.index', ['seccion' => 'causales']))
         ->assertOk()
-        ->assertInertia(fn ($pagina) => $pagina->component('Rh/Cierres/Index')->where('seccion', 'causales')->has('causales'));
+        ->assertInertia(fn ($pagina) => $pagina->component('Rh/Cierres/Index')->where('seccion', 'causales')->has('causales', 17));
 
     $this->actingAs($this->rh)
-        ->post(route('rh.causales-rotacion.store'), ['tipo' => 'rescision', 'nombre' => 'Acoso laboral'])
+        ->post(route('rh.causales-rotacion.store'), ['tipo' => 'rescision', 'nombre' => 'Acoso laboral', 'requiere_juridico' => true])
         ->assertSessionHasNoErrors();
     $nueva = CausalRotacion::query()->where('nombre', 'Acoso laboral')->firstOrFail();
-    expect($nueva->tipo)->toBe(TipoBaja::Rescision)->and($nueva->activo)->toBeTrue();
+    expect($nueva->clave)->toBe('RE-06')
+        ->and($nueva->forma_salida)->toBe(FormaSalida::Rescision)
+        ->and($nueva->requiere_juridico)->toBeTrue()
+        ->and($nueva->comentario_obligatorio)->toBeTrue();
 
-    // Duplicado en el mismo tipo: rechazado.
     $this->actingAs($this->rh)
         ->post(route('rh.causales-rotacion.store'), ['tipo' => 'rescision', 'nombre' => 'Acoso laboral'])
         ->assertSessionHasErrors('nombre');
 
     $this->actingAs($this->rh)
-        ->put(route('rh.causales-rotacion.update', $nueva), ['tipo' => 'rescision', 'nombre' => 'Acoso u hostigamiento', 'excluye_indemnizacion' => true])
+        ->put(route('rh.causales-rotacion.update', $nueva), ['tipo' => 'rescision', 'nombre' => 'Acoso u hostigamiento', 'descripcion' => 'Conducta de acoso documentada.', 'alerta' => 'Aviso a Jurídico'])
         ->assertSessionHasNoErrors();
-    expect($nueva->refresh()->nombre)->toBe('Acoso u hostigamiento')->and($nueva->excluye_indemnizacion)->toBeTrue();
+    expect($nueva->refresh()->nombre)->toBe('Acoso u hostigamiento')->and($nueva->alerta)->toBe('Aviso a Jurídico')->and($nueva->clave)->toBe('RE-06');
 
     $this->actingAs($this->rh)->patch(route('rh.causales-rotacion.activo', $nueva), ['activo' => false])->assertSessionHasNoErrors();
     expect($nueva->refresh()->activo)->toBeFalse();
 
-    $this->actingAs($this->rh)->post(route('rh.causales-rotacion.mover', $nueva), ['direccion' => 'arriba'])->assertSessionHasNoErrors();
+    // RN-15: no existe ruta para borrar.
+    expect(Route::has('rh.causales-rotacion.destroy'))->toBeFalse();
 
-    // Nunca usada y sin clave del sistema: se puede eliminar.
-    $this->actingAs($this->rh)->delete(route('rh.causales-rotacion.destroy', $nueva))->assertSessionHasNoErrors();
-    expect(CausalRotacion::query()->whereKey($nueva->id)->exists())->toBeFalse();
-
-    // Un gerente no administra causales (ni ve la pestaña).
     $this->actingAs($this->gerente)
         ->post(route('rh.causales-rotacion.store'), ['tipo' => 'renuncia', 'nombre' => 'Otra'])
         ->assertForbidden();
@@ -182,8 +207,8 @@ test('RH administra las causales desde Bajas y finiquitos; sin permiso no', func
         ->assertInertia(fn ($pagina) => $pagina->where('causales', null));
 });
 
-test('una causal ya usada no se elimina ni cambia de tipo: solo se desactiva', function () {
-    $causal = causalPorClave('mejor_oferta');
+test('una causal ya usada no cambia de forma de salida: solo se desactiva', function () {
+    $causal = causalPorClave('RV-01');
 
     $this->actingAs($this->rh)
         ->post(route('rh.colaboradores.cierres.store', $this->persona), [
@@ -194,7 +219,6 @@ test('una causal ya usada no se elimina ni cambia de tipo: solo se desactiva', f
         ])
         ->assertSessionHasNoErrors();
 
-    $this->actingAs($this->rh)->delete(route('rh.causales-rotacion.destroy', $causal))->assertSessionHasErrors('causal');
     $this->actingAs($this->rh)
         ->put(route('rh.causales-rotacion.update', $causal), ['tipo' => 'rescision', 'nombre' => $causal->nombre])
         ->assertSessionHasErrors('tipo');
@@ -205,20 +229,20 @@ test('una causal ya usada no se elimina ni cambia de tipo: solo se desactiva', f
         ->and(CierreLaboral::query()->firstOrFail()->motivo)->toBe('Se va a otra financiera.');
 });
 
-test('el finiquito decide la indemnización por tipo y causal', function () {
+test('el finiquito decide la indemnización por forma y causal', function () {
     $metodo = new ReflectionMethod(FiniquitoService::class, 'calcularIndemnizacion');
     $finiquitos = app(FiniquitoService::class);
     config(['finiquitos.indemnizacion_habilitada' => true, 'finiquitos.dias_indemnizacion_por_anio' => 12]);
 
     $renuncia = new SolicitudInterna(['tipo_baja' => TipoBaja::Renuncia]);
-    $rescision = new SolicitudInterna(['tipo_baja' => TipoBaja::Rescision, 'causal_rotacion_id' => causalPorClave('bajo_desempeno')->id]);
-    $abandono = new SolicitudInterna(['tipo_baja' => TipoBaja::Rescision, 'causal_rotacion_id' => causalPorClave('abandono_trabajo')->id]);
-    $finContrato = new SolicitudInterna(['tipo_baja' => TipoBaja::FinContrato]);
+    $rescision = new SolicitudInterna(['tipo_baja' => TipoBaja::Rescision, 'causal_rotacion_id' => causalPorClave('RE-05')->id]);
+    $abandono = new SolicitudInterna(['tipo_baja' => TipoBaja::Rescision, 'causal_rotacion_id' => causalPorClave('RE-01')->id]);
+    $noRenovacion = new SolicitudInterna(['tipo_baja' => TipoBaja::FinContrato, 'causal_rotacion_id' => causalPorClave('NR-01')->id]);
 
     expect($metodo->invoke($finiquitos, $renuncia, 2, 100.0))->toBe(0.0)
         ->and($metodo->invoke($finiquitos, $rescision, 2, 100.0))->toBe(2400.0)
         ->and($metodo->invoke($finiquitos, $abandono, 2, 100.0))->toBe(0.0)
-        ->and($metodo->invoke($finiquitos, $finContrato, 2, 100.0))->toBe(2400.0);
+        ->and($metodo->invoke($finiquitos, $noRenovacion, 2, 100.0))->toBe(2400.0);
 });
 
 test('las causas anteriores se traducen a su tipo vigente y conservan su etiqueta en el historial', function () {
@@ -226,5 +250,6 @@ test('las causas anteriores se traducen a su tipo vigente y conservan su etiquet
         ->and(TipoBaja::desdeValor('no_renovacion'))->toBe(TipoBaja::FinContrato)
         ->and(TipoBaja::desdeValor('mutuo_acuerdo'))->toBe(TipoBaja::Renuncia)
         ->and(TipoBaja::etiquetaDeValor('despido'))->toBe('Despido')
-        ->and(TipoBaja::etiquetaDeValor('rescision'))->toBe('Rescisión');
+        ->and(TipoBaja::etiquetaDeValor('rescision'))->toBe('Rescisión')
+        ->and(TipoBaja::FinContrato->etiqueta())->toBe('No renovación');
 });

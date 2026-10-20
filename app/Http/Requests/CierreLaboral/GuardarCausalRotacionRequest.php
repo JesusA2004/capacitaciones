@@ -25,8 +25,11 @@ class GuardarCausalRotacionRequest extends FormRequest
     {
         return [
             'tipo' => ['required', Rule::enum(TipoBaja::class)],
-            'nombre' => ['required', 'string', 'min:3', 'max:150'],
-            'descripcion' => ['nullable', 'string', 'max:500'],
+            'nombre' => ['required', 'string', 'min:3', 'max:80'],
+            'descripcion' => ['nullable', 'string', 'max:300'],
+            'requiere_juridico' => ['nullable', 'boolean'],
+            'comentario_obligatorio' => ['nullable', 'boolean'],
+            'alerta' => ['nullable', 'string', 'max:200'],
             'excluye_indemnizacion' => ['nullable', 'boolean'],
             'activo' => ['nullable', 'boolean'],
         ];
@@ -38,15 +41,16 @@ class GuardarCausalRotacionRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'tipo.required' => 'Elige el tipo de baja: renuncia, rescisión o fin de contrato.',
-            'tipo.enum' => 'Elige el tipo de baja: renuncia, rescisión o fin de contrato.',
-            'nombre.required' => 'Escribe el nombre del motivo.',
-            'nombre.min' => 'El nombre del motivo debe tener al menos 3 letras.',
+            'tipo.required' => 'Elige la forma de salida: renuncia voluntaria, no renovación o rescisión.',
+            'tipo.enum' => 'Elige la forma de salida: renuncia voluntaria, no renovación o rescisión.',
+            'nombre.required' => 'Escribe el nombre de la causal.',
+            'nombre.min' => 'El nombre de la causal debe tener al menos 3 letras.',
+            'descripcion.max' => 'La ayuda («cuándo usarla») admite hasta 300 caracteres.',
         ];
     }
 
     /**
-     * @return array{tipo: string, nombre: string, descripcion?: string|null, excluye_indemnizacion?: bool|null, activo?: bool|null}
+     * @return array<string, mixed>
      */
     public function datos(): array
     {
@@ -54,6 +58,9 @@ class GuardarCausalRotacionRequest extends FormRequest
             'tipo' => (string) $this->validated('tipo'),
             'nombre' => (string) $this->validated('nombre'),
             'descripcion' => $this->filled('descripcion') ? (string) $this->validated('descripcion') : null,
+            'requiere_juridico' => $this->has('requiere_juridico') ? $this->boolean('requiere_juridico') : null,
+            'comentario_obligatorio' => $this->has('comentario_obligatorio') ? $this->boolean('comentario_obligatorio') : null,
+            'alerta' => $this->filled('alerta') ? (string) $this->validated('alerta') : null,
             'excluye_indemnizacion' => $this->boolean('excluye_indemnizacion'),
             'activo' => $this->has('activo') ? $this->boolean('activo') : null,
         ];

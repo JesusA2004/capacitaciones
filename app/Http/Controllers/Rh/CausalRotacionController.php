@@ -25,7 +25,7 @@ class CausalRotacionController extends Controller
         $this->authorize('create', CausalRotacion::class);
         $causal = $this->causales->crear($request->datos(), $request->user());
 
-        return $this->ok(sprintf('Motivo «%s» agregado.', $causal->nombre));
+        return $this->ok(sprintf('Causal «%s» agregada.', $causal->nombre));
     }
 
     public function update(GuardarCausalRotacionRequest $request, CausalRotacion $causal): RedirectResponse
@@ -33,7 +33,7 @@ class CausalRotacionController extends Controller
         $this->authorize('update', $causal);
         $this->causales->actualizar($causal, $request->datos(), $request->user());
 
-        return $this->ok('Motivo actualizado.');
+        return $this->ok('Causal actualizada.');
     }
 
     public function activo(Request $request, CausalRotacion $causal): RedirectResponse
@@ -42,7 +42,7 @@ class CausalRotacionController extends Controller
         $datos = $request->validate(['activo' => ['required', 'boolean']]);
         $this->causales->cambiarActivo($causal, (bool) $datos['activo'], $request->user());
 
-        return $this->ok($datos['activo'] ? 'Motivo activado: ya se ofrece al iniciar una baja.' : 'Motivo desactivado: ya no se ofrece, el historial lo conserva.');
+        return $this->ok($datos['activo'] ? 'Causal activada: ya se ofrece al registrar una baja.' : 'Causal desactivada: ya no se ofrece; el historial la conserva (las causales nunca se borran).');
     }
 
     public function mover(Request $request, CausalRotacion $causal): RedirectResponse
@@ -52,14 +52,6 @@ class CausalRotacionController extends Controller
         $this->causales->mover($causal, (string) $datos['direccion'], $request->user());
 
         return back();
-    }
-
-    public function destroy(Request $request, CausalRotacion $causal): RedirectResponse
-    {
-        $this->authorize('delete', $causal);
-        $this->causales->eliminar($causal, $request->user());
-
-        return $this->ok('Motivo eliminado.');
     }
 
     private function ok(string $mensaje): RedirectResponse

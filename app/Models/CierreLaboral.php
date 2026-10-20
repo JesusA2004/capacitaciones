@@ -6,6 +6,7 @@ use App\Enums\EstadoCierreLaboral;
 use App\Enums\TipoBaja;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use Spatie\Activitylog\LogOptions;
 use Spatie\Activitylog\Traits\LogsActivity;
@@ -24,6 +25,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property TipoBaja $tipo_baja
  * @property int|null $causal_rotacion_id
  * @property string|null $tipo_baja_original Valor anterior a la migración a tres tipos.
+ * @property string|null $causal_rotacion_original Tipo y causal anteriores al catálogo RV/NR/RE.
  * @property string $motivo
  * @property Carbon $fecha_efectiva
  * @property EstadoCierreLaboral $estado
@@ -80,7 +82,7 @@ class CierreLaboral extends Model
     protected $table = 'cierres_laborales';
 
     protected $fillable = [
-        'colaborador_id', 'solicitud_interna_id', 'evaluacion_id', 'tipo_baja', 'causal_rotacion_id', 'tipo_baja_original', 'motivo',
+        'colaborador_id', 'solicitud_interna_id', 'evaluacion_id', 'tipo_baja', 'causal_rotacion_id', 'tipo_baja_original', 'causal_rotacion_original', 'motivo',
         'fecha_efectiva', 'estado', 'aviso_registrado_en', 'aviso_documento_id',
         'pago_confirmado_en', 'pago_confirmado_por', 'referencia_pago',
         'baja_ejecutada_en', 'expediente_cerrado_en', 'iniciado_por', 'observaciones',
@@ -136,6 +138,16 @@ class CierreLaboral extends Model
     public function causalRotacion(): BelongsTo
     {
         return $this->belongsTo(CausalRotacion::class, 'causal_rotacion_id');
+    }
+
+    /**
+     * Expediente de la baja (módulo de Bajas y Causales).
+     *
+     * @return HasOne<Baja, $this>
+     */
+    public function baja(): HasOne
+    {
+        return $this->hasOne(Baja::class, 'cierre_laboral_id');
     }
 
     /**

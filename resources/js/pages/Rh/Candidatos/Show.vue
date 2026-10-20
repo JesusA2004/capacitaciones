@@ -68,6 +68,7 @@ import socioeconomicoRutas from '@/routes/rh/candidatos/socioeconomico';
 import { show as verInvitacion } from '@/routes/rh/incorporacion/invitaciones';
 import type {
     AccionCiclo,
+    AntecedenteBaja,
     CandidatoFicha,
     CandidatoItem,
     EstadoCiclo,
@@ -93,6 +94,8 @@ const props = defineProps<{
     puedeAdjuntar: boolean;
     limitesArchivos: LimitesArchivosCandidato;
     perfilPuesto: PerfilPuestoCandidato;
+    /** RN-09: baja previa «No recontratable» / «Con reservas». */
+    antecedenteBaja?: AntecedenteBaja | null;
 }>();
 
 const ACEPTA_DOCUMENTOS = '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx';
@@ -466,6 +469,32 @@ function fecha(valor: string | null): string {
                 Editar datos
             </Button>
         </CrudPageHeader>
+
+        <!-- RN-09: baja previa no recontratable (módulo de Bajas). -->
+        <p
+            v-if="antecedenteBaja"
+            role="alert"
+            :class="[
+                'rounded-2xl px-4 py-3 text-sm',
+                antecedenteBaja.recontratable === 'no'
+                    ? 'bg-danger-soft text-destructive'
+                    : 'bg-warning-soft text-warning',
+            ]"
+        >
+            <strong
+                >Baja previa «{{ antecedenteBaja.recontratable_etiqueta }}»
+                recontratable:</strong
+            >
+            {{ antecedenteBaja.nombre }} · {{ antecedenteBaja.folio }} · baja
+            {{ antecedenteBaja.fecha_baja ?? '—' }}
+            <template v-if="antecedenteBaja.sucursal">
+                · {{ antecedenteBaja.sucursal }}</template
+            ><template v-if="antecedenteBaja.causal">
+                · {{ antecedenteBaja.causal }}</template
+            >
+            (coincide por {{ antecedenteBaja.coincidencia }}). Consulta con RH
+            antes de continuar.
+        </p>
 
         <!-- Resumen ejecutivo: quién, a qué puesto, en qué etapa, quién sigue -->
         <section

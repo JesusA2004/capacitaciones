@@ -2,6 +2,7 @@
 
 namespace App\Services\CicloLaboral;
 
+use App\Enums\EntregaAvisoRescision;
 use App\Enums\EstadoAltaColaborador;
 use App\Enums\EstadoAvanceOnboarding;
 use App\Enums\EstadoCandidato;
@@ -14,6 +15,7 @@ use App\Enums\EstadoReingreso;
 use App\Enums\EstadoUsuario;
 use App\Enums\EtapaCicloLaboral;
 use App\Enums\ProcesoAprobacion;
+use App\Enums\Recontratable;
 use App\Enums\TipoContratacion;
 use App\Enums\TipoTarea;
 use App\Models\Candidato;
@@ -704,6 +706,19 @@ class CicloLaboralService
                 // «Iniciar baja»: los tres tipos permitidos al usuario, cada
                 // uno con sus causales de rotación activas.
                 'causas' => $this->causales->opcionesIniciarBaja($usuario),
+                // Campos del expediente de la baja (módulo de Bajas).
+                'recontratable' => array_map(fn (Recontratable $r): array => ['value' => $r->value, 'label' => $r->etiqueta()], Recontratable::cases()),
+                'entregas' => array_map(fn (EntregaAvisoRescision $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], EntregaAvisoRescision::cases()),
+                'limites_baja' => [
+                    'comentario_minimo' => (int) config('bajas.reglas.comentario_minimo', 20),
+                    'comentario_maximo' => (int) config('bajas.reglas.comentario_maximo', 500),
+                    'dias_futuro_maximo' => (int) config('bajas.reglas.dias_futuro_maximo', 15),
+                    'dias_prescripcion' => (int) config('bajas.reglas.dias_prescripcion_rescision', 30),
+                    'dias_habiles_tribunal' => (int) config('bajas.reglas.dias_habiles_aviso_tribunal', 5),
+                    'max_kb' => (int) config('bajas.documentos.max_kb', 15360),
+                    'mimes' => array_values(array_map('strval', (array) config('bajas.documentos.mimes', []))),
+                ],
+                'es_rh_bajas' => $usuario->can('bajas.gestionar'),
                 'criterios' => array_values(array_filter((array) config('contratos.criterios_evaluacion', []), 'is_string')),
             ],
         ];

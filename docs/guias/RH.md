@@ -28,7 +28,7 @@ Lleva el proceso de punta a punta: vacantes, campañas, candidatos, autorizacion
 - [ ] Autorizar solicitudes → [Revisar solicitudes (gerente, regional y RH)](#articulo-revisar-solicitudes)
 - [ ] Preparar y emitir nómina → [Recibos de nómina: preparar, revisar y emitir](#articulo-nomina-lotes)
 - [ ] Enviar avisos → [Avisos de Recursos Humanos](#articulo-avisos)
-- [ ] Bajas y finiquitos → [Baja de un colaborador (cierre laboral)](#articulo-baja)
+- [ ] Bajas y finiquitos → [Baja de un colaborador (forma de salida y causal)](#articulo-baja)
 - [ ] Reingresos → [Reingreso de un excolaborador](#articulo-reingreso)
 
 ### Lo que NO le toca
@@ -821,7 +821,7 @@ RH ve todos los expedientes; gerencias, los de su sucursal; el colaborador (incl
 
 #### Qué pasa después
 
-- El colaborador ve su propio expediente en Mi expediente (sin la pestaña Cuenta ni Onboarding).
+- El colaborador ve su propio expediente en Mi expediente (sin la pestaña Cuenta ni Checklist).
 
 #### Qué queda registrado
 
@@ -1294,7 +1294,7 @@ Evalúa el jefe inmediato (normalmente el gerente de la sucursal); autoriza RH.
 #### Relacionado con
 
 - [Contrato por tiempo indeterminado](#articulo-contrato-indeterminado)
-- [Baja de un colaborador (cierre laboral)](#articulo-baja)
+- [Baja de un colaborador (forma de salida y causal)](#articulo-baja)
 
 #### En el sistema
 
@@ -1817,7 +1817,7 @@ Gerente o subgerente: personas de su sucursal. RH y corporativo con alcance glob
 #### Relacionado con
 
 - [El expediente del colaborador](#articulo-expediente)
-- [Baja de un colaborador (cierre laboral)](#articulo-baja)
+- [Baja de un colaborador (forma de salida y causal)](#articulo-baja)
 
 #### En el sistema
 
@@ -1875,56 +1875,62 @@ RH.
 
 <a id="articulo-baja"></a>
 
-### Baja de un colaborador (cierre laboral)
+### Baja de un colaborador (forma de salida y causal)
 
-> El jefe directo (o RH) inicia la baja desde el colaborador y queda aplicada de inmediato: sin solicitud previa, sin autorización de RH y sin subir archivos. Al iniciarla se suspende el acceso; siguen los documentos de la baja y el finiquito.
+> El gerente solicita la baja en «Solicitudes de baja» (o RH / el jefe directo la aplica desde el ciclo laboral): elige cómo se va (renuncia voluntaria, no renovación o rescisión) y por qué (la causal), adjunta los documentos y la envía a RH. Al enviarla se suspende el acceso; RH valida, la manda a Jurídico si la causal lo pide y la cierra cuando los documentos están completos.
 
 #### Qué es
 
-Es el cierre de la relación laboral. Nunca borra a la persona: bloquea su acceso y conserva expediente, contratos, evaluaciones y documentos para un posible reingreso.
+Es el expediente de la baja con folio BAJ-AAAA-NNNN: forma de salida y causal de lista cerrada (sin «Otro»), documentos, bitácora de cambios y el cierre laboral (finiquito). Con esos datos se mide la rotación. Nunca borra a la persona: bloquea su acceso y conserva todo para un posible reingreso.
 
 #### Quién lo hace
 
-Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más puede iniciarla y no necesita autorización. Después se generan los documentos, RH calcula el finiquito y, al registrar su entrega, el cierre queda completo.
+Captura y envía el gerente (solo su personal). RH valida, rechaza con motivo, corrige la causal con motivo, cierra y reabre. Jurídico revisa las causales que lo requieren y no cierra. Contraloría consulta las de faltantes (RE-02) y robo o fraude (RE-03). Dirección solo ve el tablero de rotación.
 
-> **Importante:** Al INICIAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si RH cancela el cierre, el acceso vuelve solo. Su estatus laboral (inactivo, vacante) se ejecuta al concluir el cierre.
+> **Importante:** Al ENVIAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si RH decide que la baja no procede, se cancela y el acceso vuelve.
+
+> **Importante:** En rescisión, «¿Recontratable?» es «No» y solo RH lo cambia. El aviso de rescisión se adjunta (el sistema no lo genera).
 
 #### Antes de empezar
 
-- La persona está activa y eres su jefe directo (o RH).
-- La baja NO es una solicitud: no está en «Nueva solicitud».
+- La persona está activa y es de tu sucursal o equipo (o eres RH).
+- Solo puede haber una baja abierta por persona.
 
 #### Pasos
 
-1. **«Iniciar baja»** _(Gerente)_ — Expedientes → la persona de tu equipo → Ciclo laboral → «Iniciar baja»: tipo (renuncia, rescisión o fin de contrato), motivo (causal de rotación del tipo), observaciones opcionales y fecha efectiva. No se sube ningún archivo. Al confirmar, la baja queda aplicada (sin autorización de RH) y el sistema prepara los documentos del tipo: carta de renuncia, o evaluación + aviso de no renovación; la rescisión no genera documento.
-2. **Renuncia / aviso en «Documentos de la baja»** _(RH)_ — El sistema genera la renuncia (o el aviso de terminación): «Imprimir» y, ya firmada en papel, «Marcar como firmado físicamente». No se sube ningún archivo. Si la persona se niega a firmar, «El colaborador se negó a firmar/recibir».
-3. **«Calcular finiquito»** _(RH)_ — Muestra al momento el desglose por concepto; «Ver / editar finiquito» para ajustar montos con motivo (ver el artículo de finiquito). No hay que autorizarlo.
-4. **«Registrar entrega de finiquito»** _(RH)_ — Desde la fecha efectiva: fecha de entrega, forma de pago y comentario. El finiquito se congela, la baja se ejecuta y el cierre laboral queda completo.
+1. **«Solicitar baja»** _(Gerente)_ — Cierres laborales → Solicitudes de baja → «Solicitar baja»: 1 colaborador (sucursal, puesto e ingreso salen solos), 2 ¿cómo se va? (tres tarjetas), 3 ¿por qué se va? (causal con su ayuda, comentario —obligatorio en RV-05 y en rescisión, mínimo 20 caracteres—, último día laborado y ¿recontratable?; en rescisión además fecha en que se conoció la falta y entrega del aviso), 4 documentos.
+2. **«Guardar borrador» o «Enviar a RH»** _(Gerente)_ — El borrador no afecta a nadie. Al enviarla, el acceso de la persona se suspende de inmediato y la baja queda «En revisión RH». Puedes enviarla aunque falten documentos: los adjuntas después.
+3. **RH valida (y Jurídico revisa si aplica)** _(RH)_ — En el expediente de la baja: «Validar», «Enviar a Jurídico» (si la causal lo requiere), «Rechazar» con motivo (regresa al gerente) o «Cambiar causal» con motivo. Todo queda en la bitácora.
+4. **Finiquito y «Cerrar baja»** _(RH)_ — RH calcula y entrega el finiquito (Bajas y finiquitos). Con los documentos obligatorios completos, «Cerrar baja»: la persona queda inactiva y su acceso bloqueado de forma definitiva. Una baja cerrada solo se reabre con motivo.
 
 #### Qué pasa después
 
-- Baja ejecutada → aviso a RH y a Sistemas: «Retira accesos, cuentas y equipo».
+- Baja cerrada → cuenta en la rotación de su mes (salvo que RH la marque como movimiento interno).
 - La vacante de esa sucursal y puesto se abre sola.
-- La persona queda disponible para un posible reingreso.
+- Si alguien con baja «No recontratable» vuelve como candidato, Reclutamiento ve una alerta.
 
 #### Notificaciones
 
-- «Baja aplicada» a regionales y RH.
-- Baja ejecutada → RH y Sistemas.
+- «Baja por revisar» a RH al enviarla; «Baja aplicada» a regionales y RH.
+- RV-04 (clima laboral): correo a RH para entrevista de salida y NOM-035.
+- RE-02 y RE-03: aviso a Contraloría (RE-03 también a Jurídico).
+- Antigüedad menor a 90 días: rotación temprana a RH.
 
 #### Documentos que se generan
 
-- Documentos de la causa (aviso de término, actas, según la causa)
-- Finiquito
+- Renuncia: carta de renuncia firmada, entrevista de salida, finiquito firmado
+- No renovación: convenio o aviso de término, finiquito o liquidación firmado
+- Rescisión: acta administrativa con testigos, aviso de rescisión entregado, finiquito firmado
+- Adicionales según la causal (evidencia de desempeño, autorización de Dirección General, arqueo, evidencia de la falta)
 
 #### Qué queda registrado
 
-- Cierre laboral con cada paso, aprobaciones, documentos y evidencias; expediente conservado.
+- Bitácora de la baja: quién, cuándo, valor anterior y nuevo de cada cambio (causal, recontratable, fechas, documentos, estatus).
 
 #### Errores comunes
 
-- **«No me deja concluir.»** El cierre se completa al registrar la entrega del finiquito, que solo se permite desde la fecha efectiva.
-- **«¿Cómo hago una baja?»** Desde el Ciclo laboral de la persona. Expedientes → la persona → Ciclo laboral → «Iniciar baja». No se pide desde Solicitudes.
+- **«No me deja enviar.»** Faltan forma, causal, último día laborado o ¿recontratable? (y en rescisión los datos del aviso). La pantalla marca cada campo.
+- **«RH no puede cerrar.»** Falta un documento obligatorio, la revisión de Jurídico o el finiquito revisado. El expediente dice exactamente qué falta.
 
 #### Relacionado con
 
@@ -1934,7 +1940,8 @@ Inicia el jefe directo de la persona (su cadena de mando real) o RH; nadie más 
 
 #### En el sistema
 
-- **Ir a Expedientes** → `/rh/expedientes` _(permiso: expedientes.ver_todos o expedientes.ver_sucursal)_
+- **Ir a Solicitudes de baja** → `/rh/bajas` _(permiso: bajas.ver o bajas.revisar_juridico o bajas.consulta_contraloria)_
+- **Tablero de rotación** → `/reportes/rotacion/tablero` _(permiso: bajas.tablero.ver)_
 - Guía en pantalla → `/ayuda/articulo/baja`
 
 <a id="articulo-finiquito"></a>
@@ -1983,7 +1990,7 @@ RH.
 
 #### Relacionado con
 
-- [Baja de un colaborador (cierre laboral)](#articulo-baja)
+- [Baja de un colaborador (forma de salida y causal)](#articulo-baja)
 
 #### En el sistema
 
@@ -2032,7 +2039,7 @@ Gerente, RH.
 
 #### Relacionado con
 
-- [Baja de un colaborador (cierre laboral)](#articulo-baja)
+- [Baja de un colaborador (forma de salida y causal)](#articulo-baja)
 - [Del candidato al colaborador (sin duplicar a nadie)](#articulo-candidato-a-colaborador)
 
 #### En el sistema
@@ -2183,7 +2190,7 @@ Sistemas, RH.
 #### Relacionado con
 
 - [Alta real: colaborador activo](#articulo-alta-activa)
-- [Baja de un colaborador (cierre laboral)](#articulo-baja)
+- [Baja de un colaborador (forma de salida y causal)](#articulo-baja)
 
 #### En el sistema
 

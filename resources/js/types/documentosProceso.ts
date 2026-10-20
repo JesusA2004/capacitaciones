@@ -389,6 +389,8 @@ export type ColaboradorBusqueda = {
     sucursal: string | null;
     /** Ciudad de su sucursal — usada para precargar el lugar de un acta. */
     ciudad?: string | null;
+    /** Fecha de ingreso (buscador de la solicitud de baja). */
+    fecha_ingreso?: string | null;
 };
 
 // ───────── Cobertura documental por puesto ─────────

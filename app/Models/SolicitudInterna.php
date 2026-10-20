@@ -35,6 +35,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property TipoBaja|null $tipo_baja
  * @property int|null $causal_rotacion_id
  * @property string|null $tipo_baja_original Valor anterior a la migración a tres tipos.
+ * @property string|null $causal_rotacion_original Tipo y causal anteriores al catálogo RV/NR/RE.
  * @property TipoSolicitudInterna $tipo
  * @property EstadoSolicitudInterna $estado
  * @property Carbon|null $fecha_inicio
@@ -76,6 +77,7 @@ class SolicitudInterna extends Model
         'tipo_baja',
         'causal_rotacion_id',
         'tipo_baja_original',
+        'causal_rotacion_original',
         'tipo',
         'estado',
         'fecha_inicio',

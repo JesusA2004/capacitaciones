@@ -51,6 +51,12 @@ class ImportarDatosController extends Controller
         // expedientes e importar headcount (CargaInicialController::PERMISOS).
         $puede['carga_inicial'] = CargaInicialController::puede($usuario);
 
+        // Contactos de emergencia, condición médica y alergias (Excel de
+        // Google Forms): misma pantalla que Permanencia → Contactos de
+        // emergencia, una sola implementación. Es una tarjeta más, no abre el
+        // hub por sí sola (no está en PERMISOS).
+        $puede['contactos_emergencia'] = $usuario->can('expedientes.editar');
+
         // Sin ningún permiso de importación no hay nada que mostrar: el hub
         // no es una pantalla genérica, es el índice de lo que este usuario
         // sí puede importar.

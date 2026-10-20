@@ -347,6 +347,24 @@ return [
     ],
 
     /*
+    | Por causal del catálogo de bajas (config/bajas.php): manda sobre
+    | documentos_por_causa. Solo el vencimiento de la capacitación inicial
+    | (NR-02) lleva el formato de evaluación; el término de contrato (NR-04)
+    | lleva el aviso de terminación; el resto de la No renovación se
+    | documenta con los adjuntos de la baja (convenio / aviso firmado,
+    | evidencias). La rescisión no genera documento: el aviso de rescisión
+    | se ADJUNTA.
+    */
+    'documentos_por_causal' => [
+        'NR-01' => [],
+        'NR-02' => ['evaluacion_capacitacion', 'aviso_terminacion'],
+        'NR-03' => [],
+        'NR-04' => ['aviso_terminacion'],
+        'NR-05' => [],
+        'NR-06' => [],
+    ],
+
+    /*
     | Quién puede GENERAR cada documento (además del alcance sobre la
     | persona, que siempre se valida). RH (documentos_laborales.generar)
     | genera todo; el gerente genera en su ámbito la renuncia (con el

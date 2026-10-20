@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ArrowRight, DoorOpen, ListTree } from '@lucide/vue';
+import { ArrowRight, ClipboardList, DoorOpen, ListTree } from '@lucide/vue';
 import { useDebounceFn } from '@vueuse/core';
 import { ref, watch } from 'vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
@@ -11,9 +11,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { usePermisos } from '@/composables/usePermisos';
 import { formatearFecha } from '@/lib/fechas';
 import { cn, formatoMoneda } from '@/lib/utils';
 import { dashboard } from '@/routes';
+import { index as indexBajas } from '@/routes/rh/bajas';
 import { ciclo as cicloColaborador } from '@/routes/rh/colaboradores';
 import type { CausalRotacionAdmin } from '@/types';
 
@@ -59,7 +61,8 @@ const props = defineProps<{
     seccion: 'bajas' | 'causales';
 }>();
 
-// Pestañas: Bajas | Causales de rotación (solo quien las administra).
+// Pestañas: Bajas | Causales de baja (solo RH, que las administra; la misma
+// pantalla se abre desde Configuración → «Catálogo de bajas»).
 const seccion = ref<'bajas' | 'causales'>(
     props.causales ? props.seccion : 'bajas',
 );
@@ -84,6 +87,9 @@ const claseTab = (activo: boolean) =>
             ? 'border-primary text-foreground'
             : 'border-transparent text-muted-foreground hover:text-foreground',
     );
+
+const { tienePermiso } = usePermisos();
+const puedeVerSolicitudes = tienePermiso('bajas.ver');
 
 defineOptions({
     layout: {
@@ -124,7 +130,13 @@ function neto(fila: Fila): string {
             titulo="Bajas y finiquitos"
             descripcion="Cierres laborales de los colaboradores de tu alcance y el estado de su finiquito. Cada baja se gestiona en la ficha del colaborador."
             :icono="DoorOpen"
-        />
+        >
+            <Button v-if="puedeVerSolicitudes" variant="outline" as-child>
+                <Link :href="indexBajas()"
+                    ><ClipboardList class="size-4" />Solicitudes de baja</Link
+                >
+            </Button>
+        </CrudPageHeader>
 
         <nav
             v-if="causales"
@@ -145,7 +157,7 @@ function neto(fila: Fila): string {
                 :aria-current="seccion === 'causales' ? 'page' : undefined"
                 @click="cambiarSeccion('causales')"
             >
-                <ListTree class="size-4" />Causales de rotación
+                <ListTree class="size-4" />Causales de baja
             </button>
         </nav>
 

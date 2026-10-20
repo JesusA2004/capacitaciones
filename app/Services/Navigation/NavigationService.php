@@ -51,7 +51,11 @@ class NavigationService
 
     public function tieneModoOperativo(User $usuario): bool
     {
-        return $usuario->can('dashboard.global.ver') || $usuario->can('dashboard.sucursal.ver');
+        // Jurídico y Contraloría operan solo el módulo de bajas (revisión /
+        // consulta, docs/BAJAS_Y_CAUSALES.md): su «Inicio» operativo es la
+        // bandeja de bajas (DashboardController los redirige ahí).
+        return $usuario->can('dashboard.global.ver') || $usuario->can('dashboard.sucursal.ver')
+            || $usuario->can('bajas.revisar_juridico') || $usuario->can('bajas.consulta_contraloria');
     }
 
     /**

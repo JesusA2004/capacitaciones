@@ -8,6 +8,7 @@ use App\Services\Navigation\NavigationService;
 use App\Services\Reportes\MetricasRhDashboardService;
 use App\Services\Reportes\TableroRhService;
 use App\Services\Tareas\TareaService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,7 +23,7 @@ class DashboardController extends Controller
         private readonly DatosFaltantesService $datosFaltantes,
     ) {}
 
-    public function index(Request $request): Response
+    public function index(Request $request): Response|RedirectResponse
     {
         $usuario = $request->user();
         $modo = $this->navegacion->modoActual($usuario, NavigationService::cookieDe($request));
@@ -33,6 +34,11 @@ class DashboardController extends Controller
         // operativa + colaborador que está en "Mi espacio" ve su inicio
         // personal, no el tablero de RH (ver NavigationService).
         if ($modo === 'operativo') {
+            // Sin tablero de RH (Jurídico / Contraloría): su inicio es la bandeja de bajas.
+            if (! $usuario->can('dashboard.global.ver') && ! $usuario->can('dashboard.sucursal.ver')) {
+                return to_route('rh.bajas.index');
+            }
+
             $vista = $usuario->can('dashboard.global.ver') ? 'Dashboard/Global' : 'Dashboard/Sucursal';
 
             // Inicio operativo = SOLO el tablero de RH definido por el negocio

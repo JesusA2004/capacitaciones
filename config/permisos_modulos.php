@@ -136,6 +136,21 @@ return [
             'alcances' => ['todos' => 'onboarding.ver_todos', 'region' => 'onboarding.ver_region', 'sucursal' => 'onboarding.ver_sucursal', 'equipo' => 'onboarding.ver_equipo'],
             'acciones' => ['onboarding.gestionar' => 'Gestionar', 'onboarding.entregar_activos' => 'Entregar activos'],
         ],
+        // Módulo de Bajas y Causales (docs/BAJAS_Y_CAUSALES.md): la bandeja y
+        // el expediente de la baja se acotan por la persona (colaborador_id).
+        'bajas' => [
+            'etiqueta' => 'Bajas (solicitudes y expediente)',
+            'grupo' => 'People',
+            'acceso' => 'bajas.ver',
+            'alcances' => ['todos' => 'bajas.ver_todos', 'region' => 'bajas.ver_region', 'sucursal' => 'bajas.ver_sucursal', 'equipo' => 'bajas.ver_equipo'],
+            'acciones' => [
+                'bajas.solicitar' => 'Solicitar baja',
+                'bajas.gestionar' => 'Validar, rechazar, cambiar causal, cerrar y reabrir (RH)',
+                'bajas.revisar_juridico' => 'Revisión de Jurídico',
+                'bajas.consulta_contraloria' => 'Consulta de Contraloría (RE-02 / RE-03)',
+                'bajas.tablero.ver' => 'Tablero de rotación',
+            ],
+        ],
         // Rotación de personal cargada desde el Excel de RH (Reportes →
         // Rotación de personal). Se acota por sucursal.
         'rotacion' => [
@@ -164,7 +179,7 @@ return [
     'alcance_por_rol' => [
         'super_admin' => 'todos', 'administrador_capacitacion' => 'todos', 'auditor' => 'todos',
         'rh_admin' => 'todos', 'rh_auxiliar' => 'todos', 'director_comercial' => 'todos',
-        'direccion' => 'todos', 'juridico' => 'todos', 'sistemas' => 'todos',
+        'direccion' => 'todos', 'juridico' => 'todos', 'sistemas' => 'todos', 'contraloria' => 'todos',
         'gerente_regional' => 'region',
         'gerente_sucursal' => 'sucursal', 'gerente' => 'sucursal',
         'supervisor' => 'sucursal',

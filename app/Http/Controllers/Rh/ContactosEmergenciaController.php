@@ -5,20 +5,23 @@ namespace App\Http\Controllers\Rh;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\AnalizarContactosEmergenciaRequest;
 use App\Http\Requests\Rh\AplicarContactosEmergenciaRequest;
+use App\Http\Requests\Rh\AsignarColaboradorContactosEmergenciaRequest;
 use App\Models\ImportacionExcel;
 use App\Services\ImportadorContactosEmergencia\ImportadorContactosEmergenciaService;
 use App\Support\Paginacion;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
  * Importador del Excel de contactos de emergencia del colaborador: rellena
  * en bloque teléfono personal, contacto de emergencia, condición médica y
- * alergias sobre colaboradores ya existentes. Flujo subir → analizar
- * (preview) → revisar → aplicar. Mismo Service que usaría la API si hiciera
- * falta (RH lo opera desde la web).
+ * alergias sobre colaboradores ya existentes. Dos pasos: vista previa
+ * (analizar, no guarda) → confirmar (aplicar). Toda la regla vive en
+ * ImportadorContactosEmergenciaService; solo RH con `expedientes.editar`.
  */
 class ContactosEmergenciaController extends Controller
 {
@@ -29,6 +32,7 @@ class ContactosEmergenciaController extends Controller
         abort_unless($request->user()->can('expedientes.editar'), 403);
 
         return Inertia::render('Rh/ContactosEmergencia/Index', [
+            'columnas' => array_values(ImportadorContactosEmergenciaService::COLUMNAS),
             'importaciones' => ImportacionExcel::query()
                 ->where('tipo', ImportadorContactosEmergenciaService::TIPO)
                 ->with(['subidoPor:id,name,apellidos', 'aplicadoPor:id,name,apellidos'])
@@ -52,18 +56,32 @@ class ContactosEmergenciaController extends Controller
         ]);
     }
 
+    /** Plantilla vacía con los encabezados oficiales. */
+    public function plantilla(Request $request): HttpResponse
+    {
+        abort_unless($request->user()->can('expedientes.editar'), 403);
+
+        return response($this->importador->plantilla(), 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => 'attachment; filename="Plantilla contactos de emergencia.xlsx"',
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
+    /** Paso 1: vista previa. No escribe nada en los colaboradores. */
     public function analizar(AnalizarContactosEmergenciaRequest $request): RedirectResponse
     {
         $importacion = $this->importador->analizar($request->file('archivo'), $request->user());
 
         return redirect()->route('rh.contactos-emergencia.show', $importacion)
-            ->with('toast', ['type' => 'success', 'message' => "Archivo analizado: {$importacion->total_filas} fila(s). Revisa el detalle antes de aplicar."]);
+            ->with('toast', ['type' => 'success', 'message' => sprintf('Vista previa lista: %d fila(s). Nada se ha guardado todavía; revisa y confirma.', $importacion->total_filas)]);
     }
 
     public function show(Request $request, ImportacionExcel $importacion): Response
     {
         abort_unless($request->user()->can('expedientes.editar'), 403);
         abort_unless($importacion->tipo === ImportadorContactosEmergenciaService::TIPO, 404);
+        $importacion->loadMissing(['subidoPor:id,name,apellidos', 'aplicadoPor:id,name,apellidos']);
 
         return Inertia::render('Rh/ContactosEmergencia/Show', [
             'importacion' => [
@@ -72,24 +90,51 @@ class ContactosEmergenciaController extends Controller
                 'estado' => $importacion->estado,
                 'total_filas' => $importacion->total_filas,
                 'filas_aplicadas' => $importacion->filas_aplicadas,
-                'filas_revision' => $importacion->filas_revision,
-                'filas_sin_cambios' => $importacion->filas_sin_cambios,
-                'filas_no_encontradas' => $importacion->filas_no_encontradas,
-                'filas_error' => $importacion->filas_error,
-                'detalle' => $importacion->detalle ?? [],
+                'detalle' => $this->importador->detalleParaMostrar($importacion, $request->user()),
+                'columnas' => $importacion->metadatos['columnas'] ?? [],
+                'columnas_ignoradas' => $importacion->metadatos['columnas_ignoradas'] ?? [],
+                'resumen' => $importacion->metadatos['resumen'] ?? null,
+                'reanalisis_de' => $importacion->metadatos['reanalisis_de'] ?? null,
+                'subido_por' => $importacion->subidoPor->name,
+                'creado_en' => $importacion->created_at?->toDateTimeString(),
+                'aplicado_por' => $importacion->aplicadoPor?->name,
                 'aplicado_en' => $importacion->aplicado_en?->toDateTimeString(),
             ],
         ]);
     }
 
+    /** Buscador del selector manual (sin mínimo de letras). */
+    public function colaboradores(Request $request): JsonResponse
+    {
+        abort_unless($request->user()->can('expedientes.editar'), 403);
+        $datos = $request->validate(['q' => ['nullable', 'string', 'max:80']]);
+
+        return response()->json(['data' => $this->importador->buscarColaboradores($request->user(), (string) ($datos['q'] ?? ''))]);
+    }
+
+    /** Fila ambigua o no encontrada: RH elige al colaborador a mano. */
+    public function asignar(AsignarColaboradorContactosEmergenciaRequest $request, ImportacionExcel $importacion, int $fila): RedirectResponse
+    {
+        abort_unless($importacion->tipo === ImportadorContactosEmergenciaService::TIPO, 404);
+        $this->importador->asignarColaborador($importacion, $fila, (int) $request->validated('colaborador_id'), $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => sprintf('Colaborador asignado a la fila %d.', $fila)]);
+    }
+
+    /** Paso 2: confirmar y aplicar solo las filas válidas/elegidas. */
     public function aplicar(AplicarContactosEmergenciaRequest $request, ImportacionExcel $importacion): RedirectResponse
     {
         abort_unless($importacion->tipo === ImportadorContactosEmergenciaService::TIPO, 404);
-        $resultado = $this->importador->aplicar($importacion, $request->user(), $request->validated('filas'));
+
+        /** @var list<int>|null $filas */
+        $filas = $request->has('filas') ? array_values(array_map('intval', (array) $request->validated('filas', []))) : null;
+        $confirmadas = array_values(array_map('intval', (array) $request->validated('confirmadas', [])));
+
+        $resumen = $this->importador->aplicar($importacion, $request->user(), $filas, $confirmadas);
 
         return back()->with('toast', [
-            'type' => $resultado['errores'] === [] ? 'success' : 'warning',
-            'message' => "Contactos aplicados: {$resultado['filas_aplicadas']} colaborador(es) actualizado(s).".($resultado['errores'] !== [] ? ' Hubo errores, revisa el detalle.' : ''),
+            'type' => $resumen['errores'] === [] ? 'success' : 'warning',
+            'message' => sprintf('Importación aplicada: %d actualizado(s), %d sin cambios, %d omitido(s).', $resumen['actualizados'], $resumen['sin_cambios'], $resumen['omitidos']),
         ]);
     }
 

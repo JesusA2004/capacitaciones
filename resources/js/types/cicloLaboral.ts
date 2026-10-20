@@ -1,3 +1,4 @@
+import type { CausalBajaOpcion, FormaSalidaClave } from './bajas';
 /**
  * Contrato del DTO de App\Services\CicloLaboral\CicloLaboralService::obtenerEstado()
  * — la misma forma la consumen la web (Inertia) y la app móvil (API v1).
@@ -803,34 +804,45 @@ export type LimitesArchivosCandidato = {
 };
 
 /**
- * Causal de rotación (motivo) de un tipo de baja, tal como la ofrece el
- * diálogo «Iniciar baja» (CausalRotacionService::opcionesIniciarBaja).
+ * Causal de baja tal como la ofrece el diálogo «Iniciar baja»
+ * (CatalogoBajasService::causalArray): clave RV-01…RE-05, ayuda y reglas.
  */
-export type CausalRotacionOpcion = {
-    id: number;
-    nombre: string;
+export type CausalRotacionOpcion = CausalBajaOpcion & {
+    /** Compatibilidad: misma ayuda que `ayuda`. */
     descripcion: string | null;
 };
 
-/** Uno de los tres tipos de baja (App\Enums\TipoBaja) con sus causales activas. */
+/**
+ * Una de las tres formas de salida (RV/NR/RE) con el tipo de baja del
+ * cierre (`value`) y sus causales activas
+ * (CausalRotacionService::opcionesIniciarBaja).
+ */
 export type TipoBajaOpcion = {
     value: string;
+    forma: FormaSalidaClave;
     etiqueta: string;
+    resumen: string;
     descripcion: string;
+    token: string;
     causales: CausalRotacionOpcion[];
 };
 
 /**
- * Fila de la administración de causales de rotación (Bajas y finiquitos →
- * «Causales de rotación», CausalRotacionService::listado).
+ * Fila de la administración del catálogo de causales (Bajas y finiquitos →
+ * «Causales», CausalRotacionService::listado).
  */
 export type CausalRotacionAdmin = {
     id: number;
     tipo: string;
     tipo_etiqueta: string;
+    forma: FormaSalidaClave;
+    forma_etiqueta: string;
     clave: string | null;
     nombre: string;
     descripcion: string | null;
+    requiere_juridico: boolean;
+    comentario_obligatorio: boolean;
+    alerta: string | null;
     excluye_indemnizacion: boolean;
     activo: boolean;
     orden: number;

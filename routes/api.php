@@ -23,6 +23,7 @@ use App\Http\Controllers\Api\V1\NotificacionController;
 use App\Http\Controllers\Api\V1\Rh\ActaController;
 use App\Http\Controllers\Api\V1\Rh\AcuseDescriptivoPuestoController as RhAcuseDescriptivoPuestoController;
 use App\Http\Controllers\Api\V1\Rh\AltaColaboradorController;
+use App\Http\Controllers\Api\V1\Rh\BajaController as RhBajaController;
 use App\Http\Controllers\Api\V1\Rh\CambioFotoController as RhCambioFotoController;
 use App\Http\Controllers\Api\V1\Rh\CandidatoController as RhCandidatoController;
 use App\Http\Controllers\Api\V1\Rh\CatalogoController;
@@ -559,6 +560,18 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             });
 
             Route::get('contratos/por-vencer', [ContratoController::class, 'porVencer'])->name('contratos.por-vencer');
+
+            // Módulo de Bajas y Causales: mismo BajaService que la web (aditivo).
+            Route::prefix('bajas')->name('bajas.')->group(function () {
+                Route::get('catalogo', [RhBajaController::class, 'catalogo'])->name('catalogo');
+                Route::get('/', [RhBajaController::class, 'index'])->name('index');
+                Route::post('/', [RhBajaController::class, 'store'])->name('store');
+                Route::get('{baja}', [RhBajaController::class, 'show'])->name('show');
+                Route::put('{baja}', [RhBajaController::class, 'update'])->name('update');
+                Route::post('{baja}/enviar', [RhBajaController::class, 'enviar'])->name('enviar');
+                Route::post('{baja}/rechazar', [RhBajaController::class, 'rechazar'])->name('rechazar');
+                Route::post('{baja}/documentos', [RhBajaController::class, 'adjuntar'])->name('documentos.store')->middleware('throttle:api-cargas');
+            });
 
             Route::prefix('cierres')->name('cierres.')->group(function () {
                 Route::get('/', [CierreLaboralController::class, 'index'])->name('index');

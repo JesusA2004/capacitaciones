@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Rh;
 
 use App\Enums\EstadoCierreLaboral;
-use App\Enums\TipoBaja;
+use App\Enums\FormaSalida;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\ArchivoLaboralRequest;
 use App\Http\Requests\CicloLaboral\DecisionAprobacionRequest;
@@ -73,7 +73,8 @@ class CierreLaboralController extends Controller
             // Pestaña «Causales de rotación» (subcatálogo del tipo de baja):
             // solo para quien la administra.
             'causales' => $usuario->can('administrar', CausalRotacion::class) ? $this->causales->listado() : null,
-            'tipos_baja' => array_map(fn (TipoBaja $t): array => ['value' => $t->value, 'label' => $t->etiqueta()], TipoBaja::cases()),
+            // Formas de salida en su orden (RV, NR, RE) con el tipo de baja equivalente.
+            'tipos_baja' => array_map(fn (FormaSalida $f): array => ['value' => $f->tipoBaja()->value, 'label' => $f->etiqueta(), 'forma' => $f->value, 'token' => $f->token()], FormaSalida::cases()),
             'seccion' => $request->query('seccion') === 'causales' ? 'causales' : 'bajas',
         ]);
     }
@@ -81,9 +82,10 @@ class CierreLaboralController extends Controller
     public function store(SolicitarCierreRequest $request, Colaborador $colaborador): RedirectResponse
     {
         $this->authorize('iniciarCierre', $colaborador);
-        $this->cierres->solicitar($colaborador, $request->validated(), $request->user());
+        $cierre = $this->cierres->solicitar($colaborador, $request->validated(), $request->user());
+        $folio = $cierre->baja()->value('folio');
 
-        return $this->ok('Baja aplicada: sus accesos ya se suspendieron. Siguen los documentos de la baja y el finiquito.');
+        return $this->ok(sprintf('Baja aplicada%s: sus accesos ya se suspendieron y quedó «En revisión RH». Siguen los documentos de la baja y el finiquito.', is_string($folio) ? sprintf(' (%s)', $folio) : ''));
     }
 
     public function aviso(ArchivoLaboralRequest $request, CierreLaboral $cierre): RedirectResponse

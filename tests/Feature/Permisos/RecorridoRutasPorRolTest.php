@@ -25,6 +25,9 @@ function rrRutasGet(): array
         return in_array('GET', $ruta->methods(), true)
             && ! str_contains($uri, '{')
             && in_array('auth', $ruta->gatherMiddleware(), true)
+            // Recursos con URL firmada (segmentos de video, audio): no son
+            // pantallas y sin firma responden 403 por diseño.
+            && ! in_array('signed', $ruta->gatherMiddleware(), true)
             && ! str_starts_with($uri, 'api/')
             && ! str_contains($uri, 'logout');
     }));

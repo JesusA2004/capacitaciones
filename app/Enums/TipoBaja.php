@@ -3,19 +3,25 @@
 namespace App\Enums;
 
 /**
- * Tipo de una baja de colaborador: SOLO tres. El desglose («motivo») es la
- * causal de rotación (App\Models\CausalRotacion), un subcatálogo por tipo
- * que RH administra desde Bajas y finiquitos.
+ * Tipo de baja que guarda el CIERRE laboral (y su solicitud): SOLO tres, uno
+ * por forma de salida del módulo de bajas (App\Enums\FormaSalida):
  *
- * Los valores anteriores (despido, no_renovacion, baja_inmediata…) se
- * migraron a tipo + causal (config/causales_rotacion.php `legado`) y su
- * valor original quedó en tipo_baja_original.
+ *   renuncia     ↔ RV Renuncia voluntaria
+ *   fin_contrato ↔ NR No renovación (el valor se conserva por
+ *                  compatibilidad con la API móvil y el historial)
+ *   rescision    ↔ RE Rescisión
  *
- * Documentos por tipo (config/documentos_maestros.php documentos_por_causa):
- *  - Renuncia: carta de renuncia generada por el sistema.
- *  - Rescisión: ninguno (se aplica la baja y sigue el finiquito).
- *  - Fin de contrato: formato de evaluación (NO acredita) + aviso de
- *    terminación / no renovación.
+ * El desglose («por qué se va») es la causal (App\Models\CausalRotacion,
+ * claves RV-01…RE-05 de config/bajas.php). Los valores anteriores (despido,
+ * no_renovacion, baja_inmediata…) se migraron a tipo + causal y su valor
+ * original quedó en tipo_baja_original.
+ *
+ * Documentos que el sistema GENERA por tipo/causal
+ * (config/documentos_maestros.php documentos_por_causa / documentos_por_causal):
+ *  - Renuncia: carta de renuncia.
+ *  - No renovación: NR-02 evaluación (NO acredita) + aviso de terminación;
+ *    NR-04 aviso de terminación; el resto se adjunta (convenio/aviso).
+ *  - Rescisión: ninguno (el aviso de rescisión se ADJUNTA a la baja).
  */
 enum TipoBaja: string
 {
@@ -39,25 +45,26 @@ enum TipoBaja: string
 
     public function etiqueta(): string
     {
-        return match ($this) {
-            self::Renuncia => 'Renuncia',
-            self::Rescision => 'Rescisión',
-            self::FinContrato => 'Fin de contrato',
-        };
+        return $this->forma()->etiqueta();
     }
 
     public function descripcion(): string
     {
         return match ($this) {
-            self::Renuncia => 'La persona deja el empleo por decisión propia. El sistema genera la carta de renuncia para imprimir y firmar.',
-            self::Rescision => 'La empresa termina la relación por una causal (art. 47 LFT, desempeño…). No se genera documento: se aplica la baja y sigue el finiquito.',
-            self::FinContrato => 'Termina el contrato o no se acredita el periodo de prueba. Se generan el formato de evaluación y el aviso de no renovación.',
+            self::Renuncia => 'La persona decide irse. El sistema genera la carta de renuncia para imprimir y firmar.',
+            self::Rescision => 'La empresa termina la relación por una falta grave de la persona (art. 47 LFT). El aviso de rescisión se adjunta a la baja.',
+            self::FinContrato => 'La empresa decide no continuar, sin que exista una falta grave (bajo desempeño, periodo de prueba, término de contrato, reestructura…).',
         };
     }
 
+    public function forma(): FormaSalida
+    {
+        return FormaSalida::desdeTipoBaja($this);
+    }
+
     /**
-     * Baja voluntaria (renuncia) frente a involuntaria (rescisión / fin de
-     * contrato), para indicadores de rotación.
+     * Baja voluntaria (renuncia) frente a involuntaria (no renovación /
+     * rescisión), para indicadores de rotación.
      */
     public function esVoluntaria(): bool
     {
@@ -66,8 +73,8 @@ enum TipoBaja: string
 
     /**
      * El finiquito estima indemnización (si la política está habilitada):
-     * nunca en renuncia; en rescisión y fin de contrato sí, salvo que la
-     * causal la excluya (abandono de trabajo).
+     * nunca en renuncia; en rescisión y no renovación sí, salvo que la causal
+     * la excluya (faltas injustificadas o abandono, RE-01).
      */
     public function contemplaIndemnizacion(): bool
     {
@@ -94,8 +101,8 @@ enum TipoBaja: string
             return $tipo;
         }
 
-        $legado = config('causales_rotacion.legado.'.$valor);
+        $legado = config('bajas.tipos_baja_anteriores.'.$valor);
 
-        return is_array($legado) && is_string($legado['tipo'] ?? null) ? self::tryFrom($legado['tipo']) : null;
+        return is_string($legado) ? self::tryFrom($legado) : null;
     }
 }

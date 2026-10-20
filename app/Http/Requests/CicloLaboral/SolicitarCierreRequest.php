@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\CicloLaboral;
 
+use App\Enums\EntregaAvisoRescision;
+use App\Enums\Recontratable;
 use App\Enums\TipoBaja;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -32,6 +34,12 @@ class SolicitarCierreRequest extends FormRequest
             'motivo' => ['nullable', 'string', 'max:2000'],
             'fecha_efectiva' => ['required', 'date'],
             'observaciones' => ['nullable', 'string', 'max:2000'],
+            // Expediente de la baja (módulo de Bajas). Opcionales: la API
+            // móvil instalada no los manda y RH los completa al validar.
+            'recontratable' => ['nullable', Rule::enum(Recontratable::class)],
+            'fecha_conocimiento_falta' => ['nullable', 'date'],
+            'entrega_aviso_rescision' => ['nullable', Rule::enum(EntregaAvisoRescision::class)],
+            'fecha_entrega_aviso' => ['nullable', 'date'],
         ];
     }
 
@@ -41,8 +49,8 @@ class SolicitarCierreRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'tipo_baja.required' => 'Elige el tipo de baja: renuncia, rescisión o fin de contrato.',
-            'tipo_baja.enum' => 'Elige el tipo de baja: renuncia, rescisión o fin de contrato.',
+            'tipo_baja.required' => 'Elige cómo se va: renuncia voluntaria, no renovación o rescisión.',
+            'tipo_baja.enum' => 'Elige cómo se va: renuncia voluntaria, no renovación o rescisión.',
         ];
     }
 }

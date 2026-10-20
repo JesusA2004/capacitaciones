@@ -172,7 +172,7 @@ RH ve todos los expedientes; gerencias, los de su sucursal; el colaborador (incl
 
 #### Qué pasa después
 
-- El colaborador ve su propio expediente en Mi expediente (sin la pestaña Cuenta ni Onboarding).
+- El colaborador ve su propio expediente en Mi expediente (sin la pestaña Cuenta ni Checklist).
 
 #### Errores comunes
 

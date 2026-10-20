@@ -78,7 +78,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('{causal}', [CausalRotacionController::class, 'update'])->name('update');
             Route::patch('{causal}/activo', [CausalRotacionController::class, 'activo'])->name('activo');
             Route::post('{causal}/mover', [CausalRotacionController::class, 'mover'])->name('mover');
-            Route::delete('{causal}', [CausalRotacionController::class, 'destroy'])->name('destroy');
         });
 
         Route::get('colaboradores/{colaborador}/ciclo', [CicloColaboradorController::class, 'show'])->name('colaboradores.ciclo')->withTrashed();

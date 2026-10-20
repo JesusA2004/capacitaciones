@@ -72,6 +72,7 @@ encolado (no vuelve a crear la notificación).
 | Excepción de Dirección General | RH | — | `excepciones.autorizar` | RH | `SolicitudExcepcionPeriodoPrueba` |
 | Préstamo autorizado | RH / Dirección | — | — | Colaborador (`prestamo_autorizado`) | `Prestamo` |
 | Baja aplicada (cierre laboral) | Jefe directo / RH | "Baja aplicada" (accesos suspendidos) | Regional + RH (`cierre_baja_solicitada`), solo para enterarse (pueden rehabilitar accesos). **Sin preautorización ni autorización posterior de RH**; nunca genera «solicitud por revisar» | — | `CierreLaboral` |
+| Baja enviada a RH / alertas del módulo de bajas (docs/BAJAS_Y_CAUSALES.md) | Gerente / RH / Jurídico | «Baja enviada a RH» | RH (`baja_por_revisar`), Jurídico (`baja_revision_juridico`, `baja_alerta_juridico`), Contraloría (`baja_alerta_contraloria`, RE-02/RE-03), RH con correo (`baja_alerta_clima_laboral`, RV-04), RH (`baja_rotacion_temprana`) | Gerente (`baja_resuelta`: rechazo, cierre, no procede) | `Baja` · `baja` |
 | Negativa a firmar/recibir la baja | RH | — | RH que gestiona el cierre, para generar el acta de negativa con dos testigos (`cierre_negativa_firma`, `cierres.gestionar`) | — | `CierreLaboral` |
 | Finiquito / documentos de la baja por firmar | RH | — | Colaborador (`documento_firma_pendiente`) y RH que opera el documento | Colaborador | `GeneratedDocument` / `CierreLaboral` |
 | Acta administrativa | Gerente / RH | — | RH (`actas.gestionar`) | — | `ActaAdministrativa` |

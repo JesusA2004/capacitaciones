@@ -103,7 +103,10 @@ const ESPERADO = [
             'Certificación Mr. Lana',
         ],
     ],
-    ['Cierres laborales', ['Bajas y finiquitos', 'Reingresos']],
+    [
+        'Cierres laborales',
+        ['Solicitudes de baja', 'Bajas y finiquitos', 'Reingresos'],
+    ],
     [
         'Organización',
         [
@@ -119,6 +122,7 @@ const ESPERADO = [
         'Configuración',
         [
             'Documentos maestros',
+            'Catálogo de bajas',
             'Usuarios y permisos',
             'Roles y permisos',
             'Importar datos',

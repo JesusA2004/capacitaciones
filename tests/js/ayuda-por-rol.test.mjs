@@ -101,10 +101,13 @@ test('cada punto del checklist de un rol abre un artículo que ese rol puede ver
     }
 });
 
+// «Solicitar baja» volvió a existir (2026-10-20): es la solicitud del gerente
+// del módulo de Bajas y Causales (docs/BAJAS_Y_CAUSALES.md), ya no el flujo
+// de preautorización anterior.
 test('la ayuda no menciona flujos que ya no existen', () => {
     const texto = JSON.stringify([ROLES_GUIA, PROCESOS, FLUJO, GLOSARIO, PREGUNTAS_FRECUENTES, ARTICULOS]);
 
-    for (const obsoleto of ['Ver mis recibos', 'mis-recibos', 'Preautorizar', 'preautoriza bajas', 'Solicitar baja»', 'Preselección del gerente']) {
+    for (const obsoleto of ['Ver mis recibos', 'mis-recibos', 'Preautorizar', 'preautoriza bajas', 'Preselección del gerente']) {
         assert.ok(!texto.includes(obsoleto), `la guía todavía dice «${obsoleto}»`);
     }
 });

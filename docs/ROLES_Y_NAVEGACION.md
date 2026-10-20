@@ -8,7 +8,7 @@ MR. LANA PEOPLE separa dos experiencias completamente distintas dentro del mismo
 Un usuario **nunca** ve ambos mezclados en el mismo menú. Una misma CUENTA puede representar a la vez a un colaborador real y a alguien con permisos operativos; ninguna capacidad depende del nombre del rol:
 
 - **Modo colaborador ("Mi espacio")** — capacidad central `NavigationService::puedeUsarModoColaborador()`, expuesta como Gate `modo-colaborador`: la cuenta está enlazada a un **Colaborador activo** y no tiene el acceso bloqueado (`User::puedeAccederPortal()`), **o** tiene el permiso explícito `portal.ver` (rol `colaborador`).
-- **Modo operativo ("Operación RH")** — `dashboard.global.ver` o `dashboard.sucursal.ver`.
+- **Modo operativo ("Operación RH")** — `dashboard.global.ver` o `dashboard.sucursal.ver`; también Jurídico (`bajas.revisar_juridico`) y Contraloría (`bajas.consulta_contraloria`), cuyo «Inicio» es la bandeja de bajas.
 
 Consecuencia (regresión corregida el 2026-09-28): un super_admin, rh_admin o gerente cuya cuenta está enlazada a su Colaborador activo ve **siempre** el selector [Mi espacio] [Operación RH], sin tener que asignarle además el rol `colaborador`. Una cuenta sin colaborador enlazado (o con el colaborador inactivo/suspendido, o con acceso bloqueado) solo tiene el modo operativo. Como el login web exige colaborador activo/en incorporación (`FortifyServiceProvider`, `EnsureCuentaActiva`), en la práctica toda cuenta administrativa que inicia sesión es también un colaborador.
 
@@ -52,13 +52,16 @@ El orden es exactamente el ciclo de vida laboral + transversales:
 | | | Celebraciones | `rh.cumpleanos.ver`/`celebraciones.ver` | `rh.cumpleanos.index` / `rh.aniversarios.index` |
 | 6 | **Desarrollo** | Capacitación continua | feature `capacitacion` | `cursos.index` |
 | | | Evaluación del desempeño · Matriz 9 box y planes · Certificación Mr. Lana | features `evaluacion_desempeno` / `nine_box` / `certificacion` (apagados: aún sin pantalla real, no se muestran) | — |
-| 7 | **Cierres laborales** | Bajas y finiquitos | `cierres.ver` | `rh.cierres.index` |
+| 7 | **Cierres laborales** | Solicitudes de baja (bandeja, solicitud del gerente, expediente — docs/BAJAS_Y_CAUSALES.md) | `bajas.ver`/`bajas.revisar_juridico`/`bajas.consulta_contraloria` | `rh.bajas.index` |
+| | | Bajas y finiquitos | `cierres.ver` | `rh.cierres.index` |
 | | | Reingresos | `reingresos.solicitar`/`gestionar` | `rh.reingresos.index` |
 | — | **Organización** | Organigrama | `organigrama.ver` | `administracion.jerarquia-puestos.index` |
 | | | Puestos y tabulador | `puestos.administrar` | `administracion.puestos.index` |
 | | | Sucursales y departamentos | `sucursales.administrar`/`departamentos.administrar` | `administracion.sucursales.index` |
 | — | **Reportes** | Reportes de RH (incluye Rotación) | `reportes_rh.ver` | `reportes.index` |
+| | | Rotación de personal (tablero: Excel histórico + bajas del sistema; sin `bajas.tablero.ver` abre el histórico del Excel) | `bajas.tablero.ver`/`rotacion.ver` | `reportes.rotacion.tablero.index` / `reportes.rotacion.index` |
 | — | **Configuración** · solo administrador | Documentos maestros | `plantillas_documentales.administrar` | `rh.documentos-maestros.index` |
+| | | Catálogo de bajas (misma pantalla que Bajas y finiquitos → «Causales») | `finiquitos.causales_rotacion` + `finiquitos.ver` | `rh.cierres.index?seccion=causales` |
 | | | Usuarios y permisos | `usuarios.ver`/`roles.administrar` | `administracion.usuarios.index` |
 | | | Importar datos | `expedientes.migrar`/`headcount.importar`/`colaboradores.importar_salarios_vacaciones`/`rotacion.cargar`/`perfiles_puesto.editar` | `administracion.importar-datos.index` |
 | | | Ajustes y notificaciones | `configuracion.ver`/`notificaciones.ver_todas` | `administracion.configuracion.index` |
