@@ -224,6 +224,18 @@ class DatosDocumentoService
         $inicio = $contrato !== null ? $contrato->fecha_inicio : $hoy;
         $fin = $contrato !== null ? $contrato->fecha_fin : $this->finSegunPuesto($c, $hoy);
         $meses = $this->mesesContrato($contexto);
+
+        // Paquete del CONTRATO (capacitación, confidencialidad, no
+        // competencia, indeterminado): decisión del negocio 2026-10-21 —
+        // TODAS las fechas contractuales (fecha del contrato, suscripción,
+        // hoja de firmas, «a los N días…») son la fecha de GENERACIÓN, igual
+        // en los documentos del paquete; la vigencia corre desde ese día con
+        // la misma regla que ContratoLaboralService (inicio + N meses − 1 día).
+        // La fecha de ingreso (antigüedad) no cambia.
+        if ($contexto->paqueteContrato && $contrato !== null) {
+            $inicio = $hoy;
+            $fin = $contrato->fecha_fin !== null && $meses !== null ? $hoy->addMonthsNoOverflow($meses)->subDay() : null;
+        }
         $duracion = $meses !== null ? $this->duracion($meses) : '';
         // Datos LEGALES: solo lo capturado. Nunca se completa con un supuesto
         // (nacionalidad «Mexicana», el correo de la cuenta, el representante
@@ -464,7 +476,9 @@ class DatosDocumentoService
             'profesion' => 'nullable|string|max:120',
             'curp' => 'nullable|string|size:18',
             'rfc' => 'nullable|string|min:12|max:13',
-            'nss' => 'nullable|string|max:15',
+            // Columna varchar(11): 11 dígitos exactos (antes max:15 dejaba
+            // pasar «1234-5678-901» y MariaDB lo rechazaba con un 500).
+            'nss' => 'nullable|digits:11',
             'telefono' => 'nullable|string|max:20',
             'correo_personal' => 'nullable|email|max:191',
             'domicilio' => 'nullable|string|max:191',
@@ -778,20 +792,42 @@ class DatosDocumentoService
     }
 
     /**
-     * Sueldo mensual canónico: el del contrato real; si no, salario diario
-     * × 30 (CompensacionService, sin excepción de mes); si no hay diario, el
+     * Sueldo mensual canónico. Paquete del contrato: el vigente del
+     * colaborador. Otros documentos (acta, evaluación…): el del contrato
+     * registrado; si no, el vigente. Vigente = salario diario × 30
+     * (CompensacionService, sin excepción de mes); si no hay diario, el
      * mensual capturado. Sin ninguno: vacío → se pide «Salario diario».
      */
     private function sueldoMensual(ContextoDocumento $contexto): ?float
     {
         $contrato = $contexto->contrato;
+        $c = $contexto->colaborador;
+
+        // Documento del paquete del contrato: se genera (y se previsualiza)
+        // con el sueldo VIGENTE del colaborador. El sueldo guardado en el
+        // registro del contrato es una copia de cuando se registró: si RH
+        // corrigió el salario después (5,000 → 10,000), la vista previa y la
+        // regeneración mostraban el viejo. El documento ya generado conserva
+        // su propio snapshot (payload).
+        $vigente = $this->sueldoDelColaborador($c);
+
+        if ($contexto->paqueteContrato && $vigente !== null) {
+            return $vigente;
+        }
 
         if ($contrato !== null && $contrato->sueldo_mensual !== null) {
             return (float) $contrato->sueldo_mensual;
         }
 
-        $c = $contexto->colaborador;
+        return $vigente;
+    }
 
+    /**
+     * Sueldo mensual vigente del colaborador: salario diario × 30
+     * (CompensacionService); sin diario, el mensual capturado.
+     */
+    private function sueldoDelColaborador(Colaborador $c): ?float
+    {
         if ($c->salario_diario !== null && (float) $c->salario_diario > 0) {
             return $this->compensacion->mensual((float) $c->salario_diario);
         }

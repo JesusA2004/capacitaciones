@@ -39,6 +39,9 @@ use Throwable;
  */
 class DocumentoStorageService
 {
+    /** Largo máximo de una ruta guardada en BD (columnas varchar(191) heredadas; ver migración 2026_10_21_180000). */
+    public const LARGO_MAXIMO_RUTA = 191;
+
     public function disco(): Filesystem
     {
         return Storage::disk(config('expedientes.disk'));
@@ -214,6 +217,18 @@ class DocumentoStorageService
         $nombre = $this->sanitizarSegmento(pathinfo($nombreArchivo, PATHINFO_FILENAME));
         $extension = strtolower((string) pathinfo($nombreArchivo, PATHINFO_EXTENSION));
         $sufijo = $extension !== '' ? ".{$extension}" : '';
+
+        // La ruta se guarda en columnas varchar(191) (generated_documents.path,
+        // docx_path…): con MariaDB en modo estricto una ruta más larga tiraba
+        // la generación con un 500 («Data too long for column 'path'»). El
+        // nombre de la persona va en la carpeta Y en el archivo, así que un
+        // nombre largo bastaba. Se recorta el nombre del archivo (nunca la
+        // carpeta del expediente), reservando lugar para « (N)».
+        $disponible = self::LARGO_MAXIMO_RUTA - mb_strlen($carpeta) - 1 - mb_strlen($sufijo) - 5;
+
+        if (mb_strlen($nombre) > $disponible) {
+            $nombre = rtrim(mb_substr($nombre, 0, max(20, $disponible)), ' _-.');
+        }
 
         $ruta = "{$carpeta}/{$nombre}{$sufijo}";
         $intento = 2;

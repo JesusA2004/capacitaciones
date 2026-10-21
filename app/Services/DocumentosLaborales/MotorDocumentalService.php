@@ -271,7 +271,25 @@ class MotorDocumentalService
                 $this->expediente->eliminar($rutaDocx);
             }
 
-            throw $e;
+            if ($e instanceof ValidationException) {
+                throw $e;
+            }
+
+            // Falla de infraestructura al registrar (BD): nunca un 500 mudo.
+            // Queda en el log con el contexto para Sistemas y la pantalla
+            // dice qué pasó; el PDF ya se retiró del NAS.
+            Log::error('MotorDocumentalService: no se pudo registrar el documento generado.', [
+                'colaborador_id' => $colaborador->id,
+                'clave' => $opciones['clave'] ?? null,
+                'ruta' => $ruta,
+                'largo_ruta' => mb_strlen($ruta),
+                'excepcion' => $e::class,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw ValidationException::withMessages([
+                'documento' => sprintf('No se pudo registrar «%s» en el expediente (error del servidor al guardar). No se generó nada; intenta de nuevo y, si continúa, avisa a Sistemas.', $titulo),
+            ]);
         }
 
         $this->auditoria->registrar('documento_generado', $documento, $actor, [
@@ -593,7 +611,10 @@ class MotorDocumentalService
             }
         }
 
-        return new ContextoDocumento($colaborador, $contrato, $cierre, $evaluacion, $solicitud, $prestamo, $actor, $manuales, $fecha);
+        // Documento originado por el CONTRATO (paquete de contratación o
+        // renovación): sus fechas contractuales son la fecha de generación
+        // (decisión del negocio 2026-10-21, ver DatosDocumentoService).
+        return new ContextoDocumento($colaborador, $contrato, $cierre, $evaluacion, $solicitud, $prestamo, $actor, $manuales, $fecha, paqueteContrato: $documentable instanceof ContratoLaboral);
     }
 
     /**
