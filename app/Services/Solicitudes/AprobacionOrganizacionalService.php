@@ -19,6 +19,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Organigrama\OrganigramaPersonasService;
+use App\Services\Organigrama\RegionalRespaldoService;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -50,10 +51,14 @@ use Illuminate\Validation\ValidationException;
  *         Regional de SU clasificación Q1/Q3 (clasificaciones_region): el
  *         titular o, si la plaza está vacante, quien la cubre temporalmente.
  *         Sin clasificación → paso BLOQUEADO «Pendiente de asignar región de
- *         aprobación» (nunca se adivina ni sube a Dirección Comercial);
+ *         aprobación» (nunca se adivina ni sube a Dirección Comercial).
+ *         Plaza regional vacante y sin cobertura → la regional de respaldo
+ *         (RegionalRespaldoService); bloqueado solo si no hay ninguna;
  *      b) personal de sucursal → gerencia de su sucursal (titular o
  *         cobertura vigente);
- *   4. jefe organizacional (organigrama; ya contempla coberturas).
+ *   4. jefe organizacional (organigrama; ya contempla coberturas y, para el
+ *      personal de sucursal, la regional de respaldo: nunca Dirección
+ *      Comercial — ver OrganigramaPersonasService::jefesDerivados()).
  * Después: el regional de la región (personal de sucursal), Dirección
  * Comercial SOLO en los tipos de config `solicitudes.direccion_comercial_gerencia`
  * cuando la persona es de gerencia o superior y depende de Dirección
@@ -77,6 +82,8 @@ class AprobacionOrganizacionalService
 
     public const ORIGEN_REGIONAL_VACANTE = 'regional_vacante';
 
+    public const ORIGEN_REGIONAL_RESPALDO = 'regional_respaldo';
+
     public const ORIGEN_SIN_RESPONSABLE = 'sin_responsable';
 
     /** Estados de cada paso del flujo (contrato API). */
@@ -95,6 +102,7 @@ class AprobacionOrganizacionalService
     public function __construct(
         private readonly OrganizacionJerarquiaService $organizacion,
         private readonly OrganigramaPersonasService $organigrama,
+        private readonly RegionalRespaldoService $regionalRespaldo,
     ) {}
 
     // ------------------------------------------------------------------
@@ -714,6 +722,25 @@ class AprobacionOrganizacionalService
         $usuarios = $colaboradores->map(fn (Colaborador $c) => $this->organizacion->usuarioActivoDe($c))->filter()->unique('id')->values();
 
         if ($usuarios->isEmpty()) {
+            // Plaza regional vacante y sin cobertura: la regional de
+            // respaldo (misma regla que su jefe en el organigrama), nunca
+            // Dirección Comercial. Solo sin NINGUNA regional se detiene.
+            foreach ($this->regionalRespaldo->candidatos() as $candidatoId) {
+                $candidato = $candidatoId !== $persona->id ? Colaborador::query()->where('id', $candidatoId)->first() : null;
+                $usuario = $this->organizacion->usuarioActivoDe($candidato);
+
+                if ($candidato !== null && $usuario !== null) {
+                    return $this->resultado(
+                        self::ORIGEN_REGIONAL_RESPALDO,
+                        sprintf('Regional de respaldo (%s sin titular ni cobertura)', $etiqueta),
+                        SolicitudAprobacion::NIVEL_REGIONAL,
+                        $etiqueta,
+                        collect([$candidato]),
+                        collect([$usuario]),
+                    );
+                }
+            }
+
             return $this->resultado(
                 self::ORIGEN_REGIONAL_VACANTE,
                 sprintf('%s sin titular ni cobertura', $etiqueta),
