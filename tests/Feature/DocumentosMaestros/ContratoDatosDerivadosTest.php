@@ -60,10 +60,10 @@ test('NOVENA: sin contrato, el sueldo mensual es salario diario × 30 (y no se p
     expect($fuente['etiqueta'])->toBe('Salario diario');
 });
 
-test('NOVENA: el salario diario manda sobre un sueldo mensual capturado distinto', function () {
+test('NOVENA: el sueldo mensual capturado por RH manda tal cual (el diario sale de él)', function () {
     $valores = cdValores(cdColaborador(['salario_diario' => 400, 'sueldo_mensual' => 9999]));
 
-    expect($valores['sueldo_mensual_numero'])->toBe('12,000.00');
+    expect($valores['sueldo_mensual_numero'])->toBe('9,999.00');
 });
 
 test('DÉCIMA CUARTA y firma: sin contrato, inicio = hoy (MX), fin = inicio + meses del puesto − 1 día, firma = hoy', function () {
