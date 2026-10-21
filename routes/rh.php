@@ -215,6 +215,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('aprobar', [EmployeeDocumentController::class, 'aprobar'])->name('aprobar');
             Route::post('rechazar', [EmployeeDocumentController::class, 'rechazar'])->name('rechazar');
             Route::post('solicitar-correccion', [EmployeeDocumentController::class, 'solicitarCorreccion'])->name('solicitar-correccion');
+            Route::post('autorizar-cambio', [EmployeeDocumentController::class, 'autorizarCambio'])->name('autorizar-cambio');
 
             // Extraccion automatica de datos personales (docs/DOCUMENT_EXTRACTION.md).
             Route::prefix('extraccion')->name('extraccion.')->group(function () {

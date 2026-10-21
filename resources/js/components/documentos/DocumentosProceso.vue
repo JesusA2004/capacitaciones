@@ -73,6 +73,8 @@ const props = defineProps<{
     tipo: TipoRegistroDocumental | 'colaborador';
     id: number;
     proceso?: string;
+    /** Cambia cuando algo externo afecta las secciones (p. ej. se aprobó un documento del expediente): recarga. */
+    version?: string | number;
 }>();
 
 /** Cambió algún documento (generado, firmado, archivado…): la página puede refrescar su propio estado. */
@@ -169,7 +171,7 @@ async function cargar() {
 }
 
 onMounted(cargar);
-watch(() => [props.tipo, props.id], cargar);
+watch(() => [props.tipo, props.id, props.version], cargar);
 
 function reemplazar(nueva: Seccion) {
     const i = secciones.value.findIndex(

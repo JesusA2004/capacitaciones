@@ -80,6 +80,18 @@ class EmployeeDocumentPolicy
     }
 
     /**
+     * Autorizar el reemplazo que el colaborador pidió (cambio_solicitado →
+     * cambio_autorizado). Es la otra salida de RH ante una solicitud de
+     * cambio (la primera es aprobar la versión actual tal cual): mismo
+     * permiso web de aprobar o el permiso móvil histórico de autorizar
+     * cambio. Web y app usan este mismo criterio.
+     */
+    public function autorizarCambio(User $usuario, EmployeeDocument $documento): bool
+    {
+        return $this->decide($usuario, $documento, 'documentos.aprobar', ['rh.expedientes.documentos.autorizar-cambio']);
+    }
+
+    /**
      * @param  list<string>  $permisosApp
      */
     private function decide(User $usuario, EmployeeDocument $documento, string $permisoWeb, array $permisosApp): bool

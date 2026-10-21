@@ -33,6 +33,22 @@ enum EstadoDocumento: string
         return [self::Cargado->value, self::EnRevision->value, self::CambioSolicitado->value];
     }
 
+    /**
+     * ¿RH puede decidir sobre este documento (aprobar, rechazar o pedir
+     * corrección)? Sí en todo estado «por revisar» (porRevisarValues),
+     * incluido cambio_solicitado: RH puede autorizar el reemplazo o aprobar
+     * la versión actual tal cual (aprobarla cierra la solicitud de cambio).
+     * También «pendiente» de registros heredados que ya traen archivo. No en
+     * aprobado/rechazado/requiere_correccion/vencido/archivado ni en
+     * cambio_autorizado (ahí se espera la nueva versión del colaborador).
+     * Fuente única para IncorporacionService (web + API móvil) y para el
+     * botón «Aprobar» del expediente web (bandera `revisable` del payload).
+     */
+    public function admiteDecisionDeRh(): bool
+    {
+        return $this === self::Pendiente || in_array($this->value, self::porRevisarValues(), true);
+    }
+
     public function etiqueta(): string
     {
         return match ($this) {

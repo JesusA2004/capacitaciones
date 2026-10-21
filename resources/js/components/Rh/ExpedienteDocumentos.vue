@@ -9,6 +9,7 @@ import {
     FileEdit,
     FileText,
     FileX2,
+    RefreshCw,
     Sparkles,
 } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
@@ -22,7 +23,7 @@ import { Button } from '@/components/ui/button';
 import { useAlertas } from '@/composables/useAlertas';
 import { useCelebracion } from '@/composables/useCelebracion';
 import { getJson } from '@/lib/http';
-import { aprobar } from '@/routes/rh/documentos';
+import { aprobar, autorizarCambio } from '@/routes/rh/documentos';
 import { extraccionesPendientes } from '@/routes/rh/expedientes';
 import type { DocumentoExpedienteItem } from '@/types';
 
@@ -128,6 +129,20 @@ async function aprobarDocumento(
                 mostrarExito(`«${tipoNombre}» aprobado.`);
                 celebrarDesdeEvento(evento);
             },
+        },
+    );
+}
+
+function autorizarCambioDocumento(documentoId: number, tipoNombre: string) {
+    router.post(
+        autorizarCambio.url(documentoId),
+        {},
+        {
+            preserveScroll: true,
+            onSuccess: () =>
+                mostrarExito(
+                    `Cambio de «${tipoNombre}» autorizado: el colaborador ya puede subir la nueva versión.`,
+                ),
         },
     );
 }
@@ -322,16 +337,29 @@ function abrirPreview(item: DocumentoExpedienteItem) {
                             Datos detectados
                         </Button>
 
-                        <template
-                            v-if="
-                                puedeRevisar &&
-                                item.documento &&
-                                ['pendiente', 'en_revision'].includes(
-                                    item.documento.status,
-                                )
-                            "
-                        >
+                        <!--
+                            Qué botones ve cada documento lo decide el backend
+                            (permiso + estado: cargado, en revisión y cambio
+                            solicitado), la misma regla que valida al aprobar.
+                        -->
+                        <template v-if="puedeRevisar && item.documento">
                             <Button
+                                v-if="item.documento.acciones.autorizar_cambio"
+                                size="sm"
+                                variant="outline"
+                                class="border-primary/40 text-primary hover:bg-primary/10"
+                                @click="
+                                    autorizarCambioDocumento(
+                                        item.documento.id,
+                                        item.tipo.nombre,
+                                    )
+                                "
+                            >
+                                <RefreshCw class="size-3.5" />
+                                Autorizar cambio
+                            </Button>
+                            <Button
+                                v-if="item.documento.acciones.aprobar"
                                 size="sm"
                                 variant="outline"
                                 class="border-success/40 text-success hover:bg-success/10"
@@ -347,6 +375,7 @@ function abrirPreview(item: DocumentoExpedienteItem) {
                                 Aprobar
                             </Button>
                             <Button
+                                v-if="item.documento.acciones.corregir"
                                 size="sm"
                                 variant="outline"
                                 class="border-warning/40 text-warning hover:bg-warning/10"
@@ -361,6 +390,7 @@ function abrirPreview(item: DocumentoExpedienteItem) {
                                 Corrección
                             </Button>
                             <Button
+                                v-if="item.documento.acciones.rechazar"
                                 size="sm"
                                 variant="outline"
                                 class="border-destructive/40 text-destructive hover:bg-destructive/10"

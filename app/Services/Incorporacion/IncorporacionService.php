@@ -23,6 +23,7 @@ use App\Services\RhMobile\ResponsableResolverService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 use Throwable;
 
@@ -328,8 +329,17 @@ class IncorporacionService
         return $vigente;
     }
 
+    /**
+     * Aprueba la versión vigente tal cual. Desde cambio_solicitado también:
+     * RH decide que la versión actual es válida y eso cierra la solicitud de
+     * cambio del colaborador (deja de estar en cambio_solicitado). El avance
+     * del expediente y el estado del alta se recalculan en
+     * CicloLaboralDocumentoObserver al cambiar el estatus.
+     */
     public function aprobarDocumento(EmployeeDocument $documento, User $revisor, ?string $comentario): void
     {
+        $this->asegurarDecisionDeRh($documento, 'aprobar');
+
         $documento->update([
             'status' => EstadoDocumento::Aprobado->value,
             'reviewed_by' => $revisor->id,
@@ -354,6 +364,8 @@ class IncorporacionService
 
     public function rechazarDocumento(EmployeeDocument $documento, User $revisor, string $motivo): void
     {
+        $this->asegurarDecisionDeRh($documento, 'rechazar');
+
         $documento->update([
             'status' => EstadoDocumento::Rechazado->value,
             'reviewed_by' => $revisor->id,
@@ -381,6 +393,8 @@ class IncorporacionService
      */
     public function solicitarCorreccionDocumento(EmployeeDocument $documento, User $revisor, string $comentario): void
     {
+        $this->asegurarDecisionDeRh($documento, 'pedir corrección de');
+
         $documento->update([
             'status' => EstadoDocumento::RequiereCorreccion->value,
             'reviewed_by' => $revisor->id,
@@ -398,6 +412,21 @@ class IncorporacionService
 
             $this->eventos->avisarResultado($destinatario, new Aviso('documento_revisado', 'documento', 'Documento por corregir', sprintf('RH te pidió corregir tu documento «%s»: %s Vuelve a subirlo desde Mi expediente.', $documento->tipo->nombre ?? 'del expediente', rtrim(mb_strimwidth(trim($comentario), 0, 160, '…'), '.').'.'), $documento, 'requiere_correccion', 'alta'));
         });
+    }
+
+    /**
+     * Regla única (web + API móvil) de en qué estados RH puede decidir sobre
+     * un documento, ver EstadoDocumento::admiteDecisionDeRh().
+     */
+    private function asegurarDecisionDeRh(EmployeeDocument $documento, string $accion): void
+    {
+        if ($documento->status->admiteDecisionDeRh()) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'documento' => sprintf('No se puede %s este documento: está «%s».', $accion, $documento->status->etiqueta()),
+        ]);
     }
 
     /**

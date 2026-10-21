@@ -13,6 +13,8 @@ use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Incorporacion\IncorporacionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class EmployeeDocumentController extends Controller
@@ -95,5 +97,23 @@ class EmployeeDocumentController extends Controller
         $this->incorporacion->solicitarCorreccionDocumento($documento, $request->user(), $datos['comments']);
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Se pidió corrección al colaborador.']);
+    }
+
+    /**
+     * El colaborador pidió reemplazar un documento (cambio_solicitado): RH
+     * autoriza el cambio y el colaborador ya puede subir la nueva versión.
+     * Misma regla que la API móvil (IncorporacionService::autorizarCambio).
+     */
+    public function autorizarCambio(Request $request, EmployeeDocument $documento): RedirectResponse
+    {
+        $this->authorize('autorizarCambio', $documento);
+
+        try {
+            $this->incorporacion->autorizarCambio($documento, $request->user());
+        } catch (RuntimeException $e) {
+            throw ValidationException::withMessages(['documento' => $e->getMessage()]);
+        }
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Cambio autorizado. El colaborador ya puede subir la nueva versión.']);
     }
 }

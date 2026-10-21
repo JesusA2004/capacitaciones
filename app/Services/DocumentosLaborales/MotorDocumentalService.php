@@ -27,7 +27,7 @@ use App\Services\DocumentosMaestros\AlmacenMaestrosService;
 use App\Services\DocumentosMaestros\ContextoDocumento;
 use App\Services\DocumentosMaestros\DatosDocumentoService;
 use App\Services\DocumentosMaestros\DefinicionMaestroService;
-use App\Services\DocumentosMaestros\Docx\BlanqueadorRepresentanteDocx;
+use App\Services\DocumentosMaestros\Docx\FirmasContratoDocx;
 use App\Services\DocumentosMaestros\Docx\RellenadorDocx;
 use App\Services\DocumentosMaestros\LayoutDocumentoService;
 use App\Services\DocumentosMaestros\Pdf\RenderizadorOverlayMaestro;
@@ -91,7 +91,7 @@ class MotorDocumentalService
         private readonly ConversorDocxPdf $conversor,
         private readonly LayoutDocumentoService $layout,
         private readonly ExpresionesDocumentoService $expresiones,
-        private readonly BlanqueadorRepresentanteDocx $blanqueador,
+        private readonly FirmasContratoDocx $firmas,
     ) {}
 
     /**
@@ -640,6 +640,10 @@ class MotorDocumentalService
         // lo imprime). Espacio duro y no cadena vacía: vacío, la vista previa
         // restauraría el nombre de ejemplo del formato.
         $firmaPatronEnBlanco = ! is_array($definicion) || ($definicion['firma_patron_en_blanco'] ?? true) !== false;
+        // Antes de dejar la variable en blanco: el representante capturado en
+        // la empresa SÍ se imprime en las declaraciones de los formatos de
+        // Jurídico (FirmasContratoDocx); solo su renglón de firma va a pluma.
+        $representante = trim((string) ($valores['representante_legal'] ?? ''));
 
         if ($firmaPatronEnBlanco) {
             $valores['representante_legal'] = "\u{00A0}";
@@ -676,11 +680,18 @@ class MotorDocumentalService
             $docx = $this->rellenador->rellenar($this->almacen->master($master), $instancias, $valores, ! $definitivo)['docx'];
 
             // Formatos con el representante como TEXTO FIJO de Jurídico
-            // (fijo_juridico: contratos): ninguna regla lo vuelve variable,
-            // así que el nombre literal se borra del DOCX ya rellenado.
-            if ($firmaPatronEnBlanco) {
-                $docx = $this->blanqueador->blanquear($docx, BlanqueadorRepresentanteDocx::nombresConocidos());
-            }
+            // (fijo_juridico: contratos): en las declaraciones se imprime el
+            // de la empresa (o el del formato); en las firmas, línea negra +
+            // «REPRESENTANTE LEGAL» y, del lado del trabajador, línea + su
+            // nombre. En contratos también concuerda «EL C./LA C.» con su género.
+            $docx = $this->firmas->aplicar(
+                $docx,
+                FirmasContratoDocx::nombresConocidos(),
+                $representante,
+                (string) ($valores['nombre_completo_mayusculas'] ?? ''),
+                (string) ($valores['sexo'] ?? ''),
+                (is_array($definicion) ? ($definicion['categoria'] ?? null) : null) === CategoriaDocumento::Contratos->value || $master->categoria === CategoriaDocumento::Contratos,
+            );
             // Diseño de página (fondo, márgenes, sangría): nunca toca el texto.
             $disenado = $this->layout->aplicar($master, $docx);
             $docx = $disenado['docx'];

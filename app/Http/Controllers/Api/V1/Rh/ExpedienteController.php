@@ -171,9 +171,10 @@ class ExpedienteController extends Controller
     public function autorizarCambioDocumento(Request $request, Colaborador $colaborador, EmployeeDocument $documento): JsonResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('rh.expedientes.documentos.autorizar-cambio'), 403);
         abort_unless($this->puedeVerDetalle($usuario, $colaborador), 403);
         abort_unless($documento->colaborador_id === $colaborador->id, 404);
+        // Mismo criterio que la web (EmployeeDocumentPolicy::autorizarCambio).
+        abort_unless($usuario->can('autorizarCambio', $documento), 403);
 
         try {
             $this->incorporacion->autorizarCambio($documento, $usuario);

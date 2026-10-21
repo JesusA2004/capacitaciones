@@ -123,7 +123,8 @@ export type EstadoCadenaContratacion = {
         | 'contratado';
     etiqueta: string;
     detalle: string | null;
-    tono: 'exito' | 'info' | 'alerta' | 'peligro' | 'neutro' | 'oro' | 'primario';
+    tono:
+        'exito' | 'info' | 'alerta' | 'peligro' | 'neutro' | 'oro' | 'primario';
     colaborador_id: number | null;
     expediente_url: string | null;
     expediente_etiqueta: string | null;
@@ -138,7 +139,8 @@ export type TarjetaCentroExpediente = {
     icono: string;
     valor: string;
     detalle: string | null;
-    tono: 'exito' | 'info' | 'alerta' | 'peligro' | 'neutro' | 'oro' | 'primario';
+    tono:
+        'exito' | 'info' | 'alerta' | 'peligro' | 'neutro' | 'oro' | 'primario';
     pestana: string | null;
     url: string | null;
     accion: string | null;
@@ -206,6 +208,13 @@ export type DocumentoExpedienteInfo = {
     revisado_por: string | null;
     reviewed_at: string | null;
     created_at: string | null;
+    /** Calculadas en backend: permiso (Policy) + estado del documento. */
+    acciones: {
+        aprobar: boolean;
+        rechazar: boolean;
+        corregir: boolean;
+        autorizar_cambio: boolean;
+    };
 };
 
 export type DocumentoExpedienteItem = {

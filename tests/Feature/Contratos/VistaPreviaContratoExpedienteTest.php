@@ -120,8 +120,8 @@ test('K · vista previa del contrato con datos faltantes: PDF con «PENDIENTE: �
     expect($texto)->toContain('PENDIENTE: estado civil')
         ->and($texto)->toContain('PENDIENTE: nacionalidad')
         ->and($texto)->toContain('DIMA900510HHGZNR01')
-        // Ningún formato imprime al representante legal (se firma a pluma).
-        ->and(mb_strtoupper($texto))->not->toContain('LESLI');
+        // La declaración imprime al representante de la empresa; su firma es a pluma.
+        ->and($texto)->toContain('representada por la señora Lesli Maribel Rodríguez Herrera');
 
     // El PDF de la vista previa lleva la marca en cada página.
     $pdf = (new Parser)->parseContent((string) $respuesta->getContent());
@@ -140,5 +140,90 @@ test('K · vista previa del contrato con datos faltantes: PDF con «PENDIENTE: �
 
     // Generación estricta: con faltantes no genera nada.
     $this->actingAs($this->rh)->post(route('rh.contratos.generar', $this->colaborador->id))->assertRedirect();
+    expect(GeneratedDocument::query()->count())->toBe(0);
+});
+
+/**
+ * Párrafos del DOCX (texto plano de cada <w:p>, en orden).
+ *
+ * @return list<string>
+ */
+function vcParrafos(string $docx): array
+{
+    $ruta = tempnam(sys_get_temp_dir(), 'docx');
+    file_put_contents($ruta, $docx);
+    $zip = new ZipArchive;
+    $zip->open($ruta);
+    $dom = new DOMDocument;
+    $dom->loadXML((string) $zip->getFromName('word/document.xml'));
+    $zip->close();
+    @unlink($ruta);
+    $xpath = new DOMXPath($dom);
+    $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+    $parrafos = [];
+
+    foreach ($xpath->query('//w:p') ?: [] as $p) {
+        $texto = '';
+
+        foreach ($xpath->query('.//w:t', $p) ?: [] as $t) {
+            $texto .= $t->textContent;
+        }
+
+        $parrafos[] = trim(str_replace("\u{00A0}", ' ', $texto));
+    }
+
+    return $parrafos;
+}
+
+test('paquete Gestor (capacitación inicial, confidencialidad, no competencia): imprime al representante de la empresa en la declaración, firmas simétricas con línea y sin marcadores', function () {
+    // El nombre sale de la EMPRESA (Administración → Empresas), no del texto del formato.
+    $this->estructura['empresa']->update(['representante_legal_nombre' => 'María Fernanda Ruiz Soto']);
+
+    foreach (['contrato_capacitacion', 'contrato_confidencialidad', 'contrato_no_competencia'] as $clave) {
+        $this->actingAs($this->rh)
+            ->get(route('rh.contratos.vista-previa', ['colaborador' => $this->colaborador->id, 'clave' => $clave, 'pendientes' => 1]))
+            ->assertOk();
+
+        $docx = (string) $this->conversor->ultimoDocx;
+        $texto = vcTextoDocx($docx);
+        $mayus = mb_strtoupper($texto);
+        $parrafos = vcParrafos($docx);
+
+        // 1. Representante legal en la declaración (dato de la empresa), nunca en blanco.
+        expect($mayus)->toContain('MARÍA FERNANDA RUIZ SOTO')
+            ->and($mayus)->not->toContain('LESLI')
+            ->and($texto)->not->toMatch('/representada por (la señora )?_{3,}/iu', $clave)
+            // 2. Nombre del trabajador y sin marcadores sin reemplazar.
+            ->and($texto)->toContain('ADRIÁN DÍAZ MENA')
+            ->and($texto)->not->toMatch('/\{\{|\}\}|\$\{|«|»/u', $clave)
+            // Género: «EL C.» para un trabajador (nunca «LA C.» ni «C.ADRIÁN»).
+            ->and($texto)->not->toContain('LA C. ADRIÁN')
+            ->and($texto)->not->toContain('C.ADRIÁN');
+
+        // 3. Firmas: línea arriba de «REPRESENTANTE LEGAL» y arriba del nombre del
+        // trabajador, del mismo largo; el renglón del representante ya no trae su nombre.
+        $etiqueta = array_search('REPRESENTANTE LEGAL', $parrafos, true);
+        $trabajador = array_search('ADRIÁN DÍAZ MENA', $parrafos, true);
+
+        expect($etiqueta)->not->toBeFalse($clave)
+            ->and($trabajador)->not->toBeFalse($clave)
+            ->and($parrafos[$etiqueta - 1])->toMatch('/^_{15,}$/', $clave)
+            ->and($parrafos[$trabajador - 1])->toBe($parrafos[$etiqueta - 1], $clave)
+            ->and(preg_grep('/^(?:(?:EL|LA) )?C\.\s*MARÍA FERNANDA RUIZ SOTO\.?$|^MARÍA FERNANDA RUIZ SOTO$/iu', $parrafos))->toBe([], $clave);
+    }
+
+    // Una trabajadora: «LA C.» en confidencialidad y no competencia.
+    $this->colaborador->update(['genero' => 'femenino']);
+
+    foreach (['contrato_confidencialidad', 'contrato_no_competencia'] as $clave) {
+        $this->actingAs($this->rh)
+            ->get(route('rh.contratos.vista-previa', ['colaborador' => $this->colaborador->id, 'clave' => $clave, 'pendientes' => 1]))
+            ->assertOk();
+        $texto = vcTextoDocx((string) $this->conversor->ultimoDocx);
+
+        expect($texto)->toContain('LA C. ADRIÁN DÍAZ MENA')
+            ->and($texto)->not->toContain('EL C. ADRIÁN');
+    }
+
     expect(GeneratedDocument::query()->count())->toBe(0);
 });

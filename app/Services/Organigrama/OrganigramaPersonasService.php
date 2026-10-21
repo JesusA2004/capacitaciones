@@ -14,6 +14,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\FotoColaboradorService;
+use App\Services\Expedientes\MigracionInicial\Normalizador;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 
@@ -222,6 +223,85 @@ class OrganigramaPersonasService
         }
 
         return $jefes;
+    }
+
+    /**
+     * Por qué una persona tiene el jefe que tiene: la cadena del organigrama
+     * desde su puesto hacia arriba, nivel por nivel (titular, cobertura o
+     * VACANTE) hasta la primera persona — la misma que usa jefesDerivados().
+     * En cada plaza vacante se listan quienes TIENEN ese puesto en ese ámbito
+     * pero no cuentan porque su estatus no es vigente (baja, suspendido…),
+     * para distinguir «no hay nadie» de «hay alguien mal registrado».
+     * Diagnóstico para `organigrama:explicar-jefe` (solo lectura).
+     *
+     * @return array{vigente: bool, pasos: list<array{tipo: string, puesto: string, ambito: string, persona_id: int|null, persona: string|null, no_vigentes: list<string>}>, jefe_id: int|null}
+     */
+    public function explicarJefe(int $colaboradorId): array
+    {
+        $this->construirEstructuraCompleta([]);
+        $nodo = $this->nodos['p'.$colaboradorId] ?? null;
+
+        if ($nodo === null) {
+            return ['vigente' => false, 'pasos' => [], 'jefe_id' => null];
+        }
+
+        $pasos = [];
+        $visitados = [];
+        $clave = $nodo['padre'];
+        $jefeId = null;
+
+        while ($clave !== null && ! isset($visitados[$clave]) && isset($this->nodos[$clave])) {
+            $visitados[$clave] = true;
+            $actual = $this->nodos[$clave];
+            $personaId = $actual['persona']['id'] ?? null;
+            $esJefe = $personaId !== null && $personaId !== $colaboradorId;
+
+            $pasos[] = [
+                'tipo' => $actual['tipo'],
+                'puesto' => $actual['puesto']['nombre'],
+                'ambito' => $actual['region']['nombre'] ?? ($actual['de_sucursal'] ? $actual['sucursal']['nombre'] ?? null : null) ?? 'Corporativo',
+                'persona_id' => $personaId,
+                'persona' => $actual['persona']['nombre'] ?? null,
+                'no_vigentes' => $actual['tipo'] === 'vacante' ? $this->ocupantesNoVigentes($actual) : [],
+            ];
+
+            if ($esJefe) {
+                $jefeId = $personaId;
+
+                break;
+            }
+
+            $clave = $actual['padre'];
+        }
+
+        return ['vigente' => true, 'pasos' => $pasos, 'jefe_id' => $jefeId];
+    }
+
+    /**
+     * Quienes tienen el puesto de una plaza VACANTE en su mismo ámbito pero
+     * no cuentan para el organigrama (estatus no vigente).
+     *
+     * @param  NodoOrganigrama  $nodo
+     * @return list<string>
+     */
+    private function ocupantesNoVigentes(array $nodo): array
+    {
+        $consulta = Colaborador::query()
+            ->where('puesto_id', $nodo['puesto']['id'])
+            ->whereNotIn('estatus', EstadoUsuario::valoresVigentes())
+            ->orderBy('name');
+
+        if ($nodo['sucursal'] !== null) {
+            $consulta->where('sucursal_principal_id', $nodo['sucursal']['id']);
+        }
+
+        $nombres = [];
+
+        foreach ($consulta->get(['id', 'name', 'apellidos', 'estatus']) as $c) {
+            $nombres[] = sprintf('%s (%s)', $c->nombreCompleto(), $c->estatus->etiqueta());
+        }
+
+        return $nombres;
     }
 
     /**
@@ -1021,7 +1101,7 @@ class OrganigramaPersonasService
         $actual = $puesto;
 
         while ($actual !== null && ! in_array($actual->id, $visitados, true)) {
-            if (in_array($actual->nombre, $raices, true)) {
+            if ($this->nombreEnLista($actual->nombre, $raices)) {
                 return true;
             }
 
@@ -1056,7 +1136,29 @@ class OrganigramaPersonasService
         /** @var list<string> $deRegion */
         $deRegion = config('organigrama.puestos_de_region', []);
 
-        return in_array($puesto->nombre, $deRegion, true);
+        return $this->nombreEnLista($puesto->nombre, $deRegion);
+    }
+
+    /**
+     * Nombre de puesto contra una lista de config sin depender de
+     * mayúsculas, acentos ni espacios («Gerente de sucursal» = «Gerente de
+     * Sucursal»), igual que las consultas por nombre en MySQL (collation
+     * *_ci). Un puesto renombrado así en el catálogo ya no saca a toda la
+     * rama de sucursal de su sucursal.
+     *
+     * @param  list<string>  $lista
+     */
+    private function nombreEnLista(string $nombre, array $lista): bool
+    {
+        $clave = Normalizador::clave($nombre);
+
+        foreach ($lista as $candidato) {
+            if (Normalizador::clave($candidato) === $clave) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function llaveOcupantes(string $tipo, int $puestoId, ?int $ambitoId): string

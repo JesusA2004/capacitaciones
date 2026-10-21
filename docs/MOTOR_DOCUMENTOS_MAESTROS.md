@@ -274,8 +274,16 @@ y el firmado se conserva intacto (auditoría `documento_revision_firmado`).
 ## Datos del patrón
 
 - Representante legal: en contratos y convenios está escrito en las
-  declaraciones notariales del original (`representante: fijo_juridico`, no
-  cambia). En los documentos donde es un dato (`representante: empresa`:
+  declaraciones notariales del original (`representante: fijo_juridico`).
+  `FirmasContratoDocx` (al renderizar, sobre el DOCX ya rellenado) lo
+  **imprime** en las declaraciones con el nombre capturado en la empresa
+  (`empresas.representante_legal_nombre`; vacío = se conserva el del
+  formato) — nunca se blanquea. En el bloque de firmas su renglón se vuelve
+  línea negra + «REPRESENTANTE LEGAL» (firma y nombre a pluma) y, del lado
+  del trabajador, línea + su nombre completo, simétricos. En contratos
+  también concuerda «EL C./LA C.» con el género y corrige erratas de
+  puntuación del original alrededor de los datos. La cuenta que captura
+  nunca se imprime. En los documentos donde es un dato (`representante: empresa`:
   aviso, acta, contrato de crédito) sale de `empresas.representante_legal_nombre`
   (Administración → Empresas → "Datos del patrón en documentos laborales");
   si está vacío se usa el predeterminado del registro (`empresa_defecto`) y

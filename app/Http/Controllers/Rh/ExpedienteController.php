@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Rh;
 
 use App\Enums\EstadoCivil;
+use App\Enums\EstadoDocumento;
 use App\Enums\EstadoUsuario;
 use App\Enums\Genero;
 use App\Enums\TipoSolicitudInterna;
@@ -466,7 +467,7 @@ class ExpedienteController extends Controller
             // formatos oficiales: ya no se genera nada ahí (todo sale de
             // Documentos maestros), pero el expediente conserva lo que tenía.
             'documentosOficiales' => ! $esPropio && $usuario->can('formatos_oficiales.ver') ? $this->documentosOficiales($colaborador) : null,
-            'documentosRequeridos' => $this->documentosParaVista($documentos),
+            'documentosRequeridos' => $this->documentosParaVista($documentos, $usuario),
             'onboarding' => $esPropio ? [] : $this->onboarding->checklist($colaborador),
             // colaborador_id es la fuente real de identidad de una
             // solicitud/vacaciones (ver SolicitudInterna::personaSolicitante()):
@@ -970,7 +971,7 @@ class ExpedienteController extends Controller
      * @param  Collection<int, EmployeeDocument>  $vigentes
      * @return array<int, array<string, mixed>>
      */
-    private function documentosParaVista(Collection $vigentes): array
+    private function documentosParaVista(Collection $vigentes, User $usuario): array
     {
         // El expediente solo pide documentos REQUERIDOS: lo demás
         // (incapacidades, permisos, vacaciones...) entra por Solicitudes.
@@ -983,8 +984,13 @@ class ExpedienteController extends Controller
             ->orderBy('orden')
             ->orderBy('nombre')
             ->get()
-            ->map(function (DocumentType $tipo) use ($vigentes) {
+            ->map(function (DocumentType $tipo) use ($vigentes, $usuario) {
                 $documento = $vigentes->get($tipo->id);
+                // Botones de revisión por documento: permiso (Policy) + estado
+                // (EstadoDocumento::admiteDecisionDeRh, la misma regla que
+                // valida IncorporacionService). Opcionales incluidos: se
+                // aprueban igual, solo no cuentan para el avance.
+                $decidible = $documento !== null && $documento->status->admiteDecisionDeRh();
 
                 return [
                     'tipo' => ['id' => $tipo->id, 'nombre' => $tipo->nombre, 'clave' => $tipo->clave, 'requerido' => $tipo->requerido],
@@ -1000,6 +1006,12 @@ class ExpedienteController extends Controller
                         'revisado_por' => $documento->revisadoPor ? trim("{$documento->revisadoPor->name} {$documento->revisadoPor->apellidos}") : null,
                         'reviewed_at' => $documento->reviewed_at?->toDateString(),
                         'created_at' => $documento->created_at?->toDateString(),
+                        'acciones' => [
+                            'aprobar' => $decidible && $usuario->can('aprobar', $documento),
+                            'rechazar' => $decidible && $usuario->can('rechazar', $documento),
+                            'corregir' => $decidible && $usuario->can('pedirCorreccion', $documento),
+                            'autorizar_cambio' => $documento->status === EstadoDocumento::CambioSolicitado && $usuario->can('autorizarCambio', $documento),
+                        ],
                     ] : null,
                 ];
             })

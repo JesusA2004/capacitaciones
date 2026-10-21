@@ -124,6 +124,15 @@ const puedeGenerarResponsiva = computed(
 const responsivaAbierta = ref(false);
 const versionResponsivas = ref(0);
 
+// Huella del estado de los documentos del expediente: al aprobar/rechazar
+// uno (p. ej. el último obligatorio), «Documentos de contratación» se
+// recarga en el acto en vez de seguir «En espera» hasta refrescar la página.
+const huellaDocumentos = computed(() =>
+    props.documentosRequeridos
+        .map((d) => `${d.documento?.id ?? 0}:${d.documento?.status ?? ''}`)
+        .join('|'),
+);
+
 defineOptions({
     layout: {
         breadcrumbs: [
@@ -220,7 +229,11 @@ defineOptions({
                 :version="versionResponsivas"
                 @generar="responsivaAbierta = true"
             />
-            <DocumentosProceso tipo="colaborador" :id="colaborador.id" />
+            <DocumentosProceso
+                tipo="colaborador"
+                :id="colaborador.id"
+                :version="huellaDocumentos"
+            />
             <ExpedienteDocumentosOficiales
                 v-if="props.documentosOficiales !== null"
                 :documentos="props.documentosOficiales"

@@ -53,8 +53,9 @@ class CicloLaboralDocumentoObserver
                 ]);
             }
 
-            // Bandeja de RH: documento esperando revisión humana.
-            if (in_array($documento->status, [EstadoDocumento::EnRevision, EstadoDocumento::Cargado], true) && $colaborador !== null && $colaborador->estado_alta !== null) {
+            // Bandeja de RH: documento esperando revisión humana (incluye
+            // cambio_solicitado: RH autoriza el cambio o aprueba tal cual).
+            if (in_array($documento->status->value, EstadoDocumento::porRevisarValues(), true) && $colaborador !== null && $colaborador->estado_alta !== null) {
                 $documento->loadMissing('tipo');
 
                 $tareas->abrir(TipoTarea::DocumentoPorRevisar, $documento, [

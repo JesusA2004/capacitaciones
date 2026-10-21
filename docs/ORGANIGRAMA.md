@@ -99,6 +99,8 @@ El jefe directo **no se captura en ningún lado** (se retiró la pantalla Config
 - Única fuente: `AppServicesOrganigramaJefeDirectoService` (usa `OrganigramaPersonasService::jefesDerivados()`). `colaboradores.jefe_id` se conserva como copia materializada porque aprobaciones, avisos y alcance lo leen directo; solo este servicio lo escribe, y cada cambio queda en la bitácora (`jefe_directo_cambiado`, motivo "Derivado del organigrama").
 - Se recalcula solo al terminar la petición cuando cambia el puesto, la sucursal o el estatus de alguien, el "reporta a" de un puesto, la región de la matriz o una cobertura (`AppServiceProvider`). Cambiar datos laborales desde el expediente y dar de alta lo recalculan al momento.
 - Red de seguridad diaria y para bases existentes: `php artisan organigrama:sincronizar-jefes` (programado 05:30).
+- «¿Por qué su jefe es X?»: `php artisan organigrama:explicar-jefe EMP-0131` (o el id) muestra la cadena nivel por nivel (titular, cobertura o VACANTE, y quién tiene ese puesto pero no cuenta por su estatus) y avisa si `jefe_id` está desactualizado. Solo lectura. Caso real (2026-10-21): un Gestor de San Luis Potosí con «Jefe: Dirección Comercial» = Subgerente y Gerente de SLP vacantes + Gerente Regional Q1 vacante; se corrige registrando al gerente (o una cobertura «Cubre temporalmente»), no tocando el jefe.
+- Los nombres de `puestos_raiz_sucursal` / `puestos_de_region` se comparan sin mayúsculas ni acentos.
 
 ## Vistas
 
