@@ -22,16 +22,19 @@ use App\Services\DocumentosLaborales\FirmaDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Permisos\AlcanceModuloService;
+use App\Services\Tareas\NotificadorRhService;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 /**
  * Acta administrativa, acta de hechos, carta responsiva y acta de
@@ -316,6 +319,23 @@ class ActaService
         });
 
         $this->auditoria->registrar('acta_creada', $acta, $actor, ['tipo' => $acta->tipo->value, 'colaborador_id' => $colaborador->id]);
+
+        // RH que gestiona actas (con alcance sobre la persona) se entera; ni
+        // la persona ni quien la levantó reciben este aviso, y no lleva los
+        // hechos (solo tipo, folio y a quién). Un fallo nunca deshace el acta.
+        try {
+            app(NotificadorRhService::class)->notificarEvento(
+                'acta_registrada',
+                $colaborador,
+                ['creador' => $actor, 'excluir' => array_values(array_filter([$actor->id, $colaborador->user?->id]))],
+                sprintf('Acta registrada: %s', $colaborador->nombreCompleto()),
+                sprintf('%s registró el %s %s de %s. Revísala en Actas administrativas.', $actor->nombreCompleto(), mb_strtolower($acta->tipo->etiqueta()), (string) $acta->folio, $colaborador->nombreCompleto()),
+                $acta,
+                'revisar_acta',
+            );
+        } catch (Throwable $e) {
+            Log::warning('ActaService: no se pudo avisar el acta registrada.', ['acta_id' => $acta->id, 'error' => $e->getMessage()]);
+        }
 
         return $acta->refresh();
     }

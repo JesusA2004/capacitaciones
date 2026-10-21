@@ -5,6 +5,10 @@ use App\Models\Colaborador;
 use App\Models\User;
 use App\Services\Vacaciones\VacacionesService;
 
+// Fechas armadas con now(): el saldo usa el calendario de México
+// (VacacionesService::hoyMexico).
+beforeEach(fn () => clRelojMediodiaMexico());
+
 /**
  * Caso real (cierre de producto): Luz Elena, 4 años de antigüedad, 18 días
  * corresponden, 0 usados dentro de PEOPLE, -9 de ajuste histórico importado.

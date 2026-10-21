@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import ExpedienteDetalle from '@/components/Rh/ExpedienteDetalle.vue';
+import MisCorrecciones from '@/components/Solicitudes/MisCorrecciones.vue';
 import { dashboard } from '@/routes';
 import type {
+    CorreccionesColaborador,
     AltaDigitalResumenExpediente,
     AvisosManualExpediente,
     CompletitudDatos,
@@ -77,6 +79,8 @@ defineProps<{
         typeof ExpedienteDetalle
     >['$props']['avisosComunicaciones'];
     prestamos: PrestamoItem[];
+    /** Correcciones propias (datos, documentos, foto) con estado y contador. */
+    misCorrecciones?: CorreccionesColaborador;
 }>();
 
 defineOptions({
@@ -90,6 +94,13 @@ defineOptions({
 </script>
 
 <template>
+    <!-- Correcciones abiertas: lo que espera a RH o una respuesta tuya. -->
+    <div
+        v-if="misCorrecciones && misCorrecciones.conteo.abiertas > 0"
+        class="pagina-ancha pb-0 sm:pb-0"
+    >
+        <MisCorrecciones :correcciones="misCorrecciones" :limite="3" />
+    </div>
     <ExpedienteDetalle
         :es-propio="esPropio"
         :puede-editar="puedeEditar"

@@ -16,6 +16,7 @@ use App\Http\Requests\Reclutamiento\RegistrarSocioeconomicoRequest;
 use App\Http\Requests\Reclutamiento\ResultadosPsicometricasRequest;
 use App\Models\Candidato;
 use App\Services\CicloLaboral\CicloLaboralService;
+use App\Services\Reclutamiento\CadenaContratacionService;
 use App\Services\Reclutamiento\CandidatoPresenter;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Reclutamiento\ExpedienteCandidatoService;
@@ -38,6 +39,7 @@ class CandidatoController extends Controller
         private readonly CandidatoPresenter $presenter,
         private readonly CicloLaboralService $ciclo,
         private readonly ExpedienteCandidatoService $expediente,
+        private readonly CadenaContratacionService $cadena,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -176,6 +178,8 @@ class CandidatoController extends Controller
         return response()->json(['data' => [
             'candidato' => $this->presenter->detalle($candidato),
             'ciclo' => $this->ciclo->obtenerEstado($candidato, $request->user()),
+            // Mismo estado candidato → contratación → expediente que la web.
+            'contratacion' => $this->cadena->paraCandidato($candidato, $request->user()),
         ]]);
     }
 }

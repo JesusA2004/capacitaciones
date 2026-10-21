@@ -36,6 +36,60 @@ export type DatoPropuesto = {
 };
 
 /** Dato personal con su valor vigente (formulario mixto completar/cambiar). */
+/** Estado simple de una corrección para el colaborador (CorreccionesService). */
+export type EstadoCorreccion =
+    | 'enviada'
+    | 'en_revision'
+    | 'aprobada'
+    | 'rechazada'
+    | 'requiere_informacion'
+    | 'cancelada';
+
+export type PasoCorreccion = {
+    accion: string;
+    etiqueta: string;
+    por: string | null;
+    es_rh: boolean;
+    comentario: string | null;
+    origen: string | null;
+    origen_etiqueta: string | null;
+    en: string | null;
+};
+
+/** Una corrección del expediente: solicitud de datos, documento o foto. */
+export type CorreccionItem = {
+    id: string;
+    origen: 'solicitud' | 'documento' | 'foto';
+    recurso_id: number;
+    folio: string | null;
+    tipo: string;
+    titulo: string;
+    estado: EstadoCorreccion;
+    estado_etiqueta: string;
+    estado_descripcion: string;
+    comentario_rh: string | null;
+    requiere_accion: boolean;
+    puede_responder: boolean;
+    campos: string[];
+    resuelta_por: string | null;
+    resuelta_en: string | null;
+    creada_en: string | null;
+    actualizada_en: string | null;
+    url: string;
+    historial: PasoCorreccion[];
+};
+
+export type CorreccionesConteo = {
+    requieren_accion: number;
+    en_proceso: number;
+    abiertas: number;
+};
+
+export type CorreccionesColaborador = {
+    items: CorreccionItem[];
+    conteo: CorreccionesConteo;
+};
+
 export type DatoPersonalCaptura = {
     campo: string;
     etiqueta: string;
@@ -320,4 +374,57 @@ export type OpcionesSolicitudes = {
     departamentos?: { id: number; nombre: string }[];
     puestos?: { id: number; nombre: string }[];
     responsables?: { id: number; name: string; apellidos: string | null }[];
+};
+
+/** Persona en un paso del flujo de aprobación (id = colaborador). */
+export type PersonaFlujo = { id: number; nombre: string };
+
+/**
+ * Paso del flujo de aprobación (AprobacionOrganizacionalService::flujo):
+ * «Solicitud creada» → vistos buenos → Recursos Humanos.
+ */
+export type PasoFlujoAprobacion = {
+    orden: number;
+    clave: string;
+    rol: string;
+    etiqueta: string;
+    responsable: PersonaFlujo | null;
+    responsables: PersonaFlujo[];
+    estado: 'aprobado' | 'pendiente' | 'esperando' | 'no_aplica' | 'rechazado';
+    estado_etiqueta: string;
+    fecha: string | null;
+    comentario: string | null;
+    decidio: PersonaFlujo | null;
+    bloqueado: boolean;
+    puede_actuar: boolean;
+    motivo_no_puede: string | null;
+};
+
+export type FlujoAprobacion = {
+    pasos: PasoFlujoAprobacion[];
+    puede_actuar_usuario_actual: boolean;
+    accion_usuario_actual:
+        'visto_bueno' | 'aprobar' | 'autorizar_prestamo' | null;
+    motivo_no_puede: string | null;
+    pendiente_de: {
+        clave: string;
+        etiqueta: string;
+        nombres: string[];
+        texto: string;
+    } | null;
+    estado_texto: string;
+    bloqueado: boolean;
+};
+
+/** Préstamo: 6 meses completos de antigüedad (fecha del servidor). */
+export type ElegibilidadPrestamo = {
+    cumple: boolean;
+    meses_minimos: number;
+    fecha_ingreso: string | null;
+    antiguedad: { anios: number; meses: number; dias: number } | null;
+    antiguedad_texto: string | null;
+    disponible_desde: string | null;
+    disponible_desde_texto: string | null;
+    fecha_servidor: string;
+    mensaje: string;
 };

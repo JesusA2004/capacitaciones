@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\Solicitudes\SolicitudesService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
@@ -15,6 +16,12 @@ beforeEach(function () {
 });
 
 test('una solicitud de vacaciones respeta el saldo disponible del colaborador', function () {
+    // Reloj fijo a mediodía de México: el saldo usa «hoy» en
+    // America/Mexico_City (VacacionesService::hoyMexico) y la app corre en
+    // UTC; después de las 18:00 now()->subYears(3) caía un día después y la
+    // antigüedad quedaba en 2 años.
+    $this->travelTo(Carbon::parse('2026-10-20 18:00:00', 'UTC'));
+
     $persona = Colaborador::factory()->create(['fecha_ingreso' => now()->subYears(3)]);
     $colaborador = User::factory()->create(['colaborador_id' => $persona->id]);
     $colaborador->assignRole('colaborador');

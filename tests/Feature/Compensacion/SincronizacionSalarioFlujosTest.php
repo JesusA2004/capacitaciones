@@ -49,6 +49,8 @@ test('editar el sueldo por ExpedienteController sincroniza salario_diario, deja 
             'sucursal_principal_id' => $sucursal->id,
             'puesto_id' => $puesto->id,
             'sueldo_mensual' => 12000,
+            // El sueldo es dato crítico: cambiarlo exige motivo.
+            'motivo' => 'Ajuste salarial anual',
         ])
         ->assertSessionHasNoErrors();
 

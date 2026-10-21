@@ -23,6 +23,7 @@ import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DatosPersonalesFormulario from '@/components/Solicitudes/DatosPersonalesFormulario.vue';
+import MisCorrecciones from '@/components/Solicitudes/MisCorrecciones.vue';
 import PermisoFormulario from '@/components/Solicitudes/PermisoFormulario.vue';
 import SelectorDiasVacaciones from '@/components/Solicitudes/SelectorDiasVacaciones.vue';
 import { Button } from '@/components/ui/button';
@@ -42,7 +43,9 @@ import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import { index, show, store } from '@/routes/solicitudes';
 import type {
+    CorreccionesColaborador,
     DatoPersonalCaptura,
+    ElegibilidadPrestamo,
     RespuestaPaginada,
     SaldoVacaciones,
     SolicitudInternaItem,
@@ -54,6 +57,10 @@ const props = defineProps<{
     tipos: TipoSolicitudInternaFormulario[];
     saldoVacaciones: SaldoVacaciones;
     datosPersonales: DatoPersonalCaptura[];
+    /** Préstamo: 6 meses completos de antigüedad (fecha del servidor). */
+    elegibilidadPrestamo?: ElegibilidadPrestamo | null;
+    /** Correcciones del expediente con su estado (CorreccionesService). */
+    correcciones?: CorreccionesColaborador;
 }>();
 
 defineOptions({
@@ -127,7 +134,21 @@ const AVISO_FORMATO_AUTOMATICO: Record<string, string> = {
         'Al aprobarse se generará el contrato de crédito correspondiente.',
 };
 
+/** Préstamo sin los 6 meses completos: se ve, pero no se puede elegir. */
+function tipoBloqueado(clave: string): boolean {
+    return (
+        clave === 'prestamo' &&
+        props.elegibilidadPrestamo !== undefined &&
+        props.elegibilidadPrestamo !== null &&
+        !props.elegibilidadPrestamo.cumple
+    );
+}
+
 function seleccionarTipo(clave: string) {
+    if (tipoBloqueado(clave)) {
+        return;
+    }
+
     form.tipo = clave;
     pasoFormulario.value = 'detalle';
 }
@@ -300,6 +321,12 @@ function nombreTipo(clave: string): string {
             </Button>
         </CrudPageHeader>
 
+        <!-- Correcciones del expediente: estado, comentario de RH y qué te toca. -->
+        <MisCorrecciones
+            v-if="correcciones?.items.length"
+            :correcciones="correcciones"
+        />
+
         <CrudEmptyState
             v-if="!solicitudes.data.length"
             :icono="ClipboardList"
@@ -375,7 +402,9 @@ function nombreTipo(clave: string): string {
                     v-for="tipo in tiposCatalogo"
                     :key="tipo.clave"
                     type="button"
-                    class="flex flex-col items-start gap-2 rounded-2xl border border-border/60 bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-accent/40"
+                    :disabled="tipoBloqueado(tipo.clave)"
+                    :aria-disabled="tipoBloqueado(tipo.clave)"
+                    class="flex flex-col items-start gap-2 rounded-2xl border border-border/60 bg-card p-4 text-left transition-colors enabled:hover:border-primary/40 enabled:hover:bg-accent/40 disabled:cursor-not-allowed disabled:bg-muted/50 disabled:opacity-80"
                     @click="seleccionarTipo(tipo.clave)"
                 >
                     <span
@@ -392,6 +421,26 @@ function nombreTipo(clave: string): string {
                         DESCRIPCION_TIPO[tipo.clave] ||
                         'Solicítalo desde aquí.'
                     }}</span>
+                    <!-- Préstamo: 6 meses completos (fecha del servidor). -->
+                    <span
+                        v-if="tipo.clave === 'prestamo' && elegibilidadPrestamo"
+                        class="flex w-full flex-col gap-0.5 rounded-xl px-2.5 py-1.5 text-xs"
+                        :class="
+                            elegibilidadPrestamo.cumple
+                                ? 'bg-success-soft text-[var(--mrl-success)]'
+                                : 'bg-[var(--mrl-gold)]/15 text-[var(--mrl-gold-dark)]'
+                        "
+                    >
+                        <span v-if="elegibilidadPrestamo.antiguedad_texto"
+                            >Antigüedad actual:
+                            <strong>{{
+                                elegibilidadPrestamo.antiguedad_texto
+                            }}</strong></span
+                        >
+                        <span v-if="!elegibilidadPrestamo.cumple">{{
+                            elegibilidadPrestamo.mensaje
+                        }}</span>
+                    </span>
                 </button>
             </div>
 

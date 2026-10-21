@@ -5,6 +5,7 @@ namespace App\Services\Auditoria;
 use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\User;
+use App\Support\OrigenPeticion;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -100,6 +101,9 @@ class AuditoriaService
                 $propiedades['ip'] = $this->request->ip();
                 $propiedades['user_agent'] = mb_substr((string) $this->request->userAgent(), 0, 500);
             }
+
+            // Desde dónde se hizo (web, app o sistema), si el llamador no lo dijo.
+            $propiedades['origen'] ??= OrigenPeticion::actual($this->request?->route() !== null ? $this->request : null);
 
             $registro = activity(self::LOG)->event($accion)->withProperties($propiedades);
 

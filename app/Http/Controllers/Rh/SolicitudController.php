@@ -24,6 +24,7 @@ use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Finiquitos\FiniquitoService;
 use App\Services\Formatos\OfficialFormatCatalogoService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
+use App\Services\Solicitudes\AprobacionOrganizacionalService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Solicitudes\SolicitudFormatoOficialService;
 use App\Services\Solicitudes\VistoBuenoService;
@@ -49,6 +50,7 @@ class SolicitudController extends Controller
         private readonly OfficialFormatCatalogoService $catalogoFormatos,
         private readonly AprobacionJerarquicaService $aprobaciones,
         private readonly VistoBuenoService $vistoBueno,
+        private readonly AprobacionOrganizacionalService $motor,
     ) {}
 
     public function index(Request $request): Response
@@ -220,6 +222,9 @@ class SolicitudController extends Controller
             // (nunca solo «no es estado final»).
             'puedeRevisar' => $acciones['revisar'],
             'puedeAprobar' => $acciones['aprobar'],
+            // Tendría permiso de aprobar, pero faltan vistos buenos: el botón
+            // se ve deshabilitado con este motivo humano.
+            'motivoAprobarEnEspera' => $esBaja ? null : $acciones['motivo_bloqueo'],
             'puedeRechazar' => $acciones['rechazar'],
             // Préstamo: no se aprueba con el botón genérico; RH lo autoriza
             // con monto, plazo y datos del contrato (PrestamoPolicy).
@@ -228,7 +233,9 @@ class SolicitudController extends Controller
                 && $solicitud->prestamo === null
                 && $request->user()->can('autorizarSolicitud', [Prestamo::class, $solicitud]),
             // Documentos que se emitirán al aprobar: RH los ve ANTES de autorizar.
-            'vistasPrevias' => $acciones['aprobar'] && ! $esBaja ? $this->solicitudes->vistasPreviasAprobacion($solicitud) : [],
+            // También mientras espera vistos buenos previos (motivo_bloqueo):
+            // quien aprobará puede revisar el formato desde ya, igual que la API.
+            'vistasPrevias' => ($acciones['aprobar'] || $acciones['motivo_bloqueo'] !== null) && ! $esBaja ? $this->solicitudes->vistasPreviasAprobacion($solicitud) : [],
             // Una baja (histórica) se consulta aquí en solo lectura; se
             // gestiona en el Cierre laboral del colaborador.
             'bajaEnCierre' => $esBaja ? [
@@ -254,6 +261,9 @@ class SolicitudController extends Controller
             // Cadena de vistos buenos (gerente → regional) antes de RH.
             'vistosBuenos' => $this->aprobaciones->resumen($solicitud),
             'puedeDarVistoBueno' => $this->aprobaciones->puedeDarVistoBueno($request->user(), $solicitud),
+            // Motor central: pasos con responsable/estado, si este usuario
+            // puede actuar y, si no, por qué (texto humano).
+            'flujo' => $this->motor->flujo($solicitud, $request->user()),
             // Generar cualquier plantilla oficial con los datos de ESTA
             // solicitud (docs/FORMATOS_OFICIALES.md).
             'formatosOficiales' => $request->user()->can('formatos_oficiales.generar') && $solicitud->personaSolicitante() !== null

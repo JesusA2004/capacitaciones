@@ -6,6 +6,7 @@ use App\Exceptions\Incorporacion\InvitacionInvalidaException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\RegistrarDesdeQrRequest;
 use App\Services\Incorporacion\IncorporacionInvitacionService;
+use App\Services\Incorporacion\RegistroAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -17,7 +18,10 @@ use Illuminate\Http\Request;
  */
 class IncorporacionInvitacionController extends Controller
 {
-    public function __construct(private readonly IncorporacionInvitacionService $invitaciones) {}
+    public function __construct(
+        private readonly IncorporacionInvitacionService $invitaciones,
+        private readonly RegistroAppService $registro,
+    ) {}
 
     public function validar(Request $request, string $token): JsonResponse
     {
@@ -63,6 +67,9 @@ class IncorporacionInvitacionController extends Controller
                 'apellidos' => $usuario->apellidos,
                 'email' => $usuario->email,
                 'estatus' => $usuario->colaborador?->estatus->value,
+                // false: la app nueva sigue con el registro completo (datos +
+                // documentos) antes de entrar; las APKs anteriores lo ignoran.
+                'registro_completo' => $this->registro->registroCompleto($usuario),
                 'roles' => $usuario->getRoleNames(),
                 'permisos' => $usuario->getAllPermissions()->pluck('name'),
             ],

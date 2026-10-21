@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\EstadoVacante;
 use App\Enums\MotivoVacante;
+use App\Support\FechaMexico;
 use Database\Factories\VacanteFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -73,7 +74,9 @@ class Vacante extends Model
      */
     public function diasAbierta(): int
     {
-        $fin = $this->fecha_cierre ?? now();
+        // Abierta: hasta «hoy» en el calendario de México (la app corre en
+        // UTC; después de las 18:00 now() ya contaba un día de más).
+        $fin = $this->fecha_cierre ?? FechaMexico::inicioDeHoy();
 
         return max(0, (int) $this->fecha_apertura->copy()->startOfDay()->diffInDays($fin->copy()->startOfDay()));
     }

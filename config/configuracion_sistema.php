@@ -299,6 +299,19 @@ return [
             'fallback' => ['gerencia_rh'],
             'legacy' => true,
         ],
+        'acta_registrada' => [
+            'etiqueta' => 'Acta administrativa registrada',
+            'descripcion' => 'Un gerente o RH levantó un acta a un colaborador: solo RH que gestiona actas y tiene a la persona dentro de su alcance (nunca la persona ni la plantilla). El aviso no incluye los hechos.',
+            'destinatarios' => ['usuarios_con_permiso'],
+            'permiso' => 'actas.gestionar',
+            'fallback' => ['rh'],
+        ],
+        'responsiva_registrada' => [
+            'etiqueta' => 'Responsiva de activos generada',
+            'descripcion' => 'Se generó la responsiva de un equipo o activo entregado: el colaborador que lo recibe recibe el aviso para revisarla y firmarla.',
+            'destinatarios' => ['colaborador'],
+            'fallback' => [],
+        ],
         'cierre_negativa_firma' => [
             'etiqueta' => 'El colaborador se negó a firmar/recibir la baja',
             'descripcion' => 'Se registró que el colaborador se negó a firmar/recibir los documentos de su baja: RH debe generar el acta de negativa con dos testigos. Solo RH que puede gestionar el cierre y tiene a la persona dentro de su alcance.',

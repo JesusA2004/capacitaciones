@@ -24,7 +24,11 @@ class ColaboradorFactory extends Factory
             'numero_empleado' => fake()->unique()->numerify('EMP-#####'),
             'telefono' => fake()->numerify('##########'),
             'sueldo_mensual' => fake()->numberBetween(8000, 25000),
-            'fecha_ingreso' => fake()->dateTimeBetween('-5 years', 'now')->format('Y-m-d'),
+            // Al menos 7 meses de antigüedad por omisión: el préstamo exige 6
+            // meses completos (config solicitudes.prestamo_meses_minimos) y
+            // una fecha al azar reciente haría fallar pruebas que no tratan
+            // de eso. Quien prueba antigüedad la fija explícitamente.
+            'fecha_ingreso' => fake()->dateTimeBetween('-5 years', '-7 months')->format('Y-m-d'),
             // El default de columna ('activo') no siempre se aplica en
             // SQLite (motor de pruebas) cuando la columna se agrego via
             // ALTER TABLE; se fija explicitamente aqui, igual que el resto

@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureCuentaActiva;
 use App\Http\Middleware\EnsureFeatureEnabled;
 use App\Http\Middleware\ExigirCambioContrasena;
+use App\Http\Middleware\ExigirRegistroApp;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Support\DiagnosticoAcceso;
 use App\Support\LimitesSubida;
@@ -45,6 +46,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'permission' => PermissionMiddleware::class,
             'role_or_permission' => RoleOrPermissionMiddleware::class,
             'contrasena.temporal' => ExigirCambioContrasena::class,
+            'registro.app' => ExigirRegistroApp::class,
         ]);
 
         $middleware->web(append: [

@@ -86,7 +86,9 @@ class ContratosController extends Controller
 
     public function vistaPrevia(Request $request, Colaborador $colaborador, string $clave): Response
     {
-        $previa = $this->regularizacion->vistaPrevia($colaborador, $clave, $request->user());
+        // ?pendientes=1 (expediente): modo permisivo, cada dato faltante se
+        // imprime «PENDIENTE: <dato>». Generar sigue siendo estricto.
+        $previa = $this->regularizacion->vistaPrevia($colaborador, $clave, $request->user(), marcarPendientes: $request->boolean('pendientes'));
         // Sin «/», «\», «%» ni comillas: no son válidos en Content-Disposition.
         $nombre = sprintf('Vista previa - %s.pdf', preg_replace('#[/\\\\%"]+#', '-', $previa['nombre']));
 

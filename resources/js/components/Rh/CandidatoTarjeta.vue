@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import { Link } from '@inertiajs/vue3';
 import {
+    ArrowRight,
     Brain,
     Briefcase,
     CircleDashed,
     Clock,
     Eye,
+    FolderOpen,
     Home,
     Mail,
     MapPin,
@@ -17,6 +20,7 @@ import {
     Video,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import ChipEstado from '@/components/people/ChipEstado.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -261,6 +265,52 @@ const socioeconomico = computed(
         >
             <Radio class="size-3.5 shrink-0" />
             <span class="truncate">{{ etiquetaFuente }}</span>
+        </div>
+
+        <!-- Tras la selección el candidato NO desaparece: estado real de su
+             contratación con acceso directo al proceso y al expediente
+             (CadenaContratacionService). -->
+        <div
+            v-if="candidato.contratacion"
+            class="flex flex-col gap-1.5 rounded-xl border border-border/60 bg-crema/60 p-2"
+            data-cadena-contratacion
+        >
+            <div class="flex flex-wrap items-center gap-1.5">
+                <ChipEstado
+                    :etiqueta="candidato.contratacion.etiqueta"
+                    :tono="candidato.contratacion.tono"
+                />
+                <span
+                    v-if="candidato.contratacion.detalle"
+                    class="text-[11px] text-muted-foreground"
+                    >{{ candidato.contratacion.detalle }}</span
+                >
+            </div>
+            <div class="flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-medium">
+                <Link
+                    v-if="candidato.contratacion.expediente_url"
+                    :href="candidato.contratacion.expediente_url"
+                    class="flex items-center gap-1 text-primary hover:underline"
+                    draggable="false"
+                    data-accion="ver-expediente"
+                    @click.stop
+                    @dragstart="detenerArrastre"
+                >
+                    <FolderOpen class="size-3.5" />
+                    {{ candidato.contratacion.expediente_etiqueta }}
+                </Link>
+                <Link
+                    v-if="candidato.contratacion.proceso_url"
+                    :href="candidato.contratacion.proceso_url"
+                    class="flex items-center gap-1 text-[var(--brand-primary)] hover:underline"
+                    draggable="false"
+                    @click.stop
+                    @dragstart="detenerArrastre"
+                >
+                    {{ candidato.contratacion.proceso_etiqueta }}
+                    <ArrowRight class="size-3" />
+                </Link>
+            </div>
         </div>
 
         <p

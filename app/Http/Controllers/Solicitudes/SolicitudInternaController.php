@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Solicitudes;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Solicitudes\ResponderCorreccionRequest;
 use App\Http\Requests\Solicitudes\StoreSolicitudInternaRequest;
 use App\Http\Requests\Solicitudes\SubirDocumentoSolicitudRequest;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudInternaDocumento;
 use App\Services\Expedientes\ActualizacionDatosService;
+use App\Services\Expedientes\CorreccionesService;
+use App\Services\Solicitudes\AprobacionOrganizacionalService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Vacaciones\VacacionesService;
 use Illuminate\Http\RedirectResponse;
@@ -28,6 +31,7 @@ class SolicitudInternaController extends Controller
         private readonly SolicitudesService $solicitudes,
         private readonly VacacionesService $vacaciones,
         private readonly ActualizacionDatosService $actualizacionDatos,
+        private readonly CorreccionesService $correcciones,
     ) {}
 
     public function index(Request $request): Response
@@ -40,6 +44,10 @@ class SolicitudInternaController extends Controller
             'saldoVacaciones' => $this->vacaciones->saldo($usuario),
             // Formulario mixto de datos personales: vacío → completar; con valor → cambio.
             'datosPersonales' => $usuario->colaborador !== null ? $this->actualizacionDatos->camposConValor($usuario->colaborador) : [],
+            // Correcciones del expediente con su estado y el contador de pendientes.
+            'correcciones' => $this->correcciones->deColaborador($usuario),
+            // Préstamo: 6 meses completos de antigüedad (fecha del servidor).
+            'elegibilidadPrestamo' => app(AprobacionOrganizacionalService::class)->elegibilidadPrestamo($usuario->colaborador),
         ]);
     }
 
@@ -61,6 +69,12 @@ class SolicitudInternaController extends Controller
             'tipoEtiqueta' => $this->solicitudes->etiquetaTipo($solicitud),
             'permiso' => $this->solicitudes->resumenPermiso($solicitud),
             'datosPropuestos' => $this->solicitudes->comparativoDatos($solicitud),
+            // Línea de tiempo de aprobación (motor central): quién sigue.
+            'flujo' => app(AprobacionOrganizacionalService::class)->flujo($solicitud, $request->user()),
+            // Seguimiento de la corrección (estado simple, comentario de RH, responder).
+            'correccion' => $this->correcciones->esCorreccion($solicitud) ? $this->correcciones->aArray($solicitud, $request->user()) : null,
+            // Para corregir lo propuesto al responder (mismos controles que al crear).
+            'datosPersonales' => $this->correcciones->esCorreccion($solicitud) && $request->user()->colaborador !== null ? $this->actualizacionDatos->camposConValor($request->user()->colaborador) : [],
         ]);
     }
 
@@ -88,6 +102,18 @@ class SolicitudInternaController extends Controller
         $this->solicitudes->cancelar($solicitud, request()->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Solicitud cancelada.']);
+    }
+
+    /**
+     * Responde lo que RH pidió (requiere información) y la reenvía a revisión.
+     */
+    public function responder(ResponderCorreccionRequest $request, SolicitudInterna $solicitud): RedirectResponse
+    {
+        $datos = $request->validated();
+
+        $this->correcciones->responder($solicitud, $request->user(), (string) $datos['mensaje'], (array) ($datos['datos'] ?? []));
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Respuesta enviada. Recursos Humanos revisará de nuevo tu solicitud.']);
     }
 
     public function subirDocumento(SubirDocumentoSolicitudRequest $request, SolicitudInterna $solicitud): RedirectResponse

@@ -13,9 +13,11 @@ import { index as indexExpedientes } from '@/routes/rh/expedientes';
 import type {
     AltaDigitalResumenExpediente,
     AvisosManualExpediente,
+    CentroExpediente,
     CompletitudDatos,
     DocumentoExpedienteItem,
     ExpedienteColaborador,
+    HistorialCambioExpediente,
     MovimientoLaboralItem,
     OnboardingItem,
     PrestamoItem,
@@ -90,6 +92,13 @@ const props = defineProps<{
         typeof ExpedienteDetalle
     >['$props']['avisosComunicaciones'];
     prestamos: PrestamoItem[];
+    camposCriticos?: string[];
+    puedeEditarDatosMedicos?: boolean;
+    opcionesDatos?: InstanceType<
+        typeof ExpedienteDetalle
+    >['$props']['opcionesDatos'];
+    historialCambios?: HistorialCambioExpediente[] | null;
+    centro?: CentroExpediente | null;
     documentosOficiales:
         | InstanceType<
               typeof ExpedienteDocumentosOficiales
@@ -169,6 +178,11 @@ defineOptions({
         :puede-avisar-datos-faltantes="puedeAvisarDatosFaltantes"
         :avisos-comunicaciones="avisosComunicaciones"
         :prestamos="prestamos"
+        :campos-criticos="camposCriticos"
+        :puede-editar-datos-medicos="puedeEditarDatosMedicos"
+        :opciones-datos="opcionesDatos"
+        :historial-cambios="historialCambios"
+        :centro="centro"
     >
         <template #acciones-encabezado>
             <template v-if="puedeGenerarResponsiva">

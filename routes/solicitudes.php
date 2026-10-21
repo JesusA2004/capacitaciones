@@ -10,6 +10,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('{solicitud}', [SolicitudInternaController::class, 'show'])->name('show');
         Route::get('{solicitud}/permiso-pdf', [SolicitudInternaController::class, 'permisoPdf'])->name('permiso-pdf');
         Route::post('{solicitud}/cancelar', [SolicitudInternaController::class, 'cancelar'])->name('cancelar');
+        Route::post('{solicitud}/responder', [SolicitudInternaController::class, 'responder'])->name('responder')->middleware('throttle:20,1');
         Route::post('{solicitud}/documentos', [SolicitudInternaController::class, 'subirDocumento'])->name('documentos.store');
         Route::get('{solicitud}/documentos/{documento}/ver', [SolicitudInternaController::class, 'verDocumento'])->name('documentos.ver');
     });

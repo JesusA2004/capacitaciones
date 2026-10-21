@@ -27,6 +27,7 @@ use App\Services\DocumentosMaestros\AlmacenMaestrosService;
 use App\Services\DocumentosMaestros\ContextoDocumento;
 use App\Services\DocumentosMaestros\DatosDocumentoService;
 use App\Services\DocumentosMaestros\DefinicionMaestroService;
+use App\Services\DocumentosMaestros\Docx\BlanqueadorRepresentanteDocx;
 use App\Services\DocumentosMaestros\Docx\RellenadorDocx;
 use App\Services\DocumentosMaestros\LayoutDocumentoService;
 use App\Services\DocumentosMaestros\Pdf\RenderizadorOverlayMaestro;
@@ -90,6 +91,7 @@ class MotorDocumentalService
         private readonly ConversorDocxPdf $conversor,
         private readonly LayoutDocumentoService $layout,
         private readonly ExpresionesDocumentoService $expresiones,
+        private readonly BlanqueadorRepresentanteDocx $blanqueador,
     ) {}
 
     /**
@@ -384,9 +386,12 @@ class MotorDocumentalService
      * reporta: fidelidad, páginas, desbordes y de dónde salió cada dato
      * sensible (domicilio del patrón, representante legal).
      *
+     * Con $marcarPendientes (vista previa del contrato desde el expediente)
+     * los datos faltantes se imprimen como «PENDIENTE: <dato>».
+     *
      * @return array{pdf: string, fidelidad: string, faltantes: list<array<string, mixed>>, conversor: string, paginas: int, desbordes: list<array<string, mixed>>, valores: array<string, string>}
      */
-    public function previsualizarMaestro(DocumentTemplate $master, ContextoDocumento $contexto): array
+    public function previsualizarMaestro(DocumentTemplate $master, ContextoDocumento $contexto, bool $marcarPendientes = false): array
     {
         $valores = $this->expresiones->completar((array) ($master->mapping ?? []), $this->datos->resolver($contexto));
         $faltantes = $this->faltantesDe($master, $valores);
@@ -394,6 +399,15 @@ class MotorDocumentalService
 
         foreach ($faltantes as $faltante) {
             $valores[$faltante['campo']] = '';
+        }
+
+        // Modo PERMISIVO (vista previa del contrato desde el expediente):
+        // cada dato requerido que falta se imprime como «PENDIENTE: <dato>»
+        // en su lugar, para que RH vea exactamente qué completar. SOLO en
+        // vista previa (marca de agua «VISTA PREVIA — NO VÁLIDA PARA
+        // FIRMA»); generar() sigue siendo estricto (exigirCompletos).
+        if ($marcarPendientes) {
+            $valores = $this->valoresConPendientes($master, $valores, $faltantes);
         }
 
         $render = $this->renderizarMaestro($master, $valores, 'VISTA PREVIA — NO VÁLIDA PARA FIRMA', false);
@@ -407,6 +421,38 @@ class MotorDocumentalService
             'desbordes' => $render['desbordes'],
             'valores' => array_intersect_key($reales, array_flip($this->camposDelMaestro($master))),
         ];
+    }
+
+    /**
+     * Modo permisivo de la vista previa: cada campo requerido vacío cuyo
+     * dato base falta se llena con «PENDIENTE: <dato>» (nunca en un
+     * documento oficial: generar() exige completos).
+     *
+     * @param  array<string, string>  $valores
+     * @param  list<array{campo: string, base: string, fuente: string, columna: string, etiqueta: string, tipo: string, editable: bool}>  $faltantes
+     * @return array<string, string>
+     */
+    public function valoresConPendientes(DocumentTemplate $master, array $valores, array $faltantes): array
+    {
+        $etiquetaPorBase = [];
+
+        foreach ($faltantes as $faltante) {
+            $etiquetaPorBase[$faltante['base']] = mb_strtolower($faltante['etiqueta']);
+        }
+
+        if ($etiquetaPorBase === []) {
+            return $valores;
+        }
+
+        foreach ($this->camposRequeridosDe($master) as $campo) {
+            $base = $this->datos->fuente($campo)['base'];
+
+            if (isset($etiquetaPorBase[$base]) && trim((string) ($valores[$campo] ?? '')) === '') {
+                $valores[$campo] = sprintf('PENDIENTE: %s', $etiquetaPorBase[$base]);
+            }
+        }
+
+        return $valores;
     }
 
     /**
@@ -593,7 +639,9 @@ class MotorDocumentalService
         // escribe a mano (solo una familia con firma_patron_en_blanco=false
         // lo imprime). Espacio duro y no cadena vacía: vacío, la vista previa
         // restauraría el nombre de ejemplo del formato.
-        if (! is_array($definicion) || ($definicion['firma_patron_en_blanco'] ?? true) !== false) {
+        $firmaPatronEnBlanco = ! is_array($definicion) || ($definicion['firma_patron_en_blanco'] ?? true) !== false;
+
+        if ($firmaPatronEnBlanco) {
             $valores['representante_legal'] = "\u{00A0}";
             $valores['representante_legal_mayusculas'] = "\u{00A0}";
         }
@@ -626,6 +674,13 @@ class MotorDocumentalService
 
             $instancias = RellenadorDocx::instanciasDe($master->mapping);
             $docx = $this->rellenador->rellenar($this->almacen->master($master), $instancias, $valores, ! $definitivo)['docx'];
+
+            // Formatos con el representante como TEXTO FIJO de Jurídico
+            // (fijo_juridico: contratos): ninguna regla lo vuelve variable,
+            // así que el nombre literal se borra del DOCX ya rellenado.
+            if ($firmaPatronEnBlanco) {
+                $docx = $this->blanqueador->blanquear($docx, BlanqueadorRepresentanteDocx::nombresConocidos());
+            }
             // Diseño de página (fondo, márgenes, sangría): nunca toca el texto.
             $disenado = $this->layout->aplicar($master, $docx);
             $docx = $disenado['docx'];
@@ -673,7 +728,20 @@ class MotorDocumentalService
             }
         }
 
-        return ['pdf' => $convertido['pdf'], 'fidelidad' => $convertido['fidelidad'], 'docx' => $docx, 'conversor' => $convertido['conversor'], 'paginas' => $paginas, 'desbordes' => $desbordes, 'layout_snapshot' => $disenado['snapshot']];
+        $pdf = $convertido['pdf'];
+
+        // Vista previa de un master Word: la leyenda «VISTA PREVIA — NO
+        // VÁLIDA PARA FIRMA» va en cada página, igual que en los masters PDF
+        // (overlay). Nunca en un documento definitivo.
+        if (! $definitivo && $leyenda !== null) {
+            try {
+                $pdf = $this->overlay->renderizar($pdf, [], [], null, [0.0], $leyenda);
+            } catch (Throwable $e) {
+                Log::warning('MotorDocumentalService: no se pudo sellar la vista previa.', ['master_id' => $master->id, 'error' => $e->getMessage()]);
+            }
+        }
+
+        return ['pdf' => $pdf, 'fidelidad' => $convertido['fidelidad'], 'docx' => $docx, 'conversor' => $convertido['conversor'], 'paginas' => $paginas, 'desbordes' => $desbordes, 'layout_snapshot' => $disenado['snapshot']];
     }
 
     /**

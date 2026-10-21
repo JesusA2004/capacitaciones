@@ -238,6 +238,27 @@ test('Word generado: conserva encabezados, pies, imágenes, tablas, estilos y nu
     'administrativo' => ['administrativo_confianza', 'contrato_capacitacion.administrativo'],
 ]);
 
+test('ningún contrato imprime el nombre del representante legal (texto fijo de Jurídico): firma y declaración quedan para escribir a mano', function (string $grupo, string $familia) {
+    mfImportar([$familia]);
+    // Original de Jurídico: «representada por la señora Lesli Maribel
+    // Rodríguez Herrera…» y «LESLI MARIBEL RODRÍGUEZ HERRERA» en la firma.
+    expect(mb_strtoupper(strip_tags(mfZip(mfOriginalDe($familia))['word/document.xml'])))->toContain('LESLI MARIBEL RODRÍGUEZ HERRERA');
+
+    $contrato = mfContrato(mfColaborador($grupo));
+    $this->postJson("/api/v1/rh/documentos-proceso/contrato/{$contrato->id}/generar", ['clave' => 'contrato_capacitacion', 'proceso' => 'alta'])->assertCreated();
+    $documento = GeneratedDocument::query()->where('master_familia', $familia)->firstOrFail();
+    $texto = mb_strtoupper(html_entity_decode(strip_tags(mfZip((string) Storage::disk('nas')->get((string) $documento->docx_path))['word/document.xml']), ENT_QUOTES | ENT_XML1, 'UTF-8'));
+
+    expect($texto)->not->toContain('LESLI')
+        ->and($texto)->not->toContain('RODRÍGUEZ HERRERA')
+        ->and($texto)->toContain('REPRESENTADA POR LA SEÑORA ___')
+        ->and($texto)->toContain('JUAN PÉREZ LÓPEZ');
+})->with([
+    'gestor' => ['gestor', 'contrato_capacitacion.gestor'],
+    'administrativo' => ['administrativo_confianza', 'contrato_capacitacion.administrativo'],
+    'regional' => ['regional', 'contrato_capacitacion.regional'],
+]);
+
 test('página extra inesperada: si con los datos de la persona el Word crece, 422 DOCUMENT_FIELD_OVERFLOW (nada se guarda)', function () {
     $this->motorFiel['validacion']->paginasOriginal = 9;
     mfImportar(['contrato_capacitacion.gestor']);

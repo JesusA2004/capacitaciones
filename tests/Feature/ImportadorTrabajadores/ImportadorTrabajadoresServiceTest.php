@@ -283,8 +283,19 @@ test('volver a previsualizar el mismo archivo reutiliza la misma importación; s
     ]);
     $fila = ['Rosa Campos', 'Atlacomulco', now()->subYears(3)->format('n/j/Y'), 20, 5, 15, 320];
 
-    $primera = $this->importador->analizar(itvArchivo([$fila]), $this->actor);
-    $segunda = $this->importador->analizar(itvArchivo([$fila]), $this->actor);
+    // El MISMO archivo (mismos bytes) subido varias veces: generar el XLSX en
+    // cada paso cambiaba su huella si cruzaba un segundo (fecha de creación
+    // y fechas internas del ZIP), y la prueba fallaba de forma intermitente.
+    $original = itvArchivo([$fila])->getRealPath();
+    $mismoArchivo = function () use ($original): UploadedFile {
+        $copia = tempnam(sys_get_temp_dir(), 'itv-').'.xlsx';
+        copy($original, $copia);
+
+        return new UploadedFile($copia, 'REPORTE_TRABAJADORES_VAC.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+    };
+
+    $primera = $this->importador->analizar($mismoArchivo(), $this->actor);
+    $segunda = $this->importador->analizar($mismoArchivo(), $this->actor);
 
     expect($segunda->id)->toBe($primera->id)
         ->and(ImportacionExcel::query()->count())->toBe(1);
@@ -292,7 +303,7 @@ test('volver a previsualizar el mismo archivo reutiliza la misma importación; s
     $this->importador->aplicar($primera->fresh(), $this->actor);
 
     expect(fn () => $this->importador->aplicar($segunda->fresh(), $this->actor))->toThrow(ValidationException::class)
-        ->and(fn () => $this->importador->analizar(itvArchivo([$fila]), $this->actor))->toThrow(ValidationException::class);
+        ->and(fn () => $this->importador->analizar($mismoArchivo(), $this->actor))->toThrow(ValidationException::class);
     expect(HistorialSalario::query()->where('colaborador_id', $colaborador->id)->count())->toBe(1)
         ->and(AjusteHistoricoVacaciones::query()->where('colaborador_id', $colaborador->id)->count())->toBe(1);
 });

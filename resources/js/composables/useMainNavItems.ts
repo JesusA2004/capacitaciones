@@ -43,6 +43,7 @@ import {
     UserPlus,
     UserRound,
     UserSearch,
+    UserCheck,
     Users,
 } from '@lucide/vue';
 import type { LucideIcon } from '@lucide/vue';
@@ -58,6 +59,7 @@ import { index as indexImportarDatos } from '@/routes/administracion/importar-da
 import { index as indexJerarquiaPuestos } from '@/routes/administracion/jerarquia-puestos';
 import { index as indexNotificacionesSistema } from '@/routes/administracion/notificaciones-sistema';
 import { index as indexPuestos } from '@/routes/administracion/puestos';
+import { index as indexResponsablesAprobacion } from '@/routes/administracion/responsables-aprobacion';
 import { index as indexRoles } from '@/routes/administracion/roles';
 import { index as indexSucursales } from '@/routes/administracion/sucursales';
 import { index as indexUsuarios } from '@/routes/administracion/usuarios';
@@ -148,6 +150,11 @@ export function useMainNavItems() {
 
     const features = computed(() => page.props.features);
     const capacitacionActiva = computed(() => features.value.capacitacion);
+    const aprobacionesPendientes = computed(() => {
+        const total = Number(page.props.aprobacionesPendientes ?? 0);
+
+        return total > 99 ? '99+' : total > 0 ? String(total) : '';
+    });
 
     const algunPermiso = (...permisos: string[]): boolean =>
         permisos.some((p) => tienePermiso(p));
@@ -237,6 +244,9 @@ export function useMainNavItems() {
                     title: 'Pendientes',
                     href: indexPendientes(),
                     icon: Inbox,
+                    // Mismo conteo único que la app: solo lo que puedes
+                    // aprobar ahora (nunca lo bloqueado por un paso anterior).
+                    badge: aprobacionesPendientes.value || undefined,
                 },
             ]),
 
@@ -553,6 +563,13 @@ export function useMainNavItems() {
                         title: 'Organigrama',
                         href: indexJerarquiaPuestos(),
                         icon: GitBranch,
+                    },
+                    // Quién aprueba las solicitudes de cada persona/puesto
+                    // (≠ jefe organizacional). Editar: organigrama.editar.
+                    tienePermiso('organigrama.ver') && {
+                        title: 'Responsables de aprobación',
+                        href: indexResponsablesAprobacion(),
+                        icon: UserCheck,
                     },
                     tienePermiso('puestos.administrar') && {
                         title: 'Puestos y tabulador',

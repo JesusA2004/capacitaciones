@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 
 beforeEach(function () {
+    // Fechas armadas con now(): el código usa el calendario de México.
+    clRelojMediodiaMexico();
     $this->seed(RolesYPermisosSeeder::class);
     Storage::fake('nas');
     Notification::fake();

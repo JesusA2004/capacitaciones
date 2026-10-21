@@ -19,6 +19,8 @@ use Illuminate\Validation\ValidationException;
  * instante en todas ellas, y que el saldo no se pueda rebasar por concurrencia.
  */
 beforeEach(function () {
+    // Fechas armadas con now(): el código usa el calendario de México.
+    clRelojMediodiaMexico();
     $this->seed(RolesYPermisosSeeder::class);
     Notification::fake();
 });

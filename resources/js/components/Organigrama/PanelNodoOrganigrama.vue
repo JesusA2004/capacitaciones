@@ -8,6 +8,7 @@ import {
     MapPin,
     MoveRight,
     Shuffle,
+    UserCheck,
     UserRoundX,
     Users,
 } from '@lucide/vue';
@@ -246,6 +247,30 @@ function fecha(iso: string | null | undefined): string {
                 </SheetHeader>
 
                 <div class="flex flex-col gap-5 px-5 py-5">
+                    <!-- Responsable de aprobación explícito (≠ a quién reporta) -->
+                    <section
+                        v-if="nodo.aprobador"
+                        class="flex items-start gap-3 rounded-2xl border border-dashed border-[var(--mrl-primary)]/40 bg-[var(--mrl-primary)]/5 p-3 text-sm"
+                    >
+                        <UserCheck
+                            class="mt-0.5 size-4 shrink-0 text-primary"
+                        />
+                        <div class="min-w-0">
+                            <p>
+                                Responsable de aprobaciones:
+                                <strong>{{ nodo.aprobador.nombre }}</strong>
+                            </p>
+                            <p class="text-xs text-muted-foreground">
+                                {{
+                                    nodo.aprobador.origen === 'puesto'
+                                        ? 'Asignado por RH a todo su puesto.'
+                                        : 'Asignado por RH a esta persona.'
+                                }}
+                                No cambia a quién reporta en el organigrama.
+                            </p>
+                        </div>
+                    </section>
+
                     <!-- Q1 / Q3 -->
                     <section
                         v-if="nodo.clasificacion"

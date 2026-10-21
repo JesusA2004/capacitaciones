@@ -29,6 +29,23 @@ use Illuminate\Validation\ValidationException;
  */
 class ActualizacionDatosService
 {
+    /**
+     * Datos médicos (sensibles, cifrados en colaborador_datos_medicos): el
+     * colaborador puede pedir que se completen o corrijan, pero su valor
+     * viaja cifrado en la solicitud (datos_sensibles_propuestos), nunca en
+     * notificaciones, auditoría ni en el JSON en claro de datos_propuestos.
+     */
+    public const MEDICOS = [
+        'condicion_medica' => 'Condición médica',
+        'alergias' => 'Alergias',
+    ];
+
+    /** Lo que ve quien no puede leer datos médicos. */
+    private const CONFIDENCIAL = 'Dato confidencial';
+
+    /** Marca (nunca el valor) de que el dato médico ya tenía algo registrado. */
+    private const REGISTRADO = '[registrado]';
+
     public function __construct(
         private readonly AuditoriaService $auditoria,
         private readonly DomicilioService $domicilios,
@@ -51,6 +68,8 @@ class ActualizacionDatosService
             'domicilio_cp' => 'number',
             'domicilio_estado' => 'opciones',
             'nss' => 'number',
+            'condicion_medica' => 'textarea',
+            'alergias' => 'textarea',
         ];
         $opciones = [
             'genero' => array_map(fn (Genero $g) => ['value' => $g->value, 'label' => $g->etiqueta()], [Genero::Femenino, Genero::Masculino]),
@@ -112,7 +131,66 @@ class ActualizacionDatosService
             }
         }
 
-        return [...$campos, ...DatosFaltantesService::PERSONALES_OPCIONALES];
+        return [...$campos, ...DatosFaltantesService::PERSONALES_OPCIONALES, ...self::MEDICOS];
+    }
+
+    public function esSensible(string $campo): bool
+    {
+        return array_key_exists($campo, self::MEDICOS);
+    }
+
+    /**
+     * Prepara lo propuesto para guardarlo en la solicitud: los datos médicos
+     * van aparte (columna cifrada) y la base nunca guarda su valor, solo si
+     * ya había algo registrado.
+     *
+     * @param  array<string, mixed>  $datos
+     * @return array{propuestos: array<string, string>|null, sensibles: array<string, string>|null, base: array<string, string|null>|null, motivo: string}
+     *
+     * @throws ValidationException
+     */
+    public function preparar(array $datos, ?Colaborador $colaborador): array
+    {
+        $limpios = $this->normalizar($datos, $colaborador);
+        $publicos = array_diff_key($limpios, self::MEDICOS);
+        $sensibles = array_intersect_key($limpios, self::MEDICOS);
+        $base = $colaborador !== null ? $this->base($colaborador, $limpios) : null;
+
+        return [
+            'propuestos' => $publicos !== [] ? $publicos : null,
+            'sensibles' => $sensibles !== [] ? $sensibles : null,
+            'base' => $base,
+            'motivo' => $this->motivoPorDefecto($limpios, $base ?? []),
+        ];
+    }
+
+    /**
+     * Todo lo propuesto en una solicitud (públicos + médicos descifrados).
+     *
+     * @return array<string, string>
+     */
+    public function propuestosDe(SolicitudInterna $solicitud): array
+    {
+        return [...($solicitud->datos_propuestos ?? []), ...($solicitud->datos_sensibles_propuestos ?? [])];
+    }
+
+    /** Valor vigente del campo en el expediente (los médicos, de su tabla cifrada). */
+    private function valorVigente(Colaborador $colaborador, string $campo): ?string
+    {
+        if ($this->esSensible($campo)) {
+            return $this->comoTexto($colaborador->datosMedicos?->getAttribute($campo));
+        }
+
+        return $this->comoTexto($colaborador->getAttribute($campo));
+    }
+
+    /**
+     * ¿Quien consulta puede ver el valor de un dato médico? El propio
+     * colaborador (es su solicitud) o quien tiene expedientes.datos_medicos.ver.
+     */
+    private function puedeVerSensibles(SolicitudInterna $solicitud, ?User $lector): bool
+    {
+        return $lector !== null && ($solicitud->esDe($lector) || $lector->can('expedientes.datos_medicos.ver'));
     }
 
     /**
@@ -183,6 +261,13 @@ class ActualizacionDatosService
     public function camposConValor(Colaborador $colaborador): array
     {
         return array_map(function (array $c) use ($colaborador): array {
+            // Dato médico: solo se dice si ya hay algo registrado, nunca su valor.
+            if ($this->esSensible($c['campo'])) {
+                $registrado = $this->valorVigente($colaborador, $c['campo']) !== null;
+
+                return [...$c, 'actual' => $registrado ? self::REGISTRADO : null, 'actual_legible' => $registrado ? 'Registrado (confidencial)' : null];
+            }
+
             $actual = $this->comoTexto($colaborador->getAttribute($c['campo']));
 
             return [...$c, 'actual' => $actual, 'actual_legible' => $this->legible($c['campo'], $actual)];
@@ -235,7 +320,7 @@ class ActualizacionDatosService
                 default => $valor,
             };
 
-            if ($colaborador !== null && $valor === $this->comoTexto($colaborador->getAttribute($campo))) {
+            if ($colaborador !== null && $valor === $this->valorVigente($colaborador, $campo)) {
                 continue;
             }
 
@@ -261,7 +346,9 @@ class ActualizacionDatosService
         $base = [];
 
         foreach (array_keys($propuestos) as $campo) {
-            $base[$campo] = $this->comoTexto($colaborador->getAttribute($campo));
+            $vigente = $this->valorVigente($colaborador, $campo);
+            // Dato médico: la base (JSON en claro) solo marca si había algo.
+            $base[$campo] = $this->esSensible($campo) && $vigente !== null ? self::REGISTRADO : $vigente;
         }
 
         return $base;
@@ -307,12 +394,18 @@ class ActualizacionDatosService
         $cambiar = [];
 
         foreach (array_keys($datos) as $campo) {
+            // El motivo viaja a la bandeja de RH: un dato médico no se nombra.
+            $etiqueta = $this->esSensible($campo) ? 'Datos médicos (confidencial)' : $this->etiquetaCampo($campo);
+
             if (($base[$campo] ?? null) === null) {
-                $completar[] = $this->etiquetaCampo($campo);
+                $completar[] = $etiqueta;
             } else {
-                $cambiar[] = $this->etiquetaCampo($campo);
+                $cambiar[] = $etiqueta;
             }
         }
+
+        $completar = array_values(array_unique($completar));
+        $cambiar = array_values(array_unique($cambiar));
 
         return trim(implode(' ', array_filter([
             $completar !== [] ? sprintf('Completar: %s.', implode(', ', $completar)) : null,
@@ -327,21 +420,27 @@ class ActualizacionDatosService
      *
      * @return list<array{campo: string, etiqueta: string, actual: string|null, propuesto: string, clase: string}>|null
      */
-    public function comparativo(SolicitudInterna $solicitud): ?array
+    public function comparativo(SolicitudInterna $solicitud, ?User $lector = null): ?array
     {
-        $propuestos = $solicitud->datos_propuestos ?? [];
+        $propuestos = $this->propuestosDe($solicitud);
 
         if ($solicitud->tipo !== TipoSolicitudInterna::ActualizacionDatos || $propuestos === []) {
             return null;
         }
 
+        $lector ??= auth()->user() instanceof User ? auth()->user() : null;
+        $veSensibles = $this->puedeVerSensibles($solicitud, $lector);
         $colaborador = $solicitud->colaborador_id !== null ? Colaborador::query()->withTrashed()->where('id', $solicitud->colaborador_id)->first() : null;
         $filas = [];
 
         foreach ($propuestos as $campo => $valor) {
-            $actual = $solicitud->datos_anteriores !== null
-                ? ($solicitud->datos_anteriores[$campo] ?? null)
-                : $this->comoTexto($colaborador?->getAttribute($campo));
+            $sensible = $this->esSensible($campo);
+            $anteriores = $sensible ? $solicitud->datos_sensibles_anteriores : $solicitud->datos_anteriores;
+            $aplicada = $solicitud->datos_anteriores !== null || $solicitud->datos_sensibles_anteriores !== null;
+
+            $actual = $aplicada
+                ? ($anteriores[$campo] ?? null)
+                : ($colaborador !== null ? $this->valorVigente($colaborador, $campo) : null);
 
             // Lo que había al solicitar decide si era completar o cambiar
             // (solicitudes previas a datos_base: lo que había al aplicarla).
@@ -350,8 +449,8 @@ class ActualizacionDatosService
             $filas[] = [
                 'campo' => $campo,
                 'etiqueta' => $this->etiquetaCampo($campo),
-                'actual' => $this->legible($campo, $actual),
-                'propuesto' => (string) $this->legible($campo, $valor),
+                'actual' => $sensible && ! $veSensibles ? ($actual !== null ? self::CONFIDENCIAL : null) : $this->legible($campo, $actual),
+                'propuesto' => $sensible && ! $veSensibles ? self::CONFIDENCIAL : (string) $this->legible($campo, $valor),
                 'clase' => $alSolicitar === null ? 'completar' : 'cambio',
             ];
         }
@@ -366,9 +465,9 @@ class ActualizacionDatosService
      */
     public function aplicar(SolicitudInterna $solicitud, User $actor): void
     {
-        $propuestos = $solicitud->datos_propuestos ?? [];
+        $propuestos = $this->propuestosDe($solicitud);
 
-        if ($propuestos === [] || $solicitud->datos_anteriores !== null) {
+        if ($propuestos === [] || $solicitud->datos_anteriores !== null || $solicitud->datos_sensibles_anteriores !== null) {
             return;
         }
 
@@ -380,6 +479,8 @@ class ActualizacionDatosService
 
         $anteriores = [];
         $cambios = [];
+        $anterioresSensibles = [];
+        $cambiosSensibles = [];
         $base = $solicitud->datos_base;
 
         foreach ($propuestos as $campo => $valor) {
@@ -390,7 +491,22 @@ class ActualizacionDatosService
             // Nunca se sobrescribe en silencio: si el dato cambió en el
             // expediente desde que se pidió, RH debe rechazar y pedir una
             // solicitud nueva sobre el valor vigente.
-            $vigente = $this->comoTexto($colaborador->getAttribute($campo));
+            $vigente = $this->valorVigente($colaborador, $campo);
+
+            if ($this->esSensible($campo)) {
+                // La base de un dato médico solo dice si había algo registrado.
+                if ($base !== null && array_key_exists($campo, $base) && $base[$campo] !== ($vigente !== null ? self::REGISTRADO : null)) {
+                    throw ValidationException::withMessages(['datos' => sprintf(
+                        '«%s» cambió en el expediente después de la solicitud. Rechaza esta solicitud para que se pida de nuevo sobre el valor vigente.',
+                        $this->etiquetaCampo($campo),
+                    )]);
+                }
+
+                $anterioresSensibles[$campo] = $vigente;
+                $cambiosSensibles[$campo] = $valor;
+
+                continue;
+            }
 
             if ($base !== null && array_key_exists($campo, $base) && $base[$campo] !== $vigente) {
                 throw ValidationException::withMessages(['datos' => sprintf(
@@ -411,12 +527,43 @@ class ActualizacionDatosService
             $anteriores['domicilio'] = $this->comoTexto($colaborador->domicilio);
         }
 
-        $colaborador->update($cambios);
-        $solicitud->update(['datos_anteriores' => $anteriores]);
+        if ($cambios !== []) {
+            $colaborador->update($cambios);
+        }
+
+        if ($cambiosSensibles !== []) {
+            $medicos = $colaborador->datosMedicos()->firstOrNew([]);
+            $medicos->fill([...$cambiosSensibles, 'fuente' => 'solicitud_correccion', 'actualizado_por' => $actor->id]);
+            $medicos->save();
+        }
+
+        $solicitud->update([
+            'datos_anteriores' => $anteriores,
+            'datos_sensibles_anteriores' => $anterioresSensibles !== [] ? $anterioresSensibles : null,
+        ]);
+
+        // Antes/después de cada dato (los médicos: solo que cambiaron, nunca
+        // su valor), quién lo autorizó, con qué comentario y desde dónde
+        // (AuditoriaService agrega origen, IP y user agent).
+        $antesDespues = [];
+
+        foreach ($cambios as $campo => $valor) {
+            $antesDespues[$campo] = ['antes' => $anteriores[$campo] ?? null, 'despues' => $valor];
+        }
+
+        foreach (array_keys($cambiosSensibles) as $campo) {
+            $antesDespues[$campo] = ['antes' => $anterioresSensibles[$campo] !== null ? self::CONFIDENCIAL : null, 'despues' => self::CONFIDENCIAL];
+        }
+
+        $comentario = $solicitud->historial()->where('accion', 'aprobada')->latest('id')->value('comentario');
 
         $this->auditoria->registrar('expediente_datos_actualizados', $colaborador, $actor, [
+            'modulo' => 'expediente',
             'solicitud' => $solicitud->folio,
-            'campos' => array_keys($cambios),
+            'solicitud_id' => $solicitud->id,
+            'campos' => array_keys([...$cambios, ...$cambiosSensibles]),
+            'cambios' => $antesDespues,
+            'comentario' => is_string($comentario) ? $comentario : null,
         ]);
     }
 

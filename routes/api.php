@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\CelebracionController;
 use App\Http\Controllers\Api\V1\CicloLaboralColaboradorController;
 use App\Http\Controllers\Api\V1\ColaboradorController;
 use App\Http\Controllers\Api\V1\ColaboradorCumpleanosController;
+use App\Http\Controllers\Api\V1\CorreccionController;
 use App\Http\Controllers\Api\V1\DescriptivoPuestoColaboradorController;
 use App\Http\Controllers\Api\V1\DirectorioController;
 use App\Http\Controllers\Api\V1\DispositivoController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\Api\V1\MiProcesoController;
 use App\Http\Controllers\Api\V1\MobileBootstrapController;
 use App\Http\Controllers\Api\V1\MuroCumpleanosController;
 use App\Http\Controllers\Api\V1\NotificacionController;
+use App\Http\Controllers\Api\V1\RegistroAppController;
 use App\Http\Controllers\Api\V1\Rh\ActaController;
 use App\Http\Controllers\Api\V1\Rh\AcuseDescriptivoPuestoController as RhAcuseDescriptivoPuestoController;
 use App\Http\Controllers\Api\V1\Rh\AltaColaboradorController;
@@ -110,7 +112,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
 
     // contrasena.temporal: con contraseña temporal solo responden logout, me
     // y cambiar-contrasena; lo demás da 403 «cambio_contrasena_requerido».
-    Route::middleware(['auth:sanctum', 'throttle:api', 'contrasena.temporal'])->group(function () {
+    // registro.app: quien se registró por QR y no termina su registro
+    // completo solo usa el asistente (403 «registro_incompleto»; solo a la
+    // app que manda X-People-Registro — APKs viejas no cambian).
+    Route::middleware(['auth:sanctum', 'throttle:api', 'contrasena.temporal', 'registro.app'])->group(function () {
         Route::post('logout', [AuthController::class, 'logout'])->name('logout');
         Route::get('me', [AuthController::class, 'me'])->name('me');
         Route::post('cambiar-contrasena', [AuthController::class, 'cambiarContrasena'])->name('cambiar-contrasena')->middleware('throttle:api-reautenticar');
@@ -209,11 +214,20 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('/', [SolicitudController::class, 'index'])->name('index');
             Route::post('/', [SolicitudController::class, 'store'])->name('store');
             Route::get('configuracion', [SolicitudController::class, 'configuracion'])->name('configuracion');
+            // Préstamo: 6 meses completos de antigüedad (fecha del servidor).
+            Route::get('prestamo/elegibilidad', [SolicitudController::class, 'elegibilidadPrestamo'])->name('prestamo.elegibilidad');
             Route::get('{solicitud}', [SolicitudController::class, 'show'])->name('show');
             Route::get('{solicitud}/permiso-pdf', [SolicitudController::class, 'permisoPdf'])->name('permiso-pdf');
             Route::post('{solicitud}/adjuntos', [SolicitudController::class, 'adjuntos'])->name('adjuntos');
             Route::post('{solicitud}/cancelar', [SolicitudController::class, 'cancelar'])->name('cancelar');
+            // Correcciones: responder lo que RH pidió (requiere información).
+            Route::post('{solicitud}/responder', [CorreccionController::class, 'responder'])->name('responder')->middleware('throttle:20,1');
         });
+
+        // Correcciones del expediente propias con estado, historial,
+        // comentario de RH y contador (docs/SOLICITUDES_UNIFICADAS.md).
+        Route::get('correcciones', [CorreccionController::class, 'index'])->name('correcciones.index');
+        Route::get('correcciones/resumen', [CorreccionController::class, 'resumen'])->name('correcciones.resumen');
 
         /*
         |------------------------------------------------------------------
@@ -263,6 +277,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('documentos-laborales/{documento}/firmar', [CicloLaboralColaboradorController::class, 'firmarDocumento'])->name('documentos-laborales.firmar');
             Route::get('contratos', [CicloLaboralColaboradorController::class, 'contratos'])->name('contratos');
             Route::get('datos-faltantes', [CicloLaboralColaboradorController::class, 'datosFaltantes'])->name('datos-faltantes');
+            // Registro completo antes de entrar (cuenta creada por QR):
+            // datos personales, médicos opcionales y cierre. Los documentos
+            // se suben con colaborador/incorporacion/documentos/{tipo}/subir.
+            Route::get('registro', [RegistroAppController::class, 'show'])->name('registro.show');
+            Route::post('registro/datos', [RegistroAppController::class, 'datos'])->name('registro.datos')->middleware('throttle:60,1');
+            Route::post('registro/finalizar', [RegistroAppController::class, 'finalizar'])->name('registro.finalizar')->middleware('throttle:20,1');
             Route::get('recibos', [CicloLaboralColaboradorController::class, 'recibos'])->name('recibos.index');
             Route::get('recibos/{recibo}', [CicloLaboralColaboradorController::class, 'recibo'])->name('recibos.show');
             Route::get('recibos/{recibo}/pdf', [CicloLaboralColaboradorController::class, 'reciboPdf'])->name('recibos.pdf');
@@ -275,6 +295,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::prefix('equipo')->name('equipo.')->group(function () {
             Route::get('/', [EquipoController::class, 'index'])->name('index');
             Route::get('pendientes', [EquipoController::class, 'pendientes'])->name('pendientes');
+            // Conteo único de «mis aprobaciones pendientes» (web y app).
+            Route::get('aprobaciones/conteo', [EquipoController::class, 'conteo'])->name('aprobaciones.conteo');
             Route::post('solicitudes/{solicitud}/visto-bueno', [EquipoController::class, 'vistoBueno'])->name('solicitudes.visto-bueno');
         });
 

@@ -6,6 +6,7 @@ use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\Nomina\PrestamoAutorizacionService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
+use App\Services\Solicitudes\AprobacionOrganizacionalService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Solicitudes\VistoBuenoService;
 use Closure;
@@ -94,7 +95,10 @@ class SolicitudesDemoSeeder extends Seeder
             });
         }
 
-        if ($colaborador4 !== null) {
+        // El préstamo exige 6 meses completos de antigüedad (misma regla que
+        // web/API): con un demo más reciente el escenario simplemente no se
+        // siembra, nunca se brinca la regla.
+        if ($colaborador4 !== null && app(AprobacionOrganizacionalService::class)->elegibilidadPrestamo($colaborador4->colaborador)['cumple']) {
             $this->crearSiNoExiste('Gastos escolares de los hijos', function () use ($servicio, $colaborador4, $rhAdmin) {
                 // Aprobada, con monto y plazo — dispara el contrato de
                 // crédito automático si el formato ya está configurado.

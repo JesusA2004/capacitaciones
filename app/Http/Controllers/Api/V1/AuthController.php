@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Concerns\PasswordValidationRules;
 use App\Http\Controllers\Controller;
 use App\Services\Autenticacion\AutenticacionService;
+use App\Services\Incorporacion\RegistroAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -24,7 +25,10 @@ class AuthController extends Controller
 {
     use PasswordValidationRules;
 
-    public function __construct(private readonly AutenticacionService $autenticacion) {}
+    public function __construct(
+        private readonly AutenticacionService $autenticacion,
+        private readonly RegistroAppService $registro,
+    ) {}
 
     public function login(Request $request): JsonResponse
     {
@@ -73,6 +77,7 @@ class AuthController extends Controller
                 'apellidos' => $usuario->apellidos,
                 'correo' => $usuario->email,
                 'estatus' => $colaborador?->estatus->value,
+                'registro_completo' => $this->registro->registroCompleto($usuario),
                 'roles' => $usuario->getRoleNames(),
             ],
         ]);
@@ -143,6 +148,10 @@ class AuthController extends Controller
             'apellidos' => $usuario->apellidos,
             'correo' => $usuario->email,
             'debe_cambiar_contrasena' => $usuario->debe_cambiar_contrasena,
+            // false = registrado por QR sin terminar su registro completo:
+            // la app lo manda al asistente (RegistroAppService). Las APKs
+            // anteriores ignoran el campo.
+            'registro_completo' => $this->registro->registroCompleto($usuario),
             'roles' => $usuario->getRoleNames(),
             'permisos' => $usuario->getAllPermissions()->pluck('name'),
         ]);

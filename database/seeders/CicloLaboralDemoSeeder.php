@@ -37,6 +37,7 @@ use App\Services\Onboarding\OnboardingService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Reclutamiento\ContratacionCandidatoService;
 use App\Services\Reclutamiento\PreguntasFiltroCandidatoService;
+use App\Support\FechaMexico;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
@@ -489,7 +490,9 @@ class CicloLaboralDemoSeeder extends Seeder
         $cierre = $cierres->solicitar($colaborador, [
             'tipo_baja' => 'renuncia',
             'motivo' => 'Cambio de ciudad (demo).',
-            'fecha_efectiva' => now()->toDateString(),
+            // Día calendario de México (después de las 18:00 now() en UTC
+            // ya es mañana y la baja quedaba con fecha futura).
+            'fecha_efectiva' => FechaMexico::hoy(),
         ], $this->como($this->gerente));
 
         if ($hasta === 'baja') {
@@ -507,7 +510,7 @@ class CicloLaboralDemoSeeder extends Seeder
         }
 
         $cierres->registrarEntregaFiniquito($cierre->refresh(), $this->rh, [
-            'fecha' => now()->toDateString(),
+            'fecha' => FechaMexico::hoy(),
             'forma_pago' => 'transferencia',
             'comentario' => 'Entrega de finiquito (demo).',
         ]);

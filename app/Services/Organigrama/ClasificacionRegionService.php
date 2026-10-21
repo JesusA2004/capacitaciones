@@ -9,8 +9,11 @@ use App\Models\Colaborador;
 use App\Models\NodoComercial;
 use App\Models\User;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
+use App\Services\Solicitudes\TareasSolicitudService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Q1 / Q3 = las dos REGIONES de la matriz comercial («Región Q1», «Región
@@ -111,6 +114,20 @@ class ClasificacionRegionService
             ->causedBy($actor)
             ->withProperties(['antes' => ['region_id' => $regionAnterior], 'despues' => ['region_id' => $regionId]])
             ->log('region_clasificada');
+
+        // Sus solicitudes (y las de su sucursal) detenidas por «Pendiente de
+        // asignar región de aprobación» avanzan: se avisa al regional que
+        // ahora puede actuar. Nunca revierte la clasificación.
+        try {
+            $ids = Colaborador::query()
+                ->where('sucursal_principal_id', $colaborador->sucursal_principal_id)
+                ->pluck('id')
+                ->push($colaborador->id)
+                ->all();
+            app(TareasSolicitudService::class)->reevaluarPendientes($ids);
+        } catch (Throwable $e) {
+            Log::warning('ClasificacionRegionService: no se pudieron reevaluar las solicitudes pendientes.', ['colaborador_id' => $colaborador->id, 'error' => $e->getMessage()]);
+        }
 
         return $clasificacion;
     }

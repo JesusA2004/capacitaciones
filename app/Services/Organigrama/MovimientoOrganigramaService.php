@@ -195,7 +195,7 @@ class MovimientoOrganigramaService
             }
 
             // Misma puerta que «Datos laborales»: movimiento + jefe derivado.
-            $this->datosLaborales->actualizarLaborales($colaborador, $cambios, $actor);
+            $this->datosLaborales->actualizarLaborales($colaborador, $cambios, $actor, 'organigrama');
         });
 
         activity('organigrama')

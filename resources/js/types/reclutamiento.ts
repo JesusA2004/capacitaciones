@@ -1,5 +1,6 @@
 import type { OpcionSimple } from './administracion';
 import type { AccesosRapidosCandidato } from './cicloLaboral';
+import type { EstadoCadenaContratacion } from './rh';
 
 export type OpcionEnum = {
     value: string;
@@ -128,6 +129,8 @@ export type CandidatoItem = {
     ultimo_cambio_estado: SeguimientoResumen | null;
     /** Ver psicométrico / socioeconómico / video desde la tarjeta. */
     accesos_rapidos?: AccesosRapidosCandidato;
+    /** Estado real tras la selección (Seleccionado … Contratado) con botones al proceso. */
+    contratacion?: EstadoCadenaContratacion | null;
 };
 
 export type SeguimientoCandidatoItem = {

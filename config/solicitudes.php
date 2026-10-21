@@ -73,4 +73,27 @@ return [
         TipoSolicitudInterna::PermisoEspecialFallecimiento->value,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Dirección Comercial (visto bueno extra para gerencia o superior)
+    |--------------------------------------------------------------------------
+    |
+    | Tipos en los que, si quien solicita es de gerencia o superior y depende
+    | de Dirección Comercial, se agrega su visto bueno antes de RH. En los
+    | demás tipos (vacaciones, permisos) el gerente de sucursal solo pasa por
+    | su regional Q1/Q3. Ver AprobacionOrganizacionalService.
+    |
+    */
+
+    'direccion_comercial_gerencia' => [
+        TipoSolicitudInterna::PrestamoInterno->value,
+    ],
+
+    /*
+    | Préstamo: meses COMPLETOS de antigüedad (desde colaboradores.fecha_ingreso,
+    | fecha del servidor) para poder solicitarlo. Web, API y app.
+    */
+
+    'prestamo_meses_minimos' => 6,
+
 ];

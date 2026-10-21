@@ -5,7 +5,9 @@ namespace App\Http\Requests\Rh;
 use App\Models\Colaborador;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 /**
  * Cambia empresa (vía sucursal), sucursal, departamento, puesto o sueldo
@@ -47,6 +49,33 @@ class ActualizarDatosLaboralesRequest extends FormRequest
             'puesto_id' => ['nullable', 'integer', 'exists:puestos,id'],
             'sueldo_mensual' => ['nullable', 'numeric', 'min:0', 'max:9999999.99'],
             'motivo' => ['nullable', 'string', 'max:255'],
+        ];
+    }
+
+    /**
+     * El sueldo es un dato crítico (DatosExpedienteService::CAMPOS_CRITICOS):
+     * cambiarlo exige motivo. Un campo vacío nunca cambia el sueldo (ver
+     * DatosExpedienteService::actualizarLaborales), así que no lo exige.
+     *
+     * @return array<int, Closure>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $colaborador = $this->route('colaborador');
+                $sueldo = $this->input('sueldo_mensual');
+
+                if ($validator->errors()->isNotEmpty() || ! $colaborador instanceof Colaborador || ! is_numeric($sueldo) || (float) $sueldo <= 0) {
+                    return;
+                }
+
+                $cambia = $colaborador->sueldo_mensual === null || abs((float) $colaborador->sueldo_mensual - (float) $sueldo) > 0.004;
+
+                if ($cambia && trim((string) $this->input('motivo')) === '') {
+                    $validator->errors()->add('motivo', 'Escribe el motivo del cambio de sueldo (dato crítico).');
+                }
+            },
         ];
     }
 }

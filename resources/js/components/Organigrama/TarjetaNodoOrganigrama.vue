@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { MapPin, ShieldQuestion, Shuffle, UserRound } from '@lucide/vue';
+import {
+    MapPin,
+    ShieldQuestion,
+    Shuffle,
+    UserCheck,
+    UserRound,
+} from '@lucide/vue';
 import { computed } from 'vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import { ESTILO_SIN_TIPO, ESTILO_TIPO_PUESTO } from '@/lib/organigrama';
@@ -195,6 +201,18 @@ const titulo = computed(() =>
                 </span>
 
                 <span class="ml-auto flex shrink-0 items-center gap-1">
+                    <!-- Responsable de aprobación explícito (≠ reporte
+                         organizacional): «aprueba sus solicitudes». -->
+                    <span
+                        v-if="nodo.aprobador"
+                        class="inline-flex max-w-24 items-center gap-0.5 rounded-full border border-dashed border-[var(--mrl-primary)]/50 bg-[var(--mrl-primary)]/5 px-1.5 py-0.5 text-[10px] font-semibold text-[var(--mrl-primary)]"
+                        :title="`Responsable de aprobaciones: ${nodo.aprobador.nombre} (no cambia a quién reporta)`"
+                    >
+                        <UserCheck class="size-3 shrink-0" />
+                        <span class="truncate">{{
+                            nodo.aprobador.nombre.split(' ')[0]
+                        }}</span>
+                    </span>
                     <span
                         v-if="porClasificar"
                         class="inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold"

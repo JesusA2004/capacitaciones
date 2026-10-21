@@ -801,11 +801,12 @@ class RegularizacionContratosService
      * Vista previa REAL de un contrato que le corresponde (mismo formato y
      * datos que al generarlo, nada se guarda): reutiliza
      * DocumentoProcesoService::vistaPrevia con el contrato registrado o, si
-     * aún no existe, con el contrato en memoria del plan.
+     * aún no existe, con el contrato en memoria del plan. Con
+     * $marcarPendientes (expediente) los faltantes salen como «PENDIENTE: …».
      *
      * @return array{pdf: string, nombre: string, faltantes: int}
      */
-    public function vistaPrevia(Colaborador $colaborador, string $clave, User $actor, ?CarbonInterface $hoy = null): array
+    public function vistaPrevia(Colaborador $colaborador, string $clave, User $actor, ?CarbonInterface $hoy = null, bool $marcarPendientes = false): array
     {
         if (! $this->puedeVer($actor)) {
             throw new AuthorizationException('No tienes permiso para ver contratos.');
@@ -829,7 +830,7 @@ class RegularizacionContratosService
                     null,
                 );
 
-            return $this->documentos->vistaPrevia($etapa['etapa'] === 'inicial' ? 'alta' : 'renovacion', $contrato, $clave, $actor);
+            return $this->documentos->vistaPrevia($etapa['etapa'] === 'inicial' ? 'alta' : 'renovacion', $contrato, $clave, $actor, marcarPendientes: $marcarPendientes);
         }
 
         throw ValidationException::withMessages(['clave' => 'Ese documento no le corresponde a este colaborador.']);

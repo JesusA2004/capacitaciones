@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import {
+    ArrowRight,
     Brain,
     FileText,
+    FolderOpen,
     Home,
     Paperclip,
     Pencil,
@@ -27,6 +29,7 @@ import DateTimePicker from '@/components/Common/DateTimePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
+import ChipEstado from '@/components/people/ChipEstado.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import CandidatoExpedientePanel from '@/components/Rh/CandidatoExpedientePanel.vue';
@@ -71,6 +74,7 @@ import type {
     AntecedenteBaja,
     CandidatoFicha,
     CandidatoItem,
+    EstadoCadenaContratacion,
     EstadoCiclo,
     EvidenciaCandidato,
     FormularioAccion,
@@ -96,7 +100,16 @@ const props = defineProps<{
     perfilPuesto: PerfilPuestoCandidato;
     /** RN-09: baja previa «No recontratable» / «Con reservas». */
     antecedenteBaja?: AntecedenteBaja | null;
+    /** Candidato → contratación → expediente (null = aún no seleccionado). */
+    cadenaContratacion?: EstadoCadenaContratacion | null;
 }>();
+
+/** El paso del proceso ya es esta ficha: no se ofrece un enlace a sí misma. */
+const procesoEsEstaFicha = computed(
+    () =>
+        !!props.cadenaContratacion?.proceso_url &&
+        props.cadenaContratacion.proceso_url.includes(`/rh/candidatos/${props.candidato.id}`),
+);
 
 const ACEPTA_DOCUMENTOS = '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx';
 const ACEPTA_SOCIOECONOMICO =
@@ -495,6 +508,54 @@ function fecha(valor: string | null): string {
             (coincide por {{ antecedenteBaja.coincidencia }}). Consulta con RH
             antes de continuar.
         </p>
+
+        <!-- Seleccionado → contratación → expediente: el candidato no
+             desaparece al avanzar y lleva directo al proceso. -->
+        <section
+            v-if="cadenaContratacion"
+            class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-crema/60 p-4 sm:flex-row sm:items-center sm:justify-between"
+            aria-label="Estado de contratación"
+            data-cadena-contratacion
+        >
+            <div class="flex min-w-0 flex-wrap items-center gap-2">
+                <ChipEstado
+                    :etiqueta="cadenaContratacion.etiqueta"
+                    :tono="cadenaContratacion.tono"
+                    tamano="md"
+                />
+                <span
+                    v-if="cadenaContratacion.detalle"
+                    class="text-sm text-muted-foreground"
+                    >{{ cadenaContratacion.detalle }}</span
+                >
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <Button
+                    v-if="cadenaContratacion.expediente_url"
+                    size="sm"
+                    as-child
+                >
+                    <Link
+                        :href="cadenaContratacion.expediente_url"
+                        data-accion="ver-expediente"
+                    >
+                        <FolderOpen class="size-4" />
+                        {{ cadenaContratacion.expediente_etiqueta }}
+                    </Link>
+                </Button>
+                <Button
+                    v-if="cadenaContratacion.proceso_url && !procesoEsEstaFicha"
+                    size="sm"
+                    variant="outline"
+                    as-child
+                >
+                    <Link :href="cadenaContratacion.proceso_url">
+                        {{ cadenaContratacion.proceso_etiqueta }}
+                        <ArrowRight class="size-4" />
+                    </Link>
+                </Button>
+            </div>
+        </section>
 
         <!-- Resumen ejecutivo: quién, a qué puesto, en qué etapa, quién sigue -->
         <section

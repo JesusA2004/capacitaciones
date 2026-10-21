@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\DocumentosMaestros\Calidad\ValidacionVisualMaestroService;
 use App\Services\Formatos\FormatoPreviewService;
 use App\Services\Formatos\Motor\ConversorDocxPdf;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Tests\Support\ConversorFielDePrueba;
@@ -62,6 +63,20 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+/**
+ * Fija el reloj a mediodía de México del día calendario actual de México
+ * (18:00 UTC). La app corre en UTC pero las fechas legales (antigüedad,
+ * saldo de vacaciones, fecha efectiva de baja, coberturas…) usan el
+ * calendario de America/Mexico_City (FechaMexico / VacacionesService::
+ * hoyMexico). Después de las 18:00 de México, now() en UTC ya es el día
+ * siguiente y los datos de prueba armados con now() quedaban un día
+ * adelantados respecto a lo que el código (correctamente) considera «hoy».
+ */
+function clRelojMediodiaMexico(): void
+{
+    test()->travelTo(CarbonImmutable::now('America/Mexico_City')->setTime(12, 0)->utc());
 }
 
 /*

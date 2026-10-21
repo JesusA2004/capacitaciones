@@ -5,6 +5,8 @@ use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
 
 beforeEach(function () {
+    // Fechas armadas con now(): el código usa el calendario de México.
+    clRelojMediodiaMexico();
     $this->seed(RolesYPermisosSeeder::class);
 });
 

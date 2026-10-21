@@ -26,4 +26,20 @@ return [
     */
     'qr_url_base' => env('INCORPORACION_QR_URL_BASE', env('APP_URL', 'http://localhost').'/incorporacion/qr'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Registro completo en la app antes de entrar
+    |--------------------------------------------------------------------------
+    |
+    | Quien crea su cuenta con el QR captura todos los datos personales
+    | contractuales (DatosFaltantesService::PERSONALES) y sube sus documentos
+    | requeridos antes de entrar (App\Services\Incorporacion\RegistroAppService,
+    | docs/REGISTRO_APP.md). `campos_opcionales` libera campos de esa lista
+    | (por clave de columna, p. ej. 'correo_personal') sin tocar código.
+    |
+    */
+    'registro_app' => [
+        'campos_opcionales' => [],
+    ],
+
 ];

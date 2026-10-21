@@ -42,6 +42,8 @@ use Laravel\Sanctum\Sanctum;
 */
 
 beforeEach(function () {
+    // Fechas armadas con now(): el código usa el calendario de México.
+    clRelojMediodiaMexico();
     $this->seed(RolesYPermisosSeeder::class);
     $this->seed(CausalesRotacionSeeder::class);
     Storage::fake('nas');

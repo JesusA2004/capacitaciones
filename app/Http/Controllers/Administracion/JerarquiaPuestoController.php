@@ -15,6 +15,7 @@ use App\Services\Organigrama\ClasificacionRegionService;
 use App\Services\Organigrama\LaminasOrganigramaService;
 use App\Services\Organigrama\MiniOrganigramaService;
 use App\Services\Organigrama\OrganigramaPersonasService;
+use App\Services\Organigrama\ResponsableAprobacionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -46,7 +47,9 @@ class JerarquiaPuestoController extends Controller
         return Inertia::render('Administracion/JerarquiaPuestos/Index', [
             'puestos' => $puestos,
             // Vista por personas: una tarjeta por colaborador, rama por sucursal.
-            'personas' => $this->organigramaPersonas->arbol($usuario, $request),
+            // `aprobador`: responsable de aprobación explícito (≠ reporte
+            // organizacional), para distinguirlo visualmente.
+            'personas' => app(ResponsableAprobacionService::class)->anotarOrganigrama($this->organigramaPersonas->arbol($usuario, $request)),
             // Coberturas temporales: quién puede asignarlas y con qué datos.
             'coberturas' => [
                 'puedeEditar' => $puedeEditar,

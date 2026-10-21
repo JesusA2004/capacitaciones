@@ -81,14 +81,14 @@ class DirectorioEdicionService
         $laborales = array_intersect_key($datos, array_flip(self::CAMPOS_LABORALES));
 
         DB::transaction(function () use ($colaborador, $contacto, $laborales, $actor): void {
-            $this->datosExpediente->actualizarPersonales($colaborador, $contacto);
+            $this->datosExpediente->actualizarPersonales($colaborador, $contacto, $actor, 'Edición rápida desde el Directorio.', 'directorio');
 
             // Sin `sueldo_mensual`: el directorio nunca toca la compensación.
             if (array_diff(array_keys($laborales), ['motivo']) !== []) {
                 $this->datosExpediente->actualizarLaborales($colaborador, [
                     ...$laborales,
                     'motivo' => $laborales['motivo'] ?? 'Edición rápida desde el Directorio.',
-                ], $actor);
+                ], $actor, 'directorio');
             }
         });
     }

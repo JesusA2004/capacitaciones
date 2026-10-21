@@ -74,6 +74,15 @@ class SolicitudInternaPolicy
     }
 
     /**
+     * Responder lo que RH pidió (requiere información): solo el dueño
+     * (CorreccionesService::responder() vuelve a validar el estado).
+     */
+    public function responderCorreccion(User $usuario, SolicitudInterna $solicitud): bool
+    {
+        return $solicitud->esDe($usuario);
+    }
+
+    /**
      * Marcar en revisión / pedir corrección: acción de RH/gerencia, nunca
      * sobre la propia solicitud.
      */

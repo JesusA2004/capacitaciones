@@ -18,6 +18,9 @@ use Illuminate\Support\Carbon;
  * @property int|null $user_id
  * @property string $accion
  * @property string|null $comentario
+ * @property string|null $origen web, app o sistema
+ * @property string|null $ip
+ * @property string|null $user_agent
  * @property-read string $accion_etiqueta
  * @property Carbon $created_at
  */
@@ -32,8 +35,18 @@ class SolicitudInternaHistorial extends Model
         'user_id',
         'accion',
         'comentario',
+        'origen',
+        'ip',
+        'user_agent',
         'created_at',
     ];
+
+    /**
+     * IP y user agent quedan para auditoría; no viajan a la vista ni a la app.
+     *
+     * @var list<string>
+     */
+    protected $hidden = ['ip', 'user_agent'];
 
     /** @var list<string> */
     protected $appends = ['accion_etiqueta'];
@@ -64,6 +77,8 @@ class SolicitudInternaHistorial extends Model
 
         return match ($accion) {
             'comentario' => 'Comentario',
+            'respuesta_colaborador' => 'Respuesta del colaborador',
+            'datos_corregidos' => 'Datos propuestos corregidos',
             'finiquito_calculado' => 'Finiquito calculado',
             'finiquito_recalculado' => 'Finiquito recalculado',
             'finiquito_ajustado' => 'Finiquito ajustado',

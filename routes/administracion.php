@@ -12,6 +12,7 @@ use App\Http\Controllers\Administracion\MatrizComercialController;
 use App\Http\Controllers\Administracion\NotificacionSistemaController;
 use App\Http\Controllers\Administracion\OrganigramaAccionesController;
 use App\Http\Controllers\Administracion\PuestoController;
+use App\Http\Controllers\Administracion\ResponsableAprobacionController;
 use App\Http\Controllers\Administracion\RolController;
 use App\Http\Controllers\Administracion\SucursalController;
 use App\Http\Controllers\Administracion\UsuarioController;
@@ -124,6 +125,14 @@ Route::middleware(['auth', 'verified'])
 
         // Matriz comercial / territorial: vista B del Organigrama, árbol
         // distinto al de jerarquía de puestos (ver docs/HEADCOUNT_Y_VACANTES.md).
+        // Responsables de aprobación explícitos (≠ jefe organizacional):
+        // AprobacionOrganizacionalService / ResponsableAprobacionService.
+        Route::prefix('responsables-aprobacion')->name('responsables-aprobacion.')->group(function () {
+            Route::get('/', [ResponsableAprobacionController::class, 'index'])->name('index');
+            Route::post('/', [ResponsableAprobacionController::class, 'store'])->name('store');
+            Route::delete('{responsable}', [ResponsableAprobacionController::class, 'destroy'])->name('destroy');
+        });
+
         Route::prefix('matriz-comercial')->name('matriz-comercial.')->group(function () {
             Route::get('/', [MatrizComercialController::class, 'index'])->name('index');
             Route::put('{nodo}/responsable', [MatrizComercialController::class, 'asignarResponsable'])->name('responsable');

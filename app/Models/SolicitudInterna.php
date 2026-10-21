@@ -54,6 +54,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property array<string, string>|null $datos_propuestos Actualización de datos: valores propuestos por el colaborador.
  * @property array<string, string|null>|null $datos_anteriores Actualización de datos: lo que había antes de aplicarlos.
  * @property array<string, string|null>|null $datos_base Actualización de datos: lo que había en el expediente al solicitar.
+ * @property array<string, string>|null $datos_sensibles_propuestos Datos médicos propuestos (cifrado).
+ * @property array<string, string|null>|null $datos_sensibles_anteriores Datos médicos antes de aplicarlos (cifrado).
  * @property int|null $revisado_por
  * @property Carbon|null $revisado_en
  * @property string|null $motivo_rechazo
@@ -96,12 +98,23 @@ class SolicitudInterna extends Model
         'datos_propuestos',
         'datos_anteriores',
         'datos_base',
+        'datos_sensibles_propuestos',
+        'datos_sensibles_anteriores',
         'revisado_por',
         'revisado_en',
         'motivo_rechazo',
         'empresa_id',
         'sucursal_id',
     ];
+
+    /**
+     * Los datos médicos nunca viajan al serializar la solicitud (Inertia,
+     * JSON): solo ActualizacionDatosService::comparativo() los muestra a
+     * quien puede verlos.
+     *
+     * @var list<string>
+     */
+    protected $hidden = ['datos_sensibles_propuestos', 'datos_sensibles_anteriores'];
 
     protected function casts(): array
     {
@@ -119,6 +132,10 @@ class SolicitudInterna extends Model
             'datos_propuestos' => 'array',
             'datos_anteriores' => 'array',
             'datos_base' => 'array',
+            // Datos médicos propuestos / anteriores: cifrados en reposo,
+            // nunca en el JSON en claro de datos_propuestos.
+            'datos_sensibles_propuestos' => 'encrypted:array',
+            'datos_sensibles_anteriores' => 'encrypted:array',
         ];
     }
 

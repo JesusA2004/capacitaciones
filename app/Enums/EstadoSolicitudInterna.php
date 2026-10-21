@@ -79,8 +79,10 @@ enum EstadoSolicitudInterna: string
             self::EnRevision => in_array($destino, [
                 self::RequiereCorreccion, self::Aprobada, self::Rechazada,
             ], true),
+            // Enviada: el colaborador respondió/reenvió lo que RH pidió
+            // (CorreccionesService::responder()) y vuelve a la bandeja.
             self::RequiereCorreccion => in_array($destino, [
-                self::EnRevision, self::Rechazada,
+                self::Enviada, self::EnRevision, self::Rechazada,
             ], true),
             default => false,
         };

@@ -20,6 +20,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\DocumentosMaestros\FirmaPatronService;
 use App\Services\Expedientes\DocumentoStorageService;
+use App\Services\Tareas\NotificadorRhService;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -269,6 +270,22 @@ class ResponsivaService
             'colaborador_id' => $colaborador->id,
             'tipo' => $responsiva->tipo->value,
         ]);
+
+        // El colaborador que recibe el activo se entera (regla
+        // «responsiva_registrada»: solo la persona). Nunca deshace la responsiva.
+        try {
+            app(NotificadorRhService::class)->notificarEvento(
+                'responsiva_registrada',
+                $colaborador,
+                ['excluir' => [$actor->id]],
+                'Responsiva de activos generada',
+                sprintf('Se generó tu responsiva %s (%s). La firmarás en papel al recibir el equipo o activo.', (string) $responsiva->folio, mb_strtolower($responsiva->tipo->etiqueta())),
+                $responsiva,
+                'ver_responsiva',
+            );
+        } catch (Throwable $e) {
+            Log::warning('ResponsivaService: no se pudo avisar al colaborador.', ['responsiva_id' => $responsiva->id, 'error' => $e->getMessage()]);
+        }
 
         return $responsiva->refresh()->load(['entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador']);
     }

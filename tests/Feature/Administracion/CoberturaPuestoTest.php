@@ -8,6 +8,7 @@ use App\Models\NodoComercial;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Support\FechaMexico;
 use Database\Seeders\RolesYPermisosSeeder;
 
 beforeEach(function () {
@@ -146,7 +147,8 @@ test('terminar una cobertura la pasa al historial y libera el puesto para otra',
 
     $cobertura->refresh();
     expect($cobertura->activa)->toBeFalse()
-        ->and($cobertura->fecha_fin?->toDateString())->toBe(now()->toDateString())
+        // Fecha legal: día calendario de México (la app corre en UTC).
+        ->and($cobertura->fecha_fin?->toDateString())->toBe(FechaMexico::hoy())
         ->and($cobertura->finalizada_por)->toBe($this->rh->id);
 
     // El historial se conserva (no se borra) y ya se puede asignar otra.

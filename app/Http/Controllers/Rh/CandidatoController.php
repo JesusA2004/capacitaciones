@@ -38,6 +38,7 @@ use App\Services\Bajas\AntecedenteBajaService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Puestos\PerfilPuestoService;
 use App\Services\Reclutamiento\BandejaCvService;
+use App\Services\Reclutamiento\CadenaContratacionService;
 use App\Services\Reclutamiento\CampanaReclutamientoService;
 use App\Services\Reclutamiento\CandidatoPresenter;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
@@ -85,6 +86,7 @@ class CandidatoController extends Controller
         private readonly PerfilPuestoService $perfilesPuesto,
         private readonly BandejaCvService $bandejaCv,
         private readonly AntecedenteBajaService $antecedentes,
+        private readonly CadenaContratacionService $cadena,
     ) {}
 
     public function index(Request $request): Response
@@ -101,8 +103,14 @@ class CandidatoController extends Controller
 
         // Botones rápidos de la tarjeta (Ver psicométrico / socioeconómico /
         // video): solo el archivo de cada etapa, sin mandar los registros.
-        $candidatos->each(function (Candidato $candidato): void {
+        // Estado real tras la selección (Seleccionado, En contratación,
+        // Expediente N/M, Contrato generado, En inducción, Contratado) con
+        // botón directo al proceso: el candidato no desaparece al avanzar.
+        $cadena = $this->cadena->paraCandidatos($candidatos, $request->user());
+
+        $candidatos->each(function (Candidato $candidato) use ($cadena): void {
             $candidato->setAttribute('accesos_rapidos', $this->presenter->accesosRapidos($candidato));
+            $candidato->setAttribute('contratacion', $cadena[$candidato->id] ?? null);
             $candidato->unsetRelation('psicometricas')->unsetRelation('socioeconomicos');
         });
 
@@ -235,6 +243,9 @@ class CandidatoController extends Controller
 
         return Inertia::render('Rh/Candidatos/Show', [
             'candidato' => $this->presenter->detalle($candidato),
+            // Cadena candidato → contratación → expediente (botón «Ver
+            // expediente…» solo cuando ya existe la incorporación).
+            'cadenaContratacion' => $this->cadena->paraCandidato($candidato, $request->user()),
             'ciclo' => $this->ciclo->obtenerEstado($candidato, $request->user()),
             'opciones' => $this->opciones($request->user()),
             'intervencionPendienteId' => $intervencionPendiente?->id,

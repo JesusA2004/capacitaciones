@@ -37,6 +37,11 @@ enum TipoTarea: string
     case RecepcionOriginalPendiente = 'recepcion_original_pendiente';
     case EscaneoPendiente = 'escaneo_pendiente';
     case ActivacionPendiente = 'activacion_pendiente';
+    // Corrección de datos/documentos que pidió el colaborador
+    // (CorreccionesService): RH la revisa; si RH pide más información, el
+    // colaborador tiene su propio pendiente para responder.
+    case CorreccionPorRevisar = 'correccion_por_revisar';
+    case CorreccionPorResponder = 'correccion_por_responder';
 
     // Etapa 3 — onboarding
     case OnboardingModuloPendiente = 'onboarding_modulo_pendiente';
@@ -102,6 +107,8 @@ enum TipoTarea: string
             self::RecepcionOriginalPendiente => 'Original pendiente de recepción',
             self::EscaneoPendiente => 'Original pendiente de escaneo',
             self::ActivacionPendiente => 'Alta pendiente de activación',
+            self::CorreccionPorRevisar => 'Corrección de datos por revisar',
+            self::CorreccionPorResponder => 'Responde a Recursos Humanos sobre tu corrección',
             self::OnboardingModuloPendiente => 'Inducción pendiente',
             self::OnboardingRefuerzo => 'Onboarding con resultado menor al mínimo',
             self::OnboardingEntregaActivos => 'Activos y responsivas por entregar',
@@ -146,7 +153,7 @@ enum TipoTarea: string
             self::CandidatoInvitacion, self::ExpedienteIncompleto, self::DocumentoPorRevisar, self::DocumentoRechazado,
             self::ContratoPendiente, self::FirmaPendiente, self::ImpresionPendiente, self::FirmaFisicaPendiente,
             self::EnvioOriginalPendiente, self::RecepcionOriginalPendiente, self::EscaneoPendiente,
-            self::ActivacionPendiente => EtapaCicloLaboral::Contratacion,
+            self::ActivacionPendiente, self::CorreccionPorRevisar, self::CorreccionPorResponder => EtapaCicloLaboral::Contratacion,
             self::OnboardingModuloPendiente, self::OnboardingRefuerzo, self::OnboardingEntregaActivos,
             self::PlantillaFaltante, self::InduccionEvaluacionPendiente, self::InduccionCasosPorCalificar,
             self::InduccionReforzamiento, self::DescriptivoPuestoPorAcusar => EtapaCicloLaboral::Onboarding,

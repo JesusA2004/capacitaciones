@@ -355,15 +355,16 @@ class IncorporacionService
             'rejection_reason' => $motivo,
         ]);
 
-        $this->notificarSinFallar(function () use ($documento): void {
-            $documento->loadMissing('colaborador.user');
+        $this->notificarSinFallar(function () use ($documento, $motivo): void {
+            $documento->loadMissing(['colaborador.user', 'tipo']);
             $destinatario = $documento->colaborador?->user;
 
             if ($destinatario === null) {
                 return;
             }
 
-            $this->eventos->avisarResultado($destinatario, new Aviso('documento_revisado', 'documento', 'Documento rechazado', 'Uno de tus documentos fue rechazado.', $documento, 'rechazado', 'media', [], null, new DocumentoActualizadoNotification($documento)));
+            // Qué documento y por qué: el colaborador sabe qué volver a subir.
+            $this->eventos->avisarResultado($destinatario, new Aviso('documento_revisado', 'documento', 'Documento rechazado', sprintf('RH rechazó tu documento «%s». Motivo: %s Vuelve a subirlo desde Mi expediente.', $documento->tipo->nombre ?? 'del expediente', rtrim(mb_strimwidth(trim($motivo), 0, 160, '…'), '.').'.'), $documento, 'rechazado', 'alta'));
         });
     }
 
@@ -381,15 +382,15 @@ class IncorporacionService
             'comments' => $comentario,
         ]);
 
-        $this->notificarSinFallar(function () use ($documento): void {
-            $documento->loadMissing('colaborador.user');
+        $this->notificarSinFallar(function () use ($documento, $comentario): void {
+            $documento->loadMissing(['colaborador.user', 'tipo']);
             $destinatario = $documento->colaborador?->user;
 
             if ($destinatario === null) {
                 return;
             }
 
-            $this->eventos->avisarResultado($destinatario, new Aviso('documento_revisado', 'documento', 'Documento por corregir', 'RH te pidió corregir uno de tus documentos.', $documento, 'requiere_correccion', 'media', [], null, new DocumentoActualizadoNotification($documento)));
+            $this->eventos->avisarResultado($destinatario, new Aviso('documento_revisado', 'documento', 'Documento por corregir', sprintf('RH te pidió corregir tu documento «%s»: %s Vuelve a subirlo desde Mi expediente.', $documento->tipo->nombre ?? 'del expediente', rtrim(mb_strimwidth(trim($comentario), 0, 160, '…'), '.').'.'), $documento, 'requiere_correccion', 'alta'));
         });
     }
 

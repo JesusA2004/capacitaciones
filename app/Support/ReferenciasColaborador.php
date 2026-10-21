@@ -59,6 +59,12 @@ final class ReferenciasColaborador
         ['recibos_nomina', 'colaborador_id', 'cascade', 'eliminar'],
         ['reingresos', 'colaborador_id', 'cascade', 'eliminar'],
         ['responsivas', 'colaborador_id', 'restrict', 'eliminar'],
+        // Regla de responsable de aprobación (configuración, no historial: el
+        // antes/después vive en activity_log). Sin la persona —como sujeto o
+        // como responsable— la regla no tiene sentido; la FK es cascade y
+        // `responsable_colaborador_id` no admite NULL, así que se elimina.
+        ['responsables_aprobacion', 'colaborador_id', 'cascade', 'eliminar'],
+        ['responsables_aprobacion', 'responsable_colaborador_id', 'cascade', 'eliminar'],
         ['sesion_induccion_colaboradores', 'colaborador_id', 'restrict', 'eliminar'],
         ['solicitud_vacaciones_dias', 'colaborador_id', 'set_null', 'eliminar'],
         ['solicitudes_internas', 'colaborador_id', 'set_null', 'eliminar'],

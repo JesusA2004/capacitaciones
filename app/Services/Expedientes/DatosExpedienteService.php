@@ -3,10 +3,19 @@
 namespace App\Services\Expedientes;
 
 use App\Models\Colaborador;
+use App\Models\ColaboradorDatosMedicos;
+use App\Models\Departamento;
+use App\Models\Puesto;
+use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\Auditoria\AuditoriaService;
+use App\Services\Colaboradores\DomicilioService;
 use App\Services\Compensacion\CompensacionService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Organigrama\JefeDirectoService;
+use BackedEnum;
+use DateTimeInterface;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -24,23 +33,180 @@ class DatosExpedienteService
     /** Campos laborales estructurales; el sueldo va aparte por CompensacionService. */
     public const CAMPOS_LABORALES = ['sucursal_principal_id', 'departamento_id', 'puesto_id'];
 
+    /** Datos médicos (cifrados en ColaboradorDatosMedicos, permiso expedientes.datos_medicos.ver). */
+    public const CAMPOS_MEDICOS = ['condicion_medica', 'alergias'];
+
+    /**
+     * Datos CRÍTICOS: identifican a la persona ante IMSS/SAT o definen su
+     * relación laboral. Cambiarlos desde el expediente exige motivo
+     * (ActualizarDatosPersonalesRequest / ActualizarDatosLaboralesRequest).
+     */
+    public const CAMPOS_CRITICOS = [
+        'name', 'apellidos', 'curp', 'rfc', 'nss', 'fecha_nacimiento', 'genero',
+        'condicion_medica', 'alergias', 'sueldo_mensual',
+    ];
+
+    /** Bitácora (AuditoriaService) de la edición administrativa desde el expediente. */
+    public const EVENTO_PERSONALES = 'expediente_datos_editados';
+
+    public const EVENTO_LABORALES = 'expediente_datos_laborales_editados';
+
+    /** Etiquetas de los campos que no están en DatosFaltantesService. */
+    private const ETIQUETAS = [
+        'name' => 'Nombre(s)',
+        'apellidos' => 'Apellidos',
+        'telefono_corporativo' => 'Teléfono corporativo',
+        'correo_corporativo' => 'Correo corporativo',
+        'correo_personal' => 'Correo personal',
+        'contacto_emergencia_direccion' => 'Dirección del contacto de emergencia',
+        'beneficiario_nombre' => 'Beneficiario',
+        'beneficiario_parentesco' => 'Parentesco del beneficiario',
+        'condicion_medica' => 'Condición médica',
+        'alergias' => 'Alergias',
+        'domicilio' => 'Domicilio (texto)',
+        'sucursal_principal_id' => 'Sucursal',
+        'departamento_id' => 'Departamento',
+        'puesto_id' => 'Puesto',
+        'sueldo_mensual' => 'Sueldo mensual',
+    ];
+
     public function __construct(
         private readonly MovimientoLaboralService $movimientos,
         private readonly JefeDirectoService $jefes,
         private readonly CompensacionService $compensacion,
+        private readonly AuditoriaService $auditoria,
+        private readonly DomicilioService $domicilios,
     ) {}
 
     /**
      * Datos personales y de contacto ya validados (solo las llaves
-     * presentes se escriben).
+     * presentes se escriben). NUNCA en silencio: cada dato que de verdad
+     * cambia queda en la bitácora (activity_log, log «rh») con su valor
+     * anterior, el nuevo, quién, cuándo, desde qué módulo y el motivo, y se
+     * muestra en «Historial de cambios» del expediente
+     * (HistorialCambiosDatosService). Los datos médicos van cifrados a
+     * ColaboradorDatosMedicos y, en la bitácora, también cifrados.
+     *
+     * Devuelve los cambios aplicados (vacío si nada cambió).
      *
      * @param  array<string, mixed>  $datos
+     * @return list<array{campo: string, etiqueta: string, antes: string|null, despues: string|null, critico: bool, confidencial: bool}>
      */
-    public function actualizarPersonales(Colaborador $colaborador, array $datos): void
+    public function actualizarPersonales(Colaborador $colaborador, array $datos, ?User $actor = null, ?string $motivo = null, string $modulo = 'expediente'): array
     {
-        if ($datos !== []) {
-            $colaborador->update($datos);
+        $medicos = array_intersect_key($datos, array_flip(self::CAMPOS_MEDICOS));
+        $generales = array_diff_key($datos, array_flip(self::CAMPOS_MEDICOS));
+        $cambios = $this->cambiosPersonales($colaborador, $datos);
+
+        if ($cambios === []) {
+            return [];
         }
+
+        DB::transaction(function () use ($colaborador, $generales, $medicos, $actor): void {
+            if ($generales !== []) {
+                $colaborador->update($generales);
+            }
+
+            if ($medicos !== []) {
+                ColaboradorDatosMedicos::query()->updateOrCreate(
+                    ['colaborador_id' => $colaborador->id],
+                    [...$medicos, 'fuente' => 'expediente', 'actualizado_por' => $actor?->id],
+                );
+                $colaborador->unsetRelation('datosMedicos');
+            }
+        });
+
+        // La bitácora nunca tumba el guardado (AuditoriaService atrapa sus fallos).
+        $this->auditoria->registrar(self::EVENTO_PERSONALES, $colaborador, $actor, [
+            'modulo' => $modulo,
+            'motivo' => $motivo,
+            'cambios' => array_map(fn (array $c): array => $c['confidencial'] ? [
+                ...$c,
+                'antes' => $c['antes'] !== null ? Crypt::encryptString($c['antes']) : null,
+                'despues' => $c['despues'] !== null ? Crypt::encryptString($c['despues']) : null,
+            ] : $c, $cambios),
+        ]);
+
+        return $cambios;
+    }
+
+    /**
+     * Qué cambiaría si se guardan estos datos: solo los campos que de
+     * verdad difieren del expediente vigente (normalizados igual que al
+     * guardar: CURP/RFC en mayúsculas, fechas Y-m-d, domicilio limpio).
+     *
+     * @param  array<string, mixed>  $datos
+     * @return list<array{campo: string, etiqueta: string, antes: string|null, despues: string|null, critico: bool, confidencial: bool}>
+     */
+    public function cambiosPersonales(Colaborador $colaborador, array $datos): array
+    {
+        $cambios = [];
+
+        foreach ($datos as $campo => $valor) {
+            $campo = (string) $campo;
+
+            // `domicilio` (texto) se recompone solo a partir del estructurado.
+            if ($campo === 'domicilio' && array_intersect_key($datos, array_flip(DomicilioService::CAMPOS)) !== []) {
+                continue;
+            }
+
+            $medico = in_array($campo, self::CAMPOS_MEDICOS, true);
+            $antes = $this->comoTexto($medico ? $colaborador->datosMedicos?->getAttribute($campo) : $colaborador->getAttribute($campo));
+            $despues = $this->comoTexto(in_array($campo, DomicilioService::CAMPOS, true) ? $this->domicilios->normalizar($campo, $valor) : $valor);
+
+            if ($antes === $despues) {
+                continue;
+            }
+
+            $cambios[] = [
+                'campo' => $campo,
+                'etiqueta' => self::etiquetaCampo($campo),
+                'antes' => $antes,
+                'despues' => $despues,
+                'critico' => in_array($campo, self::CAMPOS_CRITICOS, true),
+                'confidencial' => $medico,
+            ];
+        }
+
+        return $cambios;
+    }
+
+    /**
+     * ¿Algún dato crítico cambia? Entonces el motivo es obligatorio.
+     *
+     * @param  list<array{critico: bool}>  $cambios
+     */
+    public function cambiaCritico(array $cambios): bool
+    {
+        foreach ($cambios as $cambio) {
+            if ($cambio['critico']) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public static function etiquetaCampo(string $campo): string
+    {
+        return self::ETIQUETAS[$campo]
+            ?? DatosFaltantesService::PERSONALES[$campo]
+            ?? DomicilioService::ETIQUETAS[$campo]
+            ?? DatosFaltantesService::LABORALES[$campo]
+            ?? $campo;
+    }
+
+    /** Texto comparable de un valor (enum → value, fecha → Y-m-d, vacío → null). */
+    private function comoTexto(mixed $valor): ?string
+    {
+        $texto = match (true) {
+            $valor instanceof BackedEnum => (string) $valor->value,
+            $valor instanceof DateTimeInterface => $valor->format('Y-m-d'),
+            is_scalar($valor) => trim((string) $valor),
+            default => '',
+        };
+
+        return $texto === '' ? null : $texto;
     }
 
     /**
@@ -56,9 +222,10 @@ class DatosExpedienteService
      *
      * @param  array<string, mixed>  $datos  sucursal_principal_id?, departamento_id?, puesto_id?, sueldo_mensual?, motivo?
      */
-    public function actualizarLaborales(Colaborador $colaborador, array $datos, User $actor): bool
+    public function actualizarLaborales(Colaborador $colaborador, array $datos, User $actor, string $modulo = 'expediente'): bool
     {
         $antes = $this->movimientos->snapshot($colaborador);
+        $legibleAntes = $this->laboralesLegibles($colaborador);
         $estructurales = array_intersect_key($datos, array_flip(self::CAMPOS_LABORALES));
         $motivo = is_string($datos['motivo'] ?? null) && $datos['motivo'] !== '' ? $datos['motivo'] : null;
 
@@ -107,7 +274,48 @@ class DatosExpedienteService
             }
         });
 
+        // Mismo historial que los datos personales: antes/después legibles
+        // (nombres, no ids), quién, cuándo, módulo y motivo.
+        $legibleDespues = $this->laboralesLegibles($colaborador->fresh() ?? $colaborador);
+        $cambios = [];
+
+        foreach ($legibleDespues as $campo => $despues) {
+            if (($legibleAntes[$campo] ?? null) !== $despues) {
+                $cambios[] = [
+                    'campo' => $campo,
+                    'etiqueta' => self::etiquetaCampo($campo),
+                    'antes' => $legibleAntes[$campo] ?? null,
+                    'despues' => $despues,
+                    'critico' => in_array($campo, self::CAMPOS_CRITICOS, true),
+                    'confidencial' => false,
+                ];
+            }
+        }
+
+        if ($cambios !== []) {
+            $this->auditoria->registrar(self::EVENTO_LABORALES, $colaborador, $actor, [
+                'modulo' => $modulo,
+                'motivo' => $motivo,
+                'cambios' => $cambios,
+            ]);
+        }
+
         return $avisoSueldoSinConfigurar;
+    }
+
+    /**
+     * Sucursal, departamento, puesto y sueldo como los lee una persona.
+     *
+     * @return array<string, string|null>
+     */
+    private function laboralesLegibles(Colaborador $colaborador): array
+    {
+        return [
+            'sucursal_principal_id' => $this->comoTexto($colaborador->sucursal_principal_id !== null ? Sucursal::query()->whereKey($colaborador->sucursal_principal_id)->value('nombre') : null),
+            'departamento_id' => $this->comoTexto($colaborador->departamento_id !== null ? Departamento::query()->whereKey($colaborador->departamento_id)->value('nombre') : null),
+            'puesto_id' => $this->comoTexto($colaborador->puesto_id !== null ? Puesto::query()->whereKey($colaborador->puesto_id)->value('nombre') : null),
+            'sueldo_mensual' => $colaborador->sueldo_mensual !== null ? sprintf('$%s', number_format((float) $colaborador->sueldo_mensual, 2)) : null,
+        ];
     }
 
     /**

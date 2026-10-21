@@ -26,13 +26,17 @@ class AvisoAltaBajaService
         ));
     }
 
+    /**
+     * $motivo se acepta por compatibilidad pero NO viaja en el aviso: llega a
+     * Sistemas (retirar accesos) y el motivo de una baja es un dato sensible
+     * que solo consulta RH en el expediente/Bajas.
+     */
     public function baja(Colaborador $colaborador, ?string $motivo = null): void
     {
         $this->avisar('colaborador_baja', $colaborador, sprintf('Baja: %s', $colaborador->nombreCompleto()), sprintf(
-            'Se dio de baja a %s%s. Retira accesos, cuentas y equipo.%s',
+            'Se dio de baja a %s%s. Retira accesos, cuentas y equipo.',
             $colaborador->nombreCompleto(),
             $this->detalle($colaborador),
-            $motivo !== null && trim($motivo) !== '' ? ' Motivo: '.mb_substr(trim($motivo), 0, 120) : '',
         ));
     }
 

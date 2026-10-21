@@ -46,6 +46,15 @@ Schedule::command('contratos:revisar-vencimientos')
     ->withoutOverlapping()
     ->onOneServer();
 
+// «Préstamo disponible»: aviso único al colaborador que cumple la
+// antigüedad mínima (6 meses desde su ingreso, fecha del servidor).
+// Idempotente: nunca repite el aviso a la misma persona.
+Schedule::command('prestamos:avisar-disponibles')
+    ->dailyAt('08:15')
+    ->timezone('America/Mexico_City')
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // Cierre laboral: cierres pagados cuya fecha efectiva ya llegó → pendiente
 // "concluir cierre" para RH. Idempotente (un pendiente por cierre).
 Schedule::command('cierres:revisar-fechas')

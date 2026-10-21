@@ -4,7 +4,9 @@ namespace App\Http\Resources\Api\V1;
 
 use App\Enums\TipoSolicitudInterna;
 use App\Models\SolicitudInterna;
+use App\Services\Expedientes\CorreccionesService;
 use App\Services\Nomina\PrestamoSeguimientoService;
+use App\Services\Solicitudes\AprobacionOrganizacionalService;
 use App\Services\Solicitudes\SolicitudesService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -51,6 +53,36 @@ class SolicitudInternaResource extends JsonResource
             'permiso_pdf' => $this->tipo === TipoSolicitudInterna::Permiso ? route('api.v1.solicitudes.permiso-pdf', $this->id, false) : null,
             // «Completar mis datos»: lo propuesto (se aplica al autorizar RH).
             'datos_propuestos' => app(SolicitudesService::class)->comparativoDatos($this->resource),
+            // Motor central de aprobaciones (docs/SOLICITUDES_UNIFICADAS.md →
+            // «Contrato API del flujo»): pasos ordenados, quién sigue y si
+            // quien consulta puede actuar. La app solo pinta esto.
+            ...$this->flujoApi($request),
+            // Corrección del expediente: estado simple (enviada, en_revision,
+            // aprobada, rechazada, requiere_informacion), comentario de RH,
+            // si puede responder e historial (docs/SOLICITUDES_UNIFICADAS.md →
+            // «Correcciones solicitadas por el colaborador»).
+            'correccion' => app(CorreccionesService::class)->esCorreccion($this->resource)
+                ? app(CorreccionesService::class)->aArray($this->resource, $request->user())
+                : null,
+            // Línea de tiempo (solo en el detalle, cuando se cargó).
+            'historial' => $this->relationLoaded('historial') ? app(CorreccionesService::class)->historial($this->resource) : null,
+        ];
+    }
+
+    /**
+     * @return array{flujo: list<array<string, mixed>>, puede_actuar_usuario_actual: bool, accion_usuario_actual: string|null, motivo_no_puede: string|null, pendiente_de: array<string, mixed>|null, estado_flujo_texto: string}
+     */
+    private function flujoApi(Request $request): array
+    {
+        $flujo = app(AprobacionOrganizacionalService::class)->flujo($this->resource, $request->user());
+
+        return [
+            'flujo' => $flujo['pasos'],
+            'puede_actuar_usuario_actual' => $flujo['puede_actuar_usuario_actual'],
+            'accion_usuario_actual' => $flujo['accion_usuario_actual'],
+            'motivo_no_puede' => $flujo['motivo_no_puede'],
+            'pendiente_de' => $flujo['pendiente_de'],
+            'estado_flujo_texto' => $flujo['estado_texto'],
         ];
     }
 }

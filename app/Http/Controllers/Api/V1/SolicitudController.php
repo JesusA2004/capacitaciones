@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\TipoSolicitudInterna;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Solicitudes\StoreSolicitudAutoservicioRequest;
 use App\Http\Resources\Api\V1\SolicitudInternaResource;
 use App\Models\SolicitudInterna;
+use App\Services\Solicitudes\AprobacionOrganizacionalService;
 use App\Services\Solicitudes\SolicitudesService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,7 +21,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class SolicitudController extends Controller
 {
-    public function __construct(private readonly SolicitudesService $solicitudes) {}
+    public function __construct(
+        private readonly SolicitudesService $solicitudes,
+        private readonly AprobacionOrganizacionalService $motor,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -87,9 +92,30 @@ class SolicitudController extends Controller
      * construya la pantalla de "nueva solicitud" sin hardcodear nada. Ver
      * seccion 14 del encargo movil.
      */
-    public function configuracion(): JsonResponse
+    public function configuracion(Request $request): JsonResponse
     {
-        return response()->json(['tipos' => $this->solicitudes->tiposConFormulario(autoservicio: true)]);
+        $elegibilidad = $this->motor->elegibilidadPrestamo($request->user()->colaborador);
+
+        // El tipo «prestamo» lleva su elegibilidad (6 meses completos,
+        // fecha del servidor) para que la app deshabilite el botón con el
+        // texto y la fecha exacta; el backend vuelve a validar al crear.
+        $tipos = array_map(
+            fn (array $tipo): array => $tipo['clave'] === TipoSolicitudInterna::PrestamoInterno->value
+                ? [...$tipo, 'disponible' => $elegibilidad['cumple'], 'elegibilidad' => $elegibilidad]
+                : $tipo,
+            $this->solicitudes->tiposConFormulario(autoservicio: true),
+        );
+
+        return response()->json(['tipos' => $tipos, 'elegibilidad_prestamo' => $elegibilidad]);
+    }
+
+    /**
+     * Elegibilidad de préstamo del colaborador autenticado: «Antigüedad
+     * actual: 5 meses 12 días», «Disponible desde: 08/11/2026».
+     */
+    public function elegibilidadPrestamo(Request $request): JsonResponse
+    {
+        return response()->json(['data' => $this->motor->elegibilidadPrestamo($request->user()->colaborador)]);
     }
 
     /**

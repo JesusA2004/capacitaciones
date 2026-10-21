@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Deferred, Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     AlertTriangle,
     BadgeCheck,
@@ -15,11 +15,10 @@ import {
     ClipboardList,
     Clock,
     FileSearch,
-    Fingerprint,
+    FileSignature,
     FolderOpen,
     Hexagon,
     History,
-    Home,
     Hourglass,
     IdCard,
     KeyRound,
@@ -30,8 +29,8 @@ import {
     MapPinned,
     Network,
     Pencil,
+    PencilLine,
     Phone,
-    PhoneCall,
     Plus,
     Receipt,
     Route,
@@ -46,19 +45,23 @@ import {
     Wallet,
     X,
 } from '@lucide/vue';
-import { computed, ref, watch } from 'vue';
-import CamposDomicilio from '@/components/Common/CamposDomicilio.vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import FotoPerfilCaptura from '@/components/Common/FotoPerfilCaptura.vue';
 import InputError from '@/components/InputError.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
+import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import AvisosComunicaciones from '@/components/Rh/AvisosComunicaciones.vue';
 import type { AvisoComunicacion } from '@/components/Rh/AvisosComunicaciones.vue';
 import CampoInfo from '@/components/Rh/CampoInfo.vue';
 import ConfirmarEntregaPrestamoDialog from '@/components/Rh/ConfirmarEntregaPrestamoDialog.vue';
 import DatosFaltantesBanner from '@/components/Rh/DatosFaltantesBanner.vue';
 import type { DatosFaltantesResumen } from '@/components/Rh/DatosFaltantesBanner.vue';
+import ExpedienteCentro from '@/components/Rh/Expediente/ExpedienteCentro.vue';
+import ExpedienteContratacion from '@/components/Rh/Expediente/ExpedienteContratacion.vue';
+import ExpedienteDatosPersonales from '@/components/Rh/Expediente/ExpedienteDatosPersonales.vue';
+import HistorialCambiosDatos from '@/components/Rh/Expediente/HistorialCambiosDatos.vue';
 import ExpedienteDocumentos from '@/components/Rh/ExpedienteDocumentos.vue';
 import GenerarCredencialesDialog from '@/components/Rh/GenerarCredencialesDialog.vue';
 import MovimientosLaboralesTimeline from '@/components/Rh/MovimientosLaboralesTimeline.vue';
@@ -89,6 +92,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import {
     Table,
@@ -112,7 +116,6 @@ import { foto as subirFotoPropia } from '@/routes/portal';
 import { darDeBaja, reactivar } from '@/routes/rh/expedientes';
 import { store as subirAltaImss } from '@/routes/rh/expedientes/alta-imss';
 import { update as actualizarDatosLaborales } from '@/routes/rh/expedientes/datos-laborales';
-import { update as actualizarDatosPersonales } from '@/routes/rh/expedientes/datos-personales';
 import { show as divisionHistorico } from '@/routes/rh/expedientes/division-historico';
 import { store as subirFotoColaborador } from '@/routes/rh/expedientes/foto';
 import { store as registrarMovimientoPrestamo } from '@/routes/rh/expedientes/prestamos/movimientos';
@@ -130,7 +133,9 @@ import type {
     CompletitudDatos,
     DocumentoExpedienteItem,
     AvisosManualExpediente,
+    CentroExpediente,
     ExpedienteColaborador,
+    HistorialCambioExpediente,
     MovimientoLaboralItem,
     OnboardingItem,
     PrestamoItem,
@@ -227,6 +232,17 @@ const props = defineProps<{
     puedeAvisarDatosFaltantes?: boolean;
     /** Avisos generales + personales con su estado de lectura. */
     avisosComunicaciones?: AvisoComunicacion[];
+    /** Datos críticos: cambiarlos exige motivo (DatosExpedienteService::CAMPOS_CRITICOS). */
+    camposCriticos?: string[];
+    puedeEditarDatosMedicos?: boolean;
+    opcionesDatos?: {
+        genero: { value: string; label: string }[];
+        estado_civil: { value: string; label: string }[];
+    };
+    /** Cambios administrativos de datos (antes/después); null en «Mi expediente». */
+    historialCambios?: HistorialCambioExpediente[] | null;
+    /** Expediente como centro (prop diferida); null en «Mi expediente». */
+    centro?: CentroExpediente | null;
 }>();
 
 // Acuse de alta IMSS: lo sube RH al concluir el alta. Verde = registrado,
@@ -253,37 +269,6 @@ function subirAcuseImss(evento: Event) {
             },
         },
     );
-}
-
-const form = useForm({
-    fecha_nacimiento: props.colaborador.fecha_nacimiento ?? '',
-    telefono: props.colaborador.telefono ?? '',
-    telefono_corporativo: props.colaborador.telefono_corporativo ?? '',
-    correo_corporativo: props.colaborador.correo_corporativo ?? '',
-    curp: props.colaborador.curp ?? '',
-    rfc: props.colaborador.rfc ?? '',
-    nss: props.colaborador.nss ?? '',
-    // Domicilio estructurado: el texto completo lo compone el backend.
-    domicilio_calle: props.colaborador.domicilio_calle ?? '',
-    domicilio_numero_exterior:
-        props.colaborador.domicilio_numero_exterior ?? '',
-    domicilio_numero_interior:
-        props.colaborador.domicilio_numero_interior ?? '',
-    domicilio_colonia: props.colaborador.domicilio_colonia ?? '',
-    domicilio_cp: props.colaborador.domicilio_cp ?? '',
-    domicilio_municipio: props.colaborador.domicilio_municipio ?? '',
-    domicilio_estado: props.colaborador.domicilio_estado ?? '',
-    correo_personal: props.colaborador.correo_personal ?? '',
-    contacto_emergencia_nombre:
-        props.colaborador.contacto_emergencia_nombre ?? '',
-    contacto_emergencia_telefono:
-        props.colaborador.contacto_emergencia_telefono ?? '',
-});
-
-function guardarDatosPersonales() {
-    form.put(actualizarDatosPersonales.url(props.colaborador.id), {
-        preserveScroll: true,
-    });
 }
 
 const { mostrarExito, mostrarError, confirmarEliminacion } = useAlertas();
@@ -716,6 +701,8 @@ const urlSolicitarCorreccion = indexSolicitudes.url({
 const PESTANAS = [
     'resumen',
     'personales',
+    'contratacion',
+    'cambios',
     'laborales',
     'cuenta',
     'documentos',
@@ -737,7 +724,10 @@ const pestanaInicial = (() => {
     return solicitada &&
         PESTANAS.includes(solicitada) &&
         !(
-            (solicitada === 'cuenta' || solicitada === 'onboarding') &&
+            (solicitada === 'cuenta' ||
+                solicitada === 'onboarding' ||
+                solicitada === 'contratacion' ||
+                solicitada === 'cambios') &&
             props.esPropio
         ) &&
         !(solicitada === 'recibos' && props.recibosNomina === null)
@@ -745,13 +735,28 @@ const pestanaInicial = (() => {
         : 'resumen';
 })();
 
-/** Mismo mecanismo que usan las notificaciones (?tab=…) para abrir la pestaña correcta. */
+/** Datos personales + laborales que faltan (mismo cálculo del aviso de arriba). */
+const datosFaltantesTotal = computed(() =>
+    props.datosFaltantes
+        ? props.datosFaltantes.personales.length +
+          props.datosFaltantes.laborales.length
+        : props.completitudDatos.faltantes.length,
+);
+
+/** Pestaña visible (controlada: las tarjetas del centro cambian de pestaña). */
+const pestana = ref<string>(pestanaInicial);
+
+const datosPersonalesRef = ref<InstanceType<
+    typeof ExpedienteDatosPersonales
+> | null>(null);
+
+/** «Completar datos»: abre Datos personales ya en edición (si puede editar). */
 function irACompletarExpediente() {
-    router.get(
-        window.location.pathname,
-        { tab: 'personales' },
-        { preserveScroll: true },
-    );
+    pestana.value = 'personales';
+
+    if (props.puedeEditar) {
+        void nextTick(() => datosPersonalesRef.value?.iniciarEdicion());
+    }
 }
 </script>
 
@@ -1029,7 +1034,7 @@ function irACompletarExpediente() {
             }"
         />
         <Tabs
-            :default-value="pestanaInicial"
+            v-model="pestana"
             orientation="vertical"
             class="items-stretch gap-4 lg:flex-row lg:items-start lg:gap-6"
         >
@@ -1048,6 +1053,13 @@ function irACompletarExpediente() {
                     class="justify-start gap-2 lg:w-full"
                 >
                     <IdCard class="size-4" /> Datos personales
+                </TabsTrigger>
+                <TabsTrigger
+                    v-if="!esPropio"
+                    value="contratacion"
+                    class="justify-start gap-2 lg:w-full"
+                >
+                    <FileSignature class="size-4" /> Contratación
                 </TabsTrigger>
                 <TabsTrigger
                     value="laborales"
@@ -1112,50 +1124,82 @@ function irACompletarExpediente() {
                 >
                     <History class="size-4" /> Historial RH
                 </TabsTrigger>
+                <TabsTrigger
+                    v-if="historialCambios"
+                    value="cambios"
+                    class="justify-start gap-2 lg:w-full"
+                >
+                    <PencilLine class="size-4" /> Cambios de datos
+                    <span
+                        v-if="historialCambios.length > 0"
+                        class="ml-auto rounded-full bg-muted px-1.5 text-[10px] tabular-nums"
+                        >{{ historialCambios.length }}</span
+                    >
+                </TabsTrigger>
             </TabsList>
 
             <div class="min-w-0 flex-1">
-                <TabsContent value="resumen">
-                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                        <Card class="rounded-2xl border-border/60">
-                            <CardContent class="pt-6 text-center">
-                                <p class="text-2xl font-semibold tabular-nums">
-                                    {{
-                                        resumenExpediente.requeridos_aprobados
-                                    }}/{{ resumenExpediente.requeridos_total }}
-                                </p>
-                                <p class="text-xs text-muted-foreground">
-                                    Documentos requeridos aprobados
-                                </p>
-                            </CardContent>
-                        </Card>
-                        <Card class="rounded-2xl border-border/60">
-                            <CardContent class="pt-6 text-center">
-                                <p
-                                    class="text-2xl font-semibold text-warning tabular-nums"
-                                >
-                                    {{ resumenExpediente.pendientes }}
-                                </p>
-                                <p class="text-xs text-muted-foreground">
-                                    Pendientes de cargar/revisar
-                                </p>
-                            </CardContent>
-                        </Card>
-                        <Card class="rounded-2xl border-border/60">
-                            <CardContent class="pt-6 text-center">
-                                <p
-                                    class="text-2xl font-semibold text-destructive tabular-nums"
-                                >
-                                    {{ resumenExpediente.rechazados }}
-                                </p>
-                                <p class="text-xs text-muted-foreground">
-                                    Rechazados o con corrección pendiente
-                                </p>
-                            </CardContent>
-                        </Card>
+                <TabsContent value="resumen" class="flex flex-col gap-4">
+                    <div
+                        class="grid grid-cols-2 gap-3 md:grid-cols-4"
+                        data-resumen-contadores
+                    >
+                        <TarjetaMetrica
+                            etiqueta="Documentos aprobados"
+                            :valor="`${resumenExpediente.requeridos_aprobados}/${resumenExpediente.requeridos_total}`"
+                            :icono="FolderOpen"
+                            :tono="resumenExpediente.requeridos_aprobados === resumenExpediente.requeridos_total ? 'exito' : 'primario'"
+                            clicable
+                            @click="pestana = 'documentos'"
+                        />
+                        <TarjetaMetrica
+                            etiqueta="Por cargar o revisar"
+                            :valor="resumenExpediente.pendientes"
+                            :icono="Clock"
+                            tono="alerta"
+                            clicable
+                            @click="pestana = 'documentos'"
+                        />
+                        <TarjetaMetrica
+                            etiqueta="Rechazados"
+                            :valor="resumenExpediente.rechazados"
+                            :icono="AlertTriangle"
+                            tono="peligro"
+                            clicable
+                            @click="pestana = 'documentos'"
+                        />
+                        <TarjetaMetrica
+                            etiqueta="Datos faltantes"
+                            :valor="datosFaltantesTotal"
+                            :icono="IdCard"
+                            :tono="datosFaltantesTotal === 0 ? 'exito' : 'alerta'"
+                            :detalle="datosFaltantesTotal === 0 ? 'Completo' : 'Para contrato'"
+                            clicable
+                            @click="pestana = 'personales'"
+                        />
                     </div>
 
-                    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Deferred v-if="!esPropio" data="centro">
+                        <template #fallback>
+                            <div class="grid gap-3" aria-busy="true">
+                                <Skeleton class="h-28 rounded-2xl" />
+                                <div class="grid gap-3 lg:grid-cols-2">
+                                    <Skeleton class="h-32 rounded-2xl" />
+                                    <Skeleton class="h-32 rounded-2xl" />
+                                </div>
+                                <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
+                                    <Skeleton v-for="i in 4" :key="i" class="h-24 rounded-2xl" />
+                                </div>
+                            </div>
+                        </template>
+                        <ExpedienteCentro
+                            v-if="centro"
+                            :centro="centro"
+                            @pestana="(p: string) => (pestana = p)"
+                        />
+                    </Deferred>
+
+                    <div v-else class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <CampoInfo
                             :icono="Mail"
                             etiqueta="Correo"
@@ -1180,342 +1224,44 @@ function irACompletarExpediente() {
                 </TabsContent>
 
                 <TabsContent value="personales">
-                    <Card class="rounded-2xl border-border/60">
-                        <CardHeader>
-                            <CardTitle
-                                class="flex items-center gap-2 text-base"
-                            >
-                                <IdCard class="size-4" />
-                                Datos personales
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <form
-                                class="flex flex-col gap-6"
-                                @submit.prevent="guardarDatosPersonales"
-                            >
-                                <div class="flex flex-col gap-3">
-                                    <p
-                                        class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                                    >
-                                        <Fingerprint class="size-3.5" />
-                                        Identificación
-                                    </p>
-                                    <div
-                                        class="grid grid-cols-1 gap-4 sm:grid-cols-2"
-                                    >
-                                        <div class="grid gap-2">
-                                            <Label for="fecha_nacimiento"
-                                                >Fecha de nacimiento</Label
-                                            >
-                                            <DatePicker
-                                                id="fecha_nacimiento"
-                                                v-model="form.fecha_nacimiento"
-                                                :disabled="!puedeEditar"
-                                            />
-                                            <InputError
-                                                :message="
-                                                    form.errors.fecha_nacimiento
-                                                "
-                                            />
-                                        </div>
-                                        <div class="grid gap-2">
-                                            <Label for="curp">CURP</Label>
-                                            <Input
-                                                id="curp"
-                                                v-model="form.curp"
-                                                class="uppercase"
-                                                maxlength="18"
-                                                :disabled="!puedeEditar"
-                                            />
-                                            <InputError
-                                                :message="form.errors.curp"
-                                            />
-                                        </div>
-                                        <div class="grid gap-2">
-                                            <Label for="rfc">RFC</Label>
-                                            <Input
-                                                id="rfc"
-                                                v-model="form.rfc"
-                                                class="uppercase"
-                                                maxlength="13"
-                                                :disabled="!puedeEditar"
-                                            />
-                                            <InputError
-                                                :message="form.errors.rfc"
-                                            />
-                                        </div>
-                                        <div class="grid gap-2">
-                                            <Label for="nss">NSS</Label>
-                                            <Input
-                                                id="nss"
-                                                v-model="form.nss"
-                                                maxlength="11"
-                                                :disabled="!puedeEditar"
-                                            />
-                                            <InputError
-                                                :message="form.errors.nss"
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
+                    <ExpedienteDatosPersonales
+                        ref="datosPersonalesRef"
+                        :colaborador="colaborador"
+                        :puede-editar="puedeEditar"
+                        :es-propio="esPropio"
+                        :puede-editar-datos-medicos="puedeEditarDatosMedicos ?? false"
+                        :datos-medicos="datosMedicos"
+                        :campos-criticos="camposCriticos ?? []"
+                        :opciones-datos="opcionesDatos ?? { genero: [], estado_civil: [] }"
+                        :url-solicitar-correccion="urlSolicitarCorreccion"
+                    />
+                </TabsContent>
 
-                                <div class="flex flex-col gap-3 border-t pt-4">
-                                    <p
-                                        class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                                    >
-                                        <Home class="size-3.5" />
-                                        Contacto
-                                    </p>
-                                    <div
-                                        class="grid grid-cols-1 gap-4 sm:grid-cols-2"
-                                    >
-                                        <div class="grid gap-2">
-                                            <Label for="telefono"
-                                                >Teléfono personal</Label
-                                            >
-                                            <Input
-                                                id="telefono"
-                                                v-model="form.telefono"
-                                                :disabled="!puedeEditar"
-                                            />
-                                            <InputError
-                                                :message="form.errors.telefono"
-                                            />
-                                        </div>
-                                        <div class="grid gap-2">
-                                            <Label for="telefono_corporativo"
-                                                >Teléfono corporativo
-                                                (opcional)</Label
-                                            >
-                                            <Input
-                                                id="telefono_corporativo"
-                                                v-model="
-                                                    form.telefono_corporativo
-                                                "
-                                                :disabled="!puedeEditar"
-                                            />
-                                            <InputError
-                                                :message="
-                                                    form.errors
-                                                        .telefono_corporativo
-                                                "
-                                            />
-                                        </div>
-                                        <div class="grid gap-2">
-                                            <Label for="correo_corporativo"
-                                                >Correo corporativo (opcional —
-                                                solo
-                                                administrativos/gerencia)</Label
-                                            >
-                                            <Input
-                                                id="correo_corporativo"
-                                                type="email"
-                                                v-model="
-                                                    form.correo_corporativo
-                                                "
-                                                :disabled="!puedeEditar"
-                                            />
-                                            <InputError
-                                                :message="
-                                                    form.errors
-                                                        .correo_corporativo
-                                                "
-                                            />
-                                        </div>
-                                        <div class="grid gap-2">
-                                            <Label for="correo_personal"
-                                                >Correo personal</Label
-                                            >
-                                            <Input
-                                                id="correo_personal"
-                                                v-model="form.correo_personal"
-                                                type="email"
-                                                :disabled="!puedeEditar"
-                                            />
-                                            <InputError
-                                                :message="
-                                                    form.errors.correo_personal
-                                                "
-                                            />
-                                        </div>
-                                        <div class="grid gap-2">
-                                            <Label>Correo corporativo</Label>
-                                            <Input
-                                                :model-value="
-                                                    colaborador.email ??
-                                                    'Sin cuenta de acceso'
-                                                "
-                                                readonly
-                                                disabled
-                                            />
-                                            <p
-                                                class="text-xs text-muted-foreground"
-                                            >
-                                                Correo de la cuenta de acceso —
-                                                se edita desde la pestaña
-                                                «Cuenta».
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="flex flex-col gap-3 border-t pt-4">
-                                    <p
-                                        class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                                    >
-                                        <Home class="size-3.5" />
-                                        Domicilio
-                                    </p>
-                                    <CamposDomicilio
-                                        v-model:calle="form.domicilio_calle"
-                                        v-model:numero-exterior="
-                                            form.domicilio_numero_exterior
-                                        "
-                                        v-model:numero-interior="
-                                            form.domicilio_numero_interior
-                                        "
-                                        v-model:colonia="form.domicilio_colonia"
-                                        v-model:cp="form.domicilio_cp"
-                                        v-model:municipio="
-                                            form.domicilio_municipio
-                                        "
-                                        v-model:estado="form.domicilio_estado"
-                                        :errores="form.errors"
-                                        :disabled="!puedeEditar"
-                                        :texto-anterior="colaborador.domicilio"
-                                        prefijo="expediente_domicilio"
-                                    />
-                                </div>
-
-                                <div class="flex flex-col gap-3 border-t pt-4">
-                                    <p
-                                        class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                                    >
-                                        <PhoneCall class="size-3.5" />
-                                        Contacto de emergencia
-                                    </p>
-                                    <div
-                                        class="grid grid-cols-1 gap-4 sm:grid-cols-2"
-                                    >
-                                        <div class="grid gap-2">
-                                            <Label
-                                                for="contacto_emergencia_nombre"
-                                                >Nombre</Label
-                                            >
-                                            <Input
-                                                id="contacto_emergencia_nombre"
-                                                v-model="
-                                                    form.contacto_emergencia_nombre
-                                                "
-                                                :disabled="!puedeEditar"
-                                            />
-                                            <InputError
-                                                :message="
-                                                    form.errors
-                                                        .contacto_emergencia_nombre
-                                                "
-                                            />
-                                        </div>
-                                        <div class="grid gap-2">
-                                            <Label
-                                                for="contacto_emergencia_telefono"
-                                                >Teléfono</Label
-                                            >
-                                            <Input
-                                                id="contacto_emergencia_telefono"
-                                                v-model="
-                                                    form.contacto_emergencia_telefono
-                                                "
-                                                :disabled="!puedeEditar"
-                                            />
-                                            <InputError
-                                                :message="
-                                                    form.errors
-                                                        .contacto_emergencia_telefono
-                                                "
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div v-if="puedeEditar">
-                                    <Button
-                                        type="submit"
-                                        :disabled="form.processing"
-                                    >
-                                        <Spinner v-if="form.processing" />
-                                        Guardar datos personales
-                                    </Button>
-                                </div>
-                                <div
-                                    v-else-if="esPropio"
-                                    class="flex flex-wrap items-center gap-3 rounded-xl border border-[var(--mrl-primary)]/25 bg-[var(--mrl-primary)]/5 p-4"
-                                >
-                                    <p class="min-w-0 flex-1 text-sm">
-                                        ¿Te falta un dato o alguno cambió?
-                                        Complétalo o solicita el cambio;
-                                        Recursos Humanos lo revisa.
-                                    </p>
-                                    <Link
-                                        :href="urlSolicitarCorreccion"
-                                        class="inline-flex items-center gap-2 rounded-xl bg-[var(--mrl-primary)] px-4 py-2 text-sm font-medium text-white transition-all hover:gap-3 hover:bg-[var(--mrl-primary-alt)]"
-                                    >
-                                        Completar o cambiar mis datos
-                                    </Link>
-                                </div>
-                            </form>
-                        </CardContent>
-                    </Card>
-                    <Card
-                        v-if="
-                            contactoEmergenciaExtra?.parentesco ||
-                            contactoEmergenciaExtra?.direccion ||
-                            datosMedicos
-                        "
-                        class="mt-4 rounded-2xl border-border/60"
-                    >
-                        <CardContent
-                            class="grid gap-4 p-5 text-sm sm:grid-cols-2"
+                <TabsContent v-if="!esPropio" value="contratacion">
+                    <Deferred data="centro">
+                        <template #fallback>
+                            <div class="grid gap-3">
+                                <Skeleton class="h-20 rounded-2xl" />
+                                <Skeleton class="h-40 rounded-2xl" />
+                            </div>
+                        </template>
+                        <ExpedienteContratacion
+                            v-if="centro?.contratacion"
+                            :plan="centro.contratacion"
+                            @completar-datos="irACompletarExpediente"
+                        />
+                        <p
+                            v-else
+                            class="rounded-2xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground"
                         >
-                            <div v-if="contactoEmergenciaExtra?.parentesco">
-                                <p class="text-muted-foreground">
-                                    Parentesco del contacto de emergencia
-                                </p>
-                                <p class="font-medium">
-                                    {{ contactoEmergenciaExtra.parentesco }}
-                                </p>
-                            </div>
-                            <div v-if="contactoEmergenciaExtra?.direccion">
-                                <p class="text-muted-foreground">
-                                    Dirección del contacto de emergencia
-                                </p>
-                                <p class="font-medium">
-                                    {{ contactoEmergenciaExtra.direccion }}
-                                </p>
-                            </div>
-                            <template v-if="datosMedicos">
-                                <div>
-                                    <p class="text-muted-foreground">
-                                        Condición médica (confidencial)
-                                    </p>
-                                    <p class="font-medium">
-                                        {{
-                                            datosMedicos.condicion_medica ?? '—'
-                                        }}
-                                    </p>
-                                </div>
-                                <div>
-                                    <p class="text-muted-foreground">
-                                        Alergias (confidencial)
-                                    </p>
-                                    <p class="font-medium">
-                                        {{ datosMedicos.alergias ?? '—' }}
-                                    </p>
-                                </div>
-                            </template>
-                        </CardContent>
-                    </Card>
+                            No tienes acceso al módulo de contratos para esta
+                            persona.
+                        </p>
+                    </Deferred>
+                </TabsContent>
+
+                <TabsContent v-if="historialCambios" value="cambios">
+                    <HistorialCambiosDatos :historial="historialCambios" />
                 </TabsContent>
 
                 <TabsContent value="laborales">

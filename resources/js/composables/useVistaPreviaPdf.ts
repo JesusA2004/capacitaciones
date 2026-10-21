@@ -19,7 +19,11 @@ export type PdfPorVer = { clave: string; nombre: string; url: string };
  * botón mostró el spinner. Cerrar el visor a media carga cancela la
  * petición. Si nada se pudo preparar, el visor se cierra y se avisa.
  */
-export function useVistaPreviaPdf(alFallar?: (e: unknown) => void) {
+export function useVistaPreviaPdf(
+    alFallar?: (e: unknown) => void,
+    /** Aviso al abrir con datos faltantes (p. ej. modo «PENDIENTE: …» del expediente). */
+    opciones: { avisoFaltantes?: string } = {},
+) {
     const abierto = ref(false);
     const cargando = ref(false);
     const indice = ref(0);
@@ -159,7 +163,8 @@ export function useVistaPreviaPdf(alFallar?: (e: unknown) => void) {
 
         if (faltantes > 0) {
             toast.info(
-                'Faltan datos: en la vista previa quedan en blanco. Al generar se te pedirán.',
+                opciones.avisoFaltantes ??
+                    'Faltan datos: en la vista previa quedan en blanco. Al generar se te pedirán.',
             );
         }
 

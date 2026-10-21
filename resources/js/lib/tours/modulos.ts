@@ -352,6 +352,36 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         ],
     },
     {
+        id: 'responsables-aprobacion',
+        nombre: 'Responsables de aprobación',
+        ruta: '/administracion/responsables-aprobacion',
+        patron: /^\/administracion\/responsables-aprobacion$/,
+        modo: 'operativo',
+        permisos: ['organigrama.ver'],
+        grupo: 'Estructura',
+        icono: ShieldCheck,
+        descripcion:
+            'Quién da el visto bueno de las solicitudes de cada persona o puesto, cuando no es su jefe del organigrama.',
+        pasos: [
+            {
+                titulo: 'Jefe organizacional ≠ responsable de aprobaciones',
+                texto: 'El jefe organizacional sale del organigrama (a quién reporta). El responsable de aprobaciones es quien autoriza sus solicitudes: por omisión sigue la regla del organigrama; aquí RH asigna a otra persona cuando debe ser distinta.',
+            },
+            {
+                selector: sel('responsables-asignados'),
+                titulo: 'Asignados por RH',
+                texto: 'Cada tarjeta es una regla para una persona o para todo un puesto: quién aprueba, el motivo y cuándo se asignó. Quitarla regresa a la regla del organigrama.',
+            },
+            {
+                selector: sel('responsables-personas'),
+                titulo: 'Personas',
+                texto: 'Para cada persona ves su jefe organizacional y su responsable de aprobaciones. Las marcadas en dorado tienen aprobaciones detenidas (por ejemplo, sin región Q1/Q3 asignada).',
+                consejo:
+                    'Activa «Solo responsables distintos o detenidos» para revisar solo los casos especiales.',
+            },
+        ],
+    },
+    {
         id: 'vacantes',
         nombre: 'Vacantes',
         ruta: '/rh/vacantes',

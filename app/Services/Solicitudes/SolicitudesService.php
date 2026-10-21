@@ -20,6 +20,7 @@ use App\Notifications\Mobile\RhSolicitudCreadaNotification;
 use App\Notifications\Mobile\SolicitudActualizadaNotification;
 use App\Services\Configuracion\WorkflowRoutingService;
 use App\Services\Expedientes\ActualizacionDatosService;
+use App\Services\Expedientes\CorreccionesService;
 use App\Services\Finiquitos\FiniquitoService;
 use App\Services\Nomina\PrestamoService;
 use App\Services\Notificaciones\Aviso;
@@ -27,6 +28,7 @@ use App\Services\Notificaciones\NotificacionEventosService;
 use App\Services\Permisos\AlcanceModuloService;
 use App\Services\RhMobile\ResponsableResolverService;
 use App\Services\Vacaciones\VacacionesService;
+use App\Support\OrigenPeticion;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
@@ -127,13 +129,22 @@ class SolicitudesService
         // «Completar mis datos»: valores estructurados que se aplican al
         // expediente solo cuando RH autoriza (ActualizacionDatosService).
         $datos['datos_propuestos'] = null;
+        $datos['datos_sensibles_propuestos'] = null;
         $datos['datos_base'] = null;
 
         if ($tipo === TipoSolicitudInterna::ActualizacionDatos && ! empty($datos['datos'])) {
-            $colaborador = $solicitante->colaborador;
-            $datos['datos_propuestos'] = $this->actualizacionDatos->normalizar((array) $datos['datos'], $colaborador);
-            $datos['datos_base'] = $colaborador !== null ? $this->actualizacionDatos->base($colaborador, $datos['datos_propuestos']) : null;
-            $datos['motivo'] = trim((string) ($datos['motivo'] ?? '')) !== '' ? $datos['motivo'] : $this->actualizacionDatos->motivoPorDefecto($datos['datos_propuestos'], $datos['datos_base'] ?? []);
+            // Los datos médicos van cifrados aparte (datos_sensibles_propuestos).
+            $preparados = $this->actualizacionDatos->preparar((array) $datos['datos'], $solicitante->colaborador);
+            $datos['datos_propuestos'] = $preparados['propuestos'];
+            $datos['datos_sensibles_propuestos'] = $preparados['sensibles'];
+            $datos['datos_base'] = $preparados['base'];
+            $datos['motivo'] = trim((string) ($datos['motivo'] ?? '')) !== '' ? $datos['motivo'] : $preparados['motivo'];
+        }
+
+        // Préstamo: 6 meses completos de antigüedad (fecha del servidor);
+        // misma regla para web, API y app (422 si no cumple).
+        if ($tipo === TipoSolicitudInterna::PrestamoInterno) {
+            app(AprobacionOrganizacionalService::class)->validarElegibilidadPrestamo($solicitante->colaborador);
         }
 
         $colaboradorObjetivo = null;
@@ -212,6 +223,7 @@ class SolicitudesService
                 'motivo' => $datos['motivo'],
                 'observaciones' => $datos['observaciones'] ?? null,
                 'datos_propuestos' => $datos['datos_propuestos'],
+                'datos_sensibles_propuestos' => $datos['datos_sensibles_propuestos'],
                 'datos_base' => $datos['datos_base'],
                 'empresa_id' => $solicitante->colaborador?->empresa()?->id,
                 'sucursal_id' => $solicitante->colaborador?->sucursal_principal_id,
@@ -242,6 +254,27 @@ class SolicitudesService
                     ? $this->routing->resolver('solicitud_creada', $solicitante->colaborador, ['solicitante' => $solicitante, 'excluir' => [$solicitante->id]])->pluck('usuario')
                     : $this->responsables->paraColaborador($solicitante, 'rh.solicitudes.aprobar');
 
+                // Con vistos buenos por dar (jefe/regional…) RH todavía no
+                // puede actuar: no se le avisa ahora. Le llega al completarse
+                // el último visto bueno (TareasSolicitudService). Solo se
+                // notifica a quien puede actuar (AprobacionOrganizacionalService).
+                if ($this->aprobaciones->requiereVistoBuenoJefe($solicitud)) {
+                    $responsables = collect();
+                } elseif ($solicitud->tipo === TipoSolicitudInterna::PrestamoInterno) {
+                    // El préstamo lo autoriza quien tiene prestamos.autorizar
+                    // (con alcance sobre la persona), no rh.solicitudes.aprobar.
+                    // Se respeta la regla configurada (Configuración →
+                    // Notificaciones) dentro de quienes PUEDEN actuar; si la
+                    // regla no deja a nadie que pueda, el aviso va a todos
+                    // los que pueden (nunca se pierde).
+                    $puedenActuar = app(AprobacionOrganizacionalService::class)->quienesPuedenActuar($solicitud)
+                        ->reject(fn (User $u) => $u->id === $solicitante->id)
+                        ->values();
+                    $configurados = $responsables->filter(fn ($u) => $u instanceof User)->pluck('id')->all();
+                    $enRegla = $puedenActuar->filter(fn (User $u) => in_array($u->id, $configurados, true))->values();
+                    $responsables = $enRegla->isNotEmpty() ? $enRegla : $puedenActuar;
+                }
+
                 // Un solo flujo: confirmación a quien la envió (aunque sea
                 // RH o un admin) + tarea a quien la resuelve; si es la misma
                 // persona recibe UN aviso combinado. Todo sale tras el commit.
@@ -249,7 +282,10 @@ class SolicitudesService
                     $solicitante,
                     new Aviso('solicitud_creada', 'solicitud', $this->tituloConfirmacion($solicitud), sprintf('Tu solicitud %s (%s) quedó registrada y en revisión.', $solicitud->folio, mb_strtolower($solicitud->tipo->etiqueta())), $solicitud, 'registrada'),
                     $responsables,
-                    new Aviso('solicitud_creada', 'rh_solicitud', 'Nueva solicitud por revisar', 'Un colaborador envió una solicitud.', $solicitud, 'revisar_solicitud', 'media', [], null, new RhSolicitudCreadaNotification($solicitud)),
+                    // Corrección del expediente: qué datos pide (nunca sus valores).
+                    app(CorreccionesService::class)->esCorreccion($solicitud)
+                        ? app(CorreccionesService::class)->avisoPendiente($solicitud)
+                        : new Aviso('solicitud_creada', 'rh_solicitud', 'Nueva solicitud por revisar', 'Un colaborador envió una solicitud.', $solicitud, 'revisar_solicitud', 'media', [], null, new RhSolicitudCreadaNotification($solicitud)),
                 );
             });
 
@@ -550,12 +586,23 @@ class SolicitudesService
         }
 
         $gate = Gate::forUser($usuario);
+        $aprobar = $gate->allows('aprobar', $solicitud);
+        $motivo = null;
+
+        // Con vistos buenos por dar, RH todavía no puede aprobar: el botón
+        // se muestra deshabilitado con el motivo humano del motor
+        // («RH podrá aprobar cuando X dé su visto bueno.»).
+        if ($aprobar && ! $this->aprobaciones->tieneVistoBuenoJefe($solicitud)) {
+            $aprobar = false;
+            $paso = collect(app(AprobacionOrganizacionalService::class)->flujo($solicitud, $usuario)['pasos'])->firstWhere('clave', 'rh');
+            $motivo = isset($paso['motivo_no_puede']) ? (string) $paso['motivo_no_puede'] : null;
+        }
 
         return [
             'revisar' => $gate->allows('revisar', $solicitud),
-            'aprobar' => $gate->allows('aprobar', $solicitud),
+            'aprobar' => $aprobar,
             'rechazar' => $gate->allows('rechazar', $solicitud),
-            'motivo_bloqueo' => null,
+            'motivo_bloqueo' => $motivo,
         ];
     }
 
@@ -619,13 +666,13 @@ class SolicitudesService
         if (in_array($nuevoEstado, [EstadoSolicitudInterna::Aprobada, EstadoSolicitudInterna::EnRevision], true)
             && ! $this->aprobaciones->tieneVistoBuenoJefe($solicitud)
         ) {
-            $faltan = implode(' y del ', array_map(
-                fn (array $n) => mb_strtolower($n['etiqueta']),
-                array_values(array_filter($this->aprobaciones->resumen($solicitud), fn (array $n) => $n['estado'] !== 'aprobado')),
-            ));
+            // Mensaje humano del motor («RH podrá aprobar cuando X dé su
+            // visto bueno.»), nunca un texto técnico.
+            $flujo = app(AprobacionOrganizacionalService::class)->flujo($solicitud, $actor);
+            $paso = collect($flujo['pasos'])->firstWhere('clave', 'rh');
 
             throw ValidationException::withMessages([
-                'visto_bueno' => "Falta el visto bueno del {$faltan} antes de pasarla a autorización.",
+                'visto_bueno' => (string) ($paso['motivo_no_puede'] ?? $flujo['motivo_no_puede'] ?? 'Faltan vistos buenos antes de pasarla a autorización.'),
             ]);
         }
 
@@ -758,8 +805,24 @@ class SolicitudesService
                 EstadoSolicitudInterna::Rechazada,
                 EstadoSolicitudInterna::RequiereCorreccion,
             ], true)) {
-                $this->notificarSinFallar(function () use ($solicitud): void {
+                $this->notificarSinFallar(function () use ($solicitud, $comentario): void {
                     $solicitud->loadMissing('usuario');
+                    $correcciones = app(CorreccionesService::class);
+
+                    // Corrección: el aviso dice qué resolvió RH y con qué
+                    // comentario (motivo del rechazo o lo que falta).
+                    if ($correcciones->esCorreccion($solicitud)) {
+                        $this->eventos->avisarResultado($solicitud->usuario, $correcciones->avisoResultado($solicitud, $comentario));
+
+                        return;
+                    }
+
+                    // Préstamo autorizado: PrestamoAutorizacionService ya avisa
+                    // «prestamo_autorizado»; un segundo aviso genérico duplicaba.
+                    if ($solicitud->tipo === TipoSolicitudInterna::PrestamoInterno && $solicitud->estado === EstadoSolicitudInterna::Aprobada) {
+                        return;
+                    }
+
                     $this->eventos->avisarResultado($solicitud->usuario, new Aviso(
                         'solicitud_actualizada',
                         'solicitud',
@@ -893,6 +956,8 @@ class SolicitudesService
             'user_id' => $actor?->id,
             'accion' => $accion,
             'comentario' => $comentario,
+            // Origen (web/app/sistema), IP y user agent de quien actuó.
+            ...OrigenPeticion::contexto(),
             'created_at' => now(),
         ]);
     }

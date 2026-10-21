@@ -37,6 +37,10 @@ declare module '@inertiajs/core' {
                 modosDisponibles: Array<'colaborador' | 'operativo'>;
             } | null;
             environment: string;
+            // Conteo único de aprobaciones que esta cuenta puede hacer AHORA
+            // (AprobacionOrganizacionalService::conteoPendientes): badge de
+            // «Pendientes» en el sidebar.
+            aprobacionesPendientes?: number;
             [key: string]: unknown;
         };
     }

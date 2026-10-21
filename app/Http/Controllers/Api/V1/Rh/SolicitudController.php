@@ -12,6 +12,7 @@ use App\Models\SolicitudInternaHistorial;
 use App\Models\User;
 use App\Services\RhMobile\WorkflowService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
+use App\Services\Solicitudes\AprobacionOrganizacionalService;
 use App\Services\Solicitudes\SolicitudesService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,6 +36,7 @@ class SolicitudController extends Controller
         private readonly SolicitudesService $solicitudes,
         private readonly WorkflowService $workflow,
         private readonly AprobacionJerarquicaService $aprobaciones,
+        private readonly AprobacionOrganizacionalService $motor,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -109,6 +111,10 @@ class SolicitudController extends Controller
                 // Dirección Comercial) antes de llegar a RH — vacío si este
                 // tipo de solicitud no la requiere (ver AprobacionJerarquicaService).
                 'vistos_buenos' => $this->aprobaciones->resumen($solicitud),
+                // Motor central (docs/SOLICITUDES_UNIFICADAS.md → «Contrato
+                // API del flujo»): pasos, quién sigue y si ESTA cuenta puede
+                // actuar; si no, `motivo_no_puede` en texto humano.
+                ...$this->flujoApi($usuario, $solicitud),
                 'historial' => $solicitud->historial->map(fn (SolicitudInternaHistorial $h) => [
                     'accion' => $h->accion,
                     'accion_etiqueta' => $h->accion_etiqueta,
@@ -301,6 +307,24 @@ class SolicitudController extends Controller
             'resumen' => $s->motivo,
             'creado_en' => $s->created_at?->toIso8601String(),
             'acciones_permitidas' => $this->workflow->paraSolicitud($usuario, $s)['acciones_permitidas'],
+            ...$this->flujoApi($usuario, $s),
+        ];
+    }
+
+    /**
+     * @return array{flujo: list<array<string, mixed>>, puede_actuar_usuario_actual: bool, accion_usuario_actual: string|null, motivo_no_puede: string|null, pendiente_de: array<string, mixed>|null, estado_flujo_texto: string}
+     */
+    private function flujoApi(User $usuario, SolicitudInterna $solicitud): array
+    {
+        $flujo = $this->motor->flujo($solicitud, $usuario);
+
+        return [
+            'flujo' => $flujo['pasos'],
+            'puede_actuar_usuario_actual' => $flujo['puede_actuar_usuario_actual'],
+            'accion_usuario_actual' => $flujo['accion_usuario_actual'],
+            'motivo_no_puede' => $flujo['motivo_no_puede'],
+            'pendiente_de' => $flujo['pendiente_de'],
+            'estado_flujo_texto' => $flujo['estado_texto'],
         ];
     }
 

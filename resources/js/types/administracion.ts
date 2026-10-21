@@ -274,6 +274,15 @@ export type NodoOrganigramaPersona = {
     } | null;
     /** Solo Gerente de Sucursal: lado Q1/Q3 (o «Por clasificar»). */
     clasificacion?: ClasificacionRegionNodo | null;
+    /**
+     * Responsable de aprobación EXPLÍCITO (≠ a quién reporta): quien da el
+     * visto bueno de sus solicitudes (Organización → Responsables de aprobación).
+     */
+    aprobador?: {
+        id: number;
+        nombre: string;
+        origen: 'persona' | 'puesto';
+    } | null;
 };
 
 /** Datos para asignar/terminar coberturas desde el organigrama. */

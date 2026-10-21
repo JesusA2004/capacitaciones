@@ -8,6 +8,7 @@ use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Configuracion\ConfiguracionSistemaService;
+use App\Services\Expedientes\CorreccionesService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Incorporacion\IncorporacionService;
 use App\Services\RhMobile\RhPendientesService;
@@ -245,6 +246,13 @@ class MobileBootstrapService
             'rh_vacaciones' => $rh['vacaciones'],
             'rh_documentos' => $rh['documentos'],
             'rh_incorporaciones' => $rh['incorporaciones'],
+            // Correcciones propias del expediente (CorreccionesService):
+            // las que esperan una acción del colaborador y las abiertas.
+            ...(function () use ($usuario): array {
+                $conteo = app(CorreccionesService::class)->conteo($usuario);
+
+                return ['correcciones_pendientes' => $conteo['requieren_accion'], 'correcciones_abiertas' => $conteo['abiertas']];
+            })(),
         ];
     }
 

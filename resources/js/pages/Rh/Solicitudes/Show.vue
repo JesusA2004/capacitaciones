@@ -10,8 +10,8 @@ import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import FiniquitoPanel from '@/components/Rh/FiniquitoPanel.vue';
 import AutorizarPrestamoDialog from '@/components/Solicitudes/AutorizarPrestamoDialog.vue';
 import type { NivelVistoBueno } from '@/components/Solicitudes/CadenaAutorizacion.vue';
-import CadenaAutorizacion from '@/components/Solicitudes/CadenaAutorizacion.vue';
 import ComparativoDatos from '@/components/Solicitudes/ComparativoDatos.vue';
+import FlujoAprobacion from '@/components/Solicitudes/FlujoAprobacion.vue';
 import PermisoAutorizacionCard from '@/components/Solicitudes/PermisoAutorizacionCard.vue';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -36,6 +36,7 @@ import type {
     DocumentoOficialEsperado,
     FiniquitoDesgloseItem,
     FiniquitoPermisos,
+    FlujoAprobacion as FlujoAprobacionDatos,
     FormatoOficialItem,
     SolicitudInternaDocumentoItem,
     SolicitudInternaItem,
@@ -54,6 +55,8 @@ const props = defineProps<{
     puedeGenerarFormato: boolean;
     vistosBuenos: NivelVistoBueno[];
     puedeDarVistoBueno: boolean;
+    /** Motor central: pasos, quién sigue y si puedes actuar (y por qué no). */
+    flujo: FlujoAprobacionDatos;
     documentoOficial: DocumentoOficialEsperado | null;
     plantillasSugeridas: { id: number; nombre: string; tipo: string }[];
     tiposDocumentoExpediente: { id: number; nombre: string }[];
@@ -64,6 +67,8 @@ const props = defineProps<{
     documentosProceso: { tipo: 'solicitud' | 'prestamo'; id: number }[];
     puedeRevisar: boolean;
     puedeAprobar: boolean;
+    /** Con permiso de aprobar, pero faltan vistos buenos (texto humano). */
+    motivoAprobarEnEspera: string | null;
     puedeRechazar: boolean;
     /** Préstamo: solo RH lo autoriza (monto, plazo y datos del contrato). */
     puedeAutorizarPrestamo: boolean;
@@ -74,10 +79,21 @@ const props = defineProps<{
     bajaEnCierre: { mensaje: string; colaboradorId: number | null } | null;
 }>();
 
-// Sin los vistos buenos (gerente y regional) RH no puede autorizar todavía.
+// Sin los vistos buenos (jefe/regional…) RH no puede autorizar todavía.
 const faltanVistosBuenos = computed(() =>
     faltanVistosBuenosCalculo(props.vistosBuenos),
 );
+
+// Paso de RH en el flujo: por qué todavía no se puede aprobar (texto humano
+// del backend, p. ej. «RH podrá aprobar cuando Alberto dé su visto bueno.»).
+const motivoEsperaRh = computed(
+    () =>
+        props.flujo.pasos.find((p) => p.clave === 'rh')?.motivo_no_puede ??
+        null,
+);
+// El botón Aprobar se ve, pero deshabilitado, mientras falten vistos buenos
+// y quien mira tenga permiso de aprobar (nunca un botón que parece activo).
+const aprobarEnEspera = computed(() => props.motivoAprobarEnEspera !== null);
 
 // `layout` recibe una función en vez de un objeto estático porque
 // `defineOptions()` se compila fuera del scope de setup() y no puede
@@ -228,13 +244,11 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
         <div class="grid gap-6 lg:grid-cols-12 lg:items-start">
             <!-- Columna principal -->
             <div class="flex flex-col gap-6 lg:col-span-8 xl:col-span-9">
-                <CadenaAutorizacion
-                    v-if="vistosBuenos.length"
+                <FlujoAprobacion
                     data-tour="solicitud-cadena"
                     :solicitud-id="solicitud.id"
-                    :estado="solicitud.estado"
-                    :niveles="vistosBuenos"
-                    :puede-dar-visto-bueno="puedeDarVistoBueno"
+                    :flujo="flujo"
+                    con-acciones
                 />
                 <PermisoAutorizacionCard
                     v-if="permiso"
@@ -517,13 +531,25 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                     />
                     <div class="flex flex-col gap-2">
                         <p
-                            v-if="faltanVistosBuenos"
+                            v-if="faltanVistosBuenos && flujo.pendiente_de"
                             class="rounded-xl bg-[var(--mrl-accent)]/10 p-3 text-xs text-[var(--mrl-texto)]"
                         >
-                            Esta solicitud espera el visto bueno del gerente y
-                            del regional. Cuando lo den, pasará sola a
-                            «Pendiente de autorizar».
+                            <span class="block font-semibold">{{
+                                flujo.pendiente_de.texto
+                            }}</span>
+                            <span v-if="motivoEsperaRh" class="mt-0.5 block">{{
+                                motivoEsperaRh
+                            }}</span>
                         </p>
+                        <Button
+                            v-if="aprobarEnEspera"
+                            variant="success"
+                            disabled
+                            :title="motivoEsperaRh ?? undefined"
+                            >{{
+                                esPrestamo ? 'Autorizar préstamo' : 'Aprobar'
+                            }}</Button
+                        >
                         <Button
                             v-if="
                                 puedeRevisar &&
@@ -544,7 +570,7 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                             >Pedir corrección</Button
                         >
                         <div
-                            v-if="puedeAprobar && vistasPrevias.length"
+                            v-if="vistasPrevias.length"
                             class="flex flex-col gap-2 rounded-xl border border-dashed border-border p-3"
                         >
                             <p class="text-xs text-muted-foreground">

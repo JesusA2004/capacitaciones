@@ -2,11 +2,16 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\User;
 use App\Services\Navigation\NavigationService;
+use App\Services\Solicitudes\AprobacionOrganizacionalService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Middleware;
+use Throwable;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -88,6 +93,27 @@ class HandleInertiaRequests extends Middleware
                 'certificacion' => (bool) config('features.certificacion'),
             ],
             'environment' => app()->environment(),
+            // Badge del acceso «Pendientes»: el MISMO conteo único que la app
+            // (AprobacionOrganizacionalService::conteoPendientes) — solo lo
+            // que esta cuenta puede aprobar AHORA. Perezoso (las recargas
+            // parciales que no lo piden no lo calculan) y en caché breve.
+            'aprobacionesPendientes' => fn (): int => $user === null ? 0 : $this->aprobacionesPendientes($user),
         ];
+    }
+
+    private function aprobacionesPendientes(User $user): int
+    {
+        try {
+            return (int) Cache::remember(
+                sprintf('aprobaciones_pendientes:%d', $user->id),
+                now()->addSeconds(30),
+                fn (): int => app(AprobacionOrganizacionalService::class)->conteoPendientes($user)['total'],
+            );
+        } catch (Throwable $e) {
+            // Un badge nunca tumba la página.
+            Log::warning('HandleInertiaRequests: no se pudo contar aprobaciones pendientes', ['message' => $e->getMessage()]);
+
+            return 0;
+        }
     }
 }

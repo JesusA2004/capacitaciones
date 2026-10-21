@@ -489,6 +489,28 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
             'Si tiene un cierre sin concluir, primero termínalo.',
         ],
     },
+    'responsables-aprobacion': {
+        queEs: 'Quién aprueba las solicitudes de cada persona o puesto cuando no debe ser su jefe del organigrama.',
+        puedes: [
+            'Ver, para cada persona, su jefe organizacional y su responsable de aprobaciones.',
+            'Asignar un responsable distinto a una persona o a todo un puesto, con motivo.',
+            'Quitar una asignación para volver a la regla del organigrama.',
+            'Revisar quién tiene aprobaciones detenidas por la estructura.',
+        ],
+        flujo: [
+            'Busca a la persona o al puesto.',
+            'Toca «Asignar responsable» y elige quién aprobará.',
+            'Escribe el motivo y guarda: queda registrado quién lo cambió, cuándo y el antes/después.',
+            'Las solicitudes nuevas de esa persona van con el responsable asignado.',
+        ],
+        permisos:
+            'organigrama.ver para consultar; organigrama.editar para asignar o quitar responsables.',
+        errores: [
+            'Una persona no puede ser su propia responsable de aprobaciones.',
+            'Si el responsable asignado ya no tiene acceso, se usa la regla del organigrama.',
+            'Sin región Q1/Q3 asignada, los gerentes de sucursal quedan «Pendiente de asignar región de aprobación».',
+        ],
+    },
     configuracion: {
         queEs: 'Ajustes del sistema que administra el negocio: avisos, parámetros de RH y apariencia.',
         puedes: [

@@ -7,7 +7,9 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import ComparativoDatos from '@/components/Solicitudes/ComparativoDatos.vue';
+import FlujoAprobacion from '@/components/Solicitudes/FlujoAprobacion.vue';
 import PermisoAutorizacionCard from '@/components/Solicitudes/PermisoAutorizacionCard.vue';
+import RespuestaCorreccion from '@/components/Solicitudes/RespuestaCorreccion.vue';
 import { Button } from '@/components/ui/button';
 import { useAlertas } from '@/composables/useAlertas';
 import {
@@ -23,7 +25,10 @@ import {
     ver as verDocumento,
 } from '@/routes/solicitudes/documentos';
 import type {
+    CorreccionItem,
+    DatoPersonalCaptura,
     DatoPropuesto,
+    FlujoAprobacion as FlujoAprobacionDatos,
     PermisoResumen,
     SolicitudInternaDocumentoItem,
     SolicitudInternaItem,
@@ -34,6 +39,11 @@ const props = defineProps<{
     tipoEtiqueta: string;
     permiso: PermisoResumen | null;
     datosPropuestos: DatoPropuesto[] | null;
+    /** Línea de tiempo de aprobación (motor central del backend). */
+    flujo?: FlujoAprobacionDatos | null;
+    /** Corrección del expediente: estado simple, comentario de RH, responder. */
+    correccion?: CorreccionItem | null;
+    datosPersonales?: DatoPersonalCaptura[];
 }>();
 
 // `layout` recibe una función en vez de un objeto estático porque
@@ -143,6 +153,12 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
 
         <div class="grid gap-6 lg:grid-cols-12 lg:items-start">
             <div class="flex flex-col gap-6 lg:col-span-8 xl:col-span-9">
+                <!-- Quién aprueba y en qué paso va (mismo flujo que ve RH). -->
+                <FlujoAprobacion
+                    v-if="flujo"
+                    :flujo="flujo"
+                    :solicitud-id="solicitud.id"
+                />
                 <PermisoAutorizacionCard
                     v-if="permiso"
                     :permiso="permiso"
@@ -197,8 +213,11 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                         class="mt-4 flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm text-warning"
                     >
                         <AlertTriangle class="mt-0.5 size-4 shrink-0" />
-                        RH pidió una corrección. Revisa el historial abajo para
-                        ver qué falta.
+                        {{
+                            correccion
+                                ? 'Recursos Humanos necesita más información: respóndele abajo.'
+                                : 'RH pidió una corrección. Revisa el historial abajo para ver qué falta.'
+                        }}
                     </div>
                 </div>
 
@@ -225,6 +244,14 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                         </p>
                     </div>
                 </div>
+
+                <RespuestaCorreccion
+                    v-if="correccion"
+                    :solicitud-id="solicitud.id"
+                    :correccion="correccion"
+                    :datos-propuestos="datosPropuestos"
+                    :datos-personales="datosPersonales ?? []"
+                />
 
                 <ComparativoDatos
                     v-if="datosPropuestos?.length"

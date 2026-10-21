@@ -102,7 +102,7 @@ class PrestamoAutorizacionService
         $usuario = $prestamo->colaborador->user;
 
         if ($usuario !== null) {
-            $this->notificador->notificar([$usuario], 'prestamo_autorizado', 'Tu préstamo fue autorizado', sprintf('Monto autorizado $%s a %d pagos.', number_format((float) $prestamo->monto_original, 2), $prestamo->plazo), $prestamo, 'ver_prestamo');
+            $this->notificador->notificar([$usuario], 'prestamo_autorizado', 'Tu préstamo fue autorizado', 'Entra a la app para ver el monto, los pagos y los documentos por firmar.', $prestamo, 'ver_prestamo');
         }
 
         return $prestamo->refresh();

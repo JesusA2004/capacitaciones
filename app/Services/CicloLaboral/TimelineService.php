@@ -37,6 +37,11 @@ class TimelineService
      * @var array<string, array{0: string, 1: string}>
      */
     private const EVENTOS = [
+        // Cambios administrativos de datos (detalle antes/después en el
+        // «Historial de cambios» del expediente, HistorialCambiosDatosService).
+        'expediente_datos_editados' => ['Datos personales editados por RH', 'activo'],
+        'expediente_datos_laborales_editados' => ['Datos laborales editados por RH', 'activo'],
+        'expediente_datos_actualizados' => ['Corrección de datos aplicada', 'activo'],
         'candidato_registrado' => ['Candidato registrado', 'reclutamiento'],
         'candidato_estado' => ['Avance en reclutamiento', 'reclutamiento'],
         'candidato_salida' => ['Proceso de reclutamiento cerrado', 'reclutamiento'],

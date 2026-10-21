@@ -2,107 +2,69 @@
 
 namespace App\Services\Solicitudes;
 
-use App\Models\Colaborador;
 use App\Models\SolicitudAprobacion;
 use App\Models\SolicitudInterna;
 use App\Models\User;
-use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Vistos buenos jerárquicos sobre solicitudes internas, en orden:
- *
- *   1. GERENTE de la sucursal del colaborador (o, si la sucursal no tiene
- *      gerente capturado, su jefe directo),
- *   2. REGIONAL de la región de su sucursal,
- *   3. RH autoriza (fuera de este service, SolicitudesService::aprobar).
+ * Decisiones (vistos buenos) por nivel sobre solicitudes internas. QUÉ
+ * niveles aplican y QUIÉN responde cada uno lo decide el motor central
+ * AprobacionOrganizacionalService (responsable de aprobación explícito,
+ * gerente de sucursal → regional Q1/Q3, gerencia de sucursal, jefe
+ * organizacional, regional, Dirección Comercial según el tipo); RH autoriza
+ * al final (SolicitudesService::aprobar).
  *
  * Mientras falte algún visto bueno la solicitud se queda como "Recibida";
- * con todos, pasa sola a "Pendiente de autorizar". Se resuelve con el
- * organigrama real de personas (OrganizacionJerarquiaService), nunca por
- * el nombre del rol. Un nivel sin persona que lo ocupe no se exige (queda
- * en el log del ruteo); si no hay ninguno, la solicitud va directo a RH.
+ * con todos, pasa sola a "Pendiente de autorizar". Un nivel sin persona que
+ * lo ocupe no se exige; un nivel BLOQUEADO (sin región Q1/Q3, regional
+ * vacante sin cobertura) detiene el flujo hasta corregir la estructura.
  * Qué tipos lo exigen: config/solicitudes.php (`visto_bueno_jefe`).
  */
 class AprobacionJerarquicaService
 {
-    public function __construct(private readonly OrganizacionJerarquiaService $organizacion) {}
+    public function __construct(private readonly AprobacionOrganizacionalService $motor) {}
 
     /**
      * Niveles de visto bueno que aplican a ESTA solicitud, en orden, con
-     * las cuentas que pueden darlo.
+     * las cuentas que pueden darlo. Los resuelve el motor central
+     * (AprobacionOrganizacionalService::pasos): responsable explícito >
+     * regla por puesto (gerente de sucursal → regional Q1/Q3) > gerencia de
+     * sucursal > jefe organizacional; regional; Dirección Comercial solo en
+     * los tipos que lo exigen. Un nivel BLOQUEADO (p. ej. «Pendiente de
+     * asignar región de aprobación») aparece sin cuentas: nadie lo puede
+     * dar y RH no puede autorizar hasta que se corrija la estructura.
      *
      * @return array<string, Collection<int, User>>
      */
     public function niveles(SolicitudInterna $solicitud): array
     {
-        $tipos = (array) config('solicitudes.visto_bueno_jefe', []);
-        $persona = $solicitud->personaSolicitante();
+        $niveles = [];
 
-        if ($persona === null || ! in_array($solicitud->tipo->value, $tipos, true)) {
-            return [];
-        }
-
-        $gerentes = $this->organizacion->gerenciaSucursalDe($persona->sucursal_principal_id, $persona);
-
-        if ($gerentes->isEmpty()) {
-            $jefe = $this->organizacion->usuarioActivoDe($this->organizacion->supervisorDirectoDe($persona));
-            $gerentes = $jefe !== null ? collect([$jefe]) : collect();
-        }
-
-        $regionales = $this->organizacion->regionalesDe($persona->sucursal_principal_id, $persona)
-            ->reject(fn (User $u) => $gerentes->contains('id', $u->id))
-            ->values();
-
-        $niveles = array_filter([
-            SolicitudAprobacion::NIVEL_JEFE_INMEDIATO => $this->sinPersona($gerentes, $persona),
-            SolicitudAprobacion::NIVEL_REGIONAL => $this->sinPersona($regionales, $persona),
-        ], fn (Collection $c) => $c->isNotEmpty());
-
-        // Quien YA es de gerencia o superior (p. ej. Gerente de Mesa de
-        // Control, Contraloría, Responsable de Sistemas, Coordinadora
-        // Regional…) no debe pasar directo a RH: falta Dirección Comercial.
-        // Los niveles anteriores suelen quedar vacíos para estos puestos
-        // (son ellos mismos la gerencia), así que esto casi siempre es el
-        // ÚNICO nivel previo a RH para esta gente.
-        if ($this->esGerenciaOSuperior($persona)) {
-            $yaIncluidos = collect($niveles)->flatMap(fn (Collection $c) => $c->pluck('id'));
-            $direccion = $this->sinPersona($this->organizacion->direccionComercialDe(), $persona)
-                ->reject(fn (User $u) => $yaIncluidos->contains($u->id))
-                ->values();
-
-            if ($direccion->isNotEmpty()) {
-                $niveles[SolicitudAprobacion::NIVEL_DIRECCION_COMERCIAL] = $direccion;
-            }
+        foreach ($this->motor->pasos($solicitud) as $paso) {
+            $niveles[$paso['nivel']] = $paso['usuarios'];
         }
 
         return $niveles;
     }
 
     /**
-     * true si la persona ocupa un puesto de gerencia o superior: el mismo
-     * puesto que normalmente APRUEBA a otros (gerente de sucursal, regional)
-     * o un nivel jerárquico de gerencia (1-3, ver SincronizadorOrganigramaService)
-     * capturado en su puesto. Nunca por el nombre del rol a mano: por el
-     * organigrama real ya configurado.
+     * true si el nivel pendiente está bloqueado por la estructura (sin
+     * región Q1/Q3, plaza regional vacante sin cobertura).
      */
-    private function esGerenciaOSuperior(Colaborador $persona): bool
+    public function pendienteBloqueado(SolicitudInterna $solicitud): ?string
     {
-        $puesto = $persona->puesto;
+        $nivel = $this->nivelPendiente($solicitud);
 
-        if ($puesto === null) {
-            return false;
+        foreach ($this->motor->pasos($solicitud) as $paso) {
+            if ($paso['nivel'] === $nivel && $paso['bloqueado']) {
+                return $paso['motivo_bloqueo'] ?? AprobacionOrganizacionalService::MENSAJE_PENDIENTE_REGION;
+            }
         }
 
-        $nombresGerencia = [...(array) config('ciclo_laboral.organizacion.puestos_gerencia_sucursal', []), ...(array) config('organigrama.puestos_de_region', [])];
-
-        if (in_array($puesto->nombre, $nombresGerencia, true)) {
-            return true;
-        }
-
-        return $puesto->nivel_jerarquico !== null && $puesto->nivel_jerarquico <= 3;
+        return null;
     }
 
     public function requiereVistoBuenoJefe(SolicitudInterna $solicitud): bool
@@ -183,23 +145,29 @@ class AprobacionJerarquicaService
     /**
      * Resumen para pantallas (web y app): cada nivel con su estado.
      *
-     * @return list<array{nivel: string, etiqueta: string, estado: string, aprobadores: list<string>, decidio: string|null, comentario: string|null, fecha: string|null}>
+     * Claves históricas conservadas (la app instalada las lee); `bloqueado` y
+     * `motivo_bloqueo` son aditivas. El flujo completo (pasos + quién puede
+     * actuar) está en AprobacionOrganizacionalService::flujo().
+     *
+     * @return list<array{nivel: string, etiqueta: string, estado: string, aprobadores: list<string>, decidio: string|null, comentario: string|null, fecha: string|null, bloqueado: bool, motivo_bloqueo: string|null}>
      */
     public function resumen(SolicitudInterna $solicitud): array
     {
         $decididos = $this->decisiones($solicitud)->keyBy('nivel');
         $resumen = [];
 
-        foreach ($this->niveles($solicitud) as $nivel => $usuarios) {
-            $decision = $decididos->get($nivel);
+        foreach ($this->motor->pasos($solicitud) as $paso) {
+            $decision = $decididos->get($paso['nivel']);
             $resumen[] = [
-                'nivel' => $nivel,
-                'etiqueta' => SolicitudAprobacion::etiquetaNivel($nivel),
+                'nivel' => $paso['nivel'],
+                'etiqueta' => $paso['etiqueta'],
                 'estado' => $decision !== null ? $decision->decision : 'pendiente',
-                'aprobadores' => array_values($usuarios->map(fn (User $u) => $u->nombreCompleto())->all()),
+                'aprobadores' => array_values($paso['usuarios']->map(fn (User $u) => $u->nombreCompleto())->all()),
                 'decidio' => $decision?->usuario?->nombreCompleto(),
                 'comentario' => $decision?->comentario,
                 'fecha' => $decision?->created_at?->toIso8601String(),
+                'bloqueado' => $decision === null && $paso['bloqueado'],
+                'motivo_bloqueo' => $decision === null ? $paso['motivo_bloqueo'] : null,
             ];
         }
 
@@ -220,7 +188,7 @@ class AprobacionJerarquicaService
         $nivel = $this->nivelPendiente($solicitud);
 
         if ($nivel === null || ! $this->puedeDarVistoBueno($usuario, $solicitud)) {
-            throw ValidationException::withMessages(['solicitud' => 'Este visto bueno no te corresponde (va primero el gerente de la sucursal y después el regional).']);
+            throw ValidationException::withMessages(['solicitud' => $this->motor->flujo($solicitud, $usuario)['motivo_no_puede'] ?? 'Este visto bueno todavía no te corresponde.']);
         }
 
         if (! $aprobado && trim((string) $comentario) === '') {
@@ -238,14 +206,5 @@ class AprobacionJerarquicaService
         } catch (QueryException) {
             throw ValidationException::withMessages(['solicitud' => 'Este visto bueno ya fue registrado.']);
         }
-    }
-
-    /**
-     * @param  Collection<int, User>  $usuarios
-     * @return Collection<int, User>
-     */
-    private function sinPersona(Collection $usuarios, Colaborador $persona): Collection
-    {
-        return $usuarios->reject(fn (User $u) => $u->colaborador_id === $persona->id)->values();
     }
 }

@@ -912,9 +912,10 @@ class DocumentoProcesoService
      *
      * @param  array<string, string>  $manuales  Datos del acto (testigos, hora…), igual que en generar().
      * @param  array<string, mixed>  $completar  Datos faltantes capturados en el modal: se aplican SOLO en memoria.
+     * @param  bool  $marcarPendientes  Modo permisivo: cada faltante sale como «PENDIENTE: <dato>» (vista previa del contrato desde el expediente).
      * @return array{pdf: string, nombre: string, faltantes: int}
      */
-    public function vistaPrevia(string $proceso, Model $registro, string $clave, User $actor, array $manuales = [], array $completar = []): array
+    public function vistaPrevia(string $proceso, Model $registro, string $clave, User $actor, array $manuales = [], array $completar = [], bool $marcarPendientes = false): array
     {
         // Igual que generar(): el formato de evaluación vive en el cierre de
         // la no renovación.
@@ -953,7 +954,7 @@ class DocumentoProcesoService
             return ['pdf' => $this->motor->previsualizar($colaborador, $master, $extra, $registro, $actor), 'nombre' => $nombre, 'faltantes' => 0];
         }
 
-        $render = $this->motor->previsualizarMaestro($master, $this->motor->contextoDesde($colaborador, $registro, $actor, $extra));
+        $render = $this->motor->previsualizarMaestro($master, $this->motor->contextoDesde($colaborador, $registro, $actor, $extra), $marcarPendientes);
 
         return ['pdf' => $render['pdf'], 'nombre' => $nombre, 'faltantes' => count($render['faltantes'])];
     }

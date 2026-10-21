@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Rh;
 
+use App\Enums\EstadoCivil;
 use App\Enums\EstadoUsuario;
+use App\Enums\Genero;
 use App\Enums\TipoSolicitudInterna;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
@@ -34,10 +36,13 @@ use App\Services\Colaboradores\DomicilioService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\AvisoPrivacidadService;
+use App\Services\Expedientes\CorreccionesService;
 use App\Services\Expedientes\DatosExpedienteService;
 use App\Services\Expedientes\DatosFaltantesService;
 use App\Services\Expedientes\DocumentoStorageService;
+use App\Services\Expedientes\ExpedienteCentroService;
 use App\Services\Expedientes\ExpedienteService;
+use App\Services\Expedientes\HistorialCambiosDatosService;
 use App\Services\Expedientes\MigracionInicial\ExpedientesInitialMigrationService;
 use App\Services\Nomina\PrestamoService;
 use App\Services\Nomina\ReciboNominaService;
@@ -279,7 +284,9 @@ class ExpedienteController extends Controller
 
         abort_if($colaborador === null, 403, 'Tu cuenta no tiene un colaborador enlazado.');
 
-        return $this->renderExpediente($request, $colaborador, esPropio: true);
+        // Mis correcciones (datos, documentos, foto) con su estado y contador.
+        return $this->renderExpediente($request, $colaborador, esPropio: true)
+            ->with('misCorrecciones', app(CorreccionesService::class)->deColaborador($request->user()));
     }
 
     private function renderExpediente(Request $request, Colaborador $colaborador, bool $esPropio): Response
@@ -413,7 +420,36 @@ class ExpedienteController extends Controller
                 'correo_personal' => $colaborador->correo_personal,
                 'contacto_emergencia_nombre' => $colaborador->contacto_emergencia_nombre,
                 'contacto_emergencia_telefono' => $colaborador->contacto_emergencia_telefono,
+                'contacto_emergencia_parentesco' => $colaborador->contacto_emergencia_parentesco,
+                'contacto_emergencia_direccion' => $colaborador->contacto_emergencia_direccion,
+                // Resto de datos personales (edición completa desde el expediente).
+                'genero' => $colaborador->genero?->value,
+                'genero_etiqueta' => $colaborador->genero?->etiqueta(),
+                'nacionalidad' => $colaborador->nacionalidad,
+                'estado_civil' => $colaborador->estado_civil?->value,
+                'estado_civil_etiqueta' => $colaborador->estado_civil?->etiqueta($colaborador->genero),
+                'lugar_nacimiento' => $colaborador->lugar_nacimiento,
+                'clave_elector' => $colaborador->clave_elector,
+                'profesion' => $colaborador->profesion,
+                'beneficiario_nombre' => $colaborador->beneficiario_nombre,
+                'beneficiario_parentesco' => $colaborador->beneficiario_parentesco,
             ],
+            // Edición completa (super admin global, RH admin por alcance):
+            // estos datos exigen motivo y todo queda en el historial.
+            'camposCriticos' => DatosExpedienteService::CAMPOS_CRITICOS,
+            'puedeEditarDatosMedicos' => $usuario->can('expedientes.editar') && $usuario->can('expedientes.datos_medicos.ver') && ! $esCuentaPropia,
+            'opcionesDatos' => [
+                'genero' => array_map(fn (Genero $g): array => ['value' => $g->value, 'label' => $g->etiqueta()], Genero::cases()),
+                'estado_civil' => EstadoCivil::opciones(),
+            ],
+            // Historial de cambios administrativos de datos (antes/después,
+            // quién, cuándo, módulo y motivo). Solo para RH, no en «Mi expediente».
+            'historialCambios' => $esPropio ? null : app(HistorialCambiosDatosService::class)->paraColaborador($colaborador, $usuario),
+            // Expediente como centro: tarjetas de organización, contratación
+            // (vista previa permisiva / generación estricta), origen en
+            // reclutamiento, onboarding, evaluaciones, actas, bajas, OCR…
+            // Diferido: no frena la primera pintura del expediente.
+            'centro' => $esPropio ? null : Inertia::defer(fn () => app(ExpedienteCentroService::class)->resumen($colaborador, $usuario)),
             'resumenExpediente' => $resumen,
             // Datos (no documentos) que faltan para el paquete de
             // contratación de ESTE puesto: distinto de resumenExpediente
@@ -615,9 +651,11 @@ class ExpedienteController extends Controller
 
     public function actualizarDatosPersonales(ActualizarDatosPersonalesRequest $request, Colaborador $colaborador): RedirectResponse
     {
-        $this->datosExpediente->actualizarPersonales($colaborador, $request->validated());
+        $cambios = $this->datosExpediente->actualizarPersonales($colaborador, $request->datos(), $request->user(), $request->motivo(), 'expediente');
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Datos personales actualizados correctamente.']);
+        return back()->with('toast', $cambios === []
+            ? ['type' => 'info', 'message' => 'No hubo cambios: los datos ya estaban así.']
+            : ['type' => 'success', 'message' => sprintf('Datos actualizados (%d cambio%s). Quedó registrado en el historial del expediente.', count($cambios), count($cambios) === 1 ? '' : 's')]);
     }
 
     /**

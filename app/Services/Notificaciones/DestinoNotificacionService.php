@@ -91,7 +91,14 @@ class DestinoNotificacionService
                 $relacionado === 'EmployeeDocument' => $this->documentoRh($id),
                 $relacionado === 'Candidato' && $id !== null => self::destino(route('rh.candidatos.show', $id, false)),
                 $relacionado === 'ActaAdministrativa' && $id !== null => self::destino(route('rh.actas.show', $id, false)),
+                // Foto: el colaborador va a SU expediente (nunca a la bandeja
+                // de RH); quien la revisa, a la bandeja de cambios de foto.
+                $relacionado === 'CambioFotoPerfil' && is_numeric($datos['colaborador_id'] ?? null) && (int) $datos['colaborador_id'] === $usuario->colaborador_id => self::destino(route('mi-expediente', [], false)),
                 $relacionado === 'CambioFotoPerfil' => self::destino(route('rh.cambios-foto.index', [], false)),
+                // Ya cumple la antigüedad: directo a pedir el préstamo.
+                $tipo === 'prestamo_disponible' => self::destino(route('solicitudes.index', ['nueva' => 'prestamo'], false)),
+                // Datos faltantes: a sus datos personales para solicitar la corrección.
+                $tipo === 'datos_faltantes' => self::destino(route('mi-expediente', ['tab' => 'personales'], false)),
                 // Evaluación de inducción: RH va directo a revisarla/calificarla;
                 // el colaborador, a contestar la suya.
                 $relacionado === 'EvaluacionInduccionIntento' && $id !== null && $usuario->can('onboarding.gestionar') => self::destino(route('rh.onboarding.induccion.mostrar', $id, false)),

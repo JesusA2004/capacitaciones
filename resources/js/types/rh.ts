@@ -1,3 +1,5 @@
+import type { PlanContratos } from './contratos';
+
 export type ColaboradorExpedienteItem = {
     id: number;
     name: string;
@@ -76,6 +78,99 @@ export type ExpedienteColaborador = {
     correo_personal: string | null;
     contacto_emergencia_nombre: string | null;
     contacto_emergencia_telefono: string | null;
+    contacto_emergencia_parentesco?: string | null;
+    contacto_emergencia_direccion?: string | null;
+    genero?: string | null;
+    genero_etiqueta?: string | null;
+    nacionalidad?: string | null;
+    estado_civil?: string | null;
+    estado_civil_etiqueta?: string | null;
+    lugar_nacimiento?: string | null;
+    clave_elector?: string | null;
+    profesion?: string | null;
+    beneficiario_nombre?: string | null;
+    beneficiario_parentesco?: string | null;
+};
+
+/** Un cambio administrativo de datos (HistorialCambiosDatosService). */
+export type CambioDatoExpediente = {
+    campo: string;
+    etiqueta: string;
+    antes: string | null;
+    despues: string | null;
+    critico: boolean;
+    confidencial: boolean;
+};
+
+export type HistorialCambioExpediente = {
+    id: number;
+    fecha: string | null;
+    por: string | null;
+    modulo: string;
+    motivo: string | null;
+    solicitud: string | null;
+    cambios: CambioDatoExpediente[];
+};
+
+/** Estado candidato → contratación → expediente (CadenaContratacionService). */
+export type EstadoCadenaContratacion = {
+    clave:
+        | 'seleccionado'
+        | 'en_contratacion'
+        | 'expediente'
+        | 'contrato_generado'
+        | 'en_induccion'
+        | 'contratado';
+    etiqueta: string;
+    detalle: string | null;
+    tono: 'exito' | 'info' | 'alerta' | 'peligro' | 'neutro' | 'oro' | 'primario';
+    colaborador_id: number | null;
+    expediente_url: string | null;
+    expediente_etiqueta: string | null;
+    proceso_url: string | null;
+    proceso_etiqueta: string | null;
+};
+
+/** Tarjeta del «expediente como centro» (ExpedienteCentroService). */
+export type TarjetaCentroExpediente = {
+    clave: string;
+    titulo: string;
+    icono: string;
+    valor: string;
+    detalle: string | null;
+    tono: 'exito' | 'info' | 'alerta' | 'peligro' | 'neutro' | 'oro' | 'primario';
+    pestana: string | null;
+    url: string | null;
+    accion: string | null;
+};
+
+export type CentroExpediente = {
+    organizacion: {
+        puesto: string | null;
+        departamento: string | null;
+        sucursal: string | null;
+        empresa: string | null;
+        jefe_organizacional: { nombre: string; puesto: string | null } | null;
+        responsable_aprobacion: {
+            nombre: string | null;
+            puesto: string | null;
+            origen: string | null;
+            bloqueado: boolean;
+            mensaje: string | null;
+        };
+    };
+    origen: {
+        candidato_id: number;
+        nombre: string;
+        estado: string;
+        vacante: string | null;
+        puesto: string | null;
+        contratado_en: string | null;
+        registrado_en: string | null;
+        url: string | null;
+    } | null;
+    contratacion: (PlanContratos & { puede_generar: boolean }) | null;
+    tarjetas: TarjetaCentroExpediente[];
 };
 
 export type ResumenExpediente = {

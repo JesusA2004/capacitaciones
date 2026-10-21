@@ -199,6 +199,8 @@ final class ReferenciasUsuario
         ['reglas_notificacion', 'actualizado_por', 'set_null'],
         ['reingresos', 'decidido_por', 'set_null'],
         ['reingresos', 'solicitado_por', 'set_null'],
+        // Migración 2026-10-20: quién asignó un responsable de aprobación.
+        ['responsables_aprobacion', 'asignado_por', 'set_null'],
         ['seguimientos_candidato', 'registrado_por', 'set_null'],
         ['seguimientos_documento_fisico', 'enviado_por', 'set_null'],
         ['seguimientos_documento_fisico', 'escaneado_por', 'set_null'],
