@@ -1050,7 +1050,9 @@ function etiquetasFaltantes(fila: PlanContratos): string[] {
         :indice="visor.indice.value"
         :cargando="visor.cargando.value"
         :titulo-carga="visor.tituloCarga.value"
+        recargable
         @update:open="visor.alCambiarAbierto"
+        @recargar="visor.recargar"
         @update:indice="(i: number) => (visor.indice.value = i)"
     />
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\CicloLaboral;
 
+use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -28,15 +29,28 @@ class GenerarDocumentoProcesoRequest extends FormRequest
         return [
             'clave' => ['sometimes', 'required', 'string', 'max:80', 'regex:/^[a-z0-9_]+$/'],
             'proceso' => ['nullable', 'string', 'in:alta,renovacion,evaluacion,baja,negativa_firma,permiso,prestamo,activos,acta,expediente'],
+            // Regenerar = nueva versión con los datos actuales: SIEMPRE con
+            // motivo (queda en la auditoría). Sobre un documento ya firmado
+            // exige además documentos_laborales.revisar_firmado.
             'regenerar' => ['sometimes', 'boolean'],
-            // Nueva revisión de un documento YA firmado: permiso
-            // documentos_laborales.revisar_firmado + motivo (auditado).
             'revision' => ['sometimes', 'boolean'],
-            'motivo' => ['required_if:revision,true,1', 'nullable', 'string', 'min:15', 'max:500'],
+            'motivo' => ['required_if:revision,true,1', 'required_if:regenerar,true,1', 'nullable', 'string', 'min:'.DocumentoProcesoService::MINIMO_MOTIVO_REGENERAR, 'max:500'],
             'completar' => ['nullable', 'array', 'max:30'],
             'completar.*' => ['nullable', 'string', 'max:191'],
             'manuales' => ['nullable', 'array', 'max:20'],
             'manuales.*' => ['nullable', 'string', 'max:191'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'motivo.required_if' => 'Escribe el motivo de la nueva versión: queda en la auditoría.',
+            'motivo.min' => sprintf('El motivo debe tener al menos %d caracteres.', DocumentoProcesoService::MINIMO_MOTIVO_REGENERAR),
+            'motivo.max' => 'El motivo no puede pasar de 500 caracteres.',
         ];
     }
 

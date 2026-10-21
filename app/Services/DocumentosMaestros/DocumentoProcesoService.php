@@ -72,6 +72,9 @@ use Throwable;
  */
 class DocumentoProcesoService
 {
+    /** Largo mínimo del motivo al regenerar (o emitir revisión de un firmado): queda en la auditoría. */
+    public const MINIMO_MOTIVO_REGENERAR = 15;
+
     public function __construct(
         private readonly MotorDocumentalService $motor,
         private readonly ResolvedorMaestroService $resolvedor,
@@ -722,10 +725,37 @@ class DocumentoProcesoService
 
         $existente = $this->documentoVigente($registro, $clave);
         $revisionDe = null;
+        // Documento que la nueva versión SUSTITUYE (regenerar): el anterior
+        // no se borra; queda en el historial y en el NAS, ligado a la nueva.
+        $sustituye = null;
 
-        // Revisión EXCEPCIONAL de un documento ya firmado: nunca se
-        // sobrescribe ni se cancela el firmado; se emite una nueva instancia
-        // ligada a él, con permiso, motivo y auditoría.
+        // REGENERAR (RH/super_admin, con motivo): nueva versión con los datos
+        // actuales en CUALQUIER estado. Si el anterior ya se firmó, el
+        // original firmado nunca se toca ni se cancela: la nueva versión se
+        // emite ligada a él (misma regla que la revisión de un firmado, con
+        // documentos_laborales.revisar_firmado). Política:
+        // GeneratedDocumentPolicy::regenerar.
+        if ($regenerar && $existente !== null && ! $revision) {
+            if (! $actor->can('regenerar', $existente)) {
+                throw new AuthorizationException($existente->estado_flujo?->firmaFisicaRegistrada()
+                    ? 'No tienes permiso para regenerar un documento ya firmado.'
+                    : 'No tienes permiso para regenerar este documento.');
+            }
+
+            $revision = $existente->estado_flujo?->firmaFisicaRegistrada() ?? false;
+        }
+
+        if ($regenerar || $revision) {
+            $motivoRevision = trim((string) $motivoRevision);
+
+            if (mb_strlen($motivoRevision) < self::MINIMO_MOTIVO_REGENERAR) {
+                throw ValidationException::withMessages(['motivo' => sprintf('Explica el motivo de la nueva versión (mínimo %d caracteres): queda en la auditoría.', self::MINIMO_MOTIVO_REGENERAR)]);
+            }
+        }
+
+        // Revisión de un documento ya firmado: nunca se sobrescribe ni se
+        // cancela el firmado; se emite una nueva instancia ligada a él, con
+        // permiso, motivo y auditoría.
         if ($revision) {
             if ($existente === null || ! ($existente->estado_flujo?->firmaFisicaRegistrada() ?? false)) {
                 throw ValidationException::withMessages(['documento' => 'La revisión excepcional solo aplica a un documento ya firmado. Si aún no se firma, usa "Regenerar".']);
@@ -733,12 +763,6 @@ class DocumentoProcesoService
 
             if (! $actor->can('documentos_laborales.revisar_firmado')) {
                 throw new AuthorizationException('No tienes permiso para emitir una nueva revisión de un documento firmado.');
-            }
-
-            $motivoRevision = trim((string) $motivoRevision);
-
-            if (mb_strlen($motivoRevision) < 15) {
-                throw ValidationException::withMessages(['motivo' => 'Explica el motivo de la nueva revisión (mínimo 15 caracteres): queda en la auditoría.']);
             }
 
             $revisionDe = $existente;
@@ -760,35 +784,36 @@ class DocumentoProcesoService
 
         if ($existente !== null && $revisionDe === null) {
             if (! $regenerar) {
-                throw ValidationException::withMessages(['documento' => 'Este documento ya está generado. Descárgalo o usa "Regenerar" si cambiaron los datos (solo antes de imprimirlo).']);
+                throw ValidationException::withMessages(['documento' => 'Este documento ya está generado. Descárgalo o usa "Regenerar" (con motivo) si cambiaron los datos.']);
             }
 
-            if (! in_array($existente->estado_flujo, [E::Generado, E::PendienteImpresion], true)) {
-                throw ValidationException::withMessages(['documento' => 'El documento ya se imprimió o firmó: no se regenera encima. Si debe corregirse, emite una nueva revisión (con motivo).']);
-            }
+            $sustituye = $existente;
         }
+
+        $motivoSustitucion = sprintf('Sustituido por una nueva versión: %s', (string) $motivoRevision);
 
         // Acta administrativa / de hechos: formato PROPIO (BrowserShot), sin
         // master de Jurídico. Mismas reglas de arriba (permiso, bloqueo,
-        // regenerar solo antes de imprimir); mismo flujo físico después.
+        // regenerar con motivo); mismo flujo físico después.
         if ($this->esFormatoPropio($clave, $registro)) {
             /** @var ActaAdministrativa $registro */
-            $documento = DB::transaction(function () use ($existente, $actor, $registro): GeneratedDocument {
-                if ($existente !== null) {
-                    $this->flujo->cancelar($existente, $actor, 'Regenerado con datos actualizados (nueva instancia del mismo formato).');
+            $documento = DB::transaction(function () use ($sustituye, $actor, $registro, $motivoSustitucion): GeneratedDocument {
+                if ($sustituye !== null) {
+                    $this->sustituir($sustituye, $actor, $motivoSustitucion);
                 }
 
                 return app(ActaPdfService::class)->registrar($registro, $actor);
             });
+            $this->auditarNuevaVersion($documento, $sustituye, $revisionDe, $motivoRevision, $actor, $colaborador, $clave);
             $this->ligarAlRegistro($documento, $registro, $clave, $actor);
 
             return $documento;
         }
 
         $master = $this->masterPara($clave, $colaborador, $proceso);
-        $documento = DB::transaction(function () use ($existente, $revisionDe, $motivoRevision, $actor, $master, $colaborador, $registro, $manuales, $clave, $proceso): GeneratedDocument {
-            if ($existente !== null && $revisionDe === null) {
-                $this->flujo->cancelar($existente, $actor, 'Regenerado con datos actualizados (nueva instancia del mismo formato).');
+        $documento = DB::transaction(function () use ($sustituye, $revisionDe, $motivoRevision, $motivoSustitucion, $actor, $master, $colaborador, $registro, $manuales, $clave, $proceso): GeneratedDocument {
+            if ($sustituye !== null) {
+                $this->sustituir($sustituye, $actor, $motivoSustitucion);
             }
 
             // Los testigos de un acta SIEMPRE vienen de ActaService::variablesDocumento()
@@ -809,17 +834,12 @@ class DocumentoProcesoService
                 return $this->motor->generar($colaborador, $master, $actor, $extra, $registro);
             }
 
-            return $this->motor->generarDesdeMaestro($master, $contexto, $actor, $registro, $this->titulo($master, $colaborador), $proceso, $revisionDe, $revisionDe !== null ? $motivoRevision : null);
+            $anterior = $revisionDe ?? $sustituye;
+
+            return $this->motor->generarDesdeMaestro($master, $contexto, $actor, $registro, $this->titulo($master, $colaborador), $proceso, $anterior, $anterior !== null ? $motivoRevision : null);
         });
 
-        if ($revisionDe !== null) {
-            $this->auditoria->registrar('documento_revision_firmado', $documento, $actor, [
-                'documento_firmado_id' => $revisionDe->id,
-                'motivo' => $motivoRevision,
-                'colaborador_id' => $colaborador->id,
-                'clave' => $clave,
-            ]);
-        }
+        $this->auditarNuevaVersion($documento, $sustituye, $revisionDe, $motivoRevision, $actor, $colaborador, $clave);
 
         $this->ligarAlRegistro($documento, $registro, $clave, $actor);
 
@@ -1345,14 +1365,17 @@ class DocumentoProcesoService
             $secundarias[] = ['clave' => 'descargar_word', 'etiqueta' => 'Descargar Word', 'tipo' => 'secundaria'];
         }
 
-        if ($genera && in_array($estado, [E::Generado, E::PendienteImpresion], true) && ($master !== null || $formatoPropio)) {
+        // Regenerar (nueva versión con los datos actuales, con motivo) en
+        // cualquier estado: si RH se equivocó o el dato estaba mal. Un
+        // documento ya firmado también, con aviso (el firmado se conserva):
+        // GeneratedDocumentPolicy::regenerar decide quién.
+        $firmado = $estado?->firmaFisicaRegistrada() ?? false;
+        $admiteNuevaVersion = $firmado ? $master !== null && $master->estado_master !== null : ($master !== null || $formatoPropio);
+
+        if ($genera && $estado !== E::Cancelado && $admiteNuevaVersion && $viewer->can('regenerar', $documento)) {
             // Antes de regenerar: ver cómo quedaría con los datos actuales.
             $secundarias[] = ['clave' => 'vista_previa', 'etiqueta' => 'Vista previa con datos actuales', 'tipo' => 'secundaria'];
-            $secundarias[] = ['clave' => 'regenerar', 'etiqueta' => 'Regenerar con datos actuales', 'tipo' => 'secundaria'];
-        }
-
-        if ($genera && ($estado?->firmaFisicaRegistrada() ?? false) && $master !== null && $master->estado_master !== null && $viewer->can('documentos_laborales.revisar_firmado')) {
-            $secundarias[] = ['clave' => 'nueva_revision', 'etiqueta' => 'Nueva revisión (con motivo)', 'tipo' => 'peligro'];
+            $secundarias[] = ['clave' => 'regenerar', 'etiqueta' => 'Regenerar (nueva versión)', 'tipo' => ($firmado || ! in_array($estado, [E::Generado, E::PendienteImpresion], true)) ? 'peligro' : 'secundaria'];
         }
 
         // Una sola primaria: si el flujo diera dos, la segunda va al menú.
@@ -1494,6 +1517,8 @@ class DocumentoProcesoService
             'archivo_disponible' => $this->archivoDisponible($documento),
             'revision_de_id' => $documento->revision_de_id,
             'motivo_revision' => $documento->motivo_revision,
+            // v1, v2…: las versiones sustituidas siguen en «historial».
+            'version' => $this->numeroVersion($documento),
             'descargas' => $documento->descargas,
             'impreso' => $estado !== null && in_array($estado, [E::Impreso, E::PendienteFirmaFisica, E::FirmadoFisicamente, E::EnviadoCorporativo, E::RecibidoCorporativo, E::Escaneado, E::Archivado], true),
             'firmado' => $estado !== null && $estado->firmaFisicaRegistrada(),
@@ -1810,6 +1835,70 @@ class DocumentoProcesoService
         return [];
     }
 
+    /**
+     * La versión anterior queda SUSTITUIDA (estado «Cancelado» con el motivo
+     * «Sustituido por una nueva versión: …»): se conserva en el historial y
+     * su archivo en el NAS; sus pendientes de impresión/firma se cierran
+     * (FlujoDocumentalService::cancelar) y la nueva versión arranca su
+     * propio flujo físico desde cero.
+     */
+    private function sustituir(GeneratedDocument $anterior, User $actor, string $motivo): void
+    {
+        $this->flujo->cancelar($anterior, $actor, mb_substr($motivo, 0, 500));
+    }
+
+    /**
+     * Bitácora de una nueva versión (regenerada o revisión de un firmado):
+     * qué versión sustituye, en qué estado estaba, quién y por qué.
+     */
+    private function auditarNuevaVersion(GeneratedDocument $documento, ?GeneratedDocument $sustituye, ?GeneratedDocument $revisionDe, ?string $motivo, User $actor, Colaborador $colaborador, string $clave): void
+    {
+        $anterior = $revisionDe ?? $sustituye;
+
+        if ($anterior === null) {
+            return;
+        }
+
+        $datos = [
+            'documento_anterior_id' => $anterior->id,
+            'estado_anterior' => $revisionDe !== null ? $revisionDe->estado_flujo?->value : E::Cancelado->value,
+            'anterior_firmado' => $revisionDe !== null,
+            'version' => $this->numeroVersion($documento),
+            'motivo' => $motivo,
+            'colaborador_id' => $colaborador->id,
+            'clave' => $clave,
+        ];
+
+        $this->auditoria->registrar('documento_regenerado', $documento, $actor, $datos);
+
+        if ($revisionDe !== null) {
+            $this->auditoria->registrar('documento_revision_firmado', $documento, $actor, [
+                'documento_firmado_id' => $revisionDe->id,
+                'motivo' => $motivo,
+                'colaborador_id' => $colaborador->id,
+                'clave' => $clave,
+            ]);
+        }
+    }
+
+    /**
+     * Número de versión del documento dentro de su registro y clave (v1 la
+     * primera emitida, v2 la regenerada…), contando también las sustituidas.
+     */
+    public function numeroVersion(GeneratedDocument $documento): int
+    {
+        if ($documento->documentable_type === null || $documento->clave_plantilla === null) {
+            return 1;
+        }
+
+        return GeneratedDocument::query()
+            ->where('documentable_type', $documento->documentable_type)
+            ->where('documentable_id', $documento->documentable_id)
+            ->where('clave_plantilla', $documento->clave_plantilla)
+            ->where('id', '<=', $documento->id)
+            ->count();
+    }
+
     private function ligarAlRegistro(GeneratedDocument $documento, Model $registro, string $clave, User $actor): void
     {
         if ($registro instanceof ActaAdministrativa) {
@@ -1832,7 +1921,9 @@ class DocumentoProcesoService
             $registro->update(['generated_document_id' => $documento->id]);
         }
 
-        if ($registro instanceof ContratoLaboral && $registro->generated_document_id === null && in_array($clave, ['contrato_capacitacion', 'contrato_indeterminado', 'contrato_periodo_prueba', 'contrato_tiempo_determinado'], true)) {
+        // El contrato apunta a su documento principal VIGENTE: también a la
+        // nueva versión cuando se regenera.
+        if ($registro instanceof ContratoLaboral && ($registro->generated_document_id === null || $registro->generated_document_id === $documento->revision_de_id) && in_array($clave, ['contrato_capacitacion', 'contrato_indeterminado', 'contrato_periodo_prueba', 'contrato_tiempo_determinado'], true)) {
             $registro->update(['generated_document_id' => $documento->id]);
         }
 

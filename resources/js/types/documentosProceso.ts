@@ -67,6 +67,8 @@ export type DocumentoGeneradoResumen = {
     archivo_disponible?: boolean;
     revision_de_id?: number | null;
     motivo_revision?: string | null;
+    /** v1, v2…: número de versión dentro de su registro y clave. */
+    version?: number;
     descargas?: number;
     impreso?: boolean;
     firmado?: boolean;

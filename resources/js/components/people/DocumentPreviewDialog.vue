@@ -11,6 +11,7 @@ import {
     Image as IconoImagen,
     Maximize,
     Music,
+    RefreshCw,
     Video,
     X,
     ZoomIn,
@@ -81,6 +82,12 @@ const props = withDefaults(
         cargando?: boolean;
         /** Título mientras se genera (aún no hay archivo). */
         tituloCarga?: string | null;
+        /**
+         * Vista previa generada al vuelo (useVistaPreviaPdf): muestra
+         * «Regenerar vista previa», que la vuelve a pedir al backend con los
+         * datos actuales (sin caché).
+         */
+        recargable?: boolean;
     }>(),
     {
         archivos: null,
@@ -97,12 +104,15 @@ const props = withDefaults(
         fecha: null,
         cargando: false,
         tituloCarga: null,
+        recargable: false,
     },
 );
 
 const emit = defineEmits<{
     'update:open': [value: boolean];
     'update:indice': [value: number];
+    /** «Regenerar vista previa»: quien abrió el visor vuelve a pedir el PDF. */
+    recargar: [];
 }>();
 
 const lista = computed<ArchivoPrevisualizable[]>(() => {
@@ -593,6 +603,23 @@ watch(indiceActual, async (indice) => {
                 </span>
 
                 <div class="flex shrink-0 items-center gap-1.5">
+                    <Button
+                        v-if="recargable"
+                        size="sm"
+                        variant="outline"
+                        data-accion="regenerar-vista-previa"
+                        :disabled="cargando"
+                        aria-label="Regenerar vista previa con los datos actuales"
+                        @click="emit('recargar')"
+                    >
+                        <RefreshCw
+                            class="size-4"
+                            :class="{ 'animate-spin': cargando }"
+                        />
+                        <span class="hidden sm:inline"
+                            >Regenerar vista previa</span
+                        >
+                    </Button>
                     <Button
                         v-if="urlDescarga"
                         as-child

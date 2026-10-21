@@ -271,7 +271,8 @@ type Pendiente = {
     seccion: Seccion;
     clave: string | null;
     regenerar: boolean;
-    revision?: { motivo: string };
+    /** Regenerar (nueva versión): motivo obligatorio, queda en la auditoría. */
+    motivo?: string;
 };
 const faltantes = ref<DatoFaltante[]>([]);
 const pendiente = ref<Pendiente | null>(null);
@@ -312,7 +313,7 @@ async function ejecutarGeneracion(
     ocupado.value =
         p.clave === null
             ? 'seccion:generar_paquete'
-            : `${p.clave}:${p.revision ? 'nueva_revision' : p.regenerar ? 'regenerar' : 'generar'}`;
+            : `${p.clave}:${p.regenerar ? 'regenerar' : 'generar'}`;
     const { registro, proceso } = p.seccion;
     const { manuales, datosColaborador } = separarCapturados(completar);
 
@@ -329,16 +330,18 @@ async function ejecutarGeneracion(
                       regenerar: p.regenerar,
                       completar: datosColaborador,
                       manuales,
-                      ...(p.revision
-                          ? { revision: true, motivo: p.revision.motivo }
-                          : {}),
+                      ...(p.motivo ? { motivo: p.motivo } : {}),
                   });
         reemplazar(respuesta.data);
         pendiente.value = null;
         faltantes.value = [];
-        revision.value = null;
+        regeneracion.value = null;
         toast.success(
-            p.clave === null ? 'Paquete generado.' : 'Documento generado.',
+            p.clave === null
+                ? 'Paquete generado.'
+                : p.regenerar
+                  ? 'Nueva versión generada. La anterior quedó en el historial.'
+                  : 'Documento generado.',
         );
     } catch (e) {
         if (e instanceof ErrorDocumento && e.codigo === 'DATOS_FALTANTES') {
@@ -433,23 +436,43 @@ function previsualizarCapturados() {
     verPrevias(p.seccion, items, capturados(), 'faltantes');
 }
 
-// ───────── Nueva revisión de un documento firmado ─────────
-const revision = ref<{
+// ───────── Regenerar: nueva versión con los datos actuales ─────────
+// Siempre con motivo (auditoría). La versión anterior no se borra: queda en
+// el historial y en el NAS; si ya estaba firmada se conserva intacta.
+const MINIMO_MOTIVO = 15;
+const regeneracion = ref<{
     seccion: Seccion;
     item: ItemDocumentoProceso;
     motivo: string;
 } | null>(null);
 
-function confirmarRevision() {
-    if (!revision.value || revision.value.motivo.trim().length < 15) {
+const avisoRegeneracion = computed(() => {
+    const documento = regeneracion.value?.item.documento;
+
+    if (documento?.firmado) {
+        return 'Este documento YA ESTÁ FIRMADO. El original firmado se conserva tal cual en el expediente; la nueva versión queda ligada a él y habrá que imprimirla y firmarla de nuevo.';
+    }
+
+    if (documento?.impreso) {
+        return 'Este documento ya se imprimió. La versión impresa deja de ser válida: destrúyela o márcala como sustituida, e imprime y firma la nueva.';
+    }
+
+    return null;
+});
+
+function confirmarRegeneracion() {
+    if (
+        !regeneracion.value ||
+        regeneracion.value.motivo.trim().length < MINIMO_MOTIVO
+    ) {
         return;
     }
 
     void ejecutarGeneracion({
-        seccion: revision.value.seccion,
-        clave: revision.value.item.clave,
-        regenerar: false,
-        revision: { motivo: revision.value.motivo.trim() },
+        seccion: regeneracion.value.seccion,
+        clave: regeneracion.value.item.clave,
+        regenerar: true,
+        motivo: regeneracion.value.motivo.trim(),
     });
 }
 
@@ -508,18 +531,19 @@ async function alAccionar(
         return;
     }
 
-    if (accion.clave === 'generar' || accion.clave === 'regenerar') {
+    if (accion.clave === 'generar') {
         await ejecutarGeneracion({
             seccion,
             clave: item.clave,
-            regenerar: accion.clave === 'regenerar',
+            regenerar: false,
         });
 
         return;
     }
 
-    if (accion.clave === 'nueva_revision') {
-        revision.value = { seccion, item, motivo: '' };
+    // «nueva_revision»: clave anterior (versiones viejas de la app/caché).
+    if (accion.clave === 'regenerar' || accion.clave === 'nueva_revision') {
+        regeneracion.value = { seccion, item, motivo: '' };
 
         return;
     }
@@ -918,61 +942,96 @@ async function confirmarBaja() {
         :indice="visor.indice.value"
         :cargando="visor.cargando.value"
         :titulo-carga="visor.tituloCarga.value"
+        recargable
         @update:open="visor.alCambiarAbierto"
+        @recargar="visor.recargar"
         @update:indice="(i: number) => (visor.indice.value = i)"
     />
 
-    <!-- Nueva revisión de un documento firmado -->
+    <!-- Regenerar: nueva versión con los datos actuales (con motivo) -->
     <Dialog
-        :open="revision !== null"
+        :open="regeneracion !== null"
         @update:open="
-            (v: boolean) => !v && ocupado === null && (revision = null)
+            (v: boolean) => !v && ocupado === null && (regeneracion = null)
         "
     >
         <DialogContent class="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle class="flex items-center gap-2"
-                    ><ShieldAlert class="size-5 text-destructive" /> Nueva
-                    revisión</DialogTitle
+                    ><ShieldAlert
+                        class="size-5"
+                        :class="
+                            avisoRegeneracion
+                                ? 'text-destructive'
+                                : 'text-[var(--mrl-texto-suave)]'
+                        "
+                    />
+                    Regenerar {{ regeneracion?.item.nombre }}</DialogTitle
                 >
                 <DialogDescription>
-                    {{ revision?.item.nombre }} ya está firmado. El documento
-                    firmado se conserva intacto; se emite una nueva instancia
-                    ligada a él, con motivo y auditoría.
+                    Se genera una nueva versión con los datos actuales del
+                    expediente. La versión anterior
+                    <template v-if="regeneracion?.item.documento?.version">
+                        (v{{ regeneracion.item.documento.version }})
+                    </template>
+                    no se borra: queda en el historial y en el expediente.
                 </DialogDescription>
             </DialogHeader>
-            <div v-if="revision" class="flex flex-col gap-1">
-                <Label for="motivo-revision">Motivo (obligatorio)</Label>
+            <div
+                v-if="avisoRegeneracion"
+                class="flex gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm"
+                data-aviso="regenerar-firmado"
+            >
+                <AlertTriangle
+                    class="mt-0.5 size-4 shrink-0 text-destructive"
+                />
+                <p>{{ avisoRegeneracion }}</p>
+            </div>
+            <div v-if="regeneracion" class="flex flex-col gap-1">
+                <Label for="motivo-regeneracion">Motivo (obligatorio)</Label>
                 <Textarea
-                    id="motivo-revision"
-                    v-model="revision.motivo"
+                    id="motivo-regeneracion"
+                    v-model="regeneracion.motivo"
                     rows="3"
                     maxlength="500"
+                    placeholder="Ej. el sueldo estaba mal capturado; se corrigió de 5,000 a 10,000."
                 />
                 <p class="text-xs text-[var(--mrl-texto-suave)]">
-                    Mínimo 15 caracteres.
+                    Mínimo {{ MINIMO_MOTIVO }} caracteres. Queda en la
+                    auditoría.
                 </p>
             </div>
             <DialogFooter>
                 <Button
                     variant="outline"
                     :disabled="ocupado !== null"
-                    @click="revision = null"
+                    @click="regeneracion = null"
                     >Cancelar</Button
                 >
+                <BotonVistaPrevia
+                    texto="Vista previa con datos actuales"
+                    :cargando="visor.cargando.value"
+                    :deshabilitado="ocupado !== null"
+                    @click="
+                        regeneracion &&
+                        verPrevias(regeneracion.seccion, [regeneracion.item])
+                    "
+                />
                 <Button
-                    variant="destructive"
+                    :variant="avisoRegeneracion ? 'destructive' : 'default'"
+                    data-accion="confirmar-regenerar"
                     :disabled="
                         ocupado !== null ||
-                        (revision?.motivo.trim().length ?? 0) < 15
+                        (regeneracion?.motivo.trim().length ?? 0) <
+                            MINIMO_MOTIVO
                     "
-                    @click="confirmarRevision"
+                    @click="confirmarRegeneracion"
                 >
                     <Loader2
                         v-if="ocupado !== null"
                         class="size-4 animate-spin"
                     />
-                    Emitir nueva revisión
+                    Regenerar nueva versión
                 </Button>
             </DialogFooter>
         </DialogContent>

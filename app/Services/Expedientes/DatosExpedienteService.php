@@ -43,7 +43,7 @@ class DatosExpedienteService
      */
     public const CAMPOS_CRITICOS = [
         'name', 'apellidos', 'curp', 'rfc', 'nss', 'fecha_nacimiento', 'genero',
-        'condicion_medica', 'alergias', 'sueldo_mensual',
+        'condicion_medica', 'alergias', 'sueldo_mensual', 'fecha_ingreso',
     ];
 
     /** Bitácora (AuditoriaService) de la edición administrativa desde el expediente. */
@@ -68,6 +68,7 @@ class DatosExpedienteService
         'departamento_id' => 'Departamento',
         'puesto_id' => 'Puesto',
         'sueldo_mensual' => 'Sueldo mensual',
+        'fecha_ingreso' => 'Fecha de ingreso',
     ];
 
     public function __construct(
@@ -256,8 +257,16 @@ class DatosExpedienteService
             }
         }
 
-        DB::transaction(function () use ($colaborador, $estructurales, $antes, $actor, $motivo, $nuevoSueldoMensual): void {
+        // Fecha de ingreso (de ella salen las fechas del contrato): vacía
+        // nunca borra la que ya existe.
+        $nuevoIngreso = is_string($datos['fecha_ingreso'] ?? null) && $datos['fecha_ingreso'] !== '' ? substr($datos['fecha_ingreso'], 0, 10) : null;
+
+        DB::transaction(function () use ($colaborador, $estructurales, $antes, $actor, $motivo, $nuevoSueldoMensual, $nuevoIngreso): void {
             $this->aplicarEstructurales([['colaborador' => $colaborador, 'antes' => $antes, 'cambios' => $estructurales]], $actor, $motivo);
+
+            if ($nuevoIngreso !== null && $colaborador->fecha_ingreso?->toDateString() !== $nuevoIngreso) {
+                $colaborador->update(['fecha_ingreso' => $nuevoIngreso]);
+            }
 
             // Sueldo canónico: CompensacionService sincroniza mensual + diario
             // + ledger. Solo si de verdad cambia el diario.
@@ -315,6 +324,7 @@ class DatosExpedienteService
             'departamento_id' => $this->comoTexto($colaborador->departamento_id !== null ? Departamento::query()->whereKey($colaborador->departamento_id)->value('nombre') : null),
             'puesto_id' => $this->comoTexto($colaborador->puesto_id !== null ? Puesto::query()->whereKey($colaborador->puesto_id)->value('nombre') : null),
             'sueldo_mensual' => $colaborador->sueldo_mensual !== null ? sprintf('$%s', number_format((float) $colaborador->sueldo_mensual, 2)) : null,
+            'fecha_ingreso' => $colaborador->fecha_ingreso?->format('d/m/Y'),
         ];
     }
 

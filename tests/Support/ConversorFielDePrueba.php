@@ -20,6 +20,9 @@ class ConversorFielDePrueba extends ConversorDocxPdf
 
     public int $conversiones = 0;
 
+    /** Último DOCX convertido (para revisar qué datos llevaba el documento). */
+    public ?string $ultimoDocx = null;
+
     /**
      * @return list<'word'|'libreoffice'>
      */
@@ -39,6 +42,7 @@ class ConversorFielDePrueba extends ConversorDocxPdf
         }
 
         $this->conversiones++;
+        $this->ultimoDocx = $contenidoDocx;
         $pdf = new Fpdi;
         $pdf->SetCreator('prueba');
 

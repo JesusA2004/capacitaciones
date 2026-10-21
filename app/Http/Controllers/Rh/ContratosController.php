@@ -95,7 +95,8 @@ class ContratosController extends Controller
         return response($previa['pdf'], 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_INLINE, $nombre, Str::ascii($nombre)),
-            'Cache-Control' => 'no-store',
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
             'X-Datos-Faltantes' => (string) $previa['faltantes'],
         ]);
     }

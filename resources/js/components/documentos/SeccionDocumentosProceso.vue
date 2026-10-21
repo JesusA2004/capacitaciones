@@ -318,6 +318,9 @@ function varianteSeccion(a: AccionDocumento) {
                             v-if="item.documento?.generado_en"
                             class="text-xs text-muted-foreground"
                         >
+                            <template v-if="(item.documento.version ?? 1) > 1"
+                                >Versión {{ item.documento.version }} ·
+                            </template>
                             Generado
                             {{ formatearFecha(item.documento.generado_en) }}
                             <template v-if="item.documento.generado_por"
@@ -327,10 +330,10 @@ function varianteSeccion(a: AccionDocumento) {
                         <p
                             v-if="item.documento?.revision_de_id"
                             class="text-xs text-warning"
+                            data-dato="motivo-nueva-version"
                         >
-                            Revisión del firmado #{{
-                                item.documento.revision_de_id
-                            }}: {{ item.documento.motivo_revision }}
+                            Sustituye a la versión anterior:
+                            {{ item.documento.motivo_revision }}
                         </p>
                     </div>
                 </div>

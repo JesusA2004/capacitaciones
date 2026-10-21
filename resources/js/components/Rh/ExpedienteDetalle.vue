@@ -418,6 +418,7 @@ const formLaborales = useForm({
         ? String(props.colaborador.puesto.id)
         : '',
     sueldo_mensual: props.colaborador.sueldo_mensual ?? '',
+    fecha_ingreso: props.colaborador.fecha_ingreso ?? '',
     motivo: '',
 });
 
@@ -465,6 +466,7 @@ function iniciarEdicionLaborales() {
         ? String(props.colaborador.puesto.id)
         : '';
     formLaborales.sueldo_mensual = props.colaborador.sueldo_mensual ?? '';
+    formLaborales.fecha_ingreso = props.colaborador.fecha_ingreso ?? '';
     formLaborales.motivo = '';
     editandoLaborales.value = true;
 }
@@ -476,6 +478,7 @@ function guardarLaborales() {
             departamento_id: datos.departamento_id || null,
             puesto_id: datos.puesto_id || null,
             sueldo_mensual: datos.sueldo_mensual || null,
+            fecha_ingreso: datos.fecha_ingreso || null,
             motivo: datos.motivo || null,
         }))
         .put(actualizarDatosLaborales.url(props.colaborador.id), {
@@ -1454,14 +1457,40 @@ function irACompletarExpediente() {
                                             "
                                         />
                                     </div>
+                                    <div class="grid gap-2">
+                                        <Label for="fecha_ingreso_laboral"
+                                            >Fecha de ingreso</Label
+                                        >
+                                        <DatePicker
+                                            id="fecha_ingreso_laboral"
+                                            v-model="formLaborales.fecha_ingreso"
+                                        />
+                                        <p
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            De ella salen todas las fechas del
+                                            contrato.
+                                        </p>
+                                        <InputError
+                                            :message="
+                                                formLaborales.errors
+                                                    .fecha_ingreso
+                                            "
+                                        />
+                                    </div>
                                     <div class="grid gap-2 sm:col-span-2">
                                         <Label for="motivo_laboral"
-                                            >Motivo del cambio (opcional)</Label
+                                            >Motivo del cambio (obligatorio si
+                                            cambias sueldo o fecha de
+                                            ingreso)</Label
                                         >
                                         <Input
                                             id="motivo_laboral"
                                             v-model="formLaborales.motivo"
-                                            placeholder="Ej. promoción, reubicación, ajuste de sueldo..."
+                                            placeholder="Ej. promoción, reubicación, ajuste de sueldo, corrección de captura..."
+                                        />
+                                        <InputError
+                                            :message="formLaborales.errors.motivo"
                                         />
                                     </div>
                                 </div>

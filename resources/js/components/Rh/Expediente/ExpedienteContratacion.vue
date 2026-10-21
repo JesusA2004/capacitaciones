@@ -318,7 +318,9 @@ const tonoPlan = computed(() => ESTADOS[props.plan.estado]?.tono ?? 'neutro');
             :indice="visor.indice.value"
             :cargando="visor.cargando.value"
             :titulo-carga="visor.tituloCarga.value"
+            recargable
             @update:open="visor.alCambiarAbierto"
+            @recargar="visor.recargar"
             @update:indice="(i: number) => (visor.indice.value = i)"
         />
         <DocumentPreviewDialog

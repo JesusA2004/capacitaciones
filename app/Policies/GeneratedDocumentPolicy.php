@@ -89,6 +89,27 @@ class GeneratedDocumentPolicy
             && $this->enAlcance($usuario, $documento);
     }
 
+    /**
+     * Regenerar (nueva versión con los datos actuales, con motivo): RH con
+     * permiso de generar documentos laborales dentro de su alcance (y
+     * super_admin, ConSuperAdminOperativo). Nunca sobre el propio documento.
+     * Si el anterior ya está firmado, además documentos_laborales.revisar_firmado
+     * (el firmado se conserva; la nueva versión queda ligada a él).
+     */
+    public function regenerar(User $usuario, GeneratedDocument $documento): bool
+    {
+        if ($documento->estado_flujo === EstadoFlujoDocumento::Cancelado) {
+            return false;
+        }
+
+        $firmado = $documento->estado_flujo?->firmaFisicaRegistrada() ?? false;
+
+        return $usuario->can('documentos_laborales.generar')
+            && (! $firmado || $usuario->can('documentos_laborales.revisar_firmado'))
+            && ! $this->esPropio($usuario, $documento)
+            && $this->enAlcance($usuario, $documento);
+    }
+
     public function cancelar(User $usuario, GeneratedDocument $documento): bool
     {
         return $usuario->can('documentos_laborales.cancelar')

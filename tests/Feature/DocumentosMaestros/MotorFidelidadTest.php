@@ -397,7 +397,7 @@ test('histórico y reingreso: un documento de la v1 sigue idéntico al activar l
     $this->get("/api/v1/rh/documentos-laborales/{$v1->id}/descargar")->assertOk();
 });
 
-test('firmado: no se regenera encima; la nueva revisión exige permiso y motivo, y el firmado se conserva', function () {
+test('firmado: nunca se regenera encima; la nueva versión exige permiso y motivo, y el firmado se conserva', function () {
     mfImportar(['contrato_capacitacion.gestor']);
     $colaborador = mfColaborador('gestor');
     $contrato = mfContrato($colaborador);
@@ -406,7 +406,11 @@ test('firmado: no se regenera encima; la nueva revisión exige permiso y motivo,
     $firmado->update(['estado_flujo' => EstadoFlujoDocumento::FirmadoFisicamente]);
 
     $item = collect($this->getJson("/api/v1/rh/documentos-proceso/colaborador/{$colaborador->id}")->json('data.0.documentos'))->firstWhere('clave', 'contrato_capacitacion');
-    expect(array_column($item['acciones'], 'clave'))->toContain('nueva_revision')->not->toContain('regenerar');
+    // Una sola acción «Regenerar (nueva versión)», marcada como peligro: el
+    // firmado se conserva y la nueva versión queda ligada a él.
+    $regenerar = collect($item['acciones'])->firstWhere('clave', 'regenerar');
+    expect($regenerar['tipo'] ?? null)->toBe('peligro')
+        ->and(array_column($item['acciones'], 'clave'))->not->toContain('nueva_revision');
 
     $this->postJson("/api/v1/rh/documentos-proceso/contrato/{$contrato->id}/generar", ['clave' => 'contrato_capacitacion', 'proceso' => 'alta', 'regenerar' => true])->assertUnprocessable();
     $this->postJson("/api/v1/rh/documentos-proceso/contrato/{$contrato->id}/generar", ['clave' => 'contrato_capacitacion', 'proceso' => 'alta', 'revision' => true])->assertUnprocessable();

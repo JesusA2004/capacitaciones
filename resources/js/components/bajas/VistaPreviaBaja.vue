@@ -227,7 +227,9 @@ function ver(clave: string | null = null) {
         :indice="visor.indice.value"
         :cargando="visor.cargando.value"
         :titulo-carga="visor.tituloCarga.value"
+        recargable
         @update:open="visor.alCambiarAbierto"
+        @recargar="visor.recargar"
         @update:indice="(i: number) => (visor.indice.value = i)"
     />
 </template>

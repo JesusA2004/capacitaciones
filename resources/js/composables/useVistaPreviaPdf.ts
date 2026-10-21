@@ -34,6 +34,8 @@ export function useVistaPreviaPdf(
     const tituloCarga = ref<string | null>(null);
     let urls: string[] = [];
     let control: AbortController | null = null;
+    /** Lo último que se pidió: «Regenerar vista previa» lo vuelve a pedir. */
+    let ultimos: PdfPorVer[] = [];
 
     function liberar() {
         urls.forEach((u) => URL.revokeObjectURL(u));
@@ -44,8 +46,12 @@ export function useVistaPreviaPdf(
         url: string,
         senal: AbortSignal,
     ): Promise<{ url: string; faltantes: number }> {
-        const respuesta = await fetch(url, {
+        // Siempre fresco: la vista previa refleja los datos ACTUALES (un
+        // sueldo recién corregido), nunca una copia en caché del navegador.
+        const fresca = `${url}${url.includes('?') ? '&' : '?'}_=${Date.now()}`;
+        const respuesta = await fetch(fresca, {
             signal: senal,
+            cache: 'no-store',
             // JSON para que un error del backend llegue como JSON (no redirect).
             headers: {
                 Accept: 'application/json',
@@ -88,10 +94,12 @@ export function useVistaPreviaPdf(
     }
 
     /** Pide los PDFs y abre el visor con los que sí se pudieron preparar. */
-    async function abrir(documentos: PdfPorVer[]) {
+    async function abrir(documentos: PdfPorVer[], indiceInicial = 0) {
         if (cargando.value || documentos.length === 0) {
             return;
         }
+
+        ultimos = documentos;
 
         cargando.value = true;
         cargandoClave.value = documentos.map((d) => d.clave).join('|');
@@ -169,7 +177,17 @@ export function useVistaPreviaPdf(
         }
 
         archivos.value = lista;
-        indice.value = 0;
+        indice.value = Math.min(indiceInicial, lista.length - 1);
+    }
+
+    /**
+     * «Regenerar vista previa»: vuelve a pedir al backend los mismos
+     * documentos (con los datos actuales), conservando el que se veía.
+     */
+    function recargar() {
+        if (ultimos.length > 0) {
+            void abrir(ultimos, indice.value);
+        }
     }
 
     function alCambiarAbierto(valor: boolean) {
@@ -206,6 +224,7 @@ export function useVistaPreviaPdf(
         indice,
         archivos,
         abrir,
+        recargar,
         alCambiarAbierto,
         generandoClave,
     };
