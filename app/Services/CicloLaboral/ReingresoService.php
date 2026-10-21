@@ -407,23 +407,23 @@ class ReingresoService
             'activado_en' => null,
         ]);
 
-        // Sueldo del reingreso por la fuente canónica: convierte el mensual a
-        // diario, sincroniza ambos campos y deja asiento en historial_salarios.
-        // Solo si de verdad cambia el diario (evita rastros idénticos).
+        // Sueldo del reingreso por la fuente canónica: el MENSUAL se guarda
+        // exacto, el diario se deriva de él y queda asiento en
+        // historial_salarios. Solo si de verdad cambia el mensual (evita
+        // rastros idénticos).
         $sueldoMensual = $reingreso->sueldo_mensual !== null ? (float) $reingreso->sueldo_mensual : null;
 
         if ($sueldoMensual !== null && $sueldoMensual > 0) {
-            $diarioNuevo = $this->compensacion->diarioDesdeMensual($sueldoMensual);
-            $diarioActual = $colaborador->salario_diario !== null ? (float) $colaborador->salario_diario : null;
+            $mensualActual = $colaborador->sueldo_mensual !== null ? (float) $colaborador->sueldo_mensual : null;
 
-            if ($diarioActual === null || abs($diarioActual - $diarioNuevo) > 0.001) {
-                $this->compensacion->actualizarSalario($colaborador, $diarioNuevo, null, $actor, [
+            if ($mensualActual === null || abs($mensualActual - round($sueldoMensual, 2)) > 0.004) {
+                $this->compensacion->actualizarSueldoMensual($colaborador, $sueldoMensual, $actor, [
                     'fuente' => 'reingreso',
                     'fecha_efectiva' => $inicio->toDateString(),
                     'motivo' => 'Salario del reingreso autorizado.',
                 ]);
 
-                // actualizarSalario escribe sobre una instancia bloqueada
+                // actualizarSueldoMensual escribe sobre una instancia bloqueada
                 // aparte: refrescamos para que el contrato del reingreso tome
                 // el sueldo ya sincronizado.
                 $colaborador->refresh();

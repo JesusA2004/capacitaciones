@@ -126,21 +126,20 @@ class AltaColaboradorService
             // primer momento (identidad documental estable).
             $this->storage->asignarRutaBaseColaborador($colaborador);
 
-            // Sueldo canónico: el mensual capturado se convierte a diario y
-            // CompensacionService sincroniza ambos campos y abre el ledger de
+            // Sueldo canónico: el MENSUAL capturado se guarda exacto, el
+            // diario se deriva de él y CompensacionService abre el ledger de
             // salario (sin MovimientoLaboral de cambio: es el alta inicial).
             $sueldoMensual = (float) ($datos['sueldo_mensual'] ?? 0);
 
             if ($sueldoMensual > 0) {
-                $this->compensacion->actualizarSalario(
+                $this->compensacion->actualizarSueldoMensual(
                     $colaborador,
-                    $this->compensacion->diarioDesdeMensual($sueldoMensual),
-                    null,
+                    $sueldoMensual,
                     $actor,
                     ['fuente' => 'alta_colaborador', 'fecha_efectiva' => $inicio->toDateString(), 'motivo' => 'Salario inicial al dar de alta al colaborador.'],
                 );
 
-                // actualizarSalario escribe sobre una instancia bloqueada
+                // actualizarSueldoMensual escribe sobre una instancia bloqueada
                 // aparte: refrescamos para que el modelo en memoria (auditoría,
                 // movimientos y respuesta) refleje el sueldo ya sincronizado.
                 $colaborador->refresh()->load('sucursalPrincipal.empresa');

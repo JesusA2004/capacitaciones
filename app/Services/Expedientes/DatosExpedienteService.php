@@ -218,12 +218,15 @@ class DatosExpedienteService
      *
      * El sueldo solo se toca si la llave `sueldo_mensual` viene en $datos
      * (el formulario del expediente siempre la manda; el directorio no la
-     * edita). Devuelve true si no se pudo asignar el sueldo por defecto
-     * porque falta SALARIO_MINIMO_DIARIO (aviso para la pantalla).
+     * edita). Devuelve lo que de verdad se guardó (la pantalla dice «sin
+     * cambios» si no cambió nada), el sueldo que quedó (si el capturado no
+     * cuadra con diario×30 se avisa el monto real) y si no se pudo asignar
+     * el sueldo por defecto porque falta SALARIO_MINIMO_DIARIO.
      *
-     * @param  array<string, mixed>  $datos  sucursal_principal_id?, departamento_id?, puesto_id?, sueldo_mensual?, motivo?
+     * @param  array<string, mixed>  $datos  sucursal_principal_id?, departamento_id?, puesto_id?, sueldo_mensual?, fecha_ingreso?, motivo?
+     * @return array{cambios: list<array{campo: string, etiqueta: string, antes: string|null, despues: string|null, critico: bool, confidencial: bool}>, sin_salario_minimo: bool, sueldo_capturado: float|null, sueldo_guardado: float|null, salario_diario: float|null}
      */
-    public function actualizarLaborales(Colaborador $colaborador, array $datos, User $actor, string $modulo = 'expediente'): bool
+    public function actualizarLaborales(Colaborador $colaborador, array $datos, User $actor, string $modulo = 'expediente'): array
     {
         $antes = $this->movimientos->snapshot($colaborador);
         $legibleAntes = $this->laboralesLegibles($colaborador);
@@ -268,14 +271,18 @@ class DatosExpedienteService
                 $colaborador->update(['fecha_ingreso' => $nuevoIngreso]);
             }
 
-            // Sueldo canónico: CompensacionService sincroniza mensual + diario
-            // + ledger. Solo si de verdad cambia el diario.
+            // El MENSUAL que captura RH es la fuente de verdad: se guarda
+            // exacto y el diario se deriva de él (CompensacionService). El
+            // cambio se detecta sobre el MENSUAL (antes se comparaba el
+            // diario redondeado: 11,100.10 → 11,100.00 dan el mismo diario
+            // 370.00 y no se guardaba nada).
             if ($nuevoSueldoMensual !== null && $nuevoSueldoMensual > 0) {
-                $diarioNuevo = $this->compensacion->diarioDesdeMensual($nuevoSueldoMensual);
-                $diarioActual = $colaborador->salario_diario !== null ? (float) $colaborador->salario_diario : null;
+                $mensualActual = $colaborador->sueldo_mensual !== null ? (float) $colaborador->sueldo_mensual : null;
+                $diarioDerivado = $this->compensacion->diarioDesdeMensual(round($nuevoSueldoMensual, 2));
+                $diarioDesfasado = $colaborador->salario_diario === null || abs((float) $colaborador->salario_diario - $diarioDerivado) > 0.001;
 
-                if ($diarioActual === null || abs($diarioActual - $diarioNuevo) > 0.001) {
-                    $this->compensacion->actualizarSalario($colaborador, $diarioNuevo, null, $actor, [
+                if ($mensualActual === null || abs($mensualActual - round($nuevoSueldoMensual, 2)) > 0.004 || $diarioDesfasado) {
+                    $this->compensacion->actualizarSueldoMensual($colaborador, $nuevoSueldoMensual, $actor, [
                         'fuente' => 'datos_laborales',
                         'motivo' => $motivo ?? 'Actualización de sueldo desde Datos laborales.',
                     ]);
@@ -285,7 +292,8 @@ class DatosExpedienteService
 
         // Mismo historial que los datos personales: antes/después legibles
         // (nombres, no ids), quién, cuándo, módulo y motivo.
-        $legibleDespues = $this->laboralesLegibles($colaborador->fresh() ?? $colaborador);
+        $actualizado = $colaborador->fresh() ?? $colaborador;
+        $legibleDespues = $this->laboralesLegibles($actualizado);
         $cambios = [];
 
         foreach ($legibleDespues as $campo => $despues) {
@@ -309,7 +317,13 @@ class DatosExpedienteService
             ]);
         }
 
-        return $avisoSueldoSinConfigurar;
+        return [
+            'cambios' => $cambios,
+            'sin_salario_minimo' => $avisoSueldoSinConfigurar,
+            'sueldo_capturado' => $nuevoSueldoMensual,
+            'sueldo_guardado' => $actualizado->sueldo_mensual !== null ? (float) $actualizado->sueldo_mensual : null,
+            'salario_diario' => $actualizado->salario_diario !== null ? (float) $actualizado->salario_diario : null,
+        ];
     }
 
     /**

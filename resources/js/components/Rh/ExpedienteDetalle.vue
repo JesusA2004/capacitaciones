@@ -483,14 +483,29 @@ function guardarLaborales() {
         }))
         .put(actualizarDatosLaborales.url(props.colaborador.id), {
             preserveScroll: true,
+            // El aviso (guardado, «sin cambios» o el monto que quedó) lo da el
+            // servidor con su flash toast; un 422 lo avisan los errores
+            // globales (toast + foco en el campo). Nunca un «éxito» propio.
             onSuccess: () => {
-                mostrarExito('Datos laborales actualizados correctamente.');
                 editandoLaborales.value = false;
             },
-            onError: () =>
-                mostrarError('No se pudieron actualizar los datos laborales.'),
         });
 }
+
+/**
+ * Sueldo y fecha de ingreso son datos críticos: si cambian, el motivo es
+ * obligatorio (ActualizarDatosLaboralesRequest). Se dice ANTES de guardar.
+ */
+const motivoLaboralRequerido = computed(() => {
+    const sueldo = Number(formLaborales.sueldo_mensual || 0);
+    const actual = Number(props.colaborador.sueldo_mensual ?? 0);
+    const cambiaSueldo = sueldo > 0 && Math.abs(sueldo - actual) > 0.004;
+    const cambiaIngreso =
+        !!formLaborales.fecha_ingreso &&
+        formLaborales.fecha_ingreso !== (props.colaborador.fecha_ingreso ?? '');
+
+    return cambiaSueldo || cambiaIngreso;
+});
 
 function sueldoFormateado(valor: string | null): string {
     if (!valor) {
@@ -1480,13 +1495,21 @@ function irACompletarExpediente() {
                                     </div>
                                     <div class="grid gap-2 sm:col-span-2">
                                         <Label for="motivo_laboral"
-                                            >Motivo del cambio (obligatorio si
-                                            cambias sueldo o fecha de
-                                            ingreso)</Label
+                                            >Motivo del cambio
+                                            {{
+                                                motivoLaboralRequerido
+                                                    ? '(obligatorio: cambias un dato crítico)'
+                                                    : '(obligatorio si cambias sueldo o fecha de ingreso)'
+                                            }}</Label
                                         >
                                         <Input
                                             id="motivo_laboral"
                                             v-model="formLaborales.motivo"
+                                            name="motivo"
+                                            :required="motivoLaboralRequerido"
+                                            :aria-invalid="
+                                                !!formLaborales.errors.motivo
+                                            "
                                             placeholder="Ej. promoción, reubicación, ajuste de sueldo, corrección de captura..."
                                         />
                                         <InputError

@@ -16,8 +16,10 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Fuente única de cálculo salarial (CLAUDE.md "Compensación centralizada").
- * Regla fija, sin excepción de mes ni de año bisiesto: salario mensual =
- * salario diario × 30 SIEMPRE. La quincena ordinaria paga 15 días
+ * El sueldo MENSUAL que captura RH es la fuente de verdad y se guarda exacto;
+ * el salario diario se deriva de él (mensual ÷ 30, sin excepción de mes ni
+ * de año bisiesto). Solo una fuente que trae únicamente el diario (reporte
+ * NOI) calcula el mensual como diario × 30. La quincena ordinaria paga 15 días
  * salariales siempre, sin importar si el periodo calendario (16 al último
  * día real del mes) tiene 15 o 16 días. La semana es lunes→domingo, nunca
  * se confunde con la base mensual de 30.
@@ -74,6 +76,24 @@ class CompensacionService
     }
 
     /**
+     * Sueldo mensual vigente de una persona (fuente ÚNICA de lectura: nómina,
+     * finiquito, documentos): el mensual guardado, EXACTO como lo capturó RH
+     * (regla del negocio 2026-10-21: el mensual es la fuente de verdad, nunca
+     * se recalcula desde el diario). Solo un registro antiguo que nunca tuvo
+     * mensual cae al diario × 30. Null si no tiene sueldo.
+     */
+    public function mensualDe(Colaborador $colaborador): ?float
+    {
+        if ($colaborador->sueldo_mensual !== null && (float) $colaborador->sueldo_mensual > 0) {
+            return (float) $colaborador->sueldo_mensual;
+        }
+
+        return $colaborador->salario_diario !== null && (float) $colaborador->salario_diario > 0
+            ? $this->mensual((float) $colaborador->salario_diario)
+            : null;
+    }
+
+    /**
      * Salario diario vigente de una persona: salario_diario (fuente real que
      * escribe actualizarSalario()); si aún no está sincronizado, el mensual
      * ÷ 30 como respaldo.
@@ -124,11 +144,30 @@ class CompensacionService
     }
 
     /**
-     * Actualiza el salario diario (y, si viene, el integrado) de un
-     * colaborador: `sueldo_mensual` SIEMPRE queda sincronizado a diario×30
-     * (nunca se edita aparte), deja rastro en `historial_salarios` (ledger
-     * append-only, nunca sobrescribe sin rastro) y, si el diario cambió,
-     * un MovimientoLaboral de cambio de sueldo para el expediente.
+     * Cambia el sueldo a partir del MENSUAL que captura RH (expediente, alta,
+     * reingreso): el mensual se guarda EXACTO (9,582.47 queda 9,582.47) y el
+     * diario SIEMPRE se deriva de él (round(mensual ÷ 30, 2) = 319.42) —
+     * nunca al revés. Mismo ledger, contrato vigente y movimiento laboral que
+     * actualizarSalario().
+     *
+     * @param  array{fuente: string, fecha_efectiva?: string, importacion_id?: int|null, motivo?: string|null}  $meta
+     */
+    public function actualizarSueldoMensual(Colaborador $colaborador, float $mensual, User $actor, array $meta): HistorialSalario
+    {
+        if ($mensual <= 0) {
+            throw ValidationException::withMessages(['sueldo_mensual' => 'El sueldo mensual debe ser mayor a cero.']);
+        }
+
+        $mensual = round($mensual, 2);
+
+        return $this->registrar($colaborador, $this->diarioDesdeMensual($mensual), null, $mensual, $actor, $meta);
+    }
+
+    /**
+     * Cambia el sueldo cuando la fuente SOLO trae el salario DIARIO (reportes
+     * de nómina NOI de las importaciones): es el único caso en que el mensual
+     * se calcula (diario × 30), porque no existe un mensual capturado.
+     * Cualquier captura de RH usa actualizarSueldoMensual().
      *
      * @param  array{fuente: string, fecha_efectiva?: string, importacion_id?: int|null, motivo?: string|null}  $meta
      */
@@ -138,15 +177,28 @@ class CompensacionService
             throw ValidationException::withMessages(['salario_diario' => 'El salario diario debe ser mayor a cero.']);
         }
 
-        return DB::transaction(function () use ($colaborador, $nuevoDiario, $nuevoIntegrado, $actor, $meta): HistorialSalario {
+        return $this->registrar($colaborador, $nuevoDiario, $nuevoIntegrado, $this->mensual($nuevoDiario), $actor, $meta);
+    }
+
+    /**
+     * Escribe diario + mensual, sincroniza el contrato vigente, deja rastro
+     * en `historial_salarios` (ledger append-only) y, si el sueldo cambió, un
+     * MovimientoLaboral de cambio de sueldo para el expediente.
+     *
+     * @param  array{fuente: string, fecha_efectiva?: string, importacion_id?: int|null, motivo?: string|null}  $meta
+     */
+    private function registrar(Colaborador $colaborador, float $nuevoDiario, ?float $nuevoIntegrado, float $nuevoMensual, User $actor, array $meta): HistorialSalario
+    {
+        return DB::transaction(function () use ($colaborador, $nuevoDiario, $nuevoIntegrado, $nuevoMensual, $actor, $meta): HistorialSalario {
             $colaborador = Colaborador::query()->lockForUpdate()->findOrFail($colaborador->id);
             $diarioAnterior = $colaborador->salario_diario !== null ? (float) $colaborador->salario_diario : null;
+            $mensualAnterior = $colaborador->sueldo_mensual !== null ? (float) $colaborador->sueldo_mensual : null;
             $integradoAnterior = $colaborador->salario_diario_integrado !== null ? (float) $colaborador->salario_diario_integrado : null;
 
             $colaborador->update([
                 'salario_diario' => $nuevoDiario,
                 'salario_diario_integrado' => $nuevoIntegrado ?? $colaborador->salario_diario_integrado,
-                'sueldo_mensual' => $this->mensual($nuevoDiario),
+                'sueldo_mensual' => $nuevoMensual,
             ]);
 
             // El contrato VIGENTE refleja el sueldo vigente: su registro
@@ -157,7 +209,7 @@ class CompensacionService
                 ->where('colaborador_id', $colaborador->id)
                 ->where('estado', EstadoContratoLaboral::Vigente->value)
                 ->get()
-                ->each(fn (ContratoLaboral $contrato) => $contrato->update(['sueldo_mensual' => $this->mensual($nuevoDiario)]));
+                ->each(fn (ContratoLaboral $contrato) => $contrato->update(['sueldo_mensual' => $nuevoMensual]));
 
             $historial = HistorialSalario::query()->create([
                 'colaborador_id' => $colaborador->id,
@@ -173,18 +225,21 @@ class CompensacionService
                 'motivo' => $meta['motivo'] ?? null,
             ]);
 
-            if ($diarioAnterior !== null && abs($diarioAnterior - $nuevoDiario) > 0.001) {
+            $cambioDiario = $diarioAnterior !== null && abs($diarioAnterior - $nuevoDiario) > 0.001;
+            $cambioMensual = $mensualAnterior !== null && abs($mensualAnterior - $nuevoMensual) > 0.001;
+
+            if ($diarioAnterior !== null && ($cambioDiario || $cambioMensual)) {
                 MovimientoLaboral::query()->create([
                     'colaborador_id' => $colaborador->id,
                     'user_id' => $colaborador->user?->id,
                     'tipo_movimiento' => TipoMovimientoLaboral::CambioSueldo->value,
-                    'motivo' => $meta['motivo'] ?? sprintf('Actualización de salario diario (%s).', $meta['fuente']),
+                    'motivo' => $meta['motivo'] ?? sprintf('Actualización de sueldo (%s).', $meta['fuente']),
                     'observaciones' => sprintf(
-                        'Salario diario: $%s → $%s (mensual $%s → $%s)',
+                        'Sueldo mensual: $%s → $%s (diario $%s → $%s)',
+                        number_format($mensualAnterior ?? $this->mensual($diarioAnterior), 2),
+                        number_format($nuevoMensual, 2),
                         number_format($diarioAnterior, 2),
                         number_format($nuevoDiario, 2),
-                        number_format($this->mensual($diarioAnterior), 2),
-                        number_format($this->mensual($nuevoDiario), 2),
                     ),
                     'fecha_movimiento' => now(),
                     'registrado_por' => $actor->id,

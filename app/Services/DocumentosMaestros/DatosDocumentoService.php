@@ -831,16 +831,12 @@ class DatosDocumentoService
     }
 
     /**
-     * Sueldo mensual vigente del colaborador: salario diario × 30
-     * (CompensacionService); sin diario, el mensual capturado.
+     * Sueldo mensual vigente del colaborador (CompensacionService::mensualDe:
+     * el guardado si cuadra con su diario; si no, diario × 30).
      */
     private function sueldoDelColaborador(Colaborador $c): ?float
     {
-        if ($c->salario_diario !== null && (float) $c->salario_diario > 0) {
-            return $this->compensacion->mensual((float) $c->salario_diario);
-        }
-
-        return $c->sueldo_mensual !== null && (float) $c->sueldo_mensual > 0 ? (float) $c->sueldo_mensual : null;
+        return $this->compensacion->mensualDe($c);
     }
 
     /**

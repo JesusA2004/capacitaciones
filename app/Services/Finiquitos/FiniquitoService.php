@@ -720,13 +720,13 @@ class FiniquitoService
     }
 
     /**
-     * Sueldo mensual de partida para el cálculo: salario diario registrado
-     * del colaborador × 30 (CompensacionService, la única fuente de
-     * compensación). 0 si la persona no tiene salario capturado.
+     * Sueldo mensual de partida para el cálculo: el mensual vigente del
+     * colaborador (CompensacionService::mensualDe, la única fuente de
+     * compensación: el mismo que lee la nómina). 0 si no tiene salario.
      */
     public function sueldoMensualSugerido(Colaborador $colaborador): float
     {
-        return $this->compensacion->mensual($this->compensacion->diarioDe($colaborador));
+        return $this->compensacion->mensualDe($colaborador) ?? 0.0;
     }
 
     /**

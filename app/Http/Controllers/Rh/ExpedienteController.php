@@ -685,20 +685,37 @@ class ExpedienteController extends Controller
         // Este formulario siempre incluye el sueldo (aunque venga vacío): así
         // se conserva la regla de «completar con el salario mínimo» si nunca
         // tuvo uno capturado.
-        $avisoSueldoSinConfigurar = $this->datosExpediente->actualizarLaborales(
+        $resultado = $this->datosExpediente->actualizarLaborales(
             $colaborador,
             [...$request->validated(), 'sueldo_mensual' => $request->validated('sueldo_mensual')],
             $request->user(),
         );
 
-        if ($avisoSueldoSinConfigurar) {
+        if ($resultado['sin_salario_minimo']) {
             return back()->with('toast', [
                 'type' => 'warning',
                 'message' => 'Datos laborales actualizados, pero no se asignó un sueldo por defecto: falta configurar el salario mínimo vigente en el servidor (SALARIO_MINIMO_DIARIO). Captura el sueldo manualmente o pide a un administrador que configure esa variable.',
             ]);
         }
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Datos laborales actualizados correctamente.']);
+        // Nunca «éxito» si no se guardó nada.
+        if ($resultado['cambios'] === []) {
+            return back()->with('toast', ['type' => 'info', 'message' => 'No hubo cambios: los datos laborales ya estaban así.']);
+        }
+
+        // El sueldo que quedó no es el capturado (no cuadra con diario × 30):
+        // se dice el monto real que se guardó.
+        $capturado = $resultado['sueldo_capturado'];
+        $guardado = $resultado['sueldo_guardado'];
+
+        if ($capturado !== null && $guardado !== null && abs($capturado - $guardado) > 0.004) {
+            return back()->with('toast', [
+                'type' => 'warning',
+                'message' => sprintf('Datos laborales actualizados. El sueldo quedó en $%s (salario diario $%s × 30), no en los $%s capturados.', number_format($guardado, 2), number_format((float) $resultado['salario_diario'], 2), number_format($capturado, 2)),
+            ]);
+        }
+
+        return back()->with('toast', ['type' => 'success', 'message' => sprintf('Datos laborales actualizados (%d cambio%s). Quedó registrado en el historial del expediente.', count($resultado['cambios']), count($resultado['cambios']) === 1 ? '' : 's')]);
     }
 
     /**

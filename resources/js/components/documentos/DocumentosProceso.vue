@@ -345,6 +345,9 @@ async function ejecutarGeneracion(
         );
     } catch (e) {
         if (e instanceof ErrorDocumento && e.codigo === 'DATOS_FALTANTES') {
+            // El modal de datos faltantes toma el relevo (conserva el motivo
+            // de la regeneración en `pendiente`).
+            regeneracion.value = null;
             pendiente.value = p;
             faltantes.value = e.faltantes;
             nombreDocumentoFaltantes.value =
@@ -955,11 +958,12 @@ async function confirmarBaja() {
             (v: boolean) => !v && ocupado === null && (regeneracion = null)
         "
     >
-        <DialogContent class="sm:max-w-md">
-            <DialogHeader>
-                <DialogTitle class="flex items-center gap-2"
+        <DialogContent class="sm:max-w-xl">
+            <DialogHeader class="min-w-0">
+                <DialogTitle
+                    class="flex items-start gap-2 text-left leading-snug break-words"
                     ><ShieldAlert
-                        class="size-5"
+                        class="mt-0.5 size-5 shrink-0"
                         :class="
                             avisoRegeneracion
                                 ? 'text-destructive'
@@ -985,9 +989,9 @@ async function confirmarBaja() {
                 <AlertTriangle
                     class="mt-0.5 size-4 shrink-0 text-destructive"
                 />
-                <p>{{ avisoRegeneracion }}</p>
+                <p class="min-w-0">{{ avisoRegeneracion }}</p>
             </div>
-            <div v-if="regeneracion" class="flex flex-col gap-1">
+            <div v-if="regeneracion" class="flex min-w-0 flex-col gap-1">
                 <Label for="motivo-regeneracion">Motivo (obligatorio)</Label>
                 <Textarea
                     id="motivo-regeneracion"
@@ -1001,7 +1005,7 @@ async function confirmarBaja() {
                     auditoría.
                 </p>
             </div>
-            <DialogFooter>
+            <DialogFooter class="flex-wrap gap-2">
                 <Button
                     variant="outline"
                     :disabled="ocupado !== null"
