@@ -23,6 +23,14 @@ class SincronizarJefesDirectosCommand extends Command
         $this->info(sprintf('Jefes directos sincronizados: %d actualizados.', $resultado['actualizados']));
         $this->line(sprintf('Personas sin jefe (encabezan la estructura): %d.', $resultado['sin_jefe']));
 
+        if ($resultado['sin_jefe_asignable'] !== []) {
+            $this->warn(sprintf(
+                'Personal de sucursal SIN JEFE ASIGNABLE (sin gerencia, sin regional de su región y sin ninguna regional vigente): %d. Se abrió un pendiente para RH; revisa cada caso con «php artisan organigrama:explicar-jefe <id>». IDs: %s',
+                count($resultado['sin_jefe_asignable']),
+                implode(', ', $resultado['sin_jefe_asignable']),
+            ));
+        }
+
         return self::SUCCESS;
     }
 }

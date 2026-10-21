@@ -96,10 +96,23 @@ Una tarjeta por persona o plaza (foto/iniciales, nombre, puesto, sucursal, chip 
 
 El jefe directo **no se captura en ningún lado** (se retiró la pantalla Configuración → Jefes directos y el combo de jefe en datos laborales y en el alta). Sale del organigrama: el superior es quien ocupa el puesto superior en su misma sucursal/región; si ese puesto está vacante se sube por la cadena hasta la primera persona (o quien lo cubre temporalmente). Solo quien encabeza la estructura queda sin jefe.
 
-- Única fuente: `AppServicesOrganigramaJefeDirectoService` (usa `OrganigramaPersonasService::jefesDerivados()`). `colaboradores.jefe_id` se conserva como copia materializada porque aprobaciones, avisos y alcance lo leen directo; solo este servicio lo escribe, y cada cambio queda en la bitácora (`jefe_directo_cambiado`, motivo "Derivado del organigrama").
+- Única fuente: `App\Services\Organigrama\JefeDirectoService` (usa `OrganigramaPersonasService::jefesDerivados()`). `colaboradores.jefe_id` se conserva como copia materializada porque aprobaciones, avisos y alcance lo leen directo; solo este servicio lo escribe, y cada cambio queda en la bitácora (`jefe_directo_cambiado`, motivo "Derivado del organigrama").
 - Se recalcula solo al terminar la petición cuando cambia el puesto, la sucursal o el estatus de alguien, el "reporta a" de un puesto, la región de la matriz o una cobertura (`AppServiceProvider`). Cambiar datos laborales desde el expediente y dar de alta lo recalculan al momento.
 - Red de seguridad diaria y para bases existentes: `php artisan organigrama:sincronizar-jefes` (programado 05:30).
-- «¿Por qué su jefe es X?»: `php artisan organigrama:explicar-jefe EMP-0131` (o el id) muestra la cadena nivel por nivel (titular, cobertura o VACANTE, y quién tiene ese puesto pero no cuenta por su estatus) y avisa si `jefe_id` está desactualizado. Solo lectura. Caso real (2026-10-21): un Gestor de San Luis Potosí con «Jefe: Dirección Comercial» = Subgerente y Gerente de SLP vacantes + Gerente Regional Q1 vacante; se corrige registrando al gerente (o una cobertura «Cubre temporalmente»), no tocando el jefe.
+- «¿Por qué su jefe es X?»: `php artisan organigrama:explicar-jefe EMP-0131` (o el id) muestra la cadena nivel por nivel (titular, cobertura, VACANTE o regional de respaldo, y quién tiene ese puesto pero no cuenta por su estatus) y avisa si `jefe_id` está desactualizado. Solo lectura.
+
+### Personal de sucursal: nunca Dirección Comercial (regla del dueño, 2026-10-21)
+
+Para cualquier puesto **de sucursal** (Gestor, Gestor Volante, Subgerente, Gerente de Sucursal, Coordinadora de Sucursal…) el jefe — y por lo tanto el «Responsable de aprobaciones» — es, en este orden:
+
+1. quien ocupa (o cubre temporalmente) el puesto superior en **su** sucursal (Gestor → Subgerente → Gerente de Sucursal; el catálogo dice Gestor → Subgerente y se respeta);
+2. el Gerente Regional de **su** región (titular o cobertura);
+3. la **regional de respaldo** (`App\Services\Organigrama\RegionalRespaldoService`, `config/organigrama.php` → `regional_respaldo`): la persona fijada en `ORGANIGRAMA_REGIONAL_RESPALDO` (id o número de empleado) o, si no hay, el primer titular vigente (por id) de un puesto regional — los ligados a una región de la matriz más «Gerente Regional Q1/Q3», «Gerente regional», «Regional de Operaciones» — y después quien cubra una plaza regional. Con una sola regional en la empresa siempre es ella;
+4. si no existe **ningún** regional: `jefe_id` = null, «SIN JEFE ASIGNABLE» en `explicar-jefe` y en `sincronizar-jefes`, y un pendiente «Sin jefe asignable en el organigrama» en la bandeja de RH (`organigrama.editar`, se cierra solo al resolverse).
+
+**Nunca** Dirección Comercial ni Dirección General (`ciclo_laboral.organizacion.puestos_direccion_comercial` y sus superiores). Los regionales sí reportan a Dirección Comercial. El árbol visual no cambia (la plaza regional se sigue viendo VACANTE colgando de Dirección Comercial); cambia el jefe derivado. La misma regla aplica en el motor de aprobaciones (Gerente de Sucursal clasificado en una región sin regional → origen `regional_respaldo` en vez de detenerse) y en `OrganizacionJerarquiaService::regionalesDe()` (avisos y candidatos de una sucursal cuya región de la matriz no tiene regional; una sucursal fuera de la matriz no hereda regional).
+
+Caso real (2026-10-21): Luis Ángel Méndez Díaz (EMP-0131, Gestor, San Luis Potosí) salía con «Jefe: Dirección Comercial» porque SLP no tiene Gerente ni Subgerente cargados y la Región Q1 no tiene Gerente Regional. Los datos reales (`HEADCOUNT GENERAL MR LANA 16-10-2026`, hoja «SUCURSALES») ponen a **Mónica Ana Karen García Cancino** («Regional de Operaciones», Tula) al frente de las 11 sucursales, consolidado «Q1, Q3»; la carga inicial solo la registró como titular de Q3 (la región de Tula). Ahora su jefe es Mónica por respaldo. Lo formal es que RH registre a Mónica con «Cubre temporalmente» en la plaza Gerente Regional Q1 (Organigrama → tarjeta VACANTE de Q1), o cargue al gerente de SLP.
 - Los nombres de `puestos_raiz_sucursal` / `puestos_de_region` se comparan sin mayúsculas ni acentos.
 
 ## Vistas

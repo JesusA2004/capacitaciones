@@ -9,7 +9,7 @@ use Illuminate\Console\Command;
 /**
  * Diagnóstico de solo lectura: por qué una persona tiene el jefe directo
  * que tiene. Muestra la cadena del organigrama nivel por nivel (titular,
- * cobertura o plaza VACANTE) y compara el jefe derivado con el guardado en
+ * cobertura, plaza VACANTE o regional de respaldo) y compara el jefe derivado con el guardado en
  * `colaboradores.jefe_id`. No escribe nada: para corregir una copia
  * desactualizada se usa `organigrama:sincronizar-jefes`.
  */
@@ -62,9 +62,13 @@ class ExplicarJefeDirectoCommand extends Command
                 match ($paso['tipo']) {
                     'persona' => $paso['persona'],
                     'cobertura' => sprintf('%s (cubre temporalmente)', $paso['persona']),
+                    'respaldo' => sprintf('%s (regional de respaldo)', $paso['persona']),
                     default => 'VACANTE',
                 },
-                $paso['no_vigentes'] === [] ? '' : sprintf('Registrado(s) sin contar: %s', implode(', ', $paso['no_vigentes'])),
+                implode(' · ', array_filter([
+                    $paso['no_vigentes'] === [] ? null : sprintf('Registrado(s) sin contar: %s', implode(', ', $paso['no_vigentes'])),
+                    $paso['nota'],
+                ])),
             ];
         }
 
@@ -72,7 +76,14 @@ class ExplicarJefeDirectoCommand extends Command
 
         $derivado = $explicacion['jefe_id'] !== null ? Colaborador::query()->where('id', $explicacion['jefe_id'])->first() : null;
 
-        $this->line(sprintf('Jefe según el organigrama: %s', $derivado?->nombreCompleto() ?? 'ninguno (encabeza la estructura)'));
+        $this->line(sprintf(
+            'Jefe según el organigrama: %s',
+            $derivado?->nombreCompleto() ?? ($explicacion['sin_jefe_asignable'] ? 'SIN JEFE ASIGNABLE' : 'ninguno (encabeza la estructura)'),
+        ));
+
+        if ($explicacion['sin_jefe_asignable']) {
+            $this->warn('Sin jefe asignable: su sucursal no tiene gerencia, su región no tiene Gerente Regional y no hay ninguna regional vigente. RH debe registrar al gerente o una cobertura «Cubre temporalmente» (nunca se asigna Dirección Comercial).');
+        }
         $this->line(sprintf('Jefe guardado (jefe_id): %s', $persona->jefe?->nombreCompleto() ?? 'ninguno'));
 
         if ($persona->jefe_id !== $explicacion['jefe_id']) {

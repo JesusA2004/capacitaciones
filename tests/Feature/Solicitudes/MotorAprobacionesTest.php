@@ -329,8 +329,16 @@ test('E) Gerente de Sucursal → su regional Q1/Q3 de la clasificación (no Dire
     expect(collect($this->motor->pasos($prestamo))->pluck('nivel')->all())
         ->toBe([SolicitudAprobacion::NIVEL_REGIONAL, SolicitudAprobacion::NIVEL_DIRECCION_COMERCIAL]);
 
-    // Plaza regional vacante y sin cobertura: detenido con su motivo (no sube a Dirección Comercial).
+    // Plaza regional Q3 vacante y sin cobertura: la regional de respaldo
+    // (la otra regional vigente), nunca Dirección Comercial.
     $this->regionalQ3->colaborador->update(['estatus' => 'inactivo']);
+    $respaldo = $this->motor->responsableDeAprobacion($gerente->fresh());
+    expect($respaldo['bloqueado'])->toBeFalse()
+        ->and($respaldo['origen'])->toBe(AprobacionOrganizacionalService::ORIGEN_REGIONAL_RESPALDO)
+        ->and($respaldo['usuarios']->pluck('id')->all())->toBe([$this->regionalQ1->id]);
+
+    // Sin NINGUNA regional vigente: detenido con su motivo (no sube a Dirección Comercial).
+    $this->regionalQ1->colaborador->update(['estatus' => 'inactivo']);
     $vacante = $this->motor->responsableDeAprobacion($gerente->fresh());
     expect($vacante['bloqueado'])->toBeTrue()
         ->and($vacante['origen'])->toBe(AprobacionOrganizacionalService::ORIGEN_REGIONAL_VACANTE)

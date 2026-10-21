@@ -29,6 +29,24 @@ return [
     'puestos_de_region' => ['Gerente regional'],
 
     /*
+    | Regional de RESPALDO (App\Services\Organigrama\RegionalRespaldoService).
+    | El personal de sucursal (Gestor, Subgerente, Gerente de Sucursal…)
+    | NUNCA reporta a Dirección Comercial: si la gerencia de su sucursal y el
+    | Gerente Regional de su región están vacantes (sin titular ni cobertura),
+    | su jefe y responsable de aprobaciones es esta regional. Orden:
+    |  1. `colaborador` (id o número de empleado) si está vigente;
+    |  2. titulares vigentes de puestos regionales (los ligados a una región
+    |     de la matriz + `puestos`), por id;
+    |  3. quien cubre temporalmente una plaza regional.
+    | Sin ningún regional: queda «sin jefe asignable» (pendiente para RH),
+    | nunca Dirección Comercial.
+    */
+    'regional_respaldo' => [
+        'puestos' => ['Gerente Regional Q1', 'Gerente Regional Q3', 'Gerente regional', 'Regional de Operaciones'],
+        'colaborador' => env('ORGANIGRAMA_REGIONAL_RESPALDO'),
+    ],
+
+    /*
     | Mini-organigramas (inducción capítulo 4 y pantalla de Organigrama):
     | slug => nombre EXACTO del puesto raíz en el catálogo real (seeders
     | PuestoJerarquiaSeeder). MiniOrganigramaService::areas() ignora en

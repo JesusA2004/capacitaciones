@@ -14,6 +14,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\JerarquiaColaboradorService;
+use App\Services\Organigrama\RegionalRespaldoService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
@@ -43,6 +44,7 @@ class OrganizacionJerarquiaService
     public function __construct(
         private readonly JerarquiaColaboradorService $jerarquia,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly RegionalRespaldoService $regionalRespaldo,
     ) {}
 
     /**
@@ -342,7 +344,10 @@ class OrganizacionJerarquiaService
      * Gerente regional de la región de una sucursal (matriz comercial:
      * zona → región → puesto regional ligado), ocupantes de un puesto
      * regional genérico cuya sucursal está en esa región, quien lo cubre y,
-     * como respaldo, los regionales de la cadena de mando de la persona.
+     * como respaldo, los regionales de la cadena de mando de la persona. Si
+     * con todo eso no hay nadie y la sucursal es operativa y está en una
+     * región de la matriz, la regional de respaldo (config
+     * organigrama.regional_respaldo).
      *
      * @return Collection<int, User>
      */
@@ -381,7 +386,24 @@ class OrganizacionJerarquiaService
             }
         }
 
-        return $this->usuariosDe($personas, $persona);
+        $usuarios = $this->usuariosDe($personas, $persona);
+
+        // Sucursal operativa cuya región (en la matriz) no tiene Gerente
+        // Regional (ni cobertura): la regional de respaldo
+        // (RegionalRespaldoService), la misma que el organigrama le da como
+        // jefe a su personal. Una sucursal fuera de la matriz no hereda
+        // regional de otra región.
+        if ($usuarios->isEmpty() && $region !== null && Sucursal::query()->whereKey($sucursalId)->where('es_corporativo', false)->exists()) {
+            foreach ($this->regionalRespaldo->candidatos() as $candidatoId) {
+                $usuario = $candidatoId !== $persona?->id ? $this->usuarioActivoDe(Colaborador::query()->where('id', $candidatoId)->first()) : null;
+
+                if ($usuario !== null) {
+                    return collect([$usuario]);
+                }
+            }
+        }
+
+        return $usuarios;
     }
 
     /**

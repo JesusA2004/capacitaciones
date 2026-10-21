@@ -143,7 +143,9 @@ test('«Cubre temporalmente» se marca sin fechas ni motivo, no altera headcount
     // Se va la titular de Q3: la plaza queda vacante.
     $this->titularQ3->update(['estatus' => 'inactivo']);
     app(JefeDirectoService::class)->sincronizar();
-    expect($this->gerenteCordoba->fresh()->jefe_id)->toBe($this->dc->id);
+    // Personal de sucursal nunca reporta a Dirección Comercial: la regional
+    // de respaldo (la otra regional vigente, titular de Q1).
+    expect($this->gerenteCordoba->fresh()->jefe_id)->toBe($this->titularQ1->id);
 
     $headcount = app(HeadcountService::class);
     $antes = $headcount->plantillaDePar($this->cordoba->id, $this->regionalQ3->id);
@@ -197,7 +199,9 @@ test('«Cubre temporalmente» se marca sin fechas ni motivo, no altera headcount
     expect($cobertura->refresh()->activa)->toBeFalse()
         ->and($cobertura->finalizada_por)->toBe($this->rh->id);
     app(JefeDirectoService::class)->sincronizar();
-    expect($this->gerenteCordoba->fresh()->jefe_id)->toBe($this->dc->id);
+    // Sin cobertura vuelve a la regional de respaldo, no a Dirección Comercial.
+    expect($this->gerenteCordoba->fresh()->jefe_id)->toBe($this->titularQ1->id)
+        ->and($this->gerenteCordoba->fresh()->jefe_id)->not->toBe($this->dc->id);
 });
 
 test('subir de puesto registra la promoción, recalcula su jefe y el de quienes le reportaban', function () {

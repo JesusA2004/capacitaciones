@@ -83,6 +83,11 @@ enum TipoTarea: string
     case PermisoPendiente = 'permiso_pendiente';
     case PrestamoPendiente = 'prestamo_pendiente';
 
+    // Organigrama: personal de sucursal sin jefe asignable (sin gerencia,
+    // sin Gerente Regional de su región y sin ninguna regional de respaldo).
+    // Lo abre/cierra JefeDirectoService al sincronizar.
+    case OrganigramaSinJefe = 'organigrama_sin_jefe';
+
     public function etiqueta(): string
     {
         return match ($this) {
@@ -136,6 +141,7 @@ enum TipoTarea: string
             self::VacacionesPendiente => 'Vacaciones pendientes',
             self::PermisoPendiente => 'Permiso pendiente',
             self::PrestamoPendiente => 'Préstamo pendiente',
+            self::OrganigramaSinJefe => 'Sin jefe asignable en el organigrama',
         };
     }
 
@@ -162,7 +168,8 @@ enum TipoTarea: string
             self::CierrePreautorizacion, self::CierreAutorizacionRh, self::FiniquitoPendiente, self::FiniquitoPorAutorizar,
             self::PagoPorProgramar, self::CitaFiniquito, self::CierrePorConcluir => EtapaCicloLaboral::Cierre,
             self::ReingresoPreautorizacion, self::ReingresoRevision => EtapaCicloLaboral::Reingreso,
-            self::VacacionesPendiente, self::PermisoPendiente, self::PrestamoPendiente => null,
+            self::VacacionesPendiente, self::PermisoPendiente, self::PrestamoPendiente,
+            self::OrganigramaSinJefe => null,
         };
     }
 

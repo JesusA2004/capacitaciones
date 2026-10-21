@@ -125,11 +125,27 @@ class OrganigramaPersonasService
     /** @var array<int, array{por: string|null, en: string|null}> */
     private array $auditoriaClasificacion = [];
 
+    /**
+     * Puestos que NUNCA son jefe del personal de sucursal: Dirección
+     * Comercial (ciclo_laboral.organizacion.puestos_direccion_comercial) y
+     * todo lo que está arriba de ella. Memo por carga de catálogos.
+     *
+     * @var array<int, true>|null
+     */
+    private ?array $puestosTope = null;
+
+    /** @var list<int>|null candidatos a regional de respaldo (memo por carga) */
+    private ?array $candidatosRespaldo = null;
+
+    /** @var array<int, true> personal de sucursal sin jefe asignable en el último cálculo */
+    private array $sinJefeAsignable = [];
+
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly FotoColaboradorService $fotos,
         private readonly CoberturaPuestoService $coberturasService,
         private readonly MiniOrganigramaService $miniOrganigrama,
+        private readonly RegionalRespaldoService $regionalRespaldo,
     ) {}
 
     /**
@@ -204,7 +220,14 @@ class OrganigramaPersonasService
      * alcance ni filtros: la estructura completa). Es la única fuente del
      * jefe directo: nadie lo captura a mano. Si el puesto superior está
      * vacante se sube por la cadena hasta la primera persona (o quien cubre
-     * el puesto); null solo para quien encabeza la estructura.
+     * el puesto); null para quien encabeza la estructura.
+     *
+     * Tope del personal de SUCURSAL (regla del dueño, 2026-10-21): su jefe
+     * nunca es Dirección Comercial ni nadie arriba de ella. Si la cadena
+     * llega ahí (gerencia de su sucursal y regional de su región vacantes),
+     * su jefe es la regional de respaldo (RegionalRespaldoService); si no
+     * existe ningún regional queda null y se marca «sin jefe asignable»
+     * (sinJefeAsignable()).
      *
      * `$simulacion` (vista previa de «Vas a mover a X…»): aplica en memoria,
      * sin guardar nada, otro puesto/sucursal/región a esas personas.
@@ -217,12 +240,108 @@ class OrganigramaPersonasService
         $colaboradores = $this->construirEstructuraCompleta($simulacion);
 
         $jefes = [];
+        $this->sinJefeAsignable = [];
 
         foreach ($colaboradores as $colaborador) {
-            $jefes[$colaborador->id] = $this->personaArriba($this->nodos['p'.$colaborador->id]['padre'] ?? null, $colaborador->id);
+            $resolucion = $this->resolverJefe($colaborador->id);
+            $jefes[$colaborador->id] = $resolucion['jefe_id'];
+
+            if ($resolucion['sin_jefe_asignable']) {
+                $this->sinJefeAsignable[$colaborador->id] = true;
+            }
         }
 
         return $jefes;
+    }
+
+    /**
+     * Personal de sucursal que en el último jefesDerivados() quedó sin jefe
+     * porque no hay gerencia, ni regional de su región, ni regional de
+     * respaldo (nadie vigente en un puesto regional).
+     *
+     * @return list<int>
+     */
+    public function sinJefeAsignable(): array
+    {
+        return array_keys($this->sinJefeAsignable);
+    }
+
+    /**
+     * Decisión del jefe de UNA persona sobre la estructura ya construida:
+     * la primera persona arriba en la cadena, salvo que sea personal de
+     * sucursal y esa persona sea Dirección Comercial (o superior) o no haya
+     * nadie: entonces la regional de respaldo.
+     *
+     * @return array{jefe_id: int|null, descartado: string|null, respaldo: bool, sin_jefe_asignable: bool}
+     */
+    private function resolverJefe(int $colaboradorId): array
+    {
+        $nodo = $this->nodos['p'.$colaboradorId] ?? null;
+
+        if ($nodo === null) {
+            return ['jefe_id' => null, 'descartado' => null, 'respaldo' => false, 'sin_jefe_asignable' => false];
+        }
+
+        $clave = $this->claveDePersonaArriba($nodo['padre'], $colaboradorId);
+        $arriba = $clave !== null ? $this->nodos[$clave] : null;
+
+        if (! $nodo['de_sucursal'] || ($arriba !== null && ! isset($this->puestosTope()[$arriba['puesto']['id']]))) {
+            return ['jefe_id' => $arriba['persona']['id'] ?? null, 'descartado' => null, 'respaldo' => false, 'sin_jefe_asignable' => false];
+        }
+
+        // Personal de sucursal cuya cadena llegó a Dirección Comercial (o a
+        // nadie): la regional de respaldo, nunca Dirección Comercial.
+        $this->candidatosRespaldo ??= $this->regionalRespaldo->candidatos();
+        $respaldo = null;
+
+        foreach ($this->candidatosRespaldo as $candidato) {
+            // Solo quien sigue vigente en ESTA estructura (una vista previa
+            // pudo moverlo en memoria).
+            if ($candidato !== $colaboradorId && isset($this->nodos['p'.$candidato])) {
+                $respaldo = $candidato;
+
+                break;
+            }
+        }
+
+        return [
+            'jefe_id' => $respaldo,
+            'descartado' => $clave,
+            'respaldo' => $respaldo !== null,
+            'sin_jefe_asignable' => $respaldo === null,
+        ];
+    }
+
+    /**
+     * Puestos tope para el personal de sucursal: Dirección Comercial y sus
+     * superiores (Dirección General).
+     *
+     * @return array<int, true>
+     */
+    private function puestosTope(): array
+    {
+        if ($this->puestosTope !== null) {
+            return $this->puestosTope;
+        }
+
+        /** @var list<string> $nombres */
+        $nombres = (array) config('ciclo_laboral.organizacion.puestos_direccion_comercial', []);
+        $tope = [];
+
+        foreach ($this->puestos as $puesto) {
+            if (! $this->nombreEnLista($puesto->nombre, $nombres)) {
+                continue;
+            }
+
+            $actual = $puesto;
+
+            while ($actual !== null && ! isset($tope[$actual->id])) {
+                $tope[$actual->id] = true;
+                $actual = $actual->puesto_superior_id !== null ? $this->puestos->get($actual->puesto_superior_id) : null;
+            }
+        }
+
+        return $this->puestosTope = $tope;
     }
 
     /**
@@ -232,9 +351,12 @@ class OrganigramaPersonasService
      * En cada plaza vacante se listan quienes TIENEN ese puesto en ese ámbito
      * pero no cuentan porque su estatus no es vigente (baja, suspendido…),
      * para distinguir «no hay nadie» de «hay alguien mal registrado».
+     * Si la cadena del personal de sucursal llega a Dirección Comercial, ese
+     * paso sale marcado como descartado y se agrega el de la regional de
+     * respaldo (tipo «respaldo») o se avisa «sin jefe asignable».
      * Diagnóstico para `organigrama:explicar-jefe` (solo lectura).
      *
-     * @return array{vigente: bool, pasos: list<array{tipo: string, puesto: string, ambito: string, persona_id: int|null, persona: string|null, no_vigentes: list<string>}>, jefe_id: int|null}
+     * @return array{vigente: bool, pasos: list<array{tipo: string, puesto: string, ambito: string, persona_id: int|null, persona: string|null, no_vigentes: list<string>, nota: string|null}>, jefe_id: int|null, respaldo: bool, sin_jefe_asignable: bool}
      */
     public function explicarJefe(int $colaboradorId): array
     {
@@ -242,13 +364,13 @@ class OrganigramaPersonasService
         $nodo = $this->nodos['p'.$colaboradorId] ?? null;
 
         if ($nodo === null) {
-            return ['vigente' => false, 'pasos' => [], 'jefe_id' => null];
+            return ['vigente' => false, 'pasos' => [], 'jefe_id' => null, 'respaldo' => false, 'sin_jefe_asignable' => false];
         }
 
+        $resolucion = $this->resolverJefe($colaboradorId);
         $pasos = [];
         $visitados = [];
         $clave = $nodo['padre'];
-        $jefeId = null;
 
         while ($clave !== null && ! isset($visitados[$clave]) && isset($this->nodos[$clave])) {
             $visitados[$clave] = true;
@@ -263,18 +385,36 @@ class OrganigramaPersonasService
                 'persona_id' => $personaId,
                 'persona' => $actual['persona']['nombre'] ?? null,
                 'no_vigentes' => $actual['tipo'] === 'vacante' ? $this->ocupantesNoVigentes($actual) : [],
+                'nota' => $clave === $resolucion['descartado'] ? 'No aplica: el personal de sucursal nunca reporta a Dirección Comercial' : null,
             ];
 
             if ($esJefe) {
-                $jefeId = $personaId;
-
                 break;
             }
 
             $clave = $actual['padre'];
         }
 
-        return ['vigente' => true, 'pasos' => $pasos, 'jefe_id' => $jefeId];
+        if ($resolucion['respaldo'] && $resolucion['jefe_id'] !== null) {
+            $respaldo = $this->nodos['p'.$resolucion['jefe_id']] ?? null;
+            $pasos[] = [
+                'tipo' => 'respaldo',
+                'puesto' => $respaldo['puesto']['nombre'] ?? '',
+                'ambito' => $respaldo['region']['nombre'] ?? 'Regional',
+                'persona_id' => $resolucion['jefe_id'],
+                'persona' => $respaldo['persona']['nombre'] ?? null,
+                'no_vigentes' => [],
+                'nota' => 'Regional de respaldo: la región de su sucursal no tiene Gerente Regional ni cobertura (config organigrama.regional_respaldo)',
+            ];
+        }
+
+        return [
+            'vigente' => true,
+            'pasos' => $pasos,
+            'jefe_id' => $resolucion['jefe_id'],
+            'respaldo' => $resolucion['respaldo'],
+            'sin_jefe_asignable' => $resolucion['sin_jefe_asignable'],
+        ];
     }
 
     /**
@@ -455,9 +595,10 @@ class OrganigramaPersonasService
     }
 
     /**
-     * Primera persona real (titular o quien cubre) subiendo desde `$clave`.
+     * Clave del nodo de la primera persona real (titular o quien cubre)
+     * subiendo desde `$clave`.
      */
-    private function personaArriba(?string $clave, int $excluirId): ?int
+    private function claveDePersonaArriba(?string $clave, int $excluirId): ?string
     {
         $visitados = [];
 
@@ -467,7 +608,7 @@ class OrganigramaPersonasService
             $personaId = $nodo['persona']['id'] ?? null;
 
             if ($personaId !== null && $personaId !== $excluirId) {
-                return $personaId;
+                return $clave;
             }
 
             $clave = $nodo['padre'];
@@ -487,6 +628,8 @@ class OrganigramaPersonasService
     private function prepararCatalogos(): void
     {
         $this->nodos = [];
+        $this->puestosTope = null;
+        $this->candidatosRespaldo = null;
         $this->puestos = Puesto::query()
             ->get(['id', 'nombre', 'nivel_jerarquico', 'tipo_puesto', 'puesto_superior_id', 'requiere_ruta', 'activo'])
             ->keyBy('id');
