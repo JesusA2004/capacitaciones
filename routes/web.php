@@ -119,6 +119,7 @@ require __DIR__.'/settings.php';
 require __DIR__.'/administracion.php';
 require __DIR__.'/rh.php';
 require __DIR__.'/responsivas.php';
+require __DIR__.'/cartas-compromiso.php';
 require __DIR__.'/ciclo-laboral.php';
 require __DIR__.'/bajas.php';
 require __DIR__.'/documentos-proceso.php';

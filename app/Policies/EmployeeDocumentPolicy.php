@@ -38,6 +38,20 @@ class EmployeeDocumentPolicy
     }
 
     /**
+     * «Descargar expediente completo» (ZIP): las mismas reglas de ver y
+     * descargar documentos del expediente, solo para quien opera el
+     * expediente de OTRA persona (RH, regionales con alcance). El propio
+     * colaborador descarga sus documentos uno por uno desde Mi expediente.
+     */
+    public function descargarExpediente(User $usuario, Colaborador $colaborador): bool
+    {
+        return $usuario->can('documentos.ver')
+            && $usuario->can('documentos.descargar')
+            && $usuario->colaborador_id !== $colaborador->id
+            && $this->alcance->puedeVerExpediente($usuario, $colaborador);
+    }
+
+    /**
      * Puede aprobar/rechazar/pedir correccion: siempre alguien distinto al
      * propio colaborador (nadie revisa su propio documento).
      */

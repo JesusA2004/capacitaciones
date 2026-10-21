@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FileSignature } from '@lucide/vue';
+import { FileArchive, FileSignature } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
 import ExpedienteDetalle from '@/components/Rh/ExpedienteDetalle.vue';
@@ -9,7 +9,10 @@ import ResponsivasColaborador from '@/components/Rh/Responsivas/ResponsivasColab
 import { Button } from '@/components/ui/button';
 import { usePermisos } from '@/composables/usePermisos';
 import { dashboard } from '@/routes';
-import { index as indexExpedientes } from '@/routes/rh/expedientes';
+import {
+    descargarZip,
+    index as indexExpedientes,
+} from '@/routes/rh/expedientes';
 import type {
     AltaDigitalResumenExpediente,
     AvisosManualExpediente,
@@ -56,6 +59,7 @@ const props = defineProps<{
     }[];
     esCuentaPropia: boolean;
     puedeRevisarDocumentos: boolean;
+    puedeDescargarExpediente?: boolean;
     puedeVerExtraccion: boolean;
     puedeAplicarExtraccion: boolean;
     puedeReprocesarExtraccion: boolean;
@@ -185,6 +189,14 @@ defineOptions({
         :centro="centro"
     >
         <template #acciones-encabezado>
+            <!-- ZIP con todo el expediente + INDICE.csv: descarga directa,
+                 no visita Inertia. La regla real: EmployeeDocumentPolicy. -->
+            <Button v-if="puedeDescargarExpediente" size="sm" as-child>
+                <a :href="descargarZip.url(colaborador.id)" download>
+                    <FileArchive class="size-3.5" />
+                    Descargar expediente completo
+                </a>
+            </Button>
             <template v-if="puedeGenerarResponsiva">
                 <Button
                     size="sm"

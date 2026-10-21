@@ -3,6 +3,7 @@
 namespace App\Services\Incorporacion;
 
 use App\Enums\EstadoUsuario;
+use App\Models\CartaCompromiso;
 use App\Models\Colaborador;
 use App\Models\ColaboradorDatosMedicos;
 use App\Models\IncorporacionInvitacion;
@@ -10,7 +11,9 @@ use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Colaboradores\DomicilioService;
 use App\Services\Expedientes\ActualizacionDatosService;
+use App\Services\Expedientes\CartaCompromisoService;
 use App\Services\Expedientes\DatosFaltantesService;
+use App\Services\Expedientes\DocumentosPendientesService;
 use BackedEnum;
 use DateTimeInterface;
 use Illuminate\Support\Facades\DB;
@@ -46,8 +49,18 @@ class RegistroAppService
     /** Cabecera con la que la app declara que entiende el registro completo (APKs viejas no la mandan). */
     public const CABECERA_CLIENTE = 'X-People-Registro';
 
-    /** Documentos que todavía no cuentan como «subidos» para el registro. */
-    private const ESTADOS_DOCUMENTO_FALTANTE = ['pendiente', 'rechazado', 'requiere_correccion', 'vencido', 'cambio_autorizado'];
+    /**
+     * metadata de la invitación: cerró el registro con más «No tengo este
+     * documento» que el máximo de una carta; la carta se genera sola al
+     * bajar sus faltantes (CartaCompromisoService::sincronizar).
+     */
+    public const META_CARTA_DIFERIDA = 'carta_compromiso_diferida_en';
+
+    /** metadata de la invitación: cuándo y cómo se resolvió la carta diferida. */
+    public const META_CARTA_DIFERIDA_RESUELTA = 'carta_compromiso_diferida_resuelta';
+
+    /** Documentos que todavía no cuentan como «subidos» para el registro (regla única). */
+    private const ESTADOS_DOCUMENTO_FALTANTE = DocumentosPendientesService::ESTADOS_FALTANTES;
 
     public function __construct(
         private readonly DatosFaltantesService $datosFaltantes,
@@ -55,6 +68,8 @@ class RegistroAppService
         private readonly IncorporacionService $incorporacion,
         private readonly DomicilioService $domicilios,
         private readonly AuditoriaService $auditoria,
+        private readonly CartaCompromisoService $cartas,
+        private readonly DocumentosPendientesService $pendientesDocumentos,
     ) {}
 
     /** Invitación QR con la que esta cuenta se registró (la más reciente). */
@@ -84,6 +99,39 @@ class RegistroAppService
     public function registroCompleto(User $usuario): bool
     {
         return ! $this->aplica($usuario);
+    }
+
+    /**
+     * ¿Cerró su registro con más documentos faltantes de los que cubre una
+     * carta y su carta automática sigue sin resolverse? Solo nuevo ingreso
+     * registrado por QR: el personal que ya laboraba nunca tiene esta marca.
+     */
+    public function cartaDiferida(User $usuario): bool
+    {
+        return filled($this->invitacionDe($usuario)?->metadata[self::META_CARTA_DIFERIDA] ?? null);
+    }
+
+    /**
+     * Quita la marca de carta diferida: se generó la carta (`$carta`) o ya
+     * no le falta ningún documento (null). Una vez resuelta, la persona ya
+     * no vuelve a recibir carta automática.
+     */
+    public function resolverCartaDiferida(User $usuario, ?CartaCompromiso $carta): void
+    {
+        $invitacion = $this->invitacionDe($usuario);
+
+        if ($invitacion === null) {
+            return;
+        }
+
+        $invitacion->forceFill(['metadata' => [
+            ...($invitacion->metadata ?? []),
+            self::META_CARTA_DIFERIDA => null,
+            self::META_CARTA_DIFERIDA_RESUELTA => [
+                'en' => now()->toIso8601String(),
+                'carta_compromiso_id' => $carta?->id,
+            ],
+        ]])->save();
     }
 
     /**
@@ -136,7 +184,12 @@ class RegistroAppService
                 'progreso' => $documentos['progreso'],
                 'lista' => array_values(array_filter($documentos['documentos'], fn (array $d): bool => (bool) $d['obligatorio'])),
             ],
-            'puede_finalizar' => $aplica && $faltanDatos === [] && $faltanDocumentos === [],
+            // Los documentos faltantes no impiden cerrar: se pueden marcar «No
+            // tengo este documento» (documentos_sin_tener → carta compromiso).
+            // Con más de `max_documentos_carta` marcados también se cierra,
+            // pero sin carta y con la app limitada a subir documentos.
+            'puede_finalizar' => $aplica && $faltanDatos === [] && $this->faltantesMarcables($colaborador),
+            'max_documentos_carta' => $this->cartas->maxDocumentos(),
             'pendientes' => $this->pendientesLegibles($faltanDatos, $faltanDocumentos, $documentos['documentos']),
         ];
     }
@@ -232,17 +285,36 @@ class RegistroAppService
      * documentos requeridos subidos (en revisión o aprobados). A partir de
      * aquí la persona entra a la app y cualquier cambio es por corrección.
      *
+     * Los documentos que la persona marcó «No tengo este documento»
+     * (`$documentosSinTener`, ids de document_types que deben estar entre
+     * sus faltantes) ya no impiden cerrar: se genera UNA carta compromiso con
+     * todos ellos y un plazo para subirlos (CartaCompromisoService). Con más
+     * de config('expedientes.carta_compromiso.max_documentos') marcados se
+     * cierra igual, pero sin carta (queda «diferida»). La respuesta trae
+     * `carta_compromiso` (o null).
+     *
+     * @param  array<int, int>  $documentosSinTener
      * @return array<string, mixed>
      *
      * @throws ValidationException
      */
-    public function finalizar(User $usuario): array
+    public function finalizar(User $usuario, array $documentosSinTener = []): array
     {
         $this->exigirRegistroAbierto($usuario);
 
         $colaborador = $this->colaboradorDe($usuario);
         $faltanDatos = $this->datosFaltantes($colaborador);
-        $faltanDocumentos = $this->documentosFaltantes($colaborador);
+        $faltantesPorId = $this->documentosFaltantesPorId($colaborador);
+        $sinTener = array_values(array_unique(array_map('intval', $documentosSinTener)));
+        $ajenos = array_diff($sinTener, array_keys($faltantesPorId));
+
+        if ($ajenos !== []) {
+            throw ValidationException::withMessages([
+                'documentos_sin_tener' => 'Solo puedes marcar «No tengo este documento» en documentos que todavía no subes.',
+            ]);
+        }
+
+        $faltanDocumentos = array_values(array_diff_key($faltantesPorId, array_flip($sinTener)));
 
         if ($faltanDatos !== [] || $faltanDocumentos !== []) {
             $documentos = $this->incorporacion->estadoIncorporacion($colaborador)['documentos'];
@@ -253,19 +325,40 @@ class RegistroAppService
         }
 
         $invitacion = $this->invitacionDe($usuario);
+        // Más faltantes de los que cubre una carta: el registro se cierra
+        // igual (no se rehace), pero sin carta; la app queda limitada a
+        // subir documentos hasta que le falten max o menos, y entonces la
+        // carta se genera sola (CartaCompromisoService::sincronizar).
+        $diferida = count($sinTener) > $this->cartas->maxDocumentos();
 
-        if ($invitacion !== null) {
-            DB::transaction(function () use ($invitacion, $colaborador, $usuario): void {
+        $carta = DB::transaction(function () use ($invitacion, $colaborador, $usuario, $sinTener, $diferida): ?CartaCompromiso {
+            if ($invitacion !== null) {
                 $invitacion->forceFill(['metadata' => [
                     ...($invitacion->metadata ?? []),
                     'registro_app_completado_en' => now()->toIso8601String(),
+                    ...($diferida ? [self::META_CARTA_DIFERIDA => now()->toIso8601String()] : []),
                 ]])->save();
 
-                $this->auditoria->registrar('registro_app_completado', $colaborador, $usuario, ['origen' => 'app']);
-            });
+                $this->auditoria->registrar('registro_app_completado', $colaborador, $usuario, [
+                    'origen' => 'app',
+                    'documentos_sin_tener' => count($sinTener),
+                    'carta_compromiso_diferida' => $diferida,
+                ]);
+            }
+
+            return $sinTener !== [] && ! $diferida ? $this->cartas->crear($colaborador, $sinTener, $usuario) : null;
+        });
+
+        // PDF al expediente y aviso a RH, ya fuera de la transacción: un
+        // fallo de Chrome/NAS/notificaciones nunca deshace el registro.
+        if ($carta !== null) {
+            $carta = $this->cartas->completarGeneracion($carta, $usuario);
         }
 
-        return $this->estado($usuario);
+        return [
+            ...$this->estado($usuario),
+            'carta_compromiso' => $carta !== null ? $this->cartas->aArray($carta) : null,
+        ];
     }
 
     /**
@@ -283,12 +376,31 @@ class RegistroAppService
      */
     private function documentosFaltantes(Colaborador $colaborador): array
     {
-        $documentos = $this->incorporacion->estadoIncorporacion($colaborador)['documentos'];
+        return array_values($this->documentosFaltantesPorId($colaborador));
+    }
 
-        return array_values(array_map(
-            fn (array $d): string => (string) $d['nombre'],
-            array_filter($documentos, fn (array $d): bool => (bool) $d['obligatorio'] && in_array($d['estado'], self::ESTADOS_DOCUMENTO_FALTANTE, true)),
-        ));
+    /** ¿Todo documento faltante puede cubrirse con «No tengo este documento» (carta compromiso)? */
+    private function faltantesMarcables(Colaborador $colaborador): bool
+    {
+        $marcables = $this->pendientesDocumentos->idsPendientes($colaborador);
+
+        return array_diff(array_keys($this->documentosFaltantesPorId($colaborador)), $marcables) === [];
+    }
+
+    /**
+     * @return array<int, string> document_type_id => nombre de cada requerido sin archivo válido.
+     */
+    private function documentosFaltantesPorId(Colaborador $colaborador): array
+    {
+        $faltantes = [];
+
+        foreach ($this->incorporacion->estadoIncorporacion($colaborador)['documentos'] as $d) {
+            if ((bool) $d['obligatorio'] && in_array($d['estado'], self::ESTADOS_DOCUMENTO_FALTANTE, true)) {
+                $faltantes[(int) $d['id']] = (string) $d['nombre'];
+            }
+        }
+
+        return $faltantes;
     }
 
     /**

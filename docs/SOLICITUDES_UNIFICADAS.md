@@ -151,7 +151,8 @@ Regla única: `AprobacionOrganizacionalService::elegibilidadPrestamo`, con `conf
 
 - Se puede pedir a partir de `fecha_ingreso + 6 meses` (sin desbordar fin de mes), con la **fecha del servidor**. Ingreso 20/10/2026 → disponible desde 20/04/2027.
 - Sin fecha de ingreso capturada → no disponible («Pide a RH que la capture»).
-- `SolicitudesService::crear()` la valida para web, API y app: **422** en `monto_solicitado` con «Disponible al cumplir 6 meses de antigüedad: a partir del dd/mm/aaaa.».
+- `SolicitudesService::crear()` la valida para web, API y app: **422** en `monto_solicitado` con «Necesitas mínimo 6 meses de antigüedad para solicitar un préstamo. Podrás solicitarlo a partir del dd/mm/aaaa.».
+- App: Préstamos oculta «Solicitar préstamo» y muestra el aviso con la fecha; si el backend no manda elegibilidad, no bloquea (el 422 se muestra tal cual).
 - Web: `Solicitudes/Index` recibe `elegibilidadPrestamo` y muestra la tarjeta «Préstamo» deshabilitada con la antigüedad y la fecha.
 
 ```jsonc
@@ -159,9 +160,9 @@ Regla única: `AprobacionOrganizacionalService::elegibilidadPrestamo`, con `conf
 // GET /api/v1/solicitudes/configuracion          → tipos[clave=prestamo].disponible / .elegibilidad, y elegibilidad_prestamo
 {
   "cumple": false, "meses_minimos": 6, "fecha_ingreso": "2026-05-08",
-  "antiguedad": { "anios": 0, "meses": 5, "dias": 12 }, "antiguedad_texto": "5 meses 12 días",
+  "antiguedad": { "anios": 0, "meses": 5, "dias": 12 }, "antiguedad_meses": 5, "antiguedad_texto": "5 meses 12 días",
   "disponible_desde": "2026-11-08", "disponible_desde_texto": "08/11/2026", "fecha_servidor": "2026-10-20",
-  "mensaje": "Disponible al cumplir 6 meses de antigüedad: a partir del 08/11/2026."
+  "mensaje": "Necesitas mínimo 6 meses de antigüedad para solicitar un préstamo. Podrás solicitarlo a partir del 08/11/2026."
 }
 ```
 

@@ -336,6 +336,45 @@ class DocumentoStorageService
     }
 
     /**
+     * Copia en streaming un archivo de un disco (por defecto el del
+     * expediente) a un archivo local, sin cargarlo completo en memoria (lo
+     * usa la descarga del expediente completo en ZIP). Lanza
+     * RuntimeException si el archivo no existe o el disco no responde; el
+     * llamador decide cómo reportarlo.
+     */
+    public function copiarALocal(string $ruta, string $destinoLocal, ?Filesystem $disco = null): void
+    {
+        $disco ??= $this->disco();
+
+        if (! $disco->exists($ruta)) {
+            throw new RuntimeException(sprintf('El archivo no existe en el almacenamiento: %s', $ruta));
+        }
+
+        $flujo = $disco->readStream($ruta);
+
+        if (! is_resource($flujo)) {
+            throw new RuntimeException(sprintf('No se pudo leer el archivo: %s', $ruta));
+        }
+
+        $salida = fopen($destinoLocal, 'wb');
+
+        if ($salida === false) {
+            fclose($flujo);
+
+            throw new RuntimeException(sprintf('No se pudo crear el archivo temporal: %s', $destinoLocal));
+        }
+
+        try {
+            if (stream_copy_to_stream($flujo, $salida) === false) {
+                throw new RuntimeException(sprintf('Falló la copia del archivo: %s', $ruta));
+            }
+        } finally {
+            fclose($flujo);
+            fclose($salida);
+        }
+    }
+
+    /**
      * Ruta del PDF histórico ÚNICO dentro del expediente del colaborador
      * (migración inicial): {base}/Historico/Expediente historico unificado.pdf
      * y, si la carpeta histórica traía más de un PDF, «… (2).pdf», «… (3).pdf»

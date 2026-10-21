@@ -58,6 +58,7 @@ import CampoInfo from '@/components/Rh/CampoInfo.vue';
 import ConfirmarEntregaPrestamoDialog from '@/components/Rh/ConfirmarEntregaPrestamoDialog.vue';
 import DatosFaltantesBanner from '@/components/Rh/DatosFaltantesBanner.vue';
 import type { DatosFaltantesResumen } from '@/components/Rh/DatosFaltantesBanner.vue';
+import CartaCompromisoTarjeta from '@/components/Rh/Expediente/CartaCompromisoTarjeta.vue';
 import ExpedienteCentro from '@/components/Rh/Expediente/ExpedienteCentro.vue';
 import ExpedienteContratacion from '@/components/Rh/Expediente/ExpedienteContratacion.vue';
 import ExpedienteDatosPersonales from '@/components/Rh/Expediente/ExpedienteDatosPersonales.vue';
@@ -2082,6 +2083,8 @@ function irACompletarExpediente() {
                         :puede-editar="esPropio || puedeEditar"
                         :estado="esPropio ? colaborador.foto_estado : null"
                     />
+                    <!-- Carta compromiso de documentos pendientes (si la tiene). -->
+                    <CartaCompromisoTarjeta />
                     <ExpedienteDocumentos
                         :colaborador-id="colaborador.id"
                         :documentos="documentosRequeridos"

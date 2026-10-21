@@ -3,6 +3,7 @@
 use App\Http\Middleware\EnsureCuentaActiva;
 use App\Http\Middleware\EnsureFeatureEnabled;
 use App\Http\Middleware\ExigirCambioContrasena;
+use App\Http\Middleware\ExigirDocumentosPendientes;
 use App\Http\Middleware\ExigirRegistroApp;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Support\DiagnosticoAcceso;
@@ -47,6 +48,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => RoleOrPermissionMiddleware::class,
             'contrasena.temporal' => ExigirCambioContrasena::class,
             'registro.app' => ExigirRegistroApp::class,
+            'documentos.pendientes' => ExigirDocumentosPendientes::class,
         ]);
 
         $middleware->web(append: [

@@ -30,6 +30,8 @@ class ExigirRegistroApp
         'api.v1.dispositivos.*',
         'api.v1.colaborador.registro.*',
         'api.v1.colaborador.incorporacion.*',
+        // Vista previa de la carta compromiso («No tengo este documento»).
+        'api.v1.colaborador.carta-compromiso.*',
         'api.v1.colaborador.datos-faltantes',
         'api.v1.colaborador.perfil',
         'api.v1.colaborador.foto',

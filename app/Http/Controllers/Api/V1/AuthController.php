@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Concerns\PasswordValidationRules;
 use App\Http\Controllers\Controller;
 use App\Services\Autenticacion\AutenticacionService;
+use App\Services\Expedientes\BloqueoDocumentosService;
 use App\Services\Incorporacion\RegistroAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -28,6 +29,7 @@ class AuthController extends Controller
     public function __construct(
         private readonly AutenticacionService $autenticacion,
         private readonly RegistroAppService $registro,
+        private readonly BloqueoDocumentosService $bloqueo,
     ) {}
 
     public function login(Request $request): JsonResponse
@@ -78,6 +80,10 @@ class AuthController extends Controller
                 'correo' => $usuario->email,
                 'estatus' => $colaborador?->estatus->value,
                 'registro_completo' => $this->registro->registroCompleto($usuario),
+                // Documentos pendientes: la app limita su uso a subirlos
+                // cuando `activo` (BloqueoDocumentosService).
+                'bloqueo_documentos' => $this->bloqueo->estado($usuario),
+                'carta_compromiso' => $this->bloqueo->cartaResumida($usuario),
                 'roles' => $usuario->getRoleNames(),
             ],
         ]);
@@ -152,6 +158,10 @@ class AuthController extends Controller
             // la app lo manda al asistente (RegistroAppService). Las APKs
             // anteriores ignoran el campo.
             'registro_completo' => $this->registro->registroCompleto($usuario),
+            // activo = la app solo deja subir los documentos pendientes
+            // (BloqueoDocumentosService); carta_compromiso = la más reciente.
+            'bloqueo_documentos' => $this->bloqueo->estado($usuario),
+            'carta_compromiso' => $this->bloqueo->cartaResumida($usuario),
             'roles' => $usuario->getRoleNames(),
             'permisos' => $usuario->getAllPermissions()->pluck('name'),
         ]);

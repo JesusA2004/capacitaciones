@@ -32,6 +32,39 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Carta compromiso de documentos pendientes
+    |--------------------------------------------------------------------------
+    |
+    | Quien se registra en la app y marca «No tengo este documento» firma una
+    | carta compromiso con plazo de `dias_plazo` días naturales para subirlos
+    | (App\Services\Expedientes\CartaCompromisoService).
+    |
+    | Una carta cubre como máximo `max_documentos` documentos. Quien cierra su
+    | registro con más faltantes termina el registro pero la app queda
+    | limitada a subirlos (motivo «excede_maximo_carta»); la carta se genera
+    | sola en cuanto le falten `max_documentos` o menos.
+    |
+    */
+    'carta_compromiso' => [
+        'dias_plazo' => (int) env('CARTA_COMPROMISO_DIAS_PLAZO', 7),
+        'max_documentos' => (int) env('CARTA_COMPROMISO_MAX_DOCUMENTOS', 2),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Bloqueo de la app por documentos faltantes
+    |--------------------------------------------------------------------------
+    |
+    | Con documentos requeridos sin subir (y sin carta compromiso dentro de
+    | plazo) la API móvil solo deja subir esos documentos
+    | (App\Http\Middleware\ExigirDocumentosPendientes). Nunca aplica a
+    | super_admin. Operaciones puede apagarlo con BLOQUEO_DOCUMENTOS_FALTANTES=false.
+    |
+    */
+    'bloqueo_documentos_faltantes' => (bool) env('BLOQUEO_DOCUMENTOS_FALTANTES', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Migración inicial de colaboradores y expedientes históricos
     |--------------------------------------------------------------------------
     |

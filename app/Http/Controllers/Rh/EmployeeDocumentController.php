@@ -8,6 +8,7 @@ use App\Http\Requests\Rh\SubirDocumentoRequest;
 use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
+use App\Services\Expedientes\CartaCompromisoService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Incorporacion\IncorporacionService;
 use Illuminate\Http\RedirectResponse;
@@ -19,6 +20,7 @@ class EmployeeDocumentController extends Controller
     public function __construct(
         private readonly DocumentoStorageService $storage,
         private readonly IncorporacionService $incorporacion,
+        private readonly CartaCompromisoService $cartas,
     ) {}
 
     /**
@@ -37,6 +39,7 @@ class EmployeeDocumentController extends Controller
             ->exists();
 
         $documento = $this->storage->subirVersion($colaborador, $tipo, $request->file('archivo'), $request->user()->id);
+        $this->cartas->sincronizarSinFallar($colaborador);
 
         return back()->with('toast', [
             'type' => 'success',

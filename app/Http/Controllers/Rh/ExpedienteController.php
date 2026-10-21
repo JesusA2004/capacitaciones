@@ -36,12 +36,14 @@ use App\Services\Colaboradores\DomicilioService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\AvisoPrivacidadService;
+use App\Services\Expedientes\CartaCompromisoService;
 use App\Services\Expedientes\CorreccionesService;
 use App\Services\Expedientes\DatosExpedienteService;
 use App\Services\Expedientes\DatosFaltantesService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteCentroService;
 use App\Services\Expedientes\ExpedienteService;
+use App\Services\Expedientes\ExpedienteZipService;
 use App\Services\Expedientes\HistorialCambiosDatosService;
 use App\Services\Expedientes\MigracionInicial\ExpedientesInitialMigrationService;
 use App\Services\Nomina\PrestamoService;
@@ -62,6 +64,7 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
 use Spatie\Permission\Models\Role;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -315,6 +318,8 @@ class ExpedienteController extends Controller
 
         return Inertia::render($esPropio ? 'Rh/Expedientes/MiExpediente' : 'Rh/Expedientes/Show', [
             'esPropio' => $esPropio,
+            // Carta compromiso de documentos pendientes (la más reciente), con su PDF.
+            'cartaCompromiso' => app(CartaCompromisoService::class)->paraExpediente($colaborador),
             // ⚠ Faltan datos contractuales (+ «Avisar al colaborador» para RH).
             'datosFaltantes' => app(DatosFaltantesService::class)->resumen($colaborador),
             // «Avisos / Comunicaciones»: generales + personales, con lectura.
@@ -339,6 +344,7 @@ class ExpedienteController extends Controller
             // Jefe directo (cadena de mando) o RH: sin solicitud previa.
             'puedeIniciarBaja' => ! $esPropio && $usuario->can('iniciarCierre', $colaborador),
             'puedeRevisarDocumentos' => $usuario->can('documentos.revisar') && ! $esCuentaPropia,
+            'puedeDescargarExpediente' => ! $esPropio && $usuario->can('descargarExpediente', [EmployeeDocument::class, $colaborador]),
             'puedeVerExtraccion' => $usuario->can('rh.documentos.extraccion.ver') && ! $esCuentaPropia,
             'puedeAplicarExtraccion' => $usuario->can('rh.documentos.extraccion.aplicar') && ! $esCuentaPropia,
             'puedeReprocesarExtraccion' => $usuario->can('rh.documentos.extraccion.reprocesar') && ! $esCuentaPropia,
@@ -848,6 +854,20 @@ class ExpedienteController extends Controller
             // miniaturas de listas y tableros no se vuelven a descargar.
             'Cache-Control' => 'private, max-age=86400',
         ]);
+    }
+
+    /**
+     * «Descargar expediente completo»: ZIP con documentos vigentes, historial
+     * de versiones, documentos generados, foto e INDICE.csv (ver
+     * ExpedienteZipService). Se borra del servidor al terminar de enviarse.
+     */
+    public function descargarZip(Request $request, Colaborador $colaborador, ExpedienteZipService $zip): BinaryFileResponse
+    {
+        $this->authorize('descargarExpediente', [EmployeeDocument::class, $colaborador]);
+
+        return response()
+            ->download($zip->generar($colaborador, $request->user()), $zip->nombreDescarga($colaborador), ['Content-Type' => 'application/zip'])
+            ->deleteFileAfterSend();
     }
 
     /**

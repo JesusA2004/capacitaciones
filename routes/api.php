@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AppReleaseController;
 use App\Http\Controllers\Api\V1\AppThemeController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AvisoController;
+use App\Http\Controllers\Api\V1\CartaCompromisoController;
 use App\Http\Controllers\Api\V1\CelebracionController;
 use App\Http\Controllers\Api\V1\CicloLaboralColaboradorController;
 use App\Http\Controllers\Api\V1\ColaboradorController;
@@ -115,7 +116,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     // registro.app: quien se registró por QR y no termina su registro
     // completo solo usa el asistente (403 «registro_incompleto»; solo a la
     // app que manda X-People-Registro — APKs viejas no cambian).
-    Route::middleware(['auth:sanctum', 'throttle:api', 'contrasena.temporal', 'registro.app'])->group(function () {
+    // documentos.pendientes: con documentos requeridos sin subir (sin carta
+    // compromiso en plazo) solo responde lo necesario para subirlos (403
+    // «documentos_pendientes»; solo a la app que manda X-People-Documentos).
+    Route::middleware(['auth:sanctum', 'throttle:api', 'contrasena.temporal', 'registro.app', 'documentos.pendientes'])->group(function () {
         Route::post('logout', [AuthController::class, 'logout'])->name('logout');
         Route::get('me', [AuthController::class, 'me'])->name('me');
         Route::post('cambiar-contrasena', [AuthController::class, 'cambiarContrasena'])->name('cambiar-contrasena')->middleware('throttle:api-reautenticar');
@@ -283,6 +287,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('registro', [RegistroAppController::class, 'show'])->name('registro.show');
             Route::post('registro/datos', [RegistroAppController::class, 'datos'])->name('registro.datos')->middleware('throttle:60,1');
             Route::post('registro/finalizar', [RegistroAppController::class, 'finalizar'])->name('registro.finalizar')->middleware('throttle:20,1');
+            // Carta compromiso de documentos pendientes («No tengo este
+            // documento» al registrarse) y estado del bloqueo de la app
+            // (CartaCompromisoService / BloqueoDocumentosService).
+            Route::get('carta-compromiso', [CartaCompromisoController::class, 'show'])->name('carta-compromiso.show');
+            Route::get('carta-compromiso/pdf', [CartaCompromisoController::class, 'pdf'])->name('carta-compromiso.pdf');
+            Route::post('carta-compromiso/vista-previa', [CartaCompromisoController::class, 'vistaPrevia'])->name('carta-compromiso.vista-previa')->middleware('throttle:20,1');
             Route::get('recibos', [CicloLaboralColaboradorController::class, 'recibos'])->name('recibos.index');
             Route::get('recibos/{recibo}', [CicloLaboralColaboradorController::class, 'recibo'])->name('recibos.show');
             Route::get('recibos/{recibo}/pdf', [CicloLaboralColaboradorController::class, 'reciboPdf'])->name('recibos.pdf');

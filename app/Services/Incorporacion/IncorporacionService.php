@@ -13,6 +13,7 @@ use App\Notifications\Mobile\IncorporacionDecididaNotification;
 use App\Notifications\Mobile\RhDocumentoPendienteNotification;
 use App\Notifications\Mobile\RhIncorporacionCompletaNotification;
 use App\Services\Colaboradores\AltaColaboradorService;
+use App\Services\Expedientes\CartaCompromisoService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Expedientes\ProgresoExpediente;
@@ -270,6 +271,11 @@ class IncorporacionService
         }
 
         $documento = $this->storage->subirVersion($colaborador, $tipo, $archivo, $subidoPorId);
+
+        // Carta compromiso: si ya subió todo lo comprometido queda cumplida y
+        // el bloqueo de la app se levanta solo. Resuelta al vuelo (evita un
+        // ciclo de dependencias con el registro en la app).
+        app(CartaCompromisoService::class)->sincronizarSinFallar($colaborador);
 
         $this->notificarSinFallar(function () use ($documento, $colaborador, $tipo, $subidoPorId): void {
             $actor = User::query()->where('id', $subidoPorId)->first();

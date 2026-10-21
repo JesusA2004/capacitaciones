@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\V1\FinalizarRegistroRequest;
 use App\Http\Requests\Api\V1\GuardarDatosRegistroRequest;
 use App\Services\Incorporacion\RegistroAppService;
 use Illuminate\Http\JsonResponse;
@@ -40,10 +41,13 @@ class RegistroAppController extends Controller
         )]);
     }
 
-    public function finalizar(Request $request): JsonResponse
+    /**
+     * Cierra el registro. `documentos_sin_tener` (opcional): los documentos
+     * marcados «No tengo este documento» → una carta compromiso
+     * (`carta_compromiso` en la respuesta).
+     */
+    public function finalizar(FinalizarRegistroRequest $request): JsonResponse
     {
-        abort_if($request->user()->colaborador === null, 422, 'Tu cuenta no tiene un colaborador enlazado.');
-
-        return response()->json(['data' => $this->registro->finalizar($request->user())]);
+        return response()->json(['data' => $this->registro->finalizar($request->user(), $request->documentosSinTener())]);
     }
 }

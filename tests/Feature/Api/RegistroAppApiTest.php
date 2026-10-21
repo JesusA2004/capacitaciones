@@ -179,12 +179,16 @@ test('no se puede finalizar sin datos ni documentos; completo, entra a la app', 
     $datos = array_filter($datos, fn (string $campo): bool => blank($colaborador->getAttribute($campo)), ARRAY_FILTER_USE_KEY);
     test()->withHeaders($headers)->postJson('/api/v1/colaborador/registro/datos', ['datos' => $datos])->assertOk();
 
-    // Faltan los documentos.
+    // Faltan los documentos: se puede cerrar marcándolos «No tengo este
+    // documento» (carta compromiso), pero sin marcarlos el cierre se rechaza.
     test()->withHeaders($headers)->getJson('/api/v1/colaborador/registro')
         ->assertOk()
         ->assertJsonPath('data.datos.completo', true)
         ->assertJsonPath('data.documentos.completo', false)
-        ->assertJsonPath('data.puede_finalizar', false);
+        ->assertJsonPath('data.puede_finalizar', true);
+    test()->withHeaders($headers)->postJson('/api/v1/colaborador/registro/finalizar')
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('registro');
 
     test()->withHeaders($headers)
         ->post("/api/v1/colaborador/incorporacion/documentos/{$tipo->id}/subir", [

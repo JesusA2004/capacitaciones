@@ -13,11 +13,11 @@ use App\Enums\TipoEquipoElectronico;
 use App\Enums\TipoResponsiva;
 use App\Models\Responsiva;
 use App\Services\DocumentosMaestros\FirmaPatronService;
+use App\Services\Pdf\LogoPdfService;
 use App\Services\Pdf\OpcionesPdf;
 use App\Services\Pdf\PdfRendererException;
 use App\Services\Pdf\PdfRendererFactory;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -41,6 +41,7 @@ class ResponsivaPdfService
     public function __construct(
         private readonly PdfRendererFactory $pdf,
         private readonly FirmaPatronService $firmaPatron,
+        private readonly LogoPdfService $logos,
     ) {}
 
     /**
@@ -399,14 +400,6 @@ class ResponsivaPdfService
     /** Logo como data URI (igual en Chrome y DomPDF, sin depender de la red). */
     private function logo(?string $logoEmpresa): ?string
     {
-        if ($logoEmpresa !== null && Storage::disk('public')->exists($logoEmpresa)) {
-            $mime = Storage::disk('public')->mimeType($logoEmpresa) ?: 'image/png';
-
-            return sprintf('data:%s;base64,%s', $mime, base64_encode((string) Storage::disk('public')->get($logoEmpresa)));
-        }
-
-        $ruta = resource_path('documentos/logo-mr-lana.png');
-
-        return is_file($ruta) ? 'data:image/png;base64,'.base64_encode((string) file_get_contents($ruta)) : null;
+        return $this->logos->dataUri($logoEmpresa);
     }
 }

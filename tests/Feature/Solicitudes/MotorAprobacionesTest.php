@@ -99,7 +99,7 @@ test('A) con menos de 6 meses de antigüedad no se crea el préstamo: 422 en API
     $this->postJson('/api/v1/solicitudes', ['tipo' => 'prestamo', 'monto_solicitado' => 5000, 'motivo' => 'Gastos'])
         ->assertUnprocessable()
         ->assertJsonValidationErrors('monto_solicitado')
-        ->assertJsonFragment(['monto_solicitado' => ['Disponible al cumplir 6 meses de antigüedad: a partir del 08/11/2026.']]);
+        ->assertJsonFragment(['monto_solicitado' => ['Necesitas mínimo 6 meses de antigüedad para solicitar un préstamo. Podrás solicitarlo a partir del 08/11/2026.']]);
 
     $this->actingAs($this->gestor)
         ->post(route('solicitudes.store'), [
@@ -145,6 +145,53 @@ test('B) con exactamente 6 meses completos sí se crea (ingreso 20/04/2026 → h
     // Ejemplo del pedido: ingreso 20/10/2026 → disponible 20/04/2027.
     $nuevo = Colaborador::factory()->create(['fecha_ingreso' => '2026-10-20']);
     expect($this->motor->elegibilidadPrestamo($nuevo)['disponible_desde_texto'])->toBe('20/04/2027');
+});
+
+test('B2) con 4 meses de antigüedad se rechaza con el mensaje y la fecha en que podrá solicitarlo; el payload lo refleja', function () {
+    $this->gestor->colaborador->update(['fecha_ingreso' => '2026-06-20']);
+
+    Sanctum::actingAs($this->gestor);
+    $this->getJson('/api/v1/solicitudes/prestamo/elegibilidad')
+        ->assertOk()
+        ->assertJsonPath('data.cumple', false)
+        ->assertJsonPath('data.meses_minimos', 6)
+        ->assertJsonPath('data.antiguedad_meses', 4)
+        ->assertJsonPath('data.disponible_desde', '2026-12-20')
+        ->assertJsonPath('data.mensaje', 'Necesitas mínimo 6 meses de antigüedad para solicitar un préstamo. Podrás solicitarlo a partir del 20/12/2026.');
+
+    $this->postJson('/api/v1/solicitudes', ['tipo' => 'prestamo', 'monto_solicitado' => 5000, 'motivo' => 'Gastos'])
+        ->assertUnprocessable()
+        ->assertJsonFragment(['monto_solicitado' => ['Necesitas mínimo 6 meses de antigüedad para solicitar un préstamo. Podrás solicitarlo a partir del 20/12/2026.']]);
+
+    expect(SolicitudInterna::query()->where('tipo', 'prestamo')->count())->toBe(0);
+});
+
+test('B3) sin fecha de ingreso no es elegible: se rechaza y se le pide acudir a RH', function () {
+    $this->gestor->colaborador->update(['fecha_ingreso' => null]);
+
+    Sanctum::actingAs($this->gestor);
+    $this->getJson('/api/v1/solicitudes/prestamo/elegibilidad')
+        ->assertOk()
+        ->assertJsonPath('data.cumple', false)
+        ->assertJsonPath('data.antiguedad_meses', 0)
+        ->assertJsonPath('data.disponible_desde', null)
+        ->assertJsonPath('data.mensaje', 'Necesitas mínimo 6 meses de antigüedad para solicitar un préstamo. No tenemos registrada tu fecha de ingreso; pide a RH que la capture en tu expediente.');
+
+    $this->postJson('/api/v1/solicitudes', ['tipo' => 'prestamo', 'monto_solicitado' => 5000, 'motivo' => 'Gastos'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('monto_solicitado');
+
+    expect(SolicitudInterna::query()->where('tipo', 'prestamo')->count())->toBe(0);
+});
+
+test('B4) el mínimo sale de config solicitudes.prestamo_meses_minimos', function () {
+    config(['solicitudes.prestamo_meses_minimos' => 3]);
+    $this->gestor->colaborador->update(['fecha_ingreso' => '2026-06-20']);
+
+    $elegibilidad = $this->motor->elegibilidadPrestamo($this->gestor->colaborador->fresh());
+    expect($elegibilidad['cumple'])->toBeTrue()
+        ->and($elegibilidad['meses_minimos'])->toBe(3)
+        ->and($elegibilidad['antiguedad_meses'])->toBe(4);
 });
 
 // ---------------------------------------------------------------- C / D

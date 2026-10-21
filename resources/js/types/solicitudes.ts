@@ -422,6 +422,8 @@ export type ElegibilidadPrestamo = {
     meses_minimos: number;
     fecha_ingreso: string | null;
     antiguedad: { anios: number; meses: number; dias: number } | null;
+    /** Meses completos de antigüedad (años × 12 + meses). */
+    antiguedad_meses?: number;
     antiguedad_texto: string | null;
     disponible_desde: string | null;
     disponible_desde_texto: string | null;

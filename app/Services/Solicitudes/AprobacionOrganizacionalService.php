@@ -598,22 +598,24 @@ class AprobacionOrganizacionalService
      * Elegibilidad de préstamo con la fecha del SERVIDOR (nunca la del
      * dispositivo): 6 meses completos desde la fecha de ingreso
      * (config solicitudes.prestamo_meses_minimos). Ingreso 20/10/2026 →
-     * disponible desde 20/04/2027.
+     * disponible desde 20/04/2027. Sin fecha de ingreso NO cumple (RH debe
+     * capturarla). `antiguedad_meses` = meses completos (años × 12 + meses).
      *
-     * @return array{cumple: bool, meses_minimos: int, fecha_ingreso: string|null, antiguedad: array{anios: int, meses: int, dias: int}|null, antiguedad_texto: string|null, disponible_desde: string|null, disponible_desde_texto: string|null, fecha_servidor: string, mensaje: string}
+     * @return array{cumple: bool, meses_minimos: int, fecha_ingreso: string|null, antiguedad: array{anios: int, meses: int, dias: int}|null, antiguedad_meses: int, antiguedad_texto: string|null, disponible_desde: string|null, disponible_desde_texto: string|null, fecha_servidor: string, mensaje: string}
      */
     public function elegibilidadPrestamo(?Colaborador $persona, ?CarbonInterface $hoy = null): array
     {
         $meses = max(0, (int) config('solicitudes.prestamo_meses_minimos', 6));
         $hoy = Carbon::parse(($hoy ?? now())->toDateString())->startOfDay();
-        $base = ['cumple' => false, 'meses_minimos' => $meses, 'fecha_ingreso' => null, 'antiguedad' => null, 'antiguedad_texto' => null, 'disponible_desde' => null, 'disponible_desde_texto' => null, 'fecha_servidor' => $hoy->toDateString()];
+        $necesitas = sprintf('Necesitas mínimo %d meses de antigüedad para solicitar un préstamo.', $meses);
+        $base = ['cumple' => false, 'meses_minimos' => $meses, 'fecha_ingreso' => null, 'antiguedad' => null, 'antiguedad_meses' => 0, 'antiguedad_texto' => null, 'disponible_desde' => null, 'disponible_desde_texto' => null, 'fecha_servidor' => $hoy->toDateString()];
 
         if ($persona === null) {
-            return [...$base, 'mensaje' => 'Tu cuenta no está vinculada a un expediente de colaborador; pide a RH que la vincule.'];
+            return [...$base, 'mensaje' => sprintf('%s Tu cuenta no está vinculada a un expediente de colaborador; pide a RH que la vincule.', $necesitas)];
         }
 
         if ($persona->fecha_ingreso === null) {
-            return [...$base, 'mensaje' => 'No tenemos registrada tu fecha de ingreso. Pide a RH que la capture en tu expediente.'];
+            return [...$base, 'mensaje' => sprintf('%s No tenemos registrada tu fecha de ingreso; pide a RH que la capture en tu expediente.', $necesitas)];
         }
 
         $ingreso = Carbon::parse($persona->fecha_ingreso->toDateString())->startOfDay();
@@ -627,12 +629,13 @@ class AprobacionOrganizacionalService
             'cumple' => $cumple,
             'fecha_ingreso' => $ingreso->toDateString(),
             'antiguedad' => $antiguedad,
+            'antiguedad_meses' => $antiguedad['anios'] * 12 + $antiguedad['meses'],
             'antiguedad_texto' => $this->textoAntiguedad($antiguedad),
             'disponible_desde' => $disponible->toDateString(),
             'disponible_desde_texto' => $disponible->format('d/m/Y'),
             'mensaje' => $cumple
                 ? 'Ya puedes solicitar un préstamo.'
-                : sprintf('Disponible al cumplir %d meses de antigüedad: a partir del %s.', $meses, $disponible->format('d/m/Y')),
+                : sprintf('%s Podrás solicitarlo a partir del %s.', $necesitas, $disponible->format('d/m/Y')),
         ];
     }
 

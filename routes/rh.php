@@ -190,6 +190,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('{colaborador}', [ExpedienteController::class, 'show'])->name('show')->withTrashed();
             Route::post('{colaborador}/avisar-datos-faltantes', [ExpedienteController::class, 'avisarDatosFaltantes'])->name('avisar-datos-faltantes')->middleware('throttle:20,1');
             Route::get('{colaborador}/foto', [ExpedienteController::class, 'descargarFoto'])->name('foto')->withTrashed();
+            // «Descargar expediente completo» (ZIP con índice); también de bajas.
+            Route::get('{colaborador}/descargar-zip', [ExpedienteController::class, 'descargarZip'])->name('descargar-zip')->withTrashed()->middleware('throttle:10,1');
             Route::post('{colaborador}/foto', [ExpedienteController::class, 'subirFoto'])->name('foto.store');
             // Acuse de alta IMSS (indicador verde/naranja, no pendiente).
             Route::get('{colaborador}/alta-imss', [ExpedienteController::class, 'descargarAltaImss'])->name('alta-imss.show')->withTrashed();
