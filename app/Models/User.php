@@ -4,7 +4,9 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\EstadoUsuario;
+use App\Models\Concerns\NombreSinApellidos;
 use App\Services\Autenticacion\NombreUsuarioService;
+use App\Support\NombrePersona;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -66,7 +68,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, HasRoles, LogsActivity, Notifiable, SoftDeletes;
+    use HasApiTokens, HasFactory, HasRoles, LogsActivity, NombreSinApellidos, Notifiable, SoftDeletes;
 
     /**
      * Get the attributes that should be cast.
@@ -111,7 +113,7 @@ class User extends Authenticatable
      */
     public function nombreCompleto(): string
     {
-        return $this->colaborador?->nombreCompleto() ?? trim("{$this->name} {$this->apellidos}");
+        return $this->colaborador?->nombreCompleto() ?? NombrePersona::completo($this->name, $this->apellidos);
     }
 
     /**

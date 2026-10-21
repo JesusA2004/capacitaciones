@@ -5,6 +5,7 @@ namespace App\Http\Requests\Rh;
 use App\Enums\EstadoCandidato;
 use App\Models\AltaDigital;
 use App\Models\Candidato;
+use App\Rules\NombreSinApellidos;
 use Illuminate\Contracts\Validation\Validator as ValidatorContract;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -27,7 +28,7 @@ class StoreAltaDigitalRequest extends FormRequest
             'sucursal_id' => ['nullable', 'integer', 'exists:sucursales,id'],
             'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
             'puesto_id' => ['nullable', 'integer', 'exists:puestos,id'],
-            'nombre' => ['nullable', 'string', 'max:150'],
+            'nombre' => ['nullable', 'string', 'max:150', new NombreSinApellidos],
             'apellidos' => ['nullable', 'string', 'max:150'],
             'correo' => ['nullable', 'email', 'max:255'],
             'telefono' => ['nullable', 'string', 'max:30'],

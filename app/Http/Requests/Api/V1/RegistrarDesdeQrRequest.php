@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api\V1;
 
 use App\Concerns\PasswordValidationRules;
+use App\Rules\NombreSinApellidos;
 use App\Services\Colaboradores\DomicilioService;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -28,7 +29,7 @@ class RegistrarDesdeQrRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string', 'max:150'],
+            'name' => ['required', 'string', 'max:150', new NombreSinApellidos],
             'apellidos' => ['nullable', 'string', 'max:150'],
             // Opcional: se entra con el usuario (primer nombre + primer apellido).
             'email' => ['nullable', 'email', 'max:255', 'unique:users,email'],

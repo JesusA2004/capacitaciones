@@ -225,16 +225,24 @@ class DatosDocumentoService
         $fin = $contrato !== null ? $contrato->fecha_fin : $this->finSegunPuesto($c, $hoy);
         $meses = $this->mesesContrato($contexto);
 
+        // Fecha de firma («lo firman en…», «a los N días…», hoja de firmas):
+        // la del documento (hoy al generar; el snapshot la conserva).
+        $firma = $hoy;
+
         // Paquete del CONTRATO (capacitación, confidencialidad, no
         // competencia, indeterminado): decisión del negocio 2026-10-21 —
         // TODAS las fechas contractuales (fecha del contrato, suscripción,
-        // hoja de firmas, «a los N días…») son la fecha de GENERACIÓN, igual
-        // en los documentos del paquete; la vigencia corre desde ese día con
-        // la misma regla que ContratoLaboralService (inicio + N meses − 1 día).
-        // La fecha de ingreso (antigüedad) no cambia.
+        // hoja de firmas, «a los N días…») son la FECHA DE INGRESO del
+        // colaborador, iguales en los documentos del paquete y en la vista
+        // previa; la vigencia corre desde ese día con la misma regla que
+        // ContratoLaboralService (ingreso + N meses − 1 día). Sin fecha de
+        // ingreso quedan vacías: DocumentoProcesoService responde 422 antes
+        // de llegar aquí (exigirFechaIngreso).
         if ($contexto->paqueteContrato && $contrato !== null) {
-            $inicio = $hoy;
-            $fin = $contrato->fecha_fin !== null && $meses !== null ? $hoy->addMonthsNoOverflow($meses)->subDay() : null;
+            $ingreso = $c->fecha_ingreso !== null ? CarbonImmutable::parse($c->fecha_ingreso->toDateString(), 'America/Mexico_City') : null;
+            $inicio = $ingreso;
+            $fin = $ingreso !== null && $contrato->fecha_fin !== null && $meses !== null ? $ingreso->addMonthsNoOverflow($meses)->subDay() : null;
+            $firma = $ingreso;
         }
         $duracion = $meses !== null ? $this->duracion($meses) : '';
         // Datos LEGALES: solo lo capturado. Nunca se completa con un supuesto
@@ -340,7 +348,7 @@ class DatosDocumentoService
             'lugar_firma' => $lugar,
             'lugar_documento' => $lugar,
             'ciudad_firma' => $lugar,
-            'fecha_documento_larga' => $this->fechaLarga($hoy),
+            'fecha_documento_larga' => $this->fechaLarga($contexto->paqueteContrato ? $firma : $hoy),
             'lugar_y_fecha_documento_corta' => $lugar !== '' ? sprintf('%s a %s', $lugar, $hoy->format('d-m-Y')) : '',
             'fecha_ingreso_larga' => $this->fechaLarga($c->fecha_ingreso),
             'fecha_ingreso_dia_mes_anio' => $c->fecha_ingreso !== null ? sprintf('%d del mes de %s del año %s', $c->fecha_ingreso->day, self::MESES[$c->fecha_ingreso->month - 1], $c->fecha_ingreso->year) : '',
@@ -348,19 +356,19 @@ class DatosDocumentoService
             'sueldo_mensual_numero_letra' => $sueldo !== null ? sprintf('%s, %s', number_format((float) $sueldo, 2), $this->pesosSinCentavos((float) $sueldo)) : '',
             'fecha_inicio_contrato_larga' => $this->fechaLarga($inicio),
             'fecha_inicio_contrato_larga_mayusculas' => $this->mayus($this->fechaLarga($inicio)),
-            'fecha_inicio_contrato_dia' => (string) $hoy->day,
+            'fecha_inicio_contrato_dia' => $firma !== null ? (string) $firma->day : '',
             'fecha_fin_contrato_larga' => $this->fechaLarga($fin),
             'duracion_letra' => $duracion,
             'duracion_letra_capital' => $this->capital($duracion),
             'duracion_capacitacion_letra' => $duracion,
             'duracion_capacitacion_letra_mayusculas' => $this->mayus($duracion),
             'duracion_capacitacion_letra_titulo' => mb_convert_case($duracion, MB_CASE_TITLE, 'UTF-8'),
-            // Frases de FIRMA («lo firman en…», «a los … días»): fecha del
-            // documento (hoy al generar; el snapshot del documento la conserva).
-            'lugar_y_fecha_inicio_contrato' => $lugar !== '' ? sprintf('%s, el %s', $lugar, $this->fechaLarga($hoy)) : '',
-            'fecha_firma_a_los_inicio_contrato' => sprintf('%d días del mes de %s de %s', $hoy->day, self::MESES[$hoy->month - 1], $hoy->year),
-            'ciudad_y_fecha_firma_a_los_inicio_contrato' => $lugar !== '' ? sprintf('%s, a los %d días del mes de %s de %s', $lugar, $hoy->day, self::MESES[$hoy->month - 1], $hoy->year) : '',
-            'fecha_firma_dias_del_mes_inicio_contrato' => sprintf('%d días del mes de %s del año %s', $hoy->day, self::MESES[$hoy->month - 1], $hoy->year),
+            // Frases de FIRMA («lo firman en…», «a los … días»): $firma (fecha
+            // del documento; en el paquete del contrato, la fecha de ingreso).
+            'lugar_y_fecha_inicio_contrato' => $lugar !== '' && $firma !== null ? sprintf('%s, el %s', $lugar, $this->fechaLarga($firma)) : '',
+            'fecha_firma_a_los_inicio_contrato' => $firma !== null ? sprintf('%d días del mes de %s de %s', $firma->day, self::MESES[$firma->month - 1], $firma->year) : '',
+            'ciudad_y_fecha_firma_a_los_inicio_contrato' => $lugar !== '' && $firma !== null ? sprintf('%s, a los %d días del mes de %s de %s', $lugar, $firma->day, self::MESES[$firma->month - 1], $firma->year) : '',
+            'fecha_firma_dias_del_mes_inicio_contrato' => $firma !== null ? sprintf('%d días del mes de %s del año %s', $firma->day, self::MESES[$firma->month - 1], $firma->year) : '',
             'gerente_nombre_mayusculas' => $this->mayus((string) ($c->jefe?->nombreCompleto() ?? '')),
             // Datos del colaborador en un acta (contrato más reciente; sin
             // contrato capturado, la fecha de ingreso). Indeterminado: no

@@ -4,6 +4,8 @@ namespace App\Models;
 
 use App\Enums\EstadoCandidato;
 use App\Enums\TipoSeguimientoCandidato;
+use App\Models\Concerns\NombreSinApellidos;
+use App\Support\NombrePersona;
 use Database\Factories\CandidatoFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -56,7 +58,12 @@ use Illuminate\Support\Carbon;
 class Candidato extends Model
 {
     /** @use HasFactory<CandidatoFactory> */
-    use HasFactory, SoftDeletes;
+    use HasFactory, NombreSinApellidos, SoftDeletes;
+
+    public function columnaNombrePropio(): string
+    {
+        return 'nombre';
+    }
 
     /**
      * El disco/ruta reales del NAS nunca se exponen al frontend (ver
@@ -163,7 +170,7 @@ class Candidato extends Model
 
     public function nombreCompleto(): string
     {
-        return trim("{$this->nombre} {$this->apellidos}");
+        return NombrePersona::completo($this->nombre, $this->apellidos);
     }
 
     public function getTieneCvAttribute(): bool

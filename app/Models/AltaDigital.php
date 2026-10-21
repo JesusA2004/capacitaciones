@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Enums\EstadoAltaDigital;
+use App\Models\Concerns\NombreSinApellidos;
 use App\Models\Concerns\SincronizaDomicilio;
+use App\Support\NombrePersona;
 use Database\Factories\AltaDigitalFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -63,7 +65,12 @@ use Illuminate\Support\Carbon;
 class AltaDigital extends Model
 {
     /** @use HasFactory<AltaDigitalFactory> */
-    use HasFactory, SincronizaDomicilio, SoftDeletes;
+    use HasFactory, NombreSinApellidos, SincronizaDomicilio, SoftDeletes;
+
+    public function columnaNombrePropio(): string
+    {
+        return 'nombre';
+    }
 
     protected $table = 'altas_digitales';
 
@@ -141,7 +148,7 @@ class AltaDigital extends Model
 
     public function nombreCompleto(): string
     {
-        return trim("{$this->nombre} {$this->apellidos}");
+        return NombrePersona::completo($this->nombre, $this->apellidos);
     }
 
     public function tokenVigente(): bool

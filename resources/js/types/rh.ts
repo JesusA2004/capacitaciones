@@ -4,6 +4,8 @@ export type ColaboradorExpedienteItem = {
     id: number;
     name: string;
     apellidos: string | null;
+    /** Nombre + apellidos sin duplicar apellidos que ya vengan dentro del nombre. */
+    nombre_completo: string;
     numero_empleado: string | null;
     foto_url: string | null;
     estatus: string;
@@ -14,6 +16,16 @@ export type ColaboradorExpedienteItem = {
     puesto: { id: number; nombre: string } | null;
     expediente_porcentaje: number;
     documentos_pendientes: number;
+    /**
+     * En contratación con sus documentos completos: lo que falta son los
+     * contratos (parte de RH). null si no aplica.
+     */
+    contratos_pendientes: {
+        estado: 'por_generar' | 'por_firmar';
+        etiqueta: string;
+        listos: number;
+        total: number;
+    } | null;
     /** Le falta algún dato base (estado civil, domicilio, salario…) que un documento maestro activo requiere. */
     datos_incompletos: boolean;
     /**

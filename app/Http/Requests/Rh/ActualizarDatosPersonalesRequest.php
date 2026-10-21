@@ -6,6 +6,7 @@ use App\Enums\EstadoCivil;
 use App\Enums\Genero;
 use App\Models\Colaborador;
 use App\Models\User;
+use App\Rules\NombreSinApellidos;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\DomicilioService;
 use App\Services\Expedientes\DatosExpedienteService;
@@ -73,7 +74,7 @@ class ActualizarDatosPersonalesRequest extends FormRequest
         $veMedicos = $usuario instanceof User && $usuario->can('expedientes.datos_medicos.ver');
 
         return [
-            'name' => ['sometimes', 'required', 'string', 'max:150'],
+            'name' => ['sometimes', 'required', 'string', 'max:150', new NombreSinApellidos],
             'apellidos' => ['sometimes', 'nullable', 'string', 'max:150'],
             'genero' => ['sometimes', 'nullable', Rule::enum(Genero::class)],
             'fecha_nacimiento' => ['nullable', 'date', 'before:today'],

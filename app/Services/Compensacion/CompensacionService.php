@@ -2,8 +2,10 @@
 
 namespace App\Services\Compensacion;
 
+use App\Enums\EstadoContratoLaboral;
 use App\Enums\TipoMovimientoLaboral;
 use App\Models\Colaborador;
+use App\Models\ContratoLaboral;
 use App\Models\HistorialSalario;
 use App\Models\MovimientoLaboral;
 use App\Models\User;
@@ -146,6 +148,16 @@ class CompensacionService
                 'salario_diario_integrado' => $nuevoIntegrado ?? $colaborador->salario_diario_integrado,
                 'sueldo_mensual' => $this->mensual($nuevoDiario),
             ]);
+
+            // El contrato VIGENTE refleja el sueldo vigente: su registro
+            // guardaba la copia de cuando se capturó y la vista previa /
+            // regeneración del contrato salían con el sueldo viejo. Uno por
+            // uno (no update masivo) para que quede en su bitácora.
+            ContratoLaboral::query()
+                ->where('colaborador_id', $colaborador->id)
+                ->where('estado', EstadoContratoLaboral::Vigente->value)
+                ->get()
+                ->each(fn (ContratoLaboral $contrato) => $contrato->update(['sueldo_mensual' => $this->mensual($nuevoDiario)]));
 
             $historial = HistorialSalario::query()->create([
                 'colaborador_id' => $colaborador->id,

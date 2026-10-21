@@ -4,6 +4,7 @@ namespace App\Http\Requests\Rh;
 
 use App\Enums\FuenteCandidato;
 use App\Models\Candidato;
+use App\Rules\NombreSinApellidos;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -32,7 +33,7 @@ class StoreCandidatoRequest extends FormRequest
             // esa campaña). Si no llegó por una campaña, el medio por el que
             // llegó es obligatorio: ningún candidato queda sin origen.
             'campana_reclutamiento_id' => ['nullable', 'integer', 'exists:campanas_reclutamiento,id'],
-            'nombre' => ['required', 'string', 'max:150'],
+            'nombre' => ['required', 'string', 'max:150', new NombreSinApellidos],
             'apellidos' => ['nullable', 'string', 'max:150'],
             'telefono' => ['nullable', 'string', 'max:30'],
             'correo' => ['nullable', 'email', 'max:255'],

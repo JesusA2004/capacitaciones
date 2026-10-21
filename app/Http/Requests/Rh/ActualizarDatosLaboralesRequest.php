@@ -48,13 +48,29 @@ class ActualizarDatosLaboralesRequest extends FormRequest
             'departamento_id' => ['nullable', 'integer', 'exists:departamentos,id'],
             'puesto_id' => ['nullable', 'integer', 'exists:puestos,id'],
             'sueldo_mensual' => ['nullable', 'numeric', 'min:0', 'max:9999999.99'],
+            // Fecha de ingreso: de ella salen TODAS las fechas del contrato.
+            // Vacía nunca borra la que ya existe (DatosExpedienteService).
+            'fecha_ingreso' => ['sometimes', 'nullable', 'date', 'before_or_equal:+1 year', 'after:1950-01-01'],
             'motivo' => ['nullable', 'string', 'max:255'],
         ];
     }
 
     /**
-     * El sueldo es un dato crítico (DatosExpedienteService::CAMPOS_CRITICOS):
-     * cambiarlo exige motivo. Un campo vacío nunca cambia el sueldo (ver
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'fecha_ingreso.date' => 'Escribe una fecha de ingreso válida.',
+            'fecha_ingreso.before_or_equal' => 'Revisa la fecha de ingreso: está demasiado en el futuro.',
+            'fecha_ingreso.after' => 'Revisa la fecha de ingreso.',
+        ];
+    }
+
+    /**
+     * El sueldo y la fecha de ingreso son datos críticos
+     * (DatosExpedienteService::CAMPOS_CRITICOS): cambiarlos exige motivo.
+     * Un campo vacío nunca cambia el sueldo (ver
      * DatosExpedienteService::actualizarLaborales), así que no lo exige.
      *
      * @return array<int, Closure>
@@ -66,14 +82,17 @@ class ActualizarDatosLaboralesRequest extends FormRequest
                 $colaborador = $this->route('colaborador');
                 $sueldo = $this->input('sueldo_mensual');
 
-                if ($validator->errors()->isNotEmpty() || ! $colaborador instanceof Colaborador || ! is_numeric($sueldo) || (float) $sueldo <= 0) {
+                if ($validator->errors()->isNotEmpty() || ! $colaborador instanceof Colaborador || trim((string) $this->input('motivo')) !== '') {
                     return;
                 }
 
-                $cambia = $colaborador->sueldo_mensual === null || abs((float) $colaborador->sueldo_mensual - (float) $sueldo) > 0.004;
+                $cambiaSueldo = is_numeric($sueldo) && (float) $sueldo > 0
+                    && ($colaborador->sueldo_mensual === null || abs((float) $colaborador->sueldo_mensual - (float) $sueldo) > 0.004);
+                $ingreso = $this->input('fecha_ingreso');
+                $cambiaIngreso = is_string($ingreso) && $ingreso !== '' && $colaborador->fecha_ingreso?->toDateString() !== substr($ingreso, 0, 10);
 
-                if ($cambia && trim((string) $this->input('motivo')) === '') {
-                    $validator->errors()->add('motivo', 'Escribe el motivo del cambio de sueldo (dato crítico).');
+                if ($cambiaSueldo || $cambiaIngreso) {
+                    $validator->errors()->add('motivo', sprintf('Escribe el motivo del cambio de %s (dato crítico).', $cambiaSueldo && $cambiaIngreso ? 'sueldo y fecha de ingreso' : ($cambiaSueldo ? 'sueldo' : 'fecha de ingreso')));
                 }
             },
         ];

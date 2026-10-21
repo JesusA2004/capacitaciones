@@ -8,7 +8,9 @@ use App\Enums\EstadoUsuario;
 use App\Enums\EstatusImss;
 use App\Enums\Genero;
 use App\Enums\TipoContratacion;
+use App\Models\Concerns\NombreSinApellidos;
 use App\Models\Concerns\SincronizaDomicilio;
+use App\Support\NombrePersona;
 use Database\Factories\ColaboradorFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -133,7 +135,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
 class Colaborador extends Model
 {
     /** @use HasFactory<ColaboradorFactory> */
-    use HasFactory, LogsActivity, SincronizaDomicilio, SoftDeletes;
+    use HasFactory, LogsActivity, NombreSinApellidos, SincronizaDomicilio, SoftDeletes;
 
     protected $table = 'colaboradores';
 
@@ -179,7 +181,7 @@ class Colaborador extends Model
 
     public function nombreCompleto(): string
     {
-        return trim("{$this->name} {$this->apellidos}");
+        return NombrePersona::completo($this->name, $this->apellidos);
     }
 
     public function enPeriodoDePrueba(): bool

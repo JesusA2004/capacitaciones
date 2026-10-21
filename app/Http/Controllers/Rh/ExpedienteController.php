@@ -38,6 +38,7 @@ use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\AvisoPrivacidadService;
 use App\Services\Expedientes\CartaCompromisoService;
+use App\Services\Expedientes\ContratosPendientesExpedienteService;
 use App\Services\Expedientes\CorreccionesService;
 use App\Services\Expedientes\DatosExpedienteService;
 use App\Services\Expedientes\DatosFaltantesService;
@@ -113,8 +114,11 @@ class ExpedienteController extends Controller
         // cargadas, sin ninguna consulta extra por colaborador.
         $columnasRequeridas = array_keys($this->documentoProceso->columnasColaboradorRequeridasGlobal());
 
-        $colaboradores->getCollection()->transform(function (Colaborador $colaborador) use ($resumenes, $columnasRequeridas) {
+        $contratosPendientes = app(ContratosPendientesExpedienteService::class);
+
+        $colaboradores->getCollection()->transform(function (Colaborador $colaborador) use ($resumenes, $columnasRequeridas, $contratosPendientes) {
             $resumen = $resumenes[$colaborador->id];
+            $documentosPendientes = $resumen['pendientes'] + $resumen['rechazados'];
             // Columnas con cast a enum (estado civil, género) no se pueden
             // convertir a texto: un enum presente nunca está vacío.
             $datosFaltantes = collect($columnasRequeridas)->contains(function (string $columna) use ($colaborador): bool {
@@ -127,6 +131,7 @@ class ExpedienteController extends Controller
                 'id' => $colaborador->id,
                 'name' => $colaborador->name,
                 'apellidos' => $colaborador->apellidos,
+                'nombre_completo' => $colaborador->nombreCompleto(),
                 'numero_empleado' => $colaborador->numero_empleado,
                 'foto_url' => $this->fotoUrl($colaborador),
                 'estatus' => $colaborador->estatus->value,
@@ -136,7 +141,10 @@ class ExpedienteController extends Controller
                 'departamento' => $colaborador->departamento,
                 'puesto' => $colaborador->puesto,
                 'expediente_porcentaje' => $resumen['porcentaje'],
-                'documentos_pendientes' => $resumen['pendientes'] + $resumen['rechazados'],
+                'documentos_pendientes' => $documentosPendientes,
+                // Su parte ya está completa: lo que falta son los contratos
+                // (trabajo de RH), no algo que deba subir la persona.
+                'contratos_pendientes' => $documentosPendientes === 0 ? $contratosPendientes->resumen($colaborador) : null,
                 'datos_incompletos' => $datosFaltantes,
                 // Acuse de alta IMSS: verde (registrado) / naranja (falta).
                 'imss_alta' => $this->altaImss->indicador($colaborador),
@@ -199,7 +207,7 @@ class ExpedienteController extends Controller
             $resumen = $resumenes[$colaborador->id];
 
             return [
-                trim("{$colaborador->name} {$colaborador->apellidos}"),
+                $colaborador->nombreCompleto(),
                 $colaborador->numero_empleado,
                 $colaborador->sucursalPrincipal?->empresa?->nombre,
                 $colaborador->sucursalPrincipal?->nombre,

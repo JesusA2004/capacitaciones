@@ -5,6 +5,7 @@ namespace App\Http\Requests\CicloLaboral;
 use App\Enums\Genero;
 use App\Enums\TipoContratacion;
 use App\Models\Colaborador;
+use App\Rules\NombreSinApellidos;
 use App\Services\Colaboradores\DomicilioService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -38,7 +39,7 @@ class AltaColaboradorRequest extends FormRequest
     protected function reglasIdentidad(): array
     {
         return [
-            'name' => ['required', 'string', 'max:120'],
+            'name' => ['required', 'string', 'max:120', new NombreSinApellidos],
             'apellidos' => ['nullable', 'string', 'max:160'],
             'genero' => ['nullable', Rule::enum(Genero::class)],
             'telefono' => ['nullable', 'string', 'max:20'],

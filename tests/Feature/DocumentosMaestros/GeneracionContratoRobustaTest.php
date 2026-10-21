@@ -101,8 +101,35 @@ test('RH y super_admin generan el paquete de un Gestor en incorporación por la 
     $this->postJson("/rh/documentos-proceso/contrato/{$contrato->id}/generar", ['clave' => 'contrato_capacitacion', 'proceso' => 'alta'])
         ->assertUnprocessable();
 
-    expect(GeneratedDocument::query()->where('documentable_id', $contrato->id)->count())->toBe(3);
+    $generados = GeneratedDocument::query()->where('documentable_id', $contrato->id)->get();
+    expect($generados)->toHaveCount(3);
+
+    // Las fechas de los TRES documentos del paquete son la fecha de ingreso
+    // (20 de octubre de 2026), nunca la de hoy ni otra.
+    foreach ($generados as $documento) {
+        foreach ((array) $documento->payload as $campo => $valor) {
+            if (preg_match('/\d{1,2} (?:de|DE|días del mes de) \p{L}+ (?:de|DE|del año) \d{4}/u', (string) $valor) === 1 && ! str_contains((string) $campo, 'nacimiento')) {
+                expect(mb_strtolower((string) $valor))->toMatch('/20 (de|días del mes de) octubre (de|del año) 2026|19 de enero de 2027/u');
+            }
+        }
+    }
 })->with(['rh_admin', 'super_admin']);
+
+test('sin fecha de ingreso: generar y previsualizar el contrato responden 422 pidiendo capturarla', function () {
+    $colaborador = grColaborador($this->estructura, ['fecha_ingreso' => null]);
+    $contrato = grContrato($colaborador);
+    $this->actingAs(clUsuario('rh_admin'));
+
+    $this->postJson("/rh/documentos-proceso/contrato/{$contrato->id}/generar", ['clave' => 'contrato_capacitacion', 'proceso' => 'alta'])
+        ->assertUnprocessable()
+        ->assertJsonPath('errors.fecha_ingreso.0', fn (string $m): bool => str_contains($m, 'Captura la fecha de ingreso'));
+
+    $this->getJson("/rh/documentos-proceso/contrato/{$contrato->id}/vista-previa?clave=contrato_capacitacion&proceso=alta")
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('fecha_ingreso');
+
+    expect(GeneratedDocument::query()->count())->toBe(0);
+});
 
 test('regresión 500: con un nombre muy largo la ruta del NAS nunca pasa de 191 caracteres (MariaDB estricto)', function () {
     // El nombre va en la carpeta del expediente Y en el archivo: así se

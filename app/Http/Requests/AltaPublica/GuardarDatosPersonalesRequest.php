@@ -3,6 +3,7 @@
 namespace App\Http\Requests\AltaPublica;
 
 use App\Models\AltaDigital;
+use App\Rules\NombreSinApellidos;
 use App\Services\Colaboradores\DomicilioService;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -21,7 +22,7 @@ class GuardarDatosPersonalesRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nombre' => ['required', 'string', 'max:150'],
+            'nombre' => ['required', 'string', 'max:150', new NombreSinApellidos],
             'apellidos' => ['required', 'string', 'max:150'],
             'telefono' => ['required', 'string', 'max:30'],
             // Opcional: el acceso es con usuario (primer nombre + primer apellido).

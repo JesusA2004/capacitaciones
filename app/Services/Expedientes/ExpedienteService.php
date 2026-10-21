@@ -2,6 +2,7 @@
 
 namespace App\Services\Expedientes;
 
+use App\Enums\EstadoAltaColaborador;
 use App\Enums\EstadoDocumento;
 use App\Models\Colaborador;
 use App\Models\DocumentType;
@@ -97,13 +98,25 @@ class ExpedienteService
      */
     public function resumenesCompletitud(Collection $idsColaboradores): array
     {
-        $idsTipos = $this->tiposRequeridos()
-            ->filter(fn (DocumentType $tipo) => (bool) $tipo->requerido)
-            ->pluck('id')
-            ->all();
+        // MISMA regla que resumenCompletitud() → tiposRequeridosPara(): quien
+        // está en contratación solo responde por los documentos del alta. Los
+        // contractuales (contrato, confidencialidad, no competencia) los
+        // genera RH después; contarlos aquí hacía que el listado dijera 78 %
+        // y «3 documento(s) pendiente(s)» mientras el expediente decía 100 %.
+        $idsTipos = $this->tiposRequeridos()->pluck('id')->all();
+        $idsTiposAlta = $this->soloDeAlta($this->tiposRequeridos())->pluck('id')->all();
         $resumenes = [];
 
         foreach ($idsColaboradores->unique()->chunk(1000) as $lote) {
+            $enContratacion = Colaborador::withTrashed()
+                ->whereIn('id', $lote->values())
+                ->whereIn('estado_alta', $this->valoresEnContratacion())
+                ->toBase()
+                ->pluck('id')
+                ->map(fn ($id): int => (int) $id)
+                ->flip()
+                ->all();
+
             // Filas planas (sin hidratar EmployeeDocument): con la plantilla
             // completa son decenas de miles de documentos. La primera fila
             // de cada (colaborador, tipo) en orden de versión descendente es
@@ -127,7 +140,7 @@ class ExpedienteService
             foreach ($lote as $idColaborador) {
                 $estados = [];
 
-                foreach ($idsTipos as $tipoId) {
+                foreach (isset($enContratacion[(int) $idColaborador]) ? $idsTiposAlta : $idsTipos as $tipoId) {
                     $estados[] = $vigentes[$idColaborador][$tipoId] ?? EstadoDocumento::Pendiente;
                 }
 
@@ -136,6 +149,25 @@ class ExpedienteService
         }
 
         return $resumenes;
+    }
+
+    /**
+     * Valores de estado_alta de la Etapa 2 (contratación). Fuente única:
+     * EstadoAltaColaborador::enContratacion().
+     *
+     * @return list<string>
+     */
+    private function valoresEnContratacion(): array
+    {
+        $valores = [];
+
+        foreach (EstadoAltaColaborador::cases() as $estado) {
+            if ($estado->enContratacion()) {
+                $valores[] = $estado->value;
+            }
+        }
+
+        return $valores;
     }
 
     /**

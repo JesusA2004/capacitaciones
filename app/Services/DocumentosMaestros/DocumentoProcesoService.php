@@ -756,6 +756,8 @@ class DocumentoProcesoService
             $this->completarDatos($colaborador, $completar, $actor);
         }
 
+        $this->exigirFechaIngreso($registro, $colaborador);
+
         if ($existente !== null && $revisionDe === null) {
             if (! $regenerar) {
                 throw ValidationException::withMessages(['documento' => 'Este documento ya está generado. Descárgalo o usa "Regenerar" si cambiaron los datos (solo antes de imprimirlo).']);
@@ -842,6 +844,8 @@ class DocumentoProcesoService
             $colaborador->refresh();
         }
 
+        $this->exigirFechaIngreso($registro, $colaborador);
+
         $claves = array_values(array_filter($this->clavesDeProceso($proceso, $registro, $colaborador), fn (string $c): bool => $this->documentoVigente($registro, $c) === null));
         $faltantes = [];
         $formatosFaltantes = [];
@@ -927,10 +931,11 @@ class DocumentoProcesoService
         $this->exigirVer($actor, $colaborador);
         $this->exigirPuedeGenerar($actor, $clave);
         $this->exigirClaveDelProceso($proceso, $registro, $clave, $colaborador);
-
         if ($completar !== []) {
             $this->aplicarEnMemoria($colaborador, $completar);
         }
+
+        $this->exigirFechaIngreso($registro, $colaborador);
 
         // Acta administrativa / de hechos: formato propio de PEOPLE.
         if ($registro instanceof ActaAdministrativa && $this->esFormatoPropio($clave, $registro)) {
@@ -1967,6 +1972,21 @@ class DocumentoProcesoService
         }
 
         return false;
+    }
+
+    /**
+     * Documentos del CONTRATO: todas sus fechas (del contrato, de firma, hoja
+     * de firmas, vigencia) salen de la fecha de ingreso del colaborador
+     * (DatosDocumentoService). Sin ella no se genera ni se previsualiza con
+     * otra fecha inventada: 422 que dice qué capturar.
+     */
+    private function exigirFechaIngreso(Model $registro, Colaborador $colaborador): void
+    {
+        if ($registro instanceof ContratoLaboral && $colaborador->fecha_ingreso === null) {
+            throw ValidationException::withMessages([
+                'fecha_ingreso' => sprintf('Captura la fecha de ingreso de %s en su expediente (Datos laborales): todas las fechas del contrato (fecha del contrato, firma, hoja de firmas y vigencia) salen de ella.', $colaborador->nombreCompleto()),
+            ]);
+        }
     }
 
     private function exigirPuedeGenerar(User $usuario, string $clave): void

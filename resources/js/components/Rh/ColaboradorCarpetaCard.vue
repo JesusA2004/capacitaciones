@@ -3,6 +3,7 @@ import { Link } from '@inertiajs/vue3';
 import {
     Briefcase,
     Building2,
+    FileSignature,
     FileWarning,
     MapPinned,
     User,
@@ -61,7 +62,7 @@ defineProps<{
             <div class="flex items-start gap-2 pr-12">
                 <div class="min-w-0 flex-1">
                     <p class="truncate text-sm font-semibold">
-                        {{ colaborador.name }} {{ colaborador.apellidos }}
+                        {{ colaborador.nombre_completo }}
                     </p>
                     <p class="truncate text-xs text-muted-foreground">
                         {{
@@ -120,6 +121,17 @@ defineProps<{
                     <FileWarning class="size-3.5 shrink-0" />
                     {{ colaborador.documentos_pendientes }} documento(s)
                     pendiente(s)
+                </span>
+                <!-- Su parte ya está completa: faltan los contratos, que
+                     genera RH (aviso informativo, no un pendiente suyo). -->
+                <span
+                    v-else-if="colaborador.contratos_pendientes"
+                    class="inline-flex w-fit items-center gap-1.5 rounded-full bg-info-soft px-2 py-0.5 text-xs font-medium text-info"
+                    title="El colaborador ya completó sus documentos; los contratos los genera RH."
+                    data-contratos-pendientes
+                >
+                    <FileSignature class="size-3.5 shrink-0" />
+                    {{ colaborador.contratos_pendientes.etiqueta }}
                 </span>
                 <span
                     v-if="colaborador.imss_alta"
