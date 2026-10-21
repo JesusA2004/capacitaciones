@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { FileArchive, FileSignature } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import DescargaEnProgreso from '@/components/DescargaEnProgreso.vue';
 import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
 import ExpedienteDetalle from '@/components/Rh/ExpedienteDetalle.vue';
 import ExpedienteDocumentosOficiales from '@/components/Rh/ExpedienteDocumentosOficiales.vue';
 import ResponsivaFormDialog from '@/components/Rh/Responsivas/ResponsivaFormDialog.vue';
 import ResponsivasColaborador from '@/components/Rh/Responsivas/ResponsivasColaborador.vue';
 import { Button } from '@/components/ui/button';
+import { useDescargaArchivo } from '@/composables/useDescargaArchivo';
 import { usePermisos } from '@/composables/usePermisos';
 import { dashboard } from '@/routes';
 import {
@@ -122,6 +124,31 @@ const puedeGenerarResponsiva = computed(
         tienePermiso('responsivas.generar'),
 );
 const responsivaAbierta = ref(false);
+
+// «Descargar expediente completo»: armar el ZIP lee el NAS y tarda; se pide
+// con fetch para mostrar el progreso, errores (403/429/500) y poder cancelar.
+const {
+    estado: estadoDescarga,
+    error: errorDescarga,
+    nombreArchivo: archivoDescargado,
+    enProgreso: descargandoExpediente,
+    descargar,
+    cancelar: cancelarDescarga,
+    reintentar: reintentarDescarga,
+    cerrar: cerrarDescarga,
+} = useDescargaArchivo();
+
+const nombreColaborador = computed(() =>
+    [props.colaborador.name, props.colaborador.apellidos]
+        .filter(Boolean)
+        .join(' '),
+);
+
+function descargarExpedienteCompleto(): void {
+    void descargar(descargarZip.url(props.colaborador.id), {
+        nombreRespaldo: `Expediente ${nombreColaborador.value}.zip`,
+    });
+}
 const versionResponsivas = ref(0);
 
 // Huella del estado de los documentos del expediente: al aprobar/rechazar
@@ -200,12 +227,32 @@ defineOptions({
         <template #acciones-encabezado>
             <!-- ZIP con todo el expediente + INDICE.csv: descarga directa,
                  no visita Inertia. La regla real: EmployeeDocumentPolicy. -->
-            <Button v-if="puedeDescargarExpediente" size="sm" as-child>
-                <a :href="descargarZip.url(colaborador.id)" download>
-                    <FileArchive class="size-3.5" />
-                    Descargar expediente completo
-                </a>
+            <Button
+                v-if="puedeDescargarExpediente"
+                size="sm"
+                :disabled="descargandoExpediente"
+                :aria-busy="descargandoExpediente"
+                @click="descargarExpedienteCompleto"
+            >
+                <FileArchive class="size-3.5" />
+                {{
+                    descargandoExpediente
+                        ? 'Preparando expediente…'
+                        : 'Descargar expediente completo'
+                }}
             </Button>
+            <DescargaEnProgreso
+                v-if="puedeDescargarExpediente"
+                :estado="estadoDescarga"
+                :error="errorDescarga"
+                :nombre-archivo="archivoDescargado"
+                titulo="Preparando el expediente completo"
+                :sujeto="nombreColaborador"
+                descripcion="Reuniendo documentos, versiones y el índice… esto puede tardar unos segundos."
+                @cancelar="cancelarDescarga"
+                @reintentar="reintentarDescarga"
+                @cerrar="cerrarDescarga"
+            />
             <template v-if="puedeGenerarResponsiva">
                 <Button
                     size="sm"
