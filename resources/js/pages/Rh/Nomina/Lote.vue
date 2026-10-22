@@ -73,6 +73,7 @@ const props = defineProps<{
     puedeEmitir: boolean;
     puedeCancelar: boolean;
     puedeEditar: boolean;
+    puedeDescargar: boolean;
     puedeRecalcular: boolean;
     impresion: ImpresionLote | null;
 }>();
@@ -122,7 +123,7 @@ const seleccionado = computed<ReciboLote | null>(
     () => props.recibos[indice.value] ?? null,
 );
 const pdfUrl = computed(() =>
-    seleccionado.value?.id
+    props.puedeDescargar && seleccionado.value?.id
         ? pdfRecibo.url({ lote: props.lote.id, recibo: seleccionado.value.id })
         : null,
 );
@@ -380,7 +381,7 @@ function guardarEdicion() {
                     {{ lote.estado_etiqueta }}
                 </Badge>
                 <!-- Solo en lote emitido: un PDF con todos los recibos, para imprimir. -->
-                <template v-if="impresion">
+                <template v-if="impresion && puedeDescargar">
                     <span class="text-sm text-muted-foreground">
                         {{ impresion.total }}
                         {{ impresion.total === 1 ? 'recibo' : 'recibos' }}

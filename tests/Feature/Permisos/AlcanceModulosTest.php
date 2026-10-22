@@ -141,7 +141,7 @@ test('SUCURSAL y REGIÓN: el regional ve las sucursales de su región (matriz co
         ->and($servicio->alcanzaColaborador($gerente, $enB, 'expedientes'))->toBeFalse();
 });
 
-test('el sincronizador solo AGREGA permisos base y conserva personalizaciones', function () {
+test('el sincronizador nunca quita ni re-otorga: conserva personalizaciones en ambos sentidos', function () {
     $rol = Role::findByName('gerente');
     $rol->givePermissionTo('reportes.globales');
     $rol->revokePermissionTo('vacantes.crear');
@@ -150,7 +150,9 @@ test('el sincronizador solo AGREGA permisos base y conserva personalizaciones', 
 
     $rol->refresh();
     expect($rol->hasPermissionTo('reportes.globales'))->toBeTrue()
-        ->and($rol->hasPermissionTo('vacantes.crear'))->toBeTrue()
+        // Quitado desde «Roles y permisos»: el deploy ya no lo devuelve
+        // (solo los permisos NUEVOS reciben sus defaults).
+        ->and($rol->hasPermissionTo('vacantes.crear'))->toBeFalse()
         ->and(Role::findByName('sistemas')->hasPermissionTo('dashboard.global.ver'))->toBeTrue()
         ->and(Role::findByName('super_admin')->hasPermissionTo('notificaciones.ver_todas'))->toBeTrue();
 });

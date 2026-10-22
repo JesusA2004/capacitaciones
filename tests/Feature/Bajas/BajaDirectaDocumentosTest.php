@@ -14,6 +14,8 @@ use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 /*
 | Baja directa con los formatos reales de Jurídico (docs/formatos_fuente):
@@ -66,6 +68,10 @@ afterEach(function () {
 test('antes de registrar: la renuncia y el finiquito se ven sin crear baja, cierre, trámite ni documento; al registrar la renuncia queda generada', function () {
     $fecha = now()->subDay()->toDateString();
     $datosFlujo = http_build_query(['tipo_baja' => 'renuncia', 'causal_rotacion_id' => $this->causal->id, 'fecha_efectiva' => $fecha, 'motivo' => '']);
+
+    // La vista previa del finiquito es de RH por defecto; aquí se habilita al rol.
+    Role::findByName('gerente_sucursal', 'web')->givePermissionTo('bajas.finiquito.vista_previa');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     $documentos = $this->actingAs($this->gerente)->getJson("/rh/documentos-proceso/previa/baja/{$this->persona->id}?{$datosFlujo}")->assertOk()->json('data');
     expect(array_column($documentos, 'clave'))->toBe(['carta_renuncia']);

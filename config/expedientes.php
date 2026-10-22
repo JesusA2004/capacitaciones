@@ -44,10 +44,14 @@ return [
     | limitada a subirlos (motivo «excede_maximo_carta»); la carta se genera
     | sola en cuanto le falten `max_documentos` o menos.
     |
+    | El módulo «Cartas compromiso» (GestionCartasCompromisoService) marca
+    | «por vencer» las vigentes a `dias_por_vencer` días o menos del límite.
+    |
     */
     'carta_compromiso' => [
         'dias_plazo' => (int) env('CARTA_COMPROMISO_DIAS_PLAZO', 7),
         'max_documentos' => (int) env('CARTA_COMPROMISO_MAX_DOCUMENTOS', 2),
+        'dias_por_vencer' => (int) env('CARTA_COMPROMISO_DIAS_POR_VENCER', 2),
     ],
 
     /*

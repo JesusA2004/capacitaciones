@@ -468,12 +468,7 @@ class CumpleanosService
         }
 
         if (! empty($filtros['busqueda'])) {
-            $busqueda = $filtros['busqueda'];
-            $query->where(function (Builder $sub) use ($busqueda): void {
-                $sub->where('name', 'like', "%{$busqueda}%")
-                    ->orWhere('apellidos', 'like', "%{$busqueda}%")
-                    ->orWhere('numero_empleado', 'like', "%{$busqueda}%");
-            });
+            $query->buscar((string) $filtros['busqueda']);
         }
 
         return $query;

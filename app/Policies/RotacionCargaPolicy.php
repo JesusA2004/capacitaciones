@@ -28,6 +28,12 @@ class RotacionCargaPolicy
         return $this->create($user);
     }
 
+    /** Formato de carga y Excel original: acceso + acción (rotacion.descargar). */
+    public function descargar(User $user): bool
+    {
+        return $user->can('rotacion.ver') && $user->can('rotacion.descargar');
+    }
+
     public function aplicar(User $user, RotacionCarga $carga): bool
     {
         return $this->create($user) && $carga->estado === EstadoCargaRotacion::Analizada;

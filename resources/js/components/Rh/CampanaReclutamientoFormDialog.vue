@@ -3,6 +3,7 @@ import { router, useForm } from '@inertiajs/vue3';
 import { FileText, ImageIcon, Paperclip, Trash2 } from '@lucide/vue';
 import { computed } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,13 +16,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { store, update } from '@/routes/rh/campanas';
@@ -153,19 +147,16 @@ function enviar() {
                             >Vacante real
                             <span class="text-destructive">*</span></Label
                         >
-                        <Select v-model="form.vacante_id">
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Elige la vacante" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in opciones.vacantes"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.etiqueta }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
+                        <SelectSimple
+                            v-model="form.vacante_id"
+                            :opciones="
+                                opciones.vacantes.map((o) => ({
+                                    value: String(o.id),
+                                    label: o.etiqueta,
+                                }))
+                            "
+                            placeholder="Elige la vacante"
+                        />
                         <p
                             v-if="!opciones.vacantes.length"
                             class="text-xs text-muted-foreground"
@@ -187,41 +178,31 @@ function enviar() {
                                 >Canal
                                 <span class="text-destructive">*</span></Label
                             >
-                            <Select v-model="form.canal">
-                                <SelectTrigger class="w-full">
-                                    <SelectValue
-                                        placeholder="Selecciona un canal"
-                                    />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem
-                                        v-for="opcion in opciones.canales"
-                                        :key="opcion.value"
-                                        :value="opcion.value"
-                                        >{{ opcion.etiqueta }}</SelectItem
-                                    >
-                                </SelectContent>
-                            </Select>
+                            <SelectSimple
+                                v-model="form.canal"
+                                :opciones="
+                                    opciones.canales.map((o) => ({
+                                        value: o.value,
+                                        label: o.etiqueta,
+                                    }))
+                                "
+                                placeholder="Selecciona un canal"
+                            />
                             <InputError :message="form.errors.canal" />
                         </div>
                         <div class="grid gap-2">
                             <Label>Responsable (opcional)</Label>
-                            <Select v-model="form.responsable_id">
-                                <SelectTrigger class="w-full">
-                                    <SelectValue
-                                        placeholder="¿Quién la lleva?"
-                                    />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem
-                                        v-for="opcion in opciones.responsables"
-                                        :key="opcion.id"
-                                        :value="String(opcion.id)"
-                                        >{{ opcion.name }}
-                                        {{ opcion.apellidos ?? '' }}</SelectItem
-                                    >
-                                </SelectContent>
-                            </Select>
+                            <SelectSimple
+                                v-model="form.responsable_id"
+                                :opciones="
+                                    opciones.responsables.map((o) => ({
+                                        value: String(o.id),
+                                        label: `${o.name} ${o.apellidos ?? ''}`.trim(),
+                                    }))
+                                "
+                                placeholder="¿Quién la lleva?"
+                                buscable
+                            />
                             <InputError :message="form.errors.responsable_id" />
                         </div>
                         <div class="grid gap-2">

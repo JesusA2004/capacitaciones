@@ -460,8 +460,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('/', [RhDocumentoController::class, 'index'])->name('index');
                 Route::get('{documento}', [RhDocumentoController::class, 'show'])->name('show');
                 Route::get('{documento}/ver', [RhDocumentoController::class, 'ver'])->name('ver');
+                Route::get('{documento}/descargar', [RhDocumentoController::class, 'descargar'])->name('descargar');
                 Route::post('{documento}/aprobar', [RhDocumentoController::class, 'aprobar'])->name('aprobar');
                 Route::post('{documento}/rechazar', [RhDocumentoController::class, 'rechazar'])->name('rechazar');
+                Route::post('{documento}/correccion', [RhDocumentoController::class, 'correccion'])->name('correccion');
                 Route::get('{documento}/extraccion', [RhDocumentoController::class, 'extraccion'])->name('extraccion');
                 Route::post('{documento}/extraccion/aplicar', [RhDocumentoController::class, 'aplicarExtraccion'])->name('extraccion.aplicar');
                 Route::post('{documento}/extraccion/ignorar', [RhDocumentoController::class, 'ignorarExtraccion'])->name('extraccion.ignorar');
@@ -487,8 +489,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('/', [RhExpedienteController::class, 'index'])->name('index');
                 Route::get('{colaborador}', [RhExpedienteController::class, 'show'])->name('show');
                 Route::get('{colaborador}/documentos/{documento}/ver', [RhExpedienteController::class, 'verDocumento'])->name('documentos.ver');
+                Route::get('{colaborador}/documentos/{documento}/descargar', [RhExpedienteController::class, 'descargarDocumento'])->name('documentos.descargar');
+                // «Descargar expediente completo (ZIP)», mismo servicio que la web.
+                Route::get('{colaborador}/descargar-zip', [RhExpedienteController::class, 'descargarZip'])->name('descargar-zip')->withTrashed()->middleware('throttle:10,1');
                 Route::post('{colaborador}/documentos/{documento}/aprobar', [RhExpedienteController::class, 'aprobarDocumento'])->name('documentos.aprobar');
                 Route::post('{colaborador}/documentos/{documento}/rechazar', [RhExpedienteController::class, 'rechazarDocumento'])->name('documentos.rechazar');
+                Route::post('{colaborador}/documentos/{documento}/correccion', [RhExpedienteController::class, 'correccionDocumento'])->name('documentos.correccion');
                 Route::post('{colaborador}/documentos/{documento}/autorizar-cambio', [RhExpedienteController::class, 'autorizarCambioDocumento'])->name('documentos.autorizar-cambio');
                 Route::post('{colaborador}/aprobar-incorporacion', [RhExpedienteController::class, 'aprobarIncorporacion'])->name('aprobar-incorporacion');
                 Route::post('{colaborador}/rechazar-incorporacion', [RhExpedienteController::class, 'rechazarIncorporacion'])->name('rechazar-incorporacion');
@@ -537,6 +543,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('colaboradores/{colaborador}/activar', [AltaColaboradorController::class, 'activar'])->name('colaboradores.activar');
             Route::get('colaboradores/{colaborador}/jerarquia', [AltaColaboradorController::class, 'jerarquia'])->name('colaboradores.jerarquia');
             Route::get('colaboradores/{colaborador}/contratos', [ContratoController::class, 'delColaborador'])->name('colaboradores.contratos');
+            // Subir el contrato firmado (mismo ContratoFirmadoService que la web).
+            Route::post('colaboradores/{colaborador}/contratos/firmado', [ContratoController::class, 'subirFirmado'])->name('colaboradores.contratos.firmado')->middleware('throttle:api-cargas');
             Route::post('colaboradores/{colaborador}/documentos-laborales', [DocumentoLaboralController::class, 'store'])->name('colaboradores.documentos-laborales.store');
             Route::post('colaboradores/{colaborador}/cierres', [CierreLaboralController::class, 'store'])->name('colaboradores.cierres.store');
             Route::post('colaboradores/{colaborador}/recibos', [RhReciboNominaController::class, 'store'])->name('colaboradores.recibos.store');

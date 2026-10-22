@@ -20,6 +20,16 @@ class AltaDigitalPolicy
         return $usuario->can('altas.ver');
     }
 
+    /**
+     * Descargar los documentos y la firma del alta: ver el alta no basta
+     * (el gerente revisa/aprueba el alta, pero no descarga documentos de la
+     * persona); exige documentos.descargar, igual que el expediente.
+     */
+    public function descargarDocumento(User $usuario, AltaDigital $alta): bool
+    {
+        return $usuario->can('altas.ver') && $usuario->can('documentos.descargar');
+    }
+
     public function create(User $usuario): bool
     {
         return $usuario->can('altas.crear');

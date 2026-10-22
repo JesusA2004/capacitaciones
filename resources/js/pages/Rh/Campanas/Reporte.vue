@@ -42,6 +42,8 @@ const props = defineProps<{
     filtros: FiltrosReporteCampanas;
     opciones: OpcionesReporteCampanas;
     conCandidatos: boolean;
+    /** reclutamiento.campanas.exportar */
+    puedeExportar?: boolean;
 }>();
 
 defineOptions({
@@ -267,13 +269,13 @@ const abierta = ref<number | null>(null);
             descripcion="Filtra por rango de fechas, campaña o reporte general, y descarga el PDF o Excel con los mismos filtros."
             :icono="ChartColumn"
         >
-            <Button variant="secondary" as-child>
+            <Button v-if="props.puedeExportar" variant="secondary" as-child>
                 <a :href="urlExcel">
                     <FileSpreadsheet class="size-4" />
                     Descargar Excel
                 </a>
             </Button>
-            <Button as-child>
+            <Button v-if="props.puedeExportar" as-child>
                 <a :href="urlPdf" target="_blank" rel="noopener">
                     <FileDown class="size-4" />
                     Descargar PDF

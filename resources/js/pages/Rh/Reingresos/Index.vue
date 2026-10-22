@@ -8,16 +8,18 @@ import Casilla from '@/components/Common/Casilla.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import { ciclo as cicloColaborador } from '@/routes/rh/colaboradores';
 import { decidir, index, store } from '@/routes/rh/reingresos';
-import type { ResumenAprobaciones } from '@/types';
+import type { RespuestaPaginada, ResumenAprobaciones } from '@/types';
 
 type Resultado = {
     id: number;
@@ -54,7 +56,7 @@ const props = defineProps<{
     busqueda: string;
     resultados: Resultado[];
     historial: Record<string, unknown> | null;
-    reingresos: { data: ReingresoFila[] };
+    reingresos: RespuestaPaginada<ReingresoFila>;
     opciones: {
         puestos: { id: number; nombre: string }[];
         sucursales: { id: number; nombre: string }[];
@@ -78,7 +80,10 @@ const termino = ref(props.busqueda);
 function buscar() {
     router.get(
         index.url(),
-        { busqueda: termino.value || undefined },
+        {
+            ...parametrosPorPaginaActuales(),
+            busqueda: termino.value || undefined,
+        },
         { preserveState: true, preserveScroll: true, replace: true },
     );
 }
@@ -384,6 +389,8 @@ function enviarDecision(reingreso: ReingresoFila) {
                     :aprobaciones="r.aprobaciones"
                 />
             </article>
+
+            <PaginacionTabla :datos="reingresos" />
         </section>
     </div>
 </template>

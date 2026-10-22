@@ -10,7 +10,7 @@ class GuardarMotivoRechazoCandidatoRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('configuracion.rh') ?? false;
+        return $this->user() !== null && $this->user()->can('configuracion.rh') && $this->user()->can('configuracion.rh.reclutamiento');
     }
 
     /**

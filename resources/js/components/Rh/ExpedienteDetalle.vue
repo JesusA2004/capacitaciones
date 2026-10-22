@@ -49,6 +49,7 @@ import { computed, nextTick, ref, watch } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import FotoPerfilCaptura from '@/components/Common/FotoPerfilCaptura.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import InputError from '@/components/InputError.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
@@ -1167,7 +1168,12 @@ function irACompletarExpediente() {
                             etiqueta="Documentos aprobados"
                             :valor="`${resumenExpediente.requeridos_aprobados}/${resumenExpediente.requeridos_total}`"
                             :icono="FolderOpen"
-                            :tono="resumenExpediente.requeridos_aprobados === resumenExpediente.requeridos_total ? 'exito' : 'primario'"
+                            :tono="
+                                resumenExpediente.requeridos_aprobados ===
+                                resumenExpediente.requeridos_total
+                                    ? 'exito'
+                                    : 'primario'
+                            "
                             clicable
                             @click="pestana = 'documentos'"
                         />
@@ -1191,8 +1197,14 @@ function irACompletarExpediente() {
                             etiqueta="Datos faltantes"
                             :valor="datosFaltantesTotal"
                             :icono="IdCard"
-                            :tono="datosFaltantesTotal === 0 ? 'exito' : 'alerta'"
-                            :detalle="datosFaltantesTotal === 0 ? 'Completo' : 'Para contrato'"
+                            :tono="
+                                datosFaltantesTotal === 0 ? 'exito' : 'alerta'
+                            "
+                            :detalle="
+                                datosFaltantesTotal === 0
+                                    ? 'Completo'
+                                    : 'Para contrato'
+                            "
                             clicable
                             @click="pestana = 'personales'"
                         />
@@ -1206,8 +1218,14 @@ function irACompletarExpediente() {
                                     <Skeleton class="h-32 rounded-2xl" />
                                     <Skeleton class="h-32 rounded-2xl" />
                                 </div>
-                                <div class="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                                    <Skeleton v-for="i in 4" :key="i" class="h-24 rounded-2xl" />
+                                <div
+                                    class="grid grid-cols-2 gap-3 xl:grid-cols-4"
+                                >
+                                    <Skeleton
+                                        v-for="i in 4"
+                                        :key="i"
+                                        class="h-24 rounded-2xl"
+                                    />
                                 </div>
                             </div>
                         </template>
@@ -1248,10 +1266,14 @@ function irACompletarExpediente() {
                         :colaborador="colaborador"
                         :puede-editar="puedeEditar"
                         :es-propio="esPropio"
-                        :puede-editar-datos-medicos="puedeEditarDatosMedicos ?? false"
+                        :puede-editar-datos-medicos="
+                            puedeEditarDatosMedicos ?? false
+                        "
                         :datos-medicos="datosMedicos"
                         :campos-criticos="camposCriticos ?? []"
-                        :opciones-datos="opcionesDatos ?? { genero: [], estado_civil: [] }"
+                        :opciones-datos="
+                            opcionesDatos ?? { genero: [], estado_civil: [] }
+                        "
                         :url-solicitar-correccion="urlSolicitarCorreccion"
                     />
                 </TabsContent>
@@ -1317,59 +1339,47 @@ function irACompletarExpediente() {
                                 >
                                     <div class="grid gap-2">
                                         <Label>Empresa</Label>
-                                        <Select
+                                        <SelectSimple
                                             :model-value="empresaSeleccionada"
+                                            :opciones="
+                                                empresasDisponibles.map(
+                                                    (e) => ({
+                                                        value: String(e.id),
+                                                        label: e.nombre,
+                                                    }),
+                                                )
+                                            "
+                                            placeholder="Selecciona una empresa"
                                             @update:model-value="
                                                 (v) =>
                                                     alCambiarEmpresa(
                                                         String(v ?? ''),
                                                     )
                                             "
-                                        >
-                                            <SelectTrigger class="w-full">
-                                                <SelectValue
-                                                    placeholder="Selecciona una empresa"
-                                                />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem
-                                                    v-for="empresa in empresasDisponibles"
-                                                    :key="empresa.id"
-                                                    :value="String(empresa.id)"
-                                                >
-                                                    {{ empresa.nombre }}
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                        />
                                     </div>
                                     <div class="grid gap-2">
                                         <Label>Sucursal</Label>
-                                        <Select
+                                        <SelectSimple
                                             :model-value="
                                                 formLaborales.sucursal_principal_id
                                             "
+                                            :opciones="
+                                                sucursalesFiltradas.map(
+                                                    (s) => ({
+                                                        value: String(s.id),
+                                                        label: s.nombre,
+                                                    }),
+                                                )
+                                            "
+                                            placeholder="Selecciona una sucursal"
                                             @update:model-value="
                                                 (v) =>
                                                     alCambiarSucursalLaboral(
                                                         String(v ?? ''),
                                                     )
                                             "
-                                        >
-                                            <SelectTrigger class="w-full">
-                                                <SelectValue
-                                                    placeholder="Selecciona una sucursal"
-                                                />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem
-                                                    v-for="sucursal in sucursalesFiltradas"
-                                                    :key="sucursal.id"
-                                                    :value="String(sucursal.id)"
-                                                >
-                                                    {{ sucursal.nombre }}
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                        />
                                         <InputError
                                             :message="
                                                 formLaborales.errors
@@ -1379,28 +1389,20 @@ function irACompletarExpediente() {
                                     </div>
                                     <div class="grid gap-2">
                                         <Label>Departamento</Label>
-                                        <Select
+                                        <SelectSimple
                                             v-model="
                                                 formLaborales.departamento_id
                                             "
-                                        >
-                                            <SelectTrigger class="w-full">
-                                                <SelectValue
-                                                    placeholder="Selecciona un departamento"
-                                                />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem
-                                                    v-for="departamento in departamentosDisponibles"
-                                                    :key="departamento.id"
-                                                    :value="
-                                                        String(departamento.id)
-                                                    "
-                                                >
-                                                    {{ departamento.nombre }}
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                            :opciones="
+                                                departamentosDisponibles.map(
+                                                    (d) => ({
+                                                        value: String(d.id),
+                                                        label: d.nombre,
+                                                    }),
+                                                )
+                                            "
+                                            placeholder="Selecciona un departamento"
+                                        />
                                         <InputError
                                             :message="
                                                 formLaborales.errors
@@ -1410,32 +1412,24 @@ function irACompletarExpediente() {
                                     </div>
                                     <div class="grid gap-2">
                                         <Label>Puesto</Label>
-                                        <Select
+                                        <SelectSimple
                                             :model-value="
                                                 formLaborales.puesto_id
                                             "
+                                            :opciones="
+                                                puestosDisponibles.map((p) => ({
+                                                    value: String(p.id),
+                                                    label: p.nombre,
+                                                }))
+                                            "
+                                            placeholder="Selecciona un puesto"
                                             @update:model-value="
                                                 (v) =>
                                                     alCambiarPuestoLaboral(
                                                         String(v ?? ''),
                                                     )
                                             "
-                                        >
-                                            <SelectTrigger class="w-full">
-                                                <SelectValue
-                                                    placeholder="Selecciona un puesto"
-                                                />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem
-                                                    v-for="puesto in puestosDisponibles"
-                                                    :key="puesto.id"
-                                                    :value="String(puesto.id)"
-                                                >
-                                                    {{ puesto.nombre }}
-                                                </SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                        />
                                         <InputError
                                             :message="
                                                 formLaborales.errors.puesto_id
@@ -1478,7 +1472,9 @@ function irACompletarExpediente() {
                                         >
                                         <DatePicker
                                             id="fecha_ingreso_laboral"
-                                            v-model="formLaborales.fecha_ingreso"
+                                            v-model="
+                                                formLaborales.fecha_ingreso
+                                            "
                                         />
                                         <p
                                             class="text-xs text-muted-foreground"
@@ -1513,7 +1509,9 @@ function irACompletarExpediente() {
                                             placeholder="Ej. promoción, reubicación, ajuste de sueldo, corrección de captura..."
                                         />
                                         <InputError
-                                            :message="formLaborales.errors.motivo"
+                                            :message="
+                                                formLaborales.errors.motivo
+                                            "
                                         />
                                     </div>
                                 </div>

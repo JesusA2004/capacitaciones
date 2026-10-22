@@ -172,7 +172,7 @@ class CicloLaboralColaboradorController extends Controller
 
     public function reciboPdf(Request $request, ReciboNomina $recibo): StreamedResponse
     {
-        $this->authorize('ver', $recibo);
+        $this->authorize('descargar', $recibo);
 
         return $this->recibos->respuestaPdf($recibo, $request->user());
     }

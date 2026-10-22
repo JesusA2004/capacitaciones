@@ -32,6 +32,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useDocumentosMaestros } from '@/composables/useDocumentosMaestros';
+import { usePermisos } from '@/composables/usePermisos';
 import { formatearFecha } from '@/lib/fechas';
 import { originalPdf } from '@/routes/rh/documentos-maestros';
 import type {
@@ -47,6 +48,16 @@ import type {
  * fuentes) queda plegado al final.
  */
 const props = defineProps<{ detalle: MasterDetalle }>();
+
+// Cada acción de Documentos maestros con su permiso (el backend lo revalida).
+const { tienePermiso } = usePermisos();
+const puede = {
+    cargar: tienePermiso('documentos_maestros.cargar'),
+    probar: tienePermiso('documentos_maestros.probar'),
+    validar: tienePermiso('documentos_maestros.validar'),
+    activar: tienePermiso('documentos_maestros.activar'),
+    diseno: tienePermiso('documentos_maestros.diseno'),
+};
 
 const emit = defineEmits<{
     actualizado: [detalle: MasterDetalle];
@@ -193,7 +204,7 @@ const fuenteDomicilio: Record<string, string> = {
                     <Eye class="size-4" /> Ver original
                 </Button>
                 <Button
-                    v-if="operativo"
+                    v-if="operativo && puede.probar"
                     size="sm"
                     variant="outline"
                     @click="irA(seccionPrueba)"
@@ -201,7 +212,7 @@ const fuenteDomicilio: Record<string, string> = {
                     <FileSearch class="size-4" /> Previsualizar
                 </Button>
                 <Button
-                    v-if="operativo"
+                    v-if="operativo && puede.cargar"
                     size="sm"
                     variant="outline"
                     @click="emit('nuevaVersion')"
@@ -209,7 +220,7 @@ const fuenteDomicilio: Record<string, string> = {
                     <FileUp class="size-4" /> Nueva versión
                 </Button>
                 <Button
-                    v-if="operativo && !detalle.activo"
+                    v-if="operativo && puede.activar && !detalle.activo"
                     size="sm"
                     :disabled="!detalle.activacion.puede || ocupado !== null"
                     @click="activar()"
@@ -221,7 +232,7 @@ const fuenteDomicilio: Record<string, string> = {
                     <Power v-else class="size-4" /> Activar
                 </Button>
                 <Button
-                    v-else-if="operativo && detalle.activo"
+                    v-else-if="operativo && puede.activar && detalle.activo"
                     size="sm"
                     variant="outline"
                     :disabled="ocupado !== null"
@@ -431,6 +442,7 @@ const fuenteDomicilio: Record<string, string> = {
                     </p>
                 </div>
                 <Button
+                    v-if="puede.validar"
                     size="sm"
                     variant="outline"
                     :disabled="
@@ -560,7 +572,10 @@ const fuenteDomicilio: Record<string, string> = {
                 Fondo, márgenes y sangría que se aplican al generar. El texto
                 jurídico nunca cambia; pruébalo abajo con un colaborador.
             </p>
-            <DisenoPaginaMaestro :familia="detalle.familia" puede-editar />
+            <DisenoPaginaMaestro
+                :familia="detalle.familia"
+                :puede-editar="puede.diseno"
+            />
         </section>
 
         <!-- PROBAR CON COLABORADOR -->
@@ -583,6 +598,7 @@ const fuenteDomicilio: Record<string, string> = {
                     <BuscadorColaborador v-model="colaborador" />
                 </div>
                 <Button
+                    v-if="puede.probar"
                     :disabled="!colaborador || ocupado !== null"
                     @click="probar"
                 >

@@ -95,6 +95,13 @@ class CampanaReclutamientoController extends Controller
 
         return Inertia::render('Rh/Campanas/Index', [
             'campanas' => $campanas,
+            // Acciones por permiso (Roles y permisos → Campañas).
+            'permisos' => [
+                'crear' => $usuario->can('reclutamiento.campanas.crear'),
+                'editar' => $usuario->can('reclutamiento.campanas.editar'),
+                'eliminar' => $usuario->can('reclutamiento.campanas.eliminar'),
+                'exportar' => $usuario->can('reclutamiento.campanas.exportar'),
+            ],
             'totales' => ['gasto' => $costos['gasto'], 'contratados' => $costos['contratados'], 'costo_por_colaborador' => $costos['costo_por_colaborador'], 'campanas' => count($costos['por_campana'])],
             'filtros' => [
                 ...$request->only(self::FILTROS),
@@ -159,6 +166,7 @@ class CampanaReclutamientoController extends Controller
             'filtros' => $filtros->aQuery(),
             'opciones' => $this->reporte->opciones(),
             'conCandidatos' => $this->conCandidatos($request),
+            'puedeExportar' => $usuario->can('reclutamiento.campanas.exportar'),
         ]);
     }
 
@@ -169,7 +177,7 @@ class CampanaReclutamientoController extends Controller
     public function reportePdf(ReporteCampanasRequest $request): HttpResponse
     {
         $usuario = $request->user();
-        abort_if($usuario === null, 403);
+        abort_unless($usuario?->can('reclutamiento.campanas.ver') && $usuario->can('reclutamiento.campanas.exportar'), 403);
         $filtros = $request->filtros();
         $conCandidatos = $this->conCandidatos($request);
 
@@ -194,7 +202,7 @@ class CampanaReclutamientoController extends Controller
     public function reporteExcel(ReporteCampanasRequest $request): BinaryFileResponse
     {
         $usuario = $request->user();
-        abort_if($usuario === null, 403);
+        abort_unless($usuario?->can('reclutamiento.campanas.ver') && $usuario->can('reclutamiento.campanas.exportar'), 403);
         $filtros = $request->filtros();
         $conCandidatos = $this->conCandidatos($request);
 
@@ -217,7 +225,7 @@ class CampanaReclutamientoController extends Controller
      */
     public function reporteCampanaPdf(Request $request, CampanaReclutamiento $campana): HttpResponse
     {
-        abort_unless($request->user()?->can('reclutamiento.campanas.ver'), 403);
+        abort_unless($request->user()?->can('reclutamiento.campanas.ver') && $request->user()->can('reclutamiento.campanas.exportar'), 403);
 
         $nombre = $campana->nombre !== null && $campana->nombre !== '' ? $campana->nombre : $campana->canal->etiqueta();
         $periodo = sprintf('Del %s al %s', $campana->fecha_inicio?->format('d/m/Y') ?? '—', $campana->fecha_fin?->format('d/m/Y') ?? 'hoy');
@@ -294,7 +302,7 @@ class CampanaReclutamientoController extends Controller
     public function exportarCostos(Request $request): BinaryFileResponse
     {
         $costos = $this->costos;
-        abort_unless($request->user()?->can('reclutamiento.campanas.ver'), 403);
+        abort_unless($request->user()?->can('reclutamiento.campanas.ver') && $request->user()->can('reclutamiento.campanas.exportar'), 403);
         $desde = Carbon::parse($request->date('desde')?->toDateString() ?? now()->startOfMonth()->toDateString());
         $hasta = Carbon::parse($request->date('hasta')?->toDateString() ?? now()->toDateString());
         $resumen = $costos->resumen($desde, $hasta);
@@ -309,7 +317,7 @@ class CampanaReclutamientoController extends Controller
 
     public function destroy(Request $request, CampanaReclutamiento $campana): RedirectResponse
     {
-        abort_unless($request->user()?->can('reclutamiento.campanas.administrar'), 403);
+        abort_unless($request->user()?->can('reclutamiento.campanas.ver') && $request->user()->can('reclutamiento.campanas.eliminar'), 403);
 
         $campana->delete();
 
@@ -329,7 +337,7 @@ class CampanaReclutamientoController extends Controller
 
     public function eliminarAdjunto(Request $request, CampanaReclutamiento $campana, CampanaReclutamientoAdjunto $adjunto): RedirectResponse
     {
-        abort_unless($request->user()?->can('reclutamiento.campanas.administrar'), 403);
+        abort_unless($request->user()?->can('reclutamiento.campanas.ver') && $request->user()->can('reclutamiento.campanas.editar'), 403);
         abort_unless($adjunto->campana_reclutamiento_id === $campana->id, 404);
 
         $this->servicio->eliminarAdjunto($adjunto);

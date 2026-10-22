@@ -409,6 +409,10 @@ class ResponsivaService
             'observaciones_devolucion' => $responsiva->observaciones_devolucion,
             'motivo_cancelacion' => $responsiva->motivo_cancelacion,
             'puede_operar' => Gate::forUser($usuario)->allows('operar', $responsiva),
+            // Acción por acción (misma ResponsivaPolicy que cada endpoint).
+            'puede_registrar_firma' => Gate::forUser($usuario)->allows('registrarFirma', $responsiva),
+            'puede_registrar_devolucion' => Gate::forUser($usuario)->allows('registrarDevolucion', $responsiva),
+            'puede_descargar' => Gate::forUser($usuario)->allows('descargar', $responsiva),
             'puede_cancelar' => Gate::forUser($usuario)->allows('cancelar', $responsiva),
         ];
     }

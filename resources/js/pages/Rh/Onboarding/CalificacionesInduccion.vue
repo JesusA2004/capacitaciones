@@ -14,6 +14,7 @@ import {
     RotateCcw,
     Search,
     Send,
+    UserPlus,
     UserX,
 } from '@lucide/vue';
 import type { Component } from 'vue';
@@ -22,6 +23,7 @@ import AyudaBoton from '@/components/Common/AyudaBoton.vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import AsignarInduccionDialog from '@/components/onboarding/AsignarInduccionDialog.vue';
 import BotonVistaPrevia from '@/components/people/BotonVistaPrevia.vue';
 import ChipEstado from '@/components/people/ChipEstado.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
@@ -38,10 +40,15 @@ import { retroalimentar as retroalimentarLeccion } from '@/routes/rh/onboarding'
 import {
     mostrar as mostrarIntento,
     retroalimentar as retroalimentarInduccion,
+    vistaColaborador,
     vistaPrevia as vistaPreviaEvaluacion,
 } from '@/routes/rh/onboarding/induccion';
 import * as pdf from '@/routes/rh/onboarding/induccion/pdf';
-import type { EtapaSeguimientoInduccion, SeguimientoInduccion } from '@/types';
+import type {
+    ColaboradorBusqueda,
+    EtapaSeguimientoInduccion,
+    SeguimientoInduccion,
+} from '@/types';
 
 /**
  * «Calificaciones y refuerzo» (3 · Onboarding): resultado de cada persona
@@ -51,7 +58,20 @@ import type { EtapaSeguimientoInduccion, SeguimientoInduccion } from '@/types';
  * OnboardingService; el listado y su alcance, en
  * SesionInduccionService::calificacionesRh().
  */
-const props = defineProps<{ filas: SeguimientoInduccion[] }>();
+const props = defineProps<{
+    filas: SeguimientoInduccion[];
+    materialInduccion?: 'audio' | 'video' | null;
+    puedeAsignar?: boolean;
+}>();
+
+// «Asignar inducción» (todos / personas / sucursal) — AsignarInduccionDialog.
+const dialogoAsignar = ref(false);
+const preseleccion = ref<ColaboradorBusqueda[]>([]);
+
+function asignarA(fila: SeguimientoInduccion | null) {
+    preseleccion.value = fila ? [{ ...fila.colaborador }] : [];
+    dialogoAsignar.value = true;
+}
 
 defineOptions({
     layout: {
@@ -196,8 +216,16 @@ function enviarRetro(url: string) {
         >
             <Button as-child variant="outline" class="w-full sm:w-auto">
                 <Link :href="vistaPreviaEvaluacion()"
-                    ><Eye class="size-4" /> Ver como colaborador</Link
+                    ><Eye class="size-4" /> Ver evaluación como
+                    colaborador</Link
                 >
+            </Button>
+            <Button
+                v-if="puedeAsignar"
+                class="w-full sm:w-auto"
+                @click="asignarA(null)"
+            >
+                <UserPlus class="size-4" /> Asignar inducción
             </Button>
         </CrudPageHeader>
 
@@ -560,6 +588,34 @@ function enviarRetro(url: string) {
                     >
                         Aún no presenta la evaluación
                     </p>
+                    <div class="flex w-full flex-wrap gap-2">
+                        <Button
+                            as-child
+                            variant="ghost"
+                            size="sm"
+                            class="flex-1"
+                        >
+                            <Link
+                                :href="
+                                    vistaColaborador.url(fila.colaborador.id)
+                                "
+                                ><Eye class="size-4" /> Ver como
+                                colaborador</Link
+                            >
+                        </Button>
+                        <Button
+                            v-if="
+                                puedeAsignar &&
+                                fila.etapa === 'pendiente_presentar'
+                            "
+                            variant="ghost"
+                            size="sm"
+                            class="flex-1"
+                            @click="asignarA(fila)"
+                        >
+                            <RotateCcw class="size-4" /> Reasignar
+                        </Button>
+                    </div>
                 </footer>
             </li>
         </ul>
@@ -573,5 +629,11 @@ function enviarRetro(url: string) {
         mime="application/pdf"
         estado="Formato FO-RH-EI"
         @update:open="(v: boolean) => !v && (formato = null)"
+    />
+
+    <AsignarInduccionDialog
+        v-model:open="dialogoAsignar"
+        :material="materialInduccion ?? null"
+        :preseleccion="preseleccion"
     />
 </template>

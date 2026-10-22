@@ -104,7 +104,7 @@ class EditorPaginasDivisionService
                 'cambios' => count($r->cambios),
                 'detalle' => array_slice($r->cambios, 0, 50),
             ])->values()->all(),
-            'tipos' => $tipos->map(fn (DocumentType $t): array => ['id' => $t->id, 'nombre' => $t->nombre, 'clave' => $t->clave])->values()->all(),
+            'tipos' => $tipos->map(fn (DocumentType $t): array => ['id' => $t->id, 'nombre' => $t->nombre, 'clave' => $t->clave, 'requerido' => $t->requerido])->values()->all(),
         ];
     }
 

@@ -59,7 +59,7 @@ test('RH ve a los colaboradores en onboarding y el estado de su descriptivo de p
 
 test('respeta el alcance: RH con alcance de sucursal solo ve a los suyos', function () {
     $rhSucursal = clUsuario('gerente_sucursal', ['sucursal_principal_id' => $this->centro->id]);
-    $rhSucursal->givePermissionTo('onboarding.gestionar');
+    $rhSucursal->givePermissionTo(['onboarding.gestionar', 'onboarding.induccion_puesto']);
 
     $this->actingAs($rhSucursal)->get(route('rh.induccion-puesto.index'))
         ->assertOk()

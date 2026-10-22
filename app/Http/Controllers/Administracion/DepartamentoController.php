@@ -35,6 +35,12 @@ class DepartamentoController extends Controller
 
         return Inertia::render('Administracion/Departamentos/Index', [
             'departamentos' => $departamentos,
+            // Acciones del catálogo (config/permisos_modulos.php → departamentos).
+            'puede' => [
+                'crear' => $request->user()->can('create', Departamento::class),
+                'editar' => $request->user()->can('departamentos.administrar') && $request->user()->can('departamentos.editar'),
+                'eliminar' => $request->user()->can('departamentos.administrar') && $request->user()->can('departamentos.eliminar'),
+            ],
             'filtros' => $request->only('busqueda'),
             'estadisticas' => EstadisticasActivoInactivo::de(Departamento::query()),
         ]);

@@ -1,5 +1,6 @@
 import { toast } from 'vue-sonner';
 import type { NotificacionItem } from '@/composables/useNotificaciones';
+import { webPushActivo } from '@/composables/useWebPush';
 
 type PayloadNotificacionBroadcast = {
     id: string;
@@ -55,10 +56,8 @@ export function useNotificacionesTiempoReal(
 
     suscrito = true;
 
-    if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission().catch(() => undefined);
-    }
-
+    // El permiso de notificaciones ya no se pide solo: lo pide el botón
+    // «Activar notificaciones de escritorio» (useWebPush), con un clic.
     import('@/echo')
         .then(({ default: echo }) => {
             echo.private(`App.Models.User.${userId}`).notification(
@@ -96,9 +95,13 @@ function mostrarNotificacionNativa(
         return;
     }
 
-    // No usa Service Worker/Web Push: funciona mientras la sesion (pestaña)
-    // este abierta, incluida en segundo plano (minimizada o sin foco) —
-    // esa es la garantia pedida, no notificar con el navegador cerrado.
+    // Con Web Push activo, la notificación del sistema ya la muestra
+    // public/sw.js (incluso con la pestaña cerrada): no duplicarla.
+    if (webPushActivo()) {
+        return;
+    }
+
+    // Respaldo sin Web Push: funciona mientras la pestaña esté abierta.
     new Notification(payload.titulo, {
         body: payload.mensaje,
         tag: `mrlana-notificacion-${payload.id}`,

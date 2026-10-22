@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -11,13 +12,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { useAlertas } from '@/composables/useAlertas';
 import { actualizar } from '@/routes/administracion/jerarquia-puestos';
@@ -35,6 +29,18 @@ const emit = defineEmits<{
 
 const { mostrarExito, mostrarError } = useAlertas();
 const puestoElegidoId = ref('');
+
+const opcionesPuesto = computed(() =>
+    props.todosLosPuestos
+        .filter((p) => p.id !== props.puesto.id)
+        .map((p) => ({
+            value: String(p.id),
+            label: p.nombre,
+            descripcion: p.puesto_superior
+                ? `Hoy: ${p.puesto_superior.nombre}`
+                : null,
+        })),
+);
 const enviando = ref(false);
 
 function enviar() {
@@ -81,28 +87,12 @@ function enviar() {
 
             <div class="grid gap-2">
                 <Label>Puesto a conectar</Label>
-                <Select v-model="puestoElegidoId">
-                    <SelectTrigger class="w-full">
-                        <SelectValue placeholder="Selecciona un puesto..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="opcion in todosLosPuestos.filter(
-                                (p) => p.id !== puesto.id,
-                            )"
-                            :key="opcion.id"
-                            :value="String(opcion.id)"
-                        >
-                            {{ opcion.nombre }}
-                            <span
-                                v-if="opcion.puesto_superior"
-                                class="text-muted-foreground"
-                            >
-                                (hoy: {{ opcion.puesto_superior.nombre }})
-                            </span>
-                        </SelectItem>
-                    </SelectContent>
-                </Select>
+                <SelectSimple
+                    v-model="puestoElegidoId"
+                    :opciones="opcionesPuesto"
+                    placeholder="Selecciona un puesto..."
+                    placeholder-busqueda="Buscar puesto…"
+                />
             </div>
 
             <DialogFooter>

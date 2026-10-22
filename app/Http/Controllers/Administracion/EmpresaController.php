@@ -55,6 +55,12 @@ class EmpresaController extends Controller
 
         return Inertia::render('Administracion/Empresas/Index', [
             'empresas' => $empresas,
+            // Acciones del catálogo (config/permisos_modulos.php → empresas).
+            'puede' => [
+                'crear' => $request->user()->can('create', Empresa::class),
+                'editar' => $request->user()->can('empresas.editar'),
+                'eliminar' => $request->user()->can('empresas.eliminar'),
+            ],
             'filtros' => $request->only('busqueda'),
             'estadisticas' => EstadisticasActivoInactivo::de(Empresa::query()),
         ]);

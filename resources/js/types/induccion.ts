@@ -3,6 +3,8 @@
  * contenido público (sin clave de respuestas ni rúbrica) y detalle de casos
  * prácticos para RH. Ver App\Services\Onboarding\EvaluacionInduccionService.
  */
+import type { PresentacionFormulario } from './formulariosEvaluacion';
+
 export type InduccionContenido = {
     version: string;
     instrucciones: { calificacion_aprobatoria: number; total_puntos: number };
@@ -17,7 +19,11 @@ export type InduccionContenido = {
         aspectos: { clave: string; texto: string }[];
         escala_min: number;
         escala_max: number;
+        escala_etiquetas?: Record<string, string>;
+        pregunta_abierta?: { clave: string; texto: string };
     };
+    /** Título, diseño y textos de sección de la versión del formulario. */
+    formulario?: PresentacionFormulario;
 };
 
 export type InduccionRespuestas = {

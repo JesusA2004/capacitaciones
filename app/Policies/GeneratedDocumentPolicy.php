@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoFlujoDocumento;
+use App\Models\ContratoLaboral;
 use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Policies\Concerns\ConSuperAdminOperativo;
@@ -30,7 +31,36 @@ class GeneratedDocumentPolicy
             return $documento->estado_flujo !== null && $documento->estado_flujo !== EstadoFlujoDocumento::Borrador;
         }
 
+        // Contratos: permiso propio (contratos.ver_documento) — el gerente
+        // consulta los demás documentos laborales de su gente, pero no ve ni
+        // descarga contratos. RH lo conserva con el general de generar.
+        if ($this->esContrato($documento)) {
+            return self::puedeVerContratos($usuario) && $this->enAlcance($usuario, $documento);
+        }
+
         return $usuario->can('documentos_laborales.ver') && $this->enAlcance($usuario, $documento);
+    }
+
+    /**
+     * Documento contractual: categoría «Contratos» o ligado a un contrato
+     * laboral (paquete de alta / renovación).
+     */
+    public static function esContrato(GeneratedDocument $documento): bool
+    {
+        return $documento->categoria === CategoriaDocumento::Contratos
+            || $documento->documentable_type === (new ContratoLaboral)->getMorphClass();
+    }
+
+    /** Ver contratos de otras personas (PDF generado / vista previa). */
+    public static function puedeVerContratos(User $usuario): bool
+    {
+        return $usuario->can('contratos.ver_documento') || $usuario->can('documentos_laborales.generar');
+    }
+
+    /** Descargar contratos de otras personas (archivo PDF / Word). */
+    public static function puedeDescargarContratos(User $usuario): bool
+    {
+        return $usuario->can('contratos.descargar') || $usuario->can('documentos_laborales.generar');
     }
 
     /**
@@ -56,9 +86,17 @@ class GeneratedDocumentPolicy
         return $documento->categoria === CategoriaDocumento::BajaFiniquito;
     }
 
+    /**
+     * Descargar el archivo (adjunto, o desde la app). Un contrato ajeno exige
+     * además contratos.descargar; verlo en el visor basta con ver().
+     */
     public function descargar(User $usuario, GeneratedDocument $documento): bool
     {
-        return $this->ver($usuario, $documento);
+        if (! $this->ver($usuario, $documento)) {
+            return false;
+        }
+
+        return $this->esPropio($usuario, $documento) || ! self::esContrato($documento) || self::puedeDescargarContratos($usuario);
     }
 
     /**
@@ -72,6 +110,7 @@ class GeneratedDocumentPolicy
             && ! $this->esPropio($usuario, $documento)
             && $usuario->can('documentos_laborales.ver')
             && ($usuario->can('documentos_laborales.generar') || $usuario->can('documentos_laborales.operar_fisico'))
+            && (! self::esContrato($documento) || self::puedeDescargarContratos($usuario))
             && $this->enAlcance($usuario, $documento);
     }
 

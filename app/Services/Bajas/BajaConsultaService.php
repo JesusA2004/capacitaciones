@@ -8,6 +8,7 @@ use App\Models\Baja;
 use App\Models\Colaborador;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\BuscadorColaboradoresService;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -121,10 +122,10 @@ class BajaConsultaService
             ->when($estatus !== 'abiertas' && $estatus !== 'todas' && EstatusBaja::tryFrom($estatus) !== null, fn (Builder $q) => $q->where('estatus', $estatus))
             ->when(is_numeric($filtros['sucursal_id'] ?? null), fn (Builder $q) => $q->where('sucursal_id', (int) $filtros['sucursal_id']))
             ->when(FormaSalida::tryFrom((string) ($filtros['forma'] ?? '')) !== null, fn (Builder $q) => $q->where('forma_salida', (string) $filtros['forma']))
-            ->when($busqueda !== '', fn (Builder $q) => $q->where(fn (Builder $b) => $b
+            ->when($busqueda !== '', fn (Builder $q) => $q->where(fn (Builder $b) => app(BuscadorColaboradoresService::class)->aplicarPorColumna($b
                 ->where('nombre_colaborador', 'like', '%'.$busqueda.'%')
                 ->orWhere('numero_empleado', 'like', '%'.$busqueda.'%')
-                ->orWhere('folio', 'like', '%'.$busqueda.'%')))
+                ->orWhere('folio', 'like', '%'.$busqueda.'%'), $busqueda, 'colaborador_id', 'or')))
             ->orderByRaw('case when enviado_en is null then 1 else 0 end')
             ->orderBy('enviado_en')
             ->orderByDesc('id')
@@ -202,15 +203,8 @@ class BajaConsultaService
             $this->alcance->limitarPorModulo($query, $usuario, self::MODULO, 'id');
         }
 
-        // Cada palabra debe aparecer en el nombre, los apellidos o el número.
-        foreach (array_filter(preg_split('/\s+/u', $termino) ?: []) as $palabra) {
-            $query->where(fn (Builder $b) => $b
-                ->where('name', 'like', '%'.$palabra.'%')
-                ->orWhere('apellidos', 'like', '%'.$palabra.'%')
-                ->orWhere('numero_empleado', 'like', '%'.$palabra.'%'));
-        }
-
-        $resultado = $query
+        // Buscador único: nombre, número, puesto, sucursal o departamento.
+        $resultado = $query->buscar($termino)
             ->orderBy('name')
             ->orderBy('apellidos')
             ->limit($limite)

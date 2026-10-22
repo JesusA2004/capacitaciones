@@ -206,3 +206,27 @@ test('un archivo que no es imagen aunque se llame .jpg se rechaza', function () 
         ->post('/api/v1/colaborador/foto', ['foto' => UploadedFile::fake()->createWithContent('foto.jpg', '%PDF-1.4 no soy imagen')])
         ->assertStatus(422)->assertJsonValidationErrors('foto');
 });
+
+test('la app recibe puede_revisar por cambio: nunca botones para revisar la foto propia', function () {
+    // Un colaborador con permiso de revisión que también pidió cambiar SU foto.
+    [$revisor, $revisorHeaders] = fcColaboradorConToken();
+    $revisor->assignRole('rh_admin');
+    $this->withHeaders($revisorHeaders)->post('/api/v1/colaborador/foto', ['foto' => UploadedFile::fake()->image('a.jpg', 600, 600)]);
+    $this->travel(2)->seconds();
+    $this->withHeaders($revisorHeaders)->post('/api/v1/colaborador/foto', ['foto' => UploadedFile::fake()->image('b.jpg', 600, 600)]);
+    $propio = CambioFotoPerfil::query()->where('colaborador_id', $revisor->colaborador_id)->firstOrFail();
+
+    [$otro, $otroHeaders] = fcColaboradorConToken();
+    app('auth')->forgetGuards();
+    $this->withHeaders($otroHeaders)->post('/api/v1/colaborador/foto', ['foto' => UploadedFile::fake()->image('c.jpg', 600, 600)]);
+    $this->travel(2)->seconds();
+    $this->withHeaders($otroHeaders)->post('/api/v1/colaborador/foto', ['foto' => UploadedFile::fake()->image('d.jpg', 600, 600)]);
+    $ajeno = CambioFotoPerfil::query()->where('colaborador_id', $otro->colaborador_id)->firstOrFail();
+
+    app('auth')->forgetGuards();
+    $filas = collect($this->withHeaders($revisorHeaders)->getJson('/api/v1/rh/cambios-foto')->assertOk()->json('data'))->keyBy('id');
+
+    expect($filas[$ajeno->id]['puede_revisar'])->toBeTrue()
+        ->and($filas[$propio->id]['puede_revisar'])->toBeFalse();
+    $this->withHeaders($revisorHeaders)->post("/api/v1/rh/cambios-foto/{$propio->id}/aprobar")->assertForbidden();
+});

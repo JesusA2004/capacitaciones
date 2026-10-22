@@ -342,6 +342,18 @@ class RolesYPermisosSeeder extends Seeder
         // Nueva revisión de un documento YA firmado (el firmado se conserva).
         'documentos_laborales.revisar_firmado',
         'contratos.ver',
+        // Acciones del módulo «Contratos» (config/permisos_modulos.php):
+        // contratos.ver deja ver la lista/estado; ver, descargar y generar el
+        // contrato son acciones aparte (RH) y el gerente solo sube el firmado.
+        'contratos.ver_documento',
+        'contratos.descargar',
+        'contratos.generar',
+        'contratos.subir_firmado',
+        // Pasos del gerente en el workflow de candidatos (candidatos.evaluar
+        // los cubre todos).
+        'candidatos.aprobar_entrevista',
+        'candidatos.revisar_psicometricas',
+        'candidatos.revisar_socioeconomico',
         'evaluaciones.ver',
         'evaluaciones.capturar',
         'evaluaciones.autorizar',
@@ -383,6 +395,9 @@ class RolesYPermisosSeeder extends Seeder
         'onboarding.ver',
         'onboarding.gestionar',
         'onboarding.entregar_activos',
+        // Configurar los formularios de evaluación (inducción y periodo de
+        // prueba): editar, ver vista previa y publicar versiones.
+        'formularios_evaluacion.administrar',
         'cierres.solicitar',
         'cierres.programar_pago',
         'reingresos.solicitar',
@@ -524,15 +539,21 @@ class RolesYPermisosSeeder extends Seeder
             'plantillas_documentales.ver', 'plantillas_documentales.administrar',
             'documentos_laborales.ver', 'documentos_laborales.generar', 'documentos_laborales.operar_fisico', 'documentos_laborales.cancelar', 'documentos_laborales.revisar_firmado',
             'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'evaluaciones.autorizar',
+            // Contratos: ver/descargar/generar heredan de documentos_laborales.generar;
+            // subir el firmado se asigna aquí.
+            'contratos.subir_firmado',
             'cierres.ver', 'cierres.gestionar', 'cierres.ejecutar_baja', 'finiquitos.confirmar_pago',
             // Generar/emitir recibos sí; importarlos por Excel, no (solo
             // super_admin, igual que salarios y vacaciones — 2026-10-20).
             'nomina.recibos.ver', 'nomina.recibos.crear',
             'prestamos.ver', 'prestamos.autorizar', 'prestamos.resguardar',
-            'actas.ver', 'actas.crear', 'actas.gestionar', 'indicadores.ver',
+            'actas.ver', 'actas.crear', 'actas.gestionar', 'actas.descargar', 'indicadores.ver',
             // Responsivas de equipo (docs/responsiva).
             'responsivas.ver', 'responsivas.generar', 'responsivas.cancelar',
+            // Cartas compromiso de documentos pendientes (nuevo ingreso).
+            'cartas_compromiso.ver', 'cartas_compromiso.generar', 'cartas_compromiso.subir_firmada', 'cartas_compromiso.descargar',
             'ciclo.autorizar_rh', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.gestionar', 'onboarding.entregar_activos', 'cierres.solicitar', 'cierres.programar_pago', 'reingresos.solicitar', 'reingresos.gestionar',
+            'formularios_evaluacion.administrar',
             // RH administra jefes directos, ruteo de avisos y parámetros de
             // RH; la apariencia institucional queda en super_admin.
             'configuracion.ver', 'configuracion.organizacion', 'configuracion.notificaciones', 'configuracion.rh',
@@ -581,9 +602,13 @@ class RolesYPermisosSeeder extends Seeder
             'colaboradores.alta', 'candidatos.contratar', 'plantillas_documentales.ver',
             'documentos_laborales.ver', 'documentos_laborales.generar', 'documentos_laborales.operar_fisico',
             'contratos.ver', 'evaluaciones.ver', 'cierres.ver',
+            // Contratos: ver/descargar/generar heredan de documentos_laborales.generar;
+            // subir el firmado se asigna aquí.
+            'contratos.subir_firmado',
             'nomina.recibos.ver', 'nomina.recibos.crear',
-            'prestamos.ver', 'actas.ver', 'actas.crear', 'indicadores.ver',
+            'prestamos.ver', 'actas.ver', 'actas.crear', 'actas.descargar', 'indicadores.ver',
             'responsivas.ver', 'responsivas.generar',
+            'cartas_compromiso.ver', 'cartas_compromiso.generar', 'cartas_compromiso.subir_firmada', 'cartas_compromiso.descargar',
             'onboarding.ver', 'onboarding.gestionar', 'reingresos.solicitar',
         ],
 
@@ -622,6 +647,14 @@ class RolesYPermisosSeeder extends Seeder
             'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
             // Solicitud de baja de su personal + tablero de su alcance.
             'bajas.ver', 'bajas.solicitar', 'bajas.tablero.ver',
+            // Contratos: el gerente solo SUBE el firmado de su gente (no ve,
+            // descarga ni genera el contrato; ContratoFirmadoService).
+            'contratos.subir_firmado',
+            // Cartas compromiso de su gente de nuevo ingreso: la genera, la
+            // imprime para que la firme quien entra y sube el escaneo
+            // firmado. «descargar» es SOLO el PDF de la carta, no el resto
+            // del expediente (gerente_sucursal = gerente: mismo catálogo).
+            'cartas_compromiso.ver', 'cartas_compromiso.generar', 'cartas_compromiso.subir_firmada', 'cartas_compromiso.descargar',
         ],
         'supervisor' => [
             'perfiles_puesto.ver',
@@ -693,11 +726,17 @@ class RolesYPermisosSeeder extends Seeder
             'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
             // Solicitud de baja de su personal + tablero de su alcance.
             'bajas.ver', 'bajas.solicitar', 'bajas.tablero.ver',
+            // Contratos: el gerente solo SUBE el firmado de su gente (no ve,
+            // descarga ni genera el contrato; ContratoFirmadoService).
+            'contratos.subir_firmado',
             // Única autoridad que decide una intervención de Gestor/Volante
             // (CLAUDE.md §11-A) — la de SU región, nunca otra.
             'candidatos.intervencion_decidir',
             // Responsivas de equipo para su región (docs/responsiva).
             'responsivas.ver', 'responsivas.generar',
+            // Cartas compromiso de su región (matriz comercial); «descargar»
+            // es solo el PDF de la carta para imprimirla y firmarla.
+            'cartas_compromiso.ver', 'cartas_compromiso.generar', 'cartas_compromiso.subir_firmada', 'cartas_compromiso.descargar',
         ],
 
         // Administra su propia sucursal (mismo alcance que gerente_sucursal,
@@ -727,8 +766,13 @@ class RolesYPermisosSeeder extends Seeder
             'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
             // Solicitud de baja de su personal + tablero de su alcance.
             'bajas.ver', 'bajas.solicitar', 'bajas.tablero.ver',
+            // Contratos: el gerente solo SUBE el firmado de su gente (no ve,
+            // descarga ni genera el contrato; ContratoFirmadoService).
+            'contratos.subir_firmado',
             // Responsivas de equipo para su equipo y su subgerente.
             'responsivas.ver', 'responsivas.generar',
+            // Cartas compromiso de su gente (igual que gerente_sucursal).
+            'cartas_compromiso.ver', 'cartas_compromiso.generar', 'cartas_compromiso.subir_firmada', 'cartas_compromiso.descargar',
         ],
 
         // Coordinadoras (de sucursal y regional) y subgerente: usan PEOPLE
@@ -811,6 +855,9 @@ class RolesYPermisosSeeder extends Seeder
             // 2026_10_15_180100_auditor_minimo_privilegio los revoca en bases
             // existentes.
             'contratos.ver', 'evaluaciones.ver', 'cierres.ver',
+            // Contratos: conserva la consulta del PDF del contrato (antes con
+            // documentos_laborales.ver; ahora es acción propia del módulo).
+            'contratos.ver_documento', 'contratos.descargar',
             'documentos_laborales.ver', 'plantillas_documentales.ver', 'indicadores.ver',
             'onboarding.ver',
             // Sin «Bajas» (solo gerentes, RH y super admin); conserva el tablero.
@@ -832,11 +879,14 @@ class RolesYPermisosSeeder extends Seeder
             'solicitudes.ver', 'solicitudes.aprobar', 'solicitudes.bajas.aprobar',
             'rh.solicitudes.ver', 'rh.solicitudes.detalle', 'rh.solicitudes.aprobar', 'rh.solicitudes.rechazar',
             'contratos.ver', 'evaluaciones.ver', 'evaluaciones.autorizar', 'excepciones.autorizar',
+            // Contratos: conserva la consulta del PDF del contrato (antes con
+            // documentos_laborales.ver; ahora es acción propia del módulo).
+            'contratos.ver_documento', 'contratos.descargar',
             'prestamos.ver',
             'cierres.ver', 'finiquitos.ver', 'finiquitos.revisar',
             // Dirección General: tablero de rotación global y por sucursal.
             'bajas.tablero.ver',
-            'documentos_laborales.ver', 'actas.ver', 'nomina.recibos.ver',
+            'documentos_laborales.ver', 'actas.ver', 'actas.descargar', 'nomina.recibos.ver',
             'mobile.bootstrap.ver', 'app.config.ver',
             'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
             'notificaciones.leer_todas',
@@ -847,7 +897,10 @@ class RolesYPermisosSeeder extends Seeder
         'juridico' => [
             'expedientes.ver', 'expedientes.ver_todos', 'documentos.ver', 'documentos.descargar',
             'plantillas_documentales.ver', 'plantillas_documentales.administrar',
-            'documentos_laborales.ver', 'contratos.ver', 'actas.ver', 'cierres.ver', 'finiquitos.ver',
+            'documentos_laborales.ver', 'contratos.ver', 'actas.ver', 'actas.descargar', 'cierres.ver', 'finiquitos.ver',
+            // Contratos: conserva la consulta del PDF del contrato (antes con
+            // documentos_laborales.ver; ahora es acción propia del módulo).
+            'contratos.ver_documento', 'contratos.descargar',
             // Revisa y aprueba las bajas que requieren Jurídico (RN-06) y
             // consulta las rescisiones; no cierra.
             'bajas.revisar_juridico',
@@ -885,8 +938,11 @@ class RolesYPermisosSeeder extends Seeder
             'configuracion.ver',
             // Lectura de los módulos PEOPLE/RH (el alcance «todos» se agrega
             // desde config/permisos_modulos.php → alcance_por_rol).
-            'expedientes.ver', 'documentos.ver', 'solicitudes.ver', 'vacaciones.ver', 'prestamos.ver', 'actas.ver',
+            'expedientes.ver', 'documentos.ver', 'solicitudes.ver', 'vacaciones.ver', 'prestamos.ver', 'actas.ver', 'actas.descargar',
             'documentos_laborales.ver', 'contratos.ver', 'evaluaciones.ver', 'candidatos.ver', 'vacantes.ver',
+            // Contratos: conserva la consulta del PDF del contrato (antes con
+            // documentos_laborales.ver; ahora es acción propia del módulo).
+            'contratos.ver_documento', 'contratos.descargar',
             'nomina.recibos.ver', 'finiquitos.ver', 'cierres.ver', 'onboarding.ver', 'altas.ver',
             'empresas.ver', 'headcount.ver', 'organigrama.ver', 'perfiles_puesto.ver', 'indicadores.ver',
             'reportes_rh.ver', 'reportes_rh.globales', 'rotacion.ver', 'reclutamiento.campanas.ver', 'celebraciones.ver',
@@ -941,7 +997,31 @@ class RolesYPermisosSeeder extends Seeder
             }
         }
 
+        // Permisos nuevos que se separaron de uno general (herencia).
+        foreach (array_keys(self::herencia()) as $permiso) {
+            $permisos[] = $permiso;
+        }
+
         return array_values(array_unique(array_filter($permisos, fn (string $p): bool => $p !== '')));
+    }
+
+    /**
+     * config/permisos_modulos.php → herencia: permiso nuevo => permiso
+     * general del que se separó.
+     *
+     * @return array<string, string>
+     */
+    public static function herencia(): array
+    {
+        $herencia = [];
+
+        foreach ((array) config('permisos_modulos.herencia', []) as $nuevo => $existente) {
+            if (is_string($nuevo) && $nuevo !== '' && is_string($existente) && $existente !== '') {
+                $herencia[$nuevo] = $existente;
+            }
+        }
+
+        return $herencia;
     }
 
     /**
@@ -1020,6 +1100,17 @@ class RolesYPermisosSeeder extends Seeder
     }
 
     /**
+     * Permisos personales de «Mi espacio» (portal.*): la pantalla «Roles y
+     * permisos» los presenta en su propia etapa.
+     *
+     * @return list<string>
+     */
+    public static function permisosPersonales(): array
+    {
+        return self::PERMISOS_PERSONALES;
+    }
+
+    /**
      * Permisos BASE de cada rol sembrado — lo mínimo que el rol debe tener,
      * no un techo: un rol editado en "Roles y permisos" puede tener más.
      *
@@ -1044,6 +1135,19 @@ class RolesYPermisosSeeder extends Seeder
                 $permisos[] = 'notificaciones.ver_propias';
                 $permisos[] = 'notificaciones.ver_todas';
             }
+
+            // Un permiso que se separó de uno general lo tiene por defecto
+            // quien tenía el general (mismo comportamiento que antes).
+            // (Hasta estabilizar: una acción puede heredar de otra heredada.)
+            do {
+                $antes = count($permisos);
+
+                foreach (self::herencia() as $nuevo => $existente) {
+                    if (in_array($existente, $permisos, true) && ! in_array($nuevo, $permisos, true)) {
+                        $permisos[] = $nuevo;
+                    }
+                }
+            } while (count($permisos) !== $antes);
 
             $resultado[$rol] = array_values(array_unique([...$permisos, ...self::alcancesPara($rol, $permisos)]));
         }

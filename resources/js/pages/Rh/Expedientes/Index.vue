@@ -3,6 +3,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import { ChevronRight, DatabaseZap, FolderOpen, UserCog } from '@lucide/vue';
 import { computed } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -20,6 +21,7 @@ import {
 } from '@/components/ui/select';
 import { useFiltros } from '@/composables/useFiltros';
 import { usePermisos } from '@/composables/usePermisos';
+import { opcionesDe } from '@/lib/opcionesSelect';
 import { dashboard } from '@/routes';
 import { exportarExcel, exportarPdf, index } from '@/routes/rh/expedientes';
 import { index as indexMigracion } from '@/routes/rh/expedientes/migracion';
@@ -187,7 +189,7 @@ const sucursalActiva = computed(() =>
         <div class="flex flex-col gap-3">
             <CrudToolbar
                 :model-value="filtros.busqueda"
-                placeholder="Buscar por nombre o número de empleado..."
+                placeholder="Buscar por nombre, número, puesto o sucursal..."
                 @update:model-value="
                     (valor) => {
                         filtros.busqueda = valor;
@@ -204,8 +206,11 @@ const sucursalActiva = computed(() =>
                         data-tour="expedientes-filtros"
                         class="flex flex-col gap-3 [&_[data-slot=select-trigger]]:w-full"
                     >
-                        <Select
+                        <SelectSimple
                             :model-value="filtros.empresa_id"
+                            :opciones="opcionesDe(empresasDisponibles)"
+                            placeholder="Empresa"
+                            opcion-vacia="Todas las empresas"
                             @update:model-value="
                                 (v) => {
                                     filtros.empresa_id = String(v ?? '');
@@ -213,85 +218,46 @@ const sucursalActiva = computed(() =>
                                     aplicar();
                                 }
                             "
-                        >
-                            <SelectTrigger class="w-44">
-                                <SelectValue placeholder="Empresa" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in empresasDisponibles"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
+                        />
 
-                        <Select
+                        <SelectSimple
                             :model-value="filtros.sucursal_id"
+                            :opciones="opcionesDe(sucursalesFiltradas)"
+                            placeholder="Sucursal"
+                            opcion-vacia="Todas las sucursales"
                             @update:model-value="
                                 (v) => {
                                     filtros.sucursal_id = String(v ?? '');
                                     aplicar();
                                 }
                             "
-                        >
-                            <SelectTrigger class="w-44">
-                                <SelectValue placeholder="Sucursal" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in sucursalesFiltradas"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
+                        />
 
-                        <Select
+                        <SelectSimple
                             :model-value="filtros.departamento_id"
+                            :opciones="opcionesDe(departamentosDisponibles)"
+                            placeholder="Departamento"
+                            opcion-vacia="Todos los departamentos"
                             @update:model-value="
                                 (v) => {
                                     filtros.departamento_id = String(v ?? '');
                                     aplicar();
                                 }
                             "
-                        >
-                            <SelectTrigger class="w-44">
-                                <SelectValue placeholder="Departamento" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in departamentosDisponibles"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
+                        />
 
-                        <Select
+                        <SelectSimple
                             :model-value="filtros.puesto_id"
+                            :opciones="opcionesDe(puestosDisponibles)"
+                            placeholder="Puesto"
+                            opcion-vacia="Todos los puestos"
                             @update:model-value="
                                 (v) => {
                                     filtros.puesto_id = String(v ?? '');
                                     aplicar();
                                 }
                             "
-                        >
-                            <SelectTrigger class="w-44">
-                                <SelectValue placeholder="Puesto" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in puestosDisponibles"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
+                        />
 
                         <Select
                             :model-value="filtros.estatus"

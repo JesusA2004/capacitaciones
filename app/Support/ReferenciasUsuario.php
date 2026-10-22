@@ -35,6 +35,14 @@ final class ReferenciasUsuario
         // por el propio colaborador en su inducción.
         ['induccion_materiales_explicacion', 'subido_por', 'restrict'],
         ['induccion_video_intervalos', 'user_id', 'cascade'],
+        // Migraciones 2026-10-22: cartas compromiso, formularios de
+        // evaluación versionados y suscripciones de notificaciones de escritorio.
+        ['cartas_compromiso', 'firma_registrada_por', 'set_null'],
+        ['cartas_compromiso', 'generada_por', 'set_null'],
+        ['formularios_evaluacion', 'actualizado_por', 'set_null'],
+        ['formularios_evaluacion', 'creado_por', 'set_null'],
+        ['formularios_evaluacion', 'publicado_por', 'set_null'],
+        ['web_push_suscripciones', 'user_id', 'cascade'],
         // Migraciones 2026-10-20: módulo de Bajas (expediente de la baja, sus
         // documentos y su bitácora: actores RESTRICT), generación masiva de
         // contratos, revisiones manuales de la división de históricos y
@@ -181,6 +189,8 @@ final class ReferenciasUsuario
         ['official_format_versions', 'publicada_por', 'set_null'],
         ['official_formats', 'archivado_por', 'set_null'],
         ['official_formats', 'created_by', 'set_null'],
+        ['induccion_asignaciones', 'asignada_por', 'set_null'],
+        ['induccion_asignaciones', 'retirada_por', 'set_null'],
         ['onboarding_avances', 'retroalimentado_por', 'set_null'],
         ['onboarding_intentos', 'presentado_por', 'set_null'],
         ['onboarding_procesos', 'completado_por', 'set_null'],

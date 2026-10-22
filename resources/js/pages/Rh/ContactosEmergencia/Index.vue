@@ -17,6 +17,7 @@ import { ref } from 'vue';
 import AyudaBoton from '@/components/Common/AyudaBoton.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import InputError from '@/components/InputError.vue';
 import ChipEstado from '@/components/people/ChipEstado.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
@@ -29,6 +30,7 @@ import rutasContactos, {
     plantilla as plantillaContactos,
     show as mostrarImportacion,
 } from '@/routes/rh/contactos-emergencia';
+import type { RespuestaPaginada } from '@/types';
 
 type ImportacionResumen = {
     id: number;
@@ -49,10 +51,7 @@ type ImportacionResumen = {
 defineProps<{
     /** Encabezados oficiales (fila 1) que debe traer el Excel. */
     columnas: string[];
-    importaciones: {
-        data: ImportacionResumen[];
-        links: { url: string | null; label: string; active: boolean }[];
-    };
+    importaciones: RespuestaPaginada<ImportacionResumen>;
 }>();
 
 defineOptions({
@@ -324,6 +323,7 @@ function analizar() {
                         </div>
                     </li>
                 </ul>
+                <PaginacionTabla :datos="importaciones" class="mt-4" />
             </section>
         </div>
     </div>

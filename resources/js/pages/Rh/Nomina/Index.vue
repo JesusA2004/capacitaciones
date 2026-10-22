@@ -38,6 +38,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
+import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 import { dashboard } from '@/routes';
 import { descargar, emitir, index, masivo, preparar } from '@/routes/rh/nomina';
 import {
@@ -105,6 +106,8 @@ const props = defineProps<{
     filtros: { q: string; estado: string };
     config: { emision_automatica: boolean; dias_anticipacion: number };
     puedeEditar: boolean;
+    puedeEmitir: boolean;
+    puedeDescargar: boolean;
 }>();
 
 defineOptions({
@@ -139,6 +142,7 @@ function recargar(extra: Record<string, unknown> = {}) {
     router.get(
         index.url(),
         {
+            ...parametrosPorPaginaActuales(),
             periodo: props.periodo.clave,
             q: busqueda.value || undefined,
             estado: estado.value || undefined,
@@ -158,7 +162,10 @@ watch(estado, () => recargar());
 function cambiarPeriodo(clave: string | null) {
     if (clave) {
         seleccion.value = [];
-        router.get(index.url(), { periodo: clave });
+        router.get(index.url(), {
+            ...parametrosPorPaginaActuales(),
+            periodo: clave,
+        });
     }
 }
 
@@ -450,7 +457,7 @@ const opcionesTipo = [
                 Preparar recibos
             </Button>
             <Button
-                v-if="puedeEditar && resumen.borradores > 0"
+                v-if="puedeEmitir && resumen.borradores > 0"
                 :disabled="procesando"
                 @click="emitirQuincena"
             >
@@ -461,7 +468,7 @@ const opcionesTipo = [
                         : `Emitir borradores (${resumen.borradores})`
                 }}
             </Button>
-            <div class="ml-auto flex flex-wrap gap-2">
+            <div v-if="puedeDescargar" class="ml-auto flex flex-wrap gap-2">
                 <Button
                     as-child
                     variant="outline"
@@ -564,7 +571,7 @@ const opcionesTipo = [
             >
                 <Input
                     v-model="busqueda"
-                    placeholder="Buscar por nombre o número de empleado"
+                    placeholder="Buscar por nombre, número, puesto o sucursal"
                     class="sm:max-w-sm"
                 />
                 <SelectSimple
@@ -692,7 +699,7 @@ const opcionesTipo = [
                                     </Button>
                                     <Button
                                         v-if="
-                                            puedeEditar &&
+                                            puedeEmitir &&
                                             recibo.estado === 'borrador'
                                         "
                                         size="sm"

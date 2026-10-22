@@ -5,6 +5,7 @@ import { ref } from 'vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -17,6 +18,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import { usePaginacionLocal } from '@/composables/usePaginacion';
 import { dashboard } from '@/routes';
 import { aprobar, index, rechazar } from '@/routes/rh/cambios-foto';
 import type { CambioFotoRevision } from '@/types';
@@ -27,7 +29,10 @@ import type { CambioFotoRevision } from '@/types';
  * pasa a ser la oficial; al rechazar se conserva la actual y se avisa el
  * motivo al colaborador.
  */
-defineProps<{ cambios: CambioFotoRevision[] }>();
+const props = defineProps<{ cambios: CambioFotoRevision[] }>();
+
+// La cola llega completa: se pagina en el navegador.
+const paginacion = usePaginacionLocal(() => props.cambios);
 
 defineOptions({
     layout: {
@@ -110,7 +115,7 @@ function confirmarRechazo(): void {
             aria-label="Cambios de foto pendientes"
         >
             <li
-                v-for="cambio in cambios"
+                v-for="cambio in paginacion.filasPagina.value"
                 :key="cambio.id"
                 class="flex flex-col gap-4 rounded-2xl border bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
             >
@@ -174,6 +179,14 @@ function confirmarRechazo(): void {
                 </div>
             </li>
         </ul>
+
+        <PaginacionTabla
+            local
+            :datos="paginacion.datos.value"
+            :por-pagina="paginacion.porPagina.value"
+            @cambiar-pagina="paginacion.irAPagina"
+            @cambiar-por-pagina="paginacion.cambiarPorPagina"
+        />
 
         <Dialog
             :open="rechazando !== null"

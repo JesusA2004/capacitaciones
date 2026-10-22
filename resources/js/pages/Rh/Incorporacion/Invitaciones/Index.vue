@@ -3,6 +3,7 @@ import { Head, Link } from '@inertiajs/vue3';
 import { Plus, QrCode } from '@lucide/vue';
 import { ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -20,6 +21,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useFiltros } from '@/composables/useFiltros';
+import { opcionesDe } from '@/lib/opcionesSelect';
 import { dashboard } from '@/routes';
 import { index, show } from '@/routes/rh/incorporacion/invitaciones';
 import type { RespuestaPaginada } from '@/types';
@@ -149,46 +151,28 @@ const columnas: ColumnaDataTable[] = [
             >
                 <div class="grid gap-2">
                     <Label>Empresa</Label>
-                    <Select
+                    <SelectSimple
                         :model-value="filtros.empresa_id"
+                        :opciones="opcionesDe(opciones.empresas)"
+                        placeholder="Todas"
+                        opcion-vacia="Todas las empresas"
                         @update:model-value="
                             (v) => (filtros.empresa_id = String(v ?? ''))
                         "
-                    >
-                        <SelectTrigger
-                            ><SelectValue placeholder="Todas"
-                        /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.empresas"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
+                    />
                 </div>
 
                 <div class="grid gap-2">
                     <Label>Sucursal</Label>
-                    <Select
+                    <SelectSimple
                         :model-value="filtros.sucursal_id"
+                        :opciones="opcionesDe(opciones.sucursales)"
+                        placeholder="Todas"
+                        opcion-vacia="Todas las sucursales"
                         @update:model-value="
                             (v) => (filtros.sucursal_id = String(v ?? ''))
                         "
-                    >
-                        <SelectTrigger
-                            ><SelectValue placeholder="Todas"
-                        /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.sucursales"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
+                    />
                 </div>
             </CrudFilterSheet>
 

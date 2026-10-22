@@ -119,7 +119,7 @@ test('si RH autoriza la renovación se crea el contrato indeterminado y su docum
     expect(TareaRh::query()->where('tipo', TipoTarea::ContratoPorVencer->value)->whereNull('resuelta_en')->count())->toBe(0);
 
     // «✓ Evaluación aprobada · Contrato indeterminado listo [Previsualizar] [Imprimir]».
-    $this->actingAs($this->rh)->get(route('rh.evaluaciones.index'))
+    $this->actingAs($this->rh)->get(route('rh.evaluaciones.index', ['tab' => 'evaluadas']))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('evaluaciones.data.0.contrato_renovacion_id', $nuevo->id)

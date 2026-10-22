@@ -26,6 +26,8 @@ import type {
 } from '@/types';
 
 const props = defineProps<{
+    /** Acciones del catálogo por permiso (el backend lo revalida). */
+    puede?: { crear: boolean; editar: boolean; eliminar: boolean };
     puestos: RespuestaPaginada<PuestoItem>;
     filtros: { busqueda?: string };
     departamentosDisponibles: OpcionSimple[];
@@ -63,6 +65,10 @@ function abrirCrear() {
 }
 
 function abrirEditar(puesto: PuestoItem) {
+    if (!(props.puede?.editar ?? true)) {
+        return;
+    }
+
     seleccionado.value = puesto;
     dialogAbierto.value = true;
 }
@@ -93,7 +99,7 @@ async function eliminar(puesto: PuestoItem) {
             descripcion="Define los puestos de cada departamento y a qué colaboradores están asignados."
             :icono="Briefcase"
         >
-            <Button @click="abrirCrear">
+            <Button v-if="puede?.crear ?? true" @click="abrirCrear">
                 <Plus class="size-4" />
                 Nuevo puesto
             </Button>
@@ -146,7 +152,11 @@ async function eliminar(puesto: PuestoItem) {
                     titulo="Todavía no hay puestos"
                     descripcion="Crea el primer puesto para poder asignarlo a tus colaboradores."
                 >
-                    <Button size="sm" @click="abrirCrear">
+                    <Button
+                        v-if="puede?.crear ?? true"
+                        size="sm"
+                        @click="abrirCrear"
+                    >
                         <Plus class="size-4" />
                         Crear puesto
                     </Button>
@@ -175,10 +185,13 @@ async function eliminar(puesto: PuestoItem) {
             </template>
             <template #acciones="{ fila }">
                 <CrudActionMenu>
-                    <DropdownMenuItem @select="abrirEditar(fila)"
+                    <DropdownMenuItem
+                        v-if="puede?.editar ?? true"
+                        @select="abrirEditar(fila)"
                         >Editar</DropdownMenuItem
                     >
                     <DropdownMenuItem
+                        v-if="puede?.eliminar ?? true"
                         variant="destructive"
                         @select="eliminar(fila)"
                         >Eliminar</DropdownMenuItem
@@ -203,10 +216,13 @@ async function eliminar(puesto: PuestoItem) {
                     </span>
                     <template #acciones>
                         <CrudActionMenu>
-                            <DropdownMenuItem @select="abrirEditar(fila)"
+                            <DropdownMenuItem
+                                v-if="puede?.editar ?? true"
+                                @select="abrirEditar(fila)"
                                 >Editar</DropdownMenuItem
                             >
                             <DropdownMenuItem
+                                v-if="puede?.eliminar ?? true"
                                 variant="destructive"
                                 @select="eliminar(fila)"
                                 >Eliminar</DropdownMenuItem

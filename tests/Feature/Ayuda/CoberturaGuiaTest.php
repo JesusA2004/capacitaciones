@@ -79,6 +79,8 @@ const SIDEBAR_A_GUIA = [
     'Configuración de onboarding' => ['onboarding'],
     'Inducción institucional' => ['presentar-induccion'],
     'Reingresos' => ['reingresos'],
+    'Cartas compromiso' => ['cartas-compromiso'],
+    'Formularios de evaluación' => ['formularios-evaluacion'],
     'Ajustes y notificaciones' => ['configuracion'],
     'Colaboradores' => ['expedientes'],
     'Actas administrativas' => ['actas'],
@@ -140,12 +142,9 @@ const SIDEBAR_SIN_GUIA = [
     'Contratos de ingreso',
     'Contratos',
     'Inducción al puesto',
-    'Evaluación de capacitación inicial',
     'Calificaciones y refuerzo',
     'Activos y responsivas',
     'Evaluaciones de periodo de prueba',
-    'Periodos por vencer',
-    'Evaluación y decisión',
     'Recibo simple de pago',
     'Bajas',
     'Bajas y finiquitos',
@@ -270,6 +269,8 @@ const PANTALLAS_GUIA = [
     'actas' => ['pages/Rh/Actas/Index.vue'],
     'perfiles-puesto' => ['pages/Rh/PerfilesPuesto/Index.vue', 'pages/Rh/PerfilesPuesto/Show.vue', 'pages/Rh/PerfilesPuesto/Editar.vue'],
     'rotacion' => ['pages/Reportes/RotacionPersonal.vue'],
+    'cartas-compromiso' => ['pages/Rh/CartasCompromiso/Index.vue', 'pages/Rh/CartasCompromiso/Show.vue'],
+    'formularios-evaluacion' => ['pages/Rh/FormulariosEvaluacion/Index.vue', 'pages/Rh/FormulariosEvaluacion/Editor.vue'],
 ];
 
 test('cada selector de cada módulo existe en SU pantalla (no solo en alguna)', function () {

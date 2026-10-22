@@ -7,6 +7,7 @@ import {
     Contact,
     ClipboardList,
     FilePen,
+    FilePenLine,
     FileStack,
     FolderKanban,
     GitBranch,
@@ -1028,6 +1029,105 @@ export const MODULOS_GUIA: ModuloGuia[] = [
                 selector: sel('reingresos-lista'),
                 titulo: 'Solicitudes',
                 texto: 'Quien solicita propone; Recursos Humanos decide si es viable.',
+            },
+        ],
+    },
+    {
+        id: 'cartas-compromiso',
+        nombre: 'Cartas compromiso',
+        ruta: '/rh/cartas-compromiso',
+        patron: /^\/rh\/cartas-compromiso(\/.*)?$/,
+        modo: 'operativo',
+        permisos: ['cartas_compromiso.ver'],
+        grupo: 'Personal',
+        icono: FilePenLine,
+        descripcion:
+            'La persona de nuevo ingreso se compromete por escrito a entregar, en un plazo, los documentos que le faltan (máximo 2).',
+        pasos: [
+            {
+                titulo: 'Para qué sirve',
+                texto: 'Cuando alguien de nuevo ingreso todavía no tiene todos sus documentos, firma una carta compromiso: dice qué documentos le faltan y la fecha límite para entregarlos. Solo aplica a personas en contratación u onboarding, nunca al personal que ya laboraba.',
+            },
+            {
+                selector: sel('cartas-generar'),
+                titulo: 'Generar una carta',
+                texto: 'Busca a la persona, marca los documentos que se compromete a entregar (máximo 2) y revisa la vista previa antes de generarla. La pueden generar Recursos Humanos, su gerente de sucursal o su gerente regional.',
+                consejo:
+                    'Si le faltan más de 2 documentos, no se puede generar: la app le pide subirlos y, en cuanto le falten 2 o menos, la carta se genera sola.',
+                opcional: true,
+            },
+            {
+                selector: sel('indicadores'),
+                titulo: 'Cómo van las cartas',
+                texto: 'Cuántas están vigentes, por vencer, vencidas, cumplidas (ya entregó todo) y firmadas. Una carta vencida limita la app de la persona a subir sus documentos pendientes.',
+            },
+            {
+                selector: sel('cartas-filtros'),
+                titulo: 'Filtrar y buscar',
+                texto: 'Usa las pestañas para ver solo las pendientes de firma, las vigentes, las vencidas, etc. «Historial (sustituidas)» muestra las cartas que se reemplazaron por una nueva. Busca por nombre, número de empleado, sucursal o folio.',
+            },
+            {
+                selector: sel('cartas-lista'),
+                titulo: 'Abrir una carta',
+                texto: 'Cada renglón muestra el folio, la persona, los documentos comprometidos, el plazo y si ya está firmada. Da clic en una para abrirla — ahora te llevo a una de ejemplo.',
+                opcional: true,
+            },
+            {
+                rutaDesde: `${sel('cartas-lista')} a[href]`,
+                selector: sel('carta-acciones'),
+                titulo: 'Imprimir y subir la firmada',
+                texto: 'Imprime la carta, la persona que entra la firma (con su huella) frente a su gerente o RH, y aquí subes el escaneo firmado. Queda guardada en su expediente.',
+                opcional: true,
+            },
+            {
+                selector: sel('carta-documentos'),
+                titulo: 'Documentos comprometidos',
+                texto: 'Cada documento se marca como «Entregado» en cuanto la persona lo sube a su expediente. Cuando entrega todos, la carta queda cumplida sola.',
+                opcional: true,
+            },
+            {
+                selector: sel('carta-linea-tiempo'),
+                titulo: 'Línea de tiempo',
+                texto: 'Quién la generó y cuándo, cuándo se subió la firma, si se cumplió, venció o fue sustituida por otra.',
+                opcional: true,
+            },
+        ],
+    },
+    {
+        id: 'formularios-evaluacion',
+        nombre: 'Formularios de evaluación',
+        ruta: '/rh/formularios-evaluacion',
+        patron: /^\/rh\/formularios-evaluacion(\/.*)?$/,
+        modo: 'operativo',
+        permisos: ['formularios_evaluacion.administrar'],
+        grupo: 'Administración',
+        icono: ClipboardList,
+        descripcion:
+            'Configura, como en Google Forms, la evaluación de inducción y la de periodo de prueba: preguntas, diseño, vista previa y versiones.',
+        pasos: [
+            {
+                titulo: 'Para qué sirve',
+                texto: 'Aquí se arman las dos evaluaciones de ingreso: la de inducción (FO-RH-EI, la contesta el colaborador) y la de capacitación inicial / periodo de prueba (FO-RH-EPP-001, la contesta el jefe directo para decidir si se renueva el contrato).',
+            },
+            {
+                selector: sel('formularios-tarjetas'),
+                titulo: 'Una tarjeta por evaluación',
+                texto: 'Cada tarjeta muestra cuántas preguntas tiene, el total de puntos, con cuánto se aprueba (o se renueva) y qué versión está vigente. Si hay un borrador sin publicar, también lo verás. Da clic para abrir el editor — ahora te llevo a uno.',
+            },
+            {
+                rutaDesde: `${sel('formularios-tarjetas')} a[href]`,
+                selector: sel('formulario-estado'),
+                titulo: 'Versión y estado',
+                texto: 'Indica si estás viendo la versión vigente, un borrador o una versión anterior, y la calificación mínima. Para cambiar algo, pulsa «Editar formulario»: se crea un borrador que se guarda solo mientras escribes.',
+                consejo:
+                    'Nadie ve tus cambios hasta que pulses «Publicar versión». Las evaluaciones que ya empezaron o ya se contestaron conservan la versión con la que iniciaron.',
+                opcional: true,
+            },
+            {
+                selector: sel('formulario-pestanas'),
+                titulo: 'Preguntas, diseño, vista previa y versiones',
+                texto: '«Preguntas» para el contenido y las reglas de calificación; «Diseño» para el color, el encabezado y el banner; «Vista previa» para verlo tal como lo verá quien lo contesta; «Versiones» para consultar o restaurar una versión anterior.',
+                opcional: true,
             },
         ],
     },

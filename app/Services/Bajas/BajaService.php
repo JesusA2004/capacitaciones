@@ -55,6 +55,24 @@ class BajaService
 
     public const PERMISO_GESTIONAR = 'bajas.gestionar';
 
+    // Acciones de RH sobre una baja, cada una con su permiso (Roles y
+    // permisos → Bajas). Heredan de bajas.gestionar al crearse.
+    public const PERMISO_CAMBIAR_CAUSAL = 'bajas.cambiar_causal';
+
+    public const PERMISO_EDITAR = 'bajas.editar';
+
+    public const PERMISO_ENVIAR_JURIDICO = 'bajas.enviar_juridico';
+
+    public const PERMISO_CERRAR = 'bajas.cerrar';
+
+    public const PERMISO_REABRIR = 'bajas.reabrir';
+
+    public const PERMISO_CANCELAR = 'bajas.cancelar';
+
+    public const PERMISO_ADJUNTAR = 'bajas.documentos.adjuntar';
+
+    public const PERMISO_PREVIA_FINIQUITO = 'bajas.finiquito.vista_previa';
+
     public const PERMISO_JURIDICO = 'bajas.revisar_juridico';
 
     public const PERMISO_CONTRALORIA = 'bajas.consulta_contraloria';
@@ -137,6 +155,7 @@ class BajaService
      */
     public function vistaPreviaFiniquito(array $datos, User $actor): string
     {
+        $this->exigirPermiso($actor, self::PERMISO_PREVIA_FINIQUITO);
         $colaborador = $this->colaboradorVigente($datos, $actor);
         $forma = FormaSalida::tryFrom((string) ($datos['forma_salida'] ?? ''));
 
@@ -190,7 +209,7 @@ class BajaService
      */
     public function enviarJuridico(Baja $baja, User $actor): Baja
     {
-        $this->exigirRh($actor);
+        $this->exigirPermiso($actor, self::PERMISO_ENVIAR_JURIDICO);
         $this->exigirEstatus($baja, [EstatusBaja::EnRevisionRh]);
         $baja->loadMissing('causal');
         $this->reglas->exigirCompleta($baja);
@@ -260,7 +279,7 @@ class BajaService
      */
     public function cambiarCausal(Baja $baja, User $actor, int $causalId, string $motivo): Baja
     {
-        $this->exigirRh($actor);
+        $this->exigirPermiso($actor, self::PERMISO_CAMBIAR_CAUSAL);
         $this->exigirEstatus($baja, [EstatusBaja::EnRevisionRh, EstatusBaja::EnRevisionJuridico]);
         $motivo = $this->exigirMotivo($motivo);
         $nueva = CausalRotacion::query()->activas()->where('id', $causalId)->first();
@@ -333,7 +352,7 @@ class BajaService
      */
     public function actualizarPorRh(Baja $baja, User $actor, array $datos): Baja
     {
-        $this->exigirRh($actor);
+        $this->exigirPermiso($actor, self::PERMISO_EDITAR);
         $this->exigirEstatus($baja, [EstatusBaja::EnRevisionRh, EstatusBaja::EnRevisionJuridico]);
         $baja->loadMissing('causal');
 
@@ -368,7 +387,7 @@ class BajaService
      */
     public function cerrar(Baja $baja, User $actor): Baja
     {
-        $this->exigirRh($actor);
+        $this->exigirPermiso($actor, self::PERMISO_CERRAR);
 
         if ($baja->estatus === EstatusBaja::EnRevisionJuridico) {
             throw ValidationException::withMessages(['estatus' => 'La baja está en revisión de Jurídico: se cierra cuando Jurídico la apruebe.']);
@@ -430,7 +449,7 @@ class BajaService
      */
     public function reabrir(Baja $baja, User $actor, string $motivo): Baja
     {
-        $this->exigirRh($actor);
+        $this->exigirPermiso($actor, self::PERMISO_REABRIR);
         $this->exigirEstatus($baja, [EstatusBaja::Cerrada]);
         $motivo = $this->exigirMotivo($motivo);
 
@@ -449,7 +468,7 @@ class BajaService
      */
     public function cancelar(Baja $baja, User $actor, string $motivo): Baja
     {
-        $this->exigirRh($actor);
+        $this->exigirPermiso($actor, self::PERMISO_CANCELAR);
 
         if (! $baja->estatus->esAbierta()) {
             throw ValidationException::withMessages(['estatus' => sprintf('La baja ya está «%s».', $baja->estatus->etiqueta())]);
@@ -496,27 +515,33 @@ class BajaService
         $abiertaVigente = in_array($baja->estatus, [EstatusBaja::EnRevisionRh, EstatusBaja::EnRevisionJuridico], true);
 
         // Completar / adjuntar documentos: RH y el gerente con alcance.
-        if ($abiertaVigente && ($rh || $this->puedeOperarComoSolicitante($baja, $usuario))) {
+        if ($abiertaVigente && $usuario->can(self::PERMISO_ADJUNTAR) && ($rh || $this->puedeOperarComoSolicitante($baja, $usuario))) {
             $acciones[] = 'adjuntar';
         }
 
-        if ($rh) {
-            if ($baja->estatus === EstatusBaja::EnRevisionRh) {
+        // Acciones de RH: cada una con su permiso (BajaPolicy valida igual).
+        if ($baja->estatus === EstatusBaja::EnRevisionRh) {
+            if ($usuario->can(self::PERMISO_CERRAR)) {
                 $acciones[] = 'cerrar';
-                $baja->loadMissing('causal');
+            }
 
-                if ($baja->requiereJuridico() && $baja->juridico_en === null) {
-                    $acciones[] = 'enviar_juridico';
+            $baja->loadMissing('causal');
+
+            if ($usuario->can(self::PERMISO_ENVIAR_JURIDICO) && $baja->requiereJuridico() && $baja->juridico_en === null) {
+                $acciones[] = 'enviar_juridico';
+            }
+        }
+
+        if ($abiertaVigente) {
+            foreach (['cambiar_causal' => self::PERMISO_CAMBIAR_CAUSAL, 'actualizar' => self::PERMISO_EDITAR, 'cancelar' => self::PERMISO_CANCELAR] as $accion => $permiso) {
+                if ($usuario->can($permiso)) {
+                    $acciones[] = $accion;
                 }
             }
+        }
 
-            if ($abiertaVigente) {
-                array_push($acciones, 'cambiar_causal', 'actualizar', 'cancelar');
-            }
-
-            if ($baja->estatus === EstatusBaja::Cerrada) {
-                $acciones[] = 'reabrir';
-            }
+        if ($baja->estatus === EstatusBaja::Cerrada && $usuario->can(self::PERMISO_REABRIR)) {
+            $acciones[] = 'reabrir';
         }
 
         if ($usuario->can(self::PERMISO_JURIDICO) && $baja->estatus === EstatusBaja::EnRevisionJuridico) {
@@ -824,10 +849,10 @@ class BajaService
         }
     }
 
-    private function exigirRh(User $actor): void
+    private function exigirPermiso(User $actor, string $permiso): void
     {
-        if (! $actor->can(self::PERMISO_GESTIONAR)) {
-            throw new AuthorizationException('Solo RH puede hacer esto.');
+        if (! $actor->can($permiso)) {
+            throw new AuthorizationException('No tienes permiso para esta acción de la baja.');
         }
     }
 

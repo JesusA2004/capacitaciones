@@ -118,7 +118,7 @@ class FiniquitoController extends Controller
     public function vistaPrevia(SolicitudInterna $solicitud): Response
     {
         $finiquito = $this->finiquitoDe($solicitud);
-        $this->authorize('ver', $finiquito);
+        $this->authorize('descargar', $finiquito);
 
         return response($this->finiquitos->vistaPreviaPdf($finiquito), 200, [
             'Content-Type' => 'application/pdf',
@@ -141,7 +141,7 @@ class FiniquitoController extends Controller
     public function generarPdf(SolicitudInterna $solicitud): RedirectResponse
     {
         $finiquito = $this->finiquitoDe($solicitud);
-        $this->authorize('ver', $finiquito);
+        $this->authorize('descargar', $finiquito);
 
         $this->finiquitos->generarPdf($finiquito, request()->user());
 
@@ -151,7 +151,7 @@ class FiniquitoController extends Controller
     public function descargarPdf(SolicitudInterna $solicitud): StreamedResponse
     {
         $finiquito = $this->finiquitoDe($solicitud);
-        $this->authorize('ver', $finiquito);
+        $this->authorize('descargar', $finiquito);
 
         return $this->finiquitos->descargarPdf($finiquito);
     }

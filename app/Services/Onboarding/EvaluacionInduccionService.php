@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Calendario\CalendarioLaboralService;
+use App\Services\Evaluaciones\FormularioEvaluacionService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -55,6 +56,7 @@ class EvaluacionInduccionService
         private readonly CalendarioLaboralService $calendario,
         private readonly InduccionPdfService $pdf,
         private readonly AccesoInduccionColaboradorService $acceso,
+        private readonly FormularioEvaluacionService $formularios,
     ) {}
 
     public const TITULO_AVISO_PRESENTADA = 'Contesta la evaluación de la Inducción Mr. Lana';
@@ -105,11 +107,16 @@ class EvaluacionInduccionService
             return null;
         }
 
+        // Versión vigente del formulario configurable (sin ninguna publicada:
+        // el formato original de config/, idéntico a la versión 1).
+        $formulario = $this->formularios->definicionInduccion();
+
         $evaluacion = EvaluacionInduccion::query()->create([
             'onboarding_proceso_id' => $proceso->id,
             'colaborador_id' => $proceso->colaborador_id,
             'clave' => $clave,
-            'version' => (string) config('induccion_evaluacion.version'),
+            'version' => (string) $formulario['version'],
+            'formulario_evaluacion_id' => $formulario['formulario_id'],
             'estado' => EstadoEvaluacionInduccion::Disponible,
         ]);
 
@@ -245,7 +252,7 @@ class EvaluacionInduccionService
             throw new AuthorizationException('Solo el colaborador titular consulta su propio contenido de inducción.');
         }
 
-        // La inducción la presenta RH: solo se ve durante su sesión.
+        // Solo mientras su inducción esté asignada y por ver.
         $this->acceso->exigirContenidoVisible($usuario);
 
         return $avance->modulo->contenido_estructurado;
@@ -284,33 +291,29 @@ class EvaluacionInduccionService
      * Preguntas/afirmaciones SIN la respuesta correcta y SIN la rúbrica de
      * los casos prácticos — lo único que debe llegar al colaborador.
      *
+     * Sale de la versión del formulario de ESTA evaluación (o de la vigente
+     * si no se indica). Misma forma de siempre — la app instalada la lee.
+     *
      * @return array<string, mixed>
      */
-    public function contenidoPublico(): array
+    public function contenidoPublico(?EvaluacionInduccion $evaluacion = null): array
     {
-        return [
-            'version' => config('induccion_evaluacion.version'),
-            'instrucciones' => [
-                'calificacion_aprobatoria' => config('induccion_evaluacion.calificacion_aprobatoria'),
-                'total_puntos' => config('induccion_evaluacion.total_puntos'),
-            ],
-            'seccion_a' => collect((array) config('induccion_evaluacion.seccion_a', []))
-                ->map(fn (array $p, int $i) => ['indice' => $i, 'pregunta' => $p['pregunta'], 'opciones' => $p['opciones']])
-                ->values()->all(),
-            'seccion_b' => collect((array) config('induccion_evaluacion.seccion_b', []))
-                ->map(fn (array $p, int $i) => ['indice' => $i, 'afirmacion' => $p['afirmacion']])
-                ->values()->all(),
-            'seccion_c' => [
-                'conceptos' => collect((array) config('induccion_evaluacion.seccion_c.conceptos', []))
-                    ->map(fn (array $c, int $i) => ['indice' => $i, 'concepto' => $c['concepto']])
-                    ->values()->all(),
-                'descripciones' => config('induccion_evaluacion.seccion_c.descripciones', []),
-            ],
-            'seccion_d' => collect((array) config('induccion_evaluacion.seccion_d', []))
-                ->map(fn (array $c) => ['clave' => $c['clave'], 'puntos_max' => $c['puntos_max'], 'enunciado' => $c['enunciado']])
-                ->values()->all(),
-            'seccion_e' => config('induccion_evaluacion.seccion_e'),
-        ];
+        return $this->formularios->contenidoPublicoInduccion($this->formularios->definicionInduccion($evaluacion));
+    }
+
+    /**
+     * Contenido para el colaborador autenticado (app): el de su evaluación
+     * por presentar, o el vigente si todavía no tiene una.
+     *
+     * @return array<string, mixed>
+     */
+    public function contenidoPublicoPara(User $usuario): array
+    {
+        $evaluacion = $usuario->colaborador_id !== null
+            ? EvaluacionInduccion::query()->where('colaborador_id', $usuario->colaborador_id)->orderByDesc('id')->first()
+            : null;
+
+        return $this->contenidoPublico($evaluacion !== null && $evaluacion->estado->permitePresentar() ? $evaluacion : null);
     }
 
     /**
@@ -335,7 +338,7 @@ class EvaluacionInduccionService
      * Califica A/B/C en el servidor y deja D pendiente de RH.
      *
      * @param  array{a?: array<int, int>, b?: array<int, bool>, c?: array<int, string>, d?: array<string, string>}  $respuestas
-     * @param  array{claridad?: int, conocimiento_puesto?: int, bienvenida?: int, tema_reforzar?: string|null}|null  $opinion
+     * @param  array<string, mixed>|null  $opinion  {<clave de aspecto>: 1-5, tema_reforzar?: string}
      */
     public function presentar(EvaluacionInduccion $evaluacion, User $colaborador, array $respuestas, ?array $opinion): EvaluacionInduccionIntento
     {
@@ -350,10 +353,18 @@ class EvaluacionInduccionService
                 throw ValidationException::withMessages(['evaluacion' => "Esta evaluación está «{$evaluacion->estado->etiqueta()}»."]);
             }
 
-            $calificacionA = $this->calificarSeccionA((array) ($respuestas['a'] ?? []));
-            $calificacionB = $this->calificarSeccionB((array) ($respuestas['b'] ?? []));
-            $calificacionC = $this->calificarSeccionC((array) ($respuestas['c'] ?? []));
-            $this->validarRespuestasD((array) ($respuestas['d'] ?? []));
+            // Versión del formulario con la que se contesta: se FIJA en la
+            // evaluación para que calificación, revisión y PDF la usen siempre.
+            $definicion = $this->formularios->definicionInduccion($evaluacion);
+
+            if ($evaluacion->formulario_evaluacion_id === null && $definicion['formulario_id'] !== null) {
+                $evaluacion->update(['formulario_evaluacion_id' => $definicion['formulario_id'], 'version' => (string) $definicion['version']]);
+            }
+
+            $calificacionA = $this->calificarSeccionA($definicion, (array) ($respuestas['a'] ?? []));
+            $calificacionB = $this->calificarSeccionB($definicion, (array) ($respuestas['b'] ?? []));
+            $calificacionC = $this->calificarSeccionC($definicion, (array) ($respuestas['c'] ?? []));
+            $this->validarRespuestasD($definicion, (array) ($respuestas['d'] ?? []));
 
             $numero = $evaluacion->intentos_count + 1;
 
@@ -366,12 +377,7 @@ class EvaluacionInduccionService
                     'c' => (array) ($respuestas['c'] ?? []),
                     'd' => (array) ($respuestas['d'] ?? []),
                 ],
-                'opinion' => $opinion !== null ? [
-                    'claridad' => isset($opinion['claridad']) ? (int) $opinion['claridad'] : null,
-                    'conocimiento_puesto' => isset($opinion['conocimiento_puesto']) ? (int) $opinion['conocimiento_puesto'] : null,
-                    'bienvenida' => isset($opinion['bienvenida']) ? (int) $opinion['bienvenida'] : null,
-                    'tema_reforzar' => isset($opinion['tema_reforzar']) ? trim((string) $opinion['tema_reforzar']) : null,
-                ] : null,
+                'opinion' => $opinion !== null ? $this->normalizarOpinion($definicion, $opinion) : null,
                 'calificacion_a' => $calificacionA,
                 'calificacion_b' => $calificacionB,
                 'calificacion_c' => $calificacionC,
@@ -434,9 +440,11 @@ class EvaluacionInduccionService
 
             $evaluacion = EvaluacionInduccion::query()->lockForUpdate()->findOrFail($intento->evaluacion_induccion_id);
 
-            [$calificacionD, $desglose] = $this->calificarSeccionD($puntosPorCriterio);
+            // Rúbrica y umbrales de la versión con la que se CONTESTÓ.
+            $definicion = $this->formularios->definicionInduccion($evaluacion);
+            [$calificacionD, $desglose] = $this->calificarSeccionD($definicion, $puntosPorCriterio);
             $total = round((float) $intento->calificacion_a + (float) $intento->calificacion_b + (float) $intento->calificacion_c + $calificacionD, 2);
-            $nivel = NivelEvaluacionInduccion::paraCalificacion($total);
+            $nivel = NivelEvaluacionInduccion::paraCalificacionCon($total, (float) $definicion['calificacion_aprobatoria'], (float) $definicion['calificacion_sobresaliente']);
 
             $intento->update([
                 'calificacion_d' => $calificacionD,
@@ -465,7 +473,7 @@ class EvaluacionInduccionService
             } else {
                 $evaluacion->update([
                     'estado' => EstadoEvaluacionInduccion::RequiereReforzamiento,
-                    'fecha_limite_reevaluacion' => $this->calendario->sumarDiasHabiles(now('America/Mexico_City'), (int) config('induccion_evaluacion.dias_habiles_reevaluacion', 5)),
+                    'fecha_limite_reevaluacion' => $this->calendario->sumarDiasHabiles(now('America/Mexico_City'), (int) $definicion['dias_habiles_reevaluacion']),
                 ]);
             }
 
@@ -475,6 +483,8 @@ class EvaluacionInduccionService
         $this->tareas->resolver(TipoTarea::InduccionCasosPorCalificar, $intento, $actor);
         $evaluacion->loadMissing('colaborador.user', 'colaborador.jefe.user');
         $colaboradorUsuario = $evaluacion->colaborador->user;
+        $definicion = $this->formularios->definicionInduccion($evaluacion);
+        $totalPuntos = (string) $definicion['total_puntos'];
 
         if ($evaluacion->estado === EstadoEvaluacionInduccion::Aprobada) {
             $proceso = OnboardingProceso::query()->find($evaluacion->onboarding_proceso_id);
@@ -490,7 +500,7 @@ class EvaluacionInduccionService
 
         if ($evaluacion->estado === EstadoEvaluacionInduccion::Aprobada) {
             if ($colaboradorUsuario !== null) {
-                $this->notificador->notificar([$colaboradorUsuario], 'induccion_evaluacion_aprobada', '¡Aprobaste tu evaluación de inducción!', sprintf('Obtuviste %s/30 (%s).', number_format((float) $intento->calificacion_total, 1), $intento->nivel?->etiqueta()), $intento, 'ver_evaluacion_induccion', 'alta');
+                $this->notificador->notificar([$colaboradorUsuario], 'induccion_evaluacion_aprobada', '¡Aprobaste tu evaluación de inducción!', sprintf('Obtuviste %s/%s (%s).', number_format((float) $intento->calificacion_total, 1), $totalPuntos, $intento->nivel?->etiqueta()), $intento, 'ver_evaluacion_induccion', 'alta');
             }
             $this->notificador->notificarEvento('induccion_evaluacion_aprobada', $evaluacion->colaborador, ['creador' => $actor, 'excluir' => [$actor->id]], 'Inducción completada', "{$evaluacion->colaborador->nombreCompleto()} aprobó su evaluación de inducción.", $intento, 'ver_onboarding_colaborador');
             // PDF del formato al expediente (try/catch + Log::warning adentro: nunca deshace la calificación).
@@ -498,13 +508,13 @@ class EvaluacionInduccionService
         } else {
             $this->tareas->abrir(TipoTarea::InduccionReforzamiento, $evaluacion, [
                 'titulo' => "Reforzamiento de inducción: {$evaluacion->colaborador->nombreCompleto()}",
-                'descripcion' => sprintf('Obtuvo %s/30 (mínimo 24). Reaplicar antes del %s.', number_format((float) $intento->calificacion_total, 1), $evaluacion->fecha_limite_reevaluacion?->toDateString()),
+                'descripcion' => sprintf('Obtuvo %s/%s (mínimo %s). Reaplicar antes del %s.', number_format((float) $intento->calificacion_total, 1), $totalPuntos, (string) $definicion['calificacion_aprobatoria'], $evaluacion->fecha_limite_reevaluacion?->toDateString()),
                 'prioridad' => PrioridadTarea::Urgente,
                 'colaborador' => $evaluacion->colaborador,
                 'permiso' => OnboardingService::PERMISO_GESTIONAR,
                 'accion' => 'retroalimentar_induccion',
             ]);
-            $this->notificador->notificarEvento('induccion_requiere_reforzamiento', $evaluacion->colaborador, ['creador' => $actor, 'excluir' => [$actor->id]], 'Reforzamiento de inducción requerido', sprintf('%s obtuvo %s/30. Da retroalimentación y habilita la reevaluación (máximo 5 días hábiles).', $evaluacion->colaborador->nombreCompleto(), number_format((float) $intento->calificacion_total, 1)), $intento, 'retroalimentar_induccion', 'urgente');
+            $this->notificador->notificarEvento('induccion_requiere_reforzamiento', $evaluacion->colaborador, ['creador' => $actor, 'excluir' => [$actor->id]], 'Reforzamiento de inducción requerido', sprintf('%s obtuvo %s/%s. Da retroalimentación y habilita la reevaluación (máximo %d días hábiles).', $evaluacion->colaborador->nombreCompleto(), number_format((float) $intento->calificacion_total, 1), $totalPuntos, (int) $definicion['dias_habiles_reevaluacion']), $intento, 'retroalimentar_induccion', 'urgente');
 
             if ($colaboradorUsuario !== null) {
                 $this->notificador->notificar([$colaboradorUsuario], 'induccion_requiere_reforzamiento', 'Sigamos reforzando tu inducción', 'Recursos Humanos te contactará para reforzar algunos temas antes de repetir la evaluación.', $intento, 'ver_evaluacion_induccion');
@@ -599,7 +609,7 @@ class EvaluacionInduccionService
             'fecha_limite_reevaluacion' => $evaluacion->fecha_limite_reevaluacion?->toDateString(),
             'retroalimentacion' => $evaluacion->retroalimentacion,
             'puede_presentar' => $viewer !== null && $viewer->colaborador_id === $colaborador->id && $evaluacion->estado->permitePresentar(),
-            'puede_calificar' => $viewer !== null && $viewer->can(OnboardingService::PERMISO_GESTIONAR) && $this->alcance->alcanzaColaborador($viewer, $colaborador),
+            'puede_calificar' => $viewer !== null && $viewer->can(OnboardingService::PERMISO_GESTIONAR) && $viewer->can('onboarding.calificar') && $this->alcance->alcanzaColaborador($viewer, $colaborador),
             'intentos' => $evaluacion->intentos->map(fn (EvaluacionInduccionIntento $i) => [
                 'id' => $i->id,
                 'numero' => $i->numero,
@@ -624,9 +634,10 @@ class EvaluacionInduccionService
      */
     public function detalleCasosPracticos(EvaluacionInduccionIntento $intento): array
     {
+        $definicion = $this->formularios->definicionInduccion($intento->loadMissing('evaluacion')->evaluacion);
         $respuestas = (array) ($intento->respuestas['d'] ?? []);
 
-        return collect((array) config('induccion_evaluacion.seccion_d', []))->map(fn (array $caso) => [
+        return collect((array) $definicion['seccion_d'])->map(fn (array $caso) => [
             'clave' => $caso['clave'],
             'enunciado' => $caso['enunciado'],
             'puntos_max' => $caso['puntos_max'],
@@ -647,13 +658,14 @@ class EvaluacionInduccionService
      */
     public function detalleRevision(EvaluacionInduccionIntento $intento): array
     {
+        $definicion = $this->formularios->definicionInduccion($intento->loadMissing('evaluacion')->evaluacion);
         $respuestas = (array) $intento->respuestas;
         $a = (array) ($respuestas['a'] ?? []);
         $b = (array) ($respuestas['b'] ?? []);
         $c = (array) ($respuestas['c'] ?? []);
         $desglose = collect($intento->desglose_d ?? [])->mapWithKeys(fn (array $fila) => [$fila['clave'] => $fila['puntos']]);
 
-        $seccionA = collect((array) config('induccion_evaluacion.seccion_a', []))->map(function (array $p, int $i) use ($a): array {
+        $seccionA = collect((array) $definicion['seccion_a'])->map(function (array $p, int $i) use ($a): array {
             $elegida = $a[$i] ?? $a[(string) $i] ?? null;
 
             return [
@@ -667,7 +679,7 @@ class EvaluacionInduccionService
         })->values()->all();
 
         $baseB = count($seccionA);
-        $seccionB = collect((array) config('induccion_evaluacion.seccion_b', []))->map(function (array $p, int $i) use ($b, $baseB): array {
+        $seccionB = collect((array) $definicion['seccion_b'])->map(function (array $p, int $i) use ($b, $baseB): array {
             $elegida = $b[$i] ?? $b[(string) $i] ?? null;
             $valor = $elegida !== null ? filter_var($elegida, FILTER_VALIDATE_BOOLEAN) : null;
 
@@ -682,8 +694,8 @@ class EvaluacionInduccionService
 
         $baseC = $baseB + count($seccionB);
         $seccionC = [
-            'descripciones' => (array) config('induccion_evaluacion.seccion_c.descripciones', []),
-            'conceptos' => collect((array) config('induccion_evaluacion.seccion_c.conceptos', []))->map(function (array $p, int $i) use ($c, $baseC): array {
+            'descripciones' => (array) $definicion['seccion_c']['descripciones'],
+            'conceptos' => collect((array) $definicion['seccion_c']['conceptos'])->map(function (array $p, int $i) use ($c, $baseC): array {
                 $elegida = $c[$i] ?? $c[(string) $i] ?? null;
                 $letra = $elegida !== null ? strtoupper((string) $elegida) : null;
 
@@ -699,7 +711,7 @@ class EvaluacionInduccionService
 
         $baseD = $baseC + count($seccionC['conceptos']);
         $respuestasD = (array) ($respuestas['d'] ?? []);
-        $seccionD = collect((array) config('induccion_evaluacion.seccion_d', []))->map(fn (array $caso, int $i): array => [
+        $seccionD = collect((array) $definicion['seccion_d'])->map(fn (array $caso, int $i): array => [
             'numero' => $baseD + $i + 1,
             'clave' => $caso['clave'],
             'enunciado' => $caso['enunciado'],
@@ -738,17 +750,18 @@ class EvaluacionInduccionService
     }
 
     /**
+     * @param  array<string, mixed>  $definicion
      * @param  array<int|string, mixed>  $respuestas
      */
-    private function calificarSeccionA(array $respuestas): float
+    private function calificarSeccionA(array $definicion, array $respuestas): float
     {
         $puntos = 0;
 
-        foreach ((array) config('induccion_evaluacion.seccion_a', []) as $indice => $pregunta) {
+        foreach ((array) $definicion['seccion_a'] as $indice => $pregunta) {
             $elegida = $respuestas[$indice] ?? $respuestas[(string) $indice] ?? null;
 
             if ($elegida !== null && (int) $elegida === (int) $pregunta['correcta']) {
-                $puntos++;
+                $puntos += (int) ($pregunta['puntos'] ?? 1);
             }
         }
 
@@ -756,17 +769,18 @@ class EvaluacionInduccionService
     }
 
     /**
+     * @param  array<string, mixed>  $definicion
      * @param  array<int|string, mixed>  $respuestas
      */
-    private function calificarSeccionB(array $respuestas): float
+    private function calificarSeccionB(array $definicion, array $respuestas): float
     {
         $puntos = 0;
 
-        foreach ((array) config('induccion_evaluacion.seccion_b', []) as $indice => $afirmacion) {
+        foreach ((array) $definicion['seccion_b'] as $indice => $afirmacion) {
             $elegida = $respuestas[$indice] ?? $respuestas[(string) $indice] ?? null;
 
             if ($elegida !== null && filter_var($elegida, FILTER_VALIDATE_BOOLEAN) === (bool) $afirmacion['correcto']) {
-                $puntos++;
+                $puntos += (int) ($afirmacion['puntos'] ?? 1);
             }
         }
 
@@ -774,17 +788,18 @@ class EvaluacionInduccionService
     }
 
     /**
+     * @param  array<string, mixed>  $definicion
      * @param  array<int|string, mixed>  $respuestas
      */
-    private function calificarSeccionC(array $respuestas): float
+    private function calificarSeccionC(array $definicion, array $respuestas): float
     {
         $puntos = 0;
 
-        foreach ((array) config('induccion_evaluacion.seccion_c.conceptos', []) as $indice => $concepto) {
+        foreach ((array) $definicion['seccion_c']['conceptos'] as $indice => $concepto) {
             $elegida = $respuestas[$indice] ?? $respuestas[(string) $indice] ?? null;
 
             if ($elegida !== null && strtoupper((string) $elegida) === strtoupper((string) $concepto['letra_correcta'])) {
-                $puntos++;
+                $puntos += (int) ($concepto['puntos'] ?? 1);
             }
         }
 
@@ -792,11 +807,12 @@ class EvaluacionInduccionService
     }
 
     /**
+     * @param  array<string, mixed>  $definicion
      * @param  array<string, mixed>  $respuestas
      */
-    private function validarRespuestasD(array $respuestas): void
+    private function validarRespuestasD(array $definicion, array $respuestas): void
     {
-        foreach ((array) config('induccion_evaluacion.seccion_d', []) as $caso) {
+        foreach ((array) $definicion['seccion_d'] as $caso) {
             if (trim((string) ($respuestas[$caso['clave']] ?? '')) === '') {
                 throw ValidationException::withMessages(["respuestas.d.{$caso['clave']}" => 'Responde el caso práctico antes de enviar la evaluación.']);
             }
@@ -804,15 +820,16 @@ class EvaluacionInduccionService
     }
 
     /**
+     * @param  array<string, mixed>  $definicion
      * @param  array<string, array<string, bool>>  $puntosPorCriterio
      * @return array{0: float, 1: array<int, array{clave: string, puntos: int}>}
      */
-    private function calificarSeccionD(array $puntosPorCriterio): array
+    private function calificarSeccionD(array $definicion, array $puntosPorCriterio): array
     {
         $total = 0;
         $desglose = [];
 
-        foreach ((array) config('induccion_evaluacion.seccion_d', []) as $caso) {
+        foreach ((array) $definicion['seccion_d'] as $caso) {
             foreach ((array) $caso['rubrica'] as $criterio) {
                 $otorgado = filter_var($puntosPorCriterio[$caso['clave']][$criterio['clave']] ?? false, FILTER_VALIDATE_BOOLEAN);
                 $puntos = $otorgado ? (int) $criterio['puntos'] : 0;
@@ -822,6 +839,30 @@ class EvaluacionInduccionService
         }
 
         return [(float) $total, $desglose];
+    }
+
+    /**
+     * Opinión (sección E, no califica) con las claves de los aspectos de la
+     * versión contestada: valor dentro de la escala o null.
+     *
+     * @param  array<string, mixed>  $definicion
+     * @param  array<string, mixed>  $opinion
+     * @return array<string, int|string|null>
+     */
+    private function normalizarOpinion(array $definicion, array $opinion): array
+    {
+        /** @var array{aspectos: list<array{clave: string}>, escala_min: int, escala_max: int} $seccionE */
+        $seccionE = $definicion['seccion_e'];
+        $salida = [];
+
+        foreach ($seccionE['aspectos'] as $aspecto) {
+            $valor = $opinion[$aspecto['clave']] ?? null;
+            $salida[$aspecto['clave']] = is_numeric($valor) && (int) $valor >= $seccionE['escala_min'] && (int) $valor <= $seccionE['escala_max'] ? (int) $valor : null;
+        }
+
+        $salida['tema_reforzar'] = isset($opinion['tema_reforzar']) && is_scalar($opinion['tema_reforzar']) ? trim((string) $opinion['tema_reforzar']) : null;
+
+        return $salida;
     }
 
     private function exigirPermiso(User $actor, Colaborador $colaborador): void

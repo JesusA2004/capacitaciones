@@ -4,8 +4,11 @@ import { computed, ref } from 'vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ComboboxBuscable } from '@/components/ui/combobox-buscable';
+import type { OpcionBuscable } from '@/components/ui/combobox-buscable';
 import { Input } from '@/components/ui/input';
 import { formatearRango, parsearRango } from '@/lib/editorHojas';
+import { opcionesDocumentoChecklist } from '@/lib/opcionesDocumentoChecklist';
 import type { TipoEditor } from '@/types';
 
 /**
@@ -40,9 +43,13 @@ const destino = ref<string | null>(null);
 const rango = ref('');
 const errorRango = ref<string | null>(null);
 
-const opcionesTipo = computed(() => [
-    { value: SIN_CLASIFICAR, label: 'Sin clasificar (dejar fuera)' },
-    ...props.tipos.map((t) => ({ value: t.id, label: t.nombre })),
+const opcionesTipo = computed<OpcionBuscable[]>(() => [
+    {
+        value: SIN_CLASIFICAR,
+        label: 'Sin clasificar (dejar fuera)',
+        alias: ['ninguno', 'fuera', 'quitar'],
+    },
+    ...opcionesDocumentoChecklist(props.tipos),
 ]);
 
 const hay = computed(() => props.seleccion.length > 0);
@@ -146,10 +153,11 @@ function mover(): void {
                 Asignar clasificación
             </legend>
             <div class="flex flex-wrap items-center gap-2">
-                <SelectSimple
+                <ComboboxBuscable
                     v-model="tipoElegido"
                     :opciones="opcionesTipo"
                     placeholder="Documento del checklist…"
+                    placeholder-busqueda="Busca: INE, CURP, licencia…"
                     numerico
                     class="w-full min-w-0 sm:w-72"
                     aria-label="Documento del checklist"

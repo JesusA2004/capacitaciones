@@ -10,7 +10,7 @@ class GuardarTipoActivoRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('onboarding.gestionar') ?? false;
+        return ($this->user()?->can('onboarding.gestionar') ?? false) && $this->user()->can('onboarding.configurar');
     }
 
     /**

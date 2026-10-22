@@ -7,6 +7,7 @@ use App\Http\Requests\Avisos\CrearAvisoRequest;
 use App\Models\Aviso;
 use App\Services\Avisos\AvisoService;
 use App\Services\DocumentosMaestros\DocumentosMaestrosAdminService;
+use App\Support\Paginacion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -25,6 +26,8 @@ class AvisoController extends Controller
 {
     public const PERMISO = 'avisos.enviar';
 
+    public const PERMISO_VER = 'avisos.ver';
+
     public function __construct(
         private readonly AvisoService $avisos,
         private readonly DocumentosMaestrosAdminService $admin,
@@ -32,10 +35,11 @@ class AvisoController extends Controller
 
     public function index(Request $request): Response
     {
-        $this->exigir($request);
+        $this->exigirConsulta($request);
 
         return Inertia::render('Rh/Avisos/Index', [
-            'avisos' => $this->avisos->listar(),
+            'avisos' => $this->avisos->listar(Paginacion::porPagina()),
+            'puedeEnviar' => (bool) $request->user()?->can(self::PERMISO),
         ]);
     }
 
@@ -58,7 +62,7 @@ class AvisoController extends Controller
 
     public function archivo(Request $request, Aviso $aviso): StreamedResponse
     {
-        $this->exigir($request);
+        $this->exigirConsulta($request);
 
         return $this->avisos->archivo($aviso);
     }
@@ -66,5 +70,14 @@ class AvisoController extends Controller
     private function exigir(Request $request): void
     {
         abort_unless($request->user()?->can(self::PERMISO), 403);
+    }
+
+    /**
+     * Historial de avisos y sus archivos: quien envía (avisos.enviar) o quien
+     * solo consulta (avisos.ver).
+     */
+    private function exigirConsulta(Request $request): void
+    {
+        abort_unless((bool) $request->user()?->canAny([self::PERMISO, self::PERMISO_VER]), 403);
     }
 }

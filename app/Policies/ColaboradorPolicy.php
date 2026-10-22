@@ -103,18 +103,18 @@ class ColaboradorPolicy
 
     /**
      * Organigrama: subir/bajar/mover a alguien de plaza (pasa por el
-     * movimiento laboral + jefe derivado). Solo RH (organigrama.editar) con
+     * movimiento laboral + jefe derivado). Solo RH (organigrama.mover_personas) con
      * alcance, nunca sobre uno mismo (super_admin sí, ver trait).
      */
     public function moverEnOrganigrama(User $usuario, Colaborador $colaborador): bool
     {
-        return $this->administrativo($usuario, $colaborador, 'organigrama.editar');
+        return $usuario->can('organigrama.ver') && $this->administrativo($usuario, $colaborador, 'organigrama.mover_personas');
     }
 
     /** Organigrama: clasificar a un Gerente de Sucursal en Q1 o Q3. */
     public function clasificarRegion(User $usuario, Colaborador $colaborador): bool
     {
-        return $this->administrativo($usuario, $colaborador, 'organigrama.editar');
+        return $usuario->can('organigrama.ver') && $this->administrativo($usuario, $colaborador, 'organigrama.mover_personas');
     }
 
     private function esPropio(User $usuario, Colaborador $colaborador): bool

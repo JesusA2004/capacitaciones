@@ -14,6 +14,7 @@ use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\InduccionPdfService;
 use App\Services\Onboarding\MaterialInduccionService;
 use App\Services\Onboarding\OnboardingService;
+use App\Services\Onboarding\ProgresoInduccionService;
 use App\Services\Onboarding\ReproduccionVideoInduccionService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
@@ -45,7 +46,9 @@ class MiProcesoController extends Controller
         abort_unless($colaborador instanceof Colaborador, 403, 'Tu cuenta no está ligada a un colaborador.');
 
         $datos = $this->ciclo->misPendientes($colaborador, $usuario);
-        $proceso = $this->onboarding->procesoActual($colaborador);
+        // El proceso que lleva su inducción (ingreso o reinducción asignada
+        // por RH) — misma forma de respuesta de siempre.
+        $proceso = $this->accesoInduccion->procesoInduccion($colaborador) ?? $this->onboarding->procesoActual($colaborador);
         $datos['induccionContenido'] = $proceso !== null ? $this->evaluacionInduccion->resumenContenido($proceso) : null;
         $datos['todo_listo'] = $datos['todo_listo'] && ($datos['induccionContenido'] === null || $datos['induccionContenido']['completado']);
         $evaluacionInduccion = $proceso !== null ? $this->evaluacionInduccion->habilitarPara($proceso) : null;
@@ -58,6 +61,8 @@ class MiProcesoController extends Controller
 
         // La inducción la presenta RH: cuándo puede verla / contestarla.
         $datos['accesoInduccion'] = $this->accesoInduccion->resumen($colaborador);
+        // Aditivo: pasos de «Mi inducción» (las apps instaladas lo ignoran).
+        $datos['miInduccion'] = app(ProgresoInduccionService::class)->resumen($colaborador);
 
         return response()->json(['data' => $datos]);
     }
@@ -142,7 +147,8 @@ class MiProcesoController extends Controller
 
     public function contenidoInduccion(Request $request): JsonResponse
     {
-        return response()->json(['data' => $this->evaluacionInduccion->contenidoPublico()]);
+        // El de SU evaluación por presentar (su versión del formulario), o el vigente.
+        return response()->json(['data' => $this->evaluacionInduccion->contenidoPublicoPara($request->user())]);
     }
 
     public function capitulosInduccion(Request $request, OnboardingAvance $avance): JsonResponse

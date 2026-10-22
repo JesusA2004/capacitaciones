@@ -31,6 +31,7 @@ use App\Models\SolicitudInterna;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Autenticacion\CredencialesService;
 use App\Services\Avisos\AvisoService;
 use App\Services\Colaboradores\AltaImssService;
 use App\Services\Colaboradores\DomicilioService;
@@ -249,18 +250,9 @@ class ExpedienteController extends Controller
                 'departamento:id,nombre',
                 'puesto:id,nombre',
             ])
-            ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
-                // Cada palabra debe aparecer en el nombre, los apellidos o el
-                // número de empleado: «Demo Persona» encuentra a «Demo» +
-                // «Persona 6 Ciclo» aunque cruce ambos campos.
-                foreach (preg_split('/\s+/', trim($busqueda)) ?: [] as $palabra) {
-                    $query->where(function ($sub) use ($palabra) {
-                        $sub->where('name', 'like', "%{$palabra}%")
-                            ->orWhere('apellidos', 'like', "%{$palabra}%")
-                            ->orWhere('numero_empleado', 'like', "%{$palabra}%");
-                    });
-                }
-            })
+            // Buscador único: cada palabra en nombre, apellidos, número,
+            // puesto, sucursal o departamento («demo cuernavaca»).
+            ->when($request->string('busqueda')->toString(), fn ($query, string $busqueda) => $query->buscar($busqueda))
             ->when($request->integer('empresa_id'), fn ($query, int $id) => $query->whereHas('sucursalPrincipal', fn ($sub) => $sub->where('empresa_id', $id)))
             ->when($request->integer('sucursal_id'), fn ($query, int $id) => $query->where('sucursal_principal_id', $id))
             ->when($request->integer('departamento_id'), fn ($query, int $id) => $query->where('departamento_id', $id))
@@ -310,6 +302,9 @@ class ExpedienteController extends Controller
         $esCuentaPropia = $usuario->colaborador_id === $colaborador->id;
         $cuenta = $colaborador->user;
         $idUsuarioColaborador = $cuenta?->id;
+        // «Generar credenciales» / «Restablecer contraseña» van a
+        // CredencialesController: misma regla que su endpoint.
+        $puedeGenerarCredenciales = ! $esPropio && app(CredencialesService::class)->puedeGenerar($usuario, $colaborador);
 
         $colaborador->loadMissing([
             'sucursalPrincipal:id,nombre,empresa_id',
@@ -363,8 +358,9 @@ class ExpedienteController extends Controller
             // permiso de baja del cierre laboral (nunca usuarios.desactivar).
             // El alcance ya lo exige puedeVerExpediente() arriba.
             'puedeDarDeBaja' => ! $esPropio && $this->puedeDarDeBaja($usuario, $colaborador),
-            'puedeGestionarPassword' => $usuario->can('usuarios.editar') && ! $esCuentaPropia && $cuenta !== null,
-            'puedeEditarCuenta' => $usuario->can('usuarios.editar') && ! $esCuentaPropia && $cuenta !== null,
+            'puedeGestionarPassword' => $cuenta !== null && $puedeGenerarCredenciales,
+            // Mismo chequeo que UpdateUsuarioRequest (UserPolicy::update).
+            'puedeEditarCuenta' => ! $esCuentaPropia && $cuenta !== null && $usuario->can('update', $cuenta),
             // Cambiar empresa/sucursal/departamento/puesto/jefe/sueldo es una
             // decisión organizacional: siempre RH, nunca autoservicio (a
             // diferencia de datos personales, donde el propio colaborador
@@ -380,7 +376,7 @@ class ExpedienteController extends Controller
             // en Administración → Usuarios (ese listado se retiró, ver
             // docs/ROLES_Y_NAVEGACION.md): un colaborador sin cuenta todavía
             // puede recibir una aquí mismo, sin salir del expediente.
-            'puedeCrearCuenta' => $usuario->can('usuarios.crear') && ! $esCuentaPropia && $cuenta === null,
+            'puedeCrearCuenta' => $cuenta === null && $puedeGenerarCredenciales,
             'rolesDisponibles' => Role::query()->orderBy('name')->pluck('name'),
             // Distingue "no tienes permiso" de "es tu propia cuenta" en el
             // mensaje del frontend — ambos casos esconden el mismo botón
@@ -408,7 +404,7 @@ class ExpedienteController extends Controller
                 'estatus_imss' => $colaborador->estatus_imss->value,
                 'fecha_alta_imss' => $colaborador->fecha_alta_imss?->toDateString(),
                 'imss_alta' => $esPropio ? null : $this->altaImss->indicador($colaborador),
-                'imss_alta_archivo' => ! $esPropio && $colaborador->alta_imss_path !== null ? [
+                'imss_alta_archivo' => ! $esPropio && $colaborador->alta_imss_path !== null && $request->user()->can('documentos.descargar') ? [
                     'nombre' => $colaborador->alta_imss_nombre ?? 'Acuse de alta IMSS',
                     'url' => route('rh.expedientes.alta-imss.show', $colaborador->id),
                     'subido_en' => $colaborador->alta_imss_subido_en?->toIso8601String(),
@@ -776,7 +772,7 @@ class ExpedienteController extends Controller
     {
         // ReciboNominaPolicy: RH con nómina dentro de su alcance; el dueño
         // solo si el autoservicio de recibos está encendido (no lo está).
-        $this->authorize('ver', $recibo);
+        $this->authorize('descargar', $recibo);
 
         // Archivo faltante = pantalla de reparación (ArchivoGeneradoNoDisponibleException), no 404.
         return $this->reciboNomina->respuestaPdf($recibo, $request->user());
@@ -935,6 +931,9 @@ class ExpedienteController extends Controller
     public function descargarAltaImss(Request $request, Colaborador $colaborador): StreamedResponse
     {
         abort_unless($this->alcance->puedeVerExpediente($request->user(), $colaborador), 403);
+        // Es un documento del expediente: descargarlo exige el mismo permiso
+        // que cualquier otro (el gerente ve el indicador, no el archivo).
+        abort_unless($request->user()->can('documentos.descargar'), 403, 'No tienes permiso para descargar documentos del expediente.');
 
         return $this->altaImss->respuesta($colaborador);
     }
@@ -998,13 +997,15 @@ class ExpedienteController extends Controller
      */
     private function documentosParaVista(Collection $vigentes, User $usuario): array
     {
-        // El expediente solo pide documentos REQUERIDOS: lo demás
-        // (incapacidades, permisos, vacaciones...) entra por Solicitudes.
-        // Un tipo no requerido solo aparece si ya tiene un archivo, para no
-        // esconder historial.
+        // El expediente pide los documentos REQUERIDOS y muestra los
+        // OPCIONALES del checklist (pagaré, antecedentes, licencia) con la
+        // etiqueta «Opcional»: estos nunca cuentan para el avance ni como
+        // faltantes. Lo demás (incapacidades, permisos, vacaciones...) entra
+        // por Solicitudes; un tipo fuera del checklist solo aparece si ya
+        // tiene un archivo, para no esconder historial.
         return DocumentType::query()
             ->where('activo', true)
-            ->where(fn ($q) => $q->where('requerido', true)->orWhereIn('id', $vigentes->keys()))
+            ->where(fn ($q) => $q->where('requerido', true)->orWhere('checklist_opcional', true)->orWhereIn('id', $vigentes->keys()))
             ->orderByDesc('requerido')
             ->orderBy('orden')
             ->orderBy('nombre')
@@ -1018,7 +1019,7 @@ class ExpedienteController extends Controller
                 $decidible = $documento !== null && $documento->status->admiteDecisionDeRh();
 
                 return [
-                    'tipo' => ['id' => $tipo->id, 'nombre' => $tipo->nombre, 'clave' => $tipo->clave, 'requerido' => $tipo->requerido],
+                    'tipo' => ['id' => $tipo->id, 'nombre' => $tipo->nombre, 'clave' => $tipo->clave, 'requerido' => $tipo->requerido, 'opcional' => ! $tipo->requerido && $tipo->checklist_opcional],
                     'documento' => $documento ? [
                         'id' => $documento->id,
                         'status' => $documento->status->value,
@@ -1036,6 +1037,9 @@ class ExpedienteController extends Controller
                             'rechazar' => $decidible && $usuario->can('rechazar', $documento),
                             'corregir' => $decidible && $usuario->can('pedirCorreccion', $documento),
                             'autorizar_cambio' => $documento->status === EstadoDocumento::CambioSolicitado && $usuario->can('autorizarCambio', $documento),
+                            // Ver/descargar el archivo (documentos.descargar): sin
+                            // él solo se ve el estado del documento.
+                            'descargar' => $usuario->can('descargar', $documento),
                         ],
                     ] : null,
                 ];

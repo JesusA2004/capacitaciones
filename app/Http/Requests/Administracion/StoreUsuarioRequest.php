@@ -16,7 +16,14 @@ class StoreUsuarioRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('create', User::class) ?? false;
+        $usuario = $this->user();
+
+        if ($usuario === null || ! $usuario->can('create', User::class)) {
+            return false;
+        }
+
+        // Dar roles al crear la cuenta exige además «Asignar roles».
+        return (array) $this->input('roles', []) === [] || $usuario->can('asignarRoles', User::class);
     }
 
     /**

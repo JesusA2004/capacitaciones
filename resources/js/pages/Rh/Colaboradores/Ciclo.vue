@@ -23,6 +23,7 @@ import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
 import VistaPreviaFlujo from '@/components/documentos/VistaPreviaFlujo.vue';
+import FormularioPeriodoPrueba from '@/components/formularios-evaluacion/FormularioPeriodoPrueba.vue';
 import InputError from '@/components/InputError.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
@@ -88,6 +89,7 @@ const props = defineProps<{
     cierre: Record<string, unknown> | null;
     puede_solicitar_excepcion: boolean;
     puede_resolver_excepcion: boolean;
+    puede_devolver_evaluacion?: boolean;
     opciones: {
         // Formas de salida (renuncia / no renovación / rescisión) con sus
         // causales activas, ayuda y reglas (módulo de Bajas).
@@ -225,6 +227,7 @@ const conArchivos = ['registrar_aviso'];
 // Acciones propias de esta pantalla que se suman a las del proceso.
 const accionesExtra = computed<AccionCiclo[]>(() => [
     ...(props.evaluacion &&
+    props.puede_devolver_evaluacion &&
     props.ciclo.acciones_permitidas.some(
         (a) => a.clave === 'autorizar_evaluacion',
     )
@@ -354,29 +357,6 @@ const criteriosForm = computed(
 );
 const filtrosForm = computed(
     () => (form.filtros ?? []) as { clave: string; respuesta: boolean }[],
-);
-
-function etiquetaCriterio(clave: string): string {
-    return (
-        props.evaluacion?.criterios_oficiales.find((c) => c.clave === clave)
-            ?.etiqueta ?? clave
-    );
-}
-
-function etiquetaFiltro(clave: string): string {
-    return (
-        props.evaluacion?.filtros_oficiales.find((f) => f.clave === clave)
-            ?.etiqueta ?? clave
-    );
-}
-
-const totalCaptura = computed(() =>
-    criteriosForm.value.reduce((s, c) => s + (Number(c.calificacion) || 0), 0),
-);
-const requiereComentarioCaptura = computed(
-    () =>
-        criteriosForm.value.some((c) => c.calificacion <= 2) ||
-        filtrosForm.value.some((f) => f.respuesta === true),
 );
 
 // Elegibilidad real (regla canónica FO-RH-EPP-001) de la evaluación YA
@@ -1218,91 +1198,21 @@ const etiquetaFecha: Record<string, string> = {
                 </template>
 
                 <template v-else-if="accion?.clave === 'capturar_evaluacion'">
-                    <p class="text-xs text-muted-foreground">
-                        Evaluación oficial FO-RH-EPP-001 — escala 4 Muy bueno ·
-                        3 Bueno · 2 Regular · 1 Deficiente. Un solo 1, o un "Sí"
-                        en las preguntas filtro, significa NO SE RENUEVA sin
-                        importar el total (mínimo
-                        {{ evaluacion?.total_minimo_renovar }}/{{
-                            evaluacion?.total_maximo
-                        }}).
-                    </p>
-
-                    <div
-                        v-for="c in criteriosForm"
-                        :key="c.clave"
-                        class="grid grid-cols-[1fr_auto] items-center gap-2"
-                    >
-                        <Label class="text-sm">{{
-                            etiquetaCriterio(c.clave)
-                        }}</Label>
-                        <div class="flex gap-1">
-                            <Button
-                                v-for="n in [4, 3, 2, 1]"
-                                :key="n"
-                                type="button"
-                                size="sm"
-                                :variant="
-                                    c.calificacion === n
-                                        ? n === 1
-                                            ? 'destructive'
-                                            : 'default'
-                                        : 'outline'
-                                "
-                                @click="c.calificacion = n"
-                                >{{ n }}</Button
-                            >
-                        </div>
-                    </div>
-
-                    <p class="border-t pt-3 text-xs text-muted-foreground">
-                        Preguntas filtro — un solo "Sí" bloquea la renovación.
-                    </p>
-                    <div
-                        v-for="f in filtrosForm"
-                        :key="f.clave"
-                        class="grid grid-cols-[1fr_auto] items-center gap-2"
-                    >
-                        <Label class="text-sm">{{
-                            etiquetaFiltro(f.clave)
-                        }}</Label>
-                        <div class="flex gap-1">
-                            <Button
-                                type="button"
-                                size="sm"
-                                :variant="!f.respuesta ? 'default' : 'outline'"
-                                @click="f.respuesta = false"
-                                >No</Button
-                            >
-                            <Button
-                                type="button"
-                                size="sm"
-                                :variant="
-                                    f.respuesta ? 'destructive' : 'outline'
-                                "
-                                @click="f.respuesta = true"
-                                >Sí</Button
-                            >
-                        </div>
-                    </div>
-
-                    <p class="text-sm font-medium">
-                        Total: {{ totalCaptura }}/{{ evaluacion?.total_maximo }}
-                    </p>
-
-                    <div class="grid gap-1.5">
-                        <Label
-                            >Comentario del jefe
-                            {{
-                                requiereComentarioCaptura
-                                    ? '(obligatorio: hay un criterio en 1/2 o un filtro en Sí)'
-                                    : '(opcional)'
-                            }}</Label
-                        ><Textarea
-                            v-model="form.observaciones as string"
-                            rows="3"
-                        /><InputError :message="form.errors.observaciones" />
-                    </div>
+                    <!-- Mismo componente que la vista previa del módulo
+                    «Formularios de evaluación»: criterios, filtros, escala y
+                    reglas de la versión del formulario de esta evaluación. -->
+                    <FormularioPeriodoPrueba
+                        v-if="evaluacion?.formulario"
+                        :contenido="evaluacion.formulario"
+                        :criterios="criteriosForm"
+                        :filtros="filtrosForm"
+                        :observaciones="String(form.observaciones ?? '')"
+                        :errores="form.errors"
+                        compacto
+                        @update:criterios="(v) => (form.criterios = v)"
+                        @update:filtros="(v) => (form.filtros = v)"
+                        @update:observaciones="(v) => (form.observaciones = v)"
+                    />
                 </template>
 
                 <template v-else-if="accion?.clave === 'autorizar_evaluacion'">

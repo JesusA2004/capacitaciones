@@ -17,6 +17,7 @@ use App\Models\ReciboNomina;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Colaboradores\BuscadorColaboradoresService;
 use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
 use App\Services\DocumentosAdministrativos\DisenoAdministrativoService;
 use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
@@ -687,10 +688,7 @@ class ReciboNominaService
             ->when($filtros['colaborador_id'] ?? null, fn (Builder $q, int|string $v) => $q->where('colaborador_id', (int) $v))
             ->when($filtros['lote'] ?? null, fn (Builder $q, string $v) => $q->where('lote_importacion', $v))
             ->when($filtros['estado'] ?? null, fn (Builder $q, string $v) => $q->where('estado', $v))
-            ->when($filtros['q'] ?? null, fn (Builder $q, string $v) => $q->whereHas('colaborador', fn (Builder $c) => $c->where(fn (Builder $w) => $w
-                ->where('name', 'like', "%{$v}%")
-                ->orWhere('apellidos', 'like', "%{$v}%")
-                ->orWhere('numero_empleado', 'like', "%{$v}%"))))
+            ->when($filtros['q'] ?? null, fn (Builder $q, string $v) => app(BuscadorColaboradoresService::class)->aplicarPorColumna($q, $v))
             ->orderByDesc('periodo_inicio')
             ->orderByDesc('id')
             ->paginate(Paginacion::porPagina(20, $filtros['per_page'] ?? null));

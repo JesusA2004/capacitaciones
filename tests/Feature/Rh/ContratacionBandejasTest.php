@@ -95,6 +95,11 @@ test('Validación de documentos lista documentos por revisar para quien tiene do
             ->has('documentos.data', 1)
             ->where('documentos.data.0.id', $documento->id)
             ->where('documentos.data.0.aprobar_url', "/rh/documentos/{$documento->id}/aprobar")
+            // El visor centrado de la bandeja necesita saber qué archivo es
+            // (PDF o imagen) para dibujarlo inline sin ir al expediente.
+            ->where('documentos.data.0.archivo', 'documento.pdf')
+            ->where('documentos.data.0.mime', 'application/pdf')
+            ->where('documentos.data.0.descargar_url', "/rh/documentos/{$documento->id}/descargar")
             ->where('puedeAprobar', true));
 });
 
@@ -105,6 +110,30 @@ test('Validación de documentos responde 403 sin documentos.revisar', function (
     $this->actingAs($gerente)
         ->get(route('rh.validacion-documentos.index'))
         ->assertForbidden();
+});
+
+test('Validación de documentos: «Rechazar» solo se ofrece con documentos.rechazar', function () {
+    $this->actingAs($this->rh)
+        ->get(route('rh.validacion-documentos.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $p) => $p
+            ->where('puedeRechazar', true)
+            ->where('puedeSolicitarCorreccion', true));
+
+    // Revisor sin aprobar ni rechazar: puede pedir corrección (la Policy solo
+    // exige documentos.revisar), pero no rechazar ni aprobar.
+    $gerente = clUsuario('gerente_sucursal', ['sucursal_principal_id' => $this->estructura['sucursal']->id]);
+    $gerente->givePermissionTo('documentos.revisar');
+
+    expect($gerente->can('documentos.rechazar'))->toBeFalse();
+
+    $this->actingAs($gerente)
+        ->get(route('rh.validacion-documentos.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $p) => $p
+            ->where('puedeAprobar', false)
+            ->where('puedeRechazar', false)
+            ->where('puedeSolicitarCorreccion', true));
 });
 
 test('Validación de documentos respeta el alcance del revisor', function () {

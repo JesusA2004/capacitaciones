@@ -1,6 +1,7 @@
 import type { FormDataConvertible } from '@inertiajs/core';
 import { router } from '@inertiajs/vue3';
 import { reactive } from 'vue';
+import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 
 type OpcionesFiltros = {
     debounceMs?: number;
@@ -19,11 +20,17 @@ export function useFiltros<T extends Record<string, FormDataConvertible>>(
     let temporizador: ReturnType<typeof setTimeout> | undefined;
 
     function aplicar() {
-        router.get(url, filtros, {
-            preserveState: true,
-            preserveScroll: true,
-            replace: true,
-        });
+        // Conserva cuántas filas por página eligió el usuario (la página
+        // vuelve a la 1 porque el filtro cambia el total).
+        router.get(
+            url,
+            { ...parametrosPorPaginaActuales(), ...filtros },
+            {
+                preserveState: true,
+                preserveScroll: true,
+                replace: true,
+            },
+        );
     }
 
     function aplicarConDebounce(ms = opciones.debounceMs ?? 400) {

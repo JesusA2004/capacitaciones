@@ -42,12 +42,18 @@ import {
     vistaPrevia,
 } from '@/routes/rh/actas';
 import anexos from '@/routes/rh/actas/anexos';
-import type { ActaDetalle, CatalogosActa, FormularioActa } from '@/types';
+import type {
+    ActaDetalle,
+    CatalogosActa,
+    FormularioActa,
+    PermisosActa,
+} from '@/types';
 
 const props = defineProps<{
     acta: ActaDetalle;
     puedeGestionar: boolean;
     puedeRegistrarEntrega: boolean;
+    permisos: PermisosActa;
     faltaParaCerrar: string | null;
     catalogos: CatalogosActa;
 }>();
@@ -63,7 +69,7 @@ defineOptions({
 });
 
 const editable = computed(
-    () => props.puedeGestionar && props.acta.estado === 'borrador',
+    () => props.permisos.editar && props.acta.estado === 'borrador',
 );
 const abierta = computed(
     () => !['cerrada', 'cancelada'].includes(props.acta.estado),
@@ -73,8 +79,10 @@ const abierta = computed(
  * Acta administrativa / de hechos: formato propio (BrowserShot). La vista
  * previa es el PDF REAL que se generará, sin guardarlo.
  */
-const tieneVistaPrevia = computed(() =>
-    ['administrativa', 'hechos'].includes(props.acta.tipo),
+const tieneVistaPrevia = computed(
+    () =>
+        props.permisos.descargar &&
+        ['administrativa', 'hechos'].includes(props.acta.tipo),
 );
 const previaAbierta = ref(false);
 
@@ -258,7 +266,7 @@ function cerrarActa() {
                 <Pencil class="size-4" /> Editar datos
             </Button>
             <Button
-                v-if="puedeGestionar && acta.estado !== 'borrador' && abierta"
+                v-if="permisos.cerrar && acta.estado !== 'borrador' && abierta"
                 :disabled="!!faltaParaCerrar"
                 :title="faltaParaCerrar ?? undefined"
                 @click="cerrarActa"
@@ -269,7 +277,7 @@ function cerrarActa() {
 
         <p
             v-if="
-                puedeGestionar &&
+                permisos.cerrar &&
                 acta.estado !== 'borrador' &&
                 abierta &&
                 faltaParaCerrar
@@ -417,7 +425,7 @@ function cerrarActa() {
 
                     <Button
                         v-if="
-                            puedeGestionar &&
+                            permisos.registrar_firma &&
                             abierta &&
                             acta.estado !== 'borrador' &&
                             !acta.negativa_firma
@@ -464,7 +472,7 @@ function cerrarActa() {
                         Sin notas todavía.
                     </p>
                     <form
-                        v-if="puedeGestionar && abierta"
+                        v-if="permisos.seguimiento && abierta"
                         class="flex flex-col gap-2"
                         @submit.prevent="agregarNota"
                     >
@@ -608,7 +616,7 @@ function cerrarActa() {
 
                     <Button
                         v-if="
-                            puedeGestionar &&
+                            permisos.registrar_firma &&
                             abierta &&
                             acta.estado !== 'borrador' &&
                             !acta.negativa_firma
@@ -659,7 +667,7 @@ function cerrarActa() {
                     </p>
 
                     <form
-                        v-if="puedeGestionar && abierta"
+                        v-if="permisos.subir_anexo && abierta"
                         class="flex flex-col gap-2"
                         @submit.prevent="subirAnexo"
                     >
@@ -713,7 +721,7 @@ function cerrarActa() {
                     </p>
 
                     <form
-                        v-if="puedeGestionar && abierta"
+                        v-if="permisos.seguimiento && abierta"
                         class="flex flex-col gap-2"
                         @submit.prevent="agregarNota"
                     >

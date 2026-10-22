@@ -8,10 +8,12 @@ use App\Models\EvaluacionInduccion;
 use App\Models\OnboardingAvance;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Onboarding\AccesoInduccionColaboradorService;
+use App\Services\Onboarding\AcuseDescriptivoPuestoService;
 use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\InduccionPdfService;
 use App\Services\Onboarding\MaterialInduccionService;
 use App\Services\Onboarding\OnboardingService;
+use App\Services\Onboarding\ProgresoInduccionService;
 use App\Services\Onboarding\ReproduccionVideoInduccionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -35,6 +37,8 @@ class MiProcesoController extends Controller
         private readonly AccesoInduccionColaboradorService $accesoInduccion,
         private readonly MaterialInduccionService $materialInduccion,
         private readonly ReproduccionVideoInduccionService $videoInduccion,
+        private readonly ProgresoInduccionService $progresoInduccion,
+        private readonly AcuseDescriptivoPuestoService $descriptivos,
     ) {}
 
     public function show(Request $request): Response
@@ -44,7 +48,8 @@ class MiProcesoController extends Controller
         abort_unless($colaborador instanceof Colaborador, 403);
 
         $datos = $this->ciclo->misPendientes($colaborador, $usuario);
-        $proceso = $this->onboarding->procesoActual($colaborador);
+        // El proceso que lleva su inducción (ingreso o reinducción asignada).
+        $proceso = $this->accesoInduccion->procesoInduccion($colaborador) ?? $this->onboarding->procesoActual($colaborador);
         $datos['induccionContenido'] = $proceso !== null ? $this->evaluacionInduccion->resumenContenido($proceso) : null;
         // Contenido institucional por ver nunca deja decir "estás al día".
         $datos['todo_listo'] = $datos['todo_listo'] && ($datos['induccionContenido'] === null || $datos['induccionContenido']['completado']);
@@ -58,8 +63,15 @@ class MiProcesoController extends Controller
             $datos['todo_listo'] = $datos['todo_listo'] && ! $datos['evaluacionInduccion']['puede_presentar'];
         }
 
-        // La inducción la presenta RH: cuándo puede verla / contestarla.
+        // Cuándo puede verla / contestarla y su avance por pasos («Mi inducción»).
         $datos['accesoInduccion'] = $this->accesoInduccion->resumen($colaborador);
+        $datos['miInduccion'] = $this->progresoInduccion->resumen($colaborador);
+        // Descriptivo de puesto que RH le envió (sin contenido: se lee en su pantalla).
+        $acuse = $this->descriptivos->vigenteDe($usuario);
+        $datos['descriptivoPuesto'] = $acuse !== null ? $this->descriptivos->aArray($acuse) : null;
+        $datos['todo_listo'] = $datos['todo_listo'] && ($acuse === null || $acuse->acusado_en !== null);
+        // Asignada pero sin contenido visto todavía: tampoco está «al día».
+        $datos['todo_listo'] = $datos['todo_listo'] && ! in_array($datos['accesoInduccion']['estado'], ['disponible', 'evaluacion_pendiente'], true);
 
         return Inertia::render('Portal/MiProceso', $datos);
     }
@@ -89,11 +101,12 @@ class MiProcesoController extends Controller
     }
 
     /**
-     * «Inducción Mr. Lana» en Mi espacio. La presenta RH: el colaborador
-     * solo VE el PDF oficial mientras una sesión «En curso» lo incluye; antes
-     * y después recibe el motivo (por presentar, evaluación por contestar,
-     * en revisión, completada) sin el contenido. Nunca hay controles de
-     * presentador aquí, aunque la cuenta también tenga permisos de RH.
+     * «Inducción Mr. Lana» en Mi espacio. El colaborador la ve por su cuenta
+     * mientras la tiene asignada y por ver (hojas del PDF oficial + material
+     * de explicación, según lo que RH le asignó); antes y después recibe el
+     * motivo (sin asignar, evaluación por contestar, en revisión, completada)
+     * sin el contenido. Nunca hay controles de presentador aquí, aunque la
+     * cuenta también tenga permisos de RH.
      */
     public function verInduccion(Request $request): Response
     {
@@ -111,6 +124,9 @@ class MiProcesoController extends Controller
             'avanceId' => $avance?->id,
             'material' => $avance !== null ? $this->materialInduccion->datosParaColaborador($avance) : null,
             'videoCompletado' => $avance !== null && $this->videoInduccion->videoCompletado($avance),
+            // Pasos (Presentación → Video → Evaluación → Resultado) y qué le
+            // asignó RH (presentación y/o material).
+            'miInduccion' => $this->progresoInduccion->resumen($colaborador),
             // URLs ya resueltas de los endpoints (evita depender de helpers de
             // Wayfinder recién generados para las rutas nuevas).
             'rutas' => $avance !== null ? [
@@ -167,12 +183,12 @@ class MiProcesoController extends Controller
         $colaborador = $request->user()->colaborador;
         abort_unless($colaborador instanceof Colaborador, 403);
 
-        $proceso = $this->onboarding->procesoActual($colaborador);
+        $proceso = $this->accesoInduccion->procesoInduccion($colaborador) ?? $this->onboarding->procesoActual($colaborador);
         $evaluacion = $proceso !== null ? $this->evaluacionInduccion->habilitarPara($proceso) : null;
         abort_unless($evaluacion !== null && $evaluacion->estado->permitePresentar(), 404, 'Todavía no tienes una evaluación de inducción disponible.');
 
         return Inertia::render('Portal/EvaluacionInduccion', [
-            'contenido' => $this->evaluacionInduccion->contenidoPublico(),
+            'contenido' => $this->evaluacionInduccion->contenidoPublico($evaluacion),
             'evaluacionId' => $evaluacion->id,
         ]);
     }

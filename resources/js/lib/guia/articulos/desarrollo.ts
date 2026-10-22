@@ -173,11 +173,11 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
     },
     {
         id: 'evaluacion-capacitacion',
-        titulo: 'Evaluación de capacitación inicial',
+        titulo: 'Evaluaciones de periodo de prueba',
         proceso: 'evaluacion',
         resumen:
-            '15 días antes de que venza la capacitación, PEOPLE abre la evaluación al jefe; él califica y recomienda; RH autoriza.',
-        queEs: 'Es la evaluación con la que se decide si la persona sigue (contrato por tiempo indeterminado) o no. Usa los 7 criterios del formato oficial de Jurídico.',
+            'Un solo módulo con tres pestañas: Próximas / por asignar, En proceso y Evaluadas. El jefe directo contesta el FO-RH-EPP-001; RH decide e imprime el PDF para firma.',
+        queEs: 'Es la evaluación de término de periodo de prueba (FO-RH-EPP-001) con la que se decide si la persona sigue (contrato por tiempo indeterminado) o no. La contesta su jefe directo del organigrama, nunca el colaborador.',
         quien: ['gerente', 'rh'],
         quienDetalle:
             'Evalúa el jefe inmediato (normalmente el gerente de la sucursal); autoriza RH.',
@@ -188,39 +188,54 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
             {
                 titulo: 'PEOPLE la abre sola',
                 detalle:
-                    'Cada mañana revisa los vencimientos. 15 días antes del fin (por ejemplo, un Gestor con 2 meses se avisa al mes y medio) crea la evaluación y avisa.',
+                    'Cada mañana revisa los vencimientos. 15 días hábiles antes del fin crea la evaluación y avisa al jefe directo. RH también puede adelantarla desde la pestaña «Próximas / por asignar» con «Asignar evaluación».',
                 canal: 'automatico',
             },
             {
                 titulo: 'El jefe evalúa',
                 detalle:
-                    'Desarrollo → Evaluación de capacitación inicial → la persona → «Evaluar periodo de prueba». Califica cada criterio de 0 a 10 con comentario, elige «Recomiendo renovar» o «No renovar» y escribe observaciones.',
+                    'Evaluaciones de periodo de prueba → pestaña «En proceso» → «Contestar evaluación». Califica los 9 criterios del FO-RH-EPP-001 (4 Muy bueno a 1 Deficiente), responde las 5 preguntas filtro y escribe tus comentarios; PEOPLE calcula si se renueva.',
                 quien: 'gerente',
                 canal: 'web_app',
             },
             {
-                titulo: 'RH autoriza',
+                titulo: 'RH decide',
                 detalle:
-                    '«Autorización final de RH»: confirma renovar o no renovar. Si decide distinto a lo que recomendó el jefe, el comentario es obligatorio. También puede devolverla para corrección.',
+                    'Pestaña «En proceso» → chip «Por decidir RH» → «Revisar y decidir»: confirma renovar o no renovar. Si decide distinto a lo que recomendó el jefe, el comentario es obligatorio. También puede devolverla para corrección.',
+                quien: 'rh',
+            },
+            {
+                titulo: 'Ver respuestas e imprimir para firma',
+                detalle:
+                    'Pestaña «Evaluadas» → «Ver respuestas» (calificación de cada criterio, preguntas filtro, total y resultado) → «Imprimir PDF para firma»: primero se ve la vista previa; firman el jefe inmediato, la Gerencia de RH y el colaborador.',
                 quien: 'rh',
             },
         ],
         campos: [
             {
-                grupo: 'Criterios (0 a 10)',
+                grupo: 'Paso 1 · Desempeño (4 Muy bueno · 3 Bueno · 2 Regular · 1 Deficiente)',
                 campos: [
-                    'Gestión operativa de la sucursal',
-                    'Cumplimiento de KPI’s',
-                    'Liderazgo y supervisión',
-                    'Reportes y controles administrativos',
-                    'Toma de decisiones',
-                    'Apego a políticas internas',
-                    'Responsabilidad y seguimiento',
+                    'Conoce y hace bien su trabajo',
+                    'Cumple sus metas',
+                    'Trabaja sin errores',
+                    'Asistencia y puntualidad',
+                    'Cumplimiento a políticas y procesos operativos',
+                    'Uniforme, imagen y reglas internas',
+                    'Trato al cliente',
+                    'Trabajo en equipo y actitud',
+                    'Aprende e iniciativa',
                 ],
             },
             {
-                grupo: 'Decisión',
-                campos: ['Recomiendo renovar / No renovar', 'Observaciones'],
+                grupo: 'Paso 2 · Preguntas filtro (Sí / No)',
+                campos: ['Un solo «Sí» = no se renueva'],
+            },
+            {
+                grupo: 'Paso 3 · Resultado',
+                campos: [
+                    'Se renueva solo sin ningún 1, sin ningún «Sí» y con el total mínimo',
+                    'Comentarios del jefe inmediato',
+                ],
             },
         ],
         despues: [
@@ -236,7 +251,7 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
             {
                 problema: '«No veo la evaluación todavía.»',
                 solucion:
-                    'Se habilita 15 días antes del vencimiento. El ciclo laboral muestra cuántos días faltan.',
+                    'Se habilita sola 15 días hábiles antes del vencimiento, o antes si RH la asigna desde «Próximas / por asignar». Si dice «Aún no se puede asignar», genera primero su contrato de capacitación inicial.',
             },
             {
                 problema: '«RH no puede autorizar.»',
@@ -257,7 +272,9 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
             },
         ],
         preguntas: [
-            '¿Cómo evalúo la capacitación inicial?',
+            '¿Cómo evalúo el periodo de prueba?',
+            '¿Cómo asigno una evaluación antes de tiempo?',
+            '¿Cómo imprimo la evaluación para firma?',
             '¿Cuándo se abre la evaluación?',
             '¿Qué pasa si no se renueva?',
         ],

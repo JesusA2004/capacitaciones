@@ -29,9 +29,9 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
@@ -54,6 +54,31 @@ class ActaService
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly AlcanceModuloService $alcanceModulo,
     ) {}
+
+    /**
+     * Qué puede hacer $usuario con el acta, acción por acción (misma
+     * ActaAdministrativaPolicy que valida cada endpoint, web y API). La UI
+     * solo muestra/oculta.
+     *
+     * @return array{gestionar: bool, editar: bool, subir_anexo: bool, registrar_firma: bool, registrar_entrega: bool, seguimiento: bool, cerrar: bool, descargar: bool, descargar_anexo: bool, generar_documento: bool}
+     */
+    public function permisosDe(User $usuario, ActaAdministrativa $acta): array
+    {
+        $gate = Gate::forUser($usuario);
+
+        return [
+            'gestionar' => $gate->allows('gestionar', $acta),
+            'editar' => $gate->allows('editar', $acta),
+            'subir_anexo' => $gate->allows('subirAnexo', $acta),
+            'registrar_firma' => $gate->allows('registrarFirma', $acta),
+            'registrar_entrega' => $gate->allows('registrarEntrega', $acta),
+            'seguimiento' => $gate->allows('seguimiento', $acta),
+            'cerrar' => $gate->allows('cerrar', $acta),
+            'descargar' => $gate->allows('descargar', $acta),
+            'descargar_anexo' => $gate->allows('descargarAnexo', $acta),
+            'generar_documento' => $gate->allows('generarDocumento', $acta),
+        ];
+    }
 
     /**
      * Catálogos cerrados del acta circunstanciada para la captura (web y API).
@@ -98,7 +123,6 @@ class ActaService
      */
     public function buscarTestigos(User $usuario, string $termino, ?int $excluirId = null): array
     {
-        $palabras = array_slice(preg_split('/\s+/u', Str::lower(Str::ascii(trim($termino))), -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 4);
         $sucursalPropia = $usuario->colaborador?->sucursal_principal_id;
 
         $consulta = $this->participantesElegibles($usuario)
@@ -106,21 +130,18 @@ class ActaService
             ->when($excluirId !== null, fn (Builder $q) => $q->where('id', '!=', $excluirId));
 
         // Sin texto: solo los de su sucursal (no cargar a toda la empresa).
-        if ($palabras === [] && $sucursalPropia !== null) {
+        if (trim($termino) === '' && $sucursalPropia !== null) {
             $consulta->where('sucursal_principal_id', $sucursalPropia);
         }
 
-        $candidatos = $consulta->orderBy('name')->orderBy('apellidos')->limit(3000)->get();
+        // Buscador único (BuscadorColaboradoresService); los de su sucursal primero.
+        $candidatos = $consulta->buscar($termino)
+            ->orderByRaw('CASE WHEN sucursal_principal_id = ? THEN 0 ELSE 1 END', [$sucursalPropia ?? 0])
+            ->orderBy('name')->orderBy('apellidos')
+            ->limit(30)
+            ->get();
 
         return array_values($candidatos
-            ->filter(function (Colaborador $c) use ($palabras): bool {
-                $texto = Str::lower(Str::ascii(sprintf('%s %s %s %s %s', $c->name, $c->apellidos, $c->numero_empleado, $c->puesto?->nombre, $c->sucursalPrincipal?->nombre)));
-
-                return collect($palabras)->every(fn (string $p): bool => str_contains($texto, $p));
-            })
-            // Los de su sucursal primero.
-            ->sortBy(fn (Colaborador $c): int => $c->sucursal_principal_id === $sucursalPropia ? 0 : 1)
-            ->take(30)
             ->map(fn (Colaborador $c): array => [
                 'id' => $c->id,
                 'nombre' => $c->nombreCompleto(),

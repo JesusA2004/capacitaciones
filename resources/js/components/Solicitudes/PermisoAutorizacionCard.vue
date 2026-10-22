@@ -18,7 +18,8 @@ import type { PermisoResumen } from '@/types';
 const props = withDefaults(
     defineProps<{
         permiso: PermisoResumen;
-        pdfUrl: string;
+        /** null: esta cuenta no tiene «Descargar formato de permiso». */
+        pdfUrl: string | null;
         /** Vista previa ANTES de autorizar (solo quien puede aprobar). */
         vistaPreviaUrl?: string | null;
     }>(),
@@ -30,7 +31,7 @@ const esVistaPrevia = ref(false);
 const urlVisor = computed(() =>
     esVistaPrevia.value && props.vistaPreviaUrl
         ? props.vistaPreviaUrl
-        : props.pdfUrl,
+        : (props.pdfUrl ?? ''),
 );
 
 function abrirVisor(vistaPrevia: boolean) {
@@ -39,6 +40,10 @@ function abrirVisor(vistaPrevia: boolean) {
 }
 
 function imprimir() {
+    if (!props.pdfUrl) {
+        return;
+    }
+
     const ventana = window.open(props.pdfUrl, '_blank', 'noopener');
     ventana?.addEventListener('load', () => ventana.print());
 }
@@ -110,7 +115,7 @@ const fecha = (valor: string | null) =>
                     </p>
                 </div>
             </div>
-            <div class="flex flex-wrap gap-2">
+            <div v-if="pdfUrl" class="flex flex-wrap gap-2">
                 <Button variant="outline" @click="abrirVisor(false)">
                     <Eye class="size-4" /> Previsualizar permiso
                 </Button>

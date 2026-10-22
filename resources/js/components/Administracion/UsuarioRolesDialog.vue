@@ -20,6 +20,8 @@ const props = defineProps<{
     open: boolean;
     usuario: UsuarioItem;
     rolesDisponibles: string[];
+    /** usuarios.asignar_roles: sin él, los roles se ven pero no cambian. */
+    puedeAsignarRoles?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -96,6 +98,7 @@ function enviar() {
                         >
                             <Checkbox
                                 :model-value="form.roles.includes(rol)"
+                                :disabled="puedeAsignarRoles === false"
                                 @update:model-value="
                                     (v) => alternarRol(rol, !!v)
                                 "

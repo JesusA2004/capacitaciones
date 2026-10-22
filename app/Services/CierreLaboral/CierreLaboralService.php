@@ -1166,7 +1166,8 @@ class CierreLaboralService
                 break;
         }
 
-        if ($rh && ! $cierre->estado->esFinal() && $cierre->estado !== EstadoCierreLaboral::BajaEjecutada) {
+        // Cancelar tiene permiso propio (cierres.cancelar, RH por defecto).
+        if ($usuario->can('cierres.cancelar') && ! $cierre->estado->esFinal() && $cierre->estado !== EstadoCierreLaboral::BajaEjecutada) {
             $acciones[] = ['clave' => 'cancelar', 'etiqueta' => 'Cancelar cierre', 'tipo' => 'peligro'];
         }
 

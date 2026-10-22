@@ -7,6 +7,8 @@ use App\Models\OnboardingModulo;
 use App\Models\TipoActivo;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Evaluaciones\FormularioEvaluacionService;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -19,11 +21,53 @@ class OnboardingCatalogoService
     public function __construct(private readonly AuditoriaService $auditoria) {}
 
     /**
+     * Cómo se evalúa la Inducción Mr. Lana (módulos con evaluacion_formal_clave)
+     * para «Configuración de onboarding»: título/código, puntos y mínimo del
+     * formulario VIGENTE (FormularioEvaluacionService; sin versión publicada,
+     * el formato original de config/) y dónde se configura.
+     *
+     * @return array{titulo: string, codigo: string, version: string, total_puntos: float, calificacion_aprobatoria: float, configurar_url: string|null}
+     */
+    public function resumenEvaluacionFormal(User $actor): array
+    {
+        $definicion = app(FormularioEvaluacionService::class)->definicionInduccion();
+        $numero = fn (mixed $v): float => is_numeric($v) ? (float) $v : 0.0;
+        $texto = fn (mixed $v, string $defecto): string => is_string($v) && $v !== '' ? $v : $defecto;
+
+        return [
+            'titulo' => $texto($definicion['titulo'] ?? null, 'Evaluación del Programa de Inducción'),
+            'codigo' => $texto($definicion['codigo'] ?? null, 'FO-RH-EI'),
+            'version' => $texto(isset($definicion['version']) && is_scalar($definicion['version']) ? (string) $definicion['version'] : null, ''),
+            'total_puntos' => $numero($definicion['total_puntos'] ?? null),
+            'calificacion_aprobatoria' => $numero($definicion['calificacion_aprobatoria'] ?? null),
+            'configurar_url' => Route::has('rh.formularios-evaluacion.editar') && $actor->can('formularios_evaluacion.administrar')
+                ? route('rh.formularios-evaluacion.editar', 'induccion')
+                : null,
+        ];
+    }
+
+    /**
      * @param  array<string, mixed>  $datos  Validado por GuardarModuloOnboardingRequest.
      */
     public function guardarModulo(array $datos, User $actor, ?OnboardingModulo $modulo = null): OnboardingModulo
     {
         $tipo = TipoModuloOnboarding::from((string) $datos['tipo']);
+
+        // Módulo con evaluación formal (Inducción Mr. Lana): su contenido es el
+        // PDF oficial + material y se evalúa con el FO-RH-EI. Solo se editan
+        // sus datos generales; nunca su quiz, su contenido ni su tipo.
+        if ($modulo !== null && $modulo->evaluacion_formal_clave !== null) {
+            $modulo->update([
+                'titulo' => (string) $datos['titulo'],
+                'descripcion' => $datos['descripcion'] ?? null,
+                'orden' => (int) ($datos['orden'] ?? $modulo->orden),
+                'obligatorio' => (bool) ($datos['obligatorio'] ?? true),
+                'activo' => (bool) ($datos['activo'] ?? true),
+            ]);
+            $this->auditoria->registrar('onboarding_modulo_guardado', $modulo, $actor, ['titulo' => $modulo->titulo, 'formal' => true]);
+
+            return $modulo;
+        }
 
         if ($tipo === TipoModuloOnboarding::Puesto && empty($datos['puesto_id'])) {
             throw ValidationException::withMessages(['puesto_id' => 'Elige el puesto al que aplica este módulo.']);

@@ -720,7 +720,7 @@ class DocumentoProcesoService
 
         $colaborador = $this->colaboradorDe($registro);
         $this->exigirVer($actor, $colaborador);
-        $this->exigirPuedeGenerar($actor, $clave);
+        $this->exigirPuedeGenerar($actor, $clave, $registro);
         $this->exigirClaveDelProceso($proceso, $registro, $clave, $colaborador);
 
         $existente = $this->documentoVigente($registro, $clave);
@@ -871,7 +871,7 @@ class DocumentoProcesoService
         $formatosFaltantes = [];
 
         foreach ($claves as $clave) {
-            $this->exigirPuedeGenerar($actor, $clave);
+            $this->exigirPuedeGenerar($actor, $clave, $registro);
             $bloqueo = $this->bloqueoGeneracion($proceso, $registro, $clave);
 
             if ($bloqueo !== null) {
@@ -949,7 +949,7 @@ class DocumentoProcesoService
 
         $colaborador = $this->colaboradorDe($registro);
         $this->exigirVer($actor, $colaborador);
-        $this->exigirPuedeGenerar($actor, $clave);
+        $this->exigirPuedeGenerar($actor, $clave, $registro);
         $this->exigirClaveDelProceso($proceso, $registro, $clave, $colaborador);
         if ($completar !== []) {
             $this->aplicarEnMemoria($colaborador, $completar);
@@ -1000,7 +1000,7 @@ class DocumentoProcesoService
 
         return array_values(array_filter(
             $this->clavesDeProceso($proceso, $registro, $colaborador),
-            fn (string $clave): bool => (! $soloPermitidas || $this->puedeGenerar($viewer, $clave))
+            fn (string $clave): bool => (! $soloPermitidas || $this->puedeGenerar($viewer, $clave, $registro))
                 && $this->bloqueoGeneracion($proceso, $registro, $clave) === null
                 && (! $registro->exists || $this->documentoVigente($registro, $clave) === null),
         ));
@@ -1247,7 +1247,7 @@ class DocumentoProcesoService
         };
         $acciones = $propio && ! $viewer->can('documentos_laborales.generar')
             ? ($documento !== null && $viewer->can('descargar', $documento) ? [['clave' => 'descargar', 'etiqueta' => 'Ver PDF', 'tipo' => 'secundaria']] : [])
-            : $this->acciones($documento, $master, $clave, $bloqueo, $viewer, $formatoPropio);
+            : $this->acciones($documento, $master, $clave, $bloqueo, $viewer, $formatoPropio, $registro);
         $principal = collect($acciones)->first(fn (array $a): bool => $a['tipo'] === 'primaria');
 
         return [
@@ -1295,7 +1295,7 @@ class DocumentoProcesoService
                 'version_plantilla' => $d->version_plantilla,
                 'generado_en' => $d->created_at?->toIso8601String(),
                 'motivo_cancelacion' => $d->motivo_cancelacion,
-                'puede_descargar' => $viewer->can('descargar', $d),
+                'puede_descargar' => $viewer->can('ver', $d),
             ])->values()->all(),
             'acciones' => $acciones,
         ];
@@ -1308,11 +1308,11 @@ class DocumentoProcesoService
      *
      * @return list<array{clave: string, etiqueta: string, tipo: string}>
      */
-    private function acciones(?GeneratedDocument $documento, ?DocumentTemplate $master, string $clave, ?string $bloqueo, User $viewer, bool $formatoPropio = false): array
+    private function acciones(?GeneratedDocument $documento, ?DocumentTemplate $master, string $clave, ?string $bloqueo, User $viewer, bool $formatoPropio = false, ?Model $registro = null): array
     {
         $primarias = [];
         $secundarias = [];
-        $genera = $this->puedeGenerar($viewer, $clave);
+        $genera = $this->puedeGenerar($viewer, $clave, $registro);
 
         if ($documento === null) {
             if (($master !== null || $formatoPropio) && $bloqueo === null && $genera) {
@@ -1356,7 +1356,7 @@ class DocumentoProcesoService
 
         $disponible = $this->archivoDisponible($documento);
 
-        if ($disponible && $viewer->can('descargar', $documento)) {
+        if ($disponible && $viewer->can('ver', $documento)) {
             // Sin acción física pendiente para quien mira, ver el PDF es lo principal.
             $secundarias[] = ['clave' => 'descargar', 'etiqueta' => 'Ver PDF', 'tipo' => $primarias === [] ? 'primaria' : 'secundaria'];
         }
@@ -2051,8 +2051,18 @@ class DocumentoProcesoService
         return (string) preg_replace('/\s+—\s+.*$/u', '', $master->nombre);
     }
 
-    public function puedeGenerar(User $usuario, string $clave): bool
+    /**
+     * Permiso para generar una clave (config documentos_maestros.
+     * permisos_generacion). Los documentos de un CONTRATO laboral (paquete de
+     * alta o renovación) también los genera quien tiene contratos.generar —
+     * acción específica que no abre el resto de los documentos laborales.
+     */
+    public function puedeGenerar(User $usuario, string $clave, ?Model $registro = null): bool
     {
+        if ($registro instanceof ContratoLaboral && $usuario->can('contratos.generar')) {
+            return true;
+        }
+
         $reglas = (array) config('documentos_maestros.permisos_generacion', []);
         $permisos = (array) ($reglas[$clave] ?? $reglas['*'] ?? ['documentos_laborales.generar']);
 
@@ -2080,9 +2090,9 @@ class DocumentoProcesoService
         }
     }
 
-    private function exigirPuedeGenerar(User $usuario, string $clave): void
+    private function exigirPuedeGenerar(User $usuario, string $clave, ?Model $registro = null): void
     {
-        if (! $this->puedeGenerar($usuario, $clave)) {
+        if (! $this->puedeGenerar($usuario, $clave, $registro)) {
             throw new AuthorizationException('No tienes permiso para generar este documento.');
         }
     }

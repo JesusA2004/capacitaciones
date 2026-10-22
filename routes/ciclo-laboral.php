@@ -1,8 +1,10 @@
 <?php
 
+use App\Http\Controllers\Portal\DescriptivoPuestoController as PortalDescriptivoPuestoController;
 use App\Http\Controllers\Portal\InduccionReproduccionController;
 use App\Http\Controllers\Portal\MiProcesoController;
 use App\Http\Controllers\Rh\AcuseDescriptivoPuestoController;
+use App\Http\Controllers\Rh\AsignacionOnboardingController;
 use App\Http\Controllers\Rh\CalificacionInduccionController;
 use App\Http\Controllers\Rh\CausalRotacionController;
 use App\Http\Controllers\Rh\CicloColaboradorController;
@@ -16,6 +18,7 @@ use App\Http\Controllers\Rh\OnboardingController;
 use App\Http\Controllers\Rh\PendienteController;
 use App\Http\Controllers\Rh\ReingresoController;
 use App\Http\Controllers\Rh\SesionInduccionController;
+use App\Http\Controllers\Rh\VistaColaboradorOnboardingController;
 use App\Http\Controllers\Rh\VistaPreviaInduccionController;
 use Illuminate\Support\Facades\Route;
 
@@ -33,8 +36,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('portal.onboarding.evaluacion')
             ->middleware('throttle:30,1');
         Route::post('mi-proceso/onboarding/{avance}/visto', [MiProcesoController::class, 'marcarContenidoVisto'])->name('portal.onboarding.visto');
-        // Inducción Mr. Lana: la presenta RH; aquí solo se VE durante la
-        // sesión que incluye al colaborador (AccesoInduccionColaboradorService).
+        // Inducción Mr. Lana: el colaborador la ve por su cuenta mientras la
+        // tiene asignada y por ver (AccesoInduccionColaboradorService).
         Route::get('mi-proceso/induccion/ver', [MiProcesoController::class, 'verInduccion'])->name('portal.induccion.ver');
         Route::get('mi-proceso/induccion/capitulos/{avance}', [MiProcesoController::class, 'capitulosInduccion'])->name('portal.induccion.capitulos');
         Route::post('mi-proceso/induccion/capitulos/{avance}/pagina', [MiProcesoController::class, 'registrarPaginaInduccion'])->name('portal.induccion.pagina');
@@ -42,6 +45,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('mi-proceso/induccion', [MiProcesoController::class, 'contenidoInduccion'])->name('portal.induccion.contenido');
         Route::post('mi-proceso/induccion/{evaluacion}/presentar', [MiProcesoController::class, 'presentarInduccion'])
             ->name('portal.induccion.presentar')
+            ->middleware('throttle:10,1');
+
+        // Mi descriptivo de puesto: «Enterado(a)…» + «Estoy de acuerdo con…».
+        Route::get('mi-proceso/descriptivo-puesto', [PortalDescriptivoPuestoController::class, 'show'])->name('portal.descriptivo-puesto');
+        Route::post('mi-proceso/descriptivo-puesto/{acuse}/acusar', [PortalDescriptivoPuestoController::class, 'acusar'])
+            ->name('portal.descriptivo-puesto.acusar')
             ->middleware('throttle:10,1');
 
         // Nuevo flujo: material de explicación (audio XOR video) que el
@@ -116,6 +125,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // + lecciones), retroalimentación y reevaluación.
             Route::get('calificaciones', [CalificacionInduccionController::class, 'index'])->name('calificaciones');
 
+            // «Asignar a…» (todos / personas / sucursales) de la inducción y
+            // del descriptivo de puesto, dentro del alcance del módulo.
+            Route::get('asignar/colaboradores', [AsignacionOnboardingController::class, 'colaboradores'])->name('asignar.colaboradores');
+            Route::get('asignar/sucursales', [AsignacionOnboardingController::class, 'sucursales'])->name('asignar.sucursales');
+            Route::post('induccion/asignaciones/previsualizar', [AsignacionOnboardingController::class, 'previsualizarInduccion'])->name('induccion.asignaciones.previsualizar')->middleware('throttle:60,1');
+            Route::post('induccion/asignaciones', [AsignacionOnboardingController::class, 'asignarInduccion'])->name('induccion.asignaciones.store')->middleware('throttle:20,1');
+            Route::delete('induccion/asignaciones/{colaborador}', [AsignacionOnboardingController::class, 'retirarInduccion'])->name('induccion.asignaciones.destroy');
+            Route::post('descriptivo-puesto/asignaciones/previsualizar', [AsignacionOnboardingController::class, 'previsualizarDescriptivo'])->name('descriptivo-puesto.asignaciones.previsualizar')->middleware('throttle:60,1');
+            Route::post('descriptivo-puesto/asignaciones', [AsignacionOnboardingController::class, 'asignarDescriptivo'])->name('descriptivo-puesto.asignaciones.store')->middleware('throttle:20,1');
+
+            // «Ver como colaborador» (solo lectura, no registra nada).
+            Route::get('induccion/vista-colaborador/{colaborador?}', [VistaColaboradorOnboardingController::class, 'induccion'])->name('induccion.vista-colaborador');
+            Route::get('descriptivo-puesto/vista-colaborador/{colaborador}', [VistaColaboradorOnboardingController::class, 'descriptivo'])->name('descriptivo-puesto.vista-colaborador');
+
             // Vistas previas de RH (tal cual lo verá el colaborador, sin
             // crear evaluación/intento ni registrar avance). Ver
             // Rh\VistaPreviaInduccionController.
@@ -142,6 +165,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
         Route::prefix('evaluaciones')->name('evaluaciones.')->group(function () {
             Route::get('/', [EvaluacionCapacitacionController::class, 'index'])->name('index');
+            // «Asignar evaluación» (uno o varios) antes de que el scheduler la
+            // abra sola; y el PDF para firma de una evaluación ya contestada
+            // (inline = vista previa; ?descargar=1 = archivo).
+            Route::post('asignar', [EvaluacionCapacitacionController::class, 'asignar'])->name('asignar')->middleware('throttle:20,1');
+            Route::get('{evaluacion}/pdf', [EvaluacionCapacitacionController::class, 'pdf'])->name('pdf')->whereNumber('evaluacion')->middleware('throttle:30,1');
             Route::post('{evaluacion}/capturar', [EvaluacionPeriodoPruebaController::class, 'capturar'])->name('capturar');
             Route::post('{evaluacion}/autorizar', [EvaluacionPeriodoPruebaController::class, 'autorizar'])->name('autorizar');
             Route::post('{evaluacion}/devolver', [EvaluacionPeriodoPruebaController::class, 'devolver'])->name('devolver');

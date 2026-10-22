@@ -9,6 +9,7 @@ use App\Models\GeneratedDocument;
 use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -25,11 +26,16 @@ class DocumentoLaboralController extends Controller
         private readonly FlujoDocumentalService $flujo,
     ) {}
 
-    public function descargar(GeneratedDocument $documento): StreamedResponse
+    /**
+     * Visor (inline) con ver(); con ?descargar=1 se entrega como adjunto y
+     * exige descargar() (un contrato ajeno pide contratos.descargar).
+     */
+    public function descargar(Request $request, GeneratedDocument $documento): StreamedResponse
     {
-        $this->authorize('descargar', $documento);
+        $adjunto = $request->boolean('descargar');
+        $this->authorize($adjunto ? 'descargar' : 'ver', $documento);
 
-        return $this->motor->respuesta($documento);
+        return $this->motor->respuesta($documento, inline: ! $adjunto);
     }
 
     public function imprimir(OperacionDocumentoRequest $request, GeneratedDocument $documento): RedirectResponse

@@ -112,6 +112,8 @@ export type DetalleDivisionHistorico = {
     historicos: HistoricoDivision[];
     checklist: ChecklistDivision;
     ocr: { disponible: boolean; motor: string; motivo: string | null };
+    /** Tipos del checklist que ya tienen un documento vigente que cubre. */
+    tipos_cubiertos?: number[];
 };
 
 /**
@@ -133,7 +135,13 @@ export type HojaEditorDivision = {
     manual: boolean;
 };
 
-export type TipoEditor = { id: number; nombre: string; clave: string };
+export type TipoEditor = {
+    id: number;
+    nombre: string;
+    clave: string;
+    /** false = opcional del checklist (pagaré, antecedentes, licencia). */
+    requerido?: boolean;
+};
 
 export type RevisionEditor = {
     version: number;

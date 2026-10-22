@@ -332,10 +332,10 @@ const ESCENAS: EscenaBase[] = [
     },
     {
         capitulo: 'Evaluación',
-        pantalla: 'Desarrollo → Evaluación de capacitación inicial',
+        pantalla: 'Evaluaciones de periodo de prueba',
         ruta: '/rh/evaluaciones',
         captura: '25-evaluaciones.png',
-        accion: 'Mostrar la lista con fechas límite; abrir «Evaluar periodo de prueba» y calificar los criterios.',
+        accion: 'Mostrar las pestañas Próximas / por asignar, En proceso y Evaluadas; asignar una evaluación, ver respuestas e imprimir el PDF para firma.',
         zoom: 'Zoom a los criterios',
         textoPantalla: '15 días antes del vencimiento',
         narracion:
@@ -714,7 +714,7 @@ const MINIS: MiniBase[] = [
             },
             {
                 captura: '25-evaluaciones.png',
-                pantalla: 'Evaluación de capacitación inicial',
+                pantalla: 'Evaluaciones de periodo de prueba',
                 accion: 'Mostrar la lista con fecha límite.',
                 narracion:
                     'Quince días antes del vencimiento, la evaluación aparece sola en la lista y el jefe directo recibe el aviso. Cada renglón muestra su fecha límite.',

@@ -40,6 +40,12 @@ class FiniquitoCalculoPolicy
         return $usuario->can('finiquitos.ver') && $this->alcance->alcanzaColaboradorEnModulo($usuario, $finiquito->colaborador, 'finiquitos');
     }
 
+    /** Vista previa, generación y descarga del PDF del finiquito (permiso propio). */
+    public function descargar(User $usuario, FiniquitoCalculo $finiquito): bool
+    {
+        return $usuario->can('finiquitos.descargar') && $this->ver($usuario, $finiquito);
+    }
+
     /**
      * Recalcular / ajustar montos: solo mientras no esté firmado (una vez
      * firmado por el colaborador, el documento entregado no se debe volver

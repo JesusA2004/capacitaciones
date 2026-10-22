@@ -4,6 +4,7 @@ import { Bell, BellOff, Check, CheckCheck, ExternalLink } from '@lucide/vue';
 import { computed } from 'vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import { Button } from '@/components/ui/button';
+import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 import { dashboard } from '@/routes';
 import {
     abrir,
@@ -60,7 +61,7 @@ const viendoMias = computed(() => props.filtros.ver === 'mias');
 function filtrar(cambios: Partial<{ ver: string; estado: string }>) {
     router.get(
         index.url(),
-        { ...props.filtros, ...cambios },
+        { ...parametrosPorPaginaActuales(), ...props.filtros, ...cambios },
         { preserveScroll: true, replace: true },
     );
 }

@@ -23,6 +23,7 @@ import {
 } from '@unovis/vue';
 import { computed, ref, watch } from 'vue';
 import MonthPicker from '@/components/Common/MonthPicker.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -31,13 +32,6 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import type { TableroRhDatos } from '@/types';
 
 /**
@@ -333,44 +327,36 @@ const totalesCobertura = computed(() => {
 
             <div class="flex flex-wrap items-center gap-2">
                 <MonthPicker v-model="mes" class="w-48" />
-                <Select
+                <SelectSimple
                     v-if="tablero.filters.empresas.length > 1"
                     v-model="empresa"
-                >
-                    <SelectTrigger class="h-9 w-44" aria-label="Empresa">
-                        <SelectValue placeholder="Empresa" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem :value="TODAS"
-                            >Todas las empresas</SelectItem
-                        >
-                        <SelectItem
-                            v-for="e in tablero.filters.empresas"
-                            :key="e.id"
-                            :value="String(e.id)"
-                            >{{ e.nombre }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
-                <Select
+                    :opciones="[
+                        { value: TODAS, label: 'Todas las empresas' },
+                        ...tablero.filters.empresas.map((e) => ({
+                            value: String(e.id),
+                            label: e.nombre,
+                        })),
+                    ]"
+                    placeholder="Empresa"
+                    aria-label="Empresa"
+                    placeholder-busqueda="Buscar empresa…"
+                    class="h-9 w-44"
+                />
+                <SelectSimple
                     v-if="tablero.filters.sucursales.length > 1"
                     v-model="sucursal"
-                >
-                    <SelectTrigger class="h-9 w-52" aria-label="Sucursal">
-                        <SelectValue placeholder="Sucursal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem :value="TODAS"
-                            >Todas las sucursales</SelectItem
-                        >
-                        <SelectItem
-                            v-for="op in sucursalesDeEmpresa"
-                            :key="op.id"
-                            :value="String(op.id)"
-                            >{{ op.nombre }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
+                    :opciones="[
+                        { value: TODAS, label: 'Todas las sucursales' },
+                        ...sucursalesDeEmpresa.map((op) => ({
+                            value: String(op.id),
+                            label: op.nombre,
+                        })),
+                    ]"
+                    placeholder="Sucursal"
+                    aria-label="Sucursal"
+                    placeholder-busqueda="Buscar sucursal…"
+                    class="h-9 w-52"
+                />
                 <div
                     class="inline-flex h-9 items-center rounded-md border bg-muted/40 p-0.5"
                     role="radiogroup"

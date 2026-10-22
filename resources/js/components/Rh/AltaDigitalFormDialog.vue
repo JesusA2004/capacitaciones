@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -11,13 +12,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { store } from '@/routes/rh/altas';
 import type { OpcionesReclutamiento } from '@/types';
@@ -95,54 +89,45 @@ function enviar() {
                 <div class="grid grid-cols-2 gap-4">
                     <div class="grid gap-2">
                         <Label>Empresa</Label>
-                        <Select v-model="form.empresa_id">
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Sin empresa" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in opciones.empresas"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
+                        <SelectSimple
+                            v-model="form.empresa_id"
+                            :opciones="
+                                opciones.empresas.map((o) => ({
+                                    value: String(o.id),
+                                    label: o.nombre,
+                                }))
+                            "
+                            placeholder="Sin empresa"
+                        />
                     </div>
                     <div class="grid gap-2">
                         <Label>Sucursal</Label>
-                        <Select v-model="form.sucursal_id">
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Sin sucursal" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in opciones.sucursales"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
+                        <SelectSimple
+                            v-model="form.sucursal_id"
+                            :opciones="
+                                opciones.sucursales.map((o) => ({
+                                    value: String(o.id),
+                                    label: o.nombre,
+                                }))
+                            "
+                            placeholder="Sin sucursal"
+                        />
                     </div>
                 </div>
 
                 <div class="grid grid-cols-2 gap-4">
                     <div class="grid gap-2">
                         <Label>Puesto</Label>
-                        <Select v-model="form.puesto_id">
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Sin puesto" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in opciones.puestos"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
+                        <SelectSimple
+                            v-model="form.puesto_id"
+                            :opciones="
+                                opciones.puestos.map((o) => ({
+                                    value: String(o.id),
+                                    label: o.nombre,
+                                }))
+                            "
+                            placeholder="Sin puesto"
+                        />
                     </div>
                     <div class="grid gap-2">
                         <Label for="fecha_ingreso"

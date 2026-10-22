@@ -132,3 +132,44 @@ En producción (VPS, detrás de Nginx): `php artisan reverb:start --host=0.0.0.0
 ### Límite conocido
 
 No usa Service Worker ni Web Push (VAPID): la notificación nativa del navegador solo se dispara mientras la pestaña/sesión del portal esté abierta (puede estar minimizada o en segundo plano, pero el navegador debe seguir corriendo). Con el navegador completamente cerrado no llega nada — eso requeriría una suscripción Web Push aparte, fuera de alcance de este encargo.
+
+## 3. Notificaciones de escritorio del navegador (Web Push)
+
+Desde 2026-10-22, **todo lo que llega a la app llega también al navegador** donde
+el usuario activó las notificaciones de escritorio — como YouTube o Facebook:
+aparecen en el centro de notificaciones de Windows/macOS/Android aunque la
+pestaña de PEOPLE esté cerrada (basta con que el navegador esté abierto o en
+segundo plano).
+
+- **Un solo punto de envío:** `App\Services\MobilePush\PushNotifier::aUsuarioConDatos()`
+  encola el push de Expo **y** `App\Services\WebPush\WebPushNotifier::aUsuario()`.
+  Ningún servicio de negocio llama a Web Push directamente; cualquier evento
+  nuevo que use `NotificacionEventosService` / `PushNotifier` llega a ambos.
+  Incluye los avisos que no tienen fila en `notifications` (avisos de RH,
+  «avisar a todos» de celebraciones, apertura del muro).
+- **Suscripciones:** tabla `web_push_suscripciones` (equivalente de
+  `mobile_devices`), un endpoint por navegador, reasignado si otra cuenta entra
+  en el mismo navegador. Al cerrar sesión el navegador se desuscribe
+  (`olvidarSuscripcionAlSalir`). Las vencidas (404/410) se borran solas en
+  `App\Jobs\SendWebPushJob` (cola `notifications`, igual que Expo).
+- **Activación:** botón «Activar notificaciones» en la campana y en «Mis
+  notificaciones» (`ActivarNotificacionesEscritorio.vue`, `useWebPush.ts`). El
+  permiso SOLO se pide con un clic del usuario (los navegadores bloquean la
+  petición automática). Con el permiso concedido, cada carga re-sincroniza la
+  suscripción.
+- **Clic en la notificación:** `GET /notificaciones/{id}/ir` (marca leída y
+  redirige al destino real, igual que la campana); sin destino propio →
+  `/notificaciones/centro` (Mis notificaciones o tablero según el modo).
+- **Service Worker:** `public/sw.js`, SOLO `push` + `notificationclick` (sin
+  caché ni `fetch`). Con la pestaña abierta avisa a la página para refrescar la
+  campana; si Web Push está activo, el tiempo real de Reverb ya no duplica la
+  notificación nativa.
+- **Llaves VAPID:** `VAPID_PUBLIC_KEY`/`VAPID_PRIVATE_KEY` del `.env`; si faltan
+  se generan una vez en `storage/app/private/webpush/vapid.json`
+  (`php artisan webpush:claves` las muestra). Cambiarlas invalida todas las
+  suscripciones.
+- **Requisitos:** HTTPS en producción (localhost exento). En Windows/WAMP la
+  extensión openssl necesita `OPENSSL_CONF` apuntando a
+  `C:\wamp64\bin\php\php8.x\extras\ssl\openssl.cnf` para cifrar cada aviso; en
+  Linux (NAS) no hace falta. iPhone/iPad: solo si el sitio se agrega a la
+  pantalla de inicio (limitación de Safari).

@@ -49,6 +49,8 @@ const props = defineProps<{
     hijos: Map<string, NodoOrganigramaPersona[]>;
     regiones: RegionOrganigrama[];
     puedeEditar: boolean;
+    puedeCubrir?: boolean;
+    puedeMover?: boolean;
     ocupado?: boolean;
 }>();
 
@@ -89,6 +91,9 @@ type AccionGrande = {
     peligro?: boolean;
 };
 
+const cubrirPermitido = computed(() => props.puedeCubrir ?? props.puedeEditar);
+const moverPermitido = computed(() => props.puedeMover ?? props.puedeEditar);
+
 const acciones = computed<AccionGrande[]>(() => {
     const nodo = props.nodo;
 
@@ -97,6 +102,10 @@ const acciones = computed<AccionGrande[]>(() => {
     }
 
     if (esVacante.value) {
+        if (!cubrirPermitido.value) {
+            return [];
+        }
+
         return [
             {
                 clave: 'cubrir',
@@ -110,6 +119,10 @@ const acciones = computed<AccionGrande[]>(() => {
     }
 
     if (esCobertura.value) {
+        if (!cubrirPermitido.value) {
+            return [];
+        }
+
         return [
             {
                 clave: 'quitar',
@@ -120,6 +133,10 @@ const acciones = computed<AccionGrande[]>(() => {
                 peligro: true,
             },
         ];
+    }
+
+    if (!moverPermitido.value) {
+        return [];
     }
 
     return [
@@ -295,7 +312,7 @@ function fecha(iso: string | null | undefined): string {
                             </span>
                         </div>
                         <SelectorLadoRegion
-                            v-if="puedeEditar"
+                            v-if="moverPermitido"
                             :regiones="regiones"
                             :actual-id="nodo.clasificacion.region?.id ?? null"
                             :sugerida-id="

@@ -59,7 +59,7 @@ class LoteNominaController extends Controller
 
     public function emitir(Request $request, NominaLote $lote): JsonResponse
     {
-        abort_unless($request->user()->can('nomina.recibos.crear'), 403);
+        abort_unless($request->user()->can('nomina.recibos.emitir'), 403);
         $resultado = $this->lotes->emitir($lote, $request->user());
 
         return response()->json(['data' => [...$this->lotes->resumen($resultado['lote']), 'emitidos_ahora' => $resultado['emitidos'], 'fallidos' => $resultado['fallidos']]]);
@@ -72,7 +72,7 @@ class LoteNominaController extends Controller
      */
     public function imprimir(Request $request, NominaLote $lote): HttpResponse
     {
-        abort_unless($request->user()->can('nomina.recibos.ver'), 403);
+        abort_unless($request->user()->can('nomina.recibos.descargar'), 403);
         $pdf = $this->lotes->pdfImpresion($lote, $request->user());
 
         return response($pdf['contenido'], 200, [
@@ -85,7 +85,7 @@ class LoteNominaController extends Controller
 
     public function cancelar(Request $request, NominaLote $lote): JsonResponse
     {
-        abort_unless($request->user()->can('nomina.recibos.crear'), 403);
+        abort_unless($request->user()->can('nomina.recibos.cancelar'), 403);
         $datos = $request->validate(['motivo' => ['required', 'string', 'min:5', 'max:500']]);
 
         return response()->json(['data' => $this->lotes->resumen($this->lotes->cancelar($lote, $datos['motivo'], $request->user()))]);

@@ -55,15 +55,24 @@ class UserPolicy
     /**
      * Establecer una contraseña nueva desde el panel (pestaña "Usuario" del
      * expediente): nunca se puede leer la contraseña actual (se guarda con
-     * hash), solo sobreescribirla. Reutiliza el permiso de "editar" — quien
-     * puede editar los datos de un colaborador también puede resetear su
-     * acceso.
+     * hash), solo sobreescribirla. Permiso propio
+     * (usuarios.restablecer_password); por defecto lo tiene quien tenía
+     * usuarios.editar (config/permisos_modulos.php → herencia).
      */
     public function restablecerPassword(User $usuario, User $objetivo): bool
     {
-        return $usuario->can('usuarios.editar')
+        return $usuario->can('usuarios.ver') && $usuario->can('usuarios.restablecer_password')
             && ! $usuario->is($objetivo)
             && $this->alcance->puedeVerUsuario($usuario, $objetivo);
+    }
+
+    /**
+     * Cambiar los roles de una cuenta (alta o edición): permiso propio,
+     * separado de editar usuario/correo.
+     */
+    public function asignarRoles(User $usuario): bool
+    {
+        return $usuario->can('usuarios.ver') && $usuario->can('usuarios.asignar_roles');
     }
 
     /**

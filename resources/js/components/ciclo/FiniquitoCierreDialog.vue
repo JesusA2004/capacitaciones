@@ -16,6 +16,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { usePermisos } from '@/composables/usePermisos';
 import { formatearFecha, formatearFechaHora } from '@/lib/fechas';
 import { entregarFiniquito } from '@/routes/rh/cierres';
 import { ajustar, vistaPrevia } from '@/routes/rh/cierres/finiquito';
@@ -202,6 +203,9 @@ watch(
 );
 
 const urlVistaPrevia = computed(() => vistaPrevia.url(props.cierreId));
+// El PDF del finiquito tiene permiso propio (finiquitos.descargar).
+const { tienePermiso } = usePermisos();
+const puedeVerPdf = computed(() => tienePermiso('finiquitos.descargar'));
 
 // El servidor también responde errores de reglas de negocio (estado,
 // checklist, finiquito…) que no son campos del formulario.
@@ -696,7 +700,7 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
                 </form>
 
                 <div class="flex flex-wrap items-center justify-end gap-2">
-                    <Button as-child variant="outline">
+                    <Button v-if="puedeVerPdf" as-child variant="outline">
                         <a :href="urlVistaPrevia" target="_blank" rel="noopener"
                             ><Eye class="size-4" />
                             {{

@@ -1,7 +1,11 @@
 import { router, usePage } from '@inertiajs/vue3';
 import { onMounted, onUnmounted, ref } from 'vue';
 import { toast } from 'vue-sonner';
-import { useNotificacionesTiempoReal } from '@/composables/useNotificacionesTiempoReal';
+import {
+    realtimeHabilitado,
+    useNotificacionesTiempoReal,
+} from '@/composables/useNotificacionesTiempoReal';
+import { alRecibirWebPush, useWebPush } from '@/composables/useWebPush';
 import { postJson } from '@/lib/http';
 import {
     abrir as rutaAbrir,
@@ -42,6 +46,7 @@ const noLeidas = ref(0);
 const recientes = ref<NotificacionItem[]>([]);
 let consumidores = 0;
 let intervalo: ReturnType<typeof setInterval> | undefined;
+let dejarDeEscucharPush: (() => void) | undefined;
 
 async function cargar(): Promise<void> {
     const respuesta = await fetch(index.url(), {
@@ -157,6 +162,7 @@ function alVolverALaPestana(): void {
 
 export function useNotificaciones() {
     const page = usePage<{ auth: Auth }>();
+    const webPush = useWebPush();
 
     onMounted(() => {
         consumidores++;
@@ -175,6 +181,26 @@ export function useNotificaciones() {
         const userId = page.props.auth.user?.id;
 
         if (userId) {
+            // Notificaciones de escritorio: si ya dio permiso, re-sincroniza
+            // la suscripción de este navegador con su cuenta.
+            void webPush.sincronizar();
+
+            // Un Web Push con la pestaña abierta refresca la campana al
+            // instante; sin Reverb, además se muestra el toast in-page.
+            dejarDeEscucharPush = alRecibirWebPush((aviso) => {
+                void cargar();
+
+                if (!realtimeHabilitado() && aviso.titulo) {
+                    toast.info(aviso.titulo, {
+                        description: aviso.cuerpo,
+                        action: {
+                            label: 'Ver',
+                            onClick: () => router.visit(aviso.url),
+                        },
+                    });
+                }
+            });
+
             useNotificacionesTiempoReal(
                 userId,
                 () => void cargar(),
@@ -188,6 +214,7 @@ export function useNotificaciones() {
 
         if (consumidores === 0) {
             clearInterval(intervalo);
+            dejarDeEscucharPush?.();
             document.removeEventListener(
                 'visibilitychange',
                 alVolverALaPestana,

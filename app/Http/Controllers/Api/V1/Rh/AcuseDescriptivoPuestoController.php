@@ -18,6 +18,7 @@ class AcuseDescriptivoPuestoController extends Controller
 
     public function show(Request $request, Colaborador $colaborador): JsonResponse
     {
+        abort_unless($request->user()->can('onboarding.induccion_puesto'), 403);
         $this->acuses->autorizarGestion($request->user(), $colaborador);
 
         return response()->json(['data' => $this->acuses->resumenRh($colaborador, $request->user())]);
@@ -25,6 +26,7 @@ class AcuseDescriptivoPuestoController extends Controller
 
     public function enviar(Request $request, Colaborador $colaborador): JsonResponse
     {
+        abort_unless($request->user()->can('onboarding.induccion_puesto'), 403);
         $this->acuses->enviar($colaborador, $request->user());
 
         return response()->json(['data' => $this->acuses->resumenRh($colaborador, $request->user())]);

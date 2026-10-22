@@ -274,6 +274,12 @@ function abrirPreview(item: DocumentoExpedienteItem) {
                                         title="Requerido"
                                         >*</span
                                     >
+                                    <span
+                                        v-else-if="item.tipo.opcional"
+                                        class="ml-1 inline-block rounded-full bg-crema px-2 py-0.5 align-middle text-xs font-medium text-muted-foreground"
+                                        title="No cuenta para el avance ni como faltante"
+                                        >Opcional</span
+                                    >
                                 </p>
                                 <EstadoBadge
                                     v-if="item.documento"
@@ -292,7 +298,11 @@ function abrirPreview(item: DocumentoExpedienteItem) {
                                 v-else
                                 class="mt-0.5 text-sm text-muted-foreground"
                             >
-                                Todavía no se ha subido.
+                                {{
+                                    item.tipo.opcional
+                                        ? 'Opcional: súbelo solo si aplica.'
+                                        : 'Todavía no se ha subido.'
+                                }}
                             </p>
                         </div>
                     </div>
@@ -312,7 +322,10 @@ function abrirPreview(item: DocumentoExpedienteItem) {
 
                     <div class="mt-auto flex flex-wrap gap-2">
                         <Button
-                            v-if="item.documento"
+                            v-if="
+                                item.documento &&
+                                item.documento.acciones.descargar !== false
+                            "
                             size="sm"
                             variant="outline"
                             @click="abrirPreview(item)"

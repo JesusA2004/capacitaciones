@@ -51,7 +51,7 @@ class WorkflowService
             if ($permitidas['rechazar']) {
                 $acciones[] = 'rechazar';
             }
-            if ($permitidas['revisar']) {
+            if ($permitidas['requerir_correccion']) {
                 $acciones[] = 'solicitar_correccion';
             }
         }

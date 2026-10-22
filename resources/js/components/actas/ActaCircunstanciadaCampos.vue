@@ -13,16 +13,13 @@ import {
 } from '@lucide/vue';
 import { computed } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import TimePicker from '@/components/Common/TimePicker.vue';
 import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    NativeSelect,
-    NativeSelectOption,
-} from '@/components/ui/native-select';
 import { Textarea } from '@/components/ui/textarea';
 import { ahoraLocal, conflictoPersona } from '@/lib/actas';
 import { testigos as buscarTestigos } from '@/routes/rh/actas';
@@ -508,20 +505,12 @@ function cerrarAhora() {
                             <Label :for="`acta-relacion-${i}`"
                                 >Relación con los hechos</Label
                             >
-                            <NativeSelect
+                            <SelectSimple
                                 :id="`acta-relacion-${i}`"
                                 v-model="t.relacion"
-                            >
-                                <NativeSelectOption value="" disabled
-                                    >Elige…</NativeSelectOption
-                                >
-                                <NativeSelectOption
-                                    v-for="op in catalogos.relaciones"
-                                    :key="op.value"
-                                    :value="op.value"
-                                    >{{ op.label }}</NativeSelectOption
-                                >
-                            </NativeSelect>
+                                :opciones="catalogos.relaciones"
+                                placeholder="Elige…"
+                            />
                             <InputError
                                 :message="
                                     error(

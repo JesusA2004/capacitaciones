@@ -11,18 +11,12 @@ import {
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import MonthPicker from '@/components/Common/MonthPicker.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { VueApexCharts } from '@/lib/apexDiferido';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
@@ -40,6 +34,8 @@ const props = defineProps<{
     filtros: { sucursal_id: number | null; hasta: string | null };
     sucursales: { id: number; nombre: string }[];
     puedeCargar: boolean;
+    /** rotacion.descargar (Roles y permisos). */
+    puedeDescargar?: boolean;
     cargas: RotacionCargaResumen[];
     cargaSeleccionada: RotacionCargaDetalle | null;
     anioFormato: number;
@@ -270,6 +266,7 @@ const NOMBRE_MES = [
             :icono="TrendingDown"
         >
             <a
+                v-if="puedeDescargar"
                 :href="
                     rutasRotacion.formato.url({ query: { anio: anioFormato } })
                 "
@@ -288,20 +285,20 @@ const NOMBRE_MES = [
         >
             <div class="flex min-w-56 flex-col gap-1.5">
                 <Label for="filtro-sucursal">Sucursal</Label>
-                <Select v-model="sucursal">
-                    <SelectTrigger id="filtro-sucursal" class="w-64">
-                        <SelectValue placeholder="Todas" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem :value="TODAS">Todas</SelectItem>
-                        <SelectItem
-                            v-for="s in sucursales"
-                            :key="s.id"
-                            :value="String(s.id)"
-                            >{{ s.nombre }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
+                <SelectSimple
+                    id="filtro-sucursal"
+                    v-model="sucursal"
+                    :opciones="[
+                        { value: TODAS, label: 'Todas' },
+                        ...sucursales.map((s) => ({
+                            value: String(s.id),
+                            label: s.nombre,
+                        })),
+                    ]"
+                    placeholder="Todas"
+                    placeholder-busqueda="Buscar sucursal…"
+                    class="w-64"
+                />
             </div>
             <div class="flex flex-col gap-1.5">
                 <Label for="filtro-hasta">Hasta el mes</Label>
@@ -585,6 +582,7 @@ const NOMBRE_MES = [
                     </div>
                     <div class="flex flex-wrap gap-2">
                         <a
+                            v-if="puedeDescargar"
                             :href="
                                 rutasRotacion.archivo.url(cargaSeleccionada.id)
                             "

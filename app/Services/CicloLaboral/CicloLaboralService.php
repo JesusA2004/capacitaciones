@@ -702,6 +702,9 @@ class CicloLaboralService
             // (EXCLUSIVO Dirección General) — nunca un botón "forzar aprobado".
             'puede_solicitar_excepcion' => $usuario->can('evaluaciones.autorizar'),
             'puede_resolver_excepcion' => $usuario->can(SolicitudExcepcionPeriodoPruebaService::PERMISO_AUTORIZAR),
+            // «Devolver evaluación»: la misma Policy que el endpoint
+            // (autorizar + evaluaciones.devolver).
+            'puede_devolver_evaluacion' => $evaluacion !== null && $usuario->can('devolver', $evaluacion),
             'opciones' => [
                 // «Iniciar baja»: los tres tipos permitidos al usuario, cada
                 // uno con sus causales de rotación activas.

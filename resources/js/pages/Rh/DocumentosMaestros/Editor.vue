@@ -106,7 +106,26 @@ import type {
  * datos largos y con un colaborador real, y activa — sin editar PHP, config
  * ni escribir {{variables}}.
  */
-const props = defineProps<{ editor: EditorMaestro; abrirPrueba?: boolean }>();
+const props = defineProps<{
+    editor: EditorMaestro;
+    abrirPrueba?: boolean;
+    /** Acciones que el backend permite a quien entra (documentos_maestros.*). */
+    acciones?: {
+        editar: boolean;
+        cargar: boolean;
+        activar: boolean;
+        probar: boolean;
+    };
+}>();
+const puede = computed(
+    () =>
+        props.acciones ?? {
+            editar: false,
+            cargar: false,
+            activar: false,
+            probar: false,
+        },
+);
 
 defineOptions({
     layout: {
@@ -126,7 +145,11 @@ const campos = computed({
 });
 const guardados = ref(JSON.stringify(props.editor.campos));
 const sucio = computed(() => JSON.stringify(campos.value) !== guardados.value);
-const editable = computed(() => datos.value.master.editable);
+// Editable = la versión lo permite (estado) Y quien entra tiene
+// documentos_maestros.editar; sin permiso es solo consulta (sin autoguardado).
+const editable = computed(
+    () => datos.value.master.editable && puede.value.editar,
+);
 const esPdf = computed(() => datos.value.master.motor === 'pdf_overlay');
 const historial = useHistorialEdicion(campos);
 
@@ -597,7 +620,7 @@ function irA(fieldKey: string | null) {
     window.setTimeout(() => (resaltado.value = null), 2500);
 }
 
-const pruebaAbierta = ref(props.abrirPrueba === true);
+const pruebaAbierta = ref(props.abrirPrueba === true && puede.value.probar);
 const colaborador = ref<ColaboradorBusqueda | null>(null);
 const probando = ref(false);
 const prueba = ref<ResultadoPruebaMaster | null>(null);
@@ -1045,6 +1068,7 @@ function siguientePorRevisar() {
 
                 <div class="flex items-center gap-1.5 border-l pl-2">
                     <Button
+                        v-if="puede.probar"
                         size="sm"
                         variant="outline"
                         @click="pruebaAbierta = true"
@@ -1083,7 +1107,7 @@ function siguientePorRevisar() {
                                 <DropdownMenuSeparator />
                             </template>
                             <DropdownMenuItem
-                                :disabled="probandoLargos"
+                                :disabled="!puede.editar || probandoLargos"
                                 @click="probarDatosLargos"
                                 ><TextCursorInput class="size-4" /> Probar datos
                                 largos</DropdownMenuItem
@@ -1113,7 +1137,9 @@ function siguientePorRevisar() {
                                 }}
                                 · {{ v.estado_etiqueta }}
                             </DropdownMenuItem>
-                            <DropdownMenuItem @click="subirAbierto = true"
+                            <DropdownMenuItem
+                                v-if="puede.cargar"
+                                @click="subirAbierto = true"
                                 ><Upload class="size-4" /> Subir nueva
                                 versión</DropdownMenuItem
                             >
@@ -1123,7 +1149,14 @@ function siguientePorRevisar() {
             </header>
 
             <div
-                v-if="!editable && datos.master.motivo_no_editable"
+                v-if="!puede.editar"
+                class="rounded-xl bg-info-soft px-4 py-2 text-sm"
+            >
+                Solo consulta: no tienes permiso para editar los espacios de
+                este formato.
+            </div>
+            <div
+                v-else-if="!editable && datos.master.motivo_no_editable"
                 class="flex flex-wrap items-center gap-3 rounded-xl bg-info-soft px-4 py-2 text-sm"
             >
                 <span class="mr-auto">{{
@@ -1132,6 +1165,7 @@ function siguientePorRevisar() {
                         : datos.master.motivo_no_editable
                 }}</span>
                 <Button
+                    v-if="puede.cargar"
                     size="sm"
                     :disabled="copiando"
                     @click="editarEnVersionNueva"
@@ -1451,6 +1485,7 @@ function siguientePorRevisar() {
                             />
                             <Button
                                 v-if="
+                                    puede.activar &&
                                     !datos.master.activo &&
                                     datos.preparacion.puede_activar
                                 "

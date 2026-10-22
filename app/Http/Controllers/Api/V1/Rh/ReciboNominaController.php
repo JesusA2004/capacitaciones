@@ -72,7 +72,7 @@ class ReciboNominaController extends Controller
 
     public function pdf(Request $request, ReciboNomina $recibo): StreamedResponse
     {
-        $this->authorize('ver', $recibo);
+        $this->authorize('descargar', $recibo);
 
         return $this->recibos->respuestaPdf($recibo, $request->user());
     }
@@ -112,7 +112,7 @@ class ReciboNominaController extends Controller
 
     public function emitirQuincena(Request $request): JsonResponse
     {
-        abort_unless($request->user()->can('nomina.recibos.crear'), 403);
+        abort_unless($request->user()->can('nomina.recibos.emitir'), 403);
         $ids = $request->validate(['ids' => ['nullable', 'array'], 'ids.*' => ['integer']])['ids'] ?? null;
 
         return response()->json(['data' => $this->quincenas->emitirPeriodo($this->periodo($request), $request->user(), $ids !== null ? array_map('intval', $ids) : null)]);
@@ -142,7 +142,7 @@ class ReciboNominaController extends Controller
 
     public function emitir(Request $request, ReciboNomina $recibo): JsonResponse
     {
-        $this->authorize('editar', $recibo);
+        $this->authorize('emitir', $recibo);
 
         return response()->json(['data' => $this->recibos->aArray($this->recibos->emitir($recibo, $request->user()), true)]);
     }

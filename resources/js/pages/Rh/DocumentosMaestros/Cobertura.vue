@@ -13,6 +13,7 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import Casilla from '@/components/Common/Casilla.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,13 +26,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import {
     Tooltip,
@@ -486,19 +480,16 @@ function guardar() {
                     class="flex flex-col gap-1"
                 >
                     <Label>Grupo documental</Label>
-                    <Select v-model="form.grupo_documental">
-                        <SelectTrigger
-                            ><SelectValue placeholder="Selecciona el grupo"
-                        /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="g in gruposDocumentales"
-                                :key="g.value"
-                                :value="g.value"
-                                >{{ g.etiqueta }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
+                    <SelectSimple
+                        v-model="form.grupo_documental"
+                        :opciones="
+                            gruposDocumentales.map((g) => ({
+                                value: g.value,
+                                label: g.etiqueta,
+                            }))
+                        "
+                        placeholder="Selecciona el grupo"
+                    />
                     <p
                         v-if="errores.grupo_documental"
                         class="text-xs text-destructive"

@@ -1,33 +1,52 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ClipboardList, Eye, Send } from '@lucide/vue';
+import {
+    BriefcaseBusiness,
+    Check,
+    CircleCheck,
+    Eye,
+    FileText,
+    Hourglass,
+    ListFilter,
+    MailOpen,
+    Search,
+    Send,
+    UserPlus,
+} from '@lucide/vue';
 import { useDebounceFn } from '@vueuse/core';
-import { ref, watch } from 'vue';
+import type { Component } from 'vue';
+import { computed, ref, watch } from 'vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
+import AsignarDialog from '@/components/onboarding/AsignarDialog.vue';
+import ChipEstado from '@/components/people/ChipEstado.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
-import { Badge } from '@/components/ui/badge';
+import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 import { formatearFecha } from '@/lib/fechas';
+import type { Tono } from '@/lib/tonos';
 import { dashboard } from '@/routes';
 import { ciclo as cicloColaborador } from '@/routes/rh/colaboradores';
 import { enviar as enviarDescriptivo } from '@/routes/rh/colaboradores/descriptivo-puesto';
+import { vistaColaborador } from '@/routes/rh/onboarding/descriptivo-puesto';
+import {
+    previsualizar,
+    store,
+} from '@/routes/rh/onboarding/descriptivo-puesto/asignaciones';
+import type { DescriptivoPuestoColaborador } from '@/types';
 
-type Acuse = {
-    id: number;
-    estado: string;
-    estado_etiqueta: string;
-    enviado_por: string;
-    enviado_en: string;
-    leido_en: string | null;
-    acusado_en: string | null;
-    enterado: boolean;
-    comentario: string | null;
-    descriptivo: { id: number; nombre_puesto: string; version: number };
-};
-
+/**
+ * «Inducción al puesto» (3 · Onboarding): el descriptivo OFICIAL del puesto
+ * que RH envía a cada persona y su acuse (enviado → visto → enterado, con la
+ * casilla «Enterado(a)…» y su «Estoy de acuerdo con…»). «Asignar
+ * descriptivo» lo envía a todos / personas / sucursal; «Ver como
+ * colaborador» muestra exactamente lo que la persona ve. Reglas en
+ * AcuseDescriptivoPuestoService.
+ */
 type Fila = {
     colaborador: {
         id: number;
@@ -38,7 +57,7 @@ type Fila = {
     };
     onboarding_estado: string;
     onboarding_estado_etiqueta: string;
-    acuse: Acuse | null;
+    acuse: DescriptivoPuestoColaborador | null;
     puede_enviar: boolean;
     motivo: string | null;
     /** PDF oficial del descriptivo vigente («Ver lo que recibirá»). */
@@ -70,12 +89,34 @@ defineOptions({
     },
 });
 
-// Estados derivados del acuse (App\Enums\EstadoAcuseDescriptivoPuesto).
-const variantes: Record<string, 'warning' | 'info' | 'success'> = {
-    enviado: 'warning',
-    leido: 'info',
-    enterado: 'success',
+type Filtro = 'todas' | 'sin_enviar' | 'enviado' | 'leido' | 'enterado';
+
+const ESTADO: Record<
+    Exclude<Filtro, 'todas'>,
+    { texto: string; tono: Tono; icono: Component }
+> = {
+    sin_enviar: { texto: 'Sin enviar', tono: 'neutro', icono: Hourglass },
+    enviado: { texto: 'Enviado', tono: 'oro', icono: Send },
+    leido: { texto: 'Visto', tono: 'info', icono: MailOpen },
+    enterado: { texto: 'Enterado', tono: 'exito', icono: CircleCheck },
 };
+
+function estadoDe(f: Fila): Exclude<Filtro, 'todas'> {
+    return f.acuse ? f.acuse.estado : 'sin_enviar';
+}
+
+const filtro = ref<Filtro>('todas');
+const visibles = computed(() =>
+    filtro.value === 'todas'
+        ? props.colaboradores.data
+        : props.colaboradores.data.filter((f) => estadoDe(f) === filtro.value),
+);
+
+function conteo(valor: Filtro): number {
+    return valor === 'todas'
+        ? props.colaboradores.data.length
+        : props.colaboradores.data.filter((f) => estadoDe(f) === valor).length;
+}
 
 const termino = ref(props.filtros.busqueda);
 const enviandoId = ref<number | null>(null);
@@ -83,7 +124,10 @@ const enviandoId = ref<number | null>(null);
 function filtrar() {
     router.get(
         window.location.pathname,
-        { busqueda: termino.value || undefined },
+        {
+            ...parametrosPorPaginaActuales(),
+            busqueda: termino.value || undefined,
+        },
         { preserveState: true, preserveScroll: true, replace: true },
     );
 }
@@ -96,7 +140,7 @@ const filaVista = ref<Fila | null>(null);
 const verVistaPrevia = ref(false);
 const porConfirmar = ref<Fila | null>(null);
 
-function verLoQueRecibira(fila: Fila) {
+function verPdf(fila: Fila) {
     filaVista.value = fila;
     verVistaPrevia.value = true;
 }
@@ -121,7 +165,7 @@ watch(verVistaPrevia, (abierto) => {
 
 function enviar(fila: Fila) {
     if (!fila.acuse && fila.vista_previa) {
-        verLoQueRecibira(fila);
+        verPdf(fila);
         porConfirmar.value = fila;
 
         return;
@@ -141,241 +185,231 @@ function enviarDirecto(fila: Fila) {
         },
     );
 }
+
+const dialogo = ref(false);
+
+const pasos = ['Enviado', 'Visto', 'Enterado'] as const;
+
+function pasoHecho(f: Fila, i: number): boolean {
+    if (!f.acuse) {
+        return false;
+    }
+
+    return (
+        i === 0 ||
+        (i === 1 &&
+            (f.acuse.leido_en !== null || f.acuse.acusado_en !== null)) ||
+        (i === 2 && f.acuse.acusado_en !== null)
+    );
+}
 </script>
 
 <template>
     <Head title="Inducción al puesto" />
 
-    <div class="pagina-ancha flex flex-col gap-5">
-        <CrudPageHeader
-            titulo="Inducción al puesto"
-            descripcion="Envía a cada colaborador en onboarding el descriptivo oficial de su puesto y da seguimiento a su acuse (enviado · visto · aceptado). Se habilita cuando aprueba su evaluación de inducción."
-            :icono="ClipboardList"
-        />
+    <div class="pagina-ancha flex flex-col gap-5 pb-10">
+        <CrudPageHeader titulo="Inducción al puesto" :icono="BriefcaseBusiness">
+            <Button class="w-full sm:w-auto" @click="dialogo = true">
+                <UserPlus class="size-4" /> Asignar descriptivo de puesto
+            </Button>
+        </CrudPageHeader>
 
-        <div>
-            <Label class="mb-1.5 text-xs text-[var(--mrl-texto-suave)]"
-                >Buscar colaborador</Label
-            >
-            <Input
-                v-model="termino"
-                placeholder="Nombre o número de empleado"
-                class="max-w-md"
+        <section
+            class="rounded-3xl border border-border/60 bg-gradient-to-br from-crema via-card to-salvia p-5 shadow-sm"
+        >
+            <h1 class="text-xl font-semibold">Descriptivo de puesto</h1>
+            <p class="mt-1 max-w-3xl text-sm text-pretty text-muted-foreground">
+                Cada persona recibe el descriptivo oficial de SU puesto: lo lee
+                en Mi espacio o en la app, marca «Enterado(a) de las actividades
+                y responsabilidades de mi puesto» y escribe con qué está de
+                acuerdo. A quien está en su ingreso se le envía cuando aprueba
+                su evaluación de inducción; al personal que ya labora se le
+                puede enviar en cualquier momento.
+            </p>
+        </section>
+
+        <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-5 sm:gap-3">
+            <TarjetaMetrica
+                etiqueta="Todas"
+                :valor="conteo('todas')"
+                :icono="ListFilter"
+                tono="primario"
+                clicable
+                :activa="filtro === 'todas'"
+                @click="filtro = 'todas'"
+            />
+            <TarjetaMetrica
+                v-for="(e, clave) in ESTADO"
+                :key="clave"
+                :etiqueta="e.texto"
+                :valor="conteo(clave)"
+                :icono="e.icono"
+                :tono="e.tono"
+                clicable
+                :activa="filtro === clave"
+                @click="filtro = filtro === clave ? 'todas' : clave"
             />
         </div>
 
-        <p
-            v-if="!colaboradores.data.length"
-            class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] px-4 py-8 text-center text-sm text-[var(--mrl-texto-suave)]"
+        <div class="relative sm:max-w-sm">
+            <Search
+                class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+                v-model="termino"
+                class="h-10 pl-9"
+                placeholder="Nombre o número de empleado"
+                aria-label="Buscar colaborador"
+            />
+        </div>
+
+        <EmptyState
+            v-if="visibles.length === 0"
+            :icono="BriefcaseBusiness"
+            titulo="Sin colaboradores"
+            descripcion="No hay personas en onboarding con este filtro dentro de tu alcance. Para enviarlo a personal activo usa «Asignar descriptivo de puesto»."
+        />
+
+        <ul
+            v-else
+            class="rejilla-auto"
+            style="--rejilla-min: 22rem"
+            aria-label="Descriptivo de puesto por colaborador"
         >
-            No hay colaboradores en onboarding dentro de tu alcance.
-        </p>
-
-        <template v-else>
-            <!-- Tabla (pantallas anchas) -->
-            <div
-                class="hidden tabla-scroll rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] md:block"
+            <li
+                v-for="f in visibles"
+                :key="f.colaborador.id"
+                class="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm"
             >
-                <table class="w-full text-left text-sm">
-                    <thead
-                        class="border-b border-[var(--mrl-borde)] text-xs text-[var(--mrl-texto-suave)]"
-                    >
-                        <tr>
-                            <th class="px-4 py-3 font-medium">Colaborador</th>
-                            <th class="px-4 py-3 font-medium">
-                                Puesto / Sucursal
-                            </th>
-                            <th class="px-4 py-3 font-medium">
-                                Etapa de onboarding
-                            </th>
-                            <th class="px-4 py-3 font-medium">
-                                Descriptivo de puesto
-                            </th>
-                            <th class="px-4 py-3 text-right font-medium">
-                                Acción
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="f in colaboradores.data"
-                            :key="f.colaborador.id"
-                            class="border-b border-[var(--mrl-borde)] last:border-0"
-                        >
-                            <td class="px-4 py-3">
-                                <Link
-                                    :href="
-                                        cicloColaborador.url(f.colaborador.id)
-                                    "
-                                    class="font-medium hover:underline"
-                                    >{{ f.colaborador.nombre }}</Link
-                                >
-                                <p
-                                    class="text-xs text-[var(--mrl-texto-suave)]"
-                                >
-                                    {{ f.colaborador.numero_empleado ?? '—' }}
-                                </p>
-                            </td>
-                            <td class="px-4 py-3 text-xs">
-                                {{ f.colaborador.puesto ?? '—' }}<br />
-                                <span class="text-[var(--mrl-texto-suave)]">{{
-                                    f.colaborador.sucursal ?? '—'
-                                }}</span>
-                            </td>
-                            <td class="px-4 py-3 text-xs">
-                                {{ f.onboarding_estado_etiqueta }}
-                            </td>
-                            <td class="px-4 py-3 text-xs">
-                                <template v-if="f.acuse">
-                                    <Badge
-                                        :variant="
-                                            variantes[f.acuse.estado] ?? 'info'
-                                        "
-                                        >{{ f.acuse.estado_etiqueta }}</Badge
-                                    >
-                                    <p
-                                        class="mt-1 text-[var(--mrl-texto-suave)]"
-                                    >
-                                        Enviado
-                                        {{ formatearFecha(f.acuse.enviado_en) }}
-                                        <template v-if="f.acuse.acusado_en">
-                                            · aceptado
-                                            {{
-                                                formatearFecha(
-                                                    f.acuse.acusado_en,
-                                                )
-                                            }}</template
-                                        >
-                                        <template v-else-if="f.acuse.leido_en">
-                                            · visto
-                                            {{
-                                                formatearFecha(f.acuse.leido_en)
-                                            }}</template
-                                        >
-                                    </p>
-                                    <p
-                                        v-if="f.acuse.comentario"
-                                        class="mt-0.5 text-[var(--mrl-texto-suave)] italic"
-                                    >
-                                        «{{ f.acuse.comentario }}»
-                                    </p>
-                                </template>
-                                <span
-                                    v-else
-                                    class="text-[var(--mrl-texto-suave)]"
-                                >
-                                    {{ f.motivo ?? 'Sin enviar' }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3 text-right">
-                                <Button
-                                    v-if="f.vista_previa"
-                                    size="sm"
-                                    variant="ghost"
-                                    class="mr-1"
-                                    @click="verLoQueRecibira(f)"
-                                >
-                                    <Eye class="size-3.5" /> Ver lo que recibirá
-                                </Button>
-                                <Button
-                                    v-if="f.puede_enviar"
-                                    size="sm"
-                                    :disabled="enviandoId === f.colaborador.id"
-                                    @click="enviar(f)"
-                                >
-                                    <Send class="size-3.5" />
-                                    {{
-                                        f.acuse
-                                            ? 'Reenviar'
-                                            : 'Enviar descriptivo'
-                                    }}
-                                </Button>
-                                <span
-                                    v-else-if="f.acuse?.acusado_en"
-                                    class="text-xs text-[var(--mrl-verde)]"
-                                    >Aceptado</span
-                                >
-                                <span
-                                    v-else
-                                    class="text-xs text-[var(--mrl-texto-suave)]"
-                                    >—</span
-                                >
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Tarjetas (pantallas estrechas): una columna -->
-            <ul class="flex flex-col gap-3 md:hidden">
-                <li
-                    v-for="f in colaboradores.data"
-                    :key="f.colaborador.id"
-                    class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 text-sm"
-                >
-                    <div class="flex flex-wrap items-center gap-2">
+                <div class="flex items-start gap-3 p-4">
+                    <ColaboradorAvatar :nombre="f.colaborador.nombre" />
+                    <div class="min-w-0 flex-1">
                         <Link
                             :href="cicloColaborador.url(f.colaborador.id)"
-                            class="font-medium hover:underline"
+                            class="block truncate font-semibold hover:underline"
                             >{{ f.colaborador.nombre }}</Link
                         >
-                        <Badge
-                            v-if="f.acuse"
-                            :variant="variantes[f.acuse.estado] ?? 'info'"
-                            >{{ f.acuse.estado_etiqueta }}</Badge
-                        >
+                        <p class="truncate text-sm text-muted-foreground">
+                            {{
+                                [
+                                    f.colaborador.numero_empleado,
+                                    f.colaborador.puesto,
+                                    f.colaborador.sucursal,
+                                ]
+                                    .filter(Boolean)
+                                    .join(' · ')
+                            }}
+                        </p>
+                        <div class="mt-2 flex flex-wrap gap-1.5">
+                            <ChipEstado
+                                :etiqueta="ESTADO[estadoDe(f)].texto"
+                                :tono="ESTADO[estadoDe(f)].tono"
+                                :icono="ESTADO[estadoDe(f)].icono"
+                            />
+                            <ChipEstado
+                                :etiqueta="f.onboarding_estado_etiqueta"
+                                tono="neutro"
+                            />
+                        </div>
                     </div>
-                    <p class="mt-0.5 text-xs text-[var(--mrl-texto-suave)]">
-                        {{ f.colaborador.puesto ?? '—' }} ·
-                        {{ f.colaborador.sucursal ?? '—' }}
-                    </p>
-                    <p class="mt-1 text-xs">
-                        {{ f.onboarding_estado_etiqueta }}
-                    </p>
-                    <p
-                        v-if="f.acuse"
-                        class="mt-1 text-xs text-[var(--mrl-texto-suave)]"
+                </div>
+
+                <ol
+                    class="grid grid-cols-3 gap-1 px-4 pb-3"
+                    aria-label="Avance del acuse"
+                >
+                    <li
+                        v-for="(p, i) in pasos"
+                        :key="p"
+                        class="flex flex-col gap-1"
                     >
-                        Enviado {{ formatearFecha(f.acuse.enviado_en) }}
-                        <template v-if="f.acuse.acusado_en">
-                            · aceptado
-                            {{ formatearFecha(f.acuse.acusado_en) }}</template
-                        >
-                        <template v-else-if="f.acuse.leido_en">
+                        <span
+                            class="h-1.5 rounded-full"
+                            :class="pasoHecho(f, i) ? 'bg-success' : 'bg-muted'"
+                        />
+                        <span class="text-[11px] text-muted-foreground">{{
+                            p
+                        }}</span>
+                    </li>
+                </ol>
+
+                <div
+                    v-if="f.acuse"
+                    class="flex flex-col gap-1.5 px-4 pb-4 text-xs text-muted-foreground"
+                >
+                    <p>
+                        Enviado {{ formatearFecha(f.acuse.enviado_en) }} por
+                        {{ f.acuse.enviado_por }}
+                        <template v-if="f.acuse.leido_en">
                             · visto
                             {{ formatearFecha(f.acuse.leido_en) }}</template
                         >
                     </p>
-                    <p
-                        v-else
-                        class="mt-1 text-xs text-[var(--mrl-texto-suave)]"
-                    >
-                        {{ f.motivo ?? 'Sin enviar' }}
-                    </p>
-                    <Button
-                        v-if="f.vista_previa"
-                        size="sm"
-                        variant="outline"
-                        class="mt-3 mr-2"
-                        @click="verLoQueRecibira(f)"
-                    >
-                        <Eye class="size-3.5" /> Ver lo que recibirá
-                    </Button>
+                    <template v-if="f.acuse.acusado_en">
+                        <p class="flex items-start gap-1.5 text-foreground">
+                            <Check
+                                class="mt-0.5 size-3.5 shrink-0 text-success"
+                            />
+                            {{
+                                f.acuse.enterado_texto ??
+                                'Enterado(a) de su descriptivo de puesto'
+                            }}
+                            ·
+                            {{
+                                formatearFecha(
+                                    f.acuse.enterado_en ?? f.acuse.acusado_en,
+                                )
+                            }}
+                        </p>
+                        <p
+                            v-if="f.acuse.conformidad ?? f.acuse.comentario"
+                            class="rounded-xl bg-crema/70 px-3 py-2 text-sm text-foreground"
+                        >
+                            <span class="font-medium"
+                                >Estoy de acuerdo con:</span
+                            >
+                            «{{ f.acuse.conformidad ?? f.acuse.comentario }}»
+                        </p>
+                    </template>
+                </div>
+                <p v-else class="px-4 pb-4 text-xs text-muted-foreground">
+                    {{ f.motivo ?? 'Sin enviar' }}
+                </p>
+
+                <footer
+                    class="mt-auto flex flex-col gap-2 border-t border-border/50 bg-[var(--mrl-fondo)]/60 p-3 sm:flex-row sm:flex-wrap"
+                >
                     <Button
                         v-if="f.puede_enviar"
-                        size="sm"
-                        class="mt-3"
+                        class="h-11 flex-1 sm:h-9"
                         :disabled="enviandoId === f.colaborador.id"
                         @click="enviar(f)"
                     >
-                        <Send class="size-3.5" />
-                        {{ f.acuse ? 'Reenviar' : 'Enviar descriptivo' }}
+                        <Send class="size-4" />
+                        {{ f.acuse ? 'Recordar' : 'Enviar descriptivo' }}
                     </Button>
-                </li>
-            </ul>
+                    <Button
+                        as-child
+                        variant="outline"
+                        class="h-11 flex-1 sm:h-9"
+                    >
+                        <Link :href="vistaColaborador.url(f.colaborador.id)"
+                            ><Eye class="size-4" /> Ver como colaborador</Link
+                        >
+                    </Button>
+                    <Button
+                        v-if="f.vista_previa"
+                        variant="ghost"
+                        class="h-11 flex-1 sm:h-9"
+                        @click="verPdf(f)"
+                    >
+                        <FileText class="size-4" /> PDF oficial
+                    </Button>
+                </footer>
+            </li>
+        </ul>
 
-            <PaginacionTabla :datos="colaboradores" />
-        </template>
+        <PaginacionTabla :datos="colaboradores" />
 
         <DocumentPreviewDialog
             v-model:open="verVistaPrevia"
@@ -384,6 +418,15 @@ function enviarDirecto(fila: Fila) {
             tipo="pdf"
             mime="application/pdf"
             estado="Vista previa — así lo recibirá el colaborador"
+        />
+
+        <AsignarDialog
+            v-model:open="dialogo"
+            titulo="Asignar descriptivo de puesto"
+            descripcion="Cada persona recibe el descriptivo oficial vigente de SU puesto en Mi espacio y la app, con un aviso. Quien ya lo tiene o no tiene descriptivo para su puesto se omite."
+            :previsualizar-url="previsualizar.url()"
+            :enviar-url="store.url()"
+            texto-boton="Enviar descriptivo"
         />
     </div>
 </template>

@@ -30,6 +30,12 @@ class PuestoController extends Controller
 
         return Inertia::render('Administracion/Puestos/Index', [
             'puestos' => $puestos,
+            // Acciones del catálogo (config/permisos_modulos.php → puestos).
+            'puede' => [
+                'crear' => $request->user()->can('create', Puesto::class),
+                'editar' => $request->user()->can('puestos.administrar') && $request->user()->can('puestos.editar'),
+                'eliminar' => $request->user()->can('puestos.administrar') && $request->user()->can('puestos.eliminar'),
+            ],
             'filtros' => $request->only('busqueda'),
             'departamentosDisponibles' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
             'estadisticas' => EstadisticasActivoInactivo::de(Puesto::query()),

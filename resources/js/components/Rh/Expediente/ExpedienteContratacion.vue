@@ -16,6 +16,7 @@ import { computed, ref } from 'vue';
 import BotonVistaPrevia from '@/components/people/BotonVistaPrevia.vue';
 import ChipEstado from '@/components/people/ChipEstado.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
+import BotonSubirContratoFirmado from '@/components/Rh/Expediente/BotonSubirContratoFirmado.vue';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { useVistaPreviaPdf } from '@/composables/useVistaPreviaPdf';
@@ -78,7 +79,12 @@ function verPrevia(doc: DocumentoCorrespondiente) {
     ]);
 }
 
-const archivo = ref<{ url: string; nombre: string; mime: string | null; estado: string } | null>(null);
+const archivo = ref<{
+    url: string;
+    nombre: string;
+    mime: string | null;
+    estado: string;
+} | null>(null);
 
 function verGenerado(doc: DocumentoCorrespondiente) {
     if (doc.descargar_url) {
@@ -92,7 +98,7 @@ function verGenerado(doc: DocumentoCorrespondiente) {
 }
 
 function verFirmado(doc: DocumentoCorrespondiente) {
-    if (doc.firmado_cargado) {
+    if (doc.firmado_cargado?.url) {
         archivo.value = {
             url: doc.firmado_cargado.url,
             nombre: doc.firmado_cargado.nombre || `${doc.nombre} firmado`,
@@ -118,7 +124,8 @@ const totalDocumentos = computed(() =>
 );
 const generados = computed(() =>
     props.plan.contratos.reduce(
-        (n, e) => n + e.documentos.filter((d) => d.estado === 'generado').length,
+        (n, e) =>
+            n + e.documentos.filter((d) => d.estado === 'generado').length,
         0,
     ),
 );
@@ -185,7 +192,9 @@ const tonoPlan = computed(() => ESTADOS[props.plan.estado]?.tono ?? 'neutro');
             v-if="plan.faltantes.length > 0 || plan.bloqueos.length > 0"
             class="flex flex-col gap-2 rounded-2xl border border-warning/30 bg-warning-soft/40 p-4"
         >
-            <p class="flex items-center gap-2 text-sm font-semibold text-warning">
+            <p
+                class="flex items-center gap-2 text-sm font-semibold text-warning"
+            >
                 <AlertTriangle class="size-4" />
                 Para generar el contrato oficial falta:
             </p>
@@ -252,13 +261,19 @@ const tonoPlan = computed(() => ESTADOS[props.plan.estado]?.tono ?? 'neutro');
                     :data-documento="doc.clave"
                 >
                     <div class="flex min-w-0 items-start gap-3">
-                        <FileText class="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                        <FileText
+                            class="mt-0.5 size-4 shrink-0 text-muted-foreground"
+                        />
                         <div class="min-w-0">
                             <p class="text-sm font-medium">{{ doc.nombre }}</p>
-                            <div class="mt-1 flex flex-wrap items-center gap-1.5">
+                            <div
+                                class="mt-1 flex flex-wrap items-center gap-1.5"
+                            >
                                 <ChipEstado
                                     :etiqueta="doc.estado_etiqueta"
-                                    :tono="ESTADOS[doc.estado]?.tono ?? 'neutro'"
+                                    :tono="
+                                        ESTADOS[doc.estado]?.tono ?? 'neutro'
+                                    "
                                     :icono="ESTADOS[doc.estado]?.icono"
                                 />
                                 <ChipEstado
@@ -273,19 +288,29 @@ const tonoPlan = computed(() => ESTADOS[props.plan.estado]?.tono ?? 'neutro');
                                     >{{ doc.faltantes.length }} dato{{
                                         doc.faltantes.length === 1 ? '' : 's'
                                     }}
-                                    pendiente{{ doc.faltantes.length === 1 ? '' : 's' }}</span
+                                    pendiente{{
+                                        doc.faltantes.length === 1 ? '' : 's'
+                                    }}</span
                                 >
                                 <span
-                                    v-else-if="doc.motivo && doc.estado !== 'generado'"
+                                    v-else-if="
+                                        doc.motivo && doc.estado !== 'generado'
+                                    "
                                     class="text-xs text-muted-foreground"
                                     >{{ doc.motivo }}</span
                                 >
                             </div>
                         </div>
                     </div>
-                    <div class="flex flex-wrap gap-2 lg:shrink-0 lg:justify-end">
+                    <div
+                        class="flex flex-wrap gap-2 lg:shrink-0 lg:justify-end"
+                    >
                         <BotonVistaPrevia
-                            v-if="doc.estado === 'por_generar' || doc.estado === 'faltan_datos'"
+                            v-if="
+                                plan.puede_generar &&
+                                (doc.estado === 'por_generar' ||
+                                    doc.estado === 'faltan_datos')
+                            "
                             size="sm"
                             :cargando="visor.generandoClave(doc.clave)"
                             data-accion="vista-previa"
@@ -300,13 +325,20 @@ const tonoPlan = computed(() => ESTADOS[props.plan.estado]?.tono ?? 'neutro');
                             <Eye class="size-3.5" /> Ver generado
                         </Button>
                         <Button
-                            v-if="doc.firmado_cargado"
+                            v-if="doc.firmado_cargado?.url"
                             size="sm"
                             variant="secondary"
                             @click="verFirmado(doc)"
                         >
-                            <FileSignature class="size-3.5" /> Ver contrato firmado
+                            <FileSignature class="size-3.5" /> Ver contrato
+                            firmado
                         </Button>
+                        <BotonSubirContratoFirmado
+                            v-if="doc.puede_subir_firmado"
+                            :colaborador-id="plan.id"
+                            :clave="doc.clave"
+                            class="h-8"
+                        />
                     </div>
                 </li>
             </ul>

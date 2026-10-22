@@ -201,6 +201,15 @@ class OrganizacionJerarquiaService
         return ['usuario' => $usuario, 'colaborador' => $usuario?->colaborador];
     }
 
+    /**
+     * El puesto es de gerencia de sucursal (ciclo_laboral.organizacion.
+     * puestos_gerencia_sucursal): por catálogo de puestos, nunca por rol.
+     */
+    public function esPuestoDeGerenciaSucursal(?int $puestoId): bool
+    {
+        return $puestoId !== null && in_array($puestoId, $this->puestosConfigurados('puestos_gerencia_sucursal'), true);
+    }
+
     /** La vacante (o el puesto objetivo) del candidato es de gerencia de sucursal. */
     public function esVacanteDeGerencia(Candidato $candidato): bool
     {

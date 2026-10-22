@@ -80,13 +80,16 @@ class DocumentoAdministrativoController extends Controller
                     'es_logo' => in_array($a->tipo, [TipoDocumentAsset::Logo, TipoDocumentAsset::Imagen, TipoDocumentAsset::Sello], true),
                     'url' => route('rh.documentos-maestros.fondos.imagen', $a),
                 ])->values(),
+            // Crear borrador / guardar / activar / descartar: misma acción que
+            // exigen esos endpoints (documentos_maestros.diseno).
+            'puedeEditar' => $request->user()->can('documentos_maestros.diseno'),
         ]);
     }
 
     /** Crea (o recupera) el borrador editable. */
     public function borrador(Request $request, FamiliaAdministrativa $familia): RedirectResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.diseno');
         $this->plantillas->borrador($familia, $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Borrador listo para editar. Los documentos se siguen generando con la versión activa hasta que lo actives.']);
@@ -94,7 +97,7 @@ class DocumentoAdministrativoController extends Controller
 
     public function guardar(Request $request, PlantillaAdministrativa $plantilla): RedirectResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.diseno');
         $datos = $request->validate([
             'diseno' => ['required', 'array'],
             'motor' => ['nullable', 'string'],
@@ -108,7 +111,7 @@ class DocumentoAdministrativoController extends Controller
 
     public function activar(Request $request, PlantillaAdministrativa $plantilla): RedirectResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.diseno');
         $this->plantillas->activar($plantilla, $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => sprintf('Versión %d activa. Los documentos ya generados no cambian.', $plantilla->version)]);
@@ -116,7 +119,7 @@ class DocumentoAdministrativoController extends Controller
 
     public function descartar(Request $request, PlantillaAdministrativa $plantilla): RedirectResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.diseno');
         $this->plantillas->descartar($plantilla, $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Borrador descartado.']);
@@ -170,8 +173,9 @@ class DocumentoAdministrativoController extends Controller
         ]);
     }
 
-    private function exigir(Request $request): void
+    /** Acceso al módulo y, para cambios, documentos_maestros.diseno. */
+    private function exigir(Request $request, ?string $accion = null): void
     {
-        abort_unless($request->user()?->can(self::PERMISO), 403);
+        abort_unless($request->user()?->can(self::PERMISO) && ($accion === null || $request->user()->can($accion)), 403);
     }
 }

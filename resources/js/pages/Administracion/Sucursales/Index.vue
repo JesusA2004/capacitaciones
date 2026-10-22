@@ -14,6 +14,7 @@ import {
 import { computed, ref, watch } from 'vue';
 import SucursalFormDialog from '@/components/Administracion/SucursalFormDialog.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudStats from '@/components/DataTable/CrudStats.vue';
@@ -26,13 +27,6 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { dashboard } from '@/routes';
@@ -45,6 +39,8 @@ import type {
 } from '@/types';
 
 const props = defineProps<{
+    /** Acciones del catálogo por permiso (el backend lo revalida). */
+    puede?: { crear: boolean; editar: boolean; eliminar: boolean };
     sucursales: RespuestaPaginada<SucursalItem>;
     filtros: { busqueda?: string; empresa_id?: string };
     /** Prop opcional: solo llega al abrir el diálogo (recarga parcial). */
@@ -161,7 +157,7 @@ async function eliminar(sucursal: SucursalItem) {
             descripcion="Ubicación, plantilla autorizada, colaboradores y vacantes reales de cada sucursal."
             :icono="Building"
         >
-            <Button @click="abrirCrear">
+            <Button v-if="puede?.crear ?? true" @click="abrirCrear">
                 <Plus class="size-4" />
                 Nueva sucursal
             </Button>
@@ -205,27 +201,24 @@ async function eliminar(sucursal: SucursalItem) {
             <template v-if="empresasDisponibles.length > 1" #filtros>
                 <div class="flex flex-col gap-1.5">
                     <label class="text-sm font-medium">Empresa</label>
-                    <Select
+                    <SelectSimple
                         :model-value="filtros.empresa_id"
+                        :opciones="
+                            empresasDisponibles.map((o) => ({
+                                value: String(o.id),
+                                label: o.nombre,
+                            }))
+                        "
+                        placeholder="Todas las empresas"
+                        opcion-vacia="Todas las empresas"
+                        placeholder-busqueda="Buscar empresa…"
                         @update:model-value="
                             (v) => {
                                 filtros.empresa_id = String(v ?? '');
                                 aplicar();
                             }
                         "
-                    >
-                        <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Todas las empresas" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in empresasDisponibles"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
+                    />
                 </div>
             </template>
         </CrudToolbar>
@@ -236,7 +229,7 @@ async function eliminar(sucursal: SucursalItem) {
             titulo="Todavía no hay sucursales"
             descripcion="Crea la primera sucursal para empezar a organizar la capacitación por ubicación."
         >
-            <Button size="sm" @click="abrirCrear">
+            <Button v-if="puede?.crear ?? true" size="sm" @click="abrirCrear">
                 <Plus class="size-4" />
                 Crear sucursal
             </Button>
@@ -301,10 +294,12 @@ async function eliminar(sucursal: SucursalItem) {
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end">
                                         <DropdownMenuItem
+                                            v-if="puede?.editar ?? true"
                                             @select="abrirEditar(sucursal)"
                                             >Editar</DropdownMenuItem
                                         >
                                         <DropdownMenuItem
+                                            v-if="puede?.eliminar ?? true"
                                             variant="destructive"
                                             @select="eliminar(sucursal)"
                                             >Eliminar</DropdownMenuItem

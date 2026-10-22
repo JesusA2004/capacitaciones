@@ -1,4 +1,5 @@
 import type { CausalBajaOpcion, FormaSalidaClave } from './bajas';
+import type { ContenidoPeriodoPrueba } from './formulariosEvaluacion';
 /**
  * Contrato del DTO de App\Services\CicloLaboral\CicloLaboralService::obtenerEstado()
  * — la misma forma la consumen la web (Inertia) y la app móvil (API v1).
@@ -98,8 +99,18 @@ export type EvaluacionPeriodoPruebaResumen = {
           }[]
         | { clave: string; etiqueta: string; calificacion: number }[];
     filtros: { clave: string; etiqueta: string; respuesta: boolean }[];
-    criterios_oficiales: { clave: string; etiqueta: string }[];
-    filtros_oficiales: { clave: string; etiqueta: string }[];
+    criterios_oficiales: {
+        clave: string;
+        etiqueta: string;
+        descripcion?: string;
+    }[];
+    filtros_oficiales: {
+        clave: string;
+        etiqueta: string;
+        descripcion?: string;
+    }[];
+    /** Versión del formulario configurable con la que se captura (diseño, escala y reglas). */
+    formulario?: ContenidoPeriodoPrueba;
     total_minimo_renovar: number;
     total_maximo: number;
     criterios_sugeridos: string[];

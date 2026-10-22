@@ -155,6 +155,7 @@ class CumpleanosController extends Controller
                 'frases' => BirthdayPhrase::query()->orderBy('orden')->orderBy('id')->get(['id', 'texto']),
             ],
             'permisos' => [
+                'generar' => $usuario->can('rh.cumpleanos.generar'),
                 'descargarImagen' => $usuario->can('rh.cumpleanos.descargar_imagen'),
                 'gestionarNotificaciones' => $usuario->can('rh.cumpleanos.notificaciones.gestionar'),
             ],
@@ -168,7 +169,7 @@ class CumpleanosController extends Controller
      */
     public function previsualizarFrase(Request $request, Colaborador $colaborador): HttpResponse
     {
-        abort_unless($request->user()->can('rh.cumpleanos.ver'), 403);
+        abort_unless($request->user()->can('rh.cumpleanos.generar'), 403);
 
         $datos = $request->validate(['frase' => ['required', 'string', 'max:1000']]);
 
@@ -179,7 +180,7 @@ class CumpleanosController extends Controller
 
     public function confirmarFrase(Request $request, Colaborador $colaborador): RedirectResponse
     {
-        abort_unless($request->user()->can('rh.cumpleanos.ver'), 403);
+        abort_unless($request->user()->can('rh.cumpleanos.generar'), 403);
 
         $datos = $request->validate([
             'frase' => ['required', 'string', 'max:1000'],
@@ -196,7 +197,7 @@ class CumpleanosController extends Controller
 
     public function generar(Request $request, Colaborador $colaborador): RedirectResponse
     {
-        abort_unless($request->user()->can('rh.cumpleanos.ver'), 403);
+        abort_unless($request->user()->can('rh.cumpleanos.generar'), 403);
 
         $fecha = $this->cumpleanos->fechaEsteAnio($colaborador);
         abort_if($fecha === null, 404, 'Este colaborador no tiene fecha de nacimiento capturada.');
@@ -208,7 +209,7 @@ class CumpleanosController extends Controller
 
     public function regenerar(Request $request, Colaborador $colaborador): RedirectResponse
     {
-        abort_unless($request->user()->can('rh.cumpleanos.ver'), 403);
+        abort_unless($request->user()->can('rh.cumpleanos.generar'), 403);
 
         $fecha = $this->cumpleanos->fechaEsteAnio($colaborador);
         abort_if($fecha === null, 404, 'Este colaborador no tiene fecha de nacimiento capturada.');

@@ -23,10 +23,15 @@ export type DocumentoCorrespondiente = {
     /** Original firmado físicamente cargado en el expediente (solo informativo). */
     firmado_cargado: {
         etiqueta: string;
-        url: string;
+        /** null: quien mira no puede abrir archivos del expediente. */
+        url: string | null;
         nombre: string;
         mime: string | null;
     } | null;
+    /** Tipo del expediente donde se sube su firmado (null: no admite carga). */
+    tipo_firmado?: string | null;
+    /** Quien mira puede subir el contrato firmado de este documento. */
+    puede_subir_firmado?: boolean;
 };
 
 export type EtapaContrato = {
@@ -65,6 +70,8 @@ export type PlanContratos = {
         configurar_url: string | null;
     }[];
     generable: boolean;
+    /** Quien mira puede subir contratos firmados de esta persona. */
+    puede_subir_firmado?: boolean;
 };
 
 export type ResultadoContratosColaborador = {
@@ -109,6 +116,8 @@ export type PersonaPeriodoBase = {
 };
 
 export type PersonaPeriodoPrueba = PersonaPeriodoBase & {
+    /** Jefe directo del organigrama (o su gerente): recibirá la evaluación. */
+    evaluador: string | null;
     fin_periodo: string;
     fuente: 'contrato' | 'fecha_ingreso';
     fuente_etiqueta: string;
@@ -117,9 +126,91 @@ export type PersonaPeriodoPrueba = PersonaPeriodoBase & {
     alerta: boolean;
     tiene_contrato: boolean;
     contrato_generado: boolean;
+    fin_contrato: string | null;
+    puede_asignar: boolean;
+    motivo_no_asignable: string | null;
     evaluacion: {
         id: number;
         estado: string;
         estado_etiqueta: string;
     } | null;
+};
+
+// ───────── «Evaluaciones de periodo de prueba» (tablero único) ─────────
+
+export type PestanaEvaluacionesPrueba = 'proximas' | 'en_proceso' | 'evaluadas';
+
+export type EstadoEvaluacionPrueba =
+    'pendiente' | 'capturada' | 'devuelta' | 'autorizada';
+
+/** Respuestas tal como se guardaron (EvaluacionPeriodoPruebaService::respuestas). */
+export type RespuestasEvaluacionPrueba = {
+    es_oficial: boolean;
+    criterios: {
+        clave: string | null;
+        etiqueta: string;
+        calificacion: number | null;
+        comentario: string | null;
+    }[];
+    filtros: { clave: string | null; etiqueta: string; respuesta: boolean }[];
+    escala_max: number;
+    total: number | null;
+    total_maximo: number | null;
+    total_minimo_renovar: number | null;
+    motivos_no_renueva: string[];
+    recomienda_renovar: boolean | null;
+    resultado: string | null;
+    resultado_etiqueta: string | null;
+    observaciones: string | null;
+    evaluador: string | null;
+    capturada_por: string | null;
+    capturada_en: string | null;
+    fecha_evaluacion: string | null;
+    fecha_limite: string | null;
+    decision: {
+        renovar: boolean | null;
+        comentario: string | null;
+        autorizada_por: string | null;
+        autorizada_en: string | null;
+    };
+};
+
+export type FilaEvaluacionPrueba = {
+    id: number;
+    colaborador: {
+        id: number;
+        nombre: string;
+        numero_empleado: string | null;
+    };
+    puesto: string | null;
+    sucursal: string | null;
+    evaluador: string | null;
+    estado: EstadoEvaluacionPrueba;
+    estado_etiqueta: string;
+    fecha_limite: string | null;
+    dias_restantes: number | null;
+    calificacion: string | number | null;
+    resultado: string | null;
+    recomienda_renovar: boolean | null;
+    decision_renovar: boolean | null;
+    capturada_en: string | null;
+    contrato_renovacion_id: number | null;
+    documento_renovacion: { id: number; nombre: string; url: string } | null;
+    puede_capturar: boolean;
+    puede_decidir: boolean;
+    respuestas: RespuestasEvaluacionPrueba | null;
+    pdf_url: string | null;
+    url: string;
+};
+
+export type ConteosEvaluacionesPrueba = {
+    por_asignar: number;
+    por_asignar_alerta: number;
+    asignables: number;
+    esperando_jefe: number;
+    por_decidir: number;
+    en_proceso: number;
+    evaluadas: number;
+    autorizadas: number;
+    evaluadas_mes: number;
 };

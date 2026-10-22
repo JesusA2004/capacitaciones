@@ -8,12 +8,16 @@ use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Expedientes\DocumentoStorageService;
+use App\Services\Expedientes\ExpedienteZipService;
 use App\Services\Incorporacion\IncorporacionService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -85,8 +89,9 @@ class ExpedienteController extends Controller
     {
         abort_unless($this->puedeVerDetalle($request->user(), $colaborador), 403);
 
+        $usuario = $request->user();
         $tipos = $this->incorporacion->tiposDocumento($colaborador);
-        $documentos = $this->incorporacion->detalleParaRh($colaborador);
+        $documentos = $this->conPermisosDeLaApp($usuario, $this->incorporacion->detalleParaRh($colaborador));
 
         $colaborador->loadMissing([
             'sucursalPrincipal:id,nombre,empresa_id',
@@ -118,7 +123,92 @@ class ExpedienteController extends Controller
             'incorporacion_motivo_rechazo' => $colaborador->incorporacion_motivo_rechazo,
             'documentos' => $documentos,
             'documentos_totales' => $tipos->count(),
+            // «Descargar expediente completo (ZIP)» en la app: misma regla que
+            // el botón de la web (EmployeeDocumentPolicy::descargarExpediente).
+            'puede_descargar_expediente' => $usuario->can('descargarExpediente', [EmployeeDocument::class, $colaborador]),
         ]);
+    }
+
+    /**
+     * «Descargar» un documento del expediente desde la app (attachment): misma
+     * regla que la descarga web (EmployeeDocumentPolicy::descargar). Ver el
+     * archivo para revisarlo sigue siendo verDocumento().
+     */
+    public function descargarDocumento(Request $request, Colaborador $colaborador, EmployeeDocument $documento): StreamedResponse
+    {
+        $usuario = $request->user();
+        abort_unless($this->puedeVerDetalle($usuario, $colaborador), 403);
+        abort_unless($documento->colaborador_id === $colaborador->id, 404);
+        abort_unless($usuario->can('descargar', $documento), 403, 'No tienes permiso para descargar documentos del expediente.');
+
+        $nombre = $documento->original_name !== '' ? $documento->original_name : sprintf('documento-%d', $documento->id);
+
+        return $this->storage->respuesta($documento->path, [
+            'Content-Type' => $documento->mime ?? 'application/octet-stream',
+            'Content-Disposition' => HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_ATTACHMENT, $nombre, $this->nombreAscii($nombre)),
+        ]);
+    }
+
+    /**
+     * «Descargar expediente completo (ZIP)» desde la app: el MISMO
+     * ExpedienteZipService y la misma Policy que la web
+     * (Rh\ExpedienteController::descargarZip). Se borra al terminar de enviarse.
+     */
+    public function descargarZip(Request $request, Colaborador $colaborador, ExpedienteZipService $zip): BinaryFileResponse
+    {
+        abort_unless($request->user()->can('descargarExpediente', [EmployeeDocument::class, $colaborador]), 403, 'No tienes permiso para descargar el expediente completo.');
+
+        return response()
+            ->download($zip->generar($colaborador, $request->user()), $zip->nombreDescarga($colaborador), ['Content-Type' => 'application/zip'])
+            ->deleteFileAfterSend();
+    }
+
+    /**
+     * «Pedir corrección» desde la app: mismo servicio y Policy que la web
+     * (Rh\EmployeeDocumentController::solicitarCorreccion).
+     */
+    public function correccionDocumento(Request $request, Colaborador $colaborador, EmployeeDocument $documento): JsonResponse
+    {
+        $usuario = $request->user();
+        abort_unless($this->puedeVerDetalle($usuario, $colaborador), 403);
+        abort_unless($documento->colaborador_id === $colaborador->id, 404);
+        abort_unless($usuario->can('pedirCorreccion', $documento), 403);
+
+        $datos = $request->validate(['motivo' => ['required', 'string', 'max:500']]);
+
+        $this->incorporacion->solicitarCorreccionDocumento($documento, $usuario, $datos['motivo']);
+
+        return response()->json(['message' => 'Se pidió corrección al colaborador.']);
+    }
+
+    /**
+     * Agrega a cada fila `id` (el del archivo vigente, como lo espera la app),
+     * `puede_descargar` y `puede_pedir_correccion` (EmployeeDocumentPolicy).
+     *
+     * @param  array<int, array<string, mixed>>  $filas
+     * @return array<int, array<string, mixed>>
+     */
+    private function conPermisosDeLaApp(User $usuario, array $filas): array
+    {
+        $ids = collect($filas)->pluck('documento_id')->filter()->values()->all();
+        $documentos = EmployeeDocument::query()->with('colaborador')->whereIn('id', $ids)->get()->keyBy('id');
+
+        return array_map(function (array $fila) use ($usuario, $documentos): array {
+            $documento = $documentos->get($fila['documento_id'] ?? 0);
+
+            return $fila + [
+                'id' => $fila['documento_id'] ?? null,
+                'puede_descargar' => $documento !== null && $usuario->can('descargar', $documento),
+                'puede_pedir_correccion' => $documento !== null && $documento->status->admiteDecisionDeRh() && $usuario->can('pedirCorreccion', $documento),
+            ];
+        }, $filas);
+    }
+
+    private function nombreAscii(string $nombre): string
+    {
+        $ascii = trim(preg_replace('/[^A-Za-z0-9 ._()-]+/', '', Str::ascii($nombre)) ?? '');
+
+        return $ascii !== '' ? $ascii : 'documento';
     }
 
     /**
@@ -236,12 +326,11 @@ class ExpedienteController extends Controller
             ->tap(fn ($query) => $this->alcance->limitarExpedientesPorAlcance($query, $usuario))
             ->with(['sucursalPrincipal:id,nombre,empresa_id', 'sucursalPrincipal.empresa:id,nombre', 'departamento:id,nombre'])
             ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
-                $query->where(function ($sub) use ($busqueda) {
-                    $sub->where('name', 'like', "%{$busqueda}%")
-                        ->orWhere('apellidos', 'like', "%{$busqueda}%")
-                        ->orWhere('correo_personal', 'like', "%{$busqueda}%")
-                        ->orWhere('numero_empleado', 'like', "%{$busqueda}%");
-                });
+                // Buscador único (nombre, número, puesto, sucursal…) o el
+                // correo personal (quien ve expedientes sí puede verlo).
+                $query->where(fn ($sub) => $sub
+                    ->where(fn ($b) => $b->buscar($busqueda))
+                    ->orWhere('correo_personal', 'like', "%{$busqueda}%"));
             })
             ->when($request->integer('empresa_id'), fn ($query, int $id) => $query->whereHas('sucursalPrincipal', fn ($sub) => $sub->where('empresa_id', $id)))
             ->when($request->integer('sucursal_id'), fn ($query, int $id) => $query->where('sucursal_principal_id', $id))

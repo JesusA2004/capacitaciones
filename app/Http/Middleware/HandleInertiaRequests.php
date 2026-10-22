@@ -5,6 +5,8 @@ namespace App\Http\Middleware;
 use App\Models\User;
 use App\Services\Navigation\NavigationService;
 use App\Services\Solicitudes\AprobacionOrganizacionalService;
+use App\Services\WebPush\ClavesVapidService;
+use App\Services\WebPush\WebPushNotifier;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -91,6 +93,13 @@ class HandleInertiaRequests extends Middleware
                 'evaluacion_desempeno' => (bool) config('features.evaluacion_desempeno'),
                 'nine_box' => (bool) config('features.nine_box'),
                 'certificacion' => (bool) config('features.certificacion'),
+            ],
+            // Notificaciones de escritorio (Web Push): la clave pública VAPID
+            // con que el navegador se suscribe (resources/js/composables/useWebPush.ts).
+            'webPush' => fn (): array => [
+                'clavePublica' => $user !== null && app(WebPushNotifier::class)->habilitado()
+                    ? app(ClavesVapidService::class)->clavePublica()
+                    : null,
             ],
             'environment' => app()->environment(),
             // Badge del acceso «Pendientes»: el MISMO conteo único que la app

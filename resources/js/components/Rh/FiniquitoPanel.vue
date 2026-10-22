@@ -852,7 +852,7 @@ function eliminarConcepto(id: number) {
                     Marcar como revisado
                 </Button>
                 <Button
-                    v-if="!cerrado"
+                    v-if="!cerrado && permisos.puedeDescargar"
                     size="sm"
                     variant="outline"
                     :disabled="formGenerarPdf.processing"
@@ -861,7 +861,12 @@ function eliminarConcepto(id: number) {
                     <FileCheck2 class="size-4" />
                     Generar PDF oficial
                 </Button>
-                <Button v-if="!cerrado" as-child size="sm" variant="outline">
+                <Button
+                    v-if="!cerrado && permisos.puedeDescargar"
+                    as-child
+                    size="sm"
+                    variant="outline"
+                >
                     <a
                         :href="vistaPrevia.url(solicitudId)"
                         target="_blank"
@@ -873,8 +878,9 @@ function eliminarConcepto(id: number) {
                 </Button>
                 <Button
                     v-if="
-                        finiquito.documento_generado_path ||
-                        finiquito.documento_firmado_path
+                        permisos.puedeDescargar &&
+                        (finiquito.documento_generado_path ||
+                            finiquito.documento_firmado_path)
                     "
                     as-child
                     size="sm"

@@ -41,7 +41,7 @@ class ActaController extends Controller
     /** Vista previa del PDF real (mismo servicio que el final); no guarda nada. */
     public function vistaPrevia(ActaAdministrativa $acta): HttpResponse
     {
-        $this->authorize('ver', $acta);
+        $this->authorize('descargar', $acta);
         abort_unless(ActaPdfService::aplica($acta), 404);
 
         if (($motivo = $this->pdf->faltante($acta)) !== null) {
@@ -72,23 +72,24 @@ class ActaController extends Controller
         return response()->json(['data' => $this->actas->aArray($this->actas->crear($colaborador, $request->validated(), $request->user()), true)], 201);
     }
 
-    public function show(ActaAdministrativa $acta): JsonResponse
+    public function show(Request $request, ActaAdministrativa $acta): JsonResponse
     {
         $this->authorize('ver', $acta);
 
-        return response()->json(['data' => $this->actas->aArray($acta, true), 'catalogos' => ActaService::catalogos()]);
+        // `permisos` (aditivo): qué acciones ofrece la app, acción por acción.
+        return response()->json(['data' => $this->actas->aArray($acta, true), 'catalogos' => ActaService::catalogos(), 'permisos' => $this->actas->permisosDe($request->user(), $acta)]);
     }
 
     public function update(GuardarActaRequest $request, ActaAdministrativa $acta): JsonResponse
     {
-        $this->authorize('gestionar', $acta);
+        $this->authorize('editar', $acta);
 
         return response()->json(['data' => $this->actas->aArray($this->actas->actualizar($acta, $request->validated(), $request->user()), true)]);
     }
 
     public function anexo(ArchivoLaboralRequest $request, ActaAdministrativa $acta): JsonResponse
     {
-        $this->authorize('gestionar', $acta);
+        $this->authorize('subirAnexo', $acta);
         $archivo = $request->file('archivo');
         abort_unless($archivo instanceof UploadedFile, 422);
 
@@ -103,14 +104,14 @@ class ActaController extends Controller
 
     public function descargarAnexo(ActaAdministrativa $acta, ActaAnexo $anexo): StreamedResponse
     {
-        $this->authorize('ver', $acta);
+        $this->authorize('descargarAnexo', $acta);
 
         return $this->actas->descargarAnexo($acta, $anexo);
     }
 
     public function generarDocumento(Request $request, ActaAdministrativa $acta): JsonResponse
     {
-        $this->authorize('gestionar', $acta);
+        $this->authorize('generarDocumento', $acta);
 
         return response()->json(['data' => $this->documentos->aArray($this->actas->generarDocumento($acta, $request->user()), true)], 201);
     }
@@ -118,7 +119,7 @@ class ActaController extends Controller
     /** Constancia de entrega de copia (mismo ActaService que la web). */
     public function entrega(Request $request, ActaAdministrativa $acta): JsonResponse
     {
-        abort_unless($request->user()->can('gestionar', $acta) || $acta->creado_por === $request->user()->id, 403, 'Solo RH o quien levantó el acta registran la entrega de la copia.');
+        abort_unless($request->user()->can('registrarEntrega', $acta), 403, 'Solo RH o quien levantó el acta registran la entrega de la copia.');
         $datos = $request->validate([
             'estado' => ['required', 'in:entregada,no_posible'],
             'motivo' => ['nullable', 'string', 'max:2000'],
@@ -129,7 +130,7 @@ class ActaController extends Controller
 
     public function negativaFirma(DecisionRequest $request, ActaAdministrativa $acta): JsonResponse
     {
-        $this->authorize('gestionar', $acta);
+        $this->authorize('registrarFirma', $acta);
         $request->validate(['motivo' => ['required']]);
 
         return response()->json(['data' => $this->actas->aArray($this->actas->registrarNegativaFirma($acta, (string) $request->validated('motivo'), $request->user()), true)]);
@@ -137,7 +138,7 @@ class ActaController extends Controller
 
     public function seguimiento(DecisionRequest $request, ActaAdministrativa $acta): JsonResponse
     {
-        $this->authorize('gestionar', $acta);
+        $this->authorize('seguimiento', $acta);
         $request->validate(['nota' => ['required']]);
 
         return response()->json(['data' => $this->actas->aArray($this->actas->agregarSeguimiento($acta, (string) $request->validated('nota'), $request->user()), true)]);
@@ -145,7 +146,7 @@ class ActaController extends Controller
 
     public function cerrar(Request $request, ActaAdministrativa $acta): JsonResponse
     {
-        $this->authorize('gestionar', $acta);
+        $this->authorize('cerrar', $acta);
 
         return response()->json(['data' => $this->actas->aArray($this->actas->cerrar($acta, $request->user()), true)]);
     }

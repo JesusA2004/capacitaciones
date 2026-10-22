@@ -3,6 +3,7 @@ import { ArrowLeft, FileSignature, Loader2, Printer } from '@lucide/vue';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import BotonVistaPrevia from '@/components/people/BotonVistaPrevia.vue';
 import EsqueletoDocumento from '@/components/people/EsqueletoDocumento.vue';
 import { Button } from '@/components/ui/button';
@@ -437,23 +438,19 @@ async function generar() {
                                 Responsable de la entrega
                             </p>
                             <template v-if="valores.puede_elegir_responsable">
-                                <Select v-model="responsableIdStr">
-                                    <SelectTrigger
-                                        class="mt-0.5 h-8 w-full"
-                                        aria-label="Responsable de entrega"
-                                    >
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem
-                                            v-for="responsable in valores.responsables"
-                                            :key="responsable.id"
-                                            :value="String(responsable.id)"
-                                        >
-                                            {{ responsable.nombre }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <SelectSimple
+                                    v-model="responsableIdStr"
+                                    :opciones="
+                                        valores.responsables.map((r) => ({
+                                            value: String(r.id),
+                                            label: r.nombre,
+                                        }))
+                                    "
+                                    size="sm"
+                                    class="mt-0.5"
+                                    aria-label="Responsable de entrega"
+                                    buscable
+                                />
                                 <p class="mt-1 text-xs text-muted-foreground">
                                     {{
                                         responsableSeleccionado?.puesto ??
@@ -536,24 +533,12 @@ async function generar() {
                                 <Label for="mueble-tipo"
                                     >Tipo de mueble *</Label
                                 >
-                                <Select v-model="form.datos.tipo_mueble">
-                                    <SelectTrigger
-                                        id="mueble-tipo"
-                                        class="w-full"
-                                    >
-                                        <SelectValue placeholder="Elige…" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem
-                                            v-for="o in catalogos?.tipos_mueble ??
-                                            []"
-                                            :key="o.value"
-                                            :value="o.value"
-                                        >
-                                            {{ o.label }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <SelectSimple
+                                    id="mueble-tipo"
+                                    v-model="form.datos.tipo_mueble"
+                                    :opciones="catalogos?.tipos_mueble ?? []"
+                                    placeholder="Elige…"
+                                />
                             </div>
                             <div
                                 v-if="form.datos.tipo_mueble === 'otro'"
@@ -699,21 +684,12 @@ async function generar() {
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div class="grid gap-1.5">
                                 <Label for="eq-tipo">Tipo de equipo *</Label>
-                                <Select v-model="form.datos.tipo_equipo">
-                                    <SelectTrigger id="eq-tipo" class="w-full">
-                                        <SelectValue placeholder="Elige…" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem
-                                            v-for="o in catalogos?.tipos_equipo ??
-                                            []"
-                                            :key="o.value"
-                                            :value="o.value"
-                                        >
-                                            {{ o.label }}
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <SelectSimple
+                                    id="eq-tipo"
+                                    v-model="form.datos.tipo_equipo"
+                                    :opciones="catalogos?.tipos_equipo ?? []"
+                                    placeholder="Elige…"
+                                />
                             </div>
                             <div
                                 v-if="form.datos.tipo_equipo === 'otro'"

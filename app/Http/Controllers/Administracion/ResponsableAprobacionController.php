@@ -24,11 +24,11 @@ class ResponsableAprobacionController extends Controller
 
     public function index(Request $request): Response
     {
-        abort_unless($request->user()->can('organigrama.ver') || $request->user()->can('organigrama.editar'), 403);
+        abort_unless($request->user()->can('organigrama.ver') && ($request->user()->can('responsables_aprobacion.ver') || $request->user()->can('responsables_aprobacion.administrar')), 403);
 
         return Inertia::render('Administracion/ResponsablesAprobacion/Index', [
             ...$this->responsables->pantalla($request->user()),
-            'puedeEditar' => $request->user()->can('organigrama.editar'),
+            'puedeEditar' => $request->user()->can('responsables_aprobacion.administrar'),
         ]);
     }
 
@@ -44,7 +44,7 @@ class ResponsableAprobacionController extends Controller
 
     public function destroy(Request $request, ResponsableAprobacion $responsable): RedirectResponse
     {
-        abort_unless($request->user()->can('organigrama.editar'), 403);
+        abort_unless($request->user()->can('organigrama.ver') && $request->user()->can('responsables_aprobacion.administrar'), 403);
 
         $datos = $request->validate(['motivo' => ['nullable', 'string', 'max:500']]);
 

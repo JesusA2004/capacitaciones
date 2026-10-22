@@ -55,6 +55,15 @@ class ContratacionController extends Controller
             'documentos' => $this->lista->documentosPorRevisar($usuario, $filtros),
             'filtros' => $filtros,
             'puedeAprobar' => $usuario->can('documentos.aprobar'),
+            // Mismos permisos que EmployeeDocumentPolicy::rechazar (web
+            // documentos.revisar + documentos.rechazar, ya exigido arriba el
+            // primero, o los permisos móviles históricos) y ::pedirCorreccion
+            // (documentos.revisar). Alcance y «nunca el propio» los revalida
+            // la Policy por documento.
+            'puedeRechazar' => $usuario->can('documentos.rechazar')
+                || $usuario->can('rh.expedientes.documentos.rechazar')
+                || $usuario->can('rh.documentos.rechazar'),
+            'puedeSolicitarCorreccion' => $usuario->can('documentos.revisar'),
         ]);
     }
 

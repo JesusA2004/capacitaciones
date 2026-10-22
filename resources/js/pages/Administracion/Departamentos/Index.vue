@@ -25,6 +25,8 @@ import type {
 } from '@/types';
 
 const props = defineProps<{
+    /** Acciones del catálogo por permiso (el backend lo revalida). */
+    puede?: { crear: boolean; editar: boolean; eliminar: boolean };
     departamentos: RespuestaPaginada<DepartamentoItem>;
     filtros: { busqueda?: string };
     estadisticas: EstadisticasActivoInactivo;
@@ -96,7 +98,7 @@ async function eliminar(departamento: DepartamentoItem) {
             descripcion="Organiza a los colaboradores por área de la empresa y agrupa sus puestos. Abre un departamento para ver a su gente o moverla a otro."
             :icono="Building2"
         >
-            <Button @click="abrirCrear">
+            <Button v-if="puede?.crear ?? true" @click="abrirCrear">
                 <Plus class="size-4" />
                 Nuevo departamento
             </Button>
@@ -149,7 +151,11 @@ async function eliminar(departamento: DepartamentoItem) {
                     titulo="Todavía no hay departamentos"
                     descripcion="Crea el primer departamento para empezar a organizar a tus colaboradores."
                 >
-                    <Button size="sm" @click="abrirCrear">
+                    <Button
+                        v-if="puede?.crear ?? true"
+                        size="sm"
+                        @click="abrirCrear"
+                    >
                         <Plus class="size-4" />
                         Crear departamento
                     </Button>
@@ -172,10 +178,13 @@ async function eliminar(departamento: DepartamentoItem) {
                     <DropdownMenuItem @select="abrirDetalle(fila)"
                         >Ver y mover personas</DropdownMenuItem
                     >
-                    <DropdownMenuItem @select="abrirEditar(fila)"
+                    <DropdownMenuItem
+                        v-if="puede?.editar ?? true"
+                        @select="abrirEditar(fila)"
                         >Editar</DropdownMenuItem
                     >
                     <DropdownMenuItem
+                        v-if="puede?.eliminar ?? true"
                         variant="destructive"
                         @select="eliminar(fila)"
                         >Eliminar</DropdownMenuItem
@@ -203,10 +212,13 @@ async function eliminar(departamento: DepartamentoItem) {
                             <DropdownMenuItem @select="abrirDetalle(fila)"
                                 >Ver y mover personas</DropdownMenuItem
                             >
-                            <DropdownMenuItem @select="abrirEditar(fila)"
+                            <DropdownMenuItem
+                                v-if="puede?.editar ?? true"
+                                @select="abrirEditar(fila)"
                                 >Editar</DropdownMenuItem
                             >
                             <DropdownMenuItem
+                                v-if="puede?.eliminar ?? true"
                                 variant="destructive"
                                 @select="eliminar(fila)"
                                 >Eliminar</DropdownMenuItem

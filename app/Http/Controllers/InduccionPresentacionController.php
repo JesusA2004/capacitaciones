@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\Onboarding\AsignacionInduccionService;
 use App\Services\Onboarding\InduccionPdfService;
 use App\Services\Onboarding\MaterialInduccionService;
 use App\Services\Onboarding\SesionInduccionService;
@@ -12,12 +13,14 @@ use Inertia\Response;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
- * «Presentar inducción» (modo operativo, solo RH con onboarding.gestionar):
- * el PDF OFICIAL de la inducción en el visor, p. ej. por Meet, más la sesión
- * de presentación — a quién se la presenta, «Enviar evaluación» y el
- * seguimiento — vía SesionInduccionService. El colaborador nunca presenta:
- * la ve en «Mi espacio» solo durante la sesión que lo incluye
- * (Portal\MiProcesoController::verInduccion).
+ * «Inducción institucional» (modo operativo, solo RH con onboarding.gestionar):
+ * el PDF OFICIAL de la inducción en el visor (p. ej. para presentarla por
+ * Meet), el material de explicación (audio/video), «Asignar inducción» a
+ * todos / personas / sucursales con el estado de cada persona
+ * (AsignacionInduccionService) y «Ver como colaborador». El colaborador la ve
+ * por su cuenta en «Mi espacio» mientras la tiene asignada
+ * (Portal\MiProcesoController::verInduccion). La sesión en vivo quedó tras el
+ * flag legacy (SesionInduccionService).
  */
 class InduccionPresentacionController extends Controller
 {
@@ -25,6 +28,7 @@ class InduccionPresentacionController extends Controller
         private readonly InduccionPdfService $pdf,
         private readonly SesionInduccionService $sesiones,
         private readonly MaterialInduccionService $materiales,
+        private readonly AsignacionInduccionService $asignaciones,
     ) {}
 
     /**
@@ -34,7 +38,9 @@ class InduccionPresentacionController extends Controller
     {
         $usuario = $request->user();
 
-        if (! $this->sesiones->puedeGestionar($usuario)) {
+        // onboarding.gestionar + la acción «Presentar inducción institucional»
+        // (Roles y permisos).
+        if (! $this->sesiones->puedeGestionar($usuario) || ! $usuario->can('onboarding.presentar_induccion')) {
             throw new AuthorizationException('Solo Recursos Humanos presenta la inducción.');
         }
 
@@ -43,15 +49,22 @@ class InduccionPresentacionController extends Controller
         // el colaborador verá solo (audio/video).
         $legacy = (bool) config('features.induccion_sesiones_legacy');
 
+        // Subir / reemplazar / retirar el material exige además
+        // onboarding.configurar (mismo chequeo que MaterialInduccionController).
+        $puedeConfigurarMaterial = $usuario->can('onboarding.configurar');
+
         return Inertia::render('Portal/Induccion', [
             'modoPresentacion' => true,
             'pdf' => $this->pdf->datosVisor(),
             'sesionRh' => $legacy ? $this->sesiones->datosPantalla($usuario) : null,
             'materialRh' => $this->materialRh(),
-            'rutasMaterial' => [
+            'puedeConfigurarMaterial' => $puedeConfigurarMaterial,
+            'rutasMaterial' => $puedeConfigurarMaterial ? [
                 'store' => route('rh.onboarding.induccion.material.store'),
                 'destroy' => route('rh.onboarding.induccion.material.destroy'),
-            ],
+            ] : null,
+            // «Asignar inducción» + estado de cada persona (AsignacionInduccionService).
+            'asignaciones' => $this->asignaciones->panorama($usuario),
         ]);
     }
 
@@ -86,7 +99,7 @@ class InduccionPresentacionController extends Controller
 
     /**
      * El PDF oficial, solo con sesión (nunca una URL pública): RH, o el
-     * colaborador mientras está en la sesión de RH que lo incluye.
+     * colaborador mientras tiene su inducción asignada y por ver.
      */
     public function pdf(Request $request): BinaryFileResponse
     {

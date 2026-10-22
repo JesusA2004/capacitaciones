@@ -13,6 +13,7 @@ use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Colaboradores\BuscadorColaboradoresService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\Calidad\DiagnosticoFuentesService;
 use App\Services\DocumentosMaestros\Calidad\ValidacionVisualMaestroService;
@@ -517,20 +518,13 @@ class DocumentosMaestrosAdminService
      */
     public function buscarColaboradores(User $usuario, string $termino): array
     {
-        // Cada palabra debe aparecer en nombre, apellidos o número de
-        // empleado, sin importar acentos ni mayúsculas ("juan perez"
-        // encuentra a Juan Pérez López). Se compara en PHP con texto plegado
-        // a ASCII: igual en SQLite y MariaDB, sin depender del collation.
-        $palabras = array_slice(preg_split('/\s+/u', Str::lower(Str::ascii(trim($termino))), -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 4);
+        // Buscador único (BuscadorColaboradoresService): cada palabra en
+        // nombre, número, puesto, sucursal o departamento, sin acentos
+        // ("juan cuernavaca" → los Juan de Cuernavaca).
         $candidatos = Colaborador::query()->select(['id', 'name', 'apellidos', 'numero_empleado']);
         $this->alcance->limitarColaboradoresPorAlcance($candidatos, $usuario);
-        $ids = $candidatos->orderBy('name')->orderBy('apellidos')->limit(3000)->get()
-            ->filter(function (Colaborador $c) use ($palabras): bool {
-                $texto = Str::lower(Str::ascii(sprintf('%s %s %s', $c->name, $c->apellidos, $c->numero_empleado)));
-
-                return collect($palabras)->every(fn (string $p): bool => str_contains($texto, $p));
-            })
-            ->take(12)
+        $ids = $candidatos->buscar($termino)->orderBy('name')->orderBy('apellidos')
+            ->limit(BuscadorColaboradoresService::LIMITE_LISTA)
             ->pluck('id')
             ->all();
 

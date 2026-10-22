@@ -32,6 +32,28 @@ class ReciboNominaPolicy
         return $usuario->can('nomina.recibos.ver') && $colaborador !== null && $this->alcance->alcanzaColaboradorEnModulo($usuario, $colaborador, 'recibos');
     }
 
+    /**
+     * Ver / descargar el PDF del recibo (vista previa del borrador o el
+     * emitido): su propio recibo con las mismas reglas de ver(); el de otros,
+     * con nomina.recibos.descargar dentro del alcance.
+     */
+    public function descargar(User $usuario, ReciboNomina $recibo): bool
+    {
+        if ($usuario->colaborador_id !== null && $usuario->colaborador_id === $recibo->colaborador_id) {
+            return $this->ver($usuario, $recibo);
+        }
+
+        return $usuario->can('nomina.recibos.descargar') && $this->ver($usuario, $recibo);
+    }
+
+    /** Emitir un recibo (lo publica y congela su PDF). */
+    public function emitir(User $usuario, ReciboNomina $recibo): bool
+    {
+        $colaborador = $recibo->colaborador()->withTrashed()->first();
+
+        return $usuario->can('nomina.recibos.emitir') && $colaborador !== null && $this->alcance->alcanzaColaborador($usuario, $colaborador);
+    }
+
     public function importar(User $usuario): bool
     {
         return $usuario->can('nomina.recibos.importar');

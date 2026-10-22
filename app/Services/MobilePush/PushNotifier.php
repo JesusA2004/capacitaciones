@@ -6,6 +6,7 @@ use App\Jobs\SendExpoPushJob;
 use App\Models\MobileDevice;
 use App\Models\User;
 use App\Services\Colaboradores\NotificacionesService;
+use App\Services\WebPush\WebPushNotifier;
 use Illuminate\Support\Collection;
 
 /**
@@ -20,6 +21,8 @@ use Illuminate\Support\Collection;
  */
 class PushNotifier
 {
+    public function __construct(private readonly WebPushNotifier $web) {}
+
     /**
      * @param  int  $resourceId  Id del recurso relacionado (solicitud, documento, vacacion, colaborador...). Nunca PII.
      */
@@ -55,7 +58,11 @@ class PushNotifier
             SendExpoPushJob::dispatch($token, $tituloConEmoji, $cuerpo, $data);
         }
 
-        return $tokens->count();
+        // Mismo aviso al navegador (notificación del sistema aunque la
+        // pestaña esté cerrada): lo que llega a la app llega a la web.
+        $navegadores = $this->web->aUsuario($usuario, $tituloConEmoji, $cuerpo, $data);
+
+        return $tokens->count() + $navegadores;
     }
 
     /**

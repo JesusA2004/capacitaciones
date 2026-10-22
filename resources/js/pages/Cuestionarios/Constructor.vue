@@ -2,19 +2,13 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { ChevronDown, ChevronUp, Plus, Trash2 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
@@ -361,40 +355,34 @@ function guardarPreguntas() {
             <div class="mt-4 flex flex-wrap items-end gap-2">
                 <div class="grid gap-2">
                     <Label>Banco</Label>
-                    <Select v-model="bancoElegido">
-                        <SelectTrigger class="w-56">
-                            <SelectValue placeholder="Selecciona un banco" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="banco in bancos"
-                                :key="banco.id"
-                                :value="String(banco.id)"
-                            >
-                                {{ banco.nombre }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <SelectSimple
+                        v-model="bancoElegido"
+                        :opciones="
+                            bancos.map((b) => ({
+                                value: String(b.id),
+                                label: b.nombre,
+                            }))
+                        "
+                        placeholder="Selecciona un banco"
+                        placeholder-busqueda="Buscar banco…"
+                        class="w-56"
+                    />
                 </div>
 
                 <div class="grid gap-2">
                     <Label>Pregunta</Label>
-                    <Select v-model="preguntaElegida">
-                        <SelectTrigger class="w-72">
-                            <SelectValue
-                                placeholder="Selecciona una pregunta"
-                            />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="pregunta in preguntasDelBanco"
-                                :key="pregunta.id"
-                                :value="String(pregunta.id)"
-                            >
-                                {{ pregunta.enunciado }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <SelectSimple
+                        v-model="preguntaElegida"
+                        :opciones="
+                            preguntasDelBanco.map((p) => ({
+                                value: String(p.id),
+                                label: p.enunciado,
+                            }))
+                        "
+                        placeholder="Selecciona una pregunta"
+                        placeholder-busqueda="Buscar pregunta…"
+                        class="w-72"
+                    />
                 </div>
 
                 <Button

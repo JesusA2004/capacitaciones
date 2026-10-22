@@ -173,12 +173,17 @@ class CartaCompromisoService
     }
 
     /**
-     * PDF al expediente + aviso a RH. Ninguno de los dos deshace la carta.
+     * PDF al expediente + aviso a RH + (si la generó otra persona: RH, el
+     * gerente o la regional desde «Cartas compromiso») aviso a quien entra
+     * de que debe firmarla. Ninguno de ellos deshace la carta. Es el paso
+     * común del flujo automático (registro en la app / carta diferida) y del
+     * manual (GestionCartasCompromisoService::generar).
      */
     public function completarGeneracion(CartaCompromiso $carta, User $actor): CartaCompromiso
     {
         $this->asegurarPdf($carta, $actor);
         $this->avisarRh($carta);
+        $this->avisarColaboradorParaFirma($carta, $actor);
 
         return $carta->refresh();
     }
@@ -539,6 +544,43 @@ class CartaCompromisoService
             );
         } catch (Throwable $e) {
             Log::warning('CartaCompromiso: no se pudo avisar a RH.', ['carta_id' => $carta->id, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * La carta la generó alguien más (RH / gerente / regional): quien entra
+     * recibe la tarea de firmarla (web + app). Cuando la genera la propia
+     * persona al cerrar su registro, la app ya se la mostró: no se avisa.
+     */
+    private function avisarColaboradorParaFirma(CartaCompromiso $carta, User $actor): void
+    {
+        try {
+            $colaborador = $carta->colaborador;
+            $usuario = $colaborador?->user;
+
+            if ($colaborador === null || $usuario === null || $usuario->id === $actor->id) {
+                return;
+            }
+
+            $this->eventos->crearPendiente([$usuario], new Aviso(
+                'carta_compromiso_por_firmar',
+                // La app abre su pantalla de incorporación/documentos y la web el portal.
+                'incorporacion',
+                'Firma tu carta compromiso',
+                sprintf(
+                    'Se generó tu carta compromiso %s: te comprometes a entregar %s a más tardar el %s. Fírmala (con tu huella) con tu gerente o con Recursos Humanos.',
+                    (string) $carta->folio,
+                    implode(' y ', array_map(fn (array $d): string => (string) $d['nombre'], $carta->documentos)),
+                    $carta->fecha_limite->copy()->settings(['locale' => 'es'])->isoFormat('D [de] MMMM'),
+                ),
+                $carta,
+                'firmar_carta_compromiso',
+                'alta',
+                ['carta_compromiso_id' => $carta->id],
+                sprintf('carta-firma-%d', $carta->id),
+            ));
+        } catch (Throwable $e) {
+            Log::warning('CartaCompromiso: no se pudo avisar al colaborador que debe firmarla.', ['carta_id' => $carta->id, 'error' => $e->getMessage()]);
         }
     }
 

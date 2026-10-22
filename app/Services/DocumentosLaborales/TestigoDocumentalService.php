@@ -7,7 +7,6 @@ use App\Models\Colaborador;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -37,7 +36,6 @@ class TestigoDocumentalService
      */
     public function buscar(User $actor, ?Colaborador $afectado, string $termino, array $excluir = []): array
     {
-        $palabras = array_slice(preg_split('/\s+/u', Str::lower(Str::ascii(trim($termino))), -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 4);
         $sucursalAfectado = $afectado?->sucursal_principal_id;
         $excluirIds = array_values(array_unique(array_filter(
             [...array_map('intval', $excluir), $afectado?->id],
@@ -49,20 +47,19 @@ class TestigoDocumentalService
             ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre'])
             ->when($excluirIds !== [], fn (Builder $q) => $q->whereNotIn('id', $excluirIds));
 
-        if ($palabras === [] && $sucursalAfectado !== null) {
+        if (trim($termino) === '' && $sucursalAfectado !== null) {
             $consulta->where('sucursal_principal_id', $sucursalAfectado);
         }
 
-        $candidatos = $consulta->orderBy('name')->orderBy('apellidos')->limit(3000)->get();
+        // Buscador único (BuscadorColaboradoresService); los del centro de
+        // trabajo del afectado primero.
+        $candidatos = $consulta->buscar($termino)
+            ->orderByRaw('CASE WHEN sucursal_principal_id = ? THEN 0 ELSE 1 END', [$sucursalAfectado ?? 0])
+            ->orderBy('name')->orderBy('apellidos')
+            ->limit(30)
+            ->get();
 
         return array_values($candidatos
-            ->filter(function (Colaborador $c) use ($palabras): bool {
-                $texto = Str::lower(Str::ascii(sprintf('%s %s %s %s %s', $c->name, $c->apellidos, $c->numero_empleado, $c->puesto?->nombre, $c->sucursalPrincipal?->nombre)));
-
-                return collect($palabras)->every(fn (string $p): bool => str_contains($texto, $p));
-            })
-            ->sortBy(fn (Colaborador $c): int => $c->sucursal_principal_id === $sucursalAfectado ? 0 : 1)
-            ->take(30)
             ->map(fn (Colaborador $c): array => [
                 'id' => $c->id,
                 'nombre' => $c->nombreCompleto(),

@@ -2,38 +2,50 @@
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     ArrowRight,
-    CheckCircle2,
-    Clock,
+    ClipboardCheck,
     Eye,
-    Volume2,
+    GraduationCap,
+    Presentation,
+    Upload,
+    UserPlus,
     Video as VideoIcon,
+    Volume2,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import MaterialInduccionVistaPreviaRh from '@/components/ciclo/MaterialInduccionVistaPreviaRh.vue';
 import PresentacionInduccionRh from '@/components/ciclo/PresentacionInduccionRh.vue';
-import ReproductorVideoInduccion from '@/components/ciclo/ReproductorVideoInduccion.vue';
+import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import VisorPdf from '@/components/documentos/VisorPdf.vue';
-import { postJson } from '@/lib/http';
+import AsignacionesInduccionRh from '@/components/onboarding/AsignacionesInduccionRh.vue';
+import AsignarInduccionDialog from '@/components/onboarding/AsignarInduccionDialog.vue';
+import MiInduccionTarjeta from '@/components/onboarding/MiInduccionTarjeta.vue';
+import VisorInduccionColaborador from '@/components/onboarding/VisorInduccionColaborador.vue';
+import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
 import { miProceso } from '@/routes/portal';
-import { contenido as evaluacionInduccion } from '@/routes/portal/induccion';
-import { vistaPrevia as vistaPreviaEvaluacion } from '@/routes/rh/onboarding/induccion';
+import {
+    vistaColaborador,
+    vistaPrevia as vistaPreviaEvaluacion,
+} from '@/routes/rh/onboarding/induccion';
 import type {
     AccesoInduccionColaborador,
+    FilaAsignacionInduccion,
     MaterialInduccion,
+    MiInduccion,
     SesionInduccionPantalla,
 } from '@/types';
 
 /**
  * Inducción Mr. Lana = el PDF OFICIAL (docs/onboarding), dibujado página por
- * página con pdf.js, más —entre las hojas y la evaluación— un material de
- * explicación (audio XOR video):
- *  - «Presentar inducción» (RH): repaso del PDF + gestión del material que el
- *    colaborador verá solo. (El flujo de «sesión en vivo» quedó tras un flag.)
- *  - «Mi espacio» (colaborador): ve las hojas y el material por su cuenta. Si
- *    el material es VIDEO, su evaluación se desbloquea al verlo completo
- *    (anti-adelanto respaldado por el servidor); si es AUDIO, es narración que
- *    acompaña las hojas y no bloquea nada.
+ * página con pdf.js, más un material de explicación (audio XOR video):
+ *  - «Inducción institucional» (RH, modoPresentacion): a quién está asignada
+ *    y en qué paso va cada persona, «Asignar inducción» (todos / personas /
+ *    sucursal), el contenido (presentación, material, evaluación) y «Ver
+ *    como colaborador». (La sesión en vivo quedó tras un flag legacy.)
+ *  - «Mi espacio» (colaborador): la ve por su cuenta mientras la tiene
+ *    asignada (VisorInduccionColaborador). Si el material es VIDEO, su
+ *    evaluación se desbloquea al verlo completo (anti-adelanto del
+ *    servidor); si es AUDIO, es narración que no bloquea nada.
  */
 const props = defineProps<{
     /** null cuando el colaborador no puede verla todavía / ya no. */
@@ -51,8 +63,14 @@ const props = defineProps<{
     } | null;
     /** RH: endpoints para cargar/retirar material. */
     rutasMaterial?: { store: string; destroy: string } | null;
+    /** RH: si puede subir/retirar material (onboarding.configurar). */
+    puedeConfigurarMaterial?: boolean;
+    /** RH: personas con la inducción asignada y su paso. */
+    asignaciones?: FilaAsignacionInduccion[];
     /** Colaborador: cuándo puede ver la inducción. */
     acceso?: AccesoInduccionColaborador | null;
+    /** Colaborador: pasos y lo que RH le asignó. */
+    miInduccion?: MiInduccion | null;
     /** Colaborador: avance institucional titular. */
     avanceId?: number | null;
     /** Colaborador: material de explicación activo. */
@@ -76,57 +94,40 @@ defineOptions({
         breadcrumbs: pageProps.modoPresentacion
             ? [
                   { title: 'Inicio', href: dashboard() },
-                  { title: 'Presentar inducción', href: '' },
+                  { title: 'Inducción institucional', href: '' },
               ]
             : [
                   { title: 'Inicio', href: dashboard() },
                   { title: 'Mis pendientes', href: miProceso() },
-                  { title: 'Inducción Mr. Lana', href: '' },
+                  { title: 'Mi inducción', href: '' },
               ],
     }),
 });
 
-const muestraVisor = computed(() => {
-    if (props.pdf === null) {
-        return false;
-    }
+const puedeVer = computed(
+    () =>
+        !props.modoPresentacion &&
+        props.pdf !== null &&
+        (props.acceso?.puede_ver_contenido ?? false) &&
+        props.miInduccion,
+);
 
-    if (props.modoPresentacion) {
-        return true;
-    }
+const tipoMaterialRh = computed<'audio' | 'video' | null>(() =>
+    props.materialRh?.tipo === 'audio' || props.materialRh?.tipo === 'video'
+        ? props.materialRh.tipo
+        : null,
+);
 
-    return props.acceso?.puede_ver_contenido ?? false;
-});
+// --- RH: asignar ---
+const dialogo = ref(false);
+const contenidoInicial = ref<'ambos' | 'presentacion' | 'material'>('ambos');
 
-// El video de explicación bloquea la evaluación hasta verse completo.
-const videoListo = ref(props.videoCompletado ?? false);
-const esVideo = computed(() => props.material?.tipo === 'video');
-const esAudio = computed(() => props.material?.tipo === 'audio');
-const puedeTerminar = computed(() => !esVideo.value || videoListo.value);
-
-function registrarPagina(numero: number) {
-    if (props.rutas) {
-        void postJson(props.rutas.pagina, { pagina: numero }).catch(() => {});
-    }
+function abrirAsignar(contenido: 'ambos' | 'presentacion' | 'material') {
+    contenidoInicial.value = contenido;
+    dialogo.value = true;
 }
 
-function registrarAudio(segundos: number) {
-    if (props.rutas) {
-        void postJson(props.rutas.audio_progreso, {
-            posicion_segundos: Math.floor(segundos),
-        }).catch(() => {});
-    }
-}
-
-function alTerminarVideo() {
-    videoListo.value = true;
-}
-
-function terminar() {
-    if (props.rutas && puedeTerminar.value) {
-        router.post(props.rutas.terminar);
-    }
-}
+const repasando = ref(false);
 
 // --- RH: carga de material ---
 const formMaterial = useForm<{ tipo: 'audio' | 'video'; archivo: File | null }>(
@@ -144,228 +145,349 @@ function subirMaterial() {
 }
 
 function retirarMaterial() {
-    if (props.rutasMaterial) {
+    if (
+        props.rutasMaterial &&
+        window.confirm(
+            '¿Retirar el material? Las personas solo verán las hojas.',
+        )
+    ) {
         router.delete(props.rutasMaterial.destroy, { preserveScroll: true });
     }
 }
+
+const ESTADO_RECURSO: Record<string, string> = {
+    disponible: 'Listo para verse',
+    procesando: 'Procesando…',
+    pendiente: 'En cola para procesarse',
+    error: 'Falló el procesamiento: vuelve a subirlo',
+};
 </script>
 
 <template>
     <Head
-        :title="modoPresentacion ? 'Presentar inducción' : 'Inducción Mr. Lana'"
+        :title="modoPresentacion ? 'Inducción institucional' : 'Mi inducción'"
     />
 
-    <!-- RH (legacy): sesión de presentación en vivo. -->
-    <div v-if="sesionRh && !pdf" class="pagina-ancha flex flex-col gap-4 pb-10">
-        <PresentacionInduccionRh :datos="sesionRh" />
+    <!-- ===================== RH: Inducción institucional ===================== -->
+    <div v-if="modoPresentacion" class="pagina-ancha flex flex-col gap-6 pb-10">
+        <CrudPageHeader titulo="Inducción institucional" :icono="GraduationCap">
+            <Button as-child variant="outline" class="w-full sm:w-auto">
+                <Link :href="vistaColaborador.url()"
+                    ><Eye class="size-4" /> Ver como colaborador</Link
+                >
+            </Button>
+            <Button class="w-full sm:w-auto" @click="abrirAsignar('ambos')">
+                <UserPlus class="size-4" /> Asignar inducción
+            </Button>
+        </CrudPageHeader>
+
+        <!-- Explicación en lenguaje llano -->
+        <section
+            class="relative overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br from-crema via-card to-salvia p-5 shadow-sm sm:p-6"
+        >
+            <h1 class="text-xl font-semibold">Inducción Mr. Lana</h1>
+            <p class="mt-1 max-w-3xl text-sm text-pretty text-muted-foreground">
+                Es lo primero que ve cada persona al entrar a Mr. Lana. Se le
+                asigna sola al firmar sus contratos y también puedes asignarla
+                tú (por persona, por sucursal o a todos). La persona la ve en
+                «Mi inducción» —en Mi espacio o en la app—, y al terminar
+                contesta su evaluación FO-RH-EI. Al aprobarla empieza a laborar.
+            </p>
+            <ol class="mt-4 grid gap-2 text-sm sm:grid-cols-4">
+                <li
+                    class="flex items-center gap-2 rounded-2xl bg-card/80 px-3 py-2"
+                >
+                    <Presentation class="size-4 text-primary" /> 1 · Ve la
+                    presentación
+                </li>
+                <li
+                    class="flex items-center gap-2 rounded-2xl bg-card/80 px-3 py-2"
+                >
+                    <VideoIcon class="size-4 text-primary" /> 2 · Ve el video
+                </li>
+                <li
+                    class="flex items-center gap-2 rounded-2xl bg-card/80 px-3 py-2"
+                >
+                    <ClipboardCheck class="size-4 text-primary" /> 3 · Contesta
+                    su evaluación
+                </li>
+                <li
+                    class="flex items-center gap-2 rounded-2xl bg-card/80 px-3 py-2"
+                >
+                    <GraduationCap class="size-4 text-primary" /> 4 · RH
+                    califica y aprueba
+                </li>
+            </ol>
+        </section>
+
+        <!-- Legacy: sesión en vivo -->
+        <PresentacionInduccionRh
+            v-if="sesionRh"
+            v-model:repasando="repasando"
+            :datos="sesionRh"
+        />
+
+        <AsignacionesInduccionRh
+            :filas="asignaciones ?? []"
+            :material="tipoMaterialRh"
+        />
+
+        <!-- Contenido -->
+        <section
+            class="flex flex-col gap-4"
+            aria-label="Contenido de la inducción"
+        >
+            <div>
+                <h2 class="text-lg font-semibold">Contenido de la inducción</h2>
+                <p class="text-sm text-muted-foreground">
+                    Lo que verá cada persona, en este orden. Puedes asignar cada
+                    parte por separado.
+                </p>
+            </div>
+
+            <div class="grid gap-4 lg:grid-cols-3">
+                <article
+                    class="flex flex-col gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm"
+                >
+                    <div class="flex items-center gap-3">
+                        <span
+                            class="flex size-10 items-center justify-center rounded-2xl bg-salvia text-primary"
+                        >
+                            <Presentation class="size-5" />
+                        </span>
+                        <div>
+                            <h3 class="font-semibold">1 · Presentación</h3>
+                            <p class="text-xs text-muted-foreground">
+                                PDF oficial ·
+                                {{ pdf?.total_paginas ?? 0 }} hojas
+                            </p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-muted-foreground">
+                        La persona avanza hoja por hoja y se guarda cada hoja
+                        vista. También puedes usarla para presentarla por Meet.
+                    </p>
+                    <div class="mt-auto flex flex-wrap gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            @click="repasando = !repasando"
+                        >
+                            <Eye class="size-4" />
+                            {{ repasando ? 'Ocultar' : 'Ver / presentar' }}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            @click="abrirAsignar('presentacion')"
+                        >
+                            <UserPlus class="size-4" /> Asignar solo la
+                            presentación
+                        </Button>
+                    </div>
+                </article>
+
+                <article
+                    class="flex flex-col gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm"
+                >
+                    <div class="flex items-center gap-3">
+                        <span
+                            class="flex size-10 items-center justify-center rounded-2xl bg-crema text-bronce"
+                        >
+                            <Volume2
+                                v-if="materialRh?.tipo === 'audio'"
+                                class="size-5"
+                            />
+                            <VideoIcon v-else class="size-5" />
+                        </span>
+                        <div class="min-w-0">
+                            <h3 class="font-semibold">
+                                2 · Video o audio de explicación
+                            </h3>
+                            <p class="truncate text-xs text-muted-foreground">
+                                <template v-if="materialRh">
+                                    {{ materialRh.tipo_etiqueta }} ·
+                                    {{
+                                        ESTADO_RECURSO[
+                                            materialRh.recurso_estado
+                                        ] ?? materialRh.recurso_estado
+                                    }}
+                                </template>
+                                <template v-else>Sin material cargado</template>
+                            </p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-muted-foreground">
+                        Un video es obligatorio (sin adelantar) y desbloquea la
+                        evaluación; un audio acompaña las hojas. Solo uno activo
+                        a la vez.
+                    </p>
+                    <MaterialInduccionVistaPreviaRh v-if="materialRh" />
+                    <form
+                        v-if="puedeConfigurarMaterial && rutasMaterial"
+                        class="flex flex-col gap-2 rounded-2xl bg-muted/40 p-3"
+                        @submit.prevent="subirMaterial"
+                    >
+                        <label class="flex flex-col gap-1 text-xs font-medium">
+                            {{ materialRh ? 'Reemplazar por' : 'Subir' }}
+                            <select
+                                v-model="formMaterial.tipo"
+                                class="h-9 rounded-lg border border-input bg-card px-2 text-sm"
+                            >
+                                <option value="video">
+                                    Video (obligatorio)
+                                </option>
+                                <option value="audio">Audio (narración)</option>
+                            </select>
+                        </label>
+                        <input
+                            type="file"
+                            class="text-sm file:mr-2 file:rounded-lg file:border-0 file:bg-salvia file:px-3 file:py-1.5 file:text-primary"
+                            :accept="
+                                formMaterial.tipo === 'video'
+                                    ? 'video/*'
+                                    : 'audio/*'
+                            "
+                            aria-label="Archivo de material"
+                            @change="
+                                formMaterial.archivo =
+                                    ($event.target as HTMLInputElement)
+                                        .files?.[0] ?? null
+                            "
+                        />
+                        <p
+                            v-if="formMaterial.errors.archivo"
+                            class="text-xs text-destructive"
+                        >
+                            {{ formMaterial.errors.archivo }}
+                        </p>
+                        <div class="flex flex-wrap gap-2">
+                            <Button
+                                type="submit"
+                                size="sm"
+                                :disabled="
+                                    !formMaterial.archivo ||
+                                    formMaterial.processing
+                                "
+                            >
+                                <Upload class="size-4" /> Subir y activar
+                            </Button>
+                            <Button
+                                v-if="materialRh"
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                @click="retirarMaterial"
+                            >
+                                Retirar
+                            </Button>
+                        </div>
+                    </form>
+                    <Button
+                        v-if="materialRh"
+                        variant="ghost"
+                        size="sm"
+                        class="self-start"
+                        @click="abrirAsignar('material')"
+                    >
+                        <UserPlus class="size-4" /> Asignar solo el
+                        {{ materialRh.tipo === 'audio' ? 'audio' : 'video' }}
+                    </Button>
+                </article>
+
+                <article
+                    class="flex flex-col gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm"
+                >
+                    <div class="flex items-center gap-3">
+                        <span
+                            class="flex size-10 items-center justify-center rounded-2xl bg-info-soft text-info"
+                        >
+                            <ClipboardCheck class="size-5" />
+                        </span>
+                        <div>
+                            <h3 class="font-semibold">
+                                3 · Evaluación FO-RH-EI
+                            </h3>
+                            <p class="text-xs text-muted-foreground">
+                                Se desbloquea al terminar 1 y 2
+                            </p>
+                        </div>
+                    </div>
+                    <p class="text-sm text-muted-foreground">
+                        Las secciones A, B y C se califican solas; los casos
+                        prácticos (D) los calificas en «Calificaciones y
+                        refuerzo».
+                    </p>
+                    <div class="mt-auto flex flex-wrap gap-2">
+                        <Button as-child variant="outline" size="sm">
+                            <Link :href="vistaPreviaEvaluacion()"
+                                ><Eye class="size-4" /> Ver la evaluación</Link
+                            >
+                        </Button>
+                    </div>
+                </article>
+            </div>
+
+            <div
+                v-if="repasando && pdf"
+                class="flex h-[78vh] min-h-[28rem] flex-col rounded-3xl border border-border/60 bg-card p-3 shadow-sm"
+            >
+                <p class="mb-2 px-1 text-xs text-muted-foreground">
+                    Repaso de RH: no se registra avance de nadie.
+                </p>
+                <VisorPdf :url="pdf.url" :titulo="pdf.titulo" />
+            </div>
+        </section>
+
+        <AsignarInduccionDialog
+            v-model:open="dialogo"
+            :material="tipoMaterialRh"
+            :contenido-inicial="contenidoInicial"
+        />
     </div>
 
-    <!-- Colaborador sin contenido visible todavía / ya completado. -->
+    <!-- ===================== Colaborador: Mi inducción ===================== -->
     <div
-        v-else-if="!muestraVisor || !pdf"
+        v-else-if="puedeVer && pdf && miInduccion"
         class="pagina-ancha flex flex-col gap-4 pb-10"
     >
-        <section
-            class="flex flex-col gap-4 rounded-3xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-6"
-        >
-            <div class="flex items-start gap-3">
-                <CheckCircle2
-                    v-if="acceso?.estado === 'completada'"
-                    class="size-8 shrink-0 text-success"
-                />
-                <Clock
-                    v-else
-                    class="size-8 shrink-0 text-[var(--mrl-primary)]"
-                />
-                <div class="min-w-0 flex-1">
-                    <h1 class="text-lg font-semibold text-[var(--mrl-texto)]">
-                        Inducción Mr. Lana
-                    </h1>
-                    <p class="mt-1 text-sm text-[var(--mrl-texto-suave)]">
-                        {{
-                            acceso?.mensaje ??
-                            'Aún no tienes asignada la Inducción Mr. Lana.'
-                        }}
-                    </p>
-                </div>
-            </div>
-            <div class="flex flex-wrap gap-2">
-                <Link
-                    v-if="acceso?.puede_contestar_evaluacion"
-                    :href="evaluacionInduccion.url()"
-                    class="inline-flex w-fit items-center gap-2 rounded-xl bg-[var(--mrl-primary)] px-4 py-2.5 text-sm font-medium text-white transition-all hover:gap-3 hover:bg-[var(--mrl-primary-alt)]"
-                >
-                    Contestar evaluación
-                    <ArrowRight class="size-4" />
-                </Link>
-                <Link
-                    :href="miProceso()"
-                    class="inline-flex w-fit items-center gap-2 rounded-xl border border-[var(--mrl-borde)] px-4 py-2.5 text-sm font-medium text-[var(--mrl-texto)] transition-colors hover:bg-[var(--mrl-fondo)]"
-                >
-                    Ir a Mis pendientes
-                </Link>
-            </div>
-        </section>
+        <header>
+            <h1 class="text-2xl font-semibold tracking-tight">
+                {{
+                    miInduccion.es_reinduccion
+                        ? 'Mi reinducción'
+                        : 'Mi inducción'
+                }}
+                Mr. Lana
+            </h1>
+            <p class="text-sm text-muted-foreground">
+                Tómate tu tiempo: tu avance se guarda solo y puedes continuar
+                después.
+            </p>
+        </header>
+        <VisorInduccionColaborador
+            :pdf="pdf"
+            :induccion="miInduccion"
+            :material="material ?? null"
+            :video-completado="videoCompletado ?? false"
+            :rutas="rutas ?? null"
+        />
     </div>
 
-    <!-- Visor: RH (repaso + material) o colaborador (hojas + material). -->
-    <div v-else class="pagina-ancha flex flex-col gap-3 pb-10">
-        <!-- RH: gestión del material que verá el colaborador. -->
-        <section
-            v-if="modoPresentacion"
-            class="flex flex-col gap-3 rounded-2xl border bg-card p-4"
+    <!-- Colaborador sin contenido visible (sin asignar / evaluación / completada). -->
+    <div v-else class="pagina-ancha flex flex-col gap-4 pb-10">
+        <MiInduccionTarjeta v-if="miInduccion" :induccion="miInduccion" />
+        <p v-else class="text-sm text-muted-foreground">
+            {{
+                acceso?.mensaje ??
+                'Aún no tienes asignada la Inducción Mr. Lana.'
+            }}
+        </p>
+        <Link
+            :href="miProceso()"
+            class="inline-flex w-fit items-center gap-2 rounded-xl border border-border/60 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted/50"
         >
-            <h2 class="text-sm font-semibold text-[var(--mrl-texto)]">
-                Material de explicación de la inducción
-            </h2>
-            <p v-if="materialRh" class="text-sm text-[var(--mrl-texto-suave)]">
-                Activo: <strong>{{ materialRh.tipo_etiqueta }}</strong>
-                <template v-if="materialRh.recurso_nombre">
-                    · {{ materialRh.recurso_nombre }}
-                </template>
-                · {{ materialRh.recurso_estado }}
-            </p>
-            <p v-else class="text-sm text-[var(--mrl-texto-suave)]">
-                No hay material cargado: el colaborador solo verá las hojas.
-            </p>
-            <MaterialInduccionVistaPreviaRh v-if="materialRh" />
-            <Link
-                :href="vistaPreviaEvaluacion()"
-                class="inline-flex w-fit items-center gap-2 text-sm font-medium text-primary underline-offset-4 hover:underline"
-            >
-                <Eye class="size-4" /> Ver evaluación como colaborador
-            </Link>
-
-            <form
-                class="flex flex-wrap items-end gap-3"
-                @submit.prevent="subirMaterial"
-            >
-                <label class="flex flex-col gap-1 text-xs">
-                    <span>Tipo</span>
-                    <select
-                        v-model="formMaterial.tipo"
-                        class="rounded-lg border px-2 py-1.5 text-sm"
-                    >
-                        <option value="video">Video (obligatorio)</option>
-                        <option value="audio">Audio (narración)</option>
-                    </select>
-                </label>
-                <label class="flex flex-col gap-1 text-xs">
-                    <span>Archivo</span>
-                    <input
-                        type="file"
-                        class="text-sm"
-                        :accept="
-                            formMaterial.tipo === 'video'
-                                ? 'video/*'
-                                : 'audio/*'
-                        "
-                        @change="
-                            formMaterial.archivo =
-                                ($event.target as HTMLInputElement)
-                                    .files?.[0] ?? null
-                        "
-                    />
-                </label>
-                <button
-                    type="submit"
-                    class="rounded-lg bg-[var(--mrl-primary)] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50"
-                    :disabled="!formMaterial.archivo || formMaterial.processing"
-                >
-                    Subir y activar
-                </button>
-                <button
-                    v-if="materialRh"
-                    type="button"
-                    class="rounded-lg border px-3 py-1.5 text-sm"
-                    @click="retirarMaterial"
-                >
-                    Retirar
-                </button>
-            </form>
-            <p v-if="formMaterial.errors.archivo" class="text-xs text-danger">
-                {{ formMaterial.errors.archivo }}
-            </p>
-        </section>
-
-        <!-- Hojas del PDF oficial. -->
-        <div class="flex h-[70vh] min-h-[28rem] flex-col">
-            <VisorPdf
-                :url="pdf.url"
-                :titulo="pdf.titulo"
-                @pagina="registrarPagina"
-            />
-        </div>
-
-        <!-- Colaborador: material entre las hojas y la evaluación. -->
-        <template v-if="!modoPresentacion && material && material.tipo">
-            <section
-                v-if="esAudio && material.audio_url"
-                class="flex flex-col gap-2 rounded-2xl border bg-card p-4"
-            >
-                <div
-                    class="flex items-center gap-2 text-sm font-semibold text-[var(--mrl-texto)]"
-                >
-                    <Volume2 class="size-4 text-[var(--mrl-primary)]" />
-                    Narración de la inducción
-                </div>
-                <audio
-                    :src="material.audio_url"
-                    controls
-                    autoplay
-                    controlslist="nodownload"
-                    class="w-full"
-                    @pause="
-                        registrarAudio(
-                            ($event.target as HTMLAudioElement).currentTime,
-                        )
-                    "
-                    @ended="
-                        registrarAudio(
-                            ($event.target as HTMLAudioElement).currentTime,
-                        )
-                    "
-                />
-            </section>
-
-            <section
-                v-else-if="esVideo"
-                class="flex flex-col gap-2 rounded-2xl border bg-card p-4"
-            >
-                <div
-                    class="flex items-center gap-2 text-sm font-semibold text-[var(--mrl-texto)]"
-                >
-                    <VideoIcon class="size-4 text-[var(--mrl-primary)]" />
-                    Video de la inducción (obligatorio)
-                </div>
-                <p class="text-xs text-[var(--mrl-texto-suave)]">
-                    Ve el video completo para desbloquear tu evaluación. No se
-                    puede adelantar.
-                </p>
-                <ReproductorVideoInduccion
-                    v-if="material.video_disponible && rutas"
-                    :iniciar-url="rutas.video_iniciar"
-                    :heartbeat-url="rutas.video_heartbeat"
-                    :completada-inicial="videoCompletado"
-                    @completada="alTerminarVideo"
-                />
-                <p v-else class="text-sm text-[var(--mrl-texto-suave)]">
-                    El video se está procesando. Vuelve en unos minutos.
-                </p>
-            </section>
-        </template>
-
-        <!-- Colaborador: terminar → evaluación. -->
-        <div v-if="!modoPresentacion" class="flex justify-end">
-            <button
-                type="button"
-                class="inline-flex items-center gap-2 rounded-xl bg-[var(--mrl-primary)] px-4 py-2.5 text-sm font-medium text-white transition-all hover:gap-3 hover:bg-[var(--mrl-primary-alt)] disabled:opacity-50"
-                :disabled="!puedeTerminar"
-                @click="terminar"
-            >
-                Terminé la inducción
-                <ArrowRight class="size-4" />
-            </button>
-        </div>
+            Ir a Mis pendientes <ArrowRight class="size-4" />
+        </Link>
     </div>
 </template>

@@ -269,6 +269,8 @@ export type FiniquitoPermisos = {
     puedeCalcular: boolean;
     puedeRevisar: boolean;
     puedeSubirFirmado: boolean;
+    /** Vista previa / generar / descargar PDF (finiquitos.descargar). */
+    puedeDescargar: boolean;
     puedeOmitirRevision: boolean;
     usaFormatoOficial: boolean;
 };
@@ -352,6 +354,7 @@ export type SolicitudInternaItem = {
 /** Acciones de revisión permitidas sobre una solicitud (misma policy que el backend). */
 export type AccionesBandejaSolicitud = {
     revisar: boolean;
+    requerir_correccion: boolean;
     aprobar: boolean;
     rechazar: boolean;
     motivo_bloqueo: string | null;

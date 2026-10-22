@@ -66,6 +66,13 @@ type PreguntaFiltro = {
 };
 
 const props = defineProps<{
+    /** Acciones por permiso (el backend lo revalida). */
+    puede?: {
+        parametros: boolean;
+        puestos: boolean;
+        tipos_documento: boolean;
+        reclutamiento: boolean;
+    };
     parametros: ParametroConfiguracion[];
     puestos: PuestoParametros[];
     tiposDocumento: {
@@ -467,6 +474,7 @@ const error = (clave: string) =>
                     </div>
 
                     <Button
+                        v-if="puede?.puestos ?? true"
                         size="sm"
                         variant="outline"
                         class="min-h-11 self-end sm:min-h-8"
@@ -519,7 +527,7 @@ const error = (clave: string) =>
                         :aria-label="p.etiqueta"
                     />
                     <Button
-                        v-if="p.personalizado"
+                        v-if="p.personalizado && (puede?.parametros ?? true)"
                         type="button"
                         size="sm"
                         variant="ghost"
@@ -550,6 +558,7 @@ const error = (clave: string) =>
             </div>
 
             <Button
+                v-if="puede?.parametros ?? true"
                 type="submit"
                 class="w-fit"
                 :disabled="form.processing || !form.isDirty"
@@ -581,6 +590,7 @@ const error = (clave: string) =>
                         :aria-label="`Vigencia de ${t.nombre}`"
                     />
                     <Button
+                        v-if="puede?.tipos_documento ?? true"
                         size="sm"
                         variant="ghost"
                         @click="guardarVigencia(t)"
@@ -626,6 +636,7 @@ const error = (clave: string) =>
                             No recontratable por defecto
                         </label>
                         <Button
+                            v-if="puede?.reclutamiento ?? true"
                             size="sm"
                             variant="ghost"
                             @click="guardarMotivoRechazo(m)"
@@ -677,7 +688,10 @@ const error = (clave: string) =>
                     />
                     No recontratable por defecto
                 </label>
-                <Button size="sm" @click="crearMotivoRechazo"
+                <Button
+                    v-if="puede?.reclutamiento ?? true"
+                    size="sm"
+                    @click="crearMotivoRechazo"
                     >Agregar motivo</Button
                 >
             </div>
@@ -766,6 +780,7 @@ const error = (clave: string) =>
                             Eliminatoria
                         </label>
                         <Button
+                            v-if="puede?.reclutamiento ?? true"
                             size="sm"
                             variant="ghost"
                             @click="guardarPreguntaFiltro(p)"
@@ -858,7 +873,10 @@ const error = (clave: string) =>
                     <p class="text-xs text-[var(--mrl-texto-suave)]">
                         Puestos (opcional): sin marcar, aplica a todos.
                     </p>
-                    <Button size="sm" @click="crearPreguntaFiltro"
+                    <Button
+                        v-if="puede?.reclutamiento ?? true"
+                        size="sm"
+                        @click="crearPreguntaFiltro"
                         >Agregar pregunta</Button
                     >
                 </div>

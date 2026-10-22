@@ -90,6 +90,7 @@ class SolicitudController extends Controller
                 'limite' => $tablero['limite'],
             ],
             'filtros' => $request->only(self::FILTROS),
+            'puedeExportar' => $usuario->can('exportar', SolicitudInterna::class),
             'tipos' => $this->solicitudes->tiposDisponibles(),
             'opciones' => [
                 'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
@@ -103,7 +104,7 @@ class SolicitudController extends Controller
 
     public function exportarExcel(Request $request): HttpResponse
     {
-        $this->authorize('viewAny', SolicitudInterna::class);
+        $this->authorize('exportar', SolicitudInterna::class);
 
         [$columnas, $filas] = $this->tabla($request);
 
@@ -115,7 +116,7 @@ class SolicitudController extends Controller
 
     public function exportarPdf(Request $request): HttpResponse
     {
-        $this->authorize('viewAny', SolicitudInterna::class);
+        $this->authorize('exportar', SolicitudInterna::class);
 
         [$columnas, $filas] = $this->tabla($request);
 
@@ -152,7 +153,7 @@ class SolicitudController extends Controller
      */
     public function permisoPdf(SolicitudInterna $solicitud): StreamedResponse
     {
-        $this->authorize('view', $solicitud);
+        $this->authorize('descargarFormato', $solicitud);
 
         try {
             return $this->solicitudes->respuestaPermiso($solicitud);
@@ -221,6 +222,8 @@ class SolicitudController extends Controller
             // Botones de revisión: la misma policy que valida cada acción
             // (nunca solo «no es estado final»).
             'puedeRevisar' => $acciones['revisar'],
+            'puedePedirCorreccion' => $acciones['requerir_correccion'],
+            'puedeDescargarFormato' => $request->user()->can('descargarFormato', $solicitud),
             'puedeAprobar' => $acciones['aprobar'],
             // Tendría permiso de aprobar, pero faltan vistos buenos: el botón
             // se ve deshabilitado con este motivo humano.
@@ -294,6 +297,7 @@ class SolicitudController extends Controller
                     : $request->user()->can('editarAjustes', $finiquito)),
                 'puedeRevisar' => ! $esBaja && $finiquito !== null && $request->user()->can('revisar', $finiquito),
                 'puedeSubirFirmado' => ! $esBaja && $finiquito !== null && $request->user()->can('subirFirmado', $finiquito),
+                'puedeDescargar' => $finiquito !== null && $request->user()->can('descargar', $finiquito),
                 'puedeOmitirRevision' => $request->user()->can('solicitudes.bajas.omitir_finiquito'),
                 'usaFormatoOficial' => $this->finiquitos->tieneFormatoOficialConfigurado(),
             ],
@@ -321,7 +325,7 @@ class SolicitudController extends Controller
 
     public function requerirCorreccion(ComentarioSolicitudInternaRequest $request, SolicitudInterna $solicitud): RedirectResponse
     {
-        $this->authorize('revisar', $solicitud);
+        $this->authorize('requerirCorreccion', $solicitud);
 
         $this->solicitudes->requerirCorreccion($solicitud, $request->user(), (string) $request->validated('comentario'));
 
@@ -403,7 +407,8 @@ class SolicitudController extends Controller
         $nuevoEstado = EstadoSolicitudInterna::from($request->validated('estado'));
 
         $habilidad = match ($nuevoEstado) {
-            EstadoSolicitudInterna::EnRevision, EstadoSolicitudInterna::RequiereCorreccion => 'revisar',
+            EstadoSolicitudInterna::EnRevision => 'revisar',
+            EstadoSolicitudInterna::RequiereCorreccion => 'requerirCorreccion',
             EstadoSolicitudInterna::Aprobada => 'aprobar',
             EstadoSolicitudInterna::Rechazada => 'rechazar',
             default => abort(422, 'Ese estado no se puede asignar desde el tablero.'),

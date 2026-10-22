@@ -7,12 +7,15 @@ use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\BuscadorColaboradoresService;
 use App\Services\Documentos\DocumentExtractionService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Incorporacion\IncorporacionService;
 use App\Services\RhMobile\WorkflowService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -45,9 +48,7 @@ class DocumentoController extends Controller
                 : $q->whereIn('colaborador_id', $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query(), $usuario)->pluck('id')))
             ->when($request->string('estado')->toString(), fn ($q, string $estado) => $q->where('status', $estado))
             ->when($request->integer('sucursal_id'), fn ($q, int $id) => $q->whereHas('colaborador', fn ($sub) => $sub->where('sucursal_principal_id', $id)))
-            ->when($request->string('q')->toString(), function ($q, string $busqueda): void {
-                $q->whereHas('colaborador', fn ($sub) => $sub->where('name', 'like', "%{$busqueda}%")->orWhere('numero_empleado', 'like', "%{$busqueda}%"));
-            });
+            ->when($request->string('q')->toString(), fn ($q, string $busqueda) => app(BuscadorColaboradoresService::class)->aplicarPorColumna($q, $busqueda));
 
         $documentos = $query->orderByDesc('created_at')->paginate((int) $request->integer('per_page', 15))->withQueryString();
 
@@ -87,8 +88,47 @@ class DocumentoController extends Controller
                 'acciones_permitidas' => $flujo['acciones_permitidas'],
                 'workflow' => $flujo['workflow'],
                 'historial' => [],
+                // Mismas Policies que la web (EmployeeDocumentPolicy): la app
+                // solo muestra «Guardar en el teléfono» / «Pedir corrección» si
+                // el backend lo permite.
+                'puede_descargar' => $usuario->can('descargar', $documento),
+                'puede_pedir_correccion' => $documento->status->admiteDecisionDeRh() && $usuario->can('pedirCorreccion', $documento),
             ],
         ]);
+    }
+
+    /**
+     * «Guardar en el teléfono» (attachment): misma regla que la descarga web
+     * (EmployeeDocumentPolicy::descargar). Ver/revisar sigue siendo ver().
+     */
+    public function descargar(Request $request, EmployeeDocument $documento): StreamedResponse
+    {
+        $usuario = $request->user();
+        abort_unless($usuario->can('descargar', $documento), $this->puedeVer($usuario, $documento) ? 403 : 404, 'No tienes permiso para descargar este documento.');
+
+        $nombre = $documento->original_name !== '' ? $documento->original_name : sprintf('documento-%d', $documento->id);
+        $ascii = trim(preg_replace('/[^A-Za-z0-9 ._()-]+/', '', Str::ascii($nombre)) ?? '');
+
+        return $this->storage->respuesta($documento->path, [
+            'Content-Type' => $documento->mime ?? 'application/octet-stream',
+            'Content-Disposition' => HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_ATTACHMENT, $nombre, $ascii !== '' ? $ascii : 'documento'),
+        ]);
+    }
+
+    /**
+     * «Pedir corrección» desde la app: mismo servicio y Policy que la web
+     * (Rh\EmployeeDocumentController::solicitarCorreccion).
+     */
+    public function correccion(Request $request, EmployeeDocument $documento): JsonResponse
+    {
+        $usuario = $request->user();
+        abort_unless($usuario->can('pedirCorreccion', $documento), $this->puedeVer($usuario, $documento) ? 403 : 404);
+
+        $datos = $request->validate(['motivo' => ['required', 'string', 'max:500']]);
+
+        $this->incorporacion->solicitarCorreccionDocumento($documento, $usuario, $datos['motivo']);
+
+        return response()->json(['message' => 'Se pidió corrección al colaborador.', 'data' => ['id' => $documento->id, 'estado' => $documento->fresh()?->status->value]]);
     }
 
     /**

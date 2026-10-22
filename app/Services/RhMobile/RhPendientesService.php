@@ -11,6 +11,7 @@ use App\Models\EmployeeDocument;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\BuscadorColaboradoresService;
 use App\Services\Incorporacion\IncorporacionService;
 use App\Services\Solicitudes\SolicitudesService;
 use Illuminate\Database\Eloquent\Builder;
@@ -168,7 +169,13 @@ class RhPendientesService
         $query = $this->aplicarFiltrosComunes($query, $filtros, 'usuario');
 
         if ($busqueda = $filtros['q'] ?? null) {
-            $query->where(fn ($q) => $q->where('folio', 'like', "%{$busqueda}%")->orWhere('motivo', 'like', "%{$busqueda}%"));
+            // Folio, motivo o el colaborador (buscador único, aditivo para la app).
+            $buscador = app(BuscadorColaboradoresService::class);
+            $query->where(function (Builder $q) use ($busqueda, $buscador): void {
+                $q->where('folio', 'like', "%{$busqueda}%")->orWhere('motivo', 'like', "%{$busqueda}%");
+                $buscador->aplicarPorColumna($q, (string) $busqueda, 'colaborador_id', 'or');
+                $buscador->aplicarPorUsuario($q, (string) $busqueda, 'user_id', 'or');
+            });
         }
 
         return $query->orderByDesc('created_at')->limit(self::LIMITE_POR_TIPO)->get()

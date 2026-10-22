@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -37,6 +38,10 @@ const emit = defineEmits<{
 
 const opcionesPuesto = computed(() =>
     props.todosLosPuestos.filter((p) => p.id !== props.puesto.id),
+);
+
+const opcionesPuestoSelect = computed(() =>
+    opcionesPuesto.value.map((p) => ({ value: String(p.id), label: p.nombre })),
 );
 
 const form = useForm({
@@ -136,39 +141,25 @@ function enviar() {
 
                 <div class="grid gap-2">
                     <Label>Puesto superior</Label>
-                    <Select v-model="form.puesto_superior_id">
-                        <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Sin puesto superior" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opcionesPuesto"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                            >
-                                {{ opcion.nombre }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <SelectSimple
+                        v-model="form.puesto_superior_id"
+                        :opciones="opcionesPuestoSelect"
+                        placeholder="Sin puesto superior"
+                        opcion-vacia="Sin puesto superior"
+                        placeholder-busqueda="Buscar puesto…"
+                    />
                     <InputError :message="form.errors.puesto_superior_id" />
                 </div>
 
                 <div class="grid gap-2">
                     <Label>Ruta de crecimiento (puede crecer a)</Label>
-                    <Select v-model="form.puesto_crecimiento_id">
-                        <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Sin ruta definida" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opcionesPuesto"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                            >
-                                {{ opcion.nombre }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <SelectSimple
+                        v-model="form.puesto_crecimiento_id"
+                        :opciones="opcionesPuestoSelect"
+                        placeholder="Sin ruta definida"
+                        opcion-vacia="Sin ruta definida"
+                        placeholder-busqueda="Buscar puesto…"
+                    />
                     <InputError :message="form.errors.puesto_crecimiento_id" />
                 </div>
 

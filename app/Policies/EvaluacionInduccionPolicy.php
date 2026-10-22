@@ -31,9 +31,23 @@ class EvaluacionInduccionPolicy
         return $usuario->colaborador_id !== null && $usuario->colaborador_id === $evaluacion->colaborador_id;
     }
 
+    /** onboarding.gestionar + la acción onboarding.calificar (Roles y permisos). */
     public function calificar(User $usuario, EvaluacionInduccion $evaluacion): bool
     {
         return $usuario->can(OnboardingService::PERMISO_GESTIONAR)
+            && $usuario->can('onboarding.calificar')
+            && $usuario->colaborador_id !== $evaluacion->colaborador_id
+            && $this->alcance->alcanzaColaborador($usuario, $evaluacion->colaborador);
+    }
+
+    /**
+     * PDF FO-RH-EI (lleva la clave de respuestas): onboarding.gestionar + la
+     * acción onboarding.descargar_pdf, con alcance y nunca el propio.
+     */
+    public function descargarPdf(User $usuario, EvaluacionInduccion $evaluacion): bool
+    {
+        return $usuario->can(OnboardingService::PERMISO_GESTIONAR)
+            && $usuario->can('onboarding.descargar_pdf')
             && $usuario->colaborador_id !== $evaluacion->colaborador_id
             && $this->alcance->alcanzaColaborador($usuario, $evaluacion->colaborador);
     }

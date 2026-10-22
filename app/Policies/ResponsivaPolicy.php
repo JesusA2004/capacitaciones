@@ -39,10 +39,31 @@ class ResponsivaPolicy
         return $this->verDe($usuario, $responsiva->colaborador);
     }
 
-    /** Marcar firmada físicamente o registrar la devolución del bien. */
+    /** Marcar firmada físicamente o registrar la devolución (cualquiera de las dos). */
     public function operar(User $usuario, Responsiva $responsiva): bool
     {
-        return $responsiva->estado->vigente() && $this->generar($usuario, $responsiva->colaborador);
+        return $this->registrarFirma($usuario, $responsiva) || $this->registrarDevolucion($usuario, $responsiva);
+    }
+
+    public function registrarFirma(User $usuario, Responsiva $responsiva): bool
+    {
+        return $usuario->can('responsivas.registrar_firma') && $this->vigenteEnAlcance($usuario, $responsiva);
+    }
+
+    public function registrarDevolucion(User $usuario, Responsiva $responsiva): bool
+    {
+        return $usuario->can('responsivas.registrar_devolucion') && $this->vigenteEnAlcance($usuario, $responsiva);
+    }
+
+    /** PDF de la responsiva y escaneo firmado histórico. */
+    public function descargar(User $usuario, Responsiva $responsiva): bool
+    {
+        return $usuario->can('responsivas.descargar') && $this->ver($usuario, $responsiva);
+    }
+
+    private function vigenteEnAlcance(User $usuario, Responsiva $responsiva): bool
+    {
+        return $responsiva->estado->vigente() && $this->alcanza($usuario, $responsiva->colaborador);
     }
 
     /**

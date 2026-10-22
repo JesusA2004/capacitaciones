@@ -32,6 +32,8 @@ import type {
 } from '@/types';
 
 const props = defineProps<{
+    /** Acciones del catálogo por permiso (el backend lo revalida). */
+    puede?: { crear: boolean; editar: boolean; eliminar: boolean };
     empresas: RespuestaPaginada<EmpresaItem>;
     filtros: { busqueda?: string };
     estadisticas: EstadisticasActivoInactivo;
@@ -68,6 +70,10 @@ function abrirCrear() {
 }
 
 function abrirEditar(empresa: EmpresaItem) {
+    if (!(props.puede?.editar ?? true)) {
+        return;
+    }
+
     empresaSeleccionada.value = empresa;
     dialogAbierto.value = true;
 }
@@ -98,7 +104,7 @@ async function eliminar(empresa: EmpresaItem) {
             descripcion="Estructura multiempresa: cada sucursal, colaborador y expediente pertenece a una empresa."
             :icono="Building2"
         >
-            <Button @click="abrirCrear">
+            <Button v-if="puede?.crear ?? true" @click="abrirCrear">
                 <Plus class="size-4" />
                 Nueva empresa
             </Button>
@@ -151,7 +157,11 @@ async function eliminar(empresa: EmpresaItem) {
                     titulo="Todavía no hay empresas"
                     descripcion="Crea la primera empresa para organizar sucursales y colaboradores."
                 >
-                    <Button size="sm" @click="abrirCrear">
+                    <Button
+                        v-if="puede?.crear ?? true"
+                        size="sm"
+                        @click="abrirCrear"
+                    >
                         <Plus class="size-4" />
                         Crear empresa
                     </Button>
@@ -209,10 +219,13 @@ async function eliminar(empresa: EmpresaItem) {
             </template>
             <template #acciones="{ fila }">
                 <CrudActionMenu>
-                    <DropdownMenuItem @select="abrirEditar(fila)"
+                    <DropdownMenuItem
+                        v-if="puede?.editar ?? true"
+                        @select="abrirEditar(fila)"
                         >Editar</DropdownMenuItem
                     >
                     <DropdownMenuItem
+                        v-if="puede?.eliminar ?? true"
                         variant="destructive"
                         @select="eliminar(fila)"
                         >Eliminar</DropdownMenuItem
@@ -237,10 +250,13 @@ async function eliminar(empresa: EmpresaItem) {
                     </span>
                     <template #acciones>
                         <CrudActionMenu>
-                            <DropdownMenuItem @select="abrirEditar(fila)"
+                            <DropdownMenuItem
+                                v-if="puede?.editar ?? true"
+                                @select="abrirEditar(fila)"
                                 >Editar</DropdownMenuItem
                             >
                             <DropdownMenuItem
+                                v-if="puede?.eliminar ?? true"
                                 variant="destructive"
                                 @select="eliminar(fila)"
                                 >Eliminar</DropdownMenuItem

@@ -12,6 +12,8 @@ use App\Services\Actas\ActaPdfService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 /*
 | Actas (cierre 2026-10-15): solo acta administrativa y acta de hechos se
@@ -107,6 +109,12 @@ test('vista previa = PDF real sin guardar nada; el formato no imprime metadata t
     ]);
     $acta->update(['folio' => 'ACT-TEST-1']);
 
+    // El formato del acta es de RH por defecto (actas.descargar); habilitado
+    // por rol en «Roles y permisos», el gerente lo previsualiza y genera.
+    $this->actingAs($this->gerente)->get(route('rh.actas.vista-previa', $acta))->assertForbidden();
+    Role::findByName('gerente_sucursal', 'web')->givePermissionTo('actas.descargar');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+
     $this->actingAs($this->gerente)->get(route('rh.actas.vista-previa', $acta))
         ->assertOk()
         ->assertHeader('Content-Type', 'application/pdf');
@@ -130,6 +138,9 @@ test('sin dos testigos la vista previa explica qué falta', function () {
         'colaborador_id' => $this->sujeto->id, 'tipo' => TipoActa::Hechos, 'estado' => EstadoActa::Borrador,
         'fecha' => now()->toDateString(), 'hechos' => 'Algo pasó.', 'creado_por' => $this->gerente->id, 'testigos' => [],
     ]);
+
+    Role::findByName('gerente_sucursal', 'web')->givePermissionTo('actas.descargar');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     $this->actingAs($this->gerente)->get(route('rh.actas.vista-previa', $acta))->assertStatus(409);
 });

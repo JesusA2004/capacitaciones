@@ -19,17 +19,17 @@ class DepartamentoPolicy
 
     public function create(User $usuario): bool
     {
-        return $usuario->can('departamentos.administrar');
+        return $usuario->can('departamentos.administrar') && $usuario->can('departamentos.crear');
     }
 
     public function update(User $usuario, Departamento $departamento): bool
     {
-        return $usuario->can('departamentos.administrar');
+        return $usuario->can('departamentos.administrar') && $usuario->can('departamentos.editar');
     }
 
     public function delete(User $usuario, Departamento $departamento): bool
     {
-        return $usuario->can('departamentos.administrar');
+        return $usuario->can('departamentos.administrar') && $usuario->can('departamentos.eliminar');
     }
 
     /**
@@ -41,6 +41,6 @@ class DepartamentoPolicy
      */
     public function moverColaboradores(User $usuario, Departamento $departamento): bool
     {
-        return $usuario->can('departamentos.administrar') && $usuario->can('expedientes.editar');
+        return $usuario->can('departamentos.administrar') && $usuario->can('departamentos.mover_colaboradores') && $usuario->can('expedientes.editar');
     }
 }

@@ -10,9 +10,11 @@ use App\Enums\Genero;
 use App\Enums\TipoContratacion;
 use App\Models\Concerns\NombreSinApellidos;
 use App\Models\Concerns\SincronizaDomicilio;
+use App\Services\Colaboradores\BuscadorColaboradoresService;
 use App\Support\NombrePersona;
 use Database\Factories\ColaboradorFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -182,6 +184,18 @@ class Colaborador extends Model
     public function nombreCompleto(): string
     {
         return NombrePersona::completo($this->name, $this->apellidos);
+    }
+
+    /**
+     * Buscador único de colaboradores (nombre, apellidos, número, correo,
+     * puesto, sucursal o departamento; cada palabra AND, sin acentos) —
+     * ver BuscadorColaboradoresService. No toca el alcance ya aplicado.
+     *
+     * @param  Builder<Colaborador>  $query
+     */
+    public function scopeBuscar(Builder $query, ?string $termino): void
+    {
+        app(BuscadorColaboradoresService::class)->aplicar($query, $termino);
     }
 
     public function enPeriodoDePrueba(): bool

@@ -7,6 +7,16 @@ El expediente de un colaborador **no es una tabla propia**: es una vista calcula
 - `documentosVigentes(User $colaborador)`: el documento más reciente (no archivado) de cada tipo.
 - `resumenCompletitud(User $colaborador)`: `{ porcentaje, requeridos_total, requeridos_aprobados, pendientes, rechazados }`, comparando contra `document_types` donde `requerido=true` y `activo=true`.
 
+### Documentos opcionales del checklist (2026-10-22)
+
+Además de los 14 requeridos, el catálogo trae **3 documentos opcionales del checklist** (`document_types.checklist_opcional = true`, `requerido = false`, `aplica_alta = false`): **Pagaré** (`pagare_expediente`), **Carta de antecedentes no penales** (`carta_antecedentes_no_penales`) y **Licencia de conducir** (`licencia_conducir`). Llegan a producción con la migración `2026_10_22_210000_add_checklist_opcional_a_document_types` (idempotente) y también con `DocumentTypeSeeder`.
+
+- **Se ven** en el checklist del expediente (web RH y «Mi expediente») con el chip «Opcional» y se pueden subir o **asignar** desde la división del PDF histórico (`DivisionExpedienteHistoricoService::tiposChecklist()` = scope `DocumentType::delChecklist()`).
+- **Nunca cuentan**: ni en el avance (`ProgresoExpediente`/`resumenCompletitud`), ni como faltante (`estadoDocumental`, `DocumentosPendientesService`), ni en el bloqueo de la app, ni en la carta compromiso, ni en el checklist de incorporación de la API móvil (`IncorporacionService::tiposDocumento`). Todo eso sigue leyendo solo `requerido = true`, así que la API V1 y las APKs instaladas no cambian.
+- Cuando un archivo se sube/asigna, queda en el expediente de **esa** persona y se revisa con el flujo normal (aprobar/rechazar).
+- El pagaré del expediente **no** es el pagaré de préstamos: ese es la plantilla `pagare` (`config/contratos.php`) / maestro `prestamo_pagare`; por eso la clave del tipo es `pagare_expediente`.
+- Para hacer opcional otro tipo basta marcar `checklist_opcional = true` (sin tocar `requerido`).
+
 Como no hay modelo dedicado, tampoco hay una `Policy` de Laravel formal para "expediente": la autorización vive en `App\Services\AlcanceOrganizacionalService::puedeVerExpediente()`/`limitarExpedientesPorAlcance()` (ver `docs/ROLES_PERMISOS_RH.md`), invocada explícitamente desde `Rh\ExpedienteController` con `abort_unless(...)`.
 
 ## Reglas de visibilidad

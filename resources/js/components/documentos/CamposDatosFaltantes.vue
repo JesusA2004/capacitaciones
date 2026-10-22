@@ -1,14 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { columnaDatoFaltante } from '@/lib/datosFaltantes';
 import type { DatoFaltante } from '@/types';
 
@@ -59,22 +53,13 @@ function dondeSeArregla(f: DatoFaltante): string {
             class="flex flex-col gap-1"
         >
             <Label :for="`falta-${f.campo}`">{{ f.etiqueta }}</Label>
-            <Select
+            <SelectSimple
                 v-if="f.control === 'select' && f.opciones?.length"
+                :id="`falta-${f.campo}`"
                 v-model="valores[columnaDatoFaltante(f)]"
-            >
-                <SelectTrigger :id="`falta-${f.campo}`"
-                    ><SelectValue placeholder="Selecciona…"
-                /></SelectTrigger>
-                <SelectContent>
-                    <SelectItem
-                        v-for="o in f.opciones"
-                        :key="o.value"
-                        :value="o.value"
-                        >{{ o.label }}</SelectItem
-                    >
-                </SelectContent>
-            </Select>
+                :opciones="f.opciones"
+                placeholder="Selecciona…"
+            />
             <template v-else>
                 <Input
                     :id="`falta-${f.campo}`"

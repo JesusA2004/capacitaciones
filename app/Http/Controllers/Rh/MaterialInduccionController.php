@@ -161,7 +161,7 @@ class MaterialInduccionController extends Controller
 
     private function exigirPermiso(Request $request): void
     {
-        if (! $request->user()->can(OnboardingService::PERMISO_GESTIONAR)) {
+        if (! $request->user()->can(OnboardingService::PERMISO_GESTIONAR) || ! $request->user()->can('onboarding.configurar')) {
             throw new AuthorizationException('Solo Recursos Humanos gestiona el material de inducción.');
         }
     }

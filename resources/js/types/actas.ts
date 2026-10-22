@@ -175,3 +175,17 @@ export type FormularioCircunstanciada = {
         cierre: { fecha: string; hora: string };
     };
 };
+
+/** Qué puede hacer esta cuenta con el acta (ActaService::permisosDe, misma policy que cada endpoint). */
+export type PermisosActa = {
+    gestionar: boolean;
+    editar: boolean;
+    subir_anexo: boolean;
+    registrar_firma: boolean;
+    registrar_entrega: boolean;
+    seguimiento: boolean;
+    cerrar: boolean;
+    descargar: boolean;
+    descargar_anexo: boolean;
+    generar_documento: boolean;
+};

@@ -124,6 +124,7 @@ require __DIR__.'/ciclo-laboral.php';
 require __DIR__.'/bajas.php';
 require __DIR__.'/documentos-proceso.php';
 require __DIR__.'/contratos.php';
+require __DIR__.'/formularios-evaluacion.php';
 require __DIR__.'/solicitudes.php';
 require __DIR__.'/portal.php';
 require __DIR__.'/alta-publica.php';

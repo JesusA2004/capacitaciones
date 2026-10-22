@@ -110,14 +110,14 @@ class ResponsivaController extends Controller
 
     public function pdf(Responsiva $responsiva): StreamedResponse
     {
-        $this->authorize('ver', $responsiva);
+        $this->authorize('descargar', $responsiva);
 
         return $this->responsivas->respuestaPdf($responsiva);
     }
 
     public function firmada(Responsiva $responsiva): StreamedResponse
     {
-        $this->authorize('ver', $responsiva);
+        $this->authorize('descargar', $responsiva);
 
         return $this->responsivas->respuestaPdf($responsiva, firmada: true);
     }
@@ -129,7 +129,7 @@ class ResponsivaController extends Controller
      */
     public function marcarFirmadaFisicamente(Request $request, Responsiva $responsiva): JsonResponse
     {
-        $this->authorize('operar', $responsiva);
+        $this->authorize('registrarFirma', $responsiva);
 
         $responsiva = $this->responsivas->marcarFirmadaFisicamente($responsiva, $request->user());
 
@@ -141,7 +141,7 @@ class ResponsivaController extends Controller
 
     public function devolucion(Request $request, Responsiva $responsiva): JsonResponse
     {
-        $this->authorize('operar', $responsiva);
+        $this->authorize('registrarDevolucion', $responsiva);
         $datos = $request->validate([
             'devuelta_en' => ['required', 'date', 'before_or_equal:today'],
             'observaciones' => ['nullable', 'string', 'max:2000'],

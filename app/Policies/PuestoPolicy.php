@@ -26,16 +26,27 @@ class PuestoPolicy
 
     public function create(User $usuario): bool
     {
-        return $usuario->can('puestos.administrar');
+        return $usuario->can('puestos.administrar') && $usuario->can('puestos.crear');
     }
 
+    /** Catálogo de puestos: editar nombre, departamento, periodo de prueba. */
     public function update(User $usuario, Puesto $puesto): bool
     {
-        return $usuario->can('puestos.administrar') || $usuario->can('organigrama.editar');
+        return $usuario->can('puestos.administrar') && $usuario->can('puestos.editar');
+    }
+
+    /**
+     * Organigrama: a quién reporta el puesto, tipo, respaldos y puestos que
+     * puede cubrir. Lo edita quien edita el organigrama o quien edita el
+     * catálogo de puestos (como antes de separar los permisos).
+     */
+    public function editarJerarquia(User $usuario, Puesto $puesto): bool
+    {
+        return ($usuario->can('organigrama.ver') && $usuario->can('organigrama.editar')) || $this->update($usuario, $puesto);
     }
 
     public function delete(User $usuario, Puesto $puesto): bool
     {
-        return $usuario->can('puestos.administrar');
+        return $usuario->can('puestos.administrar') && $usuario->can('puestos.eliminar');
     }
 }

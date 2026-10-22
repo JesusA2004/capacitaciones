@@ -48,7 +48,7 @@ class IncorporacionController extends Controller
         $query = $this->alcance->limitarColaboradoresPorAlcance($query, $usuario);
 
         if ($busqueda = $request->string('q')->toString()) {
-            $query->where(fn ($q) => $q->where('name', 'like', "%{$busqueda}%")->orWhere('numero_empleado', 'like', "%{$busqueda}%"));
+            $query->buscar($busqueda);
         }
 
         $candidatos = $query->orderByDesc('created_at')->get();

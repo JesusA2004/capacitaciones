@@ -35,8 +35,11 @@ class DescriptivoPuestoColaboradorController extends Controller
     public function acusar(Request $request, AcuseDescriptivoPuesto $acuse): JsonResponse
     {
         $comentario = $request->input('comentario');
+        // `conformidad` («Estoy de acuerdo con…») es opcional/aditivo: las
+        // apps instaladas solo mandan `comentario`.
+        $conformidad = $request->has('conformidad') ? (is_string($request->input('conformidad')) ? $request->input('conformidad') : '') : null;
 
-        $acuse = $this->acuses->acusar($acuse, $request->user(), $request->boolean('enterado'), is_string($comentario) ? $comentario : '');
+        $acuse = $this->acuses->acusar($acuse, $request->user(), $request->boolean('enterado'), is_string($comentario) ? $comentario : '', $conformidad);
 
         return response()->json(['data' => $this->acuses->aArray($acuse, true)]);
     }

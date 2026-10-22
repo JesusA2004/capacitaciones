@@ -7,6 +7,7 @@ use App\Enums\EstadoEntregaActivo;
 use App\Enums\EstadoOnboarding;
 use App\Enums\PrioridadTarea;
 use App\Enums\TipoModuloOnboarding;
+use App\Enums\TipoProcesoOnboarding;
 use App\Enums\TipoTarea;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
@@ -87,6 +88,7 @@ class OnboardingService
     public function panoramaInduccionPuesto(User $usuario, array $filtros = []): LengthAwarePaginator
     {
         $query = OnboardingProceso::query()
+            ->deIngreso()
             ->where('estado', '!=', EstadoOnboarding::Cancelado->value)
             ->with([
                 'colaborador:id,name,apellidos,numero_empleado,puesto_id,sucursal_principal_id,jefe_id,gerente_id',
@@ -520,6 +522,12 @@ class OnboardingService
         $this->auditoria->registrar('onboarding_completado', $proceso, $actor, ['colaborador_id' => $proceso->colaborador_id]);
         $this->sincronizarPendientes($proceso);
 
+        // Una reinducción (personal ya activo) se cierra sin tocar su alta:
+        // nunca se recalcula la contratación ni se vuelve a activar a nadie.
+        if ($proceso->esReinduccion()) {
+            return $proceso->refresh();
+        }
+
         $colaborador = $proceso->colaborador->refresh();
         $altas = app(AltaColaboradorService::class);
         $altas->recalcularEstado($colaborador, $actor);
@@ -579,6 +587,11 @@ class OnboardingService
             $bloqueos[] = sprintf('Faltan módulos de inducción por aprobar: %s.', $pendientes->map(fn (OnboardingAvance $a) => $a->modulo->titulo)->implode(', '));
         }
 
+        // La reinducción solo es la Inducción Mr. Lana: no entrega activos.
+        if ($proceso->esReinduccion()) {
+            return $bloqueos;
+        }
+
         $entregados = $proceso->entregas->pluck('tipo_activo_id')->all();
         $faltantes = $this->activosRequeridos($proceso->colaborador)->reject(fn (TipoActivo $t) => in_array($t->id, $entregados, true));
 
@@ -610,9 +623,81 @@ class OnboardingService
             ->toBase();
     }
 
+    /**
+     * El onboarding de INGRESO más reciente (el que cuenta para el ciclo
+     * laboral y la contratación). Las reinducciones asignadas por RH no
+     * entran aquí: su inducción la resuelve
+     * AccesoInduccionColaboradorService::procesoInduccion().
+     */
     public function procesoActual(Colaborador $colaborador): ?OnboardingProceso
     {
-        return OnboardingProceso::query()->where('colaborador_id', $colaborador->id)->latest('id')->first();
+        return OnboardingProceso::query()->deIngreso()->where('colaborador_id', $colaborador->id)->latest('id')->first();
+    }
+
+    /**
+     * Abre una REINDUCCIÓN (AsignacionInduccionService): un proceso con solo
+     * los módulos institucionales con evaluación formal (la Inducción Mr.
+     * Lana), sin contrato ni reingreso y sin ocupar colaborador_abierto_id
+     * (ese candado es del onboarding de ingreso: una reinducción nunca debe
+     * impedir que se abra uno). Al cerrarse no activa a nadie (completar()).
+     *
+     * @throws ValidationException sin módulo institucional configurado
+     */
+    public function iniciarReinduccion(Colaborador $colaborador, User $actor): OnboardingProceso
+    {
+        $modulos = OnboardingModulo::query()
+            ->where('activo', true)
+            ->where('tipo', TipoModuloOnboarding::Institucional->value)
+            ->whereNotNull('evaluacion_formal_clave')
+            ->orderBy('orden')
+            ->orderBy('id')
+            ->get();
+
+        if ($modulos->isEmpty()) {
+            throw ValidationException::withMessages(['colaborador_ids' => 'No hay un módulo de Inducción Mr. Lana activo. Revísalo en «Inducción institucional».']);
+        }
+
+        $proceso = DB::transaction(function () use ($colaborador, $modulos): OnboardingProceso {
+            $proceso = OnboardingProceso::query()->create([
+                'colaborador_id' => $colaborador->id,
+                'tipo' => TipoProcesoOnboarding::Reinduccion,
+                'estado' => EstadoOnboarding::InduccionInstitucional,
+                'iniciado_en' => now(),
+            ]);
+
+            foreach ($modulos->values() as $indice => $modulo) {
+                OnboardingAvance::query()->create([
+                    'onboarding_proceso_id' => $proceso->id,
+                    'onboarding_modulo_id' => $modulo->id,
+                    'tipo' => $modulo->tipo,
+                    'orden' => $indice + 1,
+                    'estado' => EstadoAvanceOnboarding::Disponible,
+                ]);
+            }
+
+            return $proceso;
+        });
+
+        $this->auditoria->registrar('reinduccion_iniciada', $proceso, $actor, ['colaborador_id' => $colaborador->id]);
+
+        return $proceso->refresh();
+    }
+
+    /**
+     * Cancela una reinducción que aún no se aprueba (RH retiró la
+     * asignación). El historial se conserva; solo cierra sus pendientes.
+     */
+    public function cancelarReinduccion(OnboardingProceso $proceso, User $actor): OnboardingProceso
+    {
+        if (! $proceso->esReinduccion()) {
+            throw ValidationException::withMessages(['colaborador' => 'Solo una reinducción se puede cancelar desde aquí.']);
+        }
+
+        $proceso->update(['estado' => EstadoOnboarding::Cancelado, 'colaborador_abierto_id' => null]);
+        $this->auditoria->registrar('reinduccion_cancelada', $proceso, $actor, ['colaborador_id' => $proceso->colaborador_id]);
+        $this->sincronizarPendientes($proceso->refresh());
+
+        return $proceso;
     }
 
     /**
@@ -964,7 +1049,7 @@ class OnboardingService
                 }
             }
 
-            if ($proceso->estado === EstadoOnboarding::EntregaActivos) {
+            if ($proceso->estado === EstadoOnboarding::EntregaActivos && ! $proceso->esReinduccion()) {
                 $jefe = $colaborador->jefe?->user;
                 $tarea = $this->tareas->abrir(TipoTarea::OnboardingEntregaActivos, $proceso, [
                     'titulo' => sprintf('Entregar activos y responsivas: %s', $colaborador->nombreCompleto()),

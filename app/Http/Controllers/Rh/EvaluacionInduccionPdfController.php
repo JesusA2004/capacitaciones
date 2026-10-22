@@ -24,7 +24,7 @@ class EvaluacionInduccionPdfController extends Controller
     public function vistaPrevia(EvaluacionInduccionIntento $intento): Response
     {
         $intento->loadMissing('evaluacion');
-        $this->authorize('calificar', $intento->evaluacion);
+        $this->authorize('descargarPdf', $intento->evaluacion);
 
         return $this->pdf->vistaPrevia($intento);
     }
@@ -32,7 +32,7 @@ class EvaluacionInduccionPdfController extends Controller
     public function descargar(EvaluacionInduccionIntento $intento): Response
     {
         $intento->loadMissing('evaluacion');
-        $this->authorize('calificar', $intento->evaluacion);
+        $this->authorize('descargarPdf', $intento->evaluacion);
 
         return $this->pdf->descargar($intento);
     }
@@ -40,7 +40,7 @@ class EvaluacionInduccionPdfController extends Controller
     public function guardarEnExpediente(Request $request, EvaluacionInduccionIntento $intento): RedirectResponse
     {
         $intento->loadMissing('evaluacion');
-        $this->authorize('calificar', $intento->evaluacion);
+        $this->authorize('descargarPdf', $intento->evaluacion);
 
         try {
             $this->pdf->guardarEnExpediente($intento, $request->user());

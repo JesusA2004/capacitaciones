@@ -23,6 +23,7 @@ import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 import { claseForma, estatusBaja } from '@/lib/bajas';
 import { formatearFecha } from '@/lib/fechas';
 import { cn } from '@/lib/utils';
@@ -87,6 +88,7 @@ function filtrar() {
     router.get(
         rutasBajas.index.url(),
         {
+            ...parametrosPorPaginaActuales(),
             busqueda: termino.value || undefined,
             estatus: estatusElegido.value || undefined,
             sucursal_id: sucursal.value ?? undefined,
@@ -194,7 +196,10 @@ function avance(b: FilaBaja): string {
                 <Label class="mb-1.5 text-xs text-muted-foreground"
                     >Buscar</Label
                 >
-                <Input v-model="termino" placeholder="Nombre, número o folio" />
+                <Input
+                    v-model="termino"
+                    placeholder="Nombre, número, folio, puesto o sucursal"
+                />
             </div>
             <div>
                 <Label class="mb-1.5 text-xs text-muted-foreground"

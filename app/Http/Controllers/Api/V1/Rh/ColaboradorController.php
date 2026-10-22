@@ -27,11 +27,8 @@ class ColaboradorController extends Controller
 
         $query = Colaborador::query()
             ->with(['sucursalPrincipal:id,nombre', 'departamento:id,nombre', 'puesto:id,nombre'])
-            ->when($request->string('q')->toString(), function ($q, string $busqueda): void {
-                $q->where(fn ($sub) => $sub->where('name', 'like', "%{$busqueda}%")
-                    ->orWhere('apellidos', 'like', "%{$busqueda}%")
-                    ->orWhere('numero_empleado', 'like', "%{$busqueda}%"));
-            })
+            // Buscador único (nombre, número, puesto, sucursal…), aditivo para la app.
+            ->when($request->string('q')->toString(), fn ($q, string $busqueda) => $q->buscar($busqueda))
             ->when($request->integer('sucursal_id'), fn ($q, int $id) => $q->where('sucursal_principal_id', $id))
             ->when($request->integer('departamento_id'), fn ($q, int $id) => $q->where('departamento_id', $id))
             ->when($request->string('estatus')->toString(), fn ($q, string $estatus) => $q->where('estatus', $estatus));

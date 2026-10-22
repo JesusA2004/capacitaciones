@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -12,13 +13,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { store, update } from '@/routes/administracion/sucursales';
 import type { OpcionSimple, SucursalItem } from '@/types';
@@ -87,20 +81,17 @@ function enviar() {
             <form class="grid gap-4" @submit.prevent="enviar">
                 <div class="grid gap-2">
                     <Label>Empresa</Label>
-                    <Select v-model="form.empresa_id">
-                        <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Selecciona una empresa" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in empresasDisponibles"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                            >
-                                {{ opcion.nombre }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <SelectSimple
+                        v-model="form.empresa_id"
+                        :opciones="
+                            empresasDisponibles.map((o) => ({
+                                value: String(o.id),
+                                label: o.nombre,
+                            }))
+                        "
+                        placeholder="Selecciona una empresa"
+                        placeholder-busqueda="Buscar empresa…"
+                    />
                     <InputError :message="form.errors.empresa_id" />
                 </div>
 
@@ -173,20 +164,21 @@ function enviar() {
 
                 <div class="grid gap-2">
                     <Label>Responsable de sucursal</Label>
-                    <Select v-model="form.responsable_id">
-                        <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Sin asignar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in responsablesDisponibles"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                            >
-                                {{ opcion.name }} {{ opcion.apellidos }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <SelectSimple
+                        v-model="form.responsable_id"
+                        :opciones="
+                            responsablesDisponibles.map((o) => ({
+                                value: String(o.id),
+                                label: [o.name, o.apellidos]
+                                    .filter(Boolean)
+                                    .join(' '),
+                            }))
+                        "
+                        placeholder="Sin asignar"
+                        opcion-vacia="Sin asignar"
+                        placeholder-busqueda="Buscar colaborador…"
+                        buscable
+                    />
                     <InputError :message="form.errors.responsable_id" />
                 </div>
 

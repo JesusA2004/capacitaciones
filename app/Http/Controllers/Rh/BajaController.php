@@ -138,7 +138,7 @@ class BajaController extends Controller
      */
     public function previaFiniquito(GuardarBajaRequest $request): HttpResponse
     {
-        $this->authorize('create', Baja::class);
+        $this->authorize('vistaPreviaFiniquito', Baja::class);
 
         return response($this->bajas->vistaPreviaFiniquito($request->datos(), $request->user()), 200, [
             'Content-Type' => 'application/pdf',
@@ -164,7 +164,7 @@ class BajaController extends Controller
 
     public function enviarJuridico(Request $request, Baja $baja): RedirectResponse
     {
-        $this->authorize('gestionar', $baja);
+        $this->authorize('enviarJuridico', $baja);
         $this->bajas->enviarJuridico($baja, $request->user());
 
         return $this->ok('Baja enviada a Jurídico.');
@@ -188,7 +188,7 @@ class BajaController extends Controller
 
     public function cambiarCausal(MotivoBajaRequest $request, Baja $baja): RedirectResponse
     {
-        $this->authorize('gestionar', $baja);
+        $this->authorize('cambiarCausal', $baja);
         $this->bajas->cambiarCausal($baja, $request->user(), (int) $request->validated('causal_rotacion_id'), $request->motivo());
 
         return $this->ok('Causal corregida; el cambio quedó en la bitácora.');
@@ -196,7 +196,7 @@ class BajaController extends Controller
 
     public function actualizar(ActualizarBajaRhRequest $request, Baja $baja): RedirectResponse
     {
-        $this->authorize('gestionar', $baja);
+        $this->authorize('editar', $baja);
         $this->bajas->actualizarPorRh($baja, $request->user(), $request->datos());
 
         return $this->ok('Datos de la baja actualizados.');
@@ -204,7 +204,7 @@ class BajaController extends Controller
 
     public function cerrar(Request $request, Baja $baja): RedirectResponse
     {
-        $this->authorize('gestionar', $baja);
+        $this->authorize('cerrar', $baja);
         $this->bajas->cerrar($baja, $request->user());
 
         return $this->ok('Baja cerrada: la persona quedó inactiva y su acceso bloqueado.');
@@ -212,7 +212,7 @@ class BajaController extends Controller
 
     public function reabrir(MotivoBajaRequest $request, Baja $baja): RedirectResponse
     {
-        $this->authorize('gestionar', $baja);
+        $this->authorize('reabrir', $baja);
         $this->bajas->reabrir($baja, $request->user(), $request->motivo());
 
         return $this->ok('Baja reabierta (motivo en la bitácora).');
@@ -220,7 +220,7 @@ class BajaController extends Controller
 
     public function cancelar(MotivoBajaRequest $request, Baja $baja): RedirectResponse
     {
-        $this->authorize('gestionar', $baja);
+        $this->authorize('cancelar', $baja);
         $this->bajas->cancelar($baja, $request->user(), $request->motivo());
 
         return $this->ok('La baja quedó como «No procede».');

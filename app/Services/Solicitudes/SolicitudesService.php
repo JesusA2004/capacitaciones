@@ -18,6 +18,7 @@ use App\Models\SolicitudInternaDocumento;
 use App\Models\User;
 use App\Notifications\Mobile\RhSolicitudCreadaNotification;
 use App\Notifications\Mobile\SolicitudActualizadaNotification;
+use App\Services\Colaboradores\BuscadorColaboradoresService;
 use App\Services\Configuracion\WorkflowRoutingService;
 use App\Services\Expedientes\ActualizacionDatosService;
 use App\Services\Expedientes\CorreccionesService;
@@ -469,10 +470,15 @@ class SolicitudesService
             ->when($filtros['revisado_por'] ?? null, fn (Builder $q, string $v) => $q->where('revisado_por', $v))
             ->when($filtros['fecha_inicio'] ?? null, fn (Builder $q, string $v) => $q->whereDate('created_at', '>=', $v))
             ->when($filtros['fecha_fin'] ?? null, fn (Builder $q, string $v) => $q->whereDate('created_at', '<=', $v))
+            // Folio, motivo o el colaborador (buscador único: nombre,
+            // número, puesto, sucursal… — «cuernavaca» trae las de esa sucursal).
             ->when($filtros['busqueda'] ?? null, function (Builder $q, string $busqueda): void {
-                $q->where(function (Builder $sub) use ($busqueda): void {
+                $buscador = app(BuscadorColaboradoresService::class);
+                $q->where(function (Builder $sub) use ($busqueda, $buscador): void {
                     $sub->where('folio', 'like', "%{$busqueda}%")
                         ->orWhere('motivo', 'like', "%{$busqueda}%");
+                    $buscador->aplicarPorColumna($sub, $busqueda, 'colaborador_id', 'or');
+                    $buscador->aplicarPorUsuario($sub, $busqueda, 'user_id', 'or');
                 });
             });
     }
@@ -573,16 +579,16 @@ class SolicitudesService
      * (estado final, baja gestionada en el Cierre laboral). La UI solo
      * muestra/oculta; el backend vuelve a validar al ejecutar.
      *
-     * @return array{revisar: bool, aprobar: bool, rechazar: bool, motivo_bloqueo: ?string}
+     * @return array{revisar: bool, requerir_correccion: bool, aprobar: bool, rechazar: bool, motivo_bloqueo: ?string}
      */
     public function accionesBandeja(User $usuario, SolicitudInterna $solicitud): array
     {
         if ($solicitud->tipo === TipoSolicitudInterna::BajaColaborador) {
-            return ['revisar' => false, 'aprobar' => false, 'rechazar' => false, 'motivo_bloqueo' => self::MENSAJE_BAJA_EN_CIERRE];
+            return ['revisar' => false, 'requerir_correccion' => false, 'aprobar' => false, 'rechazar' => false, 'motivo_bloqueo' => self::MENSAJE_BAJA_EN_CIERRE];
         }
 
         if ($solicitud->estado->esFinal()) {
-            return ['revisar' => false, 'aprobar' => false, 'rechazar' => false, 'motivo_bloqueo' => null];
+            return ['revisar' => false, 'requerir_correccion' => false, 'aprobar' => false, 'rechazar' => false, 'motivo_bloqueo' => null];
         }
 
         $gate = Gate::forUser($usuario);
@@ -600,6 +606,7 @@ class SolicitudesService
 
         return [
             'revisar' => $gate->allows('revisar', $solicitud),
+            'requerir_correccion' => $gate->allows('requerirCorreccion', $solicitud),
             'aprobar' => $aprobar,
             'rechazar' => $gate->allows('rechazar', $solicitud),
             'motivo_bloqueo' => $motivo,

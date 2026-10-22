@@ -149,7 +149,7 @@ function fechaCorta(valor: string | null): string {
 
         <CrudToolbar
             :model-value="filtros.busqueda"
-            placeholder="Buscar por nombre o número de empleado..."
+            placeholder="Buscar por nombre, número, puesto o sucursal..."
             @update:model-value="
                 (valor) => {
                     filtros.busqueda = valor;

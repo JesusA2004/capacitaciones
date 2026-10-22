@@ -2,6 +2,7 @@
 import { Head } from '@inertiajs/vue3';
 import { Bell, Check, CheckCheck } from '@lucide/vue';
 import { ref } from 'vue';
+import ActivarNotificacionesEscritorio from '@/components/ActivarNotificacionesEscritorio.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import { useNotificaciones } from '@/composables/useNotificaciones';
@@ -74,6 +75,8 @@ async function marcarTodas() {
                 Marcar todas como leídas
             </Button>
         </CrudPageHeader>
+
+        <ActivarNotificacionesEscritorio />
 
         <div
             v-if="!lista.length"

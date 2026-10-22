@@ -69,7 +69,7 @@ class CierreLaboralController extends Controller
 
     public function aviso(ArchivoLaboralRequest $request, CierreLaboral $cierre): JsonResponse
     {
-        $this->authorize('operar', $cierre);
+        $this->authorize('subirAviso', $cierre);
         $archivo = $request->file('archivo');
         abort_unless($archivo instanceof UploadedFile, 422);
 
@@ -78,7 +78,7 @@ class CierreLaboralController extends Controller
 
     public function generarAviso(Request $request, CierreLaboral $cierre): JsonResponse
     {
-        $this->authorize('gestionar', $cierre);
+        $this->authorize('generarAviso', $cierre);
 
         return response()->json(['data' => $this->documentos->aArray($this->cierres->generarAviso($cierre, $request->user()), true)], 201);
     }
@@ -145,7 +145,7 @@ class CierreLaboralController extends Controller
 
     public function generarFiniquito(Request $request, CierreLaboral $cierre): JsonResponse
     {
-        $this->authorize('calcularFiniquito', $cierre);
+        $this->authorize('descargarFiniquito', $cierre);
 
         $finiquito = $this->finiquitos->generarPdf($this->cierres->exigirFiniquito($cierre), $request->user());
 
@@ -210,7 +210,7 @@ class CierreLaboralController extends Controller
 
     public function cancelar(DecisionRequest $request, CierreLaboral $cierre): JsonResponse
     {
-        $this->authorize('gestionar', $cierre);
+        $this->authorize('cancelar', $cierre);
         $request->validate(['motivo' => ['required']]);
 
         return $this->respuesta($request, $this->cierres->cancelar($cierre, $request->user(), (string) $request->validated('motivo')));

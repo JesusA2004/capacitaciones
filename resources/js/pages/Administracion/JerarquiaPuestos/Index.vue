@@ -19,6 +19,7 @@ import OrganigramaLaminas from '@/components/Administracion/OrganigramaLaminas.v
 import OrganigramaPersona from '@/components/Administracion/OrganigramaPersona.vue';
 import OrganigramaPersonasArbol from '@/components/Administracion/OrganigramaPersonasArbol.vue';
 import OrganigramaPersonasLista from '@/components/Administracion/OrganigramaPersonasLista.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import OrganigramaEditable from '@/components/Organigrama/OrganigramaEditable.vue';
@@ -95,6 +96,12 @@ const props = defineProps<{
     secciones: SeccionOrganigrama[];
     laminas: LaminasOrganigrama;
     regiones: RegionOrganigrama[];
+    /** Cada acción del organigrama con su permiso (el backend lo revalida). */
+    permisosOrganigrama?: {
+        cubrir: boolean;
+        mover: boolean;
+        editarJerarquia: boolean;
+    };
 }>();
 
 // Corporativo, Dirección Comercial y Sucursal se ven como las láminas del
@@ -356,12 +363,25 @@ const dialogoSubordinadoAbierto = ref(false);
 const puestoParaSubordinado = ref<PuestoJerarquiaItem | null>(null);
 const tabActiva = ref('detalle');
 
+// Editar jerarquía (organigrama.editar o puestos.editar); sin el dato, como antes.
+const puedeEditarJerarquia = computed(
+    () => props.permisosOrganigrama?.editarJerarquia ?? true,
+);
+
 function abrirAgregarSubordinado(puesto: PuestoJerarquiaItem) {
+    if (!puedeEditarJerarquia.value) {
+        return;
+    }
+
     puestoParaSubordinado.value = puesto;
     dialogoSubordinadoAbierto.value = true;
 }
 
 async function quitarRelacion(puesto: PuestoJerarquiaItem) {
+    if (!puedeEditarJerarquia.value) {
+        return;
+    }
+
     const confirmado = await confirmarDesvinculacion(`«${puesto.nombre}»`);
 
     if (!confirmado) {
@@ -390,6 +410,10 @@ function seleccionar(puesto: PuestoJerarquiaItem) {
 }
 
 function abrirEdicion(puesto?: PuestoJerarquiaItem) {
+    if (!puedeEditarJerarquia.value) {
+        return;
+    }
+
     if (puesto) {
         puestoSeleccionado.value = puesto;
     }
@@ -499,66 +523,54 @@ watch(
             >
                 <div class="grid gap-2">
                     <Label>Empresa</Label>
-                    <Select
+                    <SelectSimple
                         :model-value="filtros.empresa_id"
+                        :opciones="
+                            opciones.empresas.map((o) => ({
+                                value: String(o.id),
+                                label: o.nombre,
+                            }))
+                        "
+                        placeholder="Todas las empresas"
+                        opcion-vacia="Todas las empresas"
                         @update:model-value="
                             (v) => (filtros.empresa_id = String(v ?? ''))
                         "
-                    >
-                        <SelectTrigger
-                            ><SelectValue placeholder="Todas las empresas"
-                        /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.empresas"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
+                    />
                 </div>
                 <div class="grid gap-2">
                     <Label>Sucursal</Label>
-                    <Select
+                    <SelectSimple
                         :model-value="filtros.sucursal_id"
+                        :opciones="
+                            opciones.sucursales.map((o) => ({
+                                value: String(o.id),
+                                label: o.nombre,
+                            }))
+                        "
+                        placeholder="Todas las sucursales"
+                        opcion-vacia="Todas las sucursales"
                         @update:model-value="
                             (v) => (filtros.sucursal_id = String(v ?? ''))
                         "
-                    >
-                        <SelectTrigger
-                            ><SelectValue placeholder="Todas las sucursales"
-                        /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.sucursales"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
+                    />
                 </div>
                 <div class="grid gap-2">
                     <Label>Departamento</Label>
-                    <Select
+                    <SelectSimple
                         :model-value="filtros.departamento_id"
+                        :opciones="
+                            opciones.departamentos.map((o) => ({
+                                value: String(o.id),
+                                label: o.nombre,
+                            }))
+                        "
+                        placeholder="Todos los departamentos"
+                        opcion-vacia="Todos los departamentos"
                         @update:model-value="
                             (v) => (filtros.departamento_id = String(v ?? ''))
                         "
-                    >
-                        <SelectTrigger
-                            ><SelectValue placeholder="Todos los departamentos"
-                        /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.departamentos"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
+                    />
                 </div>
                 <div class="grid gap-2">
                     <Label>Tipo de puesto</Label>
@@ -656,7 +668,16 @@ watch(
             <OrganigramaEditable
                 :nodos="personas"
                 :regiones="regiones"
-                :puede-editar="coberturas.puedeEditar"
+                :puede-editar="
+                    coberturas.puedeEditar ||
+                    (permisosOrganigrama?.mover ?? false)
+                "
+                :puede-cubrir="
+                    permisosOrganigrama?.cubrir ?? coberturas.puedeEditar
+                "
+                :puede-mover="
+                    permisosOrganigrama?.mover ?? coberturas.puedeEditar
+                "
                 :candidatos="coberturas.colaboradores"
             />
         </div>
@@ -809,7 +830,12 @@ watch(
             </SheetHeader>
 
             <div class="flex flex-col gap-4 px-4 pb-4">
-                <Button class="w-fit" size="sm" @click="abrirEdicion()">
+                <Button
+                    v-if="puedeEditarJerarquia"
+                    class="w-fit"
+                    size="sm"
+                    @click="abrirEdicion()"
+                >
                     <Pencil class="size-4" />
                     Editar jerarquía
                 </Button>

@@ -3,8 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Services\Notificaciones\NotificationFeedService;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Endpoint JSON minimo (no Inertia) para la campana de notificaciones del
@@ -38,6 +42,34 @@ class NotificacionController extends Controller
     public function abrir(Request $request, string $notificacion): JsonResponse
     {
         return response()->json($this->feed->abrir($request->user(), $notificacion));
+    }
+
+    /**
+     * Clic en la notificación del sistema (Web Push, public/sw.js): mismo
+     * efecto que el clic en la campana, pero como navegación normal.
+     */
+    public function ir(Request $request, string $notificacion): RedirectResponse
+    {
+        try {
+            $destino = $this->feed->abrir($request->user(), $notificacion);
+        } catch (ModelNotFoundException|ValidationException) {
+            return $this->centro($request);
+        }
+
+        return is_string($destino['url'] ?? null) && $destino['url'] !== ''
+            ? redirect()->to($destino['url'])
+            : $this->centro($request);
+    }
+
+    /**
+     * Destino de un aviso sin pantalla propia: «Mis notificaciones» para quien
+     * tiene Mi espacio; el tablero (con la campana) para cuentas solo operativas.
+     */
+    public function centro(Request $request): RedirectResponse
+    {
+        return Gate::forUser($request->user())->allows('modo-colaborador')
+            ? redirect()->route('portal.notificaciones')
+            : redirect()->route('dashboard');
     }
 
     public function marcarTodasLeidas(Request $request): JsonResponse

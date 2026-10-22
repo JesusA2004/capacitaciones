@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Models\Colaborador;
 use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\User;
 use App\Policies\Concerns\ConSuperAdminOperativo;
@@ -44,6 +45,36 @@ class EvaluacionPeriodoPruebaPolicy
         return $usuario->can('evaluaciones.autorizar')
             && $usuario->colaborador_id !== $evaluacion->colaborador_id
             && $this->alcance->alcanzaColaborador($usuario, $evaluacion->colaborador);
+    }
+
+    /** Devolver al jefe para corrección: autorizar + la acción evaluaciones.devolver. */
+    public function devolver(User $usuario, EvaluacionPeriodoPrueba $evaluacion): bool
+    {
+        return $this->autorizar($usuario, $evaluacion) && $usuario->can('evaluaciones.devolver');
+    }
+
+    /**
+     * PDF para firma (vista previa o descarga): quien la ve; el evaluador
+     * siempre puede imprimir la suya, los demás necesitan además la acción
+     * evaluaciones.descargar.
+     */
+    public function descargar(User $usuario, EvaluacionPeriodoPrueba $evaluacion): bool
+    {
+        return $this->ver($usuario, $evaluacion)
+            && ($this->esEvaluador($usuario, $evaluacion) || $usuario->can('evaluaciones.descargar'));
+    }
+
+    /**
+     * «Asignar evaluación» antes de que el scheduler la abra sola: RH (quien
+     * autoriza) con alcance sobre el colaborador; nunca la suya propia.
+     * Uso: Gate::allows('asignar', [EvaluacionPeriodoPrueba::class, $colaborador]).
+     */
+    public function asignar(User $usuario, Colaborador $colaborador): bool
+    {
+        return $usuario->can('evaluaciones.autorizar')
+            && $usuario->can('evaluaciones.asignar')
+            && $usuario->colaborador_id !== $colaborador->id
+            && $this->alcance->alcanzaColaborador($usuario, $colaborador);
     }
 
     /**

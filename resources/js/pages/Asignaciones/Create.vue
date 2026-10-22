@@ -4,19 +4,13 @@ import { Plus } from '@lucide/vue';
 import { ref } from 'vue';
 import DestinoSelector from '@/components/Asignaciones/DestinoSelector.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import Heading from '@/components/Heading.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { useAlertas } from '@/composables/useAlertas';
 import { postJson } from '@/lib/http';
@@ -136,20 +130,17 @@ async function enviar() {
 
             <div class="grid gap-2">
                 <Label>Curso</Label>
-                <Select v-model="form.curso_id">
-                    <SelectTrigger class="w-full"
-                        ><SelectValue placeholder="Selecciona un curso"
-                    /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="curso in cursosDisponibles"
-                            :key="curso.id"
-                            :value="String(curso.id)"
-                        >
-                            {{ curso.titulo }}
-                        </SelectItem>
-                    </SelectContent>
-                </Select>
+                <SelectSimple
+                    v-model="form.curso_id"
+                    :opciones="
+                        cursosDisponibles.map((c) => ({
+                            value: String(c.id),
+                            label: c.titulo,
+                        }))
+                    "
+                    placeholder="Selecciona un curso"
+                    placeholder-busqueda="Buscar curso…"
+                />
                 <InputError :message="form.errors.curso_id" />
             </div>
 

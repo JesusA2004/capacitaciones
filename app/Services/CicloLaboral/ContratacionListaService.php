@@ -11,6 +11,7 @@ use App\Models\EmployeeDocument;
 use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\BuscadorColaboradoresService;
 use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Support\Paginacion;
@@ -199,6 +200,10 @@ class ContratacionListaService
                 'puesto' => $colaborador->puesto?->nombre,
             ],
             'tipo' => $documento->tipo->nombre,
+            // Nombre y mime del archivo: el visor centrado de la bandeja
+            // decide con ellos si lo dibuja como PDF o como imagen.
+            'archivo' => $documento->original_name,
+            'mime' => $documento->mime,
             'version' => $documento->version,
             'estado' => $documento->status->value,
             'estado_etiqueta' => $documento->status->etiqueta(),
@@ -206,8 +211,9 @@ class ContratacionListaService
                 ? trim(sprintf('%s %s', $documento->subidoPor->name, $documento->subidoPor->apellidos))
                 : null,
             'cargado_en' => $documento->created_at?->toIso8601String(),
-            // La extracción y la vista completa del documento viven en el
-            // expediente; aquí se enlaza, no se duplica.
+            // La extracción y la vista completa del expediente viven en el
+            // expediente; aquí se enlaza, no se duplica. El documento en sí
+            // se revisa en el visor centrado con descargar_url (inline).
             'expediente_url' => sprintf('/rh/expedientes/%d', $colaborador->id),
             'descargar_url' => sprintf('/rh/documentos/%d/descargar', $documento->id),
             'aprobar_url' => sprintf('/rh/documentos/%d/aprobar', $documento->id),
@@ -310,11 +316,7 @@ class ContratacionListaService
         $sucursalId = isset($filtros['sucursal_id']) ? (int) $filtros['sucursal_id'] : 0;
 
         $query
-            ->when($busqueda !== '', fn (Builder $sub) => $sub->where(function (Builder $q) use ($busqueda): void {
-                $q->where('name', 'like', "%{$busqueda}%")
-                    ->orWhere('apellidos', 'like', "%{$busqueda}%")
-                    ->orWhere('numero_empleado', 'like', "%{$busqueda}%");
-            }))
+            ->when($busqueda !== '', fn (Builder $sub) => $sub->buscar($busqueda))
             ->when($sucursalId > 0, fn (Builder $sub) => $sub->where('sucursal_principal_id', $sucursalId));
     }
 
@@ -328,11 +330,7 @@ class ContratacionListaService
         $sucursalId = isset($filtros['sucursal_id']) ? (int) $filtros['sucursal_id'] : 0;
 
         $query
-            ->when($busqueda !== '', fn (Builder $sub) => $sub->whereHas('colaborador', function (Builder $q) use ($busqueda): void {
-                $q->where('name', 'like', "%{$busqueda}%")
-                    ->orWhere('apellidos', 'like', "%{$busqueda}%")
-                    ->orWhere('numero_empleado', 'like', "%{$busqueda}%");
-            }))
+            ->when($busqueda !== '', fn (Builder $sub) => app(BuscadorColaboradoresService::class)->aplicarPorColumna($sub, $busqueda))
             ->when($sucursalId > 0, fn (Builder $sub) => $sub->whereHas('colaborador', fn (Builder $q) => $q->where('sucursal_principal_id', $sucursalId)));
     }
 

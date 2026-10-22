@@ -49,7 +49,7 @@ class DivisionExpedienteHistoricoController extends Controller
                 'expediente_url' => route('rh.expedientes.show', $colaborador->id),
             ],
             'detalle' => $this->division->detalle($colaborador),
-            'tiposChecklist' => $this->division->tiposChecklist()->map(fn (DocumentType $t): array => ['id' => $t->id, 'nombre' => $t->nombre])->values()->all(),
+            'tiposChecklist' => $this->division->tiposChecklist()->map(fn (DocumentType $t): array => ['id' => $t->id, 'nombre' => $t->nombre, 'clave' => $t->clave, 'requerido' => $t->requerido])->values()->all(),
             'permisos' => [
                 'dividir' => $usuario->can('rh.documentos.extraccion.reprocesar'),
                 'asignar' => $usuario->can('expedientes.editar'),
@@ -80,7 +80,8 @@ class DivisionExpedienteHistoricoController extends Controller
     {
         $usuario = $this->exigir($request, $parte->division->colaborador, 'expedientes.editar');
         $datos = $request->validate([
-            'document_type_id' => ['required', 'integer', Rule::exists('document_types', 'id')->where('requerido', true)->where('activo', true)],
+            // Requeridos u opcionales del checklist; el Service vuelve a validar.
+            'document_type_id' => ['required', 'integer', Rule::exists('document_types', 'id')->where('activo', true)],
         ]);
 
         $tipo = DocumentType::query()->where('id', (int) $datos['document_type_id'])->firstOrFail();

@@ -104,7 +104,7 @@ class ConfiguracionController extends Controller
     {
         $datos = $request->validate(['clave' => ['required', 'string']]);
         $grupo = (string) ($this->configuracion->catalogo()[$datos['clave']]['grupo'] ?? '');
-        $this->exigir($request, $grupo === 'apariencia' ? 'configuracion.apariencia' : 'configuracion.rh');
+        $this->exigir($request, ...($grupo === 'apariencia' ? ['configuracion.apariencia'] : ['configuracion.rh', 'configuracion.rh.editar_parametros']));
         $this->configuracion->restaurar($datos['clave'], $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Valor de fábrica restaurado.']);
@@ -120,12 +120,13 @@ class ConfiguracionController extends Controller
             'permisos' => Permission::query()->orderBy('name')->pluck('name'),
             'usuarios' => User::query()->whereNull('acceso_bloqueado_en')->orderBy('name')->get(['id', 'name', 'email'])->map(fn (User $u) => ['id' => $u->id, 'nombre' => $u->name, 'email' => $u->email]),
             'secciones' => $this->secciones($request->user()),
+            'puede' => $this->accionesConfiguracion($request->user()),
         ]);
     }
 
     public function guardarNotificacion(Request $request, string $evento): RedirectResponse
     {
-        $this->exigir($request, 'configuracion.notificaciones');
+        $this->exigir($request, 'configuracion.notificaciones', 'configuracion.notificaciones.editar');
         $datos = $request->validate([
             'destinatarios' => ['present', 'array'],
             'destinatarios.*' => ['string'],
@@ -153,7 +154,7 @@ class ConfiguracionController extends Controller
 
     public function restaurarNotificacion(Request $request, string $evento): RedirectResponse
     {
-        $this->exigir($request, 'configuracion.notificaciones');
+        $this->exigir($request, 'configuracion.notificaciones', 'configuracion.notificaciones.editar');
         $this->routing->restaurarRegla($evento, $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Regla de notificación restaurada a la de fábrica.']);
@@ -191,12 +192,13 @@ class ConfiguracionController extends Controller
             // Variante de documentos jurídicos (contratos) que le toca al puesto.
             'gruposDocumentales' => array_map(fn (string $valor, string $etiqueta): array => ['value' => $valor, 'etiqueta' => $etiqueta], array_keys((array) config('documentos_maestros.grupos', [])), array_values((array) config('documentos_maestros.grupos', []))),
             'secciones' => $this->secciones($request->user()),
+            'puede' => $this->accionesConfiguracion($request->user()),
         ]);
     }
 
     public function guardarParametrosRh(Request $request): RedirectResponse
     {
-        $this->exigir($request, 'configuracion.rh');
+        $this->exigir($request, 'configuracion.rh', 'configuracion.rh.editar_parametros');
         $datos = $request->validate(['valores' => ['required', 'array']]);
         $this->configuracion->guardar('rh', $datos['valores'], $request->user());
 
@@ -205,7 +207,7 @@ class ConfiguracionController extends Controller
 
     public function guardarPuesto(Request $request, Puesto $puesto): RedirectResponse
     {
-        $this->exigir($request, 'configuracion.rh');
+        $this->exigir($request, 'configuracion.rh', 'configuracion.rh.puestos');
         $datos = $request->validate([
             'meses_periodo_prueba' => ['nullable', 'integer', 'min:1', 'max:12'],
             'grupo_indicador' => ['nullable', 'string', Rule::enum(GrupoPuestoIndicador::class)],
@@ -223,7 +225,7 @@ class ConfiguracionController extends Controller
 
     public function guardarTipoDocumento(Request $request, DocumentType $tipoDocumento): RedirectResponse
     {
-        $this->exigir($request, 'configuracion.rh');
+        $this->exigir($request, 'configuracion.rh', 'configuracion.rh.tipos_documento');
         $datos = $request->validate(['vigencia_meses' => ['nullable', 'integer', 'min:1', 'max:120']]);
 
         $this->configuracion->actualizarVigenciaDocumento($tipoDocumento, isset($datos['vigencia_meses']) ? (int) $datos['vigencia_meses'] : null, $request->user());
@@ -259,9 +261,39 @@ class ConfiguracionController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Pregunta de filtro actualizada.']);
     }
 
-    private function exigir(Request $request, string $permiso): void
+    /**
+     * Acceso al módulo + TODOS los permisos indicados (la sección y, para
+     * guardar, la acción: config/permisos_modulos.php → configuracion).
+     */
+    private function exigir(Request $request, string ...$permisos): void
     {
-        abort_unless($request->user()->can('configuracion.ver') && $request->user()->can($permiso), 403);
+        $usuario = $request->user();
+        $permitido = $usuario->can('configuracion.ver');
+
+        foreach ($permisos as $permiso) {
+            $permitido = $permitido && $usuario->can($permiso);
+        }
+
+        abort_unless($permitido, 403);
+    }
+
+    /**
+     * Qué puede cambiar en Parámetros de RH / Notificaciones (la pantalla
+     * oculta lo que no; el backend lo vuelve a exigir).
+     *
+     * @return array<string, bool>
+     */
+    private function accionesConfiguracion(User $usuario): array
+    {
+        $rh = $usuario->can('configuracion.ver') && $usuario->can('configuracion.rh');
+
+        return [
+            'parametros' => $rh && $usuario->can('configuracion.rh.editar_parametros'),
+            'puestos' => $rh && $usuario->can('configuracion.rh.puestos'),
+            'tipos_documento' => $rh && $usuario->can('configuracion.rh.tipos_documento'),
+            'reclutamiento' => $rh && $usuario->can('configuracion.rh.reclutamiento'),
+            'notificaciones' => $usuario->can('configuracion.ver') && $usuario->can('configuracion.notificaciones') && $usuario->can('configuracion.notificaciones.editar'),
+        ];
     }
 
     /**

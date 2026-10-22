@@ -56,6 +56,7 @@ import {
     solicitar,
     useDocumentosMaestros,
 } from '@/composables/useDocumentosMaestros';
+import { usePermisos } from '@/composables/usePermisos';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import {
@@ -87,6 +88,13 @@ const props = defineProps<{
     procesos: Record<string, string>;
     claves: { value: string; label: string }[];
 }>();
+
+// Cada acción de Documentos maestros con su permiso (el backend lo revalida).
+const { tienePermiso } = usePermisos();
+const puede = {
+    cargar: tienePermiso('documentos_maestros.cargar'),
+    validar: tienePermiso('documentos_maestros.validar'),
+};
 
 defineOptions({
     layout: {
@@ -370,7 +378,7 @@ async function crearFormato() {
                     </template>
                 </p>
             </div>
-            <Button @click="abrirNuevo"
+            <Button v-if="puede.cargar" @click="abrirNuevo"
                 ><FilePlus2 class="size-4" /> Nuevo formato</Button
             >
             <DropdownMenu>
@@ -392,12 +400,14 @@ async function crearFormato() {
                     >
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
+                        v-if="puede.validar"
                         :disabled="revalidando"
                         @click="revalidarPendientes"
                         ><RefreshCw class="size-4" /> Revalidar
                         pendientes</DropdownMenuItem
                     >
                     <DropdownMenuItem
+                        v-if="puede.validar"
                         :disabled="revisandoFuentes"
                         @click="revisarFuentes"
                         ><Type class="size-4" /> Revisar

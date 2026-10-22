@@ -12,6 +12,7 @@ import {
 import { computed, reactive, watch } from 'vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
+import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import { index } from '@/routes/rh/pendientes';
@@ -100,7 +101,7 @@ const filtros = reactive({
 watch(filtros, () => {
     router.get(
         index.url(),
-        { ...filtros },
+        { ...parametrosPorPaginaActuales(), ...filtros },
         { preserveState: true, preserveScroll: true, replace: true },
     );
 });

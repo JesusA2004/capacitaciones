@@ -4,6 +4,7 @@ namespace App\Services\Mobile;
 
 use App\Enums\EstadoUsuario;
 use App\Models\User;
+use App\Policies\GeneratedDocumentPolicy;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Colaboradores\FotoColaboradorService;
@@ -175,6 +176,18 @@ class MobileBootstrapService
             'acciones' => [
                 'ver_candidatos' => $usuario->can('candidatos.ver'),
                 'evaluar_candidatos' => $usuario->can('candidatos.evaluar'),
+                // Acciones específicas (aditivas; el general candidatos.evaluar
+                // las cubre). La ficha del candidato trae además sus
+                // acciones_permitidas por estado.
+                'aprobar_entrevista' => $usuario->can('candidatos.evaluar') || $usuario->can('candidatos.aprobar_entrevista'),
+                'revisar_psicometricas' => $usuario->can('candidatos.evaluar') || $usuario->can('candidatos.revisar_psicometricas'),
+                'revisar_socioeconomico' => $usuario->can('candidatos.evaluar') || $usuario->can('candidatos.revisar_socioeconomico'),
+                // Contratos: ver/descargar/generar el contrato vs. solo subir el firmado.
+                'ver_contratos' => GeneratedDocumentPolicy::puedeVerContratos($usuario),
+                'descargar_contratos' => GeneratedDocumentPolicy::puedeDescargarContratos($usuario),
+                'generar_contratos' => $usuario->can('documentos_laborales.generar') || $usuario->can('contratos.generar'),
+                'subir_contrato_firmado' => $usuario->can('contratos.subir_firmado') || ($usuario->can('documentos.subir') && $usuario->can('contratos.ver')),
+                'descargar_documentos_expediente' => $usuario->can('documentos.descargar'),
                 'preautorizar' => $usuario->can(OrganizacionJerarquiaService::PERMISO_PREAUTORIZAR),
                 'autorizar_rh' => $usuario->can(OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH),
                 'entregar_activos' => $usuario->can('onboarding.entregar_activos'),

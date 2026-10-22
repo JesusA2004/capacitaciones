@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -11,13 +12,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { store } from '@/routes/administracion/usuarios';
 
@@ -29,6 +23,8 @@ const props = defineProps<{
     /** El catálogo se carga al abrir el diálogo (recarga parcial). */
     cargando?: boolean;
     rolesDisponibles: string[];
+    /** usuarios.asignar_roles: sin él, la cuenta se crea sin roles. */
+    puedeAsignarRoles?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -77,22 +73,20 @@ function enviar() {
             <form class="grid gap-4" @submit.prevent="enviar">
                 <div class="grid gap-2">
                     <Label>Colaborador</Label>
-                    <Select v-model="form.colaborador_id">
-                        <SelectTrigger class="w-full">
-                            <SelectValue
-                                placeholder="Selecciona un colaborador sin cuenta"
-                            />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in props.colaboradoresSinCuenta"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                            >
-                                {{ opcion.name }} {{ opcion.apellidos }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <SelectSimple
+                        v-model="form.colaborador_id"
+                        :opciones="
+                            props.colaboradoresSinCuenta.map((o) => ({
+                                value: String(o.id),
+                                label: [o.name, o.apellidos]
+                                    .filter(Boolean)
+                                    .join(' '),
+                            }))
+                        "
+                        placeholder="Selecciona un colaborador sin cuenta"
+                        placeholder-busqueda="Buscar colaborador…"
+                        buscable
+                    />
                     <InputError :message="form.errors.colaborador_id" />
                     <p
                         v-if="props.cargando"
@@ -114,7 +108,7 @@ function enviar() {
                     cuenta se generan sus credenciales para copiarlas.
                 </p>
 
-                <div class="grid gap-2">
+                <div v-if="puedeAsignarRoles !== false" class="grid gap-2">
                     <Label>Roles</Label>
                     <div
                         class="grid max-h-40 grid-cols-2 gap-2 overflow-y-auto rounded-lg border p-2"

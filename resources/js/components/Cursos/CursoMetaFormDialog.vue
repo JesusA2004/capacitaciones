@@ -2,18 +2,12 @@
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import {
     Sheet,
     SheetContent,
@@ -180,20 +174,21 @@ function enviar() {
 
                 <div class="grid gap-2">
                     <Label>Responsable</Label>
-                    <Select v-model="form.responsable_id">
-                        <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Sin asignar" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in responsablesDisponibles"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                            >
-                                {{ opcion.name }} {{ opcion.apellidos }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <SelectSimple
+                        v-model="form.responsable_id"
+                        :opciones="
+                            responsablesDisponibles.map((o) => ({
+                                value: String(o.id),
+                                label: [o.name, o.apellidos]
+                                    .filter(Boolean)
+                                    .join(' '),
+                            }))
+                        "
+                        placeholder="Sin asignar"
+                        opcion-vacia="Sin asignar"
+                        placeholder-busqueda="Buscar colaborador…"
+                        buscable
+                    />
                 </div>
 
                 <div v-if="opcionesRequisitos.length" class="grid gap-2">

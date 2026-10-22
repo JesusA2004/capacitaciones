@@ -71,8 +71,8 @@ class IdentidadColaboradorService
                     ->orWhere('curp', $mayusculas)
                     ->orWhere('rfc', $mayusculas)
                     ->orWhere('nss', $termino)
-                    ->orWhere('name', 'like', '%'.$termino.'%')
-                    ->orWhere('apellidos', 'like', '%'.$termino.'%');
+                    // Buscador único: nombre, número, puesto, sucursal…
+                    ->orWhere(fn ($sub) => $sub->buscar($termino));
             })
             ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre'])
             ->orderBy('name')

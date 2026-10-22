@@ -23,7 +23,10 @@ class RolResource extends JsonResource
             // hidratar modelos Permission.
             'permisos' => $this->resource->getAttribute('permisos_nombres') ?? $this->permissions->pluck('name'),
             'usuarios_count' => $this->whenCounted('users'),
+            // super_admin: bloqueado como «todo» (no se edita ni se elimina).
             'es_protegido' => $this->name === 'super_admin',
+            // Rol del seeder: no se renombra ni se elimina; sus permisos sí.
+            'es_del_sistema' => (bool) ($this->resource->getAttribute('es_del_sistema') ?? false),
         ];
     }
 }

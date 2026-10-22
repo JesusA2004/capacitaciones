@@ -61,6 +61,9 @@ class ReingresoService
 
     public const PERMISO_SOLICITAR = 'reingresos.solicitar';
 
+    // Decidir (viable / no viable): permiso propio; hereda de ciclo.autorizar_rh.
+    public const PERMISO_DECIDIR = 'reingresos.decidir';
+
     public function __construct(
         private readonly AprobacionService $aprobaciones,
         private readonly IdentidadColaboradorService $identidad,
@@ -221,7 +224,7 @@ class ReingresoService
             'titulo' => sprintf('Revisar reingreso: %s', $colaborador->nombreCompleto()),
             'prioridad' => PrioridadTarea::Alta,
             'colaborador' => $colaborador,
-            'permiso' => OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH,
+            'permiso' => self::PERMISO_DECIDIR,
             'accion' => 'decidir_reingreso',
         ]);
 
@@ -237,7 +240,7 @@ class ReingresoService
     public function decidir(Reingreso $reingreso, User $actor, bool $viable, ?string $comentario = null): Reingreso
     {
         // RH es la autorización final: nunca la decide quien solo solicita.
-        if (! $actor->can(OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH)) {
+        if (! $actor->can(self::PERMISO_DECIDIR)) {
             throw new AuthorizationException('Solo RH decide un reingreso.');
         }
 
@@ -351,7 +354,7 @@ class ReingresoService
     {
         $reingreso->loadMissing(['colaborador', 'puesto:id,nombre', 'sucursal:id,nombre', 'solicitadoPor', 'decididoPor']);
         $tipos = DocumentType::query()->whereIn('id', $reingreso->documentos_requeridos ?? [])->pluck('nombre', 'id');
-        $puedeDecidir = $viewer !== null && $reingreso->estado === EstadoReingreso::RevisionRh && $viewer->can(OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH);
+        $puedeDecidir = $viewer !== null && $reingreso->estado === EstadoReingreso::RevisionRh && $viewer->can(self::PERMISO_DECIDIR);
 
         return [
             'id' => $reingreso->id,

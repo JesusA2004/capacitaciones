@@ -63,6 +63,13 @@ const props = defineProps<{
     estadisticas: { total: number; activas: number; inactivas: number };
     /** «Eliminar definitivamente»: solo super_admin (el backend lo vuelve a exigir). */
     puedePurgar: boolean;
+    /** Acciones por permiso (el backend lo revalida). */
+    permisosUsuarios?: {
+        crear: boolean;
+        editar: boolean;
+        asignar_roles: boolean;
+        restablecer_password: boolean;
+    };
 }>();
 
 // ───── Eliminar definitivamente (super_admin) ─────
@@ -137,6 +144,10 @@ const usuarioEditarRoles = ref<UsuarioItem | null>(null);
 const usuarioPassword = ref<UsuarioItem | null>(null);
 
 function abrirEditarRoles(usuario: UsuarioItem) {
+    if (!(props.permisosUsuarios?.editar ?? true)) {
+        return;
+    }
+
     usuarioEditarRoles.value = usuario;
 }
 
@@ -203,7 +214,10 @@ function restablecer(usuario: UsuarioItem) {
             descripcion="Cuentas de acceso al sistema: correo, roles, estado y seguridad. Los datos laborales viven en Expedientes."
             :icono="UsersIcon"
         >
-            <Button @click="dialogCrearAbierto = true">
+            <Button
+                v-if="permisosUsuarios?.crear ?? true"
+                @click="dialogCrearAbierto = true"
+            >
                 <Plus class="size-4" />
                 Nuevo usuario
             </Button>
@@ -244,7 +258,7 @@ function restablecer(usuario: UsuarioItem) {
             <CrudToolbar
                 class="flex-1"
                 :model-value="filtros.busqueda"
-                placeholder="Buscar por nombre, usuario o correo..."
+                placeholder="Buscar por nombre, usuario, correo, puesto o sucursal..."
                 @update:model-value="
                     (valor) => {
                         filtros.busqueda = valor;
@@ -353,7 +367,10 @@ function restablecer(usuario: UsuarioItem) {
                         >Editar cuenta</DropdownMenuItem
                     >
                     <DropdownMenuItem
-                        v-if="fila.colaborador_id !== null"
+                        v-if="
+                            fila.colaborador_id !== null &&
+                            (permisosUsuarios?.restablecer_password ?? true)
+                        "
                         @select="abrirPassword(fila)"
                     >
                         <KeyRound class="size-3.5" />
@@ -419,7 +436,11 @@ function restablecer(usuario: UsuarioItem) {
                                 >Editar cuenta</DropdownMenuItem
                             >
                             <DropdownMenuItem
-                                v-if="fila.colaborador_id !== null"
+                                v-if="
+                                    fila.colaborador_id !== null &&
+                                    (permisosUsuarios?.restablecer_password ??
+                                        true)
+                                "
                                 @select="abrirPassword(fila)"
                                 >Generar credenciales</DropdownMenuItem
                             >
@@ -455,6 +476,7 @@ function restablecer(usuario: UsuarioItem) {
         :colaboradores-sin-cuenta="colaboradoresSinCuenta ?? []"
         :cargando="cargandoColaboradores"
         :roles-disponibles="rolesDisponibles"
+        :puede-asignar-roles="permisosUsuarios?.asignar_roles ?? true"
         @creado="(c) => (credencialesNueva = c)"
     />
 
@@ -472,6 +494,7 @@ function restablecer(usuario: UsuarioItem) {
         :open="usuarioEditarRoles !== null"
         :usuario="usuarioEditarRoles"
         :roles-disponibles="rolesDisponibles"
+        :puede-asignar-roles="permisosUsuarios?.asignar_roles ?? true"
         @update:open="
             (v) => (usuarioEditarRoles = v ? usuarioEditarRoles : null)
         "

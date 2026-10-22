@@ -4,6 +4,7 @@ import { IdCard, Plus } from '@lucide/vue';
 import { ref } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
@@ -22,6 +23,7 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { useFiltros } from '@/composables/useFiltros';
+import { opcionesDe } from '@/lib/opcionesSelect';
 import { dashboard } from '@/routes';
 import { exportarExcel, exportarPdf, index, show } from '@/routes/rh/altas';
 import type {
@@ -161,90 +163,54 @@ const dialogoAbierto = ref(false);
             >
                 <div class="grid gap-2">
                     <Label>Empresa</Label>
-                    <Select
+                    <SelectSimple
                         :model-value="filtros.empresa_id"
+                        :opciones="opcionesDe(opciones.empresas)"
+                        placeholder="Todas"
+                        opcion-vacia="Todas las empresas"
                         @update:model-value="
                             (v) => (filtros.empresa_id = String(v ?? ''))
                         "
-                    >
-                        <SelectTrigger
-                            ><SelectValue placeholder="Todas"
-                        /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.empresas"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
+                    />
                 </div>
 
                 <div class="grid gap-2">
                     <Label>Sucursal</Label>
-                    <Select
+                    <SelectSimple
                         :model-value="filtros.sucursal_id"
+                        :opciones="opcionesDe(opciones.sucursales)"
+                        placeholder="Todas"
+                        opcion-vacia="Todas las sucursales"
                         @update:model-value="
                             (v) => (filtros.sucursal_id = String(v ?? ''))
                         "
-                    >
-                        <SelectTrigger
-                            ><SelectValue placeholder="Todas"
-                        /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.sucursales"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
+                    />
                 </div>
 
                 <div class="grid gap-2">
                     <Label>Departamento</Label>
-                    <Select
+                    <SelectSimple
                         :model-value="filtros.departamento_id"
+                        :opciones="opcionesDe(opciones.departamentos)"
+                        placeholder="Todos"
+                        opcion-vacia="Todos los departamentos"
                         @update:model-value="
                             (v) => (filtros.departamento_id = String(v ?? ''))
                         "
-                    >
-                        <SelectTrigger
-                            ><SelectValue placeholder="Todos"
-                        /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.departamentos"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
+                    />
                 </div>
 
                 <div class="grid gap-2">
                     <Label>Puesto</Label>
-                    <Select
+                    <SelectSimple
                         :model-value="filtros.puesto_id"
+                        :opciones="opcionesDe(opciones.puestos)"
+                        placeholder="Todos"
+                        opcion-vacia="Todos los puestos"
                         @update:model-value="
                             (v) => (filtros.puesto_id = String(v ?? ''))
                         "
-                    >
-                        <SelectTrigger
-                            ><SelectValue placeholder="Todos"
-                        /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.puestos"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
+                    />
                 </div>
 
                 <div class="grid grid-cols-2 gap-2">

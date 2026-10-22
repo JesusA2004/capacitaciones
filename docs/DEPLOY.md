@@ -125,10 +125,11 @@ npm ci && npm run build
 php artisan migrate --force           # OBLIGATORIO en cada deploy (el log del último deploy no lo tenía)
 php artisan migrate:status | grep -i pending   # debe salir vacío
 
-# Permisos nuevos del catálogo (p. ej. celebraciones.* → Aniversarios) y los que
-# les falten a los roles base. `git pull` + `migrate` NO los crean. Idempotente,
-# NUNCA quita permisos personalizados desde "Roles y permisos". Usa --simular para
-# ver antes qué cambiaría.
+# Permisos nuevos del catálogo (p. ej. celebraciones.* → Aniversarios): los crea
+# y otorga sus defaults SOLO de esos permisos nuevos (roles base + herencia del
+# permiso general del que se separaron, config/permisos_modulos.php). `git pull` +
+# `migrate` NO los crean. Idempotente: NUNCA quita ni re-otorga lo que se cambió
+# en "Roles y permisos". Usa --simular para ver antes qué cambiaría.
 php artisan people:sincronizar-permisos
 
 # Estructura organizacional confirmada (puestos, Q1/Q3, clasificación de la

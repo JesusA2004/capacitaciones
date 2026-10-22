@@ -130,7 +130,7 @@ class OnboardingController extends Controller
 
     public function configuracion(Request $request): Response
     {
-        abort_unless($request->user()->can('onboarding.gestionar'), 403);
+        abort_unless($request->user()->can('onboarding.gestionar') && $request->user()->can('onboarding.configurar'), 403);
 
         return Inertia::render('Rh/Onboarding/Configuracion', [
             'modulos' => OnboardingModulo::query()->with('puesto:id,nombre')->orderBy('tipo')->orderBy('orden')->get()
@@ -143,7 +143,12 @@ class OnboardingController extends Controller
                     'puesto' => $m->puesto?->nombre,
                     'orden' => $m->orden,
                     'contenido_url' => $m->contenido_url,
-                    'contenido' => $m->contenido,
+                    // Módulo con evaluación formal (Inducción Mr. Lana): su
+                    // contenido son capítulos estructurados (JSON) — se manda
+                    // ya decodificado para dibujarlo, nunca como texto crudo.
+                    'evaluacion_formal_clave' => $m->evaluacion_formal_clave,
+                    'contenido' => $m->evaluacion_formal_clave === null ? $m->contenido : null,
+                    'capitulos' => $m->evaluacion_formal_clave !== null ? $m->contenido_estructurado : [],
                     'preguntas' => $m->preguntas ?? [],
                     'calificacion_minima' => (float) $m->calificacion_minima,
                     'obligatorio' => $m->obligatorio,
@@ -151,6 +156,11 @@ class OnboardingController extends Controller
                 ])->values(),
             'tiposActivo' => TipoActivo::query()->orderBy('nombre')->get(),
             'puestos' => Puesto::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
+            'evaluacionFormal' => $this->catalogo->resumenEvaluacionFormal($request->user()),
+            'rutas' => [
+                'induccion_institucional' => route('induccion.presentacion'),
+                'vista_colaborador' => route('rh.onboarding.induccion.vista-colaborador'),
+            ],
         ]);
     }
 

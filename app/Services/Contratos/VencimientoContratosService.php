@@ -2,6 +2,7 @@
 
 namespace App\Services\Contratos;
 
+use App\Enums\ClaveFormularioEvaluacion;
 use App\Enums\EstadoAltaColaborador;
 use App\Enums\EstadoContratoLaboral;
 use App\Enums\EstadoEvaluacionPrueba;
@@ -11,13 +12,17 @@ use App\Enums\TipoTarea;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\EvaluacionPeriodoPrueba;
+use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Calendario\CalendarioLaboralService;
+use App\Services\Evaluaciones\FormularioEvaluacionService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
@@ -99,10 +104,136 @@ class VencimientoContratosService
      */
     public function procesar(int $contratoId): bool
     {
-        $resultado = DB::transaction(function () use ($contratoId): ?EvaluacionPeriodoPrueba {
+        $evaluacion = $this->abrirEvaluacion($contratoId, false);
+
+        if ($evaluacion === null) {
+            return false;
+        }
+
+        $this->avisar($evaluacion);
+
+        return true;
+    }
+
+    /**
+     * «Asignar evaluación» desde el tablero de Evaluaciones de periodo de
+     * prueba: RH abre AHORA (antes de que el scheduler lo haga solo) la
+     * evaluación del contrato vigente del colaborador, asignada a su jefe
+     * directo del organigrama (o a su gerente), con exactamente las mismas
+     * tareas y avisos que el scheduler (procesar()). Nunca duplica: una
+     * evaluación por contrato (índice único).
+     *
+     * @throws ValidationException si todavía no se puede asignar (el motivo va en el mensaje).
+     */
+    public function asignarAhora(Colaborador $colaborador, User $actor): EvaluacionPeriodoPrueba
+    {
+        $contrato = $this->contratoEvaluable($colaborador);
+        $yaTiene = $contrato !== null && EvaluacionPeriodoPrueba::query()->where('contrato_laboral_id', $contrato->id)->exists();
+        $motivo = $this->motivoNoAsignable($colaborador, $contrato, $yaTiene);
+
+        if ($motivo !== null || $contrato === null) {
+            throw ValidationException::withMessages(['colaborador' => sprintf('%s: %s', $colaborador->nombreCompleto(), $motivo ?? 'no tiene un contrato vigente con fecha de término.')]);
+        }
+
+        $evaluacion = $this->abrirEvaluacion($contrato->id, true);
+
+        if ($evaluacion === null) {
+            throw ValidationException::withMessages(['colaborador' => sprintf('%s: su evaluación ya estaba asignada.', $colaborador->nombreCompleto())]);
+        }
+
+        $this->avisar($evaluacion);
+        $this->auditoria->registrar('evaluacion_asignada', $evaluacion, $actor, ['contrato_laboral_id' => $contrato->id, 'anticipada' => true]);
+
+        return $evaluacion;
+    }
+
+    /**
+     * Asignación en lote desde el tablero: cada colaborador se procesa por
+     * separado (uno que todavía no se puede asignar no detiene a los demás)
+     * y solo los que $actor alcanza según la Policy.
+     *
+     * @param  list<int>  $colaboradorIds
+     * @return array{asignados: list<string>, omitidos: list<string>}
+     */
+    public function asignarVarios(array $colaboradorIds, User $actor): array
+    {
+        $asignados = [];
+        $omitidos = [];
+        $colaboradores = Colaborador::query()->whereIn('id', $colaboradorIds)->get()->keyBy('id');
+
+        foreach ($colaboradorIds as $id) {
+            $colaborador = $colaboradores->get($id);
+
+            if (! $colaborador instanceof Colaborador || ! Gate::forUser($actor)->allows('asignar', [EvaluacionPeriodoPrueba::class, $colaborador])) {
+                $omitidos[] = sprintf('Colaborador #%d: no está dentro de tu alcance.', $id);
+
+                continue;
+            }
+
+            try {
+                $this->asignarAhora($colaborador, $actor);
+                $asignados[] = $colaborador->nombreCompleto();
+            } catch (ValidationException $e) {
+                $omitidos[] = (string) collect($e->errors())->flatten()->first();
+            }
+        }
+
+        return ['asignados' => $asignados, 'omitidos' => $omitidos];
+    }
+
+    /**
+     * Contrato al que se le abre la evaluación: el vigente con fecha de
+     * término (capacitación inicial / periodo de prueba). Mismo criterio que
+     * revisar().
+     */
+    public function contratoEvaluable(Colaborador $colaborador): ?ContratoLaboral
+    {
+        return ContratoLaboral::query()
+            ->where('colaborador_id', $colaborador->id)
+            ->where('estado', EstadoContratoLaboral::Vigente->value)
+            ->whereNotNull('fecha_fin')
+            ->orderBy('fecha_fin')
+            ->first();
+    }
+
+    /**
+     * Por qué todavía no se puede asignar la evaluación (null = sí se puede).
+     * Texto en español para mostrarlo tal cual en el tablero.
+     */
+    public function motivoNoAsignable(Colaborador $colaborador, ?ContratoLaboral $contrato, bool $yaTieneEvaluacion = false): ?string
+    {
+        if (! $this->sigueLaborando($colaborador)) {
+            return 'ya no labora en la empresa.';
+        }
+
+        if ($contrato === null) {
+            return 'aún no tiene un contrato vigente con fecha de término en el sistema. Genera su contrato de capacitación inicial (Contratos) y vuelve a intentarlo.';
+        }
+
+        if ($yaTieneEvaluacion) {
+            return 'su evaluación ya está asignada.';
+        }
+
+        return null;
+    }
+
+    /**
+     * Crea (una sola vez por contrato) la evaluación pendiente asignada al
+     * jefe directo del organigrama o, si no hay, al gerente, y marca el aviso
+     * del contrato. Null si otra ejecución ya lo hizo o el contrato ya no
+     * aplica. `$anticipada`: la pidió RH desde el tablero (no exige que el
+     * aviso siga sin marcar, pero tampoco reutiliza una evaluación existente).
+     */
+    private function abrirEvaluacion(int $contratoId, bool $anticipada): ?EvaluacionPeriodoPrueba
+    {
+        return DB::transaction(function () use ($contratoId, $anticipada): ?EvaluacionPeriodoPrueba {
             $contrato = ContratoLaboral::query()->lockForUpdate()->find($contratoId);
 
-            if ($contrato === null || $contrato->aviso_vencimiento_en !== null || $contrato->estado !== EstadoContratoLaboral::Vigente) {
+            if ($contrato === null || $contrato->estado !== EstadoContratoLaboral::Vigente) {
+                return null;
+            }
+
+            if (! $anticipada && $contrato->aviso_vencimiento_en !== null) {
                 return null;
             }
 
@@ -120,21 +251,19 @@ class VencimientoContratosService
                     'evaluador_colaborador_id' => $colaborador->jefe_id ?? $colaborador->gerente_id,
                     'estado' => EstadoEvaluacionPrueba::Pendiente,
                     'fecha_limite' => $contrato->fecha_fin?->toDateString(),
+                    // Versión vigente del formulario configurable (null = formato de config/).
+                    'formulario_evaluacion_id' => app(FormularioEvaluacionService::class)->publicado(ClaveFormularioEvaluacion::PeriodoPrueba)?->id,
                 ],
             );
+
+            if ($anticipada && ! $evaluacion->wasRecentlyCreated) {
+                return null;
+            }
 
             $contrato->update(['aviso_vencimiento_en' => now()]);
 
             return $evaluacion;
         });
-
-        if ($resultado === null) {
-            return false;
-        }
-
-        $this->avisar($resultado);
-
-        return true;
     }
 
     /**

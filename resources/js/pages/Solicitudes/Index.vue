@@ -22,6 +22,7 @@ import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import DatosPersonalesFormulario from '@/components/Solicitudes/DatosPersonalesFormulario.vue';
 import MisCorrecciones from '@/components/Solicitudes/MisCorrecciones.vue';
 import PermisoFormulario from '@/components/Solicitudes/PermisoFormulario.vue';
@@ -376,6 +377,8 @@ function nombreTipo(clave: string): string {
                 </div>
             </Link>
         </div>
+
+        <PaginacionTabla :datos="solicitudes" />
     </div>
 
     <Dialog v-model:open="dialogoAbierto">

@@ -92,6 +92,34 @@ class SolicitudInternaPolicy
             && $this->puedeActuarSobre($usuario, $solicitud);
     }
 
+    /**
+     * Pedir corrección al colaborador: acción propia
+     * (solicitudes.requerir_correccion), separada de «marcar en revisión».
+     */
+    public function requerirCorreccion(User $usuario, SolicitudInterna $solicitud): bool
+    {
+        return $usuario->can('solicitudes.requerir_correccion') && $this->puedeActuarSobre($usuario, $solicitud);
+    }
+
+    /**
+     * Descargar el formato oficial de permiso: el dueño siempre; los demás,
+     * con solicitudes.descargar_formato y viendo la solicitud.
+     */
+    public function descargarFormato(User $usuario, SolicitudInterna $solicitud): bool
+    {
+        if ($usuario->is($solicitud->usuario)) {
+            return true;
+        }
+
+        return $usuario->can('solicitudes.descargar_formato') && $this->view($usuario, $solicitud);
+    }
+
+    /** Exportar la bandeja (Excel / PDF): quien entra a la bandeja y tiene el permiso. */
+    public function exportar(User $usuario): bool
+    {
+        return $usuario->can('solicitudes.exportar') && $this->viewAny($usuario);
+    }
+
     public function aprobar(User $usuario, SolicitudInterna $solicitud): bool
     {
         return ($usuario->can('solicitudes.aprobar') || $usuario->can('rh.solicitudes.aprobar'))

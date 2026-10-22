@@ -23,6 +23,12 @@ class VacantePolicy
         return $usuario->can('vacantes.ver') && $this->visiblePara($usuario, $vacante);
     }
 
+    /** Excel / PDF del listado: acceso + acción (vacantes.exportar). */
+    public function exportar(User $usuario): bool
+    {
+        return $usuario->can('vacantes.ver') && $usuario->can('vacantes.exportar');
+    }
+
     public function create(User $usuario): bool
     {
         return $usuario->can('vacantes.crear');

@@ -13,6 +13,7 @@ import {
     X,
 } from '@lucide/vue';
 import { computed, reactive, ref, watch } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import SelectorCampoPlantilla from '@/components/documentos/administrativos/SelectorCampoPlantilla.vue';
 import SelectorRecursoVisual from '@/components/documentos/administrativos/SelectorRecursoVisual.vue';
@@ -71,6 +72,8 @@ const props = defineProps<{
     motorPorDefecto: string;
     fuentes: string[];
     recursos: RecursoDocumento[];
+    /** documentos_maestros.diseno: crear borrador, guardar, activar, descartar. */
+    puedeEditar?: boolean;
 }>();
 
 defineOptions({
@@ -119,7 +122,9 @@ watch(
     { deep: true },
 );
 
-const editable = computed(() => props.borrador !== null);
+const editable = computed(
+    () => props.borrador !== null && (props.puedeEditar ?? false),
+);
 
 const urlPrevia = computed(() => {
     const parametros = new URLSearchParams();
@@ -244,7 +249,10 @@ const claseCampo =
             :descripcion="familia.descripcion"
             detalle
         >
-            <template v-if="borrador">
+            <template v-if="!puedeEditar">
+                <Badge variant="outline">Solo consulta</Badge>
+            </template>
+            <template v-else-if="borrador">
                 <Badge variant="outline"
                     >Borrador v{{ borrador.version }}</Badge
                 >
@@ -884,18 +892,15 @@ const claseCampo =
                             <div class="grid gap-4 sm:grid-cols-3">
                                 <div class="grid gap-1.5">
                                     <Label>Fuente</Label>
-                                    <select
+                                    <SelectSimple
                                         v-model="diseno.typography.font_family"
-                                        :class="claseCampo"
-                                    >
-                                        <option
-                                            v-for="f in fuentes"
-                                            :key="f"
-                                            :value="f"
-                                        >
-                                            {{ f }}
-                                        </option>
-                                    </select>
+                                        :opciones="
+                                            fuentes.map((f) => ({
+                                                value: f,
+                                                label: f,
+                                            }))
+                                        "
+                                    />
                                 </div>
                                 <div class="grid gap-1.5">
                                     <Label>Tamaño base (pt)</Label>
@@ -1081,7 +1086,10 @@ const claseCampo =
                     </div>
                 </details>
 
-                <div v-if="borrador" class="flex flex-wrap gap-2">
+                <div
+                    v-if="borrador && puedeEditar"
+                    class="flex flex-wrap gap-2"
+                >
                     <Button
                         variant="outline"
                         :disabled="guardando"
@@ -1161,7 +1169,7 @@ const claseCampo =
                             >
                         </Button>
                         <Button
-                            v-if="v.estado === 'archivada'"
+                            v-if="puedeEditar && v.estado === 'archivada'"
                             size="sm"
                             variant="outline"
                             @click="activarVersion(v.id)"

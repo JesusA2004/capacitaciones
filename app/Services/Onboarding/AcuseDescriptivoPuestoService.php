@@ -3,12 +3,15 @@
 namespace App\Services\Onboarding;
 
 use App\Enums\EstadoEvaluacionInduccion;
+use App\Enums\EstadoUsuario;
+use App\Enums\ModoDestinatariosOnboarding;
 use App\Enums\PrioridadTarea;
 use App\Enums\TipoTarea;
 use App\Models\AcuseDescriptivoPuesto;
 use App\Models\Colaborador;
 use App\Models\DescriptivoPuesto;
 use App\Models\EvaluacionInduccion;
+use App\Models\OnboardingProceso;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
@@ -16,6 +19,7 @@ use App\Services\Puestos\Descriptivos\DescriptivoPuestoService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -45,13 +49,174 @@ class AcuseDescriptivoPuestoService
 
     public const COMENTARIO_MAX = 2000;
 
+    /** Texto exacto de la casilla obligatoria (se guarda en cada acuse). */
+    public const TEXTO_ENTERADO = 'Enterado(a) de las actividades y responsabilidades de mi puesto descritas en este documento.';
+
+    /** Ejemplo del campo «Estoy de acuerdo con…». */
+    public const EJEMPLO_CONFORMIDAD = 'Ej. Estoy de acuerdo con las funciones, horario y objetivos descritos para mi puesto.';
+
     public function __construct(
         private readonly DescriptivoPuestoService $descriptivos,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly TareaService $tareas,
         private readonly NotificadorRhService $notificador,
         private readonly AuditoriaService $auditoria,
+        private readonly DestinatariosOnboardingService $destinatarios,
     ) {}
+
+    /**
+     * «Asignar descriptivo de puesto a…» (todos / personas / sucursales):
+     * resumen de confirmación sin escribir nada — a cuántos se les enviará
+     * y a quiénes se omite y por qué.
+     *
+     * @param  array{modo: string, colaborador_ids?: array<int, int|string>, sucursal_ids?: array<int, int|string>}  $datos
+     * @return array{descripcion: string, total: int, asignar: int, omitidos: list<array{id: int, nombre: string, motivo: string}>, muestra: list<string>}
+     */
+    public function previsualizarAsignacion(User $actor, array $datos): array
+    {
+        [$modo, $personas] = $this->destinatariosDe($actor, $datos);
+        $omitidos = [];
+        $asignables = [];
+
+        foreach ($personas as $colaborador) {
+            $motivo = $this->motivoOmitirAsignacion($colaborador);
+
+            if ($motivo !== null) {
+                $omitidos[] = ['id' => $colaborador->id, 'nombre' => $colaborador->nombreCompleto(), 'motivo' => $motivo];
+            } else {
+                $asignables[] = $colaborador->nombreCompleto();
+            }
+        }
+
+        return [
+            'descripcion' => $this->destinatarios->descripcion($modo, $personas, $datos['sucursal_ids'] ?? []),
+            'total' => $personas->count(),
+            'asignar' => count($asignables),
+            'omitidos' => $omitidos,
+            'muestra' => array_slice($asignables, 0, 8),
+        ];
+    }
+
+    /**
+     * Envía el descriptivo vigente a cada destinatario (cada envío es su
+     * propia transacción, con su tarea y aviso — enviar()). Quien ya lo
+     * tiene pendiente o ya lo dio por enterado se omite y se reporta.
+     *
+     * @param  array{modo: string, colaborador_ids?: array<int, int|string>, sucursal_ids?: array<int, int|string>}  $datos
+     * @return array{asignados: int, omitidos: list<array{id: int, nombre: string, motivo: string}>}
+     */
+    public function asignar(User $actor, array $datos): array
+    {
+        [$modo, $personas] = $this->destinatariosDe($actor, $datos);
+        $asignados = 0;
+        $omitidos = [];
+
+        foreach ($personas as $colaborador) {
+            $motivo = $this->motivoOmitirAsignacion($colaborador);
+
+            if ($motivo === null) {
+                try {
+                    $this->enviar($colaborador, $actor);
+                    $asignados++;
+
+                    continue;
+                } catch (ValidationException $e) {
+                    $motivo = collect($e->errors())->flatten()->implode(' ');
+                } catch (AuthorizationException $e) {
+                    $motivo = $e->getMessage();
+                }
+            }
+
+            $omitidos[] = ['id' => $colaborador->id, 'nombre' => $colaborador->nombreCompleto(), 'motivo' => $motivo];
+        }
+
+        $this->auditoria->registrar('descriptivo_puesto_asignado_lote', null, $actor, [
+            'modo' => $modo->value,
+            'asignados' => $asignados,
+            'omitidos' => count($omitidos),
+        ]);
+
+        return ['asignados' => $asignados, 'omitidos' => $omitidos];
+    }
+
+    /**
+     * «Vista previa como colaborador»: EXACTAMENTE el DTO que recibe la
+     * persona (Mi espacio y app) — su acuse real si ya se lo enviaron, o el
+     * que recibiría con el descriptivo vigente de su puesto. Solo lectura:
+     * no crea acuse, no marca leído, no abre tarea ni avisa.
+     *
+     * @return array{acuse: array<string, mixed>|null, motivo: string|null}
+     *
+     * @throws AuthorizationException sin permiso o fuera de alcance
+     */
+    public function vistaPreviaColaborador(Colaborador $colaborador, User $actor): array
+    {
+        $this->autorizarGestion($actor, $colaborador);
+
+        $real = AcuseDescriptivoPuesto::query()->where('colaborador_id', $colaborador->id)->latest('id')->first();
+
+        if ($real !== null) {
+            return ['acuse' => $this->aArray($real, true), 'motivo' => null];
+        }
+
+        $vigente = $colaborador->puesto_id !== null ? $this->descriptivos->vigenteDePuesto($colaborador->puesto_id) : null;
+
+        if ($vigente === null) {
+            return ['acuse' => null, 'motivo' => $this->motivoNoDisponible($colaborador) ?? 'Su puesto todavía no tiene descriptivo oficial importado.'];
+        }
+
+        // Acuse en memoria (nunca se guarda) para armar el mismo DTO.
+        $simulado = new AcuseDescriptivoPuesto([
+            'colaborador_id' => $colaborador->id,
+            'descriptivo_puesto_id' => $vigente->id,
+            'descriptivo_version' => $vigente->version,
+            'puesto_id' => $colaborador->puesto_id,
+            'enviado_por' => $actor->id,
+            'enviado_en' => now('America/Mexico_City'),
+            'enterado' => false,
+        ]);
+        $simulado->setRelation('descriptivo', $vigente);
+        $simulado->setRelation('remitente', $actor);
+
+        return ['acuse' => $this->aArray($simulado, true), 'motivo' => null];
+    }
+
+    private function motivoOmitirAsignacion(Colaborador $colaborador): ?string
+    {
+        $vigente = $colaborador->puesto_id !== null ? $this->descriptivos->vigenteDePuesto($colaborador->puesto_id) : null;
+
+        if ($vigente !== null) {
+            $ultimo = AcuseDescriptivoPuesto::query()
+                ->where('colaborador_id', $colaborador->id)
+                ->where('descriptivo_puesto_id', $vigente->id)
+                ->latest('id')
+                ->first();
+
+            if ($ultimo !== null) {
+                return $ultimo->acusado_en !== null ? 'Ya dio por enterado este descriptivo.' : 'Ya lo tiene pendiente de leer.';
+            }
+        }
+
+        return $this->motivoNoDisponible($colaborador);
+    }
+
+    /**
+     * @param  array<string, mixed>  $datos
+     * @return array{0: ModoDestinatariosOnboarding, 1: EloquentCollection<int, Colaborador>}
+     */
+    private function destinatariosDe(User $actor, array $datos): array
+    {
+        $modo = ModoDestinatariosOnboarding::tryFrom(is_string($datos['modo'] ?? null) ? $datos['modo'] : '');
+
+        if ($modo === null) {
+            throw ValidationException::withMessages(['modo' => 'Elige a quién asignar: todos, personas o sucursales.']);
+        }
+
+        $colaboradores = is_array($datos['colaborador_ids'] ?? null) ? $datos['colaborador_ids'] : [];
+        $sucursales = is_array($datos['sucursal_ids'] ?? null) ? $datos['sucursal_ids'] : [];
+
+        return [$modo, $this->destinatarios->resolver($actor, $modo, $colaboradores, $sucursales)];
+    }
 
     /**
      * RH envía el descriptivo vigente de su puesto. Si ya hay uno de esa
@@ -188,7 +353,7 @@ class AcuseDescriptivoPuestoService
      * @throws AuthorizationException no es suyo
      * @throws ValidationException sin «Enterado», sin comentario o ya acusado
      */
-    public function acusar(AcuseDescriptivoPuesto $acuse, User $usuario, bool $enterado, string $comentario): AcuseDescriptivoPuesto
+    public function acusar(AcuseDescriptivoPuesto $acuse, User $usuario, bool $enterado, string $comentario, ?string $conformidad = null): AcuseDescriptivoPuesto
     {
         $this->exigirTitular($acuse, $usuario);
 
@@ -196,10 +361,24 @@ class AcuseDescriptivoPuestoService
         $errores = [];
 
         if (! $enterado) {
-            $errores['enterado'] = 'Marca «OK, enterado» para confirmar que leíste tu descriptivo de puesto.';
+            $errores['enterado'] = 'Marca la casilla «Enterado(a)» para confirmar que leíste tu descriptivo de puesto.';
         }
 
-        if ($comentario === '') {
+        if ($conformidad !== null) {
+            // Cliente nuevo (Mi espacio): «Estoy de acuerdo con…» obligatorio.
+            $conformidad = trim($conformidad);
+
+            if ($conformidad === '') {
+                $errores['conformidad'] = 'Escribe con qué estás de acuerdo (por ejemplo, tus funciones, horario y objetivos).';
+            } elseif (mb_strlen($conformidad) > self::COMENTARIO_MAX) {
+                $errores['conformidad'] = sprintf('Tu texto no puede pasar de %d caracteres.', self::COMENTARIO_MAX);
+            }
+
+            if (mb_strlen($comentario) > self::COMENTARIO_MAX) {
+                $errores['comentario'] = sprintf('Tu comentario no puede pasar de %d caracteres.', self::COMENTARIO_MAX);
+            }
+        } elseif ($comentario === '') {
+            // App instalada: manda solo `comentario` (se guarda también como conformidad).
             $errores['comentario'] = 'Escribe tu comentario de enterado.';
         } elseif (mb_strlen($comentario) > self::COMENTARIO_MAX) {
             $errores['comentario'] = sprintf('Tu comentario no puede pasar de %d caracteres.', self::COMENTARIO_MAX);
@@ -209,7 +388,10 @@ class AcuseDescriptivoPuestoService
             throw ValidationException::withMessages($errores);
         }
 
-        $acuse = DB::transaction(function () use ($acuse, $comentario): AcuseDescriptivoPuesto {
+        $conformidad ??= $comentario;
+        $comentario = $comentario !== '' ? $comentario : $conformidad;
+
+        $acuse = DB::transaction(function () use ($acuse, $comentario, $conformidad): AcuseDescriptivoPuesto {
             $acuse = AcuseDescriptivoPuesto::query()->lockForUpdate()->findOrFail($acuse->id);
 
             if ($acuse->acusado_en !== null) {
@@ -220,7 +402,10 @@ class AcuseDescriptivoPuestoService
             $acuse->update([
                 'leido_en' => $acuse->leido_en ?? $ahora,
                 'enterado' => true,
+                'enterado_texto' => self::TEXTO_ENTERADO,
+                'enterado_en' => $ahora,
                 'comentario' => $comentario,
+                'conformidad' => $conformidad,
                 'acusado_en' => $ahora,
             ]);
 
@@ -253,12 +438,18 @@ class AcuseDescriptivoPuestoService
      */
     public function motivoNoDisponible(Colaborador $colaborador): ?string
     {
+        // Quien está en su proceso de INGRESO lo recibe después de aprobar su
+        // inducción; al personal que ya labora (sin onboarding de ingreso
+        // abierto) RH se lo puede asignar directamente.
+        $enIngreso = $colaborador->estatus === EstadoUsuario::EnIncorporacion
+            || OnboardingProceso::query()->deIngreso()->where('colaborador_abierto_id', $colaborador->id)->exists();
+
         $aprobada = EvaluacionInduccion::query()
             ->where('colaborador_id', $colaborador->id)
             ->where('estado', EstadoEvaluacionInduccion::Aprobada->value)
             ->exists();
 
-        if (! $aprobada) {
+        if ($enIngreso && ! $aprobada) {
             return 'Se habilita cuando el colaborador termina y aprueba su evaluación de inducción.';
         }
 
@@ -327,7 +518,10 @@ class AcuseDescriptivoPuestoService
      */
     public function aArray(AcuseDescriptivoPuesto $acuse, bool $conContenido = false): array
     {
-        $acuse->loadMissing(['remitente:id,name,apellidos,colaborador_id', 'descriptivo']);
+        if ($acuse->exists) {
+            $acuse->loadMissing(['remitente:id,name,apellidos,colaborador_id', 'descriptivo']);
+        }
+
         $estado = $acuse->estado();
         $descriptivo = $acuse->descriptivo;
 
@@ -342,6 +536,12 @@ class AcuseDescriptivoPuestoService
             'acusado_en' => $acuse->acusado_en?->toIso8601String(),
             'enterado' => $acuse->enterado,
             'comentario' => $acuse->comentario,
+            // Aditivos (las apps instaladas los ignoran).
+            'enterado_texto' => $acuse->enterado_texto,
+            'enterado_en' => $acuse->enterado_en?->toIso8601String(),
+            'conformidad' => $acuse->conformidad,
+            'texto_casilla_enterado' => self::TEXTO_ENTERADO,
+            'ejemplo_conformidad' => self::EJEMPLO_CONFORMIDAD,
             'descriptivo' => [
                 'id' => $descriptivo->id,
                 'nombre_puesto' => $descriptivo->nombre_puesto,

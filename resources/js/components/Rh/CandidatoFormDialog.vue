@@ -2,6 +2,7 @@
 import { useForm } from '@inertiajs/vue3';
 import { AlertTriangle } from '@lucide/vue';
 import { computed, watch } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import InputError from '@/components/InputError.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import BandejaCvSelector from '@/components/Rh/BandejaCvSelector.vue';
@@ -16,15 +17,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectGroup,
-    SelectItem,
-    SelectLabel,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { store, update } from '@/routes/rh/candidatos';
@@ -276,21 +268,16 @@ function enviar() {
                     <Label
                         >Vacante <span class="text-destructive">*</span></Label
                     >
-                    <Select v-model="form.vacante_id">
-                        <SelectTrigger class="w-full">
-                            <SelectValue
-                                placeholder="Elige una vacante disponible"
-                            />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.vacantes ?? []"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ etiquetaVacante(opcion) }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
+                    <SelectSimple
+                        v-model="form.vacante_id"
+                        :opciones="
+                            (opciones.vacantes ?? []).map((o) => ({
+                                value: String(o.id),
+                                label: etiquetaVacante(o),
+                            }))
+                        "
+                        placeholder="Elige una vacante disponible"
+                    />
                     <InputError :message="form.errors.vacante_id" />
                     <p class="text-xs text-muted-foreground">
                         Solo se listan vacantes con plaza real disponible. Al
@@ -348,35 +335,29 @@ function enviar() {
                 <div v-if="form.espontaneo" class="grid grid-cols-2 gap-4">
                     <div class="grid gap-2">
                         <Label>Puesto de interés (opcional)</Label>
-                        <Select v-model="form.puesto_objetivo_id">
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Sin puesto" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in opciones.puestos"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
+                        <SelectSimple
+                            v-model="form.puesto_objetivo_id"
+                            :opciones="
+                                opciones.puestos.map((o) => ({
+                                    value: String(o.id),
+                                    label: o.nombre,
+                                }))
+                            "
+                            placeholder="Sin puesto"
+                        />
                     </div>
                     <div class="grid gap-2">
                         <Label>Sucursal preferida (opcional)</Label>
-                        <Select v-model="form.sucursal_id">
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Sin sucursal" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in opciones.sucursales"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
+                        <SelectSimple
+                            v-model="form.sucursal_id"
+                            :opciones="
+                                opciones.sucursales.map((o) => ({
+                                    value: String(o.id),
+                                    label: o.nombre,
+                                }))
+                            "
+                            placeholder="Sin sucursal"
+                        />
                     </div>
                 </div>
 
@@ -389,33 +370,22 @@ function enviar() {
                         >¿Cómo llegó?
                         <span class="text-destructive">*</span></Label
                     >
-                    <Select v-model="form.origen">
-                        <SelectTrigger class="w-full">
-                            <SelectValue
-                                placeholder="Elige la campaña o el medio"
-                            />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectGroup v-if="campanasDisponibles.length">
-                                <SelectLabel>Por una campaña</SelectLabel>
-                                <SelectItem
-                                    v-for="campana in campanasDisponibles"
-                                    :key="campana.id"
-                                    :value="`c:${campana.id}`"
-                                    >{{ campana.etiqueta }}</SelectItem
-                                >
-                            </SelectGroup>
-                            <SelectGroup>
-                                <SelectLabel>Sin campaña</SelectLabel>
-                                <SelectItem
-                                    v-for="fuente in fuentesSinCampana"
-                                    :key="fuente.value"
-                                    :value="`f:${fuente.value}`"
-                                    >{{ fuente.etiqueta }}</SelectItem
-                                >
-                            </SelectGroup>
-                        </SelectContent>
-                    </Select>
+                    <SelectSimple
+                        v-model="form.origen"
+                        :opciones="[
+                            ...campanasDisponibles.map((c) => ({
+                                value: `c:${c.id}`,
+                                label: c.etiqueta,
+                                grupo: 'Por una campaña',
+                            })),
+                            ...fuentesSinCampana.map((f) => ({
+                                value: `f:${f.value}`,
+                                label: f.etiqueta,
+                                grupo: 'Sin campaña',
+                            })),
+                        ]"
+                        placeholder="Elige la campaña o el medio"
+                    />
                     <InputError
                         :message="
                             errores.campana_reclutamiento_id ?? errores.fuente

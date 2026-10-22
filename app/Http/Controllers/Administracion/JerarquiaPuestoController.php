@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Administracion;
 use App\Enums\MotivoCobertura;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Administracion\ActualizarJerarquiaPuestoRequest;
+use App\Models\CoberturaPuesto;
 use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\MovimientoLaboral;
@@ -42,9 +43,17 @@ class JerarquiaPuestoController extends Controller
         $this->jerarquia->agregarOcupantes($puestos, $usuario, $request);
         // Editar el organigrama (coberturas, Q1/Q3, subir/bajar/mover): solo
         // RH / super admin; el backend lo vuelve a validar con Policies.
-        $puedeEditar = $usuario->can('organigrama.editar');
+        // Cada acción tiene su permiso (config/permisos_modulos.php →
+        // organigrama): coberturas, mover/clasificar y editar jerarquía.
+        $puedeEditar = $usuario->can('create', CoberturaPuesto::class);
+        $puedeMover = $usuario->can('organigrama.ver') && $usuario->can('organigrama.mover_personas');
 
         return Inertia::render('Administracion/JerarquiaPuestos/Index', [
+            'permisosOrganigrama' => [
+                'cubrir' => $puedeEditar,
+                'mover' => $puedeMover,
+                'editarJerarquia' => $usuario->can('editarJerarquia', new Puesto),
+            ],
             'puestos' => $puestos,
             // Vista por personas: una tarjeta por colaborador, rama por sucursal.
             // `aprobador`: responsable de aprobación explícito (≠ reporte

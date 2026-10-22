@@ -2,6 +2,7 @@
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { FileSpreadsheet, FileUp, Trash2 } from '@lucide/vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import InputError from '@/components/InputError.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
@@ -11,6 +12,7 @@ import rutasImportaciones, {
     destroy as quitarImportacion,
     show as mostrarImportacion,
 } from '@/routes/rh/importaciones';
+import type { RespuestaPaginada } from '@/types';
 
 type ImportacionResumen = {
     id: number;
@@ -29,10 +31,7 @@ type ImportacionResumen = {
 };
 
 defineProps<{
-    importaciones: {
-        data: ImportacionResumen[];
-        links: { url: string | null; label: string; active: boolean }[];
-    };
+    importaciones: RespuestaPaginada<ImportacionResumen>;
 }>();
 
 defineOptions({
@@ -198,6 +197,7 @@ function analizar() {
                     </tbody>
                 </table>
             </div>
+            <PaginacionTabla :datos="importaciones" class="mt-4" />
         </section>
     </div>
 </template>

@@ -8,6 +8,7 @@ import {
     DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import UserInfo from '@/components/UserInfo.vue';
+import { olvidarSuscripcionAlSalir } from '@/composables/useWebPush';
 import { logout } from '@/routes';
 import { edit } from '@/routes/profile';
 import type { User } from '@/types';
@@ -16,8 +17,15 @@ type Props = {
     user: User;
 };
 
-const handleLogout = () => {
+// Antes de cerrar la sesión, este navegador deja de recibir las
+// notificaciones de escritorio de la cuenta (useWebPush).
+const handleLogout = async () => {
+    await Promise.race([
+        olvidarSuscripcionAlSalir(),
+        new Promise((resolver) => setTimeout(resolver, 1500)),
+    ]);
     router.flushAll();
+    router.post(logout().url);
 };
 
 defineProps<Props>();
@@ -40,15 +48,14 @@ defineProps<Props>();
     </DropdownMenuGroup>
     <DropdownMenuSeparator />
     <DropdownMenuItem :as-child="true">
-        <Link
+        <button
+            type="button"
             class="block w-full cursor-pointer"
-            :href="logout()"
-            @click="handleLogout"
-            as="button"
             data-test="logout-button"
+            @click="handleLogout"
         >
             <LogOut class="mr-2 h-4 w-4" />
             Cerrar sesión
-        </Link>
+        </button>
     </DropdownMenuItem>
 </template>

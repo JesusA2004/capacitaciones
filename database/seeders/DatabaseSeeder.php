@@ -42,6 +42,8 @@ class DatabaseSeeder extends Seeder
             PlantillaAutorizadaSeeder::class,
             CursoInduccionSeeder::class,
             InduccionMrLanaModuloSeeder::class,
+            // Versión 1 de los formularios de evaluación (inducción y periodo de prueba).
+            FormulariosEvaluacionSeeder::class,
             BirthdayPhraseSeeder::class,
             MotivosRechazoCandidatoSeeder::class,
             // Motivos (causales de rotación) de los tres tipos de baja.

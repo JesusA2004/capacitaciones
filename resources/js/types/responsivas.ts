@@ -34,6 +34,9 @@ export type ResponsivaItem = {
     observaciones_devolucion: string | null;
     motivo_cancelacion: string | null;
     puede_operar: boolean;
+    puede_registrar_firma: boolean;
+    puede_registrar_devolucion: boolean;
+    puede_descargar: boolean;
     puede_cancelar: boolean;
 };
 

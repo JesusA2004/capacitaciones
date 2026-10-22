@@ -12,6 +12,8 @@ use Database\Seeders\CausalesRotacionSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 /*
 | Las pantallas del módulo «Bajas» cargan con los datos que esperan
@@ -86,6 +88,12 @@ test('vista previa del FINIQUITO antes de registrar: PDF inline, no-store, y no 
         'causal_rotacion_id' => CausalRotacion::query()->where('clave', 'RV-01')->value('id'),
         'fecha_baja' => now()->subDay()->toDateString(),
     ];
+
+    // La vista previa del finiquito es de RH por defecto
+    // (bajas.finiquito.vista_previa); habilitada por rol, el gerente la ve.
+    $this->actingAs($this->gerente)->get(route('rh.bajas.previa.finiquito', $consulta))->assertForbidden();
+    Role::findByName('gerente_sucursal', 'web')->givePermissionTo('bajas.finiquito.vista_previa');
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     $respuesta = $this->actingAs($this->gerente)->get(route('rh.bajas.previa.finiquito', $consulta));
     $respuesta->assertOk();

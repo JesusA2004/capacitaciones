@@ -139,7 +139,7 @@ test('aprobar el último obligatorio deja el expediente al 100 % y habilita cont
     // La ficha web ofrece «Aprobar» en ambos (y «Autorizar cambio» en la solicitud).
     $this->actingAs($this->rh)->get(route('rh.expedientes.show', $id))
         ->assertInertia(fn (AssertableInertia $page) => $page
-            ->where('documentosRequeridos', fn ($items) => collect($items)->firstWhere('tipo.id', $solicitud->id)['documento']['acciones'] === ['aprobar' => true, 'rechazar' => true, 'corregir' => true, 'autorizar_cambio' => true]
+            ->where('documentosRequeridos', fn ($items) => collect($items)->firstWhere('tipo.id', $solicitud->id)['documento']['acciones'] === ['aprobar' => true, 'rechazar' => true, 'corregir' => true, 'autorizar_cambio' => true, 'descargar' => true]
                 && collect($items)->firstWhere('tipo.id', $cv->id)['documento']['acciones']['aprobar'] === true
                 && collect($items)->firstWhere('tipo.id', $ine->id)['documento']['acciones']['aprobar'] === false));
 

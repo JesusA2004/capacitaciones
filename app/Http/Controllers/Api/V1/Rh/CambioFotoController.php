@@ -21,10 +21,16 @@ class CambioFotoController extends Controller
     public function index(Request $request): JsonResponse
     {
         $this->authorize('viewAny', CambioFotoPerfil::class);
+        $usuario = $request->user();
 
+        // `puede_revisar` (aditivo, app móvil): misma Policy que aprobar/rechazar
+        // — p. ej. nadie revisa su propia foto —; la app solo pinta los botones con true.
         return response()->json([
-            'data' => $this->fotos->pendientesPara($request->user())
-                ->map(fn (CambioFotoPerfil $c) => $this->fotos->filaRevision($c, api: true))
+            'data' => $this->fotos->pendientesPara($usuario)
+                ->map(fn (CambioFotoPerfil $c) => [
+                    ...$this->fotos->filaRevision($c, api: true),
+                    'puede_revisar' => $usuario->can('revisar', $c),
+                ])
                 ->values(),
         ]);
     }

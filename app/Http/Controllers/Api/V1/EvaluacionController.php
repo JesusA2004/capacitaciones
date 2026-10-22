@@ -62,7 +62,7 @@ class EvaluacionController extends Controller
     public function devolver(DecisionAprobacionRequest $request, EvaluacionPeriodoPrueba $evaluacion): JsonResponse
     {
         // Mismo FormRequest que la web (motivo obligatorio, hasta 2000).
-        $this->authorize('autorizar', $evaluacion);
+        $this->authorize('devolver', $evaluacion);
 
         return response()->json(['data' => $this->evaluaciones->aArray($this->evaluaciones->devolver($evaluacion, $request->user(), $request->motivo()))]);
     }

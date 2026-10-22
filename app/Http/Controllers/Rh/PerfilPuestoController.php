@@ -43,13 +43,14 @@ class PerfilPuestoController extends Controller
         return Inertia::render('Rh/PerfilesPuesto/Show', [
             ...$this->perfiles->detalle($puesto),
             'puedeEditar' => $request->user()->can('perfiles_puesto.editar'),
+            'puedeDescargar' => $request->user()->can('perfiles_puesto.descargar'),
         ]);
     }
 
     /** PDF oficial del descriptivo: en línea (visor) o descarga del archivo exacto. */
     public function pdf(Request $request, Puesto $puesto, DescriptivoPuesto $descriptivo): StreamedResponse
     {
-        abort_unless($request->user()?->can('perfiles_puesto.ver'), 403);
+        abort_unless($request->user()?->can('perfiles_puesto.ver') && $request->user()->can('perfiles_puesto.descargar'), 403);
         abort_unless($descriptivo->puestos()->whereKey($puesto->id)->exists(), 404);
 
         return $this->descriptivos->respuestaPdf($descriptivo, $request->boolean('descargar'));

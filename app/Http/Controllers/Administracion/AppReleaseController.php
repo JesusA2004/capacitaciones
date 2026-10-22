@@ -78,7 +78,7 @@ class AppReleaseController extends Controller
 
     public function publicar(Request $request, MobileAppRelease $release): RedirectResponse
     {
-        abort_unless($request->user()->can('app_releases.publicar'), 403);
+        abort_unless($request->user()->can('app_releases.ver') && $request->user()->can('app_releases.publicar'), 403);
         abort_unless($release->tieneArchivo(), 422, 'Esta versión no tiene archivo APK.');
 
         $this->releases->publicar($release);
@@ -88,7 +88,7 @@ class AppReleaseController extends Controller
 
     public function despublicar(Request $request, MobileAppRelease $release): RedirectResponse
     {
-        abort_unless($request->user()->can('app_releases.publicar'), 403);
+        abort_unless($request->user()->can('app_releases.ver') && $request->user()->can('app_releases.publicar'), 403);
 
         $this->releases->despublicar($release);
 
@@ -97,7 +97,7 @@ class AppReleaseController extends Controller
 
     public function destroy(Request $request, MobileAppRelease $release): RedirectResponse
     {
-        abort_unless($request->user()->can('app_releases.eliminar'), 403);
+        abort_unless($request->user()->can('app_releases.ver') && $request->user()->can('app_releases.eliminar'), 403);
 
         $this->releases->eliminar($release);
 
@@ -106,7 +106,7 @@ class AppReleaseController extends Controller
 
     public function descargar(Request $request, MobileAppRelease $release): HttpResponse
     {
-        abort_unless($request->user()->can('app_releases.descargar'), 403);
+        abort_unless($request->user()->can('app_releases.ver') && $request->user()->can('app_releases.descargar'), 403);
         abort_unless($release->tieneArchivo(), 404);
 
         return $this->storage->respuesta($release->file_path, [

@@ -17,6 +17,7 @@ use App\Models\EmployeeDocument;
 use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\GeneratedDocument;
 use App\Models\User;
+use App\Policies\GeneratedDocumentPolicy;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
@@ -55,7 +56,7 @@ use Throwable;
  *  - registro y documentos: ContratoLaboralService (crearContrato, renovar,
  *    generarDocumento) — mismo camino que el alta.
  *
- * @phpstan-type Documento array{clave: string, nombre: string, estado: string, estado_etiqueta: string, documento_id: int|null, descargar_url: string|null, faltantes: list<array<string, mixed>>, motivo: string|null, firmado_cargado: array{etiqueta: string, url: string, nombre: string, mime: string|null}|null}
+ * @phpstan-type Documento array{clave: string, nombre: string, estado: string, estado_etiqueta: string, documento_id: int|null, descargar_url: string|null, faltantes: list<array<string, mixed>>, motivo: string|null, firmado_cargado: array{etiqueta: string, url: string, nombre: string, mime: string|null}|null, tipo_firmado: string|null}
  * @phpstan-type Etapa array{etapa: string, etiqueta: string, tipo: string, tipo_etiqueta: string, contrato_id: int|null, estado_contrato: string|null, fecha_inicio: string, fecha_fin: string|null, documentos: list<Documento>, pendiente_evaluacion: bool}
  * @phpstan-type Plan array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, fecha_ingreso: string|null, meses_periodo_prueba: int|null, fin_periodo_prueba: string|null, periodo_vencido: bool, expediente_url: string, ciclo_url: string, estado: string, estado_etiqueta: string, motivo: string|null, contratos: list<Etapa>, faltantes: list<array<string, mixed>>, bloqueos: list<array{etiqueta: string, detalle: string, configurar_url: string|null}>, generable: bool}
  */
@@ -73,6 +74,7 @@ class RegularizacionContratosService
         private readonly CatalogoMaestrosService $catalogo,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly AuditoriaService $auditoria,
+        private readonly ContratoFirmadoService $firmados,
     ) {}
 
     // ───────────────────────── Permisos ─────────────────────────
@@ -84,7 +86,44 @@ class RegularizacionContratosService
 
     public function puedeGenerar(User $usuario): bool
     {
-        return $usuario->can(ContratoLaboralService::PERMISO_GENERAR);
+        // General de RH (todos los documentos laborales) o la acción
+        // específica del módulo «Contratos».
+        return $usuario->can(ContratoLaboralService::PERMISO_GENERAR) || $usuario->can('contratos.generar');
+    }
+
+    /**
+     * Ajusta un plan a lo que quien mira puede hacer: sin contratos.
+     * ver_documento no recibe la URL del contrato generado; sin
+     * documentos.descargar, la del firmado cargado (solo ve que existe); y
+     * marca si puede subir el firmado (ContratoFirmadoService). El backend
+     * vuelve a validar cada acción.
+     *
+     * @param  array<string, mixed>  $plan
+     * @return array<string, mixed>
+     */
+    public function paraVisor(array $plan, User $viewer, Colaborador $colaborador): array
+    {
+        $verContrato = GeneratedDocumentPolicy::puedeVerContratos($viewer);
+        $verFirmado = $viewer->can('documentos.descargar');
+        $subir = $this->firmados->puedeSubir($viewer, $colaborador);
+
+        foreach ((array) ($plan['contratos'] ?? []) as $i => $etapa) {
+            foreach ((array) ($etapa['documentos'] ?? []) as $j => $documento) {
+                if (! $verContrato) {
+                    $plan['contratos'][$i]['documentos'][$j]['descargar_url'] = null;
+                }
+
+                if (! $verFirmado && is_array($documento['firmado_cargado'] ?? null)) {
+                    $plan['contratos'][$i]['documentos'][$j]['firmado_cargado']['url'] = null;
+                }
+
+                $plan['contratos'][$i]['documentos'][$j]['puede_subir_firmado'] = $subir && ($documento['tipo_firmado'] ?? null) !== null;
+            }
+        }
+
+        $plan['puede_subir_firmado'] = $subir;
+
+        return $plan;
     }
 
     public function exigirAlcance(User $usuario, Colaborador $colaborador): void
@@ -115,11 +154,7 @@ class RegularizacionContratosService
         $this->alcance->limitarPorModulo($query, $usuario, 'contratos', 'id');
 
         return $query
-            ->when($busqueda !== '', fn (Builder $q) => $q->where(function (Builder $sub) use ($busqueda): void {
-                $sub->where('name', 'like', "%{$busqueda}%")
-                    ->orWhere('apellidos', 'like', "%{$busqueda}%")
-                    ->orWhere('numero_empleado', 'like', "%{$busqueda}%");
-            }))
+            ->when($busqueda !== '', fn (Builder $q) => $q->buscar($busqueda))
             ->when($sucursalId > 0, fn (Builder $q) => $q->where('sucursal_principal_id', $sucursalId))
             ->when($puestoId > 0, fn (Builder $q) => $q->where('puesto_id', $puestoId))
             ->orderBy('name')
@@ -137,9 +172,11 @@ class RegularizacionContratosService
     public function listar(User $usuario, array $filtros = [], ?CarbonInterface $hoy = null): array
     {
         $planes = [];
+        $colaboradores = [];
 
         foreach ($this->queryActivos($usuario, $filtros)->get() as $colaborador) {
             $planes[] = $this->plan($colaborador, $hoy);
+            $colaboradores[$colaborador->id] = $colaborador;
         }
 
         $resumen = ['total' => count($planes)];
@@ -151,8 +188,13 @@ class RegularizacionContratosService
         $estado = Estado::tryFrom((string) ($filtros['estado'] ?? ''));
         $filtradas = $estado !== null ? array_values(array_filter($planes, fn (array $p): bool => $p['estado'] === $estado->value)) : $planes;
 
+        // Solo la página visible se ajusta a lo que quien mira puede hacer
+        // (URLs del contrato, «Subir firmado»).
+        $filas = $this->paginar($filtradas)->toArray();
+        $filas['data'] = array_map(fn (array $plan): array => $this->paraVisor($plan, $usuario, $colaboradores[$plan['id']]), $filas['data']);
+
         return [
-            'filas' => $this->paginar($filtradas)->toArray(),
+            'filas' => $filas,
             'resumen' => $resumen,
             'faltantes_comunes' => $this->faltantesComunes($planes),
         ];
@@ -490,7 +532,9 @@ class RegularizacionContratosService
             }
         }
 
-        $fila = ['clave' => $clave, 'nombre' => $nombre, 'documento_id' => null, 'descargar_url' => null, 'faltantes' => [], 'motivo' => null, 'firmado_cargado' => $firmado];
+        $fila = ['clave' => $clave, 'nombre' => $nombre, 'documento_id' => null, 'descargar_url' => null, 'faltantes' => [], 'motivo' => null, 'firmado_cargado' => $firmado,
+            // Tipo del expediente donde se sube su firmado (null: no admite carga).
+            'tipo_firmado' => $this->firmados->tipoParaClave($clave)];
 
         foreach ([$clave, ...$this->equivalentesGenerados($clave)] as $posible) {
             $generado = $generados->get($posible);
@@ -764,7 +808,7 @@ class RegularizacionContratosService
                 continue;
             }
 
-            if (! $this->documentos->puedeGenerar($actor, $clave)) {
+            if (! $this->documentos->puedeGenerar($actor, $clave, $contrato)) {
                 $errores[] = sprintf('%s: sin permiso para generarlo.', $documento['nombre']);
 
                 continue;

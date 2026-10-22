@@ -31,8 +31,15 @@ const props = defineProps<{
     nodos: NodoOrganigramaPersona[];
     regiones: RegionOrganigrama[];
     puedeEditar: boolean;
+    /** Coberturas temporales (organigrama.coberturas); sin dato = puedeEditar. */
+    puedeCubrir?: boolean;
+    /** Subir / bajar / mover y Q1 / Q3 (organigrama.mover_personas). */
+    puedeMover?: boolean;
     candidatos: { value: string; label: string }[];
 }>();
+
+const cubrirPermitido = computed(() => props.puedeCubrir ?? props.puedeEditar);
+const moverPermitido = computed(() => props.puedeMover ?? props.puedeEditar);
 
 const busqueda = inject(CLAVE_BUSQUEDA_ORGANIGRAMA, ref(''));
 
@@ -315,7 +322,7 @@ function moverNodo(
                 </p>
             </div>
             <button
-                v-if="puedeEditar"
+                v-if="moverPermitido"
                 type="button"
                 class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
                 @click="dialogoClasificacion = true"
@@ -323,7 +330,7 @@ function moverNodo(
                 Clasificar Q1 / Q3
             </button>
         </div>
-        <div v-else-if="puedeEditar" class="flex justify-end">
+        <div v-else-if="moverPermitido" class="flex justify-end">
             <button
                 type="button"
                 class="text-xs font-medium text-primary hover:underline"
@@ -394,6 +401,8 @@ function moverNodo(
         :hijos="hijos"
         :regiones="regiones"
         :puede-editar="puedeEditar"
+        :puede-cubrir="cubrirPermitido"
+        :puede-mover="moverPermitido"
         :ocupado="ocupado"
         @seleccionar="seleccionar"
         @cubrir="cubrir"

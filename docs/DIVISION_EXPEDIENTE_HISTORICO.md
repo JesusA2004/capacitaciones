@@ -27,6 +27,8 @@ La migración inicial (`docs/MIGRACION_INICIAL_EXPEDIENTES.md`) dejó a cada col
 ### Clasificación
 
 - Las reglas son por **clave real** de `document_types`: los 14 del checklist (`DocumentTypeSeeder`).
+- Los 3 **opcionales del checklist** (pagaré, carta de antecedentes no penales, licencia de conducir — ver `docs/EXPEDIENTES_DIGITALES.md`) se pueden **asignar a mano** (por parte o en el editor de hojas), pero todavía no tienen reglas de OCR: sus hojas quedan «sin clasificar» hasta que RH las asigna. Asignarlos nunca cambia el avance ni los faltantes.
+- El selector «Documento del checklist» es un combobox con buscador (`resources/js/components/ui/combobox-buscable`): lista completa al abrir, filtro sin acentos por nombre, clave y sinónimos (`resources/js/lib/opcionesDocumentoChecklist.ts`), agrupado en Requeridos / Opcionales; al asignar una parte, lo que ya está en el expediente aparece deshabilitado («Ya en el expediente», `detalle.tipos_cubiertos`).
 - **Puntaje:** una frase *fuerte* vale 3 puntos (+2 si está en el encabezado de la página) y una *débil* vale 1. Gana el tipo con más puntos si alcanza `puntaje_minimo` (2).
 - **Empate** → «Ambigua», sin clasificar. Nunca se elige uno al azar.
 - **Confianza:** alta (≥ 5 puntos y ventaja ≥ 2), media o baja (ventaja de 1 punto, o página de continuación).

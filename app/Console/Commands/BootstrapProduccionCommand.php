@@ -7,6 +7,7 @@ use Database\Seeders\CursoInduccionSeeder;
 use Database\Seeders\DepartamentoSeeder;
 use Database\Seeders\DocumentTypeSeeder;
 use Database\Seeders\EmpresaSeeder;
+use Database\Seeders\FormulariosEvaluacionSeeder;
 use Database\Seeders\InduccionMrLanaModuloSeeder;
 use Database\Seeders\MatrizComercialSeeder;
 use Database\Seeders\MotivosRechazoCandidatoSeeder;
@@ -69,6 +70,7 @@ class BootstrapProduccionCommand extends Command
         BirthdayPhraseSeeder::class => 'Frases de cumpleaños',
         CursoInduccionSeeder::class => 'Curso de inducción general (contenido)',
         InduccionMrLanaModuloSeeder::class => 'Módulo «Inducción Mr. Lana» (contenido)',
+        FormulariosEvaluacionSeeder::class => 'Formularios de evaluación (versión 1)',
     ];
 
     public function handle(): int

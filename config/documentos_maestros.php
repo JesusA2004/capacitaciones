@@ -379,9 +379,11 @@ return [
         'prestamo_contrato' => ['documentos_laborales.generar', 'prestamos.autorizar'],
         'prestamo_pagare' => ['documentos_laborales.generar', 'prestamos.autorizar'],
         'prestamo_consentimiento_retencion' => ['documentos_laborales.generar', 'prestamos.autorizar'],
-        // Quien levanta actas (jefe inmediato o RH, PRO-ADP-08) genera su formato.
-        'acta_administrativa' => ['documentos_laborales.generar', 'actas.crear', 'actas.gestionar'],
-        'acta_hechos' => ['documentos_laborales.generar', 'actas.crear', 'actas.gestionar'],
+        // Formato del acta (PRO-ADP-08): permiso propio por acción
+        // (actas.descargar, por defecto RH, Jurídico, Dirección y Sistemas).
+        // Levantar el acta (actas.crear) ya no basta para generar el formato.
+        'acta_administrativa' => ['actas.descargar'],
+        'acta_hechos' => ['actas.descargar'],
     ],
 
     /*

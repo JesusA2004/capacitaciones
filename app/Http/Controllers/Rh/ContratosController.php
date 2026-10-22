@@ -6,14 +6,17 @@ use App\Enums\EstadoContratoCorrespondiente;
 use App\Enums\ResultadoGeneracionContratos;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Contratos\CompletarDatosContratoRequest;
+use App\Http\Requests\Contratos\SubirContratoFirmadoRequest;
 use App\Models\Colaborador;
 use App\Models\LoteGeneracionContratos;
+use App\Services\Contratos\ContratoFirmadoService;
 use App\Services\Contratos\LoteContratosService;
 use App\Services\Contratos\RegularizacionContratosService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
@@ -99,6 +102,21 @@ class ContratosController extends Controller
             'Pragma' => 'no-cache',
             'X-Datos-Faltantes' => (string) $previa['faltantes'],
         ]);
+    }
+
+    /**
+     * «Subir firmado»: el original firmado entra al expediente en revisión
+     * (ContratoFirmadoService decide quién puede: permiso, alcance y la regla
+     * del contrato de un Gerente de Sucursal). No da acceso al contrato.
+     */
+    public function subirFirmado(SubirContratoFirmadoRequest $request, Colaborador $colaborador, ContratoFirmadoService $firmados): RedirectResponse
+    {
+        $archivo = $request->file('archivo');
+        abort_unless($archivo instanceof UploadedFile, 422);
+
+        $documento = $firmados->subir($colaborador, (string) $request->validated('clave'), $archivo, $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => sprintf('Contrato firmado de %s cargado (%s v%d). RH lo revisará en Validación de documentos.', $colaborador->nombreCompleto(), $documento->tipo->nombre, $documento->version)]);
     }
 
     public function completarDatos(CompletarDatosContratoRequest $request, Colaborador $colaborador): RedirectResponse

@@ -42,6 +42,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property int|null $contrato_renovacion_id
  * @property int|null $version null/1 = formato libre legacy; 2 = formato oficial FO-RH-EPP-001.
  * @property array<int, array{clave: string, etiqueta: string, respuesta: bool}>|null $filtros Solo version >= 2.
+ * @property int|null $formulario_evaluacion_id Versión del formulario configurable (null = formato de config/contratos.php).
+ * @property-read FormularioEvaluacion|null $formulario
  * @property-read Colaborador $colaborador
  * @property-read ContratoLaboral $contrato
  * @property-read Colaborador|null $evaluador
@@ -59,7 +61,7 @@ class EvaluacionPeriodoPrueba extends Model
         'fecha_limite', 'fecha_evaluacion', 'criterios', 'calificacion', 'resultado',
         'recomienda_renovar', 'observaciones', 'capturada_por', 'capturada_en',
         'autorizada_por', 'autorizada_en', 'decision_renovar', 'comentario_autorizacion',
-        'contrato_renovacion_id', 'version', 'filtros',
+        'contrato_renovacion_id', 'version', 'filtros', 'formulario_evaluacion_id',
     ];
 
     protected function casts(): array
@@ -77,6 +79,14 @@ class EvaluacionPeriodoPrueba extends Model
             'capturada_en' => 'datetime',
             'autorizada_en' => 'datetime',
         ];
+    }
+
+    /**
+     * @return BelongsTo<FormularioEvaluacion, $this>
+     */
+    public function formulario(): BelongsTo
+    {
+        return $this->belongsTo(FormularioEvaluacion::class, 'formulario_evaluacion_id');
     }
 
     /**

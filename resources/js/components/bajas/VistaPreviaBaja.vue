@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import BotonVistaPrevia from '@/components/people/BotonVistaPrevia.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import { useDocumentosProceso } from '@/composables/useDocumentosProceso';
+import { usePermisos } from '@/composables/usePermisos';
 import { useVistaPreviaPdf } from '@/composables/useVistaPreviaPdf';
 import type { PdfPorVer } from '@/composables/useVistaPreviaPdf';
 import rutasBajas from '@/routes/rh/bajas';
@@ -26,6 +27,12 @@ const props = defineProps<{
 }>();
 
 const api = useDocumentosProceso();
+const { tienePermiso } = usePermisos();
+// El PDF del finiquito (montos) es de RH por defecto
+// (bajas.finiquito.vista_previa); el backend responde 403 sin él.
+const veFiniquito = computed(() =>
+    tienePermiso('bajas.finiquito.vista_previa'),
+);
 const visor = useVistaPreviaPdf();
 const documentos = ref<DocumentoVistaPrevia[]>([]);
 let temporizador: ReturnType<typeof setTimeout> | null = null;
@@ -43,7 +50,9 @@ const datosFlujo = computed(() => ({
 }));
 
 const urlFiniquito = computed(() =>
-    props.colaboradorId === null || !props.campos.forma_salida
+    !veFiniquito.value ||
+    props.colaboradorId === null ||
+    !props.campos.forma_salida
         ? null
         : rutasBajas.previa.finiquito.url({
               query: {

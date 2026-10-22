@@ -19,17 +19,17 @@ class SucursalPolicy
 
     public function create(User $usuario): bool
     {
-        return $usuario->can('sucursales.administrar');
+        return $usuario->can('sucursales.administrar') && $usuario->can('sucursales.crear');
     }
 
     public function update(User $usuario, Sucursal $sucursal): bool
     {
-        return $usuario->can('sucursales.administrar');
+        return $usuario->can('sucursales.administrar') && $usuario->can('sucursales.editar');
     }
 
     public function delete(User $usuario, Sucursal $sucursal): bool
     {
-        return $usuario->can('sucursales.administrar');
+        return $usuario->can('sucursales.administrar') && $usuario->can('sucursales.eliminar');
     }
 
     /**

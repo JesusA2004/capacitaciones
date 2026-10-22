@@ -164,7 +164,7 @@ class SolicitudController extends Controller
     public function correccion(Request $request, SolicitudInterna $solicitud): JsonResponse
     {
         $usuario = $request->user();
-        $this->authorize('revisar', $solicitud);
+        $this->authorize('requerirCorreccion', $solicitud);
         $this->validarPendiente($solicitud);
 
         $datos = $request->validate(['motivo' => ['required', 'string', 'max:1000']]);
@@ -188,7 +188,8 @@ class SolicitudController extends Controller
         $nuevoEstado = EstadoSolicitudInterna::from($request->validated('estado'));
 
         $habilidad = match ($nuevoEstado) {
-            EstadoSolicitudInterna::EnRevision, EstadoSolicitudInterna::RequiereCorreccion => 'revisar',
+            EstadoSolicitudInterna::EnRevision => 'revisar',
+            EstadoSolicitudInterna::RequiereCorreccion => 'requerirCorreccion',
             EstadoSolicitudInterna::Aprobada => 'aprobar',
             EstadoSolicitudInterna::Rechazada => 'rechazar',
             default => abort(422, 'Ese estado no se puede asignar desde el tablero.'),
@@ -280,7 +281,7 @@ class SolicitudController extends Controller
 
     public function permisoPdf(Request $request, SolicitudInterna $solicitud): StreamedResponse
     {
-        $this->authorize('view', $solicitud);
+        $this->authorize('descargarFormato', $solicitud);
 
         try {
             return $this->solicitudes->respuestaPermiso($solicitud);

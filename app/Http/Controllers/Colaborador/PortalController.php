@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Colaboradores\ColaboradorPerfilService;
 use App\Services\Notificaciones\NotificationFeedService;
+use App\Services\Onboarding\ProgresoInduccionService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -22,6 +23,7 @@ class PortalController extends Controller
         private readonly ColaboradorPerfilService $perfil,
         private readonly NotificationFeedService $notificaciones,
         private readonly CicloLaboralService $ciclo,
+        private readonly ProgresoInduccionService $induccion,
     ) {}
 
     public function index(Request $request): Response
@@ -33,6 +35,8 @@ class PortalController extends Controller
             // "Lo que necesitas hacer": pendientes en lenguaje llano, sin
             // nombres de etapas internas (CicloLaboralService::misPendientes).
             'pendientes' => $usuario->colaborador !== null ? $this->ciclo->misPendientes($usuario->colaborador, $usuario) : null,
+            // «Mi inducción»: pasos y avance (ProgresoInduccionService, mismo DTO que la app).
+            'miInduccion' => $usuario->colaborador !== null ? $this->induccion->resumen($usuario->colaborador) : null,
         ]);
     }
 

@@ -7,15 +7,17 @@ use Illuminate\Console\Command;
 
 /**
  * Paso obligatorio de deploy, después de `migrate --force` (ver
- * docs/DEPLOY.md): crea los permisos nuevos del catálogo y agrega a los
- * roles base solo los que les falten, sin quitar personalizaciones. Ver
+ * docs/DEPLOY.md): crea los permisos nuevos del catálogo y otorga sus
+ * defaults SOLO de esos permisos nuevos (más la herencia del permiso
+ * general del que se separaron); nunca quita ni re-otorga lo que un
+ * administrador cambió en «Roles y permisos». Ver
  * App\Services\Permisos\SincronizadorPermisosService.
  */
 class SincronizarPermisosCommand extends Command
 {
     protected $signature = 'people:sincronizar-permisos {--simular : Solo muestra qué cambiaría, sin escribir nada}';
 
-    protected $description = 'Crea permisos nuevos del catálogo y otorga a los roles base los que les falten (idempotente, nunca quita permisos)';
+    protected $description = 'Crea permisos nuevos del catálogo y otorga sus defaults solo de los permisos nuevos (idempotente, nunca quita ni re-otorga permisos)';
 
     public function handle(SincronizadorPermisosService $sincronizador): int
     {
@@ -39,6 +41,11 @@ class SincronizarPermisosCommand extends Command
         $this->line(sprintf('Roles con permisos base agregados: %d', count($resultado['permisos_otorgados'])));
         foreach ($resultado['permisos_otorgados'] as $rol => $permisos) {
             $this->line(sprintf('  %s: %s', $rol, implode(', ', $permisos)));
+        }
+
+        $this->line(sprintf('Permisos nuevos heredados de uno general: %d', count($resultado['heredados'])));
+        foreach ($resultado['heredados'] as $permiso => $destinatarios) {
+            $this->line(sprintf('  %s → %s', $permiso, implode(', ', $destinatarios)));
         }
 
         $this->info($simular ? 'Simulación terminada.' : 'Permisos sincronizados. Caché de permisos limpiada.');

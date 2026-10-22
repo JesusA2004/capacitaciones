@@ -38,7 +38,7 @@ class CausalRotacionController extends Controller
 
     public function activo(Request $request, CausalRotacion $causal): RedirectResponse
     {
-        $this->authorize('update', $causal);
+        $this->authorize('activar', $causal);
         $datos = $request->validate(['activo' => ['required', 'boolean']]);
         $this->causales->cambiarActivo($causal, (bool) $datos['activo'], $request->user());
 
@@ -47,7 +47,7 @@ class CausalRotacionController extends Controller
 
     public function mover(Request $request, CausalRotacion $causal): RedirectResponse
     {
-        $this->authorize('update', $causal);
+        $this->authorize('ordenar', $causal);
         $datos = $request->validate(['direccion' => ['required', Rule::in(['arriba', 'abajo'])]]);
         $this->causales->mover($causal, (string) $datos['direccion'], $request->user());
 

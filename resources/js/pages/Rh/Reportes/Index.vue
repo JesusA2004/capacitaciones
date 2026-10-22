@@ -2,19 +2,16 @@
 import { Head } from '@inertiajs/vue3';
 import { BarChart3, Download } from '@lucide/vue';
 import { computed } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import { Button } from '@/components/ui/button';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { useFiltros } from '@/composables/useFiltros';
+import { usePaginacionLocal } from '@/composables/usePaginacion';
 import { VueApexCharts } from '@/lib/apexDiferido';
+import { opcionesDe } from '@/lib/opcionesSelect';
 import { dashboard } from '@/routes';
 import { excel, index, pdf } from '@/routes/rh/reportes';
 import type {
@@ -34,6 +31,11 @@ const props = defineProps<{
     puedeExportar: boolean;
     opciones: OpcionesReportesRh;
 }>();
+
+// El resultado llega completo: la tabla se pagina en el navegador.
+const paginacion = usePaginacionLocal(() => props.resultado.filas, {
+    clave: 'rh-reportes-resultado',
+});
 
 defineOptions({
     layout: {
@@ -133,137 +135,95 @@ const opcionesGrafica = computed(() => {
         >
             <div data-tour="reportes-tipo" class="grid gap-2">
                 <label class="text-xs text-muted-foreground">Reporte</label>
-                <Select
+                <SelectSimple
                     :model-value="filtros.reporte"
+                    :opciones="
+                        catalogo.flatMap((g) =>
+                            g.opciones.map((o) => ({
+                                value: o.value,
+                                label: o.label,
+                                grupo: g.grupo,
+                            })),
+                        )
+                    "
+                    class="w-72"
                     @update:model-value="
                         (v) => {
                             filtros.reporte = String(v ?? '');
                             aplicar();
                         }
                     "
-                >
-                    <SelectTrigger class="w-72">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <template v-for="grupo in catalogo" :key="grupo.grupo">
-                            <div
-                                class="px-2 py-1.5 text-xs font-semibold text-muted-foreground"
-                            >
-                                {{ grupo.grupo }}
-                            </div>
-                            <SelectItem
-                                v-for="opcion in grupo.opciones"
-                                :key="opcion.value"
-                                :value="opcion.value"
-                            >
-                                {{ opcion.label }}
-                            </SelectItem>
-                        </template>
-                    </SelectContent>
-                </Select>
+                />
             </div>
 
             <div class="grid gap-2">
                 <label class="text-xs text-muted-foreground">Empresa</label>
-                <Select
+                <SelectSimple
                     :model-value="filtros.empresa_id"
+                    :opciones="opcionesDe(opciones.empresas)"
+                    placeholder="Todas"
+                    opcion-vacia="Todas las empresas"
+                    class="w-44"
                     @update:model-value="
                         (v) => {
                             filtros.empresa_id = String(v ?? '');
                             aplicar();
                         }
                     "
-                >
-                    <SelectTrigger class="w-44"
-                        ><SelectValue placeholder="Todas"
-                    /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="opcion in opciones.empresas"
-                            :key="opcion.id"
-                            :value="String(opcion.id)"
-                            >{{ opcion.nombre }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
+                />
             </div>
 
             <div class="grid gap-2">
                 <label class="text-xs text-muted-foreground">Sucursal</label>
-                <Select
+                <SelectSimple
                     :model-value="filtros.sucursal_id"
+                    :opciones="opcionesDe(opciones.sucursales)"
+                    placeholder="Todas"
+                    opcion-vacia="Todas las sucursales"
+                    class="w-44"
                     @update:model-value="
                         (v) => {
                             filtros.sucursal_id = String(v ?? '');
                             aplicar();
                         }
                     "
-                >
-                    <SelectTrigger class="w-44"
-                        ><SelectValue placeholder="Todas"
-                    /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="opcion in opciones.sucursales"
-                            :key="opcion.id"
-                            :value="String(opcion.id)"
-                            >{{ opcion.nombre }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
+                />
             </div>
 
             <div class="grid gap-2">
                 <label class="text-xs text-muted-foreground"
                     >Departamento</label
                 >
-                <Select
+                <SelectSimple
                     :model-value="filtros.departamento_id"
+                    :opciones="opcionesDe(opciones.departamentos)"
+                    placeholder="Todos"
+                    opcion-vacia="Todos los departamentos"
+                    class="w-44"
                     @update:model-value="
                         (v) => {
                             filtros.departamento_id = String(v ?? '');
                             aplicar();
                         }
                     "
-                >
-                    <SelectTrigger class="w-44"
-                        ><SelectValue placeholder="Todos"
-                    /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="opcion in opciones.departamentos"
-                            :key="opcion.id"
-                            :value="String(opcion.id)"
-                            >{{ opcion.nombre }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
+                />
             </div>
 
             <div class="grid gap-2">
                 <label class="text-xs text-muted-foreground">Puesto</label>
-                <Select
+                <SelectSimple
                     :model-value="filtros.puesto_id"
+                    :opciones="opcionesDe(opciones.puestos)"
+                    placeholder="Todos"
+                    opcion-vacia="Todos los puestos"
+                    class="w-44"
                     @update:model-value="
                         (v) => {
                             filtros.puesto_id = String(v ?? '');
                             aplicar();
                         }
                     "
-                >
-                    <SelectTrigger class="w-44"
-                        ><SelectValue placeholder="Todos"
-                    /></SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="opcion in opciones.puestos"
-                            :key="opcion.id"
-                            :value="String(opcion.id)"
-                            >{{ opcion.nombre }}</SelectItem
-                        >
-                    </SelectContent>
-                </Select>
+                />
             </div>
 
             <Button variant="ghost" size="sm" @click="limpiar">
@@ -326,7 +286,7 @@ const opcionesGrafica = computed(() => {
                     </thead>
                     <tbody>
                         <tr
-                            v-for="(fila, i) in resultado.filas"
+                            v-for="(fila, i) in paginacion.filasPagina.value"
                             :key="i"
                             class="border-b border-border/40 last:border-0 hover:bg-muted/30"
                         >
@@ -341,6 +301,15 @@ const opcionesGrafica = computed(() => {
                     </tbody>
                 </table>
             </div>
+            <PaginacionTabla
+                local
+                class="mt-3"
+                clave="rh-reportes-resultado"
+                :datos="paginacion.datos.value"
+                :por-pagina="paginacion.porPagina.value"
+                @cambiar-pagina="paginacion.irAPagina"
+                @cambiar-por-pagina="paginacion.cambiarPorPagina"
+            />
         </div>
     </div>
 </template>

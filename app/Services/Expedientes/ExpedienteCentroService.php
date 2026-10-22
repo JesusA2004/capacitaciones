@@ -98,7 +98,7 @@ class ExpedienteCentroService
         }
 
         return [
-            ...$plan,
+            ...$this->contratos->paraVisor($plan, $viewer, $colaborador),
             'puede_generar' => $this->contratos->puedeGenerar($viewer),
         ];
     }
@@ -149,7 +149,7 @@ class ExpedienteCentroService
                 $dias < 0 ? 'neutro' : ($dias <= 15 ? 'alerta' : 'info'), null, $ciclo, 'Ver ciclo laboral');
         }
 
-        $onboarding = OnboardingProceso::query()->where('colaborador_id', $id)->latest('id')->first(['id', 'estado']);
+        $onboarding = OnboardingProceso::query()->deIngreso()->where('colaborador_id', $id)->latest('id')->first(['id', 'estado']);
         $tarjetas[] = $this->tarjeta('onboarding', 'Onboarding', 'sparkles',
             $onboarding?->estado->etiqueta() ?? 'Sin iniciar', null,
             $onboarding === null ? 'neutro' : ($onboarding->estado->value === 'completado' ? 'exito' : 'primario'), 'onboarding', null, 'Ver checklist');

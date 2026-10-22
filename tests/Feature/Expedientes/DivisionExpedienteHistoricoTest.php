@@ -286,6 +286,35 @@ test('RH asigna a mano una parte sin clasificar y queda en revisión', function 
         ->and($parte->documento->status)->toBe(EstadoDocumento::EnRevision);
 });
 
+test('RH asigna una parte a un documento OPCIONAL del checklist y no cambia el avance', function () {
+    app()->instance(MotorOcr::class, new OcrFalsoDivision);
+    $servicio = app(DivisionExpedienteHistoricoService::class);
+    $division = $servicio->dividir(historicoDePrueba($this->colaborador), $this->rh);
+    $parte = $division->partes()->where('estado', EstadoParteDivision::SinClasificar->value)->firstOrFail();
+    $licencia = DocumentType::query()->where('clave', 'licencia_conducir')->firstOrFail();
+    $antes = $servicio->resumenChecklist($this->colaborador);
+
+    expect($servicio->tiposChecklist()->pluck('clave'))->toContain('licencia_conducir', 'pagare_expediente', 'carta_antecedentes_no_penales')
+        ->and($servicio->tiposChecklist()->first()?->requerido)->toBeTrue();
+
+    $this->actingAs($this->rh)
+        ->post(route('rh.expedientes.division-historico.partes.asignar', $parte), ['document_type_id' => $licencia->id])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $parte->refresh();
+    expect($parte->estado)->toBe(EstadoParteDivision::AsignadaManual)
+        ->and($parte->documento->document_type_id)->toBe($licencia->id)
+        ->and($parte->documento->status)->toBe(EstadoDocumento::EnRevision)
+        ->and($servicio->resumenChecklist($this->colaborador))->toBe($antes)
+        ->and($servicio->tiposCubiertos($this->colaborador))->toContain($licencia->id);
+
+    // Un tipo fuera del checklist (p. ej. incapacidad) sigue rechazándose.
+    $incapacidad = DocumentType::query()->where('clave', 'incapacidad')->firstOrFail();
+    expect(fn () => $servicio->asignarParte($parte, $incapacidad, $this->rh))
+        ->toThrow(ValidationException::class, 'Elige un documento del checklist del expediente.');
+});
+
 test('es idempotente: repetir sin --forzar regresa la misma división', function () {
     app()->instance(MotorOcr::class, new OcrFalsoDivision);
     $servicio = app(DivisionExpedienteHistoricoService::class);

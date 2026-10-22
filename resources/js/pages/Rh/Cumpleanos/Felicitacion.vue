@@ -10,17 +10,11 @@ import {
     Send,
 } from '@lucide/vue';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { useAlertas } from '@/composables/useAlertas';
 import { useCelebracion } from '@/composables/useCelebracion';
@@ -56,6 +50,7 @@ const props = defineProps<{
         frases: { id: number; texto: string }[];
     };
     permisos: {
+        generar: boolean;
         descargarImagen: boolean;
         gestionarNotificaciones: boolean;
     };
@@ -352,30 +347,24 @@ async function copiarMensaje() {
                     </CardContent>
                 </Card>
 
-                <Card>
+                <Card v-if="permisos.generar">
                     <CardHeader>
                         <CardTitle class="text-base">Cambiar frase</CardTitle>
                     </CardHeader>
                     <CardContent class="flex flex-col gap-3">
-                        <Select
+                        <SelectSimple
                             :model-value="fraseSeleccionadaId"
+                            :opciones="
+                                opciones.frases.map((f) => ({
+                                    value: String(f.id),
+                                    label: f.texto,
+                                }))
+                            "
+                            placeholder="Elegir una frase del catálogo..."
+                            :buscable="true"
+                            class="w-full"
                             @update:model-value="alElegirFrase"
-                        >
-                            <SelectTrigger class="w-full">
-                                <SelectValue
-                                    placeholder="Elegir una frase del catálogo..."
-                                />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="frase in opciones.frases"
-                                    :key="frase.id"
-                                    :value="String(frase.id)"
-                                >
-                                    {{ frase.texto }}
-                                </SelectItem>
-                            </SelectContent>
-                        </Select>
+                        />
 
                         <div
                             v-if="hayCambioPendiente"
@@ -418,6 +407,7 @@ async function copiarMensaje() {
                     </Button>
 
                     <Button
+                        v-if="permisos.generar"
                         variant="outline"
                         :disabled="regenerando"
                         @click="regenerar"

@@ -209,7 +209,11 @@ class AlcanceModuloService
                 'grupo' => (string) ($definicion['grupo'] ?? 'Otros'),
                 'acceso' => (string) ($definicion['acceso'] ?? ''),
                 'alcances' => array_map('strval', (array) ($definicion['alcances'] ?? [])),
-                'acciones' => array_map('strval', (array) ($definicion['acciones'] ?? [])),
+                // 'perm' => 'Etiqueta' o 'perm' => ['etiqueta' => …, 'descripcion' => …].
+                'acciones' => array_map(
+                    fn ($accion): string => is_array($accion) ? (string) ($accion['etiqueta'] ?? '') : (string) $accion,
+                    (array) ($definicion['acciones'] ?? []),
+                ),
             ];
         }
 

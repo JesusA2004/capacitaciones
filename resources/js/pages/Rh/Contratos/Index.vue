@@ -26,6 +26,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import AyudaBoton from '@/components/Common/AyudaBoton.vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
@@ -35,6 +36,7 @@ import ChipEstado from '@/components/people/ChipEstado.vue';
 import ChipsCompactos from '@/components/people/ChipsCompactos.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
+import BotonSubirContratoFirmado from '@/components/Rh/Expediente/BotonSubirContratoFirmado.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -57,6 +59,7 @@ import { useFiltros } from '@/composables/useFiltros';
 import { useVistaPreviaPdf } from '@/composables/useVistaPreviaPdf';
 import { datosFaltantesCompletos } from '@/lib/datosFaltantes';
 import { getJson } from '@/lib/http';
+import { opcionesDe } from '@/lib/opcionesSelect';
 import type { Tono } from '@/lib/tonos';
 import {
     completarDatos as completarDatosRuta,
@@ -255,7 +258,11 @@ function verDocumento(fila: PlanContratos, doc: DocumentoCorrespondiente) {
 }
 
 function puedeVerPrevia(doc: DocumentoCorrespondiente): boolean {
-    return doc.estado === 'por_generar' || doc.estado === 'faltan_datos';
+    // La vista previa es parte de generar (el backend exige el permiso).
+    return (
+        props.puedeGenerar &&
+        (doc.estado === 'por_generar' || doc.estado === 'faltan_datos')
+    );
 }
 
 // ───────── Archivo ya existente (firmado cargado o generado) en el visor ─────────
@@ -267,7 +274,7 @@ const archivo = ref<{
 } | null>(null);
 
 function verFirmado(fila: PlanContratos, doc: DocumentoCorrespondiente) {
-    if (!doc.firmado_cargado) {
+    if (!doc.firmado_cargado?.url) {
         return;
     }
 
@@ -667,7 +674,7 @@ function etiquetasFaltantes(fila: PlanContratos): string[] {
 
         <CrudToolbar
             :model-value="filtros.busqueda"
-            placeholder="Buscar colaborador o número de empleado…"
+            placeholder="Buscar por nombre, número, puesto o sucursal…"
             :contador-filtros-activos="filtrosActivos"
             @update:model-value="
                 (valor) => {
@@ -703,48 +710,30 @@ function etiquetasFaltantes(fila: PlanContratos): string[] {
                             >
                         </SelectContent>
                     </Select>
-                    <Select
+                    <SelectSimple
                         :model-value="filtros.sucursal_id"
+                        :opciones="opcionesDe(opciones.sucursales)"
+                        placeholder="Sucursal"
+                        opcion-vacia="Todas las sucursales"
                         @update:model-value="
                             (v) => {
                                 filtros.sucursal_id = String(v ?? '');
                                 aplicar();
                             }
                         "
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Sucursal" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="s in opciones.sucursales"
-                                :key="s.id"
-                                :value="String(s.id)"
-                                >{{ s.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
-                    <Select
+                    />
+                    <SelectSimple
                         :model-value="filtros.puesto_id"
+                        :opciones="opcionesDe(opciones.puestos)"
+                        placeholder="Puesto"
+                        opcion-vacia="Todos los puestos"
                         @update:model-value="
                             (v) => {
                                 filtros.puesto_id = String(v ?? '');
                                 aplicar();
                             }
                         "
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Puesto" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="p in opciones.puestos"
-                                :key="p.id"
-                                :value="String(p.id)"
-                                >{{ p.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
+                    />
                 </div>
             </template>
         </CrudToolbar>
@@ -947,7 +936,7 @@ function etiquetasFaltantes(fila: PlanContratos): string[] {
                                     class="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 lg:flex lg:shrink-0 lg:flex-wrap lg:justify-end min-[420px]:[&>*:only-child]:col-span-2"
                                 >
                                     <Button
-                                        v-if="doc.firmado_cargado"
+                                        v-if="doc.firmado_cargado?.url"
                                         variant="success"
                                         class="h-10"
                                         @click="verFirmado(fila, doc)"
@@ -964,6 +953,11 @@ function etiquetasFaltantes(fila: PlanContratos): string[] {
                                         <FileText class="size-5" />
                                         Ver generado
                                     </Button>
+                                    <BotonSubirContratoFirmado
+                                        v-if="doc.puede_subir_firmado"
+                                        :colaborador-id="fila.id"
+                                        :clave="doc.clave"
+                                    />
                                     <BotonVistaPrevia
                                         v-if="puedeVerPrevia(doc)"
                                         class="h-10"

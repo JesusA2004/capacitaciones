@@ -60,6 +60,17 @@ class CandidatoWorkflowService
     /** Gerente de sucursal: entrevista, revisión de psicométricas, socioeconómico. */
     public const PERMISO_GERENTE = 'candidatos.evaluar';
 
+    /*
+     * Acciones específicas de cada paso del gerente: candidatos.evaluar (el
+     * general) sigue cubriendo los tres; estas permiten armar un rol que
+     * solo apruebe la entrevista, o solo revise psicométricas/socioeconómico.
+     */
+    public const PERMISO_ENTREVISTA = 'candidatos.aprobar_entrevista';
+
+    public const PERMISO_REVISAR_PSICOMETRICAS = 'candidatos.revisar_psicometricas';
+
+    public const PERMISO_REVISAR_SOCIOECONOMICO = 'candidatos.revisar_socioeconomico';
+
     public const PERMISO_DESCARTAR = 'candidatos.rechazar';
 
     public function __construct(
@@ -264,7 +275,7 @@ class CandidatoWorkflowService
      */
     public function registrarEntrevista(Candidato $candidato, User $actor, array $datos): Candidato
     {
-        $this->autorizar($actor, self::PERMISO_GERENTE, $candidato);
+        $this->autorizarAlguno($actor, [self::PERMISO_GERENTE, self::PERMISO_ENTREVISTA], $candidato);
         $resultado = ResultadoEtapaCandidato::from((string) $datos['resultado']);
         $observaciones = isset($datos['observaciones']) ? (string) $datos['observaciones'] : null;
         $realizada = isset($datos['realizada_en']) ? (string) $datos['realizada_en'] : now()->toDateTimeString();
@@ -323,7 +334,7 @@ class CandidatoWorkflowService
 
     public function revisarPsicometricas(Candidato $candidato, User $actor, bool $viable, ?string $observaciones, ?int $motivoRechazoId = null, ?bool $recontratable = null): Candidato
     {
-        $this->autorizar($actor, self::PERMISO_GERENTE, $candidato);
+        $this->autorizarAlguno($actor, [self::PERMISO_GERENTE, self::PERMISO_REVISAR_PSICOMETRICAS], $candidato);
 
         return $this->paso($candidato, $actor, EstadoCandidato::RevisionPsicometricas, function (Candidato $c) use ($actor, $viable, $observaciones, $motivoRechazoId, $recontratable): void {
             $this->psicometricaAbierta($c)->update([
@@ -388,7 +399,7 @@ class CandidatoWorkflowService
      */
     public function revisarSocioeconomico(Candidato $candidato, User $actor, bool $viable, ?string $observaciones, ?int $motivoRechazoId = null, ?bool $recontratable = null): Candidato
     {
-        $this->autorizar($actor, self::PERMISO_GERENTE, $candidato);
+        $this->autorizarAlguno($actor, [self::PERMISO_GERENTE, self::PERMISO_REVISAR_SOCIOECONOMICO], $candidato);
 
         return $this->paso($candidato, $actor, EstadoCandidato::SocioeconomicoPendiente, function (Candidato $c) use ($actor, $viable, $observaciones, $motivoRechazoId, $recontratable): void {
             $estudio = $this->socioeconomicoPendiente($c);
@@ -580,7 +591,7 @@ class CandidatoWorkflowService
                 }
                 break;
             case EstadoCandidato::EntrevistaPendiente:
-                if ($puede(self::PERMISO_GERENTE)) {
+                if ($puede(self::PERMISO_GERENTE) || $puede(self::PERMISO_ENTREVISTA)) {
                     $acciones[] = ['clave' => 'registrar_entrevista', 'etiqueta' => 'Registrar entrevista', 'tipo' => 'primaria'];
                 }
                 break;
@@ -591,7 +602,7 @@ class CandidatoWorkflowService
                 }
                 break;
             case EstadoCandidato::RevisionPsicometricas:
-                if ($puede(self::PERMISO_GERENTE)) {
+                if ($puede(self::PERMISO_GERENTE) || $puede(self::PERMISO_REVISAR_PSICOMETRICAS)) {
                     $acciones[] = ['clave' => 'revisar_psicometricas', 'etiqueta' => 'Revisar psicométrico', 'tipo' => 'primaria'];
                 }
                 break;
@@ -599,7 +610,7 @@ class CandidatoWorkflowService
                 // Cargar ≠ decidir: con un estudio cargado sin revisar, lo
                 // único que sigue es que el responsable lo revise.
                 if ($this->socioeconomicoPendiente($candidato) !== null) {
-                    if ($puede(self::PERMISO_GERENTE)) {
+                    if ($puede(self::PERMISO_GERENTE) || $puede(self::PERMISO_REVISAR_SOCIOECONOMICO)) {
                         $acciones[] = ['clave' => 'revisar_socioeconomico', 'etiqueta' => 'Revisar socioeconómico', 'tipo' => 'primaria'];
                     }
                 } elseif ($puede(self::PERMISO_RECLUTAMIENTO) || $puede(self::PERMISO_GERENTE)) {

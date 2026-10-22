@@ -78,17 +78,14 @@ class SesionInduccionService
     {
         $this->exigirPermiso($actor);
 
-        $palabras = array_slice(preg_split('/\s+/u', Str::lower(Str::ascii(trim($termino))), -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 4);
-        $consulta = $this->consultaElegibles($actor)->select(['id', 'name', 'apellidos', 'numero_empleado', 'estado_alta']);
-
-        $ids = $consulta->orderBy('name')->orderBy('apellidos')->limit(3000)->get()
-            ->filter(function (Colaborador $c) use ($palabras): bool {
-                $texto = Str::lower(Str::ascii(sprintf('%s %s %s', $c->name, $c->apellidos, $c->numero_empleado)));
-
-                return collect($palabras)->every(fn (string $p): bool => str_contains($texto, $p));
-            })
-            ->sortBy(fn (Colaborador $c): int => $c->estado_alta === EstadoAltaColaborador::Activo ? 1 : 0)
-            ->take(30)
+        // Buscador único: nombre, número, puesto, sucursal o departamento;
+        // primero quienes aún no están activos (en su ingreso).
+        $ids = $this->consultaElegibles($actor)
+            ->select(['id', 'name', 'apellidos', 'numero_empleado', 'estado_alta'])
+            ->buscar($termino)
+            ->orderByRaw('CASE WHEN estado_alta = ? THEN 1 ELSE 0 END', [EstadoAltaColaborador::Activo->value])
+            ->orderBy('name')->orderBy('apellidos')
+            ->limit(30)
             ->pluck('id')
             ->all();
 

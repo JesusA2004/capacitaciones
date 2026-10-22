@@ -82,8 +82,8 @@ class InduccionPdfService
     }
 
     /**
-     * Solo RH que presenta o el colaborador DURANTE la sesión que lo incluye
-     * (AccesoInduccionColaboradorService).
+     * Solo RH (onboarding.gestionar) o el colaborador mientras su inducción
+     * está asignada y por ver (AccesoInduccionColaboradorService).
      *
      * @throws AuthorizationException
      * @throws ArchivoGeneradoNoDisponibleException
@@ -155,14 +155,18 @@ class InduccionPdfService
         $this->exigirTitular($avance, $usuario);
         $total = $this->totalPaginas();
         $vistas = count((array) (((array) ($avance->progreso_contenido ?? []))['paginas_vistas'] ?? []));
+        // RH puede asignar solo la presentación o solo el material: lo que no
+        // se le asignó no se le exige (AsignacionInduccionService).
+        $asignado = $this->acceso->contenidoAsignado($avance);
 
-        if ($total < 1 || $vistas < $total) {
+        if ($asignado['presentacion'] && ($total < 1 || $vistas < $total)) {
             throw ValidationException::withMessages(['induccion' => sprintf('Te faltan %d página(s) por revisar antes de terminar.', max(1, $total - $vistas))]);
         }
 
-        // El video de explicación (si el material activo es video) es
-        // obligatorio: la evaluación queda bloqueada hasta verlo completo.
-        $material = $this->materiales->materialActivoDeAvance($avance);
+        // El video de explicación (si el material activo es video y se le
+        // asignó) es obligatorio: la evaluación queda bloqueada hasta verlo
+        // completo.
+        $material = $asignado['material'] ? $this->materiales->materialActivoDeAvance($avance) : null;
 
         if ($material !== null && $material->tipo->bloqueaEvaluacion() && ! $this->video->videoCompletado($avance)) {
             throw ValidationException::withMessages(['induccion' => 'Primero ve completo el video de la inducción antes de terminar.']);

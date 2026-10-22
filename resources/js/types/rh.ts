@@ -226,11 +226,20 @@ export type DocumentoExpedienteInfo = {
         rechazar: boolean;
         corregir: boolean;
         autorizar_cambio: boolean;
+        /** Ver/descargar el archivo (documentos.descargar). Ausente = sí. */
+        descargar?: boolean;
     };
 };
 
 export type DocumentoExpedienteItem = {
-    tipo: { id: number; nombre: string; clave: string; requerido: boolean };
+    tipo: {
+        id: number;
+        nombre: string;
+        clave: string;
+        requerido: boolean;
+        /** Opcional del checklist: se ve y se asigna, nunca cuenta como faltante. */
+        opcional?: boolean;
+    };
     documento: DocumentoExpedienteInfo | null;
 };
 

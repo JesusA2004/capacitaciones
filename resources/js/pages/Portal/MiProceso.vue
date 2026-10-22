@@ -2,7 +2,7 @@
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import {
     ArrowRight,
-    BookOpen,
+    BriefcaseBusiness,
     CheckCircle2,
     Clock,
     GraduationCap,
@@ -13,17 +13,18 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import LeccionOnboardingContenido from '@/components/ciclo/LeccionOnboardingContenido.vue';
+import MiInduccionTarjeta from '@/components/onboarding/MiInduccionTarjeta.vue';
 import { dashboard } from '@/routes';
-import {
-    contenido as induccionEvaluacionUrl,
-    ver as verInduccion,
-} from '@/routes/portal/induccion';
+import { descriptivoPuesto as descriptivoPuestoUrl } from '@/routes/portal';
+import { contenido as induccionEvaluacionUrl } from '@/routes/portal/induccion';
 import { evaluacion as evaluacionUrl } from '@/routes/portal/onboarding';
 import type {
     AccesoInduccionColaborador,
+    DescriptivoPuestoColaborador,
     EvaluacionInduccionResumen,
     InduccionContenidoResumen,
     LeccionBienvenida,
+    MiInduccion,
     MisPendientes,
 } from '@/types';
 
@@ -35,6 +36,8 @@ const props = defineProps<{
     evaluacionInduccion?: EvaluacionInduccionResumen | null;
     induccionContenido?: InduccionContenidoResumen | null;
     accesoInduccion?: AccesoInduccionColaborador;
+    miInduccion?: MiInduccion | null;
+    descriptivoPuesto?: DescriptivoPuestoColaborador | null;
 }>();
 
 const estiloInduccion: Record<EvaluacionInduccionResumen['estado'], string> = {
@@ -130,6 +133,12 @@ const claseBoton =
                 cada paso.
             </p>
         </header>
+
+        <!-- Mi inducción: Presentación → Video → Evaluación → Resultado -->
+        <MiInduccionTarjeta
+            v-if="miInduccion && miInduccion.estado !== 'sin_asignar'"
+            :induccion="miInduccion"
+        />
 
         <section
             v-if="todo_listo"
@@ -296,45 +305,42 @@ const claseBoton =
                     </article>
                 </section>
 
-                <!-- Inducción asignada: el colaborador la ve solo (hojas + material). -->
+                <!-- Descriptivo de puesto enviado por RH -->
                 <article
-                    v-if="
-                        accesoInduccion &&
-                        accesoInduccion.estado === 'disponible'
-                    "
-                    class="flex flex-col gap-3 rounded-3xl border bg-[var(--mrl-surface)] p-5 transition-all duration-200"
+                    v-if="descriptivoPuesto"
+                    class="flex flex-col gap-3 rounded-3xl border p-5 transition-all duration-200 sm:flex-row sm:items-center"
                     :class="
-                        accesoInduccion.puede_ver_contenido
-                            ? 'border-[var(--mrl-primary)]/40 hover:shadow-md'
-                            : 'border-[var(--mrl-borde)]'
+                        descriptivoPuesto.acusado_en
+                            ? 'border-success/30 bg-success-soft/40'
+                            : 'border-primary/40 bg-card hover:shadow-md'
                     "
                 >
-                    <div class="flex items-center gap-3">
-                        <BookOpen
-                            v-if="accesoInduccion.puede_ver_contenido"
-                            class="size-8 shrink-0 text-[var(--mrl-primary)]"
-                        />
-                        <Clock
-                            v-else
-                            class="size-8 shrink-0 text-[var(--mrl-texto-suave)]"
-                        />
-                        <div class="min-w-0 flex-1">
-                            <p
-                                class="text-base font-semibold text-[var(--mrl-texto)]"
-                            >
-                                Inducción Mr. Lana
-                            </p>
-                            <p class="text-sm text-[var(--mrl-texto-suave)]">
-                                {{ accesoInduccion.mensaje }}
-                            </p>
-                        </div>
+                    <BriefcaseBusiness class="size-8 shrink-0 text-primary" />
+                    <div class="min-w-0 flex-1">
+                        <p class="text-base font-semibold">
+                            Mi descriptivo de puesto
+                        </p>
+                        <p class="text-sm text-muted-foreground">
+                            {{
+                                descriptivoPuesto.acusado_en
+                                    ? 'Ya confirmaste que estás enterado(a) de tus actividades.'
+                                    : 'Recursos Humanos te envió tus actividades y responsabilidades. Léelas y confirma.'
+                            }}
+                        </p>
                     </div>
                     <Link
-                        v-if="accesoInduccion.puede_ver_contenido"
-                        :href="verInduccion.url()"
-                        class="inline-flex w-fit items-center gap-2 rounded-xl bg-[var(--mrl-primary)] px-4 py-2.5 text-sm font-medium text-white transition-all hover:gap-3 hover:bg-[var(--mrl-primary-alt)]"
+                        :href="descriptivoPuestoUrl()"
+                        :class="
+                            descriptivoPuesto.acusado_en
+                                ? 'text-sm font-medium text-primary hover:underline'
+                                : claseBoton
+                        "
                     >
-                        Ver inducción
+                        {{
+                            descriptivoPuesto.acusado_en
+                                ? 'Ver'
+                                : 'Leer y confirmar'
+                        }}
                         <ArrowRight class="size-4" />
                     </Link>
                 </article>

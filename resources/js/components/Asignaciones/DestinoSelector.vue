@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Trash2 } from '@lucide/vue';
 import { computed } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Button } from '@/components/ui/button';
 import {
     Select,
@@ -92,24 +93,20 @@ function actualizarObjetivo(id: string) {
             </SelectContent>
         </Select>
 
-        <Select
+        <SelectSimple
             v-if="modelValue.tipo !== 'todos'"
             :model-value="modelValue.id ? String(modelValue.id) : ''"
+            :opciones="
+                opcionesObjetivo.map((o) => ({
+                    value: String(o.id),
+                    label: o.etiqueta,
+                }))
+            "
+            placeholder="Selecciona una opción"
+            :buscable="modelValue.tipo === 'usuario' ? true : 'auto'"
+            class="w-64"
             @update:model-value="(v) => actualizarObjetivo(String(v))"
-        >
-            <SelectTrigger class="w-64"
-                ><SelectValue placeholder="Selecciona una opción"
-            /></SelectTrigger>
-            <SelectContent>
-                <SelectItem
-                    v-for="opcion in opcionesObjetivo"
-                    :key="opcion.id"
-                    :value="String(opcion.id)"
-                >
-                    {{ opcion.etiqueta }}
-                </SelectItem>
-            </SelectContent>
-        </Select>
+        />
 
         <Button
             type="button"

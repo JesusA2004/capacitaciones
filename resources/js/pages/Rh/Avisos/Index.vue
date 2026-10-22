@@ -13,6 +13,7 @@ import { computed, onBeforeUnmount, ref } from 'vue';
 import AdjuntoAviso from '@/components/avisos/AdjuntoAviso.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -48,6 +49,8 @@ import type {
  */
 const props = defineProps<{
     avisos: RespuestaPaginada<AvisoItem>;
+    /** Sin avisos.enviar solo se consulta el historial (avisos.ver). */
+    puedeEnviar: boolean;
 }>();
 
 defineOptions({
@@ -165,7 +168,10 @@ onBeforeUnmount(liberarPrevisualizacion);
 
         <div class="grid gap-6 lg:grid-cols-5">
             <!-- Escribir -->
-            <Card class="h-fit lg:sticky lg:top-4 lg:col-span-2">
+            <Card
+                v-if="puedeEnviar"
+                class="h-fit lg:sticky lg:top-4 lg:col-span-2"
+            >
                 <CardContent class="flex flex-col gap-4 pt-6">
                     <div class="flex flex-col gap-1.5">
                         <Label for="aviso-alcance">Para</Label>
@@ -413,6 +419,8 @@ onBeforeUnmount(liberarPrevisualizacion);
                         </CardContent>
                     </Card>
                 </TransitionGroup>
+
+                <PaginacionTabla :datos="props.avisos" />
             </section>
         </div>
     </div>

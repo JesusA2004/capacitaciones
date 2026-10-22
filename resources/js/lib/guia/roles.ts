@@ -99,7 +99,7 @@ export const ROLES_GUIA: RolGuia[] = [
             },
             { texto: 'Entregar equipo (onboarding)', articulo: 'onboarding' },
             {
-                texto: 'Evaluación de capacitación inicial',
+                texto: 'Evaluaciones de periodo de prueba',
                 articulo: 'evaluacion-capacitacion',
             },
             {

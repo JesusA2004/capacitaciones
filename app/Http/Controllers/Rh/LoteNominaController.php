@@ -124,8 +124,9 @@ class LoteNominaController extends Controller
                 'errores' => count($lote->errores ?? []),
             ],
             'filtro' => $filtro,
-            'puedeEmitir' => $usuario->can('nomina.recibos.crear') && $emitible,
-            'puedeCancelar' => $usuario->can('nomina.recibos.crear') && $lote->estado !== EstadoLoteNomina::Cancelado,
+            'puedeDescargar' => $usuario->can('nomina.recibos.descargar'),
+            'puedeEmitir' => $usuario->can('nomina.recibos.emitir') && $emitible,
+            'puedeCancelar' => $usuario->can('nomina.recibos.cancelar') && $lote->estado !== EstadoLoteNomina::Cancelado,
             'puedeEditar' => $usuario->can('nomina.recibos.crear') && $lote->estado === EstadoLoteNomina::Preparado,
             // Recalcular: solo mientras el lote esté preparado y NINGÚN
             // recibo haya sido emitido/cancelado (un PDF emitido es inmutable).
@@ -145,7 +146,7 @@ class LoteNominaController extends Controller
     public function descargarImpresion(Request $request, NominaLote $lote): HttpResponse|RedirectResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('nomina.recibos.ver'), 403);
+        abort_unless($usuario->can('nomina.recibos.descargar'), 403);
 
         try {
             $pdf = $this->lotes->pdfImpresion($lote, $usuario);
@@ -168,7 +169,7 @@ class LoteNominaController extends Controller
     public function pdf(Request $request, NominaLote $lote, ReciboNomina $recibo): HttpResponse|StreamedResponse
     {
         abort_unless($recibo->nomina_lote_id === $lote->id, 404);
-        $this->authorize('ver', $recibo);
+        $this->authorize('descargar', $recibo);
 
         // Emitido = su PDF congelado (si faltara, pantalla de reparación,
         // nunca una vista previa con otro diseño ni un 404).
@@ -194,7 +195,7 @@ class LoteNominaController extends Controller
 
     public function emitir(Request $request, NominaLote $lote): RedirectResponse
     {
-        abort_unless($request->user()->can('nomina.recibos.crear'), 403);
+        abort_unless($request->user()->can('nomina.recibos.emitir'), 403);
 
         $resultado = $this->lotes->emitir($lote, $request->user());
 
@@ -213,7 +214,7 @@ class LoteNominaController extends Controller
 
     public function cancelar(Request $request, NominaLote $lote): RedirectResponse
     {
-        abort_unless($request->user()->can('nomina.recibos.crear'), 403);
+        abort_unless($request->user()->can('nomina.recibos.cancelar'), 403);
         $datos = $request->validate(['motivo' => ['required', 'string', 'min:5', 'max:500']], ['motivo.required' => 'Indica el motivo de la cancelación.']);
 
         $this->lotes->cancelar($lote, $datos['motivo'], $request->user());

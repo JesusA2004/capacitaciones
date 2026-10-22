@@ -26,6 +26,7 @@ import CausalesRotacionPanel from '@/components/Rh/CausalesRotacionPanel.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 import { usePermisos } from '@/composables/usePermisos';
 import { formatearFecha } from '@/lib/fechas';
 import { cn, formatoMoneda } from '@/lib/utils';
@@ -163,6 +164,7 @@ function filtrarDocumentos() {
     router.get(
         window.location.pathname,
         {
+            ...parametrosPorPaginaActuales(),
             busqueda: busquedaDoc.value || undefined,
             estatus:
                 estatusDoc.value && estatusDoc.value !== 'abiertas'
@@ -341,6 +343,7 @@ function filtrarCierres() {
     router.get(
         window.location.pathname,
         {
+            ...parametrosPorPaginaActuales(),
             seccion: 'cierres',
             busqueda: termino.value || undefined,
             estado: estado.value || undefined,
@@ -543,7 +546,7 @@ function neto(fila: FilaCierre): string {
                 />
             </div>
 
-            <PaginacionTabla :datos="recopilacion" />
+            <PaginacionTabla :datos="recopilacion" clave="cierres-documentos" />
 
             <input
                 ref="entrada"
@@ -766,7 +769,7 @@ function neto(fila: FilaCierre): string {
                     </li>
                 </ul>
 
-                <PaginacionTabla :datos="cierres" />
+                <PaginacionTabla :datos="cierres" clave="cierres-finiquitos" />
             </template>
         </template>
     </div>

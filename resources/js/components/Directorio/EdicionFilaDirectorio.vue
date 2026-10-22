@@ -2,17 +2,11 @@
 import { Check, Info, LoaderCircle, Mail, Phone, X } from '@lucide/vue';
 import { reactive, ref } from 'vue';
 import { toast } from 'vue-sonner';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { leerCookie } from '@/lib/http';
 import { actualizar } from '@/routes/directorio';
 
@@ -174,71 +168,56 @@ async function guardar() {
             </div>
             <div class="grid gap-1.5">
                 <Label>Puesto</Label>
-                <Select
+                <SelectSimple
                     :model-value="form.puesto_id"
+                    :opciones="
+                        opciones.puestos.map((o) => ({
+                            value: String(o.id),
+                            label: o.nombre,
+                        }))
+                    "
+                    placeholder="Selecciona un puesto"
+                    class="h-11 data-[size=default]:h-11"
                     @update:model-value="
                         (v) => (form.puesto_id = String(v ?? ''))
                     "
-                >
-                    <SelectTrigger class="h-11 w-full">
-                        <SelectValue placeholder="Selecciona un puesto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="puesto in opciones.puestos"
-                            :key="puesto.id"
-                            :value="String(puesto.id)"
-                        >
-                            {{ puesto.nombre }}
-                        </SelectItem>
-                    </SelectContent>
-                </Select>
+                />
                 <InputError :message="errores.puesto_id" />
             </div>
             <div class="grid gap-1.5">
                 <Label>Sucursal</Label>
-                <Select
+                <SelectSimple
                     :model-value="form.sucursal_principal_id"
+                    :opciones="
+                        opciones.sucursales.map((o) => ({
+                            value: String(o.id),
+                            label: o.nombre,
+                        }))
+                    "
+                    placeholder="Selecciona una sucursal"
+                    class="h-11 data-[size=default]:h-11"
                     @update:model-value="
                         (v) => (form.sucursal_principal_id = String(v ?? ''))
                     "
-                >
-                    <SelectTrigger class="h-11 w-full">
-                        <SelectValue placeholder="Selecciona una sucursal" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="sucursal in opciones.sucursales"
-                            :key="sucursal.id"
-                            :value="String(sucursal.id)"
-                        >
-                            {{ sucursal.nombre }}
-                        </SelectItem>
-                    </SelectContent>
-                </Select>
+                />
                 <InputError :message="errores.sucursal_principal_id" />
             </div>
             <div class="grid gap-1.5">
                 <Label>Departamento</Label>
-                <Select
+                <SelectSimple
                     :model-value="form.departamento_id"
+                    :opciones="
+                        opciones.departamentos.map((o) => ({
+                            value: String(o.id),
+                            label: o.nombre,
+                        }))
+                    "
+                    placeholder="Selecciona un departamento"
+                    class="h-11 data-[size=default]:h-11"
                     @update:model-value="
                         (v) => (form.departamento_id = String(v ?? ''))
                     "
-                >
-                    <SelectTrigger class="h-11 w-full">
-                        <SelectValue placeholder="Selecciona un departamento" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="departamento in opciones.departamentos"
-                            :key="departamento.id"
-                            :value="String(departamento.id)"
-                        >
-                            {{ departamento.nombre }}
-                        </SelectItem>
-                    </SelectContent>
-                </Select>
+                />
                 <InputError :message="errores.departamento_id" />
             </div>
         </div>

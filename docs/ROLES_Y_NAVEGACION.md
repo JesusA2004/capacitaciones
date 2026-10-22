@@ -42,9 +42,7 @@ El orden es exactamente el ciclo de vida laboral + transversales:
 | | | Inducción al puesto | `onboarding.gestionar` | `rh.induccion-puesto.index` |
 | | | Calificaciones y refuerzo (inducción FO-RH-EI + lecciones, retroalimentación y reevaluación) | `onboarding.gestionar` | `rh.onboarding.calificaciones` |
 | | | Activos y responsivas | `responsivas.ver` | `rh.activos-responsivas.index` |
-| 4 | **Cierre del periodo de prueba** | Evaluaciones de periodo de prueba | `evaluaciones.*` | `rh.evaluaciones.index` |
-| | | Periodos por vencer (calculado por fecha de ingreso + duración del puesto) | `evaluaciones.*` | `rh.periodos-prueba.index` |
-| | | Evaluación y decisión | `evaluaciones.*` | `rh.evaluaciones.index?estado=capturada` |
+| 4 | **Cierre del periodo de prueba** | Evaluaciones de periodo de prueba (UN solo acceso, pestañas «Próximas / por asignar», «En proceso» con chip «Por decidir RH» y «Evaluadas») | `evaluaciones.*` | `rh.evaluaciones.index` |
 | 5 | **Permanencia** | Colaboradores | `expedientes.ver_todos`/`ver_region`/`ver_sucursal`/`ver_equipo` | `rh.expedientes.index` |
 | | | Solicitudes | `solicitudes.revisar`/`aprobar` | `rh.solicitudes.index` |
 | | | Actas administrativas | `actas.ver` | `rh.actas.index` |
@@ -71,7 +69,7 @@ El orden es exactamente el ciclo de vida laboral + transversales:
 
 Las vistas de **evaluación de periodo de prueba** (Evaluaciones de periodo de prueba, Evaluación y decisión) son filtros `?estado=` reales de la **misma** pantalla (`rh.evaluaciones.index`), no pantallas duplicadas. «Calificaciones y refuerzo» (grupo 3) es otra cosa: las calificaciones de la **inducción** (`rh.onboarding.calificaciones`, SesionInduccionService::calificacionesRh).
 
-«Periodos por vencer» (`rh.periodos-prueba.index`, `PeriodosPruebaService`) es pantalla propia: detecta por **fecha de ingreso** y `puestos.meses_periodo_prueba` a quien sigue en periodo de prueba aunque su contrato o su evaluación todavía no existan en el sistema (alerta a `contratos.regularizacion.dias_alerta_periodo_prueba` = 15 días naturales; el aviso automático que abre la evaluación sigue en días hábiles). «Contratos» (`rh.contratos.index`, `RegularizacionContratosService`) muestra qué contratos le corresponden a cada colaborador activo y genera los que falten (individual o en lote en la cola, idempotente).
+«Periodos por vencer» ya NO es pantalla propia (2026-10-22): es la pestaña «Próximas / por asignar» de `rh.evaluaciones.index` (`rh.periodos-prueba.index` solo redirige ahí, `?tab=proximas`; los enlaces viejos `?estado=…` caen en la pestaña equivalente). `PeriodosPruebaService` detecta por **fecha de ingreso** y `puestos.meses_periodo_prueba` a quien sigue en periodo de prueba aunque su contrato o su evaluación todavía no existan en el sistema (alerta a `contratos.regularizacion.dias_alerta_periodo_prueba` = 15 días naturales; el aviso automático que abre la evaluación sigue en días hábiles). «Contratos» (`rh.contratos.index`, `RegularizacionContratosService`) muestra qué contratos le corresponden a cada colaborador activo y genera los que falten (individual o en lote en la cola, idempotente).
 
 **Colaborador ("Mi espacio")**: Mi inicio, Mi expediente (si `expedientes.ver`), Mis solicitudes (si `portal.solicitudes.ver`/`solicitudes.crear`), Mi recibo (solo si `features.recibos_colaborador`), Mis notificaciones, Mi inducción, Mi capacitación (si `features.capacitacion`), Celebraciones, Ayuda.
 
@@ -105,7 +103,7 @@ Decisión del negocio: la **Coordinadora** (roles `coordinadora` y `coordinadora
 
 ## Revocar permisos en producción (mecanismo explícito)
 
-`people:sincronizar-permisos` (y `db:seed --force`) es **no destructivo** a propósito: solo agrega lo que falta y nunca quita lo que un administrador agregó desde «Roles y permisos». Por eso **quitar un permiso del seeder no lo quita en producción**. Cuando el negocio decide QUITAR permisos a un rol, se hace con una migración de datos que nombra SOLO a los roles afectados y llama a `App\Services\Permisos\AlineacionPermisosRolService::alinearAlBase([...])`: deja cada rol con exactamente su base del seeder (`syncPermissions`), crea los permisos base que falten, limpia la caché de Spatie y, si el rol no existe, no hace nada. Idempotente. Ninguna otra migración ni comando lo aplica a todos los roles.
+`people:sincronizar-permisos` (y `db:seed --force`) es **no destructivo** a propósito: crea los permisos nuevos del catálogo y otorga sus defaults **solo de esos permisos nuevos** (a los roles base y, por `herencia`, a quien ya tenía el permiso general del que se separaron — incluidos roles hechos a mano y permisos directos); a un rol que ya existía nunca le re-otorga un permiso que ya existía (lo que se quitó desde «Roles y permisos» se queda quitado) y nunca quita lo que un administrador agregó. Por eso **quitar un permiso del seeder no lo quita en producción**. Cuando el negocio decide QUITAR permisos a un rol, se hace con una migración de datos que nombra SOLO a los roles afectados y llama a `App\Services\Permisos\AlineacionPermisosRolService::alinearAlBase([...])`: deja cada rol con exactamente su base del seeder (`syncPermissions`), crea los permisos base que falten, limpia la caché de Spatie y, si el rol no existe, no hace nada. Idempotente. Ninguna otra migración ni comando lo aplica a todos los roles.
 
 | Migración | Roles | Qué revoca |
 |---|---|---|
@@ -117,3 +115,17 @@ Decisión del negocio: la **Coordinadora** (roles `coordinadora` y `coordinadora
 En producción basta `php artisan migrate --force` (seguido, como siempre, de `php artisan people:sincronizar-permisos`). Si después se personaliza uno de esos roles desde «Roles y permisos», la migración ya corrió y no lo vuelve a tocar.
 
 `sistemas` conserva su **lectura global para soporte** sin acciones de decisión (decisión documentada en `docs/FLUJO_OPERATIVO_Y_PERMISOS.md` §4); no se le aplicó revocación.
+
+## Pantalla «Roles y permisos» (matriz por acción, 2026-10-22)
+
+`administracion.roles.index` (`RolController` → `App\Services\Permisos\CatalogoPermisosService::paraPantalla()`) presenta cada rol como una matriz súper específica, armada **solo** desde `config/permisos_modulos.php`:
+
+- **Etapas** iguales al sidebar (`etapas`: Inicio, 1 Reclutamiento … 7 Cierres laborales, Organización, Reportes, Configuración, Mi espacio). Cada módulo cae en su etapa por su clave `etapa` o por `etapa_por_modulo`; sin ninguna, en «Otros módulos».
+- **Módulo** = tarjeta con interruptor de **Acceso** (`acceso`, puede ser `null` en módulos que solo agrupan acciones), **Alcance de datos** (Propios/Equipo/Sucursal/Región/Todos, solo los niveles que el módulo define) y **cada acción** como interruptor con su descripción (`descripciones`) en un tooltip. «Todo el módulo» / «Quitar todo».
+- Búsqueda de permisos (sin acentos), «Solo lo que tiene», **comparar** con otro rol (resalta diferencias, «Solo diferencias») y **copiar** los permisos de otro rol al borrador; contador de cambios sin guardar y guardado con confirmación.
+- Pestaña **«Qué puede hacer»**: resumen en español llano, módulo por módulo.
+- **«Otros permisos»**: todo permiso de la base o del seeder que no esté en ningún módulo, agrupado por prefijo — nada queda oculto.
+- `super_admin` es de solo lectura (acceso total; `RolPolicy::update` lo niega). Los roles del seeder no se renombran ni se eliminan (el código los reconoce por nombre y el sincronizador los recrearía); sus permisos sí se ajustan.
+- Guardar valida cada permiso contra el catálogo existente en la base (`CatalogoPermisosService::asignables()`); un permiso fuera del catálogo que el rol ya tenía se puede conservar, no agregar. Cada cambio queda en la bitácora (`AuditoriaService`, eventos `rol_creado`, `rol_permisos_actualizados`, `rol_clonado`, `rol_eliminado`, con `agregados`/`quitados`).
+
+**Dividir un permiso general en acciones** (p. ej. `sucursales.administrar` → `sucursales.crear`/`editar`/`eliminar`): el general se queda como `acceso` del módulo (es lo que revisa el sidebar), las acciones nuevas se declaran en `acciones` + `herencia` (`nuevo => general`) + `descripciones`, y la Policy exige acceso **y** acción. No se tocan los arreglos de roles del seeder: `RolesYPermisosSeeder::permisosBasePorRol()` deriva los defaults de la herencia y `people:sincronizar-permisos` los otorga en producción a quien tenía el general — nadie gana ni pierde nada por el despliegue.

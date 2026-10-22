@@ -29,6 +29,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 import { formatearFecha } from '@/lib/fechas';
 import { enviarJson } from '@/lib/http';
 import { dashboard } from '@/routes';
@@ -96,6 +97,7 @@ function filtrar() {
     router.get(
         window.location.pathname,
         {
+            ...parametrosPorPaginaActuales(),
             busqueda: termino.value || undefined,
             tipo: tipo.value || undefined,
             estado: estado.value || undefined,
@@ -306,7 +308,7 @@ async function confirmar() {
                                     class="flex flex-wrap items-center justify-end gap-1.5"
                                 >
                                     <Button
-                                        v-if="r.tiene_pdf"
+                                        v-if="r.tiene_pdf && r.puede_descargar"
                                         size="sm"
                                         variant="outline"
                                         as-child
@@ -321,7 +323,7 @@ async function confirmar() {
                                     </Button>
                                     <Button
                                         v-if="
-                                            r.puede_operar &&
+                                            r.puede_registrar_firma &&
                                             r.estado === 'generada'
                                         "
                                         size="sm"
@@ -331,7 +333,7 @@ async function confirmar() {
                                         <PenLine class="size-3.5" /> Firmada
                                     </Button>
                                     <Button
-                                        v-if="r.puede_operar"
+                                        v-if="r.puede_registrar_devolucion"
                                         size="sm"
                                         variant="ghost"
                                         @click="abrir('devolucion', r)"
@@ -398,7 +400,7 @@ async function confirmar() {
                     </p>
                     <div class="mt-3 flex flex-wrap gap-1.5">
                         <Button
-                            v-if="r.tiene_pdf"
+                            v-if="r.tiene_pdf && r.puede_descargar"
                             size="sm"
                             variant="outline"
                             as-child
@@ -411,7 +413,10 @@ async function confirmar() {
                             >
                         </Button>
                         <Button
-                            v-if="r.puede_operar && r.estado === 'generada'"
+                            v-if="
+                                r.puede_registrar_firma &&
+                                r.estado === 'generada'
+                            "
                             size="sm"
                             variant="secondary"
                             @click="abrir('firmada_fisica', r)"
@@ -419,7 +424,7 @@ async function confirmar() {
                             <PenLine class="size-3.5" /> Firmada
                         </Button>
                         <Button
-                            v-if="r.puede_operar"
+                            v-if="r.puede_registrar_devolucion"
                             size="sm"
                             variant="ghost"
                             @click="abrir('devolucion', r)"

@@ -52,7 +52,7 @@ class SolicitudController extends Controller
      */
     public function permisoPdf(SolicitudInterna $solicitud): StreamedResponse
     {
-        $this->authorize('view', $solicitud);
+        $this->authorize('descargarFormato', $solicitud);
 
         try {
             return $this->solicitudes->respuestaPermiso($solicitud);

@@ -22,6 +22,9 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $cumplida_en
  * @property Carbon|null $vencida_en
  * @property Carbon|null $sustituida_en
+ * @property Carbon|null $firmada_en Pendiente de firma mientras sea null.
+ * @property int|null $firma_registrada_por
+ * @property int|null $firmada_document_id Escaneo firmado en el expediente.
  * @property int|null $generada_por
  * @property int|null $generated_document_id
  * @property string|null $disk
@@ -30,6 +33,9 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read Colaborador|null $colaborador
  * @property-read GeneratedDocument|null $documentoGenerado
+ * @property-read EmployeeDocument|null $documentoFirmado
+ * @property-read User|null $generadaPor
+ * @property-read User|null $firmaRegistradaPor
  */
 class CartaCompromiso extends Model
 {
@@ -45,6 +51,9 @@ class CartaCompromiso extends Model
         'cumplida_en',
         'vencida_en',
         'sustituida_en',
+        'firmada_en',
+        'firma_registrada_por',
+        'firmada_document_id',
         'generada_por',
         'generated_document_id',
         'disk',
@@ -63,6 +72,7 @@ class CartaCompromiso extends Model
             'cumplida_en' => 'datetime',
             'vencida_en' => 'datetime',
             'sustituida_en' => 'datetime',
+            'firmada_en' => 'datetime',
         ];
     }
 
@@ -80,6 +90,36 @@ class CartaCompromiso extends Model
     public function documentoGenerado(): BelongsTo
     {
         return $this->belongsTo(GeneratedDocument::class, 'generated_document_id');
+    }
+
+    /**
+     * @return BelongsTo<EmployeeDocument, $this>
+     */
+    public function documentoFirmado(): BelongsTo
+    {
+        return $this->belongsTo(EmployeeDocument::class, 'firmada_document_id');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function generadaPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'generada_por');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function firmaRegistradaPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'firma_registrada_por');
+    }
+
+    /** ¿Ya se subió el escaneo firmado por quien entra? */
+    public function firmada(): bool
+    {
+        return $this->firmada_en !== null;
     }
 
     /** ¿Ya pasó la fecha límite? (el día límite completo todavía cuenta). */

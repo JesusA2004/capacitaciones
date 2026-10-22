@@ -61,6 +61,12 @@ class SucursalController extends Controller
 
         return Inertia::render('Administracion/Sucursales/Index', [
             'sucursales' => $sucursales,
+            // Acciones del catálogo (config/permisos_modulos.php → sucursales).
+            'puede' => [
+                'crear' => $request->user()->can('create', Sucursal::class),
+                'editar' => $request->user()->can('sucursales.administrar') && $request->user()->can('sucursales.editar'),
+                'eliminar' => $request->user()->can('sucursales.administrar') && $request->user()->can('sucursales.eliminar'),
+            ],
             'filtros' => $request->only('busqueda', 'empresa_id'),
             // Solo lo usa el diálogo de alta/edición: se pide con una recarga
             // parcial al abrirlo, no en cada visita al listado.

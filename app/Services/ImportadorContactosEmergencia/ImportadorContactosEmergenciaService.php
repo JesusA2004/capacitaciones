@@ -9,6 +9,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Colaboradores\BuscadorColaboradoresService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Crypt;
@@ -373,21 +374,16 @@ class ImportadorContactosEmergenciaService
      */
     public function buscarColaboradores(User $actor, string $termino): array
     {
-        $palabras = array_slice(preg_split('/\s+/u', Str::lower(Str::ascii(trim($termino))), -1, PREG_SPLIT_NO_EMPTY) ?: [], 0, 5);
-
         $consulta = Colaborador::query()
             ->where('estatus', 'activo')
             ->when($actor->colaborador_id !== null, fn ($q) => $q->where('id', '!=', $actor->colaborador_id))
             ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre']);
         $this->alcance->limitarPorModulo($consulta, $actor, 'expedientes', 'id');
 
-        return array_values($consulta->orderBy('name')->orderBy('apellidos')->limit(5000)->get()
-            ->filter(function (Colaborador $c) use ($palabras): bool {
-                $texto = Str::lower(Str::ascii(sprintf('%s %s %s', $c->name, $c->apellidos, $c->numero_empleado)));
-
-                return collect($palabras)->every(fn (string $p): bool => str_contains($texto, $p));
-            })
-            ->take(25)
+        // Buscador único: nombre, número, puesto, sucursal o departamento.
+        return array_values($consulta->buscar($termino)->orderBy('name')->orderBy('apellidos')
+            ->limit(BuscadorColaboradoresService::LIMITE_LISTA)
+            ->get()
             ->map(fn (Colaborador $c): array => [
                 'id' => $c->id,
                 'nombre' => $c->nombreCompleto(),

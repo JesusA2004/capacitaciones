@@ -32,6 +32,7 @@ class MatrizComercialController extends Controller
         return Inertia::render('Administracion/MatrizComercial/Index', [
             'arbol' => $this->matriz->arbol(),
             'resumen' => $this->matriz->resumen(),
+            'puedeEditar' => $this->puedeEditarMatriz($request),
             'gestoresDisponibles' => Colaborador::query()
                 ->where('estatus', EstadoUsuario::Activo)
                 ->orderBy('name')
@@ -41,7 +42,7 @@ class MatrizComercialController extends Controller
 
     public function asignarResponsable(Request $request, NodoComercial $nodo): RedirectResponse
     {
-        abort_unless($request->user()?->can('puestos.administrar') || $request->user()?->can('organigrama.editar'), 403);
+        abort_unless($this->puedeEditarMatriz($request), 403);
 
         $datos = $request->validate([
             'responsable_colaborador_id' => ['nullable', 'integer', 'exists:colaboradores,id'],
@@ -59,7 +60,7 @@ class MatrizComercialController extends Controller
 
     public function agregarApoyo(Request $request, NodoComercial $nodo): RedirectResponse
     {
-        abort_unless($request->user()?->can('puestos.administrar') || $request->user()?->can('organigrama.editar'), 403);
+        abort_unless($this->puedeEditarMatriz($request), 403);
 
         $datos = $request->validate([
             'colaborador_id' => ['required', 'integer', 'exists:colaboradores,id'],
@@ -74,7 +75,7 @@ class MatrizComercialController extends Controller
 
     public function quitarApoyo(Request $request, NodoComercial $nodo): RedirectResponse
     {
-        abort_unless($request->user()?->can('puestos.administrar') || $request->user()?->can('organigrama.editar'), 403);
+        abort_unless($this->puedeEditarMatriz($request), 403);
 
         $datos = $request->validate([
             'colaborador_id' => ['required', 'integer', 'exists:colaboradores,id'],
@@ -85,5 +86,16 @@ class MatrizComercialController extends Controller
         $this->matriz->quitarAsignacion($nodo, $colaborador, TipoAsignacionNodoComercial::from($datos['tipo']));
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Colaborador quitado de la ruta.']);
+    }
+
+    /**
+     * Responsables y apoyos de la matriz: permiso propio
+     * (organigrama.matriz_comercial), además de poder ver el organigrama.
+     */
+    private function puedeEditarMatriz(Request $request): bool
+    {
+        $usuario = $request->user();
+
+        return $usuario !== null && $usuario->can('viewAny', Puesto::class) && $usuario->can('organigrama.matriz_comercial');
     }
 }

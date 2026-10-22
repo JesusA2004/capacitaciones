@@ -19,6 +19,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 import { cargaActa, formularioVacio } from '@/lib/actas';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
@@ -67,6 +68,7 @@ function filtrar() {
     router.get(
         index.url(),
         {
+            ...parametrosPorPaginaActuales(),
             tipo: tipoFiltro.value || undefined,
             estado: estadoFiltro.value || undefined,
         },

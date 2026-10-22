@@ -249,7 +249,7 @@ class AltaDigitalController extends Controller
 
     public function descargarDocumento(AltaDigital $alta, AltaDigitalDocumento $documento): StreamedResponse
     {
-        $this->authorize('view', $alta);
+        $this->authorize('descargarDocumento', $alta);
         abort_unless($documento->alta_digital_id === $alta->id, 404);
 
         return $this->storage->respuesta($documento->path, [
@@ -269,7 +269,7 @@ class AltaDigitalController extends Controller
 
     public function descargarFirma(AltaDigital $alta): StreamedResponse
     {
-        $this->authorize('view', $alta);
+        $this->authorize('descargarDocumento', $alta);
         abort_unless($alta->firma_path !== null, 404);
 
         return $this->storage->respuesta($alta->firma_path, [

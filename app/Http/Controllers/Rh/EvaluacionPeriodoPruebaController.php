@@ -45,7 +45,7 @@ class EvaluacionPeriodoPruebaController extends Controller
 
     public function devolver(DecisionAprobacionRequest $request, EvaluacionPeriodoPrueba $evaluacion): RedirectResponse
     {
-        $this->authorize('autorizar', $evaluacion);
+        $this->authorize('devolver', $evaluacion);
         $this->evaluaciones->devolver($evaluacion, $request->user(), $request->motivo());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Evaluación devuelta al jefe para corrección.']);

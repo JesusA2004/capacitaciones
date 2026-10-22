@@ -15,6 +15,7 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
+import { usePermisos } from '@/composables/usePermisos';
 import { formatearFecha, formatearFechaHora } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import {
@@ -37,6 +38,13 @@ import type { AltaDigitalItem } from '@/types';
 const props = defineProps<{
     alta: AltaDigitalItem;
 }>();
+
+// Ver el alta no basta para descargar sus documentos (documentos.descargar,
+// igual que el expediente); el backend lo vuelve a validar.
+const { tienePermiso } = usePermisos();
+const puedeDescargarDocumentos = computed(() =>
+    tienePermiso('documentos.descargar'),
+);
 
 // `layout` recibe una función en vez de un objeto estático porque
 // `defineOptions()` se compila fuera del scope de setup() y no puede
@@ -267,7 +275,7 @@ function generarQr() {
                             ><Download class="size-4" /> Fotografía</a
                         >
                         <a
-                            v-if="alta.tiene_firma"
+                            v-if="alta.tiene_firma && puedeDescargarDocumentos"
                             :href="descargarFirma.url(alta.id)"
                             target="_blank"
                             class="inline-flex items-center gap-1.5 text-[var(--brand-primary)] hover:underline"
@@ -282,6 +290,7 @@ function generarQr() {
                         >
                             <span>{{ documento.tipo?.nombre }}</span>
                             <a
+                                v-if="puedeDescargarDocumentos"
                                 :href="
                                     descargarDocumento.url([
                                         alta.id,

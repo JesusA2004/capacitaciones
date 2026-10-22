@@ -951,6 +951,15 @@ watch(indiceActual, async (indice) => {
                 </div>
             </div>
 
+            <!-- Acciones de quien abrió el visor (p. ej. aprobar/rechazar
+                 en «Validación de documentos»); opcional. -->
+            <slot
+                name="pie"
+                :archivo="actual"
+                :indice="indiceActual"
+                :total="total"
+            />
+
             <!-- Tira de archivos del grupo -->
             <nav
                 v-if="total > 1"

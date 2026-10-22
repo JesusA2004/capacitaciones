@@ -21,6 +21,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class AcuseDescriptivoPuestoController extends Controller
 {
+    /** Acción «Inducción al puesto» (Roles y permisos), además de onboarding.gestionar. */
+    public const PERMISO_ACCION = 'onboarding.induccion_puesto';
+
     public function __construct(
         private readonly AcuseDescriptivoPuestoService $acuses,
         private readonly OnboardingService $onboarding,
@@ -37,7 +40,7 @@ class AcuseDescriptivoPuestoController extends Controller
     public function index(Request $request): InertiaResponse
     {
         $usuario = $request->user();
-        abort_unless($usuario->can(AcuseDescriptivoPuestoService::PERMISO), 403);
+        abort_unless($usuario->can(AcuseDescriptivoPuestoService::PERMISO) && $usuario->can(self::PERMISO_ACCION), 403);
 
         $listado = $this->onboarding
             ->panoramaInduccionPuesto($usuario, $request->only(['busqueda', 'per_page']))
@@ -79,11 +82,15 @@ class AcuseDescriptivoPuestoController extends Controller
      */
     public function vistaPrevia(Request $request, Colaborador $colaborador): StreamedResponse
     {
+        abort_unless($request->user()->can(self::PERMISO_ACCION), 403);
+
         return $this->acuses->pdfVistaPrevia($colaborador, $request->user());
     }
 
     public function enviar(Request $request, Colaborador $colaborador): RedirectResponse
     {
+        abort_unless($request->user()->can(self::PERMISO_ACCION), 403);
+
         $acuse = $this->acuses->enviar($colaborador, $request->user());
 
         return back()->with('toast', [

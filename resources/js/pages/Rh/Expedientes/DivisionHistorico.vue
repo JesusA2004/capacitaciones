@@ -11,14 +11,15 @@ import {
     ScanText,
     Split,
 } from '@lucide/vue';
-import { reactive } from 'vue';
+import { computed, reactive } from 'vue';
 import MetricCard from '@/components/Common/MetricCard.vue';
-import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { ComboboxBuscable } from '@/components/ui/combobox-buscable';
 import { useAlertas } from '@/composables/useAlertas';
+import { opcionesDocumentoChecklist } from '@/lib/opcionesDocumentoChecklist';
 import { dashboard } from '@/routes';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
 import { aplicar } from '@/routes/rh/expedientes/division-historico/datos';
@@ -48,7 +49,12 @@ const props = defineProps<{
         expediente_url: string;
     };
     detalle: DetalleDivisionHistorico;
-    tiposChecklist: { id: number; nombre: string }[];
+    tiposChecklist: {
+        id: number;
+        nombre: string;
+        clave?: string;
+        requerido?: boolean;
+    }[];
     permisos: { dividir: boolean; asignar: boolean; aplicar: boolean };
 }>();
 
@@ -64,10 +70,14 @@ defineOptions({
 
 const { confirmarAccion } = useAlertas();
 
-const opcionesTipo = props.tiposChecklist.map((t) => ({
-    value: t.id,
-    label: t.nombre,
-}));
+// Requeridos / Opcionales con buscador; lo que ya está en el expediente se
+// ve deshabilitado (asignarlo crearía otra versión del mismo documento).
+const opcionesTipo = computed(() =>
+    opcionesDocumentoChecklist(props.tiposChecklist, {
+        ids: props.detalle.tipos_cubiertos ?? [],
+        nota: 'Ya en el expediente',
+    }),
+);
 
 /** Tipo elegido por parte para asignarla a mano. */
 const tipoParte = reactive<Record<number, number | null>>({});
@@ -586,7 +596,7 @@ async function aplicarDato(
                                                             !p.asignada
                                                         "
                                                     >
-                                                        <SelectSimple
+                                                        <ComboboxBuscable
                                                             v-model="
                                                                 tipoParte[p.id]
                                                             "
@@ -594,6 +604,7 @@ async function aplicarDato(
                                                                 opcionesTipo
                                                             "
                                                             placeholder="Asignar a…"
+                                                            placeholder-busqueda="Busca: INE, CURP, licencia…"
                                                             size="sm"
                                                             numerico
                                                             class="w-56"

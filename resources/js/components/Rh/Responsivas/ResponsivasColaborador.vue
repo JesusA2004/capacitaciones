@@ -266,7 +266,7 @@ const titulos: Record<Accion, string> = {
                         </div>
                         <div class="flex flex-wrap gap-2">
                             <Button
-                                v-if="r.tiene_pdf"
+                                v-if="r.tiene_pdf && r.puede_descargar"
                                 size="sm"
                                 variant="outline"
                                 as-child
@@ -281,7 +281,7 @@ const titulos: Record<Accion, string> = {
                                 </a>
                             </Button>
                             <Button
-                                v-if="r.tiene_firmada"
+                                v-if="r.tiene_firmada && r.puede_descargar"
                                 size="sm"
                                 variant="outline-success"
                                 as-child
@@ -296,7 +296,10 @@ const titulos: Record<Accion, string> = {
                                 </a>
                             </Button>
                             <Button
-                                v-if="r.puede_operar && r.estado === 'generada'"
+                                v-if="
+                                    r.puede_registrar_firma &&
+                                    r.estado === 'generada'
+                                "
                                 size="sm"
                                 variant="secondary"
                                 @click="abrir('firmada_fisica', r)"
@@ -305,7 +308,7 @@ const titulos: Record<Accion, string> = {
                                 Marcar firmada físicamente
                             </Button>
                             <Button
-                                v-if="r.puede_operar"
+                                v-if="r.puede_registrar_devolucion"
                                 size="sm"
                                 variant="ghost"
                                 @click="abrir('devolucion', r)"

@@ -13,7 +13,7 @@ class ActualizarJerarquiaPuestoRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('update', $this->route('puesto')) ?? false;
+        return $this->user()?->can('editarJerarquia', $this->route('puesto')) ?? false;
     }
 
     /**

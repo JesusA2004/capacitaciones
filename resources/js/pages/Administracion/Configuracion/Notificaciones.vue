@@ -34,6 +34,8 @@ const props = defineProps<{
     permisos: string[];
     usuarios: { id: number; nombre: string; email: string }[];
     secciones: SeccionConfiguracion[];
+    /** Cambiar el ruteo exige configuracion.notificaciones.editar. */
+    puede?: { notificaciones: boolean };
 }>();
 
 defineOptions({
@@ -172,7 +174,7 @@ const necesitaPermiso = () =>
                         >
                     </p>
                 </div>
-                <div class="flex gap-1">
+                <div v-if="puede?.notificaciones ?? true" class="flex gap-1">
                     <Button
                         v-if="r.personalizada"
                         size="sm"

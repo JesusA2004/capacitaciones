@@ -12,6 +12,7 @@ use App\Models\SolicitudVacaciones;
 use App\Models\User;
 use App\Notifications\Mobile\VacacionActualizadaNotification;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\BuscadorColaboradoresService;
 use App\Services\Notificaciones\Aviso;
 use App\Services\Notificaciones\NotificacionEventosService;
 use App\Support\Paginacion;
@@ -504,14 +505,11 @@ class VacacionesService
             ->when($filtros['estado'] ?? null, fn (Builder $q, $v) => $q->where('estado', $v))
             ->when($filtros['fecha_inicio'] ?? null, fn (Builder $q, $v) => $q->whereDate('fecha_inicio', '>=', $v))
             ->when($filtros['fecha_fin'] ?? null, fn (Builder $q, $v) => $q->whereDate('fecha_fin', '<=', $v))
+            // Buscador único (nombre, número, puesto, sucursal…) sobre el
+            // colaborador de la solicitud o el de la cuenta que la hizo.
             ->when($filtros['busqueda'] ?? null, function (Builder $q, string $busqueda): void {
-                $q->where(function (Builder $sub) use ($busqueda): void {
-                    $sub->whereHas('colaborador', function ($s) use ($busqueda): void {
-                        $s->where('name', 'like', "%{$busqueda}%")->orWhere('apellidos', 'like', "%{$busqueda}%");
-                    })->orWhereHas('usuario', function ($s) use ($busqueda): void {
-                        $s->where('name', 'like', "%{$busqueda}%")->orWhere('apellidos', 'like', "%{$busqueda}%");
-                    });
-                });
+                $buscador = app(BuscadorColaboradoresService::class);
+                $q->where(fn (Builder $sub) => $buscador->aplicarPorUsuario($buscador->aplicarPorColumna($sub, $busqueda), $busqueda, 'user_id', 'or'));
             });
     }
 

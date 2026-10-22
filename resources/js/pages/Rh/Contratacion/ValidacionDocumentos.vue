@@ -1,12 +1,23 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { Check, ClipboardList, Download, Eye, RotateCcw, X } from '@lucide/vue';
-import { ref } from 'vue';
+import {
+    Check,
+    ChevronLeft,
+    ChevronRight,
+    ClipboardList,
+    Download,
+    Eye,
+    FolderOpen,
+    RotateCcw,
+    X,
+} from '@lucide/vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import InputError from '@/components/InputError.vue';
+import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,6 +29,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Spinner } from '@/components/ui/spinner';
 import {
     Table,
     TableBody,
@@ -28,7 +40,7 @@ import {
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
 import { useFiltros } from '@/composables/useFiltros';
-import type { RespuestaPaginada } from '@/types';
+import type { ArchivoPrevisualizable, RespuestaPaginada } from '@/types';
 
 type DocumentoFila = {
     id: number;
@@ -40,6 +52,8 @@ type DocumentoFila = {
         puesto: string | null;
     };
     tipo: string;
+    archivo: string | null;
+    mime: string | null;
     version: number;
     estado: string;
     estado_etiqueta: string;
@@ -56,7 +70,18 @@ const props = defineProps<{
     documentos: RespuestaPaginada<DocumentoFila>;
     filtros: { busqueda?: string; sucursal_id?: string };
     puedeAprobar: boolean;
+    /** documentos.rechazar (misma regla que EmployeeDocumentPolicy::rechazar). */
+    puedeRechazar?: boolean;
+    /** documentos.revisar (EmployeeDocumentPolicy::pedirCorreccion). */
+    puedeSolicitarCorreccion?: boolean;
 }>();
+
+const puedeDecidir = computed(
+    () =>
+        props.puedeAprobar ||
+        (props.puedeRechazar ?? false) ||
+        (props.puedeSolicitarCorreccion ?? false),
+);
 
 defineOptions({
     layout: {
@@ -141,6 +166,141 @@ function confirmar() {
         },
     );
 }
+
+// ── Visor centrado: revisar y decidir sin salir de la bandeja ────────────
+// «Ver» abre el documento en grande (PDF/imagen inline con zoom) y desde ahí
+// se aprueba, rechaza o pide nueva versión con los MISMOS endpoints
+// rh.documentos.* que usa el expediente (la Policy decide en el backend).
+// Al decidir, el documento sale de la bandeja y el visor queda en el
+// siguiente pendiente.
+const visorAbierto = ref(false);
+const indiceVisor = ref(0);
+
+const archivosVisor = computed<ArchivoPrevisualizable[]>(() =>
+    props.documentos.data.map((fila) => ({
+        clave: String(fila.id),
+        nombre: fila.tipo,
+        previewUrl: fila.descargar_url,
+        downloadUrl: fila.descargar_url,
+        mime: fila.mime,
+        // El nombre real del archivo trae la extensión: sirve de respaldo
+        // cuando el mime no alcanza para saber si es PDF o imagen.
+        tipo: fila.archivo,
+        etiqueta: fila.colaborador.nombre,
+        version: fila.version,
+        estado: fila.estado_etiqueta,
+        subidoPor: fila.subido_por,
+        fecha: fila.cargado_en,
+    })),
+);
+
+const filaVisor = computed<DocumentoFila | null>(
+    () => props.documentos.data[indiceVisor.value] ?? null,
+);
+
+/** Decisión en curso dentro del visor (motivo en línea, sin otro diálogo). */
+const decisionVisor = ref<'rechazar' | 'correccion' | null>(null);
+const formVisor = useForm<{ motivo: string }>({ motivo: '' });
+const cajaMotivoVisor = ref<HTMLElement | null>(null);
+
+function verDocumento(fila: DocumentoFila) {
+    const indice = props.documentos.data.findIndex((f) => f.id === fila.id);
+    indiceVisor.value = Math.max(indice, 0);
+    visorAbierto.value = true;
+}
+
+function irAlDocumento(indice: number) {
+    const total = props.documentos.data.length;
+
+    if (indice >= 0 && indice < total) {
+        indiceVisor.value = indice;
+    }
+}
+
+function cancelarDecision() {
+    decisionVisor.value = null;
+    formVisor.reset();
+    formVisor.clearErrors();
+}
+
+async function pedirMotivo(tipo: 'rechazar' | 'correccion') {
+    formVisor.clearErrors();
+    decisionVisor.value = tipo;
+    await nextTick();
+    cajaMotivoVisor.value?.querySelector('textarea')?.focus();
+}
+
+// Cambiar de documento descarta un motivo a medio escribir de otro.
+watch(indiceVisor, cancelarDecision);
+
+// La bandeja se recarga tras cada decisión: el documento decidido ya no
+// aparece y el mismo índice apunta al siguiente pendiente. Si se acabó la
+// página, se queda en el último; si ya no hay ninguno, se cierra.
+watch(
+    () => props.documentos.data.length,
+    (total) => {
+        if (total === 0) {
+            visorAbierto.value = false;
+
+            return;
+        }
+
+        indiceVisor.value = Math.min(indiceVisor.value, total - 1);
+    },
+);
+
+function despuesDeDecidir(idDecidido: number) {
+    cancelarDecision();
+
+    // Por si el documento siguiera en la lista (otro estado «por revisar»),
+    // se avanza al siguiente en vez de quedarse en el mismo.
+    if (filaVisor.value?.id === idDecidido) {
+        irAlDocumento(indiceVisor.value + 1);
+    }
+}
+
+function aprobarEnVisor() {
+    const fila = filaVisor.value;
+
+    if (fila === null || formVisor.processing) {
+        return;
+    }
+
+    formVisor
+        .transform(() => ({}))
+        .post(fila.aprobar_url, {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => despuesDeDecidir(fila.id),
+        });
+}
+
+function confirmarDecisionVisor() {
+    const fila = filaVisor.value;
+    const tipo = decisionVisor.value;
+
+    if (fila === null || tipo === null || formVisor.processing) {
+        return;
+    }
+
+    const url = tipo === 'rechazar' ? fila.rechazar_url : fila.correccion_url;
+    const campo = tipo === 'rechazar' ? 'rejection_reason' : 'comments';
+
+    formVisor
+        .transform((datos) => ({ [campo]: datos.motivo }))
+        .post(url, {
+            preserveScroll: true,
+            preserveState: true,
+            onSuccess: () => despuesDeDecidir(fila.id),
+            onError: (errores) => {
+                formVisor.setError(
+                    'motivo',
+                    (errores as Record<string, string>)[campo] ??
+                        'Revisa el motivo capturado.',
+                );
+            },
+        });
+}
 </script>
 
 <template>
@@ -202,7 +362,16 @@ function confirmar() {
                                 {{ fila.colaborador.sucursal ?? '—' }}
                             </p>
                         </TableCell>
-                        <TableCell>{{ fila.tipo }}</TableCell>
+                        <TableCell>
+                            <button
+                                type="button"
+                                class="text-left font-medium hover:text-primary hover:underline"
+                                title="Ver el documento"
+                                @click="verDocumento(fila)"
+                            >
+                                {{ fila.tipo }}
+                            </button>
+                        </TableCell>
                         <TableCell class="text-center tabular-nums"
                             >v{{ fila.version }}</TableCell
                         >
@@ -228,15 +397,12 @@ function confirmar() {
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    as-child
-                                    title="Ver en el expediente"
+                                    title="Ver el documento"
+                                    aria-label="Ver el documento"
+                                    @click="verDocumento(fila)"
                                 >
-                                    <Link
-                                        v-if="fila.expediente_url"
-                                        :href="fila.expediente_url"
-                                    >
-                                        <Eye class="size-4" />
-                                    </Link>
+                                    <Eye class="size-4" />
+                                    <span class="hidden xl:inline">Ver</span>
                                 </Button>
                                 <Button
                                     variant="ghost"
@@ -251,8 +417,9 @@ function confirmar() {
                                         <Download class="size-4" />
                                     </a>
                                 </Button>
-                                <template v-if="puedeAprobar">
+                                <template v-if="puedeDecidir">
                                     <Button
+                                        v-if="puedeAprobar"
                                         variant="ghost"
                                         size="sm"
                                         class="text-success"
@@ -262,6 +429,7 @@ function confirmar() {
                                         <Check class="size-4" />
                                     </Button>
                                     <Button
+                                        v-if="puedeSolicitarCorreccion"
                                         variant="ghost"
                                         size="sm"
                                         class="text-warning"
@@ -271,6 +439,7 @@ function confirmar() {
                                         <RotateCcw class="size-4" />
                                     </Button>
                                     <Button
+                                        v-if="puedeRechazar"
                                         variant="ghost"
                                         size="sm"
                                         class="text-destructive"
@@ -347,4 +516,187 @@ function confirmar() {
             </DialogFooter>
         </DialogContent>
     </Dialog>
+
+    <!-- Visor centrado: el documento en grande y la decisión debajo. -->
+    <DocumentPreviewDialog
+        v-model:open="visorAbierto"
+        v-model:indice="indiceVisor"
+        :archivos="archivosVisor"
+    >
+        <template #pie>
+            <section
+                v-if="filaVisor"
+                class="flex flex-col gap-3 border-t border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] px-3 py-3 sm:px-5"
+                aria-label="Revisión del documento"
+            >
+                <div
+                    class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm"
+                >
+                    <div class="mr-auto min-w-0">
+                        <p class="truncate font-semibold">
+                            {{ filaVisor.colaborador.nombre }}
+                            <span
+                                v-if="filaVisor.colaborador.numero_empleado"
+                                class="font-normal text-muted-foreground"
+                                >· #{{
+                                    filaVisor.colaborador.numero_empleado
+                                }}</span
+                            >
+                        </p>
+                        <p class="truncate text-xs text-muted-foreground">
+                            {{ filaVisor.colaborador.puesto ?? 'Sin puesto' }}
+                            ·
+                            {{
+                                filaVisor.colaborador.sucursal ?? 'Sin sucursal'
+                            }}
+                            · {{ filaVisor.tipo }} v{{ filaVisor.version }}
+                        </p>
+                    </div>
+
+                    <div class="flex items-center gap-1.5">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            :disabled="indiceVisor <= 0"
+                            aria-label="Documento anterior"
+                            @click="irAlDocumento(indiceVisor - 1)"
+                        >
+                            <ChevronLeft class="size-4" />
+                            <span class="hidden sm:inline">Anterior</span>
+                        </Button>
+                        <span
+                            class="rounded-full bg-crema px-2.5 py-1 text-xs font-medium whitespace-nowrap text-[var(--mrl-petroleo)] tabular-nums"
+                            :title="`${documentos.total} pendientes en total`"
+                        >
+                            {{ indiceVisor + 1 }} de
+                            {{ documentos.data.length }}
+                        </span>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            :disabled="
+                                indiceVisor >= documentos.data.length - 1
+                            "
+                            aria-label="Documento siguiente"
+                            @click="irAlDocumento(indiceVisor + 1)"
+                        >
+                            <span class="hidden sm:inline">Siguiente</span>
+                            <ChevronRight class="size-4" />
+                        </Button>
+                    </div>
+
+                    <Button
+                        v-if="filaVisor.expediente_url"
+                        size="sm"
+                        variant="link"
+                        as-child
+                    >
+                        <Link :href="filaVisor.expediente_url">
+                            <FolderOpen class="size-4" />
+                            Abrir expediente
+                        </Link>
+                    </Button>
+                </div>
+
+                <p
+                    v-if="documentos.last_page > 1"
+                    class="-mt-1 text-xs text-muted-foreground"
+                >
+                    {{ documentos.total }} pendientes en total; aquí recorres
+                    los de la página {{ documentos.current_page }}.
+                </p>
+
+                <template v-if="puedeDecidir">
+                    <div
+                        v-if="decisionVisor"
+                        ref="cajaMotivoVisor"
+                        class="grid gap-2"
+                    >
+                        <Label for="motivo-visor">{{
+                            decisionVisor === 'rechazar'
+                                ? 'Motivo del rechazo'
+                                : 'Qué debe corregir el colaborador'
+                        }}</Label>
+                        <Textarea
+                            id="motivo-visor"
+                            v-model="formVisor.motivo"
+                            rows="2"
+                            placeholder="Explica por qué, para que el colaborador sepa qué corregir…"
+                            @keydown.ctrl.enter="confirmarDecisionVisor"
+                            @keydown.meta.enter="confirmarDecisionVisor"
+                        />
+                        <InputError :message="formVisor.errors.motivo" />
+                        <div class="flex flex-wrap justify-end gap-2">
+                            <Button
+                                variant="outline"
+                                :disabled="formVisor.processing"
+                                @click="cancelarDecision"
+                                >Cancelar</Button
+                            >
+                            <Button
+                                :variant="
+                                    decisionVisor === 'rechazar'
+                                        ? 'destructive'
+                                        : 'default'
+                                "
+                                :disabled="formVisor.processing"
+                                @click="confirmarDecisionVisor"
+                            >
+                                <Spinner v-if="formVisor.processing" />
+                                {{
+                                    decisionVisor === 'rechazar'
+                                        ? 'Confirmar rechazo'
+                                        : 'Pedir nueva versión'
+                                }}
+                            </Button>
+                        </div>
+                    </div>
+
+                    <div
+                        v-else
+                        class="grid grid-cols-2 gap-2 sm:flex sm:justify-end"
+                    >
+                        <Button
+                            v-if="puedeSolicitarCorreccion"
+                            size="lg"
+                            variant="outline"
+                            class="col-span-1"
+                            :disabled="formVisor.processing"
+                            @click="pedirMotivo('correccion')"
+                        >
+                            <RotateCcw class="size-4" />
+                            Pedir nueva versión
+                        </Button>
+                        <Button
+                            v-if="puedeRechazar"
+                            size="lg"
+                            variant="outline-destructive"
+                            class="col-span-1"
+                            :disabled="formVisor.processing"
+                            @click="pedirMotivo('rechazar')"
+                        >
+                            <X class="size-4" />
+                            Rechazar
+                        </Button>
+                        <Button
+                            v-if="puedeAprobar"
+                            size="lg"
+                            variant="success"
+                            class="col-span-2 sm:min-w-44"
+                            :disabled="formVisor.processing"
+                            @click="aprobarEnVisor"
+                        >
+                            <Spinner v-if="formVisor.processing" />
+                            <Check v-else class="size-4" />
+                            Aprobar
+                        </Button>
+                    </div>
+                </template>
+                <p v-else class="text-xs text-muted-foreground">
+                    Puedes revisar el documento, pero aprobarlo, rechazarlo o
+                    pedir una nueva versión requiere permisos que no tienes.
+                </p>
+            </section>
+        </template>
+    </DocumentPreviewDialog>
 </template>

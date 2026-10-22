@@ -20,6 +20,8 @@ use Illuminate\Support\Carbon;
  * @property int $colaborador_id
  * @property string $clave
  * @property string $version
+ * @property int|null $formulario_evaluacion_id Versión del formulario configurable (null = formato de config/induccion_evaluacion.php).
+ * @property-read FormularioEvaluacion|null $formulario
  * @property EstadoEvaluacionInduccion $estado
  * @property int $intentos_count
  * @property string|null $ultima_calificacion
@@ -38,7 +40,7 @@ class EvaluacionInduccion extends Model
     protected $table = 'evaluaciones_induccion';
 
     protected $fillable = [
-        'onboarding_proceso_id', 'colaborador_id', 'clave', 'version', 'estado',
+        'onboarding_proceso_id', 'colaborador_id', 'clave', 'version', 'formulario_evaluacion_id', 'estado',
         'intentos_count', 'ultima_calificacion', 'mejor_calificacion', 'aprobada_en',
         'retroalimentacion', 'retroalimentado_por', 'retroalimentado_en', 'fecha_limite_reevaluacion',
     ];
@@ -62,6 +64,14 @@ class EvaluacionInduccion extends Model
     public function proceso(): BelongsTo
     {
         return $this->belongsTo(OnboardingProceso::class, 'onboarding_proceso_id');
+    }
+
+    /**
+     * @return BelongsTo<FormularioEvaluacion, $this>
+     */
+    public function formulario(): BelongsTo
+    {
+        return $this->belongsTo(FormularioEvaluacion::class, 'formulario_evaluacion_id');
     }
 
     /**

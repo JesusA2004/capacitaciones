@@ -134,7 +134,7 @@ class CierreLaboralController extends Controller
 
     public function aviso(ArchivoLaboralRequest $request, CierreLaboral $cierre): RedirectResponse
     {
-        $this->authorize('operar', $cierre);
+        $this->authorize('subirAviso', $cierre);
         $archivo = $request->file('archivo');
         abort_unless($archivo instanceof UploadedFile, 422);
         $this->cierres->registrarAviso($cierre, $archivo, $request->user());
@@ -196,7 +196,7 @@ class CierreLaboralController extends Controller
      */
     public function vistaPreviaFiniquito(CierreLaboral $cierre): Response
     {
-        $this->authorize('calcularFiniquito', $cierre);
+        $this->authorize('descargarFiniquito', $cierre);
 
         return response($this->finiquitos->vistaPreviaPdf($this->cierres->exigirFiniquito($cierre)), 200, [
             'Content-Type' => 'application/pdf',
@@ -264,7 +264,7 @@ class CierreLaboralController extends Controller
 
     public function cancelar(DecisionAprobacionRequest $request, CierreLaboral $cierre): RedirectResponse
     {
-        $this->authorize('gestionar', $cierre);
+        $this->authorize('cancelar', $cierre);
         $this->cierres->cancelar($cierre, $request->user(), $request->motivo());
 
         return $this->ok('Cierre cancelado.');

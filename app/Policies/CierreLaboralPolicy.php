@@ -44,6 +44,29 @@ class CierreLaboralPolicy
         return $this->con($usuario, $cierre, 'cierres.gestionar');
     }
 
+    /** Subir el aviso de término firmado (gerente o RH, permiso propio). */
+    public function subirAviso(User $usuario, CierreLaboral $cierre): bool
+    {
+        return $usuario->can('cierres.aviso.subir') && $this->operar($usuario, $cierre);
+    }
+
+    /** Generar el aviso de término (documento legal: RH por defecto). */
+    public function generarAviso(User $usuario, CierreLaboral $cierre): bool
+    {
+        return $this->con($usuario, $cierre, 'cierres.aviso.generar');
+    }
+
+    public function cancelar(User $usuario, CierreLaboral $cierre): bool
+    {
+        return $this->con($usuario, $cierre, 'cierres.cancelar');
+    }
+
+    /** Vista previa / generación del PDF del finiquito del cierre. */
+    public function descargarFiniquito(User $usuario, CierreLaboral $cierre): bool
+    {
+        return $usuario->can('finiquitos.descargar') && $this->calcularFiniquito($usuario, $cierre);
+    }
+
     public function ejecutarBaja(User $usuario, CierreLaboral $cierre): bool
     {
         return $this->con($usuario, $cierre, 'cierres.ejecutar_baja');

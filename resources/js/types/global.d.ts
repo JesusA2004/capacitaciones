@@ -36,6 +36,9 @@ declare module '@inertiajs/core' {
                 modoActual: 'colaborador' | 'operativo';
                 modosDisponibles: Array<'colaborador' | 'operativo'>;
             } | null;
+            // Notificaciones de escritorio (Web Push): null si no hay sesión
+            // o el servidor no tiene llaves VAPID (composables/useWebPush.ts).
+            webPush?: { clavePublica: string | null };
             environment: string;
             // Conteo único de aprobaciones que esta cuenta puede hacer AHORA
             // (AprobacionOrganizacionalService::conteoPendientes): badge de

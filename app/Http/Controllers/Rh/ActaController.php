@@ -77,7 +77,7 @@ class ActaController extends Controller
      */
     public function vistaPrevia(Request $request, ActaAdministrativa $acta): HttpResponse
     {
-        $this->authorize('ver', $acta);
+        $this->authorize('descargar', $acta);
         abort_unless(ActaPdfService::aplica($acta), 404);
 
         if (($motivo = $this->pdf->faltante($acta)) !== null) {
@@ -107,16 +107,18 @@ class ActaController extends Controller
         return Inertia::render('Rh/Actas/Show', [
             'acta' => $this->actas->aArray($acta, true),
             'puedeGestionar' => $request->user()->can('gestionar', $acta),
+            // Acción por acción (misma policy que cada endpoint).
+            'permisos' => $this->actas->permisosDe($request->user(), $acta),
             // Qué falta para poder cerrarla (null = se puede cerrar).
             'faltaParaCerrar' => $acta->estado->esEditable() ? null : $this->actas->faltanteParaCerrar($acta),
-            'puedeRegistrarEntrega' => $request->user()->can('gestionar', $acta) || $acta->creado_por === $request->user()->id,
+            'puedeRegistrarEntrega' => $request->user()->can('registrarEntrega', $acta),
             'catalogos' => ActaService::catalogos(),
         ]);
     }
 
     public function update(GuardarActaRequest $request, ActaAdministrativa $acta): RedirectResponse
     {
-        $this->authorize('gestionar', $acta);
+        $this->authorize('editar', $acta);
         $this->actas->actualizar($acta, $request->validated(), $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Acta actualizada.']);
@@ -124,7 +126,7 @@ class ActaController extends Controller
 
     public function anexo(ArchivoLaboralRequest $request, ActaAdministrativa $acta): RedirectResponse
     {
-        $this->authorize('gestionar', $acta);
+        $this->authorize('subirAnexo', $acta);
         $archivo = $request->file('archivo');
         abort_unless($archivo instanceof UploadedFile, 422);
         $extra = $request->validate([
@@ -140,7 +142,7 @@ class ActaController extends Controller
     public function entrega(Request $request, ActaAdministrativa $acta): RedirectResponse
     {
         // RH o quien levantó el acta (la entrega ocurre después de imprimirla).
-        abort_unless($request->user()->can('gestionar', $acta) || $acta->creado_por === $request->user()->id, 403, 'Solo RH o quien levantó el acta registran la entrega de la copia.');
+        abort_unless($request->user()->can('registrarEntrega', $acta), 403, 'Solo RH o quien levantó el acta registran la entrega de la copia.');
         $datos = $request->validate([
             'estado' => ['required', 'in:entregada,no_posible'],
             'motivo' => ['nullable', 'string', 'max:2000'],
@@ -152,14 +154,14 @@ class ActaController extends Controller
 
     public function descargarAnexo(ActaAdministrativa $acta, ActaAnexo $anexo): StreamedResponse
     {
-        $this->authorize('ver', $acta);
+        $this->authorize('descargarAnexo', $acta);
 
         return $this->actas->descargarAnexo($acta, $anexo);
     }
 
     public function negativaFirma(Request $request, ActaAdministrativa $acta): RedirectResponse
     {
-        $this->authorize('gestionar', $acta);
+        $this->authorize('registrarFirma', $acta);
         $datos = $request->validate(['motivo' => ['required', 'string', 'max:1000']], ['motivo.required' => 'Describe cómo se negó el colaborador a firmar.']);
         $this->actas->registrarNegativaFirma($acta, $datos['motivo'], $request->user());
 
@@ -168,7 +170,7 @@ class ActaController extends Controller
 
     public function seguimiento(Request $request, ActaAdministrativa $acta): RedirectResponse
     {
-        $this->authorize('gestionar', $acta);
+        $this->authorize('seguimiento', $acta);
         $datos = $request->validate(['nota' => ['required', 'string', 'max:2000']], ['nota.required' => 'Escribe la nota de seguimiento.']);
         $this->actas->agregarSeguimiento($acta, $datos['nota'], $request->user());
 
@@ -177,7 +179,7 @@ class ActaController extends Controller
 
     public function cerrar(Request $request, ActaAdministrativa $acta): RedirectResponse
     {
-        $this->authorize('gestionar', $acta);
+        $this->authorize('cerrar', $acta);
         $this->actas->cerrar($acta, $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Acta cerrada.']);

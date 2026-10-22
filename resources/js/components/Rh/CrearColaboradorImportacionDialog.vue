@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,13 +13,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { crearColaborador } from '@/routes/rh/importaciones/filas';
 
@@ -87,19 +81,16 @@ function enviar() {
             <form class="grid gap-4" @submit.prevent="enviar">
                 <div class="grid gap-2">
                     <Label>Puesto</Label>
-                    <Select v-model="form.puesto_id">
-                        <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Elige un puesto" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.puestos"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
+                    <SelectSimple
+                        v-model="form.puesto_id"
+                        :opciones="
+                            opciones.puestos.map((o) => ({
+                                value: String(o.id),
+                                label: o.nombre,
+                            }))
+                        "
+                        placeholder="Elige un puesto"
+                    />
                     <p
                         v-if="form.errors.puesto_id"
                         class="text-xs text-destructive"
@@ -111,37 +102,29 @@ function enviar() {
                 <div class="grid grid-cols-2 gap-4">
                     <div class="grid gap-2">
                         <Label>Departamento (opcional)</Label>
-                        <Select v-model="form.departamento_id">
-                            <SelectTrigger class="w-full">
-                                <SelectValue placeholder="Sin departamento" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in opciones.departamentos"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
+                        <SelectSimple
+                            v-model="form.departamento_id"
+                            :opciones="
+                                opciones.departamentos.map((o) => ({
+                                    value: String(o.id),
+                                    label: o.nombre,
+                                }))
+                            "
+                            placeholder="Sin departamento"
+                        />
                     </div>
                     <div class="grid gap-2">
                         <Label>Sucursal (opcional)</Label>
-                        <Select v-model="form.sucursal_principal_id">
-                            <SelectTrigger class="w-full">
-                                <SelectValue
-                                    placeholder="Remoto / corporativo"
-                                />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem
-                                    v-for="opcion in opciones.sucursales"
-                                    :key="opcion.id"
-                                    :value="String(opcion.id)"
-                                    >{{ opcion.nombre }}</SelectItem
-                                >
-                            </SelectContent>
-                        </Select>
+                        <SelectSimple
+                            v-model="form.sucursal_principal_id"
+                            :opciones="
+                                opciones.sucursales.map((o) => ({
+                                    value: String(o.id),
+                                    label: o.nombre,
+                                }))
+                            "
+                            placeholder="Remoto / corporativo"
+                        />
                     </div>
                 </div>
 

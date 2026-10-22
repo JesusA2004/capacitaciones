@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -236,22 +237,17 @@ function enviar() {
                             Ir a la biblioteca multimedia
                         </a>
                     </div>
-                    <Select v-model="form.recurso_multimedia_id">
-                        <SelectTrigger class="w-full">
-                            <SelectValue
-                                placeholder="Selecciona un archivo ya cargado"
-                            />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opcionesRecurso"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                            >
-                                {{ opcion.nombre_original }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <SelectSimple
+                        v-model="form.recurso_multimedia_id"
+                        :opciones="
+                            opcionesRecurso.map((o) => ({
+                                value: String(o.id),
+                                label: o.nombre_original,
+                            }))
+                        "
+                        placeholder="Selecciona un archivo ya cargado"
+                        placeholder-busqueda="Buscar archivo…"
+                    />
                     <InputError :message="form.errors.recurso_multimedia_id" />
                 </div>
 

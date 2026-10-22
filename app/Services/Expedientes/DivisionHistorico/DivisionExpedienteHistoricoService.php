@@ -149,7 +149,7 @@ class DivisionExpedienteHistoricoService
         $colaborador = $parte->division->colaborador;
         $this->exigirNoPropio($colaborador, $usuario);
 
-        if (! $tipo->requerido || ! $tipo->activo) {
+        if (! $tipo->estaEnChecklist()) {
             throw ValidationException::withMessages(['document_type_id' => 'Elige un documento del checklist del expediente.']);
         }
 
@@ -351,6 +351,10 @@ class DivisionExpedienteHistoricoService
                 ], $estado['documentos']),
             ],
             'ocr' => $this->estadoOcr(),
+            // Tipos del checklist (requeridos u opcionales) que ya tienen un
+            // documento vigente que cubre: la pantalla los muestra como «Ya
+            // en el expediente» al asignar una parte.
+            'tipos_cubiertos' => $this->tiposCubiertos($colaborador),
         ];
     }
 
@@ -359,7 +363,9 @@ class DivisionExpedienteHistoricoService
      */
     public function tiposChecklist(): Collection
     {
-        return DocumentType::query()->where('requerido', true)->where('activo', true)->orderBy('orden')->orderBy('id')->get();
+        // Requeridos primero y luego los opcionales del checklist (se asignan
+        // igual; el avance y los faltantes siguen contando solo requeridos).
+        return DocumentType::query()->delChecklist()->orderByDesc('requerido')->orderBy('orden')->orderBy('id')->get();
     }
 
     /**
@@ -778,6 +784,28 @@ class DivisionExpedienteHistoricoService
             ->where('status', '!=', EstadoDocumento::Archivado->value)
             ->orderByDesc('version')
             ->first();
+    }
+
+    /**
+     * Ids de los tipos del checklist cuyo documento vigente ya cubre (misma
+     * regla que tipoCubierto(), en una sola consulta).
+     *
+     * @return list<int>
+     */
+    public function tiposCubiertos(Colaborador $colaborador): array
+    {
+        $vigentes = EmployeeDocument::query()
+            ->where('colaborador_id', $colaborador->id)
+            ->whereIn('document_type_id', $this->tiposChecklist()->pluck('id')->all())
+            ->where('status', '!=', EstadoDocumento::Archivado->value)
+            ->orderByDesc('version')
+            ->get(['id', 'document_type_id', 'status', 'version'])
+            ->unique('document_type_id');
+
+        return array_values($vigentes
+            ->filter(fn (EmployeeDocument $d): bool => in_array($d->status, self::ESTADOS_QUE_CUBREN, true))
+            ->map(fn (EmployeeDocument $d): int => (int) $d->document_type_id)
+            ->all());
     }
 
     public function tipoCubierto(Colaborador $colaborador, DocumentType $tipo): bool

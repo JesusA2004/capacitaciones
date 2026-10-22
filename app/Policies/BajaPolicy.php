@@ -54,6 +54,47 @@ class BajaPolicy
         return $user->can(BajaService::PERMISO_GESTIONAR) && $this->view($user, $baja);
     }
 
+    /*
+     * Acciones de RH sobre una baja, cada una con su permiso (Roles y
+     * permisos → Bajas; heredan de bajas.gestionar al crearse) y siempre
+     * dentro de lo que el usuario puede ver.
+     */
+    public function cambiarCausal(User $user, Baja $baja): bool
+    {
+        return $user->can(BajaService::PERMISO_CAMBIAR_CAUSAL) && $this->view($user, $baja);
+    }
+
+    public function editar(User $user, Baja $baja): bool
+    {
+        return $user->can(BajaService::PERMISO_EDITAR) && $this->view($user, $baja);
+    }
+
+    public function enviarJuridico(User $user, Baja $baja): bool
+    {
+        return $user->can(BajaService::PERMISO_ENVIAR_JURIDICO) && $this->view($user, $baja);
+    }
+
+    public function cerrar(User $user, Baja $baja): bool
+    {
+        return $user->can(BajaService::PERMISO_CERRAR) && $this->view($user, $baja);
+    }
+
+    public function reabrir(User $user, Baja $baja): bool
+    {
+        return $user->can(BajaService::PERMISO_REABRIR) && $this->view($user, $baja);
+    }
+
+    public function cancelar(User $user, Baja $baja): bool
+    {
+        return $user->can(BajaService::PERMISO_CANCELAR) && $this->view($user, $baja);
+    }
+
+    /** PDF del finiquito propuesto antes de registrar (montos: RH por defecto). */
+    public function vistaPreviaFiniquito(User $user): bool
+    {
+        return $this->create($user) && $user->can(BajaService::PERMISO_PREVIA_FINIQUITO);
+    }
+
     public function revisarJuridico(User $user, Baja $baja): bool
     {
         return $user->can(BajaService::PERMISO_JURIDICO) && $this->view($user, $baja);

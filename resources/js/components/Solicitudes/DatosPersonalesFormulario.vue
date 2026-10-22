@@ -2,13 +2,10 @@
 import { CircleDashed, PencilLine, Undo2 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    NativeSelect,
-    NativeSelectOption,
-} from '@/components/ui/native-select';
 import type { DatoPersonalCaptura } from '@/types';
 
 /**
@@ -94,22 +91,17 @@ function error(campo: string): string | undefined {
                     class="flex flex-col gap-1.5"
                 >
                     <Label :for="`dato-${c.campo}`">{{ c.etiqueta }}</Label>
-                    <NativeSelect
+                    <SelectSimple
                         v-if="c.tipo === 'opciones'"
                         :id="`dato-${c.campo}`"
                         :model-value="valor(c.campo)"
-                        @update:model-value="(v) => poner(c.campo, v as string)"
-                    >
-                        <NativeSelectOption value=""
-                            >Sin capturar</NativeSelectOption
-                        >
-                        <NativeSelectOption
-                            v-for="op in c.opciones ?? []"
-                            :key="op.value"
-                            :value="op.value"
-                            >{{ op.label }}</NativeSelectOption
-                        >
-                    </NativeSelect>
+                        :opciones="c.opciones ?? []"
+                        placeholder="Sin capturar"
+                        opcion-vacia="Sin capturar"
+                        @update:model-value="
+                            (v) => poner(c.campo, String(v ?? ''))
+                        "
+                    />
                     <DatePicker
                         v-else-if="c.tipo === 'date'"
                         :id="`dato-${c.campo}`"
@@ -194,25 +186,22 @@ function error(campo: string): string | undefined {
                         <Label :for="`dato-${c.campo}`" class="text-xs"
                             >Valor propuesto</Label
                         >
-                        <NativeSelect
+                        <SelectSimple
                             v-if="c.tipo === 'opciones'"
                             :id="`dato-${c.campo}`"
                             :model-value="valor(c.campo)"
-                            @update:model-value="
-                                (v) => poner(c.campo, v as string)
+                            :opciones="
+                                (c.opciones ?? []).map((op) => ({
+                                    value: op.value,
+                                    label: op.label,
+                                    disabled: op.value === c.actual,
+                                }))
                             "
-                        >
-                            <NativeSelectOption value="" disabled
-                                >Elige…</NativeSelectOption
-                            >
-                            <NativeSelectOption
-                                v-for="op in c.opciones ?? []"
-                                :key="op.value"
-                                :value="op.value"
-                                :disabled="op.value === c.actual"
-                                >{{ op.label }}</NativeSelectOption
-                            >
-                        </NativeSelect>
+                            placeholder="Elige…"
+                            @update:model-value="
+                                (v) => poner(c.campo, String(v ?? ''))
+                            "
+                        />
                         <DatePicker
                             v-else-if="c.tipo === 'date'"
                             :id="`dato-${c.campo}`"

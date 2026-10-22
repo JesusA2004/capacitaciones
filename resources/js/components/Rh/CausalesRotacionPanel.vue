@@ -18,6 +18,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { usePermisos } from '@/composables/usePermisos';
 import { claseForma } from '@/lib/bajas';
 import { cn } from '@/lib/utils';
 import causalesRotacion from '@/routes/rh/causales-rotacion';
@@ -35,6 +36,15 @@ const props = defineProps<{
     causales: CausalRotacionAdmin[];
     tipos: { value: string; label: string; forma?: string; token?: string }[];
 }>();
+
+// Cada acción del catálogo de bajas con su permiso (el backend lo revalida).
+const { tienePermiso } = usePermisos();
+const puede = {
+    crear: tienePermiso('causales_rotacion.crear'),
+    editar: tienePermiso('causales_rotacion.editar'),
+    activar: tienePermiso('causales_rotacion.activar'),
+    ordenar: tienePermiso('causales_rotacion.ordenar'),
+};
 
 const grupos = computed(() =>
     props.tipos.map((t) => ({
@@ -145,7 +155,12 @@ function mover(c: CausalRotacionAdmin, direccion: 'arriba' | 'abajo') {
                         >· {{ g.causales.length }} causales</span
                     >
                 </h3>
-                <Button size="sm" variant="outline" @click="nueva(g.value)">
+                <Button
+                    v-if="puede.crear"
+                    size="sm"
+                    variant="outline"
+                    @click="nueva(g.value)"
+                >
                     <Plus class="size-4" />Agregar causal
                 </Button>
             </header>
@@ -211,6 +226,7 @@ function mover(c: CausalRotacionAdmin, direccion: 'arriba' | 'abajo') {
                     </div>
                     <div class="flex flex-wrap items-center gap-1">
                         <Button
+                            v-if="puede.ordenar"
                             size="icon"
                             variant="ghost"
                             :disabled="i === 0"
@@ -219,6 +235,7 @@ function mover(c: CausalRotacionAdmin, direccion: 'arriba' | 'abajo') {
                             ><ArrowUp class="size-4"
                         /></Button>
                         <Button
+                            v-if="puede.ordenar"
                             size="icon"
                             variant="ghost"
                             :disabled="i === g.causales.length - 1"
@@ -227,12 +244,14 @@ function mover(c: CausalRotacionAdmin, direccion: 'arriba' | 'abajo') {
                             ><ArrowDown class="size-4"
                         /></Button>
                         <Button
+                            v-if="puede.activar"
                             size="sm"
                             variant="outline"
                             @click="alternar(c)"
                             >{{ c.activo ? 'Desactivar' : 'Activar' }}</Button
                         >
                         <Button
+                            v-if="puede.editar"
                             size="icon"
                             variant="ghost"
                             aria-label="Editar"

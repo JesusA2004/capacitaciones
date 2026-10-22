@@ -12,6 +12,7 @@ import {
     UserRound,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudActionMenu from '@/components/DataTable/CrudActionMenu.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -29,6 +30,7 @@ import {
 } from '@/components/ui/select';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
+import { opcionesDe } from '@/lib/opcionesSelect';
 import { formatoMoneda } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import {
@@ -57,6 +59,13 @@ const props = defineProps<{
         canal?: string;
     };
     opciones: OpcionesCampanas;
+    /** Acciones por permiso (reclutamiento.campanas.*). */
+    permisos?: {
+        crear: boolean;
+        editar: boolean;
+        eliminar: boolean;
+        exportar: boolean;
+    };
 }>();
 
 defineOptions({
@@ -264,7 +273,11 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                     Reporte
                 </Link>
             </Button>
-            <Button data-tour="campanas-nueva" @click="abrirCrear">
+            <Button
+                v-if="props.permisos?.crear"
+                data-tour="campanas-nueva"
+                @click="abrirCrear"
+            >
                 <Plus class="size-4" />
                 Nueva campaña
             </Button>
@@ -299,27 +312,20 @@ async function eliminar(campana: CampanaReclutamientoItem) {
         </p>
 
         <div data-tour="campanas-filtros" class="flex flex-wrap gap-2">
-            <Select
+            <SelectSimple
                 :model-value="filtros.mes"
+                :opciones="
+                    meses.map((o) => ({ value: o.value, label: o.etiqueta }))
+                "
+                placeholder="Mes"
+                class="w-36"
                 @update:model-value="
                     (v) => {
                         filtros.mes = String(v ?? '');
                         aplicar();
                     }
                 "
-            >
-                <SelectTrigger class="w-36">
-                    <SelectValue placeholder="Mes" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem
-                        v-for="opcion in meses"
-                        :key="opcion.value"
-                        :value="opcion.value"
-                        >{{ opcion.etiqueta }}</SelectItem
-                    >
-                </SelectContent>
-            </Select>
+            />
 
             <Select
                 :model-value="filtros.anio"
@@ -343,30 +349,31 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                 </SelectContent>
             </Select>
 
-            <Select
+            <SelectSimple
                 :model-value="filtros.canal"
+                :opciones="
+                    opciones.canales.map((o) => ({
+                        value: o.value,
+                        label: o.etiqueta,
+                    }))
+                "
+                placeholder="Canal"
+                opcion-vacia="Todos los canales"
+                class="w-40"
                 @update:model-value="
                     (v) => {
                         filtros.canal = String(v ?? '');
                         aplicar();
                     }
                 "
-            >
-                <SelectTrigger class="w-40">
-                    <SelectValue placeholder="Canal" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem
-                        v-for="opcion in opciones.canales"
-                        :key="opcion.value"
-                        :value="opcion.value"
-                        >{{ opcion.etiqueta }}</SelectItem
-                    >
-                </SelectContent>
-            </Select>
+            />
 
-            <Select
+            <SelectSimple
                 :model-value="filtros.empresa_id"
+                :opciones="opcionesDe(opciones.empresas)"
+                placeholder="Empresa"
+                opcion-vacia="Todas las empresas"
+                class="w-44"
                 @update:model-value="
                     (v) => {
                         filtros.empresa_id = String(v ?? '');
@@ -374,44 +381,28 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                         aplicar();
                     }
                 "
-            >
-                <SelectTrigger class="w-44">
-                    <SelectValue placeholder="Empresa" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem
-                        v-for="opcion in opciones.empresas"
-                        :key="opcion.id"
-                        :value="String(opcion.id)"
-                        >{{ opcion.nombre }}</SelectItem
-                    >
-                </SelectContent>
-            </Select>
+            />
 
-            <Select
+            <SelectSimple
                 :model-value="filtros.sucursal_id"
+                :opciones="opcionesDe(sucursalesFiltradas)"
+                placeholder="Sucursal"
+                opcion-vacia="Todas las sucursales"
+                class="w-44"
                 @update:model-value="
                     (v) => {
                         filtros.sucursal_id = String(v ?? '');
                         aplicar();
                     }
                 "
-            >
-                <SelectTrigger class="w-44">
-                    <SelectValue placeholder="Sucursal" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem
-                        v-for="opcion in sucursalesFiltradas"
-                        :key="opcion.id"
-                        :value="String(opcion.id)"
-                        >{{ opcion.nombre }}</SelectItem
-                    >
-                </SelectContent>
-            </Select>
+            />
 
-            <Select
+            <SelectSimple
                 :model-value="filtros.departamento_id"
+                :opciones="opcionesDe(opciones.departamentos)"
+                placeholder="Departamento"
+                opcion-vacia="Todos los departamentos"
+                class="w-44"
                 @update:model-value="
                     (v) => {
                         filtros.departamento_id = String(v ?? '');
@@ -419,41 +410,21 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                         aplicar();
                     }
                 "
-            >
-                <SelectTrigger class="w-44">
-                    <SelectValue placeholder="Departamento" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem
-                        v-for="opcion in opciones.departamentos"
-                        :key="opcion.id"
-                        :value="String(opcion.id)"
-                        >{{ opcion.nombre }}</SelectItem
-                    >
-                </SelectContent>
-            </Select>
+            />
 
-            <Select
+            <SelectSimple
                 :model-value="filtros.puesto_id"
+                :opciones="opcionesDe(puestosFiltrados)"
+                placeholder="Puesto"
+                opcion-vacia="Todos los puestos"
+                class="w-44"
                 @update:model-value="
                     (v) => {
                         filtros.puesto_id = String(v ?? '');
                         aplicar();
                     }
                 "
-            >
-                <SelectTrigger class="w-44">
-                    <SelectValue placeholder="Puesto" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem
-                        v-for="opcion in puestosFiltrados"
-                        :key="opcion.id"
-                        :value="String(opcion.id)"
-                        >{{ opcion.nombre }}</SelectItem
-                    >
-                </SelectContent>
-            </Select>
+            />
 
             <Button variant="ghost" size="sm" @click="limpiar">
                 Limpiar filtros
@@ -466,7 +437,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
             titulo="Todavía no hay campañas en este periodo"
             descripcion="Registra la campaña de una vacante real para medir candidatos, entrevistas, contratados y costo por contratación."
         >
-            <Button size="sm" @click="abrirCrear">
+            <Button v-if="props.permisos?.crear" size="sm" @click="abrirCrear">
                 <Plus class="size-4" />
                 Registrar campaña
             </Button>
@@ -512,10 +483,15 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                         </p>
                     </div>
                     <CrudActionMenu>
-                        <DropdownMenuItem @select="abrirEditar(campana)"
+                        <DropdownMenuItem
+                            v-if="props.permisos?.editar"
+                            @select="abrirEditar(campana)"
                             >Editar</DropdownMenuItem
                         >
-                        <DropdownMenuItem as-child>
+                        <DropdownMenuItem
+                            v-if="props.permisos?.exportar"
+                            as-child
+                        >
                             <a
                                 :href="reporteCampanaPdf.url(campana.id)"
                                 target="_blank"
@@ -524,6 +500,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                             >
                         </DropdownMenuItem>
                         <DropdownMenuItem
+                            v-if="props.permisos?.eliminar"
                             variant="destructive"
                             @select="eliminar(campana)"
                             >Eliminar</DropdownMenuItem
@@ -766,6 +743,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                             <span class="truncate">{{ adjunto.nombre }}</span>
                         </button>
                         <Button
+                            v-if="props.permisos?.editar"
                             variant="ghost"
                             size="sm"
                             class="ml-auto"

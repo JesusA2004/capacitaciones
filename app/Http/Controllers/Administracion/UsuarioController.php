@@ -15,6 +15,7 @@ use App\Services\Administracion\AccesoCuentaService;
 use App\Services\Administracion\GeneradorPasswordService;
 use App\Services\Administracion\PurgaPersonaService;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\BuscadorColaboradoresService;
 use App\Services\RolPermisoService;
 use App\Support\Paginacion;
 use Illuminate\Http\JsonResponse;
@@ -78,12 +79,9 @@ class UsuarioController extends Controller
                 // users (son la cuenta de acceso).
                 $query->where(function ($sub) use ($busqueda) {
                     $sub->where('username', 'like', "%{$busqueda}%")
-                        ->orWhere('email', 'like', "%{$busqueda}%")
-                        ->orWhereHas('colaborador', function ($c) use ($busqueda) {
-                            $c->where('name', 'like', "%{$busqueda}%")
-                                ->orWhere('apellidos', 'like', "%{$busqueda}%")
-                                ->orWhere('numero_empleado', 'like', "%{$busqueda}%");
-                        });
+                        ->orWhere('email', 'like', "%{$busqueda}%");
+                    // Buscador único: nombre, número, puesto, sucursal…
+                    app(BuscadorColaboradoresService::class)->aplicarPorColumna($sub, $busqueda, 'colaborador_id', 'or');
                 });
             })
             ->orderBy('name')
@@ -124,6 +122,13 @@ class UsuarioController extends Controller
             'rolesDisponibles' => Role::query()->orderBy('name')->pluck('name'),
             // «Eliminar definitivamente»: exclusivo de super_admin.
             'puedePurgar' => $usuario->hasRole('super_admin'),
+            // Acciones por permiso (config/permisos_modulos.php → usuarios).
+            'permisosUsuarios' => [
+                'crear' => $usuario->can('create', User::class),
+                'editar' => $usuario->can('usuarios.editar'),
+                'asignar_roles' => $usuario->can('asignarRoles', User::class),
+                'restablecer_password' => $usuario->can('usuarios.ver') && $usuario->can('usuarios.restablecer_password'),
+            ],
             'estadisticas' => [
                 'total' => $total,
                 'activas' => $activas,
@@ -166,7 +171,12 @@ class UsuarioController extends Controller
     public function update(UpdateUsuarioRequest $request, User $usuario): RedirectResponse
     {
         $usuario->update($request->safe()->only(['username', 'email', 'zona_horaria']));
-        $this->rolPermisoService->asignarRoles($usuario, $request->input('roles', []));
+
+        // Los roles solo cambian si vienen distintos (UpdateUsuarioRequest ya
+        // exigió «Asignar roles» en ese caso).
+        if ($request->cambiaRoles($usuario)) {
+            $this->rolPermisoService->asignarRoles($usuario, $request->input('roles', []));
+        }
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Usuario actualizado correctamente.']);
     }

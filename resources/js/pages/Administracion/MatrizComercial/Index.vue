@@ -40,10 +40,12 @@ import type {
     ResumenMatrizComercial,
 } from '@/types';
 
-defineProps<{
+const props = defineProps<{
     arbol: NodoComercialArbol | null;
     resumen: ResumenMatrizComercial;
     gestoresDisponibles: GestorDisponible[];
+    /** organigrama.matriz_comercial (el backend lo revalida). */
+    puedeEditar?: boolean;
 }>();
 
 defineOptions({
@@ -105,6 +107,10 @@ function estaAbierto(id: number): boolean {
 }
 
 function asignarGestor(nodo: NodoComercialArbol, valor: string) {
+    if (!props.puedeEditar) {
+        return;
+    }
+
     router.put(
         actualizarResponsable.url(nodo.id),
         { responsable_colaborador_id: valor === '__ninguno__' ? null : valor },
@@ -398,6 +404,7 @@ function quitarApoyoOVolante(
                                 >
                                     <SelectSimple
                                         class="h-8 text-xs"
+                                        :disabled="!puedeEditar"
                                         :model-value="
                                             ruta.responsable
                                                 ? String(ruta.responsable.id)
@@ -438,6 +445,7 @@ function quitarApoyoOVolante(
                                         Apoyo: {{ apoyoItem.nombre }}
                                         <button
                                             type="button"
+                                            v-if="puedeEditar"
                                             title="Quitar este apoyo de la ruta"
                                             class="text-muted-foreground hover:text-destructive"
                                             @click="
@@ -460,6 +468,7 @@ function quitarApoyoOVolante(
                                         Volante: {{ volanteItem.nombre }}
                                         <button
                                             type="button"
+                                            v-if="puedeEditar"
                                             title="Quitar este volante de la ruta"
                                             class="text-muted-foreground hover:text-destructive"
                                             @click="
@@ -476,7 +485,7 @@ function quitarApoyoOVolante(
                                 </div>
 
                                 <div
-                                    v-if="ruta.activa"
+                                    v-if="ruta.activa && puedeEditar"
                                     class="flex items-center gap-1"
                                 >
                                     <SelectSimple

@@ -15,6 +15,7 @@ import {
 import { computed } from 'vue';
 import CelebracionesHoyCard from '@/components/Celebraciones/CelebracionesHoyCard.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
+import MiInduccionTarjeta from '@/components/onboarding/MiInduccionTarjeta.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import VacacionesAntiguedad from '@/components/Vacaciones/VacacionesAntiguedad.vue';
@@ -28,6 +29,7 @@ import {
 } from '@/routes/portal';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type {
+    MiInduccion,
     MisPendientes,
     NotificacionPortalItem,
     PerfilColaborador,
@@ -42,6 +44,7 @@ const props = defineProps<{
     solicitudes_recientes: SolicitudInternaItem[];
     notificaciones: ResumenNotificaciones;
     pendientes: MisPendientes | null;
+    miInduccion?: MiInduccion | null;
 }>();
 
 defineOptions({
@@ -265,6 +268,15 @@ const enlace =
                 </div>
             </div>
         </section>
+
+        <!-- Mi inducción (mientras está asignada; al completarla queda en Mis pendientes) -->
+        <MiInduccionTarjeta
+            v-if="
+                miInduccion &&
+                !['sin_asignar', 'completada'].includes(miInduccion.estado)
+            "
+            :induccion="miInduccion"
+        />
 
         <CelebracionesHoyCard />
 

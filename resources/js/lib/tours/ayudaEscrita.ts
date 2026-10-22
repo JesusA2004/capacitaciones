@@ -489,6 +489,59 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
             'Si tiene un cierre sin concluir, primero termínalo.',
         ],
     },
+    'cartas-compromiso': {
+        queEs: 'La carta en la que una persona de nuevo ingreso se compromete a entregar, antes de una fecha límite, los documentos que todavía le faltan en su expediente.',
+        puedes: [
+            'Ver todas las cartas de tu alcance con su folio, persona, documentos comprometidos, plazo y si ya están firmadas.',
+            'Filtrar por pendientes de firma, vigentes, por vencer, vencidas, cumplidas, firmadas o sustituidas, y buscar por nombre, número, sucursal o folio.',
+            'Generar una carta nueva: eliges a la persona y los documentos (máximo 2), revisas la vista previa y la generas.',
+            'Imprimir la carta para que la firme la persona que entra y subir el escaneo firmado, que queda en su expediente.',
+            'Revisar en cada carta qué documentos ya entregó y su línea de tiempo (generada, firmada, cumplida, vencida o sustituida).',
+        ],
+        flujo: [
+            'Pulsa «Generar carta compromiso» y busca a la persona de nuevo ingreso.',
+            'Marca los documentos que le faltan y que se compromete a entregar (máximo 2) y revisa la vista previa.',
+            'Genera la carta: a la persona le llega el aviso de que debe firmarla y RH recibe la notificación.',
+            'Imprímela; la persona la firma (con su huella) frente a su gerente o RH, y sube aquí el escaneo firmado.',
+            'Conforme la persona sube sus documentos se marcan como entregados; al entregar todos, la carta queda «Cumplida» sola.',
+            'Si llega la fecha límite sin entregar todo, la carta queda «Vencida» y su app se limita a subir los documentos pendientes.',
+        ],
+        permisos:
+            'cartas_compromiso.ver para consultar; cartas_compromiso.generar, cartas_compromiso.subir_firmada y cartas_compromiso.descargar para generar, subir la firmada e imprimir. Las tienen Recursos Humanos, el gerente de sucursal y el gerente regional, siempre dentro de sus sucursales. La carta de un gerente de sucursal la genera su gerente regional o RH, y nadie gestiona su propia carta.',
+        errores: [
+            '«Solo el personal de nuevo ingreso…»: la carta es solo para personas en contratación u onboarding; quien ya laboraba debe subir sus documentos.',
+            '«Le faltan N documentos y una carta cubre como máximo 2»: primero que suba los demás; en cuanto le falten 2 o menos, la carta se genera sola.',
+            '«Ya tiene la carta …»: una persona solo puede tener una carta abierta a la vez.',
+            '«No le falta ningún documento obligatorio»: su expediente ya está completo, no necesita carta.',
+            '«Esta carta fue sustituida por una nueva»: sube la firma en la carta vigente, no en la anterior.',
+        ],
+    },
+    'formularios-evaluacion': {
+        queEs: 'El editor (parecido a Google Forms) de las dos evaluaciones de ingreso: la de inducción FO-RH-EI, que contesta el colaborador, y la de capacitación inicial / periodo de prueba FO-RH-EPP-001, que contesta el jefe directo para decidir si se renueva el contrato.',
+        puedes: [
+            'Ver de cada evaluación cuántas preguntas tiene, el total de puntos, la calificación para aprobar o renovar y la versión vigente.',
+            'Editar preguntas y reglas: en inducción, opción múltiple, verdadero o falso, relacionar columnas, casos prácticos con rúbrica y la opinión; en periodo de prueba, los criterios a calificar (escala 1 a 4), las preguntas filtro y el mínimo para renovar.',
+            'Cambiar el diseño: color, estilo del encabezado y banner.',
+            'Ver la vista previa tal como la verá quien la contesta, antes de publicar.',
+            'Publicar una versión nueva, descartar un borrador o restaurar una versión anterior como borrador.',
+        ],
+        flujo: [
+            'Abre la evaluación que quieres cambiar y pulsa «Editar formulario»: se crea un borrador que se guarda solo mientras escribes.',
+            'Ajusta las preguntas, las respuestas correctas y la calificación mínima en «Preguntas».',
+            'Ajusta el color y el banner en «Diseño».',
+            'Revisa todo en «Vista previa».',
+            'Pulsa «Publicar versión»: solo las evaluaciones que se abran a partir de ese momento usan la versión nueva.',
+        ],
+        permisos:
+            'formularios_evaluacion.administrar (Recursos Humanos y super administrador).',
+        errores: [
+            'Al publicar, el sistema te dice qué falta (por ejemplo, «Sección A, pregunta 2: agrega al menos dos opciones» o «un caso práctico sin criterios de rúbrica»): corrígelo y vuelve a publicar.',
+            '«La calificación mínima aprobatoria debe estar entre 1 y el total de puntos»: ajústala después de cambiar las preguntas.',
+            '«Ya hay un borrador en edición»: publícalo o descártalo antes de restaurar otra versión.',
+            '«Una versión publicada ya no se puede editar»: pulsa «Editar formulario» para crear una versión nueva.',
+            'Las evaluaciones que ya empezaron o ya se contestaron no cambian al publicar: conservan la versión con la que iniciaron.',
+        ],
+    },
     'responsables-aprobacion': {
         queEs: 'Quién aprueba las solicitudes de cada persona o puesto cuando no debe ser su jefe del organigrama.',
         puedes: [

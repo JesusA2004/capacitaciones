@@ -7,18 +7,18 @@ use App\Models\User;
 
 /**
  * Coberturas temporales desde el organigrama («Cubre temporalmente este
- * puesto»): solo RH / super admin (organigrama.editar). Ver los coberturas
+ * puesto»): solo RH / super admin (organigrama.coberturas). Ver los coberturas
  * en el árbol lo puede cualquiera con organigrama.ver (PuestoPolicy).
  */
 class CoberturaPuestoPolicy
 {
     public function create(User $usuario): bool
     {
-        return $usuario->can('organigrama.editar');
+        return $usuario->can('organigrama.ver') && $usuario->can('organigrama.coberturas');
     }
 
     public function finalizar(User $usuario, CoberturaPuesto $cobertura): bool
     {
-        return $usuario->can('organigrama.editar');
+        return $usuario->can('organigrama.ver') && $usuario->can('organigrama.coberturas');
     }
 }

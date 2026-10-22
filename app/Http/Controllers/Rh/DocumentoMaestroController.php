@@ -69,12 +69,20 @@ class DocumentoMaestroController extends Controller
         return Inertia::render('Rh/DocumentosMaestros/Editor', [
             'editor' => $this->editor->editor($master),
             'abrirPrueba' => $request->boolean('probar'),
+            // Qué botones de guardado/acción ve quien entra (el endpoint de
+            // cada uno exige la misma acción en exigir()).
+            'acciones' => [
+                'editar' => $request->user()->can('documentos_maestros.editar'),
+                'cargar' => $request->user()->can('documentos_maestros.cargar'),
+                'activar' => $request->user()->can('documentos_maestros.activar'),
+                'probar' => $request->user()->can('documentos_maestros.probar'),
+            ],
         ]);
     }
 
     public function nuevo(Request $request): JsonResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.cargar');
         $procesos = [...array_keys((array) config('documentos_maestros.procesos', [])), 'expediente'];
         $datos = $request->validate([
             'nombre' => ['required', 'string', 'min:3', 'max:150'],
@@ -103,7 +111,7 @@ class DocumentoMaestroController extends Controller
 
     public function guardarCampos(Request $request, DocumentTemplate $master): JsonResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.editar');
         abort_if($master->estado_master === null, 404);
         $datos = $request->validate(['campos' => ['present', 'array', 'max:200'], 'campos.*' => ['array']]);
         $master = $this->editor->guardarCampos($master, array_values($datos['campos']), $request->user());
@@ -113,7 +121,7 @@ class DocumentoMaestroController extends Controller
 
     public function marcas(Request $request, DocumentTemplate $master): JsonResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.editar');
         abort_if($master->estado_master === null, 404);
         $datos = $request->validate(['decision' => ['required', Rule::in(['limpiar', 'conservar'])]]);
         $master = $this->editor->decidirMarcas($master, $datos['decision'] === 'limpiar', $request->user());
@@ -126,7 +134,7 @@ class DocumentoMaestroController extends Controller
 
     public function detectar(Request $request, DocumentTemplate $master): JsonResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.editar');
         abort_if($master->estado_master === null, 404);
         $nuevos = $this->editor->detectarEspacios($master, $request->user());
 
@@ -135,7 +143,7 @@ class DocumentoMaestroController extends Controller
 
     public function datosLargos(Request $request, DocumentTemplate $master): JsonResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.editar');
         abort_if($master->estado_master === null, 404);
 
         return response()->json(['data' => $this->editor->datosLargos($master, $request->user())]);
@@ -143,7 +151,7 @@ class DocumentoMaestroController extends Controller
 
     public function copiarVersion(Request $request, DocumentTemplate $master): JsonResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.cargar');
         abort_if($master->estado_master === null, 404);
         $nueva = $this->editor->nuevaVersionDesde($master, $request->user());
 
@@ -152,7 +160,7 @@ class DocumentoMaestroController extends Controller
 
     public function revisarFuentes(Request $request): JsonResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.validar');
         $resultado = $this->salud->revisarFuentes();
         $sustituidas = array_filter((array) $resultado['fuentes'], fn (mixed $f): bool => is_array($f) && ($f['sustituida'] ?? false));
 
@@ -199,7 +207,7 @@ class DocumentoMaestroController extends Controller
 
     public function cargarVersion(Request $request, string $familia): JsonResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.cargar');
         $request->validate(['archivo' => ['required', 'file', 'max:20480', 'mimes:docx,pdf']], [
             'archivo.mimes' => 'El documento oficial debe ser Word (.docx) o PDF.',
             'archivo.max' => 'El archivo pesa más de 20 MB.',
@@ -221,7 +229,7 @@ class DocumentoMaestroController extends Controller
 
     public function validarDiseno(Request $request, DocumentTemplate $master): JsonResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.validar');
         abort_if($master->estado_master === null, 404);
         $master = $this->admin->validarDiseno($master, $request->user());
 
@@ -239,7 +247,7 @@ class DocumentoMaestroController extends Controller
      */
     public function revalidarPendientes(Request $request): JsonResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.validar');
         $resultados = $this->admin->revalidarPendientes($request->user());
         $fallidas = count(array_filter($resultados, fn (array $r): bool => $r['estado'] === 'fallido'));
 
@@ -253,7 +261,7 @@ class DocumentoMaestroController extends Controller
 
     public function activar(Request $request, DocumentTemplate $master): JsonResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.activar');
         abort_if($master->estado_master === null, 404);
         $datos = $request->validate(['motivo_excepcional' => ['nullable', 'string', 'min:15', 'max:1000']]);
         $master = $this->importador->activar($master, $request->user(), isset($datos['motivo_excepcional']) ? (string) $datos['motivo_excepcional'] : null);
@@ -263,7 +271,7 @@ class DocumentoMaestroController extends Controller
 
     public function desactivar(Request $request, DocumentTemplate $master): JsonResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.activar');
         abort_if($master->estado_master === null, 404);
 
         return response()->json(['message' => 'Versión desactivada.', 'data' => $this->admin->detalle($this->admin->desactivar($master, $request->user()), $request->user())]);
@@ -275,7 +283,7 @@ class DocumentoMaestroController extends Controller
      */
     public function probar(Request $request, DocumentTemplate $master): JsonResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.probar');
         abort_if($master->estado_master === null, 404);
         $datos = $request->validate(['colaborador_id' => ['required', 'integer'], 'completar' => ['sometimes', 'array', 'max:40']]);
         $colaborador = Colaborador::query()->where('id', (int) $datos['colaborador_id'])->firstOrFail();
@@ -294,7 +302,7 @@ class DocumentoMaestroController extends Controller
 
     public function pdfPrueba(Request $request, DocumentTemplate $master, string $token): Response
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.probar');
         $pdf = $this->admin->pdfPrueba($master, $token);
         abort_if($pdf === null, 404, 'La vista previa expiró: vuelve a probar.');
 
@@ -351,7 +359,7 @@ class DocumentoMaestroController extends Controller
      */
     public function original(Request $request, DocumentTemplate $master): Response
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.descargar');
         abort_if($master->estado_master === null, 404);
         $contenido = $this->almacen->original($master);
         $nombre = str_replace(['"', '\\', '/'], '', (string) ($master->original_nombre ?? 'original'));
@@ -363,9 +371,14 @@ class DocumentoMaestroController extends Controller
         ]);
     }
 
-    private function exigir(Request $request): void
+    /**
+     * Acceso al módulo y, si se indica, la acción concreta (cargar, editar,
+     * probar, validar, activar, descargar — config/permisos_modulos.php →
+     * documentos_maestros).
+     */
+    private function exigir(Request $request, ?string $accion = null): void
     {
-        abort_unless($request->user()?->can(self::PERMISO), 403);
+        abort_unless($request->user()?->can(self::PERMISO) && ($accion === null || $request->user()->can($accion)), 403);
     }
 
     private function exigirCobertura(Request $request): void

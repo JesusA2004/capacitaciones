@@ -48,16 +48,9 @@ class DirectorioColaboradoresService
         $filtros['solo_con_correo'] = $filtros['solo_con_correo'] && $viewer !== null && $this->veTodosLosContactos($viewer);
 
         return $this->consulta()
-            ->when($filtros['busqueda'], function (Builder $q, string $busqueda): void {
-                // Cada palabra debe aparecer en el nombre o en los apellidos:
-                // así "María López" encuentra a María (name) López (apellidos).
-                foreach (preg_split('/\s+/', $busqueda) ?: [] as $palabra) {
-                    $q->where(fn (Builder $sub) => $sub
-                        ->where('name', 'like', sprintf('%%%s%%', $palabra))
-                        ->orWhere('apellidos', 'like', sprintf('%%%s%%', $palabra))
-                        ->orWhere('numero_empleado', $palabra));
-                }
-            })
+            // Buscador único: cada palabra en nombre, apellidos, número,
+            // puesto, sucursal o departamento («maría cuernavaca»).
+            ->when($filtros['busqueda'], fn (Builder $q, string $busqueda) => $q->buscar($busqueda))
             ->when($filtros['puesto_id'], fn (Builder $q, int $v) => $q->where('puesto_id', $v))
             ->when($filtros['sucursal_id'], fn (Builder $q, int $v) => $q->where('sucursal_principal_id', $v))
             ->when($filtros['departamento_id'], fn (Builder $q, int $v) => $q->where('departamento_id', $v))

@@ -122,7 +122,7 @@ function limpiar() {
     >
         <CrudSearchInput
             v-model="busqueda"
-            placeholder="Buscar persona…"
+            placeholder="Buscar persona, puesto o sucursal…"
             class="min-w-0 flex-1 sm:w-64 sm:flex-none"
         />
 

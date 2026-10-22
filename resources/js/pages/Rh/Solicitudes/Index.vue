@@ -38,6 +38,7 @@ import type { DraggableEvent } from 'vue-draggable-plus';
 import { VueDraggable } from 'vue-draggable-plus';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -53,18 +54,12 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { useKanbanTransition } from '@/composables/useKanbanTransition';
+import { opcionesDe } from '@/lib/opcionesSelect';
 import {
     actualizarEstado,
     exportarExcel,
@@ -94,6 +89,7 @@ const props = defineProps<{
     };
     tipos: TipoSolicitudInterna[];
     opciones: OpcionesSolicitudes;
+    puedeExportar: boolean;
 }>();
 
 defineOptions({
@@ -361,7 +357,11 @@ function puedeArrastrar(solicitud: SolicitudInternaItem): boolean {
     const acciones = solicitud.acciones;
 
     return Boolean(
-        acciones && (acciones.revisar || acciones.aprobar || acciones.rechazar),
+        acciones &&
+        (acciones.revisar ||
+            acciones.requerir_correccion ||
+            acciones.aprobar ||
+            acciones.rechazar),
     );
 }
 
@@ -377,8 +377,9 @@ function puedeMoverA(
 
     switch (estadoDestino) {
         case 'en_revision':
-        case 'requiere_correccion':
             return acciones.revisar;
+        case 'requiere_correccion':
+            return acciones.requerir_correccion;
         case 'aprobada':
             return acciones.aprobar;
         case 'rechazada':
@@ -543,7 +544,7 @@ function confirmarMovimiento() {
         >
             <CrudSearchInput
                 :model-value="filtros.busqueda"
-                placeholder="Buscar por folio o motivo..."
+                placeholder="Buscar por folio, motivo, colaborador o sucursal..."
                 @update:model-value="
                     (v) => {
                         filtros.busqueda = v;
@@ -552,49 +553,35 @@ function confirmarMovimiento() {
                 "
             />
 
-            <Select
+            <SelectSimple
                 :model-value="filtros.tipo"
+                :opciones="
+                    tipos.map((t) => ({ value: t.value, label: t.label }))
+                "
+                placeholder="Todos los tipos"
+                opcion-vacia="Todos los tipos"
+                class="w-52"
                 @update:model-value="
                     (v) => {
                         filtros.tipo = String(v ?? '');
                         aplicar();
                     }
                 "
-            >
-                <SelectTrigger class="w-52"
-                    ><SelectValue placeholder="Todos los tipos"
-                /></SelectTrigger>
-                <SelectContent>
-                    <SelectItem
-                        v-for="tipo in tipos"
-                        :key="tipo.value"
-                        :value="tipo.value"
-                        >{{ tipo.label }}</SelectItem
-                    >
-                </SelectContent>
-            </Select>
+            />
 
-            <Select
+            <SelectSimple
                 :model-value="filtros.sucursal_id"
+                :opciones="opcionesDe(opciones.sucursales)"
+                placeholder="Todas las sucursales"
+                opcion-vacia="Todas las sucursales"
+                class="w-48"
                 @update:model-value="
                     (v) => {
                         filtros.sucursal_id = String(v ?? '');
                         aplicar();
                     }
                 "
-            >
-                <SelectTrigger class="w-48"
-                    ><SelectValue placeholder="Todas las sucursales"
-                /></SelectTrigger>
-                <SelectContent>
-                    <SelectItem
-                        v-for="opcion in opciones.sucursales"
-                        :key="opcion.id"
-                        :value="String(opcion.id)"
-                        >{{ opcion.nombre }}</SelectItem
-                    >
-                </SelectContent>
-            </Select>
+            />
 
             <CrudFilterSheet
                 titulo="Más filtros"
@@ -616,91 +603,62 @@ function confirmarMovimiento() {
             >
                 <div class="grid gap-2">
                     <Label>Empresa</Label>
-                    <Select
+                    <SelectSimple
                         :model-value="filtros.empresa_id"
+                        :opciones="opcionesDe(opciones.empresas)"
+                        placeholder="Todas"
+                        opcion-vacia="Todas las empresas"
                         @update:model-value="
                             (v) => (filtros.empresa_id = String(v ?? ''))
                         "
-                    >
-                        <SelectTrigger
-                            ><SelectValue placeholder="Todas"
-                        /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.empresas"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
+                    />
                 </div>
 
                 <div class="grid gap-2">
                     <Label>Departamento</Label>
-                    <Select
+                    <SelectSimple
                         :model-value="filtros.departamento_id"
+                        :opciones="opcionesDe(opciones.departamentos)"
+                        placeholder="Todos"
+                        opcion-vacia="Todos los departamentos"
                         @update:model-value="
                             (v) => (filtros.departamento_id = String(v ?? ''))
                         "
-                    >
-                        <SelectTrigger
-                            ><SelectValue placeholder="Todos"
-                        /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.departamentos"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
+                    />
                 </div>
 
                 <div class="grid gap-2">
                     <Label>Puesto</Label>
-                    <Select
+                    <SelectSimple
                         :model-value="filtros.puesto_id"
+                        :opciones="opcionesDe(opciones.puestos)"
+                        placeholder="Todos"
+                        opcion-vacia="Todos los puestos"
                         @update:model-value="
                             (v) => (filtros.puesto_id = String(v ?? ''))
                         "
-                    >
-                        <SelectTrigger
-                            ><SelectValue placeholder="Todos"
-                        /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.puestos"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.nombre }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
+                    />
                 </div>
 
                 <div class="grid gap-2">
                     <Label>Responsable RH</Label>
-                    <Select
+                    <SelectSimple
                         :model-value="filtros.revisado_por"
+                        :opciones="
+                            (opciones.responsables ?? []).map((o) => ({
+                                value: String(o.id),
+                                label: [o.name, o.apellidos]
+                                    .filter(Boolean)
+                                    .join(' '),
+                            }))
+                        "
+                        placeholder="Todos"
+                        opcion-vacia="Todos los responsables"
+                        :buscable="true"
                         @update:model-value="
                             (v) => (filtros.revisado_por = String(v ?? ''))
                         "
-                    >
-                        <SelectTrigger
-                            ><SelectValue placeholder="Todos"
-                        /></SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in opciones.responsables"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                                >{{ opcion.name }}
-                                {{ opcion.apellidos }}</SelectItem
-                            >
-                        </SelectContent>
-                    </Select>
+                    />
                 </div>
 
                 <div class="grid grid-cols-2 gap-2">
@@ -724,6 +682,7 @@ function confirmarMovimiento() {
              así no ocupa una fila propia debajo de los filtros. -->
         <CrudPageHeader titulo="Solicitudes">
             <div
+                v-if="puedeExportar"
                 data-tour="solicitudes-exportar"
                 class="flex items-center gap-2"
             >

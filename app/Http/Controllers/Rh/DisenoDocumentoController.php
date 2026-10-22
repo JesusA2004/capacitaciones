@@ -44,13 +44,15 @@ class DisenoDocumentoController extends Controller
                 'config' => $p->config,
                 'familias' => DocumentFamilyLayout::query()->where('preset_id', $p->id)->orderBy('familia')->pluck('familia')->all(),
             ])->values(),
-            'puedeEditar' => true,
+            // Subir / editar / reemplazar / eliminar: documentos_maestros.diseno
+            // (mismo chequeo que esos endpoints).
+            'puedeEditar' => $request->user()->can('documentos_maestros.diseno'),
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.diseno');
         $datos = $request->validate([
             'nombre' => ['required', 'string', 'max:150'],
             'tipo' => ['nullable', 'string', Rule::in(array_column(TipoDocumentAsset::cases(), 'value'))],
@@ -67,7 +69,7 @@ class DisenoDocumentoController extends Controller
 
     public function update(Request $request, DocumentAsset $fondo): RedirectResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.diseno');
         $datos = $request->validate([
             'nombre' => ['sometimes', 'string', 'max:150'],
             'activo' => ['sometimes', 'boolean'],
@@ -81,7 +83,7 @@ class DisenoDocumentoController extends Controller
 
     public function reemplazar(Request $request, DocumentAsset $fondo): RedirectResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.diseno');
         $request->validate(['archivo' => ['required', 'file', 'mimes:png,jpg,jpeg,webp', 'max:20480']]);
         $archivo = $request->file('archivo');
         abort_unless($archivo instanceof UploadedFile, 422);
@@ -93,7 +95,7 @@ class DisenoDocumentoController extends Controller
 
     public function destroy(Request $request, DocumentAsset $fondo): RedirectResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.diseno');
         $this->diseno->eliminarFondo($fondo, $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Fondo eliminado.']);
@@ -115,7 +117,7 @@ class DisenoDocumentoController extends Controller
 
     public function updateFamilia(Request $request, string $familia): JsonResponse
     {
-        $this->exigir($request);
+        $this->exigir($request, 'documentos_maestros.diseno');
         $datos = $request->validate([
             'preset_id' => ['nullable', 'integer'],
             'overrides' => ['nullable', 'array'],
@@ -157,8 +159,9 @@ class DisenoDocumentoController extends Controller
         ];
     }
 
-    private function exigir(Request $request): void
+    /** Acceso al módulo y, para cambios, documentos_maestros.diseno. */
+    private function exigir(Request $request, ?string $accion = null): void
     {
-        abort_unless($request->user()?->can(self::PERMISO), 403);
+        abort_unless($request->user()?->can(self::PERMISO) && ($accion === null || $request->user()->can($accion)), 403);
     }
 }

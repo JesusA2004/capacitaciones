@@ -10,6 +10,7 @@ import {
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import type { Component } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -329,22 +330,19 @@ function confirmar(): void {
                     class="grid gap-2"
                 >
                     <Label for="mov-sucursal">¿En qué sucursal?</Label>
-                    <select
+                    <SelectSimple
                         id="mov-sucursal"
-                        v-model.number="sucursalId"
-                        class="h-10 rounded-xl border border-input bg-card px-3 text-sm"
-                    >
-                        <option :value="null" disabled>
-                            Elige la sucursal
-                        </option>
-                        <option
-                            v-for="s in sucursalesDeSucursal"
-                            :key="s.id"
-                            :value="s.id"
-                        >
-                            {{ s.nombre }}
-                        </option>
-                    </select>
+                        v-model="sucursalId"
+                        :opciones="
+                            sucursalesDeSucursal.map((s) => ({
+                                value: s.id,
+                                label: s.nombre,
+                            }))
+                        "
+                        placeholder="Elige la sucursal"
+                        placeholder-busqueda="Buscar sucursal…"
+                        numerico
+                    />
                 </div>
 
                 <div

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\ActualizarReciboNominaRequest;
 use App\Http\Requests\Nomina\CambioMasivoRecibosRequest;
 use App\Models\ReciboNomina;
+use App\Services\Colaboradores\BuscadorColaboradoresService;
 use App\Services\Nomina\NominaQuincenalService;
 use App\Services\Nomina\ReciboNominaService;
 use App\Support\Paginacion;
@@ -53,10 +54,7 @@ class NominaController extends Controller
         $pagina = (clone $base)
             ->with(['colaborador' => fn ($c) => $c->select('id', 'name', 'apellidos', 'numero_empleado', 'sucursal_principal_id', 'puesto_id'), 'colaborador.sucursalPrincipal:id,nombre', 'colaborador.puesto:id,nombre'])
             ->when(in_array($estado, ['borrador', 'emitido'], true), fn ($query) => $query->where('estado', $estado))
-            ->when($q !== '', fn ($query) => $query->whereHas('colaborador', fn ($c) => $c->where(fn ($w) => $w
-                ->where('name', 'like', "%{$q}%")
-                ->orWhere('apellidos', 'like', "%{$q}%")
-                ->orWhere('numero_empleado', 'like', "%{$q}%"))))
+            ->when($q !== '', fn ($query) => app(BuscadorColaboradoresService::class)->aplicarPorColumna($query, $q))
             ->orderBy('id')
             ->paginate(Paginacion::porPagina(50))
             ->withQueryString()
@@ -69,7 +67,7 @@ class NominaController extends Controller
                     'sucursal' => $r->colaborador->sucursalPrincipal?->nombre,
                     'puesto' => $r->colaborador->puesto?->nombre,
                 ],
-                'pdf_url' => $r->pdf_path !== null ? route('rh.nomina.recibos.pdf', $r) : null,
+                'pdf_url' => $r->pdf_path !== null && $usuario->can('nomina.recibos.descargar') ? route('rh.nomina.recibos.pdf', $r) : null,
                 'reparar_url' => $r->estado === EstadoReciboNomina::Emitido && $usuario->can('regenerar', $r) ? route('rh.nomina.recibos.reparar-pdf', $r) : null,
             ]);
 
@@ -96,6 +94,8 @@ class NominaController extends Controller
                 'dias_anticipacion' => (int) config('nomina.quincenal.dias_anticipacion', 3),
             ],
             'puedeEditar' => $usuario->can('nomina.recibos.crear'),
+            'puedeEmitir' => $usuario->can('nomina.recibos.emitir'),
+            'puedeDescargar' => $usuario->can('nomina.recibos.descargar'),
         ]);
     }
 
@@ -116,7 +116,7 @@ class NominaController extends Controller
 
     public function emitir(Request $request): RedirectResponse
     {
-        abort_unless($request->user()->can('nomina.recibos.crear'), 403);
+        abort_unless($request->user()->can('nomina.recibos.emitir'), 403);
         $datos = $request->validate(['periodo' => ['required', 'string'], 'ids' => ['nullable', 'array'], 'ids.*' => ['integer']]);
         $periodo = $this->quincenas->periodoPorClave($datos['periodo']);
 
@@ -161,7 +161,7 @@ class NominaController extends Controller
 
     public function emitirUno(Request $request, ReciboNomina $recibo): RedirectResponse
     {
-        $this->authorize('editar', $recibo);
+        $this->authorize('emitir', $recibo);
 
         $this->recibos->emitir($recibo, $request->user());
 
@@ -170,7 +170,7 @@ class NominaController extends Controller
 
     public function pdf(Request $request, ReciboNomina $recibo): StreamedResponse
     {
-        $this->authorize('ver', $recibo);
+        $this->authorize('descargar', $recibo);
 
         return $this->recibos->respuestaPdf($recibo, $request->user());
     }
@@ -202,7 +202,7 @@ class NominaController extends Controller
      */
     public function descargar(Request $request): HttpResponse
     {
-        abort_unless($request->user()->can('nomina.recibos.ver'), 403);
+        abort_unless($request->user()->can('nomina.recibos.descargar'), 403);
         $datos = $request->validate([
             'periodo' => ['required', 'string'],
             'formato' => ['nullable', 'in:zip,pdf'],

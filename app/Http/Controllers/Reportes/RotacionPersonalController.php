@@ -55,6 +55,7 @@ class RotacionPersonalController extends Controller
             ],
             'sucursales' => $this->consulta->sucursalesConDatos($usuario),
             'puedeCargar' => $puedeCargar,
+            'puedeDescargar' => $usuario->can('descargar', RotacionCarga::class),
             'cargas' => $puedeCargar
                 ? RotacionCarga::query()->with(['subidoPor:id,name,apellidos'])->latest('id')->limit(15)->get()
                     ->map(fn (RotacionCarga $c): array => $this->cargaResumen($c))->all()
@@ -96,6 +97,7 @@ class RotacionPersonalController extends Controller
     public function archivo(RotacionCarga $carga): StreamedResponse
     {
         $this->authorize('view', $carga);
+        $this->authorize('descargar', RotacionCarga::class);
         $disco = Storage::disk((string) config('rotacion.disk', 'nas'));
         abort_unless($disco->exists($carga->archivo_ruta), 404, 'El archivo original ya no está en el NAS.');
 
@@ -104,7 +106,7 @@ class RotacionPersonalController extends Controller
 
     public function formato(Request $request): BinaryFileResponse
     {
-        $this->authorize('viewAny', RotacionCarga::class);
+        $this->authorize('descargar', RotacionCarga::class);
         $anio = (int) $request->integer('anio', (int) now()->year);
         abort_unless($anio >= 2000 && $anio <= 2100, 422, 'Año no válido.');
 

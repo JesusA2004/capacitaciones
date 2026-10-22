@@ -91,6 +91,29 @@ test('«Presentar inducción» muestra el visor del PDF (sin capítulos HTML) y 
     expect($this->avance->refresh()->progreso_contenido)->toBeNull();
 });
 
+test('«Inducción institucional» solo ofrece subir material con onboarding.configurar', function () {
+    $this->actingAs($this->rh)->get(route('induccion.presentacion'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Portal/Induccion')
+            ->where('puedeConfigurarMaterial', true)
+            ->where('rutasMaterial.store', route('rh.onboarding.induccion.material.store')));
+
+    // Presenta y asigna, pero no configura: sin formulario ni rutas de carga.
+    $presentador = clUsuario('colaborador');
+    $presentador->givePermissionTo(['onboarding.gestionar', 'onboarding.presentar_induccion']);
+
+    expect($presentador->can('onboarding.configurar'))->toBeFalse();
+
+    $this->actingAs($presentador)->get(route('induccion.presentacion'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->component('Portal/Induccion')
+            ->where('puedeConfigurarMaterial', false)
+            ->where('rutasMaterial', null));
+
+    // Y el endpoint sigue rechazando la carga (la regla vive en el backend).
+    $this->actingAs($presentador)->post(route('rh.onboarding.induccion.material.store'), ['tipo' => 'audio'])->assertForbidden();
+});
+
 test('el colaborador registra páginas, no termina antes y al terminar pasa a la evaluación', function () {
     $this->actingAs($this->usuario)->get(route('portal.induccion.capitulos', $this->avance))
         ->assertRedirect(route('portal.induccion.ver'));

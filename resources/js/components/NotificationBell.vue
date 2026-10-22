@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Bell } from '@lucide/vue';
+import ActivarNotificacionesEscritorio from '@/components/ActivarNotificacionesEscritorio.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -60,6 +61,10 @@ function abrir(notificacion: NotificacionItem) {
                 </button>
             </div>
             <DropdownMenuSeparator />
+
+            <!-- Invita a activar las notificaciones de escritorio (Web
+                 Push): desaparece en cuanto quedan activas. -->
+            <ActivarNotificacionesEscritorio compacto />
 
             <p
                 v-if="recientes.length === 0"

@@ -11,9 +11,12 @@ class DocumentTypeSeeder extends Seeder
      * Catálogo de documentos de expediente (ver docs/EXPEDIENTES_DIGITALES.md).
      *
      * El checklist del expediente son EXACTAMENTE los 14 obligatorios, en
-     * este orden. Los demás tipos existen para otros módulos (solicitudes,
-     * bajas, préstamos, historial) y no son obligatorios: no aparecen en el
-     * checklist. El PDF histórico de la migración inicial NO es un tipo de
+     * este orden, más 3 OPCIONALES del checklist (pagaré, carta de
+     * antecedentes no penales, licencia de conducir) que se ven con la
+     * etiqueta «Opcional» y se pueden asignar, pero nunca cuentan para el
+     * avance, los faltantes, el bloqueo de la app ni la carta compromiso.
+     * Los demás tipos existen para otros módulos (solicitudes, bajas,
+     * préstamos, historial) y no aparecen en el checklist. El PDF histórico de la migración inicial NO es un tipo de
      * documento (vive en expedientes_historicos).
      */
     public function run(): void
@@ -37,6 +40,19 @@ class DocumentTypeSeeder extends Seeder
 
         foreach ($obligatorios as $orden => $tipo) {
             DocumentType::query()->updateOrCreate(['clave' => $tipo['clave']], [...$tipo, 'requerido' => true, 'activo' => true, 'orden' => $orden + 1]);
+        }
+
+        // Opcionales del checklist. La clave del pagaré es «pagare_expediente»
+        // a propósito: «pagare» es la clave de la PLANTILLA del pagaré de
+        // préstamos (config/contratos.php), que es otro documento.
+        $opcionalesChecklist = [
+            ['clave' => 'pagare_expediente', 'nombre' => 'Pagaré'],
+            ['clave' => 'carta_antecedentes_no_penales', 'nombre' => 'Carta de antecedentes no penales'],
+            ['clave' => 'licencia_conducir', 'nombre' => 'Licencia de conducir'],
+        ];
+
+        foreach ($opcionalesChecklist as $orden => $tipo) {
+            DocumentType::query()->updateOrCreate(['clave' => $tipo['clave']], [...$tipo, 'categoria' => 'personales', 'requerido' => false, 'checklist_opcional' => true, 'aplica_alta' => false, 'activo' => true, 'orden' => count($obligatorios) + $orden + 1]);
         }
 
         // De otros módulos (no obligatorios, fuera del checklist).

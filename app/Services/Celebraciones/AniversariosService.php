@@ -111,8 +111,7 @@ class AniversariosService
             ->when($filtros['empresa_id'] ?? null, fn (Builder $q, int $id) => $q->whereHas('sucursalPrincipal', fn (Builder $s) => $s->where('empresa_id', $id)))
             ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, int $id) => $q->where('sucursal_principal_id', $id))
             ->when($filtros['departamento_id'] ?? null, fn (Builder $q, int $id) => $q->where('departamento_id', $id))
-            ->when($filtros['busqueda'] ?? null, fn (Builder $q, string $texto) => $q->where(fn (Builder $s) => $s
-                ->where('name', 'like', "%{$texto}%")->orWhere('apellidos', 'like', "%{$texto}%")));
+            ->when($filtros['busqueda'] ?? null, fn (Builder $q, string $texto) => $q->buscar($texto));
 
         return $usuario !== null ? $this->alcance->limitarColaboradoresPorAlcance($consulta, $usuario) : $consulta;
     }

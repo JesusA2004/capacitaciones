@@ -16,7 +16,7 @@ class StoreCampanaReclutamientoRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('reclutamiento.campanas.administrar') ?? false;
+        return ($this->user()?->can('reclutamiento.campanas.ver') ?? false) && $this->user()->can('reclutamiento.campanas.crear');
     }
 
     /**

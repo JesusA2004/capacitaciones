@@ -47,6 +47,7 @@ class VacanteController extends Controller
             'vacantes' => $filas,
             // Totales concretos: cuántas plazas de cada puesto y en qué sucursales.
             'resumen' => $this->vacantes->resumen($filas),
+            'puedeExportar' => $usuario->can('exportar', Vacante::class),
             'filtros' => $request->only(self::FILTROS),
             'opciones' => [
                 'sucursales' => Sucursal::query()->whereIn('id', $sucursales)->orderBy('nombre')->get(['id', 'nombre']),
@@ -59,7 +60,7 @@ class VacanteController extends Controller
 
     public function exportarExcel(Request $request): HttpResponse
     {
-        $this->authorize('viewAny', Vacante::class);
+        $this->authorize('exportar', Vacante::class);
 
         [$columnas, $filas] = $this->tabla($request);
 
@@ -71,7 +72,7 @@ class VacanteController extends Controller
 
     public function exportarPdf(Request $request): HttpResponse
     {
-        $this->authorize('viewAny', Vacante::class);
+        $this->authorize('exportar', Vacante::class);
 
         [$columnas, $filas] = $this->tabla($request);
 

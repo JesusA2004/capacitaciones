@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Actas\ActaPdfService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\FirmaPatronService;
+use App\Services\Evaluaciones\FormularioEvaluacionService;
 use App\Services\Pdf\OpcionesPdf;
 use App\Services\Pdf\PdfRendererFactory;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -49,6 +50,7 @@ class EvaluacionInduccionPdfService
         private readonly MotorDocumentalService $motor,
         private readonly EvaluacionInduccionService $evaluaciones,
         private readonly FirmaPatronService $firmaPatron,
+        private readonly FormularioEvaluacionService $formularios,
     ) {}
 
     /** Bytes del PDF (mismo render para vista previa, descarga y expediente). */
@@ -172,7 +174,9 @@ class EvaluacionInduccionPdfService
         $empresa = $evaluacion->colaborador->sucursalPrincipal?->empresa;
         $revision = $this->evaluaciones->detalleRevision($intento);
         $fecha = fn (?string $f): ?string => $f !== null && $f !== '' ? Carbon::parse($f)->settings(['locale' => 'es'])->isoFormat('D [de] MMMM [de] YYYY') : null;
-        $seccionD = (array) config('induccion_evaluacion.seccion_d', []);
+        // Versión del formulario con la que se CONTESTÓ (no la vigente).
+        $definicion = $this->formularios->definicionInduccion($evaluacion);
+        $seccionD = (array) $definicion['seccion_d'];
 
         return [
             'clave' => self::CLAVE,
@@ -191,18 +195,18 @@ class EvaluacionInduccionPdfService
             // Aplicó: el área, nunca la cuenta que calificó (su nombre y firma van a pluma).
             'aplico' => $intento->calificado_por !== null ? 'Recursos Humanos' : null,
             'maximos' => [
-                'a' => count((array) config('induccion_evaluacion.seccion_a', [])),
-                'b' => count((array) config('induccion_evaluacion.seccion_b', [])),
-                'c' => count((array) config('induccion_evaluacion.seccion_c.conceptos', [])),
+                'a' => (int) collect((array) $definicion['seccion_a'])->sum('puntos'),
+                'b' => (int) collect((array) $definicion['seccion_b'])->sum('puntos'),
+                'c' => (int) collect((array) $definicion['seccion_c']['conceptos'])->sum('puntos'),
                 'd' => (int) collect($seccionD)->sum('puntos_max'),
-                'total' => (int) config('induccion_evaluacion.total_puntos', 30),
+                'total' => (int) $definicion['total_puntos'],
             ],
-            'aprobatoria' => (int) config('induccion_evaluacion.calificacion_aprobatoria', 24),
-            'dias_reevaluacion' => (int) config('induccion_evaluacion.dias_habiles_reevaluacion', 5),
-            'opinion_aspectos' => (array) config('induccion_evaluacion.seccion_e.aspectos', []),
-            'opinion_pregunta' => (string) config('induccion_evaluacion.seccion_e.pregunta_abierta.texto', '¿Qué tema te gustaría reforzar?'),
-            'escala_min' => (int) config('induccion_evaluacion.seccion_e.escala_min', 1),
-            'escala_max' => (int) config('induccion_evaluacion.seccion_e.escala_max', 5),
+            'aprobatoria' => $definicion['calificacion_aprobatoria'],
+            'dias_reevaluacion' => (int) $definicion['dias_habiles_reevaluacion'],
+            'opinion_aspectos' => (array) $definicion['seccion_e']['aspectos'],
+            'opinion_pregunta' => (string) $definicion['seccion_e']['pregunta_abierta']['texto'],
+            'escala_min' => (int) $definicion['seccion_e']['escala_min'],
+            'escala_max' => (int) $definicion['seccion_e']['escala_max'],
             'r' => $revision,
         ];
     }

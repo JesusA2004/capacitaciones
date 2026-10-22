@@ -14,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
-import type { RolItem } from './RolFormDialog.vue';
+import type { RolItem } from '@/types/roles';
 
 const props = defineProps<{
     open: boolean;
@@ -23,6 +23,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
     'update:open': [valor: boolean];
+    clonado: [nombre: string];
 }>();
 
 const form = useForm({
@@ -37,6 +38,7 @@ function enviar() {
     form.post(RolController.clonar.url(props.rol.id), {
         preserveScroll: true,
         onSuccess: () => {
+            emit('clonado', form.nombre);
             emit('update:open', false);
             form.reset();
         },

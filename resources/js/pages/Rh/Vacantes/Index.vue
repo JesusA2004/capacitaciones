@@ -8,9 +8,11 @@ import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
+import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { usePaginacionLocal } from '@/composables/usePaginacion';
 import { usePermisos } from '@/composables/usePermisos';
 import { dashboard } from '@/routes';
 import { show as showSucursal } from '@/routes/administracion/sucursales';
@@ -42,6 +44,8 @@ const props = defineProps<{
         puestos: Opcion[];
         estados: { valor: string; etiqueta: string }[];
     };
+    /** vacantes.exportar (Roles y permisos). */
+    puedeExportar?: boolean;
 }>();
 
 defineOptions({
@@ -54,6 +58,8 @@ defineOptions({
 });
 
 const { tienePermiso } = usePermisos();
+// La lista llega completa: se pagina en el navegador (mismo selector).
+const paginacion = usePaginacionLocal(() => props.vacantes);
 const busqueda = ref(props.filtros.busqueda ?? '');
 const borrador = ref({
     sucursal_id: props.filtros.sucursal_id ?? '',
@@ -151,6 +157,7 @@ const TONO_ESTADO: Record<string, string> = {
     <div class="pagina-ancha flex flex-col gap-4">
         <CrudPageHeader titulo="Vacantes" :icono="Briefcase">
             <CrudExportButtons
+                v-if="props.puedeExportar"
                 :url-excel="urlExportar(exportarExcel)"
                 :url-pdf="urlExportar(exportarPdf)"
             />
@@ -318,7 +325,7 @@ const TONO_ESTADO: Record<string, string> = {
             aria-label="Vacantes"
         >
             <li
-                v-for="vacante in vacantes"
+                v-for="vacante in paginacion.filasPagina.value"
                 :key="vacante.id"
                 class="grid gap-3 p-4 transition-colors duration-150 first:rounded-t-xl last:rounded-b-xl hover:bg-muted/40 @3xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_auto] @3xl:items-center"
             >
@@ -420,5 +427,13 @@ const TONO_ESTADO: Record<string, string> = {
                 </div>
             </li>
         </ul>
+
+        <PaginacionTabla
+            local
+            :datos="paginacion.datos.value"
+            :por-pagina="paginacion.porPagina.value"
+            @cambiar-pagina="paginacion.irAPagina"
+            @cambiar-por-pagina="paginacion.cambiarPorPagina"
+        />
     </div>
 </template>

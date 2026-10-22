@@ -72,7 +72,7 @@ class BajaController extends Controller
     {
         // Compatibilidad: la baja ya no se edita como borrador; RH corrige
         // datos (fecha, comentario, recontratable, aviso de rescisión).
-        $this->authorize('gestionar', $baja);
+        $this->authorize('editar', $baja);
         $baja = $this->bajas->actualizarPorRh($baja, $request->user(), $request->datos());
 
         return response()->json(['data' => $this->bajas->detalle($baja, $request->user())]);

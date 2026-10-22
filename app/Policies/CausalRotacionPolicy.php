@@ -22,12 +22,24 @@ class CausalRotacionPolicy
 
     public function create(User $user): bool
     {
-        return $this->administrar($user);
+        return $this->administrar($user) && $user->can('causales_rotacion.crear');
     }
 
     public function update(User $user, CausalRotacion $causal): bool
     {
-        return $this->administrar($user);
+        return $this->administrar($user) && $user->can('causales_rotacion.editar');
+    }
+
+    /** Activar / desactivar (nunca se borran). */
+    public function activar(User $user, CausalRotacion $causal): bool
+    {
+        return $this->administrar($user) && $user->can('causales_rotacion.activar');
+    }
+
+    /** Cambiar el orden en que aparecen. */
+    public function ordenar(User $user, CausalRotacion $causal): bool
+    {
+        return $this->administrar($user) && $user->can('causales_rotacion.ordenar');
     }
 
     /**

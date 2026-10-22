@@ -22,6 +22,9 @@ use Illuminate\Support\Carbon;
  * @property Carbon $enviado_en
  * @property Carbon|null $leido_en
  * @property bool $enterado
+ * @property string|null $enterado_texto
+ * @property Carbon|null $enterado_en
+ * @property string|null $conformidad
  * @property string|null $comentario
  * @property Carbon|null $acusado_en
  * @property Carbon|null $created_at
@@ -37,7 +40,7 @@ class AcuseDescriptivoPuesto extends Model
 
     protected $fillable = [
         'colaborador_id', 'descriptivo_puesto_id', 'descriptivo_version', 'puesto_id', 'evaluacion_induccion_id',
-        'enviado_por', 'enviado_en', 'leido_en', 'enterado', 'comentario', 'acusado_en',
+        'enviado_por', 'enviado_en', 'leido_en', 'enterado', 'enterado_texto', 'enterado_en', 'comentario', 'conformidad', 'acusado_en',
     ];
 
     protected function casts(): array
@@ -47,6 +50,7 @@ class AcuseDescriptivoPuesto extends Model
             'enviado_en' => 'datetime',
             'leido_en' => 'datetime',
             'enterado' => 'boolean',
+            'enterado_en' => 'datetime',
             'acusado_en' => 'datetime',
         ];
     }

@@ -66,6 +66,8 @@ const props = defineProps<{
     personaSolicitud: { id: number; nombre: string } | null;
     documentosProceso: { tipo: 'solicitud' | 'prestamo'; id: number }[];
     puedeRevisar: boolean;
+    puedePedirCorreccion: boolean;
+    puedeDescargarFormato: boolean;
     puedeAprobar: boolean;
     /** Con permiso de aprobar, pero faltan vistos buenos (texto humano). */
     motivoAprobarEnEspera: string | null;
@@ -131,6 +133,7 @@ const tieneAcciones = computed(
         !esFinal.value &&
         !props.bajaEnCierre &&
         (props.puedeRevisar ||
+            props.puedePedirCorreccion ||
             props.puedeAprobar ||
             props.puedeRechazar ||
             props.puedeAutorizarPrestamo),
@@ -253,7 +256,11 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                 <PermisoAutorizacionCard
                     v-if="permiso"
                     :permiso="permiso"
-                    :pdf-url="permisoPdf.url(solicitud.id)"
+                    :pdf-url="
+                        puedeDescargarFormato
+                            ? permisoPdf.url(solicitud.id)
+                            : null
+                    "
                     :vista-previa-url="vistaPreviaPermiso"
                 />
                 <!-- Actualización de datos: al autorizar, lo propuesto pasa al expediente. -->
@@ -562,7 +569,7 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                             >Pasar a pendiente de autorizar</Button
                         >
                         <Button
-                            v-if="puedeRevisar"
+                            v-if="puedePedirCorreccion"
                             class="border border-warning/40 bg-warning/10 text-warning hover:bg-warning/20"
                             variant="ghost"
                             :disabled="formAccion.processing"

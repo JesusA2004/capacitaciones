@@ -24,7 +24,7 @@ class ContratoLaboralPolicy
 
     public function generarDocumento(User $usuario, ContratoLaboral $contrato): bool
     {
-        return $usuario->can('documentos_laborales.generar')
+        return ($usuario->can('documentos_laborales.generar') || $usuario->can('contratos.generar'))
             && $usuario->colaborador_id !== $contrato->colaborador_id
             && $this->alcance->alcanzaColaborador($usuario, $contrato->colaborador);
     }

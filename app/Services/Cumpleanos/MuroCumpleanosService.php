@@ -7,6 +7,7 @@ use App\Models\BirthdayGreeting;
 use App\Models\BirthdayWallMessage;
 use App\Models\MobileDevice;
 use App\Models\User;
+use App\Models\WebPushSuscripcion;
 use App\Notifications\Mobile\CelebracionNotification;
 use App\Services\Celebraciones\FechasCelebracion;
 use App\Services\MobilePush\PushNotifier;
@@ -332,7 +333,7 @@ class MuroCumpleanosService
     }
 
     /**
-     * Push a todos los colaboradores activos con app (menos el homenajeado).
+     * Push a todos los colaboradores activos con app o navegador suscrito (menos el homenajeado).
      * Un fallo de push nunca revierte la apertura.
      */
     private function avisarApertura(BirthdayGreeting $greeting): void
@@ -343,7 +344,10 @@ class MuroCumpleanosService
             $data = ['type' => 'cumpleanos_muro', 'resource_id' => $greeting->id, 'related_type' => 'Celebracion', 'accion' => 'abrir_celebracion'];
 
             User::query()
-                ->whereIn('id', MobileDevice::query()->activos()->select('user_id'))
+                // Con app o con notificaciones del navegador activadas.
+                ->where(fn ($q) => $q
+                    ->whereIn('id', MobileDevice::query()->activos()->select('user_id'))
+                    ->orWhereIn('id', WebPushSuscripcion::query()->select('user_id')))
                 ->whereHas('colaborador', fn ($q) => $q->where('estatus', EstadoUsuario::Activo->value))
                 ->when($homenajeado !== null, fn ($q) => $q->whereKeyNot($homenajeado->id))
                 ->chunkById(200, function ($usuarios) use ($nombre, $data) {

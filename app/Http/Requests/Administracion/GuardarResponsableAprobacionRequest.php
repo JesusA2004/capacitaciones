@@ -8,7 +8,7 @@ class GuardarResponsableAprobacionRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('organigrama.editar') ?? false;
+        return $this->user() !== null && $this->user()->can('organigrama.ver') && $this->user()->can('responsables_aprobacion.administrar');
     }
 
     /**

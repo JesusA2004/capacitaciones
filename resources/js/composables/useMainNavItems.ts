@@ -84,6 +84,7 @@ import { index as indexAvisos } from '@/routes/rh/avisos';
 import { index as indexBajas } from '@/routes/rh/bajas';
 import { index as indexCampanas } from '@/routes/rh/campanas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
+import { index as indexCartasCompromiso } from '@/routes/rh/cartas-compromiso';
 import { index as indexCierres } from '@/routes/rh/cierres';
 import { index as indexContactosEmergencia } from '@/routes/rh/contactos-emergencia';
 import { index as indexContratacion } from '@/routes/rh/contratacion';
@@ -93,6 +94,7 @@ import { index as indexCumpleanos } from '@/routes/rh/cumpleanos';
 import { index as indexDocumentosMaestros } from '@/routes/rh/documentos-maestros';
 import { index as indexEvaluaciones } from '@/routes/rh/evaluaciones';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
+import { index as indexFormulariosEvaluacion } from '@/routes/rh/formularios-evaluacion';
 import { index as indexImportaciones } from '@/routes/rh/importaciones';
 import { index as indexIncorporacionInvitaciones } from '@/routes/rh/incorporacion/invitaciones';
 import { index as indexInduccionPuesto } from '@/routes/rh/induccion-puesto';
@@ -103,7 +105,6 @@ import {
 } from '@/routes/rh/onboarding';
 import { index as indexPendientes } from '@/routes/rh/pendientes';
 import { index as indexPerfilesPuesto } from '@/routes/rh/perfiles-puesto';
-import { index as indexPeriodosPrueba } from '@/routes/rh/periodos-prueba';
 import { index as indexReingresos } from '@/routes/rh/reingresos';
 import { index as indexRhSolicitudes } from '@/routes/rh/solicitudes';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
@@ -316,6 +317,13 @@ export function useMainNavItems() {
                         href: indexContratos(),
                         icon: FileSignature,
                     },
+                    // Documentos faltantes del nuevo ingreso: la genera RH o su
+                    // gerente/regional y la firma quien está entrando.
+                    tienePermiso('cartas_compromiso.ver') && {
+                        title: 'Cartas compromiso',
+                        href: indexCartasCompromiso(),
+                        icon: FilePen,
+                    },
                 ],
             ),
 
@@ -341,14 +349,6 @@ export function useMainNavItems() {
                         title: 'Configuración de onboarding',
                         href: configuracionOnboarding(),
                         icon: Sparkles,
-                    },
-                    algunPermiso(
-                        'evaluaciones.capturar',
-                        'evaluaciones.autorizar',
-                    ) && {
-                        title: 'Evaluación de capacitación inicial',
-                        href: indexEvaluaciones(),
-                        icon: ClipboardCheck,
                     },
                     // Calificaciones de la INDUCCIÓN (FO-RH-EI + lecciones),
                     // retroalimentación y reevaluación. Las evaluaciones de
@@ -379,33 +379,14 @@ export function useMainNavItems() {
                         'evaluaciones.autorizar',
                         'evaluaciones.ver_todos',
                     ) && {
-                        // Lista completa (sin filtro): el acceso para VER todas
-                        // las evaluaciones de periodo de prueba, con el nombre
-                        // con que RH las busca. Misma pantalla (rh.evaluaciones).
+                        // UN solo acceso (2026-10-22): «capacitación inicial» y
+                        // «periodo de prueba» son la misma evaluación
+                        // (FO-RH-EPP-001). La pantalla junta los periodos por
+                        // vencer (asignar), las evaluaciones en curso y las ya
+                        // contestadas (respuestas + PDF para firma): nada de
+                        // accesos que solo sean un filtro de otro.
                         title: 'Evaluaciones de periodo de prueba',
                         href: indexEvaluaciones(),
-                        icon: ClipboardCheck,
-                    },
-                    algunPermiso(
-                        'evaluaciones.capturar',
-                        'evaluaciones.autorizar',
-                        'evaluaciones.ver_todos',
-                    ) && {
-                        title: 'Periodos por vencer',
-                        // Calculado por fecha de ingreso (no depende de que
-                        // el contrato o la evaluación ya existan).
-                        href: indexPeriodosPrueba(),
-                        icon: CalendarClock,
-                    },
-                    algunPermiso(
-                        'evaluaciones.capturar',
-                        'evaluaciones.autorizar',
-                        'evaluaciones.ver_todos',
-                    ) && {
-                        title: 'Evaluación y decisión',
-                        href: indexEvaluaciones({
-                            query: { estado: 'capturada' },
-                        }),
                         icon: ClipboardCheck,
                     },
                 ],
@@ -463,7 +444,9 @@ export function useMainNavItems() {
                         href: indexContactosEmergencia(),
                         icon: FileSpreadsheet,
                     },
-                    tienePermiso('avisos.enviar') && {
+                    // Historial con avisos.ver; enviar exige avisos.enviar
+                    // (el botón lo valida la pantalla y el backend).
+                    algunPermiso('avisos.ver', 'avisos.enviar') && {
                         title: 'Enviar notificación',
                         href: indexAvisos(),
                         icon: BellRing,
@@ -630,6 +613,14 @@ export function useMainNavItems() {
                     icono: Settings2,
                 },
                 [
+                    // Un solo módulo para configurar las DOS evaluaciones de
+                    // ingreso (inducción FO-RH-EI y periodo de prueba
+                    // FO-RH-EPP-001), con diseño, versiones y vista previa.
+                    tienePermiso('formularios_evaluacion.administrar') && {
+                        title: 'Formularios de evaluación',
+                        href: indexFormulariosEvaluacion(),
+                        icon: ClipboardList,
+                    },
                     tienePermiso('plantillas_documentales.administrar') && {
                         title: 'Documentos maestros',
                         href: indexDocumentosMaestros(),

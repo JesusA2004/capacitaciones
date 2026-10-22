@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -12,13 +13,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { store, update } from '@/routes/administracion/puestos';
 import type { OpcionSimple, PuestoItem } from '@/types';
@@ -84,20 +78,18 @@ function enviar() {
 
                 <div class="grid gap-2">
                     <Label>Departamento</Label>
-                    <Select v-model="form.departamento_id">
-                        <SelectTrigger class="w-full">
-                            <SelectValue placeholder="Sin departamento" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem
-                                v-for="opcion in departamentosDisponibles"
-                                :key="opcion.id"
-                                :value="String(opcion.id)"
-                            >
-                                {{ opcion.nombre }}
-                            </SelectItem>
-                        </SelectContent>
-                    </Select>
+                    <SelectSimple
+                        v-model="form.departamento_id"
+                        :opciones="
+                            departamentosDisponibles.map((o) => ({
+                                value: String(o.id),
+                                label: o.nombre,
+                            }))
+                        "
+                        placeholder="Sin departamento"
+                        opcion-vacia="Sin departamento"
+                        placeholder-busqueda="Buscar departamento…"
+                    />
                     <InputError :message="form.errors.departamento_id" />
                 </div>
 

@@ -18,8 +18,13 @@ Route::middleware(['auth', 'verified'])->prefix('rh')->name('rh.')->group(functi
         Route::get('lotes/{lote}', [ContratosController::class, 'lote'])->name('lote')->whereNumber('lote');
         Route::post('{colaborador}/generar', [ContratosController::class, 'generar'])->name('generar')->whereNumber('colaborador')->middleware('throttle:30,1');
         Route::post('{colaborador}/completar-datos', [ContratosController::class, 'completarDatos'])->name('completar-datos')->whereNumber('colaborador');
+        // Subir el contrato FIRMADO (gerente de su gente / regional para el
+        // contrato de un Gerente de Sucursal / RH): ContratoFirmadoService.
+        Route::post('{colaborador}/firmado', [ContratosController::class, 'subirFirmado'])->name('subir-firmado')->whereNumber('colaborador')->middleware('throttle:20,1');
         Route::get('{colaborador}/vista-previa/{clave}', [ContratosController::class, 'vistaPrevia'])->name('vista-previa')->whereNumber('colaborador')->where('clave', '[a-z_]+')->middleware('throttle:30,1');
     });
 
+    // Compatibilidad: «Periodos por vencer» ahora es la pestaña «Próximas /
+    // por asignar» de rh.evaluaciones.index (redirige con sus filtros).
     Route::get('periodos-prueba', [PeriodosPruebaController::class, 'index'])->name('periodos-prueba.index');
 });

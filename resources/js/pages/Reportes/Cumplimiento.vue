@@ -1,19 +1,13 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
 import { computed } from 'vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import DataTable from '@/components/DataTable/DataTable.vue';
 import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
 import Heading from '@/components/Heading.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { useFiltros } from '@/composables/useFiltros';
 import { VueApexCharts } from '@/lib/apexDiferido';
 import { dashboard } from '@/routes';
@@ -124,82 +118,73 @@ const opcionesGrafica = computed(() => {
         <div class="flex flex-wrap items-end gap-3">
             <div class="grid gap-2">
                 <label class="text-xs text-muted-foreground">Sucursal</label>
-                <Select
+                <SelectSimple
                     :model-value="filtros.sucursal_id"
+                    :opciones="
+                        sucursales.map((o) => ({
+                            value: String(o.id),
+                            label: o.nombre,
+                        }))
+                    "
+                    placeholder="Todas"
+                    opcion-vacia="Todas"
+                    placeholder-busqueda="Buscar sucursal…"
+                    class="w-48"
                     @update:model-value="
                         (v) => {
                             filtros.sucursal_id = String(v ?? '');
                             aplicar();
                         }
                     "
-                >
-                    <SelectTrigger class="w-48">
-                        <SelectValue placeholder="Todas" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="sucursal in sucursales"
-                            :key="sucursal.id"
-                            :value="String(sucursal.id)"
-                        >
-                            {{ sucursal.nombre }}
-                        </SelectItem>
-                    </SelectContent>
-                </Select>
+                />
             </div>
 
             <div class="grid gap-2">
                 <label class="text-xs text-muted-foreground"
                     >Departamento</label
                 >
-                <Select
+                <SelectSimple
                     :model-value="filtros.departamento_id"
+                    :opciones="
+                        departamentos.map((o) => ({
+                            value: String(o.id),
+                            label: o.nombre,
+                        }))
+                    "
+                    placeholder="Todos"
+                    opcion-vacia="Todos"
+                    placeholder-busqueda="Buscar departamento…"
+                    class="w-48"
                     @update:model-value="
                         (v) => {
                             filtros.departamento_id = String(v ?? '');
                             aplicar();
                         }
                     "
-                >
-                    <SelectTrigger class="w-48">
-                        <SelectValue placeholder="Todos" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="departamento in departamentos"
-                            :key="departamento.id"
-                            :value="String(departamento.id)"
-                        >
-                            {{ departamento.nombre }}
-                        </SelectItem>
-                    </SelectContent>
-                </Select>
+                />
             </div>
 
             <div class="grid gap-2">
                 <label class="text-xs text-muted-foreground">Curso</label>
-                <Select
+                <SelectSimple
                     :model-value="filtros.curso_id"
+                    :opciones="
+                        cursos.map((o) => ({
+                            value: String(o.id),
+                            label: o.titulo,
+                        }))
+                    "
+                    placeholder="Todos"
+                    opcion-vacia="Todos"
+                    placeholder-busqueda="Buscar curso…"
+                    class="w-56"
                     @update:model-value="
                         (v) => {
                             filtros.curso_id = String(v ?? '');
                             aplicar();
                         }
                     "
-                >
-                    <SelectTrigger class="w-56">
-                        <SelectValue placeholder="Todos" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem
-                            v-for="curso in cursos"
-                            :key="curso.id"
-                            :value="String(curso.id)"
-                        >
-                            {{ curso.titulo }}
-                        </SelectItem>
-                    </SelectContent>
-                </Select>
+                />
             </div>
 
             <Button variant="ghost" size="sm" @click="limpiar">

@@ -103,6 +103,7 @@ class PurgaPersonaService
         'revisiones_division_historico' => 'revisiones de la división de históricos',
         'coberturas_puesto' => 'coberturas de puesto',
         'colaborador_datos_medicos' => 'datos médicos',
+        'cartas_compromiso' => 'cartas compromiso',
         'contratos_laborales' => 'contratos laborales',
         'divisiones_expediente_historico' => 'divisiones de expediente histórico',
         'document_extractions' => 'lecturas automáticas de documentos',
@@ -115,6 +116,7 @@ class PurgaPersonaService
         'generated_documents' => 'documentos generados',
         'historial_salarios' => 'historial de salarios',
         'incorporacion_invitaciones' => 'invitaciones de incorporación',
+        'induccion_asignaciones' => 'asignaciones de inducción',
         'induccion_video_intervalos' => 'avance del video de inducción',
         'inscripciones_curso' => 'inscripciones a cursos',
         'intentos_cuestionario' => 'intentos de cuestionario',
@@ -442,6 +444,9 @@ class PurgaPersonaService
         // Acuses e inducción (RESTRICT a colaboradores y a users).
         DB::table('acuses_descriptivo_puesto')->where('colaborador_id', $colaboradorId)->delete();
         DB::table('sesion_induccion_colaboradores')->where('colaborador_id', $colaboradorId)->delete();
+
+        // Cartas compromiso (RESTRICT a colaboradores).
+        DB::table('cartas_compromiso')->where('colaborador_id', $colaboradorId)->delete();
 
         // Finiquitos (RESTRICT a users por «calculado_por_id»).
         DB::table('finiquito_calculos')->where('colaborador_id', $colaboradorId)->delete();

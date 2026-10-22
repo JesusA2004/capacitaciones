@@ -17,7 +17,31 @@ class UpdateUsuarioRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->can('update', $this->route('usuario')) ?? false;
+        $usuario = $this->user();
+        $objetivo = $this->route('usuario');
+
+        if ($usuario === null || ! $objetivo instanceof User || ! $usuario->can('update', $objetivo)) {
+            return false;
+        }
+
+        // Cambiar los roles exige además «Asignar roles»; mandar los mismos
+        // que ya tiene (formulario sin ese permiso) no cuenta como cambio.
+        return ! $this->cambiaRoles($objetivo) || $usuario->can('asignarRoles', User::class);
+    }
+
+    /**
+     * true si la petición trae roles distintos de los que ya tiene la cuenta.
+     */
+    public function cambiaRoles(User $objetivo): bool
+    {
+        if (! $this->has('roles')) {
+            return false;
+        }
+
+        $pedidos = collect((array) $this->input('roles', []))->map(fn ($rol): string => (string) $rol)->sort()->values()->all();
+        $actuales = $objetivo->roles()->pluck('name')->map(fn ($rol): string => (string) $rol)->sort()->values()->all();
+
+        return $pedidos !== $actuales;
     }
 
     protected function prepareForValidation(): void

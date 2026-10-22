@@ -36,6 +36,8 @@ const props = defineProps<{
     actualizado_por: string | null;
     actualizado_en: string | null;
     puedeEditar: boolean;
+    /** perfiles_puesto.descargar (Roles y permisos). */
+    puedeDescargar?: boolean;
     origen: PerfilPuestoDetalle['origen'];
     descriptivo: PerfilPuestoDetalle['descriptivo'];
 }>();
@@ -108,7 +110,7 @@ const perfilVacio = computed(
     <div class="pagina-ancha flex flex-col gap-5">
         <EncabezadoPuesto :puesto="puesto" etiqueta="Descriptivo de puesto">
             <div class="flex flex-wrap gap-2">
-                <template v-if="descriptivo">
+                <template v-if="descriptivo && puedeDescargar">
                     <button
                         type="button"
                         class="inline-flex min-h-10 items-center gap-2 rounded-xl bg-white/10 px-4 text-sm font-medium text-white hover:bg-white/20"
