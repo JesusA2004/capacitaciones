@@ -84,7 +84,7 @@ const OPCIONES_COMENTARIO = [
                     </p>
                 </div>
                 <div class="grid gap-1.5">
-                    <Label>El comentario del jefe es obligatorio…</Label>
+                    <Label>El comentario del colaborador es obligatorio…</Label>
                     <div class="flex flex-col gap-1">
                         <label
                             v-for="o in OPCIONES_COMENTARIO"
@@ -166,8 +166,9 @@ const OPCIONES_COMENTARIO = [
             <div class="px-1">
                 <h3 class="font-semibold">Paso 1 · Criterios a calificar</h3>
                 <p class="text-xs text-muted-foreground">
-                    El jefe califica cada criterio del 4 al 1. Agrega, quita o
-                    reordena los que necesites (máximo 20).
+                    El colaborador califica su desempeño del 4 al 1
+                    (autoevaluación). Agrega, quita o reordena los que necesites
+                    (máximo 20).
                 </p>
             </div>
             <TarjetaPregunta
@@ -203,7 +204,7 @@ const OPCIONES_COMENTARIO = [
                 />
                 <Input
                     v-model="c.descripcion"
-                    placeholder="Ayuda para el jefe (opcional)"
+                    placeholder="Ayuda para el colaborador (opcional)"
                     :disabled="props.soloLectura"
                 />
             </TarjetaPregunta>
@@ -254,7 +255,7 @@ const OPCIONES_COMENTARIO = [
                 />
                 <Input
                     v-model="f.descripcion"
-                    placeholder="Ayuda para el jefe (opcional)"
+                    placeholder="Ayuda para el colaborador (opcional)"
                     :disabled="props.soloLectura"
                 />
             </TarjetaPregunta>

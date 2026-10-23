@@ -48,6 +48,7 @@ class GestionCartasCompromisoController extends Controller
                 'busqueda' => (string) $request->query('busqueda', ''),
             ],
             'puedeGenerar' => $usuario->can(GestionCartasCompromisoService::PERMISO_GENERAR),
+            'puedeDescargar' => $usuario->can(GestionCartasCompromisoService::PERMISO_DESCARGAR),
             'reglas' => $this->reglas(),
         ]);
     }

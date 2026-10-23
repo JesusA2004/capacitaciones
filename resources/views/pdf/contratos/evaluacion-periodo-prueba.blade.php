@@ -24,6 +24,9 @@
         2 => ['Regular', $pal['alerta']],
         1 => ['Deficiente', $pal['peligro']],
     ];
+    // Autoevaluación: la contestó el propio colaborador (flujo vigente). Las
+    // del flujo anterior (capturadas por el jefe) se imprimen como entonces.
+    $auto = (bool) ($d['autoevaluacion'] ?? false);
     $renueva = $r['recomienda_renovar'] === true;
     $noRenueva = $r['recomienda_renovar'] === false;
     $motivos = $r['motivos_no_renueva'];
@@ -175,7 +178,7 @@
     {{-- PASO 1 --}}
     <table class="paso"><tr><td class="n">PASO 1</td><td class="t">CALIFIQUE EL DESEMPEÑO</td></tr></table>
     @if ($r['es_oficial'])
-        <p class="indicacion">El jefe inmediato eligió, por renglón, la descripción que más se parece a lo que vio (4, 3, 2 o 1). <span class="regla">Si hay un 1 en cualquier renglón, el resultado es NO SE RENUEVA.</span></p>
+        <p class="indicacion">{{ $auto ? 'El colaborador se autoevaluó: eligió, por renglón,' : 'El jefe inmediato eligió, por renglón,' }} la descripción que más se parece a lo que vio (4, 3, 2 o 1). <span class="regla">Si hay un 1 en cualquier renglón, el resultado es NO SE RENUEVA.</span></p>
         <table class="criterios">
             <thead>
                 <tr>
@@ -292,11 +295,11 @@
                 </tr>
             </tbody>
         </table>
-        <p style="margin-top: 2mm"><strong>Recomendación del jefe:</strong> {{ $renueva ? 'Renovar' : ($noRenueva ? 'No renovar' : 'Sin recomendación') }}</p>
+        <p style="margin-top: 2mm"><strong>{{ $auto ? 'Resultado de la evaluación:' : 'Recomendación del jefe:' }}</strong> {{ $renueva ? 'Renovar' : ($noRenueva ? 'No renovar' : 'Sin recomendación') }}</p>
     @endif
 
     <div class="comentarios">
-        <h2>COMENTARIOS DEL JEFE INMEDIATO</h2>
+        <h2>{{ $auto ? 'COMENTARIOS DEL COLABORADOR' : 'COMENTARIOS DEL JEFE INMEDIATO' }}</h2>
         <p class="indicacion" style="margin-top: 0.5mm">Obligatorios si calificó con 1 o 2, o si marcó SÍ en el Paso 2. Si se renueva, en qué debe mejorar.</p>
         @if (filled($r['observaciones']))
             <div class="caja">{{ $r['observaciones'] }}</div>
@@ -320,26 +323,47 @@
 
     <table class="firmas">
         <tr>
-            <td>
-                <div class="rol">EVALUÓ</div>
-                <div class="nombre-firma">{{ $d['jefe'] ?? '' }}</div>
-                <div class="linea">Nombre y firma</div>
-                <div class="det">Jefe inmediato</div>
-            </td>
-            <td>
-                <div class="rol">VALIDÓ</div>
-                <div class="nombre-firma">&nbsp;</div>
-                <div class="linea">Nombre y firma</div>
-                <div class="det">Gerente de Recursos Humanos</div>
-            </td>
-            <td>
-                <div class="rol">ENTERADO</div>
-                <div class="nombre-firma">{{ $c['nombre'] }}</div>
-                <div class="linea">Nombre y firma</div>
-                <div class="det">Colaborador evaluado</div>
-            </td>
+            @if ($auto)
+                <td>
+                    <div class="rol">CONTESTÓ</div>
+                    <div class="nombre-firma">{{ $c['nombre'] }}</div>
+                    <div class="linea">Nombre y firma</div>
+                    <div class="det">Colaborador evaluado</div>
+                </td>
+                <td>
+                    <div class="rol">VALIDÓ</div>
+                    <div class="nombre-firma">&nbsp;</div>
+                    <div class="linea">Nombre y firma</div>
+                    <div class="det">Gerente de Recursos Humanos</div>
+                </td>
+                <td>
+                    <div class="rol">ENTERADO</div>
+                    <div class="nombre-firma">{{ $d['jefe'] ?? '' }}</div>
+                    <div class="linea">Nombre y firma</div>
+                    <div class="det">Jefe inmediato</div>
+                </td>
+            @else
+                <td>
+                    <div class="rol">EVALUÓ</div>
+                    <div class="nombre-firma">{{ $d['jefe'] ?? '' }}</div>
+                    <div class="linea">Nombre y firma</div>
+                    <div class="det">Jefe inmediato</div>
+                </td>
+                <td>
+                    <div class="rol">VALIDÓ</div>
+                    <div class="nombre-firma">&nbsp;</div>
+                    <div class="linea">Nombre y firma</div>
+                    <div class="det">Gerente de Recursos Humanos</div>
+                </td>
+                <td>
+                    <div class="rol">ENTERADO</div>
+                    <div class="nombre-firma">{{ $c['nombre'] }}</div>
+                    <div class="linea">Nombre y firma</div>
+                    <div class="det">Colaborador evaluado</div>
+                </td>
+            @endif
         </tr>
     </table>
-    <p class="leyenda">La firma del colaborador confirma que conoció el resultado, no que esté de acuerdo. Toda excepción requiere autorización escrita de Dirección General.@if ($d['fecha_evaluacion']) Fecha de la evaluación: {{ $d['fecha_evaluacion'] }}.@endif</p>
+    <p class="leyenda">{{ $auto ? 'Autoevaluación contestada por el colaborador en PEOPLE; Recursos Humanos valida y decide la renovación.' : 'La firma del colaborador confirma que conoció el resultado, no que esté de acuerdo.' }} Toda excepción requiere autorización escrita de Dirección General.@if ($d['fecha_evaluacion']) Fecha de la evaluación: {{ $d['fecha_evaluacion'] }}.@endif</p>
 </body>
 </html>

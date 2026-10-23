@@ -22,6 +22,14 @@ const MAX_ACCESOS_DIRECTOS = 4;
 const accesosDirectos = computed(() =>
     mainNavItems.value.slice(0, MAX_ACCESOS_DIRECTOS),
 );
+
+// Etiqueta corta para la barra (5 columnas en ~390 px): sin el «Mi/Mis»
+// del menú lateral — «Mis notificaciones» → «Notificaciones».
+function etiquetaCorta(titulo: string): string {
+    const corta = titulo.replace(/^(Mi|Mis)\s+/u, '');
+
+    return corta.charAt(0).toUpperCase() + corta.slice(1);
+}
 </script>
 
 <template>
@@ -32,7 +40,7 @@ const accesosDirectos = computed(() =>
             v-for="item in accesosDirectos"
             :key="item.title"
             :href="item.href"
-            class="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[0.65rem] font-medium"
+            class="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[0.7rem] font-medium"
             :class="
                 isCurrentUrl(item.href)
                     ? 'text-[var(--brand-primary)]'
@@ -49,12 +57,16 @@ const accesosDirectos = computed(() =>
             >
                 <component :is="item.icon" class="size-5" />
             </span>
-            <span class="truncate">{{ item.title }}</span>
+            <span
+                class="w-full truncate text-center text-[0.65rem] leading-tight tracking-tight"
+                :title="item.title"
+                >{{ etiquetaCorta(item.title) }}</span
+            >
         </Link>
 
         <button
             type="button"
-            class="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[0.65rem] font-medium text-muted-foreground"
+            class="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[0.7rem] font-medium text-muted-foreground"
             @click="setOpenMobile(true)"
         >
             <span class="flex size-9 items-center justify-center rounded-full">

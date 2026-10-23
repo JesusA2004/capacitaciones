@@ -252,7 +252,7 @@ const segmento = (activo: boolean) =>
         <section
             v-if="atajos.length"
             aria-label="Resumen de pendientes"
-            class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"
+            class="rejilla-auto gap-3 [--rejilla-min:15rem]"
         >
             <Link
                 v-for="atajo in atajos"
@@ -289,15 +289,17 @@ const segmento = (activo: boolean) =>
             </Link>
         </section>
 
-        <div class="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div
+            class="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_340px] 2xl:grid-cols-[minmax(0,1fr)_380px]"
+        >
             <!-- Lista -->
-            <div class="flex flex-col gap-4">
+            <div class="flex min-w-0 flex-col gap-4">
                 <div
                     data-tour="pendientes-filtros"
                     class="flex flex-wrap items-center gap-2"
                 >
                     <div
-                        class="flex rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-1"
+                        class="flex w-full rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-1 sm:w-auto [&>button]:flex-1 sm:[&>button]:flex-none"
                         role="group"
                         aria-label="Urgencia"
                     >
@@ -332,7 +334,7 @@ const segmento = (activo: boolean) =>
                             }))
                         "
                         opcion-vacia="Todas las etapas"
-                        class="h-10 w-52"
+                        class="h-10 w-full min-w-0 flex-1 sm:w-52 sm:flex-none"
                         aria-label="Etapa"
                     />
                     <SelectSimple
@@ -345,7 +347,7 @@ const segmento = (activo: boolean) =>
                             }))
                         "
                         opcion-vacia="Todas las sucursales"
-                        class="h-10 w-56"
+                        class="h-10 w-full min-w-0 flex-1 sm:w-56 sm:flex-none"
                         aria-label="Sucursal"
                     />
                 </div>
@@ -464,7 +466,9 @@ const segmento = (activo: boolean) =>
             </div>
 
             <!-- Gráficas -->
-            <aside class="flex flex-col gap-4 xl:sticky xl:top-4 xl:self-start">
+            <aside
+                class="grid min-w-0 gap-4 md:grid-cols-2 xl:sticky xl:top-4 xl:flex xl:flex-col xl:self-start"
+            >
                 <section
                     class="rounded-3xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-5"
                 >

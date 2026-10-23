@@ -8,6 +8,7 @@ use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\TareaRh;
+use App\Models\User;
 use App\Notifications\Mobile\PendienteRhNotification;
 use Carbon\Carbon;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -26,6 +27,9 @@ beforeEach(function () {
     $this->rh = clUsuario('rh_admin');
     $this->jefeUsuario = clUsuario('jefe_directo');
     $this->colaborador = Colaborador::factory()->create(['jefe_id' => $this->jefeUsuario->colaborador_id]);
+    // Autoevaluación: la contesta el propio colaborador.
+    $this->colaboradorUsuario = User::factory()->create(['colaborador_id' => $this->colaborador->id]);
+    $this->colaboradorUsuario->assignRole('colaborador');
     $this->contrato = ContratoLaboral::factory()->create([
         'colaborador_id' => $this->colaborador->id,
         'fecha_inicio' => now()->subDays(20)->toDateString(),
@@ -77,7 +81,7 @@ test('un colaborador en incorporación (aún sin activar) sí recibe la evaluaci
     $this->artisan('contratos:revisar-vencimientos')->assertSuccessful();
 
     expect(EvaluacionPeriodoPrueba::query()->where('contrato_laboral_id', $this->contrato->id)->value('evaluador_colaborador_id'))
-        ->toBe($this->jefeUsuario->colaborador_id);
+        ->toBe($this->colaborador->id);
 });
 
 test('el límite de 15 días hábiles se cuenta desde el día en México, no en UTC', function () {
@@ -99,7 +103,7 @@ test('la fecha de evaluación por defecto y el tope «hoy» son del día en Méx
     $evaluacion = EvaluacionPeriodoPrueba::query()->firstOrFail();
 
     Carbon::setTestNow(Carbon::parse('2026-07-01 20:00:00', 'America/Mexico_City'));
-    Sanctum::actingAs($this->jefeUsuario);
+    Sanctum::actingAs($this->colaboradorUsuario);
 
     // "Mañana" en México nunca se acepta, aunque en UTC ya sea hoy.
     $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", [...eppRevisionCaptura(), 'fecha_evaluacion' => '2026-07-02'])
@@ -114,7 +118,7 @@ test('la fecha de evaluación por defecto y el tope «hoy» son del día en Méx
 test('las preguntas filtro aceptan 1/0 igual que la validación (antes pasaban y luego «Falta responder»)', function () {
     $this->artisan('contratos:revisar-vencimientos');
     $evaluacion = EvaluacionPeriodoPrueba::query()->firstOrFail();
-    Sanctum::actingAs($this->jefeUsuario);
+    Sanctum::actingAs($this->colaboradorUsuario);
 
     $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", eppRevisionCaptura(0))
         ->assertOk()
@@ -126,7 +130,7 @@ test('las preguntas filtro aceptan 1/0 igual que la validación (antes pasaban y
 test('devolver valida igual en web y API: motivo obligatorio y hasta 2000 caracteres', function () {
     $this->artisan('contratos:revisar-vencimientos');
     $evaluacion = EvaluacionPeriodoPrueba::query()->firstOrFail();
-    Sanctum::actingAs($this->jefeUsuario);
+    Sanctum::actingAs($this->colaboradorUsuario);
     $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", eppRevisionCaptura())->assertOk();
 
     Sanctum::actingAs($this->rh);

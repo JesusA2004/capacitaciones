@@ -8,6 +8,9 @@ import { computed, useAttrs } from 'vue';
  * DataTable.vue. Si el padre le pasa `@click`, la tarjeta completa abre
  * esa acción (sin obligar a usar el menú de puntitos); el pie de
  * acciones detiene la propagación para no disparar ambos a la vez.
+ *
+ * Sin datos clave (slot por defecto vacío) las acciones van en el mismo
+ * renglón del título, no solas en un pie con borde que se veía vacío.
  */
 withDefaults(
     defineProps<{
@@ -40,8 +43,18 @@ const esClicable = computed(() => attrs.onClick !== undefined);
                     {{ subtitulo }}
                 </p>
             </div>
-            <div v-if="$slots.badge" class="shrink-0">
+            <div
+                v-if="$slots.badge || ($slots.acciones && !$slots.default)"
+                class="flex shrink-0 items-center gap-1"
+            >
                 <slot name="badge" />
+                <div
+                    v-if="$slots.acciones && !$slots.default"
+                    class="-my-1 -mr-2 flex items-center gap-1"
+                    @click.stop
+                >
+                    <slot name="acciones" />
+                </div>
             </div>
         </div>
 
@@ -53,7 +66,7 @@ const esClicable = computed(() => attrs.onClick !== undefined);
         </div>
 
         <div
-            v-if="$slots.acciones"
+            v-if="$slots.acciones && $slots.default"
             class="flex items-center justify-end gap-1 border-t border-border/60 pt-2"
             @click.stop
         >

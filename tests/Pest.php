@@ -101,6 +101,18 @@ function clUsuario(string $rol, array $colaborador = []): User
 }
 
 /**
+ * Cuenta (rol colaborador por defecto) de una persona YA existente: p. ej.
+ * para que conteste su propia autoevaluación de periodo de prueba.
+ */
+function clUsuarioDe(Colaborador $colaborador, string $rol = 'colaborador'): User
+{
+    $usuario = User::factory()->create(['colaborador_id' => $colaborador->id]);
+    $usuario->assignRole($rol);
+
+    return $usuario;
+}
+
+/**
  * Plantilla documental HTML activa (el texto lo aportaría Jurídico; aquí es de prueba).
  *
  * @param  array<string, mixed>  $atributos

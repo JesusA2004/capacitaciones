@@ -126,7 +126,7 @@ const avisoTemprana = computed(
 
 const claseRadio = (activo: boolean) =>
     cn(
-        'inline-flex h-10 min-w-24 items-center justify-center rounded-xl border px-4 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60',
+        'inline-flex h-10 min-w-0 items-center justify-center rounded-xl border px-2 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:opacity-60',
         activo
             ? 'border-primary bg-primary text-primary-foreground'
             : 'border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] hover:bg-muted',
@@ -278,7 +278,7 @@ const claseRadio = (activo: boolean) =>
             <div class="grid gap-1.5">
                 <Label>¿Recontratable?</Label>
                 <div
-                    class="flex flex-wrap gap-2"
+                    class="grid grid-cols-3 gap-2"
                     role="radiogroup"
                     aria-label="¿Recontratable?"
                 >
@@ -343,8 +343,12 @@ const claseRadio = (activo: boolean) =>
                             "
                             :disabled="disabled"
                             :class="
-                                claseRadio(
-                                    modelo.entrega_aviso_rescision === e.value,
+                                cn(
+                                    claseRadio(
+                                        modelo.entrega_aviso_rescision ===
+                                            e.value,
+                                    ),
+                                    'min-w-24 px-4',
                                 )
                             "
                             @click="modelo.entrega_aviso_rescision = e.value"

@@ -5,9 +5,9 @@ import {
     CalendarClock,
     CircleCheck,
     CircleDashed,
+    Eye,
     FilePenLine,
     FileSignature,
-    Printer,
     Upload,
 } from '@lucide/vue';
 import { computed, onBeforeUnmount, ref } from 'vue';
@@ -138,7 +138,10 @@ const extensionFirmada = computed(() => {
             :icono="FilePenLine"
             detalle
         >
-            <div data-tour="carta-acciones" class="flex flex-wrap gap-2">
+            <div
+                data-tour="carta-acciones"
+                class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap"
+            >
                 <Button variant="ghost" as-child>
                     <Link :href="index.url()">
                         <ArrowLeft class="size-4" /> Lista
@@ -146,10 +149,9 @@ const extensionFirmada = computed(() => {
                 </Button>
                 <Button
                     v-if="carta.puede.descargar"
-                    variant="outline"
                     @click="cartaAbierta = true"
                 >
-                    <Printer class="size-4" /> Ver / imprimir carta
+                    <Eye class="size-4" /> Ver carta
                 </Button>
                 <Button v-if="carta.puede.subir_firmada" @click="abrirSubir">
                     <Upload class="size-4" /> Subir carta firmada

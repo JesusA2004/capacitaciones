@@ -575,7 +575,7 @@ const dialogClonar = ref(false);
                                         !rol.es_del_sistema && !rol.es_protegido
                                     "
                                     v-model="nombre"
-                                    class="h-9 w-64 font-medium"
+                                    class="h-9 w-full font-medium sm:w-64"
                                     aria-label="Nombre del rol"
                                 />
                                 <h2 v-else class="text-lg font-semibold">
@@ -691,7 +691,7 @@ const dialogClonar = ref(false);
                             <div class="flex gap-2">
                                 <NativeSelect
                                     v-model="copiarDesdeId"
-                                    class="w-full"
+                                    class="min-w-0 flex-1"
                                     aria-label="Rol del que se copian los permisos"
                                 >
                                     <NativeSelectOption value=""

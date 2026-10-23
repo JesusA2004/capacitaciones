@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
 import { BookOpen, CircleHelp, Compass, Route } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { useWindowScroll } from '@vueuse/core';
+import { computed, ref, watch } from 'vue';
 import { Button } from '@/components/ui/button';
 import {
     Popover,
@@ -52,6 +53,29 @@ const articuloPantalla = computed(() => {
 
 const abierto = ref(false);
 
+/*
+ * Discreto: 40 px, semitransparente hasta que lo apuntas, y se ESCONDE
+ * mientras bajas por la página (vuelve al subir o al llegar al final). El
+ * layout deja un margen inferior para que al final del contenido nunca
+ * tape un botón (AppSidebarLayout).
+ */
+const { y } = useWindowScroll();
+const escondido = ref(false);
+
+watch(y, (actual, anterior) => {
+    const alFinal =
+        window.innerHeight + actual >=
+        document.documentElement.scrollHeight - 8;
+
+    if (alFinal || actual < 80) {
+        escondido.value = false;
+    } else if (Math.abs(actual - anterior) > 4) {
+        escondido.value = actual > anterior;
+    }
+});
+
+const ocultarBoton = computed(() => escondido.value && !abierto.value);
+
 function lanzar(tour: Tour): void {
     abierto.value = false;
     iniciar(tour);
@@ -64,14 +88,21 @@ function lanzar(tour: Tour): void {
             <button
                 type="button"
                 data-tour="boton-ayuda"
-                class="fixed right-5 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-50 flex size-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 hover:bg-primary/90 active:scale-95 sm:bottom-5"
+                class="fixed right-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-50 flex size-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-[transform,opacity] duration-200 hover:bg-primary/90 active:scale-95 sm:right-4 sm:bottom-4"
+                :class="
+                    ocultarBoton
+                        ? 'pointer-events-none translate-y-28 opacity-0'
+                        : 'opacity-85 hover:scale-105 hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100'
+                "
+                :aria-hidden="ocultarBoton || undefined"
+                :tabindex="ocultarBoton ? -1 : undefined"
                 aria-label="Ayuda y guías del sistema"
             >
                 <span
                     v-if="hayTourNuevo"
                     class="absolute inset-0 animate-ping rounded-full bg-primary opacity-75"
                 />
-                <Compass class="relative size-5" />
+                <Compass class="relative size-[18px]" />
             </button>
         </PopoverTrigger>
         <PopoverContent

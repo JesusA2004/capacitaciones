@@ -55,7 +55,7 @@ function alCambiar(valor: unknown) {
         <NativeSelect
             :id="id"
             :model-value="String(modelValue)"
-            class="h-8 min-w-[5.5rem] rounded-lg bg-card py-1 pr-8 pl-2.5 text-sm text-foreground"
+            class="h-10 min-w-[5.5rem] rounded-lg bg-card py-1 pr-8 pl-2.5 text-sm text-foreground sm:h-8"
             @update:model-value="alCambiar"
         >
             <NativeSelectOption

@@ -40,6 +40,12 @@ withDefaults(
             class="shrink-0"
             aria-hidden="true"
         />
-        <span class="min-w-0 leading-snug text-pretty">{{ etiqueta }}</span>
+        <!-- Etiquetas cortas («En trámite») nunca se parten en dos renglones
+             dentro de una columna angosta; las largas sí pueden envolver. -->
+        <span
+            class="min-w-0 leading-snug text-pretty"
+            :class="etiqueta.length <= 22 ? 'whitespace-nowrap' : ''"
+            >{{ etiqueta }}</span
+        >
     </span>
 </template>

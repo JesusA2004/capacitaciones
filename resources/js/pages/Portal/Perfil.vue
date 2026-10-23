@@ -10,6 +10,7 @@ import {
     Users2,
 } from '@lucide/vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import { index as indexPortal } from '@/routes/portal';
 import type { PerfilColaborador } from '@/types';
@@ -78,7 +79,7 @@ const DATOS = [
     {
         icono: CalendarClock,
         etiqueta: 'Fecha de ingreso',
-        valor: (p: PerfilColaborador) => p.fecha_ingreso ?? '—',
+        valor: (p: PerfilColaborador) => formatearFecha(p.fecha_ingreso),
     },
 ] as const;
 </script>
@@ -86,10 +87,12 @@ const DATOS = [
 <template>
     <Head title="Mi perfil" />
 
-    <div class="pagina-ancha grid grid-cols-1 gap-6 lg:grid-cols-3">
+    <div
+        class="pagina-ancha grid grid-cols-1 items-start gap-6 lg:grid-cols-[18rem_minmax(0,1fr)] 2xl:grid-cols-[22rem_minmax(0,1fr)]"
+    >
         <!-- Tarjeta de foto: precargada desde el expediente del colaborador. -->
         <div
-            class="flex flex-col items-center gap-4 self-start rounded-3xl border border-border/60 bg-gradient-to-br from-card to-muted/30 p-8 text-center shadow-sm transition-shadow duration-200 hover:shadow-md lg:col-span-1"
+            class="flex flex-col items-center gap-4 self-start rounded-3xl border border-border/60 bg-gradient-to-br from-card to-muted/30 p-6 text-center shadow-sm transition-shadow duration-200 hover:shadow-md sm:p-8 lg:sticky lg:top-20"
         >
             <Avatar
                 class="size-28 border-4 border-[var(--brand-primary)]/20 shadow-md sm:size-32"
@@ -125,9 +128,9 @@ const DATOS = [
         </div>
 
         <!-- Datos: grid de dos columnas en pantallas grandes, aprovechando el ancho. -->
-        <div class="flex flex-col gap-4 lg:col-span-2">
+        <div class="flex min-w-0 flex-col gap-4">
             <div
-                class="grid grid-cols-1 gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm transition-shadow duration-200 hover:shadow-md sm:grid-cols-2"
+                class="grid grid-cols-1 gap-3 rounded-3xl border border-border/60 bg-card p-3 shadow-sm transition-shadow duration-200 hover:shadow-md sm:grid-cols-2 sm:p-5 2xl:grid-cols-3"
             >
                 <div
                     v-for="dato in DATOS"
@@ -143,7 +146,7 @@ const DATOS = [
                         <p class="text-xs text-muted-foreground">
                             {{ dato.etiqueta }}
                         </p>
-                        <p class="truncate text-sm font-medium">
+                        <p class="text-sm font-medium break-words">
                             {{ dato.valor(props.perfil) }}
                         </p>
                     </div>

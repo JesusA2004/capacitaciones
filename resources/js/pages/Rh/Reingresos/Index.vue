@@ -150,13 +150,13 @@ function enviarDecision(reingreso: ReingresoFila) {
             <Button type="submit"><Search class="size-4" /> Buscar</Button>
         </form>
 
-        <ul v-if="resultados.length" class="flex flex-col gap-2">
+        <ul v-if="resultados.length" class="grid gap-2 2xl:grid-cols-2">
             <li
                 v-for="r in resultados"
                 :key="r.id"
                 class="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 text-sm"
             >
-                <div class="min-w-0 flex-1">
+                <div class="w-full min-w-0 sm:w-auto sm:flex-1">
                     <p class="font-medium">
                         {{ r.nombre }}
                         <span class="text-xs text-[var(--mrl-texto-suave)]">{{
@@ -258,8 +258,10 @@ function enviarDecision(reingreso: ReingresoFila) {
                     />
                 </div>
             </div>
-            <fieldset class="grid gap-1 text-sm">
-                <legend class="mb-1 text-sm font-medium">
+            <fieldset
+                class="grid gap-x-4 gap-y-1 text-sm sm:grid-cols-2 xl:grid-cols-3"
+            >
+                <legend class="mb-1 text-sm font-medium sm:col-span-full">
                     Pedir de nuevo expresamente (además de vencidos y faltantes)
                 </legend>
                 <label
@@ -298,97 +300,109 @@ function enviarDecision(reingreso: ReingresoFila) {
             >
                 Sin solicitudes.
             </p>
-            <article
-                v-for="r in reingresos.data"
-                :key="r.id"
-                class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 text-sm"
-            >
-                <div class="flex flex-wrap items-center gap-2">
-                    <Link
-                        :href="cicloColaborador.url(r.colaborador.id)"
-                        class="font-medium hover:underline"
-                        >{{ r.colaborador.nombre }}</Link
-                    >
-                    <span
-                        class="rounded-full bg-[var(--mrl-fondo)] px-2 py-0.5 text-xs"
-                        >{{ r.estado_etiqueta }}</span
-                    >
-                    <span class="ml-auto text-xs text-[var(--mrl-texto-suave)]"
-                        >Solicitó {{ r.solicitado_por ?? '—' }}</span
-                    >
-                </div>
-                <p class="mt-1">{{ r.motivo }}</p>
-                <p v-if="r.documentos_requeridos.length" class="mt-1 text-xs">
-                    Documentos a renovar:
-                    {{
-                        r.documentos_requeridos.map((d) => d.nombre).join(', ')
-                    }}
-                </p>
-                <p v-if="r.comentario_decision" class="mt-1 text-xs">
-                    Decisión: {{ r.comentario_decision }} ({{ r.decidido_por }})
-                </p>
-
-                <div v-if="r.acciones_permitidas.length" class="mt-3">
-                    <Button
-                        v-if="decidiendo !== r.id"
-                        size="sm"
-                        @click="decidiendo = r.id"
-                        >Decidir reingreso</Button
-                    >
-                    <form
-                        v-else
-                        class="flex flex-col gap-2"
-                        @submit.prevent="enviarDecision(r)"
-                    >
-                        <div class="flex gap-2">
-                            <Button
-                                type="button"
-                                :variant="
-                                    decision.viable ? 'default' : 'outline'
-                                "
-                                @click="decision.viable = true"
-                                >Viable</Button
-                            >
-                            <Button
-                                type="button"
-                                :variant="
-                                    !decision.viable ? 'destructive' : 'outline'
-                                "
-                                @click="decision.viable = false"
-                                >No viable</Button
-                            >
-                        </div>
-                        <Textarea
-                            v-model="decision.comentario"
-                            rows="2"
-                            :placeholder="
-                                decision.viable
-                                    ? 'Comentario (opcional)'
-                                    : 'Motivo (obligatorio)'
-                            "
-                        />
-                        <InputError
-                            :message="
-                                decision.errors.comentario ??
-                                (decision.errors as Record<string, string>)
-                                    .aprobacion
-                            "
-                        />
-                        <Button
-                            type="submit"
-                            size="sm"
-                            class="w-fit"
-                            :disabled="decision.processing"
-                            >Confirmar</Button
+            <div class="grid items-start gap-3 xl:grid-cols-2">
+                <article
+                    v-for="r in reingresos.data"
+                    :key="r.id"
+                    class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 text-sm"
+                >
+                    <div class="flex flex-wrap items-center gap-2">
+                        <Link
+                            :href="cicloColaborador.url(r.colaborador.id)"
+                            class="font-medium hover:underline"
+                            >{{ r.colaborador.nombre }}</Link
                         >
-                    </form>
-                </div>
-                <AprobacionesResumen
-                    v-if="r.aprobaciones.ronda"
-                    class="mt-3"
-                    :aprobaciones="r.aprobaciones"
-                />
-            </article>
+                        <span
+                            class="rounded-full bg-[var(--mrl-fondo)] px-2 py-0.5 text-xs"
+                            >{{ r.estado_etiqueta }}</span
+                        >
+                        <span
+                            class="ml-auto text-xs text-[var(--mrl-texto-suave)]"
+                            >Solicitó {{ r.solicitado_por ?? '—' }}</span
+                        >
+                    </div>
+                    <p class="mt-1">{{ r.motivo }}</p>
+                    <p
+                        v-if="r.documentos_requeridos.length"
+                        class="mt-1 text-xs"
+                    >
+                        Documentos a renovar:
+                        {{
+                            r.documentos_requeridos
+                                .map((d) => d.nombre)
+                                .join(', ')
+                        }}
+                    </p>
+                    <p v-if="r.comentario_decision" class="mt-1 text-xs">
+                        Decisión: {{ r.comentario_decision }} ({{
+                            r.decidido_por
+                        }})
+                    </p>
+
+                    <div v-if="r.acciones_permitidas.length" class="mt-3">
+                        <Button
+                            v-if="decidiendo !== r.id"
+                            size="sm"
+                            @click="decidiendo = r.id"
+                            >Decidir reingreso</Button
+                        >
+                        <form
+                            v-else
+                            class="flex flex-col gap-2"
+                            @submit.prevent="enviarDecision(r)"
+                        >
+                            <div class="flex gap-2">
+                                <Button
+                                    type="button"
+                                    :variant="
+                                        decision.viable ? 'default' : 'outline'
+                                    "
+                                    @click="decision.viable = true"
+                                    >Viable</Button
+                                >
+                                <Button
+                                    type="button"
+                                    :variant="
+                                        !decision.viable
+                                            ? 'destructive'
+                                            : 'outline'
+                                    "
+                                    @click="decision.viable = false"
+                                    >No viable</Button
+                                >
+                            </div>
+                            <Textarea
+                                v-model="decision.comentario"
+                                rows="2"
+                                :placeholder="
+                                    decision.viable
+                                        ? 'Comentario (opcional)'
+                                        : 'Motivo (obligatorio)'
+                                "
+                            />
+                            <InputError
+                                :message="
+                                    decision.errors.comentario ??
+                                    (decision.errors as Record<string, string>)
+                                        .aprobacion
+                                "
+                            />
+                            <Button
+                                type="submit"
+                                size="sm"
+                                class="w-fit"
+                                :disabled="decision.processing"
+                                >Confirmar</Button
+                            >
+                        </form>
+                    </div>
+                    <AprobacionesResumen
+                        v-if="r.aprobaciones.ronda"
+                        class="mt-3"
+                        :aprobaciones="r.aprobaciones"
+                    />
+                </article>
+            </div>
 
             <PaginacionTabla :datos="reingresos" />
         </section>

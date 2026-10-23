@@ -408,12 +408,14 @@ const datos = computed(() => [
                             corregir</Button
                         >
                     </div>
-                    <dl class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <dl class="grid grid-cols-2 gap-x-4 gap-y-3 md:grid-cols-3">
                         <div v-for="d in datos" :key="d.etiqueta">
                             <dt class="text-xs text-[var(--mrl-texto-suave)]">
                                 {{ d.etiqueta }}
                             </dt>
-                            <dd class="text-sm font-medium">{{ d.valor }}</dd>
+                            <dd class="text-sm font-medium break-words">
+                                {{ d.valor }}
+                            </dd>
                         </div>
                     </dl>
                     <div v-if="baja.causal_ayuda" class="mt-4 text-sm">

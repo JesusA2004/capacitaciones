@@ -379,7 +379,9 @@ const error = (clave: string) =>
                 </div>
             </div>
 
-            <ul class="grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3">
+            <ul
+                class="grid grid-cols-[repeat(auto-fill,minmax(min(100%,20rem),1fr))] gap-3"
+            >
                 <li
                     v-for="p in puestosOrdenados"
                     :key="p.id"
@@ -392,7 +394,9 @@ const error = (clave: string) =>
                 >
                     <div class="flex items-start justify-between gap-3">
                         <div class="min-w-0">
-                            <p class="truncate font-semibold">{{ p.nombre }}</p>
+                            <p class="leading-snug font-semibold break-words">
+                                {{ p.nombre }}
+                            </p>
                             <p
                                 v-if="p.historial?.length"
                                 class="text-xs text-muted-foreground"

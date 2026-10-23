@@ -9,10 +9,10 @@ import { cn } from '@/lib/utils';
 import type { ContenidoPeriodoPrueba } from '@/types';
 
 /**
- * Evaluación de periodo de prueba (FO-RH-EPP-001) TAL CUAL la captura el
- * jefe directo: criterios en escala 4–1, preguntas filtro Sí/No y
+ * Evaluación de periodo de prueba (FO-RH-EPP-001) TAL CUAL la contesta el
+ * propio colaborador (AUTOEVALUACIÓN): criterios en escala 4–1, preguntas filtro Sí/No y
  * comentario, con el diseño de la versión del formulario. La usan la
- * captura real (Rh/Colaboradores/Ciclo) y la vista previa del editor.
+ * página real (Portal/EvaluacionPeriodoPrueba) y la vista previa del editor.
  */
 const props = withDefaults(
     defineProps<{
@@ -151,8 +151,12 @@ function etiquetaEscala(n: number): string {
             class="flex flex-col gap-2 rounded-2xl border border-border bg-card p-4 shadow-xs"
         >
             <h3 class="text-sm font-semibold">
-                Paso 1 · Califica cada criterio
+                Paso 1 · Califica tu desempeño
             </h3>
+            <p class="text-xs text-muted-foreground">
+                En cada punto elige la opción que mejor describa cómo has
+                trabajado durante tu capacitación inicial.
+            </p>
             <div
                 v-for="(c, i) in contenido.criterios"
                 :key="c.clave"
@@ -212,7 +216,9 @@ function etiquetaEscala(n: number): string {
         >
             <h3 class="text-sm font-semibold">Paso 2 · Preguntas filtro</h3>
             <p class="text-xs text-muted-foreground">
-                Un solo «Sí» significa que NO se renueva, sin importar el total.
+                Durante tu capacitación inicial, ¿te pasó alguna de estas
+                situaciones? Contesta con honestidad: un solo «Sí» significa que
+                NO se renueva, sin importar el total.
             </p>
             <div
                 v-for="f in contenido.filtros"
@@ -290,7 +296,7 @@ function etiquetaEscala(n: number): string {
             </div>
             <div class="grid gap-1.5">
                 <Label for="observaciones-evaluacion"
-                    >Comentario del jefe
+                    >Tus comentarios
                     <span class="font-normal text-muted-foreground">{{
                         requiereComentario
                             ? `(obligatorio: hay ${motivoComentario})`

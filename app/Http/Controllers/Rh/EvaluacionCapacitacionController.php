@@ -29,10 +29,10 @@ use Inertia\Response;
  *  - Próximas / por asignar: quien sigue en periodo de prueba sin evaluación
  *    (PeriodosPruebaService) y «Asignar evaluación» antes de que el
  *    scheduler la abra sola (VencimientoContratosService::asignarAhora);
- *  - En proceso: esperando al jefe (pendiente/devuelta) o por decidir RH
+ *  - En proceso: esperando al colaborador (pendiente/devuelta: la contesta él) o por decidir RH
  *    (capturada);
  *  - Evaluadas: con respuestas, «Ver respuestas» y PDF para firma.
- * La captura y la autorización siguen en el ciclo de cada persona. Misma
+ * La contesta el colaborador en Mi espacio; la decisión de RH sigue en el ciclo de cada persona. Misma
  * fuente (EvaluacionPeriodoPruebaService) que la API.
  */
 class EvaluacionCapacitacionController extends Controller
@@ -108,7 +108,7 @@ class EvaluacionCapacitacionController extends Controller
 
     /**
      * «Asignar evaluación» a uno o varios colaboradores: crea la evaluación
-     * ahora, asignada a su jefe directo del organigrama, y le avisa.
+     * ahora para que la conteste el propio colaborador (autoevaluación), y le avisa.
      */
     public function asignar(Request $request): RedirectResponse
     {
@@ -127,8 +127,8 @@ class EvaluacionCapacitacionController extends Controller
         }
 
         $mensaje = $asignados === 1
-            ? sprintf('Evaluación asignada: %s. Ya se le avisó a su jefe directo.', $resultado['asignados'][0])
-            : sprintf('%d evaluaciones asignadas. Ya se les avisó a sus jefes directos.', $asignados);
+            ? sprintf('Evaluación asignada a %s. Ya se le avisó para que la conteste en Mi espacio.', $resultado['asignados'][0])
+            : sprintf('%d evaluaciones asignadas. Ya se le avisó a cada colaborador para que la conteste.', $asignados);
 
         if ($resultado['omitidos'] !== []) {
             return back()->with('toast', ['type' => 'warning', 'message' => sprintf('%s No se pudieron asignar %d: %s', $mensaje, count($resultado['omitidos']), implode(' ', $resultado['omitidos']))]);
@@ -163,23 +163,28 @@ class EvaluacionCapacitacionController extends Controller
         $pestana = $request->string('tab')->toString();
         $subfiltro = $request->string('subfiltro')->toString();
 
+        // Enlaces viejos: «Esperando al jefe» ahora es «Esperando al colaborador».
+        if ($subfiltro === EvaluacionPeriodoPruebaService::FILTRO_ESPERANDO_JEFE_LEGACY) {
+            $subfiltro = EvaluacionPeriodoPruebaService::FILTRO_ESPERANDO_COLABORADOR;
+        }
+
         $legado = EstadoEvaluacionPrueba::tryFrom($request->string('estado')->toString());
 
         if ($legado !== null && ! in_array($pestana, $pestanas, true)) {
             return match ($legado) {
-                EstadoEvaluacionPrueba::Pendiente, EstadoEvaluacionPrueba::Devuelta => [EvaluacionPeriodoPruebaService::PESTANA_EN_PROCESO, EvaluacionPeriodoPruebaService::FILTRO_ESPERANDO_JEFE],
+                EstadoEvaluacionPrueba::Pendiente, EstadoEvaluacionPrueba::Devuelta => [EvaluacionPeriodoPruebaService::PESTANA_EN_PROCESO, EvaluacionPeriodoPruebaService::FILTRO_ESPERANDO_COLABORADOR],
                 EstadoEvaluacionPrueba::Capturada => [EvaluacionPeriodoPruebaService::PESTANA_EN_PROCESO, EvaluacionPeriodoPruebaService::FILTRO_POR_DECIDIR],
                 EstadoEvaluacionPrueba::Autorizada => [EvaluacionPeriodoPruebaService::PESTANA_EVALUADAS, EvaluacionPeriodoPruebaService::FILTRO_AUTORIZADAS],
             };
         }
 
         if (! in_array($pestana, $pestanas, true)) {
-            // RH arranca por lo que hay que asignar; un jefe, por lo que tiene que evaluar.
+            // RH arranca por lo que hay que asignar; un jefe, por el seguimiento de su equipo.
             $pestana = $puedeAsignar ? self::PESTANA_PROXIMAS : EvaluacionPeriodoPruebaService::PESTANA_EN_PROCESO;
         }
 
         $validos = match ($pestana) {
-            EvaluacionPeriodoPruebaService::PESTANA_EN_PROCESO => [EvaluacionPeriodoPruebaService::FILTRO_ESPERANDO_JEFE, EvaluacionPeriodoPruebaService::FILTRO_POR_DECIDIR],
+            EvaluacionPeriodoPruebaService::PESTANA_EN_PROCESO => [EvaluacionPeriodoPruebaService::FILTRO_ESPERANDO_COLABORADOR, EvaluacionPeriodoPruebaService::FILTRO_POR_DECIDIR],
             EvaluacionPeriodoPruebaService::PESTANA_EVALUADAS => [EvaluacionPeriodoPruebaService::FILTRO_POR_DECIDIR, EvaluacionPeriodoPruebaService::FILTRO_AUTORIZADAS],
             default => [],
         };
@@ -206,7 +211,6 @@ class EvaluacionCapacitacionController extends Controller
             'dias_restantes' => $e->fecha_limite !== null ? (int) $hoy->diffInDays($e->fecha_limite, false) : null,
             'url' => route('rh.colaboradores.ciclo', $e->colaborador_id),
             'capturada_en' => $e->capturada_en?->toIso8601String(),
-            'puede_capturar' => $e->estado->permiteCaptura() && $usuario->can('capturar', $e),
             'puede_decidir' => $e->estado === EstadoEvaluacionPrueba::Capturada && $usuario->can('autorizar', $e),
             'respuestas' => $conRespuestas ? $this->evaluaciones->respuestas($e) : null,
             'pdf_url' => $conRespuestas && $usuario->can('descargar', $e) ? route('rh.evaluaciones.pdf', $e->id) : null,

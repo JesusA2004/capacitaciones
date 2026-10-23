@@ -17,7 +17,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
- * Evaluaciones de periodo de prueba: el jefe ve y captura las de su equipo;
+ * Evaluaciones de periodo de prueba: la contesta el propio colaborador (autoevaluación); el jefe da seguimiento a las de su equipo;
  * RH/Dirección las autoriza (renovar → contrato indeterminado; no renovar →
  * cierre laboral). Autorización por EvaluacionPeriodoPruebaPolicy.
  */
@@ -45,11 +45,16 @@ class EvaluacionController extends Controller
         return response()->json(['data' => $this->evaluaciones->aArray($evaluacion->load(['colaborador', 'contrato']))]);
     }
 
+    /**
+     * Compatibilidad: contestar por id. Es una AUTOEVALUACIÓN — solo la
+     * persona evaluada (403 para RH, su jefe y cualquier otra cuenta). La app
+     * nueva usa colaborador/evaluacion-periodo-prueba/{evaluacion}/contestar.
+     */
     public function capturar(CapturarEvaluacionRequest $request, EvaluacionPeriodoPrueba $evaluacion): JsonResponse
     {
-        $this->authorize('capturar', $evaluacion);
+        $this->authorize('contestar', $evaluacion);
 
-        return response()->json(['data' => $this->evaluaciones->aArray($this->evaluaciones->capturar($evaluacion, $request->user(), $request->validated()))]);
+        return response()->json(['data' => $this->evaluaciones->aArray($this->evaluaciones->contestar($evaluacion, $request->user(), $request->validated()))]);
     }
 
     public function autorizar(AutorizarEvaluacionRequest $request, EvaluacionPeriodoPrueba $evaluacion): JsonResponse

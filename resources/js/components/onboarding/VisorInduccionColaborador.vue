@@ -71,6 +71,17 @@ const vistas = new Set<number>();
 const faltaVideo = computed(
     () => materialAsignado.value && esVideo.value && !videoListo.value,
 );
+// «ver todas las hojas y ver el video completo» — sin espacios sueltos.
+const requisitos = computed(() =>
+    [
+        incluyePresentacion.value ? 'ver todas las hojas' : null,
+        materialAsignado.value && esVideo.value
+            ? 'ver el video completo'
+            : null,
+    ]
+        .filter((r): r is string => r !== null)
+        .join(' y '),
+);
 const puedeTerminar = computed(() => !props.vistaPrevia && !faltaVideo.value);
 
 function registrarPagina(numero: number) {
@@ -113,8 +124,19 @@ function terminar() {
 </script>
 
 <template>
-    <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <div class="flex min-w-0 flex-col gap-4">
+    <!-- Angosto (< xl): avance arriba, contenido y «¿Terminaste?» al final.
+         Ancho: contenido a la izquierda y el lateral (avance + terminar)
+         fijo a la derecha. -->
+    <div
+        class="grid items-start gap-4 lg:gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:grid-rows-[auto_1fr] 2xl:grid-cols-[minmax(0,1fr)_26rem]"
+    >
+        <div class="order-1 xl:order-none xl:col-start-2 xl:row-start-1">
+            <MiInduccionTarjeta :induccion="induccion" sin-accion compacto />
+        </div>
+
+        <div
+            class="order-2 flex min-w-0 flex-col gap-4 xl:order-none xl:col-start-1 xl:row-span-2 xl:row-start-1"
+        >
             <!-- Presentación: hojas del PDF oficial -->
             <section
                 v-if="incluyePresentacion"
@@ -145,7 +167,12 @@ function terminar() {
                         :style="{ width: `${porcentajeHojas}%` }"
                     />
                 </div>
-                <div class="flex h-[72vh] min-h-[28rem] flex-col">
+                <!-- Alto proporcional a una hoja horizontal (16:9) + barras del
+                     visor: sin un hueco enorme en móvil ni hojas diminutas
+                     en monitores grandes. -->
+                <div
+                    class="flex h-[clamp(22rem,calc(56.25vw+8rem),80vh)] flex-col md:h-[clamp(24rem,calc(56.25vw-2rem),80vh)] xl:h-[clamp(28rem,calc(56.25vw-16rem),80vh)]"
+                >
                     <VisorPdf
                         :url="pdf.url"
                         :titulo="pdf.titulo"
@@ -225,27 +252,19 @@ function terminar() {
             </section>
         </div>
 
-        <!-- Lateral: pasos y terminar -->
-        <aside class="flex flex-col gap-4 xl:sticky xl:top-4 xl:self-start">
-            <MiInduccionTarjeta :induccion="induccion" sin-accion compacto />
-
+        <!-- Terminar -->
+        <aside
+            class="order-3 flex flex-col gap-4 xl:sticky xl:top-4 xl:order-none xl:col-start-2 xl:row-start-2"
+        >
             <section
                 class="flex flex-col gap-3 rounded-3xl border border-border/60 bg-card p-4 shadow-sm"
             >
                 <h2 class="text-sm font-semibold">¿Terminaste?</h2>
                 <p class="text-sm text-muted-foreground">
-                    Al terminar se desbloquea tu evaluación. Necesitas
-                    {{ incluyePresentacion ? 'ver todas las hojas' : '' }}
-                    {{
-                        incluyePresentacion && materialAsignado && esVideo
-                            ? 'y'
-                            : ''
-                    }}
-                    {{
-                        materialAsignado && esVideo
-                            ? 'ver el video completo'
-                            : ''
-                    }}.
+                    Al terminar se desbloquea tu evaluación.
+                    <template v-if="requisitos"
+                        >Necesitas {{ requisitos }}.</template
+                    >
                 </p>
                 <p
                     v-if="faltaVideo && !vistaPrevia"
@@ -264,7 +283,7 @@ function terminar() {
                 </p>
                 <button
                     type="button"
-                    class="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:gap-3 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+                    class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:gap-3 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 sm:self-start sm:px-6 xl:self-stretch"
                     :disabled="!puedeTerminar"
                     @click="terminar"
                 >

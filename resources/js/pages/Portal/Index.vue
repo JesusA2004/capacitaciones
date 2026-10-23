@@ -127,7 +127,7 @@ const enlace =
         <!-- Encabezado: foto (precargada del expediente) + saludo -->
         <div
             data-tour="portal-encabezado"
-            class="relative overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br from-crema via-card to-salvia p-6 text-foreground shadow-sm sm:p-8"
+            class="relative overflow-hidden rounded-3xl border border-border/60 bg-gradient-to-br from-crema via-card to-salvia p-5 text-foreground shadow-sm sm:p-8"
         >
             <div
                 aria-hidden="true"
@@ -171,7 +171,7 @@ const enlace =
                 </div>
                 <Link
                     :href="indexNotificaciones()"
-                    class="relative flex size-12 shrink-0 items-center justify-center rounded-full bg-card text-primary shadow-sm ring-1 ring-border/60 transition-all duration-200 hover:scale-105 hover:ring-oro/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    class="flex size-12 shrink-0 items-center justify-center rounded-full bg-card text-primary shadow-sm ring-1 ring-border/60 transition-all duration-200 hover:scale-105 hover:ring-oro/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none max-sm:absolute max-sm:top-0 max-sm:right-0 sm:relative"
                     :aria-label="`Notificaciones (${notificaciones.no_leidas} sin leer)`"
                 >
                     <Bell class="size-5" />
@@ -289,7 +289,7 @@ const enlace =
                 v-for="acceso in accesos"
                 :key="acceso.titulo"
                 :href="acceso.href"
-                class="group flex items-center gap-4 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-4 shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-[var(--mrl-primary)]/40 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:outline-none"
+                class="group flex min-h-24 flex-col items-start gap-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-4 shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-[var(--mrl-primary)]/40 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:outline-none sm:min-h-0 sm:flex-row sm:items-center sm:gap-4"
             >
                 <span
                     class="flex size-11 shrink-0 items-center justify-center rounded-xl transition-colors duration-200"
@@ -303,21 +303,21 @@ const enlace =
                         >{{ acceso.titulo }}</span
                     >
                     <span
-                        class="block truncate text-xs text-[var(--mrl-texto-suave)]"
+                        class="mt-0.5 block text-xs text-pretty text-[var(--mrl-texto-suave)]"
                         >{{ acceso.descripcion }}</span
                     >
                 </span>
                 <ChevronRight
-                    class="size-4 shrink-0 text-[var(--mrl-texto-suave)] opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100"
+                    class="hidden size-4 shrink-0 text-[var(--mrl-texto-suave)] opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100 sm:block"
                 />
             </Link>
         </div>
 
         <!-- Resumen: vacaciones, solicitudes y notificaciones -->
-        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2 2xl:grid-cols-3">
             <div
                 data-tour="portal-vacaciones"
-                class="flex flex-col gap-4"
+                class="@container/vacaciones flex flex-col gap-4"
                 :class="tarjeta"
             >
                 <div class="flex items-center justify-between">
@@ -338,7 +338,9 @@ const enlace =
                     class="h-2"
                 />
 
-                <div class="grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
+                <div
+                    class="grid grid-cols-2 gap-3 text-center @md/vacaciones:grid-cols-4"
+                >
                     <div
                         class="rounded-xl p-2 transition-colors hover:bg-[var(--mrl-fondo)]"
                     >
@@ -443,7 +445,7 @@ const enlace =
 
             <div
                 data-tour="portal-notificaciones"
-                class="flex flex-col gap-3 lg:col-span-2 xl:col-span-1"
+                class="flex flex-col gap-3 lg:col-span-2 2xl:col-span-1"
                 :class="tarjeta"
             >
                 <div class="flex items-center justify-between">

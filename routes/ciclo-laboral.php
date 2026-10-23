@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Portal\DescriptivoPuestoController as PortalDescriptivoPuestoController;
+use App\Http\Controllers\Portal\EvaluacionPeriodoPruebaController as PortalEvaluacionPeriodoPruebaController;
 use App\Http\Controllers\Portal\InduccionReproduccionController;
 use App\Http\Controllers\Portal\MiProcesoController;
 use App\Http\Controllers\Rh\AcuseDescriptivoPuestoController;
@@ -45,6 +46,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('mi-proceso/induccion', [MiProcesoController::class, 'contenidoInduccion'])->name('portal.induccion.contenido');
         Route::post('mi-proceso/induccion/{evaluacion}/presentar', [MiProcesoController::class, 'presentarInduccion'])
             ->name('portal.induccion.presentar')
+            ->middleware('throttle:10,1');
+
+        // Mi evaluación de periodo de prueba (FO-RH-EPP-001): AUTOEVALUACIÓN
+        // que RH asigna y solo la persona evaluada contesta.
+        Route::get('mi-proceso/evaluacion-periodo-prueba', [PortalEvaluacionPeriodoPruebaController::class, 'show'])->name('portal.evaluacion-periodo-prueba');
+        Route::post('mi-proceso/evaluacion-periodo-prueba/{evaluacion}/contestar', [PortalEvaluacionPeriodoPruebaController::class, 'contestar'])
+            ->name('portal.evaluacion-periodo-prueba.contestar')
+            ->whereNumber('evaluacion')
             ->middleware('throttle:10,1');
 
         // Mi descriptivo de puesto: «Enterado(a)…» + «Estoy de acuerdo con…».
@@ -170,7 +179,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // (inline = vista previa; ?descargar=1 = archivo).
             Route::post('asignar', [EvaluacionCapacitacionController::class, 'asignar'])->name('asignar')->middleware('throttle:20,1');
             Route::get('{evaluacion}/pdf', [EvaluacionCapacitacionController::class, 'pdf'])->name('pdf')->whereNumber('evaluacion')->middleware('throttle:30,1');
-            Route::post('{evaluacion}/capturar', [EvaluacionPeriodoPruebaController::class, 'capturar'])->name('capturar');
             Route::post('{evaluacion}/autorizar', [EvaluacionPeriodoPruebaController::class, 'autorizar'])->name('autorizar');
             Route::post('{evaluacion}/devolver', [EvaluacionPeriodoPruebaController::class, 'devolver'])->name('devolver');
             // Excepción de Dirección General (FO-RH-EPP-001): nunca "forzar

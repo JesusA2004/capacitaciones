@@ -36,6 +36,8 @@ export type CartaCompromisoFila = {
     firmada_en: string | null;
     documentos: string[];
     colaborador: PersonaCartaCompromiso | null;
+    /** PDF inline (rh.cartas-compromiso.pdf) para el visor centrado. */
+    pdf_url: string;
 };
 
 export type EventoCartaCompromiso = {
@@ -62,7 +64,6 @@ export type CartaCompromisoDetalle = CartaCompromisoFila & {
         mime: string | null;
         url: string;
     } | null;
-    pdf_url: string;
     puede: { descargar: boolean; subir_firmada: boolean };
 };
 
@@ -93,10 +94,13 @@ export type PreparacionCartaCompromiso = {
     dias_plazo: number;
     fecha_limite: string;
     motivo_no_elegible: string | null;
+    /** Se puede ver la carta (aunque aún no generar: más faltantes que el máximo). */
+    puede_ver_carta: boolean;
     carta_abierta: {
         id: number;
         folio: string | null;
         estado_etiqueta: string;
         url: string;
+        pdf_url: string;
     } | null;
 };

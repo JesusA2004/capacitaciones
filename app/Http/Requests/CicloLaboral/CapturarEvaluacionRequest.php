@@ -9,7 +9,7 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 /**
- * Captura oficial FO-RH-EPP-001: los criterios (escala 1-4) y las preguntas
+ * Autoevaluación oficial FO-RH-EPP-001 (la contesta el colaborador evaluado): los criterios (escala 1-4) y las preguntas
  * filtro (Sí/No) de la VERSIÓN del formulario de esta evaluación
  * (FormularioEvaluacionService; sin versión configurada, el catálogo de
  * config contratos.evaluacion_periodo_prueba_v2). `recomienda_renovar`/
@@ -19,9 +19,16 @@ use Illuminate\Validation\Rule;
  */
 class CapturarEvaluacionRequest extends FormRequest
 {
+    /**
+     * Autoevaluación: solo la persona evaluada la contesta (Policy
+     * «contestar»). Se revisa ANTES de validar: RH o el jefe reciben 403,
+     * nunca errores de validación de un formulario que no les toca.
+     */
     public function authorize(): bool
     {
-        return true;
+        $evaluacion = $this->route('evaluacion');
+
+        return $evaluacion instanceof EvaluacionPeriodoPrueba && $this->user()?->can('contestar', $evaluacion) === true;
     }
 
     /**

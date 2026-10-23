@@ -71,6 +71,13 @@ const paletaMarca = [
     '#ec4899',
 ];
 
+// Con pocas columnas la tabla cabe junto a la gráfica en pantallas anchas;
+// con muchas, cada una ocupa todo el ancho para no apretar la tabla.
+const ladoALado = computed(
+    () =>
+        opcionesGrafica.value !== null && props.resultado.columnas.length <= 4,
+);
+
 const opcionesGrafica = computed(() => {
     const g = props.grafica;
 
@@ -131,9 +138,12 @@ const opcionesGrafica = computed(() => {
 
         <div
             data-tour="reportes-filtros"
-            class="flex flex-wrap items-end gap-3"
+            class="grid items-end gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[minmax(0,2fr)_repeat(4,minmax(0,1fr))_auto]"
         >
-            <div data-tour="reportes-tipo" class="grid gap-2">
+            <div
+                data-tour="reportes-tipo"
+                class="grid min-w-0 gap-2 sm:col-span-2 lg:col-span-1"
+            >
                 <label class="text-xs text-muted-foreground">Reporte</label>
                 <SelectSimple
                     :model-value="filtros.reporte"
@@ -146,7 +156,7 @@ const opcionesGrafica = computed(() => {
                             })),
                         )
                     "
-                    class="w-72"
+                    class="w-full"
                     @update:model-value="
                         (v) => {
                             filtros.reporte = String(v ?? '');
@@ -156,14 +166,14 @@ const opcionesGrafica = computed(() => {
                 />
             </div>
 
-            <div class="grid gap-2">
+            <div class="grid min-w-0 gap-2">
                 <label class="text-xs text-muted-foreground">Empresa</label>
                 <SelectSimple
                     :model-value="filtros.empresa_id"
                     :opciones="opcionesDe(opciones.empresas)"
                     placeholder="Todas"
                     opcion-vacia="Todas las empresas"
-                    class="w-44"
+                    class="w-full"
                     @update:model-value="
                         (v) => {
                             filtros.empresa_id = String(v ?? '');
@@ -173,14 +183,14 @@ const opcionesGrafica = computed(() => {
                 />
             </div>
 
-            <div class="grid gap-2">
+            <div class="grid min-w-0 gap-2">
                 <label class="text-xs text-muted-foreground">Sucursal</label>
                 <SelectSimple
                     :model-value="filtros.sucursal_id"
                     :opciones="opcionesDe(opciones.sucursales)"
                     placeholder="Todas"
                     opcion-vacia="Todas las sucursales"
-                    class="w-44"
+                    class="w-full"
                     @update:model-value="
                         (v) => {
                             filtros.sucursal_id = String(v ?? '');
@@ -190,7 +200,7 @@ const opcionesGrafica = computed(() => {
                 />
             </div>
 
-            <div class="grid gap-2">
+            <div class="grid min-w-0 gap-2">
                 <label class="text-xs text-muted-foreground"
                     >Departamento</label
                 >
@@ -199,7 +209,7 @@ const opcionesGrafica = computed(() => {
                     :opciones="opcionesDe(opciones.departamentos)"
                     placeholder="Todos"
                     opcion-vacia="Todos los departamentos"
-                    class="w-44"
+                    class="w-full"
                     @update:model-value="
                         (v) => {
                             filtros.departamento_id = String(v ?? '');
@@ -209,14 +219,14 @@ const opcionesGrafica = computed(() => {
                 />
             </div>
 
-            <div class="grid gap-2">
+            <div class="grid min-w-0 gap-2">
                 <label class="text-xs text-muted-foreground">Puesto</label>
                 <SelectSimple
                     :model-value="filtros.puesto_id"
                     :opciones="opcionesDe(opciones.puestos)"
                     placeholder="Todos"
                     opcion-vacia="Todos los puestos"
-                    class="w-44"
+                    class="w-full"
                     @update:model-value="
                         (v) => {
                             filtros.puesto_id = String(v ?? '');
@@ -226,90 +236,106 @@ const opcionesGrafica = computed(() => {
                 />
             </div>
 
-            <Button variant="ghost" size="sm" @click="limpiar">
+            <Button
+                variant="ghost"
+                size="sm"
+                class="justify-self-start"
+                @click="limpiar"
+            >
                 Limpiar filtros
             </Button>
         </div>
 
         <div
-            v-if="opcionesGrafica"
-            data-tour="reportes-grafica"
-            class="rounded-2xl border border-border/60 bg-card p-4 transition-shadow duration-200 hover:shadow-md"
+            :class="
+                ladoALado
+                    ? 'grid items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]'
+                    : 'flex flex-col gap-6'
+            "
         >
-            <p class="mb-2 text-sm font-semibold">{{ resultado.titulo }}</p>
-            <p
-                v-if="grafica?.recortado"
-                class="mb-2 text-xs text-muted-foreground"
+            <div
+                v-if="opcionesGrafica"
+                data-tour="reportes-grafica"
+                class="rounded-2xl border border-border/60 bg-card p-4 transition-shadow duration-200 hover:shadow-md"
             >
-                Se muestran las categorías con mayor valor; exporta a Excel o
-                PDF para ver el detalle completo.
-            </p>
-            <VueApexCharts
-                :key="opcionesGrafica.tipoChart"
-                :type="opcionesGrafica.tipoChart"
-                height="280"
-                :options="opcionesGrafica.options"
-                :series="opcionesGrafica.series"
-            />
-        </div>
-
-        <div
-            data-tour="reportes-tabla"
-            class="overflow-hidden rounded-2xl border border-border/60 bg-card"
-        >
-            <div class="border-b border-border/60 px-5 py-3">
-                <h2 class="text-sm font-semibold">{{ resultado.titulo }}</h2>
-                <p class="text-xs text-muted-foreground">
-                    {{ resultado.filas.length }} resultado(s)
+                <p class="mb-2 text-sm font-semibold">{{ resultado.titulo }}</p>
+                <p
+                    v-if="grafica?.recortado"
+                    class="mb-2 text-xs text-muted-foreground"
+                >
+                    Se muestran las categorías con mayor valor; exporta a Excel
+                    o PDF para ver el detalle completo.
                 </p>
+                <VueApexCharts
+                    :key="opcionesGrafica.tipoChart"
+                    :type="opcionesGrafica.tipoChart"
+                    height="280"
+                    :options="opcionesGrafica.options"
+                    :series="opcionesGrafica.series"
+                />
             </div>
 
-            <CrudEmptyState
-                v-if="!resultado.filas.length"
-                :icono="Download"
-                titulo="Sin datos"
-                descripcion="No hay información para este reporte con los filtros seleccionados."
-            />
+            <div
+                data-tour="reportes-tabla"
+                class="overflow-hidden rounded-2xl border border-border/60 bg-card"
+            >
+                <div class="border-b border-border/60 px-5 py-3">
+                    <h2 class="text-sm font-semibold">
+                        {{ resultado.titulo }}
+                    </h2>
+                    <p class="text-xs text-muted-foreground">
+                        {{ resultado.filas.length }} resultado(s)
+                    </p>
+                </div>
 
-            <div v-else class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-border/60 bg-muted/40">
-                            <th
-                                v-for="columna in resultado.columnas"
-                                :key="columna"
-                                class="px-4 py-2 text-left font-medium text-muted-foreground"
+                <CrudEmptyState
+                    v-if="!resultado.filas.length"
+                    :icono="Download"
+                    titulo="Sin datos"
+                    descripcion="No hay información para este reporte con los filtros seleccionados."
+                />
+
+                <div v-else class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b border-border/60 bg-muted/40">
+                                <th
+                                    v-for="columna in resultado.columnas"
+                                    :key="columna"
+                                    class="px-4 py-2 text-left font-medium text-muted-foreground"
+                                >
+                                    {{ columna }}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="(fila, i) in paginacion.filasPagina
+                                    .value"
+                                :key="i"
+                                class="border-b border-border/40 last:border-0 hover:bg-muted/30"
                             >
-                                {{ columna }}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="(fila, i) in paginacion.filasPagina.value"
-                            :key="i"
-                            class="border-b border-border/40 last:border-0 hover:bg-muted/30"
-                        >
-                            <td
-                                v-for="(valor, j) in fila"
-                                :key="j"
-                                class="px-4 py-2"
-                            >
-                                {{ valor ?? '—' }}
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                                <td
+                                    v-for="(valor, j) in fila"
+                                    :key="j"
+                                    class="px-4 py-2"
+                                >
+                                    {{ valor ?? '—' }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <PaginacionTabla
+                    local
+                    class="mt-3"
+                    clave="rh-reportes-resultado"
+                    :datos="paginacion.datos.value"
+                    :por-pagina="paginacion.porPagina.value"
+                    @cambiar-pagina="paginacion.irAPagina"
+                    @cambiar-por-pagina="paginacion.cambiarPorPagina"
+                />
             </div>
-            <PaginacionTabla
-                local
-                class="mt-3"
-                clave="rh-reportes-resultado"
-                :datos="paginacion.datos.value"
-                :por-pagina="paginacion.porPagina.value"
-                @cambiar-pagina="paginacion.irAPagina"
-                @cambiar-por-pagina="paginacion.cambiarPorPagina"
-            />
         </div>
     </div>
 </template>

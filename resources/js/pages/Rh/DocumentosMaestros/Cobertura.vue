@@ -277,7 +277,11 @@ function guardar() {
                         class="bg-[var(--mrl-fondo)] text-left text-xs text-[var(--mrl-texto-suave)]"
                     >
                         <tr>
-                            <th class="p-3 font-medium">Puesto</th>
+                            <th
+                                class="sticky left-0 z-10 min-w-36 bg-[var(--mrl-fondo)] p-3 font-medium shadow-[1px_0_0_var(--mrl-borde)]"
+                            >
+                                Puesto
+                            </th>
                             <th class="p-3 font-medium">Grupo documental</th>
                             <th
                                 v-for="c in cobertura.columnas"
@@ -298,7 +302,11 @@ function guardar() {
                             :key="p.id"
                             class="border-t border-[var(--mrl-borde)]"
                         >
-                            <td class="p-3 font-medium">{{ p.nombre }}</td>
+                            <td
+                                class="sticky left-0 z-10 min-w-36 bg-[var(--mrl-superficie)] p-3 font-medium shadow-[1px_0_0_var(--mrl-borde)]"
+                            >
+                                {{ p.nombre }}
+                            </td>
                             <td class="p-3">
                                 <span
                                     v-if="p.no_requiere"

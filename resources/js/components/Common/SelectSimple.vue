@@ -9,6 +9,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { separarClasesAcomodo } from '@/lib/clasesAcomodo';
 
 /**
  * Select de shadcn listo para formularios: reemplaza al `<select>` nativo
@@ -73,6 +74,18 @@ const interno = computed(() =>
         : String(props.modelValue),
 );
 
+/**
+ * En el modo con búsqueda, `class` se reparte: lo que acomoda el campo en
+ * su contenedor (ancho, flex, márgenes, grid) va a la RAÍZ del combobox y
+ * el botón la llena; lo visual (alto, texto, fondo, borde) va al BOTÓN.
+ * Antes iba completo a los dos y un ancho en % se aplicaba dos veces.
+ */
+const clasesCombobox = computed(() => {
+    const { acomodo, resto } = separarClasesAcomodo(props.class);
+
+    return { raiz: acomodo, boton: resto };
+});
+
 const opcionesBusqueda = computed<OpcionBuscable[]>(() => [
     ...(props.opcionVacia ? [{ value: VACIO, label: props.opcionVacia }] : []),
     ...props.opciones.map((o) => ({
@@ -114,8 +127,8 @@ function alCambiar(valor: unknown) {
         :size="size"
         :aria-label="ariaLabel"
         :limpiable="!!opcionVacia && interno !== VACIO"
-        :class="props.class"
-        :clase-boton="props.class"
+        :class="clasesCombobox.raiz"
+        :clase-boton="clasesCombobox.boton"
         @update:model-value="alCambiar"
     />
     <Select

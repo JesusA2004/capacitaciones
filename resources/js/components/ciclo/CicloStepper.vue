@@ -7,16 +7,16 @@ defineProps<{ pasos: PasoCiclo[] }>();
 
 <template>
     <ol
-        class="flex w-full flex-wrap items-center gap-y-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4"
+        class="grid w-full grid-cols-2 gap-x-3 gap-y-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 sm:grid-cols-3 lg:auto-cols-fr lg:grid-flow-col lg:grid-cols-none lg:gap-x-0"
         aria-label="Avance del proceso"
     >
         <li
             v-for="(paso, indice) in pasos"
             :key="paso.clave"
-            class="flex flex-1 items-center gap-2"
+            class="relative flex min-w-0 items-center gap-2 lg:flex-col lg:items-center lg:gap-1.5 lg:text-center"
         >
             <span
-                class="flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold"
+                class="relative z-10 flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold"
                 :class="{
                     'border-[var(--mrl-petroleo)] bg-[var(--mrl-petroleo)] text-white':
                         paso.estado === 'completado',
@@ -41,7 +41,7 @@ defineProps<{ pasos: PasoCiclo[] }>();
                 <template v-else>{{ indice + 1 }}</template>
             </span>
             <span
-                class="text-xs font-medium whitespace-nowrap xl:text-sm"
+                class="min-w-0 text-xs leading-tight font-medium break-words lg:px-0.5 lg:text-[11px] xl:text-xs 2xl:text-sm"
                 :class="
                     paso.estado === 'pendiente'
                         ? 'text-[var(--mrl-texto-suave)]'
@@ -51,7 +51,8 @@ defineProps<{ pasos: PasoCiclo[] }>();
             >
             <span
                 v-if="indice < pasos.length - 1"
-                class="mx-1 hidden h-px flex-1 sm:block"
+                class="absolute top-3.5 right-[calc(-50%+1.125rem)] left-[calc(50%+1.125rem)] hidden h-px lg:block"
+                aria-hidden="true"
                 :class="
                     paso.estado === 'completado'
                         ? 'bg-[var(--mrl-petroleo)]'

@@ -285,7 +285,8 @@ const ETIQUETAS_PERMISO: Record<string, string> = {
         'Registrar impresión, firma y escaneo de documentos',
     'documentos_laborales.ver': 'Ver documentos laborales',
     'evaluaciones.autorizar': 'Autorizar evaluaciones de periodo de prueba',
-    'evaluaciones.capturar': 'Evaluar el periodo de prueba de su equipo',
+    'evaluaciones.capturar':
+        'Dar seguimiento a la evaluación de periodo de prueba de su equipo (la contesta el colaborador)',
     'evaluaciones.ver': 'Ver evaluaciones de periodo de prueba',
     'finiquitos.calcular': 'Calcular finiquitos',
     'finiquitos.causales_rotacion':

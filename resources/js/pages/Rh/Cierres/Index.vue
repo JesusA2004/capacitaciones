@@ -534,7 +534,7 @@ function neto(fila: FilaCierre): string {
 
             <div
                 v-else
-                class="grid gap-4 min-[1800px]:grid-cols-4 md:grid-cols-2 xl:grid-cols-3"
+                class="grid grid-cols-[repeat(auto-fill,minmax(min(100%,22rem),1fr))] gap-4"
             >
                 <TarjetaDocumentosBaja
                     v-for="t in recopilacion.data"
@@ -605,14 +605,14 @@ function neto(fila: FilaCierre): string {
 
             <template v-else>
                 <div
-                    class="hidden tabla-scroll rounded-2xl border border-border/60 bg-card shadow-sm md:block"
+                    class="hidden tabla-scroll rounded-2xl border border-border/60 bg-card shadow-sm xl:block"
                 >
                     <table class="w-full text-left text-sm">
                         <thead
                             class="border-b border-border/60 text-xs text-muted-foreground"
                         >
                             <tr>
-                                <th class="px-4 py-3 font-medium">
+                                <th class="min-w-48 px-4 py-3 font-medium">
                                     Colaborador
                                 </th>
                                 <th class="px-4 py-3 font-medium">
@@ -715,11 +715,11 @@ function neto(fila: FilaCierre): string {
                     </table>
                 </div>
 
-                <ul class="flex flex-col gap-3 md:hidden">
+                <ul class="grid gap-3 md:grid-cols-2 xl:hidden">
                     <li
                         v-for="c in cierres.data"
                         :key="c.id"
-                        class="rounded-2xl border border-border/60 bg-card p-4 text-sm shadow-sm"
+                        class="flex flex-col rounded-2xl border border-border/60 bg-card p-4 text-sm shadow-sm"
                     >
                         <div class="flex items-start justify-between gap-2">
                             <span class="font-semibold">{{
@@ -741,7 +741,7 @@ function neto(fila: FilaCierre): string {
                             >
                             · {{ formatearFecha(c.fecha_efectiva) }}
                         </p>
-                        <p v-if="puede_ver_finiquito" class="mt-1 text-xs">
+                        <p v-if="puede_ver_finiquito" class="mt-1 mb-3 text-xs">
                             Finiquito:
                             <template v-if="c.finiquito">
                                 {{ c.finiquito.estado_etiqueta }} ·
@@ -756,7 +756,7 @@ function neto(fila: FilaCierre): string {
                         <Button
                             size="sm"
                             variant="outline"
-                            class="mt-3 w-full"
+                            class="mt-auto w-full"
                             as-child
                         >
                             <Link

@@ -263,10 +263,7 @@ const ORIGEN_CLASE: Record<string, string> = {
         </section>
 
         <!-- Reglas asignadas por RH -->
-        <section
-            class="flex flex-col gap-3"
-            data-tour="responsables-asignados"
-        >
+        <section class="flex flex-col gap-3" data-tour="responsables-asignados">
             <h2 class="text-sm font-semibold">
                 Asignados por RH
                 <span class="font-normal text-muted-foreground"
@@ -360,23 +357,22 @@ const ORIGEN_CLASE: Record<string, string> = {
         </section>
 
         <!-- Personas: jefe organizacional vs responsable de aprobaciones -->
-        <section
-            class="flex flex-col gap-3"
-            data-tour="responsables-personas"
-        >
+        <section class="flex flex-col gap-3" data-tour="responsables-personas">
             <div
-                class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+                class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between"
             >
-                <h2 class="text-sm font-semibold">
+                <h2 class="text-sm font-semibold whitespace-nowrap">
                     Personas
                     <span class="font-normal text-muted-foreground"
                         >({{ personasFiltradas.length }} de
                         {{ personas.length }})</span
                     >
                 </h2>
-                <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div
+                    class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between lg:justify-end"
+                >
                     <label
-                        class="flex items-center gap-2 text-xs text-muted-foreground"
+                        class="flex items-center gap-2 text-xs text-muted-foreground sm:whitespace-nowrap"
                     >
                         <input
                             v-model="soloDistintos"
@@ -386,7 +382,7 @@ const ORIGEN_CLASE: Record<string, string> = {
                         Solo responsables distintos o detenidos
                     </label>
                     <label
-                        class="flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3 sm:w-80"
+                        class="flex h-10 items-center gap-2 rounded-xl border border-border bg-card px-3 sm:w-72 xl:w-80"
                     >
                         <Search class="size-4 text-muted-foreground" />
                         <input
@@ -423,25 +419,33 @@ const ORIGEN_CLASE: Record<string, string> = {
                         </p>
                     </div>
                     <dl class="grid gap-1.5 text-xs">
-                        <div class="flex items-start gap-1.5">
+                        <div
+                            class="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-1.5"
+                        >
                             <GitBranch
                                 class="mt-0.5 size-3.5 shrink-0 text-muted-foreground"
                             />
                             <dt class="text-muted-foreground">
                                 Jefe organizacional:
                             </dt>
-                            <dd class="min-w-0 font-medium">
+                            <dd
+                                class="col-start-2 min-w-0 font-medium break-words"
+                            >
                                 {{ p.jefe_organizacional?.nombre ?? '—' }}
                             </dd>
                         </div>
-                        <div class="flex items-start gap-1.5">
+                        <div
+                            class="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-x-1.5"
+                        >
                             <UserCheck
                                 class="mt-0.5 size-3.5 shrink-0 text-primary"
                             />
                             <dt class="text-muted-foreground">
                                 Responsable de aprobaciones:
                             </dt>
-                            <dd class="min-w-0 font-medium">
+                            <dd
+                                class="col-start-2 min-w-0 font-medium break-words"
+                            >
                                 {{
                                     p.responsable_aprobaciones?.nombre ??
                                     (p.bloqueado ? 'Detenido' : 'RH directo')

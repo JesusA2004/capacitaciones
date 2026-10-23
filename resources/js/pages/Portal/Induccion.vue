@@ -245,7 +245,9 @@ const ESTADO_RECURSO: Record<string, string> = {
                 </p>
             </div>
 
-            <div class="grid gap-4 lg:grid-cols-3">
+            <div
+                class="grid grid-cols-1 gap-4 lg:grid-cols-3 [&>article]:min-w-0"
+            >
                 <article
                     class="flex flex-col gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm"
                 >

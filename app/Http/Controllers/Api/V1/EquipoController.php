@@ -19,7 +19,7 @@ use Illuminate\Http\Request;
 
 /**
  * Vista de jefe: su equipo directo, solicitudes del equipo que esperan su
- * visto bueno, evaluaciones de periodo de prueba que le corresponden y el
+ * visto bueno, evaluaciones de periodo de prueba de su equipo (seguimiento: las contesta cada colaborador) y el
  * visto bueno en sí. Todo acotado por la estructura jerárquica real
  * (jefe_id / gerente_id), no solo por rol.
  */
@@ -85,6 +85,8 @@ class EquipoController extends Controller
 
         $evaluaciones = EvaluacionPeriodoPrueba::query()
             ->whereIn('estado', [EstadoEvaluacionPrueba::Pendiente->value, EstadoEvaluacionPrueba::Devuelta->value])
+            // Seguimiento (solo lectura): la contesta cada colaborador (autoevaluación).
+            ->where('colaborador_id', '!=', $yo->id)
             ->where(fn (Builder $q) => $q->where('evaluador_colaborador_id', $yo->id)->orWhereHas('colaborador', fn (Builder $c) => $c->where('jefe_id', $yo->id)))
             ->with(['colaborador:id,name,apellidos,numero_empleado', 'contrato:id,fecha_fin'])
             ->orderBy('fecha_limite')
@@ -98,6 +100,9 @@ class EquipoController extends Controller
                 'colaborador' => $e->colaborador->nombreCompleto(),
                 'estado' => $e->estado->value,
                 'fecha_limite' => $e->fecha_limite?->toDateString(),
+                // La contesta el propio colaborador; el jefe nunca la captura.
+                'contesta' => 'colaborador',
+                'puede_contestar' => false,
             ])->values(),
         ], 'meta' => ['aprobaciones' => $this->motor->conteoPendientes($request->user())]]);
     }

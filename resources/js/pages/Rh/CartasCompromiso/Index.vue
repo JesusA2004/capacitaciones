@@ -5,6 +5,7 @@ import {
     CalendarClock,
     ChevronRight,
     CircleCheck,
+    Eye,
     FilePenLine,
     FileSignature,
     FileWarning,
@@ -16,6 +17,7 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import CrudStats from '@/components/DataTable/CrudStats.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
+import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
@@ -43,6 +45,7 @@ const props = defineProps<{
     indicadores: IndicadoresCartasCompromiso;
     filtros: { pestana: PestanaCartasCompromiso; busqueda: string };
     puedeGenerar: boolean;
+    puedeDescargar: boolean;
     reglas: ReglasCartaCompromiso;
 }>();
 
@@ -133,6 +136,15 @@ const VARIANTE_ESTADO = {
     sustituida: 'secondary',
 } as const;
 
+// «Ver»: el PDF de la carta en el visor centrado, sin salir de la lista.
+const visorAbierto = ref(false);
+const cartaVista = ref<CartaCompromisoFila | null>(null);
+
+function verCarta(c: CartaCompromisoFila) {
+    cartaVista.value = c;
+    visorAbierto.value = true;
+}
+
 function textoPlazo(c: CartaCompromisoFila): string {
     if (c.estado !== 'vigente') {
         return `Límite: ${formatearFecha(c.fecha_limite)}`;
@@ -206,16 +218,20 @@ function textoPlazo(c: CartaCompromisoFila): string {
                 v-if="cartas.data.length"
                 class="divide-y divide-[var(--mrl-borde)]"
             >
-                <li v-for="c in cartas.data" :key="c.id">
+                <li
+                    v-for="c in cartas.data"
+                    :key="c.id"
+                    class="flex flex-col gap-2 pr-0 sm:flex-row sm:items-center sm:pr-4"
+                >
                     <Link
                         :href="show.url(c.id)"
-                        class="flex tarjeta-interactiva flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3"
+                        class="flex min-w-0 flex-1 tarjeta-interactiva flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3"
                     >
                         <span
-                            class="w-32 shrink-0 font-mono text-xs text-muted-foreground"
+                            class="w-full shrink-0 font-mono text-xs text-muted-foreground sm:w-32"
                             >{{ c.folio }}</span
                         >
-                        <span class="min-w-0 flex-1">
+                        <span class="min-w-0 flex-1 basis-56">
                             <span class="block truncate font-medium">{{
                                 c.colaborador?.nombre ?? 'Sin persona'
                             }}</span>
@@ -252,9 +268,20 @@ function textoPlazo(c: CartaCompromisoFila): string {
                             c.firmada ? 'Firmada' : 'Pendiente de firma'
                         }}</Badge>
                         <ChevronRight
-                            class="size-4 shrink-0 text-muted-foreground"
+                            class="hidden size-4 shrink-0 text-muted-foreground sm:block"
                         />
                     </Link>
+                    <div v-if="puedeDescargar" class="px-4 pb-3 sm:p-0">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            class="w-full sm:w-auto"
+                            :aria-label="`Ver carta ${c.folio ?? ''}`"
+                            @click="verCarta(c)"
+                        >
+                            <Eye class="size-4" /> Ver
+                        </Button>
+                    </div>
                 </li>
             </ul>
             <div
@@ -273,4 +300,16 @@ function textoPlazo(c: CartaCompromisoFila): string {
 
         <PaginacionTabla :datos="cartas" />
     </div>
+
+    <DocumentPreviewDialog
+        v-if="puedeDescargar"
+        v-model:open="visorAbierto"
+        :preview-url="cartaVista?.pdf_url ?? null"
+        :download-url="cartaVista?.pdf_url ?? null"
+        :nombre="`Carta compromiso ${cartaVista?.folio ?? ''}.pdf`"
+        mime="application/pdf"
+        tipo="pdf"
+        :estado="cartaVista?.estado_etiqueta ?? null"
+        :fecha="cartaVista?.generada_en ?? null"
+    />
 </template>

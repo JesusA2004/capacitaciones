@@ -190,6 +190,70 @@ test('la vista previa muestra la carta sin guardar nada', function () {
         ->assertUnprocessable();
 });
 
+test('la vista previa exige el mismo permiso que generar y nunca escribe nada', function () {
+    $otra = gccNuevoIngreso($this->otraSucursal);
+    $documentosAntes = EmployeeDocument::query()->count();
+    $avisosAntes = NotificacionEntrega::query()->count();
+
+    // Gerente de otra sucursal: fuera de su alcance.
+    $this->actingAs($this->gerente)
+        ->postJson(route('rh.cartas-compromiso.vista-previa', $otra), ['documentos' => [$this->acta->id]])
+        ->assertForbidden();
+
+    // Colaborador sin el módulo.
+    $colaborador = clUsuario('colaborador', ['estatus' => 'activo', 'sucursal_principal_id' => $this->otraSucursal->id]);
+    $this->actingAs($colaborador)
+        ->postJson(route('rh.cartas-compromiso.vista-previa', $otra), ['documentos' => [$this->acta->id]])
+        ->assertForbidden();
+
+    // La regional sí la ve (PDF inline) y tampoco se guarda nada.
+    $this->actingAs($this->regional)
+        ->post(route('rh.cartas-compromiso.vista-previa', $otra), ['documentos' => [$this->acta->id]])
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/pdf')
+        ->assertHeader('Content-Disposition', 'inline; filename="Vista previa carta compromiso.pdf"');
+
+    expect(CartaCompromiso::query()->count())->toBe(0)
+        ->and(EmployeeDocument::query()->count())->toBe($documentosAntes)
+        ->and(NotificacionEntrega::query()->count())->toBe($avisosAntes)
+        ->and(Storage::disk('nas')->allFiles())->toBe([]);
+});
+
+test('con más faltantes que el máximo no se genera, pero sí se puede ver cómo quedaría la carta', function () {
+    $tres = gccNuevoIngreso($this->sucursal, 3);
+
+    $this->actingAs($this->gerente)->getJson(route('rh.cartas-compromiso.preparar', $tres))
+        ->assertOk()
+        ->assertJsonPath('data.puede_ver_carta', true)
+        ->assertJsonPath('data.motivo_no_elegible', fn (string $m) => str_contains($m, 'como máximo'));
+
+    $this->actingAs($this->gerente)
+        ->post(route('rh.cartas-compromiso.vista-previa', $tres), ['documentos' => [$this->ine->id, $this->acta->id]])
+        ->assertOk()
+        ->assertHeader('Content-Type', 'application/pdf');
+    expect(collect($this->htmlCartas->getArrayCopy())->last())->toContain('VISTA PREVIA');
+
+    gccGenerar($this->gerente, $tres, [$this->ine->id, $this->acta->id])->assertSessionHasErrors('colaborador');
+    expect(CartaCompromiso::query()->count())->toBe(0);
+
+    // Quien ya laboraba: ni generar ni ver.
+    $antiguo = Colaborador::factory()->create(['estatus' => 'activo', 'estado_alta' => 'activo', 'sucursal_principal_id' => $this->sucursal->id]);
+    $this->actingAs($this->gerente)->getJson(route('rh.cartas-compromiso.preparar', $antiguo))->assertJsonPath('data.puede_ver_carta', false);
+    $this->actingAs($this->gerente)
+        ->postJson(route('rh.cartas-compromiso.vista-previa', $antiguo), ['documentos' => [$this->acta->id]])
+        ->assertUnprocessable();
+});
+
+test('la lista trae el PDF de cada carta para verla sin salir de la pantalla', function () {
+    $persona = gccNuevoIngreso($this->sucursal);
+    gccGenerar($this->gerente, $persona, [$this->acta->id])->assertRedirect();
+    $carta = CartaCompromiso::query()->sole();
+
+    $this->actingAs($this->gerente)->get(route('rh.cartas-compromiso.index'))
+        ->assertInertia(fn ($page) => $page->where('puedeDescargar', true)
+            ->where('cartas.data.0.pdf_url', route('rh.cartas-compromiso.pdf', $carta, false)));
+});
+
 test('el gerente sube la carta firmada: queda en el expediente y la carta pasa a firmada', function () {
     $persona = gccNuevoIngreso($this->sucursal);
     gccGenerar($this->gerente, $persona, [$this->acta->id])->assertRedirect();

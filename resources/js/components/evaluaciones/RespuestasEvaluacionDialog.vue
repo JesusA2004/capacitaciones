@@ -27,7 +27,7 @@ import type { FilaEvaluacionPrueba } from '@/types';
 
 /**
  * «Ver respuestas» de una evaluación de periodo de prueba (FO-RH-EPP-001):
- * lo que contestó el jefe inmediato TAL COMO SE GUARDÓ (criterios 1–4,
+ * lo que contestó el colaborador en su AUTOEVALUACIÓN (o, en el flujo anterior, su jefe) TAL COMO SE GUARDÓ (criterios 1–4,
  * preguntas filtro Sí/No, total contra el máximo, resultado y sus motivos),
  * sus comentarios y la decisión de RH. Desde aquí se abre la vista previa
  * del PDF para firma (nunca se imprime sin verlo antes).
@@ -82,7 +82,7 @@ const resultado = computed<{
                 icono: CircleX,
             }
           : {
-                etiqueta: 'Sin recomendación',
+                etiqueta: 'Sin resultado',
                 tono: 'neutro',
                 icono: ClipboardCheck,
             },
@@ -385,13 +385,17 @@ function nivel(calificacion: number | null) {
                         </p>
                     </section>
 
-                    <!-- Comentarios del jefe -->
+                    <!-- Comentarios de quien la contestó -->
                     <section class="flex flex-col gap-2">
                         <h3
                             class="flex items-center gap-2 text-sm font-semibold"
                         >
                             <MessageSquareText class="size-4 text-primary" />
-                            Comentarios del jefe inmediato
+                            {{
+                                r.autoevaluacion
+                                    ? 'Comentarios del colaborador'
+                                    : 'Comentarios del jefe inmediato'
+                            }}
                         </h3>
                         <p
                             class="rounded-xl border border-border/60 bg-[var(--mrl-fondo)] p-3 text-sm whitespace-pre-line"
@@ -413,11 +417,17 @@ function nivel(calificacion: number | null) {
                                 <UserRound
                                     class="size-4 shrink-0 text-muted-foreground"
                                 />
-                                <span class="text-muted-foreground"
-                                    >Evaluó:</span
-                                >
+                                <span class="text-muted-foreground">{{
+                                    r.autoevaluacion
+                                        ? 'Contestó (autoevaluación):'
+                                        : 'Evaluó:'
+                                }}</span>
                                 <strong class="truncate">{{
-                                    r.evaluador ?? r.capturada_por ?? '—'
+                                    r.autoevaluacion
+                                        ? (r.capturada_por ?? '—')
+                                        : (r.evaluador ??
+                                          r.capturada_por ??
+                                          '—')
                                 }}</strong>
                             </p>
                             <p class="flex items-center gap-2">
@@ -440,6 +450,7 @@ function nivel(calificacion: number | null) {
                             </p>
                             <p
                                 v-if="
+                                    !r.autoevaluacion &&
                                     r.capturada_por &&
                                     r.capturada_por !== r.evaluador
                                 "

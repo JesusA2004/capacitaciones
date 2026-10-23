@@ -476,7 +476,8 @@ class CicloLaboralDemoSeeder extends Seeder
                 /** @var list<array{clave: string}> $filtrosOficiales */
                 $filtrosOficiales = (array) config('contratos.evaluacion_periodo_prueba_v2.filtros', []);
 
-                app(EvaluacionPeriodoPruebaService::class)->capturar($evaluacion, $this->como($this->gerente), [
+                // Autoevaluación: la contesta el propio colaborador.
+                app(EvaluacionPeriodoPruebaService::class)->contestar($evaluacion, $this->como($colaborador->user()->firstOrFail()), [
                     'criterios' => array_map(fn (array $c) => ['clave' => $c['clave'], 'calificacion' => 4], $criteriosOficiales),
                     'filtros' => array_map(fn (array $f) => ['clave' => $f['clave'], 'respuesta' => false], $filtrosOficiales),
                 ]);

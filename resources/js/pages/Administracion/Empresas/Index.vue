@@ -55,7 +55,7 @@ const { confirmarEliminacion, mostrarExito, mostrarError } = useAlertas();
 
 const columnas: ColumnaDataTable[] = [
     { clave: 'nombre', etiqueta: 'Empresa' },
-    { clave: 'rfc', etiqueta: 'RFC' },
+    { clave: 'rfc', etiqueta: 'RFC', clase: 'hidden lg:table-cell' },
     { clave: 'sucursales_count', etiqueta: 'Sucursales' },
     { clave: 'colaboradores_count', etiqueta: 'Colaboradores' },
     { clave: 'activo', etiqueta: 'Estado' },
@@ -191,6 +191,12 @@ async function eliminar(empresa: EmpresaItem) {
                             class="truncate text-xs text-muted-foreground"
                         >
                             {{ fila.razon_social }}
+                        </p>
+                        <p
+                            v-if="fila.rfc"
+                            class="truncate text-xs text-muted-foreground lg:hidden"
+                        >
+                            RFC {{ fila.rfc }}
                         </p>
                     </div>
                 </div>

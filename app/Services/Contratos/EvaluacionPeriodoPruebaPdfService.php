@@ -54,7 +54,7 @@ class EvaluacionPeriodoPruebaPdfService
     public function renderizar(EvaluacionPeriodoPrueba $evaluacion): string
     {
         if (! $this->evaluaciones->tieneRespuestas($evaluacion)) {
-            throw ValidationException::withMessages(['evaluacion' => 'El jefe inmediato todavía no contesta esta evaluación: no hay respuestas que imprimir.']);
+            throw ValidationException::withMessages(['evaluacion' => 'El colaborador todavía no contesta su evaluación: no hay respuestas que imprimir.']);
         }
 
         $motor = MotorPdf::tryFrom((string) config('pdf.renderer', 'browsershot')) ?? MotorPdf::Browsershot;
@@ -81,7 +81,7 @@ class EvaluacionPeriodoPruebaPdfService
      */
     public function datos(EvaluacionPeriodoPrueba $evaluacion): array
     {
-        $evaluacion->loadMissing(['colaborador.puesto', 'colaborador.sucursalPrincipal.empresa', 'colaborador.jefe', 'contrato', 'evaluador']);
+        $evaluacion->loadMissing(['colaborador.puesto', 'colaborador.sucursalPrincipal.empresa', 'colaborador.jefe', 'contrato', 'evaluador', 'capturadaPor']);
         $colaborador = $evaluacion->colaborador;
         $empresa = $colaborador->sucursalPrincipal?->empresa;
         $fecha = fn (?CarbonInterface $f): ?string => $f?->copy()->settings(['locale' => 'es'])->isoFormat('D [de] MMMM [de] YYYY');
@@ -97,8 +97,11 @@ class EvaluacionPeriodoPruebaPdfService
                 'sucursal' => $colaborador->sucursalPrincipal?->nombre,
                 'fecha_ingreso' => $fecha($colaborador->fecha_ingreso),
             ],
-            // Jefe inmediato = evaluador asignado (organigrama); si no hay, su jefe directo.
-            'jefe' => ($evaluacion->evaluador ?? $colaborador->jefe)?->nombreCompleto(),
+            // Jefe inmediato del organigrama (firma ENTERADO). En evaluaciones del
+            // flujo anterior, el jefe que quedó como evaluador.
+            'jefe' => ($colaborador->jefe ?? ($evaluacion->evaluador_colaborador_id !== $colaborador->id ? $evaluacion->evaluador : null))?->nombreCompleto(),
+            // Autoevaluación (contestada por el propio colaborador) o captura del flujo anterior (jefe).
+            'autoevaluacion' => $evaluacion->capturadaPor !== null && $evaluacion->capturadaPor->colaborador_id === $colaborador->id,
             'termino_contrato' => $fecha($evaluacion->contrato->fecha_fin ?? $evaluacion->fecha_limite),
             'fecha_evaluacion' => $fecha($evaluacion->fecha_evaluacion),
             'r' => $this->evaluaciones->respuestas($evaluacion),

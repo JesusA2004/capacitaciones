@@ -21,9 +21,11 @@ withDefaults(defineProps<Props>(), {
 <template>
     <AppShell variant="sidebar">
         <AppSidebar />
+        <!-- Margen inferior: barra móvil (4rem) + botón de ayuda flotante
+             (BotonAyuda), para que al final de la página nunca tape nada. -->
         <AppContent
             variant="sidebar"
-            class="overflow-x-hidden pb-[calc(4rem+env(safe-area-inset-bottom))] sm:pb-0"
+            class="overflow-x-hidden pb-[calc(7rem+env(safe-area-inset-bottom))] sm:pb-16"
         >
             <AppSidebarHeader :breadcrumbs="breadcrumbs" />
             <slot />

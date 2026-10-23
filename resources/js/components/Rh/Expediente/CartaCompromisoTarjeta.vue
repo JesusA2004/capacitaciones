@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { usePage } from '@inertiajs/vue3';
-import { FileSignature } from '@lucide/vue';
-import { computed } from 'vue';
+import { Eye, FileSignature } from '@lucide/vue';
+import { computed, ref } from 'vue';
+import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatearFecha } from '@/lib/fechas';
@@ -27,6 +28,8 @@ export type CartaCompromisoExpediente = {
 
 const page = usePage<{ cartaCompromiso?: CartaCompromisoExpediente | null }>();
 const carta = computed(() => page.props.cartaCompromiso ?? null);
+/** «Ver carta»: PDF en el visor centrado (no en otra pestaña). */
+const visorAbierto = ref(false);
 
 const claseEstado = computed(() => {
     switch (carta.value?.estado) {
@@ -80,10 +83,12 @@ const plazo = computed(() => {
                     >
                         {{ carta.estado_etiqueta }}
                     </span>
-                    <Button variant="outline" size="sm" as-child>
-                        <a :href="carta.pdf_url" target="_blank" rel="noopener"
-                            >Ver PDF</a
-                        >
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        @click="visorAbierto = true"
+                    >
+                        <Eye class="size-4" /> Ver carta
                     </Button>
                 </div>
             </div>
@@ -104,5 +109,15 @@ const plazo = computed(() => {
                 subir esos documentos hasta completarlos.
             </p>
         </CardContent>
+
+        <DocumentPreviewDialog
+            v-model:open="visorAbierto"
+            :preview-url="carta.pdf_url"
+            :download-url="carta.pdf_url"
+            :nombre="`Carta compromiso ${carta.folio ?? ''}.pdf`"
+            mime="application/pdf"
+            tipo="pdf"
+            :estado="carta.estado_etiqueta"
+        />
     </Card>
 </template>

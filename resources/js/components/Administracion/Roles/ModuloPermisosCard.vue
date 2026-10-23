@@ -86,7 +86,7 @@ const accesoDifiere = computed(() =>
 
 <template>
     <article
-        class="flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm transition-colors"
+        class="@container flex flex-col gap-3 rounded-2xl border bg-card p-4 shadow-sm transition-colors"
         :class="activo ? 'border-primary/30' : 'border-border/60 bg-card/70'"
         :data-modulo="modulo.clave"
     >
@@ -170,7 +170,7 @@ const accesoDifiere = computed(() =>
 
         <ul
             v-if="acciones.length > 0"
-            class="grid gap-1.5 sm:grid-cols-2 2xl:grid-cols-3"
+            class="grid gap-1.5 @md:grid-cols-2 @4xl:grid-cols-3"
         >
             <li
                 v-for="accion in acciones"

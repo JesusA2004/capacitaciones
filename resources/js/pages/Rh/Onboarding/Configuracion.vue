@@ -591,7 +591,7 @@ const pasosIngreso = [
                         módulo para editarlo.
                     </p>
                 </div>
-                <div class="flex flex-wrap gap-2">
+                <div class="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
                     <Button
                         variant="outline"
                         @click="editarModulo(null, 'institucional')"

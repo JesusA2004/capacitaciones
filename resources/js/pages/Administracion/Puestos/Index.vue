@@ -51,8 +51,16 @@ const { confirmarEliminacion, mostrarExito, mostrarError } = useAlertas();
 const columnas: ColumnaDataTable[] = [
     { clave: 'nombre', etiqueta: 'Puesto' },
     { clave: 'departamento', etiqueta: 'Departamento' },
-    { clave: 'colaboradores_count', etiqueta: 'Colaboradores' },
-    { clave: 'meses_periodo_prueba', etiqueta: 'Periodo de prueba (meses)' },
+    {
+        clave: 'colaboradores_count',
+        etiqueta: 'Colaboradores',
+        clase: 'whitespace-normal',
+    },
+    {
+        clave: 'meses_periodo_prueba',
+        etiqueta: 'Periodo de prueba (meses)',
+        clase: 'min-w-28 whitespace-normal',
+    },
     { clave: 'activo', etiqueta: 'Estado' },
 ];
 

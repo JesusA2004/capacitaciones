@@ -88,6 +88,7 @@ const { navGroups, tieneAmbosModos, esColaborador, cambiarModo } =
                 :titulo="grupo.titulo"
                 :numero="grupo.numero"
                 :icono="grupo.icono"
+                :fijo="navGroups.length === 1"
             />
         </SidebarContent>
 

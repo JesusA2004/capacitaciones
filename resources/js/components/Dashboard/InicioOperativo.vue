@@ -265,7 +265,9 @@ const tarjetas = computed(() =>
             </p>
         </section>
 
-        <ul class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <ul
+            class="grid gap-3 sm:grid-cols-[repeat(auto-fit,minmax(min(12rem,100%),1fr))]"
+        >
             <li
                 v-for="(t, i) in tarjetas"
                 :key="t.clave"

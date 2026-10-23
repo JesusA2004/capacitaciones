@@ -244,16 +244,18 @@ function avance(b: FilaBaja): string {
 
         <template v-else>
             <div
-                class="hidden tabla-scroll rounded-2xl border border-border/60 bg-card shadow-sm md:block"
+                class="hidden tabla-scroll rounded-2xl border border-border/60 bg-card shadow-sm xl:block"
             >
                 <table class="w-full text-left text-sm">
                     <thead
                         class="border-b border-border/60 text-xs text-muted-foreground"
                     >
                         <tr>
-                            <th class="px-4 py-3 font-medium">Colaborador</th>
+                            <th class="min-w-56 px-4 py-3 font-medium">
+                                Colaborador
+                            </th>
                             <th class="px-4 py-3 font-medium">Sucursal</th>
-                            <th class="px-4 py-3 font-medium">
+                            <th class="min-w-56 px-4 py-3 font-medium">
                                 Forma · causal
                             </th>
                             <th class="px-4 py-3 font-medium">Estatus</th>
@@ -346,38 +348,84 @@ function avance(b: FilaBaja): string {
                 </table>
             </div>
 
-            <ul class="flex flex-col gap-3 md:hidden">
+            <ul class="grid gap-3 md:grid-cols-2 xl:hidden">
                 <li v-for="b in props.bajas.data" :key="b.id">
                     <Link
                         :href="rutasBajas.show.url(b.id)"
-                        class="block tarjeta-interactiva rounded-2xl border border-border/60 bg-card p-4 text-sm shadow-sm"
+                        class="flex h-full tarjeta-interactiva flex-col gap-1 rounded-2xl border border-border/60 bg-card p-4 text-sm shadow-sm"
                     >
                         <div class="flex items-start justify-between gap-2">
-                            <p class="min-w-0 font-semibold">
-                                {{ b.colaborador }}
-                            </p>
-                            <ChipEstado
-                                :etiqueta="b.estatus_etiqueta"
-                                :tono="estatusBaja(b.estatus).tono"
-                            />
+                            <div class="min-w-0">
+                                <p class="font-semibold break-words">
+                                    {{ b.colaborador }}
+                                </p>
+                                <p class="text-xs text-muted-foreground">
+                                    <span class="font-mono">{{ b.folio }}</span>
+                                    · {{ b.sucursal ?? '—' }}
+                                </p>
+                            </div>
+                            <div class="flex shrink-0 flex-col items-end gap-1">
+                                <ChipEstado
+                                    :etiqueta="b.estatus_etiqueta"
+                                    :tono="estatusBaja(b.estatus).tono"
+                                    :icono="estatusBaja(b.estatus).icono"
+                                />
+                                <span
+                                    v-if="b.dias_en_espera !== null"
+                                    class="text-xs text-muted-foreground tabular-nums"
+                                    >{{ b.dias_en_espera }}
+                                    {{
+                                        b.dias_en_espera === 1 ? 'día' : 'días'
+                                    }}</span
+                                >
+                            </div>
                         </div>
-                        <p class="mt-1 flex items-center gap-1.5 text-xs">
+                        <p class="mt-1 flex items-start gap-1.5 text-xs">
                             <span
                                 :class="
                                     cn(
-                                        'size-2.5 shrink-0 rounded-full',
+                                        'mt-1 size-2.5 shrink-0 rounded-full',
                                         claseForma(b.forma_token).fondo,
                                     )
                                 "
                             />
-                            {{ b.forma_etiqueta ?? 'Sin forma' }} ·
-                            {{ b.causal ?? 'Causal pendiente' }}
+                            <span class="min-w-0"
+                                ><span class="font-medium">{{
+                                    b.forma_etiqueta ?? 'Sin forma'
+                                }}</span>
+                                ·
+                                {{ b.causal ?? 'Causal pendiente' }}</span
+                            >
                         </p>
-                        <p class="mt-1 text-xs text-muted-foreground">
-                            {{ b.sucursal ?? '—' }} ·
-                            {{ formatearFecha(b.fecha_baja) }} · Documentos
-                            {{ avance(b) }}
-                        </p>
+                        <ChipEstado
+                            v-if="b.causal_migrada"
+                            class="w-fit"
+                            etiqueta="Causal migrada: revisar"
+                            tono="alerta"
+                        />
+                        <div
+                            class="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2 text-xs"
+                        >
+                            <span class="text-muted-foreground"
+                                >Último día
+                                {{ formatearFecha(b.fecha_baja) }}</span
+                            >
+                            <span
+                                class="inline-flex items-center gap-1 font-medium"
+                                :class="
+                                    b.documentos_completos
+                                        ? 'text-success'
+                                        : 'text-warning'
+                                "
+                                ><CheckCircle2
+                                    v-if="b.documentos_completos"
+                                    class="size-4"
+                                /><AlertTriangle
+                                    v-else
+                                    class="size-4"
+                                />Documentos {{ avance(b) }}</span
+                            >
+                        </div>
                     </Link>
                 </li>
             </ul>

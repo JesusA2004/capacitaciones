@@ -2,7 +2,6 @@
 import { Link } from '@inertiajs/vue3';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
 import { toUrl } from '@/lib/utils';
 import { edit as editPersonalizacion } from '@/routes/personalizacion';
@@ -35,10 +34,14 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
             description="Administra tu perfil y las preferencias de tu cuenta"
         />
 
-        <div class="flex flex-col lg:flex-row lg:space-x-12">
-            <aside class="w-full max-w-xl lg:w-48">
+        <div class="flex flex-col gap-6 lg:flex-row lg:gap-12">
+            <!-- Móvil/tablet: pestañas horizontales con scroll; escritorio:
+                 menú vertical a la izquierda. -->
+            <aside
+                class="-mx-4 min-w-0 px-4 sm:mx-0 sm:px-0 lg:w-52 lg:shrink-0"
+            >
                 <nav
-                    class="flex flex-col space-y-1 space-x-0"
+                    class="flex [scrollbar-width:none] gap-1 overflow-x-auto border-b border-border/60 pb-2 lg:flex-col lg:border-b-0 lg:pb-0"
                     aria-label="Configuración"
                 >
                     <Button
@@ -46,7 +49,7 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
                         :key="toUrl(item.href)"
                         variant="ghost"
                         :class="[
-                            'w-full justify-start',
+                            'min-h-10 shrink-0 justify-start lg:w-full',
                             { 'bg-muted': isCurrentOrParentUrl(item.href) },
                         ]"
                         as-child
@@ -59,9 +62,7 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
                 </nav>
             </aside>
 
-            <Separator class="my-6 lg:hidden" />
-
-            <div class="flex-1 md:max-w-2xl">
+            <div class="min-w-0 flex-1 md:max-w-2xl">
                 <section class="max-w-xl space-y-12">
                     <slot />
                 </section>

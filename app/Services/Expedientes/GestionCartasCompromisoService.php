@@ -158,18 +158,24 @@ class GestionCartasCompromisoService
             'dias_plazo' => $this->cartas->diasPlazo(),
             'fecha_limite' => now()->startOfDay()->addDays($this->cartas->diasPlazo())->toDateString(),
             'motivo_no_elegible' => $this->motivoNoElegible($colaborador, count($pendientes), $abierta),
+            // «Ver carta» también cuando aún no se puede generar solo por
+            // tener más faltantes que el máximo (solo consulta).
+            'puede_ver_carta' => $this->motivoSinVistaPrevia($colaborador, count($pendientes), $abierta) === null,
             'carta_abierta' => $abierta !== null ? [
                 'id' => $abierta->id,
                 'folio' => $abierta->folio,
                 'estado_etiqueta' => $this->cartas->estadoEfectivo($abierta)->etiqueta(),
                 'url' => route('rh.cartas-compromiso.show', $abierta, false),
+                'pdf_url' => route('rh.cartas-compromiso.pdf', $abierta, false),
             ] : null,
         ];
     }
 
     /**
      * Vista previa (no guarda nada) de exactamente la carta que se
-     * generaría: mismas validaciones que generar().
+     * generaría con estos documentos: mismas validaciones que generar()
+     * salvo una, para que se pueda VER antes de asignar: con más faltantes
+     * que el máximo todavía no se genera, pero sí se ve cómo quedaría.
      *
      * @param  list<int>  $documentTypeIds
      *
@@ -177,7 +183,11 @@ class GestionCartasCompromisoService
      */
     public function vistaPrevia(Colaborador $colaborador, array $documentTypeIds): string
     {
-        $this->exigirElegible($colaborador);
+        $motivo = $this->motivoSinVistaPrevia($colaborador, count($this->pendientes->idsPendientes($colaborador)), $this->cartaAbierta($colaborador));
+
+        if ($motivo !== null) {
+            throw ValidationException::withMessages(['colaborador' => $motivo]);
+        }
 
         return $this->cartas->vistaPrevia($colaborador, $documentTypeIds);
     }
@@ -327,6 +337,8 @@ class GestionCartasCompromisoService
             'firmada_en' => $carta->firmada_en?->toIso8601String(),
             'documentos' => array_map(fn (array $d): string => (string) $d['nombre'], $carta->documentos),
             'colaborador' => $colaborador !== null ? $this->resumenColaborador($colaborador) : null,
+            // «Ver» desde la lista (visor centrado); lo autoriza la Policy (descargar).
+            'pdf_url' => route('rh.cartas-compromiso.pdf', $carta, false),
         ];
     }
 
@@ -455,6 +467,17 @@ class GestionCartasCompromisoService
             ),
             default => null,
         };
+    }
+
+    /**
+     * Motivo por el que ni siquiera se puede VER la carta (super admin, no
+     * es nuevo ingreso, ya tiene una abierta, no le falta nada). Tener más
+     * faltantes que el máximo no impide verla: se evalúa como si tuviera
+     * justo el máximo.
+     */
+    private function motivoSinVistaPrevia(Colaborador $colaborador, int $pendientes, ?CartaCompromiso $abierta): ?string
+    {
+        return $this->motivoNoElegible($colaborador, min($pendientes, $this->cartas->maxDocumentos()), $abierta);
     }
 
     /**

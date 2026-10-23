@@ -167,7 +167,85 @@ function fechaCorta(valor: string | null): string {
             descripcion="No hay colaboradores en la etapa de contratación dentro de tu alcance."
         />
 
-        <div v-else class="tabla-scroll rounded-2xl border border-border/60">
+        <!-- Hasta escritorio ancho: una tarjeta por persona (9 columnas no
+             caben sin esconder «Siguiente acción», que es lo importante). -->
+        <ul
+            v-if="personas.data.length"
+            class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:hidden"
+        >
+            <li
+                v-for="persona in personas.data"
+                :key="persona.id"
+                class="flex min-w-0 flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+            >
+                <div class="min-w-0">
+                    <Link
+                        :href="persona.ciclo_url"
+                        class="font-medium text-primary hover:underline"
+                    >
+                        {{ persona.nombre }}
+                    </Link>
+                    <p class="truncate text-xs text-muted-foreground">
+                        <template v-if="persona.numero_empleado"
+                            >#{{ persona.numero_empleado }} · </template
+                        >{{ persona.puesto ?? 'Sin puesto' }} ·
+                        {{ persona.sucursal ?? 'Sin sucursal' }}
+                    </p>
+                </div>
+                <div class="flex flex-col gap-1">
+                    <span class="text-xs font-medium">{{ persona.etapa }}</span>
+                    <div
+                        class="h-1.5 w-full overflow-hidden rounded-full bg-muted"
+                    >
+                        <div
+                            class="h-full rounded-full bg-primary"
+                            :style="{ width: persona.progreso + '%' }"
+                        />
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 text-xs">
+                    <Badge
+                        :variant="
+                            persona.documentos_pendientes
+                                ? 'warning'
+                                : 'success'
+                        "
+                        >{{ persona.documentos_pendientes }} pendientes</Badge
+                    >
+                    <Badge
+                        :variant="
+                            persona.documentos_rechazados
+                                ? 'destructive'
+                                : 'secondary'
+                        "
+                        >{{ persona.documentos_rechazados }} rechazados</Badge
+                    >
+                </div>
+                <dl
+                    class="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs"
+                >
+                    <dt class="text-muted-foreground">Contrato</dt>
+                    <dd>{{ persona.estado_contrato }}</dd>
+                    <dt class="text-muted-foreground">IMSS</dt>
+                    <dd>{{ persona.estado_imss }}</dd>
+                </dl>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    class="mt-auto h-auto min-h-8 w-full whitespace-normal"
+                    as-child
+                >
+                    <Link :href="persona.ciclo_url">
+                        {{ persona.siguiente_accion ?? 'Ver ciclo' }}
+                    </Link>
+                </Button>
+            </li>
+        </ul>
+
+        <div
+            v-if="personas.data.length"
+            class="hidden tabla-scroll rounded-2xl border border-border/60 xl:block"
+        >
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -244,14 +322,20 @@ function fechaCorta(valor: string | null): string {
                                 >{{ persona.documentos_rechazados }}</Badge
                             >
                         </TableCell>
-                        <TableCell class="text-xs">{{
-                            persona.estado_contrato
-                        }}</TableCell>
+                        <TableCell
+                            class="max-w-64 min-w-40 text-xs whitespace-normal"
+                            >{{ persona.estado_contrato }}</TableCell
+                        >
                         <TableCell class="text-xs">{{
                             persona.estado_imss
                         }}</TableCell>
                         <TableCell>
-                            <Button variant="ghost" size="sm" as-child>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                class="h-auto min-h-8 max-w-56 whitespace-normal"
+                                as-child
+                            >
                                 <Link :href="persona.ciclo_url">
                                     {{
                                         persona.siguiente_accion ?? 'Ver ciclo'

@@ -789,79 +789,91 @@ function irACompletarExpediente() {
             class="overflow-hidden rounded-3xl border-border/60 bg-gradient-to-br from-primary/10 via-card to-card shadow-sm transition-shadow hover:shadow-md"
         >
             <CardContent
-                class="flex flex-col gap-4 sm:flex-row sm:items-center"
+                class="flex flex-col gap-4 2xl:flex-row 2xl:items-center"
             >
-                <Avatar
-                    class="size-20 shrink-0 rounded-2xl ring-2 ring-primary/30"
-                >
-                    <AvatarImage
-                        v-if="colaborador.foto_url"
-                        :src="colaborador.foto_url"
-                        alt=""
-                        class="object-cover"
-                    />
-                    <AvatarFallback
-                        class="rounded-2xl bg-primary/10 text-primary"
-                    >
-                        <User class="size-9" />
-                    </AvatarFallback>
-                </Avatar>
-
-                <div class="min-w-0 flex-1">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <h1 class="text-lg font-semibold">
-                            {{ colaborador.name }} {{ colaborador.apellidos }}
-                        </h1>
-                        <EstadoBadge :estado="colaborador.estatus" />
-                    </div>
-                    <p class="text-sm text-muted-foreground">
-                        {{
-                            colaborador.numero_empleado ??
-                            'Sin número de empleado'
-                        }}
-                        · {{ colaborador.puesto?.nombre ?? 'Sin puesto' }}
-                    </p>
-                    <div
-                        class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
-                    >
-                        <span class="flex items-center gap-1"
-                            ><Building2 class="size-3.5" />{{
-                                colaborador.empresa?.nombre ?? '—'
-                            }}</span
-                        >
-                        <span class="flex items-center gap-1"
-                            ><MapPinned class="size-3.5" />{{
-                                colaborador.sucursal?.nombre ?? '—'
-                            }}</span
-                        >
-                        <span class="flex items-center gap-1"
-                            ><Briefcase class="size-3.5" />{{
-                                colaborador.departamento?.nombre ?? '—'
-                            }}</span
-                        >
-                        <span class="flex items-center gap-1">
-                            Acceso al sistema:
-                            <span
-                                :class="
-                                    colaborador.acceso_bloqueado_en
-                                        ? 'font-medium text-destructive'
-                                        : 'font-medium text-success'
-                                "
-                            >
-                                {{
-                                    colaborador.acceso_bloqueado_en
-                                        ? 'No (bloqueado)'
-                                        : 'Sí'
-                                }}
-                            </span>
-                        </span>
-                    </div>
-                </div>
-
+                <!-- Identidad + avance: siempre en una fila; las acciones van
+                     debajo (y a la derecha solo en pantallas muy anchas) para
+                     que el nombre nunca quede aplastado en una columna. -->
                 <div
-                    class="flex flex-col items-end gap-3 sm:flex-row sm:items-center"
+                    class="flex min-w-0 flex-1 items-start gap-3 sm:items-center sm:gap-4"
                 >
-                    <div class="flex flex-col items-end gap-1">
+                    <Avatar
+                        class="size-14 shrink-0 rounded-2xl ring-2 ring-primary/30 sm:size-20"
+                    >
+                        <AvatarImage
+                            v-if="colaborador.foto_url"
+                            :src="colaborador.foto_url"
+                            alt=""
+                            class="object-cover"
+                        />
+                        <AvatarFallback
+                            class="rounded-2xl bg-primary/10 text-primary"
+                        >
+                            <User class="size-7 sm:size-9" />
+                        </AvatarFallback>
+                    </Avatar>
+
+                    <div class="min-w-0 flex-1">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <h1 class="text-lg font-semibold">
+                                {{ colaborador.name }}
+                                {{ colaborador.apellidos }}
+                            </h1>
+                            <EstadoBadge :estado="colaborador.estatus" />
+                        </div>
+                        <p class="text-sm text-muted-foreground">
+                            {{
+                                colaborador.numero_empleado ??
+                                'Sin número de empleado'
+                            }}
+                            · {{ colaborador.puesto?.nombre ?? 'Sin puesto' }}
+                        </p>
+                        <div
+                            class="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
+                        >
+                            <span class="flex items-center gap-1"
+                                ><Building2 class="size-3.5" />{{
+                                    colaborador.empresa?.nombre ?? '—'
+                                }}</span
+                            >
+                            <span class="flex items-center gap-1"
+                                ><MapPinned class="size-3.5" />{{
+                                    colaborador.sucursal?.nombre ?? '—'
+                                }}</span
+                            >
+                            <span class="flex items-center gap-1"
+                                ><Briefcase class="size-3.5" />{{
+                                    colaborador.departamento?.nombre ?? '—'
+                                }}</span
+                            >
+                            <span class="flex items-center gap-1">
+                                Acceso al sistema:
+                                <span
+                                    :class="
+                                        colaborador.acceso_bloqueado_en
+                                            ? 'font-medium text-destructive'
+                                            : 'font-medium text-success'
+                                    "
+                                >
+                                    {{
+                                        colaborador.acceso_bloqueado_en
+                                            ? 'No (bloqueado)'
+                                            : 'Sí'
+                                    }}
+                                </span>
+                            </span>
+                            <span
+                                class="flex items-center gap-1 font-medium text-foreground sm:hidden"
+                            >
+                                Expediente
+                                {{ resumenExpediente.porcentaje }}%
+                            </span>
+                        </div>
+                    </div>
+
+                    <div
+                        class="hidden shrink-0 flex-col items-end gap-1 sm:flex"
+                    >
                         <span class="text-xs text-muted-foreground"
                             >Expediente</span
                         >
@@ -876,7 +888,11 @@ function irACompletarExpediente() {
                             </div>
                         </div>
                     </div>
+                </div>
 
+                <div
+                    class="flex flex-wrap items-center gap-2 border-t border-border/50 pt-3 empty:hidden 2xl:max-w-[60%] 2xl:justify-end 2xl:border-t-0 2xl:pt-0"
+                >
                     <Button
                         v-if="cicloUrl"
                         size="sm"
@@ -1003,9 +1019,9 @@ function irACompletarExpediente() {
 
         <Card
             v-if="completitudDatos.aplica && completitudDatos.porcentaje < 100"
-            class="border-warning/30 bg-warning-soft/50"
+            class="border-warning/30 bg-warning-soft/50 py-0"
         >
-            <CardContent class="flex flex-col gap-2 py-4">
+            <CardContent class="flex flex-col gap-2 px-4 py-4 sm:px-6">
                 <p
                     class="flex items-center gap-2 text-sm font-medium text-warning"
                 >

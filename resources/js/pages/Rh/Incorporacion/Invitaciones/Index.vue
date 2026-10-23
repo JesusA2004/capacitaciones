@@ -77,7 +77,11 @@ const columnas: ColumnaDataTable[] = [
     { clave: 'sucursal', etiqueta: 'Sucursal' },
     { clave: 'estado', etiqueta: 'Estado' },
     { clave: 'vence', etiqueta: 'Vence' },
-    { clave: 'creada_por', etiqueta: 'Creada por' },
+    {
+        clave: 'creada_por',
+        etiqueta: 'Creada por',
+        clase: 'hidden xl:table-cell',
+    },
 ];
 </script>
 

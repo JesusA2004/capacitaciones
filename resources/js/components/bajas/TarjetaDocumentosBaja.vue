@@ -96,8 +96,13 @@ const puedeAdjuntarDoc = (d: DocumentoRecopilacion) =>
                 tamano="lg"
             />
             <div class="flex min-w-0 flex-1 flex-col gap-1">
-                <div class="flex items-start justify-between gap-2">
-                    <h3 class="min-w-0 truncate text-base font-semibold">
+                <div
+                    class="flex flex-wrap items-start justify-between gap-x-2 gap-y-1"
+                >
+                    <h3
+                        class="line-clamp-2 min-w-0 text-base leading-snug font-semibold break-words"
+                        :title="tarjeta.colaborador"
+                    >
                         {{ tarjeta.colaborador }}
                     </h3>
                     <ChipEstado
@@ -106,7 +111,7 @@ const puedeAdjuntarDoc = (d: DocumentoRecopilacion) =>
                         :icono="estatus.icono"
                     />
                 </div>
-                <p class="truncate text-sm text-muted-foreground">
+                <p class="line-clamp-2 text-sm text-muted-foreground">
                     {{ tarjeta.puesto ?? 'Sin puesto' }} ·
                     {{ tarjeta.sucursal ?? 'Sin sucursal' }}
                 </p>
@@ -125,9 +130,11 @@ const puedeAdjuntarDoc = (d: DocumentoRecopilacion) =>
                         />
                         {{ tarjeta.forma_etiqueta ?? 'Sin forma' }}
                     </span>
-                    <span class="min-w-0 truncate text-muted-foreground">{{
-                        tarjeta.causal ?? 'Causal pendiente'
-                    }}</span>
+                    <span
+                        class="min-w-0 truncate text-muted-foreground"
+                        :title="tarjeta.causal ?? undefined"
+                        >{{ tarjeta.causal ?? 'Causal pendiente' }}</span
+                    >
                 </p>
             </div>
         </header>

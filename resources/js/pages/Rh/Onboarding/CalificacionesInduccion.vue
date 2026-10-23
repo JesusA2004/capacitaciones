@@ -240,7 +240,7 @@ function enviarRetro(url: string) {
                 />
             </div>
             <div
-                class="grid grid-cols-2 gap-2.5 min-[1700px]:grid-cols-7 sm:grid-cols-4 sm:gap-3"
+                class="grid grid-cols-2 gap-2.5 min-[1700px]:grid-cols-7 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4"
             >
                 <TarjetaMetrica
                     v-for="f in filtros"

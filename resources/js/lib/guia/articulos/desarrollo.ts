@@ -176,38 +176,39 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
         titulo: 'Evaluaciones de periodo de prueba',
         proceso: 'evaluacion',
         resumen:
-            'Un solo módulo con tres pestañas: Próximas / por asignar, En proceso y Evaluadas. El jefe directo contesta el FO-RH-EPP-001; RH decide e imprime el PDF para firma.',
-        queEs: 'Es la evaluación de término de periodo de prueba (FO-RH-EPP-001) con la que se decide si la persona sigue (contrato por tiempo indeterminado) o no. La contesta su jefe directo del organigrama, nunca el colaborador.',
-        quien: ['gerente', 'rh'],
+            'Un solo módulo con tres pestañas: Próximas / por asignar, En proceso y Evaluadas. RH asigna el FO-RH-EPP-001, el propio colaborador lo contesta (autoevaluación) y RH revisa sus respuestas, imprime el PDF para firma y decide.',
+        queEs: 'Es la evaluación de término de periodo de prueba (FO-RH-EPP-001) con la que se decide si la persona sigue (contrato por tiempo indeterminado) o no. Es una autoevaluación: la contesta el propio colaborador desde Mi espacio o la app. Ni RH ni su jefe la contestan por él.',
+        quien: ['colaborador', 'rh'],
         quienDetalle:
-            'Evalúa el jefe inmediato (normalmente el gerente de la sucursal); autoriza RH.',
+            'Contesta el colaborador evaluado; RH asigna, revisa, imprime y decide la renovación. El jefe directo solo le da seguimiento.',
         antes: [
             'La persona tiene un contrato de capacitación inicial vigente.',
+            'La persona tiene cuenta en PEOPLE (sin cuenta no puede contestarla).',
         ],
         pasos: [
             {
-                titulo: 'PEOPLE la abre sola',
+                titulo: 'RH la asigna (o PEOPLE la abre sola)',
                 detalle:
-                    'Cada mañana revisa los vencimientos. 15 días hábiles antes del fin crea la evaluación y avisa al jefe directo. RH también puede adelantarla desde la pestaña «Próximas / por asignar» con «Asignar evaluación».',
-                canal: 'automatico',
+                    'Pestaña «Próximas / por asignar» → «Asignar evaluación». Si nadie la asigna, PEOPLE la abre sola 15 días hábiles antes del fin del contrato. Al colaborador le llega una notificación (también push) con el enlace para contestarla.',
+                quien: 'rh',
             },
             {
-                titulo: 'El jefe evalúa',
+                titulo: 'El colaborador la contesta',
                 detalle:
-                    'Evaluaciones de periodo de prueba → pestaña «En proceso» → «Contestar evaluación». Califica los 9 criterios del FO-RH-EPP-001 (4 Muy bueno a 1 Deficiente), responde las 5 preguntas filtro y escribe tus comentarios; PEOPLE calcula si se renueva.',
-                quien: 'gerente',
+                    'Mi espacio → Mis pendientes → «Contestar evaluación». Califica su desempeño en los 9 puntos del FO-RH-EPP-001 (4 Muy bueno a 1 Deficiente), responde las 5 preguntas filtro y escribe sus comentarios; PEOPLE calcula si alcanza la regla de renovación. Al enviarla queda en solo lectura.',
+                quien: 'colaborador',
                 canal: 'web_app',
             },
             {
-                titulo: 'RH decide',
+                titulo: 'RH revisa y decide',
                 detalle:
-                    'Pestaña «En proceso» → chip «Por decidir RH» → «Revisar y decidir»: confirma renovar o no renovar. Si decide distinto a lo que recomendó el jefe, el comentario es obligatorio. También puede devolverla para corrección.',
+                    'Pestaña «En proceso» → chip «Por decidir RH» → «Revisar y decidir»: confirma renovar o no renovar. Si decide distinto al resultado de la evaluación, el comentario es obligatorio. También puede devolverla al colaborador para que la corrija (se le avisa).',
                 quien: 'rh',
             },
             {
                 titulo: 'Ver respuestas e imprimir para firma',
                 detalle:
-                    'Pestaña «Evaluadas» → «Ver respuestas» (calificación de cada criterio, preguntas filtro, total y resultado) → «Imprimir PDF para firma»: primero se ve la vista previa; firman el jefe inmediato, la Gerencia de RH y el colaborador.',
+                    'Pestaña «Evaluadas» → «Ver respuestas» (calificación de cada punto, preguntas filtro, total y resultado) → «Imprimir PDF para firma»: primero se ve la vista previa; firman el colaborador, la Gerencia de RH y, de enterado, el jefe inmediato.',
                 quien: 'rh',
             },
         ],
@@ -234,7 +235,7 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
                 grupo: 'Paso 3 · Resultado',
                 campos: [
                     'Se renueva solo sin ningún 1, sin ningún «Sí» y con el total mínimo',
-                    'Comentarios del jefe inmediato',
+                    'Comentarios del colaborador',
                 ],
             },
         ],
@@ -243,9 +244,9 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
             'No renovar → se abre el cierre laboral por «No renovación del periodo de prueba», ya autorizado, con fecha efectiva al fin del contrato.',
         ],
         notificaciones: [
-            '«Evaluación pendiente» al jefe evaluador.',
+            '«Contesta tu evaluación» al colaborador evaluado (web y push).',
             '«Contrato por vencer» a la gerencia de la sucursal, al regional, a la Gerencia de RH y a RH con alcance.',
-            '«Evaluación capturada» a RH; «Evaluación devuelta» al jefe.',
+            '«Evaluación contestada» a RH; «Evaluación devuelta» al colaborador.',
         ],
         errores: [
             {
@@ -256,7 +257,7 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
             {
                 problema: '«RH no puede autorizar.»',
                 solucion:
-                    'Solo se autoriza una evaluación capturada por el jefe.',
+                    'Solo se decide una evaluación que el colaborador ya contestó. Si dice «Esperando al colaborador», todavía no la envía.',
             },
         ],
         registro: [
@@ -270,9 +271,15 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
                 permisos: ['evaluaciones.capturar', 'evaluaciones.autorizar'],
                 modo: 'operativo',
             },
+            {
+                etiqueta: 'Contestar mi evaluación',
+                ruta: '/mi-proceso/evaluacion-periodo-prueba',
+                modo: 'colaborador',
+            },
         ],
         preguntas: [
-            '¿Cómo evalúo el periodo de prueba?',
+            '¿Quién contesta la evaluación de periodo de prueba?',
+            '¿Cómo contesto mi evaluación de periodo de prueba?',
             '¿Cómo asigno una evaluación antes de tiempo?',
             '¿Cómo imprimo la evaluación para firma?',
             '¿Cuándo se abre la evaluación?',

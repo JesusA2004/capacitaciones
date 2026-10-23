@@ -14,7 +14,6 @@ import {
     Hourglass,
     Inbox,
     ListFilter,
-    PencilLine,
     Printer,
     RotateCcw,
     Send,
@@ -67,10 +66,11 @@ import type {
 /**
  * «Evaluaciones de periodo de prueba» (FO-RH-EPP-001): UN solo módulo con
  * tres pestañas — Próximas / por asignar (quién está por terminar su periodo
- * y aún no tiene evaluación: RH la asigna a su jefe directo), En proceso
- * (esperando al jefe o por decidir RH) y Evaluadas (ver respuestas e
- * imprimir el PDF para firma). Capturar y decidir siguen en el ciclo
- * laboral de cada persona.
+ * y aún no tiene evaluación: RH se la asigna), En proceso (esperando al
+ * colaborador o por decidir RH) y Evaluadas (ver respuestas e imprimir el
+ * PDF para firma). Es una AUTOEVALUACIÓN: la contesta SOLO el colaborador
+ * desde Mi espacio — aquí nunca hay un botón para contestarla. Decidir
+ * sigue en el ciclo laboral de cada persona.
  */
 const props = defineProps<{
     pestana: PestanaEvaluacionesPrueba;
@@ -214,9 +214,9 @@ const chips = computed<Chip[]>(() => {
                 icono: ListFilter,
             },
             {
-                valor: 'esperando_jefe',
-                etiqueta: 'Esperando al jefe',
-                conteo: props.conteos.esperando_jefe,
+                valor: 'esperando_colaborador',
+                etiqueta: 'Esperando al colaborador',
+                conteo: props.conteos.esperando_colaborador,
                 icono: Hourglass,
             },
             {
@@ -356,12 +356,12 @@ const ESTADO: Record<
     pendiente: {
         tono: 'alerta',
         icono: Hourglass,
-        etiqueta: 'Esperando al jefe',
+        etiqueta: 'Esperando al colaborador',
     },
     devuelta: {
         tono: 'peligro',
         icono: RotateCcw,
-        etiqueta: 'Devuelta al jefe',
+        etiqueta: 'Devuelta al colaborador',
     },
     capturada: {
         tono: 'info',
@@ -382,7 +382,7 @@ function recomendacion(e: FilaEvaluacionPrueba): {
 } {
     if (e.recomienda_renovar === true) {
         return {
-            etiqueta: 'Jefe: sí se renueva',
+            etiqueta: 'Alcanza la regla de renovación',
             tono: 'exito',
             icono: CheckCircle2,
         };
@@ -390,7 +390,7 @@ function recomendacion(e: FilaEvaluacionPrueba): {
 
     if (e.recomienda_renovar === false) {
         return {
-            etiqueta: 'Jefe: no se renueva',
+            etiqueta: 'No alcanza la regla',
             tono: 'peligro',
             icono: FileWarning,
         };
@@ -499,7 +499,7 @@ function verPdf(e: FilaEvaluacionPrueba) {
 
 const ayuda = computed(
     () =>
-        `Próximas: quién está por terminar su periodo de prueba (fecha de ingreso + duración del puesto) y aún no tiene evaluación. Se abre sola 15 días hábiles antes de que venza su contrato; con «Asignar evaluación» RH la abre antes y se le avisa a su jefe directo del organigrama. Entra en alerta cuando faltan ${props.diasAlerta} días naturales o menos. En proceso: esperando al jefe o por decidir RH. Evaluadas: ver respuestas e imprimir el FO-RH-EPP-001 para firma.`,
+        `Próximas: quién está por terminar su periodo de prueba (fecha de ingreso + duración del puesto) y aún no tiene evaluación. Se abre sola 15 días hábiles antes de que venza su contrato; con «Asignar evaluación» RH la abre antes. La contesta el propio colaborador (autoevaluación) desde Mi espacio o la app; ni RH ni su jefe la contestan. Entra en alerta cuando faltan ${props.diasAlerta} días naturales o menos. En proceso: esperando al colaborador o por decidir RH. Evaluadas: ver respuestas, imprimir el FO-RH-EPP-001 para firma y decidir la renovación.`,
 );
 </script>
 
@@ -543,18 +543,21 @@ const ayuda = computed(
                     @click="ir({ tab: 'proximas', solo_alerta: false })"
                 />
                 <TarjetaMetrica
-                    etiqueta="En espera del jefe"
-                    :valor="conteos.esperando_jefe"
+                    etiqueta="Esperando al colaborador"
+                    :valor="conteos.esperando_colaborador"
                     :icono="Hourglass"
                     tono="info"
                     detalle="Pendientes o devueltas"
                     clicable
                     :activa="
                         pestana === 'en_proceso' &&
-                        filtros.subfiltro === 'esperando_jefe'
+                        filtros.subfiltro === 'esperando_colaborador'
                     "
                     @click="
-                        ir({ tab: 'en_proceso', subfiltro: 'esperando_jefe' })
+                        ir({
+                            tab: 'en_proceso',
+                            subfiltro: 'esperando_colaborador',
+                        })
                     "
                 />
                 <TarjetaMetrica
@@ -562,7 +565,7 @@ const ayuda = computed(
                     :valor="conteos.por_decidir"
                     :icono="ClipboardCheck"
                     tono="oro"
-                    detalle="El jefe ya evaluó"
+                    detalle="El colaborador ya contestó"
                     clicable
                     :activa="
                         pestana === 'en_proceso' &&
@@ -825,15 +828,15 @@ const ayuda = computed(
                                 class="size-4 shrink-0 text-muted-foreground"
                             />
                             <span class="min-w-0 truncate">
-                                <span class="text-muted-foreground"
-                                    >Evaluará:</span
+                                <span class="text-muted-foreground">{{
+                                    'La contesta: '
+                                }}</span>
+                                <strong>{{ fila.nombre }}</strong>
+                                <span
+                                    v-if="fila.tiene_cuenta === false"
+                                    class="text-warning"
                                 >
-                                <strong v-if="fila.evaluador">{{
-                                    fila.evaluador
-                                }}</strong>
-                                <span v-else class="text-warning"
-                                    >sin jefe en el organigrama (se avisa a
-                                    RH)</span
+                                    · sin cuenta en PEOPLE</span
                                 >
                             </span>
                         </p>
@@ -871,7 +874,7 @@ const ayuda = computed(
                             :disabled="!fila.puede_asignar"
                             :title="
                                 fila.puede_asignar
-                                    ? 'Crear la evaluación ahora y avisar a su jefe'
+                                    ? 'Crear la evaluación ahora y avisarle para que la conteste'
                                     : (fila.motivo_no_asignable ?? '')
                             "
                             @click="pedirAsignar([fila])"
@@ -937,8 +940,8 @@ const ayuda = computed(
                 "
                 :descripcion="
                     pestana === 'evaluadas'
-                        ? 'Aquí aparecen en cuanto el jefe inmediato contesta la evaluación.'
-                        : 'No hay evaluaciones esperando al jefe ni por decidir con estos filtros.'
+                        ? 'Aquí aparecen en cuanto el colaborador contesta su evaluación.'
+                        : 'No hay evaluaciones esperando al colaborador ni por decidir con estos filtros.'
                 "
             />
 
@@ -1026,11 +1029,11 @@ const ayuda = computed(
                                 class="flex items-center gap-1 text-xs text-muted-foreground"
                             >
                                 <UserRound class="size-3.5" />
-                                Evalúa
+                                La contesta
                             </span>
-                            <span class="truncate text-sm font-semibold">{{
-                                evaluacion.evaluador ?? 'RH (sin jefe)'
-                            }}</span>
+                            <span class="truncate text-sm font-semibold"
+                                >El colaborador</span
+                            >
                         </div>
                     </div>
 
@@ -1050,11 +1053,10 @@ const ayuda = computed(
                                 >
                             </p>
                             <p class="text-right text-xs text-muted-foreground">
-                                Evaluó
                                 {{
-                                    evaluacion.respuestas.evaluador ??
-                                    evaluacion.evaluador ??
-                                    '—'
+                                    evaluacion.respuestas.autoevaluacion
+                                        ? `Contestó ${evaluacion.respuestas.capturada_por ?? '—'}`
+                                        : `Evaluó ${evaluacion.respuestas.evaluador ?? evaluacion.respuestas.capturada_por ?? '—'}`
                                 }}<br />{{
                                     fecha(
                                         evaluacion.respuestas.fecha_evaluacion,
@@ -1158,24 +1160,6 @@ const ayuda = computed(
                             </Link>
                         </Button>
                         <Button
-                            v-else-if="evaluacion.puede_capturar"
-                            class="h-11 sm:h-10"
-                            as-child
-                        >
-                            <Link
-                                :href="
-                                    urlAccion(evaluacion, 'capturar_evaluacion')
-                                "
-                            >
-                                <PencilLine class="size-4" />
-                                {{
-                                    evaluacion.estado === 'devuelta'
-                                        ? 'Corregir evaluación'
-                                        : 'Contestar evaluación'
-                                }}
-                            </Link>
-                        </Button>
-                        <Button
                             v-else-if="!evaluacion.respuestas"
                             variant="outline"
                             class="h-11 sm:h-10"
@@ -1212,8 +1196,9 @@ const ayuda = computed(
                 </DialogTitle>
                 <DialogDescription>
                     Se crea la evaluación de periodo de prueba (FO-RH-EPP-001)
-                    ahora mismo y se le avisa a su jefe directo del organigrama
-                    para que la conteste.
+                    ahora mismo y se le avisa al colaborador (notificación y
+                    push) para que la conteste él mismo desde Mi espacio o la
+                    app. RH no la contesta: después verás sus respuestas.
                 </DialogDescription>
             </DialogHeader>
             <ul
@@ -1230,10 +1215,10 @@ const ayuda = computed(
                             {{ fila.nombre }}
                         </p>
                         <p class="truncate text-xs text-muted-foreground">
-                            Evaluará:
                             {{
-                                fila.evaluador ??
-                                'RH (sin jefe en el organigrama)'
+                                fila.tiene_cuenta === false
+                                    ? 'Sin cuenta en PEOPLE: dale acceso para que la conteste'
+                                    : 'La contesta él/ella en Mi espacio'
                             }}
                         </p>
                     </div>

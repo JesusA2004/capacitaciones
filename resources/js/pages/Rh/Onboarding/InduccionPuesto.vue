@@ -228,7 +228,9 @@ function pasoHecho(f: Fila, i: number): boolean {
             </p>
         </section>
 
-        <div class="grid grid-cols-2 gap-2.5 sm:grid-cols-5 sm:gap-3">
+        <div
+            class="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 xl:grid-cols-5"
+        >
             <TarjetaMetrica
                 etiqueta="Todas"
                 :valor="conteo('todas')"

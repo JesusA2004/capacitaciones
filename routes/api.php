@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\V1\DirectorioController;
 use App\Http\Controllers\Api\V1\DispositivoController;
 use App\Http\Controllers\Api\V1\EquipoController;
 use App\Http\Controllers\Api\V1\EvaluacionController;
+use App\Http\Controllers\Api\V1\EvaluacionPeriodoPruebaColaboradorController;
 use App\Http\Controllers\Api\V1\IncorporacionController;
 use App\Http\Controllers\Api\V1\IncorporacionInvitacionController;
 use App\Http\Controllers\Api\V1\MiProcesoController;
@@ -265,6 +266,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('induccion/video/{avance}/iniciar', [MiProcesoController::class, 'videoIniciarInduccion'])->name('induccion.video.iniciar');
             Route::post('induccion/video/{avance}/heartbeat', [MiProcesoController::class, 'videoHeartbeatInduccion'])->name('induccion.video.heartbeat');
             Route::post('induccion/audio/{avance}/progreso', [MiProcesoController::class, 'audioProgresoInduccion'])->name('induccion.audio-progreso');
+            // Mi evaluación de periodo de prueba (autoevaluación FO-RH-EPP-001):
+            // consultar la mía y contestarla (mismo service/Policy que la web).
+            Route::get('evaluacion-periodo-prueba', [EvaluacionPeriodoPruebaColaboradorController::class, 'show'])->name('evaluacion-periodo-prueba.show');
+            Route::post('evaluacion-periodo-prueba/{evaluacion}/contestar', [EvaluacionPeriodoPruebaColaboradorController::class, 'contestar'])
+                ->name('evaluacion-periodo-prueba.contestar')
+                ->whereNumber('evaluacion')
+                ->middleware('throttle:10,1');
             // Descriptivo de puesto que RH envía tras aprobar la inducción:
             // leerlo y dar «OK, enterado» + comentario (AcuseDescriptivoPuestoService).
             Route::get('descriptivo-puesto', [DescriptivoPuestoColaboradorController::class, 'show'])->name('descriptivo-puesto.show');

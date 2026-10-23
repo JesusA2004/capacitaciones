@@ -339,8 +339,12 @@ function confirmarDecisionVisor() {
                     <TableRow>
                         <TableHead>Colaborador</TableHead>
                         <TableHead>Documento</TableHead>
-                        <TableHead class="text-center">Versión</TableHead>
-                        <TableHead>Cargado</TableHead>
+                        <TableHead class="hidden text-center lg:table-cell"
+                            >Versión</TableHead
+                        >
+                        <TableHead class="hidden lg:table-cell"
+                            >Cargado</TableHead
+                        >
                         <TableHead>Estado</TableHead>
                         <TableHead class="text-right">Acciones</TableHead>
                     </TableRow>
@@ -371,11 +375,18 @@ function confirmarDecisionVisor() {
                             >
                                 {{ fila.tipo }}
                             </button>
+                            <p
+                                class="text-[11px] text-muted-foreground lg:hidden"
+                            >
+                                v{{ fila.version }} ·
+                                {{ fechaCorta(fila.cargado_en) }}
+                            </p>
                         </TableCell>
-                        <TableCell class="text-center tabular-nums"
+                        <TableCell
+                            class="hidden text-center tabular-nums lg:table-cell"
                             >v{{ fila.version }}</TableCell
                         >
-                        <TableCell>
+                        <TableCell class="hidden lg:table-cell">
                             <p class="text-xs">
                                 {{ fechaCorta(fila.cargado_en) }}
                             </p>

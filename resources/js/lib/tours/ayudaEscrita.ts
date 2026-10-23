@@ -517,7 +517,7 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
         ],
     },
     'formularios-evaluacion': {
-        queEs: 'El editor (parecido a Google Forms) de las dos evaluaciones de ingreso: la de inducción FO-RH-EI, que contesta el colaborador, y la de capacitación inicial / periodo de prueba FO-RH-EPP-001, que contesta el jefe directo para decidir si se renueva el contrato.',
+        queEs: 'El editor (parecido a Google Forms) de las dos evaluaciones de ingreso: la de inducción FO-RH-EI, que contesta el colaborador, y la de capacitación inicial / periodo de prueba FO-RH-EPP-001, que también contesta el propio colaborador (autoevaluación) y con la que RH decide si se renueva el contrato.',
         puedes: [
             'Ver de cada evaluación cuántas preguntas tiene, el total de puntos, la calificación para aprobar o renovar y la versión vigente.',
             'Editar preguntas y reglas: en inducción, opción múltiple, verdadero o falso, relacionar columnas, casos prácticos con rúbrica y la opinión; en periodo de prueba, los criterios a calificar (escala 1 a 4), las preguntas filtro y el mínimo para renovar.',

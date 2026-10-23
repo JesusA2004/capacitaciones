@@ -228,7 +228,7 @@ class PeriodosPruebaService
 
         $query = Colaborador::query()
             ->whereIn('estatus', [EstadoUsuario::Activo->value, EstadoUsuario::EnIncorporacion->value])
-            ->with(['puesto', 'sucursalPrincipal', 'jefe:id,name,apellidos', 'gerente:id,name,apellidos']);
+            ->with(['puesto', 'sucursalPrincipal', 'jefe:id,name,apellidos', 'gerente:id,name,apellidos', 'user:id,colaborador_id']);
 
         if (! $usuario->can(EvaluacionPeriodoPruebaService::PERMISO_AUTORIZAR) && ! $usuario->can('evaluaciones.ver_todos')) {
             $query->where(fn (Builder $q) => $q
@@ -255,9 +255,11 @@ class PeriodosPruebaService
             'puesto' => $colaborador->puesto?->nombre,
             'sucursal' => $colaborador->sucursalPrincipal?->nombre,
             'jefe' => $colaborador->jefe?->nombreCompleto(),
-            // Quien recibirá la evaluación: el jefe directo del organigrama
-            // o, si no hay, su gerente (VencimientoContratosService).
-            'evaluador' => ($colaborador->jefe ?? $colaborador->gerente)?->nombreCompleto(),
+            // Quien contesta la evaluación: el propio colaborador
+            // (autoevaluación; VencimientoContratosService). `tiene_cuenta`
+            // avisa a RH si aún no podría contestarla.
+            'evaluador' => $colaborador->nombreCompleto(),
+            'tiene_cuenta' => $colaborador->user !== null,
             'fecha_ingreso' => $colaborador->fecha_ingreso?->toDateString(),
             'meses_periodo_prueba' => $colaborador->puesto?->meses_periodo_prueba,
             'ciclo_url' => sprintf('/rh/colaboradores/%d/ciclo', $colaborador->id),

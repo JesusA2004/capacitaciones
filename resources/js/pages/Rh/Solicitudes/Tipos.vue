@@ -268,7 +268,7 @@ const ancho = (n: number, total: number) => `${total ? (n / total) * 100 : 0}%`;
                             </span>
                             <div class="min-w-0 flex-1">
                                 <p
-                                    class="truncate font-semibold text-[var(--mrl-texto)]"
+                                    class="line-clamp-2 leading-snug font-semibold text-[var(--mrl-texto)]"
                                 >
                                     {{ t.etiqueta }}
                                 </p>

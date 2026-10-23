@@ -560,7 +560,7 @@ function confirmarMovimiento() {
                 "
                 placeholder="Todos los tipos"
                 opcion-vacia="Todos los tipos"
-                class="w-52"
+                class="w-full sm:w-52"
                 @update:model-value="
                     (v) => {
                         filtros.tipo = String(v ?? '');
@@ -574,7 +574,7 @@ function confirmarMovimiento() {
                 :opciones="opcionesDe(opciones.sucursales)"
                 placeholder="Todas las sucursales"
                 opcion-vacia="Todas las sucursales"
-                class="w-48"
+                class="w-full sm:w-48"
                 @update:model-value="
                     (v) => {
                         filtros.sucursal_id = String(v ?? '');
@@ -694,7 +694,7 @@ function confirmarMovimiento() {
         </CrudPageHeader>
 
         <!-- Resumen visual por estado -->
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
             <div
                 v-for="columna in COLUMNAS"
                 :key="`resumen-${columna.estado}`"
@@ -710,7 +710,9 @@ function confirmarMovimiento() {
                     <p class="text-2xl leading-none font-bold tabular-nums">
                         {{ columnas[columna.estado]?.length ?? 0 }}
                     </p>
-                    <p class="mt-1 truncate text-sm text-muted-foreground">
+                    <p
+                        class="mt-1 line-clamp-2 text-sm leading-tight text-muted-foreground"
+                    >
                         {{ columna.titulo }}
                     </p>
                 </div>

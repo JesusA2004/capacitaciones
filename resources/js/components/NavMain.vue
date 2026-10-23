@@ -31,12 +31,18 @@ const props = withDefaults(
         numero?: number;
         /** Icono de la etapa/bloque. */
         icono?: LucideIcon;
+        /**
+         * Grupo único (p. ej. «Mi espacio» del colaborador): siempre abierto
+         * y sin plegado — si se plegara, el sidebar quedaría vacío.
+         */
+        fijo?: boolean;
     }>(),
     {
         titulo: 'Navegación',
         id: undefined,
         numero: undefined,
         icono: undefined,
+        fijo: false,
     },
 );
 
@@ -141,12 +147,12 @@ watch(grupoActivo, (activo) => {
 });
 
 const abierto = computed<boolean>(() =>
-    sidebarContraido.value ? true : abiertoGuardado.value,
+    sidebarContraido.value || props.fijo ? true : abiertoGuardado.value,
 );
 
 function alCambiar(valor: boolean): void {
     // En modo iconos el grupo se fuerza abierto: no se persiste nada.
-    if (sidebarContraido.value) {
+    if (sidebarContraido.value || props.fijo) {
         return;
     }
 
@@ -165,11 +171,16 @@ function alCambiar(valor: boolean): void {
         <SidebarGroup class="px-2 py-1">
             <!-- Encabezado del grupo = disparador del plegado. Se oculta en
                  modo iconos (SidebarGroupLabel) y deja de ser clicable. -->
-            <CollapsibleTrigger as-child :disabled="sidebarContraido">
+            <CollapsibleTrigger as-child :disabled="sidebarContraido || fijo">
                 <SidebarGroupLabel
                     as="button"
                     type="button"
-                    class="group/etiqueta flex min-h-7 w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-left text-[10px] leading-tight font-semibold tracking-[0.06em] text-bronce uppercase transition-colors hover:bg-salvia/60 hover:text-primary focus-visible:ring-2"
+                    class="group/etiqueta flex min-h-7 w-full items-center gap-2 rounded-md px-2 py-1 text-left text-[10px] leading-tight font-semibold tracking-[0.06em] text-bronce uppercase transition-colors focus-visible:ring-2"
+                    :class="
+                        fijo
+                            ? 'cursor-default'
+                            : 'cursor-pointer hover:bg-salvia/60 hover:text-primary'
+                    "
                 >
                     <!-- Número de etapa, discreto (1–7); los bloques
                          transversales no lo llevan. -->
@@ -188,6 +199,7 @@ function alCambiar(valor: boolean): void {
                     />
                     <span class="min-w-0 flex-1">{{ titulo }}</span>
                     <ChevronRight
+                        v-if="!fijo"
                         class="ml-auto size-3.5 shrink-0 text-bronce/70 transition-transform duration-200 group-data-[state=open]/colapsable:rotate-90"
                         aria-hidden="true"
                     />

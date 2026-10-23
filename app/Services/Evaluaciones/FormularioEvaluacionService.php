@@ -233,7 +233,7 @@ class FormularioEvaluacionService
     }
 
     /**
-     * Para el formulario de captura del jefe (web): criterios, filtros,
+     * Para el formulario que contesta el colaborador (web y app): criterios, filtros,
      * escala y reglas — sin nada privado (el periodo de prueba no tiene clave
      * de respuestas).
      *
@@ -1086,7 +1086,7 @@ class FormularioEvaluacionService
             'version' => sprintf('%s-v%d', $clave->codigoPorDefecto(), (int) config('contratos.evaluacion_periodo_prueba_v2.version_vigente', 2)),
             'codigo' => $clave->codigoPorDefecto(),
             'titulo' => 'Evaluación de Término de Periodo de Prueba',
-            'descripcion' => 'Califica el desempeño del colaborador durante su capacitación inicial. Con esta evaluación se decide si se renueva su contrato.',
+            'descripcion' => 'Contesta con honestidad cómo ha sido tu desempeño durante tu capacitación inicial. Recursos Humanos revisa tus respuestas y con ellas decide la renovación de tu contrato.',
         ];
     }
 

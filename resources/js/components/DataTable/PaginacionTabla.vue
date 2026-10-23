@@ -269,7 +269,7 @@ onMounted(() => {
             <div v-if="datos.last_page > 1" class="flex items-center gap-1">
                 <button
                     type="button"
-                    class="flex size-9 items-center justify-center rounded-lg border border-[var(--mrl-borde)] hover:bg-[var(--mrl-fondo)] disabled:opacity-40"
+                    class="flex size-10 items-center justify-center rounded-lg border border-[var(--mrl-borde)] hover:bg-[var(--mrl-fondo)] disabled:opacity-40 sm:size-9"
                     :disabled="datos.current_page <= 1"
                     aria-label="Página anterior"
                     @click="irAPagina(datos.current_page - 1)"
@@ -308,7 +308,7 @@ onMounted(() => {
                 </span>
                 <button
                     type="button"
-                    class="flex size-9 items-center justify-center rounded-lg border border-[var(--mrl-borde)] hover:bg-[var(--mrl-fondo)] disabled:opacity-40"
+                    class="flex size-10 items-center justify-center rounded-lg border border-[var(--mrl-borde)] hover:bg-[var(--mrl-fondo)] disabled:opacity-40 sm:size-9"
                     :disabled="datos.current_page >= datos.last_page"
                     aria-label="Página siguiente"
                     @click="irAPagina(datos.current_page + 1)"

@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { useMediaQuery } from '@vueuse/core';
+import { useMediaQuery, useMutationObserver } from '@vueuse/core';
 import type { Component } from 'vue';
+import { computed, onBeforeUnmount, ref, useTemplateRef, watch } from 'vue';
+import { useEspacioAccionesPagina } from '@/composables/useEspacioAccionesPagina';
 
 /**
  * Barra superior de una pantalla. En los módulos (listados, tableros) NO
@@ -19,6 +21,11 @@ import type { Component } from 'vue';
  * superior junto al breadcrumb (#acciones-pagina en AppSidebarHeader): una
  * fila entera solo para un botón alineado a la derecha era espacio muerto.
  * En móvil se quedan en la página, donde sí caben.
+ *
+ * Solo suben a la barra si CABEN junto al breadcrumb
+ * (useEspacioAccionesPagina): con varios botones largos en 768–1100 px se
+ * quedan en la página, debajo del breadcrumb, acomodados en renglones —
+ * nunca encima de él ni desbordando la barra.
  */
 const props = withDefaults(
     defineProps<{
@@ -31,6 +38,49 @@ const props = withDefaults(
 );
 
 const enEscritorio = useMediaQuery('(min-width: 768px)');
+const { espacioAcciones } = useEspacioAccionesPagina();
+
+const barra = useTemplateRef<HTMLElement>('barra');
+/** Ancho que necesitan los botones en un solo renglón (gap-2 = 8 px). */
+const anchoNecesario = ref(0);
+
+function medir(): void {
+    const hijos = barra.value
+        ? (Array.from(barra.value.children) as HTMLElement[])
+        : [];
+    const visibles = hijos.filter((h) => h.offsetWidth > 0);
+
+    anchoNecesario.value =
+        visibles.reduce((total, h) => total + h.offsetWidth, 0) +
+        Math.max(0, visibles.length - 1) * 8;
+}
+
+// Cada botón se observa por separado: cambia de ancho al cambiar su texto
+// («Guardando…») o al aparecer/desaparecer, esté donde esté.
+const observador =
+    typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(medir);
+
+function observarBotones(): void {
+    if (!observador || !barra.value) {
+        return;
+    }
+
+    observador.disconnect();
+
+    for (const hijo of Array.from(barra.value.children)) {
+        observador.observe(hijo);
+    }
+
+    medir();
+}
+
+watch(barra, observarBotones, { flush: 'post' });
+useMutationObserver(barra, observarBotones, { childList: true });
+onBeforeUnmount(() => observador?.disconnect());
+
+const enBarraSuperior = computed(
+    () => enEscritorio.value && anchoNecesario.value <= espacioAcciones.value,
+);
 </script>
 
 <template>
@@ -47,7 +97,9 @@ const enEscritorio = useMediaQuery('(min-width: 768px)');
                 <component :is="icono" class="size-5" />
             </span>
             <div class="min-w-0">
-                <h2 class="truncate text-2xl font-semibold tracking-tight">
+                <h2
+                    class="text-xl font-semibold tracking-tight text-balance break-words sm:text-2xl"
+                >
                     {{ titulo }}
                 </h2>
                 <p
@@ -71,13 +123,14 @@ const enEscritorio = useMediaQuery('(min-width: 768px)');
         v-else-if="$slots.default"
         to="#acciones-pagina"
         defer
-        :disabled="!enEscritorio"
+        :disabled="!enBarraSuperior"
     >
         <div
+            ref="barra"
             data-tour="encabezado"
             role="toolbar"
             :aria-label="titulo"
-            class="flex flex-wrap items-center justify-end gap-2"
+            class="flex flex-wrap items-center justify-end gap-2 max-md:[&>*]:min-h-10 max-md:[&>*]:grow"
         >
             <slot />
         </div>

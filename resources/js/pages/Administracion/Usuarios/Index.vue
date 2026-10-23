@@ -115,13 +115,25 @@ const { mostrarExito, mostrarError } = useAlertas();
 
 const columnas: ColumnaDataTable[] = [
     { clave: 'colaborador', etiqueta: 'Colaborador' },
-    { clave: 'username', etiqueta: 'Usuario' },
-    { clave: 'email', etiqueta: 'Correo' },
-    { clave: 'roles_nombres', etiqueta: 'Roles' },
+    { clave: 'username', etiqueta: 'Usuario', clase: 'hidden xl:table-cell' },
+    { clave: 'email', etiqueta: 'Correo', clase: 'hidden lg:table-cell' },
+    { clave: 'roles_nombres', etiqueta: 'Roles', clase: 'whitespace-normal' },
     { clave: 'estado_cuenta', etiqueta: 'Cuenta' },
-    { clave: 'estado_colaborador', etiqueta: 'Situación laboral' },
-    { clave: 'email_verified_at', etiqueta: 'Correo verificado' },
-    { clave: 'ultimo_acceso', etiqueta: 'Último acceso' },
+    {
+        clave: 'estado_colaborador',
+        etiqueta: 'Situación laboral',
+        clase: 'min-w-28 whitespace-normal',
+    },
+    {
+        clave: 'email_verified_at',
+        etiqueta: 'Correo verificado',
+        clase: 'hidden 2xl:table-cell',
+    },
+    {
+        clave: 'ultimo_acceso',
+        etiqueta: 'Último acceso',
+        clase: 'hidden xl:table-cell',
+    },
 ];
 
 const dialogCrearAbierto = ref(false);
@@ -290,7 +302,10 @@ function restablecer(usuario: UsuarioItem) {
             </template>
 
             <template #celda-colaborador="{ fila }">
-                <span>{{ fila.name }} {{ fila.apellidos }}</span>
+                <span class="block">{{ fila.name }} {{ fila.apellidos }}</span>
+                <span class="block text-xs text-muted-foreground xl:hidden">{{
+                    fila.username
+                }}</span>
             </template>
             <template #celda-roles_nombres="{ fila }">
                 <div class="flex flex-wrap gap-1">
@@ -430,6 +445,18 @@ function restablecer(usuario: UsuarioItem) {
                             · {{ fila.estado_colaborador.etiqueta }}
                         </span>
                     </template>
+                    <span class="flex flex-wrap gap-1">
+                        <Badge
+                            v-for="rol in fila.roles_nombres"
+                            :key="rol"
+                            variant="outline"
+                            class="capitalize"
+                            >{{ rol.replace(/_/g, ' ') }}</Badge
+                        >
+                        <span v-if="fila.roles_nombres.length === 0"
+                            >Sin roles</span
+                        >
+                    </span>
                     <template #acciones>
                         <CrudActionMenu>
                             <DropdownMenuItem @select="abrirEditarRoles(fila)"

@@ -235,21 +235,25 @@ const columnas = computed(() =>
     })),
 );
 
-// Identidad visual de cada fase (paleta People): ícono + color de acento.
+// Identidad visual de cada fase (paleta People): ícono + color de acento,
+// siempre con los tokens de resources/css/app.css (nunca hex sueltos).
 const ESTILO_FASE: Record<string, { icono: typeof Users; color: string }> = {
-    filtro_rh: { icono: Filter, color: '#2b7a6e' },
-    entrevista: { icono: MessagesSquare, color: '#3f7f4b' },
-    psicometricos: { icono: BrainCircuit, color: '#af8b51' },
-    socioeconomico: { icono: House, color: '#a3702c' },
-    referencias: { icono: PhoneCall, color: '#8a6d3b' },
-    contratacion: { icono: FileSignature, color: '#1f6f78' },
-    capacitacion_inicial: { icono: GraduationCap, color: '#5b8a3a' },
-    laborando: { icono: Briefcase, color: '#4a8f57' },
-    rechazado: { icono: UserX, color: '#c8414d' },
-    desistido: { icono: UserMinus, color: '#7a8a86' },
+    filtro_rh: { icono: Filter, color: 'var(--mrl-petroleo)' },
+    entrevista: { icono: MessagesSquare, color: 'var(--pastel-esmeralda)' },
+    psicometricos: { icono: BrainCircuit, color: 'var(--mrl-dorado)' },
+    socioeconomico: { icono: House, color: 'var(--mrl-bronce)' },
+    referencias: { icono: PhoneCall, color: 'var(--mrl-dorado-oscuro)' },
+    contratacion: { icono: FileSignature, color: 'var(--info)' },
+    capacitacion_inicial: {
+        icono: GraduationCap,
+        color: 'var(--mrl-verde-secundario)',
+    },
+    laborando: { icono: Briefcase, color: 'var(--success)' },
+    rechazado: { icono: UserX, color: 'var(--destructive)' },
+    desistido: { icono: UserMinus, color: 'var(--muted-foreground)' },
 };
 const estiloFase = (fase: string) =>
-    ESTILO_FASE[fase] ?? { icono: UserRound, color: '#2b7a6e' };
+    ESTILO_FASE[fase] ?? { icono: UserRound, color: 'var(--mrl-petroleo)' };
 
 const FASES_SALIDA = ['rechazado', 'desistido'];
 const fasesRecorrido = computed(() =>
@@ -443,9 +447,10 @@ function confirmarSalida() {
 
         <div
             data-tour="candidatos-filtros"
-            class="flex flex-wrap items-center gap-2"
+            class="grid grid-cols-2 items-center gap-2 sm:flex sm:flex-wrap"
         >
             <CrudSearchInput
+                class="col-span-2"
                 :model-value="filtros.busqueda"
                 placeholder="Buscar por nombre o correo..."
                 @update:model-value="
@@ -465,7 +470,7 @@ function confirmarSalida() {
                     }))
                 "
                 placeholder="Mes"
-                class="w-44"
+                class="w-full sm:w-48"
                 @update:model-value="
                     (v) => {
                         filtros.mes = String(v ?? '');
@@ -484,7 +489,7 @@ function confirmarSalida() {
                 "
                 placeholder="Todas las fuentes"
                 opcion-vacia="Todas las fuentes"
-                class="w-44"
+                class="w-full sm:w-48"
                 @update:model-value="
                     (v) => {
                         filtros.fuente = String(v ?? '');
@@ -498,7 +503,7 @@ function confirmarSalida() {
                 :opciones="opcionesDe(opciones.empresas)"
                 placeholder="Todas las empresas"
                 opcion-vacia="Todas las empresas"
-                class="w-48"
+                class="w-full sm:w-48"
                 @update:model-value="
                     (v) => {
                         filtros.empresa_id = String(v ?? '');
@@ -512,7 +517,7 @@ function confirmarSalida() {
                 :opciones="opcionesDe(opciones.sucursales)"
                 placeholder="Todas las sucursales"
                 opcion-vacia="Todas las sucursales"
-                class="w-48"
+                class="w-full sm:w-48"
                 @update:model-value="
                     (v) => {
                         filtros.sucursal_id = String(v ?? '');
@@ -526,7 +531,7 @@ function confirmarSalida() {
                 :opciones="opcionesDe(opciones.puestos)"
                 placeholder="Todos los puestos"
                 opcion-vacia="Todos los puestos"
-                class="w-48"
+                class="w-full sm:w-48"
                 @update:model-value="
                     (v) => {
                         filtros.puesto_objetivo_id = String(v ?? '');
@@ -676,7 +681,7 @@ function confirmarSalida() {
                                         ? estiloFase(fase.value).color
                                         : undefined,
                                     color: faseActiva(fase.value)
-                                        ? '#ffffff'
+                                        ? 'var(--primary-foreground)'
                                         : estiloFase(fase.value).color,
                                 }"
                             >

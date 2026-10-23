@@ -911,8 +911,11 @@ function siguientePorRevisar() {
                         ><ArrowLeft class="size-4"
                     /></Link>
                 </Button>
-                <div class="mr-auto min-w-0">
-                    <p class="truncate font-semibold">
+                <div class="mr-auto min-w-0 flex-1 basis-48">
+                    <p
+                        class="line-clamp-2 leading-snug font-semibold break-words md:line-clamp-1"
+                        :title="datos.master.nombre"
+                    >
                         {{ datos.master.nombre }}
                     </p>
                     <p
@@ -967,7 +970,7 @@ function siguientePorRevisar() {
 
                 <div
                     v-if="editable"
-                    class="flex items-center gap-0.5 border-l pl-2"
+                    class="flex items-center gap-0.5 sm:border-l sm:pl-2"
                 >
                     <Tooltip>
                         <TooltipTrigger as-child
@@ -997,7 +1000,7 @@ function siguientePorRevisar() {
 
                 <div
                     v-if="esPdf"
-                    class="flex items-center gap-0.5 border-l pl-2"
+                    class="flex items-center gap-0.5 sm:border-l sm:pl-2"
                 >
                     <Button
                         size="icon"
@@ -1020,7 +1023,7 @@ function siguientePorRevisar() {
 
                 <div
                     v-if="esPdf && seleccion.length > 1"
-                    class="flex items-center gap-0.5 border-l pl-2"
+                    class="flex items-center gap-0.5 sm:border-l sm:pl-2"
                 >
                     <Button
                         size="icon"
@@ -1066,7 +1069,7 @@ function siguientePorRevisar() {
                     /></Button>
                 </div>
 
-                <div class="flex items-center gap-1.5 border-l pl-2">
+                <div class="flex items-center gap-1.5 sm:border-l sm:pl-2">
                     <Button
                         v-if="puede.probar"
                         size="sm"

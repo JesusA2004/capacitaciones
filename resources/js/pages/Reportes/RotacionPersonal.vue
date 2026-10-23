@@ -283,7 +283,7 @@ const NOMBRE_MES = [
             data-tour="rotacion-filtros"
             class="flex flex-wrap items-end gap-4 rounded-2xl border border-border bg-card p-4"
         >
-            <div class="flex min-w-56 flex-col gap-1.5">
+            <div class="flex w-full flex-col gap-1.5 sm:w-64">
                 <Label for="filtro-sucursal">Sucursal</Label>
                 <SelectSimple
                     id="filtro-sucursal"
@@ -297,7 +297,7 @@ const NOMBRE_MES = [
                     ]"
                     placeholder="Todas"
                     placeholder-busqueda="Buscar sucursal…"
-                    class="w-64"
+                    class="w-full"
                 />
             </div>
             <div class="flex flex-col gap-1.5">
@@ -317,7 +317,7 @@ const NOMBRE_MES = [
         <!-- Indicadores -->
         <section
             data-tour="rotacion-indicadores"
-            class="grid grid-cols-2 gap-3 lg:grid-cols-5"
+            class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
         >
             <div class="rounded-2xl border border-border bg-card p-4">
                 <p class="text-xs text-muted-foreground">Altas</p>
@@ -343,7 +343,9 @@ const NOMBRE_MES = [
                     {{ porcentaje(tablero.totales.promedio_mensual) }}
                 </p>
             </div>
-            <div class="rounded-2xl border border-border bg-crema p-4">
+            <div
+                class="col-span-2 rounded-2xl border border-border bg-crema p-4 xl:col-span-1"
+            >
                 <p class="text-xs text-muted-foreground">
                     Rotación acumulada ({{ tablero.totales.meses_con_datos }}
                     meses)

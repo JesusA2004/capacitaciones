@@ -138,7 +138,10 @@ export async function vistaPreviaPost(
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            Accept: 'application/pdf, text/html, application/json',
+            // JSON primero: un error de validación (422) llega como JSON con
+            // su motivo, no como redirect a la página (que se veía como un
+            // «archivo» roto en el visor). El PDF se sirve igual.
+            Accept: 'application/json, application/pdf, text/html',
             'X-XSRF-TOKEN': leerCookie('XSRF-TOKEN') ?? '',
         },
         credentials: 'same-origin',
@@ -158,6 +161,15 @@ export async function vistaPreviaPost(
             primerError ??
                 datos?.message ??
                 'No se pudo generar la vista previa.',
+            respuesta.status,
+        );
+    }
+
+    // Una redirección (sesión vencida, error no JSON) aterriza en una página
+    // HTML: nunca se muestra como si fuera el documento.
+    if (respuesta.redirected) {
+        throw new ErrorSolicitud(
+            'No se pudo generar la vista previa.',
             respuesta.status,
         );
     }

@@ -33,7 +33,7 @@ use Throwable;
  *
  *  - crea la evaluación de periodo de prueba (una por contrato: índice único),
  *  - abre las tareas "contrato por vencer" y "evaluación pendiente",
- *  - avisa al evaluador (regla "evaluacion_pendiente") y que ya se debe
+ *  - avisa al COLABORADOR evaluado (la contesta él: regla "evaluacion_pendiente") y que ya se debe
  *    renovar el contrato (regla "contrato_por_vencer": RH, gerencia de su
  *    sucursal, su regional y la Gerencia de RH),
  *  - marca aviso_vencimiento_en para no volver a notificar.
@@ -118,8 +118,8 @@ class VencimientoContratosService
     /**
      * «Asignar evaluación» desde el tablero de Evaluaciones de periodo de
      * prueba: RH abre AHORA (antes de que el scheduler lo haga solo) la
-     * evaluación del contrato vigente del colaborador, asignada a su jefe
-     * directo del organigrama (o a su gerente), con exactamente las mismas
+     * evaluación del contrato vigente del colaborador, para que ÉL la
+     * conteste (autoevaluación; nunca RH ni su jefe), con exactamente las mismas
      * tareas y avisos que el scheduler (procesar()). Nunca duplica: una
      * evaluación por contrato (índice único).
      *
@@ -218,8 +218,8 @@ class VencimientoContratosService
     }
 
     /**
-     * Crea (una sola vez por contrato) la evaluación pendiente asignada al
-     * jefe directo del organigrama o, si no hay, al gerente, y marca el aviso
+     * Crea (una sola vez por contrato) la evaluación pendiente que contesta el
+     * propio colaborador (autoevaluación), y marca el aviso
      * del contrato. Null si otra ejecución ya lo hizo o el contrato ya no
      * aplica. `$anticipada`: la pidió RH desde el tablero (no exige que el
      * aviso siga sin marcar, pero tampoco reutiliza una evaluación existente).
@@ -248,7 +248,8 @@ class VencimientoContratosService
                 ['contrato_laboral_id' => $contrato->id],
                 [
                     'colaborador_id' => $colaborador->id,
-                    'evaluador_colaborador_id' => $colaborador->jefe_id ?? $colaborador->gerente_id,
+                    // Autoevaluación: la persona evaluada es quien la contesta.
+                    'evaluador_colaborador_id' => $colaborador->id,
                     'estado' => EstadoEvaluacionPrueba::Pendiente,
                     'fecha_limite' => $contrato->fecha_fin?->toDateString(),
                     // Versión vigente del formulario configurable (null = formato de config/).
@@ -280,12 +281,13 @@ class VencimientoContratosService
 
     private function avisar(EvaluacionPeriodoPrueba $evaluacion): void
     {
-        $evaluacion->loadMissing(['contrato', 'colaborador.jefe.user', 'colaborador.gerente.user', 'evaluador.user']);
+        $evaluacion->loadMissing(['contrato', 'colaborador.user']);
         $contrato = $evaluacion->contrato;
         $colaborador = $evaluacion->colaborador;
         $vence = $contrato->fecha_fin?->format('d/m/Y') ?? '';
         $nombre = $colaborador->nombreCompleto();
-        $evaluadorUsuario = $evaluacion->evaluador?->user;
+        // Autoevaluación: la contesta el propio colaborador (nunca RH ni su jefe).
+        $colaboradorUsuario = $colaborador->user;
 
         $this->tareas->abrir(TipoTarea::ContratoPorVencer, $contrato, [
             'titulo' => "Contrato por vencer: {$nombre} ({$vence})",
@@ -296,28 +298,22 @@ class VencimientoContratosService
             'vence_en' => $contrato->fecha_fin,
         ]);
 
-        $this->tareas->abrir(TipoTarea::EvaluacionPendiente, $evaluacion, [
-            'titulo' => "Evaluar periodo de prueba: {$nombre}",
-            'descripcion' => "El contrato vence el {$vence}. Captura la evaluación y la recomendación de renovación.",
-            'prioridad' => PrioridadTarea::Alta,
-            'colaborador' => $colaborador,
-            'usuario' => $evaluadorUsuario,
-            'permiso' => $evaluadorUsuario === null ? self::PERMISO_RH : null,
-            'accion' => 'capturar_evaluacion',
-            'vence_en' => $contrato->fecha_fin,
-        ]);
+        app(EvaluacionPeriodoPruebaService::class)->asignarAlColaborador(
+            $evaluacion,
+            'Contesta tu evaluación de periodo de prueba',
+            "Tu contrato de capacitación inicial vence el {$vence}. Contesta tu evaluación en Mi espacio.",
+            $contrato->fecha_fin,
+        );
 
-        $mensaje = "El contrato de {$nombre} vence el {$vence}. La evaluación de periodo de prueba ya está habilitada.";
-
-        // Evaluador (o, si no hay, su jefe/gerente según la regla).
+        // El colaborador evaluado (o, si la regla se configuró distinto, quien indique).
         $avisados = $this->notificador->notificarEvento(
             'evaluacion_pendiente',
             $colaborador,
-            ['evaluador' => $evaluadorUsuario],
-            'Evaluación de periodo de prueba pendiente',
-            $mensaje,
+            ['evaluador' => $colaboradorUsuario],
+            'Contesta tu evaluación de periodo de prueba',
+            "Recursos Humanos te asignó tu evaluación de capacitación inicial (periodo de prueba). Contéstala antes del {$vence} desde Mi espacio.",
             $evaluacion,
-            'capturar_evaluacion',
+            EvaluacionPeriodoPruebaService::ACCION_CONTESTAR,
             'alta',
         );
 

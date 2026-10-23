@@ -41,7 +41,8 @@ function recargar(valor = Date.now()) {
 
 <template>
     <!-- Configuración a la izquierda (ancho legible) y vista previa REAL a la
-         derecha, fija al hacer scroll en escritorio; en móvil va debajo. -->
+         derecha, fija al hacer scroll en escritorio; en pantallas angostas va
+         arriba (más chica) para no quedar enterrada bajo la lista de frases. -->
     <div class="pagina-ancha flex flex-col gap-4">
         <div class="flex items-center gap-2">
             <Button as-child variant="ghost" size="icon-sm">
@@ -60,7 +61,7 @@ function recargar(valor = Date.now()) {
             </div>
 
             <aside
-                class="flex flex-col gap-2 lg:sticky lg:top-4"
+                class="order-first flex flex-col gap-2 lg:sticky lg:top-4 lg:order-none"
                 aria-label="Vista previa"
             >
                 <div class="flex items-center justify-between">
@@ -80,7 +81,7 @@ function recargar(valor = Date.now()) {
                     </Button>
                 </div>
                 <div
-                    class="relative mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-xl border bg-muted/40"
+                    class="relative mx-auto aspect-[4/5] w-full max-w-xs overflow-hidden rounded-xl border bg-muted/40 sm:max-w-sm lg:max-w-md"
                 >
                     <Skeleton
                         v-if="cargando && !error"

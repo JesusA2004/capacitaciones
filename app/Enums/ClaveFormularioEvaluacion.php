@@ -24,7 +24,7 @@ enum ClaveFormularioEvaluacion: string
     {
         return match ($this) {
             self::Induccion => 'La contesta el colaborador al terminar su Inducción Mr. Lana. Las secciones A, B y C se califican solas; los casos prácticos los califica Recursos Humanos.',
-            self::PeriodoPrueba => 'La contesta el jefe directo antes de que termine el contrato de prueba: decide si se renueva el contrato.',
+            self::PeriodoPrueba => 'La contesta el propio colaborador (autoevaluación) antes de que termine su contrato de prueba. RH la asigna, revisa sus respuestas y decide si se renueva el contrato.',
         };
     }
 
@@ -42,7 +42,7 @@ enum ClaveFormularioEvaluacion: string
     {
         return match ($this) {
             self::Induccion => 'colaborador',
-            self::PeriodoPrueba => 'evaluador',
+            self::PeriodoPrueba => 'colaborador',
         };
     }
 }

@@ -68,9 +68,9 @@ import type {
 
 /**
  * Editor tipo Google Forms de un formulario de evaluación: preguntas,
- * diseño, vista previa (el MISMO componente que ve el colaborador o el
- * jefe) y versiones. El borrador se guarda solo; publicar crea una versión
- * inmutable que usan las evaluaciones nuevas.
+ * diseño, vista previa (el MISMO componente que ve el colaborador al
+ * contestarla) y versiones. El borrador se guarda solo; publicar crea una
+ * versión inmutable que usan las evaluaciones nuevas.
  */
 const props = defineProps<{
     clave: ClaveFormularioEvaluacion;
@@ -793,7 +793,7 @@ const campoTitulo =
                             {{
                                 esInduccion
                                     ? 'colaborador'
-                                    : 'evaluador (jefe directo)'
+                                    : 'colaborador (autoevaluación)'
                             }}.</strong
                         >
                         Es la misma pantalla que verá; puedes marcar respuestas

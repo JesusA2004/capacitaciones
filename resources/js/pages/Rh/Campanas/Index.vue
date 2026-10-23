@@ -311,14 +311,17 @@ async function eliminar(campana: CampanaReclutamientoItem) {
             </template>
         </p>
 
-        <div data-tour="campanas-filtros" class="flex flex-wrap gap-2">
+        <div
+            data-tour="campanas-filtros"
+            class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap"
+        >
             <SelectSimple
                 :model-value="filtros.mes"
                 :opciones="
                     meses.map((o) => ({ value: o.value, label: o.etiqueta }))
                 "
                 placeholder="Mes"
-                class="w-36"
+                class="w-full sm:w-36"
                 @update:model-value="
                     (v) => {
                         filtros.mes = String(v ?? '');
@@ -336,7 +339,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                     }
                 "
             >
-                <SelectTrigger class="w-28">
+                <SelectTrigger class="w-full sm:w-28">
                     <SelectValue placeholder="Año" />
                 </SelectTrigger>
                 <SelectContent>
@@ -359,7 +362,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                 "
                 placeholder="Canal"
                 opcion-vacia="Todos los canales"
-                class="w-40"
+                class="w-full sm:w-40"
                 @update:model-value="
                     (v) => {
                         filtros.canal = String(v ?? '');
@@ -373,7 +376,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                 :opciones="opcionesDe(opciones.empresas)"
                 placeholder="Empresa"
                 opcion-vacia="Todas las empresas"
-                class="w-44"
+                class="w-full sm:w-44"
                 @update:model-value="
                     (v) => {
                         filtros.empresa_id = String(v ?? '');
@@ -388,7 +391,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                 :opciones="opcionesDe(sucursalesFiltradas)"
                 placeholder="Sucursal"
                 opcion-vacia="Todas las sucursales"
-                class="w-44"
+                class="w-full sm:w-44"
                 @update:model-value="
                     (v) => {
                         filtros.sucursal_id = String(v ?? '');
@@ -402,7 +405,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                 :opciones="opcionesDe(opciones.departamentos)"
                 placeholder="Departamento"
                 opcion-vacia="Todos los departamentos"
-                class="w-44"
+                class="w-full sm:w-44"
                 @update:model-value="
                     (v) => {
                         filtros.departamento_id = String(v ?? '');
@@ -417,7 +420,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                 :opciones="opcionesDe(puestosFiltrados)"
                 placeholder="Puesto"
                 opcion-vacia="Todos los puestos"
-                class="w-44"
+                class="w-full sm:w-44"
                 @update:model-value="
                     (v) => {
                         filtros.puesto_id = String(v ?? '');
@@ -446,7 +449,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
         <div
             v-else
             data-tour="tabla"
-            class="grid gap-4 lg:grid-cols-2 2xl:grid-cols-3"
+            class="rejilla-auto gap-4 [--rejilla-min:20rem]"
         >
             <article
                 v-for="campana in campanas.data"

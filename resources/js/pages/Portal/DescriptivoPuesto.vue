@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowRight, BriefcaseBusiness } from '@lucide/vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import DescriptivoPuestoColaborador from '@/components/onboarding/DescriptivoPuestoColaborador.vue';
 import { dashboard } from '@/routes';
 import { miProceso } from '@/routes/portal';
@@ -42,19 +43,20 @@ defineOptions({
 
         <section
             v-else
-            class="flex flex-col items-start gap-3 rounded-3xl border border-border/60 bg-card p-6"
+            class="rounded-3xl border border-border/60 bg-card shadow-sm"
         >
-            <BriefcaseBusiness class="size-8 text-muted-foreground" />
-            <p class="text-sm text-muted-foreground">
-                Recursos Humanos todavía no te envía tu descriptivo de puesto.
-                Te avisaremos cuando esté listo.
-            </p>
-            <Link
-                :href="miProceso()"
-                class="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+            <EmptyState
+                :icono="BriefcaseBusiness"
+                titulo="Tu descriptivo todavía no está listo"
+                descripcion="Recursos Humanos todavía no te envía tu descriptivo de puesto. Te avisaremos cuando esté listo."
             >
-                Ir a Mis pendientes <ArrowRight class="size-4" />
-            </Link>
+                <Link
+                    :href="miProceso()"
+                    class="inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-medium text-primary hover:bg-salvia/60"
+                >
+                    Ir a Mis pendientes <ArrowRight class="size-4" />
+                </Link>
+            </EmptyState>
         </section>
     </div>
 </template>

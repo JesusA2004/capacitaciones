@@ -10,34 +10,43 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\JerarquiaColaboradorService;
 
 /**
- * La evaluación la captura el jefe inmediato/gerente del colaborador (según
- * la estructura jerárquica real) o RH con permiso de autorizar; la autoriza
- * RH/Dirección. Nadie evalúa ni autoriza su propia evaluación — salvo
- * super_admin, ver ConSuperAdminOperativo.
+ * La evaluación de periodo de prueba es una AUTOEVALUACIÓN: la contesta
+ * ÚNICAMENTE el colaborador evaluado (ni RH, ni su jefe, ni super_admin).
+ * RH/Dirección la asigna, ve sus respuestas, imprime el PDF y decide
+ * (autorizar/devolver); el jefe directo solo le da seguimiento. Nadie
+ * autoriza su propia evaluación — salvo super_admin, ver ConSuperAdminOperativo.
  */
 class EvaluacionPeriodoPruebaPolicy
 {
-    use ConSuperAdminOperativo;
+    use ConSuperAdminOperativo {
+        before as private beforeSuperAdmin;
+    }
 
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly JerarquiaColaboradorService $jerarquia,
     ) {}
 
+    /**
+     * super_admin opera todo lo de RH, pero NUNCA contesta la evaluación de
+     * otra persona: «contestar» lo decide solo la regla de abajo.
+     */
+    public function before(User $usuario, string $habilidad): ?bool
+    {
+        return $habilidad === 'contestar' ? null : $this->beforeSuperAdmin($usuario, $habilidad);
+    }
+
     public function ver(User $usuario, EvaluacionPeriodoPrueba $evaluacion): bool
     {
-        return $this->esEvaluador($usuario, $evaluacion)
+        return $this->esElEvaluado($usuario, $evaluacion)
+            || $this->esJefe($usuario, $evaluacion)
             || ($usuario->can('evaluaciones.ver') && $this->alcance->alcanzaColaboradorEnModulo($usuario, $evaluacion->colaborador, 'evaluaciones'));
     }
 
-    public function capturar(User $usuario, EvaluacionPeriodoPrueba $evaluacion): bool
+    /** Contestar (y corregir si RH la devuelve): solo la persona evaluada. */
+    public function contestar(User $usuario, EvaluacionPeriodoPrueba $evaluacion): bool
     {
-        if ($usuario->colaborador_id === $evaluacion->colaborador_id) {
-            return false;
-        }
-
-        return $this->esEvaluador($usuario, $evaluacion)
-            || ($usuario->can('evaluaciones.autorizar') && $this->alcance->alcanzaColaborador($usuario, $evaluacion->colaborador));
+        return $this->esElEvaluado($usuario, $evaluacion);
     }
 
     public function autorizar(User $usuario, EvaluacionPeriodoPrueba $evaluacion): bool
@@ -47,21 +56,21 @@ class EvaluacionPeriodoPruebaPolicy
             && $this->alcance->alcanzaColaborador($usuario, $evaluacion->colaborador);
     }
 
-    /** Devolver al jefe para corrección: autorizar + la acción evaluaciones.devolver. */
+    /** Devolver al colaborador para que la corrija: autorizar + la acción evaluaciones.devolver. */
     public function devolver(User $usuario, EvaluacionPeriodoPrueba $evaluacion): bool
     {
         return $this->autorizar($usuario, $evaluacion) && $usuario->can('evaluaciones.devolver');
     }
 
     /**
-     * PDF para firma (vista previa o descarga): quien la ve; el evaluador
-     * siempre puede imprimir la suya, los demás necesitan además la acción
+     * PDF para firma (vista previa o descarga): quien la ve; su jefe directo
+     * siempre puede imprimirla, RH y los demás necesitan además la acción
      * evaluaciones.descargar.
      */
     public function descargar(User $usuario, EvaluacionPeriodoPrueba $evaluacion): bool
     {
         return $this->ver($usuario, $evaluacion)
-            && ($this->esEvaluador($usuario, $evaluacion) || $usuario->can('evaluaciones.descargar'));
+            && ($this->esJefe($usuario, $evaluacion) || $usuario->can('evaluaciones.descargar'));
     }
 
     /**
@@ -87,9 +96,18 @@ class EvaluacionPeriodoPruebaPolicy
         return $this->autorizar($usuario, $evaluacion);
     }
 
-    private function esEvaluador(User $usuario, EvaluacionPeriodoPrueba $evaluacion): bool
+    private function esElEvaluado(User $usuario, EvaluacionPeriodoPrueba $evaluacion): bool
     {
-        if ($usuario->colaborador_id === null) {
+        return $usuario->colaborador_id !== null && $usuario->colaborador_id === $evaluacion->colaborador_id;
+    }
+
+    /**
+     * Jefe directo de la persona (organigrama real) o, en evaluaciones del
+     * flujo anterior, el jefe que quedó como evaluador asignado.
+     */
+    private function esJefe(User $usuario, EvaluacionPeriodoPrueba $evaluacion): bool
+    {
+        if ($usuario->colaborador_id === null || $this->esElEvaluado($usuario, $evaluacion)) {
             return false;
         }
 

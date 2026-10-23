@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Rh;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\AutorizarEvaluacionRequest;
-use App\Http\Requests\CicloLaboral\CapturarEvaluacionRequest;
 use App\Http\Requests\CicloLaboral\CrearSolicitudExcepcionRequest;
 use App\Http\Requests\CicloLaboral\DecisionAprobacionRequest;
 use App\Http\Requests\CicloLaboral\ResolverSolicitudExcepcionRequest;
@@ -15,8 +14,10 @@ use App\Services\Contratos\SolicitudExcepcionPeriodoPruebaService;
 use Illuminate\Http\RedirectResponse;
 
 /**
- * Periodo de prueba (Etapa 4) en la web: el jefe evalúa (preautorización),
- * RH autoriza o devuelve. Mismo service y misma Policy que la API.
+ * Periodo de prueba (Etapa 4) en la web, lado RH: autorizar o devolver la
+ * AUTOEVALUACIÓN que contestó el colaborador (la contesta él desde «Mi
+ * espacio», ver Portal\EvaluacionPeriodoPruebaController — RH nunca la
+ * contesta). Mismo service y misma Policy que la API.
  */
 class EvaluacionPeriodoPruebaController extends Controller
 {
@@ -24,14 +25,6 @@ class EvaluacionPeriodoPruebaController extends Controller
         private readonly EvaluacionPeriodoPruebaService $evaluaciones,
         private readonly SolicitudExcepcionPeriodoPruebaService $excepciones,
     ) {}
-
-    public function capturar(CapturarEvaluacionRequest $request, EvaluacionPeriodoPrueba $evaluacion): RedirectResponse
-    {
-        $this->authorize('capturar', $evaluacion);
-        $this->evaluaciones->capturar($evaluacion, $request->user(), $request->validated());
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'Evaluación enviada: queda pendiente la autorización final de RH.']);
-    }
 
     public function autorizar(AutorizarEvaluacionRequest $request, EvaluacionPeriodoPrueba $evaluacion): RedirectResponse
     {
@@ -48,7 +41,7 @@ class EvaluacionPeriodoPruebaController extends Controller
         $this->authorize('devolver', $evaluacion);
         $this->evaluaciones->devolver($evaluacion, $request->user(), $request->motivo());
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Evaluación devuelta al jefe para corrección.']);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Evaluación devuelta al colaborador: se le avisó para que la corrija.']);
     }
 
     /**

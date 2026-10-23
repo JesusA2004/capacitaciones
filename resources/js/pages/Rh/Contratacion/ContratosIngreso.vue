@@ -109,7 +109,77 @@ function varianteDocumento(estado: string | null): 'success' | 'info' {
             descripcion="No hay personas en contratación dentro de tu alcance."
         />
 
-        <div v-else class="tabla-scroll rounded-2xl border border-border/60">
+        <!-- Hasta escritorio ancho: tarjetas (la tabla escondía «Gestión»). -->
+        <ul
+            v-if="contratos.data.length"
+            class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:hidden"
+        >
+            <li
+                v-for="fila in contratos.data"
+                :key="fila.id"
+                class="flex min-w-0 flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+            >
+                <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <p class="font-medium">{{ fila.nombre }}</p>
+                        <p class="truncate text-xs text-muted-foreground">
+                            <template v-if="fila.numero_empleado"
+                                >#{{ fila.numero_empleado }} · </template
+                            >{{ fila.puesto ?? '—' }} ·
+                            {{ fila.sucursal ?? '—' }}
+                        </p>
+                    </div>
+                    <Badge :variant="variantePaquete(fila)" class="shrink-0">
+                        {{
+                            fila.paquete_firmado
+                                ? 'Firmado'
+                                : fila.paquete_generado
+                                  ? 'Generado'
+                                  : 'Por generar'
+                        }}
+                    </Badge>
+                </div>
+                <p class="text-xs">
+                    {{ fila.tipo_contrato ?? '—' }}
+                    <span class="text-muted-foreground">
+                        · {{ fila.estado_contrato }}</span
+                    >
+                </p>
+                <ul v-if="fila.documentos.length" class="flex flex-col gap-1.5">
+                    <li
+                        v-for="doc in fila.documentos"
+                        :key="doc.id"
+                        class="flex items-start gap-2"
+                    >
+                        <Badge
+                            :variant="varianteDocumento(doc.estado)"
+                            class="shrink-0"
+                            >{{ doc.estado_etiqueta }}</Badge
+                        >
+                        <span class="min-w-0 text-xs">{{ doc.titulo }}</span>
+                    </li>
+                </ul>
+                <p v-else class="text-xs text-muted-foreground">
+                    Sin documentos generados
+                </p>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    class="mt-auto w-full"
+                    as-child
+                >
+                    <Link :href="fila.gestion_url">
+                        Gestionar
+                        <ArrowUpRight class="size-4" />
+                    </Link>
+                </Button>
+            </li>
+        </ul>
+
+        <div
+            v-if="contratos.data.length"
+            class="hidden tabla-scroll rounded-2xl border border-border/60 xl:block"
+        >
             <Table>
                 <TableHeader>
                     <TableRow>

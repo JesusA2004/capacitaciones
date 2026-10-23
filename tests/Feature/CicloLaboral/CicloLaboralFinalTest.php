@@ -353,15 +353,19 @@ test('E2E: candidato → contratación → onboarding → periodo de prueba → 
 
     $evaluacion = EvaluacionPeriodoPrueba::query()->where('contrato_laboral_id', $contrato->id)->firstOrFail();
     $evaluaciones = app(EvaluacionPeriodoPruebaService::class);
-    $evaluaciones->capturar($evaluacion, $this->gerenteA, cfCapturaOficial(4));
 
-    // La recomendación es solo preautorización.
+    // Autoevaluación: el jefe NO la contesta; solo el colaborador evaluado.
+    expect(fn () => $evaluaciones->contestar($evaluacion, $this->gerenteA, cfCapturaOficial(4)))->toThrow(AuthorizationException::class);
+    $evaluaciones->contestar($evaluacion, $usuario, cfCapturaOficial(4));
+
+    // Contestarla no genera contrato ni es preautorización: la ronda queda
+    // «no aplica» y solo falta la decisión de RH.
     expect(ContratoLaboral::query()->where('colaborador_id', $colaborador->id)->count())->toBe(1)
-        ->and(Aprobacion::query()->where('aprobable_type', $evaluacion->getMorphClass())->where('aprobable_id', $evaluacion->id)->where('etapa', EtapaAprobacion::Preautorizacion->value)->value('estado'))->toBe(EstadoAprobacion::Aprobado);
+        ->and(Aprobacion::query()->where('aprobable_type', $evaluacion->getMorphClass())->where('aprobable_id', $evaluacion->id)->where('etapa', EtapaAprobacion::Preautorizacion->value)->value('estado'))->toBe(EstadoAprobacion::Omitido)
+        ->and(Aprobacion::query()->where('aprobable_type', $evaluacion->getMorphClass())->where('aprobable_id', $evaluacion->id)->where('etapa', EtapaAprobacion::AutorizacionRh->value)->value('estado'))->toBe(EstadoAprobacion::Pendiente);
 
-    // Quien preautorizó no da la autorización final.
-    $this->gerenteA->givePermissionTo(['evaluaciones.autorizar', 'ciclo.autorizar_rh']);
-    expect(fn () => $evaluaciones->autorizar($evaluacion->refresh(), $this->gerenteA, ['renovar' => true]))->toThrow(ValidationException::class);
+    // El colaborador nunca autoriza su propia evaluación (Policy).
+    expect($usuario->can('autorizar', $evaluacion->refresh()))->toBeFalse();
 
     $this->actingAs($this->rh);
     $evaluaciones->autorizar($evaluacion->refresh(), $this->rh, ['renovar' => true]);
@@ -432,7 +436,7 @@ test('C: documento rechazado deja el expediente incompleto, se recarga como nuev
         ->and(TareaRh::query()->where('tipo', TipoTarea::DocumentoPorRevisar->value)->whereNull('resuelta_en')->count())->toBe(1);
 });
 
-test('F: el jefe recomienda NO renovar — no hay baja hasta que RH autoriza, y entonces se abre el cierre sin baja inmediata', function () {
+test('F: la autoevaluación no alcanza la renovación — no hay baja hasta que RH autoriza, y entonces se abre el cierre sin baja inmediata', function () {
     $candidato = cfHastaPreautorizado($this, cfRegistrarCandidato($this));
     ['colaborador' => $colaborador, 'usuario' => $usuario] = cfContratarYRegistrar($this, $candidato);
     cfExpedienteAprobado($this, $colaborador, $usuario);
@@ -444,7 +448,7 @@ test('F: el jefe recomienda NO renovar — no hay baja hasta que RH autoriza, y 
     app(VencimientoContratosService::class)->revisar();
     $evaluacion = EvaluacionPeriodoPrueba::query()->firstOrFail();
 
-    app(EvaluacionPeriodoPruebaService::class)->capturar($evaluacion, $this->gerenteA, [...cfCapturaOficial(2), 'observaciones' => 'Calificación regular en varios criterios; no cumple el mínimo para renovar.']);
+    app(EvaluacionPeriodoPruebaService::class)->contestar($evaluacion, $usuario, [...cfCapturaOficial(2), 'observaciones' => 'Calificación regular en varios criterios; no cumple el mínimo para renovar.']);
 
     expect(CierreLaboral::query()->count())->toBe(0)
         ->and($colaborador->refresh()->estatus)->toBe(EstadoUsuario::Activo);
