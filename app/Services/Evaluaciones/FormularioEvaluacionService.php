@@ -319,6 +319,15 @@ class FormularioEvaluacionService
             $origen = $base ?? $this->publicado($clave) ?? $this->asegurarVersionInicial($clave);
             $siguiente = (int) FormularioEvaluacion::query()->where('clave', $clave->value)->max('version') + 1;
 
+            // El borrador hereda la definición de su versión base; si es
+            // periodo de prueba, se rellenan los niveles/ayudas oficiales que
+            // falten (versiones base antiguas no los tenían) sin pisar nada.
+            $definicion = $origen->definicion;
+
+            if ($clave === ClaveFormularioEvaluacion::PeriodoPrueba) {
+                $definicion = $this->rellenarCriteriosOficialesPeriodoPrueba($definicion);
+            }
+
             return FormularioEvaluacion::query()->create([
                 'clave' => $clave,
                 'version' => $siguiente,
@@ -326,7 +335,7 @@ class FormularioEvaluacionService
                 'titulo' => $origen->titulo,
                 'descripcion' => $origen->descripcion,
                 'diseno' => $origen->diseno,
-                'definicion' => $origen->definicion,
+                'definicion' => $definicion,
                 'estado' => EstadoFormularioEvaluacion::Borrador,
                 'creado_por' => $actor->id,
                 'actualizado_por' => $actor->id,
@@ -1049,6 +1058,84 @@ class FormularioEvaluacionService
     // ---------------------------------------------------------------------
     // Fuente original (config/) y utilidades
     // ---------------------------------------------------------------------
+
+    /**
+     * Rellena SOLO los valores faltantes de los criterios oficiales del
+     * periodo de prueba (FO-RH-EPP-001) con la configuración oficial
+     * (config/contratos.php → evaluacion_periodo_prueba_v2.criterios): la
+     * descripción de cada nivel 4/3/2/1 vacío, la ayuda del criterio si falta
+     * y la captura de Meta/% del renglón que la usa. NUNCA sobrescribe un
+     * texto que RH ya haya escrito ni toca criterios personalizados (claves
+     * que no están en el catálogo oficial). Es idempotente.
+     *
+     * Se usa al crear un borrador (para que herede las descripciones aunque la
+     * versión base sea anterior a esta función) y en la migración que corrige
+     * borradores existentes; nunca sobre versiones publicadas.
+     *
+     * @param  array<string, mixed>  $definicion  definición CRUDA (como se guarda en JSON)
+     * @return array<string, mixed>
+     */
+    public function rellenarCriteriosOficialesPeriodoPrueba(array $definicion): array
+    {
+        $criterios = $definicion['criterios'] ?? null;
+
+        if (! is_array($criterios)) {
+            return $definicion;
+        }
+
+        /** @var array<string, array<string, mixed>> $oficiales */
+        $oficiales = [];
+
+        foreach ((array) config('contratos.evaluacion_periodo_prueba_v2.criterios', []) as $oficial) {
+            if (is_array($oficial) && isset($oficial['clave'])) {
+                $oficiales[(string) $oficial['clave']] = $oficial;
+            }
+        }
+
+        foreach ($criterios as $i => $criterio) {
+            if (! is_array($criterio)) {
+                continue;
+            }
+
+            $clave = (string) ($criterio['clave'] ?? '');
+            $oficial = $oficiales[$clave] ?? null;
+
+            // Criterio personalizado por RH (clave fuera del catálogo): intacto.
+            if ($oficial === null) {
+                continue;
+            }
+
+            $niveles = is_array($criterio['niveles'] ?? null) ? $criterio['niveles'] : [];
+            $nivelesOficiales = is_array($oficial['niveles'] ?? null) ? $oficial['niveles'] : [];
+
+            foreach (['4', '3', '2', '1'] as $n) {
+                $actual = isset($niveles[$n]) ? trim((string) $niveles[$n]) : '';
+                $textoOficial = isset($nivelesOficiales[$n]) ? trim((string) $nivelesOficiales[$n]) : '';
+
+                // Solo rellena lo que está vacío: nunca pisa lo que RH escribió.
+                if ($actual === '' && $textoOficial !== '') {
+                    $niveles[$n] = $textoOficial;
+                }
+            }
+
+            $criterio['niveles'] = $niveles;
+
+            if (trim((string) ($criterio['descripcion'] ?? '')) === '' && trim((string) ($oficial['descripcion'] ?? '')) !== '') {
+                $criterio['descripcion'] = (string) $oficial['descripcion'];
+            }
+
+            // Aditivo: habilita Meta/% donde el formato oficial lo pide; nunca lo apaga.
+            if (! empty($oficial['captura_meta'])) {
+                $criterio['captura_meta'] = true;
+            }
+
+            $criterios[$i] = $criterio;
+        }
+
+        $definicion['criterios'] = $criterios;
+
+        return $definicion;
+    }
 
     /**
      * @return array<string, mixed>

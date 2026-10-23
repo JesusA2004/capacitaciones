@@ -68,8 +68,9 @@ import type {
 
 /**
  * Editor tipo Google Forms de un formulario de evaluación: preguntas,
- * diseño, vista previa (el MISMO componente que ve el colaborador al
- * contestarla) y versiones. El borrador se guarda solo; publicar crea una
+ * diseño, vista previa (el MISMO componente que usa quien la contesta: el
+ * colaborador en Inducción, el jefe directo/evaluador en Periodo de Prueba
+ * FO-RH-EPP-001) y versiones. El borrador se guarda solo; publicar crea una
  * versión inmutable que usan las evaluaciones nuevas.
  */
 const props = defineProps<{
@@ -787,17 +788,19 @@ const campoTitulo =
             >
                 <p class="flex items-start gap-2">
                     <Eye class="mt-0.5 size-4 shrink-0" />
-                    <span>
-                        <strong
-                            >Vista previa como
-                            {{
-                                esInduccion
-                                    ? 'colaborador'
-                                    : 'colaborador (autoevaluación)'
-                            }}.</strong
-                        >
+                    <span v-if="esInduccion">
+                        <strong>Vista previa como colaborador.</strong>
                         Es la misma pantalla que verá; puedes marcar respuestas
                         para probarla, pero no se guarda nada.
+                    </span>
+                    <span v-else>
+                        <strong
+                            >Vista previa como jefe directo / evaluador.</strong
+                        >
+                        Esta es la pantalla que utilizará el responsable de
+                        evaluar al colaborador. Puedes marcar respuestas para
+                        probar el formulario; la vista previa no guarda
+                        información.
                     </span>
                 </p>
                 <div class="flex gap-1 rounded-xl bg-card p-1">

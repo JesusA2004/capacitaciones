@@ -64,6 +64,17 @@ test('RH puede asignar la evaluación del colaborador', function () {
     expect(Gate::forUser($this->rh)->allows('asignar', [EvaluacionPeriodoPrueba::class, $this->colaborador]))->toBeTrue();
 });
 
+test('RH autorizado con alcance sobre el colaborador sí puede capturar', function () {
+    expect($this->rh->can('capturar', $this->evaluacion))->toBeTrue();
+});
+
+test('RH con permiso de autorizar pero sin alcance sobre el colaborador NO puede capturar', function () {
+    $sinAlcance = User::factory()->create(['colaborador_id' => Colaborador::factory()->create()->id]);
+    $sinAlcance->givePermissionTo('evaluaciones.autorizar');
+
+    expect($sinAlcance->can('capturar', $this->evaluacion))->toBeFalse();
+});
+
 test('el jefe captura Meta/Logró y el sistema calcula el porcentaje; faltas y retardos se guardan', function () {
     $evaluacion = $this->evaluaciones->capturar($this->evaluacion, $this->jefeUsuario, [
         'criterios' => ($this->criterios)(4, ['cumple_metas' => ['meta' => 100, 'logro' => 90]]),

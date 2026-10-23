@@ -34,6 +34,7 @@ watch(
             if (!c.niveles) {
                 c.niveles = nivelesVacios();
             }
+
             if (c.captura_meta === undefined) {
                 c.captura_meta = false;
             }

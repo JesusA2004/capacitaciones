@@ -102,7 +102,8 @@ function clUsuario(string $rol, array $colaborador = []): User
 
 /**
  * Cuenta (rol colaborador por defecto) de una persona YA existente: p. ej.
- * para que conteste su propia autoevaluación de periodo de prueba.
+ * para verificar que el colaborador evaluado NO puede capturar su evaluación
+ * de periodo de prueba (la contesta el jefe inmediato / evaluador).
  */
 function clUsuarioDe(Colaborador $colaborador, string $rol = 'colaborador'): User
 {
