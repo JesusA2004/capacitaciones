@@ -9,6 +9,7 @@ use App\Models\Responsiva;
 use App\Models\Sucursal;
 use App\Services\Pdf\BrowsershotRenderer;
 use App\Services\Pdf\OpcionesPdf;
+use App\Services\Responsivas\ResponsivaPdfService;
 use App\Services\Responsivas\ResponsivaService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\UploadedFile;
@@ -249,7 +250,7 @@ test('el PDF de cada familia lleva el formato oficial, los datos del colaborador
         ->toContain('recibí físicamente el vehículo');
 });
 
-test('firma patronal: razón social legal arriba y «Representante legal» abajo; nunca el nombre corto de la empresa ni quien entrega', function () {
+test('firma patronal simétrica: rol «Representante legal» / «Trabajador» arriba, razón social legal y colaborador abajo al mismo nivel; nunca el nombre corto de la empresa, «Apoderado» ni quien entrega', function () {
     // Empresa con nombre comercial y sin razón social (lo que en producción
     // imprimía «SISTEMAS MR LANA»).
     $this->centro->empresa->update(['nombre' => 'Sistemas Mr Lana', 'razon_social' => null]);
@@ -261,8 +262,10 @@ test('firma patronal: razón social legal arriba y «Representante legal» abajo
 
     $firmas = (string) preg_replace('/\s+/', ' ', strip_tags((string) strstr($html[0], '<table class="firmas">')));
 
+    // Etiquetas de rol arriba (al mismo nivel) y, debajo de la línea, la razón
+    // social legal a la izquierda y el colaborador a la derecha.
     expect($firmas)
-        ->toContain('PRODUCTOS Y SERVICIOS MR LANA, S.A.P.I. DE C.V. Trabajador REPRESENTANTE LEGAL JUAN MANUEL PANTALEÓN CRUZ')
+        ->toContain('REPRESENTANTE LEGAL Trabajador PRODUCTOS Y SERVICIOS MR LANA, S.A.P.I. DE C.V. JUAN MANUEL PANTALEÓN CRUZ')
         ->not->toContain('LAURA GÓMEZ RUIZ')
         ->and(mb_strtoupper($html[0], 'UTF-8'))->not->toContain('SISTEMAS MR LANA')->not->toContain('APODERADO');
 });
@@ -404,4 +407,28 @@ test('valoresIniciales no revienta cuando el colaborador no tiene sucursal princ
     $valores = app(ResponsivaService::class)->valoresIniciales($colaborador, $this->rh);
 
     expect($valores['lugar'])->toBe('');
+});
+
+test('regenerar reimprime el PDF con «Representante legal» (nunca «Apoderado» ni el nombre comercial) y no cambia el estado', function () {
+    $id = $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsEquipo())->json('responsiva.id');
+    $responsiva = Responsiva::findOrFail($id);
+
+    $this->actingAs($this->rh)->postJson(route('rh.responsivas.regenerar', $responsiva))
+        ->assertOk()
+        ->assertJsonPath('responsiva.id', $id);
+
+    $responsiva->refresh();
+    expect($responsiva->estado)->toBe(EstadoResponsiva::Generada)
+        ->and($responsiva->pdf_path)->not->toBeNull();
+
+    $pdf = app(ResponsivaPdfService::class);
+    $html = mb_strtoupper($pdf->html($pdf->datos($responsiva)), 'UTF-8');
+    expect($html)->toContain('REPRESENTANTE LEGAL')
+        ->and($html)->not->toContain('APODERADO');
+});
+
+test('un gerente de otra sucursal (sin alcance) no puede regenerar la responsiva', function () {
+    $id = $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsMueble())->json('responsiva.id');
+
+    $this->actingAs($this->gerenteOrizaba)->postJson(route('rh.responsivas.regenerar', $id))->assertForbidden();
 });

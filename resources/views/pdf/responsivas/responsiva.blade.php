@@ -72,10 +72,10 @@
         .firmas { margin-top: 14mm; page-break-inside: avoid; }
         .firmas td { width: 50%; padding: 0 8mm; vertical-align: bottom; text-align: center; }
         .firmas .espacio { height: 20mm; }
+        .firmas tr.roles td { vertical-align: bottom; height: 7mm; }
         .firmas tr.lineas td { vertical-align: top; }
-        .firmas .empresa { font-size: 8.2pt; font-weight: bold; color: #315B59; margin: 0 -6mm 1mm; white-space: nowrap; }
         .firmas .rol { display: inline-block; padding: 0.7mm 4mm; border-radius: 3mm; background: #eef3ef; color: #315B59; font-size: 7.6pt; font-weight: bold; letter-spacing: 1pt; text-transform: uppercase; }
-        .firmas .linea { border-top: 0.3mm solid #27332f; padding-top: 1.6mm; font-weight: bold; font-size: 9.2pt; }
+        .firmas .linea { border-top: 0.3mm solid #27332f; padding-top: 1.6mm; font-weight: bold; font-size: 8.8pt; white-space: normal; }
         .firmas .puesto { font-size: 8.2pt; color: #5f6f69; font-weight: bold; }
 
         .marca { position: fixed; top: 44%; left: 0; width: 100%; text-align: center; transform: rotate(-30deg); font-size: 46pt; font-weight: bold; letter-spacing: 8pt; color: rgba(49, 91, 89, 0.12); z-index: 10; }
@@ -166,11 +166,13 @@
         {{ $d['declaracion'] }}
     </div>
 
+    {{-- Firmas simétricas: a la izquierda el patrón (cargo «Representante
+         legal» + razón social legal, nunca el nombre comercial); a la derecha
+         el trabajador. Las etiquetas de rol van ARRIBA, al mismo nivel, y las
+         líneas de firma quedan EXACTAMENTE al mismo nivel (misma fila). --}}
     <table class="firmas">
-        <tr>
-            {{-- Firma patronal como el formato oficial: razón social ARRIBA de
-                 la línea y el cargo ABAJO. Quien entrega no firma por la empresa. --}}
-            <td><div class="empresa">{{ $d['empresa'] }}</div></td>
+        <tr class="roles">
+            <td><span class="rol">{{ $d['firma_patron_cargo'] }}</span></td>
             <td><span class="rol">Trabajador</span></td>
         </tr>
         <tr>
@@ -179,7 +181,7 @@
         </tr>
         <tr class="lineas">
             <td>
-                <div class="linea">{{ $d['firma_patron_cargo'] }}</div>
+                <div class="linea">{{ $d['empresa'] }}</div>
             </td>
             <td>
                 <div class="linea">{{ $d['receptor']['nombre'] }}</div>

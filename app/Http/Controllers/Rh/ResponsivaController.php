@@ -123,6 +123,23 @@ class ResponsivaController extends Controller
     }
 
     /**
+     * Regenera el PDF con el formato vigente (corrige responsivas antiguas:
+     * «Representante legal», razón social correcta, firmas alineadas). No toca
+     * el snapshot ni el estado legal.
+     */
+    public function regenerar(Responsiva $responsiva): JsonResponse
+    {
+        $this->authorize('regenerar', $responsiva);
+
+        $responsiva = $this->responsivas->regenerar($responsiva, request()->user());
+
+        return response()->json([
+            'message' => sprintf('Responsiva %s regenerada con el formato vigente.', $responsiva->folio),
+            'responsiva' => $this->responsivas->presentar($responsiva, request()->user()),
+        ]);
+    }
+
+    /**
      * Flujo vigente: la responsiva se imprime y se firma en papel; se marca
      * «firmada físicamente» sin subir ningún archivo (solo queda constancia
      * de quién y cuándo). subirFirmada() se conserva como legacy de lectura.

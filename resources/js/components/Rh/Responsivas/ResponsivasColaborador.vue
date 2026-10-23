@@ -6,6 +6,7 @@ import {
     PackageCheck,
     PenLine,
     Printer,
+    RefreshCw,
     Undo2,
     XCircle,
 } from '@lucide/vue';
@@ -40,6 +41,7 @@ import {
     index as indexResponsivas,
     marcarFirmadaFisica as marcarFirmadaFisicaResponsiva,
     pdf as pdfResponsiva,
+    regenerar as regenerarResponsiva,
 } from '@/routes/rh/responsivas';
 import type {
     EstadoResponsiva,
@@ -71,6 +73,7 @@ const seleccionada = ref<ResponsivaItem | null>(null);
 const fechaDevolucion = ref('');
 const texto = ref('');
 const enviando = ref(false);
+const regenerandoId = ref<number | null>(null);
 const hoy = new Date().toLocaleDateString('en-CA');
 
 const variantes: Record<
@@ -133,6 +136,32 @@ function reemplazar(actualizada: ResponsivaItem) {
     responsivas.value = responsivas.value.map((r) =>
         r.id === actualizada.id ? actualizada : r,
     );
+}
+
+// Reimprime el PDF con el formato vigente (corrige responsivas antiguas:
+// «Representante legal», razón social correcta y firmas alineadas).
+async function regenerar(responsiva: ResponsivaItem) {
+    if (regenerandoId.value !== null) {
+        return;
+    }
+
+    regenerandoId.value = responsiva.id;
+
+    try {
+        const respuesta = (await enviarJson(
+            'POST',
+            regenerarResponsiva.url(responsiva.id),
+            {},
+        )) as { message: string; responsiva: ResponsivaItem };
+        reemplazar(respuesta.responsiva);
+        toast.success(respuesta.message);
+    } catch (e) {
+        toast.error(
+            e instanceof Error ? e.message : 'No se pudo regenerar el PDF.',
+        );
+    } finally {
+        regenerandoId.value = null;
+    }
 }
 
 async function confirmar() {
@@ -279,6 +308,21 @@ const titulos: Record<Accion, string> = {
                                     <Printer class="size-3.5" />
                                     Imprimir
                                 </a>
+                            </Button>
+                            <Button
+                                v-if="r.puede_regenerar"
+                                size="sm"
+                                variant="outline"
+                                :disabled="regenerandoId === r.id"
+                                title="Vuelve a imprimir el PDF con el formato vigente"
+                                @click="regenerar(r)"
+                            >
+                                <Loader2
+                                    v-if="regenerandoId === r.id"
+                                    class="size-3.5 animate-spin"
+                                />
+                                <RefreshCw v-else class="size-3.5" />
+                                Regenerar
                             </Button>
                             <Button
                                 v-if="r.tiene_firmada && r.puede_descargar"

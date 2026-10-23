@@ -291,6 +291,61 @@ class ResponsivaService
     }
 
     /**
+     * Regenera el PDF de una responsiva ya existente con el FORMATO VIGENTE
+     * (p. ej. para corregir responsivas antiguas cuyo PDF decía «Apoderado
+     * legal» o un nombre comercial). Reemplaza el archivo almacenado sin tocar
+     * el snapshot (receptor, otorgante, fecha) ni el estado legal: la razón
+     * social y el cargo del patrón se recalculan con FirmaPatronService.
+     */
+    public function regenerar(Responsiva $responsiva, User $actor): Responsiva
+    {
+        $colaborador = $responsiva->colaborador;
+        $anterior = $responsiva->pdf_path;
+        $nueva = null;
+
+        try {
+            $pdf = $this->pdf->renderizar($responsiva)['pdf'];
+            $nueva = $this->expediente->guardarContenidoEnExpediente(
+                $colaborador,
+                CategoriaDocumento::Actas,
+                sprintf('Responsiva %s - %s.pdf', $responsiva->folio, $responsiva->fecha_entrega->toDateString()),
+                $pdf,
+            );
+            $responsiva->update(['pdf_path' => $nueva]);
+        } catch (Throwable $e) {
+            if ($nueva !== null) {
+                $this->expediente->eliminar($nueva);
+            }
+
+            if ($e instanceof ValidationException) {
+                throw $e;
+            }
+
+            Log::error('Responsiva: no se pudo regenerar el PDF.', ['folio' => $responsiva->folio, 'error' => $e->getMessage()]);
+
+            throw ValidationException::withMessages([
+                'responsiva' => 'No se pudo regenerar la responsiva (impresión o almacenamiento no disponible). Intenta de nuevo; si continúa, avisa a sistemas.',
+            ]);
+        }
+
+        // El PDF anterior se borra SOLO cuando ya se guardó el nuevo y la ruta cambió.
+        if ($anterior !== null && $anterior !== $nueva) {
+            try {
+                $this->expediente->eliminar($anterior);
+            } catch (Throwable $e) {
+                Log::warning('Responsiva: no se pudo borrar el PDF anterior tras regenerar.', ['folio' => $responsiva->folio, 'error' => $e->getMessage()]);
+            }
+        }
+
+        $this->auditoria->registrar('responsiva_regenerada', $responsiva, $actor, [
+            'folio' => $responsiva->folio,
+            'colaborador_id' => $colaborador->id,
+        ]);
+
+        return $responsiva->refresh()->load(['entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador']);
+    }
+
+    /**
      * Firma física sin escaneo (regla vigente): la responsiva se imprime, se
      * firma en papel y RH/gerente presiona «Marcar firmada físicamente». No se
      * sube ningún archivo; solo se deja constancia de quién y cuándo. El
@@ -414,6 +469,8 @@ class ResponsivaService
             'puede_registrar_devolucion' => Gate::forUser($usuario)->allows('registrarDevolucion', $responsiva),
             'puede_descargar' => Gate::forUser($usuario)->allows('descargar', $responsiva),
             'puede_cancelar' => Gate::forUser($usuario)->allows('cancelar', $responsiva),
+            // Reimprimir el PDF con el formato vigente (corrige responsivas antiguas).
+            'puede_regenerar' => Gate::forUser($usuario)->allows('regenerar', $responsiva),
         ];
     }
 

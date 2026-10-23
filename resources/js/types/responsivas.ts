@@ -38,6 +38,8 @@ export type ResponsivaItem = {
     puede_registrar_devolucion: boolean;
     puede_descargar: boolean;
     puede_cancelar: boolean;
+    /** Reimprimir el PDF con el formato vigente (corrige responsivas antiguas). */
+    puede_regenerar: boolean;
 };
 
 export type ResponsableEntrega = {

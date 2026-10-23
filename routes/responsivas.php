@@ -15,6 +15,8 @@ Route::middleware(['auth', 'verified'])->prefix('rh')->name('rh.responsivas.')->
     Route::post('colaboradores/{colaborador}/responsivas/vista-previa', [ResponsivaController::class, 'vistaPrevia'])->name('vista-previa')->middleware('throttle:20,1');
     Route::post('colaboradores/{colaborador}/responsivas', [ResponsivaController::class, 'store'])->name('store')->middleware('throttle:20,1');
     Route::get('responsivas/{responsiva}/pdf', [ResponsivaController::class, 'pdf'])->name('pdf');
+    // Reimprimir el PDF con el formato vigente (corrige responsivas antiguas).
+    Route::post('responsivas/{responsiva}/regenerar', [ResponsivaController::class, 'regenerar'])->name('regenerar')->middleware('throttle:20,1');
     // LEGACY (solo lectura): ver el escaneo firmado de responsivas antiguas.
     // El POST para SUBIR un escaneo firmado se retiró (P1-14): el flujo nuevo
     // no admite escaneos; la constancia de firma es «firmada físicamente».

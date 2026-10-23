@@ -61,6 +61,19 @@ class ResponsivaPolicy
         return $usuario->can('responsivas.descargar') && $this->ver($usuario, $responsiva);
     }
 
+    /**
+     * Regenerar el PDF: vuelve a imprimir el documento con el formato vigente
+     * (p. ej. para corregir responsivas antiguas). Mismo permiso que generar y
+     * con alcance; nunca sobre una responsiva cancelada. No toca el snapshot ni
+     * el estado legal: solo reemplaza el PDF sin firmar que se imprime.
+     */
+    public function regenerar(User $usuario, Responsiva $responsiva): bool
+    {
+        return $usuario->can('responsivas.generar')
+            && $responsiva->estado !== EstadoResponsiva::Cancelada
+            && $this->alcanza($usuario, $responsiva->colaborador);
+    }
+
     private function vigenteEnAlcance(User $usuario, Responsiva $responsiva): bool
     {
         return $responsiva->estado->vigente() && $this->alcanza($usuario, $responsiva->colaborador);
