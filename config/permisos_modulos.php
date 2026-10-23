@@ -488,8 +488,8 @@ return [
             'acceso' => 'evaluaciones.ver',
             'alcances' => ['todos' => 'evaluaciones.ver_todos', 'region' => 'evaluaciones.ver_region', 'sucursal' => 'evaluaciones.ver_sucursal', 'equipo' => 'evaluaciones.ver_equipo'],
             'acciones' => [
-                'evaluaciones.capturar' => 'Seguimiento de su equipo', 'evaluaciones.autorizar' => 'Autorizar',
-                'evaluaciones.devolver' => 'Devolver al colaborador', 'evaluaciones.asignar' => 'Asignar evaluación',
+                'evaluaciones.capturar' => 'Capturar', 'evaluaciones.autorizar' => 'Autorizar',
+                'evaluaciones.devolver' => 'Devolver para corrección', 'evaluaciones.asignar' => 'Asignar evaluación',
                 'evaluaciones.descargar' => 'Imprimir / descargar PDF',
             ],
         ],
@@ -961,9 +961,9 @@ return [
         'onboarding.entregar_activos' => 'Entrega activos y genera la responsiva.',
         // Evaluaciones
         'evaluaciones.ver' => 'Consulta evaluaciones de periodo de prueba.',
-        'evaluaciones.capturar' => 'Da seguimiento (solo lectura) a las evaluaciones de su equipo. La evaluación la contesta siempre el propio colaborador.',
+        'evaluaciones.capturar' => 'Captura la evaluación como evaluador.',
         'evaluaciones.autorizar' => 'Autoriza la evaluación (RH) y pide excepciones a Dirección General.',
-        'evaluaciones.devolver' => 'Regresa al colaborador una evaluación contestada para que la corrija.',
+        'evaluaciones.devolver' => 'Regresa una evaluación capturada para corrección.',
         'evaluaciones.asignar' => 'Abre la evaluación antes de que el sistema la asigne sola.',
         'evaluaciones.descargar' => 'Ve o descarga el PDF para firma de una evaluación contestada.',
         // --- Solicitudes, actas, nómina, celebraciones, bajas, cierres,

@@ -53,9 +53,6 @@ beforeEach(function () {
         'fecha_inicio' => $ingreso->toDateString(),
         'fecha_fin' => $ingreso->addMonthsNoOverflow(2)->subDay()->toDateString(),
     ]);
-    // Autoevaluación: la persona evaluada tiene cuenta y la contesta ella.
-    $this->personaUsuario = User::factory()->create(['colaborador_id' => $this->persona->id]);
-    $this->personaUsuario->assignRole('colaborador');
 });
 
 /**
@@ -75,7 +72,7 @@ function eptCaptura(int $calificacion = 4): array
     ];
 }
 
-test('Próximas lista a quien termina su periodo sin evaluación y «Asignar evaluación» la crea y avisa al COLABORADOR (la contesta él)', function () {
+test('Próximas lista a quien termina su periodo sin evaluación y «Asignar evaluación» la crea y avisa al jefe directo', function () {
     $this->actingAs($this->rh)
         ->get(route('rh.evaluaciones.index'))
         ->assertOk()
@@ -85,8 +82,7 @@ test('Próximas lista a quien termina su periodo sin evaluación y «Asignar eva
             ->where('puedeAsignar', true)
             ->where('porAsignar.data.0.id', $this->persona->id)
             ->where('porAsignar.data.0.puede_asignar', true)
-            ->where('porAsignar.data.0.evaluador', $this->persona->nombreCompleto())
-            ->where('porAsignar.data.0.tiene_cuenta', true)
+            ->where('porAsignar.data.0.evaluador', $this->jefe->colaborador->nombreCompleto())
             ->where('conteos.por_asignar', 1));
 
     $this->actingAs($this->rh)
@@ -96,21 +92,18 @@ test('Próximas lista a quien termina su periodo sin evaluación y «Asignar eva
 
     $evaluacion = EvaluacionPeriodoPrueba::query()->sole();
     expect($evaluacion->contrato_laboral_id)->toBe($this->contrato->id)
-        ->and($evaluacion->evaluador_colaborador_id)->toBe($this->persona->id)
+        ->and($evaluacion->evaluador_colaborador_id)->toBe($this->jefe->colaborador_id)
         ->and($evaluacion->estado)->toBe(EstadoEvaluacionPrueba::Pendiente)
         ->and($this->contrato->refresh()->aviso_vencimiento_en)->not->toBeNull();
 
-    Notification::assertSentTo($this->personaUsuario, PendienteRhNotification::class, fn (PendienteRhNotification $n) => $n->toDatabase($this->personaUsuario)['tipo'] === 'evaluacion_pendiente');
-    Notification::assertNotSentTo($this->jefe, PendienteRhNotification::class, fn (PendienteRhNotification $n) => $n->toDatabase($this->jefe)['tipo'] === 'evaluacion_pendiente');
+    Notification::assertSentTo($this->jefe, PendienteRhNotification::class);
 
-    // Ya no está por asignar; aparece en «En proceso · Esperando al colaborador»
-    // (el enlace viejo ?subfiltro=esperando_jefe cae en el mismo chip).
+    // Ya no está por asignar; aparece en «En proceso · Esperando al jefe».
     $this->actingAs($this->rh)
         ->get(route('rh.evaluaciones.index', ['tab' => 'en_proceso', 'subfiltro' => 'esperando_jefe']))
         ->assertInertia(fn (Assert $p) => $p
             ->where('conteos.por_asignar', 0)
-            ->where('conteos.esperando_colaborador', 1)
-            ->where('filtros.subfiltro', 'esperando_colaborador')
+            ->where('conteos.esperando_jefe', 1)
             ->where('evaluaciones.data.0.id', $evaluacion->id));
 
     // Volver a asignar no duplica (una evaluación por contrato) ni re-avisa al scheduler.
@@ -177,7 +170,7 @@ test('sin permiso de asignar responde 403 y no crea nada', function () {
 
 test('Evaluadas muestra las respuestas guardadas y el PDF para firma se ve en línea y se descarga', function () {
     $evaluacion = app(VencimientoContratosService::class)->asignarAhora($this->persona, $this->rh);
-    app(EvaluacionPeriodoPruebaService::class)->contestar($evaluacion, $this->personaUsuario, eptCaptura(4));
+    app(EvaluacionPeriodoPruebaService::class)->capturar($evaluacion, $this->jefe, eptCaptura(4));
 
     $this->actingAs($this->rh)
         ->get(route('rh.evaluaciones.index', ['tab' => 'evaluadas']))
@@ -205,7 +198,7 @@ test('Evaluadas muestra las respuestas guardadas y el PDF para firma se ve en l�
     $descarga = $this->actingAs($this->rh)->get(route('rh.evaluaciones.pdf', ['evaluacion' => $evaluacion->id, 'descargar' => 1]));
     expect($descarga->headers->get('Content-Disposition'))->toStartWith('attachment');
 
-    // Su jefe directo también puede imprimirla (para firmar de enterado).
+    // El jefe evaluador también puede imprimir la suya.
     $this->actingAs($this->jefe)->get(route('rh.evaluaciones.pdf', $evaluacion->id))->assertOk();
 });
 
@@ -214,7 +207,7 @@ test('el PDF para firma responde 403 sin permiso o fuera de alcance, y 422 si a�
 
     $this->actingAs($this->rh)->getJson(route('rh.evaluaciones.pdf', $evaluacion->id))->assertUnprocessable();
 
-    app(EvaluacionPeriodoPruebaService::class)->contestar($evaluacion, $this->personaUsuario, eptCaptura(4));
+    app(EvaluacionPeriodoPruebaService::class)->capturar($evaluacion, $this->jefe, eptCaptura(4));
 
     $this->actingAs(clUsuario('colaborador'))->get(route('rh.evaluaciones.pdf', $evaluacion->id))->assertForbidden();
     // Otro jefe sin relación con el colaborador.
@@ -223,7 +216,9 @@ test('el PDF para firma responde 403 sin permiso o fuera de alcance, y 422 si a�
         ->get(route('rh.evaluaciones.pdf', $evaluacion->id))
         ->assertForbidden();
     // El propio colaborador evaluado nunca la imprime desde aquí.
-    $this->actingAs($this->personaUsuario)->get(route('rh.evaluaciones.pdf', $evaluacion->id))->assertForbidden();
+    $propio = User::factory()->create(['colaborador_id' => $this->persona->id]);
+    $propio->assignRole('colaborador');
+    $this->actingAs($propio)->get(route('rh.evaluaciones.pdf', $evaluacion->id))->assertForbidden();
 });
 
 test('«Periodos por vencer» redirige a la pestaña Próximas conservando los filtros', function () {

@@ -23,6 +23,7 @@ import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
 import VistaPreviaFlujo from '@/components/documentos/VistaPreviaFlujo.vue';
+import FormularioPeriodoPrueba from '@/components/formularios-evaluacion/FormularioPeriodoPrueba.vue';
 import InputError from '@/components/InputError.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
@@ -180,6 +181,19 @@ const plantillas: Record<string, () => FormularioAccion> = {
                 ?.avance_id ?? null,
         retroalimentacion: '',
     }),
+    capturar_evaluacion: () => ({
+        criterios: (props.evaluacion?.criterios_oficiales ?? []).map((c) => ({
+            clave: c.clave,
+            calificacion: 4,
+        })),
+        filtros: (props.evaluacion?.filtros_oficiales ?? []).map((f) => ({
+            clave: f.clave,
+            respuesta: false,
+        })),
+        observaciones: '',
+        faltas_injustificadas: null,
+        retardos: null,
+    }),
     autorizar_evaluacion: () => ({
         renovar: Boolean(props.evaluacion?.recomienda_renovar ?? true),
         comentario: '',
@@ -222,7 +236,7 @@ const accionesExtra = computed<AccionCiclo[]>(() => [
         ? [
               {
                   clave: 'devolver_evaluacion',
-                  etiqueta: 'Devolver al colaborador',
+                  etiqueta: 'Devolver evaluación',
                   tipo: 'secundaria',
               },
           ]
@@ -337,6 +351,16 @@ function calcularDesdeDocumentos() {
     }
 }
 
+// Evaluación oficial FO-RH-EPP-001 (version >= 2): 9 criterios (escala 4-1)
+// + 5 preguntas filtro. Legacy (version null/1) sigue usando criterios
+// libres (opciones.criterios) — nunca se mezclan los dos formatos.
+const criteriosForm = computed(
+    () => (form.criterios ?? []) as { clave: string; calificacion: number }[],
+);
+const filtrosForm = computed(
+    () => (form.filtros ?? []) as { clave: string; respuesta: boolean }[],
+);
+
 // Elegibilidad real (regla canónica FO-RH-EPP-001) de la evaluación YA
 // capturada, para decidir si mostrar la excepción de Dirección General.
 const evaluacionEsElegible = computed(
@@ -410,6 +434,8 @@ function destino(clave: string): string {
             return onboardingRutas.retroalimentar.url(
                 Number(form.avance_id ?? 0),
             );
+        case 'capturar_evaluacion':
+            return evaluaciones.capturar.url(evaluacionId.value);
         case 'autorizar_evaluacion':
             return evaluaciones.autorizar.url(evaluacionId.value);
         case 'devolver_evaluacion':
@@ -1173,15 +1199,35 @@ const etiquetaFecha: Record<string, string> = {
                     </div>
                 </template>
 
-                <!-- La evaluación de periodo de prueba la contesta SOLO el
-                colaborador (autoevaluación en Mi espacio): aquí RH solo decide. -->
+                <template v-else-if="accion?.clave === 'capturar_evaluacion'">
+                    <!-- Mismo componente que la vista previa del módulo
+                    «Formularios de evaluación»: criterios, filtros, escala y
+                    reglas de la versión del formulario de esta evaluación. -->
+                    <FormularioPeriodoPrueba
+                        v-if="evaluacion?.formulario"
+                        :contenido="evaluacion.formulario"
+                        :criterios="criteriosForm"
+                        :filtros="filtrosForm"
+                        :observaciones="String(form.observaciones ?? '')"
+                        :faltas="(form.faltas_injustificadas as number | null) ?? null"
+                        :retardos="(form.retardos as number | null) ?? null"
+                        :errores="form.errors"
+                        compacto
+                        @update:criterios="(v) => (form.criterios = v)"
+                        @update:filtros="(v) => (form.filtros = v)"
+                        @update:observaciones="(v) => (form.observaciones = v)"
+                        @update:faltas="(v) => (form.faltas_injustificadas = v)"
+                        @update:retardos="(v) => (form.retardos = v)"
+                    />
+                </template>
+
                 <template v-else-if="accion?.clave === 'autorizar_evaluacion'">
                     <p class="text-sm">
-                        Según la autoevaluación del colaborador,
+                        El jefe recomienda
                         <strong>{{
                             evaluacion?.recomienda_renovar
-                                ? 'alcanza la regla para renovar'
-                                : 'NO alcanza la regla para renovar'
+                                ? 'renovar'
+                                : 'NO renovar'
                         }}</strong>
                         (total {{ evaluacion?.calificacion
                         }}<template v-if="evaluacion?.es_oficial">
@@ -1234,7 +1280,7 @@ const etiquetaFecha: Record<string, string> = {
                             {{
                                 Boolean(form.renovar) !==
                                 Boolean(evaluacion?.recomienda_renovar)
-                                    ? '(obligatorio: decides distinto al resultado de la evaluación)'
+                                    ? '(obligatorio: decides distinto al jefe)'
                                     : '(opcional)'
                             }}</Label
                         ><Textarea

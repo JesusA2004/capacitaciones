@@ -394,18 +394,16 @@ class CicloLaboralService
      */
     private function detallePeriodoPrueba(Colaborador $colaborador, CarbonInterface $fin, ?EvaluacionPeriodoPrueba $evaluacion, ?User $viewer): array
     {
-        // Autoevaluación: la contesta el propio colaborador desde Mi espacio;
-        // aquí (vista de RH/jefe) nunca hay acción para contestarla.
         $estado = match (true) {
             $evaluacion === null => ['clave' => 'activo', 'etiqueta' => sprintf('Periodo de prueba en curso · vence %s', $fin->format('d/m/Y'))],
-            $evaluacion->estado === EstadoEvaluacionPrueba::Pendiente => ['clave' => 'evaluacion_pendiente', 'etiqueta' => 'Esperando a que el colaborador conteste su evaluación'],
-            $evaluacion->estado === EstadoEvaluacionPrueba::Devuelta => ['clave' => 'evaluacion_devuelta', 'etiqueta' => 'Evaluación devuelta al colaborador para corregir'],
-            $evaluacion->estado === EstadoEvaluacionPrueba::Capturada => ['clave' => 'autorizacion_rh_pendiente', 'etiqueta' => sprintf('Evaluación contestada (%s la regla de renovación) · pendiente decisión de RH', $evaluacion->recomienda_renovar ? 'alcanza' : 'NO alcanza')],
+            $evaluacion->estado === EstadoEvaluacionPrueba::Pendiente => ['clave' => 'evaluacion_pendiente', 'etiqueta' => 'Evaluación pendiente del jefe'],
+            $evaluacion->estado === EstadoEvaluacionPrueba::Devuelta => ['clave' => 'evaluacion_devuelta', 'etiqueta' => 'Evaluación devuelta por RH'],
+            $evaluacion->estado === EstadoEvaluacionPrueba::Capturada => ['clave' => 'autorizacion_rh_pendiente', 'etiqueta' => sprintf('Jefe recomienda %s · pendiente autorización RH', $evaluacion->recomienda_renovar ? 'renovar' : 'NO renovar')],
             default => ['clave' => $evaluacion->decision_renovar ? 'renovacion_autorizada' : 'no_renovacion_autorizada', 'etiqueta' => $evaluacion->decision_renovar ? 'Renovación autorizada' : 'No renovación autorizada'],
         };
 
         $responsable = match ($estado['clave']) {
-            'evaluacion_pendiente', 'evaluacion_devuelta' => ['rol' => 'El colaborador (contesta su evaluación)', 'nombre' => $colaborador->nombreCompleto()],
+            'evaluacion_pendiente', 'evaluacion_devuelta' => ['rol' => 'Jefe inmediato (evaluar)', 'nombre' => $colaborador->jefe?->nombreCompleto()],
             'autorizacion_rh_pendiente' => ['rol' => 'Recursos Humanos (autorización final)', 'nombre' => null],
             'renovacion_autorizada' => ['rol' => 'Gerente (firma del contrato indeterminado)', 'nombre' => $colaborador->jefe?->nombreCompleto()],
             default => ['rol' => '—', 'nombre' => null],
@@ -414,6 +412,12 @@ class CicloLaboralService
         $acciones = [];
 
         if ($evaluacion !== null && $viewer !== null) {
+            $esEvaluador = $viewer->colaborador_id !== null && in_array($viewer->colaborador_id, [$evaluacion->evaluador_colaborador_id, $colaborador->jefe_id], true);
+
+            if ($evaluacion->estado->permiteCaptura() && $esEvaluador && $viewer->can('evaluaciones.capturar')) {
+                $acciones[] = ['clave' => 'capturar_evaluacion', 'etiqueta' => 'Evaluar periodo de prueba', 'tipo' => 'primaria'];
+            }
+
             if ($evaluacion->estado === EstadoEvaluacionPrueba::Capturada && $viewer->can(EvaluacionPeriodoPruebaService::PERMISO_AUTORIZAR) && $viewer->can(OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH)) {
                 $acciones[] = ['clave' => 'autorizar_evaluacion', 'etiqueta' => 'Autorización final de RH', 'tipo' => 'primaria'];
             }
@@ -426,7 +430,7 @@ class CicloLaboralService
             'responsable' => $responsable,
             'siguiente' => match ($estado['clave']) {
                 'activo' => ['clave' => 'esperar_evaluacion', 'etiqueta' => sprintf('La evaluación se habilita %d días antes del vencimiento (faltan %d días)', (int) config('contratos.dias_aviso_vencimiento', 15), $dias)],
-                'evaluacion_pendiente', 'evaluacion_devuelta' => ['clave' => 'contestar_evaluacion', 'etiqueta' => 'El colaborador contesta su evaluación en Mi espacio'],
+                'evaluacion_pendiente', 'evaluacion_devuelta' => ['clave' => 'capturar_evaluacion', 'etiqueta' => 'El jefe evalúa y recomienda'],
                 'autorizacion_rh_pendiente' => ['clave' => 'autorizar_evaluacion', 'etiqueta' => 'RH autoriza la decisión final'],
                 default => null,
             },
@@ -787,25 +791,6 @@ class CicloLaboralService
                 'accion' => ['etiqueta' => 'Revisar y firmar', 'href' => route('mi-expediente'), 'app' => 'documentos-laborales'],
                 'detalle' => array_values($porFirmar->map(fn (GeneratedDocument $d) => (string) ($d->titulo ?? 'Documento'))->all()),
             ];
-        }
-
-        // Autoevaluación de periodo de prueba que RH le asignó (la contesta él).
-        $evaluacionPrueba = $this->evaluaciones->deColaborador($colaborador);
-
-        if ($evaluacionPrueba !== null && $evaluacionPrueba->estado->permiteCaptura()) {
-            $devuelta = $evaluacionPrueba->estado === EstadoEvaluacionPrueba::Devuelta;
-            $pendientes[] = [
-                'clave' => 'evaluacion_periodo_prueba',
-                'titulo' => $devuelta ? 'Corrige tu evaluación de periodo de prueba' : 'Contesta tu evaluación de periodo de prueba',
-                'descripcion' => $devuelta
-                    ? 'Recursos Humanos te la devolvió para que la corrijas.'
-                    : sprintf('Califica cómo ha sido tu desempeño en tu capacitación inicial%s.', $evaluacionPrueba->fecha_limite !== null ? sprintf(' antes del %s', $evaluacionPrueba->fecha_limite->format('d/m/Y')) : ''),
-                'tipo' => 'accion',
-                'accion' => ['etiqueta' => $devuelta ? 'Corregir evaluación' : 'Contestar evaluación', 'href' => route('portal.evaluacion-periodo-prueba'), 'app' => 'evaluacion-periodo-prueba'],
-                'detalle' => [],
-            ];
-        } elseif ($evaluacionPrueba !== null && $evaluacionPrueba->estado === EstadoEvaluacionPrueba::Capturada) {
-            $pendientes[] = $this->espera('evaluacion_periodo_prueba_revision', 'Recursos Humanos revisa tu evaluación', 'Ya enviaste tu evaluación de periodo de prueba. Te avisaremos cuando haya una decisión.');
         }
 
         if ($enIngreso && $documental['completo'] && $porFirmar->isEmpty()) {

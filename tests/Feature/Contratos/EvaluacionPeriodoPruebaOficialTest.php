@@ -6,7 +6,6 @@ use App\Enums\TipoContratacion;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\EvaluacionPeriodoPrueba;
-use App\Models\User;
 use App\Services\Contratos\EvaluacionPeriodoPruebaService;
 use App\Services\Contratos\SolicitudExcepcionPeriodoPruebaService;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -30,14 +29,11 @@ beforeEach(function () {
     $this->dg = clUsuario('direccion');
     $this->jefeUsuario = clUsuario('jefe_directo');
     $this->colaborador = Colaborador::factory()->create(['jefe_id' => $this->jefeUsuario->colaborador_id]);
-    // Autoevaluación: la contesta el propio colaborador evaluado.
-    $this->colaboradorUsuario = User::factory()->create(['colaborador_id' => $this->colaborador->id]);
-    $this->colaboradorUsuario->assignRole('colaborador');
     $this->contrato = ContratoLaboral::factory()->create(['colaborador_id' => $this->colaborador->id, 'fecha_fin' => now()->addDays(5)->toDateString()]);
     $this->evaluacion = EvaluacionPeriodoPrueba::factory()->create([
         'colaborador_id' => $this->colaborador->id,
         'contrato_laboral_id' => $this->contrato->id,
-        'evaluador_colaborador_id' => $this->colaborador->id,
+        'evaluador_colaborador_id' => $this->jefeUsuario->colaborador_id,
         'estado' => EstadoEvaluacionPrueba::Pendiente,
         'fecha_limite' => $this->contrato->fecha_fin,
     ]);
@@ -50,7 +46,7 @@ beforeEach(function () {
 });
 
 test('la captura exige exactamente los 9 criterios y las 5 preguntas filtro del catálogo oficial', function () {
-    expect(fn () => $this->evaluaciones->contestar($this->evaluacion, $this->colaboradorUsuario, [
+    expect(fn () => $this->evaluaciones->capturar($this->evaluacion, $this->jefeUsuario, [
         'criterios' => array_slice(($this->criterios)(), 0, 8),
         'filtros' => ($this->filtros)(),
     ]))->toThrow(ValidationException::class);
@@ -61,7 +57,7 @@ test('25 puntos sin ningún 1 y sin ningún filtro en Sí: SÍ renueva', functio
     $criterios = ($this->criterios)(3);
     $criterios[0]['calificacion'] = 2;
     $criterios[1]['calificacion'] = 2;
-    $evaluacion = $this->evaluaciones->contestar($this->evaluacion, $this->colaboradorUsuario, [
+    $evaluacion = $this->evaluaciones->capturar($this->evaluacion, $this->jefeUsuario, [
         'criterios' => $criterios,
         'filtros' => ($this->filtros)(),
         'observaciones' => 'Dos criterios en regular; aun así alcanza el mínimo de 25.',
@@ -79,7 +75,7 @@ test('24 puntos NO renueva aunque no haya ningún 1 ni ningún filtro en Sí (re
     $criterios[0]['calificacion'] = 2;
     $criterios[1]['calificacion'] = 2;
     $criterios[2]['calificacion'] = 2; // 27 - 3 = 24
-    $evaluacion = $this->evaluaciones->contestar($this->evaluacion, $this->colaboradorUsuario, [
+    $evaluacion = $this->evaluaciones->capturar($this->evaluacion, $this->jefeUsuario, [
         'criterios' => $criterios,
         'filtros' => ($this->filtros)(),
         'observaciones' => 'Tres criterios en regular; no alcanza el mínimo de 25 para renovar.',
@@ -93,7 +89,7 @@ test('24 puntos NO renueva aunque no haya ningún 1 ni ningún filtro en Sí (re
 test('un solo criterio en 1 bloquea la renovación aunque el total sea alto', function () {
     $criterios = ($this->criterios)(4); // 9 × 4 = 36
     $criterios[0]['calificacion'] = 1; // 8×4 + 1×1 = 33, muy por encima de 25
-    $evaluacion = $this->evaluaciones->contestar($this->evaluacion, $this->colaboradorUsuario, [
+    $evaluacion = $this->evaluaciones->capturar($this->evaluacion, $this->jefeUsuario, [
         'criterios' => $criterios,
         'filtros' => ($this->filtros)(),
         'observaciones' => 'Un criterio deficiente: no se renueva sin importar el total.',
@@ -106,7 +102,7 @@ test('un solo criterio en 1 bloquea la renovación aunque el total sea alto', fu
 test('un solo filtro en Sí bloquea la renovación aunque el total sea perfecto', function () {
     $filtros = ($this->filtros)(false);
     $filtros[0]['respuesta'] = true;
-    $evaluacion = $this->evaluaciones->contestar($this->evaluacion, $this->colaboradorUsuario, [
+    $evaluacion = $this->evaluaciones->capturar($this->evaluacion, $this->jefeUsuario, [
         'criterios' => ($this->criterios)(4),
         'filtros' => $filtros,
         'observaciones' => 'Marcó Sí en una pregunta filtro: no se renueva.',
@@ -116,21 +112,21 @@ test('un solo filtro en Sí bloquea la renovación aunque el total sea perfecto'
         ->and($evaluacion->recomienda_renovar)->toBeFalse();
 });
 
-test('el comentario del colaborador es obligatorio si hay un criterio en 1 o 2, o un filtro en Sí', function () {
-    expect(fn () => $this->evaluaciones->contestar($this->evaluacion, $this->colaboradorUsuario, [
+test('el comentario del jefe es obligatorio si hay un criterio en 1 o 2, o un filtro en Sí', function () {
+    expect(fn () => $this->evaluaciones->capturar($this->evaluacion, $this->jefeUsuario, [
         'criterios' => ($this->criterios)(2),
         'filtros' => ($this->filtros)(),
     ]))->toThrow(ValidationException::class);
 
     $filtros = ($this->filtros)(false);
     $filtros[0]['respuesta'] = true;
-    expect(fn () => $this->evaluaciones->contestar($this->evaluacion, $this->colaboradorUsuario, [
+    expect(fn () => $this->evaluaciones->capturar($this->evaluacion, $this->jefeUsuario, [
         'criterios' => ($this->criterios)(4),
         'filtros' => $filtros,
     ]))->toThrow(ValidationException::class);
 
     // Con 4s y ningún filtro en Sí no hace falta comentario.
-    $evaluacion = $this->evaluaciones->contestar($this->evaluacion, $this->colaboradorUsuario, [
+    $evaluacion = $this->evaluaciones->capturar($this->evaluacion, $this->jefeUsuario, [
         'criterios' => ($this->criterios)(4),
         'filtros' => ($this->filtros)(),
     ]);
@@ -138,7 +134,7 @@ test('el comentario del colaborador es obligatorio si hay un criterio en 1 o 2, 
 });
 
 test('RH no puede forzar la renovación de una evaluación que no alcanza la regla: necesita excepción de Dirección General ya aprobada', function () {
-    $this->evaluaciones->contestar($this->evaluacion, $this->colaboradorUsuario, [
+    $this->evaluaciones->capturar($this->evaluacion, $this->jefeUsuario, [
         'criterios' => ($this->criterios)(2),
         'filtros' => ($this->filtros)(),
         'observaciones' => 'No alcanza el mínimo.',
@@ -165,7 +161,7 @@ test('RH no puede forzar la renovación de una evaluación que no alcanza la reg
 });
 
 test('Dirección General resuelve la excepción; Regional y Dirección Comercial nunca pueden', function () {
-    $this->evaluaciones->contestar($this->evaluacion, $this->colaboradorUsuario, [
+    $this->evaluaciones->capturar($this->evaluacion, $this->jefeUsuario, [
         'criterios' => ($this->criterios)(2),
         'filtros' => ($this->filtros)(),
         'observaciones' => 'No alcanza el mínimo.',
@@ -212,7 +208,7 @@ test('legacy (version null): el histórico ya capturado con el formato libre nun
 });
 
 test('aprobar dos veces no duplica el contrato indeterminado (idempotente, igual que el formato libre)', function () {
-    $this->evaluaciones->contestar($this->evaluacion, $this->colaboradorUsuario, [
+    $this->evaluaciones->capturar($this->evaluacion, $this->jefeUsuario, [
         'criterios' => ($this->criterios)(4),
         'filtros' => ($this->filtros)(),
     ]);

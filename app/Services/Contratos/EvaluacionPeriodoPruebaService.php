@@ -8,7 +8,6 @@ use App\Enums\ProcesoAprobacion;
 use App\Enums\ResultadoEvaluacion;
 use App\Enums\TipoBaja;
 use App\Enums\TipoTarea;
-use App\Models\Colaborador;
 use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
@@ -21,23 +20,17 @@ use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
 use App\Support\FechaMexico;
 use App\Support\Paginacion;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Evaluación de capacitación inicial / periodo de prueba (FO-RH-EPP-001).
- * Es una AUTOEVALUACIÓN: la contesta el colaborador evaluado desde «Mi
- * espacio» (web) o la app — nunca RH ni su jefe directo.
+ * Evaluación del periodo de prueba:
  *
- *   pendiente (RH la asigna o el scheduler la abre) → capturada (el
- *   colaborador la contesta) → autorizada (RH decide la renovación)
- *                    ↘ devuelta (RH se la regresa al colaborador) ↗
+ *   pendiente (scheduler) → capturada (jefe inmediato) → autorizada (RH/Dirección)
+ *                                       ↘ devuelta (RH pide corrección) ↗
  *
- * RH solo asigna, ve las respuestas, imprime el PDF para firma y decide.
  * Al autorizar:
  *  - renovar = sí → ContratoLaboralService::renovar(): contrato indeterminado y
  *    su documento entra al flujo firma → impresión → firma física → envío →
@@ -52,23 +45,17 @@ class EvaluacionPeriodoPruebaService
 
     public const DECISION_NO_RENOVAR = 'no_renovar';
 
-    /** Acción de la tarea/notificación que lleva al colaborador a contestarla. */
-    public const ACCION_CONTESTAR = 'contestar_evaluacion';
-
     /**
      * Pestañas del tablero que listan evaluaciones: en proceso = esperando
-     * al colaborador o por decidir RH; evaluadas = ya tienen respuestas
-     * (capturada o autorizada).
+     * al jefe o por decidir RH; evaluadas = ya tienen respuestas (capturada
+     * o autorizada).
      */
     public const PESTANA_EN_PROCESO = 'en_proceso';
 
     public const PESTANA_EVALUADAS = 'evaluadas';
 
     /** Sub-filtros (chips) dentro de una pestaña del tablero. */
-    public const FILTRO_ESPERANDO_COLABORADOR = 'esperando_colaborador';
-
-    /** Enlaces viejos (?subfiltro=esperando_jefe) caen en el chip nuevo. */
-    public const FILTRO_ESPERANDO_JEFE_LEGACY = 'esperando_jefe';
+    public const FILTRO_ESPERANDO_JEFE = 'esperando_jefe';
 
     public const FILTRO_POR_DECIDIR = 'por_decidir';
 
@@ -86,35 +73,25 @@ class EvaluacionPeriodoPruebaService
     ) {}
 
     /**
-     * AUTOEVALUACIÓN oficial FO-RH-EPP-001 (version 2): la contesta el
-     * COLABORADOR EVALUADO, nunca RH ni su jefe (RH solo la asigna, ve las
-     * respuestas, imprime el PDF y decide la renovación). criterios[{clave,
-     * calificacion 1-4}], filtros[{clave, respuesta bool}], observaciones
-     * (obligatorio si hay un 1/2 en criterios o un Sí en filtros),
-     * fecha_evaluacion? (validado por CapturarEvaluacionRequest).
-     * `recomienda_renovar`/`resultado` NUNCA se aceptan del cliente: se
-     * calculan aquí con la regla canónica.
+     * Captura oficial FO-RH-EPP-001 (version 2): criterios[{clave, calificacion
+     * 1-4}] (9, fijos), filtros[{clave, respuesta bool}] (5, fijos),
+     * observaciones (comentario del jefe; obligatorio si hay un 1/2 en
+     * criterios o un Sí en filtros), fecha_evaluacion? (validado por
+     * CapturarEvaluacionRequest). `recomienda_renovar`/`resultado` NUNCA se
+     * aceptan del cliente: se calculan aquí con la regla canónica.
      *
      * @param  array<string, mixed>  $datos
-     *
-     * @throws AuthorizationException si quien contesta no es el colaborador evaluado.
      */
-    public function contestar(EvaluacionPeriodoPrueba $evaluacion, User $colaboradorUsuario, array $datos): EvaluacionPeriodoPrueba
+    public function capturar(EvaluacionPeriodoPrueba $evaluacion, User $evaluador, array $datos): EvaluacionPeriodoPrueba
     {
-        // Defensa en profundidad (la Policy ya lo exige): ni RH, ni el jefe,
-        // ni super_admin contestan la evaluación de otra persona.
-        if (! $this->esElEvaluado($colaboradorUsuario, $evaluacion)) {
-            throw new AuthorizationException('Solo el colaborador evaluado contesta su evaluación de periodo de prueba.');
-        }
-
-        $evaluacion = DB::transaction(function () use ($evaluacion, $colaboradorUsuario, $datos): EvaluacionPeriodoPrueba {
+        $evaluacion = DB::transaction(function () use ($evaluacion, $evaluador, $datos): EvaluacionPeriodoPrueba {
             $evaluacion = EvaluacionPeriodoPrueba::query()->lockForUpdate()->findOrFail($evaluacion->id);
 
             if (! $evaluacion->estado->permiteCaptura()) {
                 throw ValidationException::withMessages(['estado' => "La evaluación ya está «{$evaluacion->estado->etiqueta()}»."]);
             }
 
-            // Versión del formulario con la que se contesta (la de la
+            // Versión del formulario con la que se captura (la de la
             // evaluación, o la vigente si aún no tiene): criterios, filtros y
             // reglas salen de ella, nunca del cliente.
             $definicion = $this->formularios->definicionPeriodoPrueba($evaluacion);
@@ -131,8 +108,8 @@ class EvaluacionPeriodoPruebaService
 
             if ($requiereComentario && $comentario === '') {
                 throw ValidationException::withMessages(['observaciones' => $comentarioHasta > 0
-                    ? sprintf('Escribe tu comentario: es obligatorio porque calificaste un criterio con %s, o respondiste "Sí" en una pregunta filtro.', $comentarioHasta === 1 ? '1' : sprintf('%d o menos', $comentarioHasta))
-                    : 'Escribe tu comentario: es obligatorio porque respondiste "Sí" en una pregunta filtro.']);
+                    ? sprintf('El comentario del jefe es obligatorio: hay un criterio calificado con %s, o una pregunta filtro marcada "Sí".', $comentarioHasta === 1 ? '1' : sprintf('%d o menos', $comentarioHasta))
+                    : 'El comentario del jefe es obligatorio: hay una pregunta filtro marcada "Sí".']);
             }
 
             // Regla canónica (FO-RH-EPP-001, Paso 3 — ver config
@@ -144,10 +121,11 @@ class EvaluacionPeriodoPruebaService
             $evaluacion->update([
                 'version' => (int) config('contratos.evaluacion_periodo_prueba_v2.version_vigente', 2),
                 'formulario_evaluacion_id' => $definicion['formulario_id'],
-                // Autoevaluación: quien contesta es la propia persona.
-                'evaluador_colaborador_id' => $evaluacion->colaborador_id,
                 'criterios' => $criterios,
                 'filtros' => $filtros,
+                // Dato de RH para "Asistencia y puntualidad" (opcional).
+                'faltas_injustificadas' => isset($datos['faltas_injustificadas']) && is_numeric($datos['faltas_injustificadas']) ? (int) $datos['faltas_injustificadas'] : null,
+                'retardos' => isset($datos['retardos']) && is_numeric($datos['retardos']) ? (int) $datos['retardos'] : null,
                 'calificacion' => $total,
                 'resultado' => $renueva ? ResultadoEvaluacion::Aprobado : ResultadoEvaluacion::NoAprobado,
                 'recomienda_renovar' => $renueva,
@@ -155,7 +133,7 @@ class EvaluacionPeriodoPruebaService
                 // Fecha del día en México (la app corre en UTC: después de las
                 // 18:00 now() ya es "mañana").
                 'fecha_evaluacion' => $datos['fecha_evaluacion'] ?? now(VencimientoContratosService::ZONA)->toDateString(),
-                'capturada_por' => $colaboradorUsuario->id,
+                'capturada_por' => $evaluador->id,
                 'capturada_en' => now(),
                 'estado' => EstadoEvaluacionPrueba::Capturada,
             ]);
@@ -164,29 +142,29 @@ class EvaluacionPeriodoPruebaService
         });
 
         $evaluacion->loadMissing('colaborador');
-        $nombre = $evaluacion->colaborador->nombreCompleto();
 
-        // La autoevaluación NO es una preautorización: el colaborador no
-        // aprueba su propia renovación. La ronda nace con la
-        // preautorización «no aplica» y queda pendiente solo la decisión de
-        // RH (autorizar() / devolver()). Una preautorización pendiente del
-        // flujo anterior (jefe evaluador) se cancela, nunca se borra.
+        // La recomendación del jefe es la PREAUTORIZACIÓN operativa: nunca
+        // genera por sí sola contrato definitivo ni baja.
+        $decision = $evaluacion->recomienda_renovar ? self::DECISION_RENOVAR : self::DECISION_NO_RENOVAR;
+
         if ($this->aprobaciones->pendiente($evaluacion, ProcesoAprobacion::PeriodoPrueba) !== null) {
-            $this->aprobaciones->cancelarPendientes($evaluacion, ProcesoAprobacion::PeriodoPrueba, $colaboradorUsuario, 'La evaluación ahora la contesta el colaborador evaluado.');
+            $this->aprobaciones->preautorizar($evaluacion, ProcesoAprobacion::PeriodoPrueba, $evaluador, $evaluacion->observaciones, $decision);
+        } else {
+            $this->aprobaciones->abrir($evaluacion, ProcesoAprobacion::PeriodoPrueba, [
+                'colaborador' => $evaluacion->colaborador,
+                'solicitante' => $evaluador,
+                'aprobador_colaborador' => $evaluador->colaborador,
+                'aprobador_user' => $evaluador,
+                'implicita' => true,
+                'decision' => $decision,
+                'comentario' => sprintf('Recomendación del evaluador: %s.', $evaluacion->recomienda_renovar ? 'renovar' : 'no renovar'),
+            ]);
         }
 
-        $this->aprobaciones->abrir($evaluacion, ProcesoAprobacion::PeriodoPrueba, [
-            'colaborador' => $evaluacion->colaborador,
-            'solicitante' => $colaboradorUsuario,
-            'motivo_omision' => 'Autoevaluación del colaborador: la decisión de renovar la toma Recursos Humanos.',
-        ]);
-
-        $this->tareas->resolver(TipoTarea::EvaluacionPendiente, $evaluacion, $colaboradorUsuario);
+        $this->tareas->resolver(TipoTarea::EvaluacionPendiente, $evaluacion, $evaluador);
         $this->tareas->abrir(TipoTarea::EvaluacionPorAutorizar, $evaluacion, [
-            'titulo' => "Decidir renovación: {$nombre}",
-            'descripcion' => $evaluacion->recomienda_renovar
-                ? 'Ya contestó su evaluación y alcanza la regla de renovación.'
-                : 'Ya contestó su evaluación y NO alcanza la regla de renovación.',
+            'titulo' => "Autorizar evaluación: {$evaluacion->colaborador->nombreCompleto()}",
+            'descripcion' => $evaluacion->recomienda_renovar ? 'El jefe recomienda renovar.' : 'El jefe recomienda NO renovar.',
             'prioridad' => PrioridadTarea::Alta,
             'colaborador' => $evaluacion->colaborador,
             'permiso' => self::PERMISO_AUTORIZAR,
@@ -196,90 +174,20 @@ class EvaluacionPeriodoPruebaService
         $this->notificador->notificarEvento(
             'evaluacion_capturada',
             $evaluacion->colaborador,
-            ['creador' => $colaboradorUsuario, 'excluir' => [$colaboradorUsuario->id]],
-            'Evaluación de periodo de prueba contestada',
-            "{$nombre} ya contestó su evaluación de periodo de prueba. Revisa sus respuestas y decide la renovación.",
+            ['creador' => $evaluador, 'excluir' => [$evaluador->id]],
+            'Evaluación de periodo de prueba por autorizar',
+            "Se capturó la evaluación de {$evaluacion->colaborador->nombreCompleto()}.",
             $evaluacion,
             'autorizar_evaluacion',
         );
 
-        $this->auditoria->registrar('evaluacion_capturada', $evaluacion, $colaboradorUsuario, [
-            'autoevaluacion' => true,
+        $this->auditoria->registrar('evaluacion_capturada', $evaluacion, $evaluador, [
             'calificacion' => $evaluacion->calificacion,
             'resultado' => $evaluacion->resultado?->value,
             'recomienda_renovar' => $evaluacion->recomienda_renovar,
         ]);
 
         return $evaluacion->refresh();
-    }
-
-    /** ¿$usuario es la persona evaluada? (la única que contesta su evaluación). */
-    public function esElEvaluado(User $usuario, EvaluacionPeriodoPrueba $evaluacion): bool
-    {
-        return $usuario->colaborador_id !== null && $usuario->colaborador_id === $evaluacion->colaborador_id;
-    }
-
-    /**
-     * Evaluación de periodo de prueba de «Mi espacio»: la más reciente del
-     * colaborador (pendiente, devuelta, contestada o decidida). Null si RH
-     * todavía no se la asigna.
-     */
-    public function deColaborador(Colaborador $colaborador): ?EvaluacionPeriodoPrueba
-    {
-        return EvaluacionPeriodoPrueba::query()
-            ->where('colaborador_id', $colaborador->id)
-            ->orderByDesc('id')
-            ->first();
-    }
-
-    /**
-     * Lo que ve el colaborador de SU evaluación (web «Mi espacio» y app):
-     * el formulario para contestarla y, si ya la envió, sus respuestas en
-     * solo lectura. Nunca la decisión interna de RH ni su comentario de
-     * autorización — solo el motivo cuando RH se la devuelve para corregir.
-     *
-     * @return array<string, mixed>
-     */
-    public function aArrayColaborador(EvaluacionPeriodoPrueba $evaluacion, User $usuario): array
-    {
-        $definicion = $this->formularios->definicionPeriodoPrueba($evaluacion);
-        $contestada = $this->tieneRespuestas($evaluacion);
-        $criterios = [];
-        $filtros = [];
-
-        // Solo el formato oficial (clave + calificación 1-4) se precarga.
-        foreach ($evaluacion->criterios ?? [] as $criterio) {
-            if (array_key_exists('clave', $criterio)) {
-                $criterios[] = ['clave' => (string) $criterio['clave'], 'calificacion' => (int) $criterio['calificacion']];
-            }
-        }
-
-        foreach ($evaluacion->filtros ?? [] as $filtro) {
-            $filtros[] = ['clave' => (string) $filtro['clave'], 'respuesta' => (bool) $filtro['respuesta']];
-        }
-
-        return [
-            'id' => $evaluacion->id,
-            'estado' => $evaluacion->estado->value,
-            'estado_etiqueta' => match ($evaluacion->estado) {
-                EstadoEvaluacionPrueba::Pendiente => 'Por contestar',
-                EstadoEvaluacionPrueba::Devuelta => 'Devuelta para corregir',
-                EstadoEvaluacionPrueba::Capturada => 'Enviada · Recursos Humanos la está revisando',
-                EstadoEvaluacionPrueba::Autorizada => 'Revisada por Recursos Humanos',
-            },
-            'puede_contestar' => $evaluacion->estado->permiteCaptura() && $this->esElEvaluado($usuario, $evaluacion),
-            'fecha_limite' => $evaluacion->fecha_limite?->toDateString(),
-            'fecha_evaluacion' => $evaluacion->fecha_evaluacion?->toDateString(),
-            'contestada_en' => $contestada ? $evaluacion->capturada_en?->toIso8601String() : null,
-            'motivo_devolucion' => $evaluacion->estado === EstadoEvaluacionPrueba::Devuelta ? $evaluacion->comentario_autorizacion : null,
-            // Respuestas guardadas: precargan la corrección (devuelta) y se
-            // muestran en solo lectura una vez enviada.
-            'criterios' => $criterios,
-            'filtros' => $filtros,
-            'observaciones' => $evaluacion->observaciones,
-            'calificacion' => $contestada && $evaluacion->calificacion !== null ? (float) $evaluacion->calificacion : null,
-            'formulario' => $this->formularios->contenidoPeriodoPrueba($definicion),
-        ];
     }
 
     /**
@@ -291,18 +199,18 @@ class EvaluacionPeriodoPruebaService
      * @param  array<string, mixed>  $definicion  FormularioEvaluacionService::definicionPeriodoPrueba()
      * @param  array<int, mixed>  $criteriosEntrada
      * @param  array<int, mixed>  $filtrosEntrada
-     * @return array{0: list<array{clave: string, etiqueta: string, calificacion: int}>, 1: list<array{clave: string, etiqueta: string, respuesta: bool}>}
+     * @return array{0: list<array{clave: string, etiqueta: string, calificacion: int, meta?: float|null, logro?: float|null, porcentaje?: float|null}>, 1: list<array{clave: string, etiqueta: string, respuesta: bool}>}
      */
     private function normalizarCapturaOficial(array $definicion, array $criteriosEntrada, array $filtrosEntrada): array
     {
-        /** @var list<array{clave: string, etiqueta: string}> $catalogoCriterios */
+        /** @var list<array{clave: string, etiqueta: string, captura_meta?: bool}> $catalogoCriterios */
         $catalogoCriterios = $definicion['criterios'];
         /** @var list<array{clave: string, etiqueta: string}> $catalogoFiltros */
         $catalogoFiltros = $definicion['filtros'];
 
-        $calificacionPorClave = collect($criteriosEntrada)
+        $entradaPorClave = collect($criteriosEntrada)
             ->filter(fn ($c) => is_array($c))
-            ->mapWithKeys(fn (array $c) => [(string) ($c['clave'] ?? '') => $c['calificacion'] ?? null]);
+            ->mapWithKeys(fn (array $c) => [(string) ($c['clave'] ?? '') => $c]);
         $respuestaPorClave = collect($filtrosEntrada)
             ->filter(fn ($f) => is_array($f))
             ->mapWithKeys(fn (array $f) => [(string) ($f['clave'] ?? '') => $f['respuesta'] ?? null]);
@@ -310,13 +218,29 @@ class EvaluacionPeriodoPruebaService
         $criterios = [];
 
         foreach ($catalogoCriterios as $oficial) {
-            $calificacion = $calificacionPorClave->get($oficial['clave']);
+            /** @var array<string, mixed> $entrada */
+            $entrada = $entradaPorClave->get($oficial['clave'], []);
+            $calificacion = $entrada['calificacion'] ?? null;
 
             if (! is_numeric($calificacion) || (int) $calificacion < 1 || (int) $calificacion > 4) {
                 throw ValidationException::withMessages(["criterios.{$oficial['clave']}" => "Falta calificar «{$oficial['etiqueta']}» (escala 1 a 4)."]);
             }
 
-            $criterios[] = ['clave' => $oficial['clave'], 'etiqueta' => $oficial['etiqueta'], 'calificacion' => (int) $calificacion];
+            $criterio = ['clave' => $oficial['clave'], 'etiqueta' => $oficial['etiqueta'], 'calificacion' => (int) $calificacion];
+
+            // Meta / Logró / % solo del renglón "Cumple sus metas" (captura_meta):
+            // se guarda lo capturado y el porcentaje se calcula aquí, nunca del cliente.
+            if (($oficial['captura_meta'] ?? false) === true) {
+                $meta = is_numeric($entrada['meta'] ?? null) ? (float) $entrada['meta'] : null;
+                $logro = is_numeric($entrada['logro'] ?? null) ? (float) $entrada['logro'] : null;
+                $criterio['meta'] = $meta;
+                $criterio['logro'] = $logro;
+                $criterio['porcentaje'] = $meta !== null && $meta > 0 && $logro !== null
+                    ? round($logro / $meta * 100, 1)
+                    : null;
+            }
+
+            $criterios[] = $criterio;
         }
 
         $filtros = [];
@@ -341,72 +265,40 @@ class EvaluacionPeriodoPruebaService
         return [$criterios, $filtros];
     }
 
-    /**
-     * RH devuelve la evaluación AL COLABORADOR para que la vuelva a contestar
-     * (sus respuestas se conservan para corregirlas). Nunca reabre una
-     * preautorización: en la autoevaluación no hay jefe que preautorice.
-     */
     public function devolver(EvaluacionPeriodoPrueba $evaluacion, User $actor, string $motivo): EvaluacionPeriodoPrueba
     {
         $evaluacion = DB::transaction(function () use ($evaluacion, $motivo, $actor): EvaluacionPeriodoPrueba {
             $evaluacion = EvaluacionPeriodoPrueba::query()->lockForUpdate()->findOrFail($evaluacion->id);
 
             if ($evaluacion->estado !== EstadoEvaluacionPrueba::Capturada) {
-                throw ValidationException::withMessages(['estado' => 'Solo una evaluación contestada puede devolverse.']);
+                throw ValidationException::withMessages(['estado' => 'Solo una evaluación capturada puede devolverse.']);
             }
 
-            $this->aprobaciones->devolver($evaluacion, ProcesoAprobacion::PeriodoPrueba, $actor, $motivo, false);
-            $evaluacion->update([
-                'estado' => EstadoEvaluacionPrueba::Devuelta,
-                'comentario_autorizacion' => $motivo,
-                // A partir de ahora la contesta la persona evaluada.
-                'evaluador_colaborador_id' => $evaluacion->colaborador_id,
-            ]);
+            $this->aprobaciones->devolver($evaluacion, ProcesoAprobacion::PeriodoPrueba, $actor, $motivo);
+            $evaluacion->update(['estado' => EstadoEvaluacionPrueba::Devuelta, 'comentario_autorizacion' => $motivo]);
 
             return $evaluacion;
         });
 
-        $evaluacion->loadMissing('colaborador.user');
+        $evaluacion->loadMissing(['colaborador', 'evaluador.user']);
         $this->tareas->resolver(TipoTarea::EvaluacionPorAutorizar, $evaluacion, $actor);
-        $this->asignarAlColaborador($evaluacion, 'Corrige tu evaluación de periodo de prueba', sprintf('Recursos Humanos te la devolvió: %s', $motivo));
+        $evaluadorUsuario = $evaluacion->evaluador?->user;
 
-        $colaboradorUsuario = $evaluacion->colaborador->user;
-        $this->notificador->notificarEvento(
-            'evaluacion_devuelta',
-            $evaluacion->colaborador,
-            ['evaluador' => $colaboradorUsuario, 'excluir' => [$actor->id]],
-            'Tu evaluación de periodo de prueba fue devuelta',
-            sprintf('Recursos Humanos te pide corregirla: %s', $motivo),
-            $evaluacion,
-            self::ACCION_CONTESTAR,
-        );
+        $this->tareas->abrir(TipoTarea::EvaluacionPendiente, $evaluacion, [
+            'titulo' => "Corregir evaluación: {$evaluacion->colaborador->nombreCompleto()}",
+            'descripcion' => $motivo,
+            'prioridad' => PrioridadTarea::Alta,
+            'colaborador' => $evaluacion->colaborador,
+            'usuario' => $evaluadorUsuario,
+            'permiso' => $evaluadorUsuario === null ? self::PERMISO_AUTORIZAR : null,
+            'accion' => 'capturar_evaluacion',
+        ]);
+
+        $this->notificador->notificarEvento('evaluacion_devuelta', $evaluacion->colaborador, ['evaluador' => $evaluadorUsuario, 'excluir' => [$actor->id]], 'Evaluación devuelta', $motivo, $evaluacion, 'capturar_evaluacion');
 
         $this->auditoria->registrar('evaluacion_devuelta', $evaluacion, $actor, ['motivo' => $motivo]);
 
         return $evaluacion->refresh();
-    }
-
-    /**
-     * Tarea «Contesta tu evaluación» para el colaborador evaluado. Sin cuenta
-     * en PEOPLE no puede contestarla: RH recibe la tarea de darle acceso
-     * (nunca la de contestarla por él).
-     */
-    public function asignarAlColaborador(EvaluacionPeriodoPrueba $evaluacion, string $titulo, string $descripcion, Carbon|string|null $venceEn = null): void
-    {
-        $evaluacion->loadMissing('colaborador.user');
-        $colaborador = $evaluacion->colaborador;
-        $usuario = $colaborador->user;
-
-        $this->tareas->abrir(TipoTarea::EvaluacionPendiente, $evaluacion, [
-            'titulo' => $usuario !== null ? $titulo : sprintf('Dar acceso a PEOPLE: %s debe contestar su evaluación', $colaborador->nombreCompleto()),
-            'descripcion' => $usuario !== null ? $descripcion : 'No tiene cuenta activa: sin acceso no puede contestar su evaluación de periodo de prueba.',
-            'prioridad' => PrioridadTarea::Alta,
-            'colaborador' => $colaborador,
-            'usuario' => $usuario,
-            'permiso' => $usuario === null ? self::PERMISO_AUTORIZAR : null,
-            'accion' => self::ACCION_CONTESTAR,
-            'vence_en' => $venceEn,
-        ]);
     }
 
     /**
@@ -423,11 +315,11 @@ class EvaluacionPeriodoPruebaService
                 throw ValidationException::withMessages(['estado' => 'Solo una evaluación capturada puede autorizarse.']);
             }
 
-            // RH puede decidir distinto al resultado de la autoevaluación, siempre con comentario.
+            // RH puede cambiar la recomendación del jefe, siempre con comentario.
             $comentario = isset($datos['comentario']) ? trim((string) $datos['comentario']) : '';
 
             if ($evaluacion->recomienda_renovar !== null && $evaluacion->recomienda_renovar !== $renovar && $comentario === '') {
-                throw ValidationException::withMessages(['comentario' => 'Explica por qué RH decide distinto al resultado de la evaluación.']);
+                throw ValidationException::withMessages(['comentario' => 'Explica por qué RH decide distinto a la recomendación del jefe.']);
             }
 
             // Regla canónica (FO-RH-EPP-001): si la evaluación oficial no
@@ -468,7 +360,7 @@ class EvaluacionPeriodoPruebaService
             $contrato = $evaluacion->contrato;
             $fecha = isset($datos['fecha_efectiva']) ? (string) $datos['fecha_efectiva'] : ($contrato->fecha_fin?->toDateString() ?? FechaMexico::hoy());
 
-            // La no renovación ya tiene la autorización
+            // La no renovación ya tiene preautorización (jefe) y autorización
             // RH: el cierre nace autorizado, genera sus documentos y la baja
             // NO se ejecuta antes de la fecha efectiva.
             $this->cierres->iniciarDesdeEvaluacion($evaluacion->colaborador, [
@@ -526,7 +418,7 @@ class EvaluacionPeriodoPruebaService
      * búsqueda y sucursal y el mismo alcance que el listado.
      *
      * @param  array<string, mixed>  $filtros
-     * @return array{esperando_colaborador: int, por_decidir: int, en_proceso: int, evaluadas: int, autorizadas: int, evaluadas_mes: int}
+     * @return array{esperando_jefe: int, por_decidir: int, en_proceso: int, evaluadas: int, autorizadas: int, evaluadas_mes: int}
      */
     public function conteosTablero(User $usuario, array $filtros = []): array
     {
@@ -540,7 +432,7 @@ class EvaluacionPeriodoPruebaService
         $inicioMes = FechaMexico::inicioDeHoy()->startOfMonth()->toDateString();
 
         return [
-            'esperando_colaborador' => $cuenta(EstadoEvaluacionPrueba::Pendiente, EstadoEvaluacionPrueba::Devuelta),
+            'esperando_jefe' => $cuenta(EstadoEvaluacionPrueba::Pendiente, EstadoEvaluacionPrueba::Devuelta),
             'por_decidir' => $cuenta(EstadoEvaluacionPrueba::Capturada),
             'en_proceso' => $cuenta(EstadoEvaluacionPrueba::Pendiente, EstadoEvaluacionPrueba::Devuelta, EstadoEvaluacionPrueba::Capturada),
             'evaluadas' => $cuenta(EstadoEvaluacionPrueba::Capturada, EstadoEvaluacionPrueba::Autorizada),
@@ -558,7 +450,7 @@ class EvaluacionPeriodoPruebaService
      * ya contestado no se reescribe). Alimenta «Ver respuestas» y el PDF
      * para firma.
      *
-     * @return array{es_oficial: bool, criterios: list<array{clave: string|null, etiqueta: string, calificacion: float|int|null, comentario: string|null}>, filtros: list<array{clave: string|null, etiqueta: string, respuesta: bool}>, escala_max: int, total: float|null, total_maximo: int|null, total_minimo_renovar: float|null, motivos_no_renueva: list<string>, recomienda_renovar: bool|null, resultado: string|null, resultado_etiqueta: string|null, observaciones: string|null, autoevaluacion: bool, evaluador: string|null, capturada_por: string|null, capturada_en: string|null, fecha_evaluacion: string|null, fecha_limite: string|null, decision: array{renovar: bool|null, comentario: string|null, autorizada_por: string|null, autorizada_en: string|null}}
+     * @return array{es_oficial: bool, criterios: list<array{clave: string|null, etiqueta: string, calificacion: float|int|null, comentario: string|null, niveles: array<string, string>, captura_meta: bool, meta: float|int|null, logro: float|int|null, porcentaje: float|int|null}>, filtros: list<array{clave: string|null, etiqueta: string, respuesta: bool}>, escala_max: int, total: float|null, total_maximo: int|null, total_minimo_renovar: float|null, motivos_no_renueva: list<string>, faltas_injustificadas: int|null, retardos: int|null, recomienda_renovar: bool|null, resultado: string|null, resultado_etiqueta: string|null, observaciones: string|null, evaluador: string|null, capturada_por: string|null, capturada_en: string|null, fecha_evaluacion: string|null, fecha_limite: string|null, decision: array{renovar: bool|null, comentario: string|null, autorizada_por: string|null, autorizada_en: string|null}}
      */
     public function respuestas(EvaluacionPeriodoPrueba $evaluacion): array
     {
@@ -566,17 +458,41 @@ class EvaluacionPeriodoPruebaService
         $esOficial = (int) ($evaluacion->version ?? 1) >= 2;
         $escalaMax = $esOficial ? 4 : 10;
 
+        // Reglas y textos de la versión del formulario con la que se capturó:
+        // descripción oficial de cada valor (niveles) por clave de criterio.
+        $definicion = $this->formularios->definicionPeriodoPrueba($evaluacion);
+        $nivelesPorClave = [];
+        $metaPorClave = [];
+
+        foreach ((array) ($definicion['criterios'] ?? []) as $c) {
+            if (! is_array($c) || ! isset($c['clave'])) {
+                continue;
+            }
+
+            $clave = (string) $c['clave'];
+            $nivelesPorClave[$clave] = is_array($c['niveles'] ?? null) ? $c['niveles'] : [];
+            $metaPorClave[$clave] = (bool) ($c['captura_meta'] ?? false);
+        }
+
         $criterios = [];
 
-        // Oficial: {clave, etiqueta, calificacion 1-4}; legacy (formato
-        // libre): {criterio, calificacion 0-10, comentario?}.
+        // Oficial: {clave, etiqueta, calificacion 1-4, meta?/logro?/porcentaje?};
+        // legacy (formato libre): {criterio, calificacion 0-10, comentario?}.
         foreach ($evaluacion->criterios ?? [] as $criterio) {
             $comentario = array_key_exists('comentario', $criterio) ? trim((string) $criterio['comentario']) : '';
+            $clave = array_key_exists('clave', $criterio) ? (string) $criterio['clave'] : null;
             $criterios[] = [
-                'clave' => array_key_exists('clave', $criterio) ? $criterio['clave'] : null,
+                'clave' => $clave,
                 'etiqueta' => array_key_exists('etiqueta', $criterio) ? $criterio['etiqueta'] : $criterio['criterio'],
                 'calificacion' => $criterio['calificacion'],
                 'comentario' => $comentario !== '' ? $comentario : null,
+                // Descripción oficial de cada valor (4/3/2/1) para el PDF.
+                'niveles' => $clave !== null ? ($nivelesPorClave[$clave] ?? []) : [],
+                'captura_meta' => $clave !== null && (bool) ($metaPorClave[$clave] ?? false),
+                // Meta / Logró / % del renglón "Cumple sus metas" (si se capturó).
+                'meta' => array_key_exists('meta', $criterio) ? $criterio['meta'] : null,
+                'logro' => array_key_exists('logro', $criterio) ? $criterio['logro'] : null,
+                'porcentaje' => array_key_exists('porcentaje', $criterio) ? $criterio['porcentaje'] : null,
             ];
         }
 
@@ -591,8 +507,6 @@ class EvaluacionPeriodoPruebaService
         }
 
         $total = $evaluacion->calificacion !== null ? (float) $evaluacion->calificacion : null;
-        // Reglas de la versión del formulario con la que se capturó.
-        $definicion = $this->formularios->definicionPeriodoPrueba($evaluacion);
         $minimo = $esOficial ? (float) $definicion['total_minimo_renovar'] : null;
         $motivos = [];
 
@@ -619,13 +533,13 @@ class EvaluacionPeriodoPruebaService
             'total_maximo' => $esOficial ? count($criterios) * $escalaMax : null,
             'total_minimo_renovar' => $minimo,
             'motivos_no_renueva' => $motivos,
+            // Dato de RH para "Asistencia y puntualidad" (null si no se capturó).
+            'faltas_injustificadas' => $evaluacion->faltas_injustificadas,
+            'retardos' => $evaluacion->retardos,
             'recomienda_renovar' => $evaluacion->recomienda_renovar,
             'resultado' => $evaluacion->resultado?->value,
             'resultado_etiqueta' => $evaluacion->resultado?->etiqueta(),
             'observaciones' => $evaluacion->observaciones,
-            // La contestó el propio colaborador (flujo vigente) o, en el flujo
-            // anterior, su jefe: cambia cómo se rotulan comentarios y firmas.
-            'autoevaluacion' => $evaluacion->capturadaPor !== null && $evaluacion->capturadaPor->colaborador_id === $evaluacion->colaborador_id,
             'evaluador' => $evaluacion->evaluador?->nombreCompleto(),
             'capturada_por' => $evaluacion->capturadaPor?->nombreCompleto(),
             'capturada_en' => $evaluacion->capturada_en?->toIso8601String(),
@@ -664,12 +578,9 @@ class EvaluacionPeriodoPruebaService
         // global (p. ej. Sistemas: evaluaciones.ver_todos) las consulta todas
         // sin poder capturar ni autorizar (lo decide la Policy).
         if (! $usuario->can(self::PERMISO_AUTORIZAR) && ! $usuario->can('evaluaciones.ver_todos')) {
-            // Un jefe da seguimiento (solo lectura) a las de su equipo; la
-            // propia autoevaluación se contesta en «Mi espacio», no aquí.
-            $yo = $usuario->colaborador_id ?? 0;
-            $query->where('colaborador_id', '!=', $yo)->where(fn (Builder $q) => $q
-                ->where('evaluador_colaborador_id', $yo)
-                ->orWhereHas('colaborador', fn (Builder $c) => $c->where('jefe_id', $yo)));
+            $query->where(fn (Builder $q) => $q
+                ->where('evaluador_colaborador_id', $usuario->colaborador_id ?? 0)
+                ->orWhereHas('colaborador', fn (Builder $c) => $c->where('jefe_id', $usuario->colaborador_id ?? 0)));
         } else {
             // Alcance del módulo «evaluaciones» (Roles y permisos), no por nombre de rol.
             $this->alcance->limitarPorModulo($query, $usuario, 'evaluaciones', 'colaborador_id', false);
@@ -702,7 +613,7 @@ class EvaluacionPeriodoPruebaService
             $pestana === self::PESTANA_EVALUADAS && $subfiltro === self::FILTRO_POR_DECIDIR => [EstadoEvaluacionPrueba::Capturada],
             $pestana === self::PESTANA_EVALUADAS && $subfiltro === self::FILTRO_AUTORIZADAS => [EstadoEvaluacionPrueba::Autorizada],
             $pestana === self::PESTANA_EVALUADAS => [EstadoEvaluacionPrueba::Capturada, EstadoEvaluacionPrueba::Autorizada],
-            $subfiltro === self::FILTRO_ESPERANDO_COLABORADOR => [EstadoEvaluacionPrueba::Pendiente, EstadoEvaluacionPrueba::Devuelta],
+            $subfiltro === self::FILTRO_ESPERANDO_JEFE => [EstadoEvaluacionPrueba::Pendiente, EstadoEvaluacionPrueba::Devuelta],
             $subfiltro === self::FILTRO_POR_DECIDIR => [EstadoEvaluacionPrueba::Capturada],
             default => [EstadoEvaluacionPrueba::Pendiente, EstadoEvaluacionPrueba::Devuelta, EstadoEvaluacionPrueba::Capturada],
         };

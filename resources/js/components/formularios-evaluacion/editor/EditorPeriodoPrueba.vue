@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Info, Plus } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import TarjetaPregunta from '@/components/formularios-evaluacion/editor/TarjetaPregunta.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -20,11 +20,43 @@ const d = defineModel<DefinicionPeriodoPrueba>({ required: true });
 const activa = ref<string | null>(null);
 const maximo = computed(() => d.value.criterios.length * 4);
 
+function nivelesVacios(): Record<string, string> {
+    return { '4': '', '3': '', '2': '', '1': '' };
+}
+
+// Los criterios editan la descripción oficial de cada valor (4/3/2/1) y si
+// capturan Meta/Logró/%: garantiza que esos campos existan aunque el borrador
+// venga de una versión anterior que no los tenía.
+watch(
+    () => d.value.criterios,
+    (criterios) => {
+        criterios.forEach((c) => {
+            if (!c.niveles) {
+                c.niveles = nivelesVacios();
+            }
+            if (c.captura_meta === undefined) {
+                c.captura_meta = false;
+            }
+        });
+    },
+    { immediate: true, deep: true },
+);
+
 function agregar(
     lista: ReactivoPeriodoPrueba[],
     prefijo: 'criterio' | 'filtro',
 ) {
-    lista.push({ clave: claveNueva(prefijo), etiqueta: '', descripcion: '' });
+    lista.push(
+        prefijo === 'criterio'
+            ? {
+                  clave: claveNueva(prefijo),
+                  etiqueta: '',
+                  descripcion: '',
+                  captura_meta: false,
+                  niveles: nivelesVacios(),
+              }
+            : { clave: claveNueva(prefijo), etiqueta: '', descripcion: '' },
+    );
     activa.value = `${prefijo}-${lista.length - 1}`;
 }
 
@@ -84,7 +116,7 @@ const OPCIONES_COMENTARIO = [
                     </p>
                 </div>
                 <div class="grid gap-1.5">
-                    <Label>El comentario del colaborador es obligatorio…</Label>
+                    <Label>El comentario del jefe es obligatorio…</Label>
                     <div class="flex flex-col gap-1">
                         <label
                             v-for="o in OPCIONES_COMENTARIO"
@@ -166,9 +198,10 @@ const OPCIONES_COMENTARIO = [
             <div class="px-1">
                 <h3 class="font-semibold">Paso 1 · Criterios a calificar</h3>
                 <p class="text-xs text-muted-foreground">
-                    El colaborador califica su desempeño del 4 al 1
-                    (autoevaluación). Agrega, quita o reordena los que necesites
-                    (máximo 20).
+                    El jefe inmediato evalúa el desempeño observado del
+                    colaborador con la escala de 4 a 1, eligiendo en cada
+                    criterio la descripción que mejor lo describe. Agrega, quita
+                    o reordena los que necesites (máximo 20).
                 </p>
             </div>
             <TarjetaPregunta
@@ -204,9 +237,36 @@ const OPCIONES_COMENTARIO = [
                 />
                 <Input
                     v-model="c.descripcion"
-                    placeholder="Ayuda para el colaborador (opcional)"
+                    placeholder="Ayuda para el jefe (opcional)"
                     :disabled="props.soloLectura"
                 />
+                <div v-if="c.niveles" class="grid gap-2 sm:grid-cols-2">
+                    <div v-for="n in [4, 3, 2, 1]" :key="n" class="grid gap-1">
+                        <Label :for="`nivel-${c.clave}-${n}`" class="text-xs">
+                            Descripción del {{ n }} ·
+                            {{ d.escala_etiquetas[String(n)] }}
+                        </Label>
+                        <Input
+                            :id="`nivel-${c.clave}-${n}`"
+                            v-model="c.niveles[String(n)]"
+                            :placeholder="`Qué se ve cuando merece un ${n}`"
+                            :disabled="props.soloLectura"
+                        />
+                    </div>
+                </div>
+                <label class="flex items-center gap-2 text-sm">
+                    <Checkbox
+                        :model-value="c.captura_meta === true"
+                        :disabled="props.soloLectura"
+                        @update:model-value="
+                            (v) => (c.captura_meta = v === true)
+                        "
+                    />
+                    <span
+                        >Capturar <strong>Meta / Logró / %</strong> en este
+                        criterio (como «Cumple sus metas»).</span
+                    >
+                </label>
             </TarjetaPregunta>
             <Button
                 v-if="!props.soloLectura && d.criterios.length < 20"
@@ -255,7 +315,7 @@ const OPCIONES_COMENTARIO = [
                 />
                 <Input
                     v-model="f.descripcion"
-                    placeholder="Ayuda para el colaborador (opcional)"
+                    placeholder="Ayuda para el jefe (opcional)"
                     :disabled="props.soloLectura"
                 />
             </TarjetaPregunta>

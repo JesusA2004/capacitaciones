@@ -193,10 +193,10 @@ return [
             'fallback' => ['gerencia_rh'],
         ],
         'evaluacion_pendiente' => [
-            'etiqueta' => 'Evaluación de periodo de prueba por contestar',
-            'descripcion' => 'RH asignó (o PEOPLE abrió) la evaluación de capacitación inicial: la contesta el propio colaborador desde Mi espacio o la app.',
-            'destinatarios' => ['colaborador'],
-            'fallback' => [],
+            'etiqueta' => 'Evaluación de periodo de prueba por capturar',
+            'descripcion' => 'Se habilitó la evaluación del periodo de prueba.',
+            'destinatarios' => ['evaluador'],
+            'fallback' => ['jefe_directo', 'gerente'],
         ],
         'contrato_por_vencer' => [
             'etiqueta' => 'Ya se debe renovar el contrato',
@@ -206,8 +206,8 @@ return [
             'fallback' => ['rh'],
         ],
         'evaluacion_capturada' => [
-            'etiqueta' => 'Evaluación de periodo de prueba por decidir',
-            'descripcion' => 'El colaborador ya contestó su evaluación de periodo de prueba; RH revisa sus respuestas y decide la renovación.',
+            'etiqueta' => 'Evaluación de periodo de prueba por autorizar',
+            'descripcion' => 'El jefe recomendó renovar o no renovar; RH decide.',
             'destinatarios' => ['usuarios_con_permiso'],
             'permiso' => 'evaluaciones.autorizar',
             'fallback' => ['rh'],
@@ -226,10 +226,10 @@ return [
             'fallback' => ['rh'],
         ],
         'evaluacion_devuelta' => [
-            'etiqueta' => 'Evaluación devuelta al colaborador',
-            'descripcion' => 'RH le regresó al colaborador su evaluación de periodo de prueba para que la corrija.',
-            'destinatarios' => ['colaborador'],
-            'fallback' => [],
+            'etiqueta' => 'Evaluación devuelta para corrección',
+            'descripcion' => 'RH pidió corregir la evaluación del periodo de prueba.',
+            'destinatarios' => ['evaluador'],
+            'fallback' => ['jefe_directo'],
         ],
         // Módulo de Bajas y Causales (docs/BAJAS_Y_CAUSALES.md).
         'baja_por_revisar' => [

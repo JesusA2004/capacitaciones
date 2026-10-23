@@ -78,6 +78,10 @@ export type ReactivoPeriodoPrueba = {
     clave: string;
     etiqueta: string;
     descripcion?: string;
+    /** Descripción oficial de cada valor de la escala (4/3/2/1). */
+    niveles?: Record<string, string>;
+    /** Habilita los campos Meta / Logró / % (renglón «Cumple sus metas»). */
+    captura_meta?: boolean;
 };
 
 export type DefinicionPeriodoPrueba = {

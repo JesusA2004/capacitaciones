@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { CheckCircle2, FileWarning } from '@lucide/vue';
 import { computed } from 'vue';
 import EncabezadoFormulario from '@/components/formularios-evaluacion/EncabezadoFormulario.vue';
 import InputError from '@/components/InputError.vue';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { estiloAcento } from '@/lib/formulariosEvaluacion';
@@ -9,10 +11,13 @@ import { cn } from '@/lib/utils';
 import type { ContenidoPeriodoPrueba } from '@/types';
 
 /**
- * Evaluación de periodo de prueba (FO-RH-EPP-001) TAL CUAL la contesta el
- * propio colaborador (AUTOEVALUACIÓN): criterios en escala 4–1, preguntas filtro Sí/No y
- * comentario, con el diseño de la versión del formulario. La usan la
- * página real (Portal/EvaluacionPeriodoPrueba) y la vista previa del editor.
+ * Evaluación de periodo de prueba (FO-RH-EPP-001) TAL CUAL la captura el
+ * jefe inmediato sobre el colaborador: por cada criterio elige una de las
+ * cuatro tarjetas (4 Muy bueno … 1 Deficiente) con la descripción oficial
+ * del nivel, responde las preguntas filtro Sí/No y escribe sus comentarios.
+ * El resultado (SÍ/NO SE RENUEVA y sus motivos) se calcula EN VIVO con las
+ * reglas de la versión del formulario. La usan la captura real
+ * (Rh/Colaboradores/Ciclo) y la vista previa del editor.
  */
 const props = withDefaults(
     defineProps<{
@@ -24,32 +29,48 @@ const props = withDefaults(
     { errores: () => ({}), compacto: false, deshabilitado: false },
 );
 
-type Calificacion = { clave: string; calificacion: number };
+type Calificacion = {
+    clave: string;
+    calificacion: number;
+    meta?: number | null;
+    logro?: number | null;
+};
 type Respuesta = { clave: string; respuesta: boolean };
 
 const criterios = defineModel<Calificacion[]>('criterios', { required: true });
 const filtros = defineModel<Respuesta[]>('filtros', { required: true });
 const observaciones = defineModel<string>('observaciones', { default: '' });
+const faltas = defineModel<number | null>('faltas', { default: null });
+const retardos = defineModel<number | null>('retardos', { default: null });
 
 const ESCALA = [4, 3, 2, 1];
 
-function calificacionDe(clave: string): number | null {
-    return criterios.value.find((c) => c.clave === clave)?.calificacion ?? null;
+function criterioDe(clave: string): Calificacion | undefined {
+    return criterios.value.find((c) => c.clave === clave);
 }
 
-function calificar(clave: string, valor: number): void {
+function calificacionDe(clave: string): number | null {
+    return criterioDe(clave)?.calificacion ?? null;
+}
+
+/** Reescribe la lista conservando el orden del formulario y meta/logró. */
+function asignarCriterio(clave: string, cambios: Partial<Calificacion>): void {
     if (props.deshabilitado) {
         return;
     }
 
-    const otros = criterios.value.filter((c) => c.clave !== clave);
+    const previos = new Map(criterios.value.map((c) => [c.clave, c]));
+    const actual = previos.get(clave);
+    previos.set(clave, {
+        clave,
+        calificacion: cambios.calificacion ?? actual?.calificacion ?? 0,
+        meta: 'meta' in cambios ? cambios.meta : actual?.meta,
+        logro: 'logro' in cambios ? cambios.logro : actual?.logro,
+    });
+
     criterios.value = props.contenido.criterios
-        .map((c) =>
-            c.clave === clave
-                ? { clave, calificacion: valor }
-                : otros.find((o) => o.clave === c.clave),
-        )
-        .filter((c): c is Calificacion => c !== undefined);
+        .map((c) => previos.get(c.clave))
+        .filter((c): c is Calificacion => c !== undefined && c.calificacion > 0);
 }
 
 function respuestaDe(clave: string): boolean | null {
@@ -71,17 +92,73 @@ function responder(clave: string, valor: boolean): void {
         .filter((f): f is Respuesta => f !== undefined);
 }
 
+function metaDe(clave: string, campo: 'meta' | 'logro'): number | null {
+    return criterioDe(clave)?.[campo] ?? null;
+}
+
+function actualizarMeta(
+    clave: string,
+    campo: 'meta' | 'logro',
+    valor: string,
+): void {
+    const numero = valor === '' ? null : Number(valor);
+    asignarCriterio(clave, {
+        [campo]: numero === null || Number.isNaN(numero) ? null : numero,
+    });
+}
+
+function porcentaje(clave: string): number | null {
+    const c = criterioDe(clave);
+
+    if (!c || c.meta == null || c.meta <= 0 || c.logro == null) {
+        return null;
+    }
+
+    return Math.round((c.logro / c.meta) * 1000) / 10;
+}
+
 const total = computed(() =>
     criterios.value.reduce((s, c) => s + (Number(c.calificacion) || 0), 0),
 );
+
+const tieneUno = computed(() =>
+    criterios.value.some((c) => c.calificacion === 1),
+);
+const tieneSiFiltro = computed(() => filtros.value.some((f) => f.respuesta));
+const completo = computed(
+    () =>
+        criterios.value.length >= props.contenido.criterios.length &&
+        filtros.value.length >= props.contenido.filtros.length,
+);
+
+/** Resultado preliminar EN VIVO (misma regla canónica que el backend). */
+const resultado = computed<{ renueva: boolean; motivos: string[] }>(() => {
+    const motivos: string[] = [];
+
+    if (props.contenido.un_uno_no_renueva && tieneUno.value) {
+        motivos.push('Tiene al menos un criterio calificado con 1.');
+    }
+
+    if (tieneSiFiltro.value) {
+        motivos.push('Tiene al menos una pregunta filtro marcada «Sí».');
+    }
+
+    if (total.value < props.contenido.total_minimo_renovar) {
+        motivos.push(
+            `El total es menor de ${props.contenido.total_minimo_renovar} puntos.`,
+        );
+    }
+
+    return { renueva: motivos.length === 0, motivos };
+});
+
 const requiereComentario = computed(
     () =>
         criterios.value.some(
             (c) =>
                 c.calificacion <= props.contenido.comentario_obligatorio_hasta,
         ) ||
-        (props.contenido.comentario_si_filtro &&
-            filtros.value.some((f) => f.respuesta)),
+        (props.contenido.comentario_si_filtro && tieneSiFiltro.value),
 );
 const motivoComentario = computed(() => {
     const hasta = props.contenido.comentario_obligatorio_hasta;
@@ -104,6 +181,10 @@ const motivoComentario = computed(() => {
 
 function etiquetaEscala(n: number): string {
     return props.contenido.escala_etiquetas[String(n)] ?? String(n);
+}
+
+function nivelTexto(c: ContenidoPeriodoPrueba['criterios'][number], n: number) {
+    return c.niveles?.[String(n)] ?? '';
 }
 </script>
 
@@ -147,20 +228,65 @@ function etiquetaEscala(n: number): string {
             </ul>
         </EncabezadoFormulario>
 
+        <!-- Asistencia (dato de RH): el jefe lo ve para calificar el renglón 4. -->
         <section
             class="flex flex-col gap-2 rounded-2xl border border-border bg-card p-4 shadow-xs"
         >
-            <h3 class="text-sm font-semibold">
-                Paso 1 · Califica tu desempeño
-            </h3>
+            <h3 class="text-sm font-semibold">Asistencia del periodo</h3>
             <p class="text-xs text-muted-foreground">
-                En cada punto elige la opción que mejor describa cómo has
-                trabajado durante tu capacitación inicial.
+                Dato de Recursos Humanos. Úsalo para calificar «Asistencia y
+                puntualidad». Déjalo en blanco si no lo tienes.
+            </p>
+            <div class="grid gap-3 sm:grid-cols-2">
+                <div class="grid gap-1.5">
+                    <Label for="faltas-evaluacion">Faltas sin justificar</Label>
+                    <Input
+                        id="faltas-evaluacion"
+                        :model-value="faltas ?? ''"
+                        type="number"
+                        min="0"
+                        inputmode="numeric"
+                        :disabled="deshabilitado"
+                        @update:model-value="
+                            (v) =>
+                                (faltas =
+                                    v === '' || v === null ? null : Number(v))
+                        "
+                    />
+                    <InputError :message="errores.faltas_injustificadas" />
+                </div>
+                <div class="grid gap-1.5">
+                    <Label for="retardos-evaluacion">Retardos</Label>
+                    <Input
+                        id="retardos-evaluacion"
+                        :model-value="retardos ?? ''"
+                        type="number"
+                        min="0"
+                        inputmode="numeric"
+                        :disabled="deshabilitado"
+                        @update:model-value="
+                            (v) =>
+                                (retardos =
+                                    v === '' || v === null ? null : Number(v))
+                        "
+                    />
+                    <InputError :message="errores.retardos" />
+                </div>
+            </div>
+        </section>
+
+        <section
+            class="flex flex-col gap-2 rounded-2xl border border-border bg-card p-4 shadow-xs"
+        >
+            <h3 class="text-sm font-semibold">Paso 1 · Califica cada criterio</h3>
+            <p class="text-xs text-muted-foreground">
+                En cada renglón elige la tarjeta que mejor describa lo que viste
+                del colaborador. Califica hechos, no impresiones.
             </p>
             <div
                 v-for="(c, i) in contenido.criterios"
                 :key="c.clave"
-                class="flex flex-col gap-2 border-t border-border/70 py-3 first:border-t-0 sm:flex-row sm:items-center sm:justify-between"
+                class="flex flex-col gap-2 border-t border-border/70 py-3 first:border-t-0"
             >
                 <div class="min-w-0">
                     <p class="text-sm font-medium">
@@ -174,8 +300,61 @@ function etiquetaEscala(n: number): string {
                     </p>
                     <InputError :message="errores[`criterios.${c.clave}`]" />
                 </div>
+
+                <!-- Meta / Logró / % (solo "Cumple sus metas"). -->
                 <div
-                    class="flex shrink-0 gap-1"
+                    v-if="c.captura_meta"
+                    class="grid gap-3 rounded-xl bg-[var(--mrl-fondo)] p-3 sm:grid-cols-3"
+                >
+                    <div class="grid gap-1.5">
+                        <Label :for="`meta-${c.clave}`" class="text-xs"
+                            >Meta</Label
+                        >
+                        <Input
+                            :id="`meta-${c.clave}`"
+                            type="number"
+                            min="0"
+                            inputmode="decimal"
+                            :model-value="metaDe(c.clave, 'meta') ?? ''"
+                            :disabled="deshabilitado"
+                            @update:model-value="
+                                (v) =>
+                                    actualizarMeta(c.clave, 'meta', String(v))
+                            "
+                        />
+                    </div>
+                    <div class="grid gap-1.5">
+                        <Label :for="`logro-${c.clave}`" class="text-xs"
+                            >Logró</Label
+                        >
+                        <Input
+                            :id="`logro-${c.clave}`"
+                            type="number"
+                            min="0"
+                            inputmode="decimal"
+                            :model-value="metaDe(c.clave, 'logro') ?? ''"
+                            :disabled="deshabilitado"
+                            @update:model-value="
+                                (v) =>
+                                    actualizarMeta(c.clave, 'logro', String(v))
+                            "
+                        />
+                    </div>
+                    <div class="flex flex-col justify-end">
+                        <span class="text-xs text-muted-foreground">Logró</span>
+                        <span class="text-lg font-semibold tabular-nums">
+                            {{
+                                porcentaje(c.clave) === null
+                                    ? '—'
+                                    : `${porcentaje(c.clave)} %`
+                            }}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Tarjetas por valor (4/3/2/1) con la descripción oficial. -->
+                <div
+                    class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4"
                     role="radiogroup"
                     :aria-label="c.etiqueta"
                 >
@@ -185,25 +364,44 @@ function etiquetaEscala(n: number): string {
                         type="button"
                         role="radio"
                         :aria-checked="calificacionDe(c.clave) === n"
-                        :title="etiquetaEscala(n)"
                         :disabled="deshabilitado"
                         :class="
                             cn(
-                                'flex h-10 min-w-11 flex-col items-center justify-center rounded-xl border px-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed',
+                                'flex flex-col gap-1 rounded-xl border p-2.5 text-left transition-colors disabled:cursor-not-allowed',
                                 calificacionDe(c.clave) === n
                                     ? n === 1
-                                        ? 'border-transparent bg-destructive text-white'
-                                        : 'border-transparent bg-primary text-primary-foreground'
+                                        ? 'border-transparent bg-destructive text-white shadow-sm'
+                                        : n === 4
+                                          ? 'border-transparent bg-success text-white shadow-sm'
+                                          : 'border-transparent bg-primary text-primary-foreground shadow-sm'
                                     : 'border-border bg-background hover:bg-muted/50',
                             )
                         "
-                        @click="calificar(c.clave, n)"
+                        @click="asignarCriterio(c.clave, { calificacion: n })"
                     >
-                        {{ n }}
+                        <span class="flex items-center gap-1.5 text-sm font-semibold">
+                            <span
+                                :class="
+                                    cn(
+                                        'flex size-6 shrink-0 items-center justify-center rounded-md text-xs',
+                                        calificacionDe(c.clave) === n
+                                            ? 'bg-white/25'
+                                            : 'bg-muted',
+                                    )
+                                "
+                                >{{ n }}</span
+                            >
+                            {{ etiquetaEscala(n)
+                            }}<span
+                                v-if="n === 1"
+                                class="text-[10px] font-normal opacity-90"
+                                >· NO SE RENUEVA</span
+                            >
+                        </span>
                         <span
-                            v-if="!compacto"
-                            class="text-[10px] leading-none font-normal opacity-80"
-                            >{{ etiquetaEscala(n) }}</span
+                            v-if="nivelTexto(c, n)"
+                            class="text-xs leading-snug opacity-90"
+                            >{{ nivelTexto(c, n) }}</span
                         >
                     </button>
                 </div>
@@ -216,9 +414,8 @@ function etiquetaEscala(n: number): string {
         >
             <h3 class="text-sm font-semibold">Paso 2 · Preguntas filtro</h3>
             <p class="text-xs text-muted-foreground">
-                Durante tu capacitación inicial, ¿te pasó alguna de estas
-                situaciones? Contesta con honestidad: un solo «Sí» significa que
-                NO se renueva, sin importar el total.
+                Marca «Sí» solo si el hecho ocurrió y está documentado. Un solo
+                «Sí» significa que NO se renueva, sin importar el total.
             </p>
             <div
                 v-for="f in contenido.filtros"
@@ -294,9 +491,43 @@ function etiquetaEscala(n: number): string {
                     }"
                 />
             </div>
+
+            <!-- Resultado preliminar EN VIVO (Paso 3). -->
+            <div
+                v-if="completo"
+                :class="
+                    cn(
+                        'flex flex-col gap-1.5 rounded-xl border p-3',
+                        resultado.renueva
+                            ? 'border-success/40 bg-success-soft'
+                            : 'border-destructive/40 bg-[var(--mrl-peligro-suave,var(--mrl-fondo))]',
+                    )
+                "
+            >
+                <p class="flex items-center gap-2 text-sm font-semibold">
+                    <CheckCircle2
+                        v-if="resultado.renueva"
+                        class="size-4 text-success"
+                    />
+                    <FileWarning v-else class="size-4 text-destructive" />
+                    Resultado preliminar:
+                    {{ resultado.renueva ? 'SÍ SE RENUEVA' : 'NO SE RENUEVA' }}
+                </p>
+                <ul
+                    v-if="!resultado.renueva"
+                    class="ml-6 list-disc text-xs text-muted-foreground"
+                >
+                    <li v-for="m in resultado.motivos" :key="m">{{ m }}</li>
+                </ul>
+                <p v-else class="text-xs text-muted-foreground">
+                    Pasa a contrato por tiempo indeterminado. La decisión final
+                    la confirma Recursos Humanos.
+                </p>
+            </div>
+
             <div class="grid gap-1.5">
                 <Label for="observaciones-evaluacion"
-                    >Tus comentarios
+                    >Comentario del jefe
                     <span class="font-normal text-muted-foreground">{{
                         requiereComentario
                             ? `(obligatorio: hay ${motivoComentario})`
@@ -308,6 +539,7 @@ function etiquetaEscala(n: number): string {
                     v-model="observaciones"
                     rows="3"
                     :disabled="deshabilitado"
+                    placeholder="Describe hechos y fechas. Si se renueva, anota en qué debe mejorar."
                 />
                 <InputError :message="errores.observaciones" />
             </div>

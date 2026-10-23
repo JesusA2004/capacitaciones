@@ -68,7 +68,7 @@ class DestinoNotificacionService
                 in_array($tipo, ['incorporacion', 'alta_activada'], true) => self::destino(route('portal.index', [], false)),
                 $tipo === 'expediente_incompleto' => self::destino(route('mi-expediente', ['tab' => 'documentos'], false)),
                 $tipo === 'rh_cumpleanos' => self::destino(route('rh.cumpleanos.index', [], false)),
-                $relacionado === 'EvaluacionPeriodoPrueba' => $this->evaluacion($id, $tipo, $usuario),
+                $relacionado === 'EvaluacionPeriodoPrueba' => $this->evaluacion($id, $tipo),
                 $relacionado === 'ContratoLaboral' => $this->contrato($id),
                 // Cierre laboral (finiquito/renuncia/baja/aviso de terminación):
                 // va al cierre exacto, nunca al expediente genérico (sección
@@ -334,13 +334,12 @@ class DestinoNotificacionService
     }
 
     /**
-     * `evaluacion_capturada` pide a RH DECIDIR; `evaluacion_pendiente` y
-     * `evaluacion_devuelta` piden al COLABORADOR contestarla (autoevaluación):
-     * él va a «Mi espacio» → su evaluación; RH/jefe, al expediente.
+     * `evaluacion_capturada` pide AUTORIZAR; `evaluacion_pendiente` y
+     * `evaluacion_devuelta` piden CAPTURAR.
      *
      * @return Destino
      */
-    private function evaluacion(?int $id, string $tipo, User $usuario): array
+    private function evaluacion(?int $id, string $tipo): array
     {
         $evaluacion = $id !== null ? EvaluacionPeriodoPrueba::query()->where('id', $id)->first() : null;
 
@@ -349,21 +348,9 @@ class DestinoNotificacionService
         }
 
         $estado = $evaluacion->estado;
-        $esElEvaluado = $usuario->colaborador_id !== null && $usuario->colaborador_id === $evaluacion->colaborador_id;
         $pendiente = $tipo === 'evaluacion_capturada'
             ? $estado === EstadoEvaluacionPrueba::Capturada
             : in_array($estado, [EstadoEvaluacionPrueba::Pendiente, EstadoEvaluacionPrueba::Devuelta], true);
-
-        if ($esElEvaluado) {
-            return self::destino(
-                route('portal.evaluacion-periodo-prueba', [], false),
-                ! $pendiente,
-                $estado->etiqueta(),
-                $pendiente
-                    ? 'Tu evaluación de periodo de prueba sigue por contestar.'
-                    : 'Ya enviaste tu evaluación de periodo de prueba.',
-            );
-        }
 
         return self::destino(
             route('rh.expedientes.show', ['colaborador' => $evaluacion->colaborador_id, 'tab' => 'laborales'], false),

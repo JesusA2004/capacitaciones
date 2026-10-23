@@ -32,9 +32,6 @@ beforeEach(function () {
 
     $this->jefeUsuario = clUsuario('jefe_directo');
     $this->colaborador = Colaborador::factory()->create(['jefe_id' => $this->jefeUsuario->colaborador_id, 'fecha_ingreso' => now()->subDays(20)]);
-    // Autoevaluación: la persona evaluada tiene cuenta y la contesta ella.
-    $this->colaboradorUsuario = User::factory()->create(['colaborador_id' => $this->colaborador->id]);
-    $this->colaboradorUsuario->assignRole('colaborador');
     $this->contrato = ContratoLaboral::factory()->create([
         'colaborador_id' => $this->colaborador->id,
         'fecha_inicio' => now()->subDays(20)->toDateString(),
@@ -67,56 +64,36 @@ test('el scheduler crea la evaluación, tareas y avisos 15 días antes, sin dupl
 
     expect(EvaluacionPeriodoPrueba::query()->count())->toBe(1);
 
-    // Autoevaluación: la contesta el propio colaborador, nunca su jefe.
     $evaluacion = EvaluacionPeriodoPrueba::query()->firstOrFail();
     expect($evaluacion->contrato_laboral_id)->toBe($this->contrato->id)
-        ->and($evaluacion->evaluador_colaborador_id)->toBe($this->colaborador->id)
+        ->and($evaluacion->evaluador_colaborador_id)->toBe($this->jefeUsuario->colaborador_id)
         ->and($evaluacion->estado)->toBe(EstadoEvaluacionPrueba::Pendiente)
         ->and($this->contrato->refresh()->aviso_vencimiento_en)->not->toBeNull();
 
-    expect(TareaRh::query()->where('tipo', TipoTarea::EvaluacionPendiente->value)->where('asignado_user_id', $this->colaboradorUsuario->id)->where('accion', 'contestar_evaluacion')->count())->toBe(1)
-        ->and(TareaRh::query()->where('tipo', TipoTarea::EvaluacionPendiente->value)->where('asignado_user_id', $this->jefeUsuario->id)->count())->toBe(0)
+    expect(TareaRh::query()->where('tipo', TipoTarea::EvaluacionPendiente->value)->where('asignado_user_id', $this->jefeUsuario->id)->count())->toBe(1)
         ->and(TareaRh::query()->where('tipo', TipoTarea::ContratoPorVencer->value)->count())->toBe(1);
 
-    Notification::assertSentToTimes($this->colaboradorUsuario, PendienteRhNotification::class, 1);
-    Notification::assertNotSentTo($this->jefeUsuario, PendienteRhNotification::class);
+    Notification::assertSentToTimes($this->jefeUsuario, PendienteRhNotification::class, 1);
     Notification::assertSentTo($this->rh, PendienteRhNotification::class);
 });
 
-test('solo el colaborador evaluado contesta su evaluación: su jefe, otro jefe y RH reciben 403', function () {
+test('el jefe inmediato captura la evaluación; un jefe ajeno no puede (403)', function () {
     $this->artisan('contratos:revisar-vencimientos');
     $evaluacion = EvaluacionPeriodoPrueba::query()->firstOrFail();
 
-    foreach ([clUsuario('jefe_directo'), $this->jefeUsuario, $this->rh, clUsuario('colaborador')] as $ajeno) {
-        Sanctum::actingAs($ajeno);
-        $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", vepCapturaOficial(4))->assertForbidden();
-        $this->postJson("/api/v1/colaborador/evaluacion-periodo-prueba/{$evaluacion->id}/contestar", vepCapturaOficial(4))->assertForbidden();
-    }
+    Sanctum::actingAs(clUsuario('jefe_directo'));
+    $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", vepCapturaOficial(4))->assertForbidden();
 
-    // El jefe solo da seguimiento (sin poder contestarla).
     Sanctum::actingAs($this->jefeUsuario);
-    $this->getJson('/api/v1/equipo/pendientes')->assertOk()
-        ->assertJsonCount(1, 'data.evaluaciones')
-        ->assertJsonPath('data.evaluaciones.0.puede_contestar', false);
+    $this->getJson('/api/v1/equipo/pendientes')->assertOk()->assertJsonCount(1, 'data.evaluaciones');
 
-    Sanctum::actingAs($this->colaboradorUsuario);
-    $this->getJson('/api/v1/colaborador/evaluacion-periodo-prueba')->assertOk()
-        ->assertJsonPath('data.id', $evaluacion->id)
-        ->assertJsonPath('data.puede_contestar', true);
-
-    $this->postJson("/api/v1/colaborador/evaluacion-periodo-prueba/{$evaluacion->id}/contestar", vepCapturaOficial(4))
+    $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", vepCapturaOficial(4))
         ->assertOk()
         ->assertJsonPath('data.estado', 'capturada')
-        ->assertJsonPath('data.puede_contestar', false)
-        ->assertJsonPath('data.calificacion', 36);
+        ->assertJsonPath('data.resultado', 'aprobado')
+        ->assertJsonPath('data.calificacion', '36.00');
 
-    expect($evaluacion->refresh()->capturada_por)->toBe($this->colaboradorUsuario->id)
-        ->and($evaluacion->resultado?->value)->toBe('aprobado');
-
-    // Ya enviada: no se puede volver a contestar.
-    $this->postJson("/api/v1/colaborador/evaluacion-periodo-prueba/{$evaluacion->id}/contestar", vepCapturaOficial(3))->assertUnprocessable();
-
-    // El colaborador no autoriza su propia evaluación: eso es de RH/Dirección.
+    // El jefe no autoriza su propia captura: eso es de RH/Dirección.
     $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/autorizar", ['renovar' => true])->assertForbidden();
 });
 
@@ -125,7 +102,7 @@ test('si RH autoriza la renovación se crea el contrato indeterminado y su docum
     $this->artisan('contratos:revisar-vencimientos');
     $evaluacion = EvaluacionPeriodoPrueba::query()->firstOrFail();
 
-    Sanctum::actingAs($this->colaboradorUsuario);
+    Sanctum::actingAs($this->jefeUsuario);
     $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", vepCapturaOficial(4));
 
     Sanctum::actingAs($this->rh);
@@ -154,7 +131,7 @@ test('si RH decide no renovar se inicia automáticamente el cierre laboral por n
     $this->artisan('contratos:revisar-vencimientos');
     $evaluacion = EvaluacionPeriodoPrueba::query()->firstOrFail();
 
-    Sanctum::actingAs($this->colaboradorUsuario);
+    Sanctum::actingAs($this->jefeUsuario);
     $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", [
         ...vepCapturaOficial(2),
         'observaciones' => 'Calificación regular en todos los criterios: no alcanza el mínimo para renovar.',
@@ -173,7 +150,7 @@ test('si RH decide no renovar se inicia automáticamente el cierre laboral por n
 
     // Nunca se elimina al colaborador.
     expect(Colaborador::query()->whereKey($this->colaborador->id)->exists())->toBeTrue()
-        ->and(User::query()->where('colaborador_id', $this->colaborador->id)->exists())->toBeTrue();
+        ->and(User::query()->where('colaborador_id', $this->colaborador->id)->exists())->toBeFalse();
 });
 
 test('al cumplirse 15 DÍAS HÁBILES (no calendario) del vencimiento se avisa a la gerencia de sucursal y a RH, NUNCA a Regional, una sola vez', function () {
@@ -230,7 +207,7 @@ test('al cumplirse 15 DÍAS HÁBILES (no calendario) del vencimiento se avisa a 
 
     $avisoContrato = fn (PendienteRhNotification $n, array $canales, User $destino) => $n->toDatabase($destino)['tipo'] === 'contrato_por_vencer';
 
-    // El gerente (jefe directo) ya no evalúa: recibe solo el aviso de renovación.
+    // El gerente es el evaluador: recibe UN aviso (el de evaluar), no dos.
     Notification::assertSentToTimes($gerente, PendienteRhNotification::class, 1);
     Notification::assertSentToTimes($gerenteRh, PendienteRhNotification::class, 1);
     Notification::assertSentTo($gerenteRh, PendienteRhNotification::class, $avisoContrato);
@@ -240,7 +217,7 @@ test('al cumplirse 15 DÍAS HÁBILES (no calendario) del vencimiento se avisa a 
     Carbon\Carbon::setTestNow();
 });
 
-test('el gerente de sucursal recibe el aviso de renovación y el colaborador el de contestar su evaluación', function () {
+test('el gerente de sucursal que no es el jefe directo también recibe el aviso de renovación', function () {
     $sucursal = Sucursal::factory()->create();
     $gerentePuesto = Puesto::factory()->create(['nombre' => 'Gerente de Sucursal']);
     $gerente = clUsuario('colaborador', ['puesto_id' => $gerentePuesto->id, 'sucursal_principal_id' => $sucursal->id]);
@@ -249,9 +226,7 @@ test('el gerente de sucursal recibe el aviso de renovación y el colaborador el 
     $this->artisan('contratos:revisar-vencimientos')->assertSuccessful();
 
     Notification::assertSentToTimes($gerente, PendienteRhNotification::class, 1);
-    // El jefe directo ya no recibe «evalúa»: la contesta el colaborador.
-    Notification::assertNotSentTo($this->jefeUsuario, PendienteRhNotification::class);
-    Notification::assertSentToTimes($this->colaboradorUsuario, PendienteRhNotification::class, 1);
+    Notification::assertSentToTimes($this->jefeUsuario, PendienteRhNotification::class, 1);
 });
 
 test('aprobar dos veces no duplica el contrato indeterminado (idempotente)', function () {
@@ -259,7 +234,7 @@ test('aprobar dos veces no duplica el contrato indeterminado (idempotente)', fun
     $this->artisan('contratos:revisar-vencimientos');
     $evaluacion = EvaluacionPeriodoPrueba::query()->firstOrFail();
 
-    Sanctum::actingAs($this->colaboradorUsuario);
+    Sanctum::actingAs($this->jefeUsuario);
     $this->postJson("/api/v1/evaluaciones/{$evaluacion->id}/capturar", vepCapturaOficial(4));
 
     Sanctum::actingAs($this->rh);

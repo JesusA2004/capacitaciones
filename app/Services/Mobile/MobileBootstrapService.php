@@ -9,7 +9,6 @@ use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Configuracion\ConfiguracionSistemaService;
-use App\Services\Contratos\EvaluacionPeriodoPruebaService;
 use App\Services\Expedientes\CorreccionesService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Incorporacion\IncorporacionService;
@@ -166,7 +165,6 @@ class MobileBootstrapService
         // La persona nunca ve los nombres internos de sus etapas: solo sus
         // pendientes en lenguaje llano (detalle en GET /colaborador/mi-proceso).
         $propio = $colaborador !== null ? app(CicloLaboralService::class)->misPendientes($colaborador, $usuario) : null;
-        $evaluacionPrueba = $colaborador !== null ? app(EvaluacionPeriodoPruebaService::class)->deColaborador($colaborador) : null;
 
         return [
             'propio' => $propio === null ? null : [
@@ -174,14 +172,6 @@ class MobileBootstrapService
                 'en_espera' => count(array_filter($propio['pendientes'], fn (array $p) => $p['tipo'] === 'espera')),
                 'pendientes' => array_map(fn (array $p) => ['clave' => $p['clave'], 'titulo' => $p['titulo'], 'tipo' => $p['tipo']], $propio['pendientes']),
                 'todo_listo' => $propio['todo_listo'],
-                // Mi autoevaluación de periodo de prueba (detalle y envío en
-                // GET/POST /colaborador/evaluacion-periodo-prueba).
-                'evaluacion_periodo_prueba' => $evaluacionPrueba !== null ? [
-                    'id' => $evaluacionPrueba->id,
-                    'estado' => $evaluacionPrueba->estado->value,
-                    'puede_contestar' => $evaluacionPrueba->estado->permiteCaptura(),
-                    'fecha_limite' => $evaluacionPrueba->fecha_limite?->toDateString(),
-                ] : null,
             ],
             'acciones' => [
                 'ver_candidatos' => $usuario->can('candidatos.ver'),
@@ -202,12 +192,7 @@ class MobileBootstrapService
                 'autorizar_rh' => $usuario->can(OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH),
                 'entregar_activos' => $usuario->can('onboarding.entregar_activos'),
                 'gestionar_onboarding' => $usuario->can('onboarding.gestionar'),
-                // La evaluación de periodo de prueba es AUTOEVALUACIÓN: nadie
-                // la captura por otra persona (cada quien contesta la suya,
-                // ver propio.evaluacion_periodo_prueba). Se conserva la clave
-                // para apps anteriores.
-                'capturar_evaluacion' => false,
-                'contestar_mi_evaluacion' => $evaluacionPrueba !== null && $evaluacionPrueba->estado->permiteCaptura(),
+                'capturar_evaluacion' => $usuario->can('evaluaciones.capturar'),
                 'autorizar_evaluacion' => $usuario->can('evaluaciones.autorizar'),
                 'solicitar_baja' => $usuario->can('cierres.solicitar'),
                 'gestionar_cierres' => $usuario->can('cierres.gestionar'),

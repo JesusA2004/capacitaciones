@@ -154,10 +154,34 @@ class ExpedienteCentroService
             $onboarding?->estado->etiqueta() ?? 'Sin iniciar', null,
             $onboarding === null ? 'neutro' : ($onboarding->estado->value === 'completado' ? 'exito' : 'primario'), 'onboarding', null, 'Ver checklist');
 
-        $evaluaciones = EvaluacionPeriodoPrueba::query()->where('colaborador_id', $id)->latest('id')->get(['id', 'estado']);
+        // Evaluación de término de periodo de prueba (FO-RH-EPP-001): resultado,
+        // puntaje y evaluador vinculados al expediente (no solo en Formularios).
+        // El detalle completo y el PDF para firma viven en el ciclo laboral.
+        $evaluaciones = EvaluacionPeriodoPrueba::query()
+            ->where('colaborador_id', $id)
+            ->with('evaluador:id,name,apellidos')
+            ->latest('id')
+            ->get(['id', 'estado', 'calificacion', 'resultado', 'evaluador_colaborador_id', 'fecha_evaluacion', 'version']);
+        $ultimaEval = $evaluaciones->first();
+        $subtituloEval = null;
+
+        if ($ultimaEval !== null) {
+            $partes = [$ultimaEval->estado->etiqueta()];
+
+            if ($ultimaEval->resultado !== null && $ultimaEval->calificacion !== null && (int) ($ultimaEval->version ?? 1) >= 2) {
+                $partes[] = sprintf('%s · %s pts', $ultimaEval->resultado->etiqueta(), rtrim(rtrim((string) $ultimaEval->calificacion, '0'), '.'));
+            }
+
+            if ($ultimaEval->evaluador !== null) {
+                $partes[] = sprintf('evaluó %s', $ultimaEval->evaluador->nombreCompleto());
+            }
+
+            $subtituloEval = implode(' · ', $partes);
+        }
+
         $tarjetas[] = $this->tarjeta('evaluaciones', 'Evaluaciones', 'clipboard-check',
-            (string) $evaluaciones->count(), $evaluaciones->first()?->estado->etiqueta(),
-            $evaluaciones->isEmpty() ? 'neutro' : ($evaluaciones->first()->estado->value === 'autorizada' ? 'exito' : 'alerta'), null, $ciclo, 'Ver evaluación');
+            (string) $evaluaciones->count(), $subtituloEval,
+            $evaluaciones->isEmpty() ? 'neutro' : ($ultimaEval->estado->value === 'autorizada' ? 'exito' : 'alerta'), null, $ciclo, 'Ver evaluación y PDF');
 
         $responsivas = Responsiva::query()->where('colaborador_id', $id)->count();
         $entregas = EntregaActivo::query()->where('colaborador_id', $id)->count();

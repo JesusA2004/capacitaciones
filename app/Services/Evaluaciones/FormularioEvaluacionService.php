@@ -233,7 +233,7 @@ class FormularioEvaluacionService
     }
 
     /**
-     * Para el formulario que contesta el colaborador (web y app): criterios, filtros,
+     * Para el formulario de captura del jefe (web): criterios, filtros,
      * escala y reglas — sin nada privado (el periodo de prueba no tiene clave
      * de respuestas).
      *
@@ -729,10 +729,23 @@ class FormularioEvaluacionService
         $criterios = [];
 
         foreach (array_slice($this->lista($d['criterios'] ?? []), 0, 20) as $i => $c) {
+            $nivelesEntrada = is_array($c['niveles'] ?? null) ? $c['niveles'] : [];
+            $niveles = [];
+
+            // Descripción OFICIAL de cada valor de la escala (4/3/2/1), opcional:
+            // la ve el jefe en tarjetas y se imprime en el PDF. Si falta, la UI
+            // cae a la etiqueta de la escala (Muy bueno/Bueno/Regular/Deficiente).
+            foreach ([self::ESCALA_PRUEBA_MAX, 3, 2, self::ESCALA_PRUEBA_MIN] as $valor) {
+                $niveles[(string) $valor] = $this->texto($nivelesEntrada[(string) $valor] ?? $nivelesEntrada[$valor] ?? '', 400);
+            }
+
             $criterios[] = [
                 'clave' => $this->claveUnica($c['clave'] ?? '', sprintf('criterio_%d', $i + 1), $claves),
                 'etiqueta' => $this->texto($c['etiqueta'] ?? '', 200),
                 'descripcion' => $this->texto($c['descripcion'] ?? '', 500),
+                // Habilita los campos Meta / Logró / % (renglón "Cumple sus metas").
+                'captura_meta' => filter_var($c['captura_meta'] ?? false, FILTER_VALIDATE_BOOLEAN),
+                'niveles' => $niveles,
             ];
         }
 
@@ -1086,7 +1099,7 @@ class FormularioEvaluacionService
             'version' => sprintf('%s-v%d', $clave->codigoPorDefecto(), (int) config('contratos.evaluacion_periodo_prueba_v2.version_vigente', 2)),
             'codigo' => $clave->codigoPorDefecto(),
             'titulo' => 'Evaluación de Término de Periodo de Prueba',
-            'descripcion' => 'Contesta con honestidad cómo ha sido tu desempeño durante tu capacitación inicial. Recursos Humanos revisa tus respuestas y con ellas decide la renovación de tu contrato.',
+            'descripcion' => 'Califica el desempeño del colaborador durante su capacitación inicial. Con esta evaluación se decide si se renueva su contrato.',
         ];
     }
 

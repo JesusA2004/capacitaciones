@@ -24,14 +24,13 @@
         2 => ['Regular', $pal['alerta']],
         1 => ['Deficiente', $pal['peligro']],
     ];
-    // Autoevaluación: la contestó el propio colaborador (flujo vigente). Las
-    // del flujo anterior (capturadas por el jefe) se imprimen como entonces.
-    $auto = (bool) ($d['autoevaluacion'] ?? false);
     $renueva = $r['recomienda_renovar'] === true;
     $noRenueva = $r['recomienda_renovar'] === false;
     $motivos = $r['motivos_no_renueva'];
     $minimo = $r['total_minimo_renovar'];
     $decision = $r['decision'];
+    $faltas = $r['faltas_injustificadas'] ?? null;
+    $retardos = $r['retardos'] ?? null;
 @endphp
 <!DOCTYPE html>
 <html lang="es">
@@ -75,12 +74,18 @@
         .criterios th { color: {{ $pal['blanco'] }}; font-size: 8.2pt; padding: 1.6mm 1mm; text-align: center; border: 0.25mm solid {{ $pal['blanco'] }}; }
         .criterios th.que { background: {{ $pal['petroleo_oscuro'] }}; text-align: left; padding-left: 2.4mm; }
         .criterios th .mini { display: block; font-size: 6.6pt; font-weight: normal; }
-        .criterios td { border: 0.25mm solid {{ $pal['borde_claro'] }}; padding: 1.5mm 1.5mm; font-size: 8.6pt; vertical-align: middle; }
+        .criterios td { border: 0.25mm solid {{ $pal['borde_claro'] }}; padding: 1.3mm 1.3mm; font-size: 8.6pt; vertical-align: top; }
         .criterios tr { page-break-inside: avoid; }
-        .criterios td.nombre { font-weight: bold; color: {{ $pal['petroleo'] }}; background: {{ $pal['fondo_suave'] }}; }
-        .criterios td.celda { width: 15mm; text-align: center; }
-        .criterios td.numero { width: 17mm; text-align: center; font-size: 12pt; font-weight: bold; color: {{ $pal['petroleo'] }}; }
+        .criterios td.nombre { width: 32mm; font-weight: bold; color: {{ $pal['petroleo'] }}; background: {{ $pal['fondo_suave'] }}; vertical-align: top; }
+        .criterios td.desc { width: 31mm; text-align: left; font-size: 6.8pt; line-height: 1.25; color: {{ $pal['texto_suave'] }}; }
+        .criterios td.desc.sel { font-weight: bold; }
+        .criterios td.desc.sel4 { background: {{ $pal['exito_suave'] }}; color: {{ $pal['exito_texto'] }}; }
+        .criterios td.desc.sel1 { background: {{ $pal['peligro_suave'] }}; color: {{ $pal['peligro_texto'] }}; }
+        .criterios td.desc.selmedio { background: {{ $pal['fondo_total'] }}; color: {{ $pal['petroleo'] }}; }
+        .criterios td.desc .marca { margin-bottom: 0.6mm; }
+        .criterios td.numero { width: 12mm; text-align: center; font-size: 12pt; font-weight: bold; color: {{ $pal['petroleo'] }}; vertical-align: middle; }
         .criterios td.uno { color: {{ $pal['peligro_texto'] }}; }
+        .criterios .meta-metas { display: block; font-weight: normal; font-size: 7pt; color: {{ $pal['petroleo'] }}; margin-top: 0.8mm; }
         .criterios .total td { background: {{ $pal['petroleo'] }}; color: {{ $pal['blanco'] }}; font-weight: bold; text-align: right; padding: 2mm 3mm; }
         .criterios .total td.numero { background: {{ $pal['fondo_total'] }}; color: {{ $pal['petroleo'] }}; text-align: center; font-size: 12pt; }
         .comentario-criterio { display: block; font-weight: normal; font-size: 7.6pt; color: {{ $pal['texto_suave'] }}; margin-top: 0.6mm; }
@@ -170,15 +175,15 @@
             <td class="etq">Término de contrato</td><td class="val">{{ $d['termino_contrato'] ?? '' }}</td>
         </tr>
         <tr>
-            <td class="etq">Faltas sin justificar</td><td class="val"><span class="rh">(dato de RH)</span>&nbsp;</td>
-            <td class="etq">Retardos</td><td class="val"><span class="rh">(dato de RH)</span>&nbsp;</td>
+            <td class="etq">Faltas sin justificar</td><td class="val">{{ $faltas !== null ? $faltas : '' }}<span class="rh">(dato de RH)</span></td>
+            <td class="etq">Retardos</td><td class="val">{{ $retardos !== null ? $retardos : '' }}<span class="rh">(dato de RH)</span></td>
         </tr>
     </table>
 
     {{-- PASO 1 --}}
     <table class="paso"><tr><td class="n">PASO 1</td><td class="t">CALIFIQUE EL DESEMPEÑO</td></tr></table>
     @if ($r['es_oficial'])
-        <p class="indicacion">{{ $auto ? 'El colaborador se autoevaluó: eligió, por renglón,' : 'El jefe inmediato eligió, por renglón,' }} la descripción que más se parece a lo que vio (4, 3, 2 o 1). <span class="regla">Si hay un 1 en cualquier renglón, el resultado es NO SE RENUEVA.</span></p>
+        <p class="indicacion">El jefe inmediato eligió, por renglón, la descripción que más se parece a lo que vio del colaborador (4, 3, 2 o 1). <span class="regla">Si hay un 1 en cualquier renglón, el resultado es NO SE RENUEVA.</span></p>
         <table class="criterios">
             <thead>
                 <tr>
@@ -191,15 +196,22 @@
             </thead>
             <tbody>
                 @foreach ($r['criterios'] as $i => $criterio)
-                    @php $valor = (int) ($criterio['calificacion'] ?? 0); @endphp
+                    @php
+                        $valor = (int) ($criterio['calificacion'] ?? 0);
+                        $textos = $criterio['niveles'] ?? [];
+                    @endphp
                     <tr>
-                        <td class="nombre">{{ $i + 1 }}. {{ $criterio['etiqueta'] }}@if ($criterio['comentario'])<span class="comentario-criterio">{{ $criterio['comentario'] }}</span>@endif</td>
+                        <td class="nombre">{{ $i + 1 }}. {{ $criterio['etiqueta'] }}
+                            @if (($criterio['captura_meta'] ?? false) && ($criterio['meta'] !== null || $criterio['logro'] !== null))
+                                <span class="meta-metas">Meta: {{ $num($criterio['meta']) }} · Logró: {{ $num($criterio['logro']) }}@if ($criterio['porcentaje'] !== null) = {{ $num($criterio['porcentaje']) }} %@endif</span>
+                            @endif
+                            @if ($criterio['comentario'])<span class="comentario-criterio">{{ $criterio['comentario'] }}</span>@endif</td>
                         @foreach ($niveles as $nivel => $info)
-                            <td class="celda">
-                                @if ($valor === $nivel)
-                                    <span class="marca {{ $nivel === 1 ? 'rojo' : 'si' }}">X</span>
-                                @endif
-                            </td>
+                            @php
+                                $sel = $valor === $nivel;
+                                $clase = ! $sel ? '' : ($nivel === 4 ? 'sel sel4' : ($nivel === 1 ? 'sel sel1' : 'sel selmedio'));
+                            @endphp
+                            <td class="desc {{ $clase }}">@if ($sel)<span class="marca {{ $nivel === 1 ? 'rojo' : 'si' }}">X</span>@endif{{ $textos[(string) $nivel] ?? '' }}</td>
                         @endforeach
                         <td class="numero {{ $valor === 1 ? 'uno' : '' }}">{{ $valor > 0 ? $valor : '—' }}</td>
                     </tr>
@@ -295,11 +307,11 @@
                 </tr>
             </tbody>
         </table>
-        <p style="margin-top: 2mm"><strong>{{ $auto ? 'Resultado de la evaluación:' : 'Recomendación del jefe:' }}</strong> {{ $renueva ? 'Renovar' : ($noRenueva ? 'No renovar' : 'Sin recomendación') }}</p>
+        <p style="margin-top: 2mm"><strong>Recomendación del jefe:</strong> {{ $renueva ? 'Renovar' : ($noRenueva ? 'No renovar' : 'Sin recomendación') }}</p>
     @endif
 
     <div class="comentarios">
-        <h2>{{ $auto ? 'COMENTARIOS DEL COLABORADOR' : 'COMENTARIOS DEL JEFE INMEDIATO' }}</h2>
+        <h2>COMENTARIOS DEL JEFE INMEDIATO</h2>
         <p class="indicacion" style="margin-top: 0.5mm">Obligatorios si calificó con 1 o 2, o si marcó SÍ en el Paso 2. Si se renueva, en qué debe mejorar.</p>
         @if (filled($r['observaciones']))
             <div class="caja">{{ $r['observaciones'] }}</div>
@@ -323,47 +335,26 @@
 
     <table class="firmas">
         <tr>
-            @if ($auto)
-                <td>
-                    <div class="rol">CONTESTÓ</div>
-                    <div class="nombre-firma">{{ $c['nombre'] }}</div>
-                    <div class="linea">Nombre y firma</div>
-                    <div class="det">Colaborador evaluado</div>
-                </td>
-                <td>
-                    <div class="rol">VALIDÓ</div>
-                    <div class="nombre-firma">&nbsp;</div>
-                    <div class="linea">Nombre y firma</div>
-                    <div class="det">Gerente de Recursos Humanos</div>
-                </td>
-                <td>
-                    <div class="rol">ENTERADO</div>
-                    <div class="nombre-firma">{{ $d['jefe'] ?? '' }}</div>
-                    <div class="linea">Nombre y firma</div>
-                    <div class="det">Jefe inmediato</div>
-                </td>
-            @else
-                <td>
-                    <div class="rol">EVALUÓ</div>
-                    <div class="nombre-firma">{{ $d['jefe'] ?? '' }}</div>
-                    <div class="linea">Nombre y firma</div>
-                    <div class="det">Jefe inmediato</div>
-                </td>
-                <td>
-                    <div class="rol">VALIDÓ</div>
-                    <div class="nombre-firma">&nbsp;</div>
-                    <div class="linea">Nombre y firma</div>
-                    <div class="det">Gerente de Recursos Humanos</div>
-                </td>
-                <td>
-                    <div class="rol">ENTERADO</div>
-                    <div class="nombre-firma">{{ $c['nombre'] }}</div>
-                    <div class="linea">Nombre y firma</div>
-                    <div class="det">Colaborador evaluado</div>
-                </td>
-            @endif
+            <td>
+                <div class="rol">EVALUÓ</div>
+                <div class="nombre-firma">{{ $d['jefe'] ?? '' }}</div>
+                <div class="linea">Nombre y firma</div>
+                <div class="det">Jefe inmediato</div>
+            </td>
+            <td>
+                <div class="rol">VALIDÓ</div>
+                <div class="nombre-firma">&nbsp;</div>
+                <div class="linea">Nombre y firma</div>
+                <div class="det">Gerente de Recursos Humanos</div>
+            </td>
+            <td>
+                <div class="rol">ENTERADO</div>
+                <div class="nombre-firma">{{ $c['nombre'] }}</div>
+                <div class="linea">Nombre y firma</div>
+                <div class="det">Colaborador evaluado</div>
+            </td>
         </tr>
     </table>
-    <p class="leyenda">{{ $auto ? 'Autoevaluación contestada por el colaborador en PEOPLE; Recursos Humanos valida y decide la renovación.' : 'La firma del colaborador confirma que conoció el resultado, no que esté de acuerdo.' }} Toda excepción requiere autorización escrita de Dirección General.@if ($d['fecha_evaluacion']) Fecha de la evaluación: {{ $d['fecha_evaluacion'] }}.@endif</p>
+    <p class="leyenda">La firma del colaborador confirma que conoció el resultado, no que esté de acuerdo. Toda excepción requiere autorización escrita de Dirección General.@if ($d['fecha_evaluacion']) Fecha de la evaluación: {{ $d['fecha_evaluacion'] }}.@endif</p>
 </body>
 </html>

@@ -21,7 +21,6 @@ use App\Models\IntervencionCandidato;
 use App\Models\NominaLote;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
-use App\Services\Contratos\EvaluacionPeriodoPruebaService;
 use App\Services\Expedientes\DatosFaltantesService;
 use App\Services\Solicitudes\SolicitudesService;
 use Illuminate\Database\Eloquent\Builder;
@@ -61,8 +60,8 @@ class ResumenPendientesService
                 fn () => (int) array_sum(array_column($this->solicitudes->resumenPorTipo($usuario), 'abiertas')), fn () => route('rh.solicitudes.index', ['todas' => 1])],
             ['cambios_foto', 'Cambios de foto', 'Fotos de perfil que esperan aprobación de RH.', 'neutro', $usuario->can('expedientes.revisar'),
                 fn () => $enAlcance(CambioFotoPerfil::query()->where('estado', EstadoCambioFoto::Pendiente->value))->count(), fn () => route('rh.cambios-foto.index')],
-            ['evaluaciones', 'Evaluaciones de periodo de prueba', 'Contestadas por el colaborador, por decidir la renovación.', 'oro', $usuario->can('evaluaciones.autorizar'),
-                fn () => $this->evaluaciones($usuario), fn () => route('rh.evaluaciones.index', ['tab' => 'en_proceso', 'subfiltro' => EvaluacionPeriodoPruebaService::FILTRO_POR_DECIDIR])],
+            ['evaluaciones', 'Evaluaciones de periodo de prueba', 'Por capturar, corregir o decidir.', 'oro', $usuario->can('evaluaciones.capturar') || $usuario->can('evaluaciones.autorizar'),
+                fn () => $this->evaluaciones($usuario), fn () => route('rh.evaluaciones.index', ['tab' => 'en_proceso'])],
             ['candidatos', 'Candidatos en proceso', 'Filtro RH, entrevista, psicométricos, socioeconómico o contratación.', 'neutro', $usuario->can('candidatos.editar') || $usuario->can('candidatos.evaluar') || $usuario->can('candidatos.aprobar'),
                 fn () => $this->alcance->limitarPorSucursal(Candidato::query()->whereIn('estado', array_map(fn (EstadoCandidato $e) => $e->value, array_filter(EstadoCandidato::cases(), fn (EstadoCandidato $e) => ! $e->esTerminal()))), $usuario)->count(), fn () => route('rh.candidatos.index')],
             ['intervenciones', 'Intervenciones', 'Rechazos de RH con intervención solicitada.', 'alerta', $usuario->can('candidatos.aprobar'),
@@ -102,14 +101,16 @@ class ResumenPendientesService
         return $atajos;
     }
 
-    /**
-     * Lo que le toca a RH: autoevaluaciones ya contestadas por el
-     * colaborador, por decidir (las pendientes esperan al colaborador, no a
-     * RH ni al jefe — nadie más las contesta).
-     */
     private function evaluaciones(User $usuario): int
     {
-        $query = EvaluacionPeriodoPrueba::query()->where('estado', EstadoEvaluacionPrueba::Capturada->value);
+        $abiertas = [EstadoEvaluacionPrueba::Pendiente->value, EstadoEvaluacionPrueba::Capturada->value, EstadoEvaluacionPrueba::Devuelta->value];
+        $query = EvaluacionPeriodoPrueba::query()->whereIn('estado', $abiertas);
+
+        if (! $usuario->can('evaluaciones.autorizar')) {
+            return $query->where(fn (Builder $q) => $q
+                ->where('evaluador_colaborador_id', $usuario->colaborador_id ?? 0)
+                ->orWhereHas('colaborador', fn (Builder $c) => $c->where('jefe_id', $usuario->colaborador_id ?? 0)))->count();
+        }
 
         return $this->alcance->tieneAlcanceGlobal($usuario)
             ? $query->count()

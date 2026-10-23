@@ -148,17 +148,104 @@ return [
 
         // 9 criterios reales (Paso 1), escala 4 Muy bueno / 3 Bueno / 2
         // Regular / 1 Deficiente. "Si escribe un 1 en cualquier renglón, el
-        // resultado será NO SE RENUEVA" — sin importar el total.
+        // resultado será NO SE RENUEVA" — sin importar el total. Cada criterio
+        // trae la descripción OFICIAL de cada valor (niveles 4/3/2/1) que ve el
+        // jefe evaluador en tarjetas y que se imprime en el PDF; 'captura_meta'
+        // habilita los campos Meta / Logró / % del renglón "Cumple sus metas".
         'criterios' => [
-            ['clave' => 'conoce_trabajo', 'etiqueta' => 'Conoce y hace bien su trabajo'],
-            ['clave' => 'cumple_metas', 'etiqueta' => 'Cumple sus metas'],
-            ['clave' => 'sin_errores', 'etiqueta' => 'Trabaja sin errores'],
-            ['clave' => 'asistencia_puntualidad', 'etiqueta' => 'Asistencia y puntualidad'],
-            ['clave' => 'cumplimiento_politicas', 'etiqueta' => 'Cumplimiento a políticas y procesos operativos'],
-            ['clave' => 'imagen_uniforme', 'etiqueta' => 'Uniforme, imagen y reglas internas'],
-            ['clave' => 'trato_cliente', 'etiqueta' => 'Trato al cliente'],
-            ['clave' => 'trabajo_equipo', 'etiqueta' => 'Trabajo en equipo y actitud'],
-            ['clave' => 'aprendizaje_iniciativa', 'etiqueta' => 'Aprende e iniciativa'],
+            [
+                'clave' => 'conoce_trabajo',
+                'etiqueta' => 'Conoce y hace bien su trabajo',
+                'niveles' => [
+                    '4' => 'Lo hace todo solo y sin errores; puede enseñar a otros.',
+                    '3' => 'Lo hace bien; pide ayuda solo en casos raros.',
+                    '2' => 'Necesita que lo supervisen seguido.',
+                    '1' => 'No ha aprendido lo básico del puesto.',
+                ],
+            ],
+            [
+                'clave' => 'cumple_metas',
+                'etiqueta' => 'Cumple sus metas',
+                'captura_meta' => true,
+                'niveles' => [
+                    '4' => 'Logró 100 % o más de su meta.',
+                    '3' => 'Logró del 90 % al 99 %.',
+                    '2' => 'Logró del 80 % al 89 %.',
+                    '1' => 'Logró menos del 80 %.',
+                ],
+            ],
+            [
+                'clave' => 'sin_errores',
+                'etiqueta' => 'Trabaja sin errores',
+                'niveles' => [
+                    '4' => 'Sin errores ni correcciones.',
+                    '3' => 'Errores pequeños que él mismo corrige.',
+                    '2' => 'Errores que otros tienen que corregir.',
+                    '1' => 'Errores graves: quejas o pérdidas.',
+                ],
+            ],
+            [
+                'clave' => 'asistencia_puntualidad',
+                'etiqueta' => 'Asistencia y puntualidad',
+                'descripcion' => 'Use las faltas y retardos que anotó RH arriba.',
+                'niveles' => [
+                    '4' => '0 faltas y máximo 1 retardo.',
+                    '3' => '0 faltas y 2 a 3 retardos.',
+                    '2' => '1 falta o 4 a 5 retardos.',
+                    '1' => '2 o más faltas o 6 o más retardos.',
+                ],
+            ],
+            [
+                'clave' => 'cumplimiento_politicas',
+                'etiqueta' => 'Cumplimiento a políticas y procesos operativos',
+                'descripcion' => 'Prospección, colocación, cobranza, manejo de efectivo, expedientes, etc.',
+                'niveles' => [
+                    '4' => 'Cumple todas las políticas y procesos; sin observaciones.',
+                    '3' => 'Una observación menor que corrigió de inmediato.',
+                    '2' => 'Dos o más observaciones o una llamada de atención.',
+                    '1' => 'Incumple de forma repetida o tiene acta administrativa.',
+                ],
+            ],
+            [
+                'clave' => 'imagen_uniforme',
+                'etiqueta' => 'Uniforme, imagen y reglas internas',
+                'niveles' => [
+                    '4' => 'Siempre cumple, sin que se le recuerde.',
+                    '3' => 'Un solo recordatorio en el periodo.',
+                    '2' => 'Dos o tres recordatorios.',
+                    '1' => 'No cumple pese a los recordatorios.',
+                ],
+            ],
+            [
+                'clave' => 'trato_cliente',
+                'etiqueta' => 'Trato al cliente',
+                'niveles' => [
+                    '4' => 'Amable, resuelve; cero quejas.',
+                    '3' => 'Amable y correcto; sin quejas.',
+                    '2' => 'A veces descuida el trato; 1 queja.',
+                    '1' => 'Trato inadecuado; 2 o más quejas.',
+                ],
+            ],
+            [
+                'clave' => 'trabajo_equipo',
+                'etiqueta' => 'Trabajo en equipo y actitud',
+                'niveles' => [
+                    '4' => 'Apoya sin que se lo pidan; acepta indicaciones.',
+                    '3' => 'Colabora y sigue indicaciones.',
+                    '2' => 'Hay que repetirle o se resiste a veces.',
+                    '1' => 'Genera conflictos o no sigue indicaciones.',
+                ],
+            ],
+            [
+                'clave' => 'aprendizaje_iniciativa',
+                'etiqueta' => 'Aprende e iniciativa',
+                'niveles' => [
+                    '4' => 'Aprendió rápido y propone mejoras.',
+                    '3' => 'Aprendió en el tiempo esperado.',
+                    '2' => 'Aprende lento; depende de otros.',
+                    '1' => 'No logra aprender las tareas.',
+                ],
+            ],
         ],
 
         // Preguntas filtro (Paso 2), Sí/No. "Un solo SÍ significa NO SE

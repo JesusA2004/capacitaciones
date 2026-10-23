@@ -282,8 +282,7 @@ test('periodo de prueba (no renovación): fecha_efectiva del cierre toma el día
 
     $svc = app(EvaluacionPeriodoPruebaService::class);
     // Calificación regular (2) en los 9 criterios: 18 < 25, no alcanza a renovar.
-    // Autoevaluación: la contesta el propio colaborador.
-    $svc->contestar($evaluacion, clUsuarioDe($colaborador), [
+    $svc->capturar($evaluacion, $jefe, [
         'criterios' => collect(config('contratos.evaluacion_periodo_prueba_v2.criterios'))
             ->map(fn (array $c) => ['clave' => $c['clave'], 'calificacion' => 2])->values()->all(),
         'filtros' => collect(config('contratos.evaluacion_periodo_prueba_v2.filtros'))

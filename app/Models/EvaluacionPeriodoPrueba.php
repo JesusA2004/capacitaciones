@@ -28,7 +28,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property EstadoEvaluacionPrueba $estado
  * @property Carbon|null $fecha_limite
  * @property Carbon|null $fecha_evaluacion
- * @property array<int, array{criterio: string, calificacion: float|int, comentario?: string|null, acredita?: bool}>|array<int, array{clave: string, etiqueta: string, calificacion: int}>|null $criterios
+ * @property array<int, array{criterio: string, calificacion: float|int, comentario?: string|null, acredita?: bool}>|array<int, array{clave: string, etiqueta: string, calificacion: int, meta?: float|int|null, logro?: float|int|null, porcentaje?: float|int|null}>|null $criterios
  * @property string|null $calificacion
  * @property ResultadoEvaluacion|null $resultado
  * @property bool|null $recomienda_renovar
@@ -42,6 +42,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property int|null $contrato_renovacion_id
  * @property int|null $version null/1 = formato libre legacy; 2 = formato oficial FO-RH-EPP-001.
  * @property array<int, array{clave: string, etiqueta: string, respuesta: bool}>|null $filtros Solo version >= 2.
+ * @property int|null $faltas_injustificadas Dato de RH para «Asistencia y puntualidad» (FO-RH-EPP-001).
+ * @property int|null $retardos Dato de RH para «Asistencia y puntualidad» (FO-RH-EPP-001).
  * @property int|null $formulario_evaluacion_id Versión del formulario configurable (null = formato de config/contratos.php).
  * @property-read FormularioEvaluacion|null $formulario
  * @property-read Colaborador $colaborador
@@ -62,6 +64,7 @@ class EvaluacionPeriodoPrueba extends Model
         'recomienda_renovar', 'observaciones', 'capturada_por', 'capturada_en',
         'autorizada_por', 'autorizada_en', 'decision_renovar', 'comentario_autorizacion',
         'contrato_renovacion_id', 'version', 'filtros', 'formulario_evaluacion_id',
+        'faltas_injustificadas', 'retardos',
     ];
 
     protected function casts(): array
@@ -73,6 +76,8 @@ class EvaluacionPeriodoPrueba extends Model
             'fecha_evaluacion' => 'date',
             'criterios' => 'array',
             'filtros' => 'array',
+            'faltas_injustificadas' => 'integer',
+            'retardos' => 'integer',
             'calificacion' => 'decimal:2',
             'recomienda_renovar' => 'boolean',
             'decision_renovar' => 'boolean',

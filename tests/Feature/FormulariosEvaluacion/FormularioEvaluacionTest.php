@@ -203,7 +203,7 @@ test('una evaluación contestada con la versión 1 se sigue calificando con la v
         ->and($servicio->contenidoPublico($nueva)['instrucciones']['total_puntos'])->toBe(34);
 });
 
-test('la autoevaluación del periodo de prueba se valida y califica con la versión del formulario', function () {
+test('la captura del periodo de prueba se valida y califica con la versión del formulario', function () {
     $this->seed(FormulariosEvaluacionSeeder::class);
     clPlantilla('contrato_indeterminado');
     $jefe = clUsuario('jefe_directo');
@@ -225,22 +225,20 @@ test('la autoevaluación del periodo de prueba se valida y califica con la versi
     $evaluacion = EvaluacionPeriodoPrueba::factory()->create([
         'colaborador_id' => $colaborador->id,
         'contrato_laboral_id' => $contrato->id,
-        'evaluador_colaborador_id' => $colaborador->id,
+        'evaluador_colaborador_id' => $jefe->colaborador_id,
         'estado' => EstadoEvaluacionPrueba::Pendiente,
         'fecha_limite' => $contrato->fecha_fin,
     ]);
 
     // Los 9 criterios de config ya no son los de esta evaluación.
-    // Autoevaluación: la contesta el propio colaborador desde Mi espacio.
-    $colaboradorUsuario = clUsuarioDe($colaborador);
-    $this->actingAs($colaboradorUsuario)
-        ->post(route('portal.evaluacion-periodo-prueba.contestar', $evaluacion), [
+    $this->actingAs($jefe)
+        ->post(route('rh.evaluaciones.capturar', $evaluacion), [
             'criterios' => collect(config('contratos.evaluacion_periodo_prueba_v2.criterios'))->map(fn (array $c) => ['clave' => $c['clave'], 'calificacion' => 4])->all(),
             'filtros' => [],
         ])
         ->assertSessionHasErrors('criterios');
 
-    $capturada = app(EvaluacionPeriodoPruebaService::class)->contestar($evaluacion, $colaboradorUsuario, [
+    $capturada = app(EvaluacionPeriodoPruebaService::class)->capturar($evaluacion, $jefe, [
         'criterios' => [
             ['clave' => 'actitud', 'calificacion' => 3],
             ['clave' => 'puntualidad', 'calificacion' => 3],

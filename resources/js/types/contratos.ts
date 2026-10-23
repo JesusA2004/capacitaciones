@@ -1,5 +1,4 @@
 import type { DatoFaltante } from './documentosProceso';
-import type { ContenidoPeriodoPrueba } from './formulariosEvaluacion';
 
 // ───────── Módulo «Contratos» (RegularizacionContratosService) ─────────
 
@@ -114,12 +113,10 @@ export type PersonaPeriodoBase = {
     fecha_ingreso: string | null;
     meses_periodo_prueba: number | null;
     ciclo_url: string;
-    /** ¿Tiene cuenta en PEOPLE? Sin cuenta no puede contestar su evaluación. */
-    tiene_cuenta?: boolean;
 };
 
 export type PersonaPeriodoPrueba = PersonaPeriodoBase & {
-    /** Quien contesta la evaluación: el propio colaborador (autoevaluación). */
+    /** Jefe directo del organigrama (o su gerente): recibirá la evaluación. */
     evaluador: string | null;
     fin_periodo: string;
     fuente: 'contrato' | 'fecha_ingreso';
@@ -165,8 +162,6 @@ export type RespuestasEvaluacionPrueba = {
     resultado: string | null;
     resultado_etiqueta: string | null;
     observaciones: string | null;
-    /** La contestó el propio colaborador (autoevaluación) o, antes, su jefe. */
-    autoevaluacion?: boolean;
     evaluador: string | null;
     capturada_por: string | null;
     capturada_en: string | null;
@@ -201,6 +196,7 @@ export type FilaEvaluacionPrueba = {
     capturada_en: string | null;
     contrato_renovacion_id: number | null;
     documento_renovacion: { id: number; nombre: string; url: string } | null;
+    puede_capturar: boolean;
     puede_decidir: boolean;
     respuestas: RespuestasEvaluacionPrueba | null;
     pdf_url: string | null;
@@ -211,31 +207,10 @@ export type ConteosEvaluacionesPrueba = {
     por_asignar: number;
     por_asignar_alerta: number;
     asignables: number;
-    esperando_colaborador: number;
+    esperando_jefe: number;
     por_decidir: number;
     en_proceso: number;
     evaluadas: number;
     autorizadas: number;
     evaluadas_mes: number;
-};
-
-/**
- * Mi autoevaluación de periodo de prueba (Mi espacio / app):
- * EvaluacionPeriodoPruebaService::aArrayColaborador. La contesta SOLO el
- * colaborador evaluado; nunca trae la decisión interna de RH.
- */
-export type MiEvaluacionPeriodoPrueba = {
-    id: number;
-    estado: EstadoEvaluacionPrueba;
-    estado_etiqueta: string;
-    puede_contestar: boolean;
-    fecha_limite: string | null;
-    fecha_evaluacion: string | null;
-    contestada_en: string | null;
-    motivo_devolucion: string | null;
-    criterios: { clave: string; calificacion: number }[];
-    filtros: { clave: string; respuesta: boolean }[];
-    observaciones: string | null;
-    calificacion: number | null;
-    formulario: ContenidoPeriodoPrueba;
 };

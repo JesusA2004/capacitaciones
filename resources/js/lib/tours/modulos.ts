@@ -1107,7 +1107,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         pasos: [
             {
                 titulo: 'Para qué sirve',
-                texto: 'Aquí se arman las dos evaluaciones de ingreso: la de inducción (FO-RH-EI, la contesta el colaborador) y la de capacitación inicial / periodo de prueba (FO-RH-EPP-001, también la contesta el colaborador como autoevaluación; RH decide si se renueva el contrato).',
+                texto: 'Aquí se arman las dos evaluaciones de ingreso: la de inducción (FO-RH-EI, la contesta el colaborador) y la de capacitación inicial / periodo de prueba (FO-RH-EPP-001, la contesta el jefe directo para decidir si se renueva el contrato).',
             },
             {
                 selector: sel('formularios-tarjetas'),
