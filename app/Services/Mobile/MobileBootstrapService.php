@@ -12,6 +12,8 @@ use App\Services\Configuracion\ConfiguracionSistemaService;
 use App\Services\Expedientes\CorreccionesService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Incorporacion\IncorporacionService;
+use App\Services\Permisos\PermisoAccionService;
+use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\RhMobile\RhPendientesService;
 use App\Services\Tareas\TareaService;
 use Illuminate\Support\Facades\Log;
@@ -74,6 +76,7 @@ class MobileBootstrapService
         private readonly IncorporacionService $incorporacion,
         private readonly RhPendientesService $rhPendientes,
         private readonly TareaService $tareas,
+        private readonly PermisoAccionService $permisos,
     ) {}
 
     /**
@@ -175,13 +178,15 @@ class MobileBootstrapService
             ],
             'acciones' => [
                 'ver_candidatos' => $usuario->can('candidatos.ver'),
-                'evaluar_candidatos' => $usuario->can('candidatos.evaluar'),
-                // Acciones específicas (aditivas; el general candidatos.evaluar
-                // las cubre). La ficha del candidato trae además sus
-                // acciones_permitidas por estado.
-                'aprobar_entrevista' => $usuario->can('candidatos.evaluar') || $usuario->can('candidatos.aprobar_entrevista'),
-                'revisar_psicometricas' => $usuario->can('candidatos.evaluar') || $usuario->can('candidatos.revisar_psicometricas'),
-                'revisar_socioeconomico' => $usuario->can('candidatos.evaluar') || $usuario->can('candidatos.revisar_socioeconomico'),
+                // Un permiso por paso del recorrido (configurable por rol).
+                // evaluar_candidatos = atiende al menos un paso del gerente.
+                // La ficha del candidato trae además sus acciones_permitidas
+                // por estado: la app solo muestra esas.
+                'evaluar_candidatos' => $this->permisos->puedeAlguno($usuario, CandidatoWorkflowService::PERMISOS_PASOS_GERENTE),
+                'aprobar_entrevista' => $this->permisos->puede($usuario, CandidatoWorkflowService::PERMISO_ENTREVISTA),
+                'revisar_psicometricas' => $this->permisos->puede($usuario, CandidatoWorkflowService::PERMISO_REVISAR_PSICOMETRICAS),
+                'registrar_socioeconomico' => $this->permisos->puede($usuario, CandidatoWorkflowService::PERMISO_SOCIOECONOMICO),
+                'revisar_socioeconomico' => $this->permisos->puede($usuario, CandidatoWorkflowService::PERMISO_REVISAR_SOCIOECONOMICO),
                 // Contratos: ver/descargar/generar el contrato vs. solo subir el firmado.
                 'ver_contratos' => GeneratedDocumentPolicy::puedeVerContratos($usuario),
                 'descargar_contratos' => GeneratedDocumentPolicy::puedeDescargarContratos($usuario),

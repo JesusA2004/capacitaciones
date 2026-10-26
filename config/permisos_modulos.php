@@ -319,9 +319,10 @@ return [
             'etiqueta' => 'Directorio',
             'grupo' => 'Permanencia',
             'etapa' => 'permanencia',
+            'descripcion' => 'Todo el personal entra al directorio. El alcance decide A QUIÉNES ve: «Propios» = solo su sucursal (y su jefe directo); Sucursal = sus sucursales asignadas; Región = las de su región (matriz comercial); Todos = toda la empresa. El personal de Corporativo siempre ve a toda la empresa.',
             'acceso' => null,
-            'alcances' => [],
-            'acciones' => ['directorio.contactos.ver_todos' => 'Ver correo y teléfono de todos', 'directorio.editar' => 'Edición rápida de filas'],
+            'alcances' => ['todos' => 'directorio.ver_todos', 'region' => 'directorio.ver_region', 'sucursal' => 'directorio.ver_sucursal'],
+            'acciones' => ['directorio.contactos.ver_todos' => 'Ver correo y teléfono de todos (dentro de su alcance)', 'directorio.editar' => 'Edición rápida de filas'],
         ],
         'campanas' => [
             'etiqueta' => 'Campañas de reclutamiento',
@@ -498,13 +499,23 @@ return [
             'grupo' => 'Reclutamiento',
             'acceso' => 'candidatos.ver',
             'alcances' => ['todos' => 'candidatos.ver_todos', 'region' => 'candidatos.ver_region', 'sucursal' => 'candidatos.ver_sucursal'],
+            'descripcion' => 'Un permiso por cada paso del recorrido: «Ver» deja seguir todo el proceso, pero cada botón solo aparece a quien tiene el permiso de ESE paso (p. ej. un gerente que solo registra la entrevista).',
             'acciones' => [
-                'candidatos.crear' => 'Crear', 'candidatos.editar' => 'Editar',
-                'candidatos.evaluar' => 'Evaluar (todos los pasos del gerente)',
-                'candidatos.aprobar_entrevista' => 'Registrar / aprobar entrevista',
-                'candidatos.revisar_psicometricas' => 'Revisar psicométricas',
-                'candidatos.revisar_socioeconomico' => 'Revisar socioeconómico',
-                'candidatos.aprobar' => 'Aprobar', 'candidatos.rechazar' => 'Rechazar', 'candidatos.contratar' => 'Contratar',
+                'candidatos.crear' => 'Registrar candidatos', 'candidatos.editar' => 'Editar datos del candidato',
+                'candidatos.revisar_perfil' => 'Paso 1 · Revisar perfil (filtro inicial)',
+                'candidatos.aprobar_entrevista' => 'Paso 2 · Registrar / aprobar entrevista',
+                'candidatos.registrar_psicometricas' => 'Paso 3 · Enviar link y cargar resultados psicométricos',
+                'candidatos.revisar_psicometricas' => 'Paso 4 · Revisar psicométrico (viable / no viable)',
+                'candidatos.registrar_socioeconomico' => 'Paso 5 · Cargar estudio socioeconómico',
+                'candidatos.revisar_socioeconomico' => 'Paso 6 · Revisar socioeconómico (viable / no viable)',
+                'candidatos.validar_referencias' => 'Paso 7 · Registrar y concluir referencias',
+                'ciclo.autorizar_rh' => 'Paso 8 · Autorización final de RH (contratación y demás procesos del ciclo)',
+                'candidatos.contratar' => 'Paso 9 · Generar QR de contratación',
+                'candidatos.intervencion_decidir' => 'Decidir una intervención (Regional / Dirección Comercial)',
+                'candidatos.cerrar_proceso' => 'Cerrar el proceso de un candidato (con motivo)',
+                'candidatos.solicitar_intervencion' => 'Solicitar intervención sobre un rechazo de RH',
+                'candidatos.adjuntar' => 'Agregar archivos al mini expediente del candidato',
+                'candidatos.aprobar' => 'Ver candidatos e intervenciones en el resumen de Inicio',
             ],
         ],
         'vacantes' => [
@@ -646,12 +657,36 @@ return [
         'notificaciones' => [
             'etiqueta' => 'Notificaciones',
             'grupo' => 'Sistema',
+            'descripcion' => 'A quién le llega cada aviso lo decide el permiso de ACCIÓN y su alcance en el módulo: un gerente con «Solicitudes → Sucursal» solo recibe los permisos y solicitudes de su sucursal; RH con «Todos», los de todas. Quien tiene «Elegir de qué sucursales NO recibir avisos» puede silenciar sucursales en su Configuración.',
             'acceso' => 'notificaciones.ver_propias',
             // Solo dos niveles: las propias (campana) o todas (consulta
             // administrativa de solo lectura). Ver ≠ recibir avisos.
             'alcances' => ['todos' => 'notificaciones.ver_todas'],
-            'acciones' => ['notificaciones.leer_todas' => 'Marcar todas MIS notificaciones como leídas'],
+            'acciones' => [
+                'notificaciones.leer_todas' => 'Marcar todas MIS notificaciones como leídas',
+                'notificaciones.silenciar_sucursales' => 'Elegir de qué sucursales NO recibir avisos',
+            ],
         ],
+    ],
+
+    /*
+    | Alcance de los AVISOS por permiso (2026-10-26): a quien se avisa por
+    | tener un permiso de acción (p. ej. «Nueva solicitud por revisar» a
+    | quien aprueba solicitudes) se le acota con el alcance que su rol tiene
+    | en ESTE módulo en «Roles y permisos». Así un gerente con alcance
+    | «Sucursal» solo recibe permisos/solicitudes de su sucursal y RH con
+    | «Todos», de todas. Los avisos del organigrama (jefe directo,
+    | aprobador del visto bueno) no cambian: le llegan a quien debe actuar.
+    | Cada persona con alcance amplio puede además silenciar sucursales
+    | (Configuración → Avisos por sucursal).
+    */
+    'alcance_avisos' => [
+        'rh.solicitudes.aprobar' => 'solicitudes',
+        'solicitudes.aprobar' => 'solicitudes',
+        'solicitudes.revisar' => 'solicitudes',
+        'rh.vacaciones.aprobar' => 'vacaciones',
+        'vacaciones.aprobar' => 'vacaciones',
+        'prestamos.autorizar' => 'prestamos',
     ],
 
     /*
@@ -686,7 +721,11 @@ return [
     |   crearse el nuevo (people:sincronizar-permisos), se otorga a todo rol
     |   (y usuario con permiso directo) que ya tenía el existente, y el
     |   seeder lo agrega a la base de esos roles: dividir un permiso general
-    |   en acciones nunca cambia lo que alguien podía hacer.
+    |   en acciones nunca cambia lo que alguien podía hacer. El valor puede
+    |   ser una lista: hereda quien tenía CUALQUIERA de esos permisos.
+    | - retirados: permisos generales que ya no habilitan nada por sí solos
+    |   (se dividieron en acciones). Se conservan en la base para no romper
+    |   clientes viejos, pero la pantalla no los ofrece.
     | - descripciones: texto corto en español que la pantalla muestra junto a
     |   cada permiso (tooltip). Un permiso sin descripción muestra su
     |   etiqueta.
@@ -728,9 +767,20 @@ return [
         'contratos.generar' => 'documentos_laborales.generar',
         'contratos.ver_documento' => 'documentos_laborales.generar',
         'contratos.descargar' => 'documentos_laborales.generar',
+        // Recorrido del candidato: un permiso por paso (2026-10-26). Los
+        // generales candidatos.editar (Reclutamiento) y candidatos.evaluar
+        // (gerente) ya no abren pasos por sí solos; quien los tenía recibe
+        // los pasos que cubrían. Una lista = hereda de cualquiera de ellos.
+        'candidatos.revisar_perfil' => 'candidatos.editar',
         'candidatos.aprobar_entrevista' => 'candidatos.evaluar',
+        'candidatos.registrar_psicometricas' => 'candidatos.editar',
         'candidatos.revisar_psicometricas' => 'candidatos.evaluar',
+        'candidatos.registrar_socioeconomico' => ['candidatos.editar', 'candidatos.evaluar'],
         'candidatos.revisar_socioeconomico' => 'candidatos.evaluar',
+        'candidatos.validar_referencias' => ['candidatos.editar', 'candidatos.evaluar'],
+        'candidatos.cerrar_proceso' => ['candidatos.rechazar', 'candidatos.editar', 'candidatos.evaluar'],
+        'candidatos.solicitar_intervencion' => 'candidatos.evaluar',
+        'candidatos.adjuntar' => ['candidatos.editar', 'candidatos.evaluar'],
         // Organización y Configuración.
         'organigrama.coberturas' => 'organigrama.editar',
         'organigrama.mover_personas' => 'organigrama.editar',
@@ -819,7 +869,16 @@ return [
         'responsivas.registrar_devolucion' => 'responsivas.generar',
     ],
 
+    'retirados' => [
+        'candidatos.evaluar' => 'Se dividió en los pasos del recorrido del candidato (entrevista, psicométricas, socioeconómico, referencias).',
+        'candidatos.rechazar' => 'Reemplazado por «Cerrar el proceso de un candidato».',
+    ],
+
     'descripciones' => [
+        'notificaciones.silenciar_sucursales' => 'En Configuración → Avisos por sucursal, la persona elige sucursales de las que no quiere avisos (campana y push). Lo suyo, lo de su equipo directo y sus confirmaciones le siguen llegando; lo pendiente sigue en «Mis pendientes».',
+        'directorio.ver_todos' => 'En el directorio ve al personal de toda la empresa.',
+        'directorio.ver_region' => 'En el directorio ve al personal de las sucursales de su región (matriz comercial).',
+        'directorio.ver_sucursal' => 'En el directorio ve al personal de sus sucursales asignadas. Sin ningún alcance, solo ve su propia sucursal y a su jefe directo.',
         'roles.administrar' => 'Entrar a «Roles y permisos»: crear, editar, clonar y eliminar roles y decidir qué puede hacer cada uno. Muy sensible.',
         'auditoria.ver' => 'Consultar la bitácora de quién hizo qué.',
         'headcount.ver' => 'Ver la plantilla autorizada y las vacantes por sucursal y puesto.',
@@ -843,8 +902,17 @@ return [
         'documentos.aprobar' => 'Aprueba documentos del expediente (y autoriza cambios pedidos por el colaborador).',
         'documentos.rechazar' => 'Rechaza documentos del expediente con motivo.',
         'documentos.versiones' => 'Consulta las versiones anteriores de un documento.',
-        'candidatos.evaluar' => 'Todos los pasos del gerente: entrevista, psicométricas, socioeconómico y referencias.',
-        'candidatos.aprobar_entrevista' => 'Registra el resultado de la entrevista de candidatos de su alcance.',
+        'candidatos.revisar_perfil' => 'Primer filtro: decide si el perfil del candidato recibido sigue a entrevista.',
+        'candidatos.aprobar_entrevista' => 'Registra el resultado de la entrevista de candidatos de su alcance. Con solo este paso, la persona ve el recorrido completo pero no puede avanzar los demás pasos. También la usa RH en una contratación directa.',
+        'candidatos.registrar_psicometricas' => 'Registra el link de las pruebas psicométricas y carga los resultados.',
+        'candidatos.registrar_socioeconomico' => 'Carga la visita socioeconómica (fecha, dirección, tiempo en la vivienda, evidencias). Cargar no lo aprueba.',
+        'candidatos.validar_referencias' => 'Registra referencias laborales y concluye su validación.',
+        'candidatos.cerrar_proceso' => 'Cierra el proceso del candidato en cualquier paso, con motivo obligatorio.',
+        'candidatos.solicitar_intervencion' => 'Pide que el Regional o Dirección Comercial revise un rechazo de RH.',
+        'candidatos.intervencion_decidir' => 'Decide (autoriza o mantiene el rechazo) una intervención solicitada.',
+        'candidatos.adjuntar' => 'Agrega CV, psicométricos, videos del socioeconómico o soporte de referencias al mini expediente.',
+        'candidatos.editar' => 'Corrige los datos del candidato (nombre, contacto, vacante). No avanza pasos del recorrido.',
+        'ciclo.autorizar_rh' => 'Autoridad final de RH: autoriza la contratación del candidato (y los demás procesos del ciclo laboral que la piden).',
         'candidatos.revisar_psicometricas' => 'Decide si el psicométrico cargado es viable.',
         'candidatos.revisar_socioeconomico' => 'Decide si el estudio socioeconómico cargado es viable.',
         'rh.incorporacion.invitaciones.ver' => 'Entra a Invitaciones QR.',

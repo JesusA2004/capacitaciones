@@ -119,9 +119,9 @@ class SincronizadorPermisosService
         while ($pendientes !== []) {
             $avance = false;
 
-            foreach ($pendientes as $nuevo => $existente) {
-                // La general todavía espera su propio reparto.
-                if (isset($pendientes[$existente])) {
+            foreach ($pendientes as $nuevo => $existentes) {
+                // Alguna general todavía espera su propio reparto.
+                if (array_intersect_key($pendientes, array_flip($existentes)) !== []) {
                     continue;
                 }
 
@@ -129,12 +129,12 @@ class SincronizadorPermisosService
                 $avance = true;
 
                 $roles = Role::query()->where('guard_name', self::GUARD)
-                    ->whereHas('permissions', fn ($q) => $q->where('name', $existente))
+                    ->whereHas('permissions', fn ($q) => $q->whereIn('name', $existentes))
                     ->get()
                     ->reject(fn (Role $rol): bool => $rol->permissions()->where('name', $nuevo)->exists());
 
                 $usuarios = User::query()
-                    ->whereHas('permissions', fn ($q) => $q->where('name', $existente))
+                    ->whereHas('permissions', fn ($q) => $q->whereIn('name', $existentes))
                     ->get()
                     ->reject(fn (User $usuario): bool => $usuario->permissions()->where('name', $nuevo)->exists());
 

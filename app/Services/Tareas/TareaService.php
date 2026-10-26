@@ -10,6 +10,7 @@ use App\Models\Colaborador;
 use App\Models\TareaRh;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Permisos\AlcanceModuloService;
 use App\Support\FechaMexico;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
@@ -37,7 +38,10 @@ use Throwable;
  */
 class TareaService
 {
-    public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
+    public function __construct(
+        private readonly AlcanceOrganizacionalService $alcance,
+        private readonly AlcanceModuloService $alcanceModulo,
+    ) {}
 
     /**
      * @param  array{titulo?: string, descripcion?: string|null, prioridad?: PrioridadTarea, colaborador?: Colaborador|null, candidato?: Candidato|null, sucursal_id?: int|null, usuario?: User|null, permiso?: string|null, accion?: string|null, vence_en?: Carbon|string|null, datos?: array<string, mixed>}  $opciones
@@ -222,6 +226,10 @@ class TareaService
                 ->whereNull('acceso_bloqueado_en')
                 ->get()
                 ->filter(fn (User $usuario): bool => $this->esDestinatario($usuario, $tarea))
+                // El aviso respeta además el alcance del módulo de ese permiso
+                // en Roles y permisos (gerente → su sucursal, RH → todas).
+                ->filter(fn (User $usuario): bool => $tarea->colaborador === null
+                    || $this->alcanceModulo->alcanzaParaAviso($usuario, $tarea->colaborador, (string) $tarea->asignado_permiso))
                 ->values();
         } catch (Throwable $e) {
             Log::warning('TareaService: no se pudieron resolver destinatarios.', ['tarea_id' => $tarea->id, 'error' => $e->getMessage()]);

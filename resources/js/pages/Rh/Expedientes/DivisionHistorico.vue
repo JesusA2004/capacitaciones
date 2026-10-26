@@ -9,6 +9,7 @@ import {
     FileText,
     ListChecks,
     ScanText,
+    Scissors,
     Split,
 } from '@lucide/vue';
 import { computed, reactive } from 'vue';
@@ -588,6 +589,29 @@ async function aplicarDato(
                                                                 class="size-4"
                                                             />
                                                             Ver</a
+                                                        >
+                                                    </Button>
+                                                    <!-- Hoja por hoja: separar
+                                                         una parte (p. ej. INE de
+                                                         2 hojas donde solo una es
+                                                         la INE) o moverlas. -->
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        as-child
+                                                        :title="`Abrir el editor con las hojas ${p.paginas} seleccionadas`"
+                                                    >
+                                                        <Link
+                                                            :href="p.editor_url"
+                                                            ><Scissors
+                                                                class="size-4"
+                                                            />
+                                                            {{
+                                                                p.total_paginas >
+                                                                1
+                                                                    ? 'Separar hojas'
+                                                                    : 'Corregir hoja'
+                                                            }}</Link
                                                         >
                                                     </Button>
                                                     <template

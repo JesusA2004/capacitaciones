@@ -437,7 +437,29 @@ class EjecutorMigracion
         $this->conteo['pendientes_vincular']++;
     }
 
-    private function copiarCarpeta(Colaborador $colaborador, string $ruta, ?string $sucursalCarpeta, MigracionExpedientes $migracion, User $actor, string $modo): void
+    /**
+     * Vinculación MANUAL de UNA carpeta del NAS a un colaborador (RH →
+     * expediente → «Ligar expediente de Synology», ver
+     * App\Services\Expedientes\VinculacionSynologyService). Es el mismo
+     * camino que la migración (copiarCarpeta()): en sitio solo calcula hash
+     * y registra cada PDF del primer nivel (no copia, no renombra, no borra)
+     * y fija la carpeta como expediente; en legacy copia verificada, NUNCA
+     * mueve. Sin corrida de migración: migracion_id queda null.
+     *
+     * @return array{conteo: array<string, int>, eventos: list<array<string, mixed>>}
+     */
+    public function vincularCarpetaManual(Colaborador $colaborador, string $ruta, ?string $sucursalCarpeta, User $actor): array
+    {
+        $this->manifiesto = [];
+        $this->conteo = array_fill_keys(['pdfs_registrados', 'pdfs_copiados', 'pdfs_duplicados', 'pdfs_conflicto', 'errores'], 0);
+        $colaborador->loadMissing('sucursalPrincipal.empresa');
+
+        $this->copiarCarpeta($colaborador, $ruta, $sucursalCarpeta, null, $actor, self::MODO_COPIAR);
+
+        return ['conteo' => $this->conteo, 'eventos' => $this->manifiesto];
+    }
+
+    private function copiarCarpeta(Colaborador $colaborador, string $ruta, ?string $sucursalCarpeta, ?MigracionExpedientes $migracion, User $actor, string $modo): void
     {
         $carpeta = ['ruta' => $ruta, 'carpeta' => basename($ruta), 'sucursal_carpeta' => $sucursalCarpeta];
 
@@ -470,7 +492,7 @@ class EjecutorMigracion
      *
      * @param  array<string, mixed>  $carpeta
      */
-    private function copiarPdf(?Colaborador $colaborador, string $origen, string $destino, array $carpeta, ?int $sucursalId, MigracionExpedientes $migracion, User $actor, string $modo, string $estado): void
+    private function copiarPdf(?Colaborador $colaborador, string $origen, string $destino, array $carpeta, ?int $sucursalId, ?MigracionExpedientes $migracion, User $actor, string $modo, string $estado): void
     {
         $existiaDestino = $this->storage->existe($destino);
 
@@ -507,7 +529,7 @@ class EjecutorMigracion
                 'source_carpeta' => $carpeta['carpeta'] ?? null,
                 'nombre_detectado' => implode(' ', Normalizador::tokensNombre((string) ($carpeta['carpeta'] ?? ''))) ?: null,
                 'sucursal_id' => $sucursalId,
-                'migracion_id' => $migracion->id,
+                'migracion_id' => $migracion?->id,
                 'migrated_at' => now(),
                 'migrated_by' => $actor->id,
                 'vinculado_en' => $colaborador !== null ? now() : null,
@@ -544,7 +566,7 @@ class EjecutorMigracion
      *
      * @param  array<string, mixed>  $carpeta
      */
-    private function registrarEnSitio(?Colaborador $colaborador, string $pdf, array $carpeta, ?int $sucursalId, MigracionExpedientes $migracion, User $actor, string $estado): void
+    private function registrarEnSitio(?Colaborador $colaborador, string $pdf, array $carpeta, ?int $sucursalId, ?MigracionExpedientes $migracion, User $actor, string $estado): void
     {
         $existente = ExpedienteHistorico::query()->where('path', $pdf)->first();
 
@@ -579,7 +601,7 @@ class EjecutorMigracion
                 'source_carpeta' => $carpeta['carpeta'] ?? null,
                 'nombre_detectado' => implode(' ', Normalizador::tokensNombre((string) ($carpeta['carpeta'] ?? ''))) ?: null,
                 'sucursal_id' => $sucursalId,
-                'migracion_id' => $migracion->id,
+                'migracion_id' => $migracion?->id,
                 'migrated_at' => now(),
                 'migrated_by' => $actor->id,
                 'vinculado_en' => $colaborador !== null ? now() : null,

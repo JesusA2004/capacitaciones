@@ -22,6 +22,9 @@ use App\Models\NominaLote;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Expedientes\DatosFaltantesService;
+use App\Services\Permisos\PermisoAccionService;
+use App\Services\Reclutamiento\CandidatoWorkflowService;
+use App\Services\Reclutamiento\IntervencionCandidatoService;
 use App\Services\Solicitudes\SolicitudesService;
 use Illuminate\Database\Eloquent\Builder;
 use Throwable;
@@ -44,6 +47,7 @@ class ResumenPendientesService
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly SolicitudesService $solicitudes,
         private readonly DatosFaltantesService $datosFaltantes,
+        private readonly PermisoAccionService $permisos,
     ) {}
 
     /**
@@ -62,9 +66,9 @@ class ResumenPendientesService
                 fn () => $enAlcance(CambioFotoPerfil::query()->where('estado', EstadoCambioFoto::Pendiente->value))->count(), fn () => route('rh.cambios-foto.index')],
             ['evaluaciones', 'Evaluaciones de periodo de prueba', 'Por capturar, corregir o decidir.', 'oro', $usuario->can('evaluaciones.capturar') || $usuario->can('evaluaciones.autorizar'),
                 fn () => $this->evaluaciones($usuario), fn () => route('rh.evaluaciones.index', ['tab' => 'en_proceso'])],
-            ['candidatos', 'Candidatos en proceso', 'Filtro RH, entrevista, psicométricos, socioeconómico o contratación.', 'neutro', $usuario->can('candidatos.editar') || $usuario->can('candidatos.evaluar') || $usuario->can('candidatos.aprobar'),
+            ['candidatos', 'Candidatos en proceso', 'Filtro RH, entrevista, psicométricos, socioeconómico o contratación.', 'neutro', $usuario->can('candidatos.aprobar') || $this->permisos->puedeAlguno($usuario, CandidatoWorkflowService::PERMISOS_PASOS),
                 fn () => $this->alcance->limitarPorSucursal(Candidato::query()->whereIn('estado', array_map(fn (EstadoCandidato $e) => $e->value, array_filter(EstadoCandidato::cases(), fn (EstadoCandidato $e) => ! $e->esTerminal()))), $usuario)->count(), fn () => route('rh.candidatos.index')],
-            ['intervenciones', 'Intervenciones', 'Rechazos de RH con intervención solicitada.', 'alerta', $usuario->can('candidatos.aprobar'),
+            ['intervenciones', 'Intervenciones', 'Rechazos de RH con intervención solicitada.', 'alerta', $usuario->can('candidatos.aprobar') || $this->permisos->puede($usuario, IntervencionCandidatoService::PERMISO_DECIDIR),
                 fn () => IntervencionCandidato::query()->where('estado', EstadoIntervencionCandidato::Pendiente->value)->whereIn('candidato_id', $this->alcance->limitarPorSucursal(Candidato::query(), $usuario)->select('id'))->count(), fn () => route('rh.candidatos.index')],
             ['documentos', 'Contratos y documentos', 'Por imprimir, firmar o archivar.', 'neutro', $usuario->can('documentos_laborales.operar_fisico'),
                 fn () => $enAlcance(GeneratedDocument::query()->whereIn('estado_flujo', [EstadoFlujoDocumento::Generado->value, EstadoFlujoDocumento::PendienteImpresion->value, EstadoFlujoDocumento::PendienteFirmaFisica->value, EstadoFlujoDocumento::Impreso->value]))->count(), fn () => route('rh.expedientes.index')],

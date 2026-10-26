@@ -56,6 +56,7 @@ class NotificacionEventosService
 {
     public function __construct(
         private readonly PushNotifier $push,
+        private readonly SucursalesSilenciadasService $silenciadas,
     ) {}
 
     public function confirmarAlActor(User $actor, Aviso $aviso): bool
@@ -202,6 +203,13 @@ class NotificacionEventosService
     {
         // Una cuenta suspendida (baja en trámite) no recibe tareas nuevas.
         if ($categoria === CategoriaNotificacion::Pendiente && $usuario->acceso_bloqueado_en !== null) {
+            return false;
+        }
+
+        // «Avisos por sucursal»: la persona eligió no recibir avisos de la
+        // sucursal de este recurso (nunca su propia confirmación, ni lo suyo
+        // ni lo de su equipo directo). Lo pendiente sigue en su bandeja.
+        if ($categoria !== CategoriaNotificacion::Confirmacion && $this->silenciadas->silencia($usuario, $aviso->recurso, fn (): ?int => $this->colaboradorIdDe($aviso->recurso))) {
             return false;
         }
 

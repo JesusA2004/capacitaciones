@@ -98,6 +98,7 @@ class OnboardingController extends Controller
             'revision' => $this->evaluacionInduccion->detalleRevision($intento),
             'intentoId' => $intento->id,
             'yaCalificado' => ! $intento->pendienteCalificacionRh(),
+            'puedeRecalificar' => $this->evaluacionInduccion->puedeRecalificar($intento),
             'descriptivoPuesto' => $this->acusesDescriptivo->resumenRh($intento->evaluacion->colaborador, $request->user()),
         ]);
     }
@@ -117,6 +118,24 @@ class OnboardingController extends Controller
         return back()->with('toast', $intento->aprobado
             ? ['type' => 'success', 'message' => sprintf('Aprobada con %s/30.', number_format((float) $intento->calificacion_total, 1))]
             : ['type' => 'warning', 'message' => sprintf('Obtuvo %s/30: da retroalimentación y habilita la reevaluación (máximo 5 días hábiles).', number_format((float) $intento->calificacion_total, 1))]);
+    }
+
+    public function recalificarInduccion(Request $request, EvaluacionInduccionIntento $intento): RedirectResponse
+    {
+        $this->authorize('calificar', $intento->evaluacion);
+        $datos = $request->validate([
+            'puntos' => ['required', 'array'],
+            'puntos.*' => ['required', 'array'],
+            'puntos.*.*' => ['required', 'boolean'],
+            'comentario' => ['nullable', 'string', 'max:4000'],
+        ]);
+
+        $intento = $this->evaluacionInduccion->recalificarCasosPracticos($intento, $request->user(), $datos['puntos'], $datos['comentario'] ?? null);
+
+        return back()->with('toast', [
+            'type' => $intento->aprobado ? 'success' : 'warning',
+            'message' => sprintf('Calificada de nuevo: %s/30 (%s). El formato se regeneró.', number_format((float) $intento->calificacion_total, 1), $intento->nivel?->etiqueta()),
+        ]);
     }
 
     public function retroalimentarInduccion(Request $request, EvaluacionInduccion $evaluacion): RedirectResponse

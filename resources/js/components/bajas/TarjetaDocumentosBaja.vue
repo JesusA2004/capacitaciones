@@ -33,6 +33,8 @@ const props = defineProps<{
     tarjeta: TarjetaRecopilacion;
     /** Clave del documento que se está subiendo (spinner). */
     subiendo?: string | null;
+    /** Hay una carga en curso (en cualquier tarjeta): se bloquean los botones. */
+    ocupado?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -247,7 +249,7 @@ const puedeAdjuntarDoc = (d: DocumentoRecopilacion) =>
                             d.estado === 'pendiente' ? 'outline' : 'ghost'
                         "
                         :size="d.estado === 'pendiente' ? 'sm' : 'icon-sm'"
-                        :disabled="Boolean(subiendo)"
+                        :disabled="Boolean(subiendo) || ocupado"
                         :aria-label="
                             d.estado === 'generado'
                                 ? `Adjuntar ${d.nombre} firmado`

@@ -49,6 +49,7 @@ use App\Services\Expedientes\ExpedienteService;
 use App\Services\Expedientes\ExpedienteZipService;
 use App\Services\Expedientes\HistorialCambiosDatosService;
 use App\Services\Expedientes\MigracionInicial\ExpedientesInitialMigrationService;
+use App\Services\Expedientes\VinculacionSynologyService;
 use App\Services\Nomina\PrestamoService;
 use App\Services\Nomina\ReciboNominaService;
 use App\Services\Onboarding\ChecklistAdministrativoService;
@@ -529,6 +530,10 @@ class ExpedienteController extends Controller
             // PDF(s) históricos únicos de la migración inicial: sección
             // aparte, NO cuentan en el checklist de 14 documentos.
             'expedienteHistorico' => app(ExpedientesInitialMigrationService::class)->historicosDe($colaborador),
+            // «Ligar expediente de Synology» (sin escanear el NAS aquí: la
+            // lista se pide al abrir el diálogo). Misma regla que su endpoint.
+            'puedeLigarSynology' => ! $esPropio && ! $esCuentaPropia && $usuario->can('expedientes.editar')
+                && ! app(VinculacionSynologyService::class)->tieneExpedienteLigado($colaborador),
             // Datos médicos: sensibles, solo con permiso explícito.
             'datosMedicos' => $usuario->can('expedientes.datos_medicos.ver') ? [
                 'condicion_medica' => $colaborador->datosMedicos?->condicion_medica,

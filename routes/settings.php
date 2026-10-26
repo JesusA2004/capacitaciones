@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Settings\AvisosSucursalController;
 use App\Http\Controllers\Settings\PersonalizacionController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
@@ -25,4 +26,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('settings/personalizacion', [PersonalizacionController::class, 'edit'])->name('personalizacion.edit');
     Route::patch('settings/personalizacion', [PersonalizacionController::class, 'update'])->name('personalizacion');
+
+    // Avisos por sucursal (permiso notificaciones.silenciar_sucursales).
+    Route::get('settings/avisos-sucursal', [AvisosSucursalController::class, 'edit'])->name('avisos-sucursal.edit');
+    Route::put('settings/avisos-sucursal', [AvisosSucursalController::class, 'update'])->name('avisos-sucursal.update');
 });

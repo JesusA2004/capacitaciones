@@ -383,6 +383,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('onboarding/avances/{avance}/retroalimentacion', [CicloLaboralRhController::class, 'retroalimentar'])->name('onboarding.retroalimentar');
             Route::get('induccion/intentos/{intento}', [CicloLaboralRhController::class, 'mostrarInduccion'])->name('induccion.mostrar');
             Route::post('induccion/intentos/{intento}/calificar', [CicloLaboralRhController::class, 'calificarInduccion'])->name('induccion.calificar');
+            Route::post('induccion/intentos/{intento}/recalificar', [CicloLaboralRhController::class, 'recalificarInduccion'])->name('induccion.recalificar');
             Route::get('induccion/intentos/{intento}/pdf', [RhEvaluacionInduccionPdfController::class, 'vistaPrevia'])->name('induccion.pdf.vista');
             Route::get('induccion/intentos/{intento}/pdf/descargar', [RhEvaluacionInduccionPdfController::class, 'descargar'])->name('induccion.pdf.descargar');
             Route::post('induccion/intentos/{intento}/pdf/expediente', [RhEvaluacionInduccionPdfController::class, 'guardarEnExpediente'])->name('induccion.pdf.expediente');

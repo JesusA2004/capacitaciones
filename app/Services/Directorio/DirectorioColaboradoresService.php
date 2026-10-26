@@ -2,11 +2,13 @@
 
 namespace App\Services\Directorio;
 
+use App\Enums\AlcanceDatos;
 use App\Models\Colaborador;
 use App\Models\Departamento;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\Permisos\AlcanceModuloService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 
@@ -23,17 +25,19 @@ use Illuminate\Pagination\LengthAwarePaginator;
  * colaborador operativo ve únicamente el contacto de su JEFE DIRECTO
  * (jefe_id, derivado del organigrama).
  *
- * Regla de la lista: GLOBAL para cualquier colaborador autenticado, SIN
- * acotar por alcance organizacional — a propósito:
- * AlcanceOrganizacionalService reduce a un colaborador sin rol de gerencia a
- * verse solo a sí mismo, lo cual rompería el propósito de un directorio
- * ("encontrar el correo de un compañero de otra sucursal"). Por eso aArray()
- * es una lista CERRADA de campos de contacto corporativo: nunca el modelo
+ * Regla de la lista (2026-10-26): el alcance del módulo «Directorio» de
+ * Roles y permisos decide A QUIÉNES ve cada quien (sucursalesVisibles):
+ * Todos, Región (matriz comercial), Sucursal o, sin alcance, solo SU
+ * sucursal — más su jefe directo, aunque esté en otra. El personal de
+ * Corporativo ve a toda la empresa. Nunca se reduce a «solo él mismo»: un
+ * directorio de una persona no sirve. aArray() es una lista CERRADA de campos de contacto corporativo: nunca el modelo
  * completo ni datos sensibles (salario, CURP, RFC, NSS, domicilio, correo o
  * teléfono personal).
  */
 class DirectorioColaboradoresService
 {
+    public function __construct(private readonly AlcanceModuloService $alcanceModulo) {}
+
     /**
      * «Solo con correo» se IGNORA si quien busca no ve los contactos de
      * todos (veTodosLosContactos): filtrar en BD por un correo que no puede
@@ -47,7 +51,7 @@ class DirectorioColaboradoresService
         $filtros = $this->normalizarFiltros($filtros);
         $filtros['solo_con_correo'] = $filtros['solo_con_correo'] && $viewer !== null && $this->veTodosLosContactos($viewer);
 
-        return $this->consulta()
+        return $this->consulta($viewer)
             // Buscador único: cada palabra en nombre, apellidos, número,
             // puesto, sucursal o departamento («maría cuernavaca»).
             ->when($filtros['busqueda'], fn (Builder $q, string $busqueda) => $q->buscar($busqueda))
@@ -71,7 +75,7 @@ class DirectorioColaboradoresService
      */
     public function todos(?User $viewer = null): array
     {
-        return array_values($this->consulta()
+        return array_values($this->consulta($viewer)
             ->orderBy('name')
             ->orderBy('apellidos')
             ->get()
@@ -87,7 +91,7 @@ class DirectorioColaboradoresService
      */
     public function filaWebDe(int $colaboradorId, ?User $viewer = null): ?array
     {
-        $colaborador = $this->consulta()->whereKey($colaboradorId)->first();
+        $colaborador = $this->consulta($viewer)->whereKey($colaboradorId)->first();
 
         return $colaborador instanceof Colaborador ? $this->filaWeb($colaborador, $viewer) : null;
     }
@@ -131,17 +135,49 @@ class DirectorioColaboradoresService
     }
 
     /**
+     * Sucursales cuyo personal ve $viewer en el directorio; null = toda la
+     * empresa (alcance «Todos» o personal de Corporativo). Sin viewer (uso
+     * interno) no se acota.
+     *
+     * @return list<int>|null
+     */
+    public function sucursalesVisibles(?User $viewer): ?array
+    {
+        if ($viewer === null || $this->esCorporativo($viewer)) {
+            return null;
+        }
+
+        $nivel = $this->alcanceModulo->nivel($viewer, 'directorio');
+
+        if ($nivel === AlcanceDatos::Todos) {
+            return null;
+        }
+
+        // Propios / Equipo = su propia sucursal (y adicionales asignadas).
+        return array_values($this->alcanceModulo
+            ->sucursalesPara($viewer, $nivel === AlcanceDatos::Region ? AlcanceDatos::Region : AlcanceDatos::Sucursal)
+            ->all());
+    }
+
+    /**
      * Colaboradores activos que aparecen en el directorio: sin los grupos
-     * excluidos (gestores, config/directorio.php). Un puesto sin grupo sí
-     * aparece.
+     * excluidos (gestores, config/directorio.php) y dentro del alcance de
+     * quien mira (sucursalesVisibles + su jefe directo). Un puesto sin grupo
+     * sí aparece.
      *
      * @return Builder<Colaborador>
      */
-    private function consulta(): Builder
+    private function consulta(?User $viewer = null): Builder
     {
         $excluir = array_values(array_filter((array) config('directorio.excluir_grupos', []), 'is_string'));
+        $sucursales = $this->sucursalesVisibles($viewer);
+        $propio = $viewer?->colaborador;
 
         return Colaborador::query()
+            ->when($sucursales !== null, fn (Builder $q) => $q->where(fn (Builder $a) => $a
+                ->whereIn('sucursal_principal_id', $sucursales === [] ? [0] : $sucursales)
+                ->orWhere('id', $propio->id ?? 0)
+                ->orWhere('id', $propio->jefe_id ?? 0)))
             ->select(['id', 'name', 'apellidos', 'numero_empleado', 'puesto_id', 'sucursal_principal_id', 'departamento_id', 'correo_corporativo', 'telefono_corporativo'])
             ->where('estatus', 'activo')
             ->when($excluir !== [], fn (Builder $q) => $q->where(fn (Builder $sub) => $sub
@@ -161,8 +197,10 @@ class DirectorioColaboradoresService
      *
      * @return array{puestos: list<array{id: int, nombre: string}>, sucursales: list<array{id: int, nombre: string}>, departamentos: list<array{id: int, nombre: string}>}
      */
-    public function opciones(): array
+    public function opciones(?User $viewer = null): array
     {
+        $sucursales = $this->sucursalesVisibles($viewer);
+
         return [
             'puestos' => $this->aLista(Puesto::query()->where('activo', true)
                 ->where(fn (Builder $q) => $q->whereNull('grupo_documental')->orWhereNotIn('grupo_documental', (array) config('directorio.excluir_grupos', [])))
@@ -172,7 +210,8 @@ class DirectorioColaboradoresService
                     }
                 })
                 ->orderBy('nombre')->get(['id', 'nombre'])),
-            'sucursales' => $this->aLista(Sucursal::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre'])),
+            // Filtro de la app: solo las sucursales que puede ver.
+            'sucursales' => $this->aLista(Sucursal::query()->where('activo', true)->when($sucursales !== null, fn (Builder $q) => $q->whereIn('id', $sucursales === [] ? [0] : $sucursales))->orderBy('nombre')->get(['id', 'nombre'])),
             'departamentos' => $this->aLista(Departamento::query()->orderBy('nombre')->get(['id', 'nombre'])),
         ];
     }
@@ -224,6 +263,11 @@ class DirectorioColaboradoresService
             return true;
         }
 
+        return $this->esCorporativo($viewer);
+    }
+
+    private function esCorporativo(User $viewer): bool
+    {
         return (bool) ($viewer->colaborador?->sucursalPrincipal->es_corporativo ?? false);
     }
 

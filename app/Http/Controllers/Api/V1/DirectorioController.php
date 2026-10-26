@@ -34,8 +34,9 @@ class DirectorioController extends Controller
         ]);
     }
 
-    public function opciones(): JsonResponse
+    public function opciones(Request $request): JsonResponse
     {
-        return response()->json(['data' => $this->directorio->opciones()]);
+        // Filtro de sucursales acotado al alcance del directorio de quien pide.
+        return response()->json(['data' => $this->directorio->opciones($request->user())]);
     }
 }

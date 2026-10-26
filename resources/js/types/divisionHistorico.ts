@@ -33,6 +33,8 @@ export type ParteDivision = {
     asignada: boolean;
     documento_estado: string | null;
     ver_url: string;
+    /** Editor de hojas con las hojas de esta parte ya seleccionadas. */
+    editor_url: string;
 };
 
 export type DatoDetectadoDivision = {

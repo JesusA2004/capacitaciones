@@ -32,4 +32,20 @@ class ArchivoLaboralRequest extends FormRequest
             'observaciones' => ['nullable', 'string', 'max:1000'],
         ];
     }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        $tipos = implode(', ', array_map(strtoupper(...), array_filter((array) config('contratos.extensiones_permitidas', ['pdf']), is_string(...))));
+
+        return [
+            'archivo.required' => 'Elige el archivo (PDF o imagen).',
+            'archivo.file' => 'Elige el archivo (PDF o imagen).',
+            'archivo.uploaded' => 'El archivo no se pudo subir (puede exceder el tamaño permitido por el servidor). Intenta de nuevo.',
+            'archivo.mimes' => sprintf('Solo se aceptan estos tipos de archivo: %s.', $tipos),
+            'archivo.max' => 'El archivo es demasiado grande (máximo :max KB).',
+        ];
+    }
 }

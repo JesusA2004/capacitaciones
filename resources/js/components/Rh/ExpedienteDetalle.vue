@@ -2140,6 +2140,8 @@ function irACompletarExpediente() {
                             </div>
                         </CardContent>
                     </Card>
+                    <!-- Sin histórico: la página puede ofrecer «Ligar expediente de Synology». -->
+                    <slot v-else name="sin-expediente-historico" />
                     <!-- La foto se registra junto con los documentos: es lo
                          que identifica al colaborador en todos los módulos. -->
                     <FotoPerfilCaptura

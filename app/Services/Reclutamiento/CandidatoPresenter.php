@@ -198,6 +198,7 @@ class CandidatoPresenter
                 'visitador' => $s->visitador?->nombreCompleto(),
                 'direccion' => $s->direccion,
                 'checklist' => $s->checklist ?? [],
+                'criterios' => $this->criteriosSocioeconomico($s->checklist ?? []),
                 'riesgos' => $s->riesgos,
                 'observaciones' => $s->observaciones,
                 // Cargado sin revisar = «Pendiente de revisión» (cargar ≠ decidir).
@@ -246,6 +247,71 @@ class CandidatoPresenter
                 'decidida_en' => $i->decidida_en?->toIso8601String(),
             ])->values()->all(),
         ];
+    }
+
+    /**
+     * Criterios del estudio socioeconómico listos para mostrar: el tiempo en
+     * la vivienda junta años y meses («3 años 4 meses»); una clave fuera del
+     * catálogo se muestra tal cual (nunca se oculta).
+     *
+     * @param  array<array-key, mixed>  $checklist
+     * @return list<array{clave: string, etiqueta: string, valor: string}>
+     */
+    private function criteriosSocioeconomico(array $checklist): array
+    {
+        $etiquetas = [
+            'vivienda_en_orden' => 'Vivienda en orden',
+            'vive_con_familia' => 'Vive con familia',
+            'resguardo_motocicleta' => 'Resguardo de motocicleta',
+        ];
+        $criterios = [];
+
+        if (array_key_exists('arraigo_anios', $checklist) || array_key_exists('arraigo_meses', $checklist)) {
+            $criterios[] = [
+                'clave' => 'arraigo',
+                'etiqueta' => 'Tiempo en la vivienda',
+                'valor' => self::tiempoEnVivienda($checklist['arraigo_anios'] ?? null, $checklist['arraigo_meses'] ?? null),
+            ];
+        }
+
+        foreach ($checklist as $clave => $valor) {
+            $clave = (string) $clave;
+            if ($clave === 'arraigo_anios' || $clave === 'arraigo_meses') {
+                continue;
+            }
+            $criterios[] = [
+                'clave' => $clave,
+                'etiqueta' => $etiquetas[$clave] ?? ucfirst(str_replace('_', ' ', $clave)),
+                'valor' => match (true) {
+                    $valor === true => 'Sí',
+                    $valor === false => 'No',
+                    is_scalar($valor) => (string) $valor,
+                    default => '—',
+                },
+            ];
+        }
+
+        return $criterios;
+    }
+
+    /**
+     * «3 años 4 meses», «1 año», «8 meses», «Menos de un mes». Acepta años
+     * con decimales de estudios anteriores (2.5 → 2 años 6 meses).
+     */
+    public static function tiempoEnVivienda(mixed $anios, mixed $meses): string
+    {
+        $totalMeses = (int) round((is_numeric($anios) ? (float) $anios : 0.0) * 12) + (is_numeric($meses) ? (int) $meses : 0);
+        $a = intdiv($totalMeses, 12);
+        $m = $totalMeses % 12;
+        $partes = [];
+        if ($a > 0) {
+            $partes[] = sprintf('%d %s', $a, $a === 1 ? 'año' : 'años');
+        }
+        if ($m > 0) {
+            $partes[] = sprintf('%d %s', $m, $m === 1 ? 'mes' : 'meses');
+        }
+
+        return $partes === [] ? 'Menos de un mes' : implode(' ', $partes);
     }
 
     /**

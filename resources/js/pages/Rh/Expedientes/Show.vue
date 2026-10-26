@@ -5,6 +5,7 @@ import DescargaEnProgreso from '@/components/DescargaEnProgreso.vue';
 import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
 import ExpedienteDetalle from '@/components/Rh/ExpedienteDetalle.vue';
 import ExpedienteDocumentosOficiales from '@/components/Rh/ExpedienteDocumentosOficiales.vue';
+import LigarExpedienteSynology from '@/components/Rh/LigarExpedienteSynology.vue';
 import ResponsivaFormDialog from '@/components/Rh/Responsivas/ResponsivaFormDialog.vue';
 import ResponsivasColaborador from '@/components/Rh/Responsivas/ResponsivasColaborador.vue';
 import { Button } from '@/components/ui/button';
@@ -94,6 +95,7 @@ const props = defineProps<{
         typeof ExpedienteDetalle
     >['$props']['datosFaltantes'];
     puedeAvisarDatosFaltantes?: boolean;
+    puedeLigarSynology?: boolean;
     avisosComunicaciones?: InstanceType<
         typeof ExpedienteDetalle
     >['$props']['avisosComunicaciones'];
@@ -268,6 +270,13 @@ defineOptions({
                     @generada="versionResponsivas++"
                 />
             </template>
+        </template>
+        <template #sin-expediente-historico>
+            <LigarExpedienteSynology
+                v-if="puedeLigarSynology"
+                :colaborador-id="colaborador.id"
+                :nombre="nombreColaborador"
+            />
         </template>
         <template #documentos-oficiales>
             <ResponsivasColaborador

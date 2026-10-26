@@ -8,6 +8,7 @@ import {
     Eye,
     FolderInput,
     MessageSquareText,
+    RotateCcw,
     TriangleAlert,
     X,
 } from '@lucide/vue';
@@ -20,6 +21,7 @@ import { dashboard } from '@/routes';
 import { presentacion as presentacionInduccion } from '@/routes/induccion';
 import {
     calificar,
+    recalificar,
     retroalimentar,
     vistaPrevia as vistaPreviaEvaluacion,
 } from '@/routes/rh/onboarding/induccion';
@@ -43,6 +45,7 @@ const props = defineProps<{
     revision: RevisionInduccion;
     intentoId: number;
     yaCalificado: boolean;
+    puedeRecalificar: boolean;
     descriptivoPuesto: ResumenDescriptivoPuestoRh;
 }>();
 
@@ -73,12 +76,42 @@ const form = useForm<{
     comentario: '',
 });
 
+/**
+ * «Calificar de nuevo» (error humano): vuelve a abrir la rúbrica con lo que
+ * se marcó la vez pasada; al guardar se recalcula y se regenera el formato.
+ */
+const recalificando = ref(false);
+const editable = computed(() => !props.yaCalificado || recalificando.value);
+
+function empezarRecalificacion() {
+    for (const caso of props.revision.seccion_d) {
+        for (const r of caso.rubrica) {
+            form.puntos[caso.clave][r.clave] = r.otorgado === true;
+        }
+    }
+
+    form.comentario = props.revision.comentario_rh ?? '';
+    form.clearErrors();
+    recalificando.value = true;
+}
+
+// El servicio rechaza con la clave «evaluacion» (ya calificado, ya no es el
+// último intento…): se muestra junto a la rúbrica, nunca en silencio.
+const errorEvaluacion = computed(
+    () => (form.errors as Record<string, string | undefined>).evaluacion,
+);
+
+function cancelarRecalificacion() {
+    recalificando.value = false;
+    form.clearErrors();
+}
+
 const maxD = computed(() =>
     props.revision.seccion_d.reduce((s, c) => s + c.puntos_max, 0),
 );
 
 const totalD = computed(() =>
-    props.yaCalificado
+    !editable.value
         ? (props.revision.puntos.d ?? 0)
         : props.revision.seccion_d.reduce(
               (suma, caso) =>
@@ -100,7 +133,7 @@ const totalAbc = computed(
         props.revision.puntos.c,
 );
 const total = computed(() =>
-    props.yaCalificado
+    !editable.value
         ? (props.revision.puntos.total ?? 0)
         : totalAbc.value + totalD.value,
 );
@@ -157,6 +190,15 @@ const opinion = computed(() => {
 });
 
 function enviar() {
+    if (recalificando.value) {
+        form.post(recalificar.url(props.intentoId), {
+            preserveScroll: true,
+            onSuccess: () => (recalificando.value = false),
+        });
+
+        return;
+    }
+
     form.post(calificar.url(props.intentoId), { preserveScroll: true });
 }
 
@@ -291,7 +333,7 @@ function letra(indice: number): string {
                 "
             >
                 <p class="text-xs text-muted-foreground">
-                    Total {{ yaCalificado ? '' : '(con lo marcado)' }}
+                    Total {{ editable ? '(con lo marcado)' : '' }}
                 </p>
                 <p class="mt-1 text-2xl font-semibold tabular-nums">
                     {{ total
@@ -299,7 +341,7 @@ function letra(indice: number): string {
                 </p>
                 <p class="text-xs font-medium">
                     {{
-                        yaCalificado
+                        !editable
                             ? revision.nivel_etiqueta
                             : total >= aprobatoria
                               ? 'Aprobaría (mínimo 24)'
@@ -510,13 +552,42 @@ function letra(indice: number): string {
             class="flex flex-col gap-4 rounded-3xl border bg-card p-5"
             @submit.prevent="enviar"
         >
-            <h2 class="flex items-center gap-2 text-base font-semibold">
-                <ClipboardCheck class="size-5" /> D · Casos prácticos · rúbrica
-                oficial ({{ maxD }} puntos)
-            </h2>
-            <p v-if="!yaCalificado" class="text-sm text-muted-foreground">
-                Otorga el punto cuando la idea es correcta, aunque el
-                colaborador la exprese con sus propias palabras.
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <h2 class="flex items-center gap-2 text-base font-semibold">
+                    <ClipboardCheck class="size-5" /> D · Casos prácticos ·
+                    rúbrica oficial ({{ maxD }} puntos)
+                </h2>
+                <Button
+                    v-if="yaCalificado && puedeRecalificar && !recalificando"
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    @click="empezarRecalificacion"
+                    ><RotateCcw class="size-4" /> Calificar de nuevo</Button
+                >
+            </div>
+            <p v-if="editable" class="text-sm text-muted-foreground">
+                Marca cada criterio que la respuesta escrita cumple: otorga el
+                punto cuando la idea es correcta, aunque el colaborador la
+                exprese con sus propias palabras.
+            </p>
+            <p
+                v-if="recalificando"
+                class="rounded-xl bg-warning-soft p-3 text-sm"
+            >
+                Estás calificando de nuevo el intento N.º
+                {{ intento?.numero }}. Se recalcula el total, queda registrado
+                quién lo corrigió y se regenera el formato.
+                <template v-if="evaluacion.estado === 'aprobada'">
+                    Como ya estaba aprobada, la corrección no puede dejarla por
+                    debajo del mínimo.</template
+                >
+            </p>
+            <p
+                v-if="errorEvaluacion"
+                class="rounded-xl bg-danger-soft p-3 text-sm text-destructive"
+            >
+                {{ errorEvaluacion }}
             </p>
 
             <article
@@ -533,7 +604,7 @@ function letra(indice: number): string {
                 <p class="rounded-xl bg-crema p-3 text-sm whitespace-pre-line">
                     {{ caso.respuesta || 'Sin respuesta.' }}
                 </p>
-                <template v-if="yaCalificado">
+                <template v-if="!editable">
                     <p
                         v-for="criterio in caso.rubrica"
                         :key="criterio.clave"
@@ -581,7 +652,7 @@ function letra(indice: number): string {
                 </template>
             </article>
 
-            <template v-if="!yaCalificado">
+            <template v-if="editable">
                 <label class="flex flex-col gap-1 text-sm">
                     <span class="flex items-center gap-1 font-medium"
                         ><MessageSquareText class="size-4" /> Comentario de RH
@@ -595,8 +666,21 @@ function letra(indice: number): string {
                 </label>
                 <div class="flex flex-wrap items-center gap-3">
                     <Button type="submit" :disabled="form.processing">
-                        Guardar calificación ({{ total }}/30)
+                        {{
+                            recalificando
+                                ? 'Guardar nueva calificación'
+                                : 'Guardar calificación'
+                        }}
+                        ({{ total }}/30)
                     </Button>
+                    <Button
+                        v-if="recalificando"
+                        type="button"
+                        variant="ghost"
+                        :disabled="form.processing"
+                        @click="cancelarRecalificacion"
+                        >Cancelar</Button
+                    >
                     <span class="text-sm text-muted-foreground"
                         >D: {{ totalD }}/{{ maxD }} · A+B+C:
                         {{ totalAbc }}</span

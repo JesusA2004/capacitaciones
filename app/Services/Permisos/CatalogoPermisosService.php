@@ -150,7 +150,9 @@ class CatalogoPermisosService
     {
         $existentes = Permission::query()->where('guard_name', 'web')->orderBy('name')->pluck('name')->map(fn ($p): string => (string) $p)->all();
         $todos = array_values(array_unique([...$existentes, ...RolesYPermisosSeeder::catalogoPermisos()]));
-        $mapeados = array_flip([...$this->permisosEnModulos(), ...RolesYPermisosSeeder::permisosPersonales()]);
+        // Los retirados (generales ya divididos en acciones) no se ofrecen:
+        // asignarlos no habilitaría nada.
+        $mapeados = array_flip([...$this->permisosEnModulos(), ...RolesYPermisosSeeder::permisosPersonales(), ...RolesYPermisosSeeder::retirados()]);
         sort($todos);
 
         $grupos = [];

@@ -16,7 +16,7 @@ import {
     UserPen,
 } from '@lucide/vue';
 import { onKeyStroke, useEventListener, useMediaQuery } from '@vueuse/core';
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import MiniaturaHoja from '@/components/Rh/DivisionHistorico/MiniaturaHoja.vue';
 import PanelAccionesHojas from '@/components/Rh/DivisionHistorico/PanelAccionesHojas.vue';
@@ -44,6 +44,7 @@ import {
     firmaPlan,
     formatearRango,
     moverA,
+    parsearRango,
     partirDesde,
     planDe,
     reordenar,
@@ -339,6 +340,23 @@ function seleccionarRango(paginas: number[]): void {
         enfocar(paginas[0]);
     }
 }
+
+// «Corregir hojas» desde una parte de la división (?hojas=3,4): esas hojas
+// llegan ya seleccionadas para asignarlas o separarlas de inmediato.
+onMounted(() => {
+    const pedidas = new URLSearchParams(window.location.search).get('hojas');
+
+    if (!pedidas) {
+        return;
+    }
+
+    const { paginas, error } = parsearRango(pedidas, total.value);
+
+    if (!error && paginas.length) {
+        seleccionarRango(paginas);
+        aviso.value = `Hojas ${formatearRango(paginas)} seleccionadas: elige a qué documento pertenece cada una.`;
+    }
+});
 
 function seleccionarDocumento(doc: DocumentoEditor): void {
     seleccionarRango([...doc.paginas].sort((a, b) => a - b));

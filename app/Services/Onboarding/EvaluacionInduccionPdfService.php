@@ -9,6 +9,7 @@ use App\Models\EvaluacionInduccionIntento;
 use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Services\Actas\ActaPdfService;
+use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\FirmaPatronService;
 use App\Services\Evaluaciones\FormularioEvaluacionService;
@@ -51,6 +52,7 @@ class EvaluacionInduccionPdfService
         private readonly EvaluacionInduccionService $evaluaciones,
         private readonly FirmaPatronService $firmaPatron,
         private readonly FormularioEvaluacionService $formularios,
+        private readonly FlujoDocumentalService $flujo,
     ) {}
 
     /** Bytes del PDF (mismo render para vista previa, descarga y expediente). */
@@ -76,7 +78,7 @@ class EvaluacionInduccionPdfService
      * actas. Idempotente: si ese intento ya tiene su PDF vigente en el
      * expediente, devuelve ese documento sin duplicarlo.
      */
-    public function guardarEnExpediente(EvaluacionInduccionIntento $intento, User $actor): GeneratedDocument
+    public function guardarEnExpediente(EvaluacionInduccionIntento $intento, User $actor, bool $nuevaVersion = false): GeneratedDocument
     {
         $intento->loadMissing('evaluacion.colaborador');
 
@@ -88,17 +90,17 @@ class EvaluacionInduccionPdfService
             throw ValidationException::withMessages(['evaluacion' => 'Califica los casos prácticos antes de guardar la evaluación en el expediente.']);
         }
 
-        if (($existente = $this->documentoDe($intento)) !== null) {
+        if (! $nuevaVersion && ($existente = $this->documentoDe($intento)) !== null) {
             return $existente;
         }
 
         $render = $this->render($intento);
 
-        return DB::transaction(function () use ($intento, $actor, $render): GeneratedDocument {
+        return DB::transaction(function () use ($intento, $actor, $render, $nuevaVersion): GeneratedDocument {
             // Serializa dos guardados simultáneos del mismo intento.
             EvaluacionInduccionIntento::query()->lockForUpdate()->findOrFail($intento->id);
 
-            if (($existente = $this->documentoDe($intento)) !== null) {
+            if (! $nuevaVersion && ($existente = $this->documentoDe($intento)) !== null) {
                 return $existente;
             }
 
@@ -134,6 +136,38 @@ class EvaluacionInduccionPdfService
             return $this->guardarEnExpediente($intento, $actor);
         } catch (Throwable $e) {
             Log::warning('EvaluacionInduccionPdfService: no se pudo adjuntar la evaluación de inducción al expediente.', [
+                'intento_id' => $intento->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * «Calificar de nuevo»: el formato del expediente refleja la calificación
+     * corregida. El PDF anterior de este intento se cancela (si aún no se
+     * firmó en papel; si ya se firmó se conserva como historial) y se guarda
+     * el nuevo. Sin PDF previo, solo se guarda si con la corrección aprobó
+     * (la vista previa y la descarga siempre salen al momento). Nunca
+     * deshace la recalificación: un fallo queda en el log.
+     */
+    public function regenerarTrasRecalificar(EvaluacionInduccionIntento $intento, User $actor): ?GeneratedDocument
+    {
+        try {
+            $anterior = $this->documentoDe($intento);
+
+            if ($anterior === null && $intento->aprobado !== true) {
+                return null;
+            }
+
+            if ($anterior !== null && ! ($anterior->estado_flujo?->estaConcluido() ?? false)) {
+                $this->flujo->cancelar($anterior, $actor, 'Evaluación calificada de nuevo: se generó el formato corregido.');
+            }
+
+            return $this->guardarEnExpediente($intento, $actor, true);
+        } catch (Throwable $e) {
+            Log::warning('EvaluacionInduccionPdfService: no se pudo regenerar el formato tras calificar de nuevo.', [
                 'intento_id' => $intento->id,
                 'error' => $e->getMessage(),
             ]);

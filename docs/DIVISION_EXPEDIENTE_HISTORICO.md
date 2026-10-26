@@ -87,6 +87,7 @@ El propio expediente devuelve 403.
 
 Cuando el OCR deja un bloque sin clasificar (p. ej. 5-7) o no detecta que las hojas 9-11 siguen al contrato que empieza en la 8, RH lo corrige **hoja por hoja** en **Dividir PDF histórico → Corregir hojas** (`/rh/expedientes/division-historico/{división}/editor`).
 
+- **Desde cada parte** de la tabla «Documentos encontrados», el botón **Separar hojas** (o «Corregir hoja») abre el editor con esas hojas ya seleccionadas (`?hojas=3,4`). Es el camino para el caso «el OCR juntó 2 hojas como INE y solo una es la INE»: «Asignar a…» solo existe para partes que todavía no se cargaron al checklist.
 - **Miniaturas de todas las hojas**, dibujadas en el navegador con pdf.js desde el PDF original (una sola descarga; cada miniatura se dibuja al entrar en pantalla). Cada hoja muestra su clasificación con color por tipo; «Sin clasificar» va resaltado con borde punteado.
 - **Selección:** clic, Mayús+clic (rango), Ctrl/Cmd+clic (sumar), o escribiendo «5-7, 9». Con teclado: flechas, Espacio, Mayús+flechas, Enter (ver en grande), Ctrl+A, Esc. En móvil cada toque suma o quita y las acciones salen en una barra inferior.
 - **Acciones:** asignar tipo (por hoja o en lote; si ya hay un documento de ese tipo, las hojas se le unen, salvo «como documento aparte»), «Continúa el documento anterior» (las hojas se unen al documento de la hoja previa, en el MISMO documento), «Nuevo documento desde esta hoja» (partir), «Mover a…» y reordenar hojas dentro del documento. Zoom de cualquier hoja.
@@ -97,7 +98,9 @@ Al **confirmar** (`EditorPaginasDivisionService::confirmar`):
 1. Se generan los PDFs solo de los documentos que cambiaron, en `…/Division por checklist/{división}/Revision {n}/`. El PDF original nunca se toca.
 2. En una `DB::transaction`: se crea la revisión `n` (`revisiones_division_historico`: plan, hash, auditoría hoja por hoja «de → a», advertencias, autor); las partes anteriores quedan con `reemplazada_por_revision_id` (no se borran, ni su copia); nacen las partes nuevas (`revision_id`).
 3. En el expediente: si el tipo vino de este PDF, se sube **nueva versión en revisión** (la anterior se archiva con `subirVersion`); si el tipo no estaba cubierto, se carga en revisión; si ya hay un documento vigente de otro origen, no se reemplaza (solo se guarda la copia). Un documento de este PDF que se queda sin hojas se **archiva** si seguía en revisión; si ya estaba aprobado no se toca y se advierte.
-4. Bitácora: `expediente_historico.hojas_corregidas` (AuditoriaService).
+4. Bitácora: `expediente_historico.hojas_corregidas` (AuditoriaService). «Asignar a…» de una parte registra `expediente_historico.parte_asignada` y escribe documento + parte + hojas en una sola `DB::transaction`; una parte ya reemplazada por una corrección, o de una división vieja, se rechaza.
+
+Si FPDI o el NAS fallan al guardar, RH ve el motivo (error de validación, nunca un 500) y nada cambia en el expediente. Un reintento no choca con la copia que alcanzó a escribirse en `Revision {n}/`: si es idéntica se reutiliza y si no, la nueva se guarda con sufijo « (2)».
 
 Es **idempotente**: el mismo plan dos veces no crea nada la segunda. Con concurrencia, si otra persona guardó antes, la revisión base vieja se rechaza («recarga»). Solo se corrige la división más reciente de cada PDF.
 

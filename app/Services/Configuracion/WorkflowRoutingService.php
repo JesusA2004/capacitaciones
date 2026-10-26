@@ -12,6 +12,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Colaboradores\JerarquiaColaboradorService;
+use App\Services\Permisos\AlcanceModuloService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -45,6 +46,7 @@ class WorkflowRoutingService
         private readonly JerarquiaColaboradorService $personas,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly AuditoriaService $auditoria,
+        private readonly AlcanceModuloService $alcanceModulo,
     ) {}
 
     /**
@@ -232,6 +234,8 @@ class WorkflowRoutingService
                 Tipo::Regional => $this->organizacion->regionalesDe($sucursalId, $colaborador),
                 Tipo::GerenciaRh => $this->organizacion->gerenciaRh($colaborador),
                 Tipo::Rh => $this->conPermiso(OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH, $sujeto),
+                // Por permiso: con el alcance que el rol tiene en el módulo de
+                // ese permiso (alcance_avisos), p. ej. gerente → su sucursal.
                 Tipo::UsuariosConPermiso => is_string($regla['permiso'] ?? null) ? $this->conPermiso($regla['permiso'], $sujeto) : collect(),
                 Tipo::UsuarioEspecifico => User::query()->whereIn('id', (array) ($regla['usuario_ids'] ?? []))->get()->filter(fn (User $u) => $this->alcanza($u, $sujeto))->values(),
                 Tipo::Sistemas => $this->sistemas(),
@@ -305,13 +309,14 @@ class WorkflowRoutingService
             ->permission($permiso)
             ->whereNull('acceso_bloqueado_en')
             ->get()
-            ->filter(fn (User $u) => $this->alcanza($u, $sujeto))
+            ->filter(fn (User $u) => $this->alcanza($u, $sujeto, $permiso))
             ->values();
     }
 
-    private function alcanza(User $usuario, Colaborador|Candidato|null $sujeto): bool
+    private function alcanza(User $usuario, Colaborador|Candidato|null $sujeto, ?string $permiso = null): bool
     {
         return match (true) {
+            $sujeto instanceof Colaborador && $permiso !== null => $this->alcanceModulo->alcanzaParaAviso($usuario, $sujeto, $permiso),
             $sujeto instanceof Colaborador => $this->alcance->alcanzaColaborador($usuario, $sujeto),
             $sujeto instanceof Candidato => $this->organizacion->alcanzaCandidato($usuario, $sujeto),
             default => true,

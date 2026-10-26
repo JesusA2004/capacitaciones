@@ -245,7 +245,7 @@ Gerente, RH.
 
 #### Pasos
 
-1. **«Cargar estudio socioeconómico»** — Fecha de visita, dirección visitada y checklist: vivienda en orden, vive con su familia, años de arraigo y resguardo de motocicleta. Queda «pendiente de revisión».
+1. **«Cargar estudio socioeconómico»** — Fecha de visita, dirección visitada y checklist: vivienda en orden, vive con su familia, tiempo en la vivienda (años y meses) y resguardo de motocicleta. Queda «pendiente de revisión».
 2. **Riesgos y observaciones** — Riesgos o inconsistencias detectados y observaciones.
 3. **Evidencias** — Hasta 12 archivos: fotos (JPG, PNG, WEBP), PDF o video (MP4, MOV).
 4. **«Revisar socioeconómico»** _(Gerente)_ — El responsable abre el video o el PDF («Ver socioeconómico» / «Ver video») y decide Viable o No viable (si no es viable, motivo obligatorio).

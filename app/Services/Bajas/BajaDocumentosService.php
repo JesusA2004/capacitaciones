@@ -12,14 +12,17 @@ use App\Models\DocumentoRequeridoBaja;
 use App\Models\FiniquitoCalculo;
 use App\Models\User;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
+use App\Support\ExtensionArchivo;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 /**
  * Documentos de la baja (RN-05): cada documento requerido (forma +
@@ -135,9 +138,20 @@ class BajaDocumentosService
         }
 
         $disco = $this->disco();
-        $extension = strtolower($archivo->getClientOriginalExtension() !== '' ? $archivo->getClientOriginalExtension() : (string) $archivo->extension());
-        $ruta = sprintf('%s/%d/%s.%s', (string) config('bajas.documentos.carpeta', 'bajas'), $baja->id, (string) Str::uuid(), $extension);
-        $disco->putFileAs(dirname($ruta), $archivo, basename($ruta));
+        $ruta = sprintf('%s/%d/%s.%s', (string) config('bajas.documentos.carpeta', 'bajas'), $baja->id, (string) Str::uuid(), ExtensionArchivo::real($archivo));
+
+        // Sin confirmación del NAS no se registra nada: un renglón que apunta
+        // a un archivo que no existe mostraría «ya no está en el NAS».
+        try {
+            $guardado = $disco->putFileAs(dirname($ruta), $archivo, basename($ruta));
+        } catch (Throwable $e) {
+            $guardado = false;
+            Log::error('BajaDocumentosService: fallo al guardar el adjunto en el almacenamiento.', ['baja_id' => $baja->id, 'error' => $e->getMessage()]);
+        }
+
+        if ($guardado === false || ! $disco->exists($ruta)) {
+            throw ValidationException::withMessages(['archivo' => 'No se pudo guardar el archivo en el almacenamiento (NAS no disponible). Intenta de nuevo; si continúa, avisa a sistemas.']);
+        }
 
         return DB::transaction(function () use ($baja, $requerido, $archivo, $actor, $ruta): BajaDocumento {
             $documento = BajaDocumento::query()->create([

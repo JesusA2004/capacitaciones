@@ -25,6 +25,7 @@ use App\Services\Formatos\GeneradorFormatoService;
 use App\Services\Plantillas\PlaceholderResolver;
 use App\Services\Solicitudes\SolicitudDocumentoStorageService;
 use App\Services\Vacaciones\VacacionesService;
+use App\Support\ExtensionArchivo;
 use App\Support\FechaMexico;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Http\UploadedFile;
@@ -613,7 +614,9 @@ class FiniquitoService
 
         $this->asegurarNoFirmado($finiquito);
 
-        $nombreInterno = $this->storage->nombreInterno($archivo->getClientOriginalName());
+        // Extensión del contenido real (una foto JPG llamada «.pdf» se guarda
+        // como .jpg), para que la descarga sirva el tipo correcto.
+        $nombreInterno = $this->storage->nombreInterno(sprintf('firmado.%s', ExtensionArchivo::real($archivo)));
         $ruta = "solicitudes/{$finiquito->solicitud_interna_id}/finiquito/firmado-{$nombreInterno}";
 
         try {
@@ -883,8 +886,15 @@ class FiniquitoService
         // disco a partir del archivo real, no se fuerza a PDF.
         $extension = pathinfo($ruta, PATHINFO_EXTENSION) ?: 'pdf';
 
+        abort_unless($this->storage->disco()->exists($ruta), 404, 'El archivo del finiquito ya no está en el almacenamiento.');
+
+        // La URL es la misma para el PDF generado, el regenerado tras un
+        // ajuste y el firmado: sin no-store el navegador mostraría la versión
+        // anterior en caché.
         return $this->storage->respuesta($ruta, [
             'Content-Disposition' => sprintf('inline; filename="finiquito-%d.%s"', $finiquito->solicitud_interna_id, $extension),
+            'Cache-Control' => 'no-store, private',
+            'X-Content-Type-Options' => 'nosniff',
         ]);
     }
 

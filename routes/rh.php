@@ -28,6 +28,7 @@ use App\Http\Controllers\Rh\PrestamoAutorizacionController;
 use App\Http\Controllers\Rh\ReporteRhController;
 use App\Http\Controllers\Rh\SolicitudController;
 use App\Http\Controllers\Rh\VacanteController;
+use App\Http\Controllers\Rh\VinculacionSynologyController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -189,6 +190,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // de acceso (correo/roles/bloqueo), nunca la relación laboral.
             Route::get('{colaborador}', [ExpedienteController::class, 'show'])->name('show')->withTrashed();
             Route::post('{colaborador}/avisar-datos-faltantes', [ExpedienteController::class, 'avisarDatosFaltantes'])->name('avisar-datos-faltantes')->middleware('throttle:20,1');
+            // «Ligar expediente de Synology»: carpeta del NAS que la migración
+            // no ligó sola (nombre mal escrito). Solo lectura del NAS + registro.
+            Route::prefix('{colaborador}/synology')->name('synology.')->group(function () {
+                Route::get('carpetas', [VinculacionSynologyController::class, 'carpetas'])->name('carpetas')->withTrashed()->middleware('throttle:120,1');
+                Route::get('vista-previa', [VinculacionSynologyController::class, 'vistaPrevia'])->name('vista-previa')->withTrashed()->middleware('throttle:60,1');
+                Route::post('ligar', [VinculacionSynologyController::class, 'ligar'])->name('ligar')->withTrashed()->middleware('throttle:20,1');
+            });
             Route::get('{colaborador}/foto', [ExpedienteController::class, 'descargarFoto'])->name('foto')->withTrashed();
             // «Descargar expediente completo» (ZIP con índice); también de bajas.
             Route::get('{colaborador}/descargar-zip', [ExpedienteController::class, 'descargarZip'])->name('descargar-zip')->withTrashed()->middleware('throttle:10,1');

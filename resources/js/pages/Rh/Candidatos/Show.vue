@@ -108,7 +108,9 @@ const props = defineProps<{
 const procesoEsEstaFicha = computed(
     () =>
         !!props.cadenaContratacion?.proceso_url &&
-        props.cadenaContratacion.proceso_url.includes(`/rh/candidatos/${props.candidato.id}`),
+        props.cadenaContratacion.proceso_url.includes(
+            `/rh/candidatos/${props.candidato.id}`,
+        ),
 );
 
 const ACEPTA_DOCUMENTOS = '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx';
@@ -203,6 +205,7 @@ const camposPorAccion: Record<string, () => FormularioAccion> = {
             vivienda_en_orden: false,
             vive_con_familia: false,
             arraigo_anios: 0,
+            arraigo_meses: 0,
             resguardo_motocicleta: false,
         },
         riesgos: '',
@@ -847,17 +850,11 @@ function fecha(valor: string | null): string {
                         </p>
                         <ul class="mt-1 flex flex-wrap gap-x-4 text-xs">
                             <li
-                                v-for="(valor, clave) in item.checklist"
-                                :key="clave"
+                                v-for="criterio in item.criterios"
+                                :key="criterio.clave"
                             >
-                                {{ String(clave).replaceAll('_', ' ') }}:
-                                <strong>{{
-                                    valor === true
-                                        ? 'sí'
-                                        : valor === false
-                                          ? 'no'
-                                          : valor
-                                }}</strong>
+                                {{ criterio.etiqueta }}:
+                                <strong>{{ criterio.valor }}</strong>
                             </li>
                         </ul>
                         <p v-if="item.riesgos" class="mt-1">
@@ -1290,18 +1287,71 @@ function fecha(valor: string | null): string {
                                 v-model="form.fecha_visita as string"
                             /><InputError :message="form.errors.fecha_visita" />
                         </div>
-                        <div class="grid gap-1.5">
-                            <Label for="arraigo">Arraigo (años)</Label
-                            ><Input
-                                id="arraigo"
-                                v-model.number="
-                                    (form.checklist as Record<string, number>)
-                                        .arraigo_anios
+                        <fieldset class="grid gap-1.5">
+                            <legend class="mb-1.5 text-sm font-medium">
+                                Tiempo en la vivienda (arraigo)
+                            </legend>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="grid gap-1">
+                                    <Label
+                                        for="arraigo-anios"
+                                        class="text-xs text-muted-foreground"
+                                        >Años</Label
+                                    ><Input
+                                        id="arraigo-anios"
+                                        v-model.number="
+                                            (
+                                                form.checklist as Record<
+                                                    string,
+                                                    number
+                                                >
+                                            ).arraigo_anios
+                                        "
+                                        type="number"
+                                        min="0"
+                                        max="80"
+                                        step="1"
+                                    />
+                                </div>
+                                <div class="grid gap-1">
+                                    <Label
+                                        for="arraigo-meses"
+                                        class="text-xs text-muted-foreground"
+                                        >Meses</Label
+                                    ><Input
+                                        id="arraigo-meses"
+                                        v-model.number="
+                                            (
+                                                form.checklist as Record<
+                                                    string,
+                                                    number
+                                                >
+                                            ).arraigo_meses
+                                        "
+                                        type="number"
+                                        min="0"
+                                        max="11"
+                                        step="1"
+                                    />
+                                </div>
+                            </div>
+                            <InputError
+                                :message="
+                                    (
+                                        form.errors as Record<
+                                            string,
+                                            string | undefined
+                                        >
+                                    )['checklist.arraigo_anios'] ??
+                                    (
+                                        form.errors as Record<
+                                            string,
+                                            string | undefined
+                                        >
+                                    )['checklist.arraigo_meses']
                                 "
-                                type="number"
-                                min="0"
                             />
-                        </div>
+                        </fieldset>
                     </div>
                     <div class="grid gap-1.5">
                         <Label for="direccion-visita">Dirección visitada</Label

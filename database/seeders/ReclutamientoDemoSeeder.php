@@ -157,8 +157,8 @@ class ReclutamientoDemoSeeder extends Seeder
                 $this->workflow->registrarSocioeconomico($c, $gerente, [
                     'fecha_visita' => now()->subDays(3)->toDateString(),
                     'direccion' => 'Calle Demostración 45, Ixtapaluca, Edo. Méx.',
-                    'checklist' => ['vivienda_en_orden' => true, 'vive_con_familia' => true, 'arraigo_anios' => 3, 'resguardo_motocicleta' => true],
-                    'observaciones' => 'Vivienda en orden, arraigo de 3 años.',
+                    'checklist' => ['vivienda_en_orden' => true, 'vive_con_familia' => true, 'arraigo_anios' => 3, 'arraigo_meses' => 4, 'resguardo_motocicleta' => true],
+                    'observaciones' => 'Vivienda en orden, arraigo de 3 años 4 meses.',
                 ]);
                 $this->workflow->revisarSocioeconomico($c, $gerente, true, 'Visita revisada.');
             },

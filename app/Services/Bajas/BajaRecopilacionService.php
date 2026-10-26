@@ -18,6 +18,7 @@ use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Symfony\Component\Mime\MimeTypes;
 
 /**
  * «Bajas y finiquitos» → Recopilación de documentos: una tarjeta por
@@ -245,6 +246,9 @@ class BajaRecopilacionService
                 $finiquito->documento_firmado_path !== null || $finiquito->documento_generado_path !== null => route('rh.solicitudes.finiquito.descargar-pdf', $finiquito->solicitud_interna_id),
                 default => route('rh.cierres.finiquito.vistaPrevia', $cierre->id),
             };
+            // descargar-pdf sirve el escaneo firmado si existe (puede ser una
+            // foto JPG/PNG): el visor necesita su MIME real para mostrarlo.
+            $mimeFiniquito = $url === null ? null : $this->mimeFiniquito($finiquito);
 
             $items[] = [
                 'clave' => 'finiquito',
@@ -264,7 +268,7 @@ class BajaRecopilacionService
                 'requerido_id' => $entregado ? null : $pendiente($porSistema['finiquito'] ?? null),
                 'url' => $url,
                 'url_descarga' => null,
-                'mime' => $url !== null ? 'application/pdf' : null,
+                'mime' => $mimeFiniquito,
                 'fecha' => $finiquito?->fecha_calculo?->toDateString(),
             ];
 
@@ -278,7 +282,7 @@ class BajaRecopilacionService
                 'requerido_id' => null,
                 'url' => $finiquito?->pagado_en !== null ? $url : null,
                 'url_descarga' => null,
-                'mime' => $finiquito?->pagado_en !== null && $url !== null ? 'application/pdf' : null,
+                'mime' => $finiquito?->pagado_en !== null ? $mimeFiniquito : null,
                 'fecha' => $finiquito?->pagado_en?->toDateString(),
             ];
         }
@@ -357,6 +361,21 @@ class BajaRecopilacionService
         }
 
         return $porId;
+    }
+
+    /**
+     * MIME de lo que sirve rh.solicitudes.finiquito.descargar-pdf: el escaneo
+     * firmado (PDF o imagen, por su extensión real) o el PDF generado/vista previa.
+     */
+    private function mimeFiniquito(?FiniquitoCalculo $finiquito): string
+    {
+        $ruta = $finiquito?->documento_firmado_path;
+
+        if ($ruta === null) {
+            return 'application/pdf';
+        }
+
+        return MimeTypes::getDefault()->getMimeTypes(strtolower(pathinfo($ruta, PATHINFO_EXTENSION)))[0] ?? 'application/pdf';
     }
 
     private function claveSistema(Baja $baja, ?int $requeridoId): ?string

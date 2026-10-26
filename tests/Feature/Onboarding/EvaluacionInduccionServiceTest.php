@@ -2,6 +2,7 @@
 
 use App\Enums\EstadoAvanceOnboarding;
 use App\Enums\EstadoEvaluacionInduccion;
+use App\Enums\EstadoFlujoDocumento;
 use App\Enums\EstadoOnboarding;
 use App\Enums\EstadoUsuario;
 use App\Enums\NivelEvaluacionInduccion;
@@ -10,10 +11,13 @@ use App\Enums\TipoTarea;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\EvaluacionInduccion;
+use App\Models\EvaluacionInduccionIntento;
+use App\Models\GeneratedDocument;
 use App\Models\OnboardingModulo;
 use App\Models\TareaRh;
 use App\Models\User;
 use App\Services\CicloLaboral\CicloLaboralService;
+use App\Services\Onboarding\EvaluacionInduccionPdfService;
 use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Onboarding\SesionInduccionService;
@@ -23,6 +27,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
+use Spatie\Activitylog\Models\Activity;
 
 /*
 | Evaluación oficial del Programa de Inducción (FO-RH-EI, 30 puntos) —
@@ -424,4 +429,125 @@ test('API móvil del colaborador: ningún JSON de inducción trae clave de respu
         ->getJson("/api/v1/rh/induccion/intentos/{$intento->id}")
         ->assertOk()
         ->assertJsonPath('data.casos_practicos.0.rubrica.0.clave', 'identifica_malversacion');
+});
+
+/*
+| «Calificar de nuevo» (2026-10-26): RH corrige un error humano al calificar
+| las respuestas escritas (D) del último intento; se recalcula, se audita y
+| se regenera el formato FO-RH-EI.
+*/
+
+/** 22/30 con D = 0: el caso real (A=11, B=8, C=3, D=0). */
+function eiIntentoReprobadoPorD(object $t): EvaluacionInduccionIntento
+{
+    $evaluacion = eiHabilitar($t);
+    $respuestas = eiRespuestasCorrectas();
+    $preguntasA = config('induccion_evaluacion.seccion_a');
+    $respuestas['a'][0] = ((int) $preguntasA[0]['correcta'] + 1) % count($preguntasA[0]['opciones']);
+    $conceptos = config('induccion_evaluacion.seccion_c.conceptos');
+    $respuestas['c'][0] = $conceptos[0]['letra_correcta'] === 'A' ? 'B' : 'A';
+    $respuestas['c'][1] = $conceptos[1]['letra_correcta'] === 'A' ? 'B' : 'A';
+    $intento = $t->evaluaciones->presentar($evaluacion, $t->usuario, $respuestas, null);
+
+    $t->actingAs($t->rh);
+
+    return $t->evaluaciones->calificarCasosPracticos($intento, $t->rh, []);
+}
+
+test('calificar de nuevo: corregir las respuestas escritas aprueba, avanza el onboarding, audita y genera el formato', function () {
+    $intento = eiIntentoReprobadoPorD($this);
+    $evaluacion = $intento->evaluacion()->firstOrFail();
+
+    expect((float) $intento->calificacion_total)->toBe(22.0)
+        ->and($evaluacion->estado)->toBe(EstadoEvaluacionInduccion::RequiereReforzamiento)
+        ->and($this->evaluaciones->puedeRecalificar($intento))->toBeTrue();
+
+    $intento = $this->evaluaciones->recalificarCasosPracticos($intento, $this->rh, eiPuntosDCompletos(), 'Se corrigió la rúbrica.');
+
+    expect((float) $intento->calificacion_d)->toBe(5.0)
+        ->and((float) $intento->calificacion_total)->toBe(27.0)
+        ->and($intento->aprobado)->toBeTrue()
+        ->and($intento->comentario_rh)->toBe('Se corrigió la rúbrica.')
+        ->and($evaluacion->refresh()->estado)->toBe(EstadoEvaluacionInduccion::Aprobada)
+        ->and((float) $evaluacion->mejor_calificacion)->toBe(27.0)
+        ->and($this->proceso->avances()->firstOrFail()->estado)->toBe(EstadoAvanceOnboarding::Aprobado)
+        ->and(TareaRh::query()->where('tipo', TipoTarea::InduccionReforzamiento->value)->whereNull('resuelta_en')->count())->toBe(0);
+
+    $auditoria = Activity::query()->where('event', 'induccion_recalificada')->firstOrFail();
+    expect($auditoria->properties['antes']['calificacion_total'])->toEqualWithDelta(22.0, 0.001)
+        ->and($auditoria->properties['despues']['calificacion_total'])->toEqualWithDelta(27.0, 0.001);
+
+    expect(GeneratedDocument::query()
+        ->where('documentable_id', $intento->id)
+        ->where('clave_plantilla', EvaluacionInduccionPdfService::CLAVE)
+        ->count())->toBe(1);
+});
+
+test('calificar de nuevo una aprobada regenera el formato del expediente', function () {
+    $evaluacion = eiHabilitar($this);
+    $intento = $this->evaluaciones->presentar($evaluacion, $this->usuario, eiRespuestasCorrectas(), null);
+    $this->actingAs($this->rh);
+    $intento = $this->evaluaciones->calificarCasosPracticos($intento, $this->rh, eiPuntosDCompletos());
+
+    $documentos = fn () => GeneratedDocument::query()->where('documentable_id', $intento->id)
+        ->where('clave_plantilla', EvaluacionInduccionPdfService::CLAVE);
+    $anterior = $documentos()->firstOrFail();
+
+    // 30 → 27: sigue aprobada; el PDF anterior se cancela y queda uno nuevo.
+    $parcial = eiPuntosDCompletos();
+    $parcial['caso_26'] = array_map(fn () => false, $parcial['caso_26']);
+    $intento = $this->evaluaciones->recalificarCasosPracticos($intento, $this->rh, $parcial);
+
+    expect((float) $intento->calificacion_total)->toBe(27.0)
+        ->and($evaluacion->refresh()->estado)->toBe(EstadoEvaluacionInduccion::Aprobada)
+        ->and($anterior->refresh()->estado_flujo)->toBe(EstadoFlujoDocumento::Cancelado)
+        ->and($documentos()->count())->toBe(2)
+        ->and(app(EvaluacionInduccionPdfService::class)->documentoDe($intento)?->id)->not->toBe($anterior->id);
+});
+
+test('una aprobada recalificada por debajo del mínimo se rechaza sin cambiar nada', function () {
+    // A=11, B=8, C=3 (22) + D=5 = 27 aprobada; quitarle D la dejaría en 22.
+    $intento = eiIntentoReprobadoPorD($this);
+    $intento = $this->evaluaciones->recalificarCasosPracticos($intento, $this->rh, eiPuntosDCompletos());
+
+    expect(fn () => $this->evaluaciones->recalificarCasosPracticos($intento, $this->rh, []))
+        ->toThrow(ValidationException::class);
+    expect((float) $intento->refresh()->calificacion_total)->toBe(27.0)
+        ->and($intento->evaluacion()->firstOrFail()->estado)->toBe(EstadoEvaluacionInduccion::Aprobada);
+});
+
+test('solo el último intento ya calificado se recalifica', function () {
+    $intento = eiIntentoReprobadoPorD($this);
+    $evaluacion = $intento->evaluacion()->firstOrFail();
+
+    // Pendiente de calificar: no es «de nuevo».
+    $this->evaluaciones->retroalimentar($evaluacion, $this->rh, 'Repasa los casos prácticos.');
+    $intento2 = $this->evaluaciones->presentar($evaluacion->refresh(), $this->usuario, eiRespuestasCorrectas(), null);
+    expect($this->evaluaciones->puedeRecalificar($intento2))->toBeFalse();
+    expect(fn () => $this->evaluaciones->recalificarCasosPracticos($intento2, $this->rh, eiPuntosDCompletos()))
+        ->toThrow(ValidationException::class);
+
+    // El intento 1 ya no es el último.
+    expect($this->evaluaciones->puedeRecalificar($intento->refresh()))->toBeFalse();
+    expect(fn () => $this->evaluaciones->recalificarCasosPracticos($intento, $this->rh, eiPuntosDCompletos()))
+        ->toThrow(ValidationException::class);
+});
+
+test('web: la pantalla ofrece «Calificar de nuevo» y el botón guarda la corrección', function () {
+    $this->withoutVite();
+    $intento = eiIntentoReprobadoPorD($this);
+
+    $this->actingAs($this->rh)->get(route('rh.onboarding.induccion.mostrar', $intento))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('yaCalificado', true)->where('puedeRecalificar', true));
+
+    $this->actingAs($this->rh)->post(route('rh.onboarding.induccion.recalificar', $intento), ['puntos' => eiPuntosDCompletos(), 'comentario' => null])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect((float) $intento->refresh()->calificacion_total)->toBe(27.0);
+
+    $sinPermiso = clUsuario('colaborador');
+    $this->actingAs($sinPermiso)->post(route('rh.onboarding.induccion.recalificar', $intento), ['puntos' => eiPuntosDCompletos()])
+        ->assertForbidden();
 });

@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\Expedientes\DivisionHistorico\DivisionExpedienteHistoricoService;
 use App\Services\Expedientes\DivisionHistorico\EditorPaginasDivisionService;
 use App\Services\Expedientes\DivisionHistorico\Ocr\MotorOcr;
+use App\Services\Expedientes\DocumentoStorageService;
 use Database\Seeders\DocumentTypeSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Queue;
@@ -486,4 +487,131 @@ test('permisos: sin permiso o sobre el propio expediente todo es 403', function 
     }
 
     expect(RevisionDivisionHistorico::query()->count())->toBe(0);
+});
+
+test('separar por hoja vía HTTP: la solicitud de 2 hojas (1-2) se parte en dos documentos de tipos distintos', function () {
+    $solicitudAntes = EmployeeDocument::query()->where('document_type_id', tipoEditor('solicitud_empleo'))->firstOrFail();
+    $documentos = planEditor(
+        ['solicitud_empleo' => [1], 'curp' => [2], 'ine' => [3], 'rfc' => [4], 'contrato' => [8]],
+        [[5, 6, 7], [9, 10, 11, 12]],
+    );
+
+    // Vista previa: qué pasará con cada documento, sin escribir nada.
+    $this->actingAs($this->rh)
+        ->postJson(route('rh.expedientes.division-historico.editor.vista-previa', $this->division), ['documentos' => $documentos])
+        ->assertOk()
+        ->assertJsonPath('documentos.0.accion', AccionDocumentoReorganizado::NuevaVersion->value)
+        ->assertJsonPath('documentos.0.paginas', [1])
+        ->assertJsonPath('documentos.1.accion', AccionDocumentoReorganizado::CargaNueva->value)
+        ->assertJsonPath('documentos.1.paginas', [2]);
+
+    expect(RevisionDivisionHistorico::query()->count())->toBe(0);
+
+    $this->actingAs($this->rh)
+        ->post(route('rh.expedientes.division-historico.editor.confirmar', $this->division), ['documentos' => $documentos, 'revision_base' => 0])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $solicitud = $this->division->partesVigentes()->where('document_type_id', tipoEditor('solicitud_empleo'))->firstOrFail();
+    $curp = $this->division->partesVigentes()->where('document_type_id', tipoEditor('curp'))->firstOrFail();
+
+    expect($solicitud->paginas)->toBe([1])
+        ->and($solicitud->documento->status)->toBe(EstadoDocumento::EnRevision)
+        ->and($solicitud->documento->origen)->toBe(DivisionExpedienteHistoricoService::ORIGEN)
+        ->and(hojasDelPdf((string) Storage::disk('nas')->get($solicitud->documento->path)))->toBe([1])
+        ->and($curp->paginas)->toBe([2])
+        ->and($curp->estado)->toBe(EstadoParteDivision::AsignadaManual)
+        ->and($curp->documento->status)->toBe(EstadoDocumento::EnRevision)
+        ->and(hojasDelPdf((string) Storage::disk('nas')->get($curp->documento->path)))->toBe([2])
+        // La versión anterior de 2 hojas se archiva, nunca se borra; el original no se toca.
+        ->and($solicitudAntes->fresh()->status)->toBe(EstadoDocumento::Archivado)
+        ->and(Storage::disk('nas')->exists($solicitudAntes->path))->toBeTrue()
+        ->and(hash('sha256', (string) Storage::disk('nas')->get($this->historico->path)))->toBe($this->historico->hash);
+});
+
+test('mover una hoja de un documento a otro vía HTTP: la 4 (RFC) pasa a la INE y el RFC se queda sin hojas', function () {
+    $rfc = EmployeeDocument::query()->where('document_type_id', tipoEditor('rfc'))->firstOrFail();
+    $documentos = planEditor(
+        ['solicitud_empleo' => [1, 2], 'ine' => [3, 4], 'contrato' => [8]],
+        [[5, 6, 7], [9, 10, 11, 12]],
+    );
+
+    $this->actingAs($this->rh)
+        ->post(route('rh.expedientes.division-historico.editor.confirmar', $this->division), ['documentos' => $documentos, 'revision_base' => 0])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $ine = $this->division->partesVigentes()->where('document_type_id', tipoEditor('ine'))->firstOrFail();
+    $revision = RevisionDivisionHistorico::query()->where('division_id', $this->division->id)->firstOrFail();
+
+    expect($ine->paginas)->toBe([3, 4])
+        ->and(hojasDelPdf((string) Storage::disk('nas')->get($ine->documento->path)))->toBe([3, 4])
+        ->and($this->division->partesVigentes()->where('document_type_id', tipoEditor('rfc'))->exists())->toBeFalse()
+        ->and($rfc->fresh()->status)->toBe(EstadoDocumento::Archivado)
+        ->and(collect($revision->cambios)->firstWhere('pagina', 4))->toBe([
+            'pagina' => 4,
+            'de' => 'Constancia de situación fiscal (RFC) (p. 4)',
+            'a' => 'Identificación oficial (p. 3-4)',
+        ]);
+});
+
+test('hojas inválidas se rechazan con mensaje en español: fuera de rango o en dos documentos', function () {
+    $fuera = planEditor(['solicitud_empleo' => [1, 2], 'ine' => [3, 13], 'rfc' => [4], 'contrato' => [8]], [[5, 6, 7], [9, 10, 11, 12]]);
+    $dosVeces = planEditor(['solicitud_empleo' => [1, 2], 'ine' => [3], 'rfc' => [3, 4], 'contrato' => [8]], [[5, 6, 7], [9, 10, 11, 12]]);
+
+    $this->actingAs($this->rh)
+        ->postJson(route('rh.expedientes.division-historico.editor.vista-previa', $this->division), ['documentos' => $fuera])
+        ->assertStatus(422)
+        ->assertJsonPath('errors.documentos.0', 'La hoja 13 no existe: el PDF tiene 12 hojas.');
+
+    $this->actingAs($this->rh)
+        ->post(route('rh.expedientes.division-historico.editor.confirmar', $this->division), ['documentos' => $dosVeces, 'revision_base' => 0])
+        ->assertSessionHasErrors(['documentos' => 'La hoja 3 está en dos documentos; cada hoja va en uno solo.']);
+
+    $this->actingAs($this->rh)
+        ->get(route('rh.expedientes.division-historico.editor.pdf', ['division' => $this->division->id, 'paginas' => '3,13']))
+        ->assertSessionHasErrors(['paginas' => 'La hoja 13 no existe: el PDF tiene 12.']);
+
+    expect(RevisionDivisionHistorico::query()->count())->toBe(0);
+});
+
+test('reintentar tras un guardado fallido no choca con la copia que ya quedó en el NAS', function () {
+    $documentos = planEditor(
+        ['solicitud_empleo' => [1], 'curp' => [2], 'ine' => [3], 'rfc' => [4], 'contrato' => [8]],
+        [[5, 6, 7], [9, 10, 11, 12]],
+    );
+    $storage = app(DocumentoStorageService::class);
+    $carpeta = app(DivisionExpedienteHistoricoService::class)->carpetaDivision($this->colaborador, $this->division).'/Revision 1';
+    // Lo que dejó un intento anterior cuya transacción se revirtió.
+    $huerfana = $carpeta.'/'.$storage->sanitizarSegmento('01 - Solicitud de empleo (Formato interno) (p. 1).pdf');
+    Storage::disk('nas')->put($huerfana, 'copia de un intento fallido');
+
+    $revision = $this->editor->confirmar($this->division, $documentos, 0, $this->rh);
+    $solicitud = $this->division->partesVigentes()->where('document_type_id', tipoEditor('solicitud_empleo'))->firstOrFail();
+
+    expect($revision)->not->toBeNull()
+        ->and($solicitud->path)->not->toBe($huerfana)
+        ->and($solicitud->path)->toEndWith('(2).pdf')
+        ->and(Storage::disk('nas')->get($huerfana))->toBe('copia de un intento fallido');
+});
+
+test('«Asignar a…» rechaza una parte reemplazada por una corrección y la pantalla ofrece separar hojas', function () {
+    $sinClasificar = $this->division->partesVigentes()->whereNull('document_type_id')->orderBy('orden')->firstOrFail();
+
+    $this->editor->confirmar($this->division, planEditor(
+        ['solicitud_empleo' => [1, 2], 'ine' => [3], 'rfc' => [4], 'acta_nacimiento' => [5], 'contrato' => [8]],
+        [[6, 7], [9, 10, 11, 12]],
+    ), 0, $this->rh);
+
+    $this->actingAs($this->rh)
+        ->post(route('rh.expedientes.division-historico.partes.asignar', $sinClasificar), ['document_type_id' => tipoEditor('curp')])
+        ->assertSessionHasErrors(['document_type_id' => 'Esta parte ya fue reemplazada por una corrección de hojas; recarga la página.']);
+
+    $this->actingAs($this->rh)
+        ->get(route('rh.expedientes.division-historico.show', $this->colaborador))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where(
+            'detalle.historicos.0.division.partes.0.editor_url',
+            route('rh.expedientes.division-historico.editor', ['division' => $this->division->id, 'hojas' => '1,2']),
+        ));
 });

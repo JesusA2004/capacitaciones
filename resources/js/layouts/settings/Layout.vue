@@ -1,15 +1,20 @@
 <script setup lang="ts">
 import { Link } from '@inertiajs/vue3';
+import { computed } from 'vue';
 import Heading from '@/components/Heading.vue';
 import { Button } from '@/components/ui/button';
 import { useCurrentUrl } from '@/composables/useCurrentUrl';
+import { usePermisos } from '@/composables/usePermisos';
 import { toUrl } from '@/lib/utils';
+import { edit as editAvisosSucursal } from '@/routes/avisos-sucursal';
 import { edit as editPersonalizacion } from '@/routes/personalizacion';
 import { edit as editProfile } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
 import type { NavItem } from '@/types';
 
-const sidebarNavItems: NavItem[] = [
+const { tienePermiso } = usePermisos();
+
+const baseNavItems: NavItem[] = [
     {
         title: 'Perfil',
         href: editProfile(),
@@ -23,6 +28,16 @@ const sidebarNavItems: NavItem[] = [
         href: editPersonalizacion(),
     },
 ];
+
+// «Avisos por sucursal» solo para quien su rol se lo permite.
+const sidebarNavItems = computed<NavItem[]>(() =>
+    tienePermiso('notificaciones.silenciar_sucursales')
+        ? [
+              ...baseNavItems,
+              { title: 'Avisos por sucursal', href: editAvisosSucursal() },
+          ]
+        : baseNavItems,
+);
 
 const { isCurrentOrParentUrl } = useCurrentUrl();
 </script>

@@ -22,11 +22,13 @@ use App\Models\Vacante;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\CicloLaboral\AprobacionService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
+use App\Services\Permisos\PermisoAccionService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
 use App\Services\Vacantes\VacantesListadoService;
 use App\Support\FechaMexico;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -54,24 +56,54 @@ use Throwable;
  */
 class CandidatoWorkflowService
 {
-    /** Reclutamiento: perfil, psicométricas, referencias. */
-    public const PERMISO_RECLUTAMIENTO = 'candidatos.editar';
-
-    /** Gerente de sucursal: entrevista, revisión de psicométricas, socioeconómico. */
-    public const PERMISO_GERENTE = 'candidatos.evaluar';
-
     /*
-     * Acciones específicas de cada paso del gerente: candidatos.evaluar (el
-     * general) sigue cubriendo los tres; estas permiten armar un rol que
-     * solo apruebe la entrevista, o solo revise psicométricas/socioeconómico.
+     * Un permiso por paso del recorrido (2026-10-26), configurable por rol
+     * en «Roles y permisos». Cada paso exige SOLO el suyo: un gerente con
+     * candidatos.ver + aprobar_entrevista sigue el recorrido completo pero
+     * solo registra la entrevista; RH con el mismo permiso la registra en
+     * una contratación directa. Los generales candidatos.editar (datos del
+     * candidato) y candidatos.evaluar (retirado) ya no abren pasos; quien
+     * los tenía recibió los pasos que cubrían (config/permisos_modulos.php
+     * → herencia).
      */
+    public const PERMISO_REVISAR_PERFIL = 'candidatos.revisar_perfil';
+
     public const PERMISO_ENTREVISTA = 'candidatos.aprobar_entrevista';
+
+    public const PERMISO_PSICOMETRICAS = 'candidatos.registrar_psicometricas';
 
     public const PERMISO_REVISAR_PSICOMETRICAS = 'candidatos.revisar_psicometricas';
 
+    public const PERMISO_SOCIOECONOMICO = 'candidatos.registrar_socioeconomico';
+
     public const PERMISO_REVISAR_SOCIOECONOMICO = 'candidatos.revisar_socioeconomico';
 
-    public const PERMISO_DESCARTAR = 'candidatos.rechazar';
+    public const PERMISO_REFERENCIAS = 'candidatos.validar_referencias';
+
+    public const PERMISO_DESCARTAR = 'candidatos.cerrar_proceso';
+
+    public const PERMISO_INTERVENCION = 'candidatos.solicitar_intervencion';
+
+    public const PERMISO_ADJUNTAR = 'candidatos.adjuntar';
+
+    /** Pasos que normalmente atiende el gerente («gerente involucrado», app). */
+    public const PERMISOS_PASOS_GERENTE = [
+        self::PERMISO_ENTREVISTA,
+        self::PERMISO_REVISAR_PSICOMETRICAS,
+        self::PERMISO_SOCIOECONOMICO,
+        self::PERMISO_REVISAR_SOCIOECONOMICO,
+    ];
+
+    /** Todos los pasos operativos del recorrido (antes de la autorización de RH). */
+    public const PERMISOS_PASOS = [
+        self::PERMISO_REVISAR_PERFIL,
+        self::PERMISO_ENTREVISTA,
+        self::PERMISO_PSICOMETRICAS,
+        self::PERMISO_REVISAR_PSICOMETRICAS,
+        self::PERMISO_SOCIOECONOMICO,
+        self::PERMISO_REVISAR_SOCIOECONOMICO,
+        self::PERMISO_REFERENCIAS,
+    ];
 
     public function __construct(
         private readonly AprobacionService $aprobaciones,
@@ -82,6 +114,7 @@ class CandidatoWorkflowService
         private readonly ExpedienteCandidatoService $expediente,
         private readonly VacantesListadoService $vacantesListado,
         private readonly PreguntasFiltroCandidatoService $filtros,
+        private readonly PermisoAccionService $permisos,
     ) {}
 
     /**
@@ -257,7 +290,7 @@ class CandidatoWorkflowService
      */
     public function evaluarPerfil(Candidato $candidato, User $actor, bool $viable, ?string $observaciones, ?int $motivoRechazoId = null, ?bool $recontratable = null): Candidato
     {
-        $this->autorizar($actor, self::PERMISO_RECLUTAMIENTO, $candidato);
+        $this->autorizar($actor, self::PERMISO_REVISAR_PERFIL, $candidato);
 
         return $this->paso($candidato, $actor, EstadoCandidato::Recibidos, function (Candidato $c) use ($actor, $viable, $observaciones, $motivoRechazoId, $recontratable): void {
             if ($viable) {
@@ -275,7 +308,7 @@ class CandidatoWorkflowService
      */
     public function registrarEntrevista(Candidato $candidato, User $actor, array $datos): Candidato
     {
-        $this->autorizarAlguno($actor, [self::PERMISO_GERENTE, self::PERMISO_ENTREVISTA], $candidato);
+        $this->autorizar($actor, self::PERMISO_ENTREVISTA, $candidato);
         $resultado = ResultadoEtapaCandidato::from((string) $datos['resultado']);
         $observaciones = isset($datos['observaciones']) ? (string) $datos['observaciones'] : null;
         $realizada = isset($datos['realizada_en']) ? (string) $datos['realizada_en'] : now()->toDateTimeString();
@@ -305,7 +338,7 @@ class CandidatoWorkflowService
 
     public function enviarPsicometricas(Candidato $candidato, User $actor, string $link): Candidato
     {
-        $this->autorizar($actor, self::PERMISO_RECLUTAMIENTO, $candidato);
+        $this->autorizar($actor, self::PERMISO_PSICOMETRICAS, $candidato);
 
         return $this->paso($candidato, $actor, EstadoCandidato::PsicometricasPendientes, function (Candidato $c) use ($actor, $link): void {
             $registro = $this->psicometricaAbierta($c);
@@ -321,7 +354,7 @@ class CandidatoWorkflowService
      */
     public function registrarResultadosPsicometricas(Candidato $candidato, User $actor, string $resumen, array $archivos = []): Candidato
     {
-        $this->autorizar($actor, self::PERMISO_RECLUTAMIENTO, $candidato);
+        $this->autorizar($actor, self::PERMISO_PSICOMETRICAS, $candidato);
 
         return $this->paso($candidato, $actor, EstadoCandidato::PsicometricasPendientes, function (Candidato $c) use ($actor, $resumen, $archivos): void {
             $registro = $this->psicometricaAbierta($c);
@@ -334,7 +367,7 @@ class CandidatoWorkflowService
 
     public function revisarPsicometricas(Candidato $candidato, User $actor, bool $viable, ?string $observaciones, ?int $motivoRechazoId = null, ?bool $recontratable = null): Candidato
     {
-        $this->autorizarAlguno($actor, [self::PERMISO_GERENTE, self::PERMISO_REVISAR_PSICOMETRICAS], $candidato);
+        $this->autorizar($actor, self::PERMISO_REVISAR_PSICOMETRICAS, $candidato);
 
         return $this->paso($candidato, $actor, EstadoCandidato::RevisionPsicometricas, function (Candidato $c) use ($actor, $viable, $observaciones, $motivoRechazoId, $recontratable): void {
             $this->psicometricaAbierta($c)->update([
@@ -366,7 +399,7 @@ class CandidatoWorkflowService
      */
     public function registrarSocioeconomico(Candidato $candidato, User $actor, array $datos, array $evidencias = []): Candidato
     {
-        $this->autorizarAlguno($actor, [self::PERMISO_RECLUTAMIENTO, self::PERMISO_GERENTE], $candidato);
+        $this->autorizar($actor, self::PERMISO_SOCIOECONOMICO, $candidato);
         $observaciones = isset($datos['observaciones']) ? (string) $datos['observaciones'] : null;
 
         return $this->paso($candidato, $actor, EstadoCandidato::SocioeconomicoPendiente, function (Candidato $c) use ($actor, $datos, $evidencias, $observaciones): void {
@@ -399,7 +432,7 @@ class CandidatoWorkflowService
      */
     public function revisarSocioeconomico(Candidato $candidato, User $actor, bool $viable, ?string $observaciones, ?int $motivoRechazoId = null, ?bool $recontratable = null): Candidato
     {
-        $this->autorizarAlguno($actor, [self::PERMISO_GERENTE, self::PERMISO_REVISAR_SOCIOECONOMICO], $candidato);
+        $this->autorizar($actor, self::PERMISO_REVISAR_SOCIOECONOMICO, $candidato);
 
         return $this->paso($candidato, $actor, EstadoCandidato::SocioeconomicoPendiente, function (Candidato $c) use ($actor, $viable, $observaciones, $motivoRechazoId, $recontratable): void {
             $estudio = $this->socioeconomicoPendiente($c);
@@ -441,7 +474,7 @@ class CandidatoWorkflowService
      */
     public function registrarReferencia(Candidato $candidato, User $actor, array $datos, array $archivos = []): CandidatoReferencia
     {
-        $this->autorizarAlguno($actor, [self::PERMISO_RECLUTAMIENTO, self::PERMISO_GERENTE], $candidato);
+        $this->autorizar($actor, self::PERMISO_REFERENCIAS, $candidato);
 
         return DB::transaction(function () use ($candidato, $actor, $datos, $archivos): CandidatoReferencia {
             $c = $this->bloquear($candidato);
@@ -470,7 +503,7 @@ class CandidatoWorkflowService
 
     public function concluirReferencias(Candidato $candidato, User $actor, bool $viables, ?string $observaciones, ?int $motivoRechazoId = null, ?bool $recontratable = null): Candidato
     {
-        $this->autorizarAlguno($actor, [self::PERMISO_RECLUTAMIENTO, self::PERMISO_GERENTE], $candidato);
+        $this->autorizar($actor, self::PERMISO_REFERENCIAS, $candidato);
 
         return $this->paso($candidato, $actor, EstadoCandidato::ReferenciasPendientes, function (Candidato $c) use ($actor, $viables, $observaciones, $motivoRechazoId, $recontratable): void {
             if (! $viables) {
@@ -548,7 +581,7 @@ class CandidatoWorkflowService
             throw ValidationException::withMessages(['estado' => 'Elige un motivo de salida válido.']);
         }
 
-        $this->autorizarAlguno($actor, [self::PERMISO_DESCARTAR, self::PERMISO_RECLUTAMIENTO, self::PERMISO_GERENTE], $candidato);
+        $this->autorizar($actor, self::PERMISO_DESCARTAR, $candidato);
 
         $resultado = DB::transaction(function () use ($candidato, $actor, $salida, $motivo, $motivoRechazoId, $recontratable): Candidato {
             $c = $this->bloquear($candidato);
@@ -582,27 +615,27 @@ class CandidatoWorkflowService
         }
 
         $acciones = [];
-        $puede = fn (string $permiso): bool => $usuario->can($permiso);
+        $puede = fn (string $permiso): bool => $this->permisos->puede($usuario, $permiso);
 
         switch ($candidato->estado) {
             case EstadoCandidato::Recibidos:
-                if ($puede(self::PERMISO_RECLUTAMIENTO)) {
+                if ($puede(self::PERMISO_REVISAR_PERFIL)) {
                     $acciones[] = ['clave' => 'evaluar_perfil', 'etiqueta' => 'Revisar perfil', 'tipo' => 'primaria'];
                 }
                 break;
             case EstadoCandidato::EntrevistaPendiente:
-                if ($puede(self::PERMISO_GERENTE) || $puede(self::PERMISO_ENTREVISTA)) {
+                if ($puede(self::PERMISO_ENTREVISTA)) {
                     $acciones[] = ['clave' => 'registrar_entrevista', 'etiqueta' => 'Registrar entrevista', 'tipo' => 'primaria'];
                 }
                 break;
             case EstadoCandidato::PsicometricasPendientes:
-                if ($puede(self::PERMISO_RECLUTAMIENTO)) {
+                if ($puede(self::PERMISO_PSICOMETRICAS)) {
                     $acciones[] = ['clave' => 'enviar_psicometricas', 'etiqueta' => 'Registrar link de psicométricas', 'tipo' => 'secundaria'];
                     $acciones[] = ['clave' => 'registrar_resultados_psicometricas', 'etiqueta' => 'Cargar resultados psicométricos', 'tipo' => 'primaria'];
                 }
                 break;
             case EstadoCandidato::RevisionPsicometricas:
-                if ($puede(self::PERMISO_GERENTE) || $puede(self::PERMISO_REVISAR_PSICOMETRICAS)) {
+                if ($puede(self::PERMISO_REVISAR_PSICOMETRICAS)) {
                     $acciones[] = ['clave' => 'revisar_psicometricas', 'etiqueta' => 'Revisar psicométrico', 'tipo' => 'primaria'];
                 }
                 break;
@@ -610,15 +643,15 @@ class CandidatoWorkflowService
                 // Cargar ≠ decidir: con un estudio cargado sin revisar, lo
                 // único que sigue es que el responsable lo revise.
                 if ($this->socioeconomicoPendiente($candidato) !== null) {
-                    if ($puede(self::PERMISO_GERENTE) || $puede(self::PERMISO_REVISAR_SOCIOECONOMICO)) {
+                    if ($puede(self::PERMISO_REVISAR_SOCIOECONOMICO)) {
                         $acciones[] = ['clave' => 'revisar_socioeconomico', 'etiqueta' => 'Revisar socioeconómico', 'tipo' => 'primaria'];
                     }
-                } elseif ($puede(self::PERMISO_RECLUTAMIENTO) || $puede(self::PERMISO_GERENTE)) {
+                } elseif ($puede(self::PERMISO_SOCIOECONOMICO)) {
                     $acciones[] = ['clave' => 'registrar_socioeconomico', 'etiqueta' => 'Cargar estudio socioeconómico', 'tipo' => 'primaria'];
                 }
                 break;
             case EstadoCandidato::ReferenciasPendientes:
-                if ($puede(self::PERMISO_RECLUTAMIENTO) || $puede(self::PERMISO_GERENTE)) {
+                if ($puede(self::PERMISO_REFERENCIAS)) {
                     $acciones[] = ['clave' => 'registrar_referencia', 'etiqueta' => 'Registrar referencia', 'tipo' => 'secundaria'];
                     $acciones[] = ['clave' => 'concluir_referencias', 'etiqueta' => 'Concluir validación de referencias', 'tipo' => 'primaria'];
                 }
@@ -641,7 +674,7 @@ class CandidatoWorkflowService
                 // Solo el gerente que entrevistó, y solo si no hay ya una
                 // intervención pendiente de decisión (CLAUDE.md §10): nunca
                 // automático, nunca doble solicitud.
-                if ($puede(self::PERMISO_GERENTE) && ! $candidato->intervenciones()->where('estado', EstadoIntervencionCandidato::Pendiente->value)->exists()) {
+                if ($puede(self::PERMISO_INTERVENCION) && ! $candidato->intervenciones()->where('estado', EstadoIntervencionCandidato::Pendiente->value)->exists()) {
                     $acciones[] = ['clave' => 'solicitar_intervencion', 'etiqueta' => 'Solicitar intervención', 'tipo' => 'secundaria'];
                 }
                 break;
@@ -649,11 +682,29 @@ class CandidatoWorkflowService
                 break;
         }
 
-        if ($candidato->estado->permiteDescartar() && ($puede(self::PERMISO_DESCARTAR) || $puede(self::PERMISO_RECLUTAMIENTO) || $puede(self::PERMISO_GERENTE))) {
+        if ($candidato->estado->permiteDescartar() && $puede(self::PERMISO_DESCARTAR)) {
             $acciones[] = ['clave' => 'descartar', 'etiqueta' => 'Cerrar proceso del candidato', 'tipo' => 'peligro'];
         }
 
         return $acciones;
+    }
+
+    /**
+     * Cuentas activas que atienden al menos un paso del gerente (selector
+     * «gerente involucrado»). Solo permisos que ya existen en la base: el
+     * scope permission() de Spatie falla con uno inexistente.
+     *
+     * @return EloquentCollection<int, User>
+     */
+    public function usuariosConPasosDeGerente(): EloquentCollection
+    {
+        $permisos = array_values(array_filter(self::PERMISOS_PASOS_GERENTE, fn (string $p): bool => $this->permisos->existe($p)));
+
+        if ($permisos === []) {
+            return new EloquentCollection;
+        }
+
+        return User::query()->permission($permisos)->whereNull('acceso_bloqueado_en')->orderBy('name')->get(['id', 'name', 'apellidos']);
     }
 
     /**
@@ -663,12 +714,12 @@ class CandidatoWorkflowService
      */
     public function responsableActual(Candidato $candidato): array
     {
-        $gerente = fn (): ?string => $this->jerarquia->responsableDeCandidato($candidato)['usuario']?->nombreCompleto();
         $rolResponsable = $this->jerarquia->esVacanteDeGerencia($candidato) ? 'Gerente Regional' : 'Gerente de sucursal';
+        $reclutamiento = ['rol' => 'Reclutamiento', 'nombre' => $candidato->responsableRh?->nombreCompleto()];
 
         return match ($candidato->estado) {
-            EstadoCandidato::Recibidos, EstadoCandidato::PsicometricasPendientes, EstadoCandidato::ReferenciasPendientes => ['rol' => 'Reclutamiento', 'nombre' => $candidato->responsableRh?->nombreCompleto()],
-            EstadoCandidato::EntrevistaPendiente, EstadoCandidato::RevisionPsicometricas, EstadoCandidato::SocioeconomicoPendiente => ['rol' => $rolResponsable, 'nombre' => $gerente()],
+            EstadoCandidato::Recibidos, EstadoCandidato::PsicometricasPendientes, EstadoCandidato::ReferenciasPendientes => $reclutamiento,
+            EstadoCandidato::EntrevistaPendiente, EstadoCandidato::RevisionPsicometricas, EstadoCandidato::SocioeconomicoPendiente => $this->responsablePasoGerente($candidato, $rolResponsable, $reclutamiento),
             EstadoCandidato::PreseleccionGerente, EstadoCandidato::AutorizacionRhPendiente, EstadoCandidato::AutorizadoRh => ['rol' => 'Recursos Humanos', 'nombre' => null],
             EstadoCandidato::EnContratacion => ['rol' => 'Candidato / RH', 'nombre' => $candidato->nombreCompleto()],
             default => ['rol' => '—', 'nombre' => null],
@@ -880,24 +931,71 @@ class CandidatoWorkflowService
      */
     private function tareaPara(Candidato $candidato): ?array
     {
-        $gerente = fn (): ?User => $this->jerarquia->responsableDeCandidato($candidato)['usuario'];
-        $paraGerente = function (string $accion) use ($gerente): array {
-            $usuario = $gerente();
+        // Pasos del gerente: a la cuenta del gerente responsable SOLO si su
+        // rol tiene el permiso de ese paso; si no (o no hay gerente), a
+        // todos los que tienen ese permiso con alcance sobre la sucursal.
+        $paraGerente = function (string $accion) use ($candidato): array {
+            $usuario = $this->gerenteDelPaso($candidato);
 
-            return ['usuario' => $usuario, 'permiso' => $usuario === null ? self::PERMISO_GERENTE : null, 'accion' => $accion, 'prioridad' => PrioridadTarea::Alta];
+            return ['usuario' => $usuario, 'permiso' => $usuario === null ? $this->permisoPasoGerente($candidato) : null, 'accion' => $accion, 'prioridad' => PrioridadTarea::Alta];
         };
 
         return match ($candidato->estado) {
-            EstadoCandidato::Recibidos => [TipoTarea::CandidatoRevisionPerfil, ['permiso' => self::PERMISO_RECLUTAMIENTO, 'accion' => 'evaluar_perfil']],
+            EstadoCandidato::Recibidos => [TipoTarea::CandidatoRevisionPerfil, ['permiso' => self::PERMISO_REVISAR_PERFIL, 'accion' => 'evaluar_perfil']],
             EstadoCandidato::EntrevistaPendiente => [TipoTarea::CandidatoEntrevista, $paraGerente('registrar_entrevista')],
-            EstadoCandidato::PsicometricasPendientes => [TipoTarea::CandidatoPsicometricas, ['permiso' => self::PERMISO_RECLUTAMIENTO, 'accion' => 'registrar_resultados_psicometricas']],
+            EstadoCandidato::PsicometricasPendientes => [TipoTarea::CandidatoPsicometricas, ['permiso' => self::PERMISO_PSICOMETRICAS, 'accion' => 'registrar_resultados_psicometricas']],
             EstadoCandidato::RevisionPsicometricas => [TipoTarea::CandidatoRevisionPsicometricas, $paraGerente('revisar_psicometricas')],
             EstadoCandidato::SocioeconomicoPendiente => [TipoTarea::CandidatoSocioeconomico, $paraGerente($this->socioeconomicoPendiente($candidato) !== null ? 'revisar_socioeconomico' : 'registrar_socioeconomico')],
-            EstadoCandidato::ReferenciasPendientes => [TipoTarea::CandidatoReferencias, ['permiso' => self::PERMISO_RECLUTAMIENTO, 'accion' => 'concluir_referencias']],
+            EstadoCandidato::ReferenciasPendientes => [TipoTarea::CandidatoReferencias, ['permiso' => self::PERMISO_REFERENCIAS, 'accion' => 'concluir_referencias']],
             EstadoCandidato::PreseleccionGerente, EstadoCandidato::AutorizacionRhPendiente => [TipoTarea::CandidatoAutorizacionRh, ['permiso' => OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH, 'accion' => 'autorizar_rh', 'prioridad' => PrioridadTarea::Alta]],
             EstadoCandidato::AutorizadoRh => [TipoTarea::CandidatoInvitacion, ['permiso' => ContratacionCandidatoService::PERMISO_CONTRATAR, 'accion' => 'iniciar_contratacion', 'prioridad' => PrioridadTarea::Alta]],
             default => null,
         };
+    }
+
+    /**
+     * Paso del gerente: lo atiende el gerente responsable si su rol tiene el
+     * permiso de ese paso; si su rol no lo tiene, Reclutamiento (quien sí).
+     *
+     * @param  array{rol: string, nombre: string|null}  $reclutamiento
+     * @return array{rol: string, nombre: string|null}
+     */
+    private function responsablePasoGerente(Candidato $candidato, string $rolResponsable, array $reclutamiento): array
+    {
+        $gerente = $this->jerarquia->responsableDeCandidato($candidato)['usuario'];
+
+        if ($gerente === null) {
+            return ['rol' => $rolResponsable, 'nombre' => null];
+        }
+
+        return $this->gerenteDelPaso($candidato) !== null ? ['rol' => $rolResponsable, 'nombre' => $gerente->nombreCompleto()] : $reclutamiento;
+    }
+
+    /** Permiso del paso del gerente en que está el candidato (null si no es un paso del gerente). */
+    private function permisoPasoGerente(Candidato $candidato): ?string
+    {
+        return match ($candidato->estado) {
+            EstadoCandidato::EntrevistaPendiente => self::PERMISO_ENTREVISTA,
+            EstadoCandidato::RevisionPsicometricas => self::PERMISO_REVISAR_PSICOMETRICAS,
+            EstadoCandidato::SocioeconomicoPendiente => $this->socioeconomicoPendiente($candidato) !== null ? self::PERMISO_REVISAR_SOCIOECONOMICO : self::PERMISO_SOCIOECONOMICO,
+            default => null,
+        };
+    }
+
+    /**
+     * Gerente responsable (organigrama) que puede atender el paso actual:
+     * null si no hay gerente o si su rol no tiene el permiso de ese paso.
+     */
+    private function gerenteDelPaso(Candidato $candidato): ?User
+    {
+        $permiso = $this->permisoPasoGerente($candidato);
+        $usuario = $this->jerarquia->responsableDeCandidato($candidato)['usuario'];
+
+        if ($permiso === null || $usuario === null) {
+            return null;
+        }
+
+        return $this->permisos->puede($usuario, $permiso) ? $usuario : null;
     }
 
     private function autorizar(User $actor, string $permiso, Candidato $candidato): void
@@ -910,7 +1008,7 @@ class CandidatoWorkflowService
      */
     private function autorizarAlguno(User $actor, array $permisos, Candidato $candidato): void
     {
-        $tienePermiso = collect($permisos)->contains(fn (string $p) => $actor->can($p));
+        $tienePermiso = $this->permisos->puedeAlguno($actor, $permisos);
 
         if (! $tienePermiso || ! $this->jerarquia->alcanzaCandidato($actor, $candidato)) {
             throw new AuthorizationException('No tienes permiso para realizar esta acción sobre este candidato.');

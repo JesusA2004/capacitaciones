@@ -269,6 +269,8 @@ export type CandidatoFicha = {
         visitador: string | null;
         direccion: string;
         checklist: Record<string, boolean | number | string | null>;
+        /** Criterios listos para mostrar (tiempo en vivienda = años + meses). */
+        criterios: { clave: string; etiqueta: string; valor: string }[];
         riesgos: string | null;
         observaciones: string | null;
         /** null = cargado, pendiente de revisión del responsable. */

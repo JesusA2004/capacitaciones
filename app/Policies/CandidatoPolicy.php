@@ -7,6 +7,8 @@ use App\Models\Candidato;
 use App\Models\User;
 use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Permisos\PermisoAccionService;
+use App\Services\Reclutamiento\CandidatoWorkflowService;
 
 /**
  * Visibilidad y edición de candidatos. Los AVANCES del pipeline no se
@@ -18,7 +20,10 @@ class CandidatoPolicy
 {
     use ConSuperAdminOperativo;
 
-    public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
+    public function __construct(
+        private readonly AlcanceOrganizacionalService $alcance,
+        private readonly PermisoAccionService $permisos,
+    ) {}
 
     public function viewAny(User $usuario): bool
     {
@@ -42,12 +47,12 @@ class CandidatoPolicy
 
     /**
      * Agregar archivos al mini expediente (CV, psicométricos, videos del
-     * socioeconómico, soporte de referencias): Reclutamiento o el gerente
-     * que evalúa, siempre dentro de su alcance.
+     * socioeconómico, soporte de referencias): permiso propio
+     * (candidatos.adjuntar), siempre dentro de su alcance.
      */
     public function adjuntar(User $usuario, Candidato $candidato): bool
     {
-        return ($usuario->can('candidatos.editar') || $usuario->can('candidatos.evaluar'))
+        return $this->permisos->puede($usuario, CandidatoWorkflowService::PERMISO_ADJUNTAR)
             && $this->visiblePara($usuario, $candidato);
     }
 
@@ -59,7 +64,7 @@ class CandidatoPolicy
     {
         return $this->visiblePara($usuario, $candidato)
             && $nuevoEstado->esSalida()
-            && ($usuario->can('candidatos.rechazar') || $usuario->can('candidatos.editar') || $usuario->can('candidatos.evaluar'));
+            && $this->permisos->puede($usuario, CandidatoWorkflowService::PERMISO_DESCARTAR);
     }
 
     public function delete(User $usuario, Candidato $candidato): bool

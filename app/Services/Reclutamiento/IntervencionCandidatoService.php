@@ -14,6 +14,7 @@ use App\Models\IntervencionCandidato;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
+use App\Services\Permisos\PermisoAccionService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -47,11 +48,12 @@ class IntervencionCandidatoService
         private readonly NotificadorRhService $notificador,
         private readonly TareaService $tareas,
         private readonly AuditoriaService $auditoria,
+        private readonly PermisoAccionService $permisos,
     ) {}
 
     public function solicitar(Candidato $candidato, User $gerente, string $motivo): IntervencionCandidato
     {
-        if (! $gerente->can(CandidatoWorkflowService::PERMISO_GERENTE) || ! $this->jerarquia->alcanzaCandidato($gerente, $candidato)) {
+        if (! $this->permisos->puede($gerente, CandidatoWorkflowService::PERMISO_INTERVENCION) || ! $this->jerarquia->alcanzaCandidato($gerente, $candidato)) {
             throw new AuthorizationException('No tienes permiso para solicitar una intervención sobre este candidato.');
         }
 

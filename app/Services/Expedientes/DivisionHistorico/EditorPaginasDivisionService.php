@@ -267,7 +267,13 @@ class EditorPaginasDivisionService
             }
         }
 
-        return $this->cortador->extraer($this->pdfPreparado($division), $paginas);
+        try {
+            return $this->cortador->extraer($this->pdfPreparado($division), $paginas);
+        } catch (RuntimeException $e) {
+            Log::warning('division_historico: no se pudo armar la vista previa de hojas.', ['division_id' => $division->id, 'paginas' => $paginas, 'error' => $e->getMessage()]);
+
+            throw ValidationException::withMessages(['paginas' => 'No se pudieron copiar esas hojas del PDF histórico para la vista previa. Intenta de nuevo; si persiste, vuelve a dividir el PDF.']);
+        }
     }
 
     /**
@@ -304,7 +310,15 @@ class EditorPaginasDivisionService
                 throw ValidationException::withMessages(['revision_base' => 'Alguien más guardó cambios en estas hojas mientras editabas. Recarga la página para ver la versión actual.']);
             }
 
-            return $this->aplicar($division, $colaborador, $previa, $usuario);
+            try {
+                return $this->aplicar($division, $colaborador, $previa, $usuario);
+            } catch (RuntimeException $e) {
+                // FPDI o el NAS fallaron: la BD quedó como estaba (FASE B es
+                // una sola transacción). RH ve el motivo, no un error 500.
+                Log::warning('division_historico: no se pudo guardar la corrección de hojas.', ['division_id' => $division->id, 'error' => $e->getMessage()]);
+
+                throw ValidationException::withMessages(['documentos' => sprintf('No se pudo guardar la corrección: %s Nada cambió en el expediente; intenta de nuevo.', rtrim($e->getMessage(), '.').'.')]);
+            }
         } finally {
             $candado->release();
         }
@@ -330,8 +344,7 @@ class EditorPaginasDivisionService
 
             $bytes = $this->cortador->extraer($pdf, $documento['paginas']);
             $nombre = sprintf('%02d - %s (p. %s).pdf', $documento['orden'], $documento['tipo'] ?? 'Sin clasificar', $documento['rango']);
-            $ruta = $carpeta.'/'.$this->storage->sanitizarSegmento($nombre);
-            $this->divisiones->escribirSinSobrescribir($ruta, $bytes);
+            $ruta = $this->escribirCopia($carpeta, $this->storage->sanitizarSegmento($nombre), $bytes);
             $archivos[$documento['orden']] = ['bytes' => $bytes, 'ruta' => $ruta];
         }
 
@@ -733,6 +746,38 @@ class EditorPaginasDivisionService
         }
 
         return $resultado;
+    }
+
+    /**
+     * Escribe la copia de un documento de la revisión sin sobrescribir nunca
+     * nada. Si un intento anterior de ESTA misma revisión falló después de
+     * escribir (la BD se revirtió, el NAS no), el archivo ya existe: si es
+     * idéntico se reutiliza; si no, se guarda con sufijo « (2)», « (3)»…
+     * Antes, el reintento chocaba con «Ya existe … no se sobrescribe» y la
+     * corrección no se podía guardar nunca más.
+     */
+    private function escribirCopia(string $carpeta, string $nombre, string $bytes): string
+    {
+        $hash = hash('sha256', $bytes);
+        $base = str_ends_with(mb_strtolower($nombre), '.pdf') ? mb_substr($nombre, 0, -4) : $nombre;
+
+        for ($intento = 1; $intento <= 50; $intento++) {
+            $ruta = sprintf('%s/%s%s.pdf', $carpeta, $base, $intento === 1 ? '' : sprintf(' (%d)', $intento));
+
+            if (! $this->storage->existe($ruta)) {
+                $this->divisiones->escribirSinSobrescribir($ruta, $bytes);
+
+                return $ruta;
+            }
+
+            $existente = $this->storage->disco()->get($ruta);
+
+            if ($existente !== null && hash('sha256', $existente) === $hash) {
+                return $ruta;
+            }
+        }
+
+        throw new RuntimeException(sprintf('No se encontró un nombre libre para «%s» en el NAS.', $nombre));
     }
 
     private function versionActual(DivisionExpedienteHistorico $division): int

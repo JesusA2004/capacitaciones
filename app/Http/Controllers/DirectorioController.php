@@ -13,9 +13,9 @@ use Inertia\Response;
 
 /**
  * Directorio de la empresa (correo/teléfono corporativo por colaborador):
- * visible a cualquier colaborador autenticado, GLOBAL (no acotado por
- * alcance organizacional) y solo con contacto corporativo — ver la regla en
- * DirectorioColaboradoresService. Mismo service que
+ * visible a cualquier colaborador autenticado, acotado al alcance del
+ * módulo «Directorio» (su sucursal, región o toda la empresa) y solo con
+ * contacto corporativo — ver la regla en DirectorioColaboradoresService. Mismo service que
  * Api\V1\DirectorioController (app móvil).
  *
  * Edición rápida por fila (solo `directorio.editar`, nunca la propia fila):

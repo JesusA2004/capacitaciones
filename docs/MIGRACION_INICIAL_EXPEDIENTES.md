@@ -102,6 +102,20 @@ No son candidatas (se listan aparte en el CSV como «Carpetas del NAS que no son
 
 El CSV del análisis trae por fila el diagnóstico del match: nombre normalizado, carpetas candidatas, mejor carpeta, mejor score y razón (`exacto`, `alto`, `revision`, `sin_candidato`, `multiples_candidatos`, `diferente_sucursal`, `fila_en_conflicto`). El mismo resumen va al log (`Migración inicial: match de carpetas NAS.`).
 
+## 5.1 Ligar a mano un expediente de Synology
+
+Cuando el nombre de la carpeta está mal escrito («Juan Pérez» en el sistema, «Juam Peres» en Synology), la migración no la liga. En el expediente del colaborador (pestaña Documentos), si no tiene expediente de Synology ligado, aparece **«Ligar expediente de Synology»**:
+
+- Lista las carpetas del mismo inventario de la migración (whitelist de sucursales, sin auxiliares ni carpetas `EMP-… - Nombre` del sistema, nunca `candidatos/`) que **nadie tiene ligadas** (ni como `expediente_storage_path` ni por un PDF en `expedientes_historicos`), dentro de las sucursales que ve el usuario.
+- Lista completa al enfocar; filtra al escribir sin acentos/mayúsculas, por palabra (nombre, apellido o sucursal), con parecido fonético y Levenshtein (`App\Services\Expedientes\SimilitudNombres`). Primero las **sugeridas** para esa persona con su % de parecido.
+- Vista previa del contenido (archivos, tamaños, qué PDF se registran) antes de confirmar.
+- Liga con el **mismo camino** que la migración (`EjecutorMigracion::vincularCarpetaManual()` → `copiarCarpeta()`): en sitio solo hash + registro; nunca mueve, renombra ni borra. Queda en auditoría (`expediente_synology_ligado_manual`).
+- Seguro ante carreras (lock + `lockForUpdate`): se rechaza si la carpeta se ligó a otro mientras tanto o si la persona ya tiene expediente.
+- Permiso: `expedientes.editar` + alcance sobre el colaborador (operación de RH, no importación masiva). Nadie liga su propio expediente.
+- El listado del NAS se guarda 5 min en caché (botón «Volver a leer Synology» para refrescar); si Synology no responde se muestra un mensaje, nunca un error 500.
+
+Código: `App\Services\Expedientes\VinculacionSynologyService`, `Rh\VinculacionSynologyController`, `components/Rh/LigarExpedienteSynology.vue`. Pruebas: `tests/Feature/Expedientes/VinculacionSynologyTest.php`.
+
 ## 6. Expediente histórico (PDF único)
 
 - El PDF viejo trae todos los documentos juntos. La migración lo conserva **íntegro**: no lo corta, no lo mueve y no lo borra.

@@ -79,3 +79,63 @@ Permisos nuevos: `colaboradores.alta`, `colaboradores.activar`, `candidatos.cont
 `finiquitos.confirmar_pago`, `nomina.recibos.ver|crear|importar`,
 `prestamos.ver|autorizar|resguardar`, `actas.ver|crear|gestionar`, `indicadores.ver`.
 Detalle de flujos y Policies en `docs/backend-rh-completion.md`.
+
+## Precisión por acción y alcance (2026-10-26)
+
+### Recorrido del candidato: un permiso por paso
+
+`candidatos.ver` (+ su alcance) deja **seguir todo el recorrido**; cada botón
+aparece —y el backend lo acepta— solo a quien tiene el permiso de **ese paso**
+(`CandidatoWorkflowService::accionesPermitidas()` y cada método del workflow,
+web y API):
+
+| Paso | Permiso |
+|---|---|
+| 1 · Revisar perfil | `candidatos.revisar_perfil` |
+| 2 · Registrar / aprobar entrevista | `candidatos.aprobar_entrevista` |
+| 3 · Link y resultados psicométricos | `candidatos.registrar_psicometricas` |
+| 4 · Revisar psicométrico | `candidatos.revisar_psicometricas` |
+| 5 · Cargar socioeconómico | `candidatos.registrar_socioeconomico` |
+| 6 · Revisar socioeconómico | `candidatos.revisar_socioeconomico` |
+| 7 · Referencias | `candidatos.validar_referencias` |
+| 8 · Autorización final de RH | `ciclo.autorizar_rh` |
+| 9 · QR de contratación | `candidatos.contratar` |
+| Cerrar el proceso | `candidatos.cerrar_proceso` |
+| Solicitar / decidir intervención | `candidatos.solicitar_intervencion` / `candidatos.intervencion_decidir` |
+| Mini expediente | `candidatos.adjuntar` |
+
+`candidatos.editar` ya solo edita datos del candidato; `candidatos.evaluar` y
+`candidatos.rechazar` quedaron **retirados** (`config/permisos_modulos.php` →
+`retirados`): se conservan en la base pero no habilitan nada. Quien los tenía
+recibió los pasos que cubrían (`herencia`, que ahora acepta varios permisos
+padre). Mientras un permiso nuevo no exista en la base (antes de
+`people:sincronizar-permisos`), `PermisoAccionService` responde con sus
+padres: el deploy no quita ni da nada.
+
+Si el gerente responsable no tiene el permiso del paso, el pendiente y su aviso
+van a quien sí lo tiene (por permiso y alcance) y la ficha muestra
+«Reclutamiento» como responsable. Ejemplo: rol Gerente con solo «Ver» +
+«Paso 2» → registra la entrevista y sigue viendo el recorrido sin botones.
+
+### Directorio con alcance
+
+El módulo «Directorio» tiene alcance (`directorio.ver_todos|ver_region|ver_sucursal`).
+Sin alcance = **su sucursal + su jefe directo**. Gerente → sucursal; Regional →
+región (matriz comercial); RH, Sistemas, Dirección, Auditoría, Jurídico,
+Contraloría → todos. El personal de Corporativo ve a toda la empresa.
+
+### Avisos según el alcance del módulo
+
+`config/permisos_modulos.php` → `alcance_avisos`: el aviso a quien tiene un
+permiso de acción (aprobar solicitudes/vacaciones, autorizar préstamos) se
+acota con el alcance de su rol en ese módulo (`AlcanceModuloService::alcanzaParaAviso`,
+usado por `WorkflowRoutingService`, `NotificadorRhService::responsablesDe` y
+`TareaService::destinatarios`). Los avisos del organigrama (jefe directo,
+aprobador del visto bueno) no cambian.
+
+`notificaciones.silenciar_sucursales` (RH, Sistemas, Dirección Comercial,
+Dirección, Regional, Jurídico, Contraloría, Auditoría): Configuración →
+**Avisos por sucursal**. Silencia campana y push de esas sucursales; nunca la
+propia confirmación, lo propio ni lo de su equipo directo; lo pendiente sigue
+en «Mis pendientes» (`SucursalesSilenciadasService`, aplicado en
+`NotificacionEventosService::entregar()`).

@@ -67,7 +67,11 @@ test('ningún permiso queda oculto: lo que no tiene módulo sale en «Otros perm
                 ->merge(collect($catalogo['otros'])->flatten())
                 ->unique();
 
-            foreach (Permission::query()->pluck('name') as $permiso) {
+            // Los retirados (p. ej. candidatos.evaluar, partido en un permiso
+            // por paso) ya no se ofrecen: nada en el código los consulta.
+            $retirados = array_keys(config('permisos_modulos.retirados', []));
+
+            foreach (Permission::query()->whereNotIn('name', $retirados)->pluck('name') as $permiso) {
                 expect($presentados->contains($permiso))->toBeTrue("El permiso {$permiso} no aparece en la pantalla");
             }
 

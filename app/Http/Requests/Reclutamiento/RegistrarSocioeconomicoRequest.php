@@ -17,6 +17,17 @@ class RegistrarSocioeconomicoRequest extends FormRequest
     }
 
     /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'checklist.arraigo_meses.max' => 'Los meses en la vivienda van de 0 a 11; 12 meses o más súmalos a los años.',
+            'checklist.arraigo_meses.integer' => 'Los meses en la vivienda deben ser un número entero.',
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function rules(): array
@@ -27,7 +38,9 @@ class RegistrarSocioeconomicoRequest extends FormRequest
             'checklist' => ['nullable', 'array'],
             'checklist.vivienda_en_orden' => ['nullable', 'boolean'],
             'checklist.vive_con_familia' => ['nullable', 'boolean'],
+            // Tiempo en la vivienda (arraigo): años + meses (0-11).
             'checklist.arraigo_anios' => ['nullable', 'numeric', 'min:0', 'max:80'],
+            'checklist.arraigo_meses' => ['nullable', 'integer', 'min:0', 'max:11'],
             'checklist.resguardo_motocicleta' => ['nullable', 'boolean'],
             'riesgos' => ['nullable', 'string', 'max:4000'],
             'observaciones' => ['nullable', 'string', 'max:4000'],

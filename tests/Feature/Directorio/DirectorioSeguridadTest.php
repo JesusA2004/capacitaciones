@@ -6,8 +6,8 @@ use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
 
 /*
-| Directorio (web y API móvil): GLOBAL para cualquier colaborador
-| autenticado, pero SOLO contacto corporativo — nunca salario, RFC, CURP,
+| Directorio (web y API móvil): para cualquier colaborador autenticado
+| dentro de su alcance, pero SOLO contacto corporativo — nunca salario, RFC, CURP,
 | NSS, domicilio ni correo/teléfono personal (DirectorioColaboradoresService).
 | El contacto corporativo solo a quien puede verlo (DirectorioPrivacidadTest).
 */
@@ -56,7 +56,8 @@ test('API móvil: el directorio solo serializa contacto corporativo, nunca datos
 });
 
 test('web: el directorio solo serializa contacto corporativo, nunca datos sensibles', function () {
-    $respuesta = $this->actingAs(clUsuario('colaborador'))->get(route('directorio.index'))->assertOk();
+    // Compañero de la misma sucursal (el personal de sucursal solo ve la suya).
+    $respuesta = $this->actingAs(clUsuario('colaborador', ['sucursal_principal_id' => $this->sensible->sucursal_principal_id]))->get(route('directorio.index'))->assertOk();
     // La web agrega solo datos de agrupación (puesto, nivel, sucursal, área).
     $permitidos = [...DIRECTORIO_CAMPOS, 'puesto_id', 'nivel', 'sucursal_id', 'departamento_id', 'es_corporativo', 'area'];
 

@@ -6,10 +6,10 @@ use App\Enums\CategoriaNotificacion;
 use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\User;
-use App\Services\AlcanceOrganizacionalService;
 use App\Services\Configuracion\WorkflowRoutingService;
 use App\Services\Notificaciones\Aviso;
 use App\Services\Notificaciones\NotificacionEventosService;
+use App\Services\Permisos\AlcanceModuloService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -26,14 +26,15 @@ use Throwable;
 class NotificadorRhService
 {
     public function __construct(
-        private readonly AlcanceOrganizacionalService $alcance,
+        private readonly AlcanceModuloService $alcanceModulo,
         private readonly WorkflowRoutingService $routing,
         private readonly NotificacionEventosService $eventos,
     ) {}
 
     /**
-     * Cuentas con el permiso indicado y alcance organizacional sobre el
-     * colaborador (RH global, gerente de su sucursal, su jefe directo).
+     * Cuentas con el permiso indicado y alcance sobre el colaborador (RH
+     * global, gerente de su sucursal, su jefe directo): el alcance del módulo
+     * de ese permiso en Roles y permisos (alcance_avisos) cuando lo tiene.
      *
      * @return Collection<int, User>
      */
@@ -45,7 +46,7 @@ class NotificadorRhService
                 ->whereNull('acceso_bloqueado_en')
                 ->when($colaborador->user !== null, fn ($q) => $q->where('id', '!=', $colaborador->user?->id))
                 ->get()
-                ->filter(fn (User $u) => $this->alcance->alcanzaColaborador($u, $colaborador))
+                ->filter(fn (User $u) => $this->alcanceModulo->alcanzaParaAviso($u, $colaborador, $permiso))
                 ->values();
         } catch (Throwable $e) {
             Log::warning('NotificadorRhService: no se pudieron resolver responsables.', ['permiso' => $permiso, 'error' => $e->getMessage()]);

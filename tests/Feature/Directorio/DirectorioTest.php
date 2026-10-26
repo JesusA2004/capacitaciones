@@ -7,7 +7,8 @@ use App\Models\Sucursal;
 use Database\Seeders\RolesYPermisosSeeder;
 
 /*
-| Directorio de la empresa: GLOBAL para cualquier colaborador autenticado.
+| Directorio de la empresa: lo ve todo colaborador autenticado, acotado al
+| alcance del módulo «Directorio» (DirectorioAlcanceTest).
 | Los gestores NO aparecen (no tienen correo corporativo ni son contacto de
 | comunicación interna, config/directorio.php). La web recibe la lista
 | completa para organizarla por puesto, por área y por sucursal; una fila sin
@@ -47,9 +48,10 @@ test('el directorio no muestra gestores y sí al personal de sucursal y corporat
 });
 
 test('la API móvil tampoco lista gestores', function () {
-    Colaborador::factory()->create(['name' => 'Pedro', 'apellidos' => 'Ramírez', 'puesto_id' => $this->gestor->id, 'estatus' => 'activo']);
-    Colaborador::factory()->create(['name' => 'María', 'apellidos' => 'López', 'puesto_id' => $this->gerente->id, 'estatus' => 'activo']);
-    $usuario = clUsuario('colaborador');
+    // Misma sucursal: el personal de sucursal solo ve la suya (alcance del módulo).
+    Colaborador::factory()->create(['name' => 'Pedro', 'apellidos' => 'Ramírez', 'puesto_id' => $this->gestor->id, 'estatus' => 'activo', 'sucursal_principal_id' => $this->tula->id]);
+    Colaborador::factory()->create(['name' => 'María', 'apellidos' => 'López', 'puesto_id' => $this->gerente->id, 'estatus' => 'activo', 'sucursal_principal_id' => $this->tula->id]);
+    $usuario = clUsuario('colaborador', ['sucursal_principal_id' => $this->tula->id]);
 
     $nombres = collect($this->actingAs($usuario, 'sanctum')->getJson('/api/v1/directorio?per_page=50')->assertOk()->json('data'))->pluck('nombre');
 
@@ -57,9 +59,9 @@ test('la API móvil tampoco lista gestores', function () {
 });
 
 test('un colaborador sin correo corporativo aparece en el directorio sin correo inventado', function () {
-    $colaborador = Colaborador::factory()->create(['estatus' => 'activo', 'puesto_id' => $this->gerente->id, 'correo_corporativo' => null]);
+    $colaborador = Colaborador::factory()->create(['estatus' => 'activo', 'puesto_id' => $this->gerente->id, 'correo_corporativo' => null, 'sucursal_principal_id' => $this->tula->id]);
 
-    $this->actingAs(clUsuario('colaborador'))->get(route('directorio.index'))
+    $this->actingAs(clUsuario('colaborador', ['sucursal_principal_id' => $this->tula->id]))->get(route('directorio.index'))
         ->assertInertia(fn ($page) => $page->where(
             'colaboradores',
             fn ($data) => collect($data)->firstWhere('id', $colaborador->id)['correo_corporativo'] === null,

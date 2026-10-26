@@ -614,7 +614,7 @@ export const ARTICULOS_RECLUTAMIENTO: ArticuloGuia[] = [
             {
                 titulo: '«Cargar estudio socioeconómico»',
                 detalle:
-                    'Fecha de visita, dirección visitada y checklist: vivienda en orden, vive con su familia, años de arraigo y resguardo de motocicleta. Queda «pendiente de revisión».',
+                    'Fecha de visita, dirección visitada y checklist: vivienda en orden, vive con su familia, tiempo en la vivienda (años y meses) y resguardo de motocicleta. Queda «pendiente de revisión».',
             },
             {
                 titulo: 'Riesgos y observaciones',

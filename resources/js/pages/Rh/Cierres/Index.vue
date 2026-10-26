@@ -284,6 +284,8 @@ const pendiente = ref<{
     documento: DocumentoRecopilacion;
 } | null>(null);
 const subiendo = ref<string | null>(null);
+// Tarjeta (baja) que está subiendo: el spinner solo se muestra en ella.
+const subiendoTarjeta = ref<number | null>(null);
 const errorCarga = ref<string | null>(null);
 const accept = computed(() =>
     props.limites_documentos.mimes.map((m) => `.${m}`).join(','),
@@ -315,6 +317,7 @@ function alElegirArchivo(evento: Event) {
     }
 
     subiendo.value = destino.documento.clave;
+    subiendoTarjeta.value = destino.tarjeta.id;
     router.post(
         documentosBaja.store.url(destino.tarjeta.id),
         { archivo, documento_requerido_id: destino.documento.requerido_id },
@@ -329,6 +332,7 @@ function alElegirArchivo(evento: Event) {
                     'No se pudo subir el archivo.'),
             onFinish: () => {
                 subiendo.value = null;
+                subiendoTarjeta.value = null;
                 pendiente.value = null;
             },
         },
@@ -540,7 +544,8 @@ function neto(fila: FilaCierre): string {
                     v-for="t in recopilacion.data"
                     :key="t.id"
                     :tarjeta="t"
-                    :subiendo="subiendo"
+                    :subiendo="subiendoTarjeta === t.id ? subiendo : null"
+                    :ocupado="subiendo !== null"
                     @ver="verDocumentos"
                     @adjuntar="pedirArchivo"
                 />

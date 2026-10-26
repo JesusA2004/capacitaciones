@@ -14,6 +14,7 @@ use App\Models\EmployeeDocument;
 use App\Models\ExpedienteHistorico;
 use App\Models\ParteDivisionHistorico;
 use App\Models\User;
+use App\Services\Auditoria\AuditoriaService;
 use App\Services\Documentos\DocumentExtractionService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
@@ -68,6 +69,7 @@ class DivisionExpedienteHistoricoService
         private readonly CortadorPdf $cortador,
         private readonly ComparadorDatosHistorico $comparador,
         private readonly DocumentExtractionService $extraccion,
+        private readonly AuditoriaService $auditoria,
     ) {}
 
     public function elegible(ExpedienteHistorico $historico): bool
@@ -154,7 +156,23 @@ class DivisionExpedienteHistoricoService
         }
 
         if ($parte->estado->asignada()) {
-            throw ValidationException::withMessages(['document_type_id' => 'Esta parte ya se cargó al checklist.']);
+            throw ValidationException::withMessages(['document_type_id' => 'Esta parte ya se cargó al checklist. Para separar sus hojas o cambiarlas de documento usa «Separar hojas».']);
+        }
+
+        // Una parte que ya reemplazó una corrección del editor, o de una
+        // división que no es la más reciente, ya no vale: cargarla
+        // confundiría qué hojas forman cada documento.
+        if ($parte->reemplazada_por_revision_id !== null) {
+            throw ValidationException::withMessages(['document_type_id' => 'Esta parte ya fue reemplazada por una corrección de hojas; recarga la página.']);
+        }
+
+        $ultima = DivisionExpedienteHistorico::query()
+            ->where('expediente_historico_id', $parte->division->expediente_historico_id)
+            ->latest('id')
+            ->value('id');
+
+        if ((int) $ultima !== $parte->division_id) {
+            throw ValidationException::withMessages(['document_type_id' => 'Hay una división más reciente de este PDF; asigna las partes de esa.']);
         }
 
         if ($parte->path === null || $parte->disk === null) {
@@ -167,21 +185,41 @@ class DivisionExpedienteHistoricoService
             throw ValidationException::withMessages(['document_type_id' => 'El archivo de esta parte ya no está en el almacenamiento.']);
         }
 
-        $documento = $this->cargarAlChecklist($colaborador, $tipo, $bytes, $parte->paginas, $usuario);
+        $estadoAnterior = $parte->estado;
 
-        $parte->update([
-            'document_type_id' => $tipo->id,
-            'estado' => EstadoParteDivision::AsignadaManual->value,
-            'employee_document_id' => $documento->id,
-            'asignado_por' => $usuario->id,
-            'asignado_en' => now(),
-        ]);
+        // Documento + parte + hojas de la división: todo o nada.
+        $parte = DB::transaction(function () use ($parte, $colaborador, $tipo, $bytes, $usuario): ParteDivisionHistorico {
+            $documento = $this->cargarAlChecklist($colaborador, $tipo, $bytes, $parte->paginas, $usuario);
 
-        // Las hojas quedan marcadas «corregidas por RH»: volver a dividir
-        // con el OCR no las pisa (ver respetarCorreccionesManuales()).
-        $division = $parte->division;
-        $paginas = $this->paginasConAsignacion($division->paginas ?? [], $parte->paginas, $tipo->clave);
-        $division->update(['paginas' => $paginas, ...$this->contadoresPaginas($paginas)]);
+            $parte->update([
+                'document_type_id' => $tipo->id,
+                'estado' => EstadoParteDivision::AsignadaManual->value,
+                'employee_document_id' => $documento->id,
+                'asignado_por' => $usuario->id,
+                'asignado_en' => now(),
+            ]);
+
+            // Las hojas quedan marcadas «corregidas por RH»: volver a dividir
+            // con el OCR no las pisa (ver documentosManualesPrevios()).
+            $division = $parte->division;
+            $paginas = $this->paginasConAsignacion($division->paginas ?? [], $parte->paginas, $tipo->clave);
+            $division->update(['paginas' => $paginas, ...$this->contadoresPaginas($paginas)]);
+
+            return $parte;
+        });
+
+        try {
+            $this->auditoria->registrar('expediente_historico.parte_asignada', $colaborador, $usuario, [
+                'division_id' => $parte->division_id,
+                'parte_id' => $parte->id,
+                'paginas' => $parte->rangoPaginas(),
+                'tipo' => $tipo->nombre,
+                'estado_anterior' => $estadoAnterior->value,
+                'employee_document_id' => $parte->employee_document_id,
+            ]);
+        } catch (Throwable $e) {
+            Log::warning('division_historico: no se pudo registrar la auditoría de la asignación de una parte.', ['parte_id' => $parte->id, 'error' => $e->getMessage()]);
+        }
 
         return $parte->fresh() ?? $parte;
     }
@@ -909,6 +947,8 @@ class DivisionExpedienteHistoricoService
                 'asignada' => $parte->estado->asignada(),
                 'documento_estado' => $parte->documento?->status->etiqueta(),
                 'ver_url' => route('rh.expedientes.division-historico.partes.ver', $parte),
+                // Separar/mover sus hojas: el editor abre con ellas seleccionadas.
+                'editor_url' => route('rh.expedientes.division-historico.editor', ['division' => $division->id, 'hojas' => implode(',', $parte->paginas)]),
             ])->values()->all(),
             // Se reevalúa al mostrar: el expediente pudo cambiar después de dividir.
             'datos' => array_map(fn (array $dato): array => [

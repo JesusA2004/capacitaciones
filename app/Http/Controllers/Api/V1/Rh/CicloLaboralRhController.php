@@ -155,6 +155,7 @@ class CicloLaboralRhController extends Controller
             'revision' => $this->evaluacionInduccion->detalleRevision($intento),
             'intento_id' => $intento->id,
             'ya_calificado' => ! $intento->pendienteCalificacionRh(),
+            'puede_recalificar' => $this->evaluacionInduccion->puedeRecalificar($intento),
             'descriptivo_puesto' => $this->acusesDescriptivo->resumenRh($intento->evaluacion->colaborador, $request->user()),
         ]]);
     }
@@ -170,6 +171,21 @@ class CicloLaboralRhController extends Controller
         ]);
 
         $intento = $this->evaluacionInduccion->calificarCasosPracticos($intento, $request->user(), $datos['puntos'], $datos['comentario'] ?? null);
+
+        return response()->json(['data' => $this->evaluacionInduccion->aArray($intento->evaluacion()->firstOrFail(), $request->user())]);
+    }
+
+    public function recalificarInduccion(Request $request, EvaluacionInduccionIntento $intento): JsonResponse
+    {
+        $this->authorize('calificar', $intento->evaluacion);
+        $datos = $request->validate([
+            'puntos' => ['required', 'array'],
+            'puntos.*' => ['required', 'array'],
+            'puntos.*.*' => ['required', 'boolean'],
+            'comentario' => ['nullable', 'string', 'max:4000'],
+        ]);
+
+        $intento = $this->evaluacionInduccion->recalificarCasosPracticos($intento, $request->user(), $datos['puntos'], $datos['comentario'] ?? null);
 
         return response()->json(['data' => $this->evaluacionInduccion->aArray($intento->evaluacion()->firstOrFail(), $request->user())]);
     }

@@ -428,23 +428,87 @@ class EvaluacionInduccionService
      */
     public function calificarCasosPracticos(EvaluacionInduccionIntento $intento, User $actor, array $puntosPorCriterio, ?string $comentario = null): EvaluacionInduccionIntento
     {
+        return $this->aplicarCalificacionD($intento, $actor, $puntosPorCriterio, $comentario, false);
+    }
+
+    /**
+     * «Calificar de nuevo» (error humano al calificar): RH vuelve a marcar la
+     * rúbrica de los casos prácticos del ÚLTIMO intento ya calificado. Se
+     * recalcula total y nivel, queda auditado (antes/después) y se regenera
+     * el formato (el PDF anterior del expediente se cancela y se guarda el
+     * nuevo). Si con la corrección aprueba, el onboarding avanza como en una
+     * calificación normal; una evaluación ya aprobada no puede quedar
+     * reprobada porque su onboarding ya avanzó.
+     *
+     * @param  array<string, array<string, bool>>  $puntosPorCriterio
+     */
+    public function recalificarCasosPracticos(EvaluacionInduccionIntento $intento, User $actor, array $puntosPorCriterio, ?string $comentario = null): EvaluacionInduccionIntento
+    {
+        return $this->aplicarCalificacionD($intento, $actor, $puntosPorCriterio, $comentario, true);
+    }
+
+    /**
+     * Solo el último intento ya calificado de una evaluación cerrada
+     * (aprobada o en reforzamiento sin un intento nuevo) se recalifica.
+     */
+    public function puedeRecalificar(EvaluacionInduccionIntento $intento): bool
+    {
+        $intento->loadMissing('evaluacion');
+
+        return ! $intento->pendienteCalificacionRh()
+            && $intento->numero === $intento->evaluacion->intentos_count
+            && in_array($intento->evaluacion->estado, [
+                EstadoEvaluacionInduccion::Aprobada,
+                EstadoEvaluacionInduccion::RequiereReforzamiento,
+                EstadoEvaluacionInduccion::ReevaluacionHabilitada,
+            ], true);
+    }
+
+    /**
+     * @param  array<string, array<string, bool>>  $puntosPorCriterio
+     */
+    private function aplicarCalificacionD(EvaluacionInduccionIntento $intento, User $actor, array $puntosPorCriterio, ?string $comentario, bool $recalificacion): EvaluacionInduccionIntento
+    {
         $intento->loadMissing('evaluacion.colaborador');
         $this->exigirPermiso($actor, $intento->evaluacion->colaborador);
 
-        [$intento, $evaluacion] = DB::transaction(function () use ($intento, $actor, $puntosPorCriterio, $comentario): array {
+        [$intento, $evaluacion, $antes] = DB::transaction(function () use ($intento, $actor, $puntosPorCriterio, $comentario, $recalificacion): array {
             $intento = EvaluacionInduccionIntento::query()->lockForUpdate()->findOrFail($intento->id);
+            $evaluacion = EvaluacionInduccion::query()->lockForUpdate()->findOrFail($intento->evaluacion_induccion_id);
+            $intento->setRelation('evaluacion', $evaluacion);
 
-            if (! $intento->pendienteCalificacionRh()) {
-                throw ValidationException::withMessages(['evaluacion' => 'Este intento ya fue calificado.']);
+            if (! $recalificacion && ! $intento->pendienteCalificacionRh()) {
+                throw ValidationException::withMessages(['evaluacion' => 'Este intento ya fue calificado. Usa «Calificar de nuevo» si hubo un error.']);
             }
 
-            $evaluacion = EvaluacionInduccion::query()->lockForUpdate()->findOrFail($intento->evaluacion_induccion_id);
+            if ($recalificacion && ! $this->puedeRecalificar($intento)) {
+                throw ValidationException::withMessages(['evaluacion' => $intento->pendienteCalificacionRh()
+                    ? 'Este intento aún no se califica: usa «Guardar calificación».'
+                    : 'Solo se puede calificar de nuevo el último intento, mientras el colaborador no haya presentado otro.']);
+            }
+
+            $antes = [
+                'estado' => $evaluacion->estado->value,
+                'calificacion_d' => $intento->calificacion_d !== null ? (float) $intento->calificacion_d : null,
+                'calificacion_total' => $intento->calificacion_total !== null ? (float) $intento->calificacion_total : null,
+                'nivel' => $intento->nivel?->value,
+                'desglose_d' => $intento->desglose_d,
+            ];
 
             // Rúbrica y umbrales de la versión con la que se CONTESTÓ.
             $definicion = $this->formularios->definicionInduccion($evaluacion);
             [$calificacionD, $desglose] = $this->calificarSeccionD($definicion, $puntosPorCriterio);
             $total = round((float) $intento->calificacion_a + (float) $intento->calificacion_b + (float) $intento->calificacion_c + $calificacionD, 2);
             $nivel = NivelEvaluacionInduccion::paraCalificacionCon($total, (float) $definicion['calificacion_aprobatoria'], (float) $definicion['calificacion_sobresaliente']);
+            $yaAprobada = $evaluacion->estado === EstadoEvaluacionInduccion::Aprobada;
+
+            if ($recalificacion && $yaAprobada && ! $nivel->aprobado()) {
+                throw ValidationException::withMessages(['evaluacion' => sprintf(
+                    'Con esta corrección quedaría en %s/%s (no aprobatoria), pero la evaluación ya estaba aprobada y su onboarding avanzó. Si de verdad no aprobó, comunícalo a Sistemas para revertir el ingreso.',
+                    number_format($total, 1),
+                    (string) $definicion['total_puntos'],
+                )]);
+            }
 
             $intento->update([
                 'calificacion_d' => $calificacionD,
@@ -457,28 +521,44 @@ class EvaluacionInduccionService
                 'calificado_en' => now('America/Mexico_City'),
             ]);
 
+            // Al recalificar, la mejor se recalcula con todos los intentos (la
+            // anterior pudo ser justo la calificación equivocada).
+            $mejor = $recalificacion
+                ? (float) EvaluacionInduccionIntento::query()->where('evaluacion_induccion_id', $evaluacion->id)->max('calificacion_total')
+                : max((float) ($evaluacion->mejor_calificacion ?? 0), $total);
+
             $evaluacion->update([
                 'ultima_calificacion' => $total,
-                'mejor_calificacion' => max((float) ($evaluacion->mejor_calificacion ?? 0), $total),
+                'mejor_calificacion' => $mejor,
             ]);
 
             if ($nivel->aprobado()) {
-                $evaluacion->update(['estado' => EstadoEvaluacionInduccion::Aprobada, 'aprobada_en' => now('America/Mexico_City'), 'fecha_limite_reevaluacion' => null]);
+                if (! $yaAprobada) {
+                    $evaluacion->update(['estado' => EstadoEvaluacionInduccion::Aprobada, 'aprobada_en' => now('America/Mexico_City'), 'fecha_limite_reevaluacion' => null]);
 
-                if ($proceso = OnboardingProceso::query()->find($evaluacion->onboarding_proceso_id)) {
-                    if ($proceso->estado !== EstadoOnboarding::Completado && $proceso->estado !== EstadoOnboarding::Cancelado) {
-                        $this->onboarding->aprobarAvancesFormal($proceso, $evaluacion->clave);
+                    if ($proceso = OnboardingProceso::query()->find($evaluacion->onboarding_proceso_id)) {
+                        if ($proceso->estado !== EstadoOnboarding::Completado && $proceso->estado !== EstadoOnboarding::Cancelado) {
+                            $this->onboarding->aprobarAvancesFormal($proceso, $evaluacion->clave);
+                        }
                     }
                 }
-            } else {
+            } elseif (! $recalificacion) {
                 $evaluacion->update([
                     'estado' => EstadoEvaluacionInduccion::RequiereReforzamiento,
                     'fecha_limite_reevaluacion' => $this->calendario->sumarDiasHabiles(now('America/Mexico_City'), (int) $definicion['dias_habiles_reevaluacion']),
                 ]);
             }
+            // Recalificada y sigue sin aprobar: conserva su estado (reforzamiento
+            // o reevaluación ya habilitada) y su fecha límite.
 
-            return [$intento, $evaluacion->refresh()];
+            return [$intento, $evaluacion->refresh(), $antes];
         });
+
+        if ($recalificacion) {
+            $this->despuesDeRecalificar($intento, $evaluacion, $actor, $antes);
+
+            return $intento->refresh();
+        }
 
         $this->tareas->resolver(TipoTarea::InduccionCasosPorCalificar, $intento, $actor);
         $evaluacion->loadMissing('colaborador.user', 'colaborador.jefe.user');
@@ -528,6 +608,58 @@ class EvaluacionInduccionService
         ]);
 
         return $intento->refresh();
+    }
+
+    /**
+     * Efectos de «Calificar de nuevo»: auditoría antes/después, formato
+     * regenerado y, si con la corrección pasó de reforzamiento a aprobada,
+     * lo mismo que una aprobación normal (cierra el reforzamiento y la
+     * reevaluación pendientes, avanza el onboarding y avisa).
+     *
+     * @param  array<string, mixed>  $antes
+     */
+    private function despuesDeRecalificar(EvaluacionInduccionIntento $intento, EvaluacionInduccion $evaluacion, User $actor, array $antes): void
+    {
+        $intento->refresh();
+        $evaluacion->loadMissing('colaborador.user');
+        $pasoAAprobada = $antes['estado'] !== EstadoEvaluacionInduccion::Aprobada->value
+            && $evaluacion->estado === EstadoEvaluacionInduccion::Aprobada;
+
+        $this->auditoria->registrar('induccion_recalificada', $intento, $actor, [
+            'colaborador_id' => $evaluacion->colaborador_id,
+            'intento' => $intento->numero,
+            'antes' => $antes,
+            'despues' => [
+                'estado' => $evaluacion->estado->value,
+                'calificacion_d' => (float) $intento->calificacion_d,
+                'calificacion_total' => (float) $intento->calificacion_total,
+                'nivel' => $intento->nivel?->value,
+                'desglose_d' => $intento->desglose_d,
+            ],
+        ]);
+
+        if ($pasoAAprobada) {
+            $this->tareas->resolver(TipoTarea::InduccionReforzamiento, $evaluacion, $actor);
+            $this->tareas->resolver(TipoTarea::InduccionEvaluacionPendiente, $evaluacion, $actor);
+
+            $proceso = OnboardingProceso::query()->find($evaluacion->onboarding_proceso_id);
+
+            if ($proceso !== null) {
+                $this->onboarding->sincronizarBandeja($proceso);
+                $this->onboarding->cerrarSiListo($proceso, $actor);
+            }
+
+            $totalPuntos = (string) $this->formularios->definicionInduccion($evaluacion)['total_puntos'];
+            $colaboradorUsuario = $evaluacion->colaborador->user;
+
+            if ($colaboradorUsuario !== null) {
+                $this->notificador->notificar([$colaboradorUsuario], 'induccion_evaluacion_aprobada', '¡Aprobaste tu evaluación de inducción!', sprintf('Recursos Humanos revisó de nuevo tu evaluación: obtuviste %s/%s (%s).', number_format((float) $intento->calificacion_total, 1), $totalPuntos, $intento->nivel?->etiqueta()), $intento, 'ver_evaluacion_induccion', 'alta');
+            }
+            $this->notificador->notificarEvento('induccion_evaluacion_aprobada', $evaluacion->colaborador, ['creador' => $actor, 'excluir' => [$actor->id]], 'Inducción completada', "{$evaluacion->colaborador->nombreCompleto()} aprobó su evaluación de inducción (calificada de nuevo).", $intento, 'ver_onboarding_colaborador');
+        }
+
+        // Formato regenerado: nunca deshace la recalificación si falla (try/catch adentro).
+        app(EvaluacionInduccionPdfService::class)->regenerarTrasRecalificar($intento, $actor);
     }
 
     /**

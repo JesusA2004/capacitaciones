@@ -284,7 +284,11 @@ export function partirDesde(
     };
 }
 
-/** Mueve las hojas elegidas al final de otro documento. */
+/**
+ * Mueve las hojas elegidas a otro documento. Si el destino conserva el orden
+ * del PDF (ascendente), las hojas entran en su lugar (mover la 4 a «5-6» da
+ * «4-6», no «5, 6, 4»); si RH ya lo reordenó a mano, van al final.
+ */
 export function moverA(
     documentos: DocumentoEditor[],
     paginas: number[],
@@ -307,11 +311,20 @@ export function moverA(
     return {
         ok: true,
         documentos: normalizar(
-            sinPaginas(documentos, mover).map((d) =>
-                d.id === destinoId
-                    ? { ...d, paginas: [...d.paginas, ...mover] }
-                    : d,
-            ),
+            sinPaginas(documentos, mover).map((d) => {
+                if (d.id !== destinoId) {
+                    return d;
+                }
+
+                const unidas = [...d.paginas, ...mover];
+
+                return {
+                    ...d,
+                    paginas: ascendente(d.paginas)
+                        ? unidas.sort((a, b) => a - b)
+                        : unidas,
+                };
+            }),
         ),
     };
 }

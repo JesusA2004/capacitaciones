@@ -572,7 +572,7 @@ class CandidatoController extends Controller
             // ofrece las de la vacante elegida (embudo de cada campaña).
             'campanas' => app(CampanaReclutamientoService::class)->opcionesParaVacantes($vacantes->pluck('id')),
             'responsables' => User::query()->role(['rh_admin', 'rh_auxiliar'])->orderBy('name')->get(['id', 'name', 'apellidos']),
-            'gerentes' => User::query()->permission(CandidatoWorkflowService::PERMISO_GERENTE)->whereNull('acceso_bloqueado_en')->orderBy('name')->get(['id', 'name', 'apellidos']),
+            'gerentes' => $this->workflow->usuariosConPasosDeGerente(),
             'estados' => array_map(fn (EstadoCandidato $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta(), 'salida' => $e->esSalida(), 'fase' => $e->faseCanonica()], EstadoCandidato::cases()),
             // Columnas canónicas del tablero (CLAUDE.md §4): única fuente,
             // nunca una agrupación inventada en el frontend.

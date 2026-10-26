@@ -141,3 +141,15 @@ tus avisos con «Marcar como leída», «Marcar todas como leídas» e «Ir» (a
 registro), y la consulta de solo lectura «De todo el equipo». El estado de colas,
 Reverb y Expo se revisa con `people:diagnostico-notificaciones`. La campana **siempre** muestra solo las notificaciones propias, incluso
 para super_admin.
+
+## Alcance de los avisos y sucursales silenciadas (2026-10-26)
+
+- Quién recibe un aviso **por permiso** lo acota el alcance del módulo de ese
+  permiso en Roles y permisos (`permisos_modulos.alcance_avisos`): gerente con
+  «Solicitudes → Sucursal» solo recibe permisos/solicitudes de su sucursal; RH
+  con «Todos», de todas. Si la regla no deja a nadie, sigue aplicando su respaldo.
+- Configuración → **Avisos por sucursal** (`notificaciones.silenciar_sucursales`):
+  cada persona con alcance amplio elige sucursales de las que no quiere avisos.
+  `entregar()` no entrega (devuelve false) un aviso que no sea confirmación
+  cuyo recurso pertenece a una sucursal silenciada, salvo que sea sobre la
+  propia persona o alguien de su equipo directo (jefe_id / gerente_id).

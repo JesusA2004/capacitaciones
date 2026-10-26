@@ -108,6 +108,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('avances/{avance}/retroalimentacion', [OnboardingController::class, 'retroalimentar'])->name('retroalimentar');
             Route::get('induccion/intentos/{intento}', [OnboardingController::class, 'mostrarInduccion'])->name('induccion.mostrar');
             Route::post('induccion/intentos/{intento}/calificar', [OnboardingController::class, 'calificarInduccion'])->name('induccion.calificar');
+            Route::post('induccion/intentos/{intento}/recalificar', [OnboardingController::class, 'recalificarInduccion'])->name('induccion.recalificar');
             // PDF del formato FO-RH-EI (solo RH: lleva la clave de respuestas).
             Route::get('induccion/intentos/{intento}/pdf', [EvaluacionInduccionPdfController::class, 'vistaPrevia'])->name('induccion.pdf.vista');
             Route::get('induccion/intentos/{intento}/pdf/descargar', [EvaluacionInduccionPdfController::class, 'descargar'])->name('induccion.pdf.descargar');

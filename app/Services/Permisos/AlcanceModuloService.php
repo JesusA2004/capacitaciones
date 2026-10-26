@@ -144,6 +144,34 @@ class AlcanceModuloService
     }
 
     /**
+     * ¿Le llega a $usuario el aviso de una acción por permiso sobre esta
+     * persona? Si el permiso pertenece a un módulo con alcance
+     * (config permisos_modulos.alcance_avisos, p. ej. aprobar solicitudes →
+     * «Solicitudes»), manda el alcance que ese rol tiene en el módulo en
+     * Roles y permisos: un gerente con alcance «Sucursal» solo recibe avisos
+     * de su sucursal; RH con «Todos», de todas. Sin módulo (o sin sus
+     * permisos de alcance creados todavía) se usa el alcance histórico.
+     */
+    public function alcanzaParaAviso(User $usuario, Colaborador $colaborador, string $permiso): bool
+    {
+        $modulo = $this->moduloDeAviso($permiso);
+
+        if ($modulo === null || ! $this->existenEnBase($this->alcancesDe($modulo))) {
+            return $this->organizacional->alcanzaColaborador($usuario, $colaborador);
+        }
+
+        return $this->alcanzaColaborador($usuario, $colaborador, $modulo);
+    }
+
+    public function moduloDeAviso(string $permiso): ?string
+    {
+        // El permiso lleva puntos: se indexa el arreglo, no con notación de punto.
+        $modulo = ((array) config('permisos_modulos.alcance_avisos', []))[$permiso] ?? null;
+
+        return is_string($modulo) && $this->alcancesDe($modulo) !== [] ? $modulo : null;
+    }
+
+    /**
      * Sucursales propias (principal + adicionales) o, en «región», todas las
      * sucursales de las regiones de la matriz comercial a las que pertenecen
      * (zona ligada a la sucursal → su región). Nunca menos que las propias.

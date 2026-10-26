@@ -482,6 +482,8 @@ class RolesYPermisosSeeder extends Seeder
         // no configura empresas.eliminar/roles.administrar/configuracion
         // (reservado a super_admin).
         'rh_admin' => [
+            // Alcance amplio: elige de qué sucursales no recibir avisos.
+            'notificaciones.silenciar_sucursales',
             'directorio.contactos.ver_todos',
             'perfiles_puesto.ver', 'perfiles_puesto.editar',
             'dashboard.global.ver',
@@ -563,6 +565,8 @@ class RolesYPermisosSeeder extends Seeder
         // Apoyo operativo de RH: puede capturar/revisar pero no aprobar
         // decisiones finales (documentos, altas, vacaciones, solicitudes).
         'rh_auxiliar' => [
+            // Alcance amplio: elige de qué sucursales no recibir avisos.
+            'notificaciones.silenciar_sucursales',
             'directorio.contactos.ver_todos',
             'perfiles_puesto.ver', 'perfiles_puesto.editar',
             'dashboard.global.ver',
@@ -673,6 +677,8 @@ class RolesYPermisosSeeder extends Seeder
         // documentos ni aprueba solicitudes/vacaciones (eso es de RH/gerencia
         // de sucursal). Ver AlcanceOrganizacionalService::ROLES_ALCANCE_GLOBAL.
         'director_comercial' => [
+            // Alcance amplio: elige de qué sucursales no recibir avisos.
+            'notificaciones.silenciar_sucursales',
             'directorio.contactos.ver_todos',
             'perfiles_puesto.ver',
             'dashboard.global.ver',
@@ -703,6 +709,8 @@ class RolesYPermisosSeeder extends Seeder
         // gerente_sucursal — ver AlcanceOrganizacionalService::ROLES_ALCANCE_SUCURSAL
         // y sucursal_user). Alcance más amplio que "gerente" (una sola sucursal).
         'gerente_regional' => [
+            // Alcance amplio: elige de qué sucursales no recibir avisos.
+            'notificaciones.silenciar_sucursales',
             'directorio.contactos.ver_todos',
             'perfiles_puesto.ver',
             'dashboard.sucursal.ver',
@@ -819,6 +827,8 @@ class RolesYPermisosSeeder extends Seeder
 
         'colaborador' => self::PERMISOS_ROL_COLABORADOR,
         'auditor' => [
+            // Alcance amplio: elige de qué sucursales no recibir avisos.
+            'notificaciones.silenciar_sucursales',
             'directorio.contactos.ver_todos',
             'perfiles_puesto.ver',
             'dashboard.global.ver',
@@ -869,6 +879,8 @@ class RolesYPermisosSeeder extends Seeder
         // PRÉSTAMO lo autoriza SOLO RH (prestamos.autorizar): Dirección
         // consulta (2026-10-20, migración 2026_10_20_170200).
         'direccion' => [
+            // Alcance amplio: elige de qué sucursales no recibir avisos.
+            'notificaciones.silenciar_sucursales',
             'directorio.contactos.ver_todos',
             'perfiles_puesto.ver',
             'dashboard.global.ver',
@@ -895,6 +907,8 @@ class RolesYPermisosSeeder extends Seeder
         // Jurídico: consulta la documentación jurídica y administra las
         // plantillas (textos legales) del motor documental.
         'juridico' => [
+            // Alcance amplio: elige de qué sucursales no recibir avisos.
+            'notificaciones.silenciar_sucursales',
             'expedientes.ver', 'expedientes.ver_todos', 'documentos.ver', 'documentos.descargar',
             'plantillas_documentales.ver', 'plantillas_documentales.administrar',
             'documentos_laborales.ver', 'contratos.ver', 'actas.ver', 'actas.descargar', 'cierres.ver', 'finiquitos.ver',
@@ -914,6 +928,8 @@ class RolesYPermisosSeeder extends Seeder
         // cartera) y RE-03 (falta de probidad, robo o fraude) y consulta esas
         // bajas, solo lectura (docs/BAJAS_Y_CAUSALES.md).
         'contraloria' => [
+            // Alcance amplio: elige de qué sucursales no recibir avisos.
+            'notificaciones.silenciar_sucursales',
             'bajas.consulta_contraloria',
             'mobile.bootstrap.ver', 'app.config.ver',
             'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
@@ -927,6 +943,8 @@ class RolesYPermisosSeeder extends Seeder
         // vacaciones/candidatos/préstamos, autorizar RH, ejecutar bajas) ni
         // datos médicos. Sin dashboard.global.ver no tenía modo operativo.
         'sistemas' => [
+            // Alcance amplio: elige de qué sucursales no recibir avisos.
+            'notificaciones.silenciar_sucursales',
             'directorio.contactos.ver_todos',
             'dashboard.global.ver',
             'usuarios.ver', 'usuarios.crear', 'usuarios.editar', 'usuarios.desactivar', 'usuarios.reactivar',
@@ -1006,22 +1024,39 @@ class RolesYPermisosSeeder extends Seeder
     }
 
     /**
-     * config/permisos_modulos.php → herencia: permiso nuevo => permiso
-     * general del que se separó.
+     * config/permisos_modulos.php → herencia: permiso nuevo => permiso(s)
+     * general(es) del que se separó. Una lista = lo hereda quien tenía
+     * cualquiera de ellos.
      *
-     * @return array<string, string>
+     * @return array<string, list<string>>
      */
     public static function herencia(): array
     {
         $herencia = [];
 
-        foreach ((array) config('permisos_modulos.herencia', []) as $nuevo => $existente) {
-            if (is_string($nuevo) && $nuevo !== '' && is_string($existente) && $existente !== '') {
-                $herencia[$nuevo] = $existente;
+        foreach ((array) config('permisos_modulos.herencia', []) as $nuevo => $existentes) {
+            $padres = array_values(array_filter(
+                array_map(fn ($p): string => is_string($p) ? $p : '', is_array($existentes) ? $existentes : [$existentes]),
+                fn (string $p): bool => $p !== '' && $p !== $nuevo,
+            ));
+
+            if (is_string($nuevo) && $nuevo !== '' && $padres !== []) {
+                $herencia[$nuevo] = $padres;
             }
         }
 
         return $herencia;
+    }
+
+    /**
+     * config/permisos_modulos.php → retirados: permisos generales que ya no
+     * habilitan nada por sí solos (la pantalla de roles no los ofrece).
+     *
+     * @return list<string>
+     */
+    public static function retirados(): array
+    {
+        return array_values(array_filter(array_map('strval', array_keys((array) config('permisos_modulos.retirados', [])))));
     }
 
     /**
@@ -1069,7 +1104,9 @@ class RolesYPermisosSeeder extends Seeder
         $resultado = [];
 
         foreach ((array) config('permisos_modulos.modulos', []) as $clave => $modulo) {
-            if ($clave === 'notificaciones' || ! is_array($modulo) || ! in_array($modulo['acceso'] ?? null, $permisosDelRol, true)) {
+            // Un módulo sin permiso de acceso (p. ej. Directorio: lo usa todo
+            // el personal) recibe igual el alcance por defecto del rol.
+            if ($clave === 'notificaciones' || ! is_array($modulo) || (($modulo['acceso'] ?? null) !== null && ! in_array($modulo['acceso'], $permisosDelRol, true))) {
                 continue;
             }
 
@@ -1142,8 +1179,8 @@ class RolesYPermisosSeeder extends Seeder
             do {
                 $antes = count($permisos);
 
-                foreach (self::herencia() as $nuevo => $existente) {
-                    if (in_array($existente, $permisos, true) && ! in_array($nuevo, $permisos, true)) {
+                foreach (self::herencia() as $nuevo => $existentes) {
+                    if (array_intersect($existentes, $permisos) !== [] && ! in_array($nuevo, $permisos, true)) {
                         $permisos[] = $nuevo;
                     }
                 }
