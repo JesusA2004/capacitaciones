@@ -14,7 +14,7 @@ use App\Notifications\Mobile\RhDocumentoPendienteNotification;
 use App\Notifications\Mobile\RhIncorporacionCompletaNotification;
 use App\Services\Colaboradores\AltaColaboradorService;
 use App\Services\Expedientes\CartaCompromisoService;
-use App\Services\Expedientes\DocumentoStorageService;
+use App\Services\Expedientes\DocumentoParService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Expedientes\ProgresoExpediente;
 use App\Services\Notificaciones\Aviso;
@@ -65,9 +65,9 @@ class IncorporacionService
 
     public function __construct(
         private readonly ExpedienteService $expediente,
-        private readonly DocumentoStorageService $storage,
         private readonly ResponsableResolverService $responsables,
         private readonly NotificacionEventosService $eventos,
+        private readonly DocumentoParService $pares,
     ) {}
 
     /**
@@ -102,7 +102,7 @@ class IncorporacionService
         $tipos = $this->tiposDocumento($colaborador);
         $vigentes = $this->expediente->documentosVigentes($colaborador);
 
-        $documentos = $tipos->map(fn (DocumentType $tipo) => $this->documentoParaColaborador($tipo, $vigentes->get($tipo->id)));
+        $documentos = $tipos->map(fn (DocumentType $tipo) => $this->documentoParaColaborador($tipo, $vigentes->get($tipo->id), $vigentes));
 
         $progreso = $this->progreso($tipos, $vigentes);
         $estado = $this->estadoGeneral($colaborador, $tipos, $vigentes);
@@ -155,9 +155,10 @@ class IncorporacionService
     }
 
     /**
+     * @param  Collection<int, EmployeeDocument>  $vigentes
      * @return array<string, mixed>
      */
-    private function documentoParaColaborador(DocumentType $tipo, ?EmployeeDocument $documento): array
+    private function documentoParaColaborador(DocumentType $tipo, ?EmployeeDocument $documento, Collection $vigentes): array
     {
         $estadoDocumento = $documento === null ? null : $documento->status;
 
@@ -179,6 +180,10 @@ class IncorporacionService
             'puede_solicitar_cambio' => in_array($estadoDocumento, self::ESTADOS_SOLICITAN_CAMBIO, true),
             'fecha_subida' => $documento?->created_at?->toIso8601String(),
             'fecha_revision' => $documento?->reviewed_at?->toIso8601String(),
+            // Documento que puede venir en el mismo archivo (las dos cartas
+            // de recomendación): la app ofrece «este archivo trae también…»
+            // solo si `par.puede_subir`. Null si el tipo no tiene par.
+            'par' => $this->pares->resumenPar($tipo, $vigentes),
         ];
     }
 
@@ -262,8 +267,12 @@ class IncorporacionService
      * (cambio_autorizado). Reutiliza DocumentoStorageService::subirVersion
      * (misma logica de versionado que usa RH desde la web): el resultado
      * siempre queda en_revision.
+     *
+     * `$incluyePar`: el archivo trae también el documento par (las dos
+     * cartas de recomendación juntas); se registra en ambos y RH revisa
+     * cada uno por separado (DocumentoParService).
      */
-    public function subirDocumento(Colaborador $colaborador, DocumentType $tipo, UploadedFile $archivo, int $subidoPorId): EmployeeDocument
+    public function subirDocumento(Colaborador $colaborador, DocumentType $tipo, UploadedFile $archivo, int $subidoPorId, bool $incluyePar = false): EmployeeDocument
     {
         $vigente = $this->documentoVigente($colaborador, $tipo);
 
@@ -271,13 +280,28 @@ class IncorporacionService
             throw new RuntimeException('Este documento ya fue subido y esta en revision o aprobado. Solicita un cambio si necesitas modificarlo.');
         }
 
-        $documento = $this->storage->subirVersion($colaborador, $tipo, $archivo, $subidoPorId);
+        ['documento' => $documento, 'par' => $par] = $this->pares->subir($colaborador, $tipo, $archivo, $subidoPorId, $incluyePar);
 
         // Carta compromiso: si ya subió todo lo comprometido queda cumplida y
         // el bloqueo de la app se levanta solo. Resuelta al vuelo (evita un
         // ciclo de dependencias con el registro en la app).
         app(CartaCompromisoService::class)->sincronizarSinFallar($colaborador);
 
+        $this->avisarDocumentoSubido($colaborador, $tipo, $documento, $subidoPorId);
+
+        if ($par !== null) {
+            $this->avisarDocumentoSubido($colaborador, $par->tipo, $par, $subidoPorId);
+        }
+
+        return $documento;
+    }
+
+    /**
+     * Confirmación a quien subió + tarea de revisión para RH, una por
+     * documento (cada carta de recomendación se revisa aparte).
+     */
+    private function avisarDocumentoSubido(Colaborador $colaborador, DocumentType $tipo, EmployeeDocument $documento, int $subidoPorId): void
+    {
         $this->notificarSinFallar(function () use ($documento, $colaborador, $tipo, $subidoPorId): void {
             $actor = User::query()->where('id', $subidoPorId)->first();
             $responsables = $colaborador->user !== null
@@ -300,8 +324,6 @@ class IncorporacionService
                 $tarea,
             );
         });
-
-        return $documento;
     }
 
     /**

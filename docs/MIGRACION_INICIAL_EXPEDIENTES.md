@@ -134,7 +134,7 @@ Código: `App\Services\Expedientes\VinculacionSynologyService`, `Rh\VinculacionS
 7. Constancia de situación fiscal (RFC)
 8. Comprobante de domicilio
 9. Comprobante de estudios
-10. 2 cartas de recomendación
+10. Carta de recomendación 1 y Carta de recomendación 2 (desde 2026-10-27 son dos documentos; antes, uno con las dos cartas)
 11. Datos bancarios
 12. Contrato laboral
 13. Contrato / carta de confidencialidad

@@ -46,7 +46,7 @@ test('el catálogo trae los 3 documentos como opcionales del checklist y el seed
     }
 
     expect(DocumentType::query()->delChecklist()->pluck('clave'))->toContain(...CLAVES_OPCIONALES)
-        ->and(DocumentType::query()->where('requerido', true)->count())->toBe(14)
+        ->and(DocumentType::query()->where('requerido', true)->count())->toBe(15)
         // El pagaré de préstamos es otra cosa (plantilla «pagare»): no se mezcla.
         ->and(DocumentType::query()->where('clave', 'pagare')->exists())->toBeFalse();
 });

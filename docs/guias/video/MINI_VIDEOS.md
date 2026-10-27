@@ -55,12 +55,12 @@ Artículo de referencia: [Qué le falta a un expediente (y cómo avisar)](FLUJO_
 
 ## Cómo evaluar la capacitación inicial · 01:21 min
 
-Artículo de referencia: [Evaluación de capacitación inicial](FLUJO_COMPLETO.md#articulo-evaluacion-capacitacion)
+Artículo de referencia: [Evaluaciones de periodo de prueba](FLUJO_COMPLETO.md#articulo-evaluacion-capacitacion)
 
 | # | Pantalla | Acción | Narración |
 |---|---|---|---|
 | 1 | Introducción | Lista de evaluaciones. | En este video vas a ver cómo se decide si una persona continúa al terminar su contrato de capacitación inicial, y cómo se genera su contrato por tiempo indeterminado. |
-| 2 | Evaluación de capacitación inicial | Mostrar la lista con fecha límite. | Quince días antes del vencimiento, la evaluación aparece sola en la lista y el jefe directo recibe el aviso. Cada renglón muestra su fecha límite. |
+| 2 | Evaluaciones de periodo de prueba | Mostrar la lista con fecha límite. | Quince días antes del vencimiento, la evaluación aparece sola en la lista y el jefe directo recibe el aviso. Cada renglón muestra su fecha límite. |
 | 3 | Ciclo laboral → Evaluar | Calificar los siete criterios. | El jefe califica los siete criterios de cero a diez, escribe sus comentarios y recomienda renovar o no renovar. |
 | 4 | Autorización final de RH | Autorizar renovar. | Recursos Humanos toma la decisión final. Si decide distinto a la recomendación del jefe, el comentario es obligatorio. Si no se renueva, se abre el cierre laboral. |
 | 5 | Contrato indeterminado | Mostrar el documento listo. | Con la renovación autorizada, el contrato por tiempo indeterminado se genera una sola vez y queda listo para previsualizar, imprimir y firmar. |

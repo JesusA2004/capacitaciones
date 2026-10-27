@@ -138,7 +138,7 @@ El colaborador responde sus lecciones desde la app. Si no alcanza la calificaci�
 
 ## 09:42 — Evaluación
 
-**[09:42 · Desarrollo → Evaluación de capacitación inicial]**
+**[09:42 · Evaluaciones de periodo de prueba]**
 
 Quince días antes de que termine la capacitación, el sistema abre la evaluación y avisa al gerente. El gerente califica cada criterio, comenta y recomienda si la persona continúa. Recursos Humanos autoriza la decisión final.
 

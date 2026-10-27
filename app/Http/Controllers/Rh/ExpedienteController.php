@@ -43,6 +43,7 @@ use App\Services\Expedientes\ContratosPendientesExpedienteService;
 use App\Services\Expedientes\CorreccionesService;
 use App\Services\Expedientes\DatosExpedienteService;
 use App\Services\Expedientes\DatosFaltantesService;
+use App\Services\Expedientes\DocumentoParService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteCentroService;
 use App\Services\Expedientes\ExpedienteService;
@@ -91,6 +92,7 @@ class ExpedienteController extends Controller
         private readonly AltaImssService $altaImss,
         private readonly DatosExpedienteService $datosExpediente,
         private readonly DomicilioService $domicilios,
+        private readonly DocumentoParService $pares,
     ) {}
 
     /**
@@ -1028,7 +1030,7 @@ class ExpedienteController extends Controller
                 $decidible = $documento !== null && $documento->status->admiteDecisionDeRh();
 
                 return [
-                    'tipo' => ['id' => $tipo->id, 'nombre' => $tipo->nombre, 'clave' => $tipo->clave, 'requerido' => $tipo->requerido, 'opcional' => ! $tipo->requerido && $tipo->checklist_opcional],
+                    'tipo' => ['id' => $tipo->id, 'nombre' => $tipo->nombre, 'clave' => $tipo->clave, 'requerido' => $tipo->requerido, 'opcional' => ! $tipo->requerido && $tipo->checklist_opcional, 'par' => $this->pares->resumenPar($tipo, $vigentes)],
                     'documento' => $documento ? [
                         'id' => $documento->id,
                         'status' => $documento->status->value,

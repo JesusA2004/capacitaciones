@@ -3,6 +3,7 @@ import { router } from '@inertiajs/vue3';
 import { FileText, FileUp, Upload, UploadCloud, X } from '@lucide/vue';
 import { computed, onBeforeUnmount, ref } from 'vue';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
 import { useAlertas } from '@/composables/useAlertas';
 import { store as subirDocumento } from '@/routes/rh/expedientes/documentos';
@@ -11,6 +12,11 @@ const props = defineProps<{
     colaboradorId: number;
     tipoId: number;
     etiqueta: string;
+    /**
+     * Documento que puede venir en el mismo archivo (las dos cartas de
+     * recomendación). Solo se ofrece si hoy puede recibirlo.
+     */
+    par?: { id: number; nombre: string } | null;
 }>();
 
 const { mostrarExito, mostrarError } = useAlertas();
@@ -21,6 +27,7 @@ const subiendo = ref(false);
 const progreso = ref(0);
 const archivoPendiente = ref<File | null>(null);
 const previewUrl = ref<string | null>(null);
+const incluyePar = ref(false);
 
 const esImagenPendiente = computed(
     () => archivoPendiente.value?.type.startsWith('image/') ?? false,
@@ -93,7 +100,11 @@ function confirmarSubida() {
 
     router.post(
         subirDocumento.url(props.colaboradorId),
-        { document_type_id: props.tipoId, archivo },
+        {
+            document_type_id: props.tipoId,
+            archivo,
+            incluye_par: props.par && incluyePar.value ? 1 : 0,
+        },
         {
             forceFormData: true,
             preserveScroll: true,
@@ -101,11 +112,16 @@ function confirmarSubida() {
                 progreso.value = evento?.percentage ?? 0;
             },
             onSuccess: () =>
-                mostrarExito('Documento cargado. Queda en revisión.'),
+                mostrarExito(
+                    props.par && incluyePar.value
+                        ? 'Archivo cargado en las dos cartas. Revisa cada una por separado.'
+                        : 'Documento cargado. Queda en revisión.',
+                ),
             onError: () => mostrarError('No fue posible cargar el documento.'),
             onFinish: () => {
                 subiendo.value = false;
                 progreso.value = 0;
+                incluyePar.value = false;
                 limpiarPreview();
 
                 if (inputEl.value) {
@@ -186,6 +202,24 @@ function confirmarSubida() {
                     </p>
                 </div>
             </div>
+
+            <label
+                v-if="par"
+                class="flex items-start gap-2 rounded-lg bg-crema p-2 text-xs"
+            >
+                <Checkbox
+                    class="mt-0.5"
+                    :model-value="incluyePar"
+                    @update:model-value="(v) => (incluyePar = !!v)"
+                />
+                <span>
+                    Este archivo trae también la «{{ par.nombre }}».
+                    <span class="block text-muted-foreground"
+                        >Se registra en las dos y cada una se aprueba o rechaza
+                        por separado.</span
+                    >
+                </span>
+            </label>
 
             <Button size="sm" class="w-full" @click="confirmarSubida">
                 <Upload class="size-3.5" />

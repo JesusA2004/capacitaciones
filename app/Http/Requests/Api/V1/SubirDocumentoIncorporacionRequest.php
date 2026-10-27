@@ -29,6 +29,9 @@ class SubirDocumentoIncorporacionRequest extends FormRequest
                 'max:'.(config('expedientes.max_upload_mb') * 1024),
                 'mimes:'.implode(',', config('expedientes.extensiones_permitidas')),
             ],
+            // El archivo trae también el documento par (las dos cartas de
+            // recomendación juntas): ver DocumentoParService.
+            'incluye_par' => ['sometimes', 'boolean'],
         ];
     }
 }

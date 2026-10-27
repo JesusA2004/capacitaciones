@@ -9,6 +9,7 @@ use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Services\Expedientes\CartaCompromisoService;
+use App\Services\Expedientes\DocumentoParService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Incorporacion\IncorporacionService;
 use Illuminate\Http\RedirectResponse;
@@ -21,6 +22,7 @@ class EmployeeDocumentController extends Controller
 {
     public function __construct(
         private readonly DocumentoStorageService $storage,
+        private readonly DocumentoParService $pares,
         private readonly IncorporacionService $incorporacion,
         private readonly CartaCompromisoService $cartas,
     ) {}
@@ -40,14 +42,23 @@ class EmployeeDocumentController extends Controller
             ->where('status', '!=', EstadoDocumento::Archivado->value)
             ->exists();
 
-        $documento = $this->storage->subirVersion($colaborador, $tipo, $request->file('archivo'), $request->user()->id);
+        try {
+            ['documento' => $documento, 'par' => $par] = $this->pares->subir($colaborador, $tipo, $request->file('archivo'), $request->user()->id, $request->boolean('incluye_par'));
+        } catch (RuntimeException $e) {
+            throw ValidationException::withMessages(['archivo' => $e->getMessage()]);
+        }
+
         $this->cartas->sincronizarSinFallar($colaborador);
+
+        $mensaje = $versionAnterior
+            ? "Nueva versión de «{$tipo->nombre}» cargada (v{$documento->version}). Queda en revisión."
+            : "«{$tipo->nombre}» cargado correctamente. Queda en revisión.";
 
         return back()->with('toast', [
             'type' => 'success',
-            'message' => $versionAnterior
-                ? "Nueva versión de «{$tipo->nombre}» cargada (v{$documento->version}). Queda en revisión."
-                : "«{$tipo->nombre}» cargado correctamente. Queda en revisión.",
+            'message' => $par !== null
+                ? sprintf('«%s» y «%s» cargadas con el mismo archivo. Revisa y aprueba cada una por separado.', $tipo->nombre, $par->tipo->nombre)
+                : $mensaje,
         ]);
     }
 

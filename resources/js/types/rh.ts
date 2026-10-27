@@ -239,6 +239,11 @@ export type DocumentoExpedienteItem = {
         requerido: boolean;
         /** Opcional del checklist: se ve y se asigna, nunca cuenta como faltante. */
         opcional?: boolean;
+        /**
+         * Documento que puede venir en el mismo archivo (las dos cartas de
+         * recomendación). `puede_subir`: su par hoy puede recibir el archivo.
+         */
+        par?: { id: number; nombre: string; puede_subir: boolean } | null;
     };
     documento: DocumentoExpedienteInfo | null;
 };

@@ -32,6 +32,23 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Documentos en par (pueden venir en un mismo archivo)
+    |--------------------------------------------------------------------------
+    |
+    | Cada carta de recomendación es un documento propio del checklist (se
+    | sube, se aprueba y se rechaza por separado). Si la persona trae las dos
+    | en un mismo archivo, al subirlo marca «Este archivo trae también la
+    | otra carta» y se registra una copia en su par, que RH revisa aparte
+    | (App\Services\Expedientes\DocumentoParService). Clave => clave del par.
+    |
+    */
+    'pares_mismo_archivo' => [
+        'carta_recomendacion_1' => 'carta_recomendacion_2',
+        'carta_recomendacion_2' => 'carta_recomendacion_1',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Carta compromiso de documentos pendientes
     |--------------------------------------------------------------------------
     |
@@ -289,7 +306,7 @@ return [
                 'continuacion' => false,
                 'campos' => ['curp'],
             ],
-            'cartas_recomendacion' => [
+            'carta_recomendacion_1' => [
                 'fuertes' => ['CARTA DE RECOMENDACION', 'CARTA DE REFERENCIA'],
                 'debiles' => ['A QUIEN CORRESPONDA', 'RECOMIENDO', 'RECOMENDACION', 'PERSONA HONESTA', 'RESPONSABLE Y TRABAJADOR', 'TENGO EL GUSTO', 'CONOZCO'],
                 'continuacion' => false,

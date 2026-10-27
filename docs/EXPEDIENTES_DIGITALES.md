@@ -7,9 +7,19 @@ El expediente de un colaborador **no es una tabla propia**: es una vista calcula
 - `documentosVigentes(User $colaborador)`: el documento más reciente (no archivado) de cada tipo.
 - `resumenCompletitud(User $colaborador)`: `{ porcentaje, requeridos_total, requeridos_aprobados, pendientes, rechazados }`, comparando contra `document_types` donde `requerido=true` y `activo=true`.
 
+### Cartas de recomendación: dos documentos (2026-10-27)
+
+«2 cartas de recomendación» dejó de ser un solo documento con las dos cartas en el mismo archivo. Ahora son **dos obligatorios del alta**: **Carta de recomendación 1** (`carta_recomendacion_1`, el tipo existente renombrado — mismo id) y **Carta de recomendación 2** (`carta_recomendacion_2`). El checklist tiene **15 requeridos**.
+
+- Cada carta se sube (foto o PDF), se aprueba y se rechaza **por separado**: RH puede aprobar las dos, o aprobar una y rechazar la otra; solo la rechazada se vuelve a subir.
+- **Si las dos vienen en un mismo archivo**, se sube una sola vez marcando «Este archivo trae también la carta 2» (web RH: casilla en el dropzone; app: interruptor en el detalle del documento). `App\Services\Expedientes\DocumentoParService` registra una **copia física** en el par (nunca dos filas sobre el mismo archivo), con la nota «Mismo archivo que «Carta de recomendación 1»». El par solo recibe el archivo si no tiene uno vigente o el vigente está rechazado/requiere corrección/vencido/cambio autorizado; si está en revisión o aprobado → 422 y no se guarda nada.
+- Los pares viven en `config('expedientes.pares_mismo_archivo')` (clave ⇄ clave).
+- Migración `2026_10_27_090000_separar_cartas_de_recomendacion`: renombra el tipo, inserta la carta 2 (justo después) y **copia** cada archivo vigente de la carta 1 a la carta 2 **con el mismo estado** — se pidió como «las dos cartas en un archivo», así que ningún expediente pierde avance. Un archivo que el NAS no pudo copiar queda en el log; se reintenta con `php artisan expedientes:separar-cartas-recomendacion` (idempotente).
+- División del PDF histórico: las hojas de cartas se clasifican como carta 1 (`config('expedientes.division_historico.reglas.carta_recomendacion_1')`); si trae dos cartas, RH mueve las hojas de la segunda a la carta 2 en el editor de hojas.
+
 ### Documentos opcionales del checklist (2026-10-22)
 
-Además de los 14 requeridos, el catálogo trae **3 documentos opcionales del checklist** (`document_types.checklist_opcional = true`, `requerido = false`, `aplica_alta = false`): **Pagaré** (`pagare_expediente`), **Carta de antecedentes no penales** (`carta_antecedentes_no_penales`) y **Licencia de conducir** (`licencia_conducir`). Llegan a producción con la migración `2026_10_22_210000_add_checklist_opcional_a_document_types` (idempotente) y también con `DocumentTypeSeeder`.
+Además de los 15 requeridos, el catálogo trae **3 documentos opcionales del checklist** (`document_types.checklist_opcional = true`, `requerido = false`, `aplica_alta = false`): **Pagaré** (`pagare_expediente`), **Carta de antecedentes no penales** (`carta_antecedentes_no_penales`) y **Licencia de conducir** (`licencia_conducir`). Llegan a producción con la migración `2026_10_22_210000_add_checklist_opcional_a_document_types` (idempotente) y también con `DocumentTypeSeeder`.
 
 - **Se ven** en el checklist del expediente (web RH y «Mi expediente») con el chip «Opcional» y se pueden subir o **asignar** desde la división del PDF histórico (`DivisionExpedienteHistoricoService::tiposChecklist()` = scope `DocumentType::delChecklist()`).
 - **Nunca cuentan**: ni en el avance (`ProgresoExpediente`/`resumenCompletitud`), ni como faltante (`estadoDocumental`, `DocumentosPendientesService`), ni en el bloqueo de la app, ni en la carta compromiso, ni en el checklist de incorporación de la API móvil (`IncorporacionService::tiposDocumento`). Todo eso sigue leyendo solo `requerido = true`, así que la API V1 y las APKs instaladas no cambian.

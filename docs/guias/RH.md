@@ -24,7 +24,7 @@ Lleva el proceso de punta a punta: vacantes, campañas, candidatos, autorizacion
 - [ ] Expedientes y datos faltantes → [Qué le falta a un expediente (y cómo avisar)](#articulo-completitud-expediente)
 - [ ] Generar contratos → [Contrato de capacitación inicial](#articulo-contrato-inicial)
 - [ ] Cerrar onboarding (alta real) → [Onboarding: la bienvenida del colaborador](#articulo-onboarding)
-- [ ] Autorizar evaluaciones → [Evaluación de capacitación inicial](#articulo-evaluacion-capacitacion)
+- [ ] Autorizar evaluaciones → [Evaluaciones de periodo de prueba](#articulo-evaluacion-capacitacion)
 - [ ] Autorizar solicitudes → [Revisar solicitudes (gerente, regional y RH)](#articulo-revisar-solicitudes)
 - [ ] Preparar y emitir nómina → [Recibos de nómina: preparar, revisar y emitir](#articulo-nomina-lotes)
 - [ ] Enviar avisos → [Avisos de Recursos Humanos](#articulo-avisos)
@@ -658,11 +658,12 @@ Colaborador, RH.
 
 #### Lo que se captura
 
-- **Documentos obligatorios del alta:** Solicitud de empleo (formato interno) · 2 fotografías tamaño infantil · Acta de nacimiento · Identificación oficial · Número de Seguridad Social · CURP · Constancia de situación fiscal (RFC) · Comprobante de domicilio · Comprobante de estudios · 2 cartas de recomendación · Datos bancarios (cuenta, tarjeta y CLABE)
+- **Documentos obligatorios del alta:** Solicitud de empleo (formato interno) · 2 fotografías tamaño infantil · Acta de nacimiento · Identificación oficial · Número de Seguridad Social · CURP · Constancia de situación fiscal (RFC) · Comprobante de domicilio · Comprobante de estudios · Carta de recomendación 1 · Carta de recomendación 2 (cada carta se sube como foto o PDF; si vienen juntas, un solo archivo marcando «trae también la otra carta») · Datos bancarios (cuenta, tarjeta y CLABE)
 
 #### Qué pasa después
 
 - Cada documento rechazado le llega a la persona con su motivo (notificación y push) para que lo vuelva a subir.
+- Las dos cartas de recomendación se revisan por separado: puedes aprobar las dos, o aprobar una y rechazar la otra; solo la rechazada se vuelve a subir.
 - Cuando el último obligatorio queda aprobado, RH recibe «Expediente completo» y el pendiente «Generar paquete de contratación».
 - Un documento ya aprobado no se reemplaza directo: la persona solicita el cambio y RH lo autoriza.
 
@@ -1123,7 +1124,7 @@ El colaborador responde las lecciones; RH da retroalimentación si no aprueba; e
 
 - [Configurar las lecciones y el equipo](#articulo-configurar-onboarding)
 - [Alta real: colaborador activo](#articulo-alta-activa)
-- [Evaluación de capacitación inicial](#articulo-evaluacion-capacitacion)
+- [Evaluaciones de periodo de prueba](#articulo-evaluacion-capacitacion)
 
 #### En el sistema
 
@@ -1156,12 +1157,12 @@ RH elige a quién le presenta la inducción, la presenta (en sala o por Meet), e
 3. **Contestar la evaluación** _(Colaborador · Web y app)_ — El aviso abre directo la evaluación en la app. Secciones A (opción múltiple), B (verdadero/falso), C (relaciona columnas), D (casos prácticos) y E (opinión, no califica). Se envía una sola vez; la clave de respuestas nunca llega al teléfono ni al navegador.
 4. **RH revisa y califica** _(RH · Web)_ — Le llega el aviso «Evaluación de inducción por calificar». En la revisión ve cada pregunta con la respuesta del colaborador y si acertó (A/B/C se califican solas), marca la rúbrica oficial de los casos prácticos (D), puede dejar un comentario y ve el total /30. Desde ahí también ve la vista previa del formato FO-RH-EI, lo descarga o lo guarda en el expediente.
 5. **Si requiere reforzamiento** _(RH)_ — Menos de 24/30: RH deja retroalimentación y habilita la reevaluación (plazo de 5 días hábiles). El colaborador no puede reintentar antes.
-6. **Seguimiento** _(RH · Web)_ — En «Presentar inducción» RH ve a cada persona en ingreso: Pendiente de presentar → Presentada · por contestar → Por calificar (D) → Aprobada / Reforzamiento, y si ya está Laborando.
+6. **Seguimiento** _(RH · Web)_ — En «Presentar inducción» RH ve a cada persona en ingreso: Pendiente de presentar → Presentada · por contestar → Por calificar (D) → Aprobada / Reforzamiento, y si ya tiene Contrato indeterminado.
 7. **Qué ve el colaborador** _(Colaborador · Web y app)_ — El colaborador nunca presenta: en Mi espacio → «Inducción Mr. Lana» solo ve el PDF mientras la sesión de RH en la que lo incluyeron está en curso. Antes de la sesión ve que RH se la presentará; después, su evaluación por contestar y, al terminarla, que ya la completó (sin el contenido).
 
 #### Qué pasa después
 
-- Aprobada (24/30 o más): se aprueba el módulo de inducción y el formato FO-RH-EI se guarda solo en el expediente (carpeta Otros). Si ya no quedan módulos de puesto ni activos por entregar, el onboarding se cierra y la persona queda activa: en el tablero de candidatos pasa de «Capacitación inicial» a «Laborando». Si quedan pendientes, sigue el onboarding normal.
+- Aprobada (24/30 o más): se aprueba el módulo de inducción y el formato FO-RH-EI se guarda solo en el expediente (carpeta Otros). Si ya no quedan módulos de puesto ni activos por entregar, el onboarding se cierra y la persona queda activa: en el tablero de candidatos pasa de «Capacitación inicial» a «Contrato indeterminado». Si quedan pendientes, sigue el onboarding normal.
 - La segunda evaluación es la de periodo de prueba, que se abre 15 días hábiles antes de que venza su contrato.
 
 #### Notificaciones
@@ -1244,13 +1245,13 @@ RH.
 
 <a id="articulo-evaluacion-capacitacion"></a>
 
-### Evaluación de capacitación inicial
+### Evaluaciones de periodo de prueba
 
-> 15 días antes de que venza la capacitación, PEOPLE abre la evaluación al jefe; él califica y recomienda; RH autoriza.
+> Un solo módulo con tres pestañas: Próximas / por asignar, En proceso y Evaluadas. El jefe directo contesta el FO-RH-EPP-001; RH decide e imprime el PDF para firma.
 
 #### Qué es
 
-Es la evaluación con la que se decide si la persona sigue (contrato por tiempo indeterminado) o no. Usa los 7 criterios del formato oficial de Jurídico.
+Es la evaluación de término de periodo de prueba (FO-RH-EPP-001) con la que se decide si la persona sigue (contrato por tiempo indeterminado) o no. La contesta su jefe directo del organigrama, nunca el colaborador.
 
 #### Quién lo hace
 
@@ -1262,14 +1263,16 @@ Evalúa el jefe inmediato (normalmente el gerente de la sucursal); autoriza RH.
 
 #### Pasos
 
-1. **PEOPLE la abre sola** _(Automático)_ — Cada mañana revisa los vencimientos. 15 días antes del fin (por ejemplo, un Gestor con 2 meses se avisa al mes y medio) crea la evaluación y avisa.
-2. **El jefe evalúa** _(Gerente · Web y app)_ — Desarrollo → Evaluación de capacitación inicial → la persona → «Evaluar periodo de prueba». Califica cada criterio de 0 a 10 con comentario, elige «Recomiendo renovar» o «No renovar» y escribe observaciones.
-3. **RH autoriza** _(RH)_ — «Autorización final de RH»: confirma renovar o no renovar. Si decide distinto a lo que recomendó el jefe, el comentario es obligatorio. También puede devolverla para corrección.
+1. **PEOPLE la abre sola** _(Automático)_ — Cada mañana revisa los vencimientos. 15 días hábiles antes del fin crea la evaluación y avisa al jefe directo. RH también puede adelantarla desde la pestaña «Próximas / por asignar» con «Asignar evaluación».
+2. **El jefe evalúa** _(Gerente · Web y app)_ — Evaluaciones de periodo de prueba → pestaña «En proceso» → «Contestar evaluación». Califica los 9 criterios del FO-RH-EPP-001 (4 Muy bueno a 1 Deficiente), responde las 5 preguntas filtro y escribe tus comentarios; PEOPLE calcula si se renueva.
+3. **RH decide** _(RH)_ — Pestaña «En proceso» → chip «Por decidir RH» → «Revisar y decidir»: confirma renovar o no renovar. Si decide distinto a lo que recomendó el jefe, el comentario es obligatorio. También puede devolverla para corrección.
+4. **Ver respuestas e imprimir para firma** _(RH)_ — Pestaña «Evaluadas» → «Ver respuestas» (calificación de cada criterio, preguntas filtro, total y resultado) → «Imprimir PDF para firma»: primero se ve la vista previa; firman el jefe inmediato, la Gerencia de RH y el colaborador.
 
 #### Lo que se captura
 
-- **Criterios (0 a 10):** Gestión operativa de la sucursal · Cumplimiento de KPI’s · Liderazgo y supervisión · Reportes y controles administrativos · Toma de decisiones · Apego a políticas internas · Responsabilidad y seguimiento
-- **Decisión:** Recomiendo renovar / No renovar · Observaciones
+- **Paso 1 · Desempeño (4 Muy bueno · 3 Bueno · 2 Regular · 1 Deficiente):** Conoce y hace bien su trabajo · Cumple sus metas · Trabaja sin errores · Asistencia y puntualidad · Cumplimiento a políticas y procesos operativos · Uniforme, imagen y reglas internas · Trato al cliente · Trabajo en equipo y actitud · Aprende e iniciativa
+- **Paso 2 · Preguntas filtro (Sí / No):** Un solo «Sí» = no se renueva
+- **Paso 3 · Resultado:** Se renueva solo sin ningún 1, sin ningún «Sí» y con el total mínimo · Comentarios del jefe inmediato
 
 #### Qué pasa después
 
@@ -1288,7 +1291,7 @@ Evalúa el jefe inmediato (normalmente el gerente de la sucursal); autoriza RH.
 
 #### Errores comunes
 
-- **«No veo la evaluación todavía.»** Se habilita 15 días antes del vencimiento. El ciclo laboral muestra cuántos días faltan.
+- **«No veo la evaluación todavía.»** Se habilita sola 15 días hábiles antes del vencimiento, o antes si RH la asigna desde «Próximas / por asignar». Si dice «Aún no se puede asignar», genera primero su contrato de capacitación inicial.
 - **«RH no puede autorizar.»** Solo se autoriza una evaluación capturada por el jefe.
 
 #### Relacionado con
@@ -1344,7 +1347,7 @@ RH, Gerente.
 
 #### Relacionado con
 
-- [Evaluación de capacitación inicial](#articulo-evaluacion-capacitacion)
+- [Evaluaciones de periodo de prueba](#articulo-evaluacion-capacitacion)
 - [Firma de contratos y control del original](#articulo-firma-y-original)
 
 #### En el sistema
@@ -2087,7 +2090,7 @@ RH, Gerente, Regional.
 
 - [Las fases del candidato](#articulo-etapas-del-candidato)
 - [Firma de contratos y control del original](#articulo-firma-y-original)
-- [Evaluación de capacitación inicial](#articulo-evaluacion-capacitacion)
+- [Evaluaciones de periodo de prueba](#articulo-evaluacion-capacitacion)
 
 #### En el sistema
 

@@ -20,7 +20,7 @@ Entrevista y revisa a los candidatos de su sucursal (psicométricos y socioecon�
 - [ ] Solicitar intervención (si RH rechaza) → [Intervención sobre un rechazo de RH](#articulo-intervencion)
 - [ ] Imprimir, firmar y enviar contratos → [Firma de contratos y control del original](#articulo-firma-y-original)
 - [ ] Entregar equipo (onboarding) → [Onboarding: la bienvenida del colaborador](#articulo-onboarding)
-- [ ] Evaluación de capacitación inicial → [Evaluación de capacitación inicial](#articulo-evaluacion-capacitacion)
+- [ ] Evaluaciones de periodo de prueba → [Evaluaciones de periodo de prueba](#articulo-evaluacion-capacitacion)
 - [ ] Visto bueno de permisos y vacaciones → [Revisar solicitudes (gerente, regional y RH)](#articulo-revisar-solicitudes)
 - [ ] Levantar un acta → [Acta administrativa circunstanciada](#articulo-actas)
 - [ ] Iniciar la baja de alguien de tu equipo → [Baja de un colaborador (forma de salida y causal)](#articulo-baja)
@@ -453,13 +453,13 @@ El colaborador responde las lecciones; RH da retroalimentación si no aprueba; e
 
 <a id="articulo-evaluacion-capacitacion"></a>
 
-### Evaluación de capacitación inicial
+### Evaluaciones de periodo de prueba
 
-> 15 días antes de que venza la capacitación, PEOPLE abre la evaluación al jefe; él califica y recomienda; RH autoriza.
+> Un solo módulo con tres pestañas: Próximas / por asignar, En proceso y Evaluadas. El jefe directo contesta el FO-RH-EPP-001; RH decide e imprime el PDF para firma.
 
 #### Qué es
 
-Es la evaluación con la que se decide si la persona sigue (contrato por tiempo indeterminado) o no. Usa los 7 criterios del formato oficial de Jurídico.
+Es la evaluación de término de periodo de prueba (FO-RH-EPP-001) con la que se decide si la persona sigue (contrato por tiempo indeterminado) o no. La contesta su jefe directo del organigrama, nunca el colaborador.
 
 #### Quién lo hace
 
@@ -467,9 +467,10 @@ Evalúa el jefe inmediato (normalmente el gerente de la sucursal); autoriza RH.
 
 #### Pasos
 
-1. **PEOPLE la abre sola** _(Automático)_ — Cada mañana revisa los vencimientos. 15 días antes del fin (por ejemplo, un Gestor con 2 meses se avisa al mes y medio) crea la evaluación y avisa.
-2. **El jefe evalúa** _(Gerente · Web y app)_ — Desarrollo → Evaluación de capacitación inicial → la persona → «Evaluar periodo de prueba». Califica cada criterio de 0 a 10 con comentario, elige «Recomiendo renovar» o «No renovar» y escribe observaciones.
-3. **RH autoriza** _(RH)_ — «Autorización final de RH»: confirma renovar o no renovar. Si decide distinto a lo que recomendó el jefe, el comentario es obligatorio. También puede devolverla para corrección.
+1. **PEOPLE la abre sola** _(Automático)_ — Cada mañana revisa los vencimientos. 15 días hábiles antes del fin crea la evaluación y avisa al jefe directo. RH también puede adelantarla desde la pestaña «Próximas / por asignar» con «Asignar evaluación».
+2. **El jefe evalúa** _(Gerente · Web y app)_ — Evaluaciones de periodo de prueba → pestaña «En proceso» → «Contestar evaluación». Califica los 9 criterios del FO-RH-EPP-001 (4 Muy bueno a 1 Deficiente), responde las 5 preguntas filtro y escribe tus comentarios; PEOPLE calcula si se renueva.
+3. **RH decide** _(RH)_ — Pestaña «En proceso» → chip «Por decidir RH» → «Revisar y decidir»: confirma renovar o no renovar. Si decide distinto a lo que recomendó el jefe, el comentario es obligatorio. También puede devolverla para corrección.
+4. **Ver respuestas e imprimir para firma** _(RH)_ — Pestaña «Evaluadas» → «Ver respuestas» (calificación de cada criterio, preguntas filtro, total y resultado) → «Imprimir PDF para firma»: primero se ve la vista previa; firman el jefe inmediato, la Gerencia de RH y el colaborador.
 
 #### Qué pasa después
 
@@ -478,7 +479,7 @@ Evalúa el jefe inmediato (normalmente el gerente de la sucursal); autoriza RH.
 
 #### Errores comunes
 
-- **«No veo la evaluación todavía.»** Se habilita 15 días antes del vencimiento. El ciclo laboral muestra cuántos días faltan.
+- **«No veo la evaluación todavía.»** Se habilita sola 15 días hábiles antes del vencimiento, o antes si RH la asigna desde «Próximas / por asignar». Si dice «Aún no se puede asignar», genera primero su contrato de capacitación inicial.
 - **«RH no puede autorizar.»** Solo se autoriza una evaluación capturada por el jefe.
 
 #### En el sistema

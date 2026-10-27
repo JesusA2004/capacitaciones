@@ -304,14 +304,14 @@ test('reordenar dentro del documento: el PDF sale con las hojas en el orden indi
 
 test('partir un bloque: «nuevo documento desde esta hoja» separa la hoja 2 de la solicitud', function () {
     $documentos = planEditor(
-        ['solicitud_empleo' => [1], 'cartas_recomendacion' => [2], 'ine' => [3], 'rfc' => [4], 'contrato' => [8]],
+        ['solicitud_empleo' => [1], 'carta_recomendacion_1' => [2], 'ine' => [3], 'rfc' => [4], 'contrato' => [8]],
         [[5, 6, 7], [9, 10, 11, 12]],
     );
 
     $this->editor->confirmar($this->division, $documentos, 0, $this->rh);
 
     $solicitud = $this->division->partesVigentes()->where('document_type_id', tipoEditor('solicitud_empleo'))->firstOrFail();
-    $carta = $this->division->partesVigentes()->where('document_type_id', tipoEditor('cartas_recomendacion'))->firstOrFail();
+    $carta = $this->division->partesVigentes()->where('document_type_id', tipoEditor('carta_recomendacion_1'))->firstOrFail();
 
     expect($solicitud->paginas)->toBe([1])
         ->and(hojasDelPdf((string) Storage::disk('nas')->get($solicitud->documento->path)))->toBe([1])

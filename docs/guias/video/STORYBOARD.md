@@ -359,8 +359,8 @@
 | | |
 |---|---|
 | **Capítulo** | Evaluación |
-| **Pantalla** | Desarrollo → Evaluación de capacitación inicial (`/rh/evaluaciones`) |
-| **Acción** | Mostrar la lista con fechas límite; abrir «Evaluar periodo de prueba» y calificar los criterios. |
+| **Pantalla** | Evaluaciones de periodo de prueba (`/rh/evaluaciones`) |
+| **Acción** | Mostrar las pestañas Próximas / por asignar, En proceso y Evaluadas; asignar una evaluación, ver respuestas e imprimir el PDF para firma. |
 | **Zoom** | Zoom a los criterios |
 | **Texto en pantalla** | 15 días antes del vencimiento |
 | **Captura / clip** | `25-evaluaciones.png` |
