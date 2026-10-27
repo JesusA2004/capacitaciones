@@ -77,17 +77,22 @@ class IncorporacionService
      * contratación (Etapa 2) solo los que aplican al alta: los demás
      * (contrato firmado...) nacen después y no deben bloquear su expediente.
      *
+     * Única excepción: el PAR opcional de un requerido (la «Carta de
+     * recomendación 2» junto a la 1, DocumentoParService::conPares) se lista
+     * para poder subirlo, con `requerido = false`: el avance, el estado
+     * general y la aprobación filtran por `requerido`, así que nunca cuenta.
+     *
      * @return Collection<int, DocumentType>
      */
     public function tiposDocumento(?Colaborador $colaborador = null): Collection
     {
-        return DocumentType::query()
+        return $this->pares->conPares(DocumentType::query()
             ->where('activo', true)
             ->where('requerido', true)
             ->when($colaborador?->estado_alta?->enContratacion() === true, fn ($q) => $q->where('aplica_alta', true))
             ->orderBy('orden')
             ->orderBy('nombre')
-            ->get();
+            ->get());
     }
 
     /**

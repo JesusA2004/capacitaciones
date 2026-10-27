@@ -10,8 +10,8 @@ class DocumentTypeSeeder extends Seeder
     /**
      * Catálogo de documentos de expediente (ver docs/EXPEDIENTES_DIGITALES.md).
      *
-     * El checklist del expediente son EXACTAMENTE los 15 obligatorios, en
-     * este orden, más 3 OPCIONALES del checklist (pagaré, carta de
+     * El checklist del expediente son EXACTAMENTE los 14 obligatorios, en
+     * este orden, más 4 OPCIONALES del checklist (carta de recomendación 2, pagaré, carta de
      * antecedentes no penales, licencia de conducir) que se ven con la
      * etiqueta «Opcional» y se pueden asignar, pero nunca cuentan para el
      * avance, los faltantes, el bloqueo de la app ni la carta compromiso.
@@ -31,11 +31,11 @@ class DocumentTypeSeeder extends Seeder
             ['clave' => 'rfc', 'nombre' => 'Constancia de situación fiscal (RFC)', 'categoria' => 'personales', 'aplica_alta' => true],
             ['clave' => 'comprobante_domicilio', 'nombre' => 'Comprobante de domicilio', 'categoria' => 'personales', 'aplica_alta' => true],
             ['clave' => 'comprobante_estudios', 'nombre' => 'Comprobante de estudios', 'categoria' => 'personales', 'aplica_alta' => true],
-            // Cada carta es su propio documento (se aprueba o rechaza aparte);
-            // si vienen en un mismo archivo se sube una vez marcando «trae
-            // también la otra carta» (config expedientes.pares_mismo_archivo).
+            // La carta 2 es opcional (abajo): con la carta 1 aprobada el
+            // expediente ya está completo. Cada carta se aprueba o rechaza
+            // aparte; si vienen en un mismo archivo se sube una vez marcando
+            // «trae también la otra carta» (config expedientes.pares_mismo_archivo).
             ['clave' => 'carta_recomendacion_1', 'nombre' => 'Carta de recomendación 1', 'categoria' => 'personales', 'aplica_alta' => true],
-            ['clave' => 'carta_recomendacion_2', 'nombre' => 'Carta de recomendación 2', 'categoria' => 'personales', 'aplica_alta' => true],
             ['clave' => 'datos_bancarios', 'nombre' => 'Datos bancarios (número de cuenta, tarjeta y CLABE interbancaria)', 'categoria' => 'personales', 'aplica_alta' => true],
             ['clave' => 'contrato', 'nombre' => 'Contrato laboral', 'categoria' => 'contratos', 'aplica_alta' => false],
             ['clave' => 'carta_confidencialidad', 'nombre' => 'Contrato / carta de confidencialidad', 'categoria' => 'contratos', 'aplica_alta' => false],
@@ -50,6 +50,7 @@ class DocumentTypeSeeder extends Seeder
         // a propósito: «pagare» es la clave de la PLANTILLA del pagaré de
         // préstamos (config/contratos.php), que es otro documento.
         $opcionalesChecklist = [
+            ['clave' => 'carta_recomendacion_2', 'nombre' => 'Carta de recomendación 2'],
             ['clave' => 'pagare_expediente', 'nombre' => 'Pagaré'],
             ['clave' => 'carta_antecedentes_no_penales', 'nombre' => 'Carta de antecedentes no penales'],
             ['clave' => 'licencia_conducir', 'nombre' => 'Licencia de conducir'],

@@ -4,16 +4,16 @@ use App\Enums\EstadoDocumento;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\User;
-use App\Services\Expedientes\DocumentoParService;
 use Database\Seeders\DocumentTypeSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 
 /*
-| Las 2 cartas de recomendación son dos documentos del checklist: cada una se
-| sube (foto o PDF), se aprueba y se rechaza por separado; si vienen en un
-| mismo archivo se sube una vez con `incluye_par` y queda en las dos.
+| Las cartas de recomendación son dos documentos del checklist (la 1
+| obligatoria, la 2 opcional): cada una se sube (foto o PDF), se aprueba y se
+| rechaza por separado; si vienen en un mismo archivo se sube una vez con
+| `incluye_par` y queda en las dos.
 */
 
 beforeEach(function () {
@@ -39,16 +39,32 @@ function vigenteCarta(DocumentType $tipo): ?EmployeeDocument
     return EmployeeDocument::query()->where('document_type_id', $tipo->id)->where('status', '!=', EstadoDocumento::Archivado->value)->orderByDesc('version')->first();
 }
 
-test('el catálogo trae dos cartas obligatorias del alta, ya no una sola', function () {
-    foreach ([$this->carta1, $this->carta2] as $tipo) {
-        expect($tipo->requerido)->toBeTrue()
-            ->and($tipo->aplica_alta)->toBeTrue()
-            ->and($tipo->activo)->toBeTrue();
-    }
-
-    expect($this->carta1->nombre)->toBe('Carta de recomendación 1')
+test('la carta 1 es obligatoria del alta y la carta 2 opcional del checklist', function () {
+    expect($this->carta1->requerido)->toBeTrue()
+        ->and($this->carta1->aplica_alta)->toBeTrue()
+        ->and($this->carta1->nombre)->toBe('Carta de recomendación 1')
+        ->and($this->carta2->requerido)->toBeFalse()
+        ->and($this->carta2->checklist_opcional)->toBeTrue()
+        ->and($this->carta2->activo)->toBeTrue()
         ->and($this->carta2->nombre)->toBe('Carta de recomendación 2')
         ->and(DocumentType::query()->where('clave', 'cartas_recomendacion')->exists())->toBeFalse();
+});
+
+test('la app lista la carta 2 como opcional y con solo la carta 1 aprobada el expediente queda completo', function () {
+    $requeridos = DocumentType::query()->where('requerido', true)->where('activo', true)->get();
+
+    foreach ($requeridos as $tipo) {
+        EmployeeDocument::factory()->aprobado()->create(['user_id' => $this->usuario->id, 'document_type_id' => $tipo->id]);
+    }
+
+    $respuesta = $this->withHeaders(headersCartas($this->usuario))->getJson('/api/v1/colaborador/incorporacion')->assertOk();
+    $carta2 = collect($respuesta->json('documentos'))->firstWhere('tipo', 'carta_recomendacion_2');
+
+    expect($carta2['obligatorio'])->toBeFalse()
+        ->and($carta2['puede_subir'])->toBeTrue()
+        ->and($respuesta->json('progreso.total'))->toBe($requeridos->count())
+        ->and($respuesta->json('progreso.porcentaje'))->toBe(100)
+        ->and($respuesta->json('estado'))->toBe('completo');
 });
 
 test('la app ofrece subir las dos cartas con un mismo archivo y lo registra en ambas', function () {
@@ -159,32 +175,4 @@ test('un tipo sin par no acepta «incluye_par»', function () {
         ->assertStatus(422);
 
     expect(vigenteCarta($ine))->toBeNull();
-});
-
-test('los expedientes cargados con «las dos cartas en un archivo» se separan sin perder avance', function () {
-    Storage::disk('nas')->put('Expedientes/Persona/Personales/2 cartas de recomendacion - v1.pdf', 'contenido');
-    $anterior = EmployeeDocument::factory()->aprobado()->create([
-        'user_id' => $this->usuario->id,
-        'document_type_id' => $this->carta1->id,
-        'disk' => 'nas',
-        'path' => 'Expedientes/Persona/Personales/2 cartas de recomendacion - v1.pdf',
-        'extension' => 'pdf',
-    ]);
-
-    $servicio = app(DocumentoParService::class);
-    $resultado = $servicio->separarArchivosCompartidos('carta_recomendacion_1', 'carta_recomendacion_2', 'Copia de la carta 1.');
-
-    $copia = vigenteCarta($this->carta2);
-
-    expect($resultado['copiados'])->toBe(1)
-        ->and($resultado['errores'])->toBe([])
-        ->and($copia->status)->toBe(EstadoDocumento::Aprobado)
-        ->and($copia->colaborador_id)->toBe($anterior->colaborador_id)
-        ->and($copia->path)->not->toBe($anterior->path);
-
-    Storage::disk('nas')->assertExists($copia->path);
-
-    // Idempotente.
-    expect($servicio->separarArchivosCompartidos('carta_recomendacion_1', 'carta_recomendacion_2', 'Copia de la carta 1.')['copiados'])->toBe(0)
-        ->and(EmployeeDocument::query()->where('document_type_id', $this->carta2->id)->count())->toBe(1);
 });

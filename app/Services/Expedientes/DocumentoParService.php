@@ -8,9 +8,7 @@ use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
 use RuntimeException;
-use Throwable;
 
 /**
  * Documentos del checklist que pueden venir en UN MISMO archivo
@@ -144,86 +142,29 @@ class DocumentoParService
     }
 
     /**
-     * Separación de los expedientes que se cargaron cuando las dos cartas
-     * se pedían en un solo archivo: por cada documento vigente de
-     * `$claveOrigen` sin ningún documento de `$claveDestino`, copia el
-     * archivo al par con el MISMO estado (RH ya lo revisó como «las dos
-     * cartas»). Idempotente: quien ya tiene documento del par se omite.
-     * Cada falla se reporta (auditable), nunca se ignora en silencio.
+     * `$tipos` más el par de cada uno que no venga en la lista (la carta 2,
+     * opcional, junto a la carta 1 obligatoria), justo después de él. Así la
+     * app puede mostrar y subir la carta 2; el avance sigue leyendo solo
+     * `requerido`, así que el par opcional nunca cuenta como faltante.
      *
-     * @return array{copiados: int, omitidos: int, errores: list<string>}
+     * @param  Collection<int, DocumentType>  $tipos
+     * @return Collection<int, DocumentType>
      */
-    public function separarArchivosCompartidos(string $claveOrigen, string $claveDestino, string $nota): array
+    public function conPares(Collection $tipos): Collection
     {
-        $origen = DocumentType::query()->where('clave', $claveOrigen)->first();
-        $destino = DocumentType::query()->where('clave', $claveDestino)->first();
-        $resultado = ['copiados' => 0, 'omitidos' => 0, 'errores' => []];
+        $ids = $tipos->map(fn (DocumentType $tipo): int => $tipo->id)->all();
+        $lista = [];
 
-        if ($origen === null || $destino === null) {
-            $resultado['errores'][] = sprintf('No existen los tipos «%s» y «%s».', $claveOrigen, $claveDestino);
+        foreach ($tipos as $tipo) {
+            $lista[] = $tipo;
+            $par = $this->par($tipo);
 
-            return $resultado;
-        }
-
-        $vigentes = EmployeeDocument::query()
-            ->where('document_type_id', $origen->id)
-            ->whereNotNull('colaborador_id')
-            ->where('status', '!=', EstadoDocumento::Archivado->value)
-            ->orderByDesc('version')
-            ->get()
-            ->unique('colaborador_id');
-
-        foreach ($vigentes as $documento) {
-            $yaTienePar = EmployeeDocument::withTrashed()
-                ->where('colaborador_id', $documento->colaborador_id)
-                ->where('document_type_id', $destino->id)
-                ->exists();
-
-            if ($yaTienePar) {
-                $resultado['omitidos']++;
-
-                continue;
-            }
-
-            $disco = Storage::disk($documento->disk);
-            $ruta = sprintf('%s/%s', dirname($documento->path), $this->storage->nombreDocumento($destino, 1, $documento->extension));
-
-            try {
-                if (! $disco->exists($documento->path)) {
-                    throw new RuntimeException(sprintf('no existe el archivo «%s»', $documento->path));
-                }
-
-                if ($disco->exists($ruta)) {
-                    throw new RuntimeException(sprintf('ya existe «%s»; no se sobrescribe', $ruta));
-                }
-
-                $disco->copy($documento->path, $ruta);
-            } catch (Throwable $e) {
-                $resultado['errores'][] = sprintf('Documento %d (colaborador %d): %s', $documento->id, (int) $documento->colaborador_id, $e->getMessage());
-
-                continue;
-            }
-
-            try {
-                $copia = new EmployeeDocument([
-                    ...$documento->only(['user_id', 'colaborador_id', 'empresa_id', 'sucursal_id', 'disk', 'original_name', 'mime', 'extension', 'size', 'hash', 'status', 'origen', 'uploaded_by', 'reviewed_by', 'reviewed_at', 'rejection_reason']),
-                    'document_type_id' => $destino->id,
-                    'path' => $ruta,
-                    'stored_name' => basename($ruta),
-                    'version' => 1,
-                    'previous_version_id' => null,
-                    'comments' => $nota,
-                ]);
-                // Conserva la fecha real de carga (la ve el colaborador).
-                $copia->created_at = $documento->created_at;
-                $copia->save();
-                $resultado['copiados']++;
-            } catch (Throwable $e) {
-                $disco->delete($ruta);
-                $resultado['errores'][] = sprintf('Documento %d (colaborador %d): %s', $documento->id, (int) $documento->colaborador_id, $e->getMessage());
+            if ($par !== null && ! in_array($par->id, $ids, true)) {
+                $lista[] = $par;
+                $ids[] = $par->id;
             }
         }
 
-        return $resultado;
+        return new Collection($lista);
     }
 }

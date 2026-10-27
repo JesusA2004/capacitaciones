@@ -1,24 +1,25 @@
 <?php
 
-use App\Services\Expedientes\DocumentoParService;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 /*
 | «2 cartas de recomendación» deja de ser UN documento (las dos en un mismo
-| archivo) y pasa a ser DOS del checklist: «Carta de recomendación 1» y
-| «Carta de recomendación 2». Cada una se sube (foto o PDF), se aprueba y se
-| rechaza por separado; si vienen juntas, al subir se marca «trae también la
-| otra carta» (App\Services\Expedientes\DocumentoParService).
+| archivo) y pasa a ser dos del checklist:
 |
-| - El tipo existente se conserva (mismo id, sus documentos siguen ahí) y se
-|   renombra a la carta 1; la carta 2 es un tipo nuevo, obligatorio y del
-|   alta, justo después.
-| - Lo que ya estaba cargado se pidió como «las dos cartas en un archivo»:
-|   se copia a la carta 2 con el mismo estado, para que ningún expediente
-|   pierda avance. Si el NAS falla con algún archivo, se registra en el log y
-|   se reintenta con `php artisan expedientes:separar-cartas-recomendacion`.
+| - «Carta de recomendación 1»: el tipo existente renombrado (mismo id, sus
+|   documentos siguen ahí). Obligatoria del alta: con ella aprobada el
+|   expediente ya cuenta como completo.
+| - «Carta de recomendación 2»: OPCIONAL del checklist (como pagaré o
+|   licencia): se ve y se sube, pero nunca cuenta para el avance, los
+|   faltantes, el bloqueo de la app ni la carta compromiso.
+|
+| Cada carta se sube (foto o PDF), se aprueba y se rechaza por separado; si
+| vienen juntas, al subir se marca «trae también la otra carta»
+| (App\Services\Expedientes\DocumentoParService). Lo ya cargado (las dos
+| cartas en un archivo) se queda en la carta 1: no se copia nada.
+|
+| Idempotente: si la carta 2 ya existe solo se asegura que sea opcional.
 */
 return new class extends Migration
 {
@@ -30,45 +31,40 @@ return new class extends Migration
             'updated_at' => now(),
         ]);
 
-        $carta1 = DB::table('document_types')->where('clave', 'carta_recomendacion_1')->first();
+        $opcional = [
+            'nombre' => 'Carta de recomendación 2',
+            'categoria' => 'personales',
+            'requerido' => false,
+            'checklist_opcional' => true,
+            'aplica_alta' => false,
+            'activo' => true,
+            'updated_at' => now(),
+        ];
 
-        if ($carta1 === null || DB::table('document_types')->where('clave', 'carta_recomendacion_2')->exists()) {
+        if (DB::table('document_types')->where('clave', 'carta_recomendacion_2')->exists()) {
+            DB::table('document_types')->where('clave', 'carta_recomendacion_2')->update($opcional);
+
             return;
         }
 
-        $orden = (int) $carta1->orden;
-
-        DB::table('document_types')->where('orden', '>', $orden)->where('orden', '<', 100)->increment('orden');
+        // Primera de los opcionales del checklist (justo después de los
+        // obligatorios); los demás opcionales se recorren un lugar.
+        $orden = (int) DB::table('document_types')->where('requerido', true)->where('orden', '<', 100)->max('orden') + 1;
+        DB::table('document_types')->where('orden', '>=', $orden)->where('orden', '<', 100)->increment('orden');
 
         DB::table('document_types')->insert([
+            ...$opcional,
             'clave' => 'carta_recomendacion_2',
-            'nombre' => 'Carta de recomendación 2',
-            'categoria' => 'personales',
-            'requerido' => (bool) $carta1->requerido,
-            'checklist_opcional' => false,
-            'aplica_alta' => (bool) $carta1->aplica_alta,
-            'activo' => (bool) $carta1->activo,
-            'orden' => $orden + 1,
+            'orden' => $orden,
             'created_at' => now(),
-            'updated_at' => now(),
         ]);
-
-        $resultado = app(DocumentoParService::class)->separarArchivosCompartidos(
-            'carta_recomendacion_1',
-            'carta_recomendacion_2',
-            'Copia de la carta 1: cuando se cargó, las dos cartas se pedían en un solo archivo.',
-        );
-
-        foreach ($resultado['errores'] as $error) {
-            Log::warning(sprintf('Separar cartas de recomendación: %s', $error));
-        }
     }
 
     public function down(): void
     {
         // La carta 2 no se borra (employee_documents la referencia con
         // restrictOnDelete): se desactiva y la carta 1 recupera su nombre.
-        DB::table('document_types')->where('clave', 'carta_recomendacion_2')->update(['activo' => false, 'requerido' => false, 'updated_at' => now()]);
+        DB::table('document_types')->where('clave', 'carta_recomendacion_2')->update(['activo' => false, 'checklist_opcional' => false, 'updated_at' => now()]);
         DB::table('document_types')->where('clave', 'carta_recomendacion_1')->update([
             'clave' => 'cartas_recomendacion',
             'nombre' => '2 cartas de recomendación',

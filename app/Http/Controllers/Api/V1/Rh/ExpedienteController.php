@@ -122,7 +122,9 @@ class ExpedienteController extends Controller
             'incorporacion_decidida_en' => $colaborador->incorporacion_decidida_en?->toIso8601String(),
             'incorporacion_motivo_rechazo' => $colaborador->incorporacion_motivo_rechazo,
             'documentos' => $documentos,
-            'documentos_totales' => $tipos->count(),
+            // Solo obligatorios: la carta de recomendación 2 (opcional) viene
+            // en `documentos` pero no cuenta.
+            'documentos_totales' => $tipos->where('requerido', true)->count(),
             // «Descargar expediente completo (ZIP)» en la app: misma regla que
             // el botón de la web (EmployeeDocumentPolicy::descargarExpediente).
             'puede_descargar_expediente' => $usuario->can('descargarExpediente', [EmployeeDocument::class, $colaborador]),

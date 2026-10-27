@@ -135,7 +135,7 @@ Colaborador, RH.
 #### Qué pasa después
 
 - Cada documento rechazado le llega a la persona con su motivo (notificación y push) para que lo vuelva a subir.
-- Las dos cartas de recomendación se revisan por separado: puedes aprobar las dos, o aprobar una y rechazar la otra; solo la rechazada se vuelve a subir.
+- Las cartas de recomendación se revisan por separado: puedes aprobar las dos, o aprobar una y rechazar la otra. Solo la carta 1 es obligatoria.
 - Cuando el último obligatorio queda aprobado, RH recibe «Expediente completo» y el pendiente «Generar paquete de contratación».
 - Un documento ya aprobado no se reemplaza directo: la persona solicita el cambio y RH lo autoriza.
 

@@ -46,7 +46,7 @@ test('el catálogo trae los 3 documentos como opcionales del checklist y el seed
     }
 
     expect(DocumentType::query()->delChecklist()->pluck('clave'))->toContain(...CLAVES_OPCIONALES)
-        ->and(DocumentType::query()->where('requerido', true)->count())->toBe(15)
+        ->and(DocumentType::query()->where('requerido', true)->count())->toBe(14)
         // El pagaré de préstamos es otra cosa (plantilla «pagare»): no se mezcla.
         ->and(DocumentType::query()->where('clave', 'pagare')->exists())->toBeFalse();
 });
@@ -86,7 +86,7 @@ test('el checklist web los muestra como «Opcional» y subir uno no cambia el av
                 && $item['tipo']['requerido'] === false
                 && $item['tipo']['opcional'] === true
                 && $item['documento'] === null
-                && $items->filter(fn ($i) => $i['tipo']['opcional'] === true)->count() === 3
+                && $items->filter(fn ($i) => $i['tipo']['opcional'] === true)->count() === 4 // + la carta de recomendación 2
                 && $items->where('tipo.requerido', true)->every(fn ($i) => $i['tipo']['opcional'] === false);
         }));
 

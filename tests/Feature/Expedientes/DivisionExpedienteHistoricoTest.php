@@ -212,7 +212,7 @@ test('completitud: tras dividir el checklist sigue incompleto hasta que RH aprue
 
     $checklist = $servicio->resumenChecklist($this->colaborador);
 
-    expect($checklist['requeridos'])->toBe(15)
+    expect($checklist['requeridos'])->toBe(14)
         ->and($checklist['entregados'])->toBe(3)
         ->and($checklist['aprobados'])->toBe(0)
         ->and($checklist['completo'])->toBeFalse()
