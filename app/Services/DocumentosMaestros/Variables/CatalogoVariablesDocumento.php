@@ -88,6 +88,12 @@ class CatalogoVariablesDocumento
         'numero_empleado' => ['Número de empleado', 'laboral', 'EMP-0123', ['numero de empleado', 'no de empleado', 'numero de nomina'], false, 'texto'],
         'empresa_nombre' => ['Empresa (nombre comercial)', 'laboral', 'MR. LANA', [], false, 'texto'],
         'sucursal_nombre' => ['Sucursal', 'laboral', 'Cuernavaca Centro', ['sucursal', 'centro de trabajo'], false, 'texto'],
+        // Desglose de la sucursal del colaborador: lo imprimen los documentos
+        // jurídicos (contrato de confidencialidad: ciudad/estado de firma y, si
+        // Jurídico lo autoriza, la jurisdicción «las leyes del estado de …»).
+        'sucursal_estado' => ['Estado de la sucursal', 'laboral', 'Morelos', ['estado de la sucursal', 'leyes del estado de', 'entidad de la sucursal'], false, 'texto'],
+        'sucursal_municipio' => ['Municipio de la sucursal', 'laboral', 'Cuernavaca', ['municipio de la sucursal'], false, 'texto'],
+        'sucursal_ciudad' => ['Ciudad de la sucursal', 'laboral', 'Cuernavaca', ['ciudad de la sucursal'], false, 'texto'],
         'departamento' => ['Departamento', 'laboral', 'Cobranza', ['departamento', 'area'], false, 'texto'],
         'puesto' => ['Puesto', 'laboral', 'Gestor de cobranza', ['puesto', 'cargo', 'categoria'], false, 'texto'],
         'jefe_inmediato' => ['Jefe inmediato', 'laboral', 'Laura Méndez Ruiz', ['jefe inmediato', 'supervisor', 'gerente'], false, 'texto'],

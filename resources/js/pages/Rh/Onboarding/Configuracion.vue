@@ -283,7 +283,7 @@ const pasosIngreso = [
         icono: Package,
     },
     {
-        titulo: 'Laborando',
+        titulo: 'Contrato indeterminado',
         texto: 'Con todo aprobado y entregado empieza a trabajar.',
         icono: UserCheck,
     },

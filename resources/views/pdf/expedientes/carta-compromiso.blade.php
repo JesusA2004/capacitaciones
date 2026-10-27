@@ -180,7 +180,7 @@
                 </td>
                 <td class="huella">
                     <div class="caja-huella"></div>
-                    <div class="rol">Huella digital</div>
+                    <div class="rol">Huella</div>
                 </td>
             </tr>
         </table>

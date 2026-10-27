@@ -330,9 +330,16 @@ class DatosDocumentoService
             'sucursal_numero' => trim((string) $sucursal?->clave),
             'sucursal_domicilio' => $this->domicilioSucursal($sucursal),
             'sucursal_domicilio_con_nombre' => $sucursal !== null && $this->domicilioSucursal($sucursal) !== '' ? sprintf('%s (sucursal %s)', $this->domicilioSucursal($sucursal), $sucursal->nombre) : '',
+            'sucursal_direccion' => trim((string) $sucursal?->direccion),
             'sucursal_direccion_mayusculas' => $this->mayus((string) $sucursal?->direccion),
+            // Ciudad y municipio de la sucursal, cada uno con respaldo en el
+            // otro: los documentos jurídicos (contrato de confidencialidad)
+            // imprimen el municipio y el estado de la sucursal del colaborador.
+            'sucursal_ciudad' => trim((string) ($sucursal?->ciudad ?: $sucursal?->municipio)),
+            'sucursal_municipio' => trim((string) ($sucursal?->municipio ?: $sucursal?->ciudad)),
             'sucursal_municipio_mayusculas' => $this->mayus((string) ($sucursal?->municipio ?: $sucursal?->ciudad)),
-            'sucursal_estado' => (string) $sucursal?->estado,
+            'sucursal_estado' => trim((string) $sucursal?->estado),
+            'sucursal_estado_mayusculas' => $this->mayus((string) $sucursal?->estado),
             'sucursal_cp' => $this->cpSucursal($sucursal),
             // Razón social: la capturada (el nombre comercial no es la razón
             // social legal).

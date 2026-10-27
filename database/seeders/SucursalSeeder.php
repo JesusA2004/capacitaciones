@@ -46,6 +46,15 @@ class SucursalSeeder extends Seeder
                     ...$sucursal,
                     'direccion' => $domicilio['direccion'] ?? null,
                     'telefono' => $domicilio['telefono'] ?? null,
+                    // Desglose oficial de la dirección (estado/municipio/colonia/
+                    // C.P.): lo imprimen los documentos jurídicos (contrato de
+                    // confidencialidad, etc.). El valor oficial manda; si faltara,
+                    // cae al inline de arriba.
+                    'ciudad' => $domicilio['ciudad'] ?? $sucursal['ciudad'],
+                    'estado' => $domicilio['estado'] ?? $sucursal['estado'],
+                    'municipio' => $domicilio['municipio'] ?? null,
+                    'colonia' => $domicilio['colonia'] ?? null,
+                    'codigo_postal' => $domicilio['codigo_postal'] ?? ($sucursal['codigo_postal'] ?? null),
                     'empresa_id' => $empresaId,
                     'activo' => true,
                 ],

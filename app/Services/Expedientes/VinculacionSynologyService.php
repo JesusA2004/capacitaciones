@@ -79,6 +79,23 @@ class VinculacionSynologyService
     }
 
     /**
+     * ¿Ya tiene su PROPIO expediente NUEVO en formación? Sí cuando su carpeta
+     * de expediente es la que crea el sistema al subir documentos
+     * («EMP-… - Nombre» / «SIN-NUMERO-… - Nombre»). Es el caso de un nuevo
+     * ingreso que ya subió todo: NO le falta ligar un expediente histórico
+     * viejo —ese simplemente no existe— y por eso no debe verse como una
+     * deficiencia, solo como la opción (rara) de ligar un histórico si lo hay.
+     */
+    public function tieneExpedienteNuevo(Colaborador $colaborador): bool
+    {
+        $ruta = trim((string) $colaborador->expediente_storage_path);
+
+        return $ruta !== ''
+            && str_starts_with($ruta, $this->inventario->raiz().'/')
+            && $this->inventario->motivoNoEsPersona(basename($ruta)) === 'sistema';
+    }
+
+    /**
      * Carpetas libres para $actor, ordenadas: sin texto, primero las
      * sugeridas para la persona (más parecidas) y luego alfabético; con
      * texto, solo las que coinciden, de la más a la menos parecida.

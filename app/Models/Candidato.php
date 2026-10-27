@@ -199,12 +199,12 @@ class Candidato extends Model
 
     /**
      * Etiqueta del estado para mostrar: un contratado que ya inició operación
-     * se muestra "Laborando", no "Capacitación inicial".
+     * se muestra "Contrato indeterminado", no "Capacitación inicial".
      */
     public function etiquetaEstado(): string
     {
         return $this->estado === EstadoCandidato::Contratado && $this->yaLabora()
-            ? 'Laborando'
+            ? 'Contrato indeterminado'
             : $this->estado->etiqueta();
     }
 

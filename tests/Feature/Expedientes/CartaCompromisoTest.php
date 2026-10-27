@@ -365,7 +365,7 @@ test('la carta no imprime huecos de datos vacíos ni el nombre de quien la gener
     expect($html)->not->toContain('CURP')
         ->and($html)->not->toContain('número de colaborador')
         ->and($html)->toContain('Acta de nacimiento')
-        ->and($html)->toContain('Huella digital')
+        ->and($html)->toContain('Huella')
         ->and($html)->not->toContain('Sistemas Mrlana');
 });
 

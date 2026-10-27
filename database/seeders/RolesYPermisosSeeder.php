@@ -777,6 +777,10 @@ class RolesYPermisosSeeder extends Seeder
             // Contratos: el gerente solo SUBE el firmado de su gente (no ve,
             // descarga ni genera el contrato; ContratoFirmadoService).
             'contratos.subir_firmado',
+            // Actas de hechos de su gente: levantarla, verla y GENERAR su
+            // formato (PDF). El finiquito sigue siendo exclusivo de RH
+            // (finiquitos.*): el gerente nunca lo calcula ni lo genera.
+            'actas.ver', 'actas.crear', 'actas.descargar',
             // Responsivas de equipo para su equipo y su subgerente.
             'responsivas.ver', 'responsivas.generar',
             // Cartas compromiso de su gente (igual que gerente_sucursal).

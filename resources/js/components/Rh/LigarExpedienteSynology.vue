@@ -35,6 +35,10 @@ import { carpetas, ligar, vistaPrevia } from '@/routes/rh/expedientes/synology';
 const props = defineProps<{
     colaboradorId: number;
     nombre: string;
+    // Nuevo ingreso que ya tiene su carpeta del sistema: su expediente nuevo
+    // ya está en formación, así que ligar un histórico es opcional (no una
+    // deficiencia). Cambia el texto de la tarjeta para no alarmar.
+    tieneExpedienteNuevo?: boolean;
 }>();
 
 type CarpetaSynology = {
@@ -289,7 +293,18 @@ const lista = computed(() => {
         >
             <div class="flex items-start gap-3">
                 <FolderSearch class="mt-0.5 size-5 shrink-0 text-primary" />
-                <div>
+                <div v-if="tieneExpedienteNuevo">
+                    <h3 class="text-base font-semibold">
+                        Expediente en formación
+                    </h3>
+                    <p class="text-sm text-muted-foreground">
+                        Sus documentos nuevos ya se guardan en su carpeta del
+                        sistema. Si además existe un expediente histórico (de
+                        antes del sistema) con su nombre en Synology, puedes
+                        ligarlo aquí; si es de nuevo ingreso, no hace falta.
+                    </p>
+                </div>
+                <div v-else>
                     <h3 class="text-base font-semibold">
                         Sin expediente de Synology ligado
                     </h3>
@@ -300,9 +315,18 @@ const lista = computed(() => {
                     </p>
                 </div>
             </div>
-            <Button size="sm" class="shrink-0" @click="abrir">
+            <Button
+                size="sm"
+                :variant="tieneExpedienteNuevo ? 'outline' : 'default'"
+                class="shrink-0"
+                @click="abrir"
+            >
                 <Link2 class="size-3.5" />
-                Ligar expediente de Synology
+                {{
+                    tieneExpedienteNuevo
+                        ? 'Ligar expediente histórico'
+                        : 'Ligar expediente de Synology'
+                }}
             </Button>
         </CardContent>
     </Card>

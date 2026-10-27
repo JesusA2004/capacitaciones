@@ -153,7 +153,7 @@ enum EstadoCandidato: string
             'referencias' => 'Referencias',
             'contratacion' => 'Contratación',
             'capacitacion_inicial' => 'Capacitación inicial',
-            'laborando' => 'Laborando',
+            'laborando' => 'Contrato indeterminado',
             'rechazado' => 'Rechazado',
             'desistido' => 'Desistió',
         ];

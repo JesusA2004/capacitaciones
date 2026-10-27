@@ -79,6 +79,17 @@ test('herencia: RH conserva todo, el gerente conserva lo operativo pero no las d
         ->and($base['rh_auxiliar'])->not->toContain('actas.cerrar');
 });
 
+test('el rol gerente levanta y GENERA el acta de hechos, pero nunca el finiquito (eso es de RH)', function () {
+    $base = RolesYPermisosSeeder::permisosBasePorRol();
+
+    // Acta administrativa de hechos: el gerente la ve, la levanta y genera su
+    // formato (PDF). Decisión del negocio 2026-10-26.
+    expect($base['gerente'])->toContain('actas.ver', 'actas.crear', 'actas.descargar')
+        // El finiquito es exclusivo de RH: el gerente nunca lo calcula, ve,
+        // descarga ni previsualiza (lo contrario sería una fuga).
+        ->and($base['gerente'])->not->toContain('finiquitos.calcular', 'finiquitos.ver', 'finiquitos.descargar', 'finiquitos.revisar', 'bajas.finiquito.vista_previa');
+});
+
 test('sincronizar: un permiso por acción nuevo se otorga a los roles (aun los creados a mano) que tenían el general', function () {
     $hechoAMano = Role::query()->create(['name' => 'rh_regional_mano', 'guard_name' => 'web']);
     $hechoAMano->givePermissionTo('actas.gestionar');

@@ -534,6 +534,10 @@ class ExpedienteController extends Controller
             // lista se pide al abrir el diálogo). Misma regla que su endpoint.
             'puedeLigarSynology' => ! $esPropio && ! $esCuentaPropia && $usuario->can('expedientes.editar')
                 && ! app(VinculacionSynologyService::class)->tieneExpedienteLigado($colaborador),
+            // Nuevo ingreso que ya tiene su carpeta del sistema: su expediente
+            // NUEVO ya está en formación, no le falta ligar uno histórico. La
+            // tarjeta se muestra sin alarma (ligar un histórico es opcional).
+            'expedienteEnFormacion' => app(VinculacionSynologyService::class)->tieneExpedienteNuevo($colaborador),
             // Datos médicos: sensibles, solo con permiso explícito.
             'datosMedicos' => $usuario->can('expedientes.datos_medicos.ver') ? [
                 'condicion_medica' => $colaborador->datosMedicos?->condicion_medica,

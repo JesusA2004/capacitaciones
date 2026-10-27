@@ -312,7 +312,7 @@ function enviarRetro(url: string) {
                             />
                             <ChipEstado
                                 v-if="fila.laborando"
-                                etiqueta="Laborando"
+                                etiqueta="Contrato indeterminado"
                                 tono="exito"
                                 :icono="CircleCheck"
                             />

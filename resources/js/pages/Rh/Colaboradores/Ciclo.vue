@@ -199,6 +199,10 @@ const plantillas: Record<string, () => FormularioAccion> = {
         comentario: '',
         motivo_no_renovacion: '',
     }),
+    // «Asignar evaluación»: abre la evaluación del periodo de prueba del
+    // colaborador (la contesta su jefe/gerente). Mismo endpoint en lote que el
+    // tablero (rh.evaluaciones.asignar), con un solo colaborador.
+    asignar_evaluacion: () => ({ colaboradores: [props.colaborador.id] }),
     devolver_evaluacion: () => ({ motivo: '' }),
     solicitar_baja: () => {
         // Forma y causal se eligen siempre a conciencia: nunca se preseleccionan.
@@ -434,6 +438,8 @@ function destino(clave: string): string {
             return onboardingRutas.retroalimentar.url(
                 Number(form.avance_id ?? 0),
             );
+        case 'asignar_evaluacion':
+            return evaluaciones.asignar.url();
         case 'capturar_evaluacion':
             return evaluaciones.capturar.url(evaluacionId.value);
         case 'autorizar_evaluacion':
@@ -1197,6 +1203,25 @@ const etiquetaFecha: Record<string, string> = {
                             :message="form.errors.retroalimentacion"
                         />
                     </div>
+                </template>
+
+                <template v-else-if="accion?.clave === 'asignar_evaluacion'">
+                    <p class="text-sm">
+                        Se abrirá la
+                        <strong>evaluación de periodo de prueba</strong> de
+                        {{ colaborador.nombre }} y se le avisará a su
+                        <strong>jefe inmediato</strong> (o gerente) para que la
+                        conteste. Cuando RH la autorice como aprobada, se
+                        habilitará la generación de su
+                        <strong>contrato indeterminado</strong>.
+                    </p>
+                    <p
+                        class="rounded-lg bg-muted p-2.5 text-xs text-muted-foreground"
+                    >
+                        Es la misma acción «Asignar evaluación» del tablero de
+                        Evaluaciones de periodo de prueba, aplicada directamente
+                        a este colaborador.
+                    </p>
                 </template>
 
                 <template v-else-if="accion?.clave === 'capturar_evaluacion'">

@@ -385,7 +385,7 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
             {
                 titulo: 'Seguimiento',
                 detalle:
-                    'En «Presentar inducción» RH ve a cada persona en ingreso: Pendiente de presentar → Presentada · por contestar → Por calificar (D) → Aprobada / Reforzamiento, y si ya está Laborando.',
+                    'En «Presentar inducción» RH ve a cada persona en ingreso: Pendiente de presentar → Presentada · por contestar → Por calificar (D) → Aprobada / Reforzamiento, y si ya tiene Contrato indeterminado.',
                 quien: 'rh',
                 canal: 'web',
             },
@@ -398,7 +398,7 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
             },
         ],
         despues: [
-            'Aprobada (24/30 o más): se aprueba el módulo de inducción y el formato FO-RH-EI se guarda solo en el expediente (carpeta Otros). Si ya no quedan módulos de puesto ni activos por entregar, el onboarding se cierra y la persona queda activa: en el tablero de candidatos pasa de «Capacitación inicial» a «Laborando». Si quedan pendientes, sigue el onboarding normal.',
+            'Aprobada (24/30 o más): se aprueba el módulo de inducción y el formato FO-RH-EI se guarda solo en el expediente (carpeta Otros). Si ya no quedan módulos de puesto ni activos por entregar, el onboarding se cierra y la persona queda activa: en el tablero de candidatos pasa de «Capacitación inicial» a «Contrato indeterminado». Si quedan pendientes, sigue el onboarding normal.',
             'La segunda evaluación es la de periodo de prueba, que se abre 15 días hábiles antes de que venza su contrato.',
         ],
         notificaciones: [

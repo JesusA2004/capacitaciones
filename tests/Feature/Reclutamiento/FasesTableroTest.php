@@ -28,5 +28,5 @@ test('un candidato contratado está en capacitación inicial hasta que su colabo
     $colaborador->update(['activado_en' => now()]);
 
     expect($candidato->fresh()->fase)->toBe('laborando')
-        ->and($candidato->fresh()->load('colaborador:id,activado_en')->etiquetaEstado())->toBe('Laborando');
+        ->and($candidato->fresh()->load('colaborador:id,activado_en')->etiquetaEstado())->toBe('Contrato indeterminado');
 });

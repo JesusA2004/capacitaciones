@@ -96,6 +96,7 @@ const props = defineProps<{
     >['$props']['datosFaltantes'];
     puedeAvisarDatosFaltantes?: boolean;
     puedeLigarSynology?: boolean;
+    expedienteEnFormacion?: boolean;
     avisosComunicaciones?: InstanceType<
         typeof ExpedienteDetalle
     >['$props']['avisosComunicaciones'];
@@ -276,6 +277,7 @@ defineOptions({
                 v-if="puedeLigarSynology"
                 :colaborador-id="colaborador.id"
                 :nombre="nombreColaborador"
+                :tiene-expediente-nuevo="expedienteEnFormacion"
             />
         </template>
         <template #documentos-oficiales>

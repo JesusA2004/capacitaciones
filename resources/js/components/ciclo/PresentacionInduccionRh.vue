@@ -331,7 +331,8 @@ function fecha(iso: string | null): string {
                         <span
                             v-if="fila.laborando"
                             class="flex w-fit items-center gap-1 rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-medium"
-                            ><CircleCheck class="size-3.5" /> Laborando</span
+                            ><CircleCheck class="size-3.5" /> Contrato
+                            indeterminado</span
                         >
                         <Link
                             v-if="fila.intento_por_calificar_id"

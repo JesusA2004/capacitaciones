@@ -76,14 +76,36 @@ async function cargar() {
     }
 }
 
+let intentosAncho = 0;
+
 async function dibujar() {
     const doc = documento.value;
 
     await nextTick();
 
-    if (!doc || !lienzo.value || anchoCaja.value <= 0) {
+    if (!doc || !lienzo.value) {
         return;
     }
+
+    // El ancho del contenedor puede tardar un frame en estar disponible
+    // (recién montado, dentro de una transición, o al volver de pantalla
+    // completa). Usamos la medición del ResizeObserver y, si aún no reporta,
+    // el ancho real del nodo. Si todavía mide 0, reintentamos en los siguientes
+    // frames en vez de dibujar en blanco; el watch de tamaño lo retoma si el
+    // contenedor aparece más tarde.
+    const ancho =
+        anchoCaja.value > 0 ? anchoCaja.value : (lienzoCaja.value?.clientWidth ?? 0);
+
+    if (ancho <= 0) {
+        if (intentosAncho < 30) {
+            intentosAncho += 1;
+            requestAnimationFrame(() => void dibujar());
+        }
+
+        return;
+    }
+
+    intentosAncho = 0;
 
     const numero = actual.value;
     dibujando.value = true;
@@ -93,7 +115,7 @@ async function dibujar() {
         const base = pagina.getViewport({ scale: 1 });
         // Ajusta al ancho disponible (tope para no pixelar en monitores
         // enormes) y aplica el zoom elegido; nítido según la pantalla.
-        const anchoCss = Math.min(anchoCaja.value, 1280) * zoom.value;
+        const anchoCss = Math.min(ancho, 1280) * zoom.value;
         const escalaCss = anchoCss / base.width;
         const densidad = window.devicePixelRatio || 1;
         const viewport = pagina.getViewport({ scale: escalaCss * densidad });
@@ -102,6 +124,10 @@ async function dibujar() {
             width: `${base.width * escalaCss}px`,
             height: `${base.height * escalaCss}px`,
         });
+
+        // Render correcto: limpia cualquier fallo transitorio previo para que
+        // un reintento (p. ej. tras redimensionar) recupere la vista.
+        fallo.value = false;
 
         if (numero === actual.value) {
             emit('pagina', numero, doc.numPages);

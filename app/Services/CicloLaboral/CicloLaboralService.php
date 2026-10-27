@@ -41,6 +41,7 @@ use App\Services\Onboarding\OnboardingService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Support\FechaMexico;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * Fuente única de "¿dónde está esta persona?". Deriva —sin duplicar datos—
@@ -105,7 +106,7 @@ class CicloLaboralService
             'referencias' => ['Referencias', 6, 6],
             'autorizacion' => ['Contratación', 7, 9],
             'contratacion' => ['Incorporación', 10, 11],
-            'laborando' => ['Laborando', 12, 12],
+            'laborando' => ['Contrato indeterminado', 12, 12],
         ];
         $yaLabora = $estado === EstadoCandidato::Contratado && $c->yaLabora();
         $pasoActual = $estado->esSalida() ? null : $estado->paso();
@@ -410,6 +411,16 @@ class CicloLaboralService
         };
 
         $acciones = [];
+
+        // «Asignar evaluación de periodo de prueba» (equivalente a generar el
+        // contrato inicial, pero para la evaluación): mientras no exista la
+        // evaluación, RH con alcance la abre AHORA sin esperar al scheduler.
+        // La contesta el jefe/gerente; si se aprueba, se habilita el contrato
+        // indeterminado. Mismo backend que el tablero (asignarAhora → asignar).
+        if ($evaluacion === null && $viewer !== null
+            && Gate::forUser($viewer)->allows('asignar', [EvaluacionPeriodoPrueba::class, $colaborador])) {
+            $acciones[] = ['clave' => 'asignar_evaluacion', 'etiqueta' => 'Asignar evaluación de periodo de prueba', 'tipo' => 'primaria'];
+        }
 
         if ($evaluacion !== null && $viewer !== null) {
             $esEvaluador = $viewer->colaborador_id !== null && in_array($viewer->colaborador_id, [$evaluacion->evaluador_colaborador_id, $colaborador->jefe_id], true);

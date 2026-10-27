@@ -9,6 +9,12 @@
  * nueva) y la migración 2026_09_25_190000_completar_domicilios_sucursales
  * (bases existentes; solo llena campos vacíos, nunca pisa lo capturado).
  *
+ * estado/ciudad/municipio/colonia/codigo_postal se desglosan de la misma
+ * dirección oficial (no se inventan): los documentos jurídicos (contrato de
+ * confidencialidad, etc.) imprimen el ESTADO y el MUNICIPIO de la sucursal del
+ * colaborador a partir de estas columnas, por eso deben estar pobladas y no
+ * depender de parsear el texto libre de `direccion`.
+ *
  * San Juan del Río (SJR01) y Tenango del Valle (TEN01) NO aparecen en el
  * sitio: se dejan sin domicilio a propósito (auditable, no se inventa).
  *
@@ -20,19 +26,110 @@ return [
     'CORP01' => [
         'nombre' => 'Corporativo',
         'ciudad' => 'Cuernavaca',
+        'municipio' => 'Cuernavaca',
         'estado' => 'Morelos',
+        'colonia' => null,
+        'codigo_postal' => '62260',
         'direccion' => 'Subida del Club 114, Cuernavaca, Morelos, C.P. 62260',
         'telefono' => null,
     ],
-    'CUE01' => ['direccion' => 'Privada Reforma #751-D, Col. Tlaltenango, Cuernavaca, Morelos, C.P. 62170', 'telefono' => '777 900 8852'],
-    'MIA01' => ['direccion' => 'Av. Morelos S/N, Col. Centro, Miacatlán, Morelos, C.P. 62600', 'telefono' => '737 688 1772'],
-    'ATL01' => ['direccion' => 'C. 9 Sur #507, Int. 7, Col. Centro, Atlixco, Puebla, C.P. 74200', 'telefono' => '222 944 6532'],
-    'IXT01' => ['direccion' => 'Av. Gustavo Baz Prada y Av. de la Mujer #406, Int. 1, Col. San Pedro, Ixtlahuaca, Edo. Méx., C.P. 50740', 'telefono' => '712 688 1615'],
-    'COR01' => ['direccion' => 'Av. 11 #1305 local 20, Col. Centro, Córdoba, Veracruz, C.P. 94500', 'telefono' => '271 344 2933'],
-    'ORI01' => ['direccion' => 'Oriente 6, #851, Int. 10 y 11, Esq. Sur 17, Col. Centro, Orizaba, Veracruz, C.P. 94300', 'telefono' => '272 341 4129'],
-    'HUA01' => ['direccion' => 'C. Morelos Oriente #311, Local 15, Col. Centro, Huamantla, Tlaxcala, C.P. 90500', 'telefono' => null],
-    'TLX01' => ['direccion' => 'Carr. Ocotlán–Chiautempan #134, Col. La Joya Centro, Tlaxcala, C.P. 90114', 'telefono' => '246 312 8179'],
-    'ATC01' => ['direccion' => 'Juan N. Reséndiz 5, Col. Centro, Atlacomulco, Edo. Méx., C.P. 50450', 'telefono' => '712 597 5776 / 712 688 2923'],
-    'SLP01' => ['direccion' => 'Plaza Coronel, Prolongación Coronel Romero #110, Col. Alamitos, San Luis Potosí, C.P. 78280', 'telefono' => '444 459 7378'],
-    'TUL01' => ['direccion' => 'Boulevard Tula Iturbe #100, Col. Villas del Salitre, Tula de Allende, Hidalgo', 'telefono' => '773 732 2376'],
+    'CUE01' => [
+        'direccion' => 'Privada Reforma #751-D, Col. Tlaltenango, Cuernavaca, Morelos, C.P. 62170',
+        'colonia' => 'Tlaltenango',
+        'municipio' => 'Cuernavaca',
+        'ciudad' => 'Cuernavaca',
+        'estado' => 'Morelos',
+        'codigo_postal' => '62170',
+        'telefono' => '777 900 8852',
+    ],
+    'MIA01' => [
+        'direccion' => 'Av. Morelos S/N, Col. Centro, Miacatlán, Morelos, C.P. 62600',
+        'colonia' => 'Centro',
+        'municipio' => 'Miacatlán',
+        'ciudad' => 'Miacatlán',
+        'estado' => 'Morelos',
+        'codigo_postal' => '62600',
+        'telefono' => '737 688 1772',
+    ],
+    'ATL01' => [
+        'direccion' => 'C. 9 Sur #507, Int. 7, Col. Centro, Atlixco, Puebla, C.P. 74200',
+        'colonia' => 'Centro',
+        'municipio' => 'Atlixco',
+        'ciudad' => 'Atlixco',
+        'estado' => 'Puebla',
+        'codigo_postal' => '74200',
+        'telefono' => '222 944 6532',
+    ],
+    'IXT01' => [
+        'direccion' => 'Av. Gustavo Baz Prada y Av. de la Mujer #406, Int. 1, Col. San Pedro, Ixtlahuaca, Edo. Méx., C.P. 50740',
+        'colonia' => 'San Pedro',
+        'municipio' => 'Ixtlahuaca',
+        'ciudad' => 'Ixtlahuaca',
+        'estado' => 'Estado de México',
+        'codigo_postal' => '50740',
+        'telefono' => '712 688 1615',
+    ],
+    'COR01' => [
+        'direccion' => 'Av. 11 #1305 local 20, Col. Centro, Córdoba, Veracruz, C.P. 94500',
+        'colonia' => 'Centro',
+        'municipio' => 'Córdoba',
+        'ciudad' => 'Córdoba',
+        'estado' => 'Veracruz',
+        'codigo_postal' => '94500',
+        'telefono' => '271 344 2933',
+    ],
+    'ORI01' => [
+        'direccion' => 'Oriente 6, #851, Int. 10 y 11, Esq. Sur 17, Col. Centro, Orizaba, Veracruz, C.P. 94300',
+        'colonia' => 'Centro',
+        'municipio' => 'Orizaba',
+        'ciudad' => 'Orizaba',
+        'estado' => 'Veracruz',
+        'codigo_postal' => '94300',
+        'telefono' => '272 341 4129',
+    ],
+    'HUA01' => [
+        'direccion' => 'C. Morelos Oriente #311, Local 15, Col. Centro, Huamantla, Tlaxcala, C.P. 90500',
+        'colonia' => 'Centro',
+        'municipio' => 'Huamantla',
+        'ciudad' => 'Huamantla',
+        'estado' => 'Tlaxcala',
+        'codigo_postal' => '90500',
+        'telefono' => null,
+    ],
+    'TLX01' => [
+        'direccion' => 'Carr. Ocotlán–Chiautempan #134, Col. La Joya Centro, Tlaxcala, C.P. 90114',
+        'colonia' => 'La Joya Centro',
+        'municipio' => 'Tlaxcala',
+        'ciudad' => 'Tlaxcala',
+        'estado' => 'Tlaxcala',
+        'codigo_postal' => '90114',
+        'telefono' => '246 312 8179',
+    ],
+    'ATC01' => [
+        'direccion' => 'Juan N. Reséndiz 5, Col. Centro, Atlacomulco, Edo. Méx., C.P. 50450',
+        'colonia' => 'Centro',
+        'municipio' => 'Atlacomulco',
+        'ciudad' => 'Atlacomulco',
+        'estado' => 'Estado de México',
+        'codigo_postal' => '50450',
+        'telefono' => '712 597 5776 / 712 688 2923',
+    ],
+    'SLP01' => [
+        'direccion' => 'Plaza Coronel, Prolongación Coronel Romero #110, Col. Alamitos, San Luis Potosí, C.P. 78280',
+        'colonia' => 'Alamitos',
+        'municipio' => 'San Luis Potosí',
+        'ciudad' => 'San Luis Potosí',
+        'estado' => 'San Luis Potosí',
+        'codigo_postal' => '78280',
+        'telefono' => '444 459 7378',
+    ],
+    'TUL01' => [
+        'direccion' => 'Boulevard Tula Iturbe #100, Col. Villas del Salitre, Tula de Allende, Hidalgo',
+        'colonia' => 'Villas del Salitre',
+        'municipio' => 'Tula de Allende',
+        'ciudad' => 'Tula de Allende',
+        'estado' => 'Hidalgo',
+        'codigo_postal' => null,
+        'telefono' => '773 732 2376',
+    ],
 ];
