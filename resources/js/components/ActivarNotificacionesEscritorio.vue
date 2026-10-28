@@ -1,8 +1,20 @@
 <script setup lang="ts">
-import { BellOff, BellRing, CheckCircle2, Lock } from '@lucide/vue';
+import {
+    BellOff,
+    BellRing,
+    CheckCircle2,
+    Lock,
+    Volume2,
+    VolumeX,
+} from '@lucide/vue';
 import { toast } from 'vue-sonner';
 import { Button } from '@/components/ui/button';
 import { useWebPush } from '@/composables/useWebPush';
+import {
+    cambiarSonidoAvisos,
+    sonarAviso,
+    sonidoAvisos,
+} from '@/lib/avisosNavegador';
 
 /**
  * Activa las notificaciones de escritorio (Web Push) del navegador actual:
@@ -12,7 +24,16 @@ import { useWebPush } from '@/composables/useWebPush';
  */
 withDefaults(defineProps<{ compacto?: boolean }>(), { compacto: false });
 
-const { estado, procesando, activar, desactivar, probar } = useWebPush();
+const { estado, modoLocal, procesando, activar, desactivar, probar } =
+    useWebPush();
+
+function alternarSonido(): void {
+    cambiarSonidoAvisos(!sonidoAvisos.value);
+
+    if (sonidoAvisos.value) {
+        sonarAviso();
+    }
+}
 
 async function alActivar(): Promise<void> {
     const ok = await activar();
@@ -122,8 +143,15 @@ async function alDesactivar(): Promise<void> {
                 </h2>
                 <p class="text-xs text-muted-foreground">
                     <template v-if="estado === 'activo'">
-                        Este navegador te avisa de todo lo que también llega a
-                        la app, aunque PEOPLE esté cerrado.
+                        <template v-if="modoLocal">
+                            Como WhatsApp Web: con PEOPLE abierto (aunque estés
+                            en otra pestaña o programa), Chrome te avisa en
+                            cuanto llega algo nuevo.
+                        </template>
+                        <template v-else>
+                            Este navegador te avisa de todo lo que también llega
+                            a la app, aunque PEOPLE esté cerrado.
+                        </template>
                     </template>
                     <template v-else-if="estado === 'bloqueado'">
                         El navegador las bloqueó. Haz clic en el candado junto a
@@ -131,18 +159,40 @@ async function alDesactivar(): Promise<void> {
                         recarga la página.
                     </template>
                     <template v-else>
-                        Como YouTube o Facebook: cada solicitud, aprobación o
-                        aviso aparece en el centro de notificaciones de tu
-                        computadora, aunque no tengas la página abierta.
+                        Como WhatsApp Web: cada solicitud, aprobación o aviso
+                        aparece como notificación de Chrome en tu computadora en
+                        cuanto llega, con un tono corto.
                     </template>
                 </p>
             </div>
             <div class="flex shrink-0 flex-wrap gap-2">
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    :aria-pressed="sonidoAvisos"
+                    :title="
+                        sonidoAvisos
+                            ? 'Silenciar el tono de avisos'
+                            : 'Activar el tono de avisos'
+                    "
+                    @click="alternarSonido"
+                >
+                    <component
+                        :is="sonidoAvisos ? Volume2 : VolumeX"
+                        class="size-4"
+                    />
+                    {{ sonidoAvisos ? 'Sonido activado' : 'Sin sonido' }}
+                </Button>
                 <template v-if="estado === 'activo'">
                     <Button variant="outline" size="sm" @click="alProbar">
                         Enviar prueba
                     </Button>
-                    <Button variant="ghost" size="sm" @click="alDesactivar">
+                    <Button
+                        v-if="!modoLocal"
+                        variant="ghost"
+                        size="sm"
+                        @click="alDesactivar"
+                    >
                         <BellOff class="size-4" />
                         Desactivar
                     </Button>

@@ -11,10 +11,12 @@ use App\Models\CandidatoPsicometrica;
 use App\Models\CandidatoReferencia;
 use App\Models\CandidatoRespuestaFiltro;
 use App\Models\CandidatoSocioeconomico;
+use App\Models\Colaborador;
 use App\Models\IncorporacionInvitacion;
 use App\Models\IntervencionCandidato;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -27,7 +29,65 @@ class CandidatoPresenter
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly ExpedienteCandidatoService $expediente,
+        private readonly FotoColaboradorService $fotos,
     ) {}
+
+    /**
+     * Fotografía oficial (la del expediente, en el NAS) de los candidatos que
+     * ya tienen colaborador vinculado. Nunca se duplica ni se expone
+     * `foto_path`: se devuelve la misma URL protegida que usa Expedientes
+     * (Rh\ExpedienteController::descargarFoto), y solo si quien consulta
+     * alcanza ese expediente — mismo criterio que la ruta, para no mandar
+     * URLs que terminarían en 403. Sin colaborador, sin foto o fuera de
+     * alcance → el candidato no aparece y la vista muestra iniciales.
+     *
+     * @param  iterable<Candidato>  $candidatos
+     * @return array<int, string> URL por candidato_id
+     */
+    public function fotosOficiales(iterable $candidatos, User $viewer): array
+    {
+        $idsColaborador = [];
+
+        foreach ($candidatos as $candidato) {
+            if ($candidato->colaborador_id !== null) {
+                $idsColaborador[] = (int) $candidato->colaborador_id;
+            }
+        }
+
+        if ($idsColaborador === []) {
+            return [];
+        }
+
+        $colaboradores = Colaborador::withTrashed()
+            ->whereIn('id', array_unique($idsColaborador))
+            ->whereNotNull('foto_path')
+            ->get(['id', 'foto_path', 'sucursal_principal_id', 'jefe_id', 'gerente_id'])
+            ->keyBy('id');
+
+        $urls = [];
+
+        foreach ($candidatos as $candidato) {
+            $colaborador = $candidato->colaborador_id !== null ? $colaboradores->get($candidato->colaborador_id) : null;
+
+            if ($colaborador === null || ! $this->alcance->puedeVerExpediente($viewer, $colaborador)) {
+                continue;
+            }
+
+            $url = $this->fotos->url($colaborador);
+
+            if ($url !== null) {
+                $urls[$candidato->id] = $url;
+            }
+        }
+
+        return $urls;
+    }
+
+    /** Foto oficial de un solo candidato (ficha), ver fotosOficiales(). */
+    public function fotoOficial(Candidato $candidato, User $viewer): ?string
+    {
+        return $this->fotosOficiales([$candidato], $viewer)[$candidato->id] ?? null;
+    }
 
     /**
      * Candidatos visibles para el usuario (alcance por sucursal) con los
@@ -102,7 +162,7 @@ class CandidatoPresenter
     /**
      * @return array<string, mixed>
      */
-    public function detalle(Candidato $candidato): array
+    public function detalle(Candidato $candidato, ?User $viewer = null): array
     {
         $candidato->loadMissing([
             'empresa:id,nombre', 'sucursal:id,nombre', 'departamento:id,nombre', 'puestoObjetivo:id,nombre',
@@ -171,6 +231,9 @@ class CandidatoPresenter
             // videos del socioeconómico, referencias), agrupado como en el NAS.
             'expediente' => $this->expediente->resumen($candidato),
             'colaborador_id' => $candidato->colaborador_id,
+            // Foto oficial del expediente (URL protegida, nunca foto_path);
+            // sin quien consulta (API móvil) no se calcula.
+            'foto_url' => $viewer !== null ? $this->fotoOficial($candidato, $viewer) : null,
             'creado_en' => $candidato->created_at?->toIso8601String(),
             'contratado_en' => $candidato->contratado_en?->toIso8601String(),
             'entrevistas' => $candidato->entrevistas->map(fn (CandidatoEntrevista $e) => [

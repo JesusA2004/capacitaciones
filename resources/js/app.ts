@@ -5,13 +5,16 @@ import { registrarServiceWorker } from '@/composables/useWebPush';
 import AppLayout from '@/layouts/AppLayout.vue';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
+import { tituloConPendientes } from '@/lib/avisosNavegador';
 import { initializeErroresGlobales } from '@/lib/erroresGlobales';
 import { initializeFlashToast } from '@/lib/flashToast';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 createInertiaApp({
-    title: (title) => (title ? `${title} - ${appName}` : appName),
+    // «(3) …» con avisos sin leer, como WhatsApp Web (lib/avisosNavegador).
+    title: (title) =>
+        tituloConPendientes(title ? `${title} - ${appName}` : appName),
     layout: (name) => {
         switch (true) {
             // Paginas publicas (sin sesion): auth.user llega null desde
@@ -33,7 +36,10 @@ createInertiaApp({
         }
     },
     progress: {
-        color: '#4B5563',
+        // Color de marca (token), con retraso corto para no parpadear en
+        // navegaciones rápidas.
+        color: 'var(--brand-primary)',
+        delay: 150,
     },
 });
 

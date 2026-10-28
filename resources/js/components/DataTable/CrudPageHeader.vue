@@ -90,8 +90,10 @@ const enBarraSuperior = computed(
         class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
     >
         <div class="flex min-w-0 items-start gap-3">
+            <!-- #icono reemplaza al ícono (p. ej. la foto de la persona). -->
+            <slot v-if="$slots.icono" name="icono" />
             <span
-                v-if="icono"
+                v-else-if="icono"
                 class="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary/15 to-primary/5 text-primary shadow-sm ring-1 ring-primary/10"
             >
                 <component :is="icono" class="size-5" />

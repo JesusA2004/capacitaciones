@@ -35,6 +35,7 @@ import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import CandidatoExpedientePanel from '@/components/Rh/CandidatoExpedientePanel.vue';
 import CandidatoFormDialog from '@/components/Rh/CandidatoFormDialog.vue';
 import CandidatoPerfilPuesto from '@/components/Rh/CandidatoPerfilPuesto.vue';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -130,6 +131,14 @@ defineOptions({
 const editar = ref(false);
 const accionActiva = ref<AccionCiclo | null>(null);
 const evidenciaActiva = ref<EvidenciaCandidato | null>(null);
+
+const inicialesCandidato = computed(() => {
+    const partes = props.candidato.nombre_completo.split(/\s+/).filter(Boolean);
+
+    return (
+        (partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? partes[0]?.[1] ?? '')
+    ).toUpperCase();
+});
 
 // El formulario de edición del candidato espera la forma del listado.
 const candidatoFormulario = computed(
@@ -480,6 +489,22 @@ function fecha(valor: string | null): string {
             :descripcion="`${candidato.puesto ?? 'Sin puesto objetivo'} · ${candidato.sucursal ?? 'Sin sucursal'}`"
             :icono="UserRound"
         >
+            <template #icono>
+                <!-- Foto oficial del expediente si ya hay colaborador
+                     vinculado; si no (o si falla), iniciales. -->
+                <Avatar class="size-11 shrink-0 rounded-2xl shadow-sm">
+                    <AvatarImage
+                        v-if="candidato.foto_url"
+                        :src="candidato.foto_url"
+                        :alt="`Fotografía de ${candidato.nombre_completo}`"
+                        class="object-cover"
+                    />
+                    <AvatarFallback
+                        class="rounded-2xl bg-primary/10 text-sm font-semibold text-primary"
+                        >{{ inicialesCandidato }}</AvatarFallback
+                    >
+                </Avatar>
+            </template>
             <Button variant="secondary" @click="editar = true">
                 <Pencil class="size-4" />
                 Editar datos

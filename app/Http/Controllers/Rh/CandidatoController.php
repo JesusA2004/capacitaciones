@@ -107,10 +107,14 @@ class CandidatoController extends Controller
         // Expediente N/M, Contrato generado, En inducción, Contratado) con
         // botón directo al proceso: el candidato no desaparece al avanzar.
         $cadena = $this->cadena->paraCandidatos($candidatos, $request->user());
+        // Foto oficial del expediente cuando ya hay colaborador vinculado
+        // (URL protegida, solo dentro del alcance; si no, iniciales).
+        $fotos = $this->presenter->fotosOficiales($candidatos, $request->user());
 
-        $candidatos->each(function (Candidato $candidato) use ($cadena): void {
+        $candidatos->each(function (Candidato $candidato) use ($cadena, $fotos): void {
             $candidato->setAttribute('accesos_rapidos', $this->presenter->accesosRapidos($candidato));
             $candidato->setAttribute('contratacion', $cadena[$candidato->id] ?? null);
+            $candidato->setAttribute('foto_url', $fotos[$candidato->id] ?? null);
             $candidato->unsetRelation('psicometricas')->unsetRelation('socioeconomicos');
         });
 
@@ -242,7 +246,7 @@ class CandidatoController extends Controller
             : null;
 
         return Inertia::render('Rh/Candidatos/Show', [
-            'candidato' => $this->presenter->detalle($candidato),
+            'candidato' => $this->presenter->detalle($candidato, $request->user()),
             // Cadena candidato → contratación → expediente (botón «Ver
             // expediente…» solo cuando ya existe la incorporación).
             'cadenaContratacion' => $this->cadena->paraCandidato($candidato, $request->user()),

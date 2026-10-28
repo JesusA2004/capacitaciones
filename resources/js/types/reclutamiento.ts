@@ -131,6 +131,8 @@ export type CandidatoItem = {
     accesos_rapidos?: AccesosRapidosCandidato;
     /** Estado real tras la selección (Seleccionado … Contratado) con botones al proceso. */
     contratacion?: EstadoCadenaContratacion | null;
+    /** Foto oficial del expediente del colaborador vinculado (URL protegida, dentro del alcance); null → iniciales. */
+    foto_url?: string | null;
 };
 
 export type SeguimientoCandidatoItem = {

@@ -22,7 +22,7 @@ import {
 import { computed, ref } from 'vue';
 import ChipEstado from '@/components/people/ChipEstado.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import {
     archivoCvCandidato,
@@ -176,7 +176,16 @@ const socioeconomico = computed(
 <template>
     <div class="flex flex-col gap-2.5">
         <div class="flex items-start gap-2.5">
+            <!-- Foto oficial del expediente cuando ya hay colaborador
+                 vinculado; si no hay o falla al cargar, iniciales. -->
             <Avatar class="size-9 shrink-0">
+                <AvatarImage
+                    v-if="candidato.foto_url"
+                    :src="candidato.foto_url"
+                    :alt="`Fotografía de ${nombreCompleto}`"
+                    class="object-cover"
+                    draggable="false"
+                />
                 <AvatarFallback
                     class="bg-[var(--brand-primary)]/10 text-xs font-semibold text-[var(--brand-primary)]"
                     >{{ iniciales }}</AvatarFallback

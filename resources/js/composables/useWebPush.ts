@@ -1,13 +1,10 @@
 import { usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
+import { notificacionDeSistema } from '@/lib/avisosNavegador';
 import { enviarJson } from '@/lib/http';
 
 type EstadoWebPush =
-    | 'no-soportado'
-    | 'sin-configurar'
-    | 'bloqueado'
-    | 'pendiente'
-    | 'activo';
+    'no-soportado' | 'sin-configurar' | 'bloqueado' | 'pendiente' | 'activo';
 
 const RUTA_SW = '/sw.js';
 
@@ -65,9 +62,11 @@ export function registrarServiceWorker(): Promise<ServiceWorkerRegistration | nu
                 registros
                     .filter(
                         (r) =>
-                            !(r.active ?? r.installing ?? r.waiting)?.scriptURL.endsWith(
-                                RUTA_SW,
-                            ),
+                            !(
+                                r.active ??
+                                r.installing ??
+                                r.waiting
+                            )?.scriptURL.endsWith(RUTA_SW),
                     )
                     .map((r) => r.unregister()),
             ),
@@ -96,17 +95,24 @@ export function useWebPush() {
         permiso.value = 'no-soportado';
     }
 
+    /**
+     * Sin llaves VAPID en el servidor no hay Web Push, pero las
+     * notificaciones de Chrome siguen funcionando con PEOPLE abierto (como
+     * WhatsApp Web): basta el permiso del navegador (lib/avisosNavegador).
+     */
+    const modoLocal = computed(() => !clavePublica.value);
+
     const estado = computed<EstadoWebPush>(() => {
         if (permiso.value === 'no-soportado') {
             return 'no-soportado';
         }
 
-        if (!clavePublica.value) {
-            return 'sin-configurar';
-        }
-
         if (permiso.value === 'denied') {
             return 'bloqueado';
+        }
+
+        if (modoLocal.value) {
+            return permiso.value === 'granted' ? 'activo' : 'pendiente';
         }
 
         return permiso.value === 'granted' && suscrito.value
@@ -147,8 +153,11 @@ export function useWebPush() {
         await enviarJson('POST', '/notificaciones/web-push', {
             ...suscripcion.toJSON(),
             contentEncoding:
-                (PushManager as unknown as { supportedContentEncodings?: string[] })
-                    .supportedContentEncodings?.[0] ?? 'aes128gcm',
+                (
+                    PushManager as unknown as {
+                        supportedContentEncodings?: string[];
+                    }
+                ).supportedContentEncodings?.[0] ?? 'aes128gcm',
         });
 
         suscrito.value = true;
@@ -169,6 +178,10 @@ export function useWebPush() {
 
             if (permiso.value !== 'granted') {
                 return false;
+            }
+
+            if (modoLocal.value) {
+                return true;
             }
 
             return await suscribirEnNavegador();
@@ -194,6 +207,17 @@ export function useWebPush() {
     }
 
     async function probar(): Promise<void> {
+        if (modoLocal.value) {
+            notificacionDeSistema(
+                'prueba',
+                'MR. LANA PEOPLE',
+                'Así te avisaremos cuando llegue algo nuevo.',
+                () => undefined,
+            );
+
+            return;
+        }
+
         await enviarJson('POST', '/notificaciones/web-push/prueba');
     }
 
@@ -212,6 +236,7 @@ export function useWebPush() {
 
     return {
         estado,
+        modoLocal,
         procesando,
         activar,
         desactivar,

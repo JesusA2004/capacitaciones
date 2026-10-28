@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Bell } from '@lucide/vue';
+import { ref, watch } from 'vue';
 import ActivarNotificacionesEscritorio from '@/components/ActivarNotificacionesEscritorio.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,8 +17,26 @@ import type { NotificacionItem } from '@/composables/useNotificaciones';
 import { formatearFechaHora } from '@/lib/fechas';
 import { colorClaseNotificacion } from '@/lib/notificacionColor';
 
-const { noLeidas, recientes, marcarTodasComoLeidas, abrirNotificacion } =
-    useNotificaciones();
+const {
+    noLeidas,
+    recientes,
+    llegadas,
+    marcarTodasComoLeidas,
+    abrirNotificacion,
+} = useNotificaciones();
+
+// La campana «suena» (se mece) cada vez que llega algo nuevo.
+const sonando = ref(false);
+let temporizador: ReturnType<typeof setTimeout> | undefined;
+
+watch(llegadas, () => {
+    sonando.value = false;
+    clearTimeout(temporizador);
+    requestAnimationFrame(() => {
+        sonando.value = true;
+        temporizador = setTimeout(() => (sonando.value = false), 900);
+    });
+});
 
 // Siempre pasa por el servidor (aunque ya esté leída): ahí se resuelve la
 // pantalla exacta del recurso y si ya fue atendido.
@@ -36,7 +55,12 @@ function abrir(notificacion: NotificacionItem) {
                 data-tour="notificaciones"
                 aria-label="Notificaciones"
             >
-                <Bell class="size-5" />
+                <Bell class="size-5" :class="{ 'campana-suena': sonando }" />
+                <span
+                    v-if="noLeidas > 0"
+                    class="pointer-events-none absolute -top-1 -right-1 size-4 latido-aviso rounded-full bg-destructive/60"
+                    aria-hidden="true"
+                />
                 <Badge
                     v-if="noLeidas > 0"
                     variant="destructive"
@@ -54,7 +78,7 @@ function abrir(notificacion: NotificacionItem) {
                 <button
                     v-if="noLeidas > 0"
                     type="button"
-                    class="text-xs text-primary underline"
+                    class="text-xs text-primary underline-offset-2 hover:underline"
                     @click="marcarTodasComoLeidas"
                 >
                     Marcar todas como leídas
@@ -76,12 +100,12 @@ function abrir(notificacion: NotificacionItem) {
             <DropdownMenuItem
                 v-for="notificacion in recientes"
                 :key="notificacion.id"
-                class="flex items-start gap-2.5 whitespace-normal"
+                class="group/aviso flex items-start gap-2.5 whitespace-normal"
                 :class="{ 'bg-accent/50': !notificacion.leida }"
                 @click="abrir(notificacion)"
             >
                 <span
-                    class="flex size-8 shrink-0 items-center justify-center rounded-full text-base"
+                    class="flex size-8 shrink-0 items-center justify-center rounded-full text-base transition-transform duration-200 group-hover/aviso:scale-110"
                     :class="colorClaseNotificacion(notificacion.color)"
                 >
                     {{ notificacion.emoji }}

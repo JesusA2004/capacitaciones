@@ -142,6 +142,15 @@ class Colaborador extends Model
     protected $table = 'colaboradores';
 
     /**
+     * Rutas físicas del NAS: nunca viajan al navegador ni a la app al
+     * serializar (p. ej. auth.user.colaborador en los props compartidos).
+     * La foto se consulta por su URL protegida (FotoColaboradorService::url).
+     *
+     * @var list<string>
+     */
+    protected $hidden = ['foto_path', 'expediente_storage_path'];
+
+    /**
      * Mismo motivo que en User: refleja en PHP el default real de la
      * columna en BD para que un Colaborador recien creado no truene el cast
      * a enum antes de recargarse.

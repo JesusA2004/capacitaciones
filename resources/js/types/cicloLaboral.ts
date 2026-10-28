@@ -242,6 +242,8 @@ export type CandidatoFicha = {
     tiene_cv: boolean;
     expediente: ExpedienteCandidato;
     colaborador_id: number | null;
+    /** Foto oficial del expediente (URL protegida); null → iniciales. */
+    foto_url: string | null;
     creado_en: string | null;
     contratado_en: string | null;
     entrevistas: {

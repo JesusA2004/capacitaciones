@@ -1,11 +1,19 @@
 import { router, usePage } from '@inertiajs/vue3';
-import { onMounted, onUnmounted, ref } from 'vue';
+import { onMounted, onUnmounted, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
+import { useNotificacionesTiempoReal } from '@/composables/useNotificacionesTiempoReal';
 import {
-    realtimeHabilitado,
-    useNotificacionesTiempoReal,
-} from '@/composables/useNotificacionesTiempoReal';
-import { alRecibirWebPush, useWebPush } from '@/composables/useWebPush';
+    alRecibirWebPush,
+    useWebPush,
+    webPushActivo,
+} from '@/composables/useWebPush';
+import {
+    marcarPendientesEnPestana,
+    notificacionDeSistema,
+    pestanaAlFrente,
+    reclamarAviso,
+    sonarAviso,
+} from '@/lib/avisosNavegador';
 import { postJson } from '@/lib/http';
 import {
     abrir as rutaAbrir,
@@ -44,9 +52,89 @@ export type DestinoNotificacion = {
  */
 const noLeidas = ref(0);
 const recientes = ref<NotificacionItem[]>([]);
+/** Sube cada vez que llega algo nuevo: la campana lo usa para «sonar». */
+const llegadas = ref(0);
 let consumidores = 0;
 let intervalo: ReturnType<typeof setInterval> | undefined;
 let dejarDeEscucharPush: (() => void) | undefined;
+
+// Ids ya vistos en esta pestaña: lo que aparezca fuera de este conjunto
+// después de la primera carga es un aviso NUEVO.
+const vistas = new Set<string>();
+let primeraCarga = true;
+
+/**
+ * Único punto que avisa de lo nuevo, llegue por polling, Reverb o Web Push
+ * (así nunca se duplica): toast en la página, notificación de Chrome si
+ * la pestaña no está al frente, tono y contador en la pestaña — como
+ * WhatsApp Web.
+ */
+function avisarNuevas(lista: NotificacionItem[]): void {
+    const nuevas = lista.filter((n) => !n.leida && !vistas.has(n.id));
+    lista.forEach((n) => vistas.add(n.id));
+
+    if (primeraCarga) {
+        primeraCarga = false;
+
+        return;
+    }
+
+    const propias = nuevas.filter((n) => reclamarAviso(n.id));
+
+    if (propias.length === 0) {
+        return;
+    }
+
+    llegadas.value++;
+    sonarAviso();
+
+    // Varias de golpe: un solo aviso resumido, no una ráfaga.
+    const mostrar = propias.length > 3 ? [] : propias;
+
+    if (propias.length > 3) {
+        toast.info(`Tienes ${propias.length} notificaciones nuevas`, {
+            action: {
+                label: 'Ver todas',
+                onClick: () => router.visit('/notificaciones/centro'),
+            },
+        });
+    }
+
+    for (const n of mostrar) {
+        toast.info(`${n.emoji} ${n.titulo}`.trim(), {
+            description: n.mensaje,
+            action: {
+                label: 'Ver',
+                onClick: () => void abrirNotificacion(n.id),
+            },
+        });
+    }
+
+    // Con Web Push activo la notificación del sistema ya la pinta
+    // public/sw.js (incluso con la pestaña cerrada): no se duplica.
+    if (!pestanaAlFrente() && !webPushActivo()) {
+        if (propias.length > 3) {
+            notificacionDeSistema(
+                'resumen',
+                'MR. LANA PEOPLE',
+                `Tienes ${propias.length} notificaciones nuevas`,
+                () => router.visit('/notificaciones/centro'),
+            );
+        } else {
+            for (const n of mostrar) {
+                notificacionDeSistema(
+                    n.id,
+                    n.titulo,
+                    n.mensaje,
+                    () => void abrirNotificacion(n.id),
+                    n.url?.startsWith('/') ? n.url : undefined,
+                );
+            }
+        }
+    }
+}
+
+watch(noLeidas, (total) => marcarPendientesEnPestana(total));
 
 async function cargar(): Promise<void> {
     const respuesta = await fetch(index.url(), {
@@ -65,6 +153,7 @@ async function cargar(): Promise<void> {
 
     noLeidas.value = datos.no_leidas;
     recientes.value = datos.recientes;
+    avisarNuevas(datos.recientes);
 }
 
 /** Marca leída en la copia local sin esperar al servidor. */
@@ -172,10 +261,10 @@ export function useNotificaciones() {
         }
 
         void cargar();
-        // El polling de 30s queda como respaldo (reconexion de red, Echo no
+        // El polling (20 s) queda como respaldo (reconexion de red, Echo no
         // disponible); lo real-time viene de useNotificacionesTiempoReal,
         // que refresca al instante en cuanto llega un evento por Reverb.
-        intervalo = setInterval(() => void cargar(), 30000);
+        intervalo = setInterval(() => void cargar(), 20000);
         document.addEventListener('visibilitychange', alVolverALaPestana);
 
         const userId = page.props.auth.user?.id;
@@ -185,27 +274,11 @@ export function useNotificaciones() {
             // la suscripción de este navegador con su cuenta.
             void webPush.sincronizar();
 
-            // Un Web Push con la pestaña abierta refresca la campana al
-            // instante; sin Reverb, además se muestra el toast in-page.
-            dejarDeEscucharPush = alRecibirWebPush((aviso) => {
-                void cargar();
+            // Web Push o Reverb con la pestaña abierta: refrescan la campana
+            // al instante y avisarNuevas() muestra el toast (una sola vez).
+            dejarDeEscucharPush = alRecibirWebPush(() => void cargar());
 
-                if (!realtimeHabilitado() && aviso.titulo) {
-                    toast.info(aviso.titulo, {
-                        description: aviso.cuerpo,
-                        action: {
-                            label: 'Ver',
-                            onClick: () => router.visit(aviso.url),
-                        },
-                    });
-                }
-            });
-
-            useNotificacionesTiempoReal(
-                userId,
-                () => void cargar(),
-                (id) => void abrirNotificacion(id),
-            );
+            useNotificacionesTiempoReal(userId, () => void cargar());
         }
     });
 
@@ -225,6 +298,7 @@ export function useNotificaciones() {
     return {
         noLeidas,
         recientes,
+        llegadas,
         cargar,
         marcarComoLeida,
         marcarTodasComoLeidas,

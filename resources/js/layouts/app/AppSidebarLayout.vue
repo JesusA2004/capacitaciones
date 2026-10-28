@@ -3,6 +3,7 @@ import AppContent from '@/components/AppContent.vue';
 import AppShell from '@/components/AppShell.vue';
 import AppSidebar from '@/components/AppSidebar.vue';
 import AppSidebarHeader from '@/components/AppSidebarHeader.vue';
+import BannerNotificacionesEscritorio from '@/components/BannerNotificacionesEscritorio.vue';
 import MobileBottomNav from '@/components/MobileBottomNav.vue';
 import BotonAyuda from '@/components/sistema/BotonAyuda.vue';
 import TourGuiado from '@/components/sistema/TourGuiado.vue';
@@ -28,6 +29,7 @@ withDefaults(defineProps<Props>(), {
             class="overflow-x-hidden pb-[calc(7rem+env(safe-area-inset-bottom))] sm:pb-16"
         >
             <AppSidebarHeader :breadcrumbs="breadcrumbs" />
+            <BannerNotificacionesEscritorio />
             <slot />
         </AppContent>
         <MobileBottomNav />
