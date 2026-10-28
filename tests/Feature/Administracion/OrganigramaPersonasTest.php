@@ -138,18 +138,10 @@ test('el organigrama por personas manda la foto oficial (URL protegida) de quien
     Storage::fake(config('expedientes.disk'));
     $puesto = Puesto::factory()->create(['nivel_jerarquico' => 2]);
     $sucursal = Sucursal::factory()->create();
-    $conFoto = Colaborador::factory()->create([
-        'puesto_id' => $puesto->id,
-        'sucursal_principal_id' => $sucursal->id,
-        'estatus' => 'activo',
-        'foto_path' => 'expedientes/77/foto/perfil.jpg',
-    ]);
-    $sinFoto = Colaborador::factory()->create([
-        'puesto_id' => $puesto->id,
-        'sucursal_principal_id' => $sucursal->id,
-        'estatus' => 'activo',
-        'foto_path' => null,
-    ]);
+    $conFoto = persona('Con Foto', $puesto, $sucursal);
+    $conFoto->update(['foto_path' => 'expedientes/77/foto/perfil.jpg']);
+    // Puesto propio: cada nodo del organigrama lleva a una sola persona.
+    $sinFoto = persona('Sin Foto', Puesto::factory()->create(['nivel_jerarquico' => 2]), $sucursal);
 
     $admin = User::factory()->create();
     $admin->assignRole('super_admin');
@@ -157,8 +149,9 @@ test('el organigrama por personas manda la foto oficial (URL protegida) de quien
     $nodos = organigramaPorPersonas($admin);
     $porPersona = collect($nodos)->filter(fn (array $n) => isset($n['persona']['id']))->keyBy(fn (array $n) => $n['persona']['id']);
 
+    // El nodo sin foto trae la clave con null (no se omite).
     expect($porPersona->get($conFoto->id)['persona']['foto_url'] ?? null)->toBe(app(FotoColaboradorService::class)->url($conFoto))
-        ->and($porPersona->get($sinFoto->id)['persona']['foto_url'] ?? 'falta')->toBeNull()
+        ->and($porPersona->get($sinFoto->id)['persona'] ?? [])->toHaveKey('foto_url', null)
         ->and(json_encode($nodos))->not->toContain('foto_path')
         ->and(json_encode($nodos))->not->toContain('perfil.jpg');
 });

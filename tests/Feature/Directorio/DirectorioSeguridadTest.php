@@ -58,8 +58,9 @@ test('API móvil: el directorio solo serializa contacto corporativo, nunca datos
 test('web: el directorio solo serializa contacto corporativo, nunca datos sensibles', function () {
     // Compañero de la misma sucursal (el personal de sucursal solo ve la suya).
     $respuesta = $this->actingAs(clUsuario('colaborador', ['sucursal_principal_id' => $this->sensible->sucursal_principal_id]))->get(route('directorio.index'))->assertOk();
-    // La web agrega solo datos de agrupación (puesto, nivel, sucursal, área).
-    $permitidos = [...DIRECTORIO_CAMPOS, 'puesto_id', 'nivel', 'sucursal_id', 'departamento_id', 'es_corporativo', 'area'];
+    // La web agrega solo datos de agrupación (puesto, nivel, sucursal, área)
+    // y la URL protegida de la foto (null fuera del alcance de Expedientes).
+    $permitidos = [...DIRECTORIO_CAMPOS, 'puesto_id', 'nivel', 'sucursal_id', 'departamento_id', 'es_corporativo', 'area', 'foto_url'];
 
     $respuesta->assertInertia(fn ($page) => $page->where(
         'colaboradores',
