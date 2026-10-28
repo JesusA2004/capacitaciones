@@ -15,10 +15,12 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Compensacion\CompensacionService;
 use App\Services\DocumentosLaborales\FirmaDocumentalService;
+use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Tareas\TareaService;
 use App\Support\FechaMexico;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -384,6 +386,105 @@ class ContratoLaboralService
         $this->prepararDocumentos($nuevo, $this->clavesPaquete($nuevo), $actor);
 
         return $nuevo->refresh();
+    }
+
+    /**
+     * Corrige a un NUEVO contratado cuya fecha de ingreso se capturó con una
+     * fecha histórica: eso hizo que su periodo de prueba apareciera «vencido»
+     * y que su contrato se auto-renovara a tiempo indeterminado (regla de
+     * «personal con antigüedad» de la regularización). Restaura su
+     * capacitación inicial, corrige la fecha de ingreso y recalcula el periodo
+     * de prueba desde la duración del puesto.
+     *
+     * Seguro y auditable: el indeterminado auto-creado NO se borra (queda
+     * «cancelado», conservando su historial) y, si su documento ya tiene un
+     * original firmado físicamente, NO se toca nada y se lanza un error — es un
+     * contrato real, no un artefacto de la mala captura. Idempotente: si ya no
+     * hay indeterminado que revertir, solo corrige la fecha y el periodo.
+     *
+     * @return array{fecha_ingreso: string, periodo_prueba_inicio: string, periodo_prueba_fin: string, indeterminado_cancelado: int|null, documentos_cancelados: list<string>, inicial_restaurado: int|null}
+     */
+    public function corregirIngresoNuevoContratado(Colaborador $colaborador, CarbonInterface $fechaIngreso, User $actor): array
+    {
+        $colaborador->loadMissing('puesto');
+        $inicio = CarbonImmutable::parse($fechaIngreso->toDateString());
+        // Lanza si el puesto no tiene duración de capacitación configurada.
+        $fin = CarbonImmutable::parse($this->fechaFinPeriodoPrueba($colaborador->puesto_id, $inicio)->toDateString());
+
+        $contratos = ContratoLaboral::query()
+            ->where('colaborador_id', $colaborador->id)
+            ->orderByDesc('fecha_inicio')->orderByDesc('id')->get();
+        $inicial = $contratos->first(fn (ContratoLaboral $c): bool => $c->contrato_anterior_id === null);
+        $autoIndeterminado = $inicial !== null
+            ? $contratos->first(fn (ContratoLaboral $c): bool => $c->contrato_anterior_id === $inicial->id
+                && $c->tipo === TipoContratacion::Indeterminado
+                && $c->estado === EstadoContratoLaboral::Vigente)
+            : null;
+
+        // Un indeterminado con original ya firmado físicamente es un contrato
+        // real: no se revierte por esta vía (va por anulación auditada).
+        if ($autoIndeterminado !== null
+            && $this->documentosDelContrato($autoIndeterminado)
+                ->contains(fn (GeneratedDocument $d): bool => (bool) $d->estado_flujo?->firmaFisicaRegistrada())) {
+            throw ValidationException::withMessages([
+                'contrato' => sprintf('El contrato indeterminado de %s ya tiene un original firmado físicamente: no se revierte automáticamente.', $colaborador->nombreCompleto()),
+            ]);
+        }
+
+        $resultado = DB::transaction(function () use ($colaborador, $inicio, $fin, $autoIndeterminado, $inicial, $actor): array {
+            $documentosCancelados = [];
+
+            if ($autoIndeterminado !== null) {
+                $flujo = app(FlujoDocumentalService::class);
+                $motivo = 'Fecha de ingreso corregida: el contrato indeterminado se generó por una captura incorrecta (nuevo ingreso en capacitación inicial).';
+
+                foreach ($this->documentosDelContrato($autoIndeterminado) as $documento) {
+                    $flujo->cancelar($documento, $actor, $motivo);
+                    $documentosCancelados[] = (string) ($documento->titulo ?? $documento->clave_plantilla);
+                }
+
+                $autoIndeterminado->update([
+                    'estado' => EstadoContratoLaboral::Cancelado,
+                    'observaciones' => $motivo,
+                ]);
+            }
+
+            if ($inicial !== null) {
+                $inicial->update([
+                    'tipo' => TipoContratacion::CapacitacionInicial,
+                    'estado' => EstadoContratoLaboral::Vigente,
+                    'fecha_inicio' => $inicio->toDateString(),
+                    'fecha_fin' => $fin->toDateString(),
+                ]);
+            }
+
+            $colaborador->update([
+                'fecha_ingreso' => $inicio->toDateString(),
+                'tipo_contratacion' => TipoContratacion::CapacitacionInicial,
+                'periodo_prueba_inicio' => $inicio->toDateString(),
+                'periodo_prueba_fin' => $fin->toDateString(),
+            ]);
+
+            return [
+                'indeterminado_cancelado' => $autoIndeterminado?->id,
+                'documentos_cancelados' => $documentosCancelados,
+                'inicial_restaurado' => $inicial?->id,
+            ];
+        });
+
+        $this->auditoria->registrar('contrato_ingreso_corregido', $inicial ?? $colaborador, $actor, [
+            'colaborador_id' => $colaborador->id,
+            'fecha_ingreso' => $inicio->toDateString(),
+            'periodo_prueba_fin' => $fin->toDateString(),
+            'indeterminado_cancelado' => $resultado['indeterminado_cancelado'],
+        ]);
+
+        return [
+            'fecha_ingreso' => $inicio->toDateString(),
+            'periodo_prueba_inicio' => $inicio->toDateString(),
+            'periodo_prueba_fin' => $fin->toDateString(),
+            ...$resultado,
+        ];
     }
 
     /**

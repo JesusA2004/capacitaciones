@@ -403,7 +403,63 @@ watch(
     { immediate: true },
 );
 
-onBeforeUnmount(cancelarSondeo);
+/**
+ * Red de seguridad contra el «congelamiento» de la página: reka-ui bloquea el
+ * `<body>` (`pointer-events: none` + `overflow: hidden`) mientras un Dialog
+ * modal está abierto y solo lo restaura en su propio cleanup. Si este visor se
+ * DESMONTA de golpe estando abierto —p. ej. cuando una recarga parcial de
+ * Inertia (`Deferred data="centro"`) vuelve a renderizar el panel que lo
+ * contiene— ese cleanup no corre y el `body` queda inerte: nada responde al
+ * clic. Tras el desmontaje, si ya no queda ninguna capa de reka en el DOM
+ * (`[data-dismissable-layer]`) pero el `body` sigue bloqueado, lo liberamos.
+ * Es seguro: solo actúa cuando no hay ningún otro modal/capa vivo.
+ */
+function liberarBloqueoBodyHuerfano() {
+    if (typeof document === 'undefined') {
+        return;
+    }
+
+    if (document.querySelector('[data-dismissable-layer]') !== null) {
+        return;
+    }
+
+    const cuerpo = document.body;
+
+    if (cuerpo.style.pointerEvents === 'none') {
+        cuerpo.style.pointerEvents = '';
+    }
+
+    if (cuerpo.style.overflow === 'hidden') {
+        cuerpo.style.overflow = '';
+    }
+
+    cuerpo.style.paddingRight = '';
+    cuerpo.style.marginRight = '';
+    document.documentElement.style.removeProperty('--scrollbar-width');
+}
+
+onBeforeUnmount(() => {
+    cancelarSondeo();
+
+    // El desmontaje y el cleanup de reka ocurren en este tick; comprobamos en
+    // el siguiente frame, ya con el árbol desmontado, si quedó bloqueo huérfano.
+    if (props.open) {
+        requestAnimationFrame(liberarBloqueoBodyHuerfano);
+    }
+});
+
+// También al cerrar normalmente: si reka dejó el `<body>` bloqueado (p. ej.
+// porque capturó «none» como estado original al apilarse con otra capa), lo
+// liberamos en cuanto termina la animación de salida. El guard interno impide
+// tocar el body si aún queda cualquier otra capa/modal abierto.
+watch(
+    () => props.open,
+    (abierto, antes) => {
+        if (antes && !abierto) {
+            requestAnimationFrame(liberarBloqueoBodyHuerfano);
+        }
+    },
+);
 
 function alCargarIframe(evento: Event) {
     const marco = evento.target as HTMLIFrameElement;

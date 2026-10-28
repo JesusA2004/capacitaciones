@@ -333,7 +333,12 @@ class RegularizacionContratosService
         $existentes = ContratoLaboral::query()->where('colaborador_id', $colaborador->id)->orderByDesc('fecha_inicio')->orderByDesc('id')->get();
         $inicial = $existentes->first(fn (ContratoLaboral $c): bool => $c->contrato_anterior_id === null && $c->estado === EstadoContratoLaboral::Vigente)
             ?? $existentes->first(fn (ContratoLaboral $c): bool => $c->contrato_anterior_id === null);
-        $indeterminado = $existentes->first(fn (ContratoLaboral $c): bool => $c->contrato_anterior_id !== null && $c->tipo === TipoContratacion::Indeterminado);
+        // Un indeterminado CANCELADO (p. ej. revertido porque se generó por una
+        // fecha de ingreso mal capturada) no cuenta: no debe reofrecerse su
+        // etapa ni recrearse. Solo cuenta un indeterminado aún en pie.
+        $indeterminado = $existentes->first(fn (ContratoLaboral $c): bool => $c->contrato_anterior_id !== null
+            && $c->tipo === TipoContratacion::Indeterminado
+            && $c->estado !== EstadoContratoLaboral::Cancelado);
 
         if ($inicial === null && $colaborador->fecha_ingreso === null) {
             $bloqueos[] = ['etiqueta' => 'Fecha de ingreso', 'detalle' => 'Captura la fecha de ingreso en el expediente del colaborador.', 'configurar_url' => null];
