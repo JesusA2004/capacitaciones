@@ -144,7 +144,7 @@ test('confidencialidad: un puesto sin convenio propio (Sistemas, Dirección Come
     expect($master->familia)->toBe('contrato_confidencialidad.general');
 });
 
-test('confidencialidad de Gerente: la jurisdicción que viene en blanco en el original se imprime en blanco', function () {
+test('confidencialidad de Gerente: la jurisdicción en blanco del original se llena con el estado y la ciudad de la sucursal', function () {
     $colaborador = dmColaborador('gerente', $this->estructura);
     $contrato = dmContrato($colaborador);
 
@@ -161,8 +161,13 @@ test('confidencialidad de Gerente: la jurisdicción que viene en blanco en el or
     $zip->close();
     @unlink($temporal);
 
-    expect($texto)->toMatch('/leyes del estado de _{5,}/')
-        ->and($texto)->toMatch('/tribunales de la ciudad de _{5,}/')
+    $sucursal = $colaborador->sucursalPrincipal;
+    $estado = mb_strtoupper((string) $sucursal?->estado, 'UTF-8');
+
+    expect($texto)->not->toMatch('/leyes del estado de _{5,}/')
+        ->and($texto)->not->toMatch('/tribunales de la ciudad de _{5,}/')
+        ->and($texto)->toContain(sprintf('leyes del estado de %s', $estado))
+        ->and($texto)->toContain(sprintf('tribunales de la ciudad de %s', (string) $sucursal?->ciudad))
         ->and($texto)->toContain('JUAN PÉREZ LÓPEZ');
 });
 

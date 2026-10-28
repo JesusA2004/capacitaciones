@@ -140,6 +140,7 @@ class CatalogoVariablesDocumento
         'puesto_mayusculas' => ['puesto', TransformacionTexto::Mayusculas],
         'departamento_mayusculas' => ['departamento', TransformacionTexto::Mayusculas],
         'sucursal_nombre_mayusculas' => ['sucursal_nombre', TransformacionTexto::Mayusculas],
+        'sucursal_estado_mayusculas' => ['sucursal_estado', TransformacionTexto::Mayusculas],
         'empresa_razon_social_mayusculas' => ['empresa_razon_social', TransformacionTexto::Mayusculas],
         'representante_legal_mayusculas' => ['representante_legal', TransformacionTexto::Mayusculas],
         'gerente_nombre_mayusculas' => ['jefe_inmediato', TransformacionTexto::Mayusculas],

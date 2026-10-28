@@ -123,6 +123,21 @@ $confidencialidad2026 = [
     ['tipo' => 'blanco', 'antes' => 'C.', 'fila' => 'EL RECEPTOR', 'campo' => 'nombre_completo_mayusculas'],
 ];
 
+// Cláusula DÉCIMA SÉPTIMA (jurisdicción) y cierre de firma de los convenios de
+// confidencialidad: el ESTADO y la CIUDAD salen de la sucursal del colaborador,
+// nunca de Cuernavaca fijo. Unos originales traen los espacios en blanco
+// (gerente, subgerente, coordinadoras) y otros el texto de ejemplo «MORELOS» /
+// «Cuernavaca, Morelos» (gestor, general): se cubren ambas variantes.
+$jurisdiccionEnBlanco = [
+    ['tipo' => 'blanco', 'antes' => 'las leyes del estado de', 'campo' => 'sucursal_estado_mayusculas'],
+    ['tipo' => 'blanco', 'antes' => 'tribunales de la ciudad de', 'campo' => 'lugar_firma'],
+];
+$jurisdiccionConEjemplo = [
+    ['tipo' => 'texto', 'buscar' => 'MORELOS', 'parrafo' => 'las leyes del estado de', 'campo' => 'sucursal_estado_mayusculas'],
+    ['tipo' => 'texto', 'buscar' => 'Cuernavaca, Morelos', 'parrafo' => 'tribunales de la ciudad de', 'campo' => 'lugar_firma'],
+    ['tipo' => 'entre', 'desde' => 'en la ciudad de', 'hasta' => '.', 'parrafo' => 'lo firmaron al calce', 'campo' => 'ciudad_y_fecha_firma_a_los_inicio_contrato'],
+];
+
 // Acuerdos de no competencia (anexo 1 del contrato de capacitación).
 $noCompetenciaDeclaracion = [
     ['tipo' => 'blanco', 'antes' => 'de nacionalidad', 'parrafo' => 'Ser una persona física', 'campo' => 'nacionalidad'],
@@ -687,6 +702,8 @@ return [
                 ['tipo' => 'blanco', 'antes' => 'salario mensual bruto de $', 'campo' => 'sueldo_mensual_numero_letra'],
                 ...$beneficiariosSubrayados,
                 ['tipo' => 'entre', 'desde' => 'Cuernavaca, Morelos a', 'hasta' => '.', 'parrafo' => 'lo firman en', 'campo' => 'fecha_inicio_contrato_larga_mayusculas'],
+                // Ciudad de firma = la de la sucursal (va DESPUÉS de la fecha: esa regla se ancla en el ejemplo).
+                ['tipo' => 'texto', 'buscar' => 'Cuernavaca, Morelos', 'parrafo' => 'lo firman en', 'campo' => 'lugar_firma'],
                 ['tipo' => 'blanco', 'antes' => 'C.', 'fila' => 'POR EL TRABAJADOR', 'campo' => 'nombre_completo_mayusculas'],
                 ['tipo' => 'entre', 'desde' => 'de fecha', 'hasta' => ' celebrado', 'parrafo' => 'La presente hoja de firmas', 'campo' => 'fecha_inicio_contrato_larga_mayusculas'],
                 ['tipo' => 'entre', 'desde' => 'Capital Variable y', 'hasta' => '.', 'parrafo' => 'La presente hoja de firmas', 'campo' => 'nombre_completo_mayusculas'],
@@ -719,6 +736,8 @@ return [
                 ['tipo' => 'blanco', 'antes' => 'salario mensual bruto de $', 'campo' => 'sueldo_mensual_numero_letra'],
                 ...$beneficiariosSubrayados,
                 ['tipo' => 'entre', 'desde' => 'Cuernavaca, Morelos a', 'hasta' => '.', 'parrafo' => 'lo firman en', 'campo' => 'fecha_inicio_contrato_larga_mayusculas'],
+                // Ciudad de firma = la de la sucursal (va DESPUÉS de la fecha: esa regla se ancla en el ejemplo).
+                ['tipo' => 'texto', 'buscar' => 'Cuernavaca, Morelos', 'parrafo' => 'lo firman en', 'campo' => 'lugar_firma'],
                 ['tipo' => 'blanco', 'antes' => 'C.', 'fila' => 'POR EL TRABAJADOR', 'campo' => 'nombre_completo_mayusculas'],
                 ['tipo' => 'entre', 'desde' => 'de fecha', 'hasta' => ' celebrado', 'parrafo' => 'La presente hoja de firmas', 'campo' => 'fecha_inicio_contrato_larga_mayusculas'],
                 ['tipo' => 'entre', 'desde' => 'Capital Variable y', 'hasta' => '.', 'parrafo' => 'La presente hoja de firmas', 'campo' => 'nombre_completo_mayusculas'],
@@ -738,7 +757,7 @@ return [
             'reglas' => [
                 ...$confidencialidad2026,
                 ['tipo' => 'blanco', 'antes' => '"EL TITULAR" en el ubicado en:', 'campo' => 'empresa_domicilio'],
-                ['tipo' => 'blanco', 'antes' => 'Cuernavaca, Morelos a los', 'campo' => 'fecha_firma_a_los_inicio_contrato'],
+                ...$jurisdiccionConEjemplo,
             ],
             'fechas_fijas' => $fechasFijas,
         ],
@@ -758,12 +777,12 @@ return [
                 ...$confidencialidad2026,
                 ['tipo' => 'blanco', 'antes' => '"EL TITULAR" en el ubicado en:', 'campo' => 'empresa_domicilio'],
                 ['tipo' => 'entre', 'desde' => 'en la ciudad de', 'hasta' => '.', 'parrafo' => 'lo firmaron al calce', 'campo' => 'ciudad_y_fecha_firma_a_los_inicio_contrato'],
+                ...$jurisdiccionEnBlanco,
             ],
-            'ignorar' => ['las leyes del estado de'],
             'fechas_fijas' => $fechasFijas,
             'observaciones' => [
                 'La declaración y la cláusula "No padecer enfermedad…" dicen "capacitación inicial de dos meses"; un gerente tiene 3 meses (puestos.meses_periodo_prueba). El sistema imprime la duración real del puesto. Confirmar con Jurídico.',
-                'La jurisdicción (estado / ciudad de tribunales) viene en blanco en el original y se imprime en blanco: no es dato del colaborador.',
+                'La jurisdicción (estado / ciudad de tribunales) viene en blanco en el original: se imprime el estado y la ciudad de la sucursal del colaborador, igual que en el convenio de gestor.',
             ],
         ],
 
@@ -779,10 +798,10 @@ return [
                 ...$confidencialidad2026,
                 ['tipo' => 'blanco', 'antes' => '"EL TITULAR" en el ubicado en:', 'campo' => 'empresa_domicilio'],
                 ['tipo' => 'entre', 'desde' => 'en la ciudad de', 'hasta' => '.', 'parrafo' => 'lo firmaron al calce', 'campo' => 'ciudad_y_fecha_firma_a_los_inicio_contrato'],
+                ...$jurisdiccionEnBlanco,
             ],
-            'ignorar' => ['las leyes del estado de'],
             'fechas_fijas' => $fechasFijas,
-            'observaciones' => ['Duración "dos meses" en la declaración: se imprime la duración real del puesto (subgerente 3 meses). La jurisdicción viene en blanco y se imprime en blanco.'],
+            'observaciones' => ['Duración "dos meses" en la declaración: se imprime la duración real del puesto (subgerente 3 meses). La jurisdicción viene en blanco: se imprime el estado y la ciudad de la sucursal del colaborador.'],
         ],
 
         'contrato_confidencialidad.coordinadora' => [
@@ -797,8 +816,8 @@ return [
                 ...$confidencialidad2026,
                 ['tipo' => 'blanco', 'antes' => '"EL TITULAR" en el ubicado en:', 'campo' => 'empresa_domicilio'],
                 ['tipo' => 'entre', 'desde' => 'en la ciudad de', 'hasta' => '.', 'parrafo' => 'lo firmaron al calce', 'campo' => 'ciudad_y_fecha_firma_a_los_inicio_contrato'],
+                ...$jurisdiccionEnBlanco,
             ],
-            'ignorar' => ['las leyes del estado de'],
             'fechas_fijas' => $fechasFijas,
         ],
 
@@ -823,7 +842,7 @@ return [
             ],
             'reglas' => [
                 ...$confidencialidad2026,
-                ['tipo' => 'blanco', 'antes' => 'Cuernavaca, Morelos a los', 'campo' => 'fecha_firma_a_los_inicio_contrato'],
+                ...$jurisdiccionConEjemplo,
             ],
             'fechas_fijas' => $fechasFijas,
             'observaciones' => ['Convenio general: lo firman todos los puestos que no tienen convenio propio (documentos_maestros.fallback_general).'],

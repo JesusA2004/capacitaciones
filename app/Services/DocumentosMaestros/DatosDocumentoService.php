@@ -156,6 +156,7 @@ class DatosDocumentoService
         'sucursal_nombre' => 'sucursal', 'sucursal_nombre_mayusculas' => 'sucursal',
         'sucursal_domicilio' => 'sucursal_direccion', 'sucursal_domicilio_con_nombre' => 'sucursal_direccion',
         'sucursal_direccion_mayusculas' => 'sucursal_direccion', 'sucursal_municipio_mayusculas' => 'sucursal_municipio',
+        'sucursal_estado_mayusculas' => 'sucursal_estado',
         'lugar_firma' => 'sucursal_ciudad', 'lugar_documento' => 'sucursal_ciudad', 'ciudad_firma' => 'sucursal_ciudad',
         'fecha_ingreso_larga' => 'fecha_ingreso', 'fecha_ingreso_dia_mes_anio' => 'fecha_ingreso',
         // Sueldo mensual = salario diario × 30 (CompensacionService): lo que
