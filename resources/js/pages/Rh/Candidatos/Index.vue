@@ -2,13 +2,16 @@
 import { Head, router } from '@inertiajs/vue3';
 import {
     Banknote,
+    BadgeCheck,
     BrainCircuit,
     CalendarClock,
+    ClipboardCheck,
+    ClipboardList,
     Columns3,
     FileSignature,
     GraduationCap,
-    Briefcase,
     PhoneCall,
+    Presentation,
     Filter,
     House,
     LayoutGrid,
@@ -244,11 +247,22 @@ const ESTILO_FASE: Record<string, { icono: typeof Users; color: string }> = {
     socioeconomico: { icono: House, color: 'var(--mrl-bronce)' },
     referencias: { icono: PhoneCall, color: 'var(--mrl-dorado-oscuro)' },
     contratacion: { icono: FileSignature, color: 'var(--info)' },
+    // Contratación e incorporación (FaseContratadoService): por hechos
+    // reales del colaborador, nunca por una casilla manual.
+    induccion: { icono: Presentation, color: 'var(--mrl-cyan)' },
+    evaluacion_induccion: {
+        icono: ClipboardCheck,
+        color: 'var(--warning)',
+    },
     capacitacion_inicial: {
         icono: GraduationCap,
         color: 'var(--mrl-verde-secundario)',
     },
-    laborando: { icono: Briefcase, color: 'var(--success)' },
+    evaluacion_capacitacion_inicial: {
+        icono: ClipboardList,
+        color: 'var(--mrl-dorado-oscuro)',
+    },
+    contrato_indeterminado: { icono: BadgeCheck, color: 'var(--success)' },
     rechazado: { icono: UserX, color: 'var(--destructive)' },
     desistido: { icono: UserMinus, color: 'var(--muted-foreground)' },
 };
@@ -256,9 +270,48 @@ const estiloFase = (fase: string) =>
     ESTILO_FASE[fase] ?? { icono: UserRound, color: 'var(--mrl-petroleo)' };
 
 const FASES_SALIDA = ['rechazado', 'desistido'];
+// Columnas posteriores a «Contratación» (mismo orden que
+// EstadoCandidato::FASES_CONTRATADO en el backend).
+const FASES_INCORPORACION = [
+    'induccion',
+    'evaluacion_induccion',
+    'capacitacion_inicial',
+    'evaluacion_capacitacion_inicial',
+    'contrato_indeterminado',
+];
 const fasesRecorrido = computed(() =>
     columnas.value.filter((c) => !FASES_SALIDA.includes(c.value)),
 );
+// El recorrido se lee en dos etapas: reclutamiento (hasta Contratación) y
+// contratación e incorporación (de Inducción a Contrato indeterminado).
+const etapasRecorrido = computed(() => {
+    const reclutamiento = fasesRecorrido.value.filter(
+        (c) => !FASES_INCORPORACION.includes(c.value),
+    );
+    const incorporacion = fasesRecorrido.value.filter((c) =>
+        FASES_INCORPORACION.includes(c.value),
+    );
+
+    return [
+        {
+            clave: 'reclutamiento',
+            titulo: 'Reclutamiento',
+            fases: reclutamiento,
+            desde: 0,
+        },
+        {
+            clave: 'incorporacion',
+            titulo: 'Contratación e incorporación',
+            fases: incorporacion,
+            desde: reclutamiento.length,
+        },
+    ].filter((etapa) => etapa.fases.length > 0);
+});
+const totalEtapa = (fases: { candidatos: CandidatoItem[] }[]) =>
+    fases.reduce((total, f) => total + f.candidatos.length, 0);
+// Riel entre dos fases: degradado del color de una al de la siguiente.
+const rielEntre = (de: string, a: string) =>
+    `linear-gradient(90deg, ${estiloFase(de).color}, ${estiloFase(a).color})`;
 const fasesSalida = computed(() =>
     columnas.value.filter((c) => FASES_SALIDA.includes(c.value)),
 );
@@ -271,9 +324,8 @@ const vista = ref<'fase' | 'tablero'>('fase');
 const faseSeleccionada = ref<string>(
     columnas.value.find(
         (c) =>
-            ![...FASES_SALIDA, 'capacitacion_inicial', 'laborando'].includes(
-                c.value,
-            ) && c.candidatos.length > 0,
+            ![...FASES_SALIDA, ...FASES_INCORPORACION].includes(c.value) &&
+            c.candidatos.length > 0,
     )?.value ??
         COLUMNAS[0]?.value ??
         'filtro_rh',
@@ -655,71 +707,145 @@ function confirmarSalida() {
                 </div>
             </div>
 
-            <div class="flex items-stretch gap-4 overflow-x-auto px-5 py-5">
-                <ol class="flex min-w-max flex-1 items-start">
-                    <li
-                        v-for="(fase, i) in fasesRecorrido"
-                        :key="fase.value"
-                        class="relative flex min-w-[7.5rem] flex-1 flex-col items-center"
+            <div
+                class="scroll-x-limpio flex items-stretch gap-4 px-4 py-5 sm:px-5"
+            >
+                <!-- Dos etapas: Reclutamiento → Contratación e incorporación.
+                     Cada una con su riel; el número de fase sigue corrido. -->
+                <div class="flex min-w-max flex-1 items-stretch gap-3">
+                    <section
+                        v-for="(etapa, e) in etapasRecorrido"
+                        :key="etapa.clave"
+                        class="flex flex-col gap-3 rounded-2xl px-2 pt-2 pb-1"
+                        :class="
+                            e > 0
+                                ? 'border border-dashed border-[var(--pastel-oro)]/60 bg-crema/40'
+                                : ''
+                        "
+                        :aria-label="etapa.titulo"
                     >
-                        <span
-                            v-if="i < fasesRecorrido.length - 1"
-                            class="absolute top-6 left-1/2 h-0.5 w-full bg-border"
-                            aria-hidden="true"
-                        />
-                        <button
-                            type="button"
-                            class="group relative z-10 flex flex-col items-center gap-1.5 rounded-2xl px-2 pb-1 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                            :aria-pressed="faseActiva(fase.value)"
-                            @click="elegirFase(fase.value)"
+                        <p
+                            class="flex items-center gap-2 px-2 text-[11px] font-semibold tracking-wider uppercase"
+                            :class="
+                                e > 0 ? 'text-bronce' : 'text-muted-foreground'
+                            "
                         >
                             <span
-                                class="relative flex size-12 items-center justify-center rounded-full border-2 bg-card transition group-hover:scale-105"
-                                :style="{
-                                    borderColor: estiloFase(fase.value).color,
-                                    backgroundColor: faseActiva(fase.value)
-                                        ? estiloFase(fase.value).color
-                                        : undefined,
-                                    color: faseActiva(fase.value)
-                                        ? 'var(--primary-foreground)'
-                                        : estiloFase(fase.value).color,
-                                }"
+                                class="flex size-5 items-center justify-center rounded-full text-[10px]"
+                                :class="
+                                    e > 0
+                                        ? 'bg-[var(--pastel-oro)]/25 text-bronce'
+                                        : 'bg-muted text-muted-foreground'
+                                "
+                                >{{ e + 1 }}</span
                             >
-                                <component
-                                    :is="estiloFase(fase.value).icono"
-                                    class="size-5"
-                                />
+                            {{ etapa.titulo }}
+                            <span class="font-normal normal-case"
+                                >· {{ totalEtapa(etapa.fases) }}</span
+                            >
+                        </p>
+                        <ol class="flex items-start">
+                            <li
+                                v-for="(fase, i) in etapa.fases"
+                                :key="fase.value"
+                                class="relative flex w-[7.75rem] flex-col items-center"
+                            >
                                 <span
-                                    class="absolute -top-1.5 -right-1.5 flex min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] leading-5 font-bold text-white shadow"
+                                    v-if="i < etapa.fases.length - 1"
+                                    class="absolute top-6 left-1/2 h-0.5 w-full opacity-40"
                                     :style="{
-                                        backgroundColor: estiloFase(fase.value)
-                                            .color,
+                                        background: rielEntre(
+                                            fase.value,
+                                            etapa.fases[i + 1].value,
+                                        ),
                                     }"
-                                    >{{ fase.candidatos.length }}</span
+                                    aria-hidden="true"
+                                />
+                                <button
+                                    type="button"
+                                    class="group relative z-10 flex w-full flex-col items-center gap-1.5 rounded-2xl px-1.5 pt-0.5 pb-2 transition-colors duration-200 hover:bg-card/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                    :class="
+                                        faseActiva(fase.value) &&
+                                        'bg-card shadow-sm ring-1 ring-border/70'
+                                    "
+                                    :aria-pressed="faseActiva(fase.value)"
+                                    :title="fase.etiqueta"
+                                    @click="elegirFase(fase.value)"
                                 >
-                            </span>
-                            <span
-                                class="text-[11px] font-medium text-muted-foreground"
-                                >Fase {{ i + 1 }}</span
-                            >
-                            <span class="text-sm font-semibold">{{
-                                fase.etiqueta
-                            }}</span>
-                            <span
-                                class="h-1.5 w-16 overflow-hidden rounded-full bg-muted"
-                            >
-                                <span
-                                    class="block h-full rounded-full transition-all"
-                                    :style="{
-                                        width: `${(fase.candidatos.length / maxEnFase) * 100}%`,
-                                        backgroundColor: estiloFase(fase.value)
-                                            .color,
-                                    }"
-                                />
-                            </span>
-                        </button>
-                    </li>
-                </ol>
+                                    <span
+                                        class="relative flex size-12 items-center justify-center rounded-full border-2 bg-card shadow-sm transition-transform duration-200 group-hover:scale-110 motion-reduce:transition-none"
+                                        :class="
+                                            faseActiva(fase.value) &&
+                                            'scale-105 shadow-md'
+                                        "
+                                        :style="{
+                                            borderColor: estiloFase(fase.value)
+                                                .color,
+                                            backgroundColor: faseActiva(
+                                                fase.value,
+                                            )
+                                                ? estiloFase(fase.value).color
+                                                : undefined,
+                                            color: faseActiva(fase.value)
+                                                ? 'var(--primary-foreground)'
+                                                : estiloFase(fase.value).color,
+                                        }"
+                                    >
+                                        <component
+                                            :is="estiloFase(fase.value).icono"
+                                            class="size-5"
+                                        />
+                                        <span
+                                            class="absolute -top-1.5 -right-1.5 flex min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] leading-5 font-bold shadow ring-2 ring-card"
+                                            :class="
+                                                fase.candidatos.length === 0
+                                                    ? 'bg-muted text-muted-foreground'
+                                                    : 'text-white'
+                                            "
+                                            :style="
+                                                fase.candidatos.length > 0
+                                                    ? {
+                                                          backgroundColor:
+                                                              estiloFase(
+                                                                  fase.value,
+                                                              ).color,
+                                                      }
+                                                    : undefined
+                                            "
+                                            >{{ fase.candidatos.length }}</span
+                                        >
+                                    </span>
+                                    <span
+                                        class="text-[10px] font-medium tracking-wide text-muted-foreground uppercase"
+                                        >Fase {{ etapa.desde + i + 1 }}</span
+                                    >
+                                    <span
+                                        class="min-h-[2.5rem] text-center text-[13px] leading-tight font-semibold text-balance"
+                                        :class="
+                                            faseActiva(fase.value)
+                                                ? 'text-foreground'
+                                                : 'text-foreground/85'
+                                        "
+                                        >{{ fase.etiqueta }}</span
+                                    >
+                                    <span
+                                        class="h-1.5 w-16 overflow-hidden rounded-full bg-muted"
+                                    >
+                                        <span
+                                            class="block h-full rounded-full transition-all duration-500"
+                                            :style="{
+                                                width: `${(fase.candidatos.length / maxEnFase) * 100}%`,
+                                                backgroundColor: estiloFase(
+                                                    fase.value,
+                                                ).color,
+                                            }"
+                                        />
+                                    </span>
+                                </button>
+                            </li>
+                        </ol>
+                    </section>
+                </div>
 
                 <div
                     class="flex shrink-0 flex-col justify-center gap-2 border-l border-border/60 pl-4"

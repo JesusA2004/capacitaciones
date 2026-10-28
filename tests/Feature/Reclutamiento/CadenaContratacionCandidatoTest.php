@@ -1,9 +1,11 @@
 <?php
 
 use App\Enums\EstadoCandidato;
+use App\Enums\EstadoFlujoDocumento;
 use App\Enums\EstadoInvitacionIncorporacion;
 use App\Models\Candidato;
 use App\Models\Colaborador;
+use App\Models\GeneratedDocument;
 use App\Models\IncorporacionInvitacion;
 use App\Services\Expedientes\ExpedienteCentroService;
 use App\Services\Reclutamiento\CadenaContratacionService;
@@ -92,17 +94,23 @@ test('J · candidato seleccionado SIN incorporación: estado «Seleccionado» y 
     expect(app(CadenaContratacionService::class)->paraCandidato($enProceso, $this->rh))->toBeNull();
 });
 
-test('el candidato contratado sigue visible con su estado real (En inducción / Contratado) y el expediente lo enlaza de vuelta', function () {
+test('el candidato contratado sigue visible con su columna real (Inducción … Contrato indeterminado) y el expediente lo enlaza de vuelta', function () {
     $candidato = ccEnContratacion($this->estructura);
     $candidato->update(['estado' => EstadoCandidato::Contratado->value, 'contratado_en' => now()]);
     $colaborador = $candidato->colaborador()->firstOrFail();
 
     expect(app(CadenaContratacionService::class)->paraCandidato($candidato->fresh(), $this->rh))
-        ->toMatchArray(['clave' => 'en_induccion', 'etiqueta' => 'En inducción']);
+        ->toMatchArray(['clave' => 'induccion', 'etiqueta' => 'Inducción', 'detalle' => 'Falta presentarle la inducción']);
 
+    // Activado pero SIN contrato indeterminado generado: sigue en Inducción
+    // (nunca «Contrato indeterminado» por activado_en).
     $colaborador->update(['estatus' => 'activo', 'activado_en' => now()]);
     expect(app(CadenaContratacionService::class)->paraCandidato($candidato->fresh(), $this->rh))
-        ->toMatchArray(['clave' => 'contratado', 'expediente_etiqueta' => 'Ver expediente del colaborador']);
+        ->toMatchArray(['clave' => 'induccion', 'expediente_etiqueta' => 'Ver expediente del colaborador']);
+
+    GeneratedDocument::factory()->create(['colaborador_id' => $colaborador->id, 'clave_plantilla' => 'contrato_indeterminado', 'estado_flujo' => EstadoFlujoDocumento::Generado]);
+    expect(app(CadenaContratacionService::class)->paraCandidato($candidato->fresh(), $this->rh))
+        ->toMatchArray(['clave' => 'contrato_indeterminado', 'etiqueta' => 'Contrato indeterminado', 'tono' => 'exito']);
 
     // Desde el expediente: «Ver origen en reclutamiento».
     $origen = app(ExpedienteCentroService::class)->resumen($colaborador->fresh(), $this->rh)['origen'];

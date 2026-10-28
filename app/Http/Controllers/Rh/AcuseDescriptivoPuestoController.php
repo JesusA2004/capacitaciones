@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Rh;
 use App\Http\Controllers\Controller;
 use App\Models\Colaborador;
 use App\Models\OnboardingProceso;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Onboarding\AcuseDescriptivoPuestoService;
 use App\Services\Onboarding\OnboardingService;
 use Illuminate\Http\RedirectResponse;
@@ -27,6 +28,7 @@ class AcuseDescriptivoPuestoController extends Controller
     public function __construct(
         private readonly AcuseDescriptivoPuestoService $acuses,
         private readonly OnboardingService $onboarding,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     /**
@@ -49,7 +51,7 @@ class AcuseDescriptivoPuestoController extends Controller
         $colaboradores = $listado->getCollection()->map(fn (OnboardingProceso $p): Colaborador => $p->colaborador);
         $resumenes = $this->acuses->resumenesRh($colaboradores, $usuario);
 
-        $listado->getCollection()->transform(function (OnboardingProceso $p) use ($resumenes): array {
+        $listado->getCollection()->transform(function (OnboardingProceso $p) use ($resumenes, $usuario): array {
             $colaborador = $p->colaborador;
             $resumen = $resumenes[$colaborador->id] ?? ['acuse' => null, 'puede_enviar' => false, 'motivo' => null, 'vista_previa' => null];
 
@@ -57,6 +59,8 @@ class AcuseDescriptivoPuestoController extends Controller
                 'colaborador' => [
                     'id' => $colaborador->id,
                     'nombre' => $colaborador->nombreCompleto(),
+                    // Foto oficial del expediente (URL protegida, dentro del alcance).
+                    'foto_url' => $this->fotos->urlPara($colaborador, $usuario),
                     'numero_empleado' => $colaborador->numero_empleado,
                     'puesto' => $colaborador->puesto?->nombre,
                     'sucursal' => $colaborador->sucursalPrincipal?->nombre,

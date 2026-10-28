@@ -88,8 +88,8 @@ final readonly class FiltrosReporteCampanas
 
     /**
      * Fases del tablero por las que se puede filtrar a los candidatos.
-     * Contratado se ofrece como una sola fase (capacitación inicial y
-     * laborando son el mismo estado de candidato).
+     * Contratado se ofrece como una sola fase (Inducción … Contrato
+     * indeterminado son el mismo estado de candidato).
      *
      * @return array<string, string>
      */
@@ -98,7 +98,7 @@ final readonly class FiltrosReporteCampanas
         $fases = [];
 
         foreach (EstadoCandidato::fases() as $clave => $etiqueta) {
-            if ($clave === EstadoCandidato::FASE_CAPACITACION_INICIAL || $clave === EstadoCandidato::FASE_LABORANDO) {
+            if (in_array($clave, EstadoCandidato::FASES_CONTRATADO, true)) {
                 continue;
             }
 

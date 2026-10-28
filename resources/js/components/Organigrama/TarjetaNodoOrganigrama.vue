@@ -101,10 +101,11 @@ const titulo = computed(() =>
                 :nombre="nodo.persona.nombre"
                 :foto-url="nodo.persona.foto_url"
                 tamano="sm"
+                class="size-10"
             />
             <span
                 v-else
-                class="flex size-8 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-input text-muted-foreground"
+                class="flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-input text-muted-foreground"
             >
                 <UserRound class="size-4" />
             </span>
@@ -135,11 +136,11 @@ const titulo = computed(() =>
                     :nombre="nodo.persona.nombre"
                     :foto-url="nodo.persona.foto_url"
                     tamano="md"
-                    :class="esRaiz ? 'ring-2 ring-oro' : ''"
+                    :class="['size-12 text-base', esRaiz ? 'ring-oro' : '']"
                 />
                 <span
                     v-else
-                    class="flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-dashed text-muted-foreground"
+                    class="flex size-12 shrink-0 items-center justify-center rounded-full border-2 border-dashed text-muted-foreground"
                     :class="
                         esCobertura
                             ? 'border-esmeralda/70 bg-card'

@@ -189,13 +189,14 @@ function fecha(iso: string | null | undefined): string {
                             v-if="nodo.persona && esPersona"
                             :nombre="nodo.persona.nombre"
                             :foto-url="nodo.persona.foto_url"
-                            tamano="lg"
+                            tamano="xl"
+                            class="ring-4"
                         />
                         <span
                             v-else
-                            class="flex size-14 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-input bg-card text-muted-foreground"
+                            class="flex size-20 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-input bg-card text-muted-foreground"
                         >
-                            <UserRoundX class="size-6" />
+                            <UserRoundX class="size-8" />
                         </span>
                         <div class="min-w-0">
                             <SheetTitle class="text-lg leading-tight">
@@ -230,7 +231,7 @@ function fecha(iso: string | null | undefined): string {
                         <ColaboradorAvatar
                             :nombre="nodo.persona.nombre"
                             :foto-url="nodo.persona.foto_url"
-                            tamano="sm"
+                            tamano="md"
                         />
                         <div class="min-w-0 text-sm">
                             <p class="font-semibold text-primary">
@@ -408,7 +409,7 @@ function fecha(iso: string | null | undefined): string {
                             <ColaboradorAvatar
                                 :nombre="jefe.persona.nombre"
                                 :foto-url="jefe.persona.foto_url"
-                                tamano="sm"
+                                tamano="md"
                             />
                             <span class="min-w-0 flex-1">
                                 <span
@@ -447,18 +448,18 @@ function fecha(iso: string | null | undefined): string {
                             >
                                 <button
                                     type="button"
-                                    class="flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left text-sm hover:bg-muted"
+                                    class="flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left text-sm transition-colors hover:bg-muted"
                                     @click="emit('seleccionar', d.clave)"
                                 >
                                     <ColaboradorAvatar
                                         v-if="d.persona && d.tipo === 'persona'"
                                         :nombre="d.persona.nombre"
                                         :foto-url="d.persona.foto_url"
-                                        tamano="xs"
+                                        tamano="sm"
                                     />
                                     <span
                                         v-else
-                                        class="size-6 shrink-0 rounded-full border-2 border-dashed border-input"
+                                        class="size-8 shrink-0 rounded-full border-2 border-dashed border-input"
                                     />
                                     <span class="min-w-0 flex-1 truncate">
                                         {{

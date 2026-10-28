@@ -130,11 +130,38 @@ y no cambia si después se corrige el nombre. Las carpetas antiguas por número
 > Psicométricas → Socioeconómico → Referencias → Preautorización del gerente →
 > Autorización final de RH → En contratación (QR) → Contratado, con salidas
 > No viable / No seleccionado / Rechazado por RH / No respondió / Desistió. El tablero
-> agrupa esos estados en las fases `filtro_rh, entrevista, psicometricos,
-> socioeconomico, contratacion, contratado, rechazado, desistido`. Los avances se
-> hacen con acciones del workflow (nunca arrastrando). Guía de uso:
-> `docs/guias/FLUJO_COMPLETO.md`. La lista y las secciones siguientes describen la
-> primera versión del módulo y se conservan como historial.
+> agrupa esos estados en las columnas de `EstadoCandidato::fases()` (ver abajo). Los
+> avances se hacen con acciones del workflow (nunca arrastrando). Guía de uso:
+> `docs/guias/FLUJO_COMPLETO.md`. La lista histórica más abajo describe la
+> primera versión del módulo y se conserva como historial.
+
+### Columnas del tablero (vigente desde 2026-10-28)
+
+`filtro_rh → entrevista → psicometricos → socioeconomico → referencias → contratacion
+→ induccion → evaluacion_induccion → capacitacion_inicial →
+evaluacion_capacitacion_inicial → contrato_indeterminado`, más `rechazado` y `desistido`.
+
+Hasta **Contratación** la columna sale del estado del workflow
+(`EstadoCandidato::faseCanonica()`). Un candidato `contratado` avanza después por
+**hechos reales de su colaborador**, calculados en lote por
+`App\Services\Reclutamiento\FaseContratadoService` (nunca por una casilla manual ni
+por `colaboradores.activado_en`):
+
+| Columna | Criterio exacto |
+|---|---|
+| Inducción | Contratado y RH todavía no le presenta la inducción. |
+| Evaluación de inducción | Asistió a una sesión de inducción que RH marcó **presentada** (`sesion_induccion_colaboradores` + `sesiones_induccion.estado = presentada`) o ya tiene su evaluación de inducción abierta, y esa evaluación (FO-RH-EI, `evaluaciones_induccion`) **no** está aprobada (incluye «requiere reforzamiento»). Una sesión en curso no cuenta. |
+| Capacitación inicial | Su evaluación de inducción está **aprobada**. |
+| Evaluación de capacitación inicial | Ya tiene asignada su evaluación de capacitación inicial (FO-RH-EPP-001, `evaluaciones_periodo_prueba`), en cualquier estado. |
+| Contrato indeterminado | Su contrato indeterminado **ya se generó** (`generated_documents.clave_plantilla = contrato_indeterminado`, `estado_flujo` distinto de `cancelado`). |
+
+Siempre gana el hito **más avanzado** que exista (un expediente histórico con contrato
+indeterminado generado está en esa columna aunque no tenga registros de inducción).
+Activar al colaborador (`activado_en`) **no** mueve de columna: alguien activado sin
+contrato indeterminado generado sigue en la columna que marquen sus hechos. El chip de
+la tarjeta/ficha (`CadenaContratacionService`), el paso a paso de la ficha
+(`CicloLaboralService`) y `etiquetaEstado()` usan la misma columna. En los reportes de
+campañas todas estas columnas se filtran juntas como «Contratados».
 
 Primera versión (histórica): `nuevo, contactado, respondio, no_respondio, viable, no_viable,
 entrevista_programada, entrevistado, documentacion_solicitada, en_revision,

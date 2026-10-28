@@ -10,6 +10,7 @@ import {
     Inbox,
 } from '@lucide/vue';
 import { computed, reactive, watch } from 'vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
@@ -66,7 +67,9 @@ const PRIORIDAD_ATAJO: Record<
 
 const props = defineProps<{
     atajos: Atajo[];
-    tareas: Paginado<TareaBandeja & { url: string | null }>;
+    tareas: Paginado<
+        TareaBandeja & { url: string | null; foto_url?: string | null }
+    >;
     conteos: { abiertas: number; no_leidas: number; vencidas: number };
     distribucion: { por_etapa: Serie[]; por_prioridad: Serie[] };
     filtros: {
@@ -154,15 +157,6 @@ function venceEn(tarea: TareaBandeja): { texto: string; clase: string } | null {
               texto: `Vence el ${formatearFecha(tarea.vence_en)}`,
               clase: 'bg-[var(--mrl-fondo)] text-[var(--mrl-texto-suave)]',
           };
-}
-
-function iniciales(nombre: string | undefined): string {
-    return (nombre ?? '?')
-        .split(' ')
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((p) => p.charAt(0).toUpperCase())
-        .join('');
 }
 
 const segmento = (activo: boolean) =>
@@ -380,16 +374,18 @@ const segmento = (activo: boolean) =>
                                         COLOR_PRIORIDAD.media,
                                 }"
                             />
-                            <span
-                                class="flex size-11 shrink-0 items-center justify-center rounded-full bg-[var(--mrl-primary)]/10 text-sm font-semibold text-[var(--mrl-primary)] transition-colors group-hover:bg-[var(--mrl-primary)] group-hover:text-white"
-                            >
-                                {{
-                                    iniciales(
-                                        tarea.candidato?.nombre ??
-                                            tarea.colaborador?.nombre,
-                                    )
-                                }}
-                            </span>
+                            <!-- Foto oficial de la persona (o iniciales);
+                                 el aro se ilumina al pasar el cursor. -->
+                            <ColaboradorAvatar
+                                :nombre="
+                                    tarea.candidato?.nombre ??
+                                    tarea.colaborador?.nombre ??
+                                    '?'
+                                "
+                                :foto-url="tarea.foto_url"
+                                tamano="lg"
+                                class="ring-[var(--mrl-primary)]/10 transition-[box-shadow,transform] duration-200 group-hover:scale-105 group-hover:ring-[var(--mrl-primary)]/40"
+                            />
                             <div class="min-w-0 flex-1">
                                 <div
                                     class="flex flex-wrap items-center gap-1.5"

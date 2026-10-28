@@ -12,6 +12,7 @@ use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Support\Paginacion;
@@ -34,6 +35,7 @@ class ContratacionListaService
         private readonly ExpedienteService $expediente,
         private readonly ContratoLaboralService $contratos,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     /**
@@ -54,7 +56,7 @@ class ContratacionListaService
 
         $pagina = $query->orderBy('name')->paginate(Paginacion::porPagina());
 
-        return $this->reemplazarItems($pagina, fn (Colaborador $colaborador) => $this->filaPersona($colaborador));
+        return $this->reemplazarItems($pagina, fn (Colaborador $colaborador) => $this->filaPersona($colaborador, $usuario));
     }
 
     /**
@@ -110,7 +112,7 @@ class ContratacionListaService
         $query = EmployeeDocument::query()
             ->whereIn('status', EstadoDocumento::porRevisarValues())
             ->with([
-                'colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id',
+                'colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id,foto_path,jefe_id,gerente_id',
                 'colaborador.sucursalPrincipal:id,nombre',
                 'colaborador.puesto:id,nombre',
                 'tipo:id,nombre',
@@ -122,7 +124,7 @@ class ContratacionListaService
 
         $pagina = $query->orderByDesc('created_at')->paginate(Paginacion::porPagina());
 
-        return $this->reemplazarItems($pagina, fn (EmployeeDocument $documento) => $this->filaDocumento($documento));
+        return $this->reemplazarItems($pagina, fn (EmployeeDocument $documento) => $this->filaDocumento($documento, $usuario));
     }
 
     /**
@@ -147,13 +149,13 @@ class ContratacionListaService
 
         $pagina = $query->orderBy('name')->paginate(Paginacion::porPagina());
 
-        return $this->reemplazarItems($pagina, fn (Colaborador $colaborador) => $this->filaContrato($colaborador));
+        return $this->reemplazarItems($pagina, fn (Colaborador $colaborador) => $this->filaContrato($colaborador, $usuario));
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function filaPersona(Colaborador $colaborador): array
+    private function filaPersona(Colaborador $colaborador, User $usuario): array
     {
         // La etapa/estado/progreso/siguiente acción los deriva el servicio
         // único del ciclo (sin timeline ni acciones del viewer: es una lista).
@@ -178,13 +180,15 @@ class ContratacionListaService
             'estado_imss' => $colaborador->estatus_imss->etiqueta(),
             'siguiente_accion' => is_array($ciclo['siguiente_accion']) ? $ciclo['siguiente_accion']['etiqueta'] : null,
             'ciclo_url' => sprintf('/rh/colaboradores/%d/ciclo', $colaborador->id),
+            // Foto oficial del expediente (URL protegida, dentro del alcance).
+            'foto_url' => $this->fotos->urlPara($colaborador, $usuario),
         ];
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function filaDocumento(EmployeeDocument $documento): array
+    private function filaDocumento(EmployeeDocument $documento, User $usuario): array
     {
         // colaborador_id es un FK real del documento (con withTrashed): el
         // colaborador siempre existe.
@@ -198,6 +202,7 @@ class ContratacionListaService
                 'numero_empleado' => $colaborador->numero_empleado,
                 'sucursal' => $colaborador->sucursalPrincipal?->nombre,
                 'puesto' => $colaborador->puesto?->nombre,
+                'foto_url' => $this->fotos->urlPara($colaborador, $usuario),
             ],
             'tipo' => $documento->tipo->nombre,
             // Nombre y mime del archivo: el visor centrado de la bandeja
@@ -225,7 +230,7 @@ class ContratacionListaService
     /**
      * @return array<string, mixed>
      */
-    private function filaContrato(Colaborador $colaborador): array
+    private function filaContrato(Colaborador $colaborador, User $usuario): array
     {
         $contrato = $this->contratos->vigente($colaborador);
         $documentos = [];
@@ -258,6 +263,7 @@ class ContratacionListaService
             // persona (sección «Documentos»); /rh/documentos-proceso/... es el
             // endpoint JSON que esa sección consume, no una página.
             'gestion_url' => route('rh.colaboradores.ciclo', $colaborador, false),
+            'foto_url' => $this->fotos->urlPara($colaborador, $usuario),
         ];
     }
 

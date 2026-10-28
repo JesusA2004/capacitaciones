@@ -18,6 +18,7 @@ use App\Models\Responsiva;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\DocumentosMaestros\FirmaPatronService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Tareas\NotificadorRhService;
@@ -57,6 +58,7 @@ class ResponsivaService
         private readonly AuditoriaService $auditoria,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly FirmaPatronService $firmaPatron,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     /**
@@ -86,7 +88,7 @@ class ResponsivaService
     public function panorama(User $usuario, array $filtros = []): LengthAwarePaginator
     {
         $query = Responsiva::query()->with([
-            'colaborador:id,name,apellidos,numero_empleado,puesto_id,sucursal_principal_id',
+            'colaborador:id,name,apellidos,numero_empleado,puesto_id,sucursal_principal_id,foto_path,jefe_id,gerente_id',
             'colaborador.puesto:id,nombre',
             'colaborador.sucursalPrincipal:id,nombre',
             'entregadoPor:id,name,apellidos,colaborador_id',
@@ -132,6 +134,8 @@ class ResponsivaService
                 'numero_empleado' => $colaborador->numero_empleado,
                 'puesto' => $colaborador->puesto?->nombre,
                 'sucursal' => $colaborador->sucursalPrincipal?->nombre,
+                // Foto oficial del expediente (URL protegida, dentro del alcance).
+                'foto_url' => $this->fotos->urlPara($colaborador, $usuario),
             ],
         ];
     }

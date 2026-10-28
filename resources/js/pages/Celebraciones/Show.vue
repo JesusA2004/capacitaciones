@@ -175,10 +175,13 @@ function fecha(valor: string): string {
 
         <section class="flex min-w-0 flex-col gap-4">
             <div class="flex items-center gap-3">
-                <Avatar class="size-14">
+                <Avatar
+                    class="size-16 shrink-0 shadow-md ring-4 ring-background"
+                >
                     <AvatarImage
                         v-if="celebracion.homenajeado.foto_url"
                         :src="celebracion.homenajeado.foto_url"
+                        class="object-cover"
                         :alt="celebracion.homenajeado.nombre"
                     />
                     <AvatarFallback>{{
@@ -351,10 +354,13 @@ function fecha(valor: string): string {
                     :key="m.id"
                     class="flex gap-3 rounded-2xl border p-3"
                 >
-                    <Avatar class="size-10 shrink-0">
+                    <Avatar
+                        class="size-12 shrink-0 shadow-sm ring-2 ring-background"
+                    >
                         <AvatarImage
                             v-if="m.autor.foto_url"
                             :src="m.autor.foto_url"
+                            class="object-cover"
                             :alt="m.autor.nombre"
                         />
                         <AvatarFallback>{{

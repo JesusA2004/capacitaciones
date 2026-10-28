@@ -4,6 +4,7 @@ import { ChevronRight, FilePen, Plus } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import ActaCircunstanciadaCampos from '@/components/actas/ActaCircunstanciadaCampos.vue';
 import ActaPasos from '@/components/actas/ActaPasos.vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
@@ -201,6 +202,10 @@ function levantar() {
                             class="w-24 shrink-0 font-mono text-xs text-muted-foreground"
                             >{{ a.folio }}</span
                         >
+                        <ColaboradorAvatar
+                            :nombre="a.colaborador.nombre"
+                            :foto-url="a.colaborador.foto_url"
+                        />
                         <span class="min-w-0 flex-1">
                             <span class="block truncate font-medium">{{
                                 a.colaborador.nombre

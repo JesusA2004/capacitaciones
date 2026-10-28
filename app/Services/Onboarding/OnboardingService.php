@@ -91,7 +91,7 @@ class OnboardingService
             ->deIngreso()
             ->where('estado', '!=', EstadoOnboarding::Cancelado->value)
             ->with([
-                'colaborador:id,name,apellidos,numero_empleado,puesto_id,sucursal_principal_id,jefe_id,gerente_id',
+                'colaborador:id,name,apellidos,numero_empleado,foto_path,puesto_id,sucursal_principal_id,jefe_id,gerente_id',
                 'colaborador.puesto:id,nombre',
                 'colaborador.sucursalPrincipal:id,nombre',
             ]);

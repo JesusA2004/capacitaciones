@@ -137,7 +137,8 @@ function nivel(calificacion: number | null) {
                     <div class="flex min-w-0 flex-1 items-center gap-3">
                         <ColaboradorAvatar
                             :nombre="evaluacion.colaborador.nombre"
-                            tamano="lg"
+                            :foto-url="evaluacion.colaborador.foto_url"
+                            tamano="xl"
                         />
                         <div class="min-w-0">
                             <DialogTitle

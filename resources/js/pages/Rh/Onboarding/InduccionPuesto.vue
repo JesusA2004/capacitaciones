@@ -51,6 +51,7 @@ type Fila = {
     colaborador: {
         id: number;
         nombre: string;
+        foto_url?: string | null;
         numero_empleado: string | null;
         puesto: string | null;
         sucursal: string | null;
@@ -284,7 +285,11 @@ function pasoHecho(f: Fila, i: number): boolean {
                 class="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm"
             >
                 <div class="flex items-start gap-3 p-4">
-                    <ColaboradorAvatar :nombre="f.colaborador.nombre" />
+                    <ColaboradorAvatar
+                        :nombre="f.colaborador.nombre"
+                        :foto-url="f.colaborador.foto_url"
+                        tamano="lg"
+                    />
                     <div class="min-w-0 flex-1">
                         <Link
                             :href="cicloColaborador.url(f.colaborador.id)"

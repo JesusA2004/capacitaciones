@@ -7,7 +7,7 @@ defineProps<{ pasos: PasoCiclo[] }>();
 
 <template>
     <ol
-        class="grid w-full grid-cols-2 gap-x-3 gap-y-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 sm:grid-cols-3 lg:auto-cols-fr lg:grid-flow-col lg:grid-cols-none lg:gap-x-0"
+        class="grid w-full grid-cols-2 gap-x-3 gap-y-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 sm:grid-cols-3 lg:scroll-x-limpio lg:auto-cols-[minmax(5.25rem,1fr)] lg:grid-flow-col lg:grid-cols-none lg:gap-x-0"
         aria-label="Avance del proceso"
     >
         <li
@@ -16,7 +16,7 @@ defineProps<{ pasos: PasoCiclo[] }>();
             class="relative flex min-w-0 items-center gap-2 lg:flex-col lg:items-center lg:gap-1.5 lg:text-center"
         >
             <span
-                class="relative z-10 flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold"
+                class="relative z-10 flex size-7 shrink-0 items-center justify-center rounded-full border text-xs font-semibold transition-colors duration-300"
                 :class="{
                     'border-[var(--mrl-petroleo)] bg-[var(--mrl-petroleo)] text-white':
                         paso.estado === 'completado',

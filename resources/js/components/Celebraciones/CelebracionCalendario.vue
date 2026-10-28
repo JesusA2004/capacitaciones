@@ -188,10 +188,11 @@ function etiquetaDia(celda: Celda): string {
 
                             <!-- Angosto: una foto + contador numérico (no solo color). -->
                             <span class="relative @lg:hidden">
-                                <Avatar class="size-6 ring-1 ring-background">
+                                <Avatar class="size-7 ring-1 ring-background">
                                     <AvatarImage
                                         v-if="celda.eventos[0].foto_url"
                                         :src="celda.eventos[0].foto_url"
+                                        class="object-cover"
                                         alt=""
                                     />
                                     <AvatarFallback class="text-[9px]">{{
@@ -210,11 +211,12 @@ function etiquetaDia(celda: Celda): string {
                                 <Avatar
                                     v-for="evento in celda.eventos.slice(0, 3)"
                                     :key="evento.colaborador_id"
-                                    class="size-7 ring-2 ring-card not-first:-ml-2 @3xl:size-8"
+                                    class="size-8 ring-2 ring-card not-first:-ml-2 @3xl:size-9"
                                 >
                                     <AvatarImage
                                         v-if="evento.foto_url"
                                         :src="evento.foto_url"
+                                        class="object-cover"
                                         alt=""
                                     />
                                     <AvatarFallback class="text-[10px]">{{
@@ -250,10 +252,13 @@ function etiquetaDia(celda: Celda): string {
                                 :key="evento.colaborador_id"
                                 class="flex items-center gap-3 px-3 py-2.5"
                             >
-                                <Avatar class="size-10 shrink-0">
+                                <Avatar
+                                    class="size-12 shrink-0 shadow-sm ring-2 ring-background"
+                                >
                                     <AvatarImage
                                         v-if="evento.foto_url"
                                         :src="evento.foto_url"
+                                        class="object-cover"
                                         :alt="`Foto de ${evento.nombre}`"
                                     />
                                     <AvatarFallback>{{

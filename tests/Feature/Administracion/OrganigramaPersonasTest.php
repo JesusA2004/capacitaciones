@@ -7,7 +7,11 @@ use App\Models\NodoComercial;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\Colaboradores\FotoColaboradorService;
+use App\Services\Cumpleanos\CumpleanosService;
+use App\Services\Organigrama\OrganigramaPersonasService;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
@@ -128,4 +132,61 @@ test('el organigrama por personas nunca expone la ruta fisica de la foto', funct
     $admin->assignRole('super_admin');
 
     expect(json_encode(organigramaPorPersonas($admin)))->not->toContain('privada.jpg');
+});
+
+test('el organigrama por personas manda la foto oficial (URL protegida) de quien la tiene, nunca foto_path', function () {
+    Storage::fake(config('expedientes.disk'));
+    $puesto = Puesto::factory()->create(['nivel_jerarquico' => 2]);
+    $sucursal = Sucursal::factory()->create();
+    $conFoto = Colaborador::factory()->create([
+        'puesto_id' => $puesto->id,
+        'sucursal_principal_id' => $sucursal->id,
+        'estatus' => 'activo',
+        'foto_path' => 'expedientes/77/foto/perfil.jpg',
+    ]);
+    $sinFoto = Colaborador::factory()->create([
+        'puesto_id' => $puesto->id,
+        'sucursal_principal_id' => $sucursal->id,
+        'estatus' => 'activo',
+        'foto_path' => null,
+    ]);
+
+    $admin = User::factory()->create();
+    $admin->assignRole('super_admin');
+
+    $nodos = organigramaPorPersonas($admin);
+    $porPersona = collect($nodos)->filter(fn (array $n) => isset($n['persona']['id']))->keyBy(fn (array $n) => $n['persona']['id']);
+
+    expect($porPersona->get($conFoto->id)['persona']['foto_url'] ?? null)->toBe(app(FotoColaboradorService::class)->url($conFoto))
+        ->and($porPersona->get($sinFoto->id)['persona']['foto_url'] ?? 'falta')->toBeNull()
+        ->and(json_encode($nodos))->not->toContain('foto_path')
+        ->and(json_encode($nodos))->not->toContain('perfil.jpg');
+});
+
+test('la foto del organigrama, cumpleaños y celebraciones solo se manda dentro del alcance de Expedientes', function () {
+    $puesto = Puesto::factory()->create(['nivel_jerarquico' => 2]);
+    $sucursal = Sucursal::factory()->create();
+    $conFoto = Colaborador::factory()->create([
+        'puesto_id' => $puesto->id,
+        'sucursal_principal_id' => $sucursal->id,
+        'estatus' => 'activo',
+        'foto_path' => 'expedientes/78/foto/perfil.jpg',
+        'fecha_nacimiento' => now()->subYears(30),
+    ]);
+
+    $admin = User::factory()->create();
+    $admin->assignRole('super_admin');
+    // Colaborador sin alcance sobre expedientes ajenos (solo el propio).
+    $ajeno = clUsuario('colaborador');
+
+    $organigrama = app(OrganigramaPersonasService::class);
+    expect($organigrama->fotosVisiblesPara($admin))->toHaveKey($conFoto->id)
+        ->and($organigrama->fotosVisiblesPara($ajeno))->not->toHaveKey($conFoto->id);
+
+    $cumpleanos = app(CumpleanosService::class);
+    expect($cumpleanos->tarjetaColaborador($conFoto, false, $admin)['foto_url'])->toBe(app(FotoColaboradorService::class)->url($conFoto))
+        ->and($cumpleanos->tarjetaColaborador($conFoto, false, $ajeno)['foto_url'])->toBeNull();
+
+    // Aunque arme la URL a mano, la ruta protegida la rechaza.
+    $this->actingAs($ajeno)->get(route('rh.expedientes.foto', $conFoto->id))->assertForbidden();
 });

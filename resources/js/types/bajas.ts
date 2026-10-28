@@ -16,6 +16,8 @@ export type CausalBajaOpcion = {
     requiere_juridico: boolean;
     comentario_obligatorio: boolean;
     alerta: string | null;
+    /** Foto oficial del expediente (URL protegida); null → iniciales. */
+    foto_url?: string | null;
 };
 
 /** Forma de salida con sus causales (tarjeta grande de la solicitud). */
@@ -70,6 +72,8 @@ export type ColaboradorBaja = {
     puesto: string | null;
     sucursal: string | null;
     fecha_ingreso?: string | null;
+    /** Foto oficial del expediente (URL protegida); null → iniciales. */
+    foto_url?: string | null;
 };
 
 export type LimitesBaja = {

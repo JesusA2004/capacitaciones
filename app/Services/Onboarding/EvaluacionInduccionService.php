@@ -19,6 +19,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Calendario\CalendarioLaboralService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Evaluaciones\FormularioEvaluacionService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
@@ -57,6 +58,7 @@ class EvaluacionInduccionService
         private readonly InduccionPdfService $pdf,
         private readonly AccesoInduccionColaboradorService $acceso,
         private readonly FormularioEvaluacionService $formularios,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     public const TITULO_AVISO_PRESENTADA = 'Contesta la evaluación de la Inducción Mr. Lana';
@@ -727,6 +729,9 @@ class EvaluacionInduccionService
             'colaborador' => [
                 'id' => $colaborador->id,
                 'nombre' => $colaborador->nombreCompleto(),
+                // Foto oficial del expediente (URL protegida, dentro del
+                // alcance de quien consulta); sin quien consulta, no se calcula.
+                'foto_url' => $viewer !== null ? $this->fotos->urlPara($colaborador, $viewer) : null,
                 'numero_empleado' => $colaborador->numero_empleado,
                 'puesto' => $colaborador->puesto?->nombre,
                 'sucursal' => $colaborador->sucursalPrincipal?->nombre,

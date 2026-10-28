@@ -72,6 +72,8 @@ export type PlanContratos = {
     generable: boolean;
     /** Quien mira puede subir contratos firmados de esta persona. */
     puede_subir_firmado?: boolean;
+    /** Foto oficial del expediente (URL protegida); null → iniciales. */
+    foto_url?: string | null;
 };
 
 export type ResultadoContratosColaborador = {
@@ -106,6 +108,8 @@ export type LoteContratos = {
 export type PersonaPeriodoBase = {
     id: number;
     nombre: string;
+    /** Foto oficial del expediente (URL protegida); null → iniciales. */
+    foto_url?: string | null;
     numero_empleado: string | null;
     puesto: string | null;
     sucursal: string | null;
@@ -181,6 +185,7 @@ export type FilaEvaluacionPrueba = {
         id: number;
         nombre: string;
         numero_empleado: string | null;
+        foto_url?: string | null;
     };
     puesto: string | null;
     sucursal: string | null;

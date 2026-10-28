@@ -156,7 +156,8 @@ class CadenaContratacionService
         }
 
         $verExpediente = $this->alcance->puedeVerExpediente($viewer, $colaborador);
-        // Mismo criterio que Candidato::yaLabora() (columna «Laborando» del tablero).
+        // Ya inició operación (activado_en): solo cambia el texto del botón
+        // al expediente; la columna la decide FaseContratadoService.
         $yaEsColaborador = $colaborador->activado_en !== null;
         $expedienteUrl = $verExpediente ? route('rh.expedientes.show', $colaborador->id) : null;
         $expedienteEtiqueta = $verExpediente ? ($yaEsColaborador ? 'Ver expediente del colaborador' : 'Ver expediente de contratación') : null;
@@ -166,9 +167,18 @@ class CadenaContratacionService
             : null;
 
         if ($candidato->estado === EstadoCandidato::Contratado) {
-            return $yaEsColaborador
-                ? $this->fila('contratado', 'Contratado', 'Ya labora', 'exito', $colaborador->id, $expedienteUrl, $expedienteEtiqueta, $ciclo, 'Ver ciclo laboral')
-                : $this->fila('en_induccion', 'En inducción', $documentos, 'primario', $colaborador->id, $expedienteUrl, $expedienteEtiqueta, $ciclo, 'Ver onboarding');
+            // Misma columna que el tablero (FaseContratadoService): el chip
+            // nunca dice «Contrato indeterminado» si ese contrato no se generó.
+            $fase = $candidato->fase;
+            [$detalle, $tono] = match ($fase) {
+                FaseContratadoService::CONTRATO_INDETERMINADO => ['Contrato indeterminado generado', 'exito'],
+                FaseContratadoService::EVALUACION_CAPACITACION_INICIAL => ['Evaluación de capacitación inicial en curso', 'oro'],
+                FaseContratadoService::CAPACITACION_INICIAL => ['Inducción aprobada · en capacitación inicial', 'primario'],
+                FaseContratadoService::EVALUACION_INDUCCION => ['Inducción presentada · falta aprobar su evaluación', 'alerta'],
+                default => ['Falta presentarle la inducción', 'info'],
+            };
+
+            return $this->fila($fase, EstadoCandidato::fases()[$fase] ?? 'Contratado', $detalle, $tono, $colaborador->id, $expedienteUrl, $expedienteEtiqueta, $ciclo, 'Ver ciclo laboral');
         }
 
         if ($conContrato) {

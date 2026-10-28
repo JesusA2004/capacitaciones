@@ -55,10 +55,13 @@ onMounted(async () => {
                 :key="item.id"
                 class="flex flex-wrap items-center gap-3"
             >
-                <Avatar class="size-9 shrink-0">
+                <Avatar
+                    class="size-11 shrink-0 shadow-sm ring-2 ring-background"
+                >
                     <AvatarImage
                         v-if="item.homenajeado.foto_url"
                         :src="item.homenajeado.foto_url"
+                        class="object-cover"
                         :alt="item.homenajeado.nombre"
                     />
                     <AvatarFallback>{{

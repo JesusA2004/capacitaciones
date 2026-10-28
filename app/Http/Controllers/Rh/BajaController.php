@@ -97,14 +97,7 @@ class BajaController extends Controller
             $colaborador = Colaborador::query()->with(['sucursalPrincipal:id,nombre', 'puesto:id,nombre'])->where('id', (int) $request->query('colaborador'))->first();
 
             if ($colaborador !== null && $this->bajas->puedeSolicitarPara($request->user(), $colaborador)) {
-                $preseleccion = [
-                    'id' => $colaborador->id,
-                    'nombre' => $colaborador->nombreCompleto(),
-                    'numero_empleado' => $colaborador->numero_empleado,
-                    'puesto' => $colaborador->puesto?->nombre,
-                    'sucursal' => $colaborador->sucursalPrincipal?->nombre,
-                    'fecha_ingreso' => $colaborador->fecha_ingreso?->toDateString(),
-                ];
+                $preseleccion = $this->consulta->filaColaborador($colaborador, $request->user());
             }
         }
 

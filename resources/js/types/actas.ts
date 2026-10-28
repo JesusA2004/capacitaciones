@@ -22,6 +22,8 @@ export type ActaResumen = {
         id: number;
         nombre: string;
         numero_empleado: string | null;
+        /** Foto oficial del expediente (índice web, URL protegida); null → iniciales. */
+        foto_url?: string | null;
     };
     fecha: string;
     hora: string | null;

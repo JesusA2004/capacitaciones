@@ -59,6 +59,7 @@ class PendienteController extends Controller
         $tareas->getCollection()->transform(fn (TareaRh $t) => [
             ...$this->tareas->aArray($t),
             'url' => self::urlDe($t),
+            'foto_url' => $this->tareas->fotoUrl($t, $usuario),
         ]);
 
         return Inertia::render('Rh/Pendientes/Index', [

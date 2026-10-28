@@ -36,7 +36,7 @@ const { getInitials } = useInitials();
 <template>
     <article class="@container min-w-0">
         <div
-            class="relative flex h-full min-w-0 flex-col gap-3 rounded-xl border p-3 sm:p-4 @[56rem]:flex-row @[56rem]:items-center @[56rem]:justify-between"
+            class="group relative flex h-full min-w-0 flex-col gap-3 rounded-xl border p-3 transition-shadow duration-200 hover:shadow-md sm:p-4 @[56rem]:flex-row @[56rem]:items-center @[56rem]:justify-between"
             :class="
                 destacado
                     ? 'border-warning/40 bg-gradient-to-br from-amber-400/10 via-pink-400/5 to-transparent'
@@ -55,17 +55,19 @@ const { getInitials } = useInitials();
 
             <div class="relative flex min-w-0 items-center gap-3">
                 <Avatar
-                    class="size-14 shrink-0 ring-2"
+                    class="size-16 shrink-0 shadow-sm ring-2 transition-transform duration-200 group-hover:scale-105"
                     :class="destacado ? 'ring-warning/50' : 'ring-border'"
                 >
                     <AvatarImage
                         v-if="fotoUrl"
                         :src="fotoUrl"
+                        class="object-cover"
                         :alt="`Foto de ${nombre}`"
                     />
-                    <AvatarFallback class="text-base">{{
-                        getInitials(nombre)
-                    }}</AvatarFallback>
+                    <AvatarFallback
+                        class="bg-crema text-lg font-semibold text-bronce"
+                        >{{ getInitials(nombre) }}</AvatarFallback
+                    >
                 </Avatar>
                 <div class="min-w-0">
                     <p

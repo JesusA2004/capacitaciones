@@ -11,6 +11,7 @@ use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\Puesto;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Support\FechaMexico;
 use App\Support\Paginacion;
 use Carbon\CarbonImmutable;
@@ -44,6 +45,7 @@ class PeriodosPruebaService
         private readonly ContratoLaboralService $contratos,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly VencimientoContratosService $vencimientos,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     public function puedeVer(User $usuario): bool
@@ -157,7 +159,7 @@ class PeriodosPruebaService
                 $fin = CarbonImmutable::parse($this->contratos->fechaFinPeriodoPrueba($colaborador->puesto_id, $ingreso)->toDateString());
                 $fuente = 'fecha_ingreso';
             } else {
-                $sinDuracion[] = $this->base($colaborador);
+                $sinDuracion[] = $this->base($colaborador, $usuario);
 
                 continue;
             }
@@ -169,7 +171,7 @@ class PeriodosPruebaService
             $evaluacion = $evaluaciones->get($colaborador->id);
             $motivo = $this->vencimientos->motivoNoAsignable($colaborador, $evaluable, $evaluacion instanceof EvaluacionPeriodoPrueba);
             $filas[] = [
-                ...$this->base($colaborador),
+                ...$this->base($colaborador, $usuario),
                 'fin_periodo' => $fin->toDateString(),
                 'fuente' => $fuente,
                 'fuente_etiqueta' => 'Calculado por fecha de ingreso',
@@ -246,11 +248,14 @@ class PeriodosPruebaService
     /**
      * @return array<string, mixed>
      */
-    private function base(Colaborador $colaborador): array
+    private function base(Colaborador $colaborador, User $viewer): array
     {
         return [
             'id' => $colaborador->id,
             'nombre' => $colaborador->nombreCompleto(),
+            // Foto oficial del expediente (URL protegida, solo dentro del
+            // alcance); sin ella, iniciales.
+            'foto_url' => $this->fotos->urlPara($colaborador, $viewer),
             'numero_empleado' => $colaborador->numero_empleado,
             'puesto' => $colaborador->puesto?->nombre,
             'sucursal' => $colaborador->sucursalPrincipal?->nombre,

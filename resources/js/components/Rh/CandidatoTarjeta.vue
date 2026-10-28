@@ -178,7 +178,7 @@ const socioeconomico = computed(
         <div class="flex items-start gap-2.5">
             <!-- Foto oficial del expediente cuando ya hay colaborador
                  vinculado; si no hay o falla al cargar, iniciales. -->
-            <Avatar class="size-9 shrink-0">
+            <Avatar class="size-11 shrink-0 shadow-sm ring-2 ring-background">
                 <AvatarImage
                     v-if="candidato.foto_url"
                     :src="candidato.foto_url"

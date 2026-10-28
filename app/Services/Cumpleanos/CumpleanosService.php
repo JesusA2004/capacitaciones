@@ -32,6 +32,14 @@ use Illuminate\Support\Facades\Log;
  */
 class CumpleanosService
 {
+    /**
+     * Por usuario: ids de colaboradores con foto cuyo expediente alcanza
+     * (memo de una consulta, ver puedeVerFoto()).
+     *
+     * @var array<int, array<int, int>>
+     */
+    private array $fotosVisibles = [];
+
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly BirthdayCardService $tarjetas,
@@ -254,10 +262,11 @@ class CumpleanosService
     {
         $mostrarEdad ??= (bool) config('cumpleanos.show_age');
 
-        // Misma ruta protegida por permiso que usa el explorador de
-        // expedientes (Rh\ExpedienteController::descargarFoto): nunca se
-        // expone foto_path, solo esta URL si quien consulta tiene permiso.
-        $fotoUrl = $colaborador->foto_path !== null && $solicitante?->can('expedientes.ver')
+        // Misma ruta protegida que usa el explorador de expedientes
+        // (Rh\ExpedienteController::descargarFoto) y con su mismo criterio
+        // de alcance: nunca se expone foto_path, ni se manda una URL que
+        // terminaría en 403 (fuera de alcance → iniciales).
+        $fotoUrl = $colaborador->foto_path !== null && $solicitante !== null && $this->puedeVerFoto($solicitante, $colaborador)
             ? route('rh.expedientes.foto', ['colaborador' => $colaborador, 'v' => FotoColaboradorService::version($colaborador->foto_path)])
             : null;
 
@@ -429,6 +438,22 @@ class CumpleanosService
                 ]);
             }
         }
+    }
+
+    /**
+     * ¿$usuario alcanza el expediente (y por tanto la foto) de $colaborador?
+     * Mismo criterio que la ruta de la foto, con una sola consulta por
+     * usuario aunque se pinte un calendario completo.
+     */
+    public function puedeVerFoto(User $usuario, Colaborador $colaborador): bool
+    {
+        $this->fotosVisibles[$usuario->id] ??= $this->alcance
+            ->limitarExpedientesPorAlcance(Colaborador::query()->whereNotNull('foto_path'), $usuario)
+            ->pluck('id')
+            ->mapWithKeys(fn ($id): array => [(int) $id => (int) $id])
+            ->all();
+
+        return isset($this->fotosVisibles[$usuario->id][$colaborador->id]);
     }
 
     /**

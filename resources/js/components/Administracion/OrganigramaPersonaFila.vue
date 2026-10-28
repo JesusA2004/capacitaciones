@@ -7,6 +7,7 @@ import {
     UserRoundSearch,
 } from '@lucide/vue';
 import { computed, inject, ref } from 'vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import { CLAVE_ACCIONES_ORGANIGRAMA } from '@/lib/organigrama';
 import type { NodoOrganigramaPersona } from '@/types';
 
@@ -32,16 +33,6 @@ const esCobertura = computed(() => props.nodo.tipo === 'cobertura');
 const ubicacion = computed(
     () => props.nodo.sucursal?.nombre ?? props.nodo.region?.nombre ?? null,
 );
-const iniciales = computed(() =>
-    (props.nodo.persona?.nombre ?? '')
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((p) => p[0])
-        .join('')
-        .toUpperCase(),
-);
-
 function abrirExpediente(): void {
     if (props.nodo.persona && !esVacante.value) {
         router.visit(props.nodo.persona.expediente_url);
@@ -63,21 +54,17 @@ function abrirExpediente(): void {
         >
             <span
                 v-if="esVacante"
-                class="flex size-10 shrink-0 items-center justify-center rounded-full bg-warning-soft text-warning"
+                class="flex size-12 shrink-0 items-center justify-center rounded-full bg-warning-soft text-warning"
             >
                 <UserRoundSearch class="size-5" />
             </span>
-            <img
-                v-else-if="nodo.persona?.foto_url"
-                :src="nodo.persona.foto_url"
-                alt=""
-                class="size-10 shrink-0 rounded-full object-cover"
-            />
-            <span
+            <ColaboradorAvatar
                 v-else
-                class="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground"
-                >{{ iniciales }}</span
-            >
+                :nombre="nodo.persona?.nombre ?? ''"
+                :foto-url="nodo.persona?.foto_url"
+                tamano="md"
+                class="size-12 text-base"
+            />
 
             <button
                 type="button"

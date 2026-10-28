@@ -18,6 +18,7 @@ use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\DocumentosLaborales\FirmaDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\DocumentoStorageService;
@@ -53,6 +54,7 @@ class ActaService
         private readonly AuditoriaService $auditoria,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly AlcanceModuloService $alcanceModulo,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     /**
@@ -560,7 +562,7 @@ class ActaService
      */
     public function listar(User $usuario, array $filtros = []): LengthAwarePaginator
     {
-        $query = ActaAdministrativa::query()->with('colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id');
+        $query = ActaAdministrativa::query()->with('colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,foto_path,jefe_id,gerente_id');
 
         // Alcance del módulo «actas» (Roles y permisos), no por nombre de rol.
         $this->alcance->limitarPorModulo($query, $usuario, 'actas', 'colaborador_id', true);
@@ -572,6 +574,21 @@ class ActaService
             ->orderByDesc('fecha')
             ->orderByDesc('id')
             ->paginate(Paginacion::porPagina(20, $filtros['per_page'] ?? null));
+    }
+
+    /**
+     * Renglón del índice web: aArray() + la foto oficial de la persona
+     * (URL protegida, solo dentro del alcance de quien mira; si no,
+     * iniciales). La API sigue usando aArray().
+     *
+     * @return array<string, mixed>
+     */
+    public function filaIndice(ActaAdministrativa $acta, User $viewer): array
+    {
+        $fila = $this->aArray($acta);
+        $fila['colaborador']['foto_url'] = $this->fotos->urlPara($acta->colaborador, $viewer);
+
+        return $fila;
     }
 
     /**

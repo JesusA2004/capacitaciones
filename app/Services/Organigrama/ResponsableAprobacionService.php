@@ -8,6 +8,7 @@ use App\Models\Puesto;
 use App\Models\ResponsableAprobacion;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Solicitudes\AprobacionOrganizacionalService;
 use App\Services\Solicitudes\TareasSolicitudService;
 use Illuminate\Support\Facades\DB;
@@ -29,6 +30,7 @@ class ResponsableAprobacionService
         private readonly AprobacionOrganizacionalService $motor,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly OrganigramaPersonasService $organigrama,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     /**
@@ -36,7 +38,7 @@ class ResponsableAprobacionService
      * organizacional y su responsable de aprobación efectivo) y alertas de
      * estructura que detienen aprobaciones.
      *
-     * @return array{reglas: list<array<string, mixed>>, personas: list<array<string, mixed>>, alertas: list<array{tipo: string, colaborador_id: int, nombre: string, mensaje: string}>, puestos: list<array{value: string, label: string}>, candidatos: list<array{value: string, label: string}>}
+     * @return array{reglas: list<array<string, mixed>>, personas: list<array<string, mixed>>, alertas: list<array{tipo: string, colaborador_id: int, nombre: string, mensaje: string}>, puestos: list<array{value: string, label: string}>, candidatos: list<array{value: string, label: string, foto_url: string|null}>}
      */
     public function pantalla(User $usuario): array
     {
@@ -48,12 +50,15 @@ class ResponsableAprobacionService
             ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre'])
             ->orderBy('name')
             ->orderBy('apellidos');
+        $fotosVisibles = $this->organigrama->fotosVisiblesPara($usuario);
 
         foreach ($this->alcance->limitarColaboradoresPorAlcance($consulta, $usuario)->get() as $persona) {
             $resumen = $this->motor->resumenResponsables($persona);
             $personas[] = [
                 'id' => $persona->id,
                 'nombre' => $persona->nombreCompleto(),
+                // Foto oficial solo dentro del alcance de Expedientes.
+                'foto_url' => isset($fotosVisibles[$persona->id]) ? $this->fotos->url($persona) : null,
                 'puesto' => $persona->puesto?->nombre,
                 'sucursal' => $persona->sucursalPrincipal?->nombre,
                 ...$resumen,

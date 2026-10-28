@@ -136,7 +136,7 @@ function elegir(nodo: NodoOrganigramaPersona, regionId: number | null): void {
                         <ColaboradorAvatar
                             :nombre="n.persona?.nombre ?? ''"
                             :foto-url="n.persona?.foto_url"
-                            tamano="sm"
+                            tamano="md"
                         />
                         <div class="min-w-0">
                             <p class="truncate text-sm font-semibold">

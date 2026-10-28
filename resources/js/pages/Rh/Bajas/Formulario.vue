@@ -179,7 +179,8 @@ function registrar() {
                     >
                         <ColaboradorAvatar
                             :nombre="persona.nombre"
-                            tamano="lg"
+                            :foto-url="persona.foto_url"
+                            tamano="xl"
                         />
                         <div class="grid min-w-0 gap-1 text-sm">
                             <p class="truncate text-base font-semibold">
@@ -320,7 +321,8 @@ function registrar() {
                 <div class="flex items-center gap-3 rounded-xl bg-crema/60 p-3">
                     <ColaboradorAvatar
                         :nombre="persona?.nombre ?? ''"
-                        tamano="md"
+                        :foto-url="persona?.foto_url"
+                        tamano="lg"
                     />
                     <div class="min-w-0">
                         <p class="truncate font-semibold">

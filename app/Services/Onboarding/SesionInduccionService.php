@@ -20,6 +20,7 @@ use App\Models\SesionInduccionColaborador;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
@@ -60,6 +61,7 @@ class SesionInduccionService
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly AuditoriaService $auditoria,
         private readonly AcuseDescriptivoPuestoService $acusesDescriptivo,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     public function puedeGestionar(User $usuario): bool
@@ -445,7 +447,7 @@ class SesionInduccionService
             $actor,
         );
 
-        return array_values($procesos->map(function (OnboardingProceso $proceso) use ($evaluaciones, $descriptivos): array {
+        return array_values($procesos->map(function (OnboardingProceso $proceso) use ($evaluaciones, $descriptivos, $actor): array {
             $avance = $proceso->avances->first(fn (OnboardingAvance $a): bool => $a->modulo->evaluacion_formal_clave !== null && $a->modulo->tipo === TipoModuloOnboarding::Institucional);
             $evaluacion = $evaluaciones->get($proceso->id);
             $etapa = EtapaSeguimientoInduccion::desde($evaluacion?->estado, $avance?->contenido_visto_en !== null);
@@ -458,6 +460,8 @@ class SesionInduccionService
                 'colaborador' => [
                     'id' => $colaborador->id,
                     'nombre' => $colaborador->nombreCompleto(),
+                    // Foto oficial del expediente (URL protegida, dentro del alcance).
+                    'foto_url' => $this->fotos->urlPara($colaborador, $actor),
                     'numero_empleado' => $colaborador->numero_empleado,
                     'puesto' => $colaborador->puesto?->nombre,
                     'sucursal' => $colaborador->sucursalPrincipal?->nombre,

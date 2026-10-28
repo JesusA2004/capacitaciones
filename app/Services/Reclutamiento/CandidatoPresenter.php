@@ -30,7 +30,20 @@ class CandidatoPresenter
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly ExpedienteCandidatoService $expediente,
         private readonly FotoColaboradorService $fotos,
+        private readonly FaseContratadoService $fasesContratado,
     ) {}
+
+    /**
+     * Antes de serializar una lista (tablero, exportación, API): calcula en
+     * lote la columna real de los contratados (Inducción … Contrato
+     * indeterminado) para que `fase` no consulte tarjeta por tarjeta.
+     *
+     * @param  iterable<Candidato>  $candidatos
+     */
+    public function precargarFases(iterable $candidatos): void
+    {
+        $this->fasesContratado->precargar($candidatos);
+    }
 
     /**
      * Fotografía oficial (la del expediente, en el NAS) de los candidatos que

@@ -32,6 +32,7 @@ use App\Services\Bajas\BajaAlertasService;
 use App\Services\Bajas\BajaRegistroService;
 use App\Services\CicloLaboral\AprobacionService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Finiquitos\FiniquitoService;
@@ -104,6 +105,7 @@ class CierreLaboralService
         private readonly CausalRotacionService $causales,
         private readonly BajaRegistroService $bajas,
         private readonly BajaAlertasService $alertasBaja,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     /**
@@ -1014,7 +1016,7 @@ class CierreLaboralService
     public function panorama(User $usuario, array $filtros = []): LengthAwarePaginator
     {
         $query = CierreLaboral::query()->with([
-            'colaborador:id,name,apellidos,numero_empleado,puesto_id,sucursal_principal_id,jefe_id',
+            'colaborador:id,name,apellidos,numero_empleado,puesto_id,sucursal_principal_id,jefe_id,gerente_id,foto_path',
             'colaborador.puesto:id,nombre',
             'colaborador.sucursalPrincipal:id,nombre',
             'iniciadoPor:id,name,apellidos,colaborador_id',
@@ -1071,7 +1073,7 @@ class CierreLaboralService
      *
      * @return array<string, mixed>
      */
-    public function filaPanorama(CierreLaboral $cierre, ?FiniquitoCalculo $finiquito, bool $puedeVerFiniquito): array
+    public function filaPanorama(CierreLaboral $cierre, ?FiniquitoCalculo $finiquito, bool $puedeVerFiniquito, ?User $viewer = null): array
     {
         return [
             'id' => $cierre->id,
@@ -1081,6 +1083,8 @@ class CierreLaboralService
                 'numero_empleado' => $cierre->colaborador->numero_empleado,
                 'puesto' => $cierre->colaborador->puesto?->nombre,
                 'sucursal' => $cierre->colaborador->sucursalPrincipal?->nombre,
+                // Foto oficial del expediente (URL protegida, dentro del alcance).
+                'foto_url' => $viewer !== null ? $this->fotos->urlPara($cierre->colaborador, $viewer) : null,
             ],
             'tipo_baja' => $cierre->tipo_baja->value,
             'tipo_baja_etiqueta' => $cierre->tipo_baja->etiqueta(),

@@ -228,7 +228,11 @@ defineExpose({ asignar });
                 class="flex min-w-0 flex-col overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm"
             >
                 <div class="flex items-start gap-3 p-4">
-                    <ColaboradorAvatar :nombre="fila.colaborador.nombre" />
+                    <ColaboradorAvatar
+                        :nombre="fila.colaborador.nombre"
+                        :foto-url="fila.colaborador.foto_url"
+                        tamano="lg"
+                    />
                     <div class="min-w-0 flex-1">
                         <p class="truncate font-semibold">
                             {{ fila.colaborador.nombre }}

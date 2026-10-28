@@ -9,6 +9,7 @@ use App\Models\Colaborador;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -32,6 +33,7 @@ class BajaConsultaService
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly BajaDocumentosService $documentos,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     public function puedeEntrar(User $usuario): bool
@@ -210,13 +212,27 @@ class BajaConsultaService
             ->limit($limite)
             ->get();
 
-        return array_values($resultado->map(fn (Colaborador $c): array => [
-            'id' => $c->id,
-            'nombre' => $c->nombreCompleto(),
-            'numero_empleado' => $c->numero_empleado,
-            'puesto' => $c->puesto?->nombre,
-            'sucursal' => $c->sucursalPrincipal?->nombre,
-            'fecha_ingreso' => $c->fecha_ingreso?->toDateString(),
-        ])->all());
+        return array_values($resultado->map(fn (Colaborador $c): array => $this->filaColaborador($c, $usuario))->all());
+    }
+
+    /**
+     * Persona del bloque «¿Quién se va?» (buscador y preselección desde el
+     * ciclo laboral). Requiere sucursalPrincipal y puesto cargados.
+     *
+     * @return array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, fecha_ingreso: string|null, foto_url: string|null}
+     */
+    public function filaColaborador(Colaborador $colaborador, User $usuario): array
+    {
+        return [
+            'id' => $colaborador->id,
+            'nombre' => $colaborador->nombreCompleto(),
+            'numero_empleado' => $colaborador->numero_empleado,
+            'puesto' => $colaborador->puesto?->nombre,
+            'sucursal' => $colaborador->sucursalPrincipal?->nombre,
+            'fecha_ingreso' => $colaborador->fecha_ingreso?->toDateString(),
+            // Foto oficial del expediente (URL protegida), solo dentro del
+            // alcance de quien registra; si no, iniciales.
+            'foto_url' => $this->fotos->urlPara($colaborador, $usuario),
+        ];
     }
 }

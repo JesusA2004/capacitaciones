@@ -10,6 +10,7 @@ use App\Models\Colaborador;
 use App\Models\TareaRh;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Permisos\AlcanceModuloService;
 use App\Support\FechaMexico;
 use App\Support\Paginacion;
@@ -248,7 +249,12 @@ class TareaService
     public function bandeja(User $usuario, array $filtros = []): LengthAwarePaginator
     {
         return $this->queryBandeja($usuario, $filtros)
-            ->with(['colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id', 'candidato:id,nombre,apellidos,sucursal_id', 'sucursal:id,nombre'])
+            ->with([
+                'colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,foto_path,jefe_id,gerente_id',
+                'candidato:id,nombre,apellidos,sucursal_id,colaborador_id',
+                'candidato.colaborador:id,foto_path,sucursal_principal_id,jefe_id,gerente_id',
+                'sucursal:id,nombre',
+            ])
             ->orderByRaw("case prioridad when 'urgente' then 4 when 'alta' then 3 when 'media' then 2 else 1 end desc")
             ->orderBy('vence_en')
             ->orderByDesc('id')
@@ -364,6 +370,21 @@ class TareaService
             $usuario !== null ? 'u'.$usuario->id : '-',
             $permiso ?? '-',
         );
+    }
+
+    /**
+     * Foto oficial de la persona del pendiente (bandeja web): la del
+     * colaborador, o la del colaborador ya vinculado al candidato. URL
+     * protegida y solo dentro del alcance de quien mira; si no, iniciales.
+     * Requiere la carga de bandeja() (foto_path y alcance de cada persona).
+     */
+    public function fotoUrl(TareaRh $tarea, User $viewer): ?string
+    {
+        $persona = $tarea->colaborador ?? $tarea->candidato?->colaborador;
+
+        // Resolución perezosa: FotoColaboradorService avisa a RH (Tareas)
+        // al cambiar fotos; inyectarlo aquí cerraría un ciclo.
+        return $persona !== null ? app(FotoColaboradorService::class)->urlPara($persona, $viewer) : null;
     }
 
     /**

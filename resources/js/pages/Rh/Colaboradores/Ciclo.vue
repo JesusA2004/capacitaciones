@@ -18,6 +18,7 @@ import CicloStepper from '@/components/ciclo/CicloStepper.vue';
 import CicloTimeline from '@/components/ciclo/CicloTimeline.vue';
 import FiniquitoCierreDialog from '@/components/ciclo/FiniquitoCierreDialog.vue';
 import Casilla from '@/components/Common/Casilla.vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -78,6 +79,8 @@ const props = defineProps<{
     colaborador: {
         id: number;
         nombre: string;
+        /** Foto oficial del expediente (URL protegida); null → iniciales. */
+        foto_url?: string | null;
         numero_empleado: string | null;
         puesto: string | null;
         sucursal: string | null;
@@ -683,6 +686,13 @@ const etiquetaFecha: Record<string, string> = {
             :descripcion="`${colaborador.numero_empleado ?? ''} · ${colaborador.puesto ?? 'Sin puesto'} · ${colaborador.sucursal ?? 'Sin sucursal'}`"
             :icono="UserRound"
         >
+            <template #icono>
+                <ColaboradorAvatar
+                    :nombre="colaborador.nombre"
+                    :foto-url="colaborador.foto_url"
+                    tamano="lg"
+                />
+            </template>
             <Button as-child variant="secondary">
                 <Link :href="verExpediente.url(colaborador.id)"
                     ><FolderOpen class="size-4" /> Expediente</Link
@@ -1234,7 +1244,10 @@ const etiquetaFecha: Record<string, string> = {
                         :criterios="criteriosForm"
                         :filtros="filtrosForm"
                         :observaciones="String(form.observaciones ?? '')"
-                        :faltas="(form.faltas_injustificadas as number | null) ?? null"
+                        :faltas="
+                            (form.faltas_injustificadas as number | null) ??
+                            null
+                        "
                         :retardos="(form.retardos as number | null) ?? null"
                         :errores="form.errors"
                         compacto

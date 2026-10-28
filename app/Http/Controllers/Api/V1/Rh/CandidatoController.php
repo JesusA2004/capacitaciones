@@ -60,6 +60,8 @@ class CandidatoController extends Controller
             ->orderByDesc('created_at')
             ->paginate((int) ($filtros['per_page'] ?? 20));
 
+        $this->presenter->precargarFases($pagina->items());
+
         return $this->paginado($pagina, fn (Candidato $c) => $this->presenter->fila($c), [
             'estados' => array_map(fn (EstadoCandidato $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta()], EstadoCandidato::cases()),
         ]);

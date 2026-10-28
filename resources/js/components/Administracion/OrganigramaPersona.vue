@@ -41,7 +41,7 @@ withDefaults(
                 <ColaboradorAvatar
                     :nombre="persona.nombre"
                     :foto-url="persona.foto_url"
-                    :tamano="destacado ? 'lg' : conNombre ? 'md' : 'sm'"
+                    :tamano="destacado ? 'xl' : conNombre ? 'lg' : 'md'"
                     :class="destacado ? 'rounded-2xl' : ''"
                 />
                 <div v-if="conNombre" class="min-w-0 text-left">

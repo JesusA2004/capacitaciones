@@ -9,7 +9,8 @@ import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
  * sin distinguir acentos. `items` viene del backend ya acotado al alcance
  * de quien asigna (OrganigramaPersonasService::candidatosCobertura).
  */
-type Opcion = { value: string; label: string };
+/** `foto_url`: foto oficial si quien asigna alcanza ese expediente. */
+type Opcion = { value: string; label: string; foto_url?: string | null };
 
 const props = defineProps<{
     items: Opcion[];
@@ -87,7 +88,8 @@ const filtrados = computed(() => {
                 >
                     <ColaboradorAvatar
                         :nombre="partes(item).nombre"
-                        tamano="sm"
+                        :foto-url="item.foto_url"
+                        tamano="md"
                     />
                     <span class="min-w-0 flex-1">
                         <span class="block truncate text-sm font-medium">{{

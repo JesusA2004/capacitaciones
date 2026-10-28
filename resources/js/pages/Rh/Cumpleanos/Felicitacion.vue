@@ -295,10 +295,13 @@ async function copiarMensaje() {
             <div class="flex flex-col gap-4">
                 <Card>
                     <CardHeader class="flex-row items-center gap-3 space-y-0">
-                        <Avatar class="size-12">
+                        <Avatar
+                            class="size-14 shrink-0 shadow-md ring-4 ring-background"
+                        >
                             <AvatarImage
                                 v-if="colaborador.foto_url"
                                 :src="colaborador.foto_url"
+                                class="object-cover"
                                 :alt="colaborador.nombre"
                             />
                             <AvatarFallback>{{

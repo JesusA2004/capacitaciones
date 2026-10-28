@@ -14,6 +14,7 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import EnvioDescriptivoPuestoRh from '@/components/ciclo/EnvioDescriptivoPuestoRh.vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -239,9 +240,16 @@ function letra(indice: number): string {
             >
                 FO-RH-EI · Evaluación del Programa de Inducción
             </p>
-            <h1 class="mt-1 text-2xl font-semibold tracking-tight">
-                {{ evaluacion.colaborador.nombre }}
-            </h1>
+            <div class="mt-2 flex items-center gap-3">
+                <ColaboradorAvatar
+                    :nombre="evaluacion.colaborador.nombre"
+                    :foto-url="evaluacion.colaborador.foto_url"
+                    tamano="lg"
+                />
+                <h1 class="text-2xl font-semibold tracking-tight">
+                    {{ evaluacion.colaborador.nombre }}
+                </h1>
+            </div>
             <dl
                 class="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-5"
             >

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\EstadoCandidato;
 use App\Enums\TipoSeguimientoCandidato;
 use App\Models\Concerns\NombreSinApellidos;
+use App\Services\Reclutamiento\FaseContratadoService;
 use App\Support\NombrePersona;
 use Database\Factories\CandidatoFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -72,6 +73,13 @@ class Candidato extends Model
     protected $hidden = ['cv_disk', 'cv_path', 'carpeta_nas'];
 
     protected $appends = ['tiene_cv', 'fase'];
+
+    /**
+     * Columna post-contratación ya calculada en lote por
+     * FaseContratadoService::precargar() (tablero, listas, API): evita una
+     * consulta por tarjeta. Propiedad PHP, no atributo: nunca se guarda.
+     */
+    public ?string $faseContratadoPrecargada = null;
 
     protected $fillable = [
         'empresa_id',
@@ -191,39 +199,22 @@ class Candidato extends Model
         $estado = $valor instanceof EstadoCandidato ? $valor : (is_string($valor) ? EstadoCandidato::tryFrom($valor) : null);
 
         if ($estado === EstadoCandidato::Contratado) {
-            return EstadoCandidato::faseContratado($this->yaLabora());
+            return $this->faseContratadoPrecargada
+                ??= app(FaseContratadoService::class)->paraColaborador($this->colaborador_id);
         }
 
         return $estado?->faseCanonica() ?? '';
     }
 
     /**
-     * Etiqueta del estado para mostrar: un contratado que ya inició operación
-     * se muestra "Contrato indeterminado", no "Capacitación inicial".
+     * Etiqueta del estado para mostrar: un contratado se muestra con su
+     * columna real (Inducción … Contrato indeterminado), nunca «Contratado».
      */
     public function etiquetaEstado(): string
     {
-        return $this->estado === EstadoCandidato::Contratado && $this->yaLabora()
-            ? 'Contrato indeterminado'
+        return $this->estado === EstadoCandidato::Contratado
+            ? (EstadoCandidato::fases()[$this->fase] ?? $this->estado->etiqueta())
             : $this->estado->etiqueta();
-    }
-
-    /**
-     * true si el colaborador creado al contratarlo ya inició operación en
-     * campo (activado_en). Usa la relación si ya viene cargada (el tablero
-     * la precarga con `colaborador:id,activado_en`).
-     */
-    public function yaLabora(): bool
-    {
-        if ($this->colaborador_id === null) {
-            return false;
-        }
-
-        $colaborador = $this->relationLoaded('colaborador')
-            ? $this->colaborador
-            : $this->colaborador()->first(['id', 'activado_en']);
-
-        return $colaborador?->activado_en !== null;
     }
 
     /**

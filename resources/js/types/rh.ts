@@ -131,8 +131,12 @@ export type EstadoCadenaContratacion = {
         | 'en_contratacion'
         | 'expediente'
         | 'contrato_generado'
-        | 'en_induccion'
-        | 'contratado';
+        // Ya contratado: la columna real del tablero (FaseContratadoService).
+        | 'induccion'
+        | 'evaluacion_induccion'
+        | 'capacitacion_inicial'
+        | 'evaluacion_capacitacion_inicial'
+        | 'contrato_indeterminado';
     etiqueta: string;
     detalle: string | null;
     tono:

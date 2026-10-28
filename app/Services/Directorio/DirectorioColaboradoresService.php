@@ -8,6 +8,7 @@ use App\Models\Departamento;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Permisos\AlcanceModuloService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -36,7 +37,10 @@ use Illuminate\Pagination\LengthAwarePaginator;
  */
 class DirectorioColaboradoresService
 {
-    public function __construct(private readonly AlcanceModuloService $alcanceModulo) {}
+    public function __construct(
+        private readonly AlcanceModuloService $alcanceModulo,
+        private readonly FotoColaboradorService $fotos,
+    ) {}
 
     /**
      * «Solo con correo» se IGNORA si quien busca no ve los contactos de
@@ -112,6 +116,9 @@ class DirectorioColaboradoresService
             // Contraloría, RH…); en sucursal, el puesto (Gerentes,
             // Subgerentes, Coordinadoras…).
             'area' => $this->area($c),
+            // Foto oficial del expediente (URL protegida), solo si quien mira
+            // alcanza ese expediente; si no, la vista muestra iniciales.
+            'foto_url' => $viewer !== null ? $this->fotos->urlPara($c, $viewer) : null,
         ];
     }
 
@@ -178,7 +185,7 @@ class DirectorioColaboradoresService
                 ->whereIn('sucursal_principal_id', $sucursales === [] ? [0] : $sucursales)
                 ->orWhere('id', $propio->id ?? 0)
                 ->orWhere('id', $propio->jefe_id ?? 0)))
-            ->select(['id', 'name', 'apellidos', 'numero_empleado', 'puesto_id', 'sucursal_principal_id', 'departamento_id', 'correo_corporativo', 'telefono_corporativo'])
+            ->select(['id', 'name', 'apellidos', 'numero_empleado', 'puesto_id', 'sucursal_principal_id', 'departamento_id', 'correo_corporativo', 'telefono_corporativo', 'foto_path', 'jefe_id', 'gerente_id'])
             ->where('estatus', 'activo')
             ->when($excluir !== [], fn (Builder $q) => $q->where(fn (Builder $sub) => $sub
                 ->whereNull('puesto_id')

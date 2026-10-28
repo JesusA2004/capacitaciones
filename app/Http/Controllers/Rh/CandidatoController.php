@@ -106,6 +106,9 @@ class CandidatoController extends Controller
         // Estado real tras la selección (Seleccionado, En contratación,
         // Expediente N/M, Contrato generado, En inducción, Contratado) con
         // botón directo al proceso: el candidato no desaparece al avanzar.
+        // Columna real de los contratados (Inducción … Contrato indeterminado)
+        // en lote, antes de calcular la cadena y serializar.
+        $this->presenter->precargarFases($candidatos);
         $cadena = $this->cadena->paraCandidatos($candidatos, $request->user());
         // Foto oficial del expediente cuando ya hay colaborador vinculado
         // (URL protegida, solo dentro del alcance; si no, iniciales).
@@ -210,6 +213,7 @@ class CandidatoController extends Controller
     private function tabla(Request $request): array
     {
         $candidatos = $this->queryFiltrada($request)->orderByDesc('created_at')->get();
+        $this->presenter->precargarFases($candidatos);
 
         $columnas = ['Nombre', 'Correo', 'Teléfono', 'Puesto objetivo', 'Empresa', 'Sucursal', 'Responsable RH', 'Estado', 'Fecha de registro'];
 

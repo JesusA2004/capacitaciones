@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use App\Services\Reclutamiento\FaseContratadoService;
+
 /**
  * Pipeline real del reclutamiento (Etapa 1) consolidado en el cierre del
  * ciclo laboral (ver docs/AUDITORIA_CICLO_LABORAL_FINAL.md §5 para el mapeo
@@ -36,21 +38,22 @@ enum EstadoCandidato: string
     case NoRespondio = 'no_respondio';
     case Desistio = 'desistio';
 
-    /** Contratado y todavía en onboarding/capacitación (sin inicio de operación). */
-    public const FASE_CAPACITACION_INICIAL = 'capacitacion_inicial';
-
-    /** Contratado y ya en operación (Colaborador::activado_en registrado). */
-    public const FASE_LABORANDO = 'laborando';
-
     /**
-     * Columna de un candidato contratado según su colaborador real:
-     * "Laborando" solo cuando ya inició operación en campo (activado_en,
-     * que exige onboarding completado — AltaColaboradorService::activar).
+     * Columnas de un candidato YA contratado, en orden. Cuál le toca lo
+     * decide App\Services\Reclutamiento\FaseContratadoService con los
+     * hechos reales de su colaborador (inducción presentada, evaluación de
+     * inducción aprobada, evaluación de capacitación inicial asignada,
+     * contrato indeterminado generado).
+     *
+     * @var list<string>
      */
-    public static function faseContratado(bool $yaLabora): string
-    {
-        return $yaLabora ? self::FASE_LABORANDO : self::FASE_CAPACITACION_INICIAL;
-    }
+    public const FASES_CONTRATADO = [
+        FaseContratadoService::INDUCCION,
+        FaseContratadoService::EVALUACION_INDUCCION,
+        FaseContratadoService::CAPACITACION_INICIAL,
+        FaseContratadoService::EVALUACION_CAPACITACION_INICIAL,
+        FaseContratadoService::CONTRATO_INDETERMINADO,
+    ];
 
     public function etiqueta(): string
     {
@@ -65,7 +68,7 @@ enum EstadoCandidato: string
             self::AutorizacionRhPendiente => 'Autorización de RH',
             self::AutorizadoRh => 'Autorizado por RH',
             self::EnContratacion => 'En contratación',
-            self::Contratado => 'Capacitación inicial',
+            self::Contratado => 'Contratado',
             self::NoViable => 'No viable',
             self::NoSeleccionado => 'No seleccionado',
             self::RechazadoRh => 'Rechazado por RH',
@@ -129,9 +132,9 @@ enum EstadoCandidato: string
             self::SocioeconomicoPendiente => 'socioeconomico',
             self::ReferenciasPendientes => 'referencias',
             self::PreseleccionGerente, self::AutorizacionRhPendiente, self::AutorizadoRh, self::EnContratacion => 'contratacion',
-            // Contratado se divide por el estado REAL de la persona (ver
-            // faseContratado()): sin el colaborador a la mano, capacitación inicial.
-            self::Contratado => self::FASE_CAPACITACION_INICIAL,
+            // Contratado se divide por los hechos REALES de su colaborador
+            // (FaseContratadoService); sin calcularlos, la primera: Inducción.
+            self::Contratado => FaseContratadoService::INDUCCION,
             self::NoViable, self::NoSeleccionado, self::RechazadoRh, self::NoRespondio => 'rechazado',
             self::Desistio => 'desistido',
         };
@@ -152,8 +155,11 @@ enum EstadoCandidato: string
             'socioeconomico' => 'Socioeconómico',
             'referencias' => 'Referencias',
             'contratacion' => 'Contratación',
-            'capacitacion_inicial' => 'Capacitación inicial',
-            'laborando' => 'Contrato indeterminado',
+            FaseContratadoService::INDUCCION => 'Inducción',
+            FaseContratadoService::EVALUACION_INDUCCION => 'Evaluación de inducción',
+            FaseContratadoService::CAPACITACION_INICIAL => 'Capacitación inicial',
+            FaseContratadoService::EVALUACION_CAPACITACION_INICIAL => 'Evaluación de capacitación inicial',
+            FaseContratadoService::CONTRATO_INDETERMINADO => 'Contrato indeterminado',
             'rechazado' => 'Rechazado',
             'desistido' => 'Desistió',
         ];

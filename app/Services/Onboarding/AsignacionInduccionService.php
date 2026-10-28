@@ -13,6 +13,7 @@ use App\Models\OnboardingAvance;
 use App\Models\OnboardingProceso;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Notificaciones\Aviso;
 use App\Services\Notificaciones\NotificacionEventosService;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -63,6 +64,7 @@ class AsignacionInduccionService
         private readonly ProgresoInduccionService $progreso,
         private readonly NotificacionEventosService $eventos,
         private readonly AuditoriaService $auditoria,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     /**
@@ -240,7 +242,7 @@ class AsignacionInduccionService
             ->get()
             ->unique('colaborador_id');
 
-        return array_values($procesos->map(function (OnboardingProceso $proceso): array {
+        return array_values($procesos->map(function (OnboardingProceso $proceso) use ($actor): array {
             $colaborador = $proceso->colaborador;
             $resumen = $this->progreso->resumen($colaborador);
 
@@ -248,6 +250,8 @@ class AsignacionInduccionService
                 'colaborador' => [
                     'id' => $colaborador->id,
                     'nombre' => $colaborador->nombreCompleto(),
+                    // Foto oficial del expediente (URL protegida, dentro del alcance).
+                    'foto_url' => $this->fotos->urlPara($colaborador, $actor),
                     'numero_empleado' => $colaborador->numero_empleado,
                     'puesto' => $colaborador->puesto?->nombre,
                     'sucursal' => $colaborador->sucursalPrincipal?->nombre,

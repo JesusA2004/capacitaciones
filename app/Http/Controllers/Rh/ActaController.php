@@ -44,7 +44,7 @@ class ActaController extends Controller
 
         return Inertia::render('Rh/Actas/Index', [
             'actas' => $this->actas->listar($request->user(), $filtros)
-                ->through(fn (ActaAdministrativa $a): array => $this->actas->aArray($a)),
+                ->through(fn (ActaAdministrativa $a): array => $this->actas->filaIndice($a, $request->user())),
             'filtros' => $filtros,
             'tipos' => array_map(fn (TipoActa $t): array => ['value' => $t->value, 'label' => $t->etiqueta()], TipoActa::cases()),
             'estados' => array_map(fn (EstadoActa $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], EstadoActa::cases()),

@@ -12,6 +12,7 @@ import {
     X,
 } from '@lucide/vue';
 import { computed, nextTick, ref, watch } from 'vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
@@ -50,6 +51,8 @@ type DocumentoFila = {
         numero_empleado: string | null;
         sucursal: string | null;
         puesto: string | null;
+        /** Foto oficial del expediente (URL protegida); null → iniciales. */
+        foto_url?: string | null;
     };
     tipo: string;
     archivo: string | null;
@@ -352,19 +355,27 @@ function confirmarDecisionVisor() {
                 <TableBody>
                     <TableRow v-for="fila in documentos.data" :key="fila.id">
                         <TableCell>
-                            <Link
-                                v-if="fila.expediente_url"
-                                :href="fila.expediente_url"
-                                class="font-medium text-primary hover:underline"
-                            >
-                                {{ fila.colaborador.nombre }}
-                            </Link>
-                            <span v-else class="font-medium">{{
-                                fila.colaborador.nombre
-                            }}</span>
-                            <p class="text-xs text-muted-foreground">
-                                {{ fila.colaborador.sucursal ?? '—' }}
-                            </p>
+                            <div class="flex items-center gap-3">
+                                <ColaboradorAvatar
+                                    :nombre="fila.colaborador.nombre"
+                                    :foto-url="fila.colaborador.foto_url"
+                                />
+                                <div class="min-w-0">
+                                    <Link
+                                        v-if="fila.expediente_url"
+                                        :href="fila.expediente_url"
+                                        class="font-medium text-primary hover:underline"
+                                    >
+                                        {{ fila.colaborador.nombre }}
+                                    </Link>
+                                    <span v-else class="font-medium">{{
+                                        fila.colaborador.nombre
+                                    }}</span>
+                                    <p class="text-xs text-muted-foreground">
+                                        {{ fila.colaborador.sucursal ?? '—' }}
+                                    </p>
+                                </div>
+                            </div>
                         </TableCell>
                         <TableCell>
                             <button

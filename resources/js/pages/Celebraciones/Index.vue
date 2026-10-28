@@ -112,10 +112,13 @@ function estado(c: CelebracionMuro): string {
                 </div>
 
                 <div class="flex items-center gap-3">
-                    <Avatar class="size-14">
+                    <Avatar
+                        class="size-16 shrink-0 shadow-md ring-4 ring-background"
+                    >
                         <AvatarImage
                             v-if="c.homenajeado.foto_url"
                             :src="c.homenajeado.foto_url"
+                            class="object-cover"
                             :alt="c.homenajeado.nombre"
                         />
                         <AvatarFallback class="text-base font-semibold">{{

@@ -6,6 +6,7 @@ import {
     FolderOpen,
     UserPlus,
 } from '@lucide/vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
@@ -38,6 +39,8 @@ type Persona = {
     estado_imss: string;
     siguiente_accion: string | null;
     ciclo_url: string;
+    /** Foto oficial del expediente (URL protegida); null → iniciales. */
+    foto_url?: string | null;
 };
 
 type AltaDigital = {
@@ -178,19 +181,26 @@ function fechaCorta(valor: string | null): string {
                 :key="persona.id"
                 class="flex min-w-0 flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
             >
-                <div class="min-w-0">
-                    <Link
-                        :href="persona.ciclo_url"
-                        class="font-medium text-primary hover:underline"
-                    >
-                        {{ persona.nombre }}
-                    </Link>
-                    <p class="truncate text-xs text-muted-foreground">
-                        <template v-if="persona.numero_empleado"
-                            >#{{ persona.numero_empleado }} · </template
-                        >{{ persona.puesto ?? 'Sin puesto' }} ·
-                        {{ persona.sucursal ?? 'Sin sucursal' }}
-                    </p>
+                <div class="flex min-w-0 items-center gap-3">
+                    <ColaboradorAvatar
+                        :nombre="persona.nombre"
+                        :foto-url="persona.foto_url"
+                        tamano="lg"
+                    />
+                    <div class="min-w-0">
+                        <Link
+                            :href="persona.ciclo_url"
+                            class="font-medium text-primary hover:underline"
+                        >
+                            {{ persona.nombre }}
+                        </Link>
+                        <p class="truncate text-xs text-muted-foreground">
+                            <template v-if="persona.numero_empleado"
+                                >#{{ persona.numero_empleado }} · </template
+                            >{{ persona.puesto ?? 'Sin puesto' }} ·
+                            {{ persona.sucursal ?? 'Sin sucursal' }}
+                        </p>
+                    </div>
                 </div>
                 <div class="flex flex-col gap-1">
                     <span class="text-xs font-medium">{{ persona.etapa }}</span>
@@ -270,18 +280,26 @@ function fechaCorta(valor: string | null): string {
                         :key="persona.id"
                     >
                         <TableCell>
-                            <Link
-                                :href="persona.ciclo_url"
-                                class="font-medium text-primary hover:underline"
-                            >
-                                {{ persona.nombre }}
-                            </Link>
-                            <p
-                                v-if="persona.numero_empleado"
-                                class="text-xs text-muted-foreground"
-                            >
-                                #{{ persona.numero_empleado }}
-                            </p>
+                            <div class="flex items-center gap-3">
+                                <ColaboradorAvatar
+                                    :nombre="persona.nombre"
+                                    :foto-url="persona.foto_url"
+                                />
+                                <div class="min-w-0">
+                                    <Link
+                                        :href="persona.ciclo_url"
+                                        class="font-medium text-primary hover:underline"
+                                    >
+                                        {{ persona.nombre }}
+                                    </Link>
+                                    <p
+                                        v-if="persona.numero_empleado"
+                                        class="text-xs text-muted-foreground"
+                                    >
+                                        #{{ persona.numero_empleado }}
+                                    </p>
+                                </div>
+                            </div>
                         </TableCell>
                         <TableCell>{{ persona.puesto ?? '—' }}</TableCell>
                         <TableCell>{{ persona.sucursal ?? '—' }}</TableCell>

@@ -16,6 +16,7 @@ import {
 import { useDebounceFn } from '@vueuse/core';
 import { computed, ref, watch } from 'vue';
 import TarjetaDocumentosBaja from '@/components/bajas/TarjetaDocumentosBaja.vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
@@ -61,6 +62,8 @@ type FilaCierre = {
         numero_empleado: string | null;
         puesto: string | null;
         sucursal: string | null;
+        /** Foto oficial del expediente (URL protegida); null → iniciales. */
+        foto_url?: string | null;
     };
     tipo_baja: string;
     tipo_baja_etiqueta: string;
@@ -650,14 +653,25 @@ function neto(fila: FilaCierre): string {
                                 class="border-b border-border/60 last:border-0"
                             >
                                 <td class="px-4 py-3">
-                                    <p class="font-medium">
-                                        {{ c.colaborador.nombre }}
-                                    </p>
-                                    <p class="text-xs text-muted-foreground">
-                                        {{
-                                            c.colaborador.numero_empleado ?? '—'
-                                        }}
-                                    </p>
+                                    <div class="flex items-center gap-3">
+                                        <ColaboradorAvatar
+                                            :nombre="c.colaborador.nombre"
+                                            :foto-url="c.colaborador.foto_url"
+                                        />
+                                        <div class="min-w-0">
+                                            <p class="font-medium">
+                                                {{ c.colaborador.nombre }}
+                                            </p>
+                                            <p
+                                                class="text-xs text-muted-foreground"
+                                            >
+                                                {{
+                                                    c.colaborador
+                                                        .numero_empleado ?? '—'
+                                                }}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </td>
                                 <td class="px-4 py-3 text-xs">
                                     {{ c.colaborador.puesto ?? '—' }}<br />
@@ -727,9 +741,15 @@ function neto(fila: FilaCierre): string {
                         class="flex flex-col rounded-2xl border border-border/60 bg-card p-4 text-sm shadow-sm"
                     >
                         <div class="flex items-start justify-between gap-2">
-                            <span class="font-semibold">{{
-                                c.colaborador.nombre
-                            }}</span>
+                            <span class="flex min-w-0 items-center gap-2.5">
+                                <ColaboradorAvatar
+                                    :nombre="c.colaborador.nombre"
+                                    :foto-url="c.colaborador.foto_url"
+                                />
+                                <span class="font-semibold">{{
+                                    c.colaborador.nombre
+                                }}</span>
+                            </span>
                             <ChipEstado
                                 :etiqueta="c.estado_etiqueta"
                                 tono="info"

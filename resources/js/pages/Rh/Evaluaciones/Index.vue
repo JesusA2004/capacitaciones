@@ -747,7 +747,11 @@ const ayuda = computed(
                             :aria-label="`Seleccionar a ${fila.nombre}`"
                             @update:model-value="(v) => alternar(fila.id, !!v)"
                         />
-                        <ColaboradorAvatar :nombre="fila.nombre" />
+                        <ColaboradorAvatar
+                            :nombre="fila.nombre"
+                            :foto-url="fila.foto_url"
+                            tamano="lg"
+                        />
                         <div class="min-w-0 flex-1">
                             <Link
                                 :href="fila.ciclo_url"
@@ -907,7 +911,11 @@ const ayuda = computed(
                             :href="p.ciclo_url"
                             class="flex tarjeta-interactiva items-center gap-3 rounded-xl border border-border/60 bg-card p-3"
                         >
-                            <ColaboradorAvatar :nombre="p.nombre" tamano="sm" />
+                            <ColaboradorAvatar
+                                :nombre="p.nombre"
+                                :foto-url="p.foto_url"
+                                tamano="md"
+                            />
                             <span class="min-w-0">
                                 <span
                                     class="block truncate text-sm font-medium"
@@ -966,6 +974,8 @@ const ayuda = computed(
                     <div class="flex items-start gap-3 p-4">
                         <ColaboradorAvatar
                             :nombre="evaluacion.colaborador.nombre"
+                            :foto-url="evaluacion.colaborador.foto_url"
+                            tamano="lg"
                         />
                         <div class="min-w-0 flex-1">
                             <Link
@@ -1224,7 +1234,11 @@ const ayuda = computed(
                     :key="fila.id"
                     class="flex items-center gap-3 p-3"
                 >
-                    <ColaboradorAvatar :nombre="fila.nombre" tamano="sm" />
+                    <ColaboradorAvatar
+                        :nombre="fila.nombre"
+                        :foto-url="fila.foto_url"
+                        tamano="md"
+                    />
                     <div class="min-w-0 flex-1">
                         <p class="truncate text-sm font-medium">
                             {{ fila.nombre }}

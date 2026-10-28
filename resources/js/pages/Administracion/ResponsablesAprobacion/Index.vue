@@ -12,6 +12,7 @@ import {
     UserRound,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import BuscadorPersonaOrganigrama from '@/components/Organigrama/BuscadorPersonaOrganigrama.vue';
 import { Button } from '@/components/ui/button';
@@ -54,6 +55,8 @@ type Regla = {
 type Persona = {
     id: number;
     nombre: string;
+    /** Foto oficial (URL protegida, dentro del alcance); null → iniciales. */
+    foto_url: string | null;
     puesto: string | null;
     sucursal: string | null;
     jefe_organizacional: PersonaCorta | null;
@@ -409,14 +412,21 @@ const ORIGEN_CLASE: Record<string, string> = {
                             : 'border-border/60'
                     "
                 >
-                    <div class="min-w-0">
-                        <p class="truncate font-semibold">{{ p.nombre }}</p>
-                        <p class="truncate text-xs text-muted-foreground">
-                            {{ p.puesto ?? 'Sin puesto'
-                            }}<template v-if="p.sucursal">
-                                · {{ p.sucursal }}</template
-                            >
-                        </p>
+                    <div class="flex min-w-0 items-center gap-3">
+                        <ColaboradorAvatar
+                            :nombre="p.nombre"
+                            :foto-url="p.foto_url"
+                            tamano="md"
+                        />
+                        <div class="min-w-0">
+                            <p class="truncate font-semibold">{{ p.nombre }}</p>
+                            <p class="truncate text-xs text-muted-foreground">
+                                {{ p.puesto ?? 'Sin puesto'
+                                }}<template v-if="p.sucursal">
+                                    · {{ p.sucursal }}</template
+                                >
+                            </p>
+                        </div>
                     </div>
                     <dl class="grid gap-1.5 text-xs">
                         <div

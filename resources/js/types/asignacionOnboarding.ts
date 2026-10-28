@@ -83,6 +83,8 @@ export type FilaAsignacionInduccion = {
     colaborador: {
         id: number;
         nombre: string;
+        /** Foto oficial del expediente (URL protegida); null → iniciales. */
+        foto_url?: string | null;
         numero_empleado: string | null;
         puesto: string | null;
         sucursal: string | null;

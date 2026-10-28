@@ -165,6 +165,8 @@ export type SeccionDocumentosProceso = {
         observaciones: string | null;
     } | null;
     checklist?: PuntoChecklistBaja[] | null;
+    /** Foto oficial del expediente (URL protegida), si el buscador la manda. */
+    foto_url?: string | null;
 };
 
 export type DatoFaltante = {
@@ -393,6 +395,8 @@ export type ColaboradorBusqueda = {
     ciudad?: string | null;
     /** Fecha de ingreso (buscador de la solicitud de baja). */
     fecha_ingreso?: string | null;
+    /** Foto oficial del expediente (URL protegida), si el buscador la manda. */
+    foto_url?: string | null;
 };
 
 // ───────── Cobertura documental por puesto ─────────

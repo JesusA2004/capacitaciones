@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowUpRight, FileSignature } from '@lucide/vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
@@ -38,6 +39,8 @@ type ContratoFila = {
     paquete_firmado: boolean;
     documentos: DocumentoContrato[];
     gestion_url: string;
+    /** Foto oficial del expediente (URL protegida); null → iniciales. */
+    foto_url?: string | null;
 };
 
 const props = defineProps<{
@@ -120,14 +123,21 @@ function varianteDocumento(estado: string | null): 'success' | 'info' {
                 class="flex min-w-0 flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
             >
                 <div class="flex items-start justify-between gap-3">
-                    <div class="min-w-0">
-                        <p class="font-medium">{{ fila.nombre }}</p>
-                        <p class="truncate text-xs text-muted-foreground">
-                            <template v-if="fila.numero_empleado"
-                                >#{{ fila.numero_empleado }} · </template
-                            >{{ fila.puesto ?? '—' }} ·
-                            {{ fila.sucursal ?? '—' }}
-                        </p>
+                    <div class="flex min-w-0 items-center gap-3">
+                        <ColaboradorAvatar
+                            :nombre="fila.nombre"
+                            :foto-url="fila.foto_url"
+                            tamano="lg"
+                        />
+                        <div class="min-w-0">
+                            <p class="font-medium">{{ fila.nombre }}</p>
+                            <p class="truncate text-xs text-muted-foreground">
+                                <template v-if="fila.numero_empleado"
+                                    >#{{ fila.numero_empleado }} · </template
+                                >{{ fila.puesto ?? '—' }} ·
+                                {{ fila.sucursal ?? '—' }}
+                            </p>
+                        </div>
                     </div>
                     <Badge :variant="variantePaquete(fila)" class="shrink-0">
                         {{
@@ -194,13 +204,21 @@ function varianteDocumento(estado: string | null): 'success' | 'info' {
                 <TableBody>
                     <TableRow v-for="fila in contratos.data" :key="fila.id">
                         <TableCell>
-                            <p class="font-medium">{{ fila.nombre }}</p>
-                            <p
-                                v-if="fila.numero_empleado"
-                                class="text-xs text-muted-foreground"
-                            >
-                                #{{ fila.numero_empleado }}
-                            </p>
+                            <div class="flex items-center gap-3">
+                                <ColaboradorAvatar
+                                    :nombre="fila.nombre"
+                                    :foto-url="fila.foto_url"
+                                />
+                                <div class="min-w-0">
+                                    <p class="font-medium">{{ fila.nombre }}</p>
+                                    <p
+                                        v-if="fila.numero_empleado"
+                                        class="text-xs text-muted-foreground"
+                                    >
+                                        #{{ fila.numero_empleado }}
+                                    </p>
+                                </div>
+                            </div>
                         </TableCell>
                         <TableCell class="text-xs">
                             {{ fila.puesto ?? '—' }}<br />

@@ -88,13 +88,13 @@ const esPlaza = computed(() => props.nodo.tipo !== 'persona');
                     v-if="nodo.persona && nodo.tipo === 'persona'"
                     :nombre="nodo.persona.nombre"
                     :foto-url="nodo.persona.foto_url"
-                    tamano="sm"
+                    tamano="md"
                 />
                 <span
                     v-else
-                    class="flex size-8 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-input text-muted-foreground"
+                    class="flex size-10 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-input text-muted-foreground"
                 >
-                    <UserRound class="size-4" />
+                    <UserRound class="size-5" />
                 </span>
                 <span class="min-w-0 flex-1">
                     <span class="block truncate text-sm font-semibold">

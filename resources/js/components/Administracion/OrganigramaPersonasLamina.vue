@@ -32,7 +32,7 @@ withDefaults(
                 v-if="p.id"
                 :nombre="p.nombre"
                 :foto-url="p.foto_url"
-                tamano="xs"
+                tamano="sm"
             />
             <span class="min-w-0 text-left leading-tight"
                 >{{ p.nombre

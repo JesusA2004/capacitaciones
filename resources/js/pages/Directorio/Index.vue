@@ -53,6 +53,8 @@ type ColaboradorDirectorio = {
     /** El backend solo manda el contacto a quien puede verlo. */
     contacto_visible?: boolean;
     es_mi_jefe?: boolean;
+    /** Foto oficial del expediente (URL protegida); null → iniciales. */
+    foto_url?: string | null;
 };
 
 type Vista = 'puesto' | 'area' | 'sucursal';
@@ -421,7 +423,11 @@ function detalle(c: ColaboradorDirectorio): string {
                         :key="c.id"
                         class="flex items-center gap-3 px-4 py-3"
                     >
-                        <ColaboradorAvatar :nombre="c.nombre" tamano="md" />
+                        <ColaboradorAvatar
+                            :nombre="c.nombre"
+                            :foto-url="c.foto_url"
+                            tamano="lg"
+                        />
                         <div class="flex min-w-0 flex-1 flex-col gap-0.5">
                             <p
                                 class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm font-semibold text-[var(--mrl-texto)]"
@@ -514,7 +520,8 @@ function detalle(c: ColaboradorDirectorio): string {
                     <ColaboradorAvatar
                         v-if="editando"
                         :nombre="editando.nombre"
-                        tamano="sm"
+                        :foto-url="editando.foto_url"
+                        tamano="md"
                     />
                     <span class="min-w-0 truncate">{{ editando?.nombre }}</span>
                 </DialogTitle>

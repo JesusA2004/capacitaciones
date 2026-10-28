@@ -32,6 +32,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\CierreLaboral\CausalRotacionService;
 use App\Services\CierreLaboral\CierreLaboralService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Contratos\EvaluacionPeriodoPruebaService;
 use App\Services\Contratos\SolicitudExcepcionPeriodoPruebaService;
@@ -39,6 +40,7 @@ use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
+use App\Services\Reclutamiento\FaseContratadoService;
 use App\Support\FechaMexico;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Gate;
@@ -73,6 +75,7 @@ class CicloLaboralService
         private readonly EvaluacionPeriodoPruebaService $evaluaciones,
         private readonly DocumentoProcesoService $documentosProceso,
         private readonly CausalRotacionService $causales,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     /**
@@ -104,23 +107,35 @@ class CicloLaboralService
             'psicometricas' => ['Psicométricos', 3, 4],
             'socioeconomico' => ['Socioeconómico', 5, 5],
             'referencias' => ['Referencias', 6, 6],
-            'autorizacion' => ['Contratación', 7, 9],
-            'contratacion' => ['Incorporación', 10, 11],
-            'laborando' => ['Contrato indeterminado', 12, 12],
+            'autorizacion' => ['Autorización', 7, 9],
+            'contratacion' => ['Contratación', 10, 10],
         ];
-        $yaLabora = $estado === EstadoCandidato::Contratado && $c->yaLabora();
+        // Después de contratar: las mismas columnas del tablero
+        // (FaseContratadoService), por hechos reales del colaborador.
+        foreach (EstadoCandidato::FASES_CONTRATADO as $fase) {
+            $definicion[$fase] = [EstadoCandidato::fases()[$fase], 11, 11];
+        }
+        $faseContratado = $estado === EstadoCandidato::Contratado ? $c->fase : null;
+        $indiceContratado = $faseContratado !== null ? array_search($faseContratado, EstadoCandidato::FASES_CONTRATADO, true) : false;
         $pasoActual = $estado->esSalida() ? null : $estado->paso();
         $pasos = [];
 
         foreach ($definicion as $clave => [$etiqueta, $inicio, $fin]) {
+            $indicePaso = array_search($clave, EstadoCandidato::FASES_CONTRATADO, true);
+
             $pasos[] = [
                 'clave' => $clave,
                 'etiqueta' => $etiqueta,
                 'estado' => match (true) {
-                    $yaLabora => 'completado',
-                    // Contratado sin terminar su incorporación: está en
-                    // Incorporación (capacitación inicial), no "laborando".
-                    $estado === EstadoCandidato::Contratado => $clave === 'laborando' ? 'pendiente' : ($clave === 'contratacion' ? 'actual' : 'completado'),
+                    // Ya contratado: todo lo previo completado; en su fase
+                    // real «actual» (el contrato indeterminado generado es
+                    // la meta: completado).
+                    $indiceContratado !== false => match (true) {
+                        $indicePaso === false, $indicePaso < $indiceContratado => 'completado',
+                        $indicePaso === $indiceContratado => $clave === FaseContratadoService::CONTRATO_INDETERMINADO ? 'completado' : 'actual',
+                        default => 'pendiente',
+                    },
+                    $indicePaso !== false => 'pendiente',
                     $pasoActual === $clave => 'actual',
                     $orden > $fin => 'completado',
                     $estado->esSalida() && $orden >= $inicio && $orden <= $fin => 'detenido',
@@ -699,6 +714,8 @@ class CicloLaboralService
             'colaborador' => [
                 'id' => $colaborador->id,
                 'nombre' => $colaborador->nombreCompleto(),
+                // Foto oficial del expediente (URL protegida, dentro del alcance).
+                'foto_url' => $this->fotos->urlPara($colaborador, $usuario),
                 'numero_empleado' => $colaborador->numero_empleado,
                 'puesto' => $colaborador->puesto?->nombre,
                 'sucursal' => $colaborador->sucursalPrincipal?->nombre,

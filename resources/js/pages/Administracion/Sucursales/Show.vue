@@ -278,15 +278,21 @@ function porcentaje(fila: PlantillaPorPuesto): number {
             <div
                 class="flex items-center gap-3 rounded-xl border bg-card px-3 py-2 lg:min-w-64"
             >
-                <Avatar class="size-10 shrink-0">
+                <Avatar
+                    class="size-12 shrink-0 shadow-sm ring-2 ring-background"
+                >
                     <AvatarImage
                         v-if="gerente?.foto_url"
                         :src="gerente.foto_url"
                         :alt="gerente ? `Foto de ${gerente.nombre}` : ''"
+                        class="object-cover"
                     />
-                    <AvatarFallback>{{
-                        gerente ? getInitials(gerente.nombre) : '—'
-                    }}</AvatarFallback>
+                    <AvatarFallback
+                        class="bg-salvia font-semibold text-primary"
+                        >{{
+                            gerente ? getInitials(gerente.nombre) : '—'
+                        }}</AvatarFallback
+                    >
                 </Avatar>
                 <div class="min-w-0">
                     <p class="text-xs text-muted-foreground">

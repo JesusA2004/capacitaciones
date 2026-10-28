@@ -9,6 +9,7 @@ use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\GeneratedDocument;
 use App\Models\Sucursal;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Contratos\EvaluacionPeriodoPruebaPdfService;
 use App\Services\Contratos\EvaluacionPeriodoPruebaService;
 use App\Services\Contratos\PeriodosPruebaService;
@@ -45,6 +46,7 @@ class EvaluacionCapacitacionController extends Controller
         private readonly VencimientoContratosService $vencimientos,
         private readonly EvaluacionPeriodoPruebaPdfService $pdf,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     public function index(Request $request): Response
@@ -200,6 +202,8 @@ class EvaluacionCapacitacionController extends Controller
 
         return [
             ...$datos,
+            // Foto oficial del expediente (URL protegida, dentro del alcance).
+            'colaborador' => [...$datos['colaborador'], 'foto_url' => $this->fotos->urlPara($e->colaborador, $usuario)],
             'puesto' => $e->colaborador->puesto?->nombre,
             'sucursal' => $e->colaborador->sucursalPrincipal?->nombre,
             'evaluador' => $e->evaluador?->nombreCompleto(),

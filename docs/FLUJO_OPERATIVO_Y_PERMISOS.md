@@ -18,6 +18,9 @@ QR/alta digital → colaborador → usuario → expediente → documentos
 → evaluación de inducción → capacitación inicial → periodo de prueba
 → evaluación → validación RH → contrato indeterminado → Laborando
 ```
+En el tablero de candidatos este tramo se ve como las columnas Inducción → Evaluación
+de inducción → Capacitación inicial → Evaluación de capacitación inicial → Contrato
+indeterminado (criterio exacto de cada una en `docs/RECLUTAMIENTO.md`).
 Servicios: `AltaColaboradorService`, `OnboardingService`, `DocumentExtractionService` (sugerencias desde documentos del expediente, nunca autoaplicadas), `ContratoLaboralService`, `EvaluacionPeriodoPruebaPolicy`/`Service`.
 
 ### Operación

@@ -22,11 +22,13 @@ const props = withDefaults(
 );
 
 const TAMANOS: Record<NonNullable<typeof props.tamano>, string> = {
-    xs: 'size-6 text-[10px]',
-    sm: 'size-8 text-xs',
-    md: 'size-10 text-sm',
-    lg: 'size-14 text-base',
-    xl: 'size-20 text-xl',
+    // Un paso más grandes que antes (2026-10-28): la foto se distingue
+    // mejor en listas y tarjetas sin romper renglones compactos.
+    xs: 'size-7 text-[10px]',
+    sm: 'size-9 text-xs',
+    md: 'size-11 text-sm',
+    lg: 'size-16 text-lg',
+    xl: 'size-24 text-2xl',
 };
 
 const TONOS = [
@@ -53,7 +55,9 @@ const tono = computed(() => {
     <Avatar
         :class="
             cn(
-                'shrink-0 shadow-sm ring-2 ring-background',
+                // Aro crema + leve acercamiento cuando la fila/tarjeta
+                // (clase group) está bajo el cursor.
+                'shrink-0 shadow-sm ring-2 ring-background transition-transform duration-200 ease-out group-hover:scale-105 motion-reduce:transition-none',
                 TAMANOS[tamano],
                 props.class,
             )
@@ -64,7 +68,7 @@ const tono = computed(() => {
             :src="fotoUrl"
             :alt="nombre"
             loading="lazy"
-            class="object-cover"
+            class="animate-in object-cover duration-300 fade-in"
         />
         <AvatarFallback :class="cn('font-semibold', tono)">
             {{ getInitials(nombre) }}

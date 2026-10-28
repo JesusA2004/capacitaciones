@@ -405,7 +405,7 @@ class CelebracionService
         $eventos = $this->eventosPorColaboradorYFecha(TipoCelebracion::AniversarioLaboral, $lista->map(fn (array $a) => $a['colaborador']->id)->all(), $desde, $hasta);
 
         return array_values($lista->map(fn (array $a): array => [
-            ...$this->fila($a['colaborador'], $a['fecha'], $a['anios'], sprintf('%s en MR. LANA', FechasCelebracion::textoAnios($a['anios'])), $eventos),
+            ...$this->fila($a['colaborador'], $a['fecha'], $a['anios'], sprintf('%s en MR. LANA', FechasCelebracion::textoAnios($a['anios'])), $eventos, $usuario),
             'anios_texto' => FechasCelebracion::textoAnios($a['anios']),
         ])->all());
     }
@@ -426,13 +426,13 @@ class CelebracionService
         $eventos = $this->eventosPorColaboradorYFecha(TipoCelebracion::Cumpleanos, $lista->map(fn (Colaborador $c) => $c->id)->all(), $desde, $hasta);
         $mostrarEdad = (bool) config('cumpleanos.show_age');
 
-        return array_values($lista->map(function (Colaborador $colaborador) use ($eventos, $mostrarEdad): array {
+        return array_values($lista->map(function (Colaborador $colaborador) use ($eventos, $mostrarEdad, $usuario): array {
             $fecha = Carbon::parse($colaborador->getAttribute('_proxima_fecha'));
             $edad = $mostrarEdad && $colaborador->fecha_nacimiento !== null
                 ? FechasCelebracion::aniosCumplidos($colaborador->fecha_nacimiento, $fecha)
                 : null;
 
-            return $this->fila($colaborador, $fecha, $edad, $edad !== null ? sprintf('Cumple %s', FechasCelebracion::textoAnios($edad)) : null, $eventos);
+            return $this->fila($colaborador, $fecha, $edad, $edad !== null ? sprintf('Cumple %s', FechasCelebracion::textoAnios($edad)) : null, $eventos, $usuario);
         })->all());
     }
 
@@ -462,7 +462,7 @@ class CelebracionService
      * @param  SupportCollection<string, BirthdayGreeting>  $eventos
      * @return array<string, mixed>
      */
-    private function fila(Colaborador $colaborador, CarbonInterface $fecha, ?int $anios, ?string $detalle, SupportCollection $eventos): array
+    private function fila(Colaborador $colaborador, CarbonInterface $fecha, ?int $anios, ?string $detalle, SupportCollection $eventos, User $usuario): array
     {
         $evento = $eventos->get(sprintf('%d:%s', $colaborador->id, $fecha->toDateString()));
 
@@ -472,7 +472,9 @@ class CelebracionService
             'puesto' => $colaborador->puesto?->nombre,
             'sucursal' => $colaborador->sucursalPrincipal?->nombre,
             'departamento' => $colaborador->departamento?->nombre,
-            'foto_url' => $this->fotos->url($colaborador),
+            // Foto del expediente solo dentro del alcance de quien mira (mismo
+            // criterio que la ruta de la foto); fuera de él, iniciales.
+            'foto_url' => $this->cumpleanos->puedeVerFoto($usuario, $colaborador) ? $this->fotos->url($colaborador) : null,
             'fecha' => $fecha->toDateString(),
             'es_hoy' => $fecha->isSameDay(FechasCelebracion::hoy()),
             'anios' => $anios,

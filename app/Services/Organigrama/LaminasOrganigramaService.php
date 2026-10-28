@@ -306,7 +306,7 @@ class LaminasOrganigramaService
             ->where('estatus', 'activo')
             ->whereNotNull('puesto_id')
             ->with(['puesto:id,nombre,nivel_jerarquico,departamento_id', 'puesto.departamento:id,nombre', 'departamento:id,nombre', 'sucursalPrincipal:id,nombre'])
-            ->get(['id', 'name', 'apellidos', 'puesto_id', 'sucursal_principal_id', 'departamento_id', 'foto_path', 'updated_at'])
+            ->get(['id', 'name', 'apellidos', 'puesto_id', 'sucursal_principal_id', 'departamento_id', 'foto_path', 'jefe_id', 'gerente_id', 'updated_at'])
             ->filter(fn (Colaborador $c): bool => $c->puesto !== null);
     }
 }

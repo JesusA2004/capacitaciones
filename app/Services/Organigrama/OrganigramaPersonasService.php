@@ -140,6 +140,16 @@ class OrganigramaPersonasService
     /** @var array<int, true> personal de sucursal sin jefe asignable en el último cálculo */
     private array $sinJefeAsignable = [];
 
+    /**
+     * Colaboradores con foto cuyo expediente alcanza quien mira el árbol
+     * (null = sin usuario: se manda la URL como antes). Una sola consulta
+     * con el mismo criterio que la ruta de la foto, para no mandar URLs que
+     * terminarían en 403.
+     *
+     * @var array<int, int>|null
+     */
+    private ?array $fotosVisibles = null;
+
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly FotoColaboradorService $fotos,
@@ -154,6 +164,7 @@ class OrganigramaPersonasService
     public function arbol(User $usuario, Request $request): array
     {
         $this->prepararCatalogos();
+        $this->fotosVisibles = $this->fotosVisiblesPara($usuario);
 
         $sucursalesVisibles = $this->sucursalesVisibles($usuario, $request);
         $raizPuestoId = $request->integer('raiz_puesto_id');
@@ -812,10 +823,11 @@ class OrganigramaPersonasService
      * del alcance de quien asigna), con su puesto y sucursal para
      * reconocerlas en el selector.
      *
-     * @return list<array{value: string, label: string}>
+     * @return list<array{value: string, label: string, foto_url: string|null}>
      */
     public function candidatosCobertura(User $usuario): array
     {
+        $fotosVisibles = $this->fotosVisiblesPara($usuario);
         $consulta = Colaborador::query()
             ->where('estatus', 'activo')
             ->whereNotNull('puesto_id')
@@ -825,9 +837,11 @@ class OrganigramaPersonasService
 
         $opciones = [];
 
-        foreach ($this->alcance->limitarColaboradoresPorAlcance($consulta, $usuario)->get(['id', 'name', 'apellidos', 'puesto_id', 'sucursal_principal_id']) as $c) {
+        foreach ($this->alcance->limitarColaboradoresPorAlcance($consulta, $usuario)->get(['id', 'name', 'apellidos', 'puesto_id', 'sucursal_principal_id', 'foto_path']) as $c) {
             $opciones[] = [
                 'value' => sprintf('%d', $c->id),
+                // Foto oficial solo dentro del alcance de Expedientes; si no, iniciales.
+                'foto_url' => isset($fotosVisibles[$c->id]) ? $this->fotos->url($c) : null,
                 'label' => sprintf(
                     '%s — %s%s',
                     trim(sprintf('%s %s', $c->name, $c->apellidos ?? '')),
@@ -1357,6 +1371,21 @@ class OrganigramaPersonasService
     }
 
     /**
+     * Ids de colaboradores con foto cuyo expediente alcanza $usuario (módulo
+     * «Expedientes», mismo criterio que Rh\ExpedienteController::descargarFoto).
+     *
+     * @return array<int, int>
+     */
+    public function fotosVisiblesPara(User $usuario): array
+    {
+        return $this->alcance
+            ->limitarExpedientesPorAlcance(Colaborador::query()->whereNotNull('foto_path'), $usuario)
+            ->pluck('id')
+            ->mapWithKeys(fn ($id): array => [(int) $id => (int) $id])
+            ->all();
+    }
+
+    /**
      * @return array{id: int, nombre: string, foto_url: string|null, numero_empleado: string|null, expediente_url: string, sucursal: string|null}
      */
     private function datosPersona(Colaborador $colaborador): array
@@ -1364,7 +1393,9 @@ class OrganigramaPersonasService
         return [
             'id' => $colaborador->id,
             'nombre' => trim(sprintf('%s %s', $colaborador->name, $colaborador->apellidos ?? '')),
-            'foto_url' => $this->fotos->url($colaborador),
+            'foto_url' => $this->fotosVisibles === null || isset($this->fotosVisibles[$colaborador->id])
+                ? $this->fotos->url($colaborador)
+                : null,
             'numero_empleado' => $colaborador->numero_empleado,
             'expediente_url' => route('rh.expedientes.show', $colaborador->id, false),
             'sucursal' => $this->nombresSucursal[$colaborador->sucursal_principal_id ?? 0] ?? null,

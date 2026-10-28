@@ -12,6 +12,7 @@ import {
 import { useDebounceFn } from '@vueuse/core';
 import { ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -49,6 +50,8 @@ type Fila = ResponsivaItem & {
         numero_empleado: string | null;
         puesto: string | null;
         sucursal: string | null;
+        /** Foto oficial del expediente (URL protegida); null → iniciales. */
+        foto_url?: string | null;
     };
 };
 
@@ -266,15 +269,26 @@ async function confirmar() {
                             :class="{ 'opacity-70': r.estado === 'cancelada' }"
                         >
                             <td class="px-4 py-3">
-                                <p class="font-medium">
-                                    {{ r.colaborador.nombre }}
-                                </p>
-                                <p
-                                    class="text-xs text-[var(--mrl-texto-suave)]"
-                                >
-                                    {{ r.colaborador.numero_empleado ?? '—' }} ·
-                                    {{ r.folio }}
-                                </p>
+                                <div class="flex items-center gap-3">
+                                    <ColaboradorAvatar
+                                        :nombre="r.colaborador.nombre"
+                                        :foto-url="r.colaborador.foto_url"
+                                    />
+                                    <div class="min-w-0">
+                                        <p class="font-medium">
+                                            {{ r.colaborador.nombre }}
+                                        </p>
+                                        <p
+                                            class="text-xs text-[var(--mrl-texto-suave)]"
+                                        >
+                                            {{
+                                                r.colaborador.numero_empleado ??
+                                                '—'
+                                            }}
+                                            · {{ r.folio }}
+                                        </p>
+                                    </div>
+                                </div>
                             </td>
                             <td class="px-4 py-3 text-xs">
                                 {{ r.colaborador.puesto ?? '—' }}<br />
@@ -377,6 +391,11 @@ async function confirmar() {
                     :class="{ 'opacity-70': r.estado === 'cancelada' }"
                 >
                     <div class="flex flex-wrap items-center gap-2">
+                        <ColaboradorAvatar
+                            :nombre="r.colaborador.nombre"
+                            :foto-url="r.colaborador.foto_url"
+                            tamano="sm"
+                        />
                         <span class="font-medium">{{
                             r.colaborador.nombre
                         }}</span>

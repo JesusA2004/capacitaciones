@@ -55,13 +55,21 @@ class JerarquiaPuestoService
             ->get(['id', 'name', 'apellidos', 'puesto_id', 'foto_path', 'sucursal_principal_id', 'numero_empleado'])
             ->groupBy('puesto_id');
 
+        // Foto solo de quien está dentro del alcance de Expedientes de quien
+        // mira (mismo criterio que la ruta de la foto): una sola consulta.
+        $fotosVisibles = $this->alcance
+            ->limitarExpedientesPorAlcance(Colaborador::query()->whereIn('id', $porPuesto->flatten(1)->pluck('id'))->whereNotNull('foto_path'), $usuario)
+            ->pluck('id')
+            ->mapWithKeys(fn ($id): array => [(int) $id => true])
+            ->all();
+
         foreach ($puestos as $puesto) {
             $puesto->setAttribute('ocupantes', ($porPuesto->get($puesto->id) ?? collect())
                 ->take(self::OCUPANTES_POR_PUESTO)
                 ->map(fn (Colaborador $colaborador) => [
                     'id' => $colaborador->id,
                     'nombre' => trim(sprintf('%s %s', $colaborador->name, $colaborador->apellidos ?? '')),
-                    'foto_url' => $this->fotos->url($colaborador),
+                    'foto_url' => isset($fotosVisibles[$colaborador->id]) ? $this->fotos->url($colaborador) : null,
                     'sucursal' => $colaborador->sucursalPrincipal?->nombre,
                     'numero_empleado' => $colaborador->numero_empleado,
                 ])

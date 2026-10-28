@@ -289,7 +289,7 @@ export type NodoOrganigramaPersona = {
 export type CoberturasOrganigrama = {
     puedeEditar: boolean;
     motivos: { value: string; etiqueta: string }[];
-    colaboradores: { value: string; label: string }[];
+    colaboradores: { value: string; label: string; foto_url?: string | null }[];
 };
 
 /**

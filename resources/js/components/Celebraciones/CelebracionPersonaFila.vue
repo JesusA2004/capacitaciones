@@ -32,10 +32,11 @@ const subtitulo = computed(() => subtituloPersona(props.evento));
 
 <template>
     <div class="flex min-w-0 items-center gap-3 py-2.5">
-        <Avatar class="size-10 shrink-0">
+        <Avatar class="size-12 shrink-0 shadow-sm ring-2 ring-background">
             <AvatarImage
                 v-if="evento.foto_url"
                 :src="evento.foto_url"
+                class="object-cover"
                 :alt="`Foto de ${evento.nombre}`"
             />
             <AvatarFallback>{{ getInitials(evento.nombre) }}</AvatarFallback>

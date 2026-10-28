@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Policies\GeneratedDocumentPolicy;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\CatalogoMaestrosService;
 use App\Services\DocumentosMaestros\DatosDocumentoService;
@@ -75,6 +76,7 @@ class RegularizacionContratosService
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly AuditoriaService $auditoria,
         private readonly ContratoFirmadoService $firmados,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     // ───────────────────────── Permisos ─────────────────────────
@@ -122,6 +124,8 @@ class RegularizacionContratosService
         }
 
         $plan['puede_subir_firmado'] = $subir;
+        // Foto oficial del expediente (URL protegida, dentro del alcance).
+        $plan['foto_url'] = $this->fotos->urlPara($colaborador, $viewer);
 
         return $plan;
     }

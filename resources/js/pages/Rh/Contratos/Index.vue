@@ -761,7 +761,11 @@ function etiquetasFaltantes(fila: PlanContratos): string[] {
                     class="flex flex-col gap-3 border-b border-border/50 p-4 sm:flex-row sm:items-center"
                 >
                     <div class="flex min-w-0 flex-1 items-center gap-3">
-                        <ColaboradorAvatar :nombre="fila.nombre" tamano="md" />
+                        <ColaboradorAvatar
+                            :nombre="fila.nombre"
+                            :foto-url="fila.foto_url"
+                            tamano="lg"
+                        />
                         <div class="min-w-0">
                             <Link
                                 :href="fila.expediente_url"

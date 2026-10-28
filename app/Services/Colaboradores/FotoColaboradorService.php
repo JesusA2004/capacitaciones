@@ -280,6 +280,22 @@ class FotoColaboradorService
         ]);
     }
 
+    /**
+     * Igual que url(), pero solo si $viewer alcanza ese expediente — mismo
+     * criterio que la ruta (Rh\ExpedienteController::descargarFoto). Así una
+     * lista nunca manda URLs que terminarían en 403: fuera de alcance la
+     * vista muestra iniciales. Requiere foto_path, sucursal_principal_id,
+     * jefe_id y gerente_id cargados.
+     */
+    public function urlPara(Colaborador $colaborador, User $viewer): ?string
+    {
+        if ($colaborador->foto_path === null || ! $this->alcance->puedeVerExpediente($viewer, $colaborador)) {
+            return null;
+        }
+
+        return $this->url($colaborador);
+    }
+
     /** Foto propia para la app (Bearer token), versionada. */
     public function urlPropiaApi(Colaborador $colaborador): ?string
     {

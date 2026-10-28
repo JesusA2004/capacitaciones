@@ -46,7 +46,7 @@ defineProps<{
             <!-- Foto del colaborador: "clipeada" en la esquina de la carpeta,
                  como una foto sujeta con un clip a un folder físico. -->
             <Avatar
-                class="absolute -top-3 right-4 size-12 rotate-3 rounded-xl border-4 border-card shadow-md ring-1 ring-border/60"
+                class="absolute -top-4 right-4 size-14 rotate-3 rounded-xl border-4 border-card shadow-md ring-1 ring-border/60 transition-transform duration-200 group-hover:scale-105 group-hover:rotate-0"
             >
                 <AvatarImage
                     v-if="colaborador.foto_url"

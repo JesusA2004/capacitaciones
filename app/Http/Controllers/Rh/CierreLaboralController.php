@@ -78,6 +78,7 @@ class CierreLaboralController extends Controller
                 $c,
                 $c->solicitud_interna_id !== null ? $finiquitos->get($c->solicitud_interna_id) : null,
                 $puedeVerFiniquito,
+                $usuario,
             ));
         }
 
