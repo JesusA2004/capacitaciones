@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Http\Middleware\AutenticarClienteIntegracion;
+use App\Models\ClienteIntegracion;
 use App\Models\CoberturaPuesto;
 use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
@@ -152,6 +154,21 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('api-login', fn (Request $request) => Limit::perMinute(10)->by(app(AutenticacionService::class)->llaveLimite($request->input('username') ?? $request->input('email'), $request->ip())));
         RateLimiter::for('api-cargas', fn (Request $request) => Limit::perMinute(30)->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('api-reautenticar', fn (Request $request) => Limit::perMinute(5)->by($request->user()?->id.'|'.$request->ip()));
+
+        // API servidor-a-servidor de Auditoría: por cliente de integración
+        // (lo fija AutenticarClienteIntegracion, que corre antes), con
+        // Retry-After y error JSON {message, codigo}.
+        RateLimiter::for('integracion-auditoria', function (Request $request) {
+            $cliente = $request->attributes->get(AutenticarClienteIntegracion::ATRIBUTO);
+            $llave = $cliente instanceof ClienteIntegracion ? sprintf('cliente:%d', $cliente->id) : sprintf('ip:%s', (string) $request->ip());
+
+            return Limit::perMinute(max(1, (int) config('integraciones.auditoria.limite_por_minuto', 120)))
+                ->by(sprintf('integracion-auditoria|%s', $llave))
+                ->response(fn (Request $request, array $headers) => response()->json([
+                    'message' => 'Demasiadas solicitudes. Espera antes de reintentar.',
+                    'codigo' => 'limite_excedido',
+                ], 429, $headers));
+        });
     }
 
     /**

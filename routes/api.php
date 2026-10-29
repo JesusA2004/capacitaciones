@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\EquipoController;
 use App\Http\Controllers\Api\V1\EvaluacionController;
 use App\Http\Controllers\Api\V1\IncorporacionController;
 use App\Http\Controllers\Api\V1\IncorporacionInvitacionController;
+use App\Http\Controllers\Api\V1\Integraciones\AuditoriaController as IntegracionAuditoriaController;
 use App\Http\Controllers\Api\V1\MiProcesoController;
 use App\Http\Controllers\Api\V1\MobileBootstrapController;
 use App\Http\Controllers\Api\V1\MuroCumpleanosController;
@@ -59,7 +60,9 @@ use App\Http\Controllers\Api\V1\Rh\VacanteController as RhVacanteController;
 use App\Http\Controllers\Api\V1\SolicitudController;
 use App\Http\Controllers\Api\V1\TareaController;
 use App\Http\Controllers\Api\V1\VacacionesController;
+use App\Http\Middleware\AutenticarClienteIntegracion;
 use App\Services\DocumentosMaestros\VistaPreviaFlujoService;
+use App\Services\Integraciones\TokenIntegracionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Route;
@@ -109,6 +112,19 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('validar', [IncorporacionInvitacionController::class, 'validar'])->name('validar');
             Route::get('fases', [IncorporacionInvitacionController::class, 'fases'])->name('fases');
             Route::post('registrar', [IncorporacionInvitacionController::class, 'registrar'])->name('registrar');
+        });
+
+    // API servidor-a-servidor del sistema Auditoría (contrato
+    // «people-auditoria/1»): token de ClienteIntegracion, NO Sanctum ni
+    // cuentas de colaborador (un token de la app móvil da 401 aquí).
+    // Autenticación antes del límite, que se lleva por cliente.
+    Route::prefix('auditoria')->name('auditoria.')
+        ->middleware([AutenticarClienteIntegracion::con(TokenIntegracionService::HABILIDAD_AUDITORIA_LEER), 'throttle:integracion-auditoria'])
+        ->group(function () {
+            Route::get('catalogo', [IntegracionAuditoriaController::class, 'catalogo'])->name('catalogo');
+            Route::get('colaboradores', [IntegracionAuditoriaController::class, 'colaboradores'])->name('colaboradores.index');
+            Route::get('colaboradores/{colaborador}', [IntegracionAuditoriaController::class, 'colaborador'])->name('colaboradores.show');
+            Route::get('sucursales', [IntegracionAuditoriaController::class, 'sucursales'])->name('sucursales.index');
         });
 
     // contrasena.temporal: con contraseña temporal solo responden logout, me
