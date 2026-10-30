@@ -102,7 +102,6 @@ const SIDEBAR_A_GUIA = [
     'Roles y permisos' => ['roles'],
     'Versiones de app' => ['app-releases'],
     'Descriptivos y perfiles' => ['perfiles-puesto'],
-    'Rotación de personal' => ['rotacion'],
     'Directorio' => ['directorio', 'directorio-operativo'],
     // Modo colaborador.
     'Mi inicio' => ['portal'],
@@ -147,8 +146,7 @@ const SIDEBAR_SIN_GUIA = [
     'Evaluaciones de periodo de prueba',
     'Recibo simple de pago',
     'Bajas',
-    'Bajas y finiquitos',
-    // Sección «Causales» de Bajas y finiquitos (misma pantalla).
+    // Pestaña «Catálogo de causales» de Bajas (misma pantalla).
     'Catálogo de bajas',
 ];
 

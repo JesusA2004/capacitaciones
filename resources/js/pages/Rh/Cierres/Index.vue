@@ -3,7 +3,6 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import {
     ArrowRight,
     ClipboardCheck,
-    ClipboardList,
     DoorOpen,
     FileWarning,
     FolderOpen,
@@ -15,6 +14,7 @@ import {
 } from '@lucide/vue';
 import { useDebounceFn } from '@vueuse/core';
 import { computed, ref, watch } from 'vue';
+import PestanasBajasNav from '@/components/bajas/PestanasBajas.vue';
 import TarjetaDocumentosBaja from '@/components/bajas/TarjetaDocumentosBaja.vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
@@ -39,6 +39,7 @@ import type {
     ArchivoPrevisualizable,
     CausalRotacionAdmin,
     DocumentoRecopilacion,
+    PestanasBajas,
     ResumenRecopilacion,
     TarjetaRecopilacion,
 } from '@/types';
@@ -91,6 +92,7 @@ type Seccion = 'documentos' | 'cierres' | 'causales';
 type Opcion = { value: string; label: string };
 
 const props = defineProps<{
+    pestanas: PestanasBajas;
     cierres: Paginador<FilaCierre> | null;
     recopilacion: Paginador<TarjetaRecopilacion> | null;
     resumen: ResumenRecopilacion;
@@ -120,17 +122,13 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Bajas y finiquitos', href: '' },
+            { title: 'Bajas', href: rutasBajas.index() },
+            { title: 'Documentos por persona', href: '' },
         ],
     },
 });
 
-const { tienePermiso, tieneAlgunPermiso } = usePermisos();
-const puedeVerBajas = tieneAlgunPermiso([
-    'bajas.ver',
-    'bajas.revisar_juridico',
-    'bajas.consulta_contraloria',
-]);
+const { tienePermiso } = usePermisos();
 const puedeRegistrar =
     tienePermiso('bajas.solicitar') || tienePermiso('bajas.gestionar');
 
@@ -368,25 +366,22 @@ function neto(fila: FilaCierre): string {
 </script>
 
 <template>
-    <Head title="Bajas y finiquitos" />
+    <Head title="Documentos por persona" />
 
     <div class="pagina-ancha flex flex-col gap-5">
         <CrudPageHeader
-            titulo="Bajas y finiquitos"
+            titulo="Documentos por persona"
             descripcion="Documentos, finiquito y cierre de cada persona dada de baja."
             :icono="DoorOpen"
         >
-            <Button v-if="puedeVerBajas" variant="outline" as-child>
-                <Link :href="rutasBajas.index()"
-                    ><ClipboardList class="size-4" />Bajas</Link
-                >
-            </Button>
             <Button v-if="puedeRegistrar" as-child>
                 <Link :href="rutasBajas.create()"
                     ><UserMinus class="size-4" />Registrar baja</Link
                 >
             </Button>
         </CrudPageHeader>
+
+        <PestanasBajasNav :pestanas="pestanas" />
 
         <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <TarjetaMetrica

@@ -121,7 +121,132 @@ export type FilaBaja = {
     /** Obligatorios para cerrar (avance = total − faltantes). */
     documentos_total: number;
     requiere_juridico: boolean;
+    /** Aviso «Integrar expediente probatorio» (no es una autorización). */
+    integrar_expediente: boolean;
+    /** en_tramite | faltan_documentos | lista_para_cerrar | cerrada | cancelada… */
+    cubo: string;
+    foto_url?: string | null;
+    finiquito?: { id: number; estado: string; etiqueta: string } | null;
     origen: string;
+};
+
+/** Pestañas de Cierres laborales → Bajas (BajaConsultaService::pestanas). */
+export type PestanasBajas = {
+    bajas: boolean;
+    finiquitos: boolean;
+    rotacion: boolean;
+    causales: boolean;
+    conteo_bajas: number | null;
+    conteo_finiquitos: number | null;
+};
+
+/** Panel «Generar documento de salida» (BajaDocumentoSalidaService::panel). */
+export type PanelDocumentoSalida = {
+    baja_id: number;
+    folio: string;
+    colaborador: string;
+    forma: FormaSalidaClave | null;
+    causal: string | null;
+    fundamento_catalogo: string | null;
+    documento: { clave: string; etiqueta: string } | null;
+    abierta: boolean;
+    faltantes: string[];
+    generado: {
+        id: number;
+        version: number;
+        fecha: string | null;
+        firmado: boolean;
+        desactualizado: boolean;
+    } | null;
+    firmados: ArchivoBaja[];
+    evidencias: ArchivoBaja[];
+    aviso: {
+        fundamento: string;
+        que_ocurrio: string;
+        hechos_en: string;
+        lugar: string;
+        constataron: string;
+        relato: string;
+        testigos: { nombre: string; cargo: string }[];
+        fecha_aviso: string;
+        metodo_entrega: string;
+        fecha_entrega: string;
+    } | null;
+    plazo: {
+        dias: number;
+        fecha_limite: string;
+        mensaje: string;
+        nota: string;
+        validado: boolean;
+        validado_por: string | null;
+        validado_en: string | null;
+    } | null;
+    testigos_minimos: number;
+    puede_validar_plazo: boolean;
+};
+
+/** Fila de la pestaña Finiquitos (FiniquitoConsultaService::fila). */
+export type FilaFiniquitoBaja = {
+    id: number;
+    colaborador: string;
+    foto_url: string | null;
+    puesto: string | null;
+    sucursal: string | null;
+    forma: FormaSalidaClave | null;
+    forma_etiqueta: string | null;
+    forma_token: string | null;
+    causal: string | null;
+    tipo: 'finiquito' | 'liquidacion';
+    tipo_etiqueta: string;
+    monto: number;
+    estado: string;
+    estado_flujo: 'calculado' | 'revisado' | 'firmado' | 'pagado';
+    subestado: string | null;
+    fecha_pago: string | null;
+    referencia_pago: string | null;
+    baja_id: number | null;
+};
+
+/** Detalle editable de un finiquito (FiniquitoConsultaService::detalle). */
+export type DetalleFiniquitoBaja = FilaFiniquitoBaja & {
+    fecha_ingreso: string;
+    fecha_baja: string;
+    sueldo_diario: number;
+    total_percepciones: number;
+    total_deducciones: number;
+    desglose: {
+        clave: string;
+        concepto_clave: string | null;
+        concepto: string;
+        tipo: string;
+        importe: number;
+        valor_calculado: number | null;
+        ajustado: boolean;
+    }[];
+    historial_ajustes: {
+        concepto: string;
+        anterior: number;
+        actualizado: number;
+        motivo: string;
+        usuario: string | null;
+        fecha: string | null;
+    }[];
+    ultima_edicion: {
+        accion: string;
+        usuario: string | null;
+        fecha: string | null;
+    } | null;
+    causal_implica_indemnizacion: boolean;
+    advertencia_liquidacion: string | null;
+    puede: {
+        editar: boolean;
+        recalcular: boolean;
+        revisar: boolean;
+        cambiar_tipo: boolean;
+        recibo: boolean;
+        subir_firmado: boolean;
+        registrar_pago: boolean;
+    };
 };
 
 /**

@@ -252,7 +252,8 @@ test('el finiquito decide la indemnización por forma y causal', function () {
     $noRenovacion = new SolicitudInterna(['tipo_baja' => TipoBaja::FinContrato, 'causal_rotacion_id' => causalPorClave('NR-01')->id]);
 
     expect($metodo->invoke($finiquitos, $renuncia, 2, 100.0))->toBe(0.0)
-        ->and($metodo->invoke($finiquitos, $rescision, 2, 100.0))->toBe(2400.0)
+        // PDF Etapa 1: con causal del catálogo solo indemniza la marcada «Implica indemnización».
+        ->and($metodo->invoke($finiquitos, $rescision, 2, 100.0))->toBe(0.0)
         ->and($metodo->invoke($finiquitos, $abandono, 2, 100.0))->toBe(0.0)
         ->and($metodo->invoke($finiquitos, $noRenovacion, 2, 100.0))->toBe(2400.0);
 });

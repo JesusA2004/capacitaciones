@@ -38,7 +38,6 @@ import {
     ShieldCheck,
     Sparkles,
     Target,
-    TrendingDown,
     TrendingUp,
     UserPlus,
     UserRound,
@@ -76,12 +75,16 @@ import {
 import { ver as verInduccion } from '@/routes/portal/induccion';
 import { index as indexReportes } from '@/routes/reportes';
 import { index as indexRotacion } from '@/routes/reportes/rotacion';
-import { index as indexTableroRotacion } from '@/routes/reportes/rotacion/tablero';
 import { index as indexActas } from '@/routes/rh/actas';
 import { index as indexActivosResponsivas } from '@/routes/rh/activos-responsivas';
 import { index as indexAniversarios } from '@/routes/rh/aniversarios';
 import { index as indexAvisos } from '@/routes/rh/avisos';
-import { index as indexBajas } from '@/routes/rh/bajas';
+import {
+    causales as causalesBajas,
+    index as indexBajas,
+    rotacion as rotacionBajas,
+} from '@/routes/rh/bajas';
+import { index as indexFiniquitosBaja } from '@/routes/rh/bajas/finiquitos';
 import { index as indexCampanas } from '@/routes/rh/campanas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
 import { index as indexCartasCompromiso } from '@/routes/rh/cartas-compromiso';
@@ -507,22 +510,33 @@ export function useMainNavItems() {
                     icono: DoorOpen,
                 },
                 [
-                    // «Bajas» (no es una solicitud): el gerente o RH la
-                    // registra y queda aplicada. Solo gerentes, RH y super
-                    // admin (+ Jurídico y Contraloría de lectura).
+                    // Un solo apartado «Bajas» con pestañas Bajas · Finiquitos ·
+                    // Rotación · Catálogo de causales (PDF Etapa 1). El enlace
+                    // abre la primera pestaña que el backend le permite.
                     algunPermiso(
                         'bajas.ver',
                         'bajas.revisar_juridico',
                         'bajas.consulta_contraloria',
+                        'finiquitos.ver',
+                        'bajas.tablero.ver',
+                        'rotacion.ver',
+                        'cierres.ver',
                     ) && {
                         title: 'Bajas',
-                        href: indexBajas(),
+                        href: algunPermiso(
+                            'bajas.ver',
+                            'bajas.revisar_juridico',
+                            'bajas.consulta_contraloria',
+                        )
+                            ? indexBajas()
+                            : tienePermiso('finiquitos.ver')
+                              ? indexFiniquitosBaja()
+                              : tienePermiso('bajas.tablero.ver')
+                                ? rotacionBajas()
+                                : tienePermiso('cierres.ver')
+                                  ? indexCierres()
+                                  : indexRotacion(),
                         icon: ClipboardList,
-                    },
-                    tienePermiso('cierres.ver') && {
-                        title: 'Bajas y finiquitos',
-                        href: indexCierres(),
-                        icon: DoorOpen,
                     },
                     algunPermiso(
                         'reingresos.solicitar',
@@ -591,15 +605,6 @@ export function useMainNavItems() {
                         href: indexReportes(),
                         icon: BarChart3,
                     },
-                    // Un solo acceso: el tablero (Excel histórico + bajas del
-                    // sistema); quien solo tiene rotacion.ver ve el histórico.
-                    algunPermiso('bajas.tablero.ver', 'rotacion.ver') && {
-                        title: 'Rotación de personal',
-                        href: tienePermiso('bajas.tablero.ver')
-                            ? indexTableroRotacion()
-                            : indexRotacion(),
-                        icon: TrendingDown,
-                    },
                 ],
             ),
 
@@ -626,13 +631,11 @@ export function useMainNavItems() {
                         href: indexDocumentosMaestros(),
                         icon: FileStack,
                     },
-                    // Misma pantalla que Bajas y finiquitos → «Causales» (RN-15).
+                    // Misma pantalla que la pestaña «Catálogo de causales» de Bajas (RN-15).
                     tienePermiso('finiquitos.causales_rotacion') &&
                         tienePermiso('finiquitos.ver') && {
                             title: 'Catálogo de bajas',
-                            href: indexCierres({
-                                query: { seccion: 'causales' },
-                            }),
+                            href: causalesBajas(),
                             icon: ListTree,
                         },
                     algunPermiso('usuarios.ver', 'roles.administrar') && {

@@ -6,6 +6,7 @@ use App\Enums\EntregaAvisoRescision;
 use App\Enums\EstatusBaja;
 use App\Enums\FormaSalida;
 use App\Enums\Recontratable;
+use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Bajas\ActualizarBajaRhRequest;
 use App\Http\Requests\Bajas\AdjuntarDocumentoBajaRequest;
@@ -13,10 +14,12 @@ use App\Http\Requests\Bajas\GuardarBajaRequest;
 use App\Http\Requests\Bajas\MotivoBajaRequest;
 use App\Models\Baja;
 use App\Models\BajaDocumento;
+use App\Models\CausalRotacion;
 use App\Models\Colaborador;
 use App\Models\DocumentoRequeridoBaja;
 use App\Models\Sucursal;
 use App\Services\Bajas\BajaConsultaService;
+use App\Services\Bajas\BajaDocumentoSalidaService;
 use App\Services\Bajas\BajaDocumentosService;
 use App\Services\Bajas\BajaService;
 use App\Services\Bajas\CatalogoBajasService;
@@ -28,6 +31,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -46,6 +51,7 @@ class BajaController extends Controller
         private readonly CatalogoBajasService $catalogo,
         private readonly CausalRotacionService $causales,
         private readonly TableroRotacionService $tablero,
+        private readonly BajaDocumentoSalidaService $salida,
     ) {}
 
     public function index(Request $request): Response
@@ -54,21 +60,23 @@ class BajaController extends Controller
         $usuario = $request->user();
         $filtros = $request->only(['estatus', 'sucursal_id', 'forma', 'busqueda', 'per_page']);
 
-        // Jurídico entra a «En revisión Jurídico»; RH y gerentes a las bajas
-        // abiertas (en trámite + en Jurídico).
-        if (! isset($filtros['estatus'])) {
-            $filtros['estatus'] = $usuario->can(BajaService::PERMISO_JURIDICO) && ! $usuario->can(BajaService::PERMISO_VER)
-                ? EstatusBaja::EnRevisionJuridico->value
-                : 'abiertas';
-        }
+        // Flujo sin Jurídico: todos entran a las bajas abiertas; Jurídico
+        // consulta dentro de lo que BajaConsultaService le permite.
+        $filtros['estatus'] ??= 'abiertas';
+        $seleccionada = is_numeric($request->query('baja'))
+            ? $this->consulta->consulta($usuario)->whereKey((int) $request->query('baja'))->first()
+            : null;
 
         return Inertia::render('Rh/Bajas/Index', [
-            'bajas' => $this->consulta->bandeja($usuario, $filtros),
+            'bajas' => $this->consulta->bandeja($usuario, [...$filtros, 'cubo' => $request->query('cubo')], $usuario),
+            'seleccion' => $seleccionada !== null && $usuario->can('documentoSalida', $seleccionada) ? $this->salida->panel($seleccionada, $usuario) : null,
+            'pestanas' => $this->consulta->pestanas($usuario),
             'filtros' => [
                 'estatus' => (string) $filtros['estatus'],
                 'sucursal_id' => is_numeric($filtros['sucursal_id'] ?? null) ? (int) $filtros['sucursal_id'] : null,
                 'forma' => is_string($filtros['forma'] ?? null) ? $filtros['forma'] : null,
                 'busqueda' => (string) ($filtros['busqueda'] ?? ''),
+                'cubo' => is_string($request->query('cubo')) ? $request->query('cubo') : null,
             ],
             'estatus' => [
                 ['value' => 'abiertas', 'label' => 'Abiertas'],
@@ -86,6 +94,31 @@ class BajaController extends Controller
                 'recopilacion' => $usuario->can('cierres.ver'),
             ],
         ]);
+    }
+
+    /**
+     * Pestaña «Catálogo de causales» (solo RH): mismo panel y mismas reglas
+     * que tenía Bajas y finiquitos → Causales.
+     */
+    public function causales(Request $request): Response
+    {
+        $this->authorize('administrar', CausalRotacion::class);
+
+        return Inertia::render('Rh/Bajas/Causales', [
+            'pestanas' => $this->consulta->pestanas($request->user()),
+            'causales' => $this->causales->listado(),
+            'tipos_baja' => array_map(fn (FormaSalida $f): array => ['value' => $f->tipoBaja()->value, 'label' => $f->etiqueta(), 'forma' => $f->value, 'token' => $f->token()], FormaSalida::cases()),
+        ]);
+    }
+
+    public function causalesExcel(): BinaryFileResponse
+    {
+        $this->authorize('administrar', CausalRotacion::class);
+        $filas = array_map(fn (array $c): array => [
+            $c['clave'], $c['nombre'], $c['forma_etiqueta'], $c['genera'], $c['fundamento_legal'] ?? '', $c['requiere_juridico'] ? 'Sí' : 'No', $c['implica_indemnizacion'] ? 'Sí' : 'No', $c['comentario_obligatorio'] ? 'Sí' : 'No', $c['alerta'] ?? '', $c['activo'] ? 'Activa' : 'Inactiva', $c['usos'],
+        ], $this->causales->listado());
+
+        return Excel::download(new ReporteRhExport('Catálogo de causales', ['Clave', 'Causal', 'Forma de salida', 'Genera', 'Fundamento', 'Integrar expediente probatorio', 'Implica indemnización', 'Comentario obligatorio', 'Alerta', 'Estatus', 'Usos'], $filas), 'catalogo-causales.xlsx');
     }
 
     public function create(Request $request): Response
@@ -148,9 +181,10 @@ class BajaController extends Controller
 
         return Inertia::render('Rh/Bajas/Show', [
             'baja' => $this->bajas->detalle($baja, $usuario),
+            'salida' => $usuario->can('documentoSalida', $baja) ? $this->salida->panel($baja, $usuario) : null,
             'causales' => $usuario->can(BajaService::PERMISO_GESTIONAR) ? $this->catalogo->opciones() : [],
             'recontratable' => array_map(fn (Recontratable $r): array => ['value' => $r->value, 'label' => $r->etiqueta()], Recontratable::cases()),
-            'entregas' => array_map(fn (EntregaAvisoRescision $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], EntregaAvisoRescision::cases()),
+            'entregas' => array_map(fn (EntregaAvisoRescision $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], EntregaAvisoRescision::vigentes()),
             'limites' => $this->limites(),
         ]);
     }
@@ -273,7 +307,7 @@ class BajaController extends Controller
                     'sistema' => $d->documento_sistema,
                 ])->values()->all(),
             'recontratable' => array_map(fn (Recontratable $r): array => ['value' => $r->value, 'label' => $r->etiqueta()], Recontratable::cases()),
-            'entregas' => array_map(fn (EntregaAvisoRescision $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], EntregaAvisoRescision::cases()),
+            'entregas' => array_map(fn (EntregaAvisoRescision $e): array => ['value' => $e->value, 'label' => $e->etiqueta()], EntregaAvisoRescision::vigentes()),
             'es_rh' => $request->user()->can(BajaService::PERMISO_GESTIONAR),
             'limites' => $this->limites(),
         ];

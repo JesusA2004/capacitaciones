@@ -2,10 +2,13 @@
 
 namespace App\Services\Bajas;
 
+use App\Enums\EstadoFiniquito;
 use App\Enums\EstatusBaja;
 use App\Enums\FormaSalida;
 use App\Models\Baja;
+use App\Models\CausalRotacion;
 use App\Models\Colaborador;
+use App\Models\FiniquitoCalculo;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
@@ -39,6 +42,23 @@ class BajaConsultaService
     public function puedeEntrar(User $usuario): bool
     {
         return $usuario->can('bajas.ver') || $usuario->can('bajas.revisar_juridico') || $usuario->can('bajas.consulta_contraloria');
+    }
+
+    /**
+     * Pestañas de Cierres laborales → Bajas que el usuario puede abrir.
+     *
+     * @return array{bajas: bool, finiquitos: bool, rotacion: bool, causales: bool, conteo_bajas: int|null, conteo_finiquitos: int|null}
+     */
+    public function pestanas(User $usuario): array
+    {
+        return [
+            'bajas' => $this->puedeEntrar($usuario),
+            'finiquitos' => $usuario->can('finiquitos.ver'),
+            'rotacion' => $usuario->can('bajas.tablero.ver'),
+            'causales' => $usuario->can('administrar', CausalRotacion::class),
+            'conteo_bajas' => $this->puedeEntrar($usuario) ? $this->consulta($usuario)->whereIn('estatus', EstatusBaja::valoresAbiertos())->count() : null,
+            'conteo_finiquitos' => $usuario->can('finiquitos.ver') ? $this->alcance->limitarPorModulo(FiniquitoCalculo::query(), $usuario, 'finiquitos', 'colaborador_id', true)->count() : null,
+        ];
     }
 
     /**
@@ -113,13 +133,14 @@ class BajaConsultaService
      * @param  array<string, mixed>  $filtros
      * @return LengthAwarePaginator<int, array<string, mixed>>
      */
-    public function bandeja(User $usuario, array $filtros): LengthAwarePaginator
+    public function bandeja(User $usuario, array $filtros, ?User $viewer = null): LengthAwarePaginator
     {
         $estatus = is_string($filtros['estatus'] ?? null) ? $filtros['estatus'] : 'abiertas';
         $busqueda = trim((string) ($filtros['busqueda'] ?? ''));
 
         return $this->consulta($usuario)
-            ->with(['causal', 'sucursal:id,nombre', 'puesto:id,nombre', 'cierre', 'documentos'])
+            ->with(['causal', 'sucursal:id,nombre', 'puesto:id,nombre', 'cierre', 'documentos', 'colaborador' => fn ($q) => $q->withTrashed()])
+            ->when(in_array($filtros['cubo'] ?? null, ['en_tramite', 'faltan_documentos', 'lista_para_cerrar'], true), fn (Builder $q) => $q->whereIn('bajas.id', $this->idsDelCubo($usuario, (string) $filtros['cubo'])))
             ->when($estatus === 'abiertas', fn (Builder $q) => $q->whereIn('estatus', EstatusBaja::valoresAbiertos()))
             ->when($estatus !== 'abiertas' && $estatus !== 'todas' && EstatusBaja::tryFrom($estatus) !== null, fn (Builder $q) => $q->where('estatus', $estatus))
             ->when(is_numeric($filtros['sucursal_id'] ?? null), fn (Builder $q) => $q->where('sucursal_id', (int) $filtros['sucursal_id']))
@@ -133,7 +154,20 @@ class BajaConsultaService
             ->orderByDesc('id')
             ->paginate(Paginacion::porPagina(20, $filtros['per_page'] ?? null))
             ->withQueryString()
-            ->through(fn (Baja $b): array => $this->fila($b));
+            ->through(fn (Baja $b): array => $this->fila($b, $viewer));
+    }
+
+    /**
+     * Bajas abiertas de un agrupador derivado de sus documentos (no es un
+     * estatus persistente, BajaDocumentosService::cuboTablero).
+     *
+     * @return list<int>
+     */
+    private function idsDelCubo(User $usuario, string $cubo): array
+    {
+        return array_values($this->consulta($usuario)->with(['causal', 'documentos', 'cierre'])->whereIn('estatus', EstatusBaja::valoresAbiertos())->get()
+            ->filter(fn (Baja $b): bool => $this->documentos->cuboTablero($b) === $cubo)
+            ->map(fn (Baja $b): int => $b->id)->all());
     }
 
     /**
@@ -167,9 +201,10 @@ class BajaConsultaService
     /**
      * @return array<string, mixed>
      */
-    public function fila(Baja $baja): array
+    public function fila(Baja $baja, ?User $viewer = null): array
     {
         $faltantes = $this->documentos->faltantes($baja);
+        $finiquito = $baja->cierre?->solicitud_interna_id !== null && $viewer?->can('finiquitos.ver') ? FiniquitoCalculo::query()->where('solicitud_interna_id', $baja->cierre->solicitud_interna_id)->first() : null;
 
         return [
             'id' => $baja->id,
@@ -193,8 +228,23 @@ class BajaConsultaService
             'documentos_completos' => $faltantes === [],
             'documentos_faltantes' => count($faltantes),
             'requiere_juridico' => $baja->requiereJuridico(),
+            // Aviso para resguardar evidencia, no una autorización (PDF Etapa 1).
+            'integrar_expediente' => $baja->forma_salida === FormaSalida::Rescision || $baja->requiereJuridico(),
+            'cubo' => $baja->estatus->esAbierta() ? $this->documentos->cuboTablero($baja) : $baja->estatus->value,
+            'foto_url' => $viewer !== null && $baja->colaborador !== null ? $this->fotos->urlPara($baja->colaborador, $viewer) : null,
+            'finiquito' => $finiquito !== null ? ['id' => $finiquito->id, 'estado' => $finiquito->estado->value, 'etiqueta' => $this->etiquetaFiniquito($finiquito)] : null,
             'origen' => $baja->origen->value,
         ];
+    }
+
+    private function etiquetaFiniquito(FiniquitoCalculo $finiquito): string
+    {
+        return match ($finiquito->estado) {
+            EstadoFiniquito::Borrador => 'Calculado',
+            EstadoFiniquito::Revisado, EstadoFiniquito::Aprobado => 'Revisado',
+            EstadoFiniquito::Firmado => 'Firmado',
+            EstadoFiniquito::Pagado => 'Pagado',
+        };
     }
 
     /**

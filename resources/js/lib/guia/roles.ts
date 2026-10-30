@@ -54,7 +54,7 @@ export const ROLES_GUIA: RolGuia[] = [
             { texto: 'Autorizar solicitudes', articulo: 'revisar-solicitudes' },
             { texto: 'Preparar y emitir nómina', articulo: 'nomina-lotes' },
             { texto: 'Enviar avisos', articulo: 'avisos' },
-            { texto: 'Bajas y finiquitos', articulo: 'baja' },
+            { texto: 'Bajas y sus pestañas', articulo: 'baja' },
             { texto: 'Reingresos', articulo: 'reingreso' },
         ],
     },

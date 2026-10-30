@@ -236,7 +236,7 @@ const ETIQUETAS_PERMISO: Record<string, string> = {
         'Ver el finiquito propuesto al registrar una baja',
     'bajas.cambiar_causal': 'Cambiar la causal de una baja',
     'bajas.editar': 'Corregir los datos de una baja',
-    'bajas.enviar_juridico': 'Enviar una baja a Jurídico',
+    'bajas.enviar_juridico': 'Enviar una baja a Jurídico (retirado: ya no se usa)',
     'bajas.cerrar': 'Cerrar bajas',
     'bajas.reabrir': 'Reabrir bajas cerradas',
     'bajas.cancelar': 'Marcar una baja como «No procede»',

@@ -45,7 +45,7 @@ import type {
  * documentos de la forma/causal generados y finiquito propuesto—, sin
  * borrador ni aprobación. Antes de confirmar se ve, en el mismo formulario,
  * la vista previa de lo que se generará (renuncia / formato y finiquito).
- * Después siguen: completar documentos, Jurídico si la causal lo requiere,
+ * Después siguen: completar documentos, el documento de salida,
  * finiquito y el cierre por RH.
  */
 const props = defineProps<{

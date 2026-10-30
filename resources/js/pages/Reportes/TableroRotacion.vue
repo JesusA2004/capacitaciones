@@ -22,6 +22,7 @@ import {
 } from '@lucide/vue';
 import type { Component } from 'vue';
 import { computed, ref, watch } from 'vue';
+import PestanasBajasNav from '@/components/bajas/PestanasBajas.vue';
 import AyudaBoton from '@/components/Common/AyudaBoton.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import MonthPicker from '@/components/Common/MonthPicker.vue';
@@ -35,7 +36,8 @@ import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { index as rotacionHistorica } from '@/routes/reportes/rotacion';
 import rutasTablero from '@/routes/reportes/rotacion/tablero';
-import type { MesRotacion, TableroRotacion } from '@/types';
+import rutasBajas from '@/routes/rh/bajas';
+import type { MesRotacion, PestanasBajas, TableroRotacion } from '@/types';
 
 /**
  * Tablero de rotación (especificación de RH §9). Combina dos fuentes:
@@ -46,6 +48,7 @@ import type { MesRotacion, TableroRotacion } from '@/types';
  * Colores por forma: tokens --forma-salida-* (resources/css/app.css).
  */
 const props = defineProps<{
+    pestanas: PestanasBajas;
     tablero: TableroRotacion;
     puedeCargarExcel: boolean;
     puedeVerHistorico: boolean;
@@ -55,7 +58,8 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Rotación de personal', href: '' },
+            { title: 'Bajas', href: rutasBajas.index() },
+            { title: 'Rotación', href: '' },
         ],
     },
 });
@@ -217,6 +221,8 @@ const antiguedadDe = (formaClave: string) =>
                 </Button>
             </div>
         </CrudPageHeader>
+
+        <PestanasBajasNav :pestanas="pestanas" actual="rotacion" />
 
         <!-- Filtros: periodo siempre a la vista; el resto plegable en móvil -->
         <section

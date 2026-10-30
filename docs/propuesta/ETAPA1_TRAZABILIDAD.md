@@ -105,7 +105,28 @@ Commit: relajar exclusión de gestores + tarjeta/filtro/etiqueta "Datos por comp
 
 ---
 
-## Incremento 2 — Bajas y Rotación
+## Incremento 2 — Bajas, finiquitos y catálogo (estado comprobado 2026-10-30)
+
+> Sustituye a las tablas 🟡/🔴 de Bajas, Finiquitos y Catálogo de más abajo, que se conservan como diagnóstico inicial. Rotación (6.8–6.9) es el Incremento 3: la pestaña solo monta el tablero existente.
+
+| Requisito | Implementación | Comprobación | Estado |
+|---|---|---|---|
+| Un apartado con 4 pestañas (pág. 10, 15) | `PestanasBajas.vue`, `rh.bajas.finiquitos.index`, `rh.bajas.rotacion`, `rh.bajas.causales`. Menú: una entrada «Bajas». `rh/cierres` y `reportes/rotacion/tablero` siguen vivas para enlaces guardados, con las pestañas | Pest + navegador | Probado y aprobado (falta validación de RH) |
+| Flujo sin Jurídico | Sin acciones ni tareas de Jurídico en web y API; Jurídico entra a bajas abiertas (antes caía a un estatus vacío). Aviso RE-03 y plazo se conservan como informativos | Escenario 17 | Probado y aprobado |
+| Tablero y listado | 5 tarjetas filtrables, tira de flujo, foto, puesto, sucursal, folio, último día, forma, causal, «Integrar expediente probatorio», avance, finiquito. Los agrupadores son derivados (`cubo`) y no cambian el estatus persistente | Pest + captura | Probado y aprobado |
+| Generador de salida | `BajaDocumentoSalidaService`: RV carta (documento maestro), NR convenio, RE aviso, OT constancia (familias de Documentos administrativos); vista previa, PDF, firmado, versiones en NAS con motivo | Escenarios 19–21, 23 + navegador (RE) | NR/RE/OT probados. RV: carta por motor maestro cubierta solo en panel; generación con master real depende de `docs/formatos_fuente` |
+| Aviso de rescisión | `baja_avisos_rescision`: fundamento, hechos, fecha/hora, lugar, constataron, relato, testigos, evidencias, fecha, método, entrega | Escenario 21 + navegador | Probado y aprobado |
+| Plazo por negativa | `CalendarioLaboralService::sumarDiasHabilesSinFestivos` + `config/calendario_laboral.php`; validación del área con bitácora | Escenario 22; 23/10 → 30/10/2026; 16-sep y tercer lunes de nov. | Probado; días inhábiles del Tribunal **Bloqueado por información externa** (Jurídico) |
+| Pestaña Finiquitos | `FiniquitoConsultaService`: mismo `FiniquitoCalculo`, Calculado → Revisado (incluye Aprobado) → Firmado → Pagado, tarjetas, filtros, recalcular, revisar, ajustar, recibo, firmado, pago | Escenarios 24, 25, 27 + navegador | Probado y aprobado |
+| Implica indemnización | `tipo_documento`, `tipoPropuesto()`, `cambiarTipo()` con motivo; NR-01/03/05/06 → liquidación con advertencia | Escenario 26 | Probado; criterio legal por caso a cargo de Jurídico |
+| Catálogo | Dos columnas, «Genera», etiquetas, leyenda, fundamento, Excel. RE-06 no existe: nada que migrar. OT sin indemnización | Pest + captura | Probado y aprobado |
+| Migraciones | `2026_10_30_120000` ya no borra `juridico_por/en`; `130000` idempotente; nueva `2026_10_31_090000` | Copia aislada de la BD local (11 bajas, 6 finiquitos, una forzada a Jurídico): datos preservados, bitácora creada, segunda corrida sin cambios, rollback y reaplicación | Probado con datos de desarrollo; falta copia de producción |
+
+**Cambio de cálculo a validar:** con causal de catálogo, la indemnización estimada solo aplica a las marcadas (antes también RE-02…RE-05, NR-02 y NR-04). Afecta cálculos nuevos o recalculados; los finiquitos firmados y pagados no cambian.
+
+**Pendientes externos:** textos de convenio, aviso y constancia son formatos base con nota visible hasta que Jurídico los valide; fundamento de RE-02 y RE-05 sin fracción capturada (el catálogo no la citaba); beneficiarios en OT-01.
+
+## Incremento 2 — Bajas y Rotación (diagnóstico inicial)
 
 ### Bajas (PDF pág. 10, 15) — flujo sin Jurídico, documentos de salida
 

@@ -18,6 +18,7 @@ use App\Models\CierreLaboral;
 use App\Models\Colaborador;
 use App\Models\FiniquitoConcepto;
 use App\Models\Sucursal;
+use App\Services\Bajas\BajaConsultaService;
 use App\Services\Bajas\BajaRecopilacionService;
 use App\Services\Bajas\TableroRotacionService;
 use App\Services\CierreLaboral\CausalRotacionService;
@@ -42,6 +43,7 @@ class CierreLaboralController extends Controller
         private readonly CausalRotacionService $causales,
         private readonly BajaRecopilacionService $recopilacion,
         private readonly TableroRotacionService $tablero,
+        private readonly BajaConsultaService $bajas,
     ) {}
 
     /**
@@ -85,6 +87,7 @@ class CierreLaboralController extends Controller
         $filtrosDocumentos = $request->only(['estatus', 'sucursal_id', 'forma', 'documentos', 'busqueda', 'per_page', 'page']);
 
         return Inertia::render('Rh/Cierres/Index', [
+            'pestanas' => $this->bajas->pestanas($usuario),
             'cierres' => $listado,
             'recopilacion' => $seccion === 'documentos' ? $this->recopilacion->tarjetas($usuario, $filtrosDocumentos) : null,
             'resumen' => $this->recopilacion->resumen($usuario),

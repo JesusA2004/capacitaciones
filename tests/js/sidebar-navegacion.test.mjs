@@ -105,7 +105,7 @@ const ESPERADO = [
     ],
     [
         'Cierres laborales',
-        ['Bajas', 'Bajas y finiquitos', 'Reingresos'],
+        ['Bajas', 'Reingresos'],
     ],
     [
         'Organización',
@@ -119,7 +119,7 @@ const ESPERADO = [
             'Empresas',
         ],
     ],
-    ['Reportes', ['Reportes de RH', 'Rotación de personal']],
+    ['Reportes', ['Reportes de RH']],
     [
         'Configuración',
         [

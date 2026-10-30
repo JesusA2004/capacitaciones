@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Reportes;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Models\Baja;
+use App\Services\Bajas\BajaConsultaService;
 use App\Services\Bajas\TableroRotacionService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -22,7 +23,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  */
 class TableroRotacionController extends Controller
 {
-    public function __construct(private readonly TableroRotacionService $tablero) {}
+    public function __construct(
+        private readonly TableroRotacionService $tablero,
+        private readonly BajaConsultaService $bajas,
+    ) {}
 
     public function index(Request $request): Response
     {
@@ -30,6 +34,7 @@ class TableroRotacionController extends Controller
         $usuario = $request->user();
 
         return Inertia::render('Reportes/TableroRotacion', [
+            'pestanas' => $this->bajas->pestanas($usuario),
             'tablero' => $this->tablero->tablero($usuario, $request->query()),
             'puedeCargarExcel' => $usuario->can('rotacion.cargar'),
             'puedeVerHistorico' => $usuario->can('rotacion.ver'),

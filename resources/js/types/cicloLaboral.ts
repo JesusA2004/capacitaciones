@@ -906,6 +906,8 @@ export type CausalRotacionAdmin = {
     alerta: string | null;
     excluye_indemnizacion: boolean;
     implica_indemnizacion: boolean;
+    fundamento_legal: string | null;
+    genera: string;
     activo: boolean;
     orden: number;
     usos: number;

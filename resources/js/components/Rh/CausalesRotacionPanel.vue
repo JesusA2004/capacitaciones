@@ -5,6 +5,7 @@ import { computed, ref } from 'vue';
 import Casilla from '@/components/Common/Casilla.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import InputError from '@/components/InputError.vue';
+import ChipEstado from '@/components/people/ChipEstado.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,16 +22,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { usePermisos } from '@/composables/usePermisos';
 import { claseForma } from '@/lib/bajas';
 import { cn } from '@/lib/utils';
+import { causalesExcel } from '@/routes/rh/bajas';
 import causalesRotacion from '@/routes/rh/causales-rotacion';
 import type { CausalRotacionAdmin } from '@/types';
 
 /**
  * Catálogo de causales de baja (RN-15, solo RH): dos niveles — forma de
  * salida (Renuncia voluntaria / No renovación / Rescisión) y su causal con
- * clave (RV-01…), ayuda «cuándo usarla», revisión de Jurídico, comentario
- * obligatorio y alerta. Las causales NUNCA se borran: se desactivan. Es la
- * misma pantalla en Bajas y finiquitos → «Causales» y en Configuración →
- * «Catálogo de bajas». La autorización real vive en CausalRotacionPolicy.
+ * clave (RV-01…), ayuda «cuándo usarla», integrar expediente probatorio,
+ * implica indemnización, comentario obligatorio y alerta. Las causales NUNCA se
+ * borran: se desactivan y su uso se conserva. Es la pestaña «Catálogo de causales»
+ * de Bajas. La autorización real vive en CausalRotacionPolicy.
  */
 const props = defineProps<{
     causales: CausalRotacionAdmin[];
@@ -47,10 +49,11 @@ const puede = {
 };
 
 const grupos = computed(() =>
-    props.tipos.map((t) => ({
-        ...t,
-        causales: props.causales.filter((c) => c.tipo === t.value),
-    })),
+    props.tipos.map((t) => {
+        const causales = props.causales.filter((c) => c.tipo === t.value);
+
+        return { ...t, causales, genera: causales[0]?.genera ?? null };
+    }),
 );
 
 const abierto = ref(false);
@@ -62,6 +65,7 @@ const form = useForm({
     requiere_juridico: false,
     comentario_obligatorio: false,
     alerta: '',
+    fundamento_legal: '',
     excluye_indemnizacion: false,
     implica_indemnizacion: false,
     activo: true,
@@ -93,6 +97,7 @@ function editar(c: CausalRotacionAdmin) {
     form.requiere_juridico = c.requiere_juridico;
     form.comentario_obligatorio = c.comentario_obligatorio;
     form.alerta = c.alerta ?? '';
+    form.fundamento_legal = c.fundamento_legal ?? '';
     form.excluye_indemnizacion = c.excluye_indemnizacion;
     form.implica_indemnizacion = c.implica_indemnizacion;
     form.activo = c.activo;
@@ -140,137 +145,191 @@ function mover(c: CausalRotacionAdmin, direccion: 'arriba' | 'abajo') {
             para que ya no se ofrezca; el historial la conserva.
         </p>
 
-        <section
-            v-for="g in grupos"
-            :key="g.value"
-            class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)]"
-        >
-            <header
-                class="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--mrl-borde)] px-4 py-3"
-            >
-                <h3 class="flex items-center gap-2 text-sm font-semibold">
-                    <span
-                        :class="
-                            cn('size-3 rounded-full', claseForma(g.token).fondo)
-                        "
-                        aria-hidden="true"
-                    />
-                    {{ g.forma ? `${g.forma} · ` : '' }}{{ g.label }}
-                    <span class="font-normal text-[var(--mrl-texto-suave)]"
-                        >· {{ g.causales.length }} causales</span
-                    >
-                </h3>
-                <Button
-                    v-if="puede.crear"
-                    size="sm"
-                    variant="outline"
-                    @click="nueva(g.value)"
-                >
-                    <Plus class="size-4" />Agregar causal
-                </Button>
-            </header>
+        <div class="flex justify-end">
+            <Button variant="outline" size="sm" as-child>
+                <a :href="causalesExcel.url()">Excel</a>
+            </Button>
+        </div>
 
-            <p
-                v-if="!g.causales.length"
-                class="px-4 py-6 text-center text-sm text-[var(--mrl-texto-suave)]"
+        <div class="grid items-start gap-4 xl:grid-cols-2">
+            <section
+                v-for="g in grupos"
+                :key="g.value"
+                :class="
+                    cn(
+                        'rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)]',
+                        g.forma === 'OT' && 'border-success',
+                    )
+                "
             >
-                Sin causales. Agrega al menos una para poder elegirla.
-            </p>
-
-            <ul v-else class="divide-y divide-[var(--mrl-borde)]">
-                <li
-                    v-for="(c, i) in g.causales"
-                    :key="c.id"
-                    class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center"
+                <header
+                    class="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--mrl-borde)] px-4 py-3"
                 >
-                    <div class="min-w-0 flex-1">
-                        <p
-                            class="flex flex-wrap items-center gap-2 text-sm font-medium"
+                    <h3 class="flex items-center gap-2 text-sm font-semibold">
+                        <span
                             :class="
-                                !c.activo && 'text-[var(--mrl-texto-suave)]'
+                                cn(
+                                    'size-3 rounded-full',
+                                    claseForma(g.token).fondo,
+                                )
                             "
+                            aria-hidden="true"
+                        />
+                        {{ g.forma ? `${g.forma} · ` : '' }}{{ g.label }}
+                        <span class="font-normal text-[var(--mrl-texto-suave)]"
+                            >· Genera: {{ g.genera ?? '—' }}</span
                         >
-                            <span
-                                v-if="c.clave"
-                                class="font-mono text-xs text-[var(--mrl-texto-suave)]"
-                                >{{ c.clave }}</span
+                    </h3>
+                    <Button
+                        v-if="puede.crear"
+                        size="sm"
+                        variant="outline"
+                        @click="nueva(g.value)"
+                    >
+                        <Plus class="size-4" />Agregar causal
+                    </Button>
+                </header>
+
+                <p
+                    v-if="!g.causales.length"
+                    class="px-4 py-6 text-center text-sm text-[var(--mrl-texto-suave)]"
+                >
+                    Sin causales. Agrega al menos una para poder elegirla.
+                </p>
+
+                <ul v-else class="divide-y divide-[var(--mrl-borde)]">
+                    <li
+                        v-for="(c, i) in g.causales"
+                        :key="c.id"
+                        class="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center"
+                    >
+                        <div class="min-w-0 flex-1">
+                            <p
+                                class="flex flex-wrap items-center gap-2 text-sm font-medium"
+                                :class="
+                                    !c.activo && 'text-[var(--mrl-texto-suave)]'
+                                "
                             >
-                            {{ c.nombre }}
-                            <Badge v-if="!c.activo" variant="secondary"
-                                >Inactiva</Badge
+                                <span
+                                    v-if="c.clave"
+                                    class="font-mono text-xs text-[var(--mrl-texto-suave)]"
+                                    >{{ c.clave }}</span
+                                >
+                                {{ c.nombre }}
+                                <Badge v-if="!c.activo" variant="secondary"
+                                    >Inactiva</Badge
+                                >
+                                <ChipEstado
+                                    v-if="c.requiere_juridico"
+                                    etiqueta="Integrar expediente probatorio"
+                                    tono="oro"
+                                />
+                                <ChipEstado
+                                    v-if="c.implica_indemnizacion"
+                                    etiqueta="Implica indemnización"
+                                    tono="peligro"
+                                />
+                                <ChipEstado
+                                    v-if="c.comentario_obligatorio"
+                                    etiqueta="Comentario obligatorio"
+                                    tono="neutro"
+                                />
+                                <ChipEstado
+                                    v-if="c.alerta"
+                                    etiqueta="Alerta"
+                                    tono="alerta"
+                                />
+                                <Badge
+                                    v-if="c.excluye_indemnizacion"
+                                    variant="outline"
+                                    >Sin indemnización</Badge
+                                >
+                            </p>
+                            <p class="text-xs text-[var(--mrl-texto-suave)]">
+                                {{
+                                    c.usos
+                                        ? `Usada en ${c.usos} ${c.usos === 1 ? 'baja' : 'bajas'}`
+                                        : 'Sin usar'
+                                }}<template v-if="c.descripcion">
+                                    · {{ c.descripcion }}</template
+                                >
+                            </p>
+                            <p v-if="c.alerta" class="text-xs text-warning">
+                                {{ c.alerta }}
+                            </p>
+                            <p
+                                v-if="c.fundamento_legal"
+                                class="text-xs text-[var(--mrl-texto-suave)]"
                             >
-                            <Badge v-if="c.requiere_juridico" variant="outline"
-                                >Integrar expediente probatorio</Badge
-                            >
-                            <Badge
-                                v-if="c.implica_indemnizacion"
+                                Fundamento: {{ c.fundamento_legal }}
+                            </p>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-1">
+                            <Button
+                                v-if="puede.ordenar"
+                                size="icon"
+                                variant="ghost"
+                                :disabled="i === 0"
+                                aria-label="Subir"
+                                @click="mover(c, 'arriba')"
+                                ><ArrowUp class="size-4"
+                            /></Button>
+                            <Button
+                                v-if="puede.ordenar"
+                                size="icon"
+                                variant="ghost"
+                                :disabled="i === g.causales.length - 1"
+                                aria-label="Bajar"
+                                @click="mover(c, 'abajo')"
+                                ><ArrowDown class="size-4"
+                            /></Button>
+                            <Button
+                                v-if="puede.activar"
+                                size="sm"
                                 variant="outline"
-                                >Implica indemnización</Badge
+                                @click="alternar(c)"
+                                >{{
+                                    c.activo ? 'Desactivar' : 'Activar'
+                                }}</Button
                             >
-                            <Badge
-                                v-if="c.comentario_obligatorio"
-                                variant="outline"
-                                >Comentario obligatorio</Badge
-                            >
-                            <Badge v-if="c.alerta" variant="warning"
-                                >Alerta</Badge
-                            >
-                            <Badge
-                                v-if="c.excluye_indemnizacion"
-                                variant="outline"
-                                >Sin indemnización</Badge
-                            >
-                        </p>
-                        <p class="text-xs text-[var(--mrl-texto-suave)]">
-                            {{
-                                c.usos
-                                    ? `Usada en ${c.usos} ${c.usos === 1 ? 'baja' : 'bajas'}`
-                                    : 'Sin usar'
-                            }}<template v-if="c.descripcion">
-                                · {{ c.descripcion }}</template
-                            >
-                        </p>
-                        <p v-if="c.alerta" class="text-xs text-warning">
-                            {{ c.alerta }}
-                        </p>
-                    </div>
-                    <div class="flex flex-wrap items-center gap-1">
-                        <Button
-                            v-if="puede.ordenar"
-                            size="icon"
-                            variant="ghost"
-                            :disabled="i === 0"
-                            aria-label="Subir"
-                            @click="mover(c, 'arriba')"
-                            ><ArrowUp class="size-4"
-                        /></Button>
-                        <Button
-                            v-if="puede.ordenar"
-                            size="icon"
-                            variant="ghost"
-                            :disabled="i === g.causales.length - 1"
-                            aria-label="Bajar"
-                            @click="mover(c, 'abajo')"
-                            ><ArrowDown class="size-4"
-                        /></Button>
-                        <Button
-                            v-if="puede.activar"
-                            size="sm"
-                            variant="outline"
-                            @click="alternar(c)"
-                            >{{ c.activo ? 'Desactivar' : 'Activar' }}</Button
-                        >
-                        <Button
-                            v-if="puede.editar"
-                            size="icon"
-                            variant="ghost"
-                            aria-label="Editar"
-                            @click="editar(c)"
-                            ><Pencil class="size-4"
-                        /></Button>
-                    </div>
-                </li>
-            </ul>
+                            <Button
+                                v-if="puede.editar"
+                                size="icon"
+                                variant="ghost"
+                                aria-label="Editar"
+                                @click="editar(c)"
+                                ><Pencil class="size-4"
+                            /></Button>
+                        </div>
+                    </li>
+                </ul>
+            </section>
+        </div>
+
+        <section
+            class="rounded-2xl border border-border/60 bg-menta/40 p-4 text-sm"
+            aria-label="Etiquetas del catálogo"
+        >
+            <h3 class="mb-2 font-semibold">Etiquetas del catálogo</h3>
+            <p class="mb-1">
+                <ChipEstado
+                    etiqueta="Integrar expediente probatorio"
+                    tono="oro"
+                />
+                aviso para que RH resguarde evidencia por si hay demanda. No es
+                una autorización.
+            </p>
+            <p class="mb-1">
+                <ChipEstado etiqueta="Implica indemnización" tono="peligro" />
+                el finiquito se propone como liquidación, con revisión de
+                RH/Jurídico.
+            </p>
+            <p>
+                <ChipEstado etiqueta="Comentario obligatorio" tono="neutro" />
+                y
+                <ChipEstado etiqueta="Alerta" tono="alerta" />
+                se conservan como hoy.
+            </p>
         </section>
     </div>
 
@@ -335,6 +394,18 @@ function mover(c: CausalRotacionAdmin, direccion: 'arriba' | 'abajo') {
                         placeholder="p. ej. Aviso a Contraloría"
                     />
                     <InputError :message="form.errors.alerta" />
+                </div>
+                <div class="grid gap-1.5">
+                    <Label for="causal-fundamento"
+                        >Fundamento legal (opcional)</Label
+                    >
+                    <Input
+                        id="causal-fundamento"
+                        v-model="form.fundamento_legal"
+                        maxlength="255"
+                        placeholder="p. ej. Art. 47, fracción XIII, LFT"
+                    />
+                    <InputError :message="form.errors.fundamento_legal" />
                 </div>
                 <label class="flex items-start gap-2 text-sm">
                     <Casilla v-model="form.requiere_juridico" />

@@ -220,7 +220,8 @@ const claseRadio = (activo: boolean) =>
                 v-if="causal?.requiere_juridico"
                 class="text-xs text-[var(--mrl-texto-suave)]"
             >
-                Esta causal pasa por revisión de Jurídico antes del cierre.
+                Integrar expediente probatorio: resguarda la evidencia por si
+                hay demanda. Es un aviso, no una autorización.
             </p>
             <InputError :message="errores.causal_rotacion_id" />
         </div>

@@ -3,11 +3,9 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import {
     AlertTriangle,
     ArrowRight,
-    BarChart3,
     CheckCircle2,
     ClipboardCheck,
     FileWarning,
-    FolderOpen,
     Hourglass,
     Lock,
     Undo2,
@@ -16,6 +14,9 @@ import {
 import { useDebounceFn } from '@vueuse/core';
 import { ref, watch } from 'vue';
 import type { Component } from 'vue';
+import GeneradorDocumentoSalida from '@/components/bajas/GeneradorDocumentoSalida.vue';
+import PestanasBajasNav from '@/components/bajas/PestanasBajas.vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
@@ -29,16 +30,20 @@ import { claseForma, estatusBaja } from '@/lib/bajas';
 import { formatearFecha } from '@/lib/fechas';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
-import { index as tableroRotacion } from '@/routes/reportes/rotacion/tablero';
 import rutasBajas from '@/routes/rh/bajas';
-import { index as cierresIndex } from '@/routes/rh/cierres';
-import type { FilaBaja, ResumenBajas } from '@/types';
+import type {
+    FilaBaja,
+    PanelDocumentoSalida,
+    PestanasBajas,
+    ResumenBajas,
+} from '@/types';
 
 /**
  * «Bajas»: solo gerentes (su personal), RH y super admin; Jurídico y
  * Contraloría de lectura. La baja es directa: se registra y queda aplicada;
- * aquí se sigue su trámite (documentos, Jurídico, cierre). El alcance lo
- * aplica el backend (BajaConsultaService).
+ * aquí se sigue su trámite (documentos, finiquito, cierre) sin autorización de
+ * Jurídico. Al elegir un renglón se abre a la derecha «Generar documento de
+ * salida». El alcance lo aplica el backend (BajaConsultaService).
  */
 type Paginador = {
     data: FilaBaja[];
@@ -58,7 +63,10 @@ const props = defineProps<{
         sucursal_id: number | null;
         forma: string | null;
         busqueda: string;
+        cubo: string | null;
     };
+    pestanas: PestanasBajas;
+    seleccion: PanelDocumentoSalida | null;
     estatus: { value: string; label: string }[];
     formas: { value: string; label: string; token: string }[];
     sucursales: { value: number; label: string }[];
@@ -84,6 +92,7 @@ const termino = ref(props.filtros.busqueda);
 const estatusElegido = ref(props.filtros.estatus);
 const sucursal = ref<number | null>(props.filtros.sucursal_id);
 const forma = ref(props.filtros.forma ?? '');
+const cubo = ref(props.filtros.cubo ?? '');
 
 function filtrar() {
     router.get(
@@ -94,64 +103,134 @@ function filtrar() {
             estatus: estatusElegido.value || undefined,
             sucursal_id: sucursal.value ?? undefined,
             forma: forma.value || undefined,
+            cubo: cubo.value || undefined,
         },
         { preserveState: true, preserveScroll: true, replace: true },
     );
 }
 
 watch(termino, useDebounceFn(filtrar, 300));
-watch([estatusElegido, sucursal, forma], filtrar);
+watch([estatusElegido, sucursal, forma, cubo], filtrar);
 
-// Flujo sin Jurídico (propuesta Etapa 1): las tres primeras tarjetas son cubos
-// de las bajas abiertas (En trámite / Faltan documentos / Listas para cerrar).
-// Solo filtran por estatus las que corresponden a un estatus real; «Faltan
-// documentos» y «Listas para cerrar» son informativas (filtro null).
+function seleccionar(b: FilaBaja) {
+    router.get(
+        rutasBajas.index.url(),
+        {
+            ...parametrosPorPaginaActuales(),
+            busqueda: termino.value || undefined,
+            estatus: estatusElegido.value || undefined,
+            sucursal_id: sucursal.value ?? undefined,
+            forma: forma.value || undefined,
+            cubo: cubo.value || undefined,
+            baja: b.id,
+        },
+        {
+            preserveState: true,
+            preserveScroll: true,
+            only: ['seleccion', 'errors'],
+        },
+    );
+}
+
+// Flujo sin Jurídico (PDF Etapa 1): «Faltan documentos» y «Listas para cerrar»
+// son agrupadores derivados de los documentos, no estatus persistentes.
 const metricas: {
     etiqueta: string;
+    detalle: string;
     campo: keyof ResumenBajas;
     icono: Component;
-    tono: 'info' | 'alerta' | 'exito' | 'neutro';
-    filtro: string | null;
+    tono: 'info' | 'alerta' | 'exito' | 'neutro' | 'primario';
+    cubo?: string;
+    estatus?: string;
 }[] = [
     {
         etiqueta: 'En trámite',
+        detalle: 'Integrando documentos',
         campo: 'en_tramite',
         icono: Hourglass,
         tono: 'info',
-        filtro: 'en_revision_rh',
+        cubo: 'en_tramite',
     },
     {
         etiqueta: 'Faltan documentos',
+        detalle: 'Último día ya pasó',
         campo: 'faltan_documentos',
         icono: FileWarning,
         tono: 'alerta',
-        filtro: null,
+        cubo: 'faltan_documentos',
     },
     {
         etiqueta: 'Listas para cerrar',
+        detalle: 'Documentos completos',
         campo: 'lista_para_cerrar',
         icono: ClipboardCheck,
-        tono: 'info',
-        filtro: null,
+        tono: 'primario',
+        cubo: 'lista_para_cerrar',
     },
     {
         etiqueta: 'Cerradas',
+        detalle: 'En el periodo',
         campo: 'cerradas',
         icono: Lock,
         tono: 'exito',
-        filtro: 'cerrada',
+        estatus: 'cerrada',
     },
     {
         etiqueta: 'No procede',
+        detalle: 'Canceladas',
         campo: 'no_procede',
         icono: Undo2,
         tono: 'neutro',
-        filtro: 'cancelada',
+        estatus: 'cancelada',
     },
 ];
 
-function elegirMetrica(filtro: string) {
-    estatusElegido.value = estatusElegido.value === filtro ? 'abiertas' : filtro;
+function metricaActiva(m: (typeof metricas)[number]): boolean {
+    return m.cubo ? cubo.value === m.cubo : estatusElegido.value === m.estatus;
+}
+
+function elegirMetrica(m: (typeof metricas)[number]) {
+    if (m.cubo) {
+        cubo.value = cubo.value === m.cubo ? '' : m.cubo;
+        estatusElegido.value = 'abiertas';
+
+        return;
+    }
+
+    cubo.value = '';
+    estatusElegido.value =
+        estatusElegido.value === m.estatus ? 'abiertas' : (m.estatus as string);
+}
+
+const flujo = [
+    { texto: '1 · En trámite', clase: 'bg-info-soft text-info' },
+    { texto: '2 · Faltan documentos', clase: 'bg-warning-soft text-warning' },
+    { texto: '3 · Lista para cerrar', clase: 'bg-menta text-foreground' },
+    { texto: '4 · Cerrada', clase: 'bg-success-soft text-success' },
+];
+
+function etiquetaCubo(b: FilaBaja): string {
+    return (
+        (
+            {
+                en_tramite: 'En trámite',
+                faltan_documentos: 'Faltan documentos',
+                lista_para_cerrar: 'Lista para cerrar',
+            } as Record<string, string>
+        )[b.cubo] ?? b.estatus_etiqueta
+    );
+}
+
+function tonoCubo(b: FilaBaja) {
+    return (
+        (
+            {
+                en_tramite: 'info',
+                faltan_documentos: 'alerta',
+                lista_para_cerrar: 'primario',
+            } as Record<string, 'info' | 'alerta' | 'primario'>
+        )[b.cubo] ?? estatusBaja(b.estatus).tono
+    );
 }
 
 function avance(b: FilaBaja): string {
@@ -172,16 +251,6 @@ function avance(b: FilaBaja): string {
             descripcion="Se registran y quedan aplicadas al momento. Aquí sigues sus documentos y el cierre."
             :icono="UserMinus"
         >
-            <Button v-if="puede.recopilacion" variant="outline" as-child>
-                <Link :href="cierresIndex()"
-                    ><FolderOpen class="size-4" />Documentos y finiquitos</Link
-                >
-            </Button>
-            <Button v-if="puede.tablero" variant="outline" as-child>
-                <Link :href="tableroRotacion()"
-                    ><BarChart3 class="size-4" />Rotación</Link
-                >
-            </Button>
             <Button v-if="puede.solicitar" as-child>
                 <Link :href="rutasBajas.create()"
                     ><UserMinus class="size-4" />Registrar baja</Link
@@ -189,260 +258,286 @@ function avance(b: FilaBaja): string {
             </Button>
         </CrudPageHeader>
 
+        <PestanasBajasNav :pestanas="pestanas" actual="bajas" />
+
         <div class="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <TarjetaMetrica
                 v-for="m in metricas"
                 :key="m.campo"
                 :etiqueta="m.etiqueta"
                 :valor="resumen[m.campo]"
+                :detalle="m.detalle"
                 :icono="m.icono"
                 :tono="m.tono"
-                :clicable="m.filtro !== null"
-                :activa="m.filtro !== null && estatusElegido === m.filtro"
-                @click="m.filtro && elegirMetrica(m.filtro)"
+                clicable
+                :activa="metricaActiva(m)"
+                @click="elegirMetrica(m)"
             />
         </div>
 
-        <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            <div>
-                <Label class="mb-1.5 text-xs text-muted-foreground"
-                    >Buscar</Label
+        <div
+            class="flex flex-wrap items-center gap-2 rounded-2xl border border-border/60 bg-card px-4 py-2 text-xs shadow-sm"
+            aria-label="Flujo de la baja"
+        >
+            <span class="font-semibold">Flujo de la baja:</span>
+            <template v-for="(p, i) in flujo" :key="p.texto">
+                <span v-if="i > 0" aria-hidden="true">→</span>
+                <span
+                    :class="cn('rounded-full px-2 py-0.5 font-medium', p.clase)"
+                    >{{ p.texto }}</span
                 >
-                <Input
-                    v-model="termino"
-                    placeholder="Nombre, número, folio, puesto o sucursal"
-                />
-            </div>
-            <div>
-                <Label class="mb-1.5 text-xs text-muted-foreground"
-                    >Estatus</Label
-                >
-                <SelectSimple
-                    v-model="estatusElegido"
-                    :opciones="props.estatus"
-                />
-            </div>
-            <div>
-                <Label class="mb-1.5 text-xs text-muted-foreground"
-                    >Sucursal</Label
-                >
-                <SelectSimple
-                    v-model="sucursal"
-                    :opciones="sucursales"
-                    numerico
-                    opcion-vacia="Todas"
-                    placeholder="Todas"
-                />
-            </div>
-            <div>
-                <Label class="mb-1.5 text-xs text-muted-foreground"
-                    >Forma de salida</Label
-                >
-                <SelectSimple
-                    v-model="forma"
-                    :opciones="formas"
-                    opcion-vacia="Todas"
-                    placeholder="Todas"
-                />
-            </div>
+            </template>
+            <span class="ml-1 rounded-full bg-muted px-2 py-0.5 font-medium"
+                >No procede</span
+            >
+            <span class="ml-auto text-muted-foreground"
+                >Sin autorización de Jurídico</span
+            >
         </div>
 
-        <p
-            v-if="!props.bajas.data.length"
-            class="rounded-2xl border border-border/60 bg-card px-4 py-10 text-center text-sm text-muted-foreground"
+        <div
+            :class="
+                cn(
+                    'grid items-start gap-4',
+                    seleccion && 'xl:grid-cols-[3fr_2fr]',
+                )
+            "
         >
-            No hay bajas con estos filtros.
-        </p>
-
-        <template v-else>
-            <div
-                class="hidden tabla-scroll rounded-2xl border border-border/60 bg-card shadow-sm xl:block"
-            >
-                <table class="w-full text-left text-sm">
-                    <thead
-                        class="border-b border-border/60 text-xs text-muted-foreground"
-                    >
-                        <tr>
-                            <th class="min-w-56 px-4 py-3 font-medium">
-                                Colaborador
-                            </th>
-                            <th class="px-4 py-3 font-medium">Sucursal</th>
-                            <th class="min-w-56 px-4 py-3 font-medium">
-                                Forma · causal
-                            </th>
-                            <th class="px-4 py-3 font-medium">Estatus</th>
-                            <th class="px-4 py-3 font-medium">Documentos</th>
-                            <th class="px-4 py-3" />
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="b in props.bajas.data"
-                            :key="b.id"
-                            class="border-b border-border/60 last:border-0"
+            <div class="flex min-w-0 flex-col gap-3">
+                <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                    <div>
+                        <Label class="mb-1.5 text-xs text-muted-foreground"
+                            >Buscar</Label
                         >
-                            <td class="px-4 py-3">
-                                <p class="font-medium">{{ b.colaborador }}</p>
-                                <p class="text-xs text-muted-foreground">
-                                    <span class="font-mono">{{ b.folio }}</span>
-                                    · Último día
-                                    {{ formatearFecha(b.fecha_baja) }}
-                                </p>
-                            </td>
-                            <td class="px-4 py-3 text-xs">
-                                {{ b.sucursal ?? '—' }}
-                            </td>
-                            <td class="px-4 py-3 text-xs">
-                                <p
-                                    class="flex items-center gap-1.5 font-medium"
+                        <Input
+                            v-model="termino"
+                            placeholder="Nombre, número, folio, puesto o sucursal"
+                        />
+                    </div>
+                    <div>
+                        <Label class="mb-1.5 text-xs text-muted-foreground"
+                            >Estatus</Label
+                        >
+                        <SelectSimple
+                            v-model="estatusElegido"
+                            :opciones="props.estatus"
+                        />
+                    </div>
+                    <div>
+                        <Label class="mb-1.5 text-xs text-muted-foreground"
+                            >Sucursal</Label
+                        >
+                        <SelectSimple
+                            v-model="sucursal"
+                            :opciones="sucursales"
+                            numerico
+                            opcion-vacia="Todas"
+                            placeholder="Todas"
+                        />
+                    </div>
+                    <div>
+                        <Label class="mb-1.5 text-xs text-muted-foreground"
+                            >Forma de salida</Label
+                        >
+                        <SelectSimple
+                            v-model="forma"
+                            :opciones="formas"
+                            opcion-vacia="Todas"
+                            placeholder="Todas"
+                        />
+                    </div>
+                </div>
+
+                <p
+                    v-if="!props.bajas.data.length"
+                    class="rounded-2xl border border-border/60 bg-card px-4 py-10 text-center text-sm text-muted-foreground"
+                >
+                    No hay bajas con estos filtros.
+                </p>
+
+                <template v-else>
+                    <div
+                        class="tabla-scroll rounded-2xl border border-border/60 bg-card shadow-sm"
+                    >
+                        <table class="w-full text-left text-sm">
+                            <thead
+                                class="bg-crema/40 text-xs text-muted-foreground uppercase"
+                            >
+                                <tr>
+                                    <th class="min-w-56 px-3 py-2 font-medium">
+                                        Colaborador
+                                    </th>
+                                    <th class="min-w-48 px-3 py-2 font-medium">
+                                        Forma · causal
+                                    </th>
+                                    <th class="px-3 py-2 font-medium">
+                                        Estatus
+                                    </th>
+                                    <th class="px-3 py-2 font-medium">Docs.</th>
+                                    <th class="px-3 py-2 font-medium">
+                                        Finiquito
+                                    </th>
+                                    <th class="px-3 py-2" />
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr
+                                    v-for="b in props.bajas.data"
+                                    :key="b.id"
+                                    :class="
+                                        cn(
+                                            'border-b border-border/60 last:border-0',
+                                            seleccion?.baja_id === b.id &&
+                                                'bg-crema/50',
+                                        )
+                                    "
                                 >
-                                    <span
-                                        :class="
-                                            cn(
-                                                'size-2.5 shrink-0 rounded-full',
-                                                claseForma(b.forma_token).fondo,
-                                            )
-                                        "
-                                    />
-                                    {{ b.forma_etiqueta ?? 'Sin forma' }}
-                                </p>
-                                <p class="text-muted-foreground">
-                                    {{ b.causal ?? 'Causal pendiente' }}
-                                </p>
-                                <ChipEstado
-                                    v-if="b.causal_migrada"
-                                    class="mt-1"
-                                    etiqueta="Causal migrada: revisar"
-                                    tono="alerta"
-                                />
-                            </td>
-                            <td class="px-4 py-3">
-                                <ChipEstado
-                                    :etiqueta="b.estatus_etiqueta"
-                                    :tono="estatusBaja(b.estatus).tono"
-                                    :icono="estatusBaja(b.estatus).icono"
-                                />
-                                <p
-                                    v-if="b.dias_en_espera !== null"
-                                    class="mt-1 text-xs text-muted-foreground tabular-nums"
-                                >
-                                    {{ b.dias_en_espera }}
-                                    {{
-                                        b.dias_en_espera === 1 ? 'día' : 'días'
-                                    }}
-                                </p>
-                            </td>
-                            <td class="px-4 py-3 text-xs">
-                                <span
-                                    v-if="b.documentos_completos"
-                                    class="inline-flex items-center gap-1 font-medium text-success"
-                                    ><CheckCircle2 class="size-4" />{{
-                                        avance(b)
-                                    }}</span
-                                >
-                                <span
-                                    v-else
-                                    class="inline-flex items-center gap-1 font-medium text-warning"
-                                    ><AlertTriangle class="size-4" />{{
-                                        avance(b)
-                                    }}</span
-                                >
-                            </td>
-                            <td class="px-4 py-3 text-right">
-                                <Button size="sm" variant="outline" as-child>
-                                    <Link :href="rutasBajas.show.url(b.id)"
-                                        >Abrir<ArrowRight class="size-3.5"
-                                    /></Link>
-                                </Button>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+                                    <td class="px-3 py-2">
+                                        <div class="flex items-center gap-2">
+                                            <ColaboradorAvatar
+                                                :nombre="b.colaborador"
+                                                :foto-url="b.foto_url"
+                                            />
+                                            <div class="min-w-0">
+                                                <p class="font-medium">
+                                                    {{ b.colaborador }}
+                                                </p>
+                                                <p
+                                                    class="text-xs text-muted-foreground"
+                                                >
+                                                    {{ b.sucursal ?? '—' }} ·
+                                                    {{ b.puesto ?? '—' }}
+                                                </p>
+                                                <p
+                                                    class="text-xs text-muted-foreground"
+                                                >
+                                                    <span class="font-mono">{{
+                                                        b.folio
+                                                    }}</span>
+                                                    · Último día
+                                                    {{
+                                                        formatearFecha(
+                                                            b.fecha_baja,
+                                                        )
+                                                    }}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-2 text-xs">
+                                        <p
+                                            class="flex items-center gap-1.5 font-medium"
+                                        >
+                                            <span
+                                                :class="
+                                                    cn(
+                                                        'size-2.5 shrink-0 rounded-full',
+                                                        claseForma(
+                                                            b.forma_token,
+                                                        ).fondo,
+                                                    )
+                                                "
+                                            />
+                                            {{
+                                                b.forma_etiqueta ?? 'Sin forma'
+                                            }}
+                                        </p>
+                                        <p class="text-muted-foreground">
+                                            {{ b.causal ?? 'Causal pendiente' }}
+                                        </p>
+                                        <ChipEstado
+                                            v-if="b.integrar_expediente"
+                                            class="mt-1"
+                                            etiqueta="Integrar expediente probatorio"
+                                            tono="oro"
+                                        />
+                                        <ChipEstado
+                                            v-if="b.causal_migrada"
+                                            class="mt-1"
+                                            etiqueta="Causal migrada: revisar"
+                                            tono="alerta"
+                                        />
+                                    </td>
+                                    <td class="px-3 py-2">
+                                        <ChipEstado
+                                            :etiqueta="etiquetaCubo(b)"
+                                            :tono="tonoCubo(b)"
+                                        />
+                                    </td>
+                                    <td class="px-3 py-2 text-xs">
+                                        <span
+                                            class="inline-flex items-center gap-1 font-medium"
+                                            :class="
+                                                b.documentos_completos
+                                                    ? 'text-success'
+                                                    : 'text-warning'
+                                            "
+                                            ><CheckCircle2
+                                                v-if="b.documentos_completos"
+                                                class="size-4"
+                                            /><AlertTriangle
+                                                v-else
+                                                class="size-4"
+                                            />{{ avance(b) }}</span
+                                        >
+                                    </td>
+                                    <td class="px-3 py-2 text-xs">
+                                        <ChipEstado
+                                            v-if="b.finiquito"
+                                            :etiqueta="b.finiquito.etiqueta"
+                                            :tono="
+                                                b.finiquito.estado === 'pagado'
+                                                    ? 'exito'
+                                                    : 'alerta'
+                                            "
+                                        />
+                                        <span
+                                            v-else
+                                            class="text-muted-foreground"
+                                            >—</span
+                                        >
+                                    </td>
+                                    <td class="px-3 py-2 text-right">
+                                        <div class="flex justify-end gap-1">
+                                            <Button
+                                                v-if="puede.gestionar"
+                                                size="sm"
+                                                variant="ghost"
+                                                @click="seleccionar(b)"
+                                                >Documento</Button
+                                            >
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                as-child
+                                            >
+                                                <Link
+                                                    :href="
+                                                        rutasBajas.show.url(
+                                                            b.id,
+                                                        )
+                                                    "
+                                                    >Abrir<ArrowRight
+                                                        class="size-3.5"
+                                                /></Link>
+                                            </Button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <p class="text-xs text-muted-foreground">
+                        Al elegir «Documento» se abre a la derecha el generador
+                        del documento de salida de esa baja.
+                    </p>
+
+                    <PaginacionTabla :datos="props.bajas" />
+                </template>
             </div>
 
-            <ul class="grid gap-3 md:grid-cols-2 xl:hidden">
-                <li v-for="b in props.bajas.data" :key="b.id">
-                    <Link
-                        :href="rutasBajas.show.url(b.id)"
-                        class="flex h-full tarjeta-interactiva flex-col gap-1 rounded-2xl border border-border/60 bg-card p-4 text-sm shadow-sm"
-                    >
-                        <div class="flex items-start justify-between gap-2">
-                            <div class="min-w-0">
-                                <p class="font-semibold break-words">
-                                    {{ b.colaborador }}
-                                </p>
-                                <p class="text-xs text-muted-foreground">
-                                    <span class="font-mono">{{ b.folio }}</span>
-                                    · {{ b.sucursal ?? '—' }}
-                                </p>
-                            </div>
-                            <div class="flex shrink-0 flex-col items-end gap-1">
-                                <ChipEstado
-                                    :etiqueta="b.estatus_etiqueta"
-                                    :tono="estatusBaja(b.estatus).tono"
-                                    :icono="estatusBaja(b.estatus).icono"
-                                />
-                                <span
-                                    v-if="b.dias_en_espera !== null"
-                                    class="text-xs text-muted-foreground tabular-nums"
-                                    >{{ b.dias_en_espera }}
-                                    {{
-                                        b.dias_en_espera === 1 ? 'día' : 'días'
-                                    }}</span
-                                >
-                            </div>
-                        </div>
-                        <p class="mt-1 flex items-start gap-1.5 text-xs">
-                            <span
-                                :class="
-                                    cn(
-                                        'mt-1 size-2.5 shrink-0 rounded-full',
-                                        claseForma(b.forma_token).fondo,
-                                    )
-                                "
-                            />
-                            <span class="min-w-0"
-                                ><span class="font-medium">{{
-                                    b.forma_etiqueta ?? 'Sin forma'
-                                }}</span>
-                                ·
-                                {{ b.causal ?? 'Causal pendiente' }}</span
-                            >
-                        </p>
-                        <ChipEstado
-                            v-if="b.causal_migrada"
-                            class="w-fit"
-                            etiqueta="Causal migrada: revisar"
-                            tono="alerta"
-                        />
-                        <div
-                            class="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-2 text-xs"
-                        >
-                            <span class="text-muted-foreground"
-                                >Último día
-                                {{ formatearFecha(b.fecha_baja) }}</span
-                            >
-                            <span
-                                class="inline-flex items-center gap-1 font-medium"
-                                :class="
-                                    b.documentos_completos
-                                        ? 'text-success'
-                                        : 'text-warning'
-                                "
-                                ><CheckCircle2
-                                    v-if="b.documentos_completos"
-                                    class="size-4"
-                                /><AlertTriangle
-                                    v-else
-                                    class="size-4"
-                                />Documentos {{ avance(b) }}</span
-                            >
-                        </div>
-                    </Link>
-                </li>
-            </ul>
-
-            <PaginacionTabla :datos="props.bajas" />
-        </template>
+            <GeneradorDocumentoSalida v-if="seleccion" :panel="seleccion" />
+        </div>
     </div>
 </template>

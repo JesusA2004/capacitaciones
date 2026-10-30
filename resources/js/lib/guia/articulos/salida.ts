@@ -14,11 +14,11 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
         titulo: 'Baja de un colaborador (forma de salida y causal)',
         proceso: 'baja',
         resumen:
-            'La baja NO es una solicitud: el gerente (de su personal) o RH la registra en «Bajas» y queda aplicada en ese momento. Antes de confirmar ves la renuncia o el formato que se generará y el finiquito propuesto. Después se completan los documentos, Jurídico revisa si la causal lo pide y RH la cierra.',
+            'La baja NO es una solicitud: el gerente (de su personal) o RH la registra en «Bajas» y queda aplicada en ese momento. Antes de confirmar ves la renuncia o el formato que se generará y el finiquito propuesto. Después se completan los documentos, se genera el documento de salida y RH la cierra; Jurídico no autoriza.',
         queEs: 'Es el expediente de la baja con folio BAJ-AAAA-NNNN: forma de salida y causal de lista cerrada (sin «Otro»), documentos, bitácora de cambios y el cierre laboral (finiquito). Con esos datos se mide la rotación. Nunca borra a la persona: bloquea su acceso y conserva todo para un posible reingreso.',
         quien: ['gerente', 'regional', 'rh', 'sistemas'],
         quienDetalle:
-            'Registra el gerente (solo su personal) o RH. RH corrige la causal con motivo, completa datos, cierra, reabre y marca «No procede». Jurídico revisa las causales que lo requieren y no cierra. Contraloría consulta las de faltantes (RE-02) y robo o fraude (RE-03). Nadie más entra a «Bajas»; Dirección solo ve el tablero de rotación y Sistemas recibe el aviso para retirar accesos y equipo.',
+            'Registra el gerente (solo su personal) o RH. RH corrige la causal con motivo, completa datos, cierra, reabre y marca «No procede». Jurídico consulta las que le corresponden y no autoriza ni cierra. Contraloría consulta las de faltantes (RE-02) y robo o fraude (RE-03). Nadie más entra a «Bajas»; Dirección solo ve el tablero de rotación y Sistemas recibe el aviso para retirar accesos y equipo.',
         antes: [
             'La persona está activa y es de tu sucursal (o eres RH).',
             'Solo puede haber una baja abierta por persona.',
@@ -37,9 +37,9 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
                 quien: 'gerente',
             },
             {
-                titulo: 'Documentos y Jurídico',
+                titulo: 'Documentos de la baja',
                 detalle:
-                    'En el expediente de la baja o en Bajas y finiquitos → «Documentos»: imprime y firma lo generado, adjunta lo que falta. Si la causal lo requiere, la baja pasa sola a Jurídico, que la aprueba o la devuelve a RH con observaciones.',
+                    'En el expediente de la baja usa «Generar documento de salida»: vista previa, PDF para firma y carga del firmado. Adjunta lo que falta. En rescisión captura los hechos, los testigos y la entrega del aviso.',
                 quien: 'rh',
             },
             {
@@ -66,8 +66,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
         ],
         notificaciones: [
             '«Baja registrada» a RH, a la regional y a Sistemas: quién la dio, a quién, forma · causal y último día.',
-            'Causal con Jurídico: «Baja por revisar (Jurídico)».',
-            'RV-04 (clima laboral): correo a RH para entrevista de salida y NOM-035.',
+                        'RV-04 (clima laboral): correo a RH para entrevista de salida y NOM-035.',
             'RE-02 y RE-03: aviso a Contraloría (RE-03 también a Jurídico).',
             'Antigüedad menor a 90 días: rotación temprana a RH.',
         ],
@@ -86,7 +85,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
             {
                 problema: '«RH no puede cerrar.»',
                 solucion:
-                    'Falta un documento obligatorio, la revisión de Jurídico o el finiquito revisado. El expediente dice exactamente qué falta.',
+                    'Falta un documento obligatorio o el finiquito revisado. El expediente dice exactamente qué falta.',
             },
         ],
         registro: [

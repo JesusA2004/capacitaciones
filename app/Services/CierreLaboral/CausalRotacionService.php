@@ -2,6 +2,7 @@
 
 namespace App\Services\CierreLaboral;
 
+use App\Enums\DocumentoSalida;
 use App\Enums\FormaSalida;
 use App\Enums\TipoBaja;
 use App\Models\CausalRotacion;
@@ -150,6 +151,8 @@ class CausalRotacionService
                 'requiere_juridico' => $c->requiere_juridico,
                 'comentario_obligatorio' => $c->comentario_obligatorio,
                 'alerta' => $c->alerta,
+                'fundamento_legal' => $c->fundamento_legal,
+                'genera' => DocumentoSalida::deForma($c->forma())->etiqueta(),
                 'excluye_indemnizacion' => $c->excluye_indemnizacion,
                 'implica_indemnizacion' => $c->implica_indemnizacion,
                 'integrar_expediente_probatorio' => $c->requiere_juridico,
@@ -180,6 +183,7 @@ class CausalRotacionService
             'requiere_juridico' => (bool) ($datos['requiere_juridico'] ?? false),
             'comentario_obligatorio' => (bool) ($datos['comentario_obligatorio'] ?? $forma === FormaSalida::Rescision),
             'alerta' => $this->textoOpcional($datos['alerta'] ?? null),
+            'fundamento_legal' => $this->textoOpcional($datos['fundamento_legal'] ?? null),
             'excluye_indemnizacion' => (bool) ($datos['excluye_indemnizacion'] ?? false),
             'implica_indemnizacion' => (bool) ($datos['implica_indemnizacion'] ?? false),
             'activo' => (bool) ($datos['activo'] ?? true),
@@ -208,7 +212,7 @@ class CausalRotacionService
 
         $nombre = $this->nombreLimpio((string) $datos['nombre']);
         $this->exigirNombreLibre($tipo, $nombre, $causal->id);
-        $campos = ['tipo', 'nombre', 'descripcion', 'requiere_juridico', 'comentario_obligatorio', 'alerta', 'excluye_indemnizacion', 'implica_indemnizacion', 'activo'];
+        $campos = ['tipo', 'nombre', 'descripcion', 'requiere_juridico', 'comentario_obligatorio', 'alerta', 'fundamento_legal', 'excluye_indemnizacion', 'implica_indemnizacion', 'activo'];
         $antes = $causal->only($campos);
 
         $causal->update([
@@ -220,6 +224,7 @@ class CausalRotacionService
             'requiere_juridico' => (bool) ($datos['requiere_juridico'] ?? $causal->requiere_juridico),
             'comentario_obligatorio' => (bool) ($datos['comentario_obligatorio'] ?? $causal->comentario_obligatorio),
             'alerta' => $this->textoOpcional($datos['alerta'] ?? null),
+            'fundamento_legal' => $this->textoOpcional($datos['fundamento_legal'] ?? null),
             'excluye_indemnizacion' => (bool) ($datos['excluye_indemnizacion'] ?? false),
             'implica_indemnizacion' => (bool) ($datos['implica_indemnizacion'] ?? false),
             'activo' => (bool) ($datos['activo'] ?? $causal->activo),

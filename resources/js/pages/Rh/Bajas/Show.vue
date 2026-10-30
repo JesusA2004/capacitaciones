@@ -2,18 +2,16 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import {
     AlertTriangle,
-    CheckCircle2,
     FolderOpen,
     History,
     Lock,
     Pencil,
-    Scale,
     Undo2,
     UserMinus,
-    XCircle,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import DocumentosBaja from '@/components/bajas/DocumentosBaja.vue';
+import GeneradorDocumentoSalida from '@/components/bajas/GeneradorDocumentoSalida.vue';
 import Casilla from '@/components/Common/Casilla.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
@@ -21,7 +19,6 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
 import ChipEstado from '@/components/people/ChipEstado.vue';
 import PeopleConfirmDialog from '@/components/people/PeopleConfirmDialog.vue';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -39,21 +36,27 @@ import { formatearFecha, formatearFechaHora } from '@/lib/fechas';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import rutasBajas from '@/routes/rh/bajas';
+import rutasFiniquitos from '@/routes/rh/bajas/finiquitos';
 import { index as cierresIndex } from '@/routes/rh/cierres';
 import { ciclo as cicloColaborador } from '@/routes/rh/colaboradores';
-import type { BajaDetalle, FormaSalidaOpcion, LimitesBaja } from '@/types';
+import type {
+    BajaDetalle,
+    FormaSalidaOpcion,
+    LimitesBaja,
+    PanelDocumentoSalida,
+} from '@/types';
 
 /**
  * Expediente de la baja: datos, documentos con vista previa, bitácora y
  * acciones según el rol. La baja ya está APLICADA desde que se registró —
- * RH: completar/corregir datos, cambiar causal con motivo, enviar a
- * Jurídico (si la causal lo requiere), Cerrar, Reabrir con motivo y «No
- * procede»; Jurídico: aprobar o devolver a RH con observaciones; gerente:
- * adjuntar documentos. El backend vuelve a validar cada acción
+ * RH: completar/corregir datos, cambiar causal con motivo, generar el documento
+ * de salida, Cerrar, Reabrir con motivo y «No procede»; Jurídico: consulta (ya no
+ * autoriza, PDF Etapa 1); gerente: adjuntar documentos. El backend vuelve a validar cada acción
  * (BajaService).
  */
 const props = defineProps<{
     baja: BajaDetalle;
+    salida: PanelDocumentoSalida | null;
     causales: FormaSalidaOpcion[];
     recontratable: { value: string; label: string }[];
     entregas: { value: string; label: string }[];
@@ -96,20 +99,14 @@ function cerrarBaja() {
     accionDirecta(rutasBajas.cerrar.url(props.baja.id));
 }
 
-// ── Diálogo de motivo (Jurídico devuelve, reabrir, no procede, aprobar) ──
-type AccionMotivo =
-    'devolver_juridico' | 'reabrir' | 'cancelar' | 'aprobar_juridico';
+// ── Diálogo de motivo (reabrir, no procede) ──
+type AccionMotivo = 'reabrir' | 'cancelar';
 const accionMotivo = ref<AccionMotivo | null>(null);
 const formMotivo = useForm({ motivo: '' });
 const textosMotivo: Record<
     AccionMotivo,
     { titulo: string; boton: string; ayuda: string }
 > = {
-    devolver_juridico: {
-        titulo: 'Devolver a RH',
-        boton: 'Devolver con observaciones',
-        ayuda: 'La baja sigue aplicada: RH corrige y la vuelve a enviar, o la marca «No procede».',
-    },
     reabrir: {
         titulo: 'Reabrir la baja',
         boton: 'Reabrir',
@@ -119,11 +116,6 @@ const textosMotivo: Record<
         titulo: 'La baja no procede',
         boton: 'Marcar «No procede»',
         ayuda: 'La persona sigue laborando: se cancela el cierre laboral y se le devuelve el acceso. Nada se borra.',
-    },
-    aprobar_juridico: {
-        titulo: 'Revisión de Jurídico',
-        boton: 'Aprobar y regresar a RH',
-        ayuda: 'Comentario opcional sobre el acta y el aviso.',
     },
 };
 
@@ -141,10 +133,8 @@ function enviarMotivo() {
     }
 
     const url = {
-        devolver_juridico: rutasBajas.devolverJuridico.url(props.baja.id),
         reabrir: rutasBajas.reabrir.url(props.baja.id),
         cancelar: rutasBajas.cancelar.url(props.baja.id),
-        aprobar_juridico: rutasBajas.aprobarJuridico.url(props.baja.id),
     }[a];
 
     formMotivo.post(url, {
@@ -261,26 +251,6 @@ const datos = computed(() => [
             :icono="UserMinus"
         >
             <Button
-                v-if="puede('enviar_juridico')"
-                variant="outline"
-                :disabled="procesando"
-                @click="accionDirecta(rutasBajas.enviarJuridico.url(baja.id))"
-                ><Scale class="size-4" />Enviar a Jurídico</Button
-            >
-            <Button
-                v-if="puede('aprobar_juridico')"
-                :disabled="procesando"
-                @click="abrirMotivo('aprobar_juridico')"
-                ><CheckCircle2 class="size-4" />Aprobar (Jurídico)</Button
-            >
-            <Button
-                v-if="puede('devolver_juridico')"
-                variant="outline"
-                :disabled="procesando"
-                @click="abrirMotivo('devolver_juridico')"
-                ><XCircle class="size-4" />Devolver a RH</Button
-            >
-            <Button
                 v-if="puede('cerrar')"
                 :disabled="procesando"
                 @click="confirmarCierre = true"
@@ -317,11 +287,11 @@ const datos = computed(() => [
             <span class="text-sm text-[var(--mrl-texto-suave)]">
                 {{ baja.causal ?? 'Causal pendiente' }}
             </span>
-            <Badge v-if="baja.requiere_juridico" variant="outline"
-                >Requiere Jurídico{{
-                    baja.juridico_en ? ' · aprobada' : ''
-                }}</Badge
-            >
+            <ChipEstado
+                v-if="baja.integrar_expediente"
+                etiqueta="Integrar expediente probatorio"
+                tono="oro"
+            />
             <Button
                 v-if="puede('cambiar_causal')"
                 size="sm"
@@ -355,7 +325,7 @@ const datos = computed(() => [
             <strong
                 >{{
                     baja.rechazado_area === 'juridico'
-                        ? 'Jurídico la devolvió'
+                        ? 'Jurídico la devolvió (flujo anterior)'
                         : 'Rechazada (flujo anterior)'
                 }}:</strong
             >
@@ -499,8 +469,20 @@ const datos = computed(() => [
                                 >Ver ciclo laboral</Link
                             >
                         </Button>
+                        <Button
+                            v-if="tienePermiso('finiquitos.ver')"
+                            size="sm"
+                            variant="outline"
+                            as-child
+                        >
+                            <Link :href="rutasFiniquitos.index()"
+                                >Ver finiquitos</Link
+                            >
+                        </Button>
                     </div>
                 </section>
+
+                <GeneradorDocumentoSalida v-if="salida" :panel="salida" />
 
                 <section
                     class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
@@ -613,11 +595,7 @@ const datos = computed(() => [
                 }}</DialogDescription>
             </DialogHeader>
             <form class="grid gap-3" @submit.prevent="enviarMotivo">
-                <Label for="baja-motivo">{{
-                    accionMotivo === 'aprobar_juridico'
-                        ? 'Comentario (opcional)'
-                        : 'Motivo (obligatorio)'
-                }}</Label>
+                <Label for="baja-motivo">Motivo (obligatorio)</Label>
                 <Textarea
                     id="baja-motivo"
                     v-model="formMotivo.motivo"
