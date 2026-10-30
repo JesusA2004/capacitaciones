@@ -7,6 +7,35 @@
 > **SHA inicial backend:** `c9b8c217f0a6af559694f5d7ba4b1a0b9ec0196d` (rama `main`)
 > **SHA inicial app:** `40b9e828baa41e2c28d513230fb81b198d2fc3c7` (rama `main`, árbol limpio) — ⚠️ el repo está **adelante** del SHA `643b368f` del brief; la app ya tiene módulo de candidatos completo (Expo SDK 57, expo-router, react-query, zustand). Docs de la app desactualizados.
 > **Fecha de inicio de auditoría:** 2026-10-29
+>
+> **Corrección de SHA (2026-10-30):** el SHA `40b9e828` de la línea anterior no corresponde al estado real. Al revisar, `main` local y remoto de la app coincidían en `643b368`, sin commits adelantados; el único cambio local era `app.json` con `versionCode` 20, sin publicar.
+> **Base del Incremento 1:** backend `9c747ce`; app `2f7ffa8` (incluye `b684d69` y la alineación de Expo).
+
+## Estados del encargo (se usan desde el Incremento 1)
+
+Pendiente · En desarrollo · Implementado sin validar · Probado y aprobado · Bloqueado por información externa. Los símbolos 🔴🟡🟢🔵 de filas anteriores son el diagnóstico inicial y **no** certifican un requisito hasta revisarlo con estos estados.
+
+## Incremento 1 — Plantilla única y Directorio (estado comprobado 2026-10-30)
+
+Validación ejecutada: 220 pruebas Pest de Headcount, Directorio, Dashboard, Permisos, Reportes e `ImportarDatosHubTest` (220 aprobadas), Pint y PHPStan en 0, ESLint, vue-tsc y build correctos. **La suite completa no se corrió en este incremento.** Navegador con Playwright y datos de desarrollo: Directorio en escritorio y a 390 px, «Ver los N», filtro, descargas Excel/PDF, 403 de RH en plazas y vista previa con un error de catálogo que bloquea confirmar.
+
+| Requisito | Implementación | Prueba | Estado |
+|---|---|---|---|
+| Definiciones de población en una sola fuente | `HeadcountService::poblacion()`/`conciliar()`; definiciones en `docs/HEADCOUNT_Y_VACANTES.md` | `PoblacionFuenteUnicaTest` | Probado y aprobado |
+| Misma cifra en Tablero, Directorio y Reportes | `summary.plantilla_activa.poblacion`, `inicio.plantilla.activos`, reporte `plantilla_conciliacion`; el Directorio cuenta el mismo estatus `activo` | `PoblacionFuenteUnicaTest` | Probado y aprobado |
+| Importar plazas con vista previa, validaciones, duplicados, confirmación y bitácora; solo super_admin | `PlazasAutorizadasImportService`, `PlazasAutorizadasController`, Configuración → Importar datos → Plazas autorizadas | `PlazasAutorizadasImportTest` | Implementado sin validar en navegador el paso de aplicar (cubierto solo por Pest, para no escribir plazas en la BD local) |
+| Cargar las plazas reales de Corporativo (28) y conciliar 151 / 134 / 17 | Mecanismo listo; **no se cargó ninguna plaza** | — | Bloqueado por información externa: falta el catálogo autorizado por puesto y datos de producción |
+| Directorio 1–4: activos sin depender de contacto, cuatro tarjetas, Corp + Suc = activas, Sucursales cuenta personas | `DirectorioColaboradoresService`, `Directorio/Index.vue` | `DirectorioTest`, `DirectorioEtapa1Test` | Probado y aprobado |
+| Directorio 5–6: «Datos por completar» según permisos; API sin campos sensibles | Bandera y filtro `solo_por_completar` solo para quien ve todos los contactos; lista cerrada en `aArray()` | `DirectorioEtapa1Test`, `DirectorioSeguridadTest` | Probado y aprobado |
+| Directorio 7: filtros, búsqueda, paginación y exportaciones | Web: lista completa plegada con «Ver los N»; API paginada; Excel/PDF con `reportes_rh.exportar` | `DirectorioEtapa1Test` y navegador | Probado y aprobado |
+| Directorio 8–9: foto oficial y protección de datos | Sin cambios; foto solo si alcanza el expediente | `DirectorioFotoTest`, `DirectorioPrivacidadTest` | Probado y aprobado |
+| Directorio 10: diseño y responsive de la pág. 5 | Tarjetas a todo el ancho, botón «Solo datos por completar», exportación arriba a la derecha | Captura 1440 y 390 px, sin scroll horizontal | Implementado sin validar: falta el visto bueno visual contra el PDF con datos reales |
+| Diseño final de cuatro bloques y gráficas del Tablero | Fuera de este incremento (Incremento 5) | — | Pendiente |
+
+**Diferencias de criterio a confirmar por RH:**
+
+- «Datos por completar» ahora se activa si falta correo **o** teléfono (como dice la pág. 5), o si falta puesto o sucursal. Antes solo si faltaban ambos contactos. En desarrollo marca a 189 de 189 porque los datos demo no traen esos campos.
+- En incorporación ocupa plaza pero no aparece en el Directorio. Si hay personas en ese estado o excedentes, Autorizadas − Activas no da las Vacantes. La pág. 2 usa la resta simple: confirmar con las cifras reales.
 
 ## Leyenda de estado
 
