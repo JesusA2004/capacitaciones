@@ -139,5 +139,6 @@ require __DIR__.'/cuestionarios.php';
 require __DIR__.'/actividades.php';
 require __DIR__.'/reuniones.php';
 require __DIR__.'/reportes.php';
+require __DIR__.'/salarios.php';
 require __DIR__.'/notificaciones.php';
 require __DIR__.'/avisos.php';

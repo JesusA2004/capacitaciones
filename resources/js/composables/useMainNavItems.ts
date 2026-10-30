@@ -4,6 +4,7 @@ import {
     BarChart3,
     BellRing,
     Boxes,
+    Banknote,
     Briefcase,
     Building2,
     CalendarClock,
@@ -112,6 +113,7 @@ import { index as indexReingresos } from '@/routes/rh/reingresos';
 import { index as indexRhSolicitudes } from '@/routes/rh/solicitudes';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
 import { index as indexValidacionDocumentos } from '@/routes/rh/validacion-documentos';
+import { index as indexSalarios } from '@/routes/salarios';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type { NavItem } from '@/types';
 
@@ -572,6 +574,11 @@ export function useMainNavItems() {
                         title: 'Puestos y tabulador',
                         href: indexPuestos(),
                         icon: Briefcase,
+                    },
+                    tienePermiso('salarios.ver') && {
+                        title: 'Administración de salarios',
+                        href: indexSalarios(),
+                        icon: Banknote,
                     },
                     // Solo sucursales: los departamentos (y mover personas
                     // entre ellos) viven en su propio módulo, abajo.

@@ -298,6 +298,12 @@ class RolesYPermisosSeeder extends Seeder
         'headcount.editar',
         'headcount.importar',
 
+        // --- Administración de salarios (solo RH y Dirección General) ---
+        'salarios.ver',
+        'salarios.editar',
+        'salarios.exportar',
+        'salarios.importar',
+
         // --- Organigrama (alias operativo de puestos.administrar para nav) ---
         'organigrama.ver',
         'organigrama.editar',
@@ -482,6 +488,7 @@ class RolesYPermisosSeeder extends Seeder
         // no configura empresas.eliminar/roles.administrar/configuracion
         // (reservado a super_admin).
         'rh_admin' => [
+            'salarios.ver', 'salarios.editar', 'salarios.exportar',
             // Alcance amplio: elige de qué sucursales no recibir avisos.
             'notificaciones.silenciar_sucursales',
             'directorio.contactos.ver_todos',
@@ -883,6 +890,7 @@ class RolesYPermisosSeeder extends Seeder
         // PRÉSTAMO lo autoriza SOLO RH (prestamos.autorizar): Dirección
         // consulta (2026-10-20, migración 2026_10_20_170200).
         'direccion' => [
+            'salarios.ver', 'salarios.exportar',
             // Alcance amplio: elige de qué sucursales no recibir avisos.
             'notificaciones.silenciar_sucursales',
             'directorio.contactos.ver_todos',

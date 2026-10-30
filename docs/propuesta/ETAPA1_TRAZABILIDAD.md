@@ -232,7 +232,18 @@ Limitación conocida: la plantilla reconstruida por fechas usa la sucursal actua
 
 ---
 
-## Incremento 5 — Administración de salarios (PDF pág. 18–19)
+## Administración de salarios (estado comprobado 2026-10-30)
+
+**Implementado sin validar con datos reales.** Pantalla Organización → Administración de salarios (`salarios.index`), probada con Pest y en navegador sobre una copia SQLite aislada.
+
+- **Tabulador:** captura en línea de mínimo, medio, máximo, fuente y fecha por puesto; `tabuladores_salariales` solo agrega versiones. Importación Excel solo super_admin (`salarios.importar`), con vista previa y bitácora. Exportación Excel/PDF.
+- **Posición:** sueldo solo desde `CompensacionService::mensualDe()`; compa-ratio, cuatro bandas, barra por puesto, alertas. Ni el tabulador ni la matriz escriben sueldos (escenarios 33 y 36).
+- **Desempeño:** no existe evaluación formal; toda fila muestra «Sin evaluación de desempeño vigente», sin tope ni margen, y la tarjeta muestra «Sin dato». La regla de topes y sugerencia está probada a nivel de servicio. **Bloqueado por información externa:** falta definir la evaluación válida.
+- **Permisos:** `salarios.{ver,editar,exportar,importar}`; rh_admin ver/editar/exportar, direccion ver/exportar, super_admin todos. Gerente y rh_auxiliar reciben 403 en vista, exportaciones y escritura (escenario 35). No hay ruta API del módulo. **Fuera de este módulo:** los expedientes y sus API siguen mostrando sueldo con `expedientes.*`; no se revisó.
+- **Bitácora:** `salarios.consultado`, `salarios.exportado`, `salarios.tabulador_actualizado`, `salarios.matriz_actualizada`, sin importes.
+- **Pendiente visual:** comparación con pág. 18 hecha sobre captura; falta volver a capturar tras el ajuste responsive. Exportaciones PDF usan DomPDF como el resto de reportes.
+
+## Incremento 5 — Administración de salarios, diagnóstico inicial (PDF pág. 18–19)
 
 **Hallazgos:** `CompensacionService` es la autoridad (mensual = fuente, diario = mensual÷30, `historial_salarios` append-only, emite `MovimientoLaboral`). Montos `DECIMAL(10,2)`. **NO existe tabulador** (ni columnas min/medio/max en `puestos`), **ni evaluación de desempeño** (solo inducción + periodo de prueba; flags `evaluacion_desempeno`/`nine_box` apagados y sin backend). Permisos de salario hoy = `expedientes.*` + alcance; no hay permiso `salarios.*`.
 

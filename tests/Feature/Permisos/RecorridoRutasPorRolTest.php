@@ -89,7 +89,7 @@ test('rh_admin no recibe 403 en ninguna pantalla PEOPLE/RH', function () {
     // ImportacionesSoloSuperAdminTest) — RH conserva las pantallas de consulta.
     $fueraDeRh = [
         '/administracion/roles', '/administracion/configuracion/apariencia', '/cursos', '/asignaciones', '/multimedia', '/bancos-preguntas', '/calificaciones', '/reportes/cumplimiento',
-        '/administracion/importar-datos', '/rh/importaciones', '/rh/contactos-emergencia', '/rh/expedientes/migracion-inicial', '/rh/perfiles-puesto/importar',
+        '/administracion/importar-datos', '/rh/importaciones', '/rh/contactos-emergencia', '/rh/expedientes/migracion-inicial', '/rh/perfiles-puesto/importar', '/organizacion/salarios/importar',
     ];
 
     $prohibidas = array_values(array_filter(rrProhibidas($rh, false), function (string $ruta) use ($fueraDeRh): bool {
