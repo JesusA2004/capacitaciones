@@ -7,6 +7,7 @@ use App\Enums\EstadoDocumento;
 use App\Enums\EstadoFiniquito;
 use App\Enums\FamiliaAdministrativa;
 use App\Enums\TipoConceptoNomina;
+use App\Enums\TipoFiniquito;
 use App\Enums\TipoFormatoOficial;
 use App\Models\Colaborador;
 use App\Models\DocumentType;
@@ -87,6 +88,7 @@ class FiniquitoService
                 'adeudos' => 0,
                 'total_ajustado' => $automaticos['total_calculado'],
                 'estado' => EstadoFiniquito::Borrador->value,
+                'tipo_documento' => $this->tipoPropuesto($solicitud),
             ]);
 
             $this->registrarHistorial($solicitud, $actor, 'finiquito_calculado');
@@ -126,6 +128,8 @@ class FiniquitoService
                 'total_ajustado' => round($totalAjustado, 2),
                 'estado' => EstadoFiniquito::Borrador->value,
                 'revisado_por_id' => null,
+                // Recalcular vuelve a proponer el tipo según la causal vigente.
+                'tipo_documento' => $this->tipoPropuesto($solicitud),
             ]);
 
             $this->registrarHistorial($solicitud, $actor, 'finiquito_recalculado');
@@ -168,6 +172,76 @@ class FiniquitoService
 
             return $this->recalcularTotales($finiquito->refresh());
         });
+    }
+
+    /**
+     * Tipo que se PROPONE según el catálogo: la causal marcada como «Implica
+     * indemnización» genera liquidación. Es clasificación con revisión de
+     * RH/Jurídico (cambiarTipo() y los ajustes por concepto), no resolución legal.
+     */
+    public function tipoPropuesto(SolicitudInterna $solicitud): TipoFiniquito
+    {
+        return $solicitud->causalRotacion?->implica_indemnizacion === true ? TipoFiniquito::Liquidacion : TipoFiniquito::Finiquito;
+    }
+
+    /**
+     * Tipo de un finiquito. Los calculados antes de existir la marca no se
+     * reescriben: se derivan de su causal y de si llevan indemnización.
+     */
+    public function tipoDe(FiniquitoCalculo $finiquito): TipoFiniquito
+    {
+        if ($finiquito->tipo_documento !== null) {
+            return $finiquito->tipo_documento;
+        }
+
+        return (float) $finiquito->indemnizacion > 0 || $finiquito->solicitudInterna->causalRotacion?->implica_indemnizacion === true
+            ? TipoFiniquito::Liquidacion
+            : TipoFiniquito::Finiquito;
+    }
+
+    /**
+     * RH/Jurídico corrige el tipo propuesto para el supuesto concreto, con
+     * motivo en la bitácora. No mueve montos: la indemnización se ajusta por
+     * concepto. Un cambio obliga a revisar de nuevo.
+     */
+    public function cambiarTipo(FiniquitoCalculo $finiquito, TipoFiniquito $tipo, string $motivo, User $actor): FiniquitoCalculo
+    {
+        $this->asegurarNoFirmado($finiquito);
+        $anterior = $this->tipoDe($finiquito);
+
+        return DB::transaction(function () use ($finiquito, $tipo, $motivo, $actor, $anterior): FiniquitoCalculo {
+            $finiquito->update(['tipo_documento' => $tipo, 'estado' => EstadoFiniquito::Borrador->value, 'revisado_por_id' => null]);
+            $this->registrarHistorial($finiquito->solicitudInterna, $actor, 'finiquito_tipo', sprintf('%s → %s. %s', $anterior->etiqueta(), $tipo->etiqueta(), trim($motivo)));
+
+            return $finiquito->refresh();
+        });
+    }
+
+    /**
+     * Bitácora de ajustes con importe anterior y actualizado, más reciente primero.
+     *
+     * @return list<array{concepto: string, anterior: float, actualizado: float, motivo: string, usuario: string|null, fecha: string|null}>
+     */
+    public function historialAjustes(FiniquitoCalculo $finiquito): array
+    {
+        $finiquito->loadMissing(['ajustes.usuario:id,name,apellidos']);
+        $previo = [];
+        $historial = [];
+
+        foreach ($finiquito->ajustes->sortBy('id') as $ajuste) {
+            $anterior = $previo[$ajuste->concepto_clave] ?? (float) $ajuste->valor_calculado;
+            $historial[] = [
+                'concepto' => $ajuste->concepto,
+                'anterior' => $anterior,
+                'actualizado' => (float) $ajuste->valor_final,
+                'motivo' => $ajuste->motivo,
+                'usuario' => $ajuste->usuario !== null ? trim($ajuste->usuario->name.' '.$ajuste->usuario->apellidos) : null,
+                'fecha' => $ajuste->created_at?->toDateTimeString(),
+            ];
+            $previo[$ajuste->concepto_clave] = (float) $ajuste->valor_final;
+        }
+
+        return array_reverse($historial);
     }
 
     /**
@@ -381,6 +455,7 @@ class FiniquitoService
             'adeudos' => 0,
             'total_ajustado' => $automaticos['total_calculado'],
             'estado' => EstadoFiniquito::Borrador->value,
+            'tipo_documento' => $this->tipoPropuesto($solicitud),
         ]);
         $finiquito->setRelation('colaborador', $colaborador);
         $finiquito->setRelation('solicitudInterna', $solicitud);
@@ -504,9 +579,9 @@ class FiniquitoService
      * Confirmación administrativa del pago del finiquito (el sistema no
      * dispersa pagos: RH registra que el pago se realizó y su referencia).
      */
-    public function confirmarPago(FiniquitoCalculo $finiquito, User $actor, string $referencia): FiniquitoCalculo
+    public function confirmarPago(FiniquitoCalculo $finiquito, User $actor, string $referencia, ?Carbon $fecha = null): FiniquitoCalculo
     {
-        return DB::transaction(function () use ($finiquito, $actor, $referencia): FiniquitoCalculo {
+        return DB::transaction(function () use ($finiquito, $actor, $referencia, $fecha): FiniquitoCalculo {
             $finiquito = FiniquitoCalculo::query()->lockForUpdate()->findOrFail($finiquito->id);
 
             if ($finiquito->pagado_en !== null) {
@@ -518,7 +593,7 @@ class FiniquitoService
             }
 
             $finiquito->update([
-                'pagado_en' => now(),
+                'pagado_en' => $fecha ?? now(),
                 'pago_confirmado_por' => $actor->id,
                 'referencia_pago' => $referencia,
                 'estado' => EstadoFiniquito::Pagado->value,
@@ -614,6 +689,11 @@ class FiniquitoService
 
         $this->asegurarNoFirmado($finiquito);
 
+        return $this->guardarFirmado($finiquito, $archivo, $actor);
+    }
+
+    private function guardarFirmado(FiniquitoCalculo $finiquito, UploadedFile $archivo, User $actor): FiniquitoCalculo
+    {
         // Extensión del contenido real (una foto JPG llamada «.pdf» se guarda
         // como .jpg), para que la descarga sirva el tipo correcto.
         $nombreInterno = $this->storage->nombreInterno(sprintf('firmado.%s', ExtensionArchivo::real($archivo)));
@@ -657,6 +737,22 @@ class FiniquitoService
         $this->registrarHistorial($finiquito->solicitudInterna, $actor, 'finiquito_firmado_subido');
 
         return $finiquito->refresh();
+    }
+
+    /**
+     * Pestaña Finiquitos (PDF Etapa 1, F4): RH sube el recibo firmado desde
+     * «Revisado». El archivo no reemplaza al generado: queda aparte y con copia
+     * en el expediente. Desde aquí el finiquito es de solo lectura.
+     */
+    public function registrarFirmado(FiniquitoCalculo $finiquito, UploadedFile $archivo, User $actor): FiniquitoCalculo
+    {
+        $this->asegurarNoFirmado($finiquito);
+
+        if (! in_array($finiquito->estado, [EstadoFiniquito::Revisado, EstadoFiniquito::Aprobado], true)) {
+            throw ValidationException::withMessages(['estado' => 'Marca el finiquito como revisado antes de subir el recibo firmado.']);
+        }
+
+        return $this->guardarFirmado($finiquito, $archivo, $actor);
     }
 
     /**
@@ -1025,7 +1121,15 @@ class FiniquitoService
             return 0.0;
         }
 
-        if ($solicitud->causalRotacion?->excluye_indemnizacion === true) {
+        $causal = $solicitud->causalRotacion;
+
+        if ($causal?->excluye_indemnizacion === true) {
+            return 0.0;
+        }
+
+        // Con causal del catálogo, manda su marca «Implica indemnización». Sin
+        // causal (bajas anteriores al catálogo) se conserva la regla por tipo.
+        if ($causal !== null && ! $causal->implica_indemnizacion) {
             return 0.0;
         }
 
