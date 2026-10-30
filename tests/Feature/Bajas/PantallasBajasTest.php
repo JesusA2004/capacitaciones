@@ -78,7 +78,7 @@ test('registro, bandeja «Bajas», expediente y tablero cargan', function () {
     $this->actingAs($this->rh)->get(route('reportes.rotacion.tablero.index'))
         ->assertOk()
         // por_forma incluye las 4 formas de salida: RV, NR, RE y OT.
-        ->assertInertia(fn ($p) => $p->component('Reportes/TableroRotacion')->has('tablero.tendencia', 12)->has('tablero.resumen.por_forma', 4));
+        ->assertInertia(fn ($p) => $p->component('Reportes/TableroRotacion')->has('tablero.tendencia', now()->month)->has('tablero.resumen.por_forma', 4));
 });
 
 test('ciclo laboral: el «Iniciar baja» trae las formas con causales y los catálogos del registro', function () {
