@@ -17,6 +17,11 @@ on:
 permissions:
   contents: read
 
+# La suite tarda cerca de dos horas: un push nuevo cancela la corrida anterior de la misma rama.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -77,4 +82,13 @@ jobs:
         run: npm run types:check
 
       - name: Tests
-        run: php artisan test
+        run: php artisan test --log-junit junit-${{ matrix.php-version }}.xml
+
+      - name: Guardar resultado de pruebas
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-${{ matrix.php-version }}
+          path: junit-${{ matrix.php-version }}.xml
+          if-no-files-found: warn
+          retention-days: 7
