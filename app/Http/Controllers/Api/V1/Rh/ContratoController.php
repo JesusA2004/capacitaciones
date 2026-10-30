@@ -31,7 +31,7 @@ class ContratoController extends Controller
         ]);
     }
 
-    public function delColaborador(Colaborador $colaborador): JsonResponse
+    public function delColaborador(Request $request, Colaborador $colaborador): JsonResponse
     {
         $this->authorize('verContratos', $colaborador);
 

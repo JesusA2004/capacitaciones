@@ -72,7 +72,8 @@ test('la API de contratos, alta y ciclo no le entrega el sueldo al gerente', fun
         route('api.v1.rh.colaboradores.alta', $this->colaborador),
         route('api.v1.rh.colaboradores.ciclo', $this->colaborador),
     ] as $url) {
-        expect($this->getJson($url)->getContent())->not->toContain('17345');
+        // Un 500 o un 403 tampoco traen el sueldo: la respuesta debe ser real.
+        expect($this->getJson($url)->assertOk()->getContent())->not->toContain('17345');
     }
 });
 

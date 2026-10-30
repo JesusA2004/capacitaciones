@@ -57,7 +57,7 @@ class AltaColaboradorController extends Controller
         ], $resultado['reutilizada'] ? 200 : 201);
     }
 
-    public function show(Colaborador $colaborador): JsonResponse
+    public function show(Request $request, Colaborador $colaborador): JsonResponse
     {
         $this->authorize('verAlta', $colaborador);
 
