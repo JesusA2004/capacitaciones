@@ -126,6 +126,16 @@ Commit: relajar exclusión de gestores + tarjeta/filtro/etiqueta "Datos por comp
 
 **Pendientes externos:** textos de convenio, aviso y constancia son formatos base con nota visible hasta que Jurídico los valide; fundamento de RE-02 y RE-05 sin fracción capturada (el catálogo no la citaba); beneficiarios en OT-01.
 
+## Bajas 2b — Expediente único, corrección y catálogo administrable (pedido del usuario, 2026-10-30)
+
+| Requisito | Implementación | Prueba | Estado |
+|---|---|---|---|
+| Baja y finiquito en una sola pantalla | `PanelFiniquito.vue` en el expediente y en la pestaña Finiquitos, mismo registro | `CorreccionYCatalogoBajasTest`; navegador en copia aislada | Probado y aprobado |
+| Corregir documento con vista previa regenerada | `EditorDocumentoSalida.vue`, `baja_documento_ediciones`; convenio, aviso y constancia: lugar y fecha, texto principal, fundamento (aviso) y texto adicional; carta: datos variables del maestro, sin los de la empresa | Pest; carta con maestro real en local (en CI se omite); convenio en navegador | Probado y aprobado |
+| Corregir importes con vista previa | `FiniquitoService::vistaPreviaCorregida` (en memoria) y `corregir` (un motivo, bitácora, regresa a Calculado); firmado o pagado: 403 | Pest; navegador | Probado y aprobado |
+| Catálogo administrable | Subcatálogos `causal_grupos` por forma, documento que genera por causal, historial en pantalla; permisos `causales_rotacion.*` asignables | Pest; navegador | Probado y aprobado |
+| Formas de salida nuevas | Las 4 formas siguen fijas: deciden documento, finiquito y rotación. RH agrega subcatálogos y causales dentro de ellas | — | Decisión registrada |
+
 ## Incremento 3 — Rotación unificada (estado comprobado 2026-10-30)
 
 Estados permitidos por el encargo. Las filas R1-R7 del diagnóstico inicial quedan sustituidas por esta tabla. Detalle de reglas: `docs/BAJAS_Y_CAUSALES.md`, sección «Rotación: un solo motor».
