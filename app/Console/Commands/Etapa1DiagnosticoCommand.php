@@ -127,7 +127,8 @@ class Etapa1DiagnosticoCommand extends Command
             $grupos = $this->stringList(config('directorio.excluir_grupos', []));
             $patrones = $this->stringList(config('directorio.excluir_puestos', []));
 
-            $excluidos = DB::table('colaboradores')
+            // Sin grupos ni patrones configurados no hay exclusión: un where vacío contaría a todos.
+            $excluidos = $grupos === [] && $patrones === [] ? 0 : DB::table('colaboradores')
                 ->join('puestos', 'colaboradores.puesto_id', '=', 'puestos.id')
                 ->where('colaboradores.estatus', 'activo')
                 ->where(function ($q) use ($grupos, $patrones): void {
