@@ -37,6 +37,7 @@ const errores = computed(() =>
 const procesando = ref(false);
 const motivo = ref('');
 const pidiendoVersion = ref(false);
+const huellaRegistrada = ref(false);
 
 const opciones = [
     {
@@ -114,7 +115,11 @@ function generar() {
     );
 }
 
-function subir(url: string, evento: Event) {
+function subir(
+    url: string,
+    evento: Event,
+    extra: Record<string, boolean> = {},
+) {
     const entrada = evento.target as HTMLInputElement;
     const archivo = entrada.files?.[0];
     entrada.value = '';
@@ -126,7 +131,7 @@ function subir(url: string, evento: Event) {
     procesando.value = true;
     router.post(
         url,
-        { archivo },
+        { archivo, ...extra },
         {
             forceFormData: true,
             preserveScroll: true,
@@ -477,6 +482,13 @@ function validarPlazo() {
                     >Nueva versión</Button
                 >
                 <label
+                    v-if="panel.generado.requiere_huella && !panel.generado.firmado"
+                    class="inline-flex items-center gap-1.5 text-xs"
+                >
+                    <input v-model="huellaRegistrada" type="checkbox" />
+                    Se recabó la huella
+                </label>
+                <label
                     class="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl bg-[var(--mrl-dorado)] px-3 text-sm font-medium text-white hover:opacity-90"
                 >
                     <FileUp class="size-4" />Subir firmado
@@ -488,6 +500,7 @@ function validarPlazo() {
                             subir(
                                 rutasSalida.firmado.url(panel.baja_id),
                                 $event,
+                                { huella_registrada: huellaRegistrada },
                             )
                         "
                     />

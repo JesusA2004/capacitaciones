@@ -133,9 +133,12 @@ test('escenario 19: el generador de salida produce la carta RV con el documento 
 
     $this->actingAs($rh)->get(route('rh.bajas.salida.descargar', $baja))->assertOk()->assertHeader('Content-Type', 'application/pdf');
 
-    $this->actingAs($rh)->post(route('rh.bajas.salida.firmado', $baja), [
-        'archivo' => UploadedFile::fake()->create('carta-firmada.pdf', 40, 'application/pdf'),
-    ])->assertSessionHasNoErrors();
+    // La carta real pide huella: sin confirmarla no se acepta el firmado.
+    $archivo = fn () => UploadedFile::fake()->create('carta-firmada.pdf', 40, 'application/pdf');
+    $this->actingAs($rh)->post(route('rh.bajas.salida.firmado', $baja), ['archivo' => $archivo()])->assertSessionHasErrors('huella_registrada');
+    expect(BajaDocumento::query()->where('baja_id', $baja->id)->where('clasificacion', 'firmado_salida')->exists())->toBeFalse();
+
+    $this->actingAs($rh)->post(route('rh.bajas.salida.firmado', $baja), ['archivo' => $archivo(), 'huella_registrada' => true])->assertSessionHasNoErrors();
 
     $firmado = BajaDocumento::query()->where('baja_id', $baja->id)->where('clasificacion', 'firmado_salida')->sole();
     expect($firmado->nombre_original)->toBe('carta-firmada.pdf')

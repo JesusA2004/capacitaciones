@@ -92,6 +92,7 @@ class BajaDocumentoSalidaService
                 'version' => $this->proceso->numeroVersion($vigente),
                 'fecha' => $vigente->created_at?->toDateTimeString(),
                 'firmado' => $vigente->estado_flujo?->firmaFisicaRegistrada() ?? false,
+                'requiere_huella' => (bool) $vigente->requiere_huella,
                 'desactualizado' => $aviso !== null && $vigente->created_at !== null && $aviso->updated_at !== null && $aviso->updated_at->gt($vigente->created_at),
             ] : null,
             'firmados' => array_values($baja->documentos->where('clasificacion', self::FIRMADO)->map(fn (BajaDocumento $d): array => $this->documentos->archivoArray($d))->all()),
@@ -353,7 +354,7 @@ class BajaDocumentoSalidaService
      * pasa de «Pendiente» a «Adjunto» y el generado queda como firmado. Es
      * un archivo más: no reemplaza al generado ni a cargas anteriores.
      */
-    public function subirFirmado(Baja $baja, UploadedFile $archivo, User $actor): BajaDocumento
+    public function subirFirmado(Baja $baja, UploadedFile $archivo, User $actor, bool $huellaRegistrada = false): BajaDocumento
     {
         $this->exigirAbierta($baja);
         [$documento, $cierre] = $this->preparar($baja);
@@ -361,6 +362,11 @@ class BajaDocumentoSalidaService
 
         if ($vigente === null) {
             throw ValidationException::withMessages(['archivo' => 'Primero genera el documento para firma.']);
+        }
+
+        // Sin esta confirmación el flujo no avanzaría y el original firmado quedaría sustituible.
+        if ($vigente->requiere_huella && ! $huellaRegistrada) {
+            throw ValidationException::withMessages(['huella_registrada' => 'Este documento requiere huella: confirma que se recabó antes de subir el firmado.']);
         }
 
         $espacio = DocumentoRequeridoBaja::query()->where('clave', $documento->espacioRequerido())->first();
@@ -375,7 +381,7 @@ class BajaDocumentoSalidaService
                     $vigente = $this->flujo->marcarImpreso($vigente, $actor);
                 }
 
-                $this->flujo->registrarFirmaFisica($vigente, $actor, ['observaciones' => sprintf('Firmado cargado a la baja %s.', $baja->folio)]);
+                $this->flujo->registrarFirmaFisica($vigente, $actor, ['huella_registrada' => $huellaRegistrada, 'observaciones' => sprintf('Firmado cargado a la baja %s.', $baja->folio)]);
             } catch (Throwable $e) {
                 Log::warning('BajaDocumentoSalidaService: el firmado se adjuntó pero el flujo del generado no avanzó.', ['baja_id' => $baja->id, 'documento_id' => $vigente->id, 'error' => $e->getMessage()]);
             }

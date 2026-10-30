@@ -70,7 +70,7 @@ class BajaDocumentoSalidaController extends Controller
         $this->authorize('documentoSalida', $baja);
         $archivo = $request->file('archivo');
         abort_unless($archivo instanceof UploadedFile, 422, 'Elige un archivo.');
-        $this->salida->subirFirmado($baja, $archivo, $request->user());
+        $this->salida->subirFirmado($baja, $archivo, $request->user(), $request->boolean('huella_registrada'));
 
         return $this->ok('Documento firmado adjunto al expediente.');
     }

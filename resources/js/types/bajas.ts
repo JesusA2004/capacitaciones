@@ -156,6 +156,7 @@ export type PanelDocumentoSalida = {
         version: number;
         fecha: string | null;
         firmado: boolean;
+        requiere_huella: boolean;
         desactualizado: boolean;
     } | null;
     firmados: ArchivoBaja[];

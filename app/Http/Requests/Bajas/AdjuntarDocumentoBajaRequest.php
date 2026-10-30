@@ -26,6 +26,7 @@ class AdjuntarDocumentoBajaRequest extends FormRequest
             // Un espacio que no existe se rechaza: antes el archivo caía en
             // silencio en «Otros documentos» y el espacio pedido (p. ej. el
             // finiquito firmado) seguía pendiente.
+            'huella_registrada' => ['nullable', 'boolean'],
             'documento_requerido_id' => ['nullable', 'integer', Rule::exists(DocumentoRequeridoBaja::class, 'id')],
         ];
     }
