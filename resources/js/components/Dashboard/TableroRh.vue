@@ -127,10 +127,10 @@ const tarjetas = computed(() => [
         clave: 'plantilla',
         titulo: 'Plantilla activa',
         icono: Users,
-        valor: numero.format(s.value.plantilla_activa.valor),
-        // Misma base que "Cobertura de plantilla": plazas autorizadas
-        // ocupadas (quien está en un puesto sin plantilla no cubre plaza).
-        detalle: `${numero.format(s.value.plantilla_activa.valor)} de ${numero.format(s.value.plantilla_activa.autorizada)} plazas autorizadas ocupadas · ${numero.format(s.value.plantilla_activa.vacantes)} por cubrir`,
+        // Personas activas (misma cifra que el Directorio); la cobertura se
+        // mide sobre plazas ocupadas: quien está sin plaza no cubre una.
+        valor: numero.format(s.value.plantilla_activa.poblacion.total.activos),
+        detalle: `Corporativo ${numero.format(s.value.plantilla_activa.poblacion.corporativo.activos)} · Sucursales ${numero.format(s.value.plantilla_activa.poblacion.sucursales.activos)} · ${numero.format(s.value.plantilla_activa.valor)} de ${numero.format(s.value.plantilla_activa.autorizada)} plazas ocupadas`,
         avance: Math.min(100, s.value.plantilla_activa.porcentaje),
     },
     {

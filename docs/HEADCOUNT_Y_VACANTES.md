@@ -40,6 +40,35 @@ Headcount cuenta **posiciones autorizadas**, no personas actuales. Por sucursal,
 
 Observaciones del Excel real (28-08-2026), reportadas sin corregir: San Juan del Río no autoriza gerente ni subgerente; Tenango del Valle no autoriza gerente ni trae renglón de Gestor; Atlixco no autoriza coordinadora. Ninguna sucursal autoriza más de 1 gerente o 1 subgerente.
 
+### Fuente única: `HeadcountService::poblacion()`
+
+Tablero, Directorio, Reportes (`plantilla_conciliacion`) y la conciliación de plazas leen estas definiciones. Se calculan por par (sucursal, puesto) y se devuelven en `total`, `corporativo` y `sucursales`:
+
+| Cifra | Definición |
+|---|---|
+| Autorizadas | Plazas de `headcount_targets`. |
+| Activos | Colaboradores con estatus `activo`. Es «Personas activas» en Tablero y Directorio. |
+| En incorporación | Vigentes por otra condición: contratados aún sin activar. Ocupan plaza, pero no aparecen en el Directorio. |
+| Vigentes | Activos + en incorporación. |
+| Ocupadas | `min(vigentes, autorizadas)` por par. Nunca excede lo autorizado. |
+| Vacantes | `max(autorizadas − vigentes, 0)` por par. |
+| Excedentes | Vigentes por encima de las plazas de un par que sí tiene plazas. |
+| Fuera de plantilla | Vigentes en un par sin ninguna plaza autorizada. |
+| Sin ubicación | Vigentes sin sucursal o sin puesto. Toda la empresa los cuenta en `sucursales` para no perderlos. |
+| Cobertura | Ocupadas ÷ autorizadas × 100; 0 si no hay plazas autorizadas. |
+
+Invariantes: vigentes = ocupadas + excedentes + fuera de plantilla + sin ubicación; autorizadas = ocupadas + vacantes; total = corporativo + sucursales.
+
+Por eso «Autorizadas − Activos» solo equivale a Vacantes cuando no hay excedentes, personas fuera de plantilla ni personas en incorporación. Nadie se oculta para cuadrar la cifra.
+
+### Conciliar plazas desde Excel
+
+Configuración → Importar datos → **Plazas autorizadas** (solo `headcount.importar`, super_admin). Lee `Sucursal | Puesto | Plazas autorizadas`, con Corporativo como una ubicación más; el botón «Descargar formato» trae los catálogos válidos y ninguna plaza de ejemplo.
+
+- Vista previa guardada en `importaciones_excel` (`tipo = plazas_autorizadas`) con conciliación antes → después; no escribe plazas.
+- Una sucursal o puesto inexistente, un número inválido o un par duplicado bloquean toda la aplicación. Las plazas que el archivo no menciona se conservan y se listan.
+- Aplicar exige motivo, rechaza el archivo ya aplicado y aborta si una plaza cambió desde la vista previa. Escribe con `PlantillaAutorizadaService` (bitácora con fuente `excel:plazas` y sincronización de vacantes) y registra la actividad en `headcount`.
+
 ### Cumplimiento / eficiencia
 
 `HeadcountService::totalesGenerales()`/`resumenPorSucursal()`/`resumenPorPuesto()` calculan plantilla autorizada, plantilla ocupada, vacantes derivadas y % de cumplimiento — usados por el detalle de sucursal y por el KPI "Cumplimiento headcount" del dashboard (`docs/REPORTES.md`).

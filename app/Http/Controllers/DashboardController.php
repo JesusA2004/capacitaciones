@@ -63,7 +63,7 @@ class DashboardController extends Controller
     }
 
     /**
-     * @return array{nombre: string, pendientes: int, vencidos: int, indicadores: array{vacantes: int, en_proceso: int, por_vencer: int, dias_por_vencer: int, plantilla: array{autorizada: int, ocupada: int, vacantes: int, cumplimiento: float, personas_activas: int, fuera_de_plantilla: int}, expedientes_incompletos: int|null}}
+     * @return array{nombre: string, pendientes: int, vencidos: int, indicadores: array{vacantes: int, en_proceso: int, por_vencer: int, dias_por_vencer: int, plantilla: array{autorizada: int, ocupada: int, vacantes: int, cumplimiento: float, personas_activas: int, fuera_de_plantilla: int, activos: int}, expedientes_incompletos: int|null}}
      */
     private function inicioOperativo(User $usuario): array
     {

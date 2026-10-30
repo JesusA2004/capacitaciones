@@ -83,8 +83,8 @@ const cifrasPlantilla = computed(() => [
     {
         clave: 'activa',
         titulo: 'Plantilla activa',
-        valor: plantilla.value.ocupada,
-        nota: 'plazas ocupadas por colaboradores activos',
+        valor: plantilla.value.activos,
+        nota: `personas activas · ${plantilla.value.ocupada} plazas ocupadas`,
         icono: Users,
         href: tienePermiso('sucursales.administrar')
             ? sucursalesIndex.url()

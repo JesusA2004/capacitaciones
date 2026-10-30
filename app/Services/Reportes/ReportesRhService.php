@@ -16,9 +16,11 @@ use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
 use App\Models\MovimientoLaboral;
 use App\Models\SolicitudInterna;
+use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Expedientes\ExpedienteService;
+use App\Services\Headcount\HeadcountService;
 use App\Services\Vacaciones\VacacionesService;
 use App\Services\Vacantes\VacantesListadoService;
 use Carbon\CarbonImmutable;
@@ -45,6 +47,7 @@ class ReportesRhService
         private readonly ExpedienteService $expediente,
         private readonly VacacionesService $vacaciones,
         private readonly VacantesListadoService $vacantesListado,
+        private readonly HeadcountService $headcount,
     ) {}
 
     /**
@@ -56,12 +59,11 @@ class ReportesRhService
     {
         return [
             ['grupo' => 'Plantilla', 'opciones' => [
+                ['value' => 'plantilla_conciliacion', 'label' => 'Plantilla autorizada, activa y vacantes'],
                 ['value' => 'empleados_total', 'label' => 'Número de empleados'],
                 ['value' => 'empleados_por_empresa', 'label' => 'Empleados por empresa'],
                 ['value' => 'empleados_por_sucursal', 'label' => 'Empleados por sucursal'],
                 ['value' => 'empleados_por_puesto', 'label' => 'Empleados por puesto'],
-                ['value' => 'empleados_por_genero', 'label' => 'Hombres y mujeres (general)'],
-                ['value' => 'genero_por_sucursal', 'label' => 'Hombres y mujeres por sucursal'],
                 ['value' => 'empleados_por_genero', 'label' => 'Hombres y mujeres (general)'],
                 ['value' => 'genero_por_sucursal', 'label' => 'Hombres y mujeres por sucursal'],
                 ['value' => 'empleados_imss', 'label' => 'Empleados con/sin IMSS'],
@@ -104,6 +106,7 @@ class ReportesRhService
     public function generar(string $clave, User $usuario, array $filtros): array
     {
         return match ($clave) {
+            'plantilla_conciliacion' => $this->plantillaConciliacion($usuario, $filtros),
             'empleados_total' => $this->empleadosTotal($usuario, $filtros),
             'empleados_por_empresa' => $this->empleadosAgrupados($usuario, $filtros, fn (Colaborador $u) => $u->empresa()->nombre ?? 'Sin empresa', 'Empleados por empresa', 'Empresa'),
             'empleados_por_sucursal' => $this->empleadosAgrupados($usuario, $filtros, fn (Colaborador $u) => $u->sucursalPrincipal->nombre ?? 'Sin sucursal', 'Empleados por sucursal', 'Sucursal'),
@@ -177,6 +180,54 @@ class ReportesRhService
             ->pluck('user.id')
             ->filter()
             ->values();
+    }
+
+    /**
+     * Conciliación por ubicación con la fuente única (HeadcountService::poblacion):
+     * las mismas cifras del Tablero y del Directorio, Corporativo al final.
+     *
+     * @param  array<string, mixed>  $filtros
+     * @return Reporte
+     */
+    private function plantillaConciliacion(User $usuario, array $filtros): array
+    {
+        $global = $this->alcance->tieneAlcanceGlobal($usuario);
+        $visibles = $this->alcance->sucursalesVisiblesIds($usuario);
+        $sucursalId = (int) ($filtros['sucursal_id'] ?? 0);
+        $empresaId = (int) ($filtros['empresa_id'] ?? 0);
+
+        $sucursales = Sucursal::query()
+            ->whereIn('id', $visibles)
+            ->when($sucursalId > 0, fn (Builder $q) => $q->whereKey($sucursalId))
+            ->when($empresaId > 0, fn (Builder $q) => $q->where('empresa_id', $empresaId))
+            ->orderBy('es_corporativo')
+            ->orderBy('nombre')
+            ->get(['id', 'nombre']);
+
+        $fila = fn (string $ubicacion, array $s): array => [$ubicacion, $s['autorizadas'], $s['activos'], $s['en_incorporacion'], $s['ocupadas'], $s['vacantes'], $s['excedentes'], $s['fuera_de_plantilla'], $s['sin_ubicacion'], $s['cobertura']];
+
+        $filas = [];
+        foreach ($sucursales as $sucursal) {
+            $poblacion = $this->headcount->poblacion(collect([(int) $sucursal->id]));
+
+            if ($poblacion['total']['autorizadas'] > 0 || $poblacion['total']['vigentes'] > 0) {
+                $filas[] = $fila($sucursal->nombre, $poblacion['total']);
+            }
+        }
+
+        $completa = $global && $sucursalId === 0 && $empresaId === 0;
+        $total = $this->headcount->poblacion($completa ? null : $sucursales->pluck('id')->map(fn ($id) => (int) $id));
+
+        return [
+            'titulo' => 'Plantilla autorizada, activa y vacantes',
+            'columnas' => ['Ubicación', 'Autorizadas', 'Activos', 'En incorporación', 'Ocupadas', 'Vacantes', 'Excedentes', 'Fuera de plantilla', 'Sin sucursal o puesto', 'Cobertura %'],
+            'filas' => [
+                ...$filas,
+                $fila('Subtotal Corporativo', $total['corporativo']),
+                $fila('Subtotal Sucursales', $total['sucursales']),
+                $fila('Total', $total['total']),
+            ],
+        ];
     }
 
     /**

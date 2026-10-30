@@ -442,6 +442,22 @@ export type PlantillaHeadcount = {
     cumplimiento: number;
     personas_activas: number;
     fuera_de_plantilla: number;
+    /** Colaboradores con estatus activo: misma cifra que el Directorio. */
+    activos: number;
+};
+
+/** Un segmento de HeadcountService::poblacion(), la fuente única de plantilla. */
+export type SegmentoPoblacion = {
+    autorizadas: number;
+    ocupadas: number;
+    vacantes: number;
+    excedentes: number;
+    fuera_de_plantilla: number;
+    sin_ubicacion: number;
+    activos: number;
+    en_incorporacion: number;
+    vigentes: number;
+    cobertura: number;
 };
 
 export type TableroRhDatos = {
@@ -454,6 +470,11 @@ export type TableroRhDatos = {
             vacantes: number;
             personas_activas: number;
             fuera_de_plantilla: number;
+            poblacion: {
+                total: SegmentoPoblacion;
+                corporativo: SegmentoPoblacion;
+                sucursales: SegmentoPoblacion;
+            };
         };
         vacantes_abiertas: {
             valor: number;

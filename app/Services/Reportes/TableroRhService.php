@@ -131,7 +131,7 @@ class TableroRhService
      * `vacantes` = plazas por cubrir de RH → Vacantes (misma consulta y
      * resumen que esa pantalla, VacantesListadoService).
      *
-     * @return array{vacantes: int, en_proceso: int, por_vencer: int, dias_por_vencer: int, plantilla: array{autorizada: int, ocupada: int, vacantes: int, cumplimiento: float, personas_activas: int, fuera_de_plantilla: int}}
+     * @return array{vacantes: int, en_proceso: int, por_vencer: int, dias_por_vencer: int, plantilla: array{autorizada: int, ocupada: int, vacantes: int, cumplimiento: float, personas_activas: int, fuera_de_plantilla: int, activos: int}}
      */
     public function inicio(User $usuario): array
     {
@@ -148,6 +148,7 @@ class TableroRhService
                 'cumplimiento' => $headcount['cumplimiento'],
                 'personas_activas' => $headcount['personas_activas'],
                 'fuera_de_plantilla' => $headcount['fuera_de_plantilla'],
+                'activos' => $this->headcount->poblacion($global ? null : $sucursales)['total']['activos'],
             ],
             'dias_por_vencer' => $this->diasAvisoVencimiento(),
             'en_proceso' => $this->candidatos($sucursales, $global)
@@ -215,6 +216,9 @@ class TableroRhService
                 'vacantes' => $cobertura['vacantes'],
                 'personas_activas' => $cobertura['personas_activas'],
                 'fuera_de_plantilla' => $cobertura['fuera_de_plantilla'],
+                // Fuente única: Personas activas y desglose Corporativo/Sucursales
+                // iguales a los del Directorio y Reportes.
+                'poblacion' => $this->headcount->poblacion($todas ? null : $sucursales),
             ],
             'vacantes_abiertas' => ['valor' => $vacantesSucursales + $vacantesCorporativo, 'sucursales' => $vacantesSucursales, 'corporativo' => $vacantesCorporativo],
             'rotacion_mes' => ['porcentaje' => $rotacionMes['porcentaje'], 'bajas' => $rotacionMes['bajas'], 'plantilla_final' => $rotacionMes['plantilla_final']],
