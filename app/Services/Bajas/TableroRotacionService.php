@@ -144,6 +144,17 @@ class TableroRotacionService
     }
 
     /**
+     * Rotación acumulada del año al mes dado, con la misma definición de la pestaña Rotación.
+     *
+     * @param  Collection<int, int>  $sucursales  Ya resueltas por el alcance de quien llama.
+     * @return array{anio: int, bajas: int, plantilla_promedio: float|null, indice: float|null, meses: int}
+     */
+    public function acumuladoParaTablero(Collection $sucursales, CarbonImmutable $hasta): array
+    {
+        return $this->acumulado($hasta->startOfYear(), $hasta->startOfMonth(), $sucursales, ['forma' => null, 'causal_id' => null, 'puesto_id' => null]);
+    }
+
+    /**
      * Tabla exportable (Excel/PDF) de la vista activa, con sus filtros.
      *
      * @param  array<string, mixed>  $entrada

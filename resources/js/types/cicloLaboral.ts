@@ -502,6 +502,16 @@ export type TableroRhDatos = {
         permanencia_promedio: { meses: number | null; colaboradores: number };
         contratos_por_vencer: { valor: number; dias: number };
         inversion_campanas_mes: { valor: number; campanas: number };
+        altas_mes: { valor: number };
+        rotacion_acumulada: {
+            anio: number;
+            porcentaje: number | null;
+            bajas: number;
+            plantilla_promedio: number | null;
+        };
+        reclutamiento: { en_proceso: number; contratados_mes: number };
+        /** null = el usuario no puede revisar expedientes. */
+        expedientes_incompletos: { valor: number | null };
     };
     recruitment_funnel: { clave: string; etiqueta: string; total: number }[];
     time_to_hire_by_level: {
@@ -524,6 +534,7 @@ export type TableroRhDatos = {
     headcount_by_branch: {
         sucursal_id: number;
         sucursal: string;
+        es_corporativo: boolean;
         plantilla_autorizada: number;
         plantilla_actual: number;
         vacantes: number;

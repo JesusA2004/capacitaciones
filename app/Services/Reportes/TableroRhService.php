@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Bajas\TableroRotacionService;
 use App\Services\Contratos\ContratoLaboralService;
+use App\Services\Expedientes\DatosFaltantesService;
 use App\Services\Headcount\HeadcountService;
 use App\Services\Reclutamiento\CostoReclutamientoService;
 use App\Services\Vacantes\VacantesListadoService;
@@ -58,6 +59,7 @@ class TableroRhService
         private readonly TableroRotacionService $rotacion,
         private readonly CostoReclutamientoService $costoReclutamiento,
         private readonly ContratoLaboralService $contratos,
+        private readonly DatosFaltantesService $datosFaltantes,
     ) {}
 
     /**
@@ -96,12 +98,18 @@ class TableroRhService
         // resolvió por alcance; la misma serie alimenta el KPI y la tendencia.
         $serieRotacion = $this->rotacion->serieParaTablero($sucursales, $fin, $meses);
 
+        // Corporativo se distingue para mostrarlo siempre al final de la lista.
+        $corporativas = Sucursal::query()->whereIn('id', $sucursales)->where('es_corporativo', true)->pluck('id')->map(fn ($id) => (int) $id);
+
         return [
             'summary' => $this->resumen($usuario, $sucursales, $todas, $inicio, $fin, $this->rotacionDelMes($serieRotacion, $fin)),
-            'recruitment_funnel' => $this->embudo($sucursales, $todas, $inicio, $fin),
-            'time_to_hire_by_level' => $this->tiempoPorNivel($sucursales, $todas, $fin),
+            // El periodo del tablero (6, 12 o 24 meses) acota embudo y tiempos.
+            'recruitment_funnel' => $this->embudo($sucursales, $todas, $fin->subMonths($meses - 1)->startOfMonth(), $fin),
+            'time_to_hire_by_level' => $this->tiempoPorNivel($sucursales, $todas, $fin, $meses),
             'turnover_monthly' => $this->turnoverMensual($serieRotacion, $meses),
-            'headcount_by_branch' => $this->headcount->resumenPorSucursal($sucursales)->values()->all(),
+            'headcount_by_branch' => $this->headcount->resumenPorSucursal($sucursales)
+                ->map(fn (array $fila): array => [...$fila, 'es_corporativo' => $corporativas->contains($fila['sucursal_id'])])
+                ->values()->all(),
             'filters' => [
                 'mes' => $mes->format('Y-m'),
                 'periodo_etiqueta' => ucfirst($mes->settings(['locale' => 'es'])->translatedFormat('F Y')),
@@ -202,6 +210,7 @@ class TableroRhService
         // Contratos por vencer: criterio del módulo de contratos (alcance +
         // ventana configurable), intersectado con las sucursales del tablero
         // para honrar el filtro de empresa/sucursal.
+        $acumulada = $this->rotacion->acumuladoParaTablero($sucursales, $fin);
         $diasAviso = $this->diasAvisoVencimiento();
         $porVencer = $this->contratos->porVencer($usuario, $diasAviso)
             ->filter(fn (ContratoLaboral $c): bool => $sucursales->contains($c->colaborador->sucursal_principal_id))
@@ -221,11 +230,26 @@ class TableroRhService
             ],
             'vacantes_abiertas' => ['valor' => $vacantesSucursales + $vacantesCorporativo, 'sucursales' => $vacantesSucursales, 'corporativo' => $vacantesCorporativo],
             'rotacion_mes' => ['porcentaje' => $rotacionMes['porcentaje'], 'bajas' => $rotacionMes['bajas'], 'plantilla_promedio' => $rotacionMes['plantilla_promedio'], 'semaforo' => $rotacionMes['semaforo']],
-            'costo_por_contratacion' => ['valor' => $costo['costo_por_contratacion'], 'inversion' => $costo['gasto_total'], 'contratados' => $costo['contrataciones']],
+            // Sin inversión real capturada no hay costo que presentar: $0 sería falso.
+            'costo_por_contratacion' => ['valor' => $costo['gasto_total'] > 0 ? $costo['costo_por_contratacion'] : null, 'inversion' => $costo['gasto_total'], 'contratados' => $costo['contrataciones']],
             'tiempo_contratacion' => ['dias' => $dias->isEmpty() ? null : round((float) $dias->avg(), 1), 'contratados' => $contratados->count()],
             'permanencia_promedio' => ['meses' => $antiguedades->isEmpty() ? null : round((float) $antiguedades->avg(), 1), 'colaboradores' => $antiguedades->count()],
             'contratos_por_vencer' => ['valor' => $porVencer, 'dias' => $diasAviso],
             'inversion_campanas_mes' => ['valor' => $costo['gasto_total'], 'campanas' => $costo['campanas']],
+            // Altas por fecha de ingreso, incluida quien ya causó baja: sí entró ese mes.
+            'altas_mes' => ['valor' => Colaborador::withTrashed()->whereIn('sucursal_principal_id', $sucursales)->whereBetween('fecha_ingreso', [$inicio->toDateString(), $fin->toDateString()])->count()],
+            'rotacion_acumulada' => ['anio' => $acumulada['anio'], 'porcentaje' => $acumulada['indice'], 'bajas' => $acumulada['bajas'], 'plantilla_promedio' => $acumulada['plantilla_promedio']],
+            'reclutamiento' => [
+                'en_proceso' => $this->candidatos($sucursales, $todas)
+                    ->whereNotIn('estado', array_map(fn (EstadoCandidato $e) => $e->value, array_filter(EstadoCandidato::cases(), fn (EstadoCandidato $e) => $e->esTerminal())))
+                    ->count(),
+                'contratados_mes' => $contratados->count(),
+            ],
+            'expedientes_incompletos' => [
+                'valor' => $usuario->can('expedientes.revisar')
+                    ? $this->datosFaltantes->filtrarIncompletos($this->colaboradores($sucursales)->where('estatus', EstadoUsuario::Activo->value))->count()
+                    : null,
+            ],
         ];
     }
 
@@ -257,7 +281,7 @@ class TableroRhService
     }
 
     /**
-     * Personas (candidatos que se postularon en el mes) que alcanzaron cada
+     * Personas (candidatos que se postularon en el periodo) que alcanzaron cada
      * etapa, según su hito máximo y los registros estructurados.
      *
      * @param  Collection<int, int>  $sucursales
@@ -281,16 +305,16 @@ class TableroRhService
 
     /**
      * Promedio real de días postulación → contratación por grupo de puesto
-     * (puestos.grupo_indicador), últimos 12 meses al corte.
+     * (puestos.grupo_indicador), en el periodo del tablero al corte.
      *
      * @param  Collection<int, int>  $sucursales
      * @return list<array{clave: string, etiqueta: string, dias: float|null, contratados: int}>
      */
-    private function tiempoPorNivel(Collection $sucursales, bool $todas, CarbonImmutable $fin): array
+    private function tiempoPorNivel(Collection $sucursales, bool $todas, CarbonImmutable $fin, int $meses): array
     {
         $contratados = $this->candidatos($sucursales, $todas)
             ->where('estado', EstadoCandidato::Contratado->value)
-            ->whereBetween('contratado_en', [$fin->subMonths(12)->startOfMonth(), $fin])
+            ->whereBetween('contratado_en', [$fin->subMonths($meses - 1)->startOfMonth(), $fin])
             ->with('puestoObjetivo:id,grupo_indicador')
             ->get(['id', 'puesto_objetivo_id', 'created_at', 'contratado_en']);
 

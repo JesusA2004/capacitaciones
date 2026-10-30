@@ -254,6 +254,22 @@ Sustituye a la sección «Incremento 3 — Incapacidades» del diagnóstico inic
 
 > Depende de Incremento 1 (fuente única) + fidelidad visual págs. 3 y 5.
 
+### Tablero de RH final (Incremento 5, PDF págs. 3-4; estado comprobado 2026-10-30)
+
+| Requisito | Implementación | Prueba | Estado |
+|---|---|---|---|
+| Cuatro bloques, cada dato una vez | `TableroRh.vue`; `InicioOperativo.vue` ya no repite cifras. Altas por `fecha_ingreso`, bajas y rotación del motor único, acumulada del año, en proceso, incompletos, vencidos | `TableroEtapa1Test`; navegador | Implementado sin validar con datos reales |
+| Conciliación y cobertura | `HeadcountService::poblacion`; excedentes no sobrecuentan; sucursal sin plazas sin división entre cero | `TableroEtapa1Test` | Bloqueado por información externa (catálogo de plazas de Corporativo para 151/134/17) |
+| Gráficas: rotación, cobertura, embudo, tiempo, plantilla | Barras con meta punteada, semáforo y «en curso»; dona con Corporativo/Sucursales; embudo por hito máximo; escala automática; Corporativo al final | Navegador sobre SQLite aislada sin candidatos ni bajas: barras con datos, embudo y tiempo no se vieron con valores | Implementado sin validar |
+| Filtros | Sucursal, mes y 6/12/24 meses recargan todo; embudo y tiempo usan el periodo; clic en sucursal filtra | `TableroEtapa1Test`; navegador (6 m y clic en sucursal) | Probado y aprobado |
+| Costo solo con inversión real | Sin gasto capturado, `costo_por_contratacion.valor` = null | `TableroEtapa1Test` | Probado y aprobado |
+
+### Sueldos fuera del módulo (encargo 7; estado comprobado 2026-10-30)
+
+`AccesoSueldoService` y el permiso `salarios.ver_en_expediente` (rh_admin, rh_auxiliar, direccion) cierran expediente, movimientos de sueldo, timeline, contratos, alta y finiquito del cierre (este último admite `finiquitos.ver`). La persona conserva el suyo. `Colaborador` oculta sueldos al serializar. Prueba: `SueldoFueraDelModuloTest`. Estado: **Probado y aprobado** en esas rutas. Para desplegar hay que correr `people:sincronizar-permisos`.
+
+Purga: `ReferenciasUsuario`/`ReferenciasColaborador` incluyen las tablas de la Etapa 1 y `notificacion_sucursales_silenciadas` (2026-10-26), que ya hacía fallar `PurgaPersonaTest`. Estado: **Probado y aprobado** (`tests/Feature/Administracion`, 98 de 98).
+
 ---
 
 ## Administración de salarios (estado comprobado 2026-10-30)

@@ -1,49 +1,27 @@
 <script setup lang="ts">
-import { router } from '@inertiajs/vue3';
-import {
-    Award,
-    Briefcase,
-    CalendarClock,
-    Megaphone,
-    RotateCcw,
-    Timer,
-    TrendingDown,
-    Users,
-    Wallet,
-} from '@lucide/vue';
-import { GroupedBar } from '@unovis/ts';
-import {
-    VisArea,
-    VisAxis,
-    VisCrosshair,
-    VisGroupedBar,
-    VisLine,
-    VisTooltip,
-    VisXYContainer,
-} from '@unovis/vue';
+import { Link, router } from '@inertiajs/vue3';
+import { ArrowRight, RotateCcw } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import MonthPicker from '@/components/Common/MonthPicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Button } from '@/components/ui/button';
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from '@/components/ui/card';
-import type { TableroRhDatos } from '@/types';
+import { index as pendientesIndex } from '@/routes/rh/pendientes';
+import type {
+    InicioOperativoDatos,
+    SemaforoRotacion,
+    TableroRhDatos,
+} from '@/types';
 
 /**
- * Tablero de RH (Inicio operativo). Un solo DTO del backend
- * (TableroRhService, el mismo de la API móvil); cada filtro recarga SOLO
- * `tablero`, así KPIs, gráficas y tablas se actualizan juntos.
- *
- * Color: cada gráfica tiene su propio color (--grafica-*, configurable en
- * Administración → Configuración → Apariencia → Gráficas); "autorizada" es
- * siempre una pista neutra detrás de lo ocupado, nunca un segundo color.
+ * Tablero de RH (Inicio operativo, pág. 3 de la propuesta). Un solo DTO del
+ * backend (TableroRhService, el mismo de la API móvil); cada filtro recarga
+ * SOLO `tablero`, así los cuatro bloques y las cinco gráficas cambian juntos.
+ * Cada dato aparece una sola vez en la pantalla.
  */
-const props = defineProps<{ tablero: TableroRhDatos }>();
+const props = defineProps<{
+    inicio: InicioOperativoDatos;
+    tablero: TableroRhDatos;
+}>();
 
 const TODAS = 'todas';
 
@@ -65,7 +43,7 @@ const sucursalesDeEmpresa = computed(() =>
     empresa.value === TODAS
         ? props.tablero.filters.sucursales
         : props.tablero.filters.sucursales.filter(
-              (s) => String(s.empresa_id) === empresa.value,
+              (x) => String(x.empresa_id) === empresa.value,
           ),
 );
 
@@ -87,7 +65,7 @@ function filtrar() {
 watch(empresa, () => {
     if (
         sucursal.value !== TODAS &&
-        !sucursalesDeEmpresa.value.some((s) => String(s.id) === sucursal.value)
+        !sucursalesDeEmpresa.value.some((x) => String(x.id) === sucursal.value)
     ) {
         sucursal.value = TODAS;
     }
@@ -109,9 +87,17 @@ function limpiar() {
     meses.value = 12;
 }
 
-function elegirSucursal(id: number) {
-    sucursal.value = String(id);
-}
+const saludo = computed(() => {
+    const hora = new Date().getHours();
+    const parte =
+        hora < 12
+            ? 'Buenos días'
+            : hora < 19
+              ? 'Buenas tardes'
+              : 'Buenas noches';
+
+    return props.inicio.nombre ? `${parte}, ${props.inicio.nombre}` : parte;
+});
 
 const moneda = new Intl.NumberFormat('es-MX', {
     style: 'currency',
@@ -121,128 +107,65 @@ const moneda = new Intl.NumberFormat('es-MX', {
 const numero = new Intl.NumberFormat('es-MX');
 
 const s = computed(() => props.tablero.summary);
+const poblacion = computed(() => s.value.plantilla_activa.poblacion);
 
-const tarjetas = computed(() => [
-    {
-        clave: 'plantilla',
-        titulo: 'Plantilla activa',
-        icono: Users,
-        // Personas activas (misma cifra que el Directorio); la cobertura se
-        // mide sobre plazas ocupadas: quien está sin plaza no cubre una.
-        valor: numero.format(s.value.plantilla_activa.poblacion.total.activos),
-        detalle: `Corporativo ${numero.format(s.value.plantilla_activa.poblacion.corporativo.activos)} · Sucursales ${numero.format(s.value.plantilla_activa.poblacion.sucursales.activos)} · ${numero.format(s.value.plantilla_activa.valor)} de ${numero.format(s.value.plantilla_activa.autorizada)} plazas ocupadas`,
-        avance: Math.min(100, s.value.plantilla_activa.porcentaje),
-    },
-    {
-        clave: 'vacantes',
-        titulo: 'Vacantes abiertas',
-        icono: Briefcase,
-        valor: numero.format(s.value.vacantes_abiertas.valor),
-        detalle: `${s.value.vacantes_abiertas.sucursales} en sucursales · ${s.value.vacantes_abiertas.corporativo} corporativo`,
-    },
-    {
-        clave: 'rotacion',
-        titulo: 'Rotación del mes',
-        icono: TrendingDown,
-        // null = sin rotación cargada (Excel de RH) para el mes/alcance → «—»
-        // y «Sin datos cargados», nunca 0%.
-        valor:
-            s.value.rotacion_mes.porcentaje === null
-                ? '—'
-                : `${s.value.rotacion_mes.porcentaje}%`,
-        detalle:
-            s.value.rotacion_mes.porcentaje === null
-                ? 'Sin datos cargados'
-                : `${s.value.rotacion_mes.bajas} ${s.value.rotacion_mes.bajas === 1 ? 'baja' : 'bajas'} en el mes`,
-    },
-    {
-        clave: 'costo',
-        titulo: 'Costo por contratación',
-        icono: Wallet,
-        valor:
-            s.value.costo_por_contratacion.valor === null
-                ? '—'
-                : moneda.format(s.value.costo_por_contratacion.valor),
-        detalle: 'inversión en campañas ÷ contratados',
-    },
-    {
-        clave: 'tiempo',
-        titulo: 'Tiempo de contratación',
-        icono: Timer,
-        valor:
-            s.value.tiempo_contratacion.dias === null
-                ? '—'
-                : `${s.value.tiempo_contratacion.dias} días`,
-        detalle: `${s.value.tiempo_contratacion.contratados} contratados en el mes`,
-    },
-    {
-        clave: 'permanencia',
-        titulo: 'Permanencia promedio',
-        icono: Award,
-        valor:
-            s.value.permanencia_promedio.meses === null
-                ? '—'
-                : `${s.value.permanencia_promedio.meses} meses`,
-        detalle: 'antigüedad de la plantilla vigente',
-    },
-    {
-        clave: 'vencer',
-        titulo: 'Contratos por vencer',
-        icono: CalendarClock,
-        valor: numero.format(s.value.contratos_por_vencer.valor),
-        detalle: `periodos de prueba · próximos ${s.value.contratos_por_vencer.dias} días`,
-    },
-    {
-        clave: 'inversion',
-        titulo: 'Inversión en campañas',
-        icono: Megaphone,
-        valor: moneda.format(s.value.inversion_campanas_mes.valor),
-        detalle: `${s.value.inversion_campanas_mes.campanas} campañas en el mes`,
-    },
-]);
+// --- Semáforos ---
+const TEXTO_SEMAFORO: Record<SemaforoRotacion, string> = {
+    verde: 'text-semaforo-baja',
+    ambar: 'text-semaforo-ambar',
+    rojo: 'text-semaforo-sube',
+};
+const FONDO_SEMAFORO: Record<SemaforoRotacion, string> = {
+    verde: 'bg-semaforo-baja',
+    ambar: 'bg-semaforo-ambar',
+    rojo: 'bg-semaforo-sube',
+};
 
-// --- Rotación mensual (área + línea, crosshair con tooltip) ---
-// Fuente canónica: índice del Excel de RH (RotacionConsultaService). `indice`
-// es null en los meses sin periodo cargado → hueco en la línea, nunca 0%.
-type MesRotacion = TableroRhDatos['turnover_monthly'][number];
+/** Cobertura: verde ≥ 95 %, ámbar de 85 a menos de 95 %, rojo < 85 %. */
+function semaforoCobertura(porcentaje: number): SemaforoRotacion {
+    return porcentaje >= 95 ? 'verde' : porcentaje >= 85 ? 'ambar' : 'rojo';
+}
+
+// --- Rotación mensual: barras con su valor, semáforo y meta punteada ---
 const rotacion = computed(() => props.tablero.turnover_monthly);
-const xIndice = (_d: unknown, i: number) => i;
-const yRotacion = (d: MesRotacion) => d.indice;
-const etiquetaMes = (i: number) =>
-    rotacion.value[Math.round(i)]?.etiqueta ?? '';
-const tooltipRotacion = (d: MesRotacion) =>
-    d.indice === null
-        ? `<div class="tt"><p class="tt-t">${d.etiqueta}</p><p>Sin datos cargados</p></div>`
-        : `<div class="tt"><p class="tt-t">${d.etiqueta}</p><p><b>${d.indice}%</b> de rotación</p><p>${d.bajas} ${d.bajas === 1 ? 'baja' : 'bajas'} · plantilla promedio ${d.plantilla_promedio ?? '—'}</p></div>`;
-// Sin ningún mes con dato cargado: la gráfica muestra estado vacío claro.
+const metaGlobal = computed(
+    () =>
+        [...rotacion.value].reverse().find((m) => m.meta !== null)?.meta ??
+        null,
+);
+const escalaRotacion = computed(() => {
+    const valores = rotacion.value
+        .map((m) => m.indice)
+        .filter((v): v is number => v !== null);
+    const tope = Math.max(
+        metaGlobal.value?.ambar_hasta ?? 0,
+        metaGlobal.value?.verde_hasta ?? 0,
+        ...valores,
+        1,
+    );
+
+    return Math.ceil(tope * 1.15);
+});
+const lineasRotacion = computed(() =>
+    [0, 1, 2, 3].map(
+        (i) => Math.round((escalaRotacion.value / 3) * (3 - i) * 10) / 10,
+    ),
+);
+const alturaRotacion = (valor: number) => (valor / escalaRotacion.value) * 100;
 const sinRotacion = computed(() =>
     rotacion.value.every((m) => m.indice === null),
 );
-const promedioRotacion = computed(() => {
-    const conDato = rotacion.value
-        .map((m) => m.indice)
-        .filter((v): v is number => v !== null);
 
-    return conDato.length
-        ? Math.round(
-              (conDato.reduce((t, v) => t + v, 0) / conDato.length) * 10,
-          ) / 10
-        : null;
-});
+// --- Cobertura de plantilla ---
+const coberturaTotal = computed(() => poblacion.value.total.cobertura);
+const ubicaciones = computed(() =>
+    [
+        { etiqueta: 'Corporativo', datos: poblacion.value.corporativo },
+        { etiqueta: 'Sucursales', datos: poblacion.value.sucursales },
+    ].filter((u) => u.datos.autorizadas > 0 || u.datos.activos > 0),
+);
 
-// --- Tiempo de contratación por nivel (barras con tooltip por barra) ---
-type NivelTiempo = TableroRhDatos['time_to_hire_by_level'][number];
-const tiempos = computed(() => props.tablero.time_to_hire_by_level);
-const yTiempo = (d: NivelTiempo) => d.dias ?? 0;
-const etiquetaNivel = (i: number) =>
-    tiempos.value[Math.round(i)]?.etiqueta ?? '';
-const tooltipTiempo = {
-    [GroupedBar.selectors.bar]: (d: NivelTiempo) =>
-        `<div class="tt"><p class="tt-t">${d.etiqueta}</p><p>${d.dias === null ? 'Sin contrataciones' : `<b>${d.dias} días</b> promedio`}</p><p>${d.contratados} contratados · 12 meses</p></div>`,
-};
-const sinTiempos = computed(() => tiempos.value.every((t) => !t.dias));
-
-// --- Embudo (barras horizontales con conversión entre etapas) ---
+// --- Embudo: personas que alcanzaron cada fase y su paso desde la anterior ---
 const embudo = computed(() => {
     const etapas = props.tablero.recruitment_funnel;
     const max = Math.max(1, ...etapas.map((e) => e.total));
@@ -256,77 +179,85 @@ const embudo = computed(() => {
                 : Math.round((e.total / etapas[i - 1].total) * 100),
     }));
 });
+const conversionTotal = computed(() => {
+    const etapas = props.tablero.recruitment_funnel;
+    const inicio = etapas[0]?.total ?? 0;
 
-// --- Cobertura por sucursal (ocupada sobre pista de autorizada) ---
+    return inicio > 0
+        ? Math.round(((etapas.at(-1)?.total ?? 0) / inicio) * 1000) / 10
+        : null;
+});
+
+// --- Tiempo por nivel: la escala la marca el valor mayor, nada se recorta ---
+const tiempos = computed(() => {
+    const filas = props.tablero.time_to_hire_by_level;
+    const max = Math.max(1, ...filas.map((t) => t.dias ?? 0));
+
+    return filas.map((t) => ({ ...t, ancho: ((t.dias ?? 0) / max) * 100 }));
+});
+const sinTiempos = computed(() => tiempos.value.every((t) => t.dias === null));
+
+// --- Plantilla por sucursal: misma escala (100 % = su autorizada) ---
 const orden = ref<'cobertura' | 'vacantes' | 'nombre'>('cobertura');
 const sucursalesCobertura = computed(() => {
     const filas = props.tablero.headcount_by_branch.filter(
         (f) => f.plantilla_autorizada > 0 || f.plantilla_actual > 0,
     );
-    const max = Math.max(1, ...filas.map((f) => f.plantilla_autorizada));
 
-    return [...filas]
-        .sort((a, b) =>
-            orden.value === 'nombre'
-                ? a.sucursal.localeCompare(b.sucursal)
-                : orden.value === 'vacantes'
-                  ? b.vacantes - a.vacantes
-                  : a.cumplimiento - b.cumplimiento,
-        )
-        .map((f) => ({
-            ...f,
-            pista: (f.plantilla_autorizada / max) * 100,
-            ocupada:
-                (Math.min(f.plantilla_actual, f.plantilla_autorizada) / max) *
-                100,
-        }));
-});
-const totalesCobertura = computed(() => {
-    const filas = props.tablero.headcount_by_branch;
-    const autorizada = filas.reduce((t, f) => t + f.plantilla_autorizada, 0);
-    const ocupada = filas.reduce((t, f) => t + f.plantilla_actual, 0);
+    return [...filas].sort((a, b) => {
+        // Corporativo siempre al final, sea cual sea el orden.
+        if (a.es_corporativo !== b.es_corporativo) {
+            return a.es_corporativo ? 1 : -1;
+        }
 
-    return {
-        autorizada,
-        ocupada,
-        vacantes: filas.reduce((t, f) => t + f.vacantes, 0),
-        porcentaje: autorizada
-            ? Math.round((ocupada / autorizada) * 1000) / 10
-            : 0,
-    };
+        if (orden.value === 'nombre') {
+            return a.sucursal.localeCompare(b.sucursal);
+        }
+
+        return orden.value === 'vacantes'
+            ? b.vacantes - a.vacantes
+            : a.cumplimiento - b.cumplimiento;
+    });
 });
 </script>
 
 <template>
     <section
-        class="flex flex-col gap-4"
+        class="flex flex-col gap-3"
         :class="cargando && 'pointer-events-none'"
         aria-label="Tablero de Recursos Humanos"
         :aria-busy="cargando"
     >
-        <!-- Encabezado + filtros en una sola fila -->
         <header
             class="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between"
         >
             <div class="min-w-0">
-                <h1 class="text-2xl font-semibold tracking-tight">
-                    Tablero de Recursos Humanos
-                </h1>
-                <p class="text-sm text-muted-foreground">
-                    {{ tablero.filters.periodo_etiqueta }}
-                    <span v-if="sucursal !== TODAS">
-                        ·
-                        {{
-                            tablero.filters.sucursales.find(
-                                (x) => String(x.id) === sucursal,
-                            )?.nombre
-                        }}</span
+                <h1 class="text-xl font-semibold tracking-tight text-primary">
+                    {{ saludo }}
+                    <span
+                        class="ml-1 text-sm font-normal text-muted-foreground"
                     >
-                </p>
+                        <span class="tabular-nums">{{
+                            numero.format(inicio.pendientes)
+                        }}</span>
+                        pendientes<template v-if="inicio.vencidos > 0">
+                            ·
+                            <span
+                                class="font-semibold text-semaforo-sube tabular-nums"
+                                >{{ numero.format(inicio.vencidos) }}
+                                {{
+                                    inicio.vencidos === 1
+                                        ? 'vencido'
+                                        : 'vencidos'
+                                }}</span
+                            ></template
+                        >
+                    </span>
+                </h1>
             </div>
 
             <div class="flex flex-wrap items-center gap-2">
-                <MonthPicker v-model="mes" class="w-48" />
+                <MonthPicker v-model="mes" class="w-44" />
                 <SelectSimple
                     v-if="tablero.filters.empresas.length > 1"
                     v-model="empresa"
@@ -355,12 +286,12 @@ const totalesCobertura = computed(() => {
                     placeholder="Sucursal"
                     aria-label="Sucursal"
                     placeholder-busqueda="Buscar sucursal…"
-                    class="h-9 w-52"
+                    class="h-9 w-48"
                 />
                 <div
-                    class="inline-flex h-9 items-center rounded-md border bg-muted/40 p-0.5"
+                    class="inline-flex items-center gap-1"
                     role="radiogroup"
-                    aria-label="Rango de la tendencia"
+                    aria-label="Periodo del tablero"
                 >
                     <button
                         v-for="n in [6, 12, 24]"
@@ -368,11 +299,11 @@ const totalesCobertura = computed(() => {
                         type="button"
                         role="radio"
                         :aria-checked="meses === n"
-                        class="h-full rounded-[5px] px-2.5 text-xs font-medium transition-colors"
+                        class="h-9 rounded-full border px-3 text-xs font-semibold transition-colors"
                         :class="
                             meses === n
-                                ? 'bg-background text-foreground shadow-sm'
-                                : 'text-muted-foreground hover:text-foreground'
+                                ? 'border-primary bg-primary text-primary-foreground'
+                                : 'bg-card text-muted-foreground hover:text-foreground'
                         "
                         @click="meses = n"
                     >
@@ -388,357 +319,619 @@ const totalesCobertura = computed(() => {
                 >
                     <RotateCcw class="size-4" /> Limpiar
                 </Button>
+                <Button v-if="inicio.pendientes > 0" as-child class="h-9">
+                    <Link :href="pendientesIndex.url()">
+                        Ver pendientes <ArrowRight class="size-4" />
+                    </Link>
+                </Button>
             </div>
         </header>
 
         <div
-            class="flex flex-col gap-4 transition-opacity duration-200"
+            class="flex flex-col gap-3 transition-opacity duration-200"
             :class="cargando ? 'opacity-50' : 'opacity-100'"
         >
-            <!-- KPIs -->
+            <!-- Cuatro bloques: cada indicador aparece una sola vez. -->
             <div
                 data-tour="dashboard-kpis"
-                class="grid grid-cols-2 gap-3 md:grid-cols-4 2xl:grid-cols-8"
+                class="grid gap-3 md:grid-cols-2 xl:grid-cols-4"
             >
-                <Card
-                    v-for="t in tarjetas"
-                    :key="t.clave"
-                    class="gap-2 rounded-xl py-4 shadow-xs transition-shadow hover:shadow-md"
-                >
-                    <CardContent class="flex flex-col gap-1.5 px-4">
-                        <div
-                            class="flex items-center justify-between gap-2 text-muted-foreground"
-                        >
-                            <p class="text-xs font-medium">{{ t.titulo }}</p>
-                            <component
-                                :is="t.icono"
-                                class="size-4 shrink-0"
-                                aria-hidden="true"
-                            />
+                <article class="bloque border-t-primary">
+                    <h2 class="bloque-titulo text-primary">Plantilla</h2>
+                    <dl class="bloque-datos">
+                        <div>
+                            <dt>Autorizada</dt>
+                            <dd>
+                                {{ numero.format(poblacion.total.autorizadas) }}
+                            </dd>
+                            <p>
+                                Corporativo
+                                {{ poblacion.corporativo.autorizadas }} ·
+                                Sucursales
+                                {{ poblacion.sucursales.autorizadas }}
+                            </p>
                         </div>
-                        <p
-                            class="text-2xl font-semibold tracking-tight tabular-nums"
-                        >
-                            {{ t.valor }}
-                        </p>
-                        <div
-                            v-if="t.avance !== undefined"
-                            class="h-1.5 overflow-hidden rounded-full bg-muted"
-                            role="progressbar"
-                            :aria-valuenow="t.avance"
-                            aria-valuemin="0"
-                            aria-valuemax="100"
-                            :aria-label="`${t.avance}% de la plantilla autorizada`"
-                        >
-                            <div
-                                class="h-full rounded-full bg-[var(--grafica-plantilla,var(--chart-1))] transition-[width] duration-500"
-                                :style="{ width: `${t.avance}%` }"
-                            />
+                        <div>
+                            <dt>Activa</dt>
+                            <dd>
+                                {{ numero.format(poblacion.total.activos) }}
+                            </dd>
+                            <p>
+                                Corporativo
+                                {{ poblacion.corporativo.activos }} · Sucursales
+                                {{ poblacion.sucursales.activos }}
+                            </p>
                         </div>
-                        <p class="text-xs text-muted-foreground">
-                            {{ t.detalle }}
-                        </p>
-                    </CardContent>
-                </Card>
+                        <div>
+                            <dt>Vacantes</dt>
+                            <dd class="text-bronce">
+                                {{ numero.format(poblacion.total.vacantes) }}
+                            </dd>
+                            <p>
+                                Corporativo
+                                {{ poblacion.corporativo.vacantes }} ·
+                                Sucursales
+                                {{ poblacion.sucursales.vacantes }}
+                            </p>
+                        </div>
+                        <div>
+                            <dt>Cobertura</dt>
+                            <dd
+                                :class="
+                                    poblacion.total.autorizadas > 0
+                                        ? TEXTO_SEMAFORO[
+                                              semaforoCobertura(coberturaTotal)
+                                          ]
+                                        : ''
+                                "
+                            >
+                                {{
+                                    poblacion.total.autorizadas > 0
+                                        ? `${coberturaTotal}%`
+                                        : '—'
+                                }}
+                            </dd>
+                            <p>
+                                Meta ≥ 95%<template
+                                    v-if="
+                                        poblacion.total.fuera_de_plantilla > 0
+                                    "
+                                >
+                                    ·
+                                    {{ poblacion.total.fuera_de_plantilla }}
+                                    fuera de plantilla</template
+                                >
+                            </p>
+                        </div>
+                    </dl>
+                </article>
+
+                <article class="bloque border-t-bronce">
+                    <h2 class="bloque-titulo text-bronce">
+                        Movimiento de personal ·
+                        {{ tablero.filters.periodo_etiqueta }}
+                    </h2>
+                    <dl class="bloque-datos">
+                        <div>
+                            <dt>Altas del mes</dt>
+                            <dd>{{ numero.format(s.altas_mes.valor) }}</dd>
+                            <p>Ingresos registrados</p>
+                        </div>
+                        <div>
+                            <dt>Bajas del mes</dt>
+                            <dd>{{ numero.format(s.rotacion_mes.bajas) }}</dd>
+                            <p>Por fecha de último día</p>
+                        </div>
+                        <div>
+                            <dt>Rotación del mes</dt>
+                            <dd
+                                :class="
+                                    s.rotacion_mes.semaforo
+                                        ? TEXTO_SEMAFORO[
+                                              s.rotacion_mes.semaforo
+                                          ]
+                                        : ''
+                                "
+                            >
+                                {{
+                                    s.rotacion_mes.porcentaje === null
+                                        ? '—'
+                                        : `${s.rotacion_mes.porcentaje}%`
+                                }}
+                            </dd>
+                            <p>
+                                {{
+                                    s.rotacion_mes.porcentaje === null
+                                        ? 'Sin datos de plantilla'
+                                        : metaGlobal
+                                          ? `Meta hasta ${metaGlobal.verde_hasta}%`
+                                          : 'Sin meta vigente'
+                                }}
+                            </p>
+                        </div>
+                        <div>
+                            <dt>Acumulada {{ s.rotacion_acumulada.anio }}</dt>
+                            <dd>
+                                {{
+                                    s.rotacion_acumulada.porcentaje === null
+                                        ? '—'
+                                        : `${s.rotacion_acumulada.porcentaje}%`
+                                }}
+                            </dd>
+                            <p>
+                                {{ numero.format(s.rotacion_acumulada.bajas) }}
+                                bajas en el año
+                            </p>
+                        </div>
+                    </dl>
+                </article>
+
+                <article class="bloque border-t-forma-renuncia">
+                    <h2 class="bloque-titulo text-forma-rescision">
+                        Reclutamiento
+                    </h2>
+                    <dl class="bloque-datos">
+                        <div>
+                            <dt>Candidatos en proceso</dt>
+                            <dd>
+                                {{ numero.format(s.reclutamiento.en_proceso) }}
+                            </dd>
+                            <p>
+                                {{ s.reclutamiento.contratados_mes }}
+                                contratados en el mes
+                            </p>
+                        </div>
+                        <div>
+                            <dt>Tiempo de contratación</dt>
+                            <dd>
+                                {{
+                                    s.tiempo_contratacion.dias === null
+                                        ? '—'
+                                        : `${s.tiempo_contratacion.dias} días`
+                                }}
+                            </dd>
+                            <p>Postulación a ingreso</p>
+                        </div>
+                        <div>
+                            <dt>Costo por contratación</dt>
+                            <dd>
+                                {{
+                                    s.costo_por_contratacion.valor === null
+                                        ? '—'
+                                        : moneda.format(
+                                              s.costo_por_contratacion.valor,
+                                          )
+                                }}
+                            </dd>
+                            <p>
+                                {{
+                                    s.costo_por_contratacion.valor === null
+                                        ? 'Falta inversión o contratados'
+                                        : 'Inversión ÷ contratados'
+                                }}
+                            </p>
+                        </div>
+                        <div>
+                            <dt>Inversión en campañas</dt>
+                            <dd>
+                                {{
+                                    s.inversion_campanas_mes.valor > 0
+                                        ? moneda.format(
+                                              s.inversion_campanas_mes.valor,
+                                          )
+                                        : '—'
+                                }}
+                            </dd>
+                            <p>
+                                {{ s.inversion_campanas_mes.campanas }}
+                                campañas en el mes
+                            </p>
+                        </div>
+                    </dl>
+                </article>
+
+                <article class="bloque border-t-semaforo-baja">
+                    <h2 class="bloque-titulo text-primary">
+                        Permanencia y expediente
+                    </h2>
+                    <dl class="bloque-datos">
+                        <div>
+                            <dt>Permanencia promedio</dt>
+                            <dd>
+                                {{
+                                    s.permanencia_promedio.meses === null
+                                        ? '—'
+                                        : `${s.permanencia_promedio.meses} m`
+                                }}
+                            </dd>
+                            <p>Antigüedad de la plantilla</p>
+                        </div>
+                        <div>
+                            <dt>Contratos por vencer</dt>
+                            <dd class="text-bronce">
+                                {{
+                                    numero.format(s.contratos_por_vencer.valor)
+                                }}
+                            </dd>
+                            <p>
+                                Próximos {{ s.contratos_por_vencer.dias }} días
+                            </p>
+                        </div>
+                        <div>
+                            <dt>Expedientes incompletos</dt>
+                            <dd
+                                :class="
+                                    s.expedientes_incompletos.valor
+                                        ? 'text-semaforo-sube'
+                                        : ''
+                                "
+                            >
+                                {{
+                                    s.expedientes_incompletos.valor === null
+                                        ? '—'
+                                        : numero.format(
+                                              s.expedientes_incompletos.valor,
+                                          )
+                                }}
+                            </dd>
+                            <p>Datos contractuales faltantes</p>
+                        </div>
+                        <div>
+                            <dt>Pendientes vencidos</dt>
+                            <dd
+                                :class="
+                                    inicio.vencidos > 0
+                                        ? 'text-semaforo-sube'
+                                        : ''
+                                "
+                            >
+                                {{ numero.format(inicio.vencidos) }}
+                            </dd>
+                            <p>
+                                De {{ numero.format(inicio.pendientes) }} por
+                                atender
+                            </p>
+                        </div>
+                    </dl>
+                </article>
             </div>
 
-            <!-- Rotación mensual: misma anchura que Cobertura (antes 2/3 de la fila). -->
-            <div class="grid gap-4 lg:grid-cols-2">
-                <Card
-                    data-tour="dashboard-rotacion"
-                    class="gap-3 rounded-xl shadow-xs"
-                >
-                    <CardHeader>
-                        <CardTitle class="text-base"
-                            >Rotación mensual</CardTitle
+            <div
+                class="grid gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]"
+            >
+                <!-- Rotación mensual -->
+                <article data-tour="dashboard-rotacion" class="grafica">
+                    <header
+                        class="flex flex-wrap items-start justify-between gap-2"
+                    >
+                        <div>
+                            <h2 class="grafica-titulo">
+                                Rotación mensual · últimos
+                                {{ rotacion.length }} meses
+                            </h2>
+                            <p class="grafica-nota">
+                                Bajas ÷ plantilla promedio · color según la meta
+                            </p>
+                        </div>
+                        <ul
+                            v-if="metaGlobal"
+                            class="flex gap-3 text-[11px] text-muted-foreground"
                         >
-                        <CardDescription>
-                            Bajas ÷ plantilla promedio ·
-                            últimos {{ rotacion.length }} meses<template
-                                v-if="promedioRotacion !== null"
-                            >
-                                · promedio {{ promedioRotacion }}%</template
-                            >
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <p
-                            v-if="sinRotacion"
-                            class="grid h-[260px] place-items-center text-center text-sm text-muted-foreground"
-                        >
-                            Sin datos cargados: aún no se importa el Excel de
-                            rotación para este periodo y alcance.
-                        </p>
-                        <VisXYContainer
-                            v-else
-                            :data="rotacion"
-                            :height="260"
-                            :margin="{ left: 4, right: 12, top: 8, bottom: 4 }"
-                        >
-                            <VisArea
-                                :x="xIndice"
-                                :y="yRotacion"
-                                color="var(--grafica-rotacion, var(--chart-1))"
-                                :opacity="0.12"
-                            />
-                            <VisLine
-                                :x="xIndice"
-                                :y="yRotacion"
-                                color="var(--grafica-rotacion, var(--chart-1))"
-                                :line-width="2"
-                            />
-                            <VisAxis
-                                type="x"
-                                :tick-format="etiquetaMes"
-                                :num-ticks="Math.min(rotacion.length, 12)"
-                                :grid-line="false"
-                                :domain-line="false"
-                            />
-                            <VisAxis
-                                type="y"
-                                :num-ticks="4"
-                                :tick-format="(v: number) => `${v}%`"
-                                :domain-line="false"
-                            />
-                            <VisCrosshair
-                                color="var(--grafica-rotacion, var(--chart-1))"
-                                :template="tooltipRotacion"
-                            />
-                            <VisTooltip />
-                        </VisXYContainer>
-                    </CardContent>
-                </Card>
+                            <li class="flex items-center gap-1">
+                                <span class="punto bg-semaforo-baja" /> ≤
+                                {{ metaGlobal.verde_hasta }}%
+                            </li>
+                            <li class="flex items-center gap-1">
+                                <span class="punto bg-semaforo-ambar" />
+                                {{ metaGlobal.verde_hasta }}–{{
+                                    metaGlobal.ambar_hasta
+                                }}%
+                            </li>
+                            <li class="flex items-center gap-1">
+                                <span class="punto bg-semaforo-sube" /> &gt;
+                                {{ metaGlobal.ambar_hasta }}%
+                            </li>
+                        </ul>
+                    </header>
 
-                <!-- Cobertura general -->
-                <Card class="gap-3 rounded-xl shadow-xs">
-                    <CardHeader>
-                        <CardTitle class="text-base"
-                            >Cobertura de plantilla</CardTitle
-                        >
-                        <CardDescription
-                            >Plazas autorizadas ocupadas</CardDescription
-                        >
-                    </CardHeader>
-                    <CardContent class="flex flex-col items-center gap-4">
+                    <p
+                        v-if="sinRotacion"
+                        class="grid h-60 place-items-center text-center text-sm text-muted-foreground"
+                    >
+                        Sin datos de bajas ni plantilla para este periodo y
+                        alcance.
+                    </p>
+                    <div v-else class="mt-4 flex gap-2">
+                        <!-- Eje Y -->
                         <div
-                            class="relative grid size-44 place-items-center rounded-full"
+                            class="flex h-52 w-9 shrink-0 flex-col justify-between text-right text-[10px] text-muted-foreground tabular-nums"
+                            aria-hidden="true"
+                        >
+                            <span v-for="l in lineasRotacion" :key="l"
+                                >{{ l }}%</span
+                            >
+                        </div>
+                        <div class="min-w-0 flex-1">
+                            <div class="relative h-52">
+                                <div
+                                    class="absolute inset-0 flex flex-col justify-between"
+                                    aria-hidden="true"
+                                >
+                                    <span
+                                        v-for="l in lineasRotacion"
+                                        :key="l"
+                                        class="block border-t border-border/60"
+                                    />
+                                </div>
+                                <!-- Meta punteada -->
+                                <div
+                                    v-if="metaGlobal"
+                                    class="absolute inset-x-0 z-10 border-t-2 border-dashed border-primary"
+                                    :style="{
+                                        bottom: `${alturaRotacion(metaGlobal.verde_hasta)}%`,
+                                    }"
+                                >
+                                    <span
+                                        class="absolute -top-4 right-0 text-[10px] font-semibold text-primary"
+                                        >Meta
+                                        {{ metaGlobal.verde_hasta }}%</span
+                                    >
+                                </div>
+                                <ul
+                                    class="absolute inset-0 flex items-end gap-1 sm:gap-2"
+                                >
+                                    <li
+                                        v-for="m in rotacion"
+                                        :key="m.mes"
+                                        class="flex h-full min-w-0 flex-1 flex-col items-center justify-end"
+                                        :title="
+                                            m.indice === null
+                                                ? `${m.etiqueta}: sin datos`
+                                                : `${m.etiqueta}: ${m.indice}% · ${m.bajas} bajas · plantilla promedio ${m.plantilla_promedio ?? '—'}`
+                                        "
+                                    >
+                                        <template v-if="m.indice !== null">
+                                            <span
+                                                v-if="rotacion.length <= 12"
+                                                class="text-[10px] font-semibold tabular-nums"
+                                                >{{ m.indice }}</span
+                                            >
+                                            <span
+                                                class="w-full max-w-9 rounded-t-sm transition-[height] duration-500 motion-reduce:transition-none"
+                                                :class="[
+                                                    m.semaforo
+                                                        ? FONDO_SEMAFORO[
+                                                              m.semaforo
+                                                          ]
+                                                        : 'bg-muted-foreground',
+                                                    m.en_curso && 'opacity-50',
+                                                ]"
+                                                :style="{
+                                                    height: `${alturaRotacion(m.indice)}%`,
+                                                    minHeight: '2px',
+                                                }"
+                                            />
+                                        </template>
+                                        <span
+                                            v-else
+                                            class="text-[10px] text-muted-foreground"
+                                            >s/d</span
+                                        >
+                                    </li>
+                                </ul>
+                            </div>
+                            <ul class="mt-1 flex gap-1 sm:gap-2">
+                                <li
+                                    v-for="(m, i) in rotacion"
+                                    :key="m.mes"
+                                    class="min-w-0 flex-1 text-center text-[10px] leading-tight text-muted-foreground"
+                                >
+                                    <!-- En pantallas chicas se alterna el mes para que quepa completo. -->
+                                    <span
+                                        v-if="
+                                            rotacion.length <= 12 ||
+                                            i % 2 === 0 ||
+                                            m.en_curso
+                                        "
+                                        class="block whitespace-nowrap"
+                                        :class="
+                                            (rotacion.length - 1 - i) % 2 ===
+                                                1 && 'invisible sm:visible'
+                                        "
+                                        >{{ m.etiqueta }}</span
+                                    >
+                                    <span
+                                        v-if="m.en_curso"
+                                        class="block text-[9px] font-medium whitespace-nowrap"
+                                        >en curso</span
+                                    >
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- Cobertura -->
+                <article class="grafica">
+                    <h2 class="grafica-titulo">Cobertura de plantilla</h2>
+                    <p class="grafica-nota">Plazas autorizadas ocupadas</p>
+
+                    <p
+                        v-if="poblacion.total.autorizadas === 0"
+                        class="grid h-48 place-items-center text-center text-sm text-muted-foreground"
+                    >
+                        Sin plazas autorizadas en este filtro.
+                    </p>
+                    <div v-else class="mt-3 flex flex-col items-center gap-4">
+                        <div
+                            class="dona relative grid size-32 place-items-center rounded-full"
+                            :class="
+                                TEXTO_SEMAFORO[
+                                    semaforoCobertura(coberturaTotal)
+                                ]
+                            "
                             :style="{
-                                background: `conic-gradient(var(--grafica-cobertura, var(--chart-1)) ${totalesCobertura.porcentaje * 3.6}deg, var(--muted) 0deg)`,
+                                background: `conic-gradient(currentColor ${Math.min(100, coberturaTotal) * 3.6}deg, var(--muted) 0deg)`,
                             }"
                             role="img"
-                            :aria-label="`${totalesCobertura.porcentaje}% de la plantilla autorizada ocupada`"
+                            :aria-label="`${coberturaTotal}% de la plantilla autorizada ocupada`"
                         >
                             <div
-                                class="grid size-34 place-items-center rounded-full bg-card text-center"
+                                class="grid size-24 place-items-center rounded-full bg-card text-center"
                             >
                                 <div>
                                     <p
-                                        class="text-3xl font-semibold tabular-nums"
+                                        class="text-xl font-semibold text-foreground tabular-nums"
                                     >
-                                        {{ totalesCobertura.porcentaje }}%
+                                        {{ coberturaTotal }}%
                                     </p>
-                                    <p class="text-xs text-muted-foreground">
-                                        cubierta
+                                    <p
+                                        class="text-[10px] text-muted-foreground"
+                                    >
+                                        {{ poblacion.total.autorizadas }} plazas
                                     </p>
                                 </div>
                             </div>
                         </div>
-                        <dl class="grid w-full grid-cols-3 gap-2 text-center">
-                            <div>
-                                <dt class="text-xs text-muted-foreground">
-                                    Autorizada
-                                </dt>
-                                <dd class="text-lg font-semibold tabular-nums">
-                                    {{
-                                        numero.format(
-                                            totalesCobertura.autorizada,
-                                        )
-                                    }}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt class="text-xs text-muted-foreground">
-                                    Ocupada
-                                </dt>
-                                <dd class="text-lg font-semibold tabular-nums">
-                                    {{
-                                        numero.format(totalesCobertura.ocupada)
-                                    }}
-                                </dd>
-                            </div>
-                            <div>
-                                <dt class="text-xs text-muted-foreground">
-                                    Vacantes
-                                </dt>
-                                <dd class="text-lg font-semibold tabular-nums">
-                                    {{
-                                        numero.format(totalesCobertura.vacantes)
-                                    }}
-                                </dd>
-                            </div>
-                        </dl>
-                    </CardContent>
-                </Card>
-            </div>
-
-            <div class="grid gap-4 xl:grid-cols-2">
-                <!-- Embudo -->
-                <Card
-                    data-tour="dashboard-embudo"
-                    class="gap-3 rounded-xl shadow-xs"
-                >
-                    <CardHeader>
-                        <CardTitle class="text-base"
-                            >Embudo de reclutamiento</CardTitle
-                        >
-                        <CardDescription
-                            >Personas que alcanzaron cada etapa en el periodo ·
-                            % de paso desde la etapa anterior</CardDescription
-                        >
-                    </CardHeader>
-                    <CardContent>
-                        <ul class="flex flex-col gap-2">
-                            <li
-                                v-for="e in embudo"
-                                :key="e.clave"
-                                class="group relative grid grid-cols-[7.5rem_minmax(0,1fr)_3.5rem] items-center gap-3 text-sm"
-                            >
-                                <span class="truncate">{{ e.etiqueta }}</span>
-                                <span
-                                    class="h-6 overflow-hidden rounded-md bg-muted/60"
+                        <ul class="flex w-full flex-col gap-3">
+                            <li v-for="u in ubicaciones" :key="u.etiqueta">
+                                <p
+                                    class="flex justify-between gap-2 text-xs font-medium"
                                 >
-                                    <span
-                                        class="block h-full rounded-md bg-[var(--grafica-embudo,var(--chart-1))] transition-[width,opacity] duration-500 group-hover:opacity-85"
+                                    {{ u.etiqueta }}
+                                    <span class="tabular-nums"
+                                        >{{ u.datos.ocupadas }} /
+                                        {{ u.datos.autorizadas }} ·
+                                        {{ u.datos.cobertura }}%</span
+                                    >
+                                </p>
+                                <div
+                                    class="mt-1 h-2 overflow-hidden rounded-full bg-muted"
+                                >
+                                    <div
+                                        class="h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none"
+                                        :class="
+                                            FONDO_SEMAFORO[
+                                                semaforoCobertura(
+                                                    u.datos.cobertura,
+                                                )
+                                            ]
+                                        "
                                         :style="{
-                                            width: `${e.ancho}%`,
-                                            minWidth: e.total ? '4px' : '0',
+                                            width: `${Math.min(100, u.datos.cobertura)}%`,
                                         }"
                                     />
-                                </span>
-                                <span class="text-right tabular-nums">
-                                    <span class="font-medium">{{
-                                        numero.format(e.total)
-                                    }}</span>
-                                    <span
-                                        v-if="e.conversion !== null"
-                                        class="block text-[11px] text-muted-foreground"
-                                        >{{ e.conversion }}%</span
-                                    >
-                                </span>
-                                <span
-                                    class="tt pointer-events-none absolute -top-9 left-32 z-10 hidden group-hover:block"
-                                    role="tooltip"
-                                >
-                                    <b>{{ e.etiqueta }}:</b>
-                                    {{ numero.format(e.total) }}
-                                    personas<template
-                                        v-if="e.conversion !== null"
-                                    >
-                                        · {{ e.conversion }}% de la etapa
-                                        anterior</template
-                                    >
-                                </span>
+                                </div>
                             </li>
                         </ul>
-                    </CardContent>
-                </Card>
+                        <ul
+                            class="flex flex-wrap justify-center gap-3 text-[11px] text-muted-foreground"
+                        >
+                            <li class="flex items-center gap-1">
+                                <span class="punto bg-semaforo-baja" /> ≥95%
+                            </li>
+                            <li class="flex items-center gap-1">
+                                <span class="punto bg-semaforo-ambar" /> 85–94%
+                            </li>
+                            <li class="flex items-center gap-1">
+                                <span class="punto bg-semaforo-sube" /> &lt;85%
+                            </li>
+                        </ul>
+                    </div>
+                </article>
 
-                <!-- Tiempo por nivel -->
-                <Card
-                    data-tour="dashboard-tiempo"
-                    class="gap-3 rounded-xl shadow-xs"
-                >
-                    <CardHeader>
-                        <CardTitle class="text-base"
-                            >Tiempo de contratación por nivel</CardTitle
+                <!-- Embudo -->
+                <article data-tour="dashboard-embudo" class="grafica">
+                    <h2 class="grafica-titulo">Embudo de reclutamiento</h2>
+                    <p class="grafica-nota">
+                        Personas por etapa · % de paso desde la anterior ·
+                        últimos {{ tablero.filters.meses }} meses
+                    </p>
+                    <ul class="mt-3 flex flex-col gap-2">
+                        <li
+                            v-for="e in embudo"
+                            :key="e.clave"
+                            class="grid grid-cols-[5.5rem_minmax(0,1fr)_1.75rem_2.25rem] items-center gap-2 text-xs"
                         >
-                        <CardDescription
-                            >Días promedio de postulación a contratación ·
-                            últimos 12 meses</CardDescription
+                            <span class="truncate">{{ e.etiqueta }}</span>
+                            <span class="flex h-4 justify-center">
+                                <span
+                                    class="h-full rounded-sm bg-forma-renuncia transition-[width] duration-500 motion-reduce:transition-none"
+                                    :style="{
+                                        width: `${e.ancho}%`,
+                                        minWidth: e.total ? '4px' : '0',
+                                    }"
+                                />
+                            </span>
+                            <span
+                                class="text-right font-semibold tabular-nums"
+                                >{{ numero.format(e.total) }}</span
+                            >
+                            <span
+                                class="text-right text-[11px] text-muted-foreground tabular-nums"
+                                >{{
+                                    e.conversion !== null
+                                        ? `${e.conversion}%`
+                                        : ''
+                                }}</span
+                            >
+                        </li>
+                    </ul>
+                    <p
+                        v-if="conversionTotal !== null"
+                        class="mt-3 text-xs text-muted-foreground"
+                    >
+                        Conversión total:
+                        <span class="font-semibold text-semaforo-baja"
+                            >{{ conversionTotal }}%</span
                         >
-                    </CardHeader>
-                    <CardContent>
-                        <p
-                            v-if="sinTiempos"
-                            class="grid h-[240px] place-items-center text-sm text-muted-foreground"
-                        >
-                            Sin tiempos de contratación medibles en los últimos
-                            12 meses.
-                        </p>
-                        <VisXYContainer
-                            v-else
-                            :data="tiempos"
-                            :height="240"
-                            :margin="{ left: 4, right: 4, top: 8, bottom: 4 }"
-                        >
-                            <VisGroupedBar
-                                :x="xIndice"
-                                :y="yTiempo"
-                                color="var(--grafica-tiempo, var(--chart-1))"
-                                :rounded-corners="4"
-                                :bar-max-width="56"
-                            />
-                            <VisAxis
-                                type="x"
-                                :tick-format="etiquetaNivel"
-                                :num-ticks="tiempos.length"
-                                :grid-line="false"
-                                :domain-line="false"
-                            />
-                            <VisAxis
-                                type="y"
-                                :num-ticks="4"
-                                :tick-format="(v: number) => `${v} d`"
-                                :domain-line="false"
-                            />
-                            <VisTooltip :triggers="tooltipTiempo" />
-                        </VisXYContainer>
-                    </CardContent>
-                </Card>
+                    </p>
+                </article>
             </div>
 
-            <!-- Cobertura por sucursal -->
-            <Card class="gap-3 rounded-xl shadow-xs">
-                <CardHeader
-                    class="flex flex-row flex-wrap items-start justify-between gap-2"
-                >
-                    <div>
-                        <CardTitle class="text-base"
-                            >Plantilla por sucursal</CardTitle
-                        >
-                        <CardDescription
-                            >Ocupada sobre autorizada (pista gris) · clic en una
-                            sucursal para filtrar el tablero</CardDescription
-                        >
-                    </div>
-                    <div
-                        class="inline-flex h-8 items-center rounded-md border bg-muted/40 p-0.5"
-                        role="radiogroup"
-                        aria-label="Ordenar sucursales"
+            <div class="grid gap-3 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+                <!-- Plantilla por sucursal -->
+                <article class="grafica">
+                    <header
+                        class="flex flex-wrap items-start justify-between gap-2"
                     >
-                        <button
-                            v-for="o in [
-                                { v: 'cobertura', t: 'Menor cobertura' },
-                                { v: 'vacantes', t: 'Más vacantes' },
-                                { v: 'nombre', t: 'Nombre' },
-                            ] as const"
-                            :key="o.v"
-                            type="button"
-                            role="radio"
-                            :aria-checked="orden === o.v"
-                            class="h-full rounded-[5px] px-2.5 text-xs font-medium transition-colors"
-                            :class="
-                                orden === o.v
-                                    ? 'bg-background text-foreground shadow-sm'
-                                    : 'text-muted-foreground hover:text-foreground'
-                            "
-                            @click="orden = o.v"
+                        <div>
+                            <h2 class="grafica-titulo">
+                                Plantilla por sucursal
+                            </h2>
+                            <p class="grafica-nota">
+                                Activos / autorizada · misma escala para todas ·
+                                clic para filtrar el tablero
+                            </p>
+                        </div>
+                        <div
+                            class="flex flex-wrap gap-1"
+                            role="radiogroup"
+                            aria-label="Ordenar sucursales"
                         >
-                            {{ o.t }}
-                        </button>
-                    </div>
-                </CardHeader>
-                <CardContent>
+                            <button
+                                v-for="o in [
+                                    { v: 'cobertura', t: 'Menor cobertura' },
+                                    { v: 'vacantes', t: 'Más vacantes' },
+                                    { v: 'nombre', t: 'Nombre' },
+                                ] as const"
+                                :key="o.v"
+                                type="button"
+                                role="radio"
+                                :aria-checked="orden === o.v"
+                                class="h-7 rounded-full border px-2.5 text-xs font-medium transition-colors"
+                                :class="
+                                    orden === o.v
+                                        ? 'border-primary bg-primary text-primary-foreground'
+                                        : 'bg-card text-muted-foreground hover:text-foreground'
+                                "
+                                @click="orden = o.v"
+                            >
+                                {{ o.t }}
+                            </button>
+                        </div>
+                    </header>
+
                     <p
                         v-if="sucursalesCobertura.length === 0"
                         class="py-8 text-center text-sm text-muted-foreground"
@@ -747,7 +940,7 @@ const totalesCobertura = computed(() => {
                     </p>
                     <ul
                         v-else
-                        class="grid gap-x-8 gap-y-1 md:grid-cols-2 2xl:grid-cols-3"
+                        class="mt-3 grid gap-x-6 gap-y-0.5 md:grid-cols-2"
                     >
                         <li
                             v-for="f in sucursalesCobertura"
@@ -755,75 +948,173 @@ const totalesCobertura = computed(() => {
                         >
                             <button
                                 type="button"
-                                class="group grid w-full grid-cols-[minmax(0,9rem)_minmax(0,1fr)_4.5rem] items-center gap-3 rounded-md px-1.5 py-1.5 text-left text-sm transition-colors hover:bg-muted/60"
-                                :title="`${f.sucursal}: ${f.plantilla_actual} de ${f.plantilla_autorizada} plazas ocupadas · ${f.vacantes} vacantes · ${f.cumplimiento}%`"
-                                @click="elegirSucursal(f.sucursal_id)"
+                                class="grid w-full grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)_2.75rem_3rem] items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-muted/60"
+                                :class="
+                                    f.es_corporativo &&
+                                    'bg-crema/60 font-semibold'
+                                "
+                                :title="`${f.sucursal}: ${f.plantilla_actual} de ${f.plantilla_autorizada} plazas ocupadas · ${f.vacantes} vacantes`"
+                                @click="sucursal = String(f.sucursal_id)"
                             >
                                 <span class="truncate">{{ f.sucursal }}</span>
-                                <span class="relative h-3">
+                                <span
+                                    class="h-2 overflow-hidden rounded-full bg-muted"
+                                >
                                     <span
-                                        class="absolute inset-y-0 left-0 rounded-full bg-muted"
-                                        :style="{ width: `${f.pista}%` }"
-                                    />
-                                    <span
-                                        class="absolute inset-y-0 left-0 rounded-full bg-[var(--grafica-sucursales,var(--chart-1))] transition-[width] duration-500"
-                                        :style="{ width: `${f.ocupada}%` }"
+                                        class="block h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none"
+                                        :class="
+                                            FONDO_SEMAFORO[
+                                                semaforoCobertura(
+                                                    f.cumplimiento,
+                                                )
+                                            ]
+                                        "
+                                        :style="{
+                                            width: `${Math.min(100, f.cumplimiento)}%`,
+                                        }"
                                     />
                                 </span>
-                                <span class="text-right tabular-nums">
-                                    <span class="font-medium"
-                                        >{{ f.plantilla_actual }}/{{
-                                            f.plantilla_autorizada
-                                        }}</span
-                                    >
-                                    <span
-                                        v-if="f.vacantes > 0"
-                                        class="block text-[11px] text-muted-foreground"
-                                        >{{ f.vacantes }}
-                                        {{
-                                            f.vacantes === 1
-                                                ? 'vacante'
-                                                : 'vacantes'
-                                        }}</span
-                                    >
-                                </span>
+                                <span
+                                    class="text-right font-medium tabular-nums"
+                                    >{{ f.plantilla_actual }}/{{
+                                        f.plantilla_autorizada
+                                    }}</span
+                                >
+                                <span
+                                    v-if="f.plantilla_autorizada > 0"
+                                    class="rounded-full px-1 py-0.5 text-center text-[10px] font-semibold text-white tabular-nums"
+                                    :class="
+                                        FONDO_SEMAFORO[
+                                            semaforoCobertura(f.cumplimiento)
+                                        ]
+                                    "
+                                    >{{ Math.round(f.cumplimiento) }}%</span
+                                >
+                                <span
+                                    v-else
+                                    class="text-center text-[10px] text-muted-foreground"
+                                    >s/plazas</span
+                                >
                             </button>
                         </li>
                     </ul>
-                </CardContent>
-            </Card>
+                </article>
+
+                <!-- Tiempo por nivel -->
+                <article data-tour="dashboard-tiempo" class="grafica">
+                    <h2 class="grafica-titulo">
+                        Tiempo de contratación por nivel
+                    </h2>
+                    <p class="grafica-nota">
+                        Días promedio, postulación a ingreso · últimos
+                        {{ tablero.filters.meses }} meses
+                    </p>
+                    <p
+                        v-if="sinTiempos"
+                        class="grid h-40 place-items-center text-center text-sm text-muted-foreground"
+                    >
+                        Sin contrataciones medibles en el periodo.
+                    </p>
+                    <ul v-else class="mt-3 flex flex-col gap-3">
+                        <li
+                            v-for="t in tiempos"
+                            :key="t.clave"
+                            class="grid grid-cols-[minmax(0,7rem)_minmax(0,1fr)_3rem] items-center gap-2 text-xs"
+                            :title="`${t.etiqueta}: ${t.contratados} contratados`"
+                        >
+                            <span class="truncate">{{ t.etiqueta }}</span>
+                            <span
+                                class="h-2.5 overflow-hidden rounded-full bg-muted"
+                            >
+                                <span
+                                    class="block h-full rounded-full bg-oro transition-[width] duration-500 motion-reduce:transition-none"
+                                    :style="{ width: `${t.ancho}%` }"
+                                />
+                            </span>
+                            <span
+                                class="text-right font-semibold tabular-nums"
+                                >{{
+                                    t.dias === null ? 's/d' : `${t.dias} d`
+                                }}</span
+                            >
+                        </li>
+                    </ul>
+                    <p
+                        v-if="!sinTiempos"
+                        class="mt-3 text-[11px] text-muted-foreground"
+                    >
+                        Escala automática según el valor mayor.
+                    </p>
+                </article>
+            </div>
         </div>
     </section>
 </template>
 
 <style scoped>
-/* El contenedor de tooltip de Unovis queda transparente: el diseño lo da .tt */
-section {
-    --vis-tooltip-padding: 0;
-    --vis-tooltip-background-color: transparent;
-    --vis-tooltip-border-color: transparent;
-    --vis-tooltip-shadow-color: transparent;
-    --vis-axis-tick-label-color: var(--muted-foreground);
-    --vis-axis-grid-color: color-mix(in oklab, var(--border) 70%, transparent);
-    --vis-crosshair-line-stroke-color: var(--muted-foreground);
+.bloque {
+    border-style: solid;
+    border-width: 4px 1px 1px;
+    border-radius: 0.75rem;
+    background: var(--card);
+    padding: 0.75rem 1rem 1rem;
 }
 
-/* Tooltip compartido (Unovis inyecta el HTML; el embudo usa el mismo estilo). */
-:deep(.tt) {
-    min-width: 9rem;
-    border: 1px solid var(--border);
-    border-radius: 0.5rem;
-    background: var(--popover);
-    color: var(--popover-foreground);
-    padding: 0.5rem 0.625rem;
+.bloque-titulo {
     font-size: 0.75rem;
-    line-height: 1.35;
-    white-space: nowrap;
-    box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
 }
 
-:deep(.tt-t) {
+.bloque-datos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem 1rem;
+    margin-top: 0.625rem;
+}
+
+.bloque-datos dt {
+    font-size: 0.6875rem;
+    color: var(--muted-foreground);
+}
+
+.bloque-datos dd {
+    font-size: 1.375rem;
+    font-weight: 700;
+    line-height: 1.2;
+    font-variant-numeric: tabular-nums;
+}
+
+.bloque-datos p {
+    font-size: 0.625rem;
+    line-height: 1.25;
+    color: var(--muted-foreground);
+}
+
+.grafica {
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background: var(--card);
+    padding: 0.875rem 1rem 1rem;
+    min-width: 0;
+}
+
+.grafica-titulo {
+    font-size: 0.875rem;
     font-weight: 600;
-    margin-bottom: 0.125rem;
+    color: var(--primary);
+}
+
+.grafica-nota {
+    font-size: 0.6875rem;
+    color: var(--muted-foreground);
+}
+
+.punto {
+    display: inline-block;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 9999px;
 }
 </style>
