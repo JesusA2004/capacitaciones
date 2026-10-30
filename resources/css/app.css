@@ -91,6 +91,14 @@
     --color-forma-no-renovacion: var(--forma-salida-no-renovacion);
     --color-forma-rescision: var(--forma-salida-rescision);
     --color-forma-otra: var(--forma-salida-otra);
+    /* Solicitudes: banda de color por tipo. */
+    --color-tipo-permiso: var(--tipo-solicitud-permiso);
+    --color-tipo-vacaciones: var(--tipo-solicitud-vacaciones);
+    --color-tipo-prestamo: var(--tipo-solicitud-prestamo);
+    --color-tipo-baja: var(--tipo-solicitud-baja);
+    --color-tipo-actualizacion: var(--tipo-solicitud-actualizacion);
+    --color-tipo-salida: var(--tipo-solicitud-salida);
+    --color-tipo-otro: var(--tipo-solicitud-otro);
     --color-semaforo-sube: var(--semaforo-sube);
     --color-semaforo-baja: var(--semaforo-baja);
     --color-semaforo-ambar: var(--semaforo-ambar);
@@ -461,6 +469,13 @@
     --forma-salida-rescision: #0d1b4b;
     /* Otras terminaciones (fallecimiento / incapacidad permanente / jubilación): bronce. */
     --forma-salida-otra: #754711;
+    --tipo-solicitud-permiso: #2a8aa8;
+    --tipo-solicitud-vacaciones: #1fa774;
+    --tipo-solicitud-prestamo: #af8b51;
+    --tipo-solicitud-baja: #d64550;
+    --tipo-solicitud-actualizacion: #6f4a86;
+    --tipo-solicitud-salida: #c98a12;
+    --tipo-solicitud-otro: #5f6f6d;
     --semaforo-sube: #d64550;
     --semaforo-baja: #1fa774;
     --semaforo-ambar: #d99a1e;

@@ -18,6 +18,7 @@ use App\Http\Controllers\Rh\ExpedienteController;
 use App\Http\Controllers\Rh\FiniquitoController;
 use App\Http\Controllers\Rh\FormatoOficialController;
 use App\Http\Controllers\Rh\ImportacionTrabajadoresController;
+use App\Http\Controllers\Rh\IncapacidadController;
 use App\Http\Controllers\Rh\IncorporacionInvitacionController;
 use App\Http\Controllers\Rh\IntervencionCandidatoController;
 use App\Http\Controllers\Rh\LoteNominaController;
@@ -104,6 +105,27 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('{acta}/negativa-firma', [ActaController::class, 'negativaFirma'])->name('negativa-firma');
             Route::post('{acta}/seguimiento', [ActaController::class, 'seguimiento'])->name('seguimiento');
             Route::post('{acta}/cerrar', [ActaController::class, 'cerrar'])->name('cerrar');
+        });
+
+        // Incapacidades IMSS (Permanencia): captura de RH, documentos en NAS,
+        // expediente del riesgo e impacto en el recibo simple de pago.
+        Route::prefix('incapacidades')->name('incapacidades.')->group(function () {
+            Route::get('/', [IncapacidadController::class, 'index'])->name('index');
+            Route::get('registrar', [IncapacidadController::class, 'create'])->name('create');
+            Route::post('/', [IncapacidadController::class, 'store'])->name('store')->middleware('throttle:30,1');
+            Route::get('colaboradores', [IncapacidadController::class, 'colaboradores'])->name('colaboradores');
+            Route::get('colaboradores/{colaborador}/iniciales', [IncapacidadController::class, 'iniciales'])->name('iniciales');
+            Route::get('colaboradores/{colaborador}/historial', [IncapacidadController::class, 'historial'])->name('historial');
+            Route::get('exportar/excel', [IncapacidadController::class, 'exportarExcel'])->name('exportar-excel')->middleware('throttle:20,1');
+            Route::get('exportar/pdf', [IncapacidadController::class, 'exportarPdf'])->name('exportar-pdf')->middleware('throttle:20,1');
+            Route::get('documentos/{documento}', [IncapacidadController::class, 'descargarDocumento'])->name('documentos.show');
+            Route::post('rectificaciones/{rectificacion}/aplicar', [IncapacidadController::class, 'aplicarRectificacion'])->name('rectificaciones.aplicar');
+            Route::post('rectificaciones/{rectificacion}/descartar', [IncapacidadController::class, 'descartarRectificacion'])->name('rectificaciones.descartar');
+            Route::get('{incapacidad}', [IncapacidadController::class, 'show'])->name('show');
+            Route::get('{incapacidad}/pdf', [IncapacidadController::class, 'pdf'])->name('pdf')->middleware('throttle:20,1');
+            Route::post('{incapacidad}/corregir', [IncapacidadController::class, 'corregir'])->name('corregir');
+            Route::post('{incapacidad}/cancelar', [IncapacidadController::class, 'cancelar'])->name('cancelar');
+            Route::post('{incapacidad}/documentos', [IncapacidadController::class, 'subirDocumento'])->name('documentos.store')->middleware('throttle:30,1');
         });
 
         // Cambios de foto de perfil por revisar (FotoColaboradorService).

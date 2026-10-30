@@ -316,6 +316,7 @@ export type SolicitudInternaItem = {
     motivo: string;
     observaciones: string | null;
     motivo_rechazo: string | null;
+    permiso_tipo?: string | null;
     revisado_en: string | null;
     created_at: string;
     /** Foto (miniatura) del colaborador que solicita, si tiene. */

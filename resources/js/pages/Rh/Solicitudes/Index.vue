@@ -60,6 +60,7 @@ import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { useKanbanTransition } from '@/composables/useKanbanTransition';
 import { opcionesDe } from '@/lib/opcionesSelect';
+import { index as indexIncapacidades } from '@/routes/rh/incapacidades';
 import {
     actualizarEstado,
     exportarExcel,
@@ -88,8 +89,11 @@ const props = defineProps<{
         fecha_fin?: string;
     };
     tipos: TipoSolicitudInterna[];
+    /** Tipos vigentes + históricos con registros (p. ej. Incapacidad, solo lectura). */
+    tiposFiltro: TipoSolicitudInterna[];
     opciones: OpcionesSolicitudes;
     puedeExportar: boolean;
+    puedeVerIncapacidades: boolean;
 }>();
 
 defineOptions({
@@ -150,8 +154,6 @@ type ColumnaDefinicion = {
     suave: string;
     /** Fondo tenue del encabezado de la columna. */
     cabecera: string;
-    /** Franja lateral de cada tarjeta. */
-    barra: string;
 };
 
 const COLUMNAS: ColumnaDefinicion[] = [
@@ -161,7 +163,6 @@ const COLUMNAS: ColumnaDefinicion[] = [
         icono: Inbox,
         suave: 'bg-info-soft text-info',
         cabecera: 'bg-info-soft/80',
-        barra: 'bg-info',
     },
     {
         estado: 'en_revision',
@@ -169,7 +170,6 @@ const COLUMNAS: ColumnaDefinicion[] = [
         icono: Eye,
         suave: 'bg-info-soft text-info',
         cabecera: 'bg-info-soft/80',
-        barra: 'bg-info',
     },
     {
         estado: 'requiere_correccion',
@@ -177,7 +177,6 @@ const COLUMNAS: ColumnaDefinicion[] = [
         icono: PencilLine,
         suave: 'bg-warning-soft text-warning',
         cabecera: 'bg-warning-soft/80',
-        barra: 'bg-warning',
     },
     {
         estado: 'aprobada',
@@ -185,7 +184,6 @@ const COLUMNAS: ColumnaDefinicion[] = [
         icono: CircleCheckBig,
         suave: 'bg-success-soft text-success',
         cabecera: 'bg-success-soft/80',
-        barra: 'bg-success',
     },
     {
         estado: 'rechazada',
@@ -193,7 +191,6 @@ const COLUMNAS: ColumnaDefinicion[] = [
         icono: CircleSlash,
         suave: 'bg-crema-2 text-foreground',
         cabecera: 'bg-crema/60',
-        barra: 'bg-olivo',
     },
 ];
 
@@ -229,6 +226,70 @@ const ICONO_TIPO: Record<string, Component> = {
 
 function iconoTipo(tipo: string): Component {
     return ICONO_TIPO[tipo] ?? ClipboardList;
+}
+
+// Banda de color por tipo: tokens de resources/css/app.css, nunca hex sueltos.
+const LEYENDA_TIPOS = [
+    { clave: 'permiso', etiqueta: 'Permiso', clase: 'bg-tipo-permiso' },
+    {
+        clave: 'vacaciones',
+        etiqueta: 'Vacaciones',
+        clase: 'bg-tipo-vacaciones',
+    },
+    {
+        clave: 'prestamo',
+        etiqueta: 'Préstamo interno',
+        clase: 'bg-tipo-prestamo',
+    },
+    {
+        clave: 'baja_colaborador',
+        etiqueta: 'Baja de colaborador',
+        clase: 'bg-tipo-baja',
+    },
+    {
+        clave: 'actualizacion_datos',
+        etiqueta: 'Actualización de datos',
+        clase: 'bg-tipo-actualizacion',
+    },
+    {
+        clave: 'salida_temprano',
+        etiqueta: 'Salida temprano / llegada tarde',
+        clase: 'bg-tipo-salida',
+    },
+];
+
+const CLASE_BANDA: Record<string, string> = {
+    ...Object.fromEntries(LEYENDA_TIPOS.map((t) => [t.clave, t.clase])),
+    permiso_con_goce: 'bg-tipo-permiso',
+    permiso_sin_goce: 'bg-tipo-permiso',
+    permiso_tiempo: 'bg-tipo-salida',
+    llegada_tarde: 'bg-tipo-salida',
+    actualizacion_bancaria: 'bg-tipo-actualizacion',
+};
+
+/** Un permiso para salir temprano o llegar tarde lleva el color de ese grupo. */
+function esPermisoDeHorario(solicitud: SolicitudInternaItem): boolean {
+    return (
+        solicitud.tipo === 'permiso' &&
+        (solicitud.permiso_tipo === 'salir_temprano' ||
+            solicitud.permiso_tipo === 'llegar_tarde')
+    );
+}
+
+function claseBanda(solicitud: SolicitudInternaItem): string {
+    return esPermisoDeHorario(solicitud)
+        ? 'bg-tipo-salida'
+        : (CLASE_BANDA[solicitud.tipo] ?? 'bg-tipo-otro');
+}
+
+function etiquetaBanda(solicitud: SolicitudInternaItem): string {
+    if (esPermisoDeHorario(solicitud)) {
+        return solicitud.permiso_tipo === 'llegar_tarde'
+            ? 'Llegada tarde'
+            : 'Salida temprano';
+    }
+
+    return etiquetaTipo(solicitud.tipo);
 }
 
 function diasEsperando(solicitud: SolicitudInternaItem): number {
@@ -555,9 +616,7 @@ function confirmarMovimiento() {
 
             <SelectSimple
                 :model-value="filtros.tipo"
-                :opciones="
-                    tipos.map((t) => ({ value: t.value, label: t.label }))
-                "
+                :opciones="tiposFiltro"
                 placeholder="Todos los tipos"
                 opcion-vacia="Todos los tipos"
                 class="w-full sm:w-52"
@@ -719,6 +778,34 @@ function confirmarMovimiento() {
             </div>
         </div>
 
+        <!-- Leyenda: qué color tiene cada tipo de solicitud. -->
+        <div
+            class="flex flex-wrap items-center gap-1.5 rounded-xl border border-border/60 bg-card px-3 py-2"
+        >
+            <span class="text-xs font-semibold">Tipo de solicitud:</span>
+            <span
+                v-for="tipo in LEYENDA_TIPOS"
+                :key="tipo.clave"
+                class="rounded-full px-2.5 py-0.5 text-xs font-semibold text-white"
+                :class="tipo.clase"
+            >
+                {{ tipo.etiqueta }}
+            </span>
+            <component
+                :is="puedeVerIncapacidades ? Link : 'span'"
+                v-bind="
+                    puedeVerIncapacidades
+                        ? { href: indexIncapacidades.url() }
+                        : {}
+                "
+                class="ml-auto rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground"
+                :class="puedeVerIncapacidades ? 'hover:underline' : ''"
+            >
+                Incapacidad: se gestiona en su propio módulo
+                <template v-if="puedeVerIncapacidades">→</template>
+            </component>
+        </div>
+
         <!-- Tablero: horizontal real, sin comprimir columnas -->
         <div
             data-tour="solicitudes-tablero"
@@ -777,13 +864,19 @@ function confirmarMovimiento() {
                         v-for="solicitud in columnas[columna.estado]"
                         :key="solicitud.id"
                         :data-kanban-id="solicitud.id"
-                        class="group relative flex flex-col gap-3 overflow-hidden rounded-xl border border-border/60 bg-card p-4 pl-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                        class="group relative flex flex-col gap-3 overflow-hidden rounded-xl border border-border/60 bg-card p-4 pt-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
                     >
-                        <span
-                            class="absolute inset-y-0 left-0 w-1"
-                            :class="columna.barra"
-                            aria-hidden="true"
-                        />
+                        <!-- Banda del tipo: cada tipo conserva siempre su color. -->
+                        <div
+                            class="-mx-4 flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold tracking-wide text-white uppercase"
+                            :class="claseBanda(solicitud)"
+                        >
+                            <component
+                                :is="iconoTipo(solicitud.tipo)"
+                                class="size-3.5"
+                            />
+                            {{ etiquetaBanda(solicitud) }}
+                        </div>
 
                         <div class="flex items-start justify-between gap-2">
                             <div class="flex min-w-0 items-center gap-3">
@@ -846,22 +939,9 @@ function confirmarMovimiento() {
                             </div>
                         </div>
 
-                        <div class="flex flex-wrap items-center gap-1.5">
-                            <span
-                                class="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary"
-                            >
-                                <component
-                                    :is="iconoTipo(solicitud.tipo)"
-                                    class="size-3.5"
-                                />
-                                {{ etiquetaTipo(solicitud.tipo) }}
-                            </span>
-                            <span
-                                v-if="solicitud.tipo === 'baja_colaborador'"
-                                :class="CHIP.violeta"
-                            >
-                                <UserMinus class="size-3.5" /> Baja
-                            </span>
+                        <div
+                            class="flex flex-wrap items-center gap-1.5 empty:hidden"
+                        >
                             <span
                                 v-if="esUrgente(solicitud)"
                                 :class="CHIP.naranja"

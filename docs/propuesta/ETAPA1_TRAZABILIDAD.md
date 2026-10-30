@@ -156,6 +156,30 @@ Estados permitidos por el encargo. Las filas R1-R7 del diagnóstico inicial qued
 
 Limitación conocida: la plantilla reconstruida por fechas usa la sucursal actual de cada persona, porque no hay historial confiable de cambios de sucursal. Solo aplica a meses sin foto ni Excel.
 
+## Incremento 4 — Incapacidades e incidencias de nómina (estado comprobado 2026-10-30)
+
+Sustituye a la sección «Incremento 3 — Incapacidades» del diagnóstico inicial. Sin API móvil: la captura es de RH en el portal y la app no la usa.
+
+| Requisito | Implementación | Prueba | Estado |
+|---|---|---|---|
+| Banda de color, leyenda y filtro en Solicitudes | `Rh/Solicitudes/Index.vue`, tokens `--tipo-solicitud-*` | Captura contra pág. 6 | Probado y aprobado |
+| Escenario 6: no se crea por Solicitudes | `esLegado()` ya lo impedía en web y API; el filtro solo la ofrece si hay históricos | `IncapacidadesTest`, `PermisoOficialTest` | Probado y aprobado |
+| Escenario 7: histórico consultable | Sin conversión; etiqueta «(histórico)»; no afecta nómina | Pest | Probado y aprobado |
+| Módulo y permisos | `incapacidades`, `incapacidad_documentos`; `incapacidades.*` en rh_admin y rh_auxiliar (este sin corregir). Requiere `people:sincronizar-permisos` al desplegar | Pest (acceso sin permisos) | Probado y aprobado |
+| Escenarios 8-11: certificado, subsecuente, folio único, término | `IncapacidadService`; índice único `folio_vigente` | Pest + flujo real en navegador (21/10 + 14 = 3 nov) | Probado y aprobado |
+| Documentos IMSS en NAS | Disco de expedientes, original, checksum, usuario; un reemplazo conserva el anterior | Pest con disco falso + carga en navegador con disco local | Implementado sin validar en el NAS real |
+| Escenario 12 y estatus derivado | ST-7 antes de ST-2; ST-2 concluye; enfermedad general y maternidad al llegar el término | Pest | Probado y aprobado |
+| Historial y PDF del expediente | `Rh/Incapacidades/Expediente.vue`, `pdf.incapacidades.expediente` | Pest; descarga 200 en navegador, contenido del PDF no revisado a ojo | Probado y aprobado |
+| Escenarios 13-16: quincenas, 11 días, sin duplicar, sin negativos | `IncidenciasNominaService` clasifica cada día una sola vez; neto negativo rechazado en `ReciboNominaService` | Pest | Probado y aprobado |
+| Recibo borrador y emitido | Borrador se actualiza; emitido genera `nomina_rectificaciones`, RH aplica o descarta con nota | Pest (aplicar con PDF real en disco falso) | Probado y aprobado |
+| Alta y baja dentro del periodo | Misma regla que el ingreso a media quincena; baja vigente o `fecha_baja` | Pest | Probado y aprobado |
+| Lote semanal y quincena automática | Preparan con el servicio; `recalcular` lo reaplica | Pest | Probado y aprobado |
+| Reporte «Incidencias de nómina» | Lee `resumen()`, sin otra fórmula; la pantalla final de Reportes es del Incremento 7 | Pest | Probado y aprobado |
+| Regla de días pagados | `config/nomina_incidencias.php`, `validada_por_rh = false`, aviso visible en pantallas | Pest de las 3 reglas | Bloqueado por información externa (validación de RH) |
+| Riesgo sin dictamen ST-2 (no reconocido) | Queda abierto; no hay vía de cierre sin ST-2 | — | Bloqueado por información externa |
+
+**Decisión registrada, 16–31 oct con 11 días de incapacidad:** la regla vigente paga 5 días (16 naturales − 11), la misma que el sistema ya aplicaba al ingreso a media quincena. El PDF dice «se descuentan 11 días», lo que con base 15 daría 4 (`resta_directa`). Cambiar de regla es una línea de configuración, y RH debe elegirla antes de emitir recibos reales. La empresa no paga días de incapacidad en el recibo (`incapacidad_pagada_por_empresa` vacío): el subsidio del IMSS queda fuera.
+
 ## Incremento 2 — Bajas y Rotación (diagnóstico inicial)
 
 ### Bajas (PDF pág. 10, 15) — flujo sin Jurídico, documentos de salida

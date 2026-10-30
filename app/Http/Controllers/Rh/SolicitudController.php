@@ -92,6 +92,8 @@ class SolicitudController extends Controller
             'filtros' => $request->only(self::FILTROS),
             'puedeExportar' => $usuario->can('exportar', SolicitudInterna::class),
             'tipos' => $this->solicitudes->tiposDisponibles(),
+            'tiposFiltro' => $this->solicitudes->tiposParaFiltro($usuario),
+            'puedeVerIncapacidades' => $usuario->can('incapacidades.ver'),
             'opciones' => [
                 'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
                 'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),

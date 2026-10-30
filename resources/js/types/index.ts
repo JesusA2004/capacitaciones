@@ -14,6 +14,7 @@ export * from './cartasCompromiso';
 export * from './cargaInicial';
 export * from './celebraciones';
 export * from './cicloLaboral';
+export * from './incapacidades';
 export * from './induccion';
 export * from './configuracion';
 export * from './contratos';

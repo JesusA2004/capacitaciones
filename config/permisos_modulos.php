@@ -445,6 +445,17 @@ return [
                 'actas.seguimiento' => 'Notas de seguimiento', 'actas.cerrar' => 'Cerrar', 'actas.descargar' => 'Generar / descargar formato (PDF) y anexos',
             ],
         ],
+        // Información médica: por defecto solo RH (Etapa 1, Incapacidades).
+        'incapacidades' => [
+            'etiqueta' => 'Incapacidades',
+            'grupo' => 'People',
+            'acceso' => 'incapacidades.ver',
+            'alcances' => ['todos' => 'incapacidades.ver_todos', 'region' => 'incapacidades.ver_region', 'sucursal' => 'incapacidades.ver_sucursal', 'equipo' => 'incapacidades.ver_equipo'],
+            'acciones' => [
+                'incapacidades.registrar' => 'Registrar y cargar documentos', 'incapacidades.corregir' => 'Corregir o cancelar con motivo',
+                'incapacidades.descargar' => 'Descargar documentos y expediente PDF', 'incapacidades.exportar' => 'Exportar (Excel / PDF)',
+            ],
+        ],
         // Responsivas de equipo (docs/responsiva): el gerente las genera para
         // su equipo y RH para cualquiera; el colaborador no las ve aquí.
         'responsivas' => [
@@ -763,7 +774,7 @@ return [
         'incorporaciones' => 'onboarding', 'responsivas' => 'onboarding',
         'evaluaciones' => 'periodo_prueba',
         'expedientes' => 'permanencia', 'solicitudes' => 'permanencia', 'vacaciones' => 'permanencia',
-        'prestamos' => 'permanencia', 'actas' => 'permanencia', 'recibos' => 'permanencia',
+        'prestamos' => 'permanencia', 'actas' => 'permanencia', 'recibos' => 'permanencia', 'incapacidades' => 'permanencia',
         'cierres' => 'cierres', 'bajas' => 'cierres', 'finiquitos' => 'cierres',
         'rotacion' => 'reportes',
         'notificaciones' => 'mi_espacio',
@@ -1058,6 +1069,11 @@ return [
         'solicitudes.rechazar' => 'Rechaza la solicitud con un motivo.',
         'solicitudes.descargar_formato' => 'Descarga el formato oficial de permiso de una solicitud ajena ya autorizada (el dueño siempre descarga el suyo).',
         'solicitudes.exportar' => 'Exporta la bandeja filtrada a Excel o PDF.',
+        'incapacidades.ver' => 'Entra a Incapacidades (información médica).',
+        'incapacidades.registrar' => 'Captura incapacidades y carga certificados, ST-7, ST-2 y ST-3.',
+        'incapacidades.corregir' => 'Corrige o cancela una incapacidad, siempre con motivo y bitácora.',
+        'incapacidades.descargar' => 'Abre los documentos del IMSS y descarga el expediente en PDF.',
+        'incapacidades.exportar' => 'Descarga el listado en Excel o PDF.',
         'actas.crear' => 'Levanta actas de su alcance y completa las propias mientras siguen en borrador.',
         'actas.gestionar' => 'Opera cualquier acta de su alcance aunque no la haya levantado o ya no esté en borrador (RH).',
         'actas.editar' => 'Corrige motivo, hechos, testigos y manifestaciones.',

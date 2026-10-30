@@ -45,6 +45,7 @@ import {
     UserSearch,
     UserCheck,
     Users,
+    HeartPulse,
 } from '@lucide/vue';
 import type { LucideIcon } from '@lucide/vue';
 import { computed } from 'vue';
@@ -100,6 +101,7 @@ import { index as indexEvaluaciones } from '@/routes/rh/evaluaciones';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
 import { index as indexFormulariosEvaluacion } from '@/routes/rh/formularios-evaluacion';
 import { index as indexImportaciones } from '@/routes/rh/importaciones';
+import { index as indexIncapacidades } from '@/routes/rh/incapacidades';
 import { index as indexIncorporacionInvitaciones } from '@/routes/rh/incorporacion/invitaciones';
 import { index as indexInduccionPuesto } from '@/routes/rh/induccion-puesto';
 import { index as indexLotesNomina } from '@/routes/rh/nomina/lotes';
@@ -424,6 +426,11 @@ export function useMainNavItems() {
                         title: 'Solicitudes',
                         href: indexRhSolicitudes(),
                         icon: ClipboardList,
+                    },
+                    tienePermiso('incapacidades.ver') && {
+                        title: 'Incapacidades',
+                        href: indexIncapacidades(),
+                        icon: HeartPulse,
                     },
                     tienePermiso('actas.ver') && {
                         title: 'Actas administrativas',

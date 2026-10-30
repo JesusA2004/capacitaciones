@@ -412,6 +412,12 @@ class RolesYPermisosSeeder extends Seeder
         'actas.ver',
         'actas.crear',
         'actas.gestionar',
+        'incapacidades.ver',
+        'incapacidades.ver_todos',
+        'incapacidades.registrar',
+        'incapacidades.corregir',
+        'incapacidades.descargar',
+        'incapacidades.exportar',
         'indicadores.ver',
         // --- Administración → Configuración ---
         // ver: entrar al módulo; cada sección exige además su permiso. Las
@@ -557,6 +563,7 @@ class RolesYPermisosSeeder extends Seeder
             'nomina.recibos.ver', 'nomina.recibos.crear',
             'prestamos.ver', 'prestamos.autorizar', 'prestamos.resguardar',
             'actas.ver', 'actas.crear', 'actas.gestionar', 'actas.descargar', 'indicadores.ver',
+            'incapacidades.ver', 'incapacidades.ver_todos', 'incapacidades.registrar', 'incapacidades.corregir', 'incapacidades.descargar', 'incapacidades.exportar',
             // Responsivas de equipo (docs/responsiva).
             'responsivas.ver', 'responsivas.generar', 'responsivas.cancelar',
             // Cartas compromiso de documentos pendientes (nuevo ingreso).
@@ -618,6 +625,7 @@ class RolesYPermisosSeeder extends Seeder
             'contratos.subir_firmado',
             'nomina.recibos.ver', 'nomina.recibos.crear',
             'prestamos.ver', 'actas.ver', 'actas.crear', 'actas.descargar', 'indicadores.ver',
+            'incapacidades.ver', 'incapacidades.ver_todos', 'incapacidades.registrar', 'incapacidades.descargar', 'incapacidades.exportar',
             'responsivas.ver', 'responsivas.generar',
             'cartas_compromiso.ver', 'cartas_compromiso.generar', 'cartas_compromiso.subir_firmada', 'cartas_compromiso.descargar',
             'onboarding.ver', 'onboarding.gestionar', 'reingresos.solicitar',
