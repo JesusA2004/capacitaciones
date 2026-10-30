@@ -15,6 +15,16 @@
 
 Pendiente · En desarrollo · Implementado sin validar · Probado y aprobado · Bloqueado por información externa. Los símbolos 🔴🟡🟢🔵 de filas anteriores son el diagnóstico inicial y **no** certifican un requisito hasta revisarlo con estos estados.
 
+## Incremento 10 — Validación integral (estado comprobado 2026-10-30)
+
+Fuente vigente del estado de cada requisito y de la matriz de 56 escenarios: `ETAPA1_CIERRE_TECNICO.md`. Procedimiento: `ETAPA1_DESPLIEGUE.md`. **No está aprobado para producción:** los bloqueantes están en el documento de cierre.
+
+- **Matriz:** 46 Probado y aprobado, 7 Implementado sin validar, 2 Bloqueado por información externa, 1 Pendiente.
+- **SHA:** backend, último commit de `main` que incluye esta línea (base `e29fd06`); móvil `c411241`.
+- **Seguridad:** Sistemas pierde contratos, recibos y finiquitos (`2026_11_03_100000`); `Seguridad/SuperficieEtapa1Test` recorre URL directas.
+- **Migraciones:** probadas en MariaDB 11.4 con InnoDB sobre copia; se corrigió el `down()` de `2026_11_01_100000`.
+- **Visual:** págs. 5, 10, 11, 14 y 18 comparadas; pág. 24 pendiente de dispositivo.
+
 ## Incremento 1 — Plantilla única y Directorio (estado comprobado 2026-10-30)
 
 Validación ejecutada: 220 pruebas Pest de Headcount, Directorio, Dashboard, Permisos, Reportes e `ImportarDatosHubTest` (220 aprobadas), Pint y PHPStan en 0, ESLint, vue-tsc y build correctos. **La suite completa no se corrió en este incremento.** Navegador con Playwright y datos de desarrollo: Directorio en escritorio y a 390 px, «Ver los N», filtro, descargas Excel/PDF, 403 de RH en plazas y vista previa con un error de catálogo que bloquea confirmar.
