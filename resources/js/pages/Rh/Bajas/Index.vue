@@ -364,10 +364,24 @@ function avance(b: FilaBaja): string {
                                 class="bg-crema/40 text-xs text-muted-foreground uppercase"
                             >
                                 <tr>
-                                    <th class="min-w-56 px-3 py-2 font-medium">
+                                    <th
+                                        :class="
+                                            cn(
+                                                'min-w-56 px-3 py-2 font-medium',
+                                                seleccion && 'xl:min-w-0',
+                                            )
+                                        "
+                                    >
                                         Colaborador
                                     </th>
-                                    <th class="min-w-48 px-3 py-2 font-medium">
+                                    <th
+                                        :class="
+                                            cn(
+                                                'min-w-48 px-3 py-2 font-medium',
+                                                seleccion && 'xl:min-w-0',
+                                            )
+                                        "
+                                    >
                                         Forma · causal
                                     </th>
                                     <th class="px-3 py-2 font-medium">
@@ -377,7 +391,14 @@ function avance(b: FilaBaja): string {
                                     <th class="px-3 py-2 font-medium">
                                         Finiquito
                                     </th>
-                                    <th class="px-3 py-2" />
+                                    <th
+                                        :class="
+                                            cn(
+                                                'px-3 py-2',
+                                                seleccion && 'xl:hidden',
+                                            )
+                                        "
+                                    />
                                 </tr>
                             </thead>
                             <tbody>
@@ -387,10 +408,12 @@ function avance(b: FilaBaja): string {
                                     :class="
                                         cn(
                                             'border-b border-border/60 last:border-0',
+                                            puede.gestionar && 'cursor-pointer',
                                             seleccion?.baja_id === b.id &&
                                                 'bg-crema/50',
                                         )
                                     "
+                                    @click="puede.gestionar && seleccionar(b)"
                                 >
                                     <td class="px-3 py-2">
                                         <div class="flex items-center gap-2">
@@ -399,9 +422,16 @@ function avance(b: FilaBaja): string {
                                                 :foto-url="b.foto_url"
                                             />
                                             <div class="min-w-0">
-                                                <p class="font-medium">
-                                                    {{ b.colaborador }}
-                                                </p>
+                                                <Link
+                                                    class="font-medium hover:underline"
+                                                    :href="
+                                                        rutasBajas.show.url(
+                                                            b.id,
+                                                        )
+                                                    "
+                                                    @click.stop
+                                                    >{{ b.colaborador }}</Link
+                                                >
                                                 <p
                                                     class="text-xs text-muted-foreground"
                                                 >
@@ -497,8 +527,18 @@ function avance(b: FilaBaja): string {
                                             >—</span
                                         >
                                     </td>
-                                    <td class="px-3 py-2 text-right">
-                                        <div class="flex justify-end gap-1">
+                                    <td
+                                        :class="
+                                            cn(
+                                                'px-3 py-2 text-right',
+                                                seleccion && 'xl:hidden',
+                                            )
+                                        "
+                                    >
+                                        <div
+                                            class="flex justify-end gap-1"
+                                            @click.stop
+                                        >
                                             <Button
                                                 v-if="puede.gestionar"
                                                 size="sm"
@@ -529,8 +569,9 @@ function avance(b: FilaBaja): string {
                     </div>
 
                     <p class="text-xs text-muted-foreground">
-                        Al elegir «Documento» se abre a la derecha el generador
-                        del documento de salida de esa baja.
+                        Al seleccionar un renglón se abre a la derecha el
+                        generador del documento de salida de esa baja; su nombre
+                        abre el expediente.
                     </p>
 
                     <PaginacionTabla :datos="props.bajas" />

@@ -16,13 +16,10 @@ import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatoMoneda } from '@/lib/utils';
+import { dashboard } from '@/routes';
 import { index as salariosIndex } from '@/routes/salarios';
 import { excel, pdf } from '@/routes/salarios/exportar';
-import {
-    analizar,
-    aplicar,
-    formato,
-} from '@/routes/salarios/importar';
+import { analizar, aplicar, formato } from '@/routes/salarios/importar';
 import { guardar as guardarMatrizRuta } from '@/routes/salarios/matriz';
 import { guardar as guardarTabuladorRuta } from '@/routes/salarios/tabulador';
 
@@ -65,6 +62,15 @@ type FilaImportacion = {
     estado: 'nuevo' | 'cambio' | 'sin_cambio' | 'error';
     errores: string[];
 };
+
+defineOptions({
+    layout: {
+        breadcrumbs: [
+            { title: 'Inicio', href: dashboard() },
+            { title: 'Administración de salarios', href: '' },
+        ],
+    },
+});
 
 const props = defineProps<{
     resumen: {
@@ -315,10 +321,7 @@ const consultaExportar = computed(() => ({
     <Head title="Administración de salarios" />
 
     <div class="pagina-ancha flex flex-col gap-5">
-        <CrudPageHeader
-            titulo="Administración de salarios"
-            :icono="Banknote"
-        >
+        <CrudPageHeader titulo="Administración de salarios" :icono="Banknote">
             <span
                 class="inline-flex items-center gap-1 rounded-full bg-danger-soft px-3 py-1 text-xs font-medium text-destructive"
             >
@@ -364,7 +367,11 @@ const consultaExportar = computed(() => ({
             />
             <TarjetaMetrica
                 etiqueta="Margen para incrementos"
-                :valor="resumen.margen === null ? 'Sin dato' : moneda(resumen.margen)"
+                :valor="
+                    resumen.margen === null
+                        ? 'Sin dato'
+                        : moneda(resumen.margen)
+                "
                 tono="oro"
                 :detalle="
                     resumen.margen === null
@@ -418,7 +425,10 @@ const consultaExportar = computed(() => ({
                                 {{ moneda(fila.maximo) }}
                             </td>
                             <td class="p-2">
-                                <span v-if="fila.errores.length" class="text-destructive">
+                                <span
+                                    v-if="fila.errores.length"
+                                    class="text-destructive"
+                                >
                                     {{ fila.errores.join(' ') }}
                                 </span>
                                 <span v-else>{{ fila.estado }}</span>
@@ -450,12 +460,16 @@ const consultaExportar = computed(() => ({
             </form>
         </section>
 
-        <div class="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <div
+            class="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]"
+        >
             <!-- Tabulador -->
             <section class="min-w-0 rounded-2xl border bg-card p-4 shadow-sm">
                 <div class="flex flex-wrap items-start justify-between gap-2">
                     <div>
-                        <h2 class="font-semibold">Tabulador de sueldos mensuales</h2>
+                        <h2 class="font-semibold">
+                            Tabulador de sueldos mensuales
+                        </h2>
                         <p class="text-xs text-muted-foreground">
                             Captura el mínimo, medio y máximo de cada puesto.
                         </p>
@@ -479,7 +493,10 @@ const consultaExportar = computed(() => ({
                         </Button>
                     </div>
                 </div>
-                <InputError class="mt-1" :message="formArchivo.errors.archivo" />
+                <InputError
+                    class="mt-1"
+                    :message="formArchivo.errors.archivo"
+                />
 
                 <div class="mt-3 overflow-x-auto">
                     <table class="w-full text-sm">
@@ -505,7 +522,9 @@ const consultaExportar = computed(() => ({
                                         renglon.puesto_id === puestoId &&
                                         'bg-salvia'
                                     "
-                                    @click="navegar({ puesto: renglon.puesto_id })"
+                                    @click="
+                                        navegar({ puesto: renglon.puesto_id })
+                                    "
                                 >
                                     <td class="p-2 font-medium">
                                         {{ renglon.puesto }}
@@ -514,7 +533,9 @@ const consultaExportar = computed(() => ({
                                         <td class="p-2 text-right">
                                             {{ moneda(renglon.minimo) }}
                                         </td>
-                                        <td class="p-2 text-right font-semibold">
+                                        <td
+                                            class="p-2 text-right font-semibold"
+                                        >
                                             {{ moneda(renglon.medio) }}
                                         </td>
                                         <td class="p-2 text-right">
@@ -538,7 +559,10 @@ const consultaExportar = computed(() => ({
                                                 : entero(renglon.compa_ratio)
                                         }}
                                     </td>
-                                    <td v-if="puede.editar" class="p-1 text-right">
+                                    <td
+                                        v-if="puede.editar"
+                                        class="p-1 text-right"
+                                    >
                                         <Button
                                             variant="outline"
                                             size="icon"
@@ -557,12 +581,16 @@ const consultaExportar = computed(() => ({
                                     <td colspan="7" class="p-3">
                                         <form
                                             class="grid grid-cols-3 gap-2 sm:grid-cols-6"
-                                            @submit.prevent="guardarRenglon(renglon)"
+                                            @submit.prevent="
+                                                guardarRenglon(renglon)
+                                            "
                                         >
                                             <label class="text-xs">
                                                 Mínimo
                                                 <Input
-                                                    v-model="formTabulador.minimo"
+                                                    v-model="
+                                                        formTabulador.minimo
+                                                    "
                                                     type="number"
                                                     step="0.01"
                                                     min="0"
@@ -571,7 +599,9 @@ const consultaExportar = computed(() => ({
                                             <label class="text-xs">
                                                 Medio
                                                 <Input
-                                                    v-model="formTabulador.medio"
+                                                    v-model="
+                                                        formTabulador.medio
+                                                    "
                                                     type="number"
                                                     step="0.01"
                                                     min="0"
@@ -580,7 +610,9 @@ const consultaExportar = computed(() => ({
                                             <label class="text-xs">
                                                 Máximo
                                                 <Input
-                                                    v-model="formTabulador.maximo"
+                                                    v-model="
+                                                        formTabulador.maximo
+                                                    "
                                                     type="number"
                                                     step="0.01"
                                                     min="0"
@@ -588,23 +620,56 @@ const consultaExportar = computed(() => ({
                                             </label>
                                             <label class="col-span-2 text-xs">
                                                 Fuente del estudio
-                                                <Input v-model="formTabulador.fuente" />
+                                                <Input
+                                                    v-model="
+                                                        formTabulador.fuente
+                                                    "
+                                                />
                                             </label>
                                             <label class="text-xs">
                                                 Actualización
                                                 <Input
-                                                    v-model="formTabulador.fecha_actualizacion"
+                                                    v-model="
+                                                        formTabulador.fecha_actualizacion
+                                                    "
                                                     type="date"
                                                 />
                                             </label>
                                             <div class="col-span-full">
-                                                <InputError :message="formTabulador.errors.minimo" />
-                                                <InputError :message="formTabulador.errors.medio" />
-                                                <InputError :message="formTabulador.errors.maximo" />
-                                                <InputError :message="formTabulador.errors.fuente" />
-                                                <InputError :message="formTabulador.errors.fecha_actualizacion" />
+                                                <InputError
+                                                    :message="
+                                                        formTabulador.errors
+                                                            .minimo
+                                                    "
+                                                />
+                                                <InputError
+                                                    :message="
+                                                        formTabulador.errors
+                                                            .medio
+                                                    "
+                                                />
+                                                <InputError
+                                                    :message="
+                                                        formTabulador.errors
+                                                            .maximo
+                                                    "
+                                                />
+                                                <InputError
+                                                    :message="
+                                                        formTabulador.errors
+                                                            .fuente
+                                                    "
+                                                />
+                                                <InputError
+                                                    :message="
+                                                        formTabulador.errors
+                                                            .fecha_actualizacion
+                                                    "
+                                                />
                                             </div>
-                                            <div class="col-span-full flex justify-end gap-2">
+                                            <div
+                                                class="col-span-full flex justify-end gap-2"
+                                            >
                                                 <Button
                                                     type="button"
                                                     variant="ghost"
@@ -616,7 +681,9 @@ const consultaExportar = computed(() => ({
                                                 <Button
                                                     type="submit"
                                                     size="sm"
-                                                    :disabled="formTabulador.processing"
+                                                    :disabled="
+                                                        formTabulador.processing
+                                                    "
                                                 >
                                                     Guardar versión
                                                 </Button>
@@ -636,9 +703,14 @@ const consultaExportar = computed(() => ({
             <div class="flex min-w-0 flex-col gap-4">
                 <!-- Posición de cada colaborador -->
                 <section class="rounded-2xl border bg-card p-4 shadow-sm">
-                    <div class="flex flex-wrap items-center justify-between gap-2">
+                    <div
+                        class="flex flex-wrap items-center justify-between gap-2"
+                    >
                         <h2 class="font-semibold">
-                            {{ puestoSeleccionado?.puesto ?? 'Selecciona un puesto' }}
+                            {{
+                                puestoSeleccionado?.puesto ??
+                                'Selecciona un puesto'
+                            }}
                             · posición de cada colaborador
                         </h2>
                         <div class="flex items-center gap-2">
@@ -650,7 +722,9 @@ const consultaExportar = computed(() => ({
                                     navegar({
                                         sucursal:
                                             Number(
-                                                ($event.target as HTMLSelectElement).value,
+                                                (
+                                                    $event.target as HTMLSelectElement
+                                                ).value,
                                             ) || null,
                                     })
                                 "
@@ -664,14 +738,21 @@ const consultaExportar = computed(() => ({
                                     {{ sucursal.nombre }}
                                 </option>
                             </select>
-                            <span class="rounded-full bg-salvia px-2 py-0.5 text-xs">
+                            <span
+                                class="rounded-full bg-salvia px-2 py-0.5 text-xs"
+                            >
                                 {{ colaboradores.length }} colaboradores
                             </span>
                         </div>
                     </div>
 
-                    <div v-if="rango && escala" class="relative mx-3 mt-8 mb-10 h-3">
-                        <div class="absolute inset-0 rounded-full bg-danger-soft"></div>
+                    <div
+                        v-if="rango && escala"
+                        class="relative mx-3 mt-8 mb-10 h-3"
+                    >
+                        <div
+                            class="absolute inset-0 rounded-full bg-danger-soft"
+                        ></div>
                         <div
                             class="absolute inset-y-0 bg-success-soft"
                             :style="{
@@ -692,10 +773,14 @@ const consultaExportar = computed(() => ({
                             <span
                                 class="absolute top-5 -translate-x-1/2 text-center text-[10px] leading-tight whitespace-nowrap"
                             >
-                                <b>{{ etiqueta }}</b><br />{{ moneda(valor) }}
+                                <b>{{ etiqueta }}</b
+                                ><br />{{ moneda(valor) }}
                             </span>
                         </div>
-                        <template v-for="persona in colaboradores" :key="persona.id">
+                        <template
+                            v-for="persona in colaboradores"
+                            :key="persona.id"
+                        >
                             <span
                                 v-if="persona.sueldo !== null"
                                 class="absolute top-1/2 flex size-6 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground ring-2 ring-card"
@@ -710,8 +795,8 @@ const consultaExportar = computed(() => ({
                         v-else
                         class="mt-3 rounded-lg bg-warning-soft p-2 text-xs text-warning"
                     >
-                        Este puesto aún no tiene tabulador: captura su rango para
-                        ver la posición.
+                        Este puesto aún no tiene tabulador: captura su rango
+                        para ver la posición.
                     </p>
 
                     <div class="overflow-x-auto">
@@ -719,7 +804,9 @@ const consultaExportar = computed(() => ({
                             <thead class="bg-crema text-left text-xs">
                                 <tr>
                                     <th class="p-2">Colaborador</th>
-                                    <th class="p-2 text-right">Sueldo actual</th>
+                                    <th class="p-2 text-right">
+                                        Sueldo actual
+                                    </th>
                                     <th class="p-2 text-center">Compa-ratio</th>
                                     <th class="p-2">Posición</th>
                                     <th class="p-2">Desempeño</th>
@@ -734,9 +821,16 @@ const consultaExportar = computed(() => ({
                                     class="border-t"
                                 >
                                     <td class="p-2">
-                                        <p class="font-medium">{{ persona.nombre }}</p>
-                                        <p class="text-xs text-muted-foreground">
-                                            {{ persona.sucursal ?? 'Sin sucursal' }}
+                                        <p class="font-medium">
+                                            {{ persona.nombre }}
+                                        </p>
+                                        <p
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            {{
+                                                persona.sucursal ??
+                                                'Sin sucursal'
+                                            }}
                                         </p>
                                     </td>
                                     <td class="p-2 text-right font-semibold">
@@ -761,7 +855,11 @@ const consultaExportar = computed(() => ({
                                         >
                                             {{ persona.banda_etiqueta }}
                                         </span>
-                                        <span v-else class="text-xs text-muted-foreground">—</span>
+                                        <span
+                                            v-else
+                                            class="text-xs text-muted-foreground"
+                                            >—</span
+                                        >
                                     </td>
                                     <td class="p-2 text-xs">
                                         {{ persona.desempeno_etiqueta }}
@@ -782,14 +880,17 @@ const consultaExportar = computed(() => ({
                                         colspan="7"
                                         class="p-4 text-center text-xs text-muted-foreground"
                                     >
-                                        Nadie vigente en este puesto con este filtro.
+                                        Nadie vigente en este puesto con este
+                                        filtro.
                                     </td>
                                 </tr>
                             </tbody>
                         </table>
                     </div>
 
-                    <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+                    <div
+                        class="mt-2 flex flex-wrap items-center justify-between gap-2"
+                    >
                         <Button
                             v-if="versiones.length"
                             variant="ghost"
@@ -802,10 +903,14 @@ const consultaExportar = computed(() => ({
                         <span v-else></span>
                         <div v-if="puede.exportar" class="flex gap-2">
                             <Button variant="outline" size="sm" as-child>
-                                <a :href="excel.url(consultaExportar)">Excel de posiciones</a>
+                                <a :href="excel.url(consultaExportar)"
+                                    >Excel de posiciones</a
+                                >
                             </Button>
                             <Button variant="outline" size="sm" as-child>
-                                <a :href="pdf.url(consultaExportar)">PDF de posiciones</a>
+                                <a :href="pdf.url(consultaExportar)"
+                                    >PDF de posiciones</a
+                                >
                             </Button>
                         </div>
                     </div>
@@ -818,9 +923,14 @@ const consultaExportar = computed(() => ({
                             <b>v{{ version.version }}</b>
                             {{ moneda(version.minimo) }} /
                             {{ moneda(version.medio) }} /
-                            {{ moneda(version.maximo) }} · {{ version.fuente }} ·
+                            {{ moneda(version.maximo) }} ·
+                            {{ version.fuente }} ·
                             {{ version.vigente_desde }}
-                            {{ version.vigente_hasta ? `a ${version.vigente_hasta}` : '(vigente)' }}
+                            {{
+                                version.vigente_hasta
+                                    ? `a ${version.vigente_hasta}`
+                                    : '(vigente)'
+                            }}
                             · {{ version.usuario ?? 'Sistema' }}
                         </li>
                     </ul>
@@ -835,7 +945,8 @@ const consultaExportar = computed(() => ({
                                     Matriz de mérito · incremento sugerido
                                 </h2>
                                 <p class="text-xs text-muted-foreground">
-                                    Son sugerencias: ningún aumento se aplica solo.
+                                    Son sugerencias: ningún aumento se aplica
+                                    solo.
                                 </p>
                             </div>
                             <Button
@@ -877,56 +988,96 @@ const consultaExportar = computed(() => ({
                                         >
                                             <Input
                                                 v-if="editandoMatriz"
-                                                v-model="celdas[nivel.clave][banda.clave]"
+                                                v-model="
+                                                    celdas[nivel.clave][
+                                                        banda.clave
+                                                    ]
+                                                "
                                                 class="h-8 text-center text-xs"
                                                 :aria-label="`${nivel.etiqueta}, ${banda.etiqueta}`"
                                             />
                                             <template v-else>
-                                                {{ textoCelda(matriz?.[nivel.clave]?.[banda.clave]) }}
+                                                {{
+                                                    textoCelda(
+                                                        matriz?.[nivel.clave]?.[
+                                                            banda.clave
+                                                        ],
+                                                    )
+                                                }}
                                             </template>
                                         </td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
-                        <div v-if="editandoMatriz" class="mt-2 flex flex-col gap-2">
+                        <div
+                            v-if="editandoMatriz"
+                            class="mt-2 flex flex-col gap-2"
+                        >
                             <p class="text-xs text-muted-foreground">
                                 Porcentaje de 0 a 100, o escribe «Bono».
                             </p>
-                            <Input v-model="motivoMatriz" placeholder="Motivo (opcional)" />
+                            <Input
+                                v-model="motivoMatriz"
+                                placeholder="Motivo (opcional)"
+                            />
                             <InputError :message="erroresMatriz ?? undefined" />
                             <div class="flex justify-end gap-2">
-                                <Button variant="ghost" size="sm" @click="editandoMatriz = false">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    @click="editandoMatriz = false"
+                                >
                                     Cancelar
                                 </Button>
-                                <Button size="sm" @click="guardarMatriz">Guardar</Button>
+                                <Button size="sm" @click="guardarMatriz"
+                                    >Guardar</Button
+                                >
                             </div>
                         </div>
                         <details class="mt-2 text-xs text-muted-foreground">
-                            <summary class="cursor-pointer">Historial de la matriz</summary>
+                            <summary class="cursor-pointer">
+                                Historial de la matriz
+                            </summary>
                             <ul class="mt-1 space-y-1">
-                                <li v-for="version in historialMatriz" :key="version.id">
+                                <li
+                                    v-for="version in historialMatriz"
+                                    :key="version.id"
+                                >
                                     {{ version.vigente_desde }}
-                                    {{ version.vigente_hasta ? `a ${version.vigente_hasta}` : '(vigente)' }}
+                                    {{
+                                        version.vigente_hasta
+                                            ? `a ${version.vigente_hasta}`
+                                            : '(vigente)'
+                                    }}
                                     · {{ version.usuario ?? 'Sistema' }}
-                                    <template v-if="version.motivo"> · {{ version.motivo }}</template>
+                                    <template v-if="version.motivo">
+                                        · {{ version.motivo }}</template
+                                    >
                                 </li>
                             </ul>
                         </details>
                     </section>
 
                     <!-- Alertas -->
-                    <section class="rounded-2xl border bg-crema/50 p-4 shadow-sm">
+                    <section
+                        class="rounded-2xl border bg-crema/50 p-4 shadow-sm"
+                    >
                         <h2 class="flex items-center gap-1 font-semibold">
-                            <TriangleAlert class="size-4 text-warning" /> Alertas salariales
+                            <TriangleAlert class="size-4 text-warning" />
+                            Alertas salariales
                         </h2>
                         <ul class="mt-2 space-y-2 text-sm">
                             <li>
-                                <b class="text-destructive">{{ resumen.bajo_minimo }}</b>
+                                <b class="text-destructive">{{
+                                    resumen.bajo_minimo
+                                }}</b>
                                 bajo el mínimo: riesgo de rotación.
                             </li>
                             <li>
-                                <b class="text-warning">{{ resumen.sobre_maximo }}</b>
+                                <b class="text-warning">{{
+                                    resumen.sobre_maximo
+                                }}</b>
                                 sobre el máximo: solo procede bono.
                             </li>
                             <li>
@@ -938,8 +1089,8 @@ const consultaExportar = computed(() => ({
                                 sin sueldo capturado en su expediente.
                             </li>
                             <li v-if="resumen.con_evaluacion === 0">
-                                Sin evaluación de desempeño vigente: no se calculan
-                                topes ni márgenes.
+                                Sin evaluación de desempeño vigente: no se
+                                calculan topes ni márgenes.
                             </li>
                         </ul>
                     </section>
