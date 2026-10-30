@@ -34,6 +34,7 @@ class ImportarDatosController extends Controller
     private const PERMISOS = [
         'migracion' => 'expedientes.migrar',
         'headcount' => 'headcount.importar',
+        'altas_historicas' => 'reportes_rh.importar_historico',
         'salarios_vacaciones' => 'colaboradores.importar_salarios_vacaciones',
         'rotacion' => 'rotacion.cargar',
         'perfiles_puesto' => 'perfiles_puesto.importar',

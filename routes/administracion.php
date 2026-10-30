@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Administracion\AltasHistoricasController;
 use App\Http\Controllers\Administracion\AppReleaseController;
 use App\Http\Controllers\Administracion\CargaInicialController;
 use App\Http\Controllers\Administracion\CoberturaPuestoController;
@@ -73,6 +74,15 @@ Route::middleware(['auth', 'verified'])
             Route::get('formato', [PlazasAutorizadasController::class, 'plantilla'])->name('plantilla');
             Route::post('analizar', [PlazasAutorizadasController::class, 'analizar'])->name('analizar');
             Route::post('{importacion}/aplicar', [PlazasAutorizadasController::class, 'aplicar'])->name('aplicar');
+        });
+
+        // Altas de periodos anteriores al sistema: vista previa, confirmación y
+        // bitácora. Solo reportes_rh.importar_historico.
+        Route::prefix('importar-datos/altas-historicas')->name('importar-datos.altas-historicas.')->group(function () {
+            Route::get('/', [AltasHistoricasController::class, 'index'])->name('index');
+            Route::get('formato', [AltasHistoricasController::class, 'plantilla'])->name('plantilla');
+            Route::post('analizar', [AltasHistoricasController::class, 'analizar'])->name('analizar');
+            Route::post('{importacion}/aplicar', [AltasHistoricasController::class, 'aplicar'])->name('aplicar');
         });
 
         Route::prefix('empresas')->name('empresas.')->group(function () {

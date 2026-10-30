@@ -363,7 +363,7 @@ return [
             'etapa' => 'reportes',
             'acceso' => 'reportes_rh.ver',
             'alcances' => [],
-            'acciones' => ['reportes_rh.exportar' => 'Exportar (Excel / PDF)', 'reportes_rh.globales' => 'Reportes globales', 'reportes_rh.sucursal' => 'Reportes de su sucursal'],
+            'acciones' => ['reportes_rh.exportar' => 'Exportar (Excel / PDF)', 'reportes_rh.globales' => 'Reportes globales', 'reportes_rh.sucursal' => 'Reportes de su sucursal', 'reportes_rh.mis_reportes' => 'Crear y ejecutar Mis reportes', 'reportes_rh.datos_sensibles' => 'Ver RFC, CURP, NSS y domicilio en reportes', 'reportes_rh.importar_historico' => 'Importar altas históricas desde Excel'],
         ],
         'expedientes' => [
             'etiqueta' => 'Expedientes',
@@ -1061,6 +1061,9 @@ return [
         'reportes_rh.exportar' => 'Descarga los reportes en Excel o PDF.',
         'reportes_rh.globales' => 'Reportes de toda la empresa.',
         'reportes_rh.sucursal' => 'Reportes de sus sucursales.',
+        'reportes_rh.mis_reportes' => 'Arma, guarda y ejecuta reportes propios. Los sueldos siguen exigiendo salarios.ver y los datos personales el permiso de datos sensibles.',
+        'reportes_rh.datos_sensibles' => 'Ve completos RFC, CURP, NSS y domicilio en reportes y descarga el layout de Altas para NOI.',
+        'reportes_rh.importar_historico' => 'Carga altas de periodos anteriores desde Excel, con vista previa. No cambia fechas de ingreso.',
         // Rotación
         'rotacion.ver' => 'Consulta el histórico de rotación cargado desde Excel.',
         'rotacion.descargar' => 'Descarga el formato de carga y el Excel original de cada carga.',

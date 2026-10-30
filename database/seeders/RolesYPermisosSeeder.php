@@ -133,6 +133,9 @@ class RolesYPermisosSeeder extends Seeder
         'reportes_rh.exportar',
         'reportes_rh.globales',
         'reportes_rh.sucursal',
+        'reportes_rh.mis_reportes',
+        'reportes_rh.datos_sensibles',
+        'reportes_rh.importar_historico',
 
         // --- Reclutamiento: vacantes y candidatos (Mr. Lana People Fase 1) ---
         'vacantes.ver',
@@ -522,7 +525,7 @@ class RolesYPermisosSeeder extends Seeder
             'altas.ver', 'altas.crear', 'altas.enviar', 'altas.revisar', 'altas.aprobar', 'altas.cancelar',
             'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar', 'vacaciones.rechazar', 'vacaciones.ajustar', 'vacaciones.reportes',
             'solicitudes.ver', 'solicitudes.crear', 'solicitudes.revisar', 'solicitudes.aprobar', 'solicitudes.rechazar',
-            'reportes_rh.ver', 'reportes_rh.exportar', 'reportes_rh.globales', 'reportes_rh.sucursal',
+            'reportes_rh.ver', 'reportes_rh.exportar', 'reportes_rh.globales', 'reportes_rh.sucursal', 'reportes_rh.mis_reportes', 'reportes_rh.datos_sensibles',
             'rotacion.ver',
             'auditoria.ver',
             'vacantes.ver', 'vacantes.ver_todos', 'vacantes.crear', 'vacantes.editar', 'vacantes.cerrar', 'vacantes.eliminar',

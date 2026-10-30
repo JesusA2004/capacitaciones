@@ -27,6 +27,7 @@ class ReporteRhExport implements WithMultipleSheets
         private readonly string $titulo,
         private readonly array $columnas,
         private readonly array $filas,
+        private readonly bool $conResumen = true,
     ) {}
 
     /**
@@ -36,7 +37,7 @@ class ReporteRhExport implements WithMultipleSheets
     {
         $hojas = [];
 
-        if (count($this->filas) > 0) {
+        if ($this->conResumen && count($this->filas) > 0) {
             $hojas[] = new ReporteResumenSheet($this->titulo, $this->kpis(), $this->bloquesGrafica());
         }
 

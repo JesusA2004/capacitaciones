@@ -38,6 +38,17 @@ final class ChartData
     ) {}
 
     /**
+     * Una sola serie ya agregada, con el tipo que eligió el usuario (Mis reportes).
+     *
+     * @param  list<string>  $categorias
+     * @param  list<float>  $valores
+     */
+    public static function deSerie(string $tipo, array $categorias, string $nombre, array $valores): self
+    {
+        return new self($tipo, $categorias, [['nombre' => $nombre, 'valores' => $valores]], false);
+    }
+
+    /**
      * @param  array<int, string>  $columnas
      * @param  array<int, array<int, string|int|float|null>>  $filas
      */

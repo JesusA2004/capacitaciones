@@ -68,6 +68,8 @@ final class ReferenciasUsuario
         ['altas_digitales', 'creado_por', 'set_null'],
         ['altas_digitales', 'revisado_por', 'set_null'],
         ['altas_digitales', 'user_id', 'set_null'],
+        ['altas_historicas', 'registrado_por', 'set_null'],
+        ['reportes_guardados', 'user_id', 'cascade'],
         ['aprobaciones', 'aprobador_user_id', 'set_null'],
         ['aprobaciones', 'decidido_por_user_id', 'set_null'],
         ['aprobaciones', 'solicitante_user_id', 'set_null'],

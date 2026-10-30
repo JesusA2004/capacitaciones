@@ -39,10 +39,12 @@ use Illuminate\Support\Collection;
  * consultas complejas en controladores").
  *
  * @phpstan-type Fila array<int, string|int|float|null>
- * @phpstan-type Reporte array{titulo: string, columnas: array<int, string>, filas: array<int, Fila>}
+ * @phpstan-type Reporte array{titulo: string, columnas: array<int, string>, filas: array<int, Fila>, avisos?: list<string>, faltantes?: int, sin_grafica?: bool}
  */
 class ReportesRhService
 {
+    private const NOMINALES = ['directorio_activo', 'altas_mes', 'bajas_mes', 'altas_noi', 'incidencias_nomina', 'aniversario_imss'];
+
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly ExpedienteService $expediente,
@@ -50,17 +52,22 @@ class ReportesRhService
         private readonly VacantesListadoService $vacantesListado,
         private readonly HeadcountService $headcount,
         private readonly IncidenciasNominaService $incidencias,
+        private readonly ReportesNominalesService $nominales,
+        private readonly AltasNoiService $noi,
     ) {}
 
     /**
      * Catálogo de reportes disponibles, agrupado para el selector de la UI.
      *
-     * @return array<int, array{grupo: string, opciones: array<int, array{value: string, label: string}>}>
+     * @return array<int, array{grupo: string, opciones: array<int, array{value: string, label: string, periodo?: bool, mes?: bool}>}>
      */
     public function catalogo(): array
     {
         return [
             ['grupo' => 'Plantilla', 'opciones' => [
+                ['value' => 'directorio_activo', 'label' => 'Directorio de personal activo'],
+                ['value' => 'altas_mes', 'label' => 'Altas del mes', 'periodo' => true],
+                ['value' => 'bajas_mes', 'label' => 'Bajas del mes', 'periodo' => true],
                 ['value' => 'plantilla_conciliacion', 'label' => 'Plantilla autorizada, activa y vacantes'],
                 ['value' => 'empleados_total', 'label' => 'Número de empleados'],
                 ['value' => 'empleados_por_empresa', 'label' => 'Empleados por empresa'],
@@ -71,10 +78,15 @@ class ReportesRhService
                 ['value' => 'empleados_imss', 'label' => 'Empleados con/sin IMSS'],
                 ['value' => 'empleados_periodo_prueba', 'label' => 'Empleados en periodo de prueba'],
             ]],
-            ['grupo' => 'Altas y bajas', 'opciones' => [
+            ['grupo' => 'Nómina', 'opciones' => [
+                ['value' => 'altas_noi', 'label' => 'Altas para NOI', 'periodo' => true],
+                ['value' => 'incidencias_nomina', 'label' => 'Incidencias de nómina', 'periodo' => true],
+                ['value' => 'aniversario_imss', 'label' => 'Aniversario de alta en el IMSS', 'mes' => true],
+            ]],
+            // La rotación de personal vive en Cierres laborales → Bajas.
+            ['grupo' => 'Altas y bajas por mes', 'opciones' => [
                 ['value' => 'altas_por_mes', 'label' => 'Altas por mes'],
                 ['value' => 'bajas_por_mes', 'label' => 'Bajas por mes'],
-                ['value' => 'rotacion', 'label' => 'Rotación (altas vs. bajas)'],
             ]],
             ['grupo' => 'Reclutamiento', 'opciones' => [
                 ['value' => 'vacantes_abiertas', 'label' => 'Vacantes abiertas'],
@@ -93,7 +105,6 @@ class ReportesRhService
                 ['value' => 'vacaciones_solicitudes', 'label' => 'Vacaciones solicitadas'],
                 ['value' => 'solicitudes_pendientes', 'label' => 'Solicitudes pendientes'],
                 ['value' => 'incapacidades', 'label' => 'Incapacidades históricas (Solicitudes)'],
-                ['value' => 'incidencias_nomina', 'label' => 'Incidencias de nómina'],
             ]],
             ['grupo' => 'Fechas relevantes', 'opciones' => [
                 ['value' => 'cumpleanos', 'label' => 'Cumpleaños próximos'],
@@ -108,6 +119,22 @@ class ReportesRhService
      */
     public function generar(string $clave, User $usuario, array $filtros): array
     {
+        $reporte = $this->construir($clave, $usuario, $filtros);
+
+        // Detalle por persona: graficar un NSS o un sueldo por nombre no dice nada.
+        if (in_array($clave, self::NOMINALES, true)) {
+            $reporte['sin_grafica'] = true;
+        }
+
+        return $reporte;
+    }
+
+    /**
+     * @param  array<string, mixed>  $filtros
+     * @return Reporte
+     */
+    private function construir(string $clave, User $usuario, array $filtros): array
+    {
         return match ($clave) {
             'plantilla_conciliacion' => $this->plantillaConciliacion($usuario, $filtros),
             'empleados_total' => $this->empleadosTotal($usuario, $filtros),
@@ -118,9 +145,13 @@ class ReportesRhService
             'genero_por_sucursal' => $this->empleadosPorGenero($usuario, $filtros, true),
             'empleados_imss' => $this->empleadosImss($usuario, $filtros),
             'empleados_periodo_prueba' => $this->empleadosPeriodoPrueba($usuario, $filtros),
-            'altas_por_mes' => $this->altasPorMes($usuario, $filtros),
+            'directorio_activo' => $this->nominales->directorioActivo($usuario, $filtros),
+            'altas_mes' => $this->nominales->altasDelPeriodo($usuario, $filtros),
+            'bajas_mes' => $this->nominales->bajasDelPeriodo($usuario, $filtros),
+            'altas_noi' => $this->noi->reporte($usuario, $filtros),
+            'aniversario_imss' => $this->nominales->aniversarioImss($usuario, $filtros),
+            'altas_por_mes' => $this->nominales->altasPorMes($usuario, $filtros),
             'bajas_por_mes' => $this->bajasPorMes($usuario, $filtros),
-            'rotacion' => $this->rotacion($usuario, $filtros),
             'vacantes_abiertas' => $this->vacantesPorEstado($usuario, $filtros, null, 'Vacantes abiertas'),
             'vacantes_cubiertas' => $this->vacantesPorEstado($usuario, $filtros, EstadoVacante::Cubierta, 'Vacantes cubiertas'),
             'candidatos_viables' => $this->candidatosPorEstado($usuario, $filtros, array_values(array_filter(EstadoCandidato::abiertos(), fn (EstadoCandidato $e) => $e !== EstadoCandidato::Recibidos)), 'Candidatos viables'),
@@ -376,28 +407,6 @@ class ReportesRhService
     }
 
     /**
-     * Altas por mes desde el histórico inmutable de MovimientoLaboral (tipo
-     * "alta"), no desde `users.created_at`: created_at es cuándo se creó la
-     * fila en BD (puede no coincidir con la fecha de ingreso real, p. ej. en
-     * una carga masiva/migración), mientras que el movimiento de alta guarda
-     * `fecha_movimiento` = fecha_ingreso del colaborador en el momento en que
-     * causó alta (ver MovimientoLaboralService::registrarAlta) — la fuente
-     * correcta según la definición de negocio de "cuándo entró alguien".
-     *
-     * @param  array<string, mixed>  $filtros
-     * @return Reporte
-     */
-    private function altasPorMes(User $usuario, array $filtros): array
-    {
-        $fechas = MovimientoLaboral::query()
-            ->whereIn('colaborador_id', $this->idsVisiblesConBajas($usuario, $filtros))
-            ->where('tipo_movimiento', TipoMovimientoLaboral::Alta->value)
-            ->pluck('fecha_movimiento');
-
-        return $this->porMes($fechas, 'Altas por mes');
-    }
-
-    /**
      * Bajas por mes desde MovimientoLaboral (tipo "baja"), registrado por
      * UsuarioController::destroy() y BajaColaboradorService en el mismo
      * instante en que se da de baja al colaborador — a diferencia de
@@ -438,26 +447,6 @@ class ReportesRhService
         ])->all();
 
         return ['titulo' => $titulo, 'columnas' => ['Mes', 'Total'], 'filas' => $filas];
-    }
-
-    /**
-     * @param  array<string, mixed>  $filtros
-     * @return Reporte
-     */
-    private function rotacion(User $usuario, array $filtros): array
-    {
-        $altas = $this->altasPorMes($usuario, $filtros)['filas'];
-        $bajas = $this->bajasPorMes($usuario, $filtros)['filas'];
-
-        $filas = [];
-
-        foreach ($altas as $i => $fila) {
-            $totalAltas = (int) $fila[1];
-            $totalBajas = (int) ($bajas[$i][1] ?? 0);
-            $filas[] = [$fila[0], $totalAltas, $totalBajas, $totalAltas - $totalBajas];
-        }
-
-        return ['titulo' => 'Rotación (altas vs. bajas)', 'columnas' => ['Mes', 'Altas', 'Bajas', 'Neto'], 'filas' => $filas];
     }
 
     /**

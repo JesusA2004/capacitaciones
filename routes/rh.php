@@ -23,6 +23,7 @@ use App\Http\Controllers\Rh\IncorporacionInvitacionController;
 use App\Http\Controllers\Rh\IntervencionCandidatoController;
 use App\Http\Controllers\Rh\LoteNominaController;
 use App\Http\Controllers\Rh\MigracionExpedientesController;
+use App\Http\Controllers\Rh\MisReportesController;
 use App\Http\Controllers\Rh\NominaController;
 use App\Http\Controllers\Rh\PerfilPuestoController;
 use App\Http\Controllers\Rh\PrestamoAutorizacionController;
@@ -461,6 +462,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/', [ReporteRhController::class, 'index'])->name('index');
             Route::get('excel', [ReporteRhController::class, 'exportarExcel'])->name('excel');
             Route::get('pdf', [ReporteRhController::class, 'exportarPdf'])->name('pdf');
+            Route::get('noi/exportar', [ReporteRhController::class, 'exportarNoi'])->name('noi.exportar');
+            Route::put('noi/layout', [ReporteRhController::class, 'guardarLayoutNoi'])->name('noi.layout');
+
+            // Mis reportes: definición guardada, datos y permisos siempre al ejecutar.
+            Route::prefix('mis-reportes')->name('mis-reportes.')->group(function () {
+                Route::get('/', [MisReportesController::class, 'index'])->name('index');
+                Route::post('/', [MisReportesController::class, 'store'])->name('store');
+                Route::post('vista-previa', [MisReportesController::class, 'vistaPrevia'])->name('vista-previa');
+                Route::post('vista-previa-pdf', [MisReportesController::class, 'vistaPreviaPdf'])->name('vista-previa-pdf');
+                Route::post('exportar', [MisReportesController::class, 'exportar'])->name('exportar');
+                Route::put('{reporte}', [MisReportesController::class, 'update'])->name('update');
+                Route::delete('{reporte}', [MisReportesController::class, 'destroy'])->name('destroy');
+                Route::post('{reporte}/duplicar', [MisReportesController::class, 'duplicar'])->name('duplicar');
+                Route::get('{reporte}/ejecutar/{formato}', [MisReportesController::class, 'ejecutar'])->whereIn('formato', ['excel', 'pdf'])->name('ejecutar');
+            });
         });
 
         // Aniversarios laborales y acciones comunes de celebraciones

@@ -77,6 +77,7 @@ final class ReferenciasColaborador
         ['user_nodo_comercial', 'colaborador_id', 'cascade', 'eliminar'],
 
         // Autoría / relación sobre registros de TERCEROS (se conservan; NULL).
+        ['altas_historicas', 'colaborador_id', 'set_null', 'desvincular'],
         ['aprobaciones', 'aprobador_colaborador_id', 'set_null', 'desvincular'],
         ['aprobaciones', 'colaborador_id', 'set_null', 'desvincular'],
         ['avisos', 'colaborador_objetivo_id', 'set_null', 'desvincular'],

@@ -3,6 +3,8 @@
 use App\Models\Colaborador;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\Pdf\BrowsershotRenderer;
+use App\Services\Pdf\OpcionesPdf;
 use App\Services\Reportes\ReportesRhService;
 use Database\Seeders\RolesYPermisosSeeder;
 
@@ -18,6 +20,15 @@ it('carga el hub de reportes y ambos exportes para un usuario con permiso', func
     // Las exportaciones viven solo en /rh/reportes (las rutas duplicadas
     // /reportes/exportar/* se retiraron: nada las usaba).
     $this->actingAs($usuario)->get(route('rh.reportes.excel'))->assertOk();
+
+    // Sin Chrome en la prueba: el diseño se revisa en ReportesEtapa1Test.
+    $this->app->instance(BrowsershotRenderer::class, new class extends BrowsershotRenderer
+    {
+        public function renderizar(string $html, OpcionesPdf $opciones): string
+        {
+            return '%PDF-1.4 prueba';
+        }
+    });
     $this->actingAs($usuario)->get(route('rh.reportes.pdf'))->assertOk();
     $this->actingAs($usuario)->get('/reportes/exportar/excel')->assertNotFound();
 });
