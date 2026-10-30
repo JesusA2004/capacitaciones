@@ -2,6 +2,7 @@
 
 use App\Enums\EstatusBaja;
 use App\Models\Baja;
+use App\Models\BajaDocumento;
 use App\Models\CausalRotacion;
 use App\Models\CierreLaboral;
 use App\Models\Colaborador;
@@ -12,6 +13,7 @@ use App\Services\DocumentosMaestros\ImportadorFormatosJuridicosService;
 use Database\Seeders\CausalesRotacionSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Filesystem\Filesystem;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
@@ -98,4 +100,44 @@ test('antes de registrar: la renuncia y el finiquito se ven sin crear baja, cier
     $baja = Baja::query()->firstOrFail();
     expect($baja->estatus)->toBe(EstatusBaja::EnRevisionRh)
         ->and(GeneratedDocument::query()->where('documentable_type', (new CierreLaboral)->getMorphClass())->where('documentable_id', $baja->cierre_laboral_id)->where('clave_plantilla', 'carta_renuncia')->exists())->toBeTrue();
+});
+
+test('escenario 19: el generador de salida produce la carta RV con el documento maestro, versiona y asocia el firmado', function () {
+    $rh = clUsuario('rh_admin', ['sucursal_principal_id' => $this->persona->sucursal_principal_id]);
+
+    $this->actingAs($this->gerente)->post(route('rh.bajas.store'), [
+        'colaborador_id' => $this->persona->id,
+        'forma_salida' => 'RV',
+        'causal_rotacion_id' => $this->causal->id,
+        'fecha_baja' => now()->toDateString(),
+        'recontratable' => 'si',
+    ])->assertSessionHasNoErrors();
+
+    $baja = Baja::query()->firstOrFail();
+    $original = GeneratedDocument::query()->where('clave_plantilla', 'carta_renuncia')->sole();
+
+    // Vista previa real del generador: PDF sin crear otra versión.
+    $previa = $this->actingAs($rh)->get(route('rh.bajas.salida.vista-previa', $baja))->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    expect(str_starts_with((string) $previa->baseResponse->getContent(), '%PDF'))->toBeTrue()
+        ->and(GeneratedDocument::query()->where('clave_plantilla', 'carta_renuncia')->count())->toBe(1);
+
+    // Ya generada al registrar: otra versión exige motivo y conserva la anterior en el NAS.
+    $this->actingAs($rh)->post(route('rh.bajas.salida.generar', $baja))->assertSessionHasErrors('motivo');
+    $this->actingAs($rh)->post(route('rh.bajas.salida.generar', $baja), ['motivo' => 'Se corrigió el domicilio'])->assertSessionHasNoErrors();
+
+    $vigente = GeneratedDocument::query()->where('clave_plantilla', 'carta_renuncia')->latest('id')->firstOrFail();
+    expect($vigente->id)->not->toBe($original->id)
+        ->and($vigente->revision_de_id)->toBe($original->id);
+    Storage::disk($original->disk)->assertExists($original->path);
+    Storage::disk($vigente->disk)->assertExists($vigente->path);
+
+    $this->actingAs($rh)->get(route('rh.bajas.salida.descargar', $baja))->assertOk()->assertHeader('Content-Type', 'application/pdf');
+
+    $this->actingAs($rh)->post(route('rh.bajas.salida.firmado', $baja), [
+        'archivo' => UploadedFile::fake()->create('carta-firmada.pdf', 40, 'application/pdf'),
+    ])->assertSessionHasNoErrors();
+
+    $firmado = BajaDocumento::query()->where('baja_id', $baja->id)->where('clasificacion', 'firmado_salida')->sole();
+    expect($firmado->nombre_original)->toBe('carta-firmada.pdf')
+        ->and($vigente->refresh()->estado_flujo?->firmaFisicaRegistrada())->toBeTrue();
 });

@@ -60,6 +60,7 @@ const ESPERADO = [
             'Validación de documentos',
             'Contratos de ingreso',
             'Contratos',
+            'Cartas compromiso',
         ],
     ],
     [
@@ -68,19 +69,11 @@ const ESPERADO = [
             'Inducción institucional',
             'Inducción al puesto',
             'Configuración de onboarding',
-            'Evaluación de capacitación inicial',
             'Calificaciones y refuerzo',
             'Activos y responsivas',
         ],
     ],
-    [
-        'Cierre del periodo de prueba',
-        [
-            'Evaluaciones de periodo de prueba',
-            'Periodos por vencer',
-            'Evaluación y decisión',
-        ],
-    ],
+    ['Cierre del periodo de prueba', ['Evaluaciones de periodo de prueba']],
     [
         'Permanencia',
         [
@@ -123,6 +116,7 @@ const ESPERADO = [
     [
         'Configuración',
         [
+            'Formularios de evaluación',
             'Documentos maestros',
             'Catálogo de bajas',
             'Usuarios y permisos',
