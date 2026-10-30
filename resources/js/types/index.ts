@@ -1,6 +1,7 @@
 export * from './actas';
 export * from './actividades';
 export * from './administracion';
+export * from './agenda';
 export * from './altaDigital';
 export * from './archivos';
 export * from './asignaciones';

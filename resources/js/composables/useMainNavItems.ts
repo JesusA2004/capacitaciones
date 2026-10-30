@@ -64,6 +64,7 @@ import { index as indexResponsablesAprobacion } from '@/routes/administracion/re
 import { index as indexRoles } from '@/routes/administracion/roles';
 import { index as indexSucursales } from '@/routes/administracion/sucursales';
 import { index as indexUsuarios } from '@/routes/administracion/usuarios';
+import { index as indexAgenda } from '@/routes/agenda';
 import { proximamente as capacitacionProximamente } from '@/routes/capacitacion';
 import { index as indexMuroFelicitaciones } from '@/routes/celebraciones';
 import { index as indexCursos } from '@/routes/cursos';
@@ -285,6 +286,11 @@ export function useMainNavItems() {
                         title: 'Candidatos',
                         href: indexCandidatos(),
                         icon: UserRound,
+                    },
+                    tienePermiso('agenda.ver') && {
+                        title: 'Agenda de entrevistas',
+                        href: indexAgenda(),
+                        icon: CalendarClock,
                     },
                     tienePermiso('rh.incorporacion.invitaciones.ver') && {
                         title: 'Invitaciones QR',

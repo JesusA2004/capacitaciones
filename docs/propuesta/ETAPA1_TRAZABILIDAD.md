@@ -309,10 +309,12 @@ Sustituye a la sección «Incremento 3 — Incapacidades» del diagnóstico inic
 
 | # inst. | Diferencia | Modificación | Prueba | Estado |
 |---|---|---|---|---|
-| Agenda web (pág. 23) | No hay entidad de cita ni calendario. | Nueva tabla `agenda_eventos` (candidato_id, sucursal_id, tipo entrevista/socio, fecha, hora, estatus Programado/Realizado/NoAsistió/Reprogramado/Cancelado, agendado_por, origen, cv, notas, historial); servicio + controlador web+API; indicadores; calendario semana/mes/lista; anti-duplicado (candidato + idempotencia). | Aceptación #24, #27, #28, #29 | 🔴 |
-| Notificaciones (pág. 23) | Notifs hoy por tarea/pendiente, no por cita. | Al agendar → push a gerente+subgerente de la sucursal (Expo), recordatorio 1 día antes y el mismo día; reprogramar/cancelar actualiza recordatorios; fallo push no cancela cita. | Aceptación #25, #26, #31 | 🔴 |
+| Agenda web (pág. 23) | — | `agenda_eventos` + `agenda_evento_historial`; `AgendaEventoService`, `AgendaConsultaService`, `AgendaEventoPolicy`; `routes/agenda.php`; `Reclutamiento/Agenda/Index.vue` con semana, mes, lista, filtros, formulario, alta rápida sin duplicar, reprogramar, cancelar, empalmes y exportación Excel/PDF. Fórmulas documentadas en `AgendaConsultaService`. | `tests/Feature/Agenda/AgendaEntrevistasTest.php`; recorrido en navegador sobre copia aislada | Implementado sin validar (falta datos reales y piloto) |
+| Resultados | — | Viable, No viable y socioeconómico delegan en `CandidatoWorkflowService`. Nuevo `pasarAEntrevistaPorAgenda()`: agendar a un candidato recibido lo pasa a entrevista. El estudio solo se resuelve de una vez si quien captura tiene el paso de revisión. | Escenarios 46-49 en Pest | Implementado sin validar |
+| Notificaciones (pág. 23) | — | Capa única `NotificacionEventosService` a gerencia y subgerente; `agenda:enviar-recordatorios` idempotente (7:30-11:30, un día antes y el mismo día); una cita movida o cancelada deja de recordarse; un fallo de aviso no deshace la cita. | Escenarios 43-45 en Pest | Implementado sin validar (push real pendiente) |
+| API móvil (pág. 24) | — | `/api/v1/agenda`, contrato en `docs/AGENDA_API_MOVIL.md`; teléfono, domicilio y CV solo con `agenda.ver_datos_candidato`. | Pest de alcance y permisos | Implementado sin validar (falta la app) |
 | App Mi agenda / Entrevista / Socioeconómico (pág. 24) | App consume workflow pero no hay agenda. | 3 pantallas Expo; resultados llegan al backend que hace la transición; viable→avanza, no viable→motivo, no asistió→reprogramar; socio guarda formato+evidencia. | Aceptación #25–#30, #32 | 🔴 |
-| Récord por sucursal (pág. 23) | — | Tabla de indicadores reales por sucursal. | Aceptación #26 | 🔴 |
+| Récord por sucursal (pág. 23) | — | Indicadores por sucursal sobre eventos reales, con comparativo del mes anterior y exportación. | Escenario 50 en Pest | Implementado sin validar |
 
 ---
 

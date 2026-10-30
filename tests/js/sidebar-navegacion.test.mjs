@@ -50,6 +50,7 @@ const ESPERADO = [
             'Campañas',
             'Descriptivos y perfiles',
             'Candidatos',
+            'Agenda de entrevistas',
             'Invitaciones QR',
         ],
     ],
