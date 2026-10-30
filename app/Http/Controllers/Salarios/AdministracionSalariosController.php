@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Salarios;
 
+use App\Enums\MotorPdf;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Models\ImportacionExcel;
@@ -10,14 +11,17 @@ use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\TabuladorSalarial;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Pdf\OpcionesPdf;
+use App\Services\Pdf\PdfRendererException;
+use App\Services\Pdf\PdfRendererFactory;
 use App\Services\Salarios\MatrizMeritoService;
 use App\Services\Salarios\PosicionSalarialService;
 use App\Services\Salarios\TabuladorImportService;
 use App\Services\Salarios\TabuladorSalarialService;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
@@ -37,6 +41,7 @@ class AdministracionSalariosController extends Controller
         private readonly MatrizMeritoService $matriz,
         private readonly TabuladorImportService $importador,
         private readonly AuditoriaService $auditoria,
+        private readonly PdfRendererFactory $pdf,
     ) {}
 
     public function index(Request $request): Response
@@ -154,12 +159,26 @@ class AdministracionSalariosController extends Controller
         );
     }
 
-    public function exportarPdf(Request $request): HttpResponse
+    public function exportarPdf(Request $request): HttpResponse|RedirectResponse
     {
         abort_unless($request->user()->can('salarios.exportar'), 403);
 
-        return Pdf::loadView('pdf.reporte-rh', $this->tablaExportable($request))->setPaper('letter', 'landscape')
-            ->download(sprintf('salarios-%s.pdf', now()->format('Y-m-d')));
+        try {
+            $resultado = $this->pdf->renderizar(
+                MotorPdf::Browsershot,
+                view('pdf.reporte-rh', $this->tablaExportable($request))->render(),
+                new OpcionesPdf(tamano: 'letter', orientacion: 'landscape', numerarPaginas: true, textoPie: 'MR. LANA PEOPLE · Administración de salarios'),
+            );
+        } catch (PdfRendererException $e) {
+            Log::warning('Salarios: no se pudo generar el PDF.', ['error' => $e->getMessage()]);
+
+            return back()->with('toast', ['type' => 'error', 'message' => 'No se pudo generar el PDF. Intenta de nuevo o descarga el Excel.']);
+        }
+
+        return response($resultado['pdf'], 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => sprintf('attachment; filename="salarios-%s.pdf"', now()->format('Y-m-d')),
+        ]);
     }
 
     public function formatoImportacion(Request $request): StreamedResponse

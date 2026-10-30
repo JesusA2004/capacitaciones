@@ -9,6 +9,8 @@ use App\Models\MatrizMerito;
 use App\Models\Puesto;
 use App\Models\TabuladorSalarial;
 use App\Models\User;
+use App\Services\Pdf\BrowsershotRenderer;
+use App\Services\Pdf\OpcionesPdf;
 use App\Services\Salarios\PosicionSalarialService;
 use App\Services\Salarios\TabuladorSalarialService;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -45,6 +47,14 @@ function tabuladorArchivo(array $renglones): UploadedFile
 }
 
 beforeEach(function () {
+    // El PDF sale con Browsershot: en pruebas no hace falta Chrome.
+    $this->app->instance(BrowsershotRenderer::class, new class extends BrowsershotRenderer
+    {
+        public function renderizar(string $html, OpcionesPdf $opciones): string
+        {
+            return '%PDF-1.4 prueba';
+        }
+    });
     $this->withoutVite();
     $this->seed(RolesYPermisosSeeder::class);
     $this->puesto = Puesto::factory()->create(['nombre' => 'Gerente de Sucursal', 'activo' => true]);
