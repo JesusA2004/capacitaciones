@@ -108,6 +108,7 @@ const ESPERADO = [
             // Responsable de aprobación explícito ≠ jefe organizacional (2026-10-20).
             'Responsables de aprobación',
             'Puestos y tabulador',
+            'Administración de salarios',
             'Sucursales',
             'Departamentos',
             'Empresas',
