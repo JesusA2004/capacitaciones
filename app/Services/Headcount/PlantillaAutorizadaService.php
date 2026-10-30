@@ -32,11 +32,11 @@ class PlantillaAutorizadaService
         private readonly VacanteAutoGenerationService $vacantes,
     ) {}
 
-    public function actualizar(Sucursal $sucursal, Puesto $puesto, int $plantilla, string $motivo, User $actor): HeadcountTarget
+    public function actualizar(Sucursal $sucursal, Puesto $puesto, int $plantilla, string $motivo, User $actor, string $fuente = 'captura'): HeadcountTarget
     {
         $puestoId = $this->puestos->canonico($puesto->id);
 
-        $target = DB::transaction(function () use ($sucursal, $puestoId, $plantilla, $motivo, $actor): HeadcountTarget {
+        $target = DB::transaction(function () use ($sucursal, $puestoId, $plantilla, $motivo, $actor, $fuente): HeadcountTarget {
             $filas = HeadcountTarget::query()
                 ->where('sucursal_id', $sucursal->id)
                 ->whereIn('puesto_id', $this->puestos->equivalentes($puestoId))
@@ -51,7 +51,7 @@ class PlantillaAutorizadaService
                 [
                     'empresa_id' => $sucursal->empresa_id,
                     'plantilla_autorizada' => $plantilla,
-                    'fuente' => 'captura',
+                    'fuente' => $fuente,
                     'fecha_corte' => FechaMexico::hoy(),
                     'updated_by_id' => $actor->id,
                     'created_by_id' => $existente->created_by_id ?? $actor->id,
@@ -72,7 +72,7 @@ class PlantillaAutorizadaService
                     'puesto_id' => $puestoId,
                     'valor_anterior' => $anterior,
                     'valor_nuevo' => $plantilla,
-                    'fuente' => 'captura',
+                    'fuente' => $fuente,
                     'motivo' => $motivo,
                     'user_id' => $actor->id,
                 ]);

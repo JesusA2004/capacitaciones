@@ -18,6 +18,7 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
 import { index as cargaInicialIndex } from '@/routes/administracion/importar-datos/carga-inicial';
+import { index as plazasAutorizadasIndex } from '@/routes/administracion/importar-datos/plazas-autorizadas';
 import { index as rotacionIndex } from '@/routes/reportes/rotacion';
 import { index as contactosEmergenciaIndex } from '@/routes/rh/contactos-emergencia';
 import { index as migracionIndex } from '@/routes/rh/expedientes/migracion';
@@ -95,17 +96,12 @@ const tarjetas = computed<Tarjeta[]>(() => {
         props.puede.headcount
             ? {
                   clave: 'headcount',
-                  titulo: 'Headcount autorizado',
+                  titulo: 'Plazas autorizadas',
                   descripcion:
-                      'Plantilla autorizada por sucursal y puesto desde el Excel oficial de headcount. Sincroniza las vacantes automáticas al aplicarse.',
-                  flujo: [
-                      'Colocar el Excel oficial',
-                      'Ejecutar el comando',
-                      'Revisar los cambios reportados',
-                  ],
+                      'Catálogo de plazas por sucursal y puesto, incluido Corporativo. Muestra la conciliación antes de aplicar y sincroniza las vacantes automáticas.',
+                  flujo: ['Subir Excel', 'Revisar conciliación', 'Confirmar'],
                   icono: LayoutGrid,
-                  href: null,
-                  nota: 'Disponible por consola: php artisan headcount:importar',
+                  href: plazasAutorizadasIndex().url,
               }
             : null,
         props.puede.salarios_vacaciones

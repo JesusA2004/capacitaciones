@@ -11,6 +11,7 @@ use App\Http\Controllers\Administracion\JerarquiaPuestoController;
 use App\Http\Controllers\Administracion\MatrizComercialController;
 use App\Http\Controllers\Administracion\NotificacionSistemaController;
 use App\Http\Controllers\Administracion\OrganigramaAccionesController;
+use App\Http\Controllers\Administracion\PlazasAutorizadasController;
 use App\Http\Controllers\Administracion\PuestoController;
 use App\Http\Controllers\Administracion\ResponsableAprobacionController;
 use App\Http\Controllers\Administracion\RolController;
@@ -63,6 +64,15 @@ Route::middleware(['auth', 'verified'])
             Route::post('analizar', [CargaInicialController::class, 'analizar'])->name('analizar');
             Route::post('{migracion}/aplicar', [CargaInicialController::class, 'aplicar'])->name('aplicar');
             Route::get('{migracion}/estado', [CargaInicialController::class, 'estado'])->name('estado');
+        });
+
+        // Catálogo de plazas autorizadas por sucursal y puesto (Corporativo
+        // incluido): vista previa, confirmación y bitácora. Solo headcount.importar.
+        Route::prefix('importar-datos/plazas-autorizadas')->name('importar-datos.plazas-autorizadas.')->group(function () {
+            Route::get('/', [PlazasAutorizadasController::class, 'index'])->name('index');
+            Route::get('formato', [PlazasAutorizadasController::class, 'plantilla'])->name('plantilla');
+            Route::post('analizar', [PlazasAutorizadasController::class, 'analizar'])->name('analizar');
+            Route::post('{importacion}/aplicar', [PlazasAutorizadasController::class, 'aplicar'])->name('aplicar');
         });
 
         Route::prefix('empresas')->name('empresas.')->group(function () {
