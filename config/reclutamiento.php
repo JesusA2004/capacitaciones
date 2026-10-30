@@ -64,4 +64,20 @@ return [
         'extensiones_documento' => ['pdf', 'doc', 'docx', 'xls', 'xlsx'],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Agenda de entrevistas
+    |--------------------------------------------------------------------------
+    |
+    | Dos citas de una misma sucursal o responsable a menos de estos minutos se
+    | advierten como empalme, sin bloquearse. Se avisa a quien ocupa estos
+    | puestos en la sucursal, además de la gerencia del organigrama.
+    |
+    */
+
+    'agenda' => [
+        'ventana_empalme_minutos' => (int) env('AGENDA_VENTANA_EMPALME_MINUTOS', 60),
+        'puestos_a_notificar' => ['Gerente de Sucursal', 'Subgerente'],
+    ],
+
 ];

@@ -541,6 +541,20 @@ return [
                 'candidatos.aprobar' => 'Ver candidatos e intervenciones en el resumen de Inicio',
             ],
         ],
+        'agenda' => [
+            'etiqueta' => 'Agenda de entrevistas',
+            'grupo' => 'Reclutamiento',
+            'acceso' => 'agenda.ver',
+            'alcances' => ['todos' => 'agenda.ver_todos', 'region' => 'agenda.ver_region', 'sucursal' => 'agenda.ver_sucursal'],
+            'descripcion' => 'Citas de entrevista y estudio socioeconómico. El resultado además exige el permiso del paso en Candidatos.',
+            'acciones' => [
+                'agenda.agendar' => 'Agendar, reprogramar y cancelar',
+                'agenda.alta_candidato' => 'Alta rápida de candidato al agendar',
+                'agenda.registrar_resultado' => 'Registrar resultado o inasistencia',
+                'agenda.ver_datos_candidato' => 'Ver teléfono, domicilio y CV del candidato',
+                'agenda.exportar' => 'Exportar (Excel / PDF)',
+            ],
+        ],
         'vacantes' => [
             'etiqueta' => 'Vacantes',
             'grupo' => 'Reclutamiento',
@@ -769,7 +783,7 @@ return [
     ],
 
     'etapa_por_modulo' => [
-        'candidatos' => 'reclutamiento', 'vacantes' => 'reclutamiento',
+        'candidatos' => 'reclutamiento', 'vacantes' => 'reclutamiento', 'agenda' => 'reclutamiento',
         'documentos' => 'contratacion', 'contratos' => 'contratacion',
         'incorporaciones' => 'onboarding', 'responsivas' => 'onboarding',
         'evaluaciones' => 'periodo_prueba',
@@ -953,6 +967,11 @@ return [
         'puestos.crear' => 'Da de alta un puesto nuevo.',
         'puestos.editar' => 'Cambia nombre, departamento, estado y duración del periodo de prueba.',
         'puestos.eliminar' => 'Elimina un puesto del catálogo.',
+        'agenda.agendar' => 'Crea, reprograma y cancela citas de las sucursales de su alcance. Queda registrado quién agendó.',
+        'agenda.alta_candidato' => 'Da de alta un candidato nuevo desde la agenda, sin duplicar a uno que ya está en proceso.',
+        'agenda.registrar_resultado' => 'Marca el resultado o la inasistencia. También necesita el permiso del paso en Candidatos.',
+        'agenda.ver_datos_candidato' => 'Muestra teléfono, domicilio y CV del candidato en la agenda. Sin este permiso se ocultan, también en la app.',
+        'agenda.exportar' => 'Descarga la agenda y el récord por sucursal en Excel o PDF.',
         'salarios.ver' => 'Consulta sueldos, tabulador y posición salarial. Dato sensible: solo RH y Dirección General.',
         'salarios.editar' => 'Captura mínimo, medio y máximo por puesto y edita la matriz de mérito. No cambia sueldos.',
         'salarios.exportar' => 'Descarga el tabulador y las posiciones salariales en Excel o PDF.',

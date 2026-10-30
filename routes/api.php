@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AgendaController;
 use App\Http\Controllers\Api\V1\AppConfigController;
 use App\Http\Controllers\Api\V1\AppReleaseController;
 use App\Http\Controllers\Api\V1\AppThemeController;
@@ -378,6 +379,20 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('{aviso}/archivo', [AvisoController::class, 'archivo'])->name('archivo');
             // Solo para versiones anteriores de la app (imágenes).
             Route::get('{aviso}/imagen', [AvisoController::class, 'imagen'])->name('imagen');
+        });
+
+        // «Mi agenda»: citas de reclutamiento de gerente y subgerente
+        // (docs/AGENDA_API_MOVIL.md). Fuera de rh.*: el subgerente es colaborador.
+        Route::prefix('agenda')->name('agenda.')->group(function () {
+            Route::get('/', [AgendaController::class, 'index'])->name('index');
+            Route::post('/', [AgendaController::class, 'store'])->name('store');
+            Route::get('{evento}', [AgendaController::class, 'show'])->name('show')->whereNumber('evento');
+            Route::post('{evento}/reprogramar', [AgendaController::class, 'reprogramar'])->name('reprogramar');
+            Route::post('{evento}/cancelar', [AgendaController::class, 'cancelar'])->name('cancelar');
+            Route::post('{evento}/no-asistio', [AgendaController::class, 'noAsistio'])->name('no-asistio');
+            Route::post('{evento}/resultado-entrevista', [AgendaController::class, 'resultadoEntrevista'])->name('resultado-entrevista');
+            Route::post('{evento}/resultado-socioeconomico', [AgendaController::class, 'resultadoSocioeconomico'])->name('resultado-socioeconomico')->middleware('throttle:api-cargas');
+            Route::get('{evento}/cv', [AgendaController::class, 'cv'])->name('cv');
         });
 
         // RH desde la app movil: expedientes completos, bandeja unificada,

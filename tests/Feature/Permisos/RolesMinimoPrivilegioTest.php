@@ -121,10 +121,10 @@ test('la migración no hace nada si el rol no existe', function () {
  * sincronizador (no destructivo) nunca quitaría.
  */
 
-test('el subgerente tiene exactamente los permisos del colaborador', function () {
+test('el subgerente tiene exactamente los permisos del colaborador, más consultar la agenda de su sucursal', function () {
     $base = RolesYPermisosSeeder::permisosBasePorRol();
 
-    expect($base['subgerente'])->toEqualCanonicalizing($base['colaborador']);
+    expect($base['subgerente'])->toEqualCanonicalizing([...$base['colaborador'], 'agenda.ver', 'agenda.ver_sucursal']);
 });
 
 test('el subgerente recibe 403 en el expediente ajeno (web y API) y ve el suyo en Mi expediente', function () {
@@ -193,7 +193,7 @@ test('la migración revoca los permisos operativos viejos del subgerente y es id
     $colaborador = Role::findByName('colaborador')->permissions()->pluck('name')->all();
     $actuales = Role::findByName('subgerente')->permissions()->pluck('name')->all();
 
-    expect($actuales)->toEqualCanonicalizing($colaborador)
+    expect($actuales)->toEqualCanonicalizing([...$colaborador, 'agenda.ver', 'agenda.ver_sucursal'])
         ->and(array_intersect($viejos, $actuales))->toBe([]);
 
     $subgerente = User::query()->where('id', $subgerente->id)->firstOrFail();

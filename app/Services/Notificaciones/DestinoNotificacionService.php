@@ -90,6 +90,7 @@ class DestinoNotificacionService
                 $relacionado === 'SolicitudVacaciones' => $this->vacacionRh($id),
                 $relacionado === 'EmployeeDocument' => $this->documentoRh($id),
                 $relacionado === 'Candidato' && $id !== null => self::destino(route('rh.candidatos.show', $id, false)),
+                $relacionado === 'AgendaEvento' => self::destino(route('agenda.index', ['evento' => $id], false)),
                 $relacionado === 'ActaAdministrativa' && $id !== null => self::destino(route('rh.actas.show', $id, false)),
                 // Foto: el colaborador va a SU expediente (nunca a la bandeja
                 // de RH); quien la revisa, a la bandeja de cambios de foto.

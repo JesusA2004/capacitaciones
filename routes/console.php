@@ -24,6 +24,10 @@ Schedule::command('capacitacion:limpiar-cargas-expiradas')->hourly();
 // correrlos manualmente de mas no duplica notificaciones. Zona horaria fija
 // aunque APP_TIMEZONE cambie, porque el horario de envio es un acuerdo de
 // negocio con RH, no un dato de usuario.
+// Agenda de reclutamiento: un día antes y el mismo día. Idempotente, así que
+// repetir la corrida en la mañana cubre una caída del scheduler.
+Schedule::command('agenda:enviar-recordatorios')->hourlyAt(30)->between('7:00', '12:00')->timezone('America/Mexico_City')->withoutOverlapping();
+
 Schedule::command('cumpleanos:enviar-felicitaciones')->dailyAt('08:00')->timezone('America/Mexico_City');
 Schedule::command('cumpleanos:recordar-rh')->dailyAt('07:30')->timezone('America/Mexico_City');
 

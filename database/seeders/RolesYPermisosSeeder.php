@@ -304,6 +304,17 @@ class RolesYPermisosSeeder extends Seeder
         'salarios.exportar',
         'salarios.importar',
 
+        // --- Agenda de entrevistas y estudios socioeconómicos ---
+        'agenda.ver',
+        'agenda.ver_todos',
+        'agenda.ver_region',
+        'agenda.ver_sucursal',
+        'agenda.agendar',
+        'agenda.alta_candidato',
+        'agenda.registrar_resultado',
+        'agenda.ver_datos_candidato',
+        'agenda.exportar',
+
         // --- Organigrama (alias operativo de puestos.administrar para nav) ---
         'organigrama.ver',
         'organigrama.editar',
@@ -515,6 +526,7 @@ class RolesYPermisosSeeder extends Seeder
             'auditoria.ver',
             'vacantes.ver', 'vacantes.ver_todos', 'vacantes.crear', 'vacantes.editar', 'vacantes.cerrar', 'vacantes.eliminar',
             'candidatos.ver', 'candidatos.ver_todos', 'candidatos.crear', 'candidatos.editar', 'candidatos.aprobar', 'candidatos.rechazar', 'candidatos.eliminar',
+            'agenda.ver', 'agenda.ver_todos', 'agenda.agendar', 'agenda.alta_candidato', 'agenda.registrar_resultado', 'agenda.ver_datos_candidato', 'agenda.exportar',
             'reclutamiento.campanas.ver', 'reclutamiento.campanas.administrar',
             'plantillas.ver', 'plantillas.crear', 'plantillas.editar', 'plantillas.eliminar', 'plantillas.generar',
             'formatos.ver', 'formatos.preview', 'formatos.descargar_pdf', 'formatos.descargar_docx',
@@ -593,6 +605,7 @@ class RolesYPermisosSeeder extends Seeder
             'reportes_rh.ver', 'rotacion.ver',
             'vacantes.ver', 'vacantes.ver_todos', 'vacantes.crear', 'vacantes.editar',
             'candidatos.ver', 'candidatos.ver_todos', 'candidatos.crear', 'candidatos.editar',
+            'agenda.ver', 'agenda.ver_todos', 'agenda.agendar', 'agenda.alta_candidato', 'agenda.registrar_resultado', 'agenda.ver_datos_candidato', 'agenda.exportar',
             'reclutamiento.campanas.ver',
             'plantillas.ver', 'plantillas.generar', 'celebraciones.ver',
             'formatos.ver', 'formatos.preview', 'formatos.descargar_pdf', 'formatos.descargar_docx',
@@ -648,6 +661,7 @@ class RolesYPermisosSeeder extends Seeder
             'reportes_rh.ver', 'reportes_rh.sucursal',
             'vacantes.ver', 'vacantes.ver_sucursal', 'vacantes.crear',
             'candidatos.ver', 'candidatos.ver_sucursal', 'candidatos.aprobar', 'candidatos.rechazar',
+            'agenda.ver', 'agenda.ver_sucursal', 'agenda.agendar', 'agenda.alta_candidato', 'agenda.registrar_resultado', 'agenda.ver_datos_candidato',
             'altas.ver', 'altas.revisar', 'altas.aprobar',
             // Backend movil v5: aprueba solicitudes/vacaciones de su sucursal desde la app.
             'mobile.bootstrap.ver', 'app.config.ver',
@@ -738,6 +752,7 @@ class RolesYPermisosSeeder extends Seeder
             'reportes_rh.ver', 'reportes_rh.sucursal',
             'vacantes.ver', 'vacantes.ver_sucursal', 'vacantes.crear',
             'candidatos.ver', 'candidatos.ver_sucursal', 'candidatos.aprobar', 'candidatos.rechazar',
+            'agenda.ver', 'agenda.ver_sucursal', 'agenda.agendar', 'agenda.alta_candidato', 'agenda.registrar_resultado', 'agenda.ver_datos_candidato',
             'mobile.bootstrap.ver', 'app.config.ver',
             'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
             'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
@@ -778,6 +793,7 @@ class RolesYPermisosSeeder extends Seeder
             'reportes_rh.ver', 'reportes_rh.sucursal',
             'vacantes.ver', 'vacantes.ver_sucursal', 'vacantes.crear',
             'candidatos.ver', 'candidatos.ver_sucursal', 'candidatos.aprobar', 'candidatos.rechazar',
+            'agenda.ver', 'agenda.ver_sucursal', 'agenda.agendar', 'agenda.alta_candidato', 'agenda.registrar_resultado', 'agenda.ver_datos_candidato',
             'mobile.bootstrap.ver', 'app.config.ver',
             'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
             'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
@@ -812,7 +828,9 @@ class RolesYPermisosSeeder extends Seeder
         // El subgerente deja de apoyar/cubrir operativamente al gerente: usa
         // PEOPLE como colaborador, igual que las coordinadoras (misma decisión
         // del negocio, 2026-10-15).
-        'subgerente' => self::PERMISOS_ROL_COLABORADOR,
+        // La agenda es la excepción: ve las citas de su sucursal en la app, pero
+        // capturar resultados o agendar requiere que RH le asigne el permiso.
+        'subgerente' => [...self::PERMISOS_ROL_COLABORADOR, 'agenda.ver', 'agenda.ver_sucursal'],
 
         // Ve y aprueba vacaciones/solicitudes de sus subordinados directos
         // (jefe_id), un alcance mas estrecho que gerente_sucursal (que ve
@@ -908,6 +926,7 @@ class RolesYPermisosSeeder extends Seeder
             'indicadores.ver', 'headcount.ver', 'organigrama.ver', 'auditoria.ver',
             'expedientes.ver', 'expedientes.ver_todos', 'documentos.ver', 'documentos.descargar',
             'vacantes.ver', 'vacantes.ver_todos', 'candidatos.ver', 'candidatos.ver_todos',
+            'agenda.ver', 'agenda.ver_todos', 'agenda.exportar',
             'solicitudes.ver', 'solicitudes.aprobar', 'solicitudes.bajas.aprobar',
             'rh.solicitudes.ver', 'rh.solicitudes.detalle', 'rh.solicitudes.aprobar', 'rh.solicitudes.rechazar',
             'contratos.ver', 'evaluaciones.ver', 'evaluaciones.autorizar', 'excepciones.autorizar',

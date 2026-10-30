@@ -304,6 +304,19 @@ class CandidatoWorkflowService
     }
 
     /**
+     * Agendar una entrevista con un candidato recibido implica que su perfil
+     * pasa a entrevista: el mismo avance de evaluarPerfil(), con nota propia.
+     * Lo llama AgendaEventoService, que ya autorizó agenda.agendar y el alcance
+     * sobre la sucursal (un gerente agenda sin tener el paso de RH).
+     */
+    public function pasarAEntrevistaPorAgenda(Candidato $candidato, User $actor): Candidato
+    {
+        return $this->paso($candidato, $actor, EstadoCandidato::Recibidos, function (Candidato $c) use ($actor): void {
+            $this->transicionar($c, EstadoCandidato::EntrevistaPendiente, $actor, 'Entrevista agendada: pasa a entrevista con el gerente.');
+        });
+    }
+
+    /**
      * @param  array<string, mixed>  $datos  realizada_en?, observaciones?, resultado, entrevistador_user_id?, motivo_rechazo_id?, recontratable? (RegistrarEntrevistaRequest).
      */
     public function registrarEntrevista(Candidato $candidato, User $actor, array $datos): Candidato
