@@ -6,6 +6,7 @@ use App\Enums\EstadoCivil;
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoUsuario;
 use App\Enums\Genero;
+use App\Enums\TipoMovimientoLaboral;
 use App\Enums\TipoSolicitudInterna;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
@@ -54,6 +55,7 @@ use App\Services\Expedientes\VinculacionSynologyService;
 use App\Services\Nomina\PrestamoService;
 use App\Services\Nomina\ReciboNominaService;
 use App\Services\Onboarding\ChecklistAdministrativoService;
+use App\Services\Salarios\AccesoSueldoService;
 use App\Services\Solicitudes\BajaColaboradorService;
 use App\Services\Vacaciones\VacacionesService;
 use App\Support\Paginacion;
@@ -63,6 +65,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -303,6 +306,7 @@ class ExpedienteController extends Controller
         abort_unless($this->alcance->puedeVerExpediente($usuario, $colaborador), 403);
 
         $esCuentaPropia = $usuario->colaborador_id === $colaborador->id;
+        $puedeVerSueldo = app(AccesoSueldoService::class)->puedeVer($usuario, $colaborador->id);
         $cuenta = $colaborador->user;
         $idUsuarioColaborador = $cuenta?->id;
         // «Generar credenciales» / «Restablecer contraseña» van a
@@ -369,6 +373,7 @@ class ExpedienteController extends Controller
             // diferencia de datos personales, donde el propio colaborador
             // puede editar los suyos).
             'puedeEditarLaborales' => $usuario->can('expedientes.editar') && ! $esCuentaPropia,
+            'puedeVerSueldo' => $puedeVerSueldo,
             'empresasDisponibles' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
             'sucursalesDisponibles' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
             'departamentosDisponibles' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
@@ -394,7 +399,7 @@ class ExpedienteController extends Controller
                 'telefono' => $colaborador->telefono,
                 'telefono_corporativo' => $colaborador->telefono_corporativo,
                 'correo_corporativo' => $colaborador->correo_corporativo,
-                'sueldo_mensual' => $colaborador->sueldo_mensual,
+                'sueldo_mensual' => $puedeVerSueldo ? $colaborador->sueldo_mensual : null,
                 'tiene_cuenta' => $cuenta !== null,
                 'usuario_id' => $idUsuarioColaborador,
                 'roles' => $cuenta?->getRoleNames() ?? collect(),
@@ -586,6 +591,7 @@ class ExpedienteController extends Controller
             )),
             'movimientosLaborales' => MovimientoLaboral::query()
                 ->where('colaborador_id', $colaborador->id)
+                ->when(! $puedeVerSueldo, fn (Builder $q) => $q->where('tipo_movimiento', '!=', TipoMovimientoLaboral::CambioSueldo->value))
                 ->with([
                     'colaborador:id,name,apellidos',
                     'puestoAnterior:id,nombre', 'puestoNuevo:id,nombre',
@@ -692,9 +698,15 @@ class ExpedienteController extends Controller
         // Este formulario siempre incluye el sueldo (aunque venga vacío): así
         // se conserva la regla de «completar con el salario mínimo» si nunca
         // tuvo uno capturado.
+        // Sin permiso de sueldo el formulario no lo muestra ni lo manda: ni se
+        // sobrescribe ni se dispara el sueldo por defecto.
+        $datosLaborales = app(AccesoSueldoService::class)->puedeVer($request->user())
+            ? [...$request->validated(), 'sueldo_mensual' => $request->validated('sueldo_mensual')]
+            : Arr::except($request->validated(), ['sueldo_mensual']);
+
         $resultado = $this->datosExpediente->actualizarLaborales(
             $colaborador,
-            [...$request->validated(), 'sueldo_mensual' => $request->validated('sueldo_mensual')],
+            $datosLaborales,
             $request->user(),
         );
 

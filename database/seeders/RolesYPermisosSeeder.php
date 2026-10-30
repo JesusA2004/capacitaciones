@@ -303,6 +303,7 @@ class RolesYPermisosSeeder extends Seeder
         'salarios.editar',
         'salarios.exportar',
         'salarios.importar',
+        'salarios.ver_en_expediente',
 
         // --- Agenda de entrevistas y estudios socioeconómicos ---
         'agenda.ver',
@@ -505,7 +506,7 @@ class RolesYPermisosSeeder extends Seeder
         // no configura empresas.eliminar/roles.administrar/configuracion
         // (reservado a super_admin).
         'rh_admin' => [
-            'salarios.ver', 'salarios.editar', 'salarios.exportar',
+            'salarios.ver', 'salarios.editar', 'salarios.exportar', 'salarios.ver_en_expediente',
             // Alcance amplio: elige de qué sucursales no recibir avisos.
             'notificaciones.silenciar_sucursales',
             'directorio.contactos.ver_todos',
@@ -591,6 +592,8 @@ class RolesYPermisosSeeder extends Seeder
         // Apoyo operativo de RH: puede capturar/revisar pero no aprobar
         // decisiones finales (documentos, altas, vacaciones, solicitudes).
         'rh_auxiliar' => [
+            // Captura y consulta el sueldo del expediente; el módulo de salarios no.
+            'salarios.ver_en_expediente',
             // Alcance amplio: elige de qué sucursales no recibir avisos.
             'notificaciones.silenciar_sucursales',
             'directorio.contactos.ver_todos',
@@ -916,7 +919,7 @@ class RolesYPermisosSeeder extends Seeder
         // PRÉSTAMO lo autoriza SOLO RH (prestamos.autorizar): Dirección
         // consulta (2026-10-20, migración 2026_10_20_170200).
         'direccion' => [
-            'salarios.ver', 'salarios.exportar',
+            'salarios.ver', 'salarios.exportar', 'salarios.ver_en_expediente',
             // Alcance amplio: elige de qué sucursales no recibir avisos.
             'notificaciones.silenciar_sucursales',
             'directorio.contactos.ver_todos',

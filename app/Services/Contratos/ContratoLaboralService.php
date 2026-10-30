@@ -18,6 +18,7 @@ use App\Services\DocumentosLaborales\FirmaDocumentalService;
 use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
+use App\Services\Salarios\AccesoSueldoService;
 use App\Services\Tareas\TareaService;
 use App\Support\FechaMexico;
 use Carbon\CarbonImmutable;
@@ -575,7 +576,7 @@ class ContratoLaboralService
     /**
      * @return array<string, mixed>
      */
-    public function aArray(ContratoLaboral $contrato): array
+    public function aArray(ContratoLaboral $contrato, ?User $viewer = null): array
     {
         try {
             $firmado = $this->contratoFirmado($contrato);
@@ -596,7 +597,7 @@ class ContratoLaboralService
             'fecha_inicio' => $contrato->fecha_inicio->toDateString(),
             'fecha_fin' => $contrato->fecha_fin?->toDateString(),
             'dias_para_vencer' => $contrato->diasParaVencer(),
-            'sueldo_mensual' => $contrato->sueldo_mensual,
+            'sueldo_mensual' => app(AccesoSueldoService::class)->puedeVer($viewer, $contrato->colaborador_id) ? $contrato->sueldo_mensual : null,
             'documento_id' => $contrato->generated_document_id,
             'documento_firmado' => $firmado,
             'contrato_anterior_id' => $contrato->contrato_anterior_id,

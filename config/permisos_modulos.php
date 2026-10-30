@@ -183,6 +183,7 @@ return [
                 'salarios.editar' => 'Capturar tabulador y matriz de mérito',
                 'salarios.exportar' => 'Exportar (Excel / PDF)',
                 'salarios.importar' => 'Importar tabulador desde Excel',
+                'salarios.ver_en_expediente' => 'Ver sueldo en expediente, contratos y ciclo laboral',
             ],
         ],
         'sucursales' => [

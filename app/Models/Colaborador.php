@@ -148,7 +148,7 @@ class Colaborador extends Model
      *
      * @var list<string>
      */
-    protected $hidden = ['foto_path', 'expediente_storage_path'];
+    protected $hidden = ['foto_path', 'expediente_storage_path', 'sueldo_mensual', 'salario_diario'];
 
     /**
      * Mismo motivo que en User: refleja en PHP el default real de la

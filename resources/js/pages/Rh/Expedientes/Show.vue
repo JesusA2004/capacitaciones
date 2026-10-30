@@ -47,6 +47,7 @@ const props = defineProps<{
     puedeEditarCuenta: boolean;
     puedeCrearCuenta: boolean;
     puedeEditarLaborales: boolean;
+    puedeVerSueldo: boolean;
     rolesDisponibles: string[];
     empresasDisponibles: { id: number; nombre: string }[];
     sucursalesDisponibles: {
@@ -188,6 +189,7 @@ defineOptions({
         :puede-editar-cuenta="puedeEditarCuenta"
         :puede-crear-cuenta="puedeCrearCuenta"
         :puede-editar-laborales="puedeEditarLaborales"
+        :puede-ver-sueldo="puedeVerSueldo"
         :roles-disponibles="rolesDisponibles"
         :empresas-disponibles="empresasDisponibles"
         :sucursales-disponibles="sucursalesDisponibles"

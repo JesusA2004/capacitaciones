@@ -33,7 +33,7 @@ class AltaColaboradorController extends Controller
 
         $colaborador = $this->altas->registrar($request->validated(), $request->user());
 
-        return response()->json(['data' => $this->altas->checklist($colaborador), 'colaborador_id' => $colaborador->id], 201);
+        return response()->json(['data' => $this->altas->checklist($colaborador, $request->user()), 'colaborador_id' => $colaborador->id], 201);
     }
 
     public function contratarCandidato(ContratarCandidatoRequest $request, Candidato $candidato): JsonResponse
@@ -50,7 +50,7 @@ class AltaColaboradorController extends Controller
         $resultado = $this->contratacion->iniciarOReanudar($candidato, $request->validated(), $request->user());
 
         return response()->json([
-            'data' => $this->altas->checklist($resultado['colaborador']),
+            'data' => $this->altas->checklist($resultado['colaborador'], $request->user()),
             'colaborador_id' => $resultado['colaborador']->id,
             'invitacion' => $this->contratacion->datosQr($resultado['invitacion'], $resultado['token']),
             'reutilizada' => $resultado['reutilizada'],
@@ -61,7 +61,7 @@ class AltaColaboradorController extends Controller
     {
         $this->authorize('verAlta', $colaborador);
 
-        return response()->json(['data' => $this->altas->checklist($colaborador)]);
+        return response()->json(['data' => $this->altas->checklist($colaborador, $request->user())]);
     }
 
     public function activar(Request $request, Colaborador $colaborador): JsonResponse
@@ -70,7 +70,7 @@ class AltaColaboradorController extends Controller
 
         $colaborador = $this->altas->activar($colaborador, $request->user());
 
-        return response()->json(['data' => $this->altas->checklist($colaborador)]);
+        return response()->json(['data' => $this->altas->checklist($colaborador, $request->user())]);
     }
 
     public function jerarquia(Colaborador $colaborador): JsonResponse

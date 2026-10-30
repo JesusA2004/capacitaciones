@@ -108,7 +108,7 @@ class TimelineService
     /**
      * @return list<ItemTimeline>
      */
-    public function de(Candidato|Colaborador $persona, int $limite = 300): array
+    public function de(Candidato|Colaborador $persona, int $limite = 300, bool $conSueldos = true): array
     {
         [$candidatoId, $colaboradorId] = $persona instanceof Candidato
             ? [$persona->id, $persona->colaborador_id]
@@ -121,7 +121,7 @@ class TimelineService
         }
 
         if ($colaboradorId !== null) {
-            $items = [...$items, ...$this->cambiosSalario($colaboradorId, $limite), ...$this->ajustesVacaciones($colaboradorId, $limite), ...$this->solicitudesInternas($colaboradorId, $limite)];
+            $items = [...$items, ...($conSueldos ? $this->cambiosSalario($colaboradorId, $limite) : []), ...$this->ajustesVacaciones($colaboradorId, $limite), ...$this->solicitudesInternas($colaboradorId, $limite)];
         }
 
         usort($items, fn (array $a, array $b) => strcmp($a['fecha'] ?? '', $b['fecha'] ?? ''));

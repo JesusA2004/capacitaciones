@@ -125,7 +125,7 @@ class CicloLaboralColaboradorController extends Controller
     {
         $colaborador = $this->colaborador($request);
 
-        return response()->json(['data' => $colaborador->contratos()->with('documento')->get()->map(fn (ContratoLaboral $c) => $this->contratos->aArray($c))->values()]);
+        return response()->json(['data' => $colaborador->contratos()->with('documento')->get()->map(fn (ContratoLaboral $c) => $this->contratos->aArray($c, $request->user()))->values()]);
     }
 
     /**
@@ -198,7 +198,7 @@ class CicloLaboralColaboradorController extends Controller
 
     public function alta(Request $request): JsonResponse
     {
-        return response()->json(['data' => $this->altas->checklist($this->colaborador($request))]);
+        return response()->json(['data' => $this->altas->checklist($this->colaborador($request), $request->user())]);
     }
 
     private function colaborador(Request $request): Colaborador

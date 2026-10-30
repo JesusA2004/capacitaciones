@@ -41,6 +41,7 @@ use App\Services\Expedientes\ExpedienteService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Reclutamiento\FaseContratadoService;
+use App\Services\Salarios\AccesoSueldoService;
 use App\Support\FechaMexico;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Gate;
@@ -273,7 +274,7 @@ class CicloLaboralService
             'onboarding_id' => $onboarding?->id,
             'evaluacion_id' => $evaluacion?->id,
             'contrato_id' => $contrato?->id,
-            'timeline' => $conTimeline ? $this->timeline->de($colaborador) : [],
+            'timeline' => $conTimeline ? $this->timeline->de($colaborador, conSueldos: app(AccesoSueldoService::class)->puedeVer($viewer, $colaborador->id)) : [],
             'acciones_permitidas' => $detalle['acciones'],
         ];
     }

@@ -174,6 +174,7 @@ const props = defineProps<{
     puedeEditarCuenta: boolean;
     puedeCrearCuenta: boolean;
     puedeEditarLaborales: boolean;
+    puedeVerSueldo: boolean;
     rolesDisponibles: string[];
     empresasDisponibles: { id: number; nombre: string }[];
     sucursalesDisponibles: {
@@ -1461,7 +1462,10 @@ function irACompletarExpediente() {
                                             (puesto y sucursal) al guardar.
                                         </p>
                                     </div>
-                                    <div class="grid gap-2">
+                                    <div
+                                        v-if="puedeVerSueldo"
+                                        class="grid gap-2"
+                                    >
                                         <Label for="sueldo_mensual"
                                             >Sueldo mensual</Label
                                         >
@@ -1613,6 +1617,7 @@ function irACompletarExpediente() {
                                             >
                                         </CampoInfo>
                                         <CampoInfo
+                                            v-if="puedeVerSueldo"
                                             :icono="Wallet"
                                             etiqueta="Sueldo mensual"
                                         >
@@ -2381,7 +2386,10 @@ function irACompletarExpediente() {
                         </CardHeader>
                         <CardContent class="flex flex-col gap-2">
                             <p
-                                v-if="!colaborador.sueldo_mensual"
+                                v-if="
+                                    puedeVerSueldo &&
+                                    !colaborador.sueldo_mensual
+                                "
                                 class="text-sm text-muted-foreground"
                             >
                                 Captura el sueldo mensual en «Datos laborales»

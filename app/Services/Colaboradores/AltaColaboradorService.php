@@ -23,6 +23,7 @@ use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Organigrama\JefeDirectoService;
 use App\Services\Reclutamiento\ContratacionCandidatoService;
+use App\Services\Salarios\AccesoSueldoService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
 use App\Services\Vacantes\VacanteAutoGenerationService;
@@ -379,7 +380,7 @@ class AltaColaboradorService
      *
      * @return array<string, mixed>
      */
-    public function checklist(Colaborador $colaborador): array
+    public function checklist(Colaborador $colaborador, ?User $viewer = null): array
     {
         $colaborador->loadMissing(['sucursalPrincipal.empresa', 'puesto', 'departamento', 'jefe', 'gerente', 'user']);
         $documental = $this->expediente->estadoDocumental($colaborador);
@@ -409,14 +410,14 @@ class AltaColaboradorService
                 'puesto' => $colaborador->puesto?->nombre,
                 'jefe_inmediato' => $colaborador->jefe?->nombreCompleto(),
                 'gerente' => $colaborador->gerente?->nombreCompleto(),
-                'sueldo_mensual' => $colaborador->sueldo_mensual,
+                'sueldo_mensual' => app(AccesoSueldoService::class)->puedeVer($viewer, $colaborador->id) ? $colaborador->sueldo_mensual : null,
                 'fecha_ingreso' => $colaborador->fecha_ingreso?->toDateString(),
                 'tipo_contratacion' => $colaborador->tipo_contratacion?->value,
                 'periodo_prueba_inicio' => $colaborador->periodo_prueba_inicio?->toDateString(),
                 'periodo_prueba_fin' => $colaborador->periodo_prueba_fin?->toDateString(),
             ],
             'expediente' => $documental,
-            'contrato' => $contrato !== null ? $this->contratos->aArray($contrato) : null,
+            'contrato' => $contrato !== null ? $this->contratos->aArray($contrato, $viewer) : null,
             'documentos_contractuales' => $contractuales,
             'documentos_contractuales_sin_plantilla' => $pendientesDeGenerar,
             'acceso' => [

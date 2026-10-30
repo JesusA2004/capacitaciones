@@ -26,7 +26,7 @@ class ContratoController extends Controller
         $dias = max(1, min(365, $request->integer('dias', 30)));
 
         return response()->json([
-            'data' => $this->contratos->porVencer($request->user(), $dias)->map(fn (ContratoLaboral $c) => $this->contratos->aArray($c))->values(),
+            'data' => $this->contratos->porVencer($request->user(), $dias)->map(fn (ContratoLaboral $c) => $this->contratos->aArray($c, $request->user()))->values(),
             'dias' => $dias,
         ]);
     }
@@ -36,7 +36,7 @@ class ContratoController extends Controller
         $this->authorize('verContratos', $colaborador);
 
         return response()->json([
-            'data' => $colaborador->contratos()->with(['colaborador', 'evaluacion', 'documento'])->get()->map(fn (ContratoLaboral $c) => $this->contratos->aArray($c))->values(),
+            'data' => $colaborador->contratos()->with(['colaborador', 'evaluacion', 'documento'])->get()->map(fn (ContratoLaboral $c) => $this->contratos->aArray($c, $request->user()))->values(),
         ]);
     }
 

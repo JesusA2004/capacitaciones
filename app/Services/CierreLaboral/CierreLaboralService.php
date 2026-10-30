@@ -36,6 +36,7 @@ use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Finiquitos\FiniquitoService;
+use App\Services\Salarios\AccesoSueldoService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
@@ -93,6 +94,7 @@ class CierreLaboralService
     public function __construct(
         private readonly SolicitudesService $solicitudes,
         private readonly FiniquitoService $finiquitos,
+        private readonly AccesoSueldoService $accesoSueldo,
         private readonly MotorDocumentalService $motor,
         private readonly TareaService $tareas,
         private readonly AuditoriaService $auditoria,
@@ -1219,17 +1221,21 @@ class CierreLaboralService
         $finiquito = $this->finiquito($cierre);
         $cierre->loadMissing(['colaborador.sucursalPrincipal', 'iniciadoPor', 'pagoResponsable', 'causalRotacion']);
 
+        // Sin $viewer es un uso interno; con $viewer, los importes solo van a quien
+        // tiene permiso: cierres.ver no basta para ver lo que gana o recibe alguien.
+        $conImportes = $viewer === null || $this->accesoSueldo->puedeVerFiniquito($viewer, $cierre->colaborador_id);
+
         $datosFiniquito = $finiquito !== null ? [
             'id' => $finiquito->id,
             'estado' => $finiquito->estado->value,
-            'total_percepciones' => $finiquito->total_percepciones,
-            'total_deducciones' => $finiquito->total_deducciones,
-            'neto' => $finiquito->neto,
+            'total_percepciones' => $conImportes ? $finiquito->total_percepciones : null,
+            'total_deducciones' => $conImportes ? $finiquito->total_deducciones : null,
+            'neto' => $conImportes ? $finiquito->neto : null,
             'pagado_en' => $finiquito->pagado_en?->toIso8601String(),
             'documento_id' => $finiquito->generated_document_id,
         ] : null;
 
-        if ($detalle && $finiquito !== null && $datosFiniquito !== null) {
+        if ($detalle && $conImportes && $finiquito !== null && $datosFiniquito !== null) {
             $finiquito->loadMissing('calculadoPor');
             $entregado = in_array($finiquito->estado, [EstadoFiniquito::Firmado, EstadoFiniquito::Pagado], true);
             $snapshot = is_array($finiquito->snapshot) ? $finiquito->snapshot : [];
@@ -1321,7 +1327,7 @@ class CierreLaboralService
             'baja_ejecutada_en' => $cierre->baja_ejecutada_en?->toIso8601String(),
             'expediente_cerrado_en' => $cierre->expediente_cerrado_en?->toIso8601String(),
             'finiquito' => $datosFiniquito,
-            'sueldo_mensual_sugerido' => $detalle ? $this->finiquitos->sueldoMensualSugerido($cierre->colaborador) : null,
+            'sueldo_mensual_sugerido' => $detalle && $conImportes ? $this->finiquitos->sueldoMensualSugerido($cierre->colaborador) : null,
             'documentos' => $documentos,
             'aprobaciones' => $this->aprobaciones->resumen($cierre, ProcesoAprobacion::CierreLaboral),
             'acciones_permitidas' => $viewer !== null ? $this->accionesPermitidas($cierre, $viewer) : [],
