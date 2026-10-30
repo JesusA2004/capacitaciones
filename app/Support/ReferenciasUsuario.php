@@ -240,5 +240,21 @@ final class ReferenciasUsuario
         ['vacantes', 'creado_por', 'set_null'],
         ['vacantes', 'gerente_solicitante_id', 'set_null'],
         ['vacantes', 'responsable_rh_id', 'set_null'],
+        // Migración 2026-10-26: sucursales silenciadas en los avisos de cada cuenta.
+        ['notificacion_sucursales_silenciadas', 'user_id', 'cascade'],
+        // Migraciones de la Etapa 1: aviso de rescisión, correcciones de documentos,
+        // incapacidades, rectificaciones de nómina, metas de rotación y salarios.
+        ['baja_avisos_rescision', 'actualizado_por', 'set_null'],
+        ['baja_avisos_rescision', 'capturado_por', 'set_null'],
+        ['baja_avisos_rescision', 'plazo_validado_por', 'set_null'],
+        ['baja_documento_ediciones', 'user_id', 'set_null'],
+        ['incapacidad_documentos', 'cargado_por', 'set_null'],
+        ['incapacidades', 'actualizado_por', 'set_null'],
+        ['incapacidades', 'cancelada_por', 'set_null'],
+        ['incapacidades', 'registrado_por', 'set_null'],
+        ['matrices_merito', 'usuario_id', 'set_null'],
+        ['nomina_rectificaciones', 'resuelta_por', 'set_null'],
+        ['rotacion_metas', 'registrado_por', 'set_null'],
+        ['tabuladores_salariales', 'usuario_id', 'set_null'],
     ];
 }

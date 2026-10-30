@@ -115,7 +115,9 @@ class PurgaPersonaService
         'finiquito_calculos' => 'cálculos de finiquito',
         'generated_documents' => 'documentos generados',
         'historial_salarios' => 'historial de salarios',
+        'incapacidades' => 'incapacidades',
         'incorporacion_invitaciones' => 'invitaciones de incorporación',
+        'nomina_rectificaciones' => 'rectificaciones de nómina',
         'induccion_asignaciones' => 'asignaciones de inducción',
         'induccion_video_intervalos' => 'avance del video de inducción',
         'inscripciones_curso' => 'inscripciones a cursos',
@@ -427,7 +429,16 @@ class PurgaPersonaService
 
         DB::table('baja_documentos')->whereIn('baja_id', $bajas)->delete();
         DB::table('baja_bitacora')->whereIn('baja_id', $bajas)->delete();
+        DB::table('baja_documento_ediciones')->whereIn('baja_id', $bajas)->delete();
+        DB::table('baja_avisos_rescision')->whereIn('baja_id', $bajas)->delete();
         DB::table('bajas')->whereIn('id', $bajas)->delete();
+
+        // Incapacidades y rectificaciones de nómina (RESTRICT a colaboradores). En
+        // MyISAM no hay cascada: los documentos de la incapacidad se borran aquí.
+        $incapacidades = fn (Builder $q) => $q->select('id')->from('incapacidades')->where('colaborador_id', $colaboradorId);
+        DB::table('incapacidad_documentos')->whereIn('incapacidad_id', $incapacidades)->delete();
+        DB::table('incapacidades')->where('colaborador_id', $colaboradorId)->delete();
+        DB::table('nomina_rectificaciones')->where('colaborador_id', $colaboradorId)->delete();
 
         // Expediente histórico (RESTRICT en divisiones→expediente, en
         // partes→división y en revisiones manuales→división).
