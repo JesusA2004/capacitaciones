@@ -400,10 +400,7 @@ function guardarMeta() {
 
         <PestanasBajasNav :pestanas="pestanas" actual="rotacion" />
 
-        <section
-            class="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between"
-            aria-label="Vistas y filtros"
-        >
+        <section class="flex flex-col gap-3" aria-label="Vistas y filtros">
             <nav
                 class="-mx-1 scroll-x-limpio flex max-w-full gap-2 px-1 py-0.5"
                 aria-label="Vistas de rotación"
@@ -558,7 +555,7 @@ function guardarMeta() {
                 class="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(18rem,1fr)]"
             >
                 <section
-                    class="flex min-w-0 flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+                    class="flex min-w-0 flex-col gap-3 self-start rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
                 >
                     <div>
                         <h2 class="font-semibold">
@@ -744,9 +741,9 @@ function guardarMeta() {
                         class="text-xs text-muted-foreground"
                     >
                         Meta verde del último mes:
-                        {{ porcentaje(metaVisible) }}. El histórico del Excel
-                        llega hasta {{ tablero.mes_inicio_sistema }}; desde ese
-                        mes cuentan las bajas del sistema.
+                        {{ porcentaje(metaVisible) }}. Antes de
+                        {{ tablero.mes_inicio_sistema }} se usa el histórico del
+                        Excel; desde ese mes, las bajas del sistema.
                     </p>
                 </section>
 
@@ -980,7 +977,7 @@ function guardarMeta() {
         <!-- Por sucursal y Por causales -->
         <div
             v-else
-            class="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(20rem,4fr)]"
+            class="grid gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(18rem,2fr)]"
         >
             <section
                 :class="
@@ -1007,7 +1004,7 @@ function guardarMeta() {
                     descripcion="No hay rotación registrada en el periodo."
                 />
                 <div v-else class="tabla-scroll">
-                    <table class="w-full min-w-[52rem] text-left text-xs">
+                    <table class="w-full min-w-[46rem] text-left text-xs">
                         <thead
                             class="bg-[var(--mrl-fondo)] text-muted-foreground"
                         >

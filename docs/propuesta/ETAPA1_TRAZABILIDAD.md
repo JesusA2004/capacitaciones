@@ -126,6 +126,26 @@ Commit: relajar exclusión de gestores + tarjeta/filtro/etiqueta "Datos por comp
 
 **Pendientes externos:** textos de convenio, aviso y constancia son formatos base con nota visible hasta que Jurídico los valide; fundamento de RE-02 y RE-05 sin fracción capturada (el catálogo no la citaba); beneficiarios en OT-01.
 
+## Incremento 3 — Rotación unificada (estado comprobado 2026-10-30)
+
+Estados permitidos por el encargo. Las filas R1-R7 del diagnóstico inicial quedan sustituidas por esta tabla. Detalle de reglas: `docs/BAJAS_Y_CAUSALES.md`, sección «Rotación: un solo motor».
+
+| Requisito | Implementación | Prueba | Estado |
+|---|---|---|---|
+| Motor único (D2) | `TableroRotacionService` + `FormulaRotacion`; Tablero de RH e histórico del Excel usan la misma fórmula. Se retiró `serieMensualPorSucursales` | `RotacionUnificadaTest`, `DashboardFuenteCanonicaTest`, `RotacionPersonalCargaTest` | Implementado sin validar con datos reales |
+| Escenario 28: baja pendiente cuenta por último día | Cuenta En trámite y Cerrada; excluye No procede, flujo anterior, internos y futuras | Pest | Probado y aprobado |
+| Escenario 29: Excel y sistema sin duplicar | Corte `mes_inicio_sistema` | Pest (frontera del corte) | Probado y aprobado |
+| Escenario 30: Global = Corporativo + Sucursales | En bajas; el índice no se suma (documentado) | Pest | Probado y aprobado |
+| Escenario 31: cinco vistas | Pestaña Rotación con filtros | Pest + Playwright en copia aislada | Probado y aprobado |
+| Escenario 32: exportaciones por vista | Excel y PDF con filtros en título y filas | Pest; descargas probadas en navegador para 2 vistas | Probado y aprobado |
+| Metas con vigencia e historial | `rotacion_metas`, `bajas.gestionar` | Pest + edición real en copia aislada | Probado y aprobado |
+| Gráfica, semáforos, comparativo, por sucursal, por causales | Pág. 12-13, detalle de bajas por sucursal | Capturas 1500 px y 390 px contra PDF, con datos de muestra | Implementado sin validar con datos reales |
+| Mes sin datos, mes en curso, cambio de sucursal, alcance y permisos | Sin 0% falso ni división entre cero | Pest | Probado y aprobado |
+| Escenario 19: carta RV | Generar, versionar, descargar y firmar con el maestro real. Corrige un fallo silencioso: el firmado con huella no avanzaba el flujo | `BajaDirectaDocumentosTest` (requiere `docs/formatos_fuente`, no versionado: en CI se omite) | Probado y aprobado en local |
+| Reporte «Rotación (altas vs. bajas)» | Sigue siendo un neto de movimientos, no un índice; se revisa con Reportes | — | Pendiente (Incremento 7) |
+
+Limitación conocida: la plantilla reconstruida por fechas usa la sucursal actual de cada persona, porque no hay historial confiable de cambios de sucursal. Solo aplica a meses sin foto ni Excel.
+
 ## Incremento 2 — Bajas y Rotación (diagnóstico inicial)
 
 ### Bajas (PDF pág. 10, 15) — flujo sin Jurídico, documentos de salida
