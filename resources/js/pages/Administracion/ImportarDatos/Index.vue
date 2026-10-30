@@ -17,6 +17,7 @@ import type { Component } from 'vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import { dashboard } from '@/routes';
+import { index as altasHistoricasIndex } from '@/routes/administracion/importar-datos/altas-historicas';
 import { index as cargaInicialIndex } from '@/routes/administracion/importar-datos/carga-inicial';
 import { index as plazasAutorizadasIndex } from '@/routes/administracion/importar-datos/plazas-autorizadas';
 import { index as rotacionIndex } from '@/routes/reportes/rotacion';
@@ -39,6 +40,7 @@ const props = defineProps<{
         carga_inicial: boolean;
         migracion: boolean;
         headcount: boolean;
+        altas_historicas: boolean;
         salarios_vacaciones: boolean;
         rotacion: boolean;
         perfiles_puesto: boolean;
@@ -102,6 +104,17 @@ const tarjetas = computed<Tarjeta[]>(() => {
                   flujo: ['Subir Excel', 'Revisar conciliación', 'Confirmar'],
                   icono: LayoutGrid,
                   href: plazasAutorizadasIndex().url,
+              }
+            : null,
+        props.puede.altas_historicas
+            ? {
+                  clave: 'altas_historicas',
+                  titulo: 'Altas históricas',
+                  descripcion:
+                      'Altas de periodos anteriores al sistema, para que los reportes salgan completos. No cambia fechas de ingreso.',
+                  flujo: ['Subir Excel', 'Revisar filas', 'Confirmar'],
+                  icono: ClipboardList,
+                  href: altasHistoricasIndex().url,
               }
             : null,
         props.puede.salarios_vacaciones

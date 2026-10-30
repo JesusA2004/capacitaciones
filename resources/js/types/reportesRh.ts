@@ -1,6 +1,8 @@
 export type OpcionCatalogoReporte = {
     value: string;
     label: string;
+    periodo?: boolean;
+    mes?: boolean;
 };
 
 export type GrupoCatalogoReportes = {
@@ -12,6 +14,8 @@ export type ResultadoReporteRh = {
     titulo: string;
     columnas: string[];
     filas: (string | number | null)[][];
+    avisos?: string[];
+    faltantes?: number;
 };
 
 export type SerieGraficaReporte = {
@@ -37,6 +41,7 @@ export type FiltrosReporteRh = {
     estado?: string;
     tipo_solicitud?: string;
     tipo_documento?: string;
+    mes?: string;
 };
 
 export type OpcionesReportesRh = {

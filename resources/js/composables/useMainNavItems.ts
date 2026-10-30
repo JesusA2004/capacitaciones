@@ -2,6 +2,7 @@ import { usePage } from '@inertiajs/vue3';
 import {
     Award,
     BarChart3,
+    FileChartColumn,
     BellRing,
     Boxes,
     Banknote,
@@ -113,6 +114,7 @@ import {
 import { index as indexPendientes } from '@/routes/rh/pendientes';
 import { index as indexPerfilesPuesto } from '@/routes/rh/perfiles-puesto';
 import { index as indexReingresos } from '@/routes/rh/reingresos';
+import { index as indexMisReportes } from '@/routes/rh/reportes/mis-reportes';
 import { index as indexRhSolicitudes } from '@/routes/rh/solicitudes';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
 import { index as indexValidacionDocumentos } from '@/routes/rh/validacion-documentos';
@@ -624,6 +626,11 @@ export function useMainNavItems() {
                         title: 'Reportes de RH',
                         href: indexReportes(),
                         icon: BarChart3,
+                    },
+                    tienePermiso('reportes_rh.mis_reportes') && {
+                        title: 'Mis reportes',
+                        href: indexMisReportes(),
+                        icon: FileChartColumn,
                     },
                 ],
             ),

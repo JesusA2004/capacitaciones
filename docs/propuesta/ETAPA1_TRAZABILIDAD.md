@@ -284,7 +284,23 @@ Sustituye a la sección «Incremento 3 — Incapacidades» del diagnóstico inic
 
 ---
 
-## Incremento 6 — Reportes de RH (PDF pág. 20–22)
+## Reportes de RH y Mis reportes (estado comprobado 2026-10-30)
+
+| Requisito | Estado | Evidencia |
+|---|---|---|
+| Catálogo lateral sin Rotación | Implementado sin validar | Navegador en SQLite aislada; falta contraste final de RH con pág. 20. |
+| Altas y Bajas del mes nominales | Implementado sin validar | `ReportesEtapa1Test`, escenario 37. Sin cifras de producción. |
+| Altas para NOI: faltantes y layout configurable | Bloqueado por información externa | Reporte y exportador probados. Falta el layout oficial y la versión de Aspel NOI; el archivo se nombra «pendiente de homologar». Jornada, periodicidad, banco y CLABE no existen en People. |
+| Incidencias de nómina | Implementado sin validar | Usa `IncidenciasNominaService`; la regla de días pagados sigue pendiente de RH. |
+| Aniversario de alta IMSS | Implementado sin validar | Escenario 40; NSS enmascarado sin `reportes_rh.datos_sensibles`. |
+| Mis reportes: arrastre, diseño, gráficas, vista previa, guardar, duplicar, ejecutar, eliminar | Implementado sin validar | Escenarios 41-42 y arrastre real con Playwright; Excel reabierto con PhpSpreadsheet, no con Microsoft Excel. |
+| PDF con Browsershot | Implementado sin validar | PDF real de 2 páginas revisado; falta probar Chrome en el VPS. Sin Chrome responde error claro, sin caer a DomPDF. |
+| Seguridad por campo | Probado y aprobado | Pest: sueldo y datos sensibles no salen ni por filtro, orden ni gráfica; permisos revalidados en cada ejecución. |
+| Altas históricas | Bloqueado por información externa | Importador probado con Excel de prueba; falta el archivo real de RH. No cambia `fecha_ingreso`. |
+
+Permisos nuevos: `reportes_rh.mis_reportes`, `reportes_rh.datos_sensibles`, `reportes_rh.importar_historico`. Al desplegar: `php artisan migrate` y `php artisan people:sincronizar-permisos`.
+
+## Incremento 6 — Reportes de RH, diagnóstico inicial (PDF pág. 20–22)
 
 **Hallazgos clave:** Motor único `ReportesRhService::catalogo()/generar()` → `{titulo,columnas,filas}`. Export Excel `App\Exports\ReporteRhExport` (PhpSpreadsheet/Maatwebsite), PDF DomPDF `resources/views/pdf/reporte-rh.blade.php`. `colaboradores.fecha_alta_imss` **ya existe** separado de `fecha_ingreso`. **No hay** export NOI ni `config/noi.php`; "NOI" en el repo es solo `numero_empleado`. Sin generador propio ni reportes guardados. Sin API de reportes (es web, está bien).
 

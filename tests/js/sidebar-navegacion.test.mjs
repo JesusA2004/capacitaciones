@@ -115,7 +115,7 @@ const ESPERADO = [
             'Empresas',
         ],
     ],
-    ['Reportes', ['Reportes de RH']],
+    ['Reportes', ['Reportes de RH', 'Mis reportes']],
     [
         'Configuración',
         [
