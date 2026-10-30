@@ -62,6 +62,7 @@ import {
     CLAVE_BUSQUEDA_ORGANIGRAMA,
     coincideBusqueda,
 } from '@/lib/organigrama';
+import { hijosDePuestos } from '@/lib/organigramaPuestos';
 import { dashboard } from '@/routes';
 import {
     actualizar,
@@ -245,9 +246,16 @@ const raices = computed(() =>
 function nivelPuesto(id: number): number {
     let nivel = 0;
     let actual = props.puestos.find((p) => p.id === id);
+    const vistos = new Set<number>([id]);
 
     while (actual?.puesto_superior_id) {
         const superior = actual.puesto_superior_id;
+
+        if (vistos.has(superior)) {
+            break;
+        }
+
+        vistos.add(superior);
         actual = props.puestos.find((p) => p.id === superior);
 
         if (!actual) {
@@ -260,18 +268,14 @@ function nivelPuesto(id: number): number {
     return nivel;
 }
 
+const hijosPorPuesto = computed(() => hijosDePuestos(props.puestos));
+
 function obtenerHijos(id: number): PuestoJerarquiaItem[] {
     if (profundidad.value !== null && nivelPuesto(id) >= profundidad.value) {
         return [];
     }
 
-    const esRegional = props.puestos.some((p) => p.id === id && p.region);
-
-    return props.puestos.filter(
-        (p) =>
-            p.puesto_superior_id === id ||
-            (esRegional && p.depende_de_region === true),
-    );
+    return hijosPorPuesto.value.get(id) ?? [];
 }
 
 // Búsqueda de puesto o persona: resalta las tarjetas que coinciden y

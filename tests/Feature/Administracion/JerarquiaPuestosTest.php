@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\TipoNodoComercial;
 use App\Models\Colaborador;
+use App\Models\NodoComercial;
 use App\Models\Puesto;
 use App\Models\User;
 use App\Models\Vacante;
@@ -19,6 +21,29 @@ test('un super_admin puede ver la jerarquía de puestos', function () {
     $this->actingAs($usuario)
         ->get(route('administracion.jerarquia-puestos.index'))
         ->assertOk();
+});
+
+test('un regional bajo otro regional no se marca como rama de sucursal', function () {
+    $direccion = Puesto::factory()->create(['nombre' => 'Dirección']);
+    $regionalQ1 = Puesto::factory()->create(['nombre' => 'Regional A', 'puesto_superior_id' => $direccion->id]);
+    $regionalQ3 = Puesto::factory()->create(['nombre' => 'Regional B', 'puesto_superior_id' => $regionalQ1->id]);
+    $gerente = Puesto::factory()->create(['nombre' => 'Gerente', 'puesto_superior_id' => $regionalQ1->id]);
+
+    NodoComercial::query()->create(['nombre' => 'Región A', 'tipo' => TipoNodoComercial::Region->value, 'puesto_id' => $regionalQ1->id]);
+    NodoComercial::query()->create(['nombre' => 'Región B', 'tipo' => TipoNodoComercial::Region->value, 'puesto_id' => $regionalQ3->id]);
+
+    $usuario = User::factory()->create();
+    $usuario->assignRole('super_admin');
+
+    $this->actingAs($usuario)
+        ->get(route('administracion.jerarquia-puestos.index'))
+        ->assertOk()
+        ->assertInertia(function ($pagina) use ($regionalQ3, $gerente) {
+            $puestos = collect($pagina->toArray()['props']['puestos'])->keyBy('id');
+
+            expect($puestos[$regionalQ3->id]['depende_de_region'])->toBeFalse()
+                ->and($puestos[$gerente->id]['depende_de_region'])->toBeTrue();
+        });
 });
 
 test('un colaborador no puede ver la jerarquía de puestos', function () {

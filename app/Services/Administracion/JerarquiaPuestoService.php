@@ -200,7 +200,9 @@ class JerarquiaPuestoService
 
         foreach ($puestos as $puesto) {
             $puesto->setAttribute('region', $regionPorPuesto[$puesto->id] ?? null);
-            $puesto->setAttribute('depende_de_region', $puesto->puesto_superior_id !== null && isset($regionPorPuesto[$puesto->puesto_superior_id]));
+            // Un regional bajo otro regional no es rama de sucursal: repetirlo
+            // debajo de cada regional lo pondría debajo de sí mismo.
+            $puesto->setAttribute('depende_de_region', ! isset($regionPorPuesto[$puesto->id]) && $puesto->puesto_superior_id !== null && isset($regionPorPuesto[$puesto->puesto_superior_id]));
         }
     }
 
