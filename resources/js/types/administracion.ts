@@ -1,4 +1,4 @@
-import type { ClasificacionRegionNodo, LadosComerciales } from './organigrama';
+import type { ClasificacionRegionNodo } from './organigrama';
 import type { MovimientoLaboralItem } from './rh';
 
 export type EmpresaItem = {
@@ -352,8 +352,6 @@ export type LaminasOrganigrama = {
             hijos: CajaLamina[];
         })[];
         leyenda: { directa?: string; apoyo?: string };
-        /** Q1 / Q3: cada Gerente de Sucursal de un solo lado. */
-        lados?: LadosComerciales;
     };
     sucursal: {
         puestos: Record<

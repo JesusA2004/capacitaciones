@@ -154,7 +154,7 @@ return [
             'acciones' => [
                 'organigrama.editar' => 'Editar jerarquía de puestos',
                 'organigrama.coberturas' => 'Asignar / finalizar coberturas temporales',
-                'organigrama.mover_personas' => 'Mover personas y clasificar Q1 / Q3',
+                'organigrama.mover_personas' => 'Mover personas',
                 'organigrama.matriz_comercial' => 'Editar matriz comercial (responsables y apoyos)',
                 // «Responsables de aprobación» cuelga del Organigrama en el menú.
                 'responsables_aprobacion.ver' => 'Ver responsables de aprobación',
@@ -960,7 +960,7 @@ return [
         'organigrama.ver' => 'Entra al Organigrama: árbol de puestos, personas y vacantes.',
         'organigrama.editar' => 'Cambia a quién reporta cada puesto, su tipo, respaldos y puestos que puede cubrir.',
         'organigrama.coberturas' => 'Asigna que alguien cubra temporalmente otro puesto y finaliza la cobertura.',
-        'organigrama.mover_personas' => 'Sube, baja o mueve a una persona en el árbol y clasifica gerentes en Q1 / Q3.',
+        'organigrama.mover_personas' => 'Sube, baja o mueve a una persona en el árbol.',
         'organigrama.matriz_comercial' => 'Asigna responsables y apoyos a regiones y zonas de la matriz comercial.',
         'responsables_aprobacion.ver' => 'Consulta quién aprueba explícitamente por sucursal o puesto.',
         'responsables_aprobacion.administrar' => 'Asigna o quita responsables de aprobación.',

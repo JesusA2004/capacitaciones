@@ -350,69 +350,90 @@ class OrganizacionJerarquiaService
     }
 
     /**
-     * Gerente regional de la región de una sucursal (matriz comercial:
-     * zona → región → puesto regional ligado), ocupantes de un puesto
-     * regional genérico cuya sucursal está en esa región, quien lo cubre y,
-     * como respaldo, los regionales de la cadena de mando de la persona. Si
-     * con todo eso no hay nadie y la sucursal es operativa y está en una
-     * región de la matriz, la regional de respaldo (config
-     * organigrama.regional_respaldo).
+     * Regional que responde por una sucursal: el primero de la cadena
+     * (Subgerente Regional → Gerente Regional, config
+     * organigrama.puestos_regionales) con titular o cobertura vigente y cuenta
+     * activa; si no hay nadie y la sucursal es operativa, la regional de
+     * respaldo. Quien ya está en la cadena solo responde ante los de arriba.
      *
      * @return Collection<int, User>
      */
     public function regionalesDe(?int $sucursalId, ?Colaborador $persona = null): Collection
     {
-        /** @var list<string> $nombresRegion */
-        $nombresRegion = config('organigrama.puestos_de_region', []);
-        $genericos = Puesto::query()->whereIn('nombre', $nombresRegion)->pluck('id')->map(fn ($id) => (int) $id)->all();
-        $ligados = NodoComercial::query()->where('tipo', TipoNodoComercial::Region->value)->whereNotNull('puesto_id')->pluck('puesto_id')->map(fn ($id) => (int) $id)->all();
-        $personas = $persona !== null
-            ? $this->cadenaDeMandoDe($persona)->filter(fn (Colaborador $c) => in_array($c->puesto_id, [...$ligados, ...$genericos], true))
-            : collect();
+        $enCadena = $persona !== null && in_array($persona->puesto_id, $this->puestosRegionales()->pluck('id')->all(), true);
+        $operativa = $sucursalId !== null && Sucursal::query()->whereKey($sucursalId)->where('es_corporativo', false)->exists();
 
-        $region = $sucursalId !== null
-            ? NodoComercial::query()
-                ->where('tipo', TipoNodoComercial::Zona->value)
-                ->where('sucursal_id', $sucursalId)
-                ->whereHas('padre', fn ($q) => $q->where('tipo', TipoNodoComercial::Region->value))
-                ->with('padre:id,puesto_id,tipo')
-                ->first()?->padre
-            : null;
+        // Corporativo o sin sucursal: solo si la cadena de mando pasa por un regional.
+        if (! $operativa && ! $enCadena) {
+            $regionales = $this->puestosRegionales()->pluck('id')->all();
 
-        if ($region !== null) {
-            $sucursalesRegion = NodoComercial::query()->where('tipo', TipoNodoComercial::Zona->value)->where('parent_id', $region->id)->whereNotNull('sucursal_id')->pluck('sucursal_id')->all();
-
-            if ($region->puesto_id !== null) {
-                $personas = $personas
-                    ->merge($this->activos()->where('puesto_id', $region->puesto_id)->get())
-                    ->merge(CoberturaPuesto::query()->where('activa', true)->where('puesto_id', $region->puesto_id)
-                        ->where(fn ($q) => $q->whereNull('region_id')->orWhere('region_id', $region->id))
-                        ->with('colaborador')->get()->pluck('colaborador'));
-            }
-
-            if ($genericos !== []) {
-                $personas = $personas->merge($this->activos()->whereIn('puesto_id', $genericos)->whereIn('sucursal_principal_id', $sucursalesRegion)->get());
-            }
+            return $persona !== null
+                ? $this->usuariosDe($this->cadenaDeMandoDe($persona)->filter(fn (Colaborador $c) => in_array($c->puesto_id, $regionales, true)), $persona)
+                : collect();
         }
 
-        $usuarios = $this->usuariosDe($personas, $persona);
+        $usuarios = $this->regionalVigente($persona)['usuarios'];
 
-        // Sucursal operativa cuya región (en la matriz) no tiene Gerente
-        // Regional (ni cobertura): la regional de respaldo
-        // (RegionalRespaldoService), la misma que el organigrama le da como
-        // jefe a su personal. Una sucursal fuera de la matriz no hereda
-        // regional de otra región.
-        if ($usuarios->isEmpty() && $region !== null && Sucursal::query()->whereKey($sucursalId)->where('es_corporativo', false)->exists()) {
-            foreach ($this->regionalRespaldo->candidatos() as $candidatoId) {
-                $usuario = $candidatoId !== $persona?->id ? $this->usuarioActivoDe(Colaborador::query()->where('id', $candidatoId)->first()) : null;
+        if ($usuarios->isNotEmpty() || $enCadena) {
+            return $usuarios;
+        }
 
-                if ($usuario !== null) {
-                    return collect([$usuario]);
-                }
+        foreach ($this->regionalRespaldo->candidatos() as $candidatoId) {
+            $usuario = $candidatoId !== $persona?->id ? $this->usuarioActivoDe(Colaborador::query()->where('id', $candidatoId)->first()) : null;
+
+            if ($usuario !== null) {
+                return collect([$usuario]);
             }
         }
 
         return $usuarios;
+    }
+
+    /**
+     * Primer puesto de la cadena regional con titular o cobertura vigente y
+     * cuenta activa (nunca la propia persona ni alguien debajo de ella).
+     *
+     * @return array{puesto: Puesto|null, por_cobertura: bool, usuarios: Collection<int, User>}
+     */
+    public function regionalVigente(?Colaborador $persona = null): array
+    {
+        $cadena = $this->puestosRegionales();
+        $posicion = $persona !== null ? $cadena->search(fn (Puesto $p) => $p->id === $persona->puesto_id) : false;
+
+        if ($posicion !== false) {
+            $cadena = $cadena->slice($posicion + 1);
+        }
+
+        foreach ($cadena as $puesto) {
+            $titulares = $this->usuariosDe($this->activos()->where('puesto_id', $puesto->id)->get(), $persona);
+
+            if ($titulares->isNotEmpty()) {
+                return ['puesto' => $puesto, 'por_cobertura' => false, 'usuarios' => $titulares];
+            }
+
+            $cobertura = $this->usuariosDe(CoberturaPuesto::query()->where('activa', true)->where('puesto_id', $puesto->id)->with('colaborador')->get()->pluck('colaborador'), $persona);
+
+            if ($cobertura->isNotEmpty()) {
+                return ['puesto' => $puesto, 'por_cobertura' => true, 'usuarios' => $cobertura];
+            }
+        }
+
+        return ['puesto' => null, 'por_cobertura' => false, 'usuarios' => collect()];
+    }
+
+    /**
+     * @return Collection<int, Puesto>
+     */
+    private function puestosRegionales(): Collection
+    {
+        /** @var list<string> $nombres */
+        $nombres = (array) config('organigrama.puestos_regionales', []);
+        $puestos = Puesto::query()->whereIn('nombre', $nombres)->get();
+
+        return collect($nombres)
+            ->map(fn (string $nombre) => $puestos->first(fn (Puesto $p) => mb_strtolower($p->nombre) === mb_strtolower($nombre)))
+            ->filter()
+            ->values();
     }
 
     /**

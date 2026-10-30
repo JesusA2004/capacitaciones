@@ -20,29 +20,28 @@
 return [
     'puestos_raiz_sucursal' => ['Gerente de Sucursal', 'Coordinadora de Sucursal'],
 
-    // Puestos "de región" ADEMÁS de los que la matriz comercial liga a una
-    // región (nodos_comerciales.puesto_id: Región Q1 → "Gerente Regional
-    // Q1", Región Q3 → "Gerente Regional Q3"). El gerente de una sucursal
-    // cuelga del puesto regional de SU región; si nadie lo ocupa, se ve
-    // quien lo cubre (CoberturaPuesto) o VACANTE. "Gerente regional" es el
-    // puesto genérico anterior (solo mientras alguien lo siga ocupando).
-    'puestos_de_region' => ['Gerente regional'],
+    // Ya no hay puestos partidos por región: Gerente Regional y Subgerente
+    // Regional son plazas únicas de la empresa (ámbito corporativo).
+    'puestos_de_region' => [],
+
+    // Cadena regional, del más cercano a la sucursal hacia arriba: el Gerente
+    // de Sucursal responde al primero con titular o cobertura vigente.
+    'puestos_regionales' => ['Subgerente Regional', 'Gerente Regional'],
 
     /*
     | Regional de RESPALDO (App\Services\Organigrama\RegionalRespaldoService).
     | El personal de sucursal (Gestor, Subgerente, Gerente de Sucursal…)
     | NUNCA reporta a Dirección Comercial: si la gerencia de su sucursal y el
-    | Gerente Regional de su región están vacantes (sin titular ni cobertura),
+    | Subgerente y Gerente Regional están vacantes (sin titular ni cobertura),
     | su jefe y responsable de aprobaciones es esta regional. Orden:
     |  1. `colaborador` (id o número de empleado) si está vigente;
-    |  2. titulares vigentes de puestos regionales (los ligados a una región
-    |     de la matriz + `puestos`), por id;
+    |  2. titulares vigentes de los `puestos` regionales, por id;
     |  3. quien cubre temporalmente una plaza regional.
     | Sin ningún regional: queda «sin jefe asignable» (pendiente para RH),
     | nunca Dirección Comercial.
     */
     'regional_respaldo' => [
-        'puestos' => ['Gerente Regional Q1', 'Gerente Regional Q3', 'Gerente regional', 'Regional de Operaciones'],
+        'puestos' => ['Subgerente Regional', 'Gerente Regional', 'Gerente Regional Q1', 'Gerente Regional Q3', 'Regional de Operaciones'],
         'colaborador' => env('ORGANIGRAMA_REGIONAL_RESPALDO'),
     ],
 
@@ -106,8 +105,9 @@ return [
                 [
                     'titulo' => 'Regional Comercial', 'icono' => 'map-pin', 'puestos' => ['Gerente Regional%'],
                     'cadena' => [
+                        ['titulo' => 'Subgerente Regional', 'icono' => 'map-pin', 'puestos' => ['Subgerente Regional']],
                         ['titulo' => 'Gerente de Sucursal', 'icono' => 'store', 'puestos' => ['Gerente de Sucursal']],
-                        ['titulo' => 'Subgerente de Sucursal', 'icono' => 'user-check', 'puestos' => ['Subgerente%']],
+                        ['titulo' => 'Subgerente de Sucursal', 'icono' => 'user-check', 'puestos' => ['Subgerente', 'Subgerente de Sucursal']],
                         ['titulo' => 'Gestores de Crédito', 'icono' => 'users', 'puestos' => ['Gestor%'], 'destacado' => true],
                     ],
                 ],
@@ -142,7 +142,7 @@ return [
                 'funciones' => ['Gestionar la operación de la sucursal', 'Generar y revisar reportes del día', 'Lograr los objetivos', 'Auditar cartera de clientes', 'Supervisar a los Gestores de Crédito', 'Medir el desempeño del personal'],
             ],
             'subgerente' => [
-                'titulo' => 'Subgerente de Sucursal', 'puestos' => ['Subgerente%'],
+                'titulo' => 'Subgerente de Sucursal', 'puestos' => ['Subgerente', 'Subgerente de Sucursal'],
                 'funciones' => ['Asignar cartera a los gestores', 'Supervisar a los Gestores de Crédito', 'Realizar cobranza', 'Auditar cartera de clientes', 'Entregar resultados y KPI’s', 'Medición del desempeño del personal'],
             ],
             'coordinacion' => [

@@ -258,12 +258,6 @@ const transformacion = computed(
 );
 
 const LEYENDA = [
-    { etiqueta: 'Q1', clase: 'bg-info-soft text-info border-info/30' },
-    { etiqueta: 'Q3', clase: 'bg-crema text-bronce border-bronce/30' },
-    {
-        etiqueta: 'Por clasificar',
-        clase: 'bg-warning-soft text-warning border-warning/40 border-dashed',
-    },
     {
         etiqueta: 'Vacante',
         clase: 'bg-muted text-muted-foreground border-input border-dashed',

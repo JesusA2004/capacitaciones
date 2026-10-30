@@ -111,12 +111,6 @@ class ColaboradorPolicy
         return $usuario->can('organigrama.ver') && $this->administrativo($usuario, $colaborador, 'organigrama.mover_personas');
     }
 
-    /** Organigrama: clasificar a un Gerente de Sucursal en Q1 o Q3. */
-    public function clasificarRegion(User $usuario, Colaborador $colaborador): bool
-    {
-        return $usuario->can('organigrama.ver') && $this->administrativo($usuario, $colaborador, 'organigrama.mover_personas');
-    }
-
     private function esPropio(User $usuario, Colaborador $colaborador): bool
     {
         return $usuario->colaborador_id !== null && $usuario->colaborador_id === $colaborador->id;

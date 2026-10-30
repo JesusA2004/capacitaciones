@@ -3,35 +3,22 @@
 namespace App\Http\Controllers\Administracion;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Administracion\ClasificarRegionRequest;
 use App\Http\Requests\Administracion\MoverEnOrganigramaRequest;
 use App\Models\Colaborador;
-use App\Services\Organigrama\ClasificacionRegionService;
 use App\Services\Organigrama\MovimientoOrganigramaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
 /**
- * Acciones por nodo del organigrama (panel lateral): clasificar Q1/Q3 y
- * subir / bajar / mover bajo… Delgado: toda la regla vive en
- * ClasificacionRegionService y MovimientoOrganigramaService.
+ * Acciones por nodo del organigrama (panel lateral): subir / bajar / mover
+ * bajo… Delgado: toda la regla vive en MovimientoOrganigramaService.
  */
 class OrganigramaAccionesController extends Controller
 {
     public function __construct(
-        private readonly ClasificacionRegionService $clasificaciones,
         private readonly MovimientoOrganigramaService $movimientos,
     ) {}
-
-    public function clasificar(ClasificarRegionRequest $request, Colaborador $colaborador): RedirectResponse
-    {
-        $this->clasificaciones->clasificar($colaborador, $request->regionId(), $request->user());
-
-        return back()->with('toast', ['type' => 'success', 'message' => $request->regionId() === null
-            ? sprintf('%s regresó a «Por clasificar».', $colaborador->nombreCompleto())
-            : sprintf('%s quedó clasificado. Su jefe directo ya se recalculó.', $colaborador->nombreCompleto())]);
-    }
 
     public function opciones(Request $request, Colaborador $colaborador): JsonResponse
     {

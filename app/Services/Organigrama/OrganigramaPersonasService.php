@@ -469,58 +469,6 @@ class OrganigramaPersonasService
     }
 
     /**
-     * Q1 / Q3 en una línea (lámina de Dirección Comercial): por región, quién
-     * es su gerente regional (titular, quien cubre temporalmente o vacante)
-     * y cuántos Gerentes de Sucursal RH clasificó de ese lado; aparte, los
-     * que siguen «Por clasificar». Estructura completa, sin alcance (misma
-     * filosofía que las láminas: datos organizacionales mínimos).
-     *
-     * @return array{regiones: list<array{id: int, nombre: string, regional: string|null, cubre: string|null, gerentes: int}>, por_clasificar: list<array{id: int, nombre: string, sucursal: string|null, sugerida: string|null}>}
-     */
-    public function resumenLados(): array
-    {
-        $nodos = $this->nodosEstructura();
-        $regiones = [];
-
-        foreach ($this->puestoDeRegion as $regionId => $puestoId) {
-            $regiones[$regionId] = ['id' => $regionId, 'nombre' => $this->regionPorId($regionId)['nombre'] ?? '', 'regional' => null, 'cubre' => null, 'gerentes' => 0];
-        }
-
-        $porClasificar = [];
-
-        foreach ($nodos as $nodo) {
-            $regionId = $nodo['region']['id'] ?? null;
-
-            if ($regionId !== null && isset($regiones[$regionId]) && ($this->puestoDeRegion[$regionId] ?? null) === $nodo['puesto']['id']) {
-                if ($nodo['tipo'] === 'persona') {
-                    $regiones[$regionId]['regional'] ??= $nodo['persona']['nombre'] ?? null;
-                } elseif ($nodo['tipo'] === 'cobertura') {
-                    $regiones[$regionId]['cubre'] = $nodo['persona']['nombre'] ?? null;
-                }
-            }
-
-            $clasificacion = $nodo['clasificacion'] ?? null;
-
-            if ($clasificacion === null || $nodo['persona'] === null) {
-                continue;
-            }
-
-            if ($clasificacion['estado'] === 'clasificado' && isset($regiones[$clasificacion['region']['id'] ?? 0])) {
-                $regiones[$clasificacion['region']['id'] ?? 0]['gerentes']++;
-            } else {
-                $porClasificar[] = [
-                    'id' => $nodo['persona']['id'],
-                    'nombre' => $nodo['persona']['nombre'],
-                    'sucursal' => $nodo['sucursal']['nombre'] ?? null,
-                    'sugerida' => $clasificacion['sugerida']['nombre'] ?? null,
-                ];
-            }
-        }
-
-        return ['regiones' => array_values($regiones), 'por_clasificar' => $porClasificar];
-    }
-
-    /**
      * Ámbito de un puesto en el organigrama: de SUCURSAL (rama propia por
      * sucursal), de REGIÓN (gerente regional) o CORPORATIVO.
      *

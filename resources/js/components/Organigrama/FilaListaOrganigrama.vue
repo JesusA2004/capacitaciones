@@ -1,11 +1,8 @@
 <script setup lang="ts">
-import { ChevronRight, ShieldQuestion, Shuffle, UserRound } from '@lucide/vue';
+import { ChevronRight, Shuffle, UserRound } from '@lucide/vue';
 import { computed } from 'vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import {
-    CLASE_POR_CLASIFICAR,
-    claseChipRegion,
-    codigoRegion,
     contarRama,
     lugarDeNodo,
     regionDeNodo,
@@ -37,9 +34,6 @@ const emit = defineEmits<{
 const propios = computed(() => props.hijos.get(props.nodo.clave) ?? []);
 const abierto = computed(() => props.abiertos.has(props.nodo.clave));
 const total = computed(() => contarRama(props.nodo.clave, props.hijos));
-const codigo = computed(() =>
-    codigoRegion(regionDeNodo(props.nodo), props.regiones),
-);
 const esPlaza = computed(() => props.nodo.tipo !== 'persona');
 </script>
 
@@ -115,21 +109,6 @@ const esPlaza = computed(() => props.nodo.tipo !== 'persona');
                     </span>
                 </span>
                 <span class="flex shrink-0 flex-col items-end gap-1">
-                    <span
-                        v-if="nodo.clasificacion?.estado === 'por_clasificar'"
-                        class="inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold"
-                        :class="CLASE_POR_CLASIFICAR"
-                    >
-                        <ShieldQuestion class="size-3" /> Por clasificar
-                    </span>
-                    <span
-                        v-else-if="
-                            codigo && (nodo.clasificacion || nodo.region)
-                        "
-                        class="rounded-full border px-1.5 py-0.5 text-[10px] font-bold"
-                        :class="claseChipRegion(codigo)"
-                        >{{ codigo }}</span
-                    >
                     <span
                         v-if="propios.length"
                         class="text-[10px] text-muted-foreground tabular-nums"

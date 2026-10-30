@@ -243,8 +243,8 @@ return [
         'Gestor Volante' => 'gestor',
         'Gerente de Sucursal' => 'gerente',
         'Subgerente' => 'subgerente',
-        'Gerente Regional Q1' => 'regional',
-        'Gerente Regional Q3' => 'regional',
+        'Gerente Regional' => 'regional',
+        'Subgerente Regional' => 'regional',
         'Coordinadora de Sucursal' => 'coordinadora',
         'Coordinadora Regional' => 'coordinadora',
         // Confianza: "manejo de información confidencial, apoyo directo a la

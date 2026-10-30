@@ -185,17 +185,8 @@ class ResolutorCatalogoMigracion
         $esCorporativo = $sucursal !== null && $sucursal->clave === self::CLAVE_CORPORATIVO;
 
         return match ($clave) {
-            // El regional depende de la REGIÓN de su sucursal (matriz).
-            self::REGIONAL_OPERACIONES, self::GERENTE_REGIONAL => (function () use ($sucursal, $esCorporativo): array {
-                $region = $esCorporativo ? null : $this->regionDe($sucursal);
-
-                return $region !== null && ($puesto = $this->porNombre(Normalizador::clave('Gerente Regional '.$region))) !== null
-                    ? ['puesto' => $puesto, 'regla' => 'region_'.$region, 'motivo' => null]
-                    : ['puesto' => null, 'regla' => null, 'motivo' => sprintf(
-                        'CONFLICTO: «Regional de Operaciones» con sucursal %s: no se puede saber si es Gerente Regional Q1 o Q3 (la región sale de la sucursal en la matriz). Corrige su «Sucursal oficial» a una sucursal de su región o asígnale el puesto a mano.',
-                        $sucursal->nombre ?? '(sin sucursal)',
-                    )];
-            })(),
+            // Una sola plaza de empresa: ya no depende de la región.
+            self::REGIONAL_OPERACIONES, self::GERENTE_REGIONAL => $this->resultado('Gerente Regional', 'regional_unico'),
             // Asistente: la Dirección General vive en «Dirección»; la Comercial en Ventas/Operaciones.
             self::ASISTENTE_DIRECCION => match (Normalizador::clave($departamentoExcel?->nombre)) {
                 'DIRECCION' => $this->resultado('Asistente de Dirección General', 'departamento_direccion'),

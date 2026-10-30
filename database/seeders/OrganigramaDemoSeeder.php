@@ -30,8 +30,8 @@ use Illuminate\Support\Collection;
  *  - Corporativo: 1 Monitorista, 5 Analistas de Mesa de Control, 1 Tesorero
  *    (el Contador queda vacante a propósito).
  *  - Coberturas de ejemplo: la gerencia de Cuernavaca está vacante y la cubre
- *    el gerente de Córdoba; el puesto "Gerente Regional Q3" está vacante y lo
- *    cubre temporalmente quien es titular de "Gerente Regional Q1" (su
+ *    el gerente de Córdoba; el puesto "Subgerente Regional" está vacante y lo
+ *    cubre temporalmente quien es titular de "Gerente Regional" (su
  *    puesto titular NO cambia).
  *
  * Idempotente: solo crea lo que falta. Los colaboradores se crean sin cuenta
@@ -257,8 +257,8 @@ class OrganigramaDemoSeeder extends Seeder
     }
 
     /**
-     * Cuernavaca sin gerente → la cubre el gerente de Córdoba. Q3 sin
-     * gerente regional → la cubre la gerente regional de Q1.
+     * Cuernavaca sin gerente → la cubre el gerente de Córdoba. Subgerente
+     * Regional vacante → lo cubre la Gerente Regional.
      */
     private function coberturasDeEjemplo(): void
     {
@@ -286,28 +286,27 @@ class OrganigramaDemoSeeder extends Seeder
             }
         }
 
-        $regionalQ1 = $this->puestos->get('Gerente Regional Q1');
-        $regionalQ3 = $this->puestos->get('Gerente Regional Q3');
-        $q3 = NodoComercial::query()->where('tipo', TipoNodoComercial::Region->value)->where('nombre', 'Región Q3')->first();
+        $subregional = $this->puestos->get('Subgerente Regional');
+        $regional = $this->puestos->get('Gerente Regional');
 
-        if ($regionalQ1 === null || $regionalQ3 === null || $q3 === null) {
+        if ($subregional === null || $regional === null) {
             return;
         }
 
         $titular = Colaborador::query()
             ->where('estatus', EstadoUsuario::Activo->value)
-            ->where('puesto_id', $regionalQ1->id)
+            ->where('puesto_id', $regional->id)
             ->first();
 
-        $q3Ocupado = Colaborador::query()->where('estatus', EstadoUsuario::Activo->value)->where('puesto_id', $regionalQ3->id)->exists();
+        $subOcupado = Colaborador::query()->where('estatus', EstadoUsuario::Activo->value)->where('puesto_id', $subregional->id)->exists();
 
-        if ($titular !== null && ! $q3Ocupado) {
+        if ($titular !== null && ! $subOcupado) {
             CoberturaPuesto::query()->firstOrCreate(
-                ['puesto_id' => $regionalQ3->id, 'region_id' => $q3->id, 'activa' => true],
+                ['puesto_id' => $subregional->id, 'activa' => true],
                 [
                     'colaborador_id' => $titular->id,
                     'motivo' => MotivoCobertura::Baja,
-                    'nota' => 'Gerente Regional Q3 vacante: la titular de Q1 cubre temporalmente ambas regiones (dato de demostración).',
+                    'nota' => 'Subgerente Regional vacante: la Gerente Regional lo cubre temporalmente (dato de demostración).',
                     'fecha_inicio' => now()->subMonths(2)->toDateString(),
                 ],
             );

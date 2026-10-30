@@ -41,9 +41,8 @@ return [
             'Gerente de Sucursal' => 3,
             'Coordinadora de Sucursal' => 3,
             'Coordinadora Regional' => 3,
-            'Gerente Regional Q1' => 3,
-            'Gerente Regional Q3' => 3,
-            'Gerente regional' => 3,
+            'Gerente Regional' => 3,
+            'Subgerente Regional' => 3,
         ],
         // Aviso de "ya se debe renovar el contrato": se manda
         // contratos.dias_aviso_vencimiento días antes del fin (15 por

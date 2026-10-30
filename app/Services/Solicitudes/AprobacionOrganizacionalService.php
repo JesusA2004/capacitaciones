@@ -6,7 +6,6 @@ use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoUsuario;
 use App\Enums\TipoNodoComercial;
 use App\Enums\TipoSolicitudInterna;
-use App\Models\ClasificacionRegion;
 use App\Models\CoberturaPuesto;
 use App\Models\Colaborador;
 use App\Models\NodoComercial;
@@ -97,7 +96,7 @@ class AprobacionOrganizacionalService
 
     public const PASO_RECHAZADO = 'rechazado';
 
-    public const MENSAJE_PENDIENTE_REGION = 'Pendiente de asignar región de aprobación';
+    public const MENSAJE_SIN_RESPONSABLE = 'Pendiente de asignar responsable de aprobación';
 
     public function __construct(
         private readonly OrganizacionJerarquiaService $organizacion,
@@ -154,9 +153,9 @@ class AprobacionOrganizacionalService
             );
         }
 
-        // 3a. Gerente de Sucursal → regional de SU clasificación Q1/Q3.
-        if ($this->esClasificable($persona)) {
-            return $this->regionalDeClasificacion($persona);
+        // 3a. Gerente de Sucursal → Subgerente Regional → Gerente Regional.
+        if ($this->esGerenteDeSucursal($persona)) {
+            return $this->regionalDeGerente($persona);
         }
 
         // 3b. Personal de sucursal → gerencia de su sucursal.
@@ -263,9 +262,9 @@ class AprobacionOrganizacionalService
 
         // Regional (personal de sucursal que no es el propio gerente): solo
         // cuando el primer paso no fue ya el regional.
-        if ($responsable['nivel'] !== SolicitudAprobacion::NIVEL_REGIONAL && ! $this->esClasificable($persona) && $this->esDeSucursalOperativa($persona)) {
+        if ($responsable['nivel'] !== SolicitudAprobacion::NIVEL_REGIONAL && ! $this->esGerenteDeSucursal($persona) && $this->esDeSucursalOperativa($persona)) {
             $yaIncluidos = $responsable['usuarios']->pluck('id');
-            $regionales = $this->regionalesParaPersonal($persona)
+            $regionales = $this->organizacion->regionalesDe($persona->sucursal_principal_id, $persona)
                 ->reject(fn (User $u) => $yaIncluidos->contains($u->id) || $u->colaborador_id === $persona->id)
                 ->values();
 
@@ -690,148 +689,61 @@ class AprobacionOrganizacionalService
         return $persona === null ? null : Colaborador::withTrashed()->where('id', $persona->id)->first();
     }
 
-    private function esClasificable(Colaborador $persona): bool
+    private function esGerenteDeSucursal(Colaborador $persona): bool
     {
-        return $persona->puesto_id !== null && $this->organigrama->esPuestoClasificable($persona->puesto_id);
+        return $persona->puesto_id !== null && in_array($persona->puesto_id, $this->puestosGerenciaSucursal(), true);
     }
 
     /**
+     * Responsable de un Gerente de Sucursal: Subgerente Regional si está
+     * ocupado o cubierto; si no, Gerente Regional; luego la regional de
+     * respaldo. Nunca Dirección Comercial.
+     *
      * @return array{origen: string, origen_etiqueta: string, nivel: string, etiqueta_paso: string, colaboradores: Collection<int, Colaborador>, usuarios: Collection<int, User>, bloqueado: bool, mensaje: string|null, regla_id: int|null}
      */
-    private function regionalDeClasificacion(Colaborador $persona): array
+    private function regionalDeGerente(Colaborador $persona): array
     {
-        $clasificacion = ClasificacionRegion::query()->where('colaborador_id', $persona->id)->with('region')->first();
-        $region = $clasificacion?->region;
+        $regional = $this->organizacion->regionalVigente($persona);
 
-        if ($region === null) {
+        if ($regional['puesto'] !== null) {
+            $etiqueta = $regional['puesto']->nombre;
+
             return $this->resultado(
-                self::ORIGEN_PENDIENTE_REGION,
-                self::MENSAJE_PENDIENTE_REGION,
+                $regional['por_cobertura'] ? self::ORIGEN_COBERTURA : self::ORIGEN_REGIONAL,
+                $regional['por_cobertura'] ? sprintf('Cubre temporalmente %s', $etiqueta) : $etiqueta,
                 SolicitudAprobacion::NIVEL_REGIONAL,
-                'Gerente Regional',
-                collect(),
-                collect(),
-                bloqueado: true,
-                mensaje: sprintf('%s: RH debe clasificar a %s en Q1 o Q3 (Organigrama).', self::MENSAJE_PENDIENTE_REGION, $persona->nombreCompleto()),
+                $etiqueta,
+                $this->colaboradoresDe($regional['usuarios']),
+                $regional['usuarios'],
             );
         }
 
-        $puestoRegional = $region->puesto_id !== null ? Puesto::query()->whereKey($region->puesto_id)->first() : null;
-        $etiqueta = $puestoRegional !== null ? $puestoRegional->nombre : sprintf('Gerente Regional %s', (string) ($region->region ?? $region->nombre));
-        [$colaboradores, $porCobertura] = $this->ocupantesRegion($region, $persona);
-        $usuarios = $colaboradores->map(fn (Colaborador $c) => $this->organizacion->usuarioActivoDe($c))->filter()->unique('id')->values();
+        foreach ($this->regionalRespaldo->candidatos() as $candidatoId) {
+            $candidato = $candidatoId !== $persona->id ? Colaborador::query()->where('id', $candidatoId)->first() : null;
+            $usuario = $this->organizacion->usuarioActivoDe($candidato);
 
-        if ($usuarios->isEmpty()) {
-            // Plaza regional vacante y sin cobertura: la regional de
-            // respaldo (misma regla que su jefe en el organigrama), nunca
-            // Dirección Comercial. Solo sin NINGUNA regional se detiene.
-            foreach ($this->regionalRespaldo->candidatos() as $candidatoId) {
-                $candidato = $candidatoId !== $persona->id ? Colaborador::query()->where('id', $candidatoId)->first() : null;
-                $usuario = $this->organizacion->usuarioActivoDe($candidato);
-
-                if ($candidato !== null && $usuario !== null) {
-                    return $this->resultado(
-                        self::ORIGEN_REGIONAL_RESPALDO,
-                        sprintf('Regional de respaldo (%s sin titular ni cobertura)', $etiqueta),
-                        SolicitudAprobacion::NIVEL_REGIONAL,
-                        $etiqueta,
-                        collect([$candidato]),
-                        collect([$usuario]),
-                    );
-                }
+            if ($candidato !== null && $usuario !== null) {
+                return $this->resultado(
+                    self::ORIGEN_REGIONAL_RESPALDO,
+                    'Regional de respaldo (Subgerente y Gerente Regional sin titular ni cobertura)',
+                    SolicitudAprobacion::NIVEL_REGIONAL,
+                    'Gerente Regional',
+                    collect([$candidato]),
+                    collect([$usuario]),
+                );
             }
-
-            return $this->resultado(
-                self::ORIGEN_REGIONAL_VACANTE,
-                sprintf('%s sin titular ni cobertura', $etiqueta),
-                SolicitudAprobacion::NIVEL_REGIONAL,
-                $etiqueta,
-                collect(),
-                collect(),
-                bloqueado: true,
-                mensaje: sprintf('La plaza de %s está vacante y nadie la cubre: RH debe asignar una cobertura temporal o un responsable de aprobación.', $etiqueta),
-            );
         }
 
         return $this->resultado(
-            $porCobertura ? self::ORIGEN_COBERTURA : self::ORIGEN_REGIONAL,
-            $porCobertura ? sprintf('Cubre temporalmente %s', $etiqueta) : sprintf('Regional de su región (%s)', (string) ($region->region ?? $region->nombre)),
+            self::ORIGEN_REGIONAL_VACANTE,
+            'Gerente Regional sin titular ni cobertura',
             SolicitudAprobacion::NIVEL_REGIONAL,
-            $etiqueta,
-            $this->colaboradoresDe($usuarios),
-            $usuarios,
+            'Gerente Regional',
+            collect(),
+            collect(),
+            bloqueado: true,
+            mensaje: 'Subgerente y Gerente Regional están vacantes y nadie los cubre: RH debe asignar una cobertura temporal o un responsable de aprobación.',
         );
-    }
-
-    /**
-     * Titulares activos del puesto regional de la región o, si no hay,
-     * quienes lo cubren temporalmente.
-     *
-     * @return array{0: Collection<int, Colaborador>, 1: bool}
-     */
-    private function ocupantesRegion(NodoComercial $region, ?Colaborador $excluir): array
-    {
-        if ($region->puesto_id === null) {
-            return [collect(), false];
-        }
-
-        $titulares = Colaborador::query()
-            ->where('estatus', EstadoUsuario::Activo->value)
-            ->where('puesto_id', $region->puesto_id)
-            ->when($excluir !== null, fn ($q) => $q->where('id', '!=', $excluir?->id))
-            ->get()
-            ->toBase();
-
-        if ($titulares->isNotEmpty()) {
-            return [$titulares, false];
-        }
-
-        $cobertura = CoberturaPuesto::query()
-            ->where('activa', true)
-            ->where('puesto_id', $region->puesto_id)
-            ->where(fn ($q) => $q->whereNull('region_id')->orWhere('region_id', $region->id))
-            ->with('colaborador')
-            ->get()
-            ->pluck('colaborador')
-            ->filter(fn ($c) => $c instanceof Colaborador && $c->estatus === EstadoUsuario::Activo && $c->id !== $excluir?->id)
-            ->values()
-            ->toBase();
-
-        return [$cobertura, true];
-    }
-
-    /**
-     * Regional del personal de sucursal: el de la clasificación Q1/Q3 del
-     * gerente de su sucursal; sin clasificación, la regla de siempre
-     * (matriz comercial + cadena de mando).
-     *
-     * @return Collection<int, User>
-     */
-    private function regionalesParaPersonal(Colaborador $persona): Collection
-    {
-        $gerentes = $this->puestosGerenciaSucursal();
-        $region = null;
-
-        if ($persona->sucursal_principal_id !== null && $gerentes !== []) {
-            $gerente = Colaborador::query()
-                ->where('estatus', EstadoUsuario::Activo->value)
-                ->where('sucursal_principal_id', $persona->sucursal_principal_id)
-                ->whereIn('puesto_id', $gerentes)
-                ->first();
-            $region = $gerente !== null ? ClasificacionRegion::query()->where('colaborador_id', $gerente->id)->with('region')->first()?->region : null;
-        }
-
-        if ($region !== null && $region->tipo === TipoNodoComercial::Region) {
-            [$colaboradores] = $this->ocupantesRegion($region, $persona);
-
-            $usuarios = $colaboradores->map(fn (Colaborador $c) => $this->organizacion->usuarioActivoDe($c))->filter()->unique('id')->values();
-
-            if ($usuarios->isNotEmpty()) {
-                return $usuarios;
-            }
-        }
-
-        return $this->organizacion->regionalesDe($persona->sucursal_principal_id, $persona);
     }
 
     /**
@@ -976,7 +888,7 @@ class AprobacionOrganizacionalService
                 'clave' => $pendiente['nivel'],
                 'etiqueta' => $pendiente['etiqueta'],
                 'nombres' => $nombres,
-                'texto' => $pendiente['bloqueado'] ? self::MENSAJE_PENDIENTE_REGION : sprintf('Pendiente de aprobación de: %s', $this->listaNombres(array_map(fn (string $n) => ['nombre' => $n], $nombres))),
+                'texto' => $pendiente['bloqueado'] ? self::MENSAJE_SIN_RESPONSABLE : sprintf('Pendiente de aprobación de: %s', $this->listaNombres(array_map(fn (string $n) => ['nombre' => $n], $nombres))),
             ];
         }
 
@@ -1027,7 +939,7 @@ class AprobacionOrganizacionalService
         return match ($estado) {
             self::PASO_APROBADO => 'Aprobado',
             self::PASO_RECHAZADO => 'Rechazado',
-            self::PASO_PENDIENTE => $bloqueado ? self::MENSAJE_PENDIENTE_REGION : 'Pendiente',
+            self::PASO_PENDIENTE => $bloqueado ? self::MENSAJE_SIN_RESPONSABLE : 'Pendiente',
             self::PASO_ESPERANDO => 'Esperando paso anterior',
             default => 'No aplica',
         };

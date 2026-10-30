@@ -89,14 +89,8 @@ class MatrizComercialSeeder extends Seeder
             $codigoRegion = trim(str_replace('REGION', '', $regionCruda));
             $region = $this->upsert($matriz->id, TipoNodoComercial::Region, "Región {$codigoRegion}", $ordenRegion++, region: $codigoRegion);
 
-            // Cada región cuelga de SU puesto de gerente regional (plaza
-            // "Gerente Regional Q1"/"Q3", PuestoJerarquiaSeeder): así el
-            // organigrama sabe de quién dependen las sucursales de la región.
-            // Nunca se asigna a una persona aquí.
-            $puestoRegional = Puesto::query()->where('nombre', "Gerente Regional {$codigoRegion}")->value('id');
-            if ($puestoRegional !== null && $region->puesto_id !== $puestoRegional) {
-                $region->update(['puesto_id' => $puestoRegional]);
-            }
+            // Q1/Q3 son solo dato territorial: ningún puesto se liga a una
+            // región (Gerente Regional es una plaza única de la empresa).
 
             $ordenZona = 0;
 

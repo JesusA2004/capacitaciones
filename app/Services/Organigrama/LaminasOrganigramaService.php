@@ -122,10 +122,6 @@ class LaminasOrganigramaService
                 'hijos' => array_map($caja, (array) ($col['hijos'] ?? [])),
             ], (array) ($config['columnas'] ?? [])),
             'leyenda' => $config['leyenda'] ?? [],
-            // Q1 / Q3: el «Regional Comercial» del PDF son DOS lados; cada
-            // Gerente de Sucursal pertenece a uno (clasificado por RH) o
-            // aparece «Por clasificar» — nunca en ambos.
-            'lados' => $this->organigrama->resumenLados(),
         ];
     }
 

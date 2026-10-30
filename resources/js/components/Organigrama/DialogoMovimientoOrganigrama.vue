@@ -24,7 +24,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { getJson, leerCookie } from '@/lib/http';
-import { claseChipRegion, postJsonConErrores } from '@/lib/organigramaEditable';
+import { postJsonConErrores } from '@/lib/organigramaEditable';
 import {
     mover,
     opciones as opcionesUrl,
@@ -68,7 +68,6 @@ const errorCarga = ref<string | null>(null);
 
 const puestoId = ref<number | null>(null);
 const sucursalId = ref<number | null>(null);
-const regionId = ref<number | null>(null);
 const destinoClave = ref<string | null>(null);
 
 const previa = ref<VistaPreviaMovimientoOrganigrama | null>(null);
@@ -145,7 +144,6 @@ function elegirAccion(valor: AccionMovimientoOrganigrama): void {
     destinoClave.value = null;
     const actual = opciones.value?.actual;
     sucursalId.value = actual?.sucursal_id ?? null;
-    regionId.value = actual?.region_id ?? null;
     puestoId.value =
         puestosDeAccion.value.length === 1
             ? (puestosDeAccion.value[0]?.id ?? null)
@@ -181,7 +179,7 @@ const datosDestino = computed(() => {
             puestoElegido.value?.ambito === 'sucursal'
                 ? sucursalId.value
                 : null,
-        region_id: puestoElegido.value?.clasificable ? regionId.value : null,
+        region_id: null,
     };
 });
 
@@ -343,41 +341,6 @@ function confirmar(): void {
                         placeholder-busqueda="Buscar sucursal…"
                         numerico
                     />
-                </div>
-
-                <div
-                    v-if="accion !== 'mover' && puestoElegido?.clasificable"
-                    class="grid gap-2"
-                >
-                    <Label>¿De qué lado? (Q1 / Q3)</Label>
-                    <div class="flex flex-wrap gap-2">
-                        <button
-                            v-for="r in opciones.regiones"
-                            :key="r.id"
-                            type="button"
-                            class="rounded-full border px-3 py-1.5 text-sm font-bold"
-                            :class="
-                                regionId === r.id
-                                    ? claseChipRegion(r.codigo)
-                                    : 'border-border bg-card text-muted-foreground'
-                            "
-                            @click="regionId = r.id"
-                        >
-                            {{ r.codigo }}
-                        </button>
-                        <button
-                            type="button"
-                            class="rounded-full border border-dashed px-3 py-1.5 text-sm"
-                            :class="
-                                regionId === null
-                                    ? 'border-warning/50 bg-warning-soft text-warning'
-                                    : 'border-border bg-card text-muted-foreground'
-                            "
-                            @click="regionId = null"
-                        >
-                            Por clasificar
-                        </button>
-                    </div>
                 </div>
 
                 <!-- Mover bajo…: a qué plaza -->

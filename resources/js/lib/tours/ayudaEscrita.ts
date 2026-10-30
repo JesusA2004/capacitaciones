@@ -561,7 +561,7 @@ export const AYUDA_ESCRITA: Record<string, AyudaModulo> = {
         errores: [
             'Una persona no puede ser su propia responsable de aprobaciones.',
             'Si el responsable asignado ya no tiene acceso, se usa la regla del organigrama.',
-            'Sin región Q1/Q3 asignada, los gerentes de sucursal quedan «Pendiente de asignar región de aprobación».',
+            'Si Subgerente y Gerente Regional están vacantes, las aprobaciones de los gerentes de sucursal pasan a la regional de respaldo.',
         ],
     },
     configuracion: {

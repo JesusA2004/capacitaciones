@@ -137,7 +137,6 @@ Route::middleware(['auth', 'verified'])
             Route::post('coberturas/{cobertura}/finalizar', [CoberturaPuestoController::class, 'finalizar'])->name('coberturas.finalizar');
             // Acciones por persona desde el organigrama (solo RH): lado
             // Q1/Q3 y subir / bajar / mover bajo… (OrganigramaAccionesController).
-            Route::put('personas/{colaborador}/clasificacion', [OrganigramaAccionesController::class, 'clasificar'])->name('personas.clasificar');
             Route::get('personas/{colaborador}/opciones', [OrganigramaAccionesController::class, 'opciones'])->name('personas.opciones');
             Route::post('personas/{colaborador}/vista-previa', [OrganigramaAccionesController::class, 'vistaPrevia'])->name('personas.vista-previa');
             Route::post('personas/{colaborador}/mover', [OrganigramaAccionesController::class, 'mover'])->name('personas.mover');

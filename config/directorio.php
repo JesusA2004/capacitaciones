@@ -38,6 +38,7 @@ return [
 
     'areas_sucursal' => [
         'Gerente Regional%' => 'Gerentes regionales',
+        'Subgerente Regional' => 'Gerentes regionales',
         'Coordinadora Regional%' => 'Coordinación regional',
         'Gerente de Sucursal' => 'Gerentes de sucursal',
         'Subgerente%' => 'Subgerentes',

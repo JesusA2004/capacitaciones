@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import {
     MapPin,
-    ShieldQuestion,
     Shuffle,
     UserCheck,
     UserRound,
@@ -10,9 +9,6 @@ import { computed } from 'vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import { ESTILO_SIN_TIPO, ESTILO_TIPO_PUESTO } from '@/lib/organigrama';
 import {
-    CLASE_POR_CLASIFICAR,
-    claseChipRegion,
-    codigoRegion,
     lugarDeNodo,
     regionDeNodo,
 } from '@/lib/organigramaEditable';
@@ -48,12 +44,6 @@ const esCobertura = computed(() => props.nodo.tipo === 'cobertura');
 /** Cabeza del árbol con titular: tarjeta en petróleo. */
 const esRaiz = computed(
     () => props.raiz && !esVacante.value && !esCobertura.value,
-);
-const porClasificar = computed(
-    () => props.nodo.clasificacion?.estado === 'por_clasificar',
-);
-const codigo = computed(() =>
-    codigoRegion(regionDeNodo(props.nodo), props.regiones),
 );
 const lugar = computed(() => lugarDeNodo(props.nodo));
 const titulo = computed(() =>
@@ -213,24 +203,6 @@ const titulo = computed(() =>
                         <span class="truncate">{{
                             nodo.aprobador.nombre.split(' ')[0]
                         }}</span>
-                    </span>
-                    <span
-                        v-if="porClasificar"
-                        class="inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold"
-                        :class="CLASE_POR_CLASIFICAR"
-                        title="RH aún no clasifica si este gerente es de Q1 o de Q3"
-                    >
-                        <ShieldQuestion class="size-3" />
-                        Por clasificar
-                    </span>
-                    <span
-                        v-else-if="
-                            codigo && (nodo.clasificacion || nodo.region)
-                        "
-                        class="rounded-full border px-1.5 py-0.5 text-[10px] font-bold tracking-wide"
-                        :class="claseChipRegion(codigo)"
-                    >
-                        {{ codigo }}
                     </span>
                 </span>
             </div>

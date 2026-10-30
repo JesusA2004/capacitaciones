@@ -45,7 +45,7 @@ class UsuarioDemoSeeder extends Seeder
         $administracionPersonal = Puesto::where('nombre', 'Administración de Personal')->first();
         $reclutamiento = Puesto::where('nombre', 'Reclutamiento')->first();
         $gerenteContraloria = Puesto::where('nombre', 'Gerente de Contraloría')->first();
-        $gerenteRegional = Puesto::where('nombre', 'Gerente Regional Q1')->first();
+        $gerenteRegional = Puesto::where('nombre', 'Gerente Regional')->first();
         $gerenteMesaControl = Puesto::where('nombre', 'Gerente de Mesa de Control')->first();
         $gerenteSucursal = Puesto::where('nombre', 'Gerente de Sucursal')->first();
 

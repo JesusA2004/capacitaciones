@@ -15,7 +15,6 @@ import {
 import { computed } from 'vue';
 import type { Component } from 'vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
-import SelectorLadoRegion from '@/components/Organigrama/SelectorLadoRegion.vue';
 import {
     Sheet,
     SheetContent,
@@ -25,9 +24,6 @@ import {
 } from '@/components/ui/sheet';
 import { formatearFecha } from '@/lib/fechas';
 import {
-    CLASE_POR_CLASIFICAR,
-    claseChipRegion,
-    codigoRegion,
     contarRama,
     jefeVisible,
     lugarDeNodo,
@@ -60,7 +56,6 @@ const emit = defineEmits<{
     cubrir: [nodo: NodoOrganigramaPersona];
     quitarCobertura: [nodo: NodoOrganigramaPersona];
     mover: [nodo: NodoOrganigramaPersona, accion: AccionMovimientoOrganigrama];
-    clasificar: [nodo: NodoOrganigramaPersona, regionId: number | null];
     seleccionar: [clave: string];
 }>();
 
@@ -78,9 +73,6 @@ const totalRama = computed(() =>
     props.nodo ? contarRama(props.nodo.clave, props.hijos) : 0,
 );
 const lugar = computed(() => (props.nodo ? lugarDeNodo(props.nodo) : null));
-const codigo = computed(() =>
-    props.nodo ? codigoRegion(regionDeNodo(props.nodo), props.regiones) : null,
-);
 
 type AccionGrande = {
     clave: string;
@@ -164,12 +156,6 @@ const acciones = computed<AccionGrande[]>(() => {
     ];
 });
 
-function clasificarNodo(regionId: number | null): void {
-    if (props.nodo) {
-        emit('clasificar', props.nodo, regionId);
-    }
-}
-
 function fecha(iso: string | null | undefined): string {
     return iso ? formatearFecha(iso) : '';
 }
@@ -214,12 +200,6 @@ function fecha(iso: string | null | undefined): string {
                                 class="mt-1 flex items-center gap-1 text-xs text-muted-foreground"
                             >
                                 <MapPin class="size-3.5" /> {{ lugar }}
-                                <span
-                                    v-if="codigo && !nodo.clasificacion"
-                                    class="ml-1 rounded-full border px-1.5 text-[10px] font-bold"
-                                    :class="claseChipRegion(codigo)"
-                                    >{{ codigo }}</span
-                                >
                             </p>
                         </div>
                     </div>
@@ -287,65 +267,6 @@ function fecha(iso: string | null | undefined): string {
                                 No cambia a quién reporta en el organigrama.
                             </p>
                         </div>
-                    </section>
-
-                    <!-- Q1 / Q3 -->
-                    <section
-                        v-if="nodo.clasificacion"
-                        class="flex flex-col gap-2.5 rounded-2xl border p-4"
-                        :class="
-                            nodo.clasificacion.estado === 'por_clasificar'
-                                ? CLASE_POR_CLASIFICAR
-                                : 'border-border bg-card'
-                        "
-                    >
-                        <div class="flex items-center justify-between gap-2">
-                            <h3 class="text-sm font-semibold text-foreground">
-                                Lado del organigrama
-                            </h3>
-                            <span class="text-xs text-muted-foreground">
-                                {{
-                                    nodo.clasificacion.estado ===
-                                    'por_clasificar'
-                                        ? 'Por clasificar'
-                                        : `Clasificado${nodo.clasificacion.clasificada_por ? ` por ${nodo.clasificacion.clasificada_por}` : ''}${nodo.clasificacion.clasificada_en ? ` · ${fecha(nodo.clasificacion.clasificada_en)}` : ''}`
-                                }}
-                            </span>
-                        </div>
-                        <SelectorLadoRegion
-                            v-if="moverPermitido"
-                            :regiones="regiones"
-                            :actual-id="nodo.clasificacion.region?.id ?? null"
-                            :sugerida-id="
-                                nodo.clasificacion.sugerida?.id ?? null
-                            "
-                            :deshabilitado="ocupado"
-                            grande
-                            @elegir="clasificarNodo"
-                        />
-                        <p class="text-xs text-foreground/70">
-                            <template
-                                v-if="
-                                    nodo.clasificacion.estado ===
-                                    'por_clasificar'
-                                "
-                            >
-                                Mientras no se clasifique, su jefe sale de la
-                                región de su sucursal en la matriz
-                                comercial<template
-                                    v-if="nodo.clasificacion.sugerida"
-                                >
-                                    ({{
-                                        nodo.clasificacion.sugerida.nombre
-                                    }})</template
-                                >.
-                            </template>
-                            <template v-else>
-                                Reporta al gerente regional de
-                                {{ nodo.clasificacion.region?.nombre }} (o a
-                                quien lo cubra temporalmente).
-                            </template>
-                        </p>
                     </section>
 
                     <!-- Acciones grandes -->

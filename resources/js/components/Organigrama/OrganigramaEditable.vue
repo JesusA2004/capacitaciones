@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
-import { ChevronsDownUp, ChevronsUpDown, ShieldQuestion } from '@lucide/vue';
+import { ChevronsDownUp, ChevronsUpDown } from '@lucide/vue';
 import { computed, inject, ref, watch } from 'vue';
-import DialogoClasificacionRegion from '@/components/Organigrama/DialogoClasificacionRegion.vue';
 import DialogoCoberturaOrganigrama from '@/components/Organigrama/DialogoCoberturaOrganigrama.vue';
 import DialogoMovimientoOrganigrama from '@/components/Organigrama/DialogoMovimientoOrganigrama.vue';
 import FilaListaOrganigrama from '@/components/Organigrama/FilaListaOrganigrama.vue';
@@ -11,7 +10,6 @@ import PanelNodoOrganigrama from '@/components/Organigrama/PanelNodoOrganigrama.
 import { CLAVE_BUSQUEDA_ORGANIGRAMA, coincidePersona } from '@/lib/organigrama';
 import { contarRama, hijosPorPadre } from '@/lib/organigramaEditable';
 import { finalizar as finalizarCobertura } from '@/routes/administracion/jerarquia-puestos/coberturas';
-import { clasificar } from '@/routes/administracion/jerarquia-puestos/personas';
 import type {
     AccionMovimientoOrganigrama,
     NodoOrganigramaPersona,
@@ -20,8 +18,6 @@ import type {
 
 /**
  * Organigrama GENERAL editable (una tarjeta por persona / plaza):
- * - Q1 / Q3: cada Gerente de Sucursal cuelga de UN lado; los que RH no ha
- *   clasificado se ven «Por clasificar» (aviso arriba + chip en la tarjeta).
  * - Plaza vacante → «Cubre temporalmente este puesto» (sin fechas).
  * - Subir / Bajar / Mover bajo… con confirmación y movimiento laboral.
  * Escritorio: lienzo con zoom/arrastre. Celular: lista jerárquica.
@@ -171,16 +167,6 @@ const abiertosLista = computed(() => {
     return abiertos;
 });
 
-// --- Q1 / Q3 por clasificar ---
-const porClasificar = computed(() =>
-    props.nodos.filter(
-        (n) =>
-            n.tipo === 'persona' &&
-            n.clasificacion?.estado === 'por_clasificar',
-    ),
-);
-const dialogoClasificacion = ref(false);
-
 // --- Panel y acciones ---
 const seleccion = ref<string | null>(null);
 const panelAbierto = ref(false);
@@ -257,28 +243,6 @@ function quitarCobertura(nodo: NodoOrganigramaPersona): void {
     );
 }
 
-function clasificarNodo(
-    nodo: NodoOrganigramaPersona,
-    regionId: number | null,
-): void {
-    if (!nodo.persona) {
-        return;
-    }
-
-    ocupado.value = true;
-    router.put(
-        clasificar.url(nodo.persona.id),
-        { region_id: regionId },
-        {
-            preserveScroll: true,
-            preserveState: true,
-            onFinish: () => {
-                ocupado.value = false;
-            },
-        },
-    );
-}
-
 const dialogoMovimiento = ref(false);
 const nodoAMover = ref<NodoOrganigramaPersona | null>(null);
 const accionMovimiento = ref<AccionMovimientoOrganigrama>('subir');
@@ -295,51 +259,6 @@ function moverNodo(
 
 <template>
     <div class="flex flex-col gap-3">
-        <!-- Q1 / Q3 pendientes: nunca se ocultan -->
-        <div
-            v-if="porClasificar.length"
-            class="flex flex-col gap-3 rounded-2xl border border-dashed border-warning/50 bg-warning-soft/70 p-4 sm:flex-row sm:items-center"
-        >
-            <span
-                class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-card text-warning"
-            >
-                <ShieldQuestion class="size-5" />
-            </span>
-            <div class="min-w-0 flex-1 text-sm">
-                <p class="font-semibold text-foreground">
-                    {{ porClasificar.length }}
-                    {{
-                        porClasificar.length === 1
-                            ? 'gerente de sucursal está'
-                            : 'gerentes de sucursal están'
-                    }}
-                    «Por clasificar» en Q1 / Q3
-                </p>
-                <p class="text-xs text-foreground/70">
-                    Cada gerente pertenece a un solo lado. Mientras no se
-                    clasifique, su jefe sale provisionalmente de la región de su
-                    sucursal en la matriz comercial.
-                </p>
-            </div>
-            <button
-                v-if="moverPermitido"
-                type="button"
-                class="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
-                @click="dialogoClasificacion = true"
-            >
-                Clasificar Q1 / Q3
-            </button>
-        </div>
-        <div v-else-if="moverPermitido" class="flex justify-end">
-            <button
-                type="button"
-                class="text-xs font-medium text-primary hover:underline"
-                @click="dialogoClasificacion = true"
-            >
-                Revisar clasificación Q1 / Q3
-            </button>
-        </div>
-
         <div class="flex flex-wrap items-center gap-2">
             <button
                 type="button"
@@ -407,7 +326,6 @@ function moverNodo(
         @seleccionar="seleccionar"
         @cubrir="cubrir"
         @quitar-cobertura="quitarCobertura"
-        @clasificar="clasificarNodo"
         @mover="moverNodo"
     />
 
@@ -421,11 +339,5 @@ function moverNodo(
         v-model:open="dialogoMovimiento"
         :nodo="nodoAMover"
         :accion-inicial="accionMovimiento"
-    />
-
-    <DialogoClasificacionRegion
-        v-model:open="dialogoClasificacion"
-        :nodos="nodos"
-        :regiones="regiones"
     />
 </template>

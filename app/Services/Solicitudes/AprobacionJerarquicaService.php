@@ -60,7 +60,7 @@ class AprobacionJerarquicaService
 
         foreach ($this->motor->pasos($solicitud) as $paso) {
             if ($paso['nivel'] === $nivel && $paso['bloqueado']) {
-                return $paso['motivo_bloqueo'] ?? AprobacionOrganizacionalService::MENSAJE_PENDIENTE_REGION;
+                return $paso['motivo_bloqueo'] ?? AprobacionOrganizacionalService::MENSAJE_SIN_RESPONSABLE;
             }
         }
 

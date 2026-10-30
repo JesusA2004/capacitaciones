@@ -10,7 +10,7 @@ return [
     | Carpeta de los PDF originales y disco donde se guarda la copia exacta.
     | Asociación PDF → puesto PEOPLE: 1) nombre exacto, 2) alias explícito de
     | esta lista, 3) RH confirma. Nunca por parecido. Los alias aceptan
-    | patrones con % (p. ej. «Gerente Regional%» para Q1 y Q3).
+    | patrones con % (p. ej. «Gerente Regional%»).
     |
     */
 
@@ -21,7 +21,7 @@ return [
     'alias' => [
         'Asistente de Dirección Comercial' => ['Asistente de Dirección Comercial'],
         'Gerente de Sucursal' => ['Gerente de Sucursal'],
-        'Gerente Regional Comercial' => ['Gerente Regional%'],
+        'Gerente Regional Comercial' => ['Gerente Regional%', 'Subgerente Regional'],
         'Analista de mesa de control' => ['Analista de Mesa de Control'],
         // Solo el puesto de Mesa de Control: la «Auditora» de Contraloría es
         // otro puesto; si no existe este, RH lo confirma.

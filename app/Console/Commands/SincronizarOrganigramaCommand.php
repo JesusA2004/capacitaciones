@@ -27,6 +27,8 @@ class SincronizarOrganigramaCommand extends Command
         'fuera_de_estructura' => 'Puestos fuera de la estructura confirmada (se conservan)',
         'regiones' => 'Regiones',
         'q2' => 'Q2',
+        'cadena_regional' => 'Cadena regional (Gerente → Subgerente)',
+        'plazas_regionales' => 'Plazas regionales en plantilla',
         'rutas_clasificadas' => 'Entradas de la matriz clasificadas',
         'nodos_legacy' => 'Nodos legacy (cambian de tipo)',
         'conflictos' => 'Conflictos a revisar a mano',

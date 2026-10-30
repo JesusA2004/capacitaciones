@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Schema;
  * │   ├── Asistente de Dirección Comercial   (1 plaza)
  * │   ├── Gerente de Mesa de Control → Analista de Mesa de Control
  * │   ├── Coordinadora Regional → Coordinadora de Sucursal (1 por sucursal, no en Corporativo)
- * │   └── Gerente Regional Q1 / Gerente Regional Q3 (cada uno ligado a su región)
+ * │   └── Gerente Regional → Subgerente Regional
  * │       └── Gerente de Sucursal → Subgerente → Gestor, Gestor Volante
  * ├── Responsable de Sistemas → Monitorista
  * ├── Gerencia de Recursos Humanos → Administración de Personal, Reclutamiento
@@ -79,7 +79,7 @@ class PuestoJerarquiaSeeder extends Seeder
     public function run(): void
     {
         // Estructura confirmada por dirección (renombres, "reporta a",
-        // Q1/Q3, regiones ↔ puesto regional, reclasificación de la matriz):
+        // cadena regional, reclasificación de la matriz):
         // una sola definición compartida con `people:sincronizar-organigrama`.
         $reporte = app(SincronizadorOrganigramaService::class)->sincronizar();
 
@@ -149,7 +149,7 @@ class PuestoJerarquiaSeeder extends Seeder
             GrupoPuestoIndicador::Gestores->value => ['Gestor', 'Gestor Volante', 'Gestor grupal'],
             GrupoPuestoIndicador::Coordinadoras->value => ['Coordinadora de Sucursal', 'Coordinadora Regional'],
             GrupoPuestoIndicador::GerenciaSucursal->value => ['Gerente de Sucursal', 'Subgerente'],
-            GrupoPuestoIndicador::Regionales->value => ['Gerente Regional Q1', 'Gerente Regional Q3', 'Gerente regional'],
+            GrupoPuestoIndicador::Regionales->value => ['Gerente Regional', 'Subgerente Regional', 'Gerente Regional Q1', 'Gerente Regional Q3'],
             GrupoPuestoIndicador::DireccionComercial->value => ['Dirección Comercial', 'Asistente de Dirección Comercial'],
         ];
 
