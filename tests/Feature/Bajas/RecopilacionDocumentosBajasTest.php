@@ -94,7 +94,8 @@ test('cada persona dada de baja tiene su tarjeta con forma · causal, avance N/M
         ->and($ana['estatus'])->toBe('en_revision_rh')
         ->and($ana['avance'])->toBe(['completos' => 0, 'total' => 3])
         ->and($beto['forma'])->toBe('RE')
-        ->and($beto['estatus'])->toBe('en_revision_juridico');
+        // Flujo sin Jurídico (Etapa 1): una rescisión queda En trámite, no «En revisión Jurídico».
+        ->and($beto['estatus'])->toBe('en_revision_rh');
 
     $docsAna = collect($ana['documentos'])->keyBy('clave');
     // Finiquito propuesto (con su vista previa) y su entrega pendiente.

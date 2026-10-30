@@ -114,10 +114,12 @@ class BajaService
             Colaborador::query()->lockForUpdate()->where('id', $colaborador->id)->first();
             $this->registro->exigirSinBajaAbierta($colaborador);
 
-            $juridico = $baja->requiereJuridico();
+            // Flujo sin Jurídico (propuesta Etapa 1): la baja se registra «En
+            // trámite» sin importar la causal. Jurídico ya no autoriza; si la
+            // causal pide integrar expediente probatorio es solo un aviso.
             $baja->folio = $this->registro->siguienteFolio((int) now()->year);
             $baja->forceFill([
-                'estatus' => $juridico ? EstatusBaja::EnRevisionJuridico : EstatusBaja::EnRevisionRh,
+                'estatus' => EstatusBaja::EnRevisionRh,
                 'solicitado_por' => $actor->id,
                 'enviado_en' => now(),
             ])->save();
@@ -132,10 +134,6 @@ class BajaService
                 'cierre_laboral_id' => $cierre->id,
                 'acceso_suspendido_en' => $cierre->refresh()->acceso_suspendido_en ?? $baja->acceso_suspendido_en,
             ])->save();
-
-            if ($juridico) {
-                $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::EnvioJuridico, 'estatus', null, EstatusBaja::EnRevisionJuridico->etiqueta(), 'La causal requiere revisión de Jurídico antes del cierre (RN-06).');
-            }
 
             return $baja;
         });
@@ -192,7 +190,7 @@ class BajaService
      */
     public function enviar(Baja $baja, User $actor): Baja
     {
-        if (! in_array($baja->estatus, [EstatusBaja::EnRevisionRh, EstatusBaja::EnRevisionJuridico], true)) {
+        if ($baja->estatus !== EstatusBaja::EnRevisionRh) {
             throw ValidationException::withMessages(['estatus' => sprintf('La baja está «%s»: ya no hay nada que enviar.', $baja->estatus->etiqueta())]);
         }
 
@@ -204,83 +202,43 @@ class BajaService
     }
 
     /**
-     * RN-06: RH la manda (otra vez) a Jurídico — p. ej. tras corregir la
-     * causal o cuando Jurídico la devolvió con observaciones.
+     * COMPUERTA RETIRADA (propuesta Etapa 1): Jurídico ya no autoriza bajas.
+     * Se conserva la firma por compatibilidad de rutas (web/API), pero el
+     * flujo de envío a Jurídico se desactivó: la baja se registra y se cierra
+     * directamente. Jurídico mantiene acceso de consulta (BajaConsultaService).
      */
     public function enviarJuridico(Baja $baja, User $actor): Baja
     {
-        $this->exigirPermiso($actor, self::PERMISO_ENVIAR_JURIDICO);
-        $this->exigirEstatus($baja, [EstatusBaja::EnRevisionRh]);
-        $baja->loadMissing('causal');
-        $this->reglas->exigirCompleta($baja);
-
-        DB::transaction(function () use ($baja, $actor): void {
-            $baja->update(['estatus' => EstatusBaja::EnRevisionJuridico, 'juridico_por' => null, 'juridico_en' => null]);
-            $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::EnvioJuridico, 'estatus', EstatusBaja::EnRevisionRh->etiqueta(), EstatusBaja::EnRevisionJuridico->etiqueta());
-        });
-
-        $this->alertas->alEnviarJuridico($baja, $actor);
-
-        return $baja->refresh();
+        throw ValidationException::withMessages(['estatus' => 'El flujo de revisión de Jurídico se retiró: la baja se registra y se cierra directamente.']);
     }
 
     /**
-     * Jurídico revisó el acta y el aviso: regresa a RH para el cierre.
+     * COMPUERTA RETIRADA (propuesta Etapa 1): ver enviarJuridico().
      */
     public function aprobarJuridico(Baja $baja, User $actor, ?string $comentario): Baja
     {
-        $this->exigirJuridico($actor);
-        $this->exigirEstatus($baja, [EstatusBaja::EnRevisionJuridico]);
-
-        DB::transaction(function () use ($baja, $actor, $comentario): void {
-            $baja->update(['estatus' => EstatusBaja::EnRevisionRh, 'juridico_por' => $actor->id, 'juridico_en' => now(), 'motivo_rechazo' => null, 'rechazado_area' => null]);
-            $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::AproboJuridico, 'estatus', EstatusBaja::EnRevisionJuridico->etiqueta(), EstatusBaja::EnRevisionRh->etiqueta(), $this->textoOpcional($comentario));
-        });
-
-        $this->alertas->alResolverJuridico($baja, $actor, true);
-
-        return $baja->refresh();
+        throw ValidationException::withMessages(['estatus' => 'El flujo de revisión de Jurídico se retiró: la baja se registra y se cierra directamente.']);
     }
 
     /**
-     * Jurídico la DEVUELVE a RH con observaciones (no la aprueba): sigue en
-     * trámite —la baja ya está aplicada— y RH corrige (causal, datos,
-     * documentos) y la vuelve a enviar, o la marca «No procede».
+     * COMPUERTA RETIRADA (propuesta Etapa 1): ver enviarJuridico().
      */
     public function devolverJuridico(Baja $baja, User $actor, string $motivo): Baja
     {
-        $this->exigirJuridico($actor);
-        $this->exigirEstatus($baja, [EstatusBaja::EnRevisionJuridico]);
-        $motivo = $this->exigirMotivo($motivo);
-
-        DB::transaction(function () use ($baja, $actor, $motivo): void {
-            $baja->update([
-                'estatus' => EstatusBaja::EnRevisionRh,
-                'juridico_por' => null,
-                'juridico_en' => null,
-                'rechazado_por' => $actor->id,
-                'rechazado_en' => now(),
-                'rechazado_area' => 'juridico',
-                'motivo_rechazo' => $motivo,
-            ]);
-            $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::DevolvioJuridico, 'estatus', EstatusBaja::EnRevisionJuridico->etiqueta(), EstatusBaja::EnRevisionRh->etiqueta(), $motivo);
-        });
-
-        $this->alertas->alResolverJuridico($baja, $actor, false, $motivo);
-
-        return $baja->refresh();
+        throw ValidationException::withMessages(['estatus' => 'El flujo de revisión de Jurídico se retiró: la baja se registra y se cierra directamente.']);
     }
 
     /**
      * RH corrige la causal (también de otra forma de salida) con motivo; el
      * cambio queda en la bitácora con usuario, fecha, valor anterior y nuevo
-     * (criterio de aceptación 8). Si la nueva causal requiere Jurídico, la
-     * baja pasa (otra vez) a «En revisión Jurídico».
+     * (criterio de aceptación 8). Flujo sin Jurídico (propuesta Etapa 1):
+     * cambiar a una causal que pide expediente probatorio ya NO reenvía a
+     * Jurídico; la baja sigue en trámite.
      */
     public function cambiarCausal(Baja $baja, User $actor, int $causalId, string $motivo): Baja
     {
         $this->exigirPermiso($actor, self::PERMISO_CAMBIAR_CAUSAL);
-        $this->exigirEstatus($baja, [EstatusBaja::EnRevisionRh, EstatusBaja::EnRevisionJuridico]);
+        $this->exigirEstatus($baja, [EstatusBaja::EnRevisionRh]);
         $motivo = $this->exigirMotivo($motivo);
         $nueva = CausalRotacion::query()->activas()->where('id', $causalId)->first();
 
@@ -295,22 +253,10 @@ class BajaService
             throw ValidationException::withMessages(['causal_rotacion_id' => 'Es la misma causal que ya tiene la baja.']);
         }
 
-        $aJuridico = false;
-
-        DB::transaction(function () use ($baja, $actor, $nueva, $anterior, $motivo, &$aJuridico): void {
+        DB::transaction(function () use ($baja, $actor, $nueva, $anterior, $motivo): void {
             $forma = $nueva->forma();
             $formaAnterior = $baja->forma_salida;
             $cambios = ['causal_rotacion_id' => $nueva->id, 'forma_salida' => $forma, 'causal_migrada_de' => null];
-
-            if ($nueva->requiere_juridico) {
-                $cambios['juridico_por'] = null;
-                $cambios['juridico_en'] = null;
-                $aJuridico = $baja->estatus === EstatusBaja::EnRevisionRh;
-
-                if ($aJuridico) {
-                    $cambios['estatus'] = EstatusBaja::EnRevisionJuridico;
-                }
-            }
 
             // RN-09: al pasar a rescisión, «No» por defecto si no estaba capturado.
             if ($forma === FormaSalida::Rescision && $formaAnterior !== FormaSalida::Rescision && $baja->recontratable === null) {
@@ -324,18 +270,10 @@ class BajaService
             $baja->update($cambios);
             $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::CambioCausal, 'causal', $anterior !== null ? sprintf('%s (%s)', $anterior->etiquetaConClave(), $formaAnterior?->etiqueta() ?? '—') : 'Sin causal', sprintf('%s (%s)', $nueva->etiquetaConClave(), $forma->etiqueta()), $motivo);
 
-            if ($aJuridico) {
-                $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::EnvioJuridico, 'estatus', EstatusBaja::EnRevisionRh->etiqueta(), EstatusBaja::EnRevisionJuridico->etiqueta(), 'La nueva causal requiere revisión de Jurídico (RN-06).');
-            }
-
             if ($baja->cierre !== null) {
                 $this->cierres->sincronizarDesdeBaja($baja->cierre, $baja->refresh(), $actor);
             }
         });
-
-        if ($aJuridico) {
-            $this->alertas->alEnviarJuridico($baja->refresh(), $actor);
-        }
 
         $this->alertas->alertas($baja->refresh(), $actor);
 
@@ -389,17 +327,12 @@ class BajaService
     {
         $this->exigirPermiso($actor, self::PERMISO_CERRAR);
 
-        if ($baja->estatus === EstatusBaja::EnRevisionJuridico) {
-            throw ValidationException::withMessages(['estatus' => 'La baja está en revisión de Jurídico: se cierra cuando Jurídico la apruebe.']);
-        }
-
+        // Flujo sin Jurídico (propuesta Etapa 1): el cierre ya no depende de una
+        // aprobación de Jurídico; solo de los documentos obligatorios completos,
+        // el último día laborado y el finiquito.
         $this->exigirEstatus($baja, [EstatusBaja::EnRevisionRh]);
         $baja->loadMissing(['causal', 'cierre']);
         $this->reglas->exigirCompleta($baja);
-
-        if ($baja->requiereJuridico() && $baja->juridico_en === null) {
-            throw ValidationException::withMessages(['estatus' => 'La causal requiere revisión de Jurídico antes del cierre: envíala a Jurídico.']);
-        }
 
         $faltantes = $this->documentos->faltantes($baja);
 
@@ -512,7 +445,9 @@ class BajaService
     {
         $acciones = [];
         $rh = $usuario->can(self::PERMISO_GESTIONAR);
-        $abiertaVigente = in_array($baja->estatus, [EstatusBaja::EnRevisionRh, EstatusBaja::EnRevisionJuridico], true);
+        // Flujo sin Jurídico (propuesta Etapa 1): la única baja abierta vigente
+        // es «En trámite»; ya no hay estado «En revisión Jurídico».
+        $abiertaVigente = $baja->estatus === EstatusBaja::EnRevisionRh;
 
         // Completar / adjuntar documentos: RH y el gerente con alcance.
         if ($abiertaVigente && $usuario->can(self::PERMISO_ADJUNTAR) && ($rh || $this->puedeOperarComoSolicitante($baja, $usuario))) {
@@ -520,16 +455,8 @@ class BajaService
         }
 
         // Acciones de RH: cada una con su permiso (BajaPolicy valida igual).
-        if ($baja->estatus === EstatusBaja::EnRevisionRh) {
-            if ($usuario->can(self::PERMISO_CERRAR)) {
-                $acciones[] = 'cerrar';
-            }
-
-            $baja->loadMissing('causal');
-
-            if ($usuario->can(self::PERMISO_ENVIAR_JURIDICO) && $baja->requiereJuridico() && $baja->juridico_en === null) {
-                $acciones[] = 'enviar_juridico';
-            }
+        if ($abiertaVigente && $usuario->can(self::PERMISO_CERRAR)) {
+            $acciones[] = 'cerrar';
         }
 
         if ($abiertaVigente) {
@@ -542,10 +469,6 @@ class BajaService
 
         if ($baja->estatus === EstatusBaja::Cerrada && $usuario->can(self::PERMISO_REABRIR)) {
             $acciones[] = 'reabrir';
-        }
-
-        if ($usuario->can(self::PERMISO_JURIDICO) && $baja->estatus === EstatusBaja::EnRevisionJuridico) {
-            array_push($acciones, 'aprobar_juridico', 'devolver_juridico');
         }
 
         return array_values(array_unique($acciones));
@@ -853,13 +776,6 @@ class BajaService
     {
         if (! $actor->can($permiso)) {
             throw new AuthorizationException('No tienes permiso para esta acción de la baja.');
-        }
-    }
-
-    private function exigirJuridico(User $actor): void
-    {
-        if (! $actor->can(self::PERMISO_JURIDICO)) {
-            throw new AuthorizationException('Solo Jurídico revisa esta baja.');
         }
     }
 

@@ -101,19 +101,23 @@ class BajaRecopilacionService
     }
 
     /**
-     * Números grandes del encabezado.
+     * Números grandes del encabezado. Flujo sin Jurídico (propuesta Etapa 1):
+     * las abiertas se reparten en «En trámite», «Faltan documentos» y «Listas
+     * para cerrar» según sus documentos y el último día laborado.
      *
-     * @return array{en_tramite: int, juridico: int, cerradas: int, no_procede: int, documentos_pendientes: int}
+     * @return array{en_tramite: int, faltan_documentos: int, lista_para_cerrar: int, cerradas: int, no_procede: int, documentos_pendientes: int}
      */
     public function resumen(User $usuario): array
     {
         $base = $this->consulta($usuario);
         $conteos = (clone $base)->selectRaw('estatus, count(*) as total')->groupBy('estatus')->pluck('total', 'estatus');
         $abiertas = (clone $base)->with(['causal', 'cierre', 'documentos'])->whereIn('estatus', EstatusBaja::valoresAbiertos())->orderByDesc('id')->limit(self::LIMITE_CALCULO)->get();
+        $cubos = $abiertas->countBy(fn (Baja $b): string => $this->documentos->cuboTablero($b));
 
         return [
-            'en_tramite' => (int) ($conteos[EstatusBaja::EnRevisionRh->value] ?? 0),
-            'juridico' => (int) ($conteos[EstatusBaja::EnRevisionJuridico->value] ?? 0),
+            'en_tramite' => (int) ($cubos['en_tramite'] ?? 0),
+            'faltan_documentos' => (int) ($cubos['faltan_documentos'] ?? 0),
+            'lista_para_cerrar' => (int) ($cubos['lista_para_cerrar'] ?? 0),
             'cerradas' => (int) ($conteos[EstatusBaja::Cerrada->value] ?? 0),
             'no_procede' => (int) ($conteos[EstatusBaja::Cancelada->value] ?? 0),
             'documentos_pendientes' => $abiertas->filter(fn (Baja $b): bool => $this->documentos->faltantes($b) !== [])->count(),

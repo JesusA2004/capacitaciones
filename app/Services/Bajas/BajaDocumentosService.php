@@ -13,6 +13,7 @@ use App\Models\FiniquitoCalculo;
 use App\Models\User;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Support\ExtensionArchivo;
+use App\Support\FechaMexico;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -125,6 +126,31 @@ class BajaDocumentosService
     public function completos(Baja $baja): bool
     {
         return $this->faltantes($baja) === [];
+    }
+
+    /**
+     * Clasifica una baja ABIERTA (en trámite) en uno de los tres cubos del
+     * tablero de Bajas (propuesta Etapa 1, Pantalla 4):
+     *   - lista_para_cerrar: documentos obligatorios completos.
+     *   - faltan_documentos: faltan obligatorios y el último día laborado ya pasó.
+     *   - en_tramite: faltan obligatorios y aún no llega el último día (integrando).
+     *
+     * Para bajas no abiertas (cerrada/cancelada/legado) regresa su propio valor
+     * de estatus, para que el llamador no las recategorice.
+     */
+    public function cuboTablero(Baja $baja): string
+    {
+        if (! $baja->estatus->esAbierta() || $baja->estatus->esLegado()) {
+            return $baja->estatus->value;
+        }
+
+        if ($this->completos($baja)) {
+            return 'lista_para_cerrar';
+        }
+
+        $ultimoDiaPaso = $baja->fecha_baja !== null && ! $baja->fecha_baja->isAfter(FechaMexico::inicioDeHoy());
+
+        return $ultimoDiaPaso ? 'faltan_documentos' : 'en_tramite';
     }
 
     public function adjuntar(Baja $baja, ?DocumentoRequeridoBaja $requerido, UploadedFile $archivo, User $actor): BajaDocumento

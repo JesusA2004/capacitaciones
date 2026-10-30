@@ -8,10 +8,20 @@ namespace App\Enums;
  * aplicada de inmediato (cierre laboral, acceso suspendido, documentos
  * generados, finiquito propuesto).
  *
- *   En trámite (en_revision_rh) → [En revisión Jurídico si la causal lo
- *   requiere] → Cerrada (RH, con los documentos obligatorios completos)
+ *   En trámite (en_revision_rh) → Cerrada (RH, con los documentos obligatorios
+ *   completos y el último día laborado ya pasado).
  *   No procede (cancelada): RH la revierte; la persona sigue laborando y se
  *   le devuelve el acceso. Nunca se borra la baja.
+ *
+ * El tablero reparte las bajas En trámite en tres cubos de presentación —En
+ * trámite, Faltan documentos y Listas para cerrar— según sus documentos y el
+ * último día (BajaDocumentosService::cuboTablero), no son estatus distintos.
+ *
+ * COMPUERTA DE JURÍDICO RETIRADA (propuesta de mejoras Etapa 1): Jurídico ya
+ * no autoriza bajas (conserva acceso de consulta). El case EnRevisionJuridico
+ * se conserva SOLO para leer históricos; la migración
+ * 2026_10_30_120000_bajas_retiro_compuerta_juridico convierte a En trámite las
+ * filas que hubiera. Ya no se asigna a ninguna baja nueva.
  *
  * LEGADO (flujo anterior, ya no se crean): Borrador y Rechazada. La
  * migración 2026_10_20_230000_bajas_directas convierte los registros que

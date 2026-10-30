@@ -262,9 +262,9 @@ test('sin pasos de aprobación: no hay borrador, «enviar», «validar» ni «re
 test('criterio 3 y RN-05: RH no cierra si falta un documento obligatorio de la forma o de la causal', function () {
     $baja = bjRegistrar('NR-05', [], $this->rh);
 
-    // NR-05 requiere Jurídico: la baja pasa sola a Jurídico (RN-06).
-    expect($baja->estatus)->toBe(EstatusBaja::EnRevisionJuridico);
-    $this->actingAs($this->juridico)->post(route('rh.bajas.aprobar-juridico', $baja), ['motivo' => ''])->assertSessionHasNoErrors();
+    // NR-05 pide integrar expediente probatorio, pero el flujo ya no pasa por
+    // Jurídico (propuesta Etapa 1): queda En trámite y se cierra directamente.
+    expect($baja->estatus)->toBe(EstatusBaja::EnRevisionRh);
 
     $requeridos = app(CatalogoBajasService::class)->documentosRequeridos(FormaSalida::NoRenovacion, bjCausal('NR-05'));
     expect($requeridos->pluck('nombre')->all())->toContain('Autorización de Dirección General');
@@ -287,32 +287,42 @@ test('criterio 3 y RN-05: RH no cierra si falta un documento obligatorio de la f
     expect($baja->refresh()->estatus)->toBe(EstatusBaja::Cerrada);
 });
 
-test('criterio 4: una baja RE-03 llega a Jurídico antes del cierre y avisa a Contraloría (y a Jurídico)', function () {
+test('criterio 4 (Etapa 1): una baja RE-03 avisa a Contraloría y a Jurídico pero se cierra SIN autorización de Jurídico', function () {
     $baja = bjRegistrar('RE-03', bjRescision('RE-03'));
 
-    expect($baja->estatus)->toBe(EstatusBaja::EnRevisionJuridico);
+    // Flujo sin Jurídico (propuesta Etapa 1): queda «En trámite», no «En revisión Jurídico».
+    expect($baja->estatus)->toBe(EstatusBaja::EnRevisionRh);
+    // La causal sigue avisando a Contraloría y a Jurídico (resguardo de evidencia, no autorización).
     Notification::assertSentTo($this->contraloria, PendienteRhNotification::class);
-    Notification::assertSentTo($this->juridico, PendienteRhNotification::class, fn (PendienteRhNotification $n, array $c, User $d) => $n->toDatabase($d)['tipo'] === 'baja_revision_juridico');
     expect($baja->refresh()->alertas)->toHaveKeys(['contraloria', 'juridico_causal']);
 
     bjAdjuntarTodos($baja, $this->gerente);
 
-    // En Jurídico no se cierra (RN-06) y Jurídico no cierra.
-    $this->actingAs($this->rh)->post(route('rh.bajas.cerrar', $baja))->assertSessionHasErrors('estatus');
+    // Jurídico es de consulta: no puede cerrar la baja.
     $this->actingAs($this->juridico)->post(route('rh.bajas.cerrar', $baja))->assertForbidden();
 
-    // Jurídico la devuelve con observaciones: sigue aplicada y RH la reenvía.
-    $this->actingAs($this->juridico)->post(route('rh.bajas.devolver-juridico', $baja), ['motivo' => 'Falta el acta con dos testigos.'])->assertSessionHasNoErrors();
-    expect($baja->refresh()->estatus)->toBe(EstatusBaja::EnRevisionRh)
-        ->and($baja->motivo_rechazo)->toBe('Falta el acta con dos testigos.')
-        ->and($this->cuenta->refresh()->acceso_bloqueado_en)->not->toBeNull();
-    $this->actingAs($this->rh)->post(route('rh.bajas.cerrar', $baja))->assertSessionHasErrors('estatus');
-    $this->actingAs($this->rh)->post(route('rh.bajas.enviar-juridico', $baja))->assertSessionHasNoErrors();
-
-    $this->actingAs($this->juridico)->post(route('rh.bajas.aprobar-juridico', $baja), ['motivo' => 'Acta y aviso en orden.'])->assertSessionHasNoErrors();
-    expect($baja->refresh()->estatus)->toBe(EstatusBaja::EnRevisionRh)->and($baja->juridico_en)->not->toBeNull();
-
+    // RH cierra directamente una vez con documentos y finiquito listos.
     bjFiniquito($baja);
+    $this->actingAs($this->rh)->post(route('rh.bajas.cerrar', $baja))->assertSessionHasNoErrors();
+    expect($baja->refresh()->estatus)->toBe(EstatusBaja::Cerrada);
+});
+
+test('Etapa 1 (aceptación #11 y #12): causal con expediente probatorio se registra En trámite y se cierra sin Jurídico', function () {
+    // NR-05 está marcada como «integrar expediente probatorio» (requiere_juridico).
+    expect(bjCausal('NR-05')->requiere_juridico)->toBeTrue();
+
+    $baja = bjRegistrar('NR-05', [], $this->rh);
+    // Se registra «En trámite», nunca «En revisión Jurídico».
+    expect($baja->estatus)->toBe(EstatusBaja::EnRevisionRh)
+        ->and($baja->juridico_en)->toBeNull();
+
+    // Las acciones ofrecidas ya no incluyen el flujo de Jurídico.
+    expect(app(BajaService::class)->acciones($baja, $this->rh))
+        ->not->toContain('enviar_juridico', 'aprobar_juridico', 'devolver_juridico');
+
+    // Con documentos obligatorios completos y finiquito entregado, RH cierra directo.
+    bjAdjuntarTodos($baja, $this->gerente);
+    bjFiniquito($baja, entregar: true);
     $this->actingAs($this->rh)->post(route('rh.bajas.cerrar', $baja))->assertSessionHasNoErrors();
     expect($baja->refresh()->estatus)->toBe(EstatusBaja::Cerrada);
 });
@@ -386,8 +396,8 @@ test('criterio 8: todo cambio de causal queda en bitácora; el gerente no la cam
         ->and($registro->valor_nuevo)->toContain('NR-01')
         ->and($registro->motivo)->toBe('Era bajo desempeño documentado.')
         ->and($baja->refresh()->forma_salida)->toBe(FormaSalida::NoRenovacion)
-        // NR-01 requiere Jurídico: pasa sola a Jurídico.
-        ->and($baja->estatus)->toBe(EstatusBaja::EnRevisionJuridico)
+        // NR-01 pide expediente probatorio pero el flujo ya no pasa por Jurídico (Etapa 1).
+        ->and($baja->estatus)->toBe(EstatusBaja::EnRevisionRh)
         ->and($baja->cierre?->causal_rotacion_id)->toBe(bjCausal('NR-01')->id)
         ->and($baja->cierre?->tipo_baja->value)->toBe('fin_contrato');
 });

@@ -2,6 +2,7 @@
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     ArrowRight,
+    ClipboardCheck,
     ClipboardList,
     DoorOpen,
     FileWarning,
@@ -9,7 +10,6 @@ import {
     Hourglass,
     ListTree,
     Lock,
-    Scale,
     Search,
     UserMinus,
 } from '@lucide/vue';
@@ -196,7 +196,7 @@ const opcionesDocumentos: Opcion[] = [
 
 /** Las tarjetas grandes también filtran (en la pestaña Documentos). */
 function filtroRapido(
-    clave: 'en_tramite' | 'juridico' | 'pendientes' | 'cerradas',
+    clave: 'en_tramite' | 'listas' | 'pendientes' | 'cerradas',
 ) {
     if (props.seccion !== 'documentos') {
         router.get(window.location.pathname, rapidoAQuery(clave), {
@@ -216,8 +216,8 @@ function rapidoAQuery(clave: string): {
     documentos?: string;
 } {
     switch (clave) {
-        case 'juridico':
-            return { estatus: 'en_revision_juridico' };
+        case 'listas':
+            return { estatus: 'abiertas', documentos: 'completos' };
         case 'pendientes':
             return { documentos: 'incompletos' };
         case 'cerradas':
@@ -232,18 +232,18 @@ const rapidoActivo = computed(() => {
         return null;
     }
 
-    if (
-        documentosDoc.value === 'incompletos' &&
-        estatusDoc.value === 'abiertas'
-    ) {
+    if (estatusDoc.value === 'abiertas' && documentosDoc.value === 'incompletos') {
         return 'pendientes';
+    }
+
+    if (estatusDoc.value === 'abiertas' && documentosDoc.value === 'completos') {
+        return 'listas';
     }
 
     return (
         (
             {
                 en_revision_rh: 'en_tramite',
-                en_revision_juridico: 'juridico',
                 cerrada: 'cerradas',
             } as Record<string, string>
         )[estatusDoc.value] ?? null
@@ -408,13 +408,13 @@ function neto(fila: FilaCierre): string {
                 @click="filtroRapido('pendientes')"
             />
             <TarjetaMetrica
-                etiqueta="En Jurídico"
-                :valor="resumen.juridico"
-                :icono="Scale"
-                tono="oro"
+                etiqueta="Listas para cerrar"
+                :valor="resumen.lista_para_cerrar"
+                :icono="ClipboardCheck"
+                tono="info"
                 clicable
-                :activa="rapidoActivo === 'juridico'"
-                @click="filtroRapido('juridico')"
+                :activa="rapidoActivo === 'listas'"
+                @click="filtroRapido('listas')"
             />
             <TarjetaMetrica
                 etiqueta="Cerradas"

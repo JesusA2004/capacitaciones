@@ -59,7 +59,10 @@ test('registro, bandeja «Bajas», expediente y tablero cargan', function () {
             ->has('bajas.data', 1)
             ->where('bajas.data.0.documentos_completos', false)
             ->where('bajas.data.0.documentos_total', 3)
-            ->where('resumen.en_tramite', 1)
+            // Flujo sin Jurídico (Etapa 1): último día ya pasó y faltan documentos
+            // → cae en el cubo «Faltan documentos», no en «En trámite».
+            ->where('resumen.en_tramite', 0)
+            ->where('resumen.faltan_documentos', 1)
             // Sin estatus del flujo anterior en el filtro.
             ->where('estatus', fn ($opciones) => ! collect($opciones)->pluck('value')->intersect(['borrador', 'rechazada'])->count()));
 

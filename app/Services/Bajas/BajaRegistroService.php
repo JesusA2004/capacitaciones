@@ -165,7 +165,8 @@ class BajaRegistroService
             'fecha_conocimiento_falta' => $esRescision ? $fechaOpcional('fecha_conocimiento_falta') : null,
             'entrega_aviso_rescision' => $esRescision ? EntregaAvisoRescision::tryFrom((string) ($datos['entrega_aviso_rescision'] ?? '')) : null,
             'fecha_entrega_aviso' => $esRescision ? $fechaOpcional('fecha_entrega_aviso') : null,
-            'estatus' => $cierre->causalRotacion?->requiere_juridico === true ? EstatusBaja::EnRevisionJuridico : EstatusBaja::EnRevisionRh,
+            // Flujo sin Jurídico (propuesta Etapa 1): siempre «En trámite».
+            'estatus' => EstatusBaja::EnRevisionRh,
             'solicitado_por' => $actor->id,
             'enviado_en' => now(),
             'acceso_suspendido_en' => $cierre->acceso_suspendido_en,

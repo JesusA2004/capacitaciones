@@ -124,10 +124,15 @@ export type FilaBaja = {
     origen: string;
 };
 
-/** Números grandes de la bandeja (BajaConsultaService::resumen). */
+/**
+ * Números grandes de la bandeja (BajaConsultaService::resumen). Flujo sin
+ * Jurídico (propuesta Etapa 1): las abiertas se reparten en En trámite,
+ * Faltan documentos y Listas para cerrar.
+ */
 export type ResumenBajas = {
     en_tramite: number;
-    juridico: number;
+    faltan_documentos: number;
+    lista_para_cerrar: number;
     cerradas: number;
     no_procede: number;
 };

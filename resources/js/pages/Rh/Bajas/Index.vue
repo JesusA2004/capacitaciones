@@ -5,10 +5,11 @@ import {
     ArrowRight,
     BarChart3,
     CheckCircle2,
+    ClipboardCheck,
+    FileWarning,
     FolderOpen,
     Hourglass,
     Lock,
-    Scale,
     Undo2,
     UserMinus,
 } from '@lucide/vue';
@@ -101,45 +102,56 @@ function filtrar() {
 watch(termino, useDebounceFn(filtrar, 300));
 watch([estatusElegido, sucursal, forma], filtrar);
 
+// Flujo sin Jurídico (propuesta Etapa 1): las tres primeras tarjetas son cubos
+// de las bajas abiertas (En trámite / Faltan documentos / Listas para cerrar).
+// Solo filtran por estatus las que corresponden a un estatus real; «Faltan
+// documentos» y «Listas para cerrar» son informativas (filtro null).
 const metricas: {
-    clave: string;
     etiqueta: string;
     campo: keyof ResumenBajas;
     icono: Component;
     tono: 'info' | 'alerta' | 'exito' | 'neutro';
+    filtro: string | null;
 }[] = [
     {
-        clave: 'en_revision_rh',
         etiqueta: 'En trámite',
         campo: 'en_tramite',
         icono: Hourglass,
         tono: 'info',
+        filtro: 'en_revision_rh',
     },
     {
-        clave: 'en_revision_juridico',
-        etiqueta: 'En Jurídico',
-        campo: 'juridico',
-        icono: Scale,
+        etiqueta: 'Faltan documentos',
+        campo: 'faltan_documentos',
+        icono: FileWarning,
         tono: 'alerta',
+        filtro: null,
     },
     {
-        clave: 'cerrada',
+        etiqueta: 'Listas para cerrar',
+        campo: 'lista_para_cerrar',
+        icono: ClipboardCheck,
+        tono: 'info',
+        filtro: null,
+    },
+    {
         etiqueta: 'Cerradas',
         campo: 'cerradas',
         icono: Lock,
         tono: 'exito',
+        filtro: 'cerrada',
     },
     {
-        clave: 'cancelada',
         etiqueta: 'No procede',
         campo: 'no_procede',
         icono: Undo2,
         tono: 'neutro',
+        filtro: 'cancelada',
     },
 ];
 
-function elegirMetrica(clave: string) {
-    estatusElegido.value = estatusElegido.value === clave ? 'abiertas' : clave;
+function elegirMetrica(filtro: string) {
+    estatusElegido.value = estatusElegido.value === filtro ? 'abiertas' : filtro;
 }
 
 function avance(b: FilaBaja): string {
@@ -157,7 +169,7 @@ function avance(b: FilaBaja): string {
     <div class="pagina-ancha flex flex-col gap-5">
         <CrudPageHeader
             titulo="Bajas"
-            descripcion="Se registran y quedan aplicadas al momento. Aquí sigues sus documentos, Jurídico y el cierre."
+            descripcion="Se registran y quedan aplicadas al momento. Aquí sigues sus documentos y el cierre."
             :icono="UserMinus"
         >
             <Button v-if="puede.recopilacion" variant="outline" as-child>
@@ -177,17 +189,17 @@ function avance(b: FilaBaja): string {
             </Button>
         </CrudPageHeader>
 
-        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div class="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <TarjetaMetrica
                 v-for="m in metricas"
-                :key="m.clave"
+                :key="m.campo"
                 :etiqueta="m.etiqueta"
                 :valor="resumen[m.campo]"
                 :icono="m.icono"
                 :tono="m.tono"
-                clicable
-                :activa="estatusElegido === m.clave"
-                @click="elegirMetrica(m.clave)"
+                :clicable="m.filtro !== null"
+                :activa="m.filtro !== null && estatusElegido === m.filtro"
+                @click="m.filtro && elegirMetrica(m.filtro)"
             />
         </div>
 
