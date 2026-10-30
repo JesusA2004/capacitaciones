@@ -2,14 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\ReporteRhExport;
 use App\Http\Requests\Directorio\ActualizarFilaDirectorioRequest;
 use App\Models\Colaborador;
 use App\Services\Directorio\DirectorioColaboradoresService;
 use App\Services\Directorio\DirectorioEdicionService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
  * Directorio de la empresa (correo/teléfono corporativo por colaborador):
@@ -23,6 +28,8 @@ use Inertia\Response;
  */
 class DirectorioController extends Controller
 {
+    private const FILTROS_EXPORTACION = ['busqueda', 'puesto_id', 'sucursal_id', 'departamento_id', 'solo_por_completar'];
+
     public function __construct(
         private readonly DirectorioColaboradoresService $directorio,
         private readonly DirectorioEdicionService $edicion,
@@ -38,6 +45,7 @@ class DirectorioController extends Controller
         return Inertia::render('Directorio/Index', [
             'colaboradores' => $colaboradores,
             'veTodosLosContactos' => $this->directorio->veTodosLosContactos($usuario),
+            'puedeExportar' => $usuario->can('reportes_rh.exportar'),
             'filtros' => $request->only(['busqueda', 'vista']),
             // Solo para quien puede editar; los demás reciben null y ven el
             // directorio igual que siempre.
@@ -49,6 +57,28 @@ class DirectorioController extends Controller
                 ),
             ] : null,
         ]);
+    }
+
+    public function exportarExcel(Request $request): BinaryFileResponse
+    {
+        abort_unless($request->user()->can('reportes_rh.exportar'), 403);
+
+        $tabla = $this->directorio->tablaExportable($request->only(self::FILTROS_EXPORTACION), $request->user());
+
+        return Excel::download(
+            new ReporteRhExport($tabla['titulo'], $tabla['columnas'], $tabla['filas']),
+            sprintf('directorio-%s.xlsx', now()->format('Y-m-d')),
+        );
+    }
+
+    public function exportarPdf(Request $request): HttpResponse
+    {
+        abort_unless($request->user()->can('reportes_rh.exportar'), 403);
+
+        $tabla = $this->directorio->tablaExportable($request->only(self::FILTROS_EXPORTACION), $request->user());
+
+        return Pdf::loadView('pdf.reporte-rh', $tabla)->setPaper('letter', 'landscape')
+            ->download(sprintf('directorio-%s.pdf', now()->format('Y-m-d')));
     }
 
     public function actualizar(ActualizarFilaDirectorioRequest $request, Colaborador $colaborador): JsonResponse

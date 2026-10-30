@@ -60,6 +60,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // colaborador autenticado, GLOBAL (no acotado por alcance) y solo con
     // contacto corporativo — ver DirectorioColaboradoresService.
     Route::get('directorio', [DirectorioController::class, 'index'])->name('directorio.index');
+    // Exportaciones: solo reportes_rh.exportar, misma lista cerrada de la pantalla.
+    Route::get('directorio/exportar/excel', [DirectorioController::class, 'exportarExcel'])->name('directorio.exportar.excel');
+    Route::get('directorio/exportar/pdf', [DirectorioController::class, 'exportarPdf'])->name('directorio.exportar.pdf');
     // Edición rápida por fila: solo `directorio.editar` (super_admin), nunca
     // la propia fila — autorización en ActualizarFilaDirectorioRequest.
     Route::patch('directorio/{colaborador}', [DirectorioController::class, 'actualizar'])->name('directorio.actualizar');

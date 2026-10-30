@@ -3,6 +3,7 @@
 namespace App\Services\Directorio;
 
 use App\Enums\AlcanceDatos;
+use App\Enums\EstadoUsuario;
 use App\Models\Colaborador;
 use App\Models\Departamento;
 use App\Models\Puesto;
@@ -47,13 +48,60 @@ class DirectorioColaboradoresService
      * todos (veTodosLosContactos): filtrar en BD por un correo que no puede
      * ver le permitiría inferir quién tiene correo corporativo.
      *
-     * @param  array<string, mixed>  $filtros  busqueda?, puesto_id?, sucursal_id?, departamento_id?, solo_con_correo?
+     * @param  array<string, mixed>  $filtros  busqueda?, puesto_id?, sucursal_id?, departamento_id?, solo_con_correo?, solo_por_completar?
      * @return LengthAwarePaginator<int, Colaborador>
      */
     public function buscar(array $filtros = [], int $porPagina = 30, ?User $viewer = null): LengthAwarePaginator
     {
+        return $this->filtrada($filtros, $viewer)
+            ->paginate(min(50, max(1, $porPagina)))
+            ->withQueryString();
+    }
+
+    /**
+     * Tabla para exportar a Excel/PDF: misma consulta, alcance y lista cerrada
+     * de aArray() que la pantalla; el contacto que no puede ver sale vacío.
+     *
+     * @param  array<string, mixed>  $filtros
+     * @return array{titulo: string, columnas: array<int, string>, filas: array<int, array<int, string|int|float|null>>}
+     */
+    public function tablaExportable(array $filtros, User $viewer): array
+    {
+        $filas = [];
+
+        foreach ($this->filtrada($filtros, $viewer)->get() as $colaborador) {
+            $fila = $this->aArray($colaborador, $viewer);
+            $filas[] = [
+                $fila['nombre'],
+                $fila['numero_empleado'],
+                $fila['puesto'],
+                $fila['sucursal'],
+                $fila['departamento'],
+                $fila['correo_corporativo'],
+                $fila['telefono_corporativo'],
+                $fila['datos_por_completar'] === null ? null : ($fila['datos_por_completar'] ? 'Datos por completar' : 'Completo'),
+            ];
+        }
+
+        return [
+            'titulo' => 'Directorio de colaboradores',
+            'columnas' => ['Nombre', 'Número de empleado', 'Puesto', 'Sucursal', 'Departamento', 'Correo corporativo', 'Teléfono corporativo', 'Datos'],
+            'filas' => $filas,
+        ];
+    }
+
+    /**
+     * Filtros de búsqueda sobre la consulta del directorio. «Solo con correo» y
+     * «Solo datos por completar» se ignoran si quien busca no ve todos los
+     * contactos: le permitirían inferir quién tiene contacto.
+     *
+     * @param  array<string, mixed>  $filtros
+     * @return Builder<Colaborador>
+     */
+    private function filtrada(array $filtros, ?User $viewer): Builder
+    {
         $filtros = $this->normalizarFiltros($filtros);
-        $filtros['solo_con_correo'] = $filtros['solo_con_correo'] && $viewer !== null && $this->veTodosLosContactos($viewer);
+        $veTodos = $viewer !== null && $this->veTodosLosContactos($viewer);
 
         return $this->consulta($viewer)
             // Buscador único: cada palabra en nombre, apellidos, número,
@@ -62,12 +110,13 @@ class DirectorioColaboradoresService
             ->when($filtros['puesto_id'], fn (Builder $q, int $v) => $q->where('puesto_id', $v))
             ->when($filtros['sucursal_id'], fn (Builder $q, int $v) => $q->where('sucursal_principal_id', $v))
             ->when($filtros['departamento_id'], fn (Builder $q, int $v) => $q->where('departamento_id', $v))
-            // «Solo con correo»: solo para quien ve todos los contactos (arriba).
-            ->when($filtros['solo_con_correo'], fn (Builder $q) => $q->whereNotNull('correo_corporativo')->where('correo_corporativo', '!=', ''))
+            ->when($filtros['solo_con_correo'] && $veTodos, fn (Builder $q) => $q->whereNotNull('correo_corporativo')->where('correo_corporativo', '!=', ''))
+            ->when($filtros['solo_por_completar'] && $veTodos, fn (Builder $q) => $q->where(fn (Builder $o) => $o
+                ->whereNull('correo_corporativo')->orWhere('correo_corporativo', '')
+                ->orWhereNull('telefono_corporativo')->orWhere('telefono_corporativo', '')
+                ->orWhereNull('puesto_id')->orWhereNull('sucursal_principal_id')))
             ->orderBy('name')
-            ->orderBy('apellidos')
-            ->paginate(min(50, max(1, $porPagina)))
-            ->withQueryString();
+            ->orderBy('apellidos');
     }
 
     /**
@@ -187,7 +236,7 @@ class DirectorioColaboradoresService
                 ->orWhere('id', $propio->id ?? 0)
                 ->orWhere('id', $propio->jefe_id ?? 0)))
             ->select(['id', 'name', 'apellidos', 'numero_empleado', 'puesto_id', 'sucursal_principal_id', 'departamento_id', 'correo_corporativo', 'telefono_corporativo', 'foto_path', 'jefe_id', 'gerente_id'])
-            ->where('estatus', 'activo')
+            ->where('estatus', EstadoUsuario::Activo->value)
             ->when($excluir !== [], fn (Builder $q) => $q->where(fn (Builder $sub) => $sub
                 ->whereNull('puesto_id')
                 ->orWhereHas('puesto', fn (Builder $p) => $p
@@ -244,8 +293,8 @@ class DirectorioColaboradoresService
      * aquí lo publica a toda la empresa. El contacto solo sale si quien
      * mira tiene derecho a verlo (puedeVerContacto); si no, va nulo.
      *
-     * `datos_por_completar` (propuesta Etapa 1): true si la persona no tiene
-     * correo NI teléfono corporativo. Solo se expone a quien ve todos los
+     * `datos_por_completar` (propuesta Etapa 1, pág. 5): true si le falta correo
+     * o teléfono corporativo, puesto o sucursal. Solo se expone a quien ve todos los
      * contactos (RH); para los demás va null, igual que el filtro
      * «solo con correo», para no permitir inferir quién tiene contacto.
      *
@@ -266,18 +315,18 @@ class DirectorioColaboradoresService
             'correo_corporativo' => $visible ? $colaborador->correo_corporativo : null,
             'telefono_corporativo' => $visible ? $colaborador->telefono_corporativo : null,
             'contacto_visible' => $visible,
-            'datos_por_completar' => $veTodos ? $this->sinContactoCorporativo($colaborador) : null,
+            'datos_por_completar' => $veTodos ? $this->tieneDatosPorCompletar($colaborador) : null,
             'es_mi_jefe' => $viewer?->colaborador !== null && $viewer->colaborador->jefe_id === $colaborador->id,
         ];
     }
 
-    /** Sin correo NI teléfono corporativo capturado (datos por completar). */
-    private function sinContactoCorporativo(Colaborador $colaborador): bool
+    /** Misma regla que el filtro «solo_por_completar» de filtrada(). */
+    private function tieneDatosPorCompletar(Colaborador $colaborador): bool
     {
-        $correo = $colaborador->correo_corporativo;
-        $telefono = $colaborador->telefono_corporativo;
-
-        return ($correo === null || $correo === '') && ($telefono === null || $telefono === '');
+        return in_array($colaborador->correo_corporativo, [null, ''], true)
+            || in_array($colaborador->telefono_corporativo, [null, ''], true)
+            || $colaborador->puesto_id === null
+            || $colaborador->sucursal_principal_id === null;
     }
 
     /** Contactos de TODO el directorio: permiso explícito o personal corporativo. */
@@ -312,7 +361,7 @@ class DirectorioColaboradoresService
      * ignora en vez de provocar un TypeError.
      *
      * @param  array<string, mixed>  $filtros
-     * @return array{busqueda: string|null, puesto_id: int|null, sucursal_id: int|null, departamento_id: int|null, solo_con_correo: bool}
+     * @return array{busqueda: string|null, puesto_id: int|null, sucursal_id: int|null, departamento_id: int|null, solo_con_correo: bool, solo_por_completar: bool}
      */
     private function normalizarFiltros(array $filtros): array
     {
@@ -329,6 +378,7 @@ class DirectorioColaboradoresService
             'sucursal_id' => $id($filtros['sucursal_id'] ?? null),
             'departamento_id' => $id($filtros['departamento_id'] ?? null),
             'solo_con_correo' => filter_var($filtros['solo_con_correo'] ?? false, FILTER_VALIDATE_BOOLEAN),
+            'solo_por_completar' => filter_var($filtros['solo_por_completar'] ?? false, FILTER_VALIDATE_BOOLEAN),
         ];
     }
 }

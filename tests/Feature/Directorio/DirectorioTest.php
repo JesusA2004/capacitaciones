@@ -29,7 +29,7 @@ beforeEach(function () {
 });
 
 test('el directorio muestra a TODA la plantilla activa, incluidos gestores', function () {
-    Colaborador::factory()->create(['name' => 'María', 'apellidos' => 'López', 'puesto_id' => $this->gerente->id, 'sucursal_principal_id' => $this->tula->id, 'estatus' => 'activo', 'correo_corporativo' => 'maria.lopez@mrlana.test']);
+    Colaborador::factory()->create(['name' => 'María', 'apellidos' => 'López', 'puesto_id' => $this->gerente->id, 'sucursal_principal_id' => $this->tula->id, 'estatus' => 'activo', 'correo_corporativo' => 'maria.lopez@mrlana.test', 'telefono_corporativo' => '5550003333']);
     Colaborador::factory()->create(['name' => 'Pedro', 'apellidos' => 'Ramírez', 'puesto_id' => $this->gestor->id, 'sucursal_principal_id' => $this->tula->id, 'estatus' => 'activo', 'correo_corporativo' => null, 'telefono_corporativo' => null]);
     Colaborador::factory()->create(['name' => 'Ana', 'apellidos' => 'Martínez', 'puesto_id' => $this->responsableSistemas->id, 'sucursal_principal_id' => $this->corporativo->id, 'estatus' => 'activo']);
 

@@ -19,8 +19,8 @@ class DirectorioController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $filtros = $request->only(['busqueda', 'puesto_id', 'sucursal_id', 'departamento_id', 'solo_con_correo']);
-        // El servicio ignora solo_con_correo si este usuario no ve todos los contactos.
+        $filtros = $request->only(['busqueda', 'puesto_id', 'sucursal_id', 'departamento_id', 'solo_con_correo', 'solo_por_completar']);
+        // El servicio ignora ambos filtros "solo" si este usuario no ve todos los contactos.
         $paginador = $this->directorio->buscar($filtros, $request->integer('per_page', 30), $request->user());
 
         return response()->json([

@@ -4,6 +4,7 @@ import {
     Briefcase,
     Building2,
     Contact,
+    Download,
     Layers,
     Mail,
     MailX,
@@ -25,6 +26,7 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import EdicionFilaDirectorio from '@/components/Directorio/EdicionFilaDirectorio.vue';
 import type { OpcionesEdicionDirectorio } from '@/components/Directorio/EdicionFilaDirectorio.vue';
 import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
+import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
@@ -34,6 +36,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { dashboard } from '@/routes';
+import { excel, pdf } from '@/routes/directorio/exportar';
 
 type ColaboradorDirectorio = {
     id: number;
@@ -52,7 +55,7 @@ type ColaboradorDirectorio = {
     telefono_corporativo: string | null;
     /** El backend solo manda el contacto a quien puede verlo. */
     contacto_visible?: boolean;
-    /** Sin correo ni teléfono corporativo. Solo llega a RH (ve todos); si no, null. */
+    /** Le falta correo, teléfono, puesto o sucursal. Solo llega a RH (ve todos); si no, null. */
     datos_por_completar?: boolean | null;
     es_mi_jefe?: boolean;
     /** Foto oficial del expediente (URL protegida); null → iniciales. */
@@ -65,6 +68,7 @@ const props = defineProps<{
     colaboradores: ColaboradorDirectorio[];
     filtros: { busqueda?: string; vista?: string };
     veTodosLosContactos?: boolean;
+    puedeExportar?: boolean;
     /** Solo llega a quien puede editar (directorio.editar); si no, null. */
     edicion?: {
         opciones: OpcionesEdicionDirectorio;
@@ -141,8 +145,44 @@ function vistaGuardada(): Vista {
 
 const vista = ref<Vista>(vistaGuardada());
 const busqueda = ref(props.filtros.busqueda ?? '');
-/** Filtro RH: solo quienes no tienen correo ni teléfono corporativo. */
+/** Filtro RH: solo quienes tienen datos por completar. */
 const soloPorCompletar = ref(false);
+
+/** Cada grupo muestra pocas personas hasta pedir «Ver los N» (pág. 5). */
+const PERSONAS_POR_GRUPO = 4;
+const gruposAbiertos = ref(new Set<string>());
+
+/** Al buscar o filtrar se ve todo: lo que coincide no debe quedar plegado. */
+function personasVisibles(grupo: Grupo): ColaboradorDirectorio[] {
+    return busqueda.value.trim() !== '' ||
+        soloPorCompletar.value ||
+        gruposAbiertos.value.has(grupo.clave)
+        ? grupo.personas
+        : grupo.personas.slice(0, PERSONAS_POR_GRUPO);
+}
+
+function abrirGrupo(clave: string) {
+    gruposAbiertos.value = new Set(gruposAbiertos.value).add(clave);
+}
+
+const consultaExportacion = computed(() => ({
+    query: {
+        ...(busqueda.value.trim() !== '' ? { busqueda: busqueda.value } : {}),
+        ...(soloPorCompletar.value ? { solo_por_completar: '1' } : {}),
+    },
+}));
+
+/** Etiqueta de lo que falta, como en la propuesta («Sin correo», etc.). */
+function faltantes(c: ColaboradorDirectorio): string {
+    const lista = [
+        !c.correo_corporativo && 'correo',
+        !c.telefono_corporativo && 'teléfono',
+        !c.puesto_id && 'puesto',
+        !c.sucursal_id && 'sucursal',
+    ].filter(Boolean);
+
+    return `Sin ${lista.join(' ni ')}`;
+}
 
 watch(vista, (valor) => {
     try {
@@ -269,7 +309,8 @@ const totales = computed(() => {
         personas: todos.length,
         corporativo,
         sucursales: todos.length - corporativo,
-        porCompletar: todos.filter((c) => c.datos_por_completar === true).length,
+        porCompletar: todos.filter((c) => c.datos_por_completar === true)
+            .length,
     };
 });
 
@@ -296,11 +337,25 @@ function detalle(c: ColaboradorDirectorio): string {
     <Head title="Directorio" />
 
     <div class="pagina-ancha flex flex-col gap-5">
-        <CrudPageHeader titulo="Directorio" :icono="Contact" />
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <CrudPageHeader titulo="Directorio" :icono="Contact" />
+            <div v-if="puedeExportar" class="ml-auto flex gap-2">
+                <Button variant="outline" size="sm" as-child>
+                    <a :href="excel(consultaExportacion).url">
+                        <Download class="size-4" /> Excel
+                    </a>
+                </Button>
+                <Button variant="outline" size="sm" as-child>
+                    <a :href="pdf(consultaExportacion).url">
+                        <Download class="size-4" /> PDF
+                    </a>
+                </Button>
+            </div>
+        </div>
 
         <!-- Conteos -->
         <section
-            class="grid gap-2.5 sm:gap-3 lg:max-w-4xl"
+            class="grid gap-2.5 sm:gap-3"
             :class="
                 veTodosLosContactos
                     ? 'grid-cols-2 sm:grid-cols-4'
@@ -400,6 +455,16 @@ function detalle(c: ColaboradorDirectorio): string {
                     <X class="size-4" />
                 </button>
             </div>
+            <Button
+                v-if="veTodosLosContactos"
+                type="button"
+                :variant="soloPorCompletar ? 'default' : 'outline'"
+                :aria-pressed="soloPorCompletar"
+                class="h-11"
+                @click="soloPorCompletar = !soloPorCompletar"
+            >
+                Solo datos por completar
+            </Button>
         </section>
 
         <EmptyState
@@ -451,7 +516,7 @@ function detalle(c: ColaboradorDirectorio): string {
 
                 <ul class="divide-y divide-[var(--mrl-borde)]">
                     <li
-                        v-for="c in grupo.personas"
+                        v-for="c in personasVisibles(grupo)"
                         :key="c.id"
                         class="flex items-center gap-3 px-4 py-3"
                     >
@@ -481,7 +546,7 @@ function detalle(c: ColaboradorDirectorio): string {
                                 class="mt-0.5 inline-flex w-fit items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning"
                             >
                                 <MailX class="size-3" />
-                                Datos por completar
+                                Datos por completar · {{ faltantes(c) }}
                             </span>
                             <a
                                 v-if="c.correo_corporativo"
@@ -543,6 +608,16 @@ function detalle(c: ColaboradorDirectorio): string {
                         </div>
                     </li>
                 </ul>
+                <button
+                    v-if="
+                        personasVisibles(grupo).length < grupo.personas.length
+                    "
+                    type="button"
+                    class="w-full border-t border-[var(--mrl-borde)] px-4 py-2.5 text-center text-xs font-medium text-primary hover:bg-[var(--mrl-fondo)]"
+                    @click="abrirGrupo(grupo.clave)"
+                >
+                    Ver los {{ grupo.personas.length }} →
+                </button>
             </section>
         </div>
     </div>
