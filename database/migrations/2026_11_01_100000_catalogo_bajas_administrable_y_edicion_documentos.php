@@ -59,9 +59,17 @@ return new class extends Migration
     {
         Schema::dropIfExists('baja_documento_ediciones');
 
-        Schema::table('causales_rotacion', function (Blueprint $table): void {
+        // Con MyISAM la llave foránea nunca se crea: solo se suelta si existe.
+        $tieneLlave = collect(Schema::getForeignKeys('causales_rotacion'))
+            ->contains(fn (array $llave): bool => $llave['columns'] === ['causal_grupo_id']);
+
+        Schema::table('causales_rotacion', function (Blueprint $table) use ($tieneLlave): void {
+            if ($tieneLlave) {
+                $table->dropForeign(['causal_grupo_id']);
+            }
+
             if (Schema::hasColumn('causales_rotacion', 'causal_grupo_id')) {
-                $table->dropConstrainedForeignId('causal_grupo_id');
+                $table->dropColumn('causal_grupo_id');
             }
 
             if (Schema::hasColumn('causales_rotacion', 'documento_salida')) {
