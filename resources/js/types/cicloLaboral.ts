@@ -879,9 +879,12 @@ export type CausalRotacionAdmin = {
     nombre: string;
     descripcion: string | null;
     requiere_juridico: boolean;
+    /** Alias de Etapa 1: misma marca, leída como «integrar expediente probatorio». */
+    integrar_expediente_probatorio?: boolean;
     comentario_obligatorio: boolean;
     alerta: string | null;
     excluye_indemnizacion: boolean;
+    implica_indemnizacion: boolean;
     activo: boolean;
     orden: number;
     usos: number;

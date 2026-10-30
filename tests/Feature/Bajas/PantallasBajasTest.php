@@ -38,10 +38,12 @@ test('registro, bandeja «Bajas», expediente y tablero cargan', function () {
     $this->actingAs($this->gerente)->get(route('rh.bajas.create', ['colaborador' => $this->persona->id]))
         ->assertOk()
         ->assertInertia(fn ($p) => $p->component('Rh/Bajas/Formulario')
+            // El gerente solicita RV/NR/RE; OT (otras terminaciones) es de RH.
             ->has('formas', 3)
             ->where('colaborador.id', $this->persona->id)
             ->missing('baja')
-            ->has('documentos_catalogo', 13));
+            // 13 + 2 documentos de la forma OT (constancia + finiquito).
+            ->has('documentos_catalogo', 15));
 
     $this->actingAs($this->gerente)->post(route('rh.bajas.store'), [
         'colaborador_id' => $this->persona->id,
@@ -75,13 +77,15 @@ test('registro, bandeja «Bajas», expediente y tablero cargan', function () {
 
     $this->actingAs($this->rh)->get(route('reportes.rotacion.tablero.index'))
         ->assertOk()
-        ->assertInertia(fn ($p) => $p->component('Reportes/TableroRotacion')->has('tablero.tendencia', 12)->has('tablero.resumen.por_forma', 3));
+        // por_forma incluye las 4 formas de salida: RV, NR, RE y OT.
+        ->assertInertia(fn ($p) => $p->component('Reportes/TableroRotacion')->has('tablero.tendencia', 12)->has('tablero.resumen.por_forma', 4));
 });
 
 test('ciclo laboral: el «Iniciar baja» trae las formas con causales y los catálogos del registro', function () {
     $this->actingAs($this->rh)->get(route('rh.colaboradores.ciclo', $this->persona))
         ->assertOk()
-        ->assertInertia(fn ($p) => $p->has('opciones.causas', 3)->has('opciones.recontratable', 3)->has('opciones.limites_baja'));
+        // RH (bajas.gestionar) ve las 4 formas: RV, NR, RE y OT (otras terminaciones).
+        ->assertInertia(fn ($p) => $p->has('opciones.causas', 4)->has('opciones.recontratable', 3)->has('opciones.limites_baja'));
 });
 
 test('vista previa del FINIQUITO antes de registrar: PDF inline, no-store, y no escribe nada', function () {

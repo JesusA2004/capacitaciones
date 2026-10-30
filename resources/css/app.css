@@ -90,6 +90,7 @@
     --color-forma-renuncia: var(--forma-salida-renuncia);
     --color-forma-no-renovacion: var(--forma-salida-no-renovacion);
     --color-forma-rescision: var(--forma-salida-rescision);
+    --color-forma-otra: var(--forma-salida-otra);
     --color-semaforo-sube: var(--semaforo-sube);
     --color-semaforo-baja: var(--semaforo-baja);
 }
@@ -457,6 +458,8 @@
     --forma-salida-renuncia: #00aeef;
     --forma-salida-no-renovacion: #af8b51;
     --forma-salida-rescision: #0d1b4b;
+    /* Otras terminaciones (fallecimiento / incapacidad permanente / jubilación): bronce. */
+    --forma-salida-otra: #754711;
     --semaforo-sube: #d64550;
     --semaforo-baja: #1fa774;
 

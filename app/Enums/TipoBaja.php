@@ -28,6 +28,7 @@ enum TipoBaja: string
     case Renuncia = 'renuncia';
     case Rescision = 'rescision';
     case FinContrato = 'fin_contrato';
+    case OtraTerminacion = 'otra_terminacion';
 
     /**
      * Etiquetas de los valores anteriores, para mostrar historial (timeline,
@@ -54,6 +55,7 @@ enum TipoBaja: string
             self::Renuncia => 'La persona decide irse. El sistema genera la carta de renuncia para imprimir y firmar.',
             self::Rescision => 'La empresa termina la relación por una falta grave de la persona (art. 47 LFT). El aviso de rescisión se adjunta a la baja.',
             self::FinContrato => 'La empresa decide no continuar, sin que exista una falta grave (bajo desempeño, periodo de prueba, término de contrato, reestructura…).',
+            self::OtraTerminacion => 'La relación termina por una causa ajena a la decisión de las partes: fallecimiento, incapacidad permanente total o jubilación/pensión. El documento es una constancia según el caso.',
         };
     }
 
@@ -73,12 +75,14 @@ enum TipoBaja: string
 
     /**
      * El finiquito estima indemnización (si la política está habilitada):
-     * nunca en renuncia; en rescisión y no renovación sí, salvo que la causal
-     * la excluya (faltas injustificadas o abandono, RE-01).
+     * nunca en renuncia ni en otras terminaciones (fallecimiento, incapacidad
+     * permanente, jubilación: pagan finiquito, no liquidación; sus flujos los
+     * define RH/Jurídico por caso); en rescisión y no renovación sí, salvo que
+     * la causal la excluya (faltas injustificadas o abandono, RE-01).
      */
     public function contemplaIndemnizacion(): bool
     {
-        return $this !== self::Renuncia;
+        return ! in_array($this, [self::Renuncia, self::OtraTerminacion], true);
     }
 
     /**

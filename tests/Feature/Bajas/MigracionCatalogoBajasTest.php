@@ -73,7 +73,7 @@ test('una baja con causal anterior sin equivalencia limpia se convierte, conserv
     expect($segundo['bajas_creadas'])->toBe(0)
         ->and($segundo['legado'])->toBe([])
         ->and([Baja::query()->count(), CausalRotacion::query()->count(), DB::table('baja_bitacora')->count()])->toBe($conteos)
-        ->and(CausalRotacion::query()->delCatalogo()->count())->toBe(17);
+        ->and(CausalRotacion::query()->delCatalogo()->count())->toBe(20);
 });
 
 test('un cierre ya ejecutado crea su baja cerrada (cuenta en el tablero)', function () {

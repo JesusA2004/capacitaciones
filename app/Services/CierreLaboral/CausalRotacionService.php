@@ -151,6 +151,8 @@ class CausalRotacionService
                 'comentario_obligatorio' => $c->comentario_obligatorio,
                 'alerta' => $c->alerta,
                 'excluye_indemnizacion' => $c->excluye_indemnizacion,
+                'implica_indemnizacion' => $c->implica_indemnizacion,
+                'integrar_expediente_probatorio' => $c->requiere_juridico,
                 'activo' => $c->activo,
                 'orden' => $c->orden,
                 // La solicitud, su cierre y su baja son la misma baja: se cuenta la mayor.
@@ -179,6 +181,7 @@ class CausalRotacionService
             'comentario_obligatorio' => (bool) ($datos['comentario_obligatorio'] ?? $forma === FormaSalida::Rescision),
             'alerta' => $this->textoOpcional($datos['alerta'] ?? null),
             'excluye_indemnizacion' => (bool) ($datos['excluye_indemnizacion'] ?? false),
+            'implica_indemnizacion' => (bool) ($datos['implica_indemnizacion'] ?? false),
             'activo' => (bool) ($datos['activo'] ?? true),
             'legado' => false,
             'orden' => ((int) CausalRotacion::query()->where('tipo', $tipo->value)->max('orden')) + 10,
@@ -205,7 +208,7 @@ class CausalRotacionService
 
         $nombre = $this->nombreLimpio((string) $datos['nombre']);
         $this->exigirNombreLibre($tipo, $nombre, $causal->id);
-        $campos = ['tipo', 'nombre', 'descripcion', 'requiere_juridico', 'comentario_obligatorio', 'alerta', 'excluye_indemnizacion', 'activo'];
+        $campos = ['tipo', 'nombre', 'descripcion', 'requiere_juridico', 'comentario_obligatorio', 'alerta', 'excluye_indemnizacion', 'implica_indemnizacion', 'activo'];
         $antes = $causal->only($campos);
 
         $causal->update([
@@ -218,6 +221,7 @@ class CausalRotacionService
             'comentario_obligatorio' => (bool) ($datos['comentario_obligatorio'] ?? $causal->comentario_obligatorio),
             'alerta' => $this->textoOpcional($datos['alerta'] ?? null),
             'excluye_indemnizacion' => (bool) ($datos['excluye_indemnizacion'] ?? false),
+            'implica_indemnizacion' => (bool) ($datos['implica_indemnizacion'] ?? false),
             'activo' => (bool) ($datos['activo'] ?? $causal->activo),
         ]);
 

@@ -30,6 +30,7 @@ use Illuminate\Support\Carbon;
  * @property bool $comentario_obligatorio
  * @property string|null $alerta
  * @property bool $excluye_indemnizacion
+ * @property bool $implica_indemnizacion
  * @property bool $activo
  * @property bool $legado
  * @property int|null $reemplazada_por_id
@@ -43,7 +44,7 @@ class CausalRotacion extends Model
 
     protected $fillable = [
         'tipo', 'forma_salida', 'clave', 'nombre', 'descripcion', 'requiere_juridico', 'comentario_obligatorio',
-        'alerta', 'excluye_indemnizacion', 'activo', 'legado', 'reemplazada_por_id', 'orden',
+        'alerta', 'excluye_indemnizacion', 'implica_indemnizacion', 'activo', 'legado', 'reemplazada_por_id', 'orden',
     ];
 
     protected function casts(): array
@@ -54,6 +55,7 @@ class CausalRotacion extends Model
             'requiere_juridico' => 'boolean',
             'comentario_obligatorio' => 'boolean',
             'excluye_indemnizacion' => 'boolean',
+            'implica_indemnizacion' => 'boolean',
             'activo' => 'boolean',
             'legado' => 'boolean',
             'orden' => 'integer',
@@ -99,7 +101,7 @@ class CausalRotacion extends Model
      */
     public function etiquetaConClave(): string
     {
-        return $this->clave !== null && preg_match('/^(RV|NR|RE)-\d{2}$/', $this->clave) === 1
+        return $this->clave !== null && preg_match('/^(RV|NR|RE|OT)-\d{2}$/', $this->clave) === 1
             ? sprintf('%s · %s', $this->clave, $this->nombre)
             : $this->nombre;
     }

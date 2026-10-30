@@ -100,15 +100,15 @@ Commit: relajar exclusión de gestores + tarjeta/filtro/etiqueta "Datos por comp
 | F3 Detalle editable | Ya existe con ajustes auditables. | Reusar; recalcular no borra ajustes sin advertencia. | — | 🔵 |
 | F4 Finiquito vs liquidación | Distinción solo por monto indemnización. | Derivar tipo de `TipoBaja::contemplaIndemnizacion()` + marca causal (D4); etiquetar. | Aceptación #14 | 🟡 |
 
-### Catálogo de causales (PDF pág. 14, 16)
+### Catálogo de causales (PDF pág. 14, 16) — 🟢 hecho y verificado (catálogo)
 
-**Hallazgos:** 17 causales en `config/bajas.php` → `causales_rotacion`. Columnas: `forma_salida`, `requiere_juridico` (**= la etiqueta "Jurídico"**), `comentario_obligatorio`, `alerta`, `excluye_indemnizacion` (**negativa**, solo RE-01), `legado`, `reemplazada_por_id`. Seeder idempotente (no sobrescribe ediciones RH). **RE-06 NO existe. Grupo OT NO existe (solo RV/NR/RE).** `FormaSalida` tiene 3 casos.
+| # inst. | Modificación aplicada | Prueba | Estado |
+|---|---|---|---|
+| C1 Etiqueta "Integrar expediente probatorio" | `CatalogoBajasService::causalArray()` expone `integrar_expediente_probatorio` (alias de `requiere_juridico`, misma marca, nueva lectura — aviso, no compuerta); `CausalesRotacionPanel.vue` muestra la etiqueta nueva. Columna `requiere_juridico` conservada. | CausalesRotacionTest | 🟢 |
+| C2 Marca "Implica indemnización" | Nueva columna `causales_rotacion.implica_indemnizacion` (migración `2026_10_30_130000`, backfill `true` en NR-01/03/05/06); modelo + catálogo + UI la exponen como regla configurable + advertencia (D4). **El cableado al cálculo del finiquito se hará en el incremento de Finiquitos** (no se tocó la fórmula). RE-06 no existe → no se crea. | CausalesRotacionTest | 🟢 |
+| C3 Grupo OT nuevo | `FormaSalida::OtraTerminacion` + `TipoBaja::OtraTerminacion` (todos los `match` completos; PHPStan 0); OT-01 Fallecimiento / OT-02 Incapacidad permanente total / OT-03 Jubilación o pensión (migración idempotente + config/seeder); documento = constancia adjunta (`documentos_maestros.otra_terminacion => []`, **no** carta/convenio/aviso); `contemplaIndemnizacion()=false` para OT (no se fuerza liquidación). OT es RH-only (no solicitable por gerente). | PantallasBajasTest, CausalesRotacionTest | 🟢 |
 
-| # inst. | Diferencia | Modificación | Prueba | Estado |
-|---|---|---|---|---|
-| C1 Etiqueta "Integrar expediente probatorio" | Hoy "Jurídico" via `requiere_juridico`. | Renombrar la etiqueta UI; el flag deja de ser compuerta (Incr.2) y pasa a ser aviso probatorio. Conservar históricos. | Aceptación #11 | 🟡 |
-| C2 Marca "Implica indemnización" + RE-06 | Solo existe `excluye_indemnizacion` (negativa). | Agregar flag **positivo** `implica_indemnizacion` en NR-01/03/05/06 (regla+advertencia, D4). RE-06 **no crear** (no existe). | Aceptación #14 | 🔴 |
-| C3 Grupo OT nuevo | No existe. | Agregar `FormaSalida::OT` + OT-01 Fallecimiento / OT-02 Incapacidad permanente total / OT-03 Jubilación o pensión, con flujos/documentos propios (no forzar misma carta). | — | 🔴 |
+> **Pendiente de definición RH/Jurídico (no inventado):** flujo avanzado de OT — captura de **beneficiario** en fallecimiento y manejo de **pensión IMSS** en incapacidad permanente. Hoy OT se registra con constancia + finiquito básico.
 
 ### Rotación (PDF pág. 12–13, 17)
 

@@ -63,6 +63,7 @@ const form = useForm({
     comentario_obligatorio: false,
     alerta: '',
     excluye_indemnizacion: false,
+    implica_indemnizacion: false,
     activo: true,
 });
 
@@ -73,9 +74,12 @@ function nueva(tipo: string) {
     form.nombre = '';
     form.descripcion = '';
     form.requiere_juridico = false;
-    form.comentario_obligatorio = tipo === 'rescision';
+    // Rescisión y otras terminaciones (casos sensibles) piden comentario.
+    form.comentario_obligatorio =
+        tipo === 'rescision' || tipo === 'otra_terminacion';
     form.alerta = '';
     form.excluye_indemnizacion = false;
+    form.implica_indemnizacion = false;
     form.activo = true;
     abierto.value = true;
 }
@@ -90,6 +94,7 @@ function editar(c: CausalRotacionAdmin) {
     form.comentario_obligatorio = c.comentario_obligatorio;
     form.alerta = c.alerta ?? '';
     form.excluye_indemnizacion = c.excluye_indemnizacion;
+    form.implica_indemnizacion = c.implica_indemnizacion;
     form.activo = c.activo;
     abierto.value = true;
 }
@@ -195,7 +200,12 @@ function mover(c: CausalRotacionAdmin, direccion: 'arriba' | 'abajo') {
                                 >Inactiva</Badge
                             >
                             <Badge v-if="c.requiere_juridico" variant="outline"
-                                >Jurídico</Badge
+                                >Integrar expediente probatorio</Badge
+                            >
+                            <Badge
+                                v-if="c.implica_indemnizacion"
+                                variant="outline"
+                                >Implica indemnización</Badge
                             >
                             <Badge
                                 v-if="c.comentario_obligatorio"
@@ -328,7 +338,19 @@ function mover(c: CausalRotacionAdmin, direccion: 'arriba' | 'abajo') {
                 </div>
                 <label class="flex items-start gap-2 text-sm">
                     <Casilla v-model="form.requiere_juridico" />
-                    <span>Requiere revisión de Jurídico antes del cierre</span>
+                    <span
+                        >Integrar expediente probatorio (aviso para que RH
+                        resguarde evidencia por si hay demanda; no es una
+                        autorización de Jurídico)</span
+                    >
+                </label>
+                <label class="flex items-start gap-2 text-sm">
+                    <Casilla v-model="form.implica_indemnizacion" />
+                    <span
+                        >Implica indemnización: el finiquito se calcula como
+                        liquidación (sujeto a validación jurídica de cada
+                        caso)</span
+                    >
                 </label>
                 <label class="flex items-start gap-2 text-sm">
                     <Casilla v-model="form.comentario_obligatorio" />

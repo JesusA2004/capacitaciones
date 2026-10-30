@@ -35,6 +35,15 @@ return new class extends Migration
                 $table->boolean('legado')->default(false)->after('activo');
                 $table->unsignedBigInteger('reemplazada_por_id')->nullable()->after('legado');
             }
+
+            // Marca «Implica indemnización» (propuesta Etapa 1). Se agrega aquí
+            // porque la siembra inline de causales (MigracionCatalogoBajasService
+            // ::aplicar() más abajo) ya usa la columna en instalaciones nuevas.
+            // Las instalaciones EXISTENTES la reciben por la migración
+            // 2026_10_30_130000 (ambas guardadas con hasColumn para no chocar).
+            if (! Schema::hasColumn('causales_rotacion', 'implica_indemnizacion')) {
+                $table->boolean('implica_indemnizacion')->default(false)->after('excluye_indemnizacion');
+            }
         });
 
         foreach (['cierres_laborales', 'solicitudes_internas'] as $tabla) {

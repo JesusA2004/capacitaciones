@@ -5,7 +5,7 @@
  * documentos (Bajas y finiquitos) y tablero de rotación.
  */
 
-export type FormaSalidaClave = 'RV' | 'NR' | 'RE';
+export type FormaSalidaClave = 'RV' | 'NR' | 'RE' | 'OT';
 
 /** Causal activa de una forma (CatalogoBajasService::causalArray). */
 export type CausalBajaOpcion = {

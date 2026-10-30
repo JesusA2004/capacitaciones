@@ -56,6 +56,12 @@ export const CLASE_FORMA: Record<
         borde: 'border-forma-rescision',
         bordeIzq: 'border-l-forma-rescision',
     },
+    otra: {
+        fondo: 'bg-forma-otra',
+        texto: 'text-forma-otra',
+        borde: 'border-forma-otra',
+        bordeIzq: 'border-l-forma-otra',
+    },
 };
 
 export function claseForma(token: string | null | undefined) {

@@ -359,6 +359,10 @@ return [
         'renuncia' => ['carta_renuncia'],
         'rescision' => [],
         'fin_contrato' => ['evaluacion_capacitacion', 'aviso_terminacion'],
+        // Otras terminaciones (fallecimiento, incapacidad permanente,
+        // jubilación): el sistema no genera carta/convenio/aviso; la constancia
+        // que acredita la causa se ADJUNTA.
+        'otra_terminacion' => [],
     ],
 
     /*

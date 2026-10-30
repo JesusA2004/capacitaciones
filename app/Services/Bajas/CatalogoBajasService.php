@@ -115,6 +115,7 @@ class CatalogoBajasService
             'comentario_obligatorio' => (bool) ($datos['comentario_obligatorio'] ?? false),
             'alerta' => isset($datos['alerta']) ? (string) $datos['alerta'] : null,
             'excluye_indemnizacion' => (bool) ($datos['excluye_indemnizacion'] ?? false),
+            'implica_indemnizacion' => (bool) ($datos['implica_indemnizacion'] ?? false),
         ];
     }
 
@@ -150,7 +151,13 @@ class CatalogoBajasService
     }
 
     /**
-     * @return array{id: int, clave: string|null, nombre: string, ayuda: string|null, descripcion: string|null, requiere_juridico: bool, comentario_obligatorio: bool, alerta: string|null}
+     * `requiere_juridico` se conserva como dato (compatibilidad), pero su
+     * lectura de negocio es "integrar expediente probatorio" (aviso para que RH
+     * resguarde evidencia; ya NO es autorización — compuerta retirada en Etapa
+     * 1). `implica_indemnizacion`: el finiquito se calcula como liquidación
+     * (regla configurable + advertencia, sujeta a validación jurídica).
+     *
+     * @return array{id: int, clave: string|null, nombre: string, ayuda: string|null, descripcion: string|null, requiere_juridico: bool, integrar_expediente_probatorio: bool, comentario_obligatorio: bool, alerta: string|null, excluye_indemnizacion: bool, implica_indemnizacion: bool}
      */
     public function causalArray(CausalRotacion $causal): array
     {
@@ -162,8 +169,12 @@ class CatalogoBajasService
             // Compatibilidad (diálogo anterior y API móvil): misma ayuda.
             'descripcion' => $causal->descripcion,
             'requiere_juridico' => $causal->requiere_juridico,
+            // Alias semántico de Etapa 1 (misma marca, nueva lectura).
+            'integrar_expediente_probatorio' => $causal->requiere_juridico,
             'comentario_obligatorio' => $causal->comentario_obligatorio,
             'alerta' => $causal->alerta,
+            'excluye_indemnizacion' => $causal->excluye_indemnizacion,
+            'implica_indemnizacion' => $causal->implica_indemnizacion,
         ];
     }
 

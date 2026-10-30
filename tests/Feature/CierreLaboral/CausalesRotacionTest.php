@@ -48,11 +48,12 @@ function causalPorClave(string $clave): CausalRotacion
     return CausalRotacion::query()->where('clave', $clave)->firstOrFail();
 }
 
-test('el catálogo tiene exactamente las 17 causales de la especificación con sus claves y textos', function () {
+test('el catálogo tiene las causales de la especificación (RV/NR/RE) más el grupo OT, con sus claves y textos', function () {
     $vigentes = CausalRotacion::query()->delCatalogo()->orderBy('clave')->get();
 
     expect($vigentes->pluck('clave')->all())->toBe([
         'NR-01', 'NR-02', 'NR-03', 'NR-04', 'NR-05', 'NR-06',
+        'OT-01', 'OT-02', 'OT-03',
         'RE-01', 'RE-02', 'RE-03', 'RE-04', 'RE-05',
         'RV-01', 'RV-02', 'RV-03', 'RV-04', 'RV-05', 'RV-06',
     ]);
@@ -70,12 +71,23 @@ test('el catálogo tiene exactamente las 17 causales de la especificación con s
             ->and($causal->activo)->toBeTrue();
     }
 
-    // Jurídico y comentario obligatorio según la especificación.
+    // «Integrar expediente probatorio» (requiere_juridico) y comentario
+    // obligatorio según la especificación; OT pide comentario (casos sensibles).
     expect($vigentes->where('requiere_juridico', true)->pluck('clave')->sort()->values()->all())
         ->toBe(['NR-01', 'NR-03', 'NR-05', 'NR-06', 'RE-01', 'RE-02', 'RE-03', 'RE-04', 'RE-05'])
         ->and($vigentes->where('comentario_obligatorio', true)->pluck('clave')->sort()->values()->all())
-        ->toBe(['RE-01', 'RE-02', 'RE-03', 'RE-04', 'RE-05', 'RV-05'])
+        ->toBe(['OT-01', 'OT-02', 'OT-03', 'RE-01', 'RE-02', 'RE-03', 'RE-04', 'RE-05', 'RV-05'])
         ->and(causalPorClave('RV-04')->alerta)->toContain('NOM-035');
+
+    // C2 — marca «Implica indemnización» en las no renovaciones indicadas.
+    expect($vigentes->where('implica_indemnizacion', true)->pluck('clave')->sort()->values()->all())
+        ->toBe(['NR-01', 'NR-03', 'NR-05', 'NR-06']);
+
+    // C3 — grupo OT (otras terminaciones) con su forma y tipo.
+    expect(causalPorClave('OT-01')->nombre)->toBe('Fallecimiento')
+        ->and(causalPorClave('OT-01')->forma())->toBe(FormaSalida::OtraTerminacion)
+        ->and(causalPorClave('OT-01')->tipo)->toBe(TipoBaja::OtraTerminacion)
+        ->and(TipoBaja::OtraTerminacion->contemplaIndemnizacion())->toBeFalse();
 
     // Las causales del catálogo anterior quedan como legado: inactivas, nunca borradas.
     expect(CausalRotacion::query()->where('legado', true)->where('activo', true)->count())->toBe(0);
@@ -86,7 +98,7 @@ test('sembrar dos veces no duplica nada', function () {
     $this->seed(CausalesRotacionSeeder::class);
 
     expect([CausalRotacion::query()->count(), DB::table('documentos_requeridos_baja')->count(), DB::table('formas_salida')->count()])->toBe($antes)
-        ->and($antes[2])->toBe(3);
+        ->and($antes[2])->toBe(4);
 });
 
 test('la causal debe ser activa y de la forma elegida; el atajo acepta la causal vacía (APK instaladas)', function () {
@@ -158,11 +170,11 @@ test('documentos generados por causal: renuncia → carta; NR-02 → evaluación
         ->and($documentos->clavesCausa($con(TipoBaja::Rescision, 'RE-01')))->toBe([]);
 });
 
-test('el diálogo de iniciar baja ofrece las tres formas en orden RV, NR, RE con causales, ayuda y reglas', function () {
+test('el diálogo de iniciar baja ofrece las formas en orden RV, NR, RE, OT con causales, ayuda y reglas', function () {
     $opciones = app(CausalRotacionService::class)->opcionesIniciarBaja($this->rh);
 
-    expect(array_column($opciones, 'forma'))->toBe(['RV', 'NR', 'RE'])
-        ->and(array_column($opciones, 'value'))->toBe(['renuncia', 'fin_contrato', 'rescision']);
+    expect(array_column($opciones, 'forma'))->toBe(['RV', 'NR', 'RE', 'OT'])
+        ->and(array_column($opciones, 'value'))->toBe(['renuncia', 'fin_contrato', 'rescision', 'otra_terminacion']);
 
     $rescision = collect($opciones)->firstWhere('forma', 'RE');
     expect(array_column($rescision['causales'], 'clave'))->toBe(['RE-01', 'RE-02', 'RE-03', 'RE-04', 'RE-05'])
@@ -173,7 +185,7 @@ test('el diálogo de iniciar baja ofrece las tres formas en orden RV, NR, RE con
 test('RH administra el catálogo desde Bajas y finiquitos; las causales nunca se borran; sin permiso no', function () {
     $this->actingAs($this->rh)->get(route('rh.cierres.index', ['seccion' => 'causales']))
         ->assertOk()
-        ->assertInertia(fn ($pagina) => $pagina->component('Rh/Cierres/Index')->where('seccion', 'causales')->has('causales', 17));
+        ->assertInertia(fn ($pagina) => $pagina->component('Rh/Cierres/Index')->where('seccion', 'causales')->has('causales', 20));
 
     $this->actingAs($this->rh)
         ->post(route('rh.causales-rotacion.store'), ['tipo' => 'rescision', 'nombre' => 'Acoso laboral', 'requiere_juridico' => true])

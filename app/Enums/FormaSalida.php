@@ -17,6 +17,7 @@ enum FormaSalida: string
     case RenunciaVoluntaria = 'RV';
     case NoRenovacion = 'NR';
     case Rescision = 'RE';
+    case OtraTerminacion = 'OT';
 
     public function etiqueta(): string
     {
@@ -24,6 +25,7 @@ enum FormaSalida: string
             self::RenunciaVoluntaria => 'Renuncia voluntaria',
             self::NoRenovacion => 'No renovación',
             self::Rescision => 'Rescisión',
+            self::OtraTerminacion => 'Otras terminaciones',
         };
     }
 
@@ -36,6 +38,7 @@ enum FormaSalida: string
             self::RenunciaVoluntaria => 'La persona decide irse.',
             self::NoRenovacion => 'La empresa decide no continuar, sin que exista una falta grave.',
             self::Rescision => 'La empresa termina la relación por una falta grave de la persona (art. 47 LFT).',
+            self::OtraTerminacion => 'La relación termina por una causa ajena a la decisión de las partes (fallecimiento, incapacidad permanente total, jubilación o pensión).',
         };
     }
 
@@ -48,6 +51,7 @@ enum FormaSalida: string
             self::RenunciaVoluntaria => 'La persona decide irse',
             self::NoRenovacion => 'La empresa decide no continuar',
             self::Rescision => 'Falta grave de la persona',
+            self::OtraTerminacion => 'Causa ajena a las partes',
         };
     }
 
@@ -57,6 +61,7 @@ enum FormaSalida: string
             self::RenunciaVoluntaria => 10,
             self::NoRenovacion => 20,
             self::Rescision => 30,
+            self::OtraTerminacion => 40,
         };
     }
 
@@ -69,6 +74,7 @@ enum FormaSalida: string
             self::RenunciaVoluntaria => 'renuncia',
             self::NoRenovacion => 'no-renovacion',
             self::Rescision => 'rescision',
+            self::OtraTerminacion => 'otra',
         };
     }
 
@@ -78,6 +84,7 @@ enum FormaSalida: string
             self::RenunciaVoluntaria => TipoBaja::Renuncia,
             self::NoRenovacion => TipoBaja::FinContrato,
             self::Rescision => TipoBaja::Rescision,
+            self::OtraTerminacion => TipoBaja::OtraTerminacion,
         };
     }
 
@@ -87,6 +94,7 @@ enum FormaSalida: string
             TipoBaja::Renuncia => self::RenunciaVoluntaria,
             TipoBaja::FinContrato => self::NoRenovacion,
             TipoBaja::Rescision => self::Rescision,
+            TipoBaja::OtraTerminacion => self::OtraTerminacion,
         };
     }
 }

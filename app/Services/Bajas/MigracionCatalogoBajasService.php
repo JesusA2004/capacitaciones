@@ -34,7 +34,7 @@ use Illuminate\Support\Str;
  */
 class MigracionCatalogoBajasService
 {
-    private const PATRON_CLAVE_NUEVA = '/^(RV|NR|RE)-\d{2}$/';
+    private const PATRON_CLAVE_NUEVA = '/^(RV|NR|RE|OT)-\d{2}$/';
 
     /** @var list<string> */
     private const TABLAS_CON_CAUSAL = ['cierres_laborales', 'solicitudes_internas', 'bajas'];
@@ -260,6 +260,7 @@ class MigracionCatalogoBajasService
             TipoBaja::Renuncia => 'Renuncia',
             TipoBaja::Rescision => 'Rescisión',
             TipoBaja::FinContrato => 'Fin de contrato',
+            TipoBaja::OtraTerminacion => 'Otras terminaciones',
         };
     }
 }
