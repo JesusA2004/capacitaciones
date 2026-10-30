@@ -10,6 +10,7 @@ use App\Enums\Recontratable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
 /**
@@ -68,6 +69,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read Colaborador|null $colaborador
  * @property-read CausalRotacion|null $causal
+ * @property-read BajaAvisoRescision|null $aviso
  * @property-read CierreLaboral|null $cierre
  * @property-read Sucursal|null $sucursal
  * @property-read Puesto|null $puesto
@@ -180,6 +182,14 @@ class Baja extends Model
     public function bitacora(): HasMany
     {
         return $this->hasMany(BajaBitacora::class);
+    }
+
+    /**
+     * @return HasOne<BajaAvisoRescision, $this>
+     */
+    public function aviso(): HasOne
+    {
+        return $this->hasOne(BajaAvisoRescision::class);
     }
 
     public function requiereJuridico(): bool

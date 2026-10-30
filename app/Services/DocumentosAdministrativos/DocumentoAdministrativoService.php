@@ -173,6 +173,12 @@ class DocumentoAdministrativoService
     public function html(FamiliaAdministrativa $familia, array $datos, array $diseno, MotorPdf $motor = MotorPdf::DomPdf): string
     {
         $contenido = array_map(fn (string $texto) => $this->sustituir($texto, $datos), $diseno['content']);
+
+        if (is_string($datos['titulo_documento'] ?? null)) {
+            $contenido['titulo'] = $datos['titulo_documento'];
+        }
+
+        $diseno['signatures']['blocks'] = array_map(fn (array $bloque): array => ['label' => $this->sustituir((string) $bloque['label'], $datos), 'detalle' => $this->sustituir((string) ($bloque['detalle'] ?? ''), $datos)], $diseno['signatures']['blocks']);
         $diseno['header']['brand_text'] = $this->sustituir((string) $diseno['header']['brand_text'], $datos);
         $diseno['footer']['text'] = $this->sustituir((string) $diseno['footer']['text'], $datos);
         [$ancho, $alto] = $diseno['page']['size'] === 'a4' ? [210, 297] : [215.9, 279.4];

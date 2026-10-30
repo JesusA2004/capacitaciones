@@ -15,6 +15,7 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $baja_id
  * @property int|null $documento_requerido_id
+ * @property string|null $clasificacion evidencia_rescision | firmado_salida | null
  * @property string $nombre
  * @property string $nombre_original
  * @property string $disco
@@ -35,7 +36,7 @@ class BajaDocumento extends Model
 
     protected $table = 'baja_documentos';
 
-    protected $fillable = ['baja_id', 'documento_requerido_id', 'nombre', 'nombre_original', 'disco', 'ruta', 'mime', 'tamano', 'cargado_por', 'quitado_por'];
+    protected $fillable = ['baja_id', 'documento_requerido_id', 'clasificacion', 'nombre', 'nombre_original', 'disco', 'ruta', 'mime', 'tamano', 'cargado_por', 'quitado_por'];
 
     protected $hidden = ['disco', 'ruta'];
 

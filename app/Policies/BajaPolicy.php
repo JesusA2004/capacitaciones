@@ -100,6 +100,18 @@ class BajaPolicy
         return $user->can(BajaService::PERMISO_JURIDICO) && $this->view($user, $baja);
     }
 
+    /** Generar documento de salida, aviso de rescisión y carga del firmado: RH. */
+    public function documentoSalida(User $user, Baja $baja): bool
+    {
+        return $user->can(BajaService::PERMISO_GESTIONAR) && $this->view($user, $baja);
+    }
+
+    /** El área competente (RH o Jurídico) valida el plazo del aviso. */
+    public function validarPlazoAviso(User $user, Baja $baja): bool
+    {
+        return ($user->can(BajaService::PERMISO_GESTIONAR) || $user->can(BajaService::PERMISO_JURIDICO)) && $this->view($user, $baja);
+    }
+
     public function verTablero(User $user): bool
     {
         return $user->can(BajaService::PERMISO_TABLERO);

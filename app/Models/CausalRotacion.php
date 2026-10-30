@@ -29,6 +29,7 @@ use Illuminate\Support\Carbon;
  * @property bool $requiere_juridico
  * @property bool $comentario_obligatorio
  * @property string|null $alerta
+ * @property string|null $fundamento_legal
  * @property bool $excluye_indemnizacion
  * @property bool $implica_indemnizacion
  * @property bool $activo
@@ -44,7 +45,7 @@ class CausalRotacion extends Model
 
     protected $fillable = [
         'tipo', 'forma_salida', 'clave', 'nombre', 'descripcion', 'requiere_juridico', 'comentario_obligatorio',
-        'alerta', 'excluye_indemnizacion', 'implica_indemnizacion', 'activo', 'legado', 'reemplazada_por_id', 'orden',
+        'alerta', 'fundamento_legal', 'excluye_indemnizacion', 'implica_indemnizacion', 'activo', 'legado', 'reemplazada_por_id', 'orden',
     ];
 
     protected function casts(): array

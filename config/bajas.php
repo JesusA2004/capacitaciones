@@ -31,6 +31,8 @@ return [
         'dias_futuro_maximo' => 15,
         // RN-12: rotación temprana = antigüedad menor a N días.
         'dias_rotacion_temprana' => 90,
+        // Testigos mínimos para generar el aviso de rescisión.
+        'testigos_minimos_aviso' => 2,
     ],
 
     // Archivos adjuntos a la baja (PDF o imagen), disco del NAS de expedientes.

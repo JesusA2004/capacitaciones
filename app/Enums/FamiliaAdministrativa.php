@@ -19,6 +19,9 @@ enum FamiliaAdministrativa: string
     case Permiso = 'permiso';
     case ComprobanteSolicitud = 'comprobante_solicitud';
     case ConstanciaLaboral = 'constancia_laboral';
+    case ConvenioTerminacion = 'convenio_terminacion';
+    case AvisoRescision = 'aviso_rescision';
+    case ConstanciaTerminacion = 'constancia_terminacion';
 
     public function etiqueta(): string
     {
@@ -28,6 +31,9 @@ enum FamiliaAdministrativa: string
             self::Permiso => 'Solicitud de permiso',
             self::ComprobanteSolicitud => 'Comprobante de vacaciones',
             self::ConstanciaLaboral => 'Constancia laboral',
+            self::ConvenioTerminacion => 'Convenio de terminación',
+            self::AvisoRescision => 'Aviso de rescisión',
+            self::ConstanciaTerminacion => 'Constancia de terminación',
         };
     }
 
@@ -39,6 +45,9 @@ enum FamiliaAdministrativa: string
             self::Permiso => 'Formato oficial «Solicitud de permiso». Se llena solo al autorizarlo Recursos Humanos.',
             self::ComprobanteSolicitud => 'Comprobante de vacaciones autorizadas.',
             self::ConstanciaLaboral => 'Constancia laboral con los datos vigentes del colaborador.',
+            self::ConvenioTerminacion => 'Documento de salida de una no renovación. Se llena con los datos del expediente de la baja.',
+            self::AvisoRescision => 'Documento de salida de una rescisión: causal, fundamento, hechos, testigos y entrega capturados en el expediente.',
+            self::ConstanciaTerminacion => 'Constancia de otras terminaciones (fallecimiento, incapacidad permanente total, jubilación o pensión).',
         };
     }
 
@@ -55,6 +64,8 @@ enum FamiliaAdministrativa: string
             self::Permiso => ['datos_colaborador' => 'Datos del colaborador', 'permiso_solicitado' => 'Permiso solicitado', 'tipo_permiso' => 'Tipo de permiso y causal', 'observaciones' => 'Observaciones', 'leyenda' => 'Leyenda'],
             self::ComprobanteSolicitud => ['datos_colaborador' => 'Datos del colaborador', 'detalle' => 'Detalle de la solicitud', 'observaciones' => 'Observaciones', 'leyenda' => 'Leyenda'],
             self::ConstanciaLaboral => ['datos_colaborador' => 'Datos del colaborador', 'notas' => 'Nota', 'leyenda' => 'Leyenda'],
+            self::ConvenioTerminacion, self::ConstanciaTerminacion => ['datos_colaborador' => 'Datos del colaborador', 'notas' => 'Nota', 'leyenda' => 'Leyenda'],
+            self::AvisoRescision => ['datos_colaborador' => 'Datos del colaborador', 'hechos' => 'Hechos', 'entrega' => 'Entrega del aviso', 'notas' => 'Nota', 'leyenda' => 'Leyenda'],
         };
     }
 
@@ -76,6 +87,8 @@ enum FamiliaAdministrativa: string
             self::Permiso => [...$colaborador, ...$empresa, 'folio', 'fecha_permiso', 'tipo_permiso', 'goce', 'causal', 'autorizo', 'fecha_autorizacion'],
             self::ComprobanteSolicitud => [...$colaborador, ...$empresa, 'folio', 'tipo', 'periodo', 'dias'],
             self::ConstanciaLaboral => [...$colaborador, ...$empresa, 'empresa', 'fecha_ingreso', 'lugar_fecha'],
+            self::ConvenioTerminacion, self::ConstanciaTerminacion => [...$colaborador, ...$empresa, 'folio', 'fecha_ingreso', 'fecha_baja', 'causal', 'lugar_fecha'],
+            self::AvisoRescision => [...$colaborador, ...$empresa, 'folio', 'fecha_ingreso', 'fecha_baja', 'causal', 'fundamento', 'fecha_aviso', 'lugar_fecha'],
         };
     }
 
@@ -118,6 +131,26 @@ enum FamiliaAdministrativa: string
                 'leyenda' => '',
                 'nota' => 'Se extiende la presente a petición del interesado para los fines que a éste convengan.',
             ],
+            // Formatos base sin clausulado jurídico propio: Jurídico/RH los
+            // validan y ajustan en Documentos administrativos (la nota lo dice).
+            self::ConvenioTerminacion => [
+                'titulo' => 'CONVENIO DE TERMINACIÓN',
+                'subtitulo' => 'Folio {{ folio }}',
+                'leyenda' => '',
+                'nota' => 'Formato base pendiente de validación de Jurídico. Se ajusta en Documentos maestros → Documentos administrativos.',
+            ],
+            self::AvisoRescision => [
+                'titulo' => 'AVISO DE RESCISIÓN',
+                'subtitulo' => 'Folio {{ folio }}',
+                'leyenda' => '',
+                'nota' => 'Formato base pendiente de validación de Jurídico. Se ajusta en Documentos maestros → Documentos administrativos.',
+            ],
+            self::ConstanciaTerminacion => [
+                'titulo' => 'CONSTANCIA DE TERMINACIÓN',
+                'subtitulo' => 'Folio {{ folio }}',
+                'leyenda' => '',
+                'nota' => 'Formato base pendiente de validación de Jurídico. Se ajusta en Documentos maestros → Documentos administrativos.',
+            ],
         };
     }
 
@@ -134,6 +167,9 @@ enum FamiliaAdministrativa: string
             self::Permiso => [['label' => 'Firma jefe inmediato'], ['label' => 'Firma Recursos Humanos'], ['label' => 'Firma colaborador']],
             self::ComprobanteSolicitud => [],
             self::ConstanciaLaboral => [['label' => 'Recursos Humanos']],
+            self::ConvenioTerminacion => [['label' => 'Nombre y firma del trabajador'], ['label' => '{{ empresa_razon_social }}', 'detalle' => 'Representante legal']],
+            self::AvisoRescision => [['label' => '{{ empresa_razon_social }}', 'detalle' => 'Representante legal'], ['label' => 'Recibí: nombre y firma del trabajador'], ['label' => 'Testigo'], ['label' => 'Testigo']],
+            self::ConstanciaTerminacion => [['label' => '{{ empresa_razon_social }}', 'detalle' => 'Representante legal']],
         };
     }
 }

@@ -5,8 +5,10 @@ namespace App\Services\Bajas;
 use App\Enums\EntregaAvisoRescision;
 use App\Enums\FormaSalida;
 use App\Models\Baja;
+use App\Services\Calendario\CalendarioLaboralService;
 use App\Support\FechaMexico;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -28,6 +30,8 @@ use Illuminate\Validation\ValidationException;
  */
 class BajaReglasService
 {
+    public function __construct(private readonly CalendarioLaboralService $calendario) {}
+
     /**
      * Errores que impiden enviar / validar / cerrar (campo => mensaje).
      *
@@ -71,7 +75,7 @@ class BajaReglasService
             }
 
             if ($baja->entrega_aviso_rescision === null) {
-                $errores['entrega_aviso_rescision'] = 'Indica cómo se entregó el aviso de rescisión (personal o ante el Tribunal).';
+                $errores['entrega_aviso_rescision'] = 'Indica cómo se entregó el aviso de rescisión (personalmente o si se negó a recibirlo).';
             }
 
             if ($baja->fecha_entrega_aviso === null) {
@@ -151,7 +155,8 @@ class BajaReglasService
 
     public function limiteAvisoTribunal(CarbonInterface $fechaBaja): CarbonInterface
     {
-        return $fechaBaja->copy()->startOfDay()->addWeekdays((int) config('bajas.reglas.dias_habiles_aviso_tribunal', 5));
+        // Días hábiles sin festivos (config/calendario_laboral.php).
+        return $this->calendario->sumarDiasHabilesSinFestivos(Carbon::parse($fechaBaja)->startOfDay(), (int) config('bajas.reglas.dias_habiles_aviso_tribunal', 5));
     }
 
     public function rotacionTemprana(Baja $baja): bool

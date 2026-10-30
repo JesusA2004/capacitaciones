@@ -4,7 +4,6 @@ namespace App\Services\Bajas;
 
 use App\Enums\AccionBitacoraBaja;
 use App\Enums\CategoriaNotificacion;
-use App\Enums\EstatusBaja;
 use App\Models\Baja;
 use App\Models\Colaborador;
 use App\Models\User;
@@ -44,18 +43,15 @@ class BajaAlertasService
      * o no renovación de la evaluación). El aviso «Baja registrada» a RH,
      * regionales y Sistemas (quién, a quién, forma/causal, fecha) lo manda
      * CierreLaboralService al aplicar el cierre (evento
-     * cierre_baja_solicitada); aquí: confirmación al actor, tarea para
-     * Jurídico si la causal lo requiere y las alertas de la especificación.
+     * cierre_baja_solicitada); aquí: confirmación al actor y las alertas de la
+     * especificación. Jurídico ya no recibe una tarea de revisión (flujo sin
+     * compuerta, PDF Etapa 1); conserva los avisos informativos de RE-03.
      */
     public function alRegistrar(Baja $baja, User $actor): void
     {
         $this->seguro(function () use ($baja, $actor): void {
             $this->eventos->confirmarAlActor($actor, new Aviso('baja_registrada', 'baja', 'Baja registrada', sprintf('La baja %s de %s quedó aplicada y sus accesos se suspendieron. Siguen sus documentos y el finiquito.', $baja->folio, $baja->nombre_colaborador), $baja, 'registrada'));
         });
-
-        if ($baja->estatus === EstatusBaja::EnRevisionJuridico) {
-            $this->alEnviarJuridico($baja, $actor);
-        }
 
         $this->alertas($baja, $actor);
     }
@@ -86,28 +82,6 @@ class BajaAlertasService
         if ($this->reglas->avisoTribunalFueraDePlazo($baja)) {
             $this->unaVez($baja, $actor, 'tribunal', fn () => $this->notificador->notificarEvento('baja_alerta_juridico', $this->colaborador($baja), ['excluir' => [$actor->id]], sprintf('Aviso de rescisión fuera de plazo: %s', $baja->folio), sprintf('El aviso de rescisión de %s se entregó ante el Tribunal el %s, más de %d días hábiles después de la baja (%s).', $baja->nombre_colaborador, $baja->fecha_entrega_aviso?->format('d/m/Y'), (int) config('bajas.reglas.dias_habiles_aviso_tribunal', 5), $baja->fecha_baja?->format('d/m/Y')), $baja, 'revisar_baja', 'alta'));
         }
-    }
-
-    public function alEnviarJuridico(Baja $baja, User $actor): void
-    {
-        $this->seguro(fn () => $this->notificador->notificarEvento('baja_revision_juridico', $this->colaborador($baja), ['solicitante' => $actor, 'excluir' => [$actor->id]], sprintf('Baja por revisar (Jurídico): %s', $baja->folio), sprintf('RH envió a Jurídico la baja de %s. Revisa el acta y el aviso.', $this->resumen($baja)), $baja, 'revisar_baja', 'alta'));
-    }
-
-    /**
-     * Jurídico aprobó (ya puede cerrarse) o la devolvió a RH con observaciones.
-     */
-    public function alResolverJuridico(Baja $baja, User $actor, bool $aprobada, ?string $motivo = null): void
-    {
-        $this->seguro(fn () => $this->notificador->notificarEvento(
-            'baja_por_revisar',
-            $this->colaborador($baja),
-            ['excluir' => [$actor->id]],
-            $aprobada ? sprintf('Jurídico aprobó: %s', $baja->folio) : sprintf('Jurídico devolvió: %s', $baja->folio),
-            $aprobada ? sprintf('Jurídico revisó la baja de %s: ya puede cerrarse.', $this->resumen($baja)) : sprintf('Jurídico devolvió la baja de %s: %s', $this->resumen($baja), (string) $motivo),
-            $baja,
-            $aprobada ? 'cerrar_baja' : 'revisar_baja',
-            'alta',
-        ));
     }
 
     /**

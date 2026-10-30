@@ -153,7 +153,7 @@ class BajaDocumentosService
         return $ultimoDiaPaso ? 'faltan_documentos' : 'en_tramite';
     }
 
-    public function adjuntar(Baja $baja, ?DocumentoRequeridoBaja $requerido, UploadedFile $archivo, User $actor): BajaDocumento
+    public function adjuntar(Baja $baja, ?DocumentoRequeridoBaja $requerido, UploadedFile $archivo, User $actor, ?string $clasificacion = null): BajaDocumento
     {
         if (in_array($baja->estatus, [EstatusBaja::Cerrada, EstatusBaja::Cancelada], true)) {
             throw ValidationException::withMessages(['archivo' => 'La baja ya está cerrada: no se adjuntan más documentos (RH puede reabrirla con motivo).']);
@@ -179,10 +179,11 @@ class BajaDocumentosService
             throw ValidationException::withMessages(['archivo' => 'No se pudo guardar el archivo en el almacenamiento (NAS no disponible). Intenta de nuevo; si continúa, avisa a sistemas.']);
         }
 
-        return DB::transaction(function () use ($baja, $requerido, $archivo, $actor, $ruta): BajaDocumento {
+        return DB::transaction(function () use ($baja, $requerido, $archivo, $actor, $ruta, $clasificacion): BajaDocumento {
             $documento = BajaDocumento::query()->create([
                 'baja_id' => $baja->id,
                 'documento_requerido_id' => $requerido?->id,
+                'clasificacion' => $clasificacion,
                 'nombre' => Str::limit($requerido->nombre ?? pathinfo($archivo->getClientOriginalName(), PATHINFO_FILENAME), 150, ''),
                 'nombre_original' => Str::limit($archivo->getClientOriginalName(), 255, ''),
                 'disco' => (string) config('expedientes.disk', 'nas'),
@@ -239,6 +240,7 @@ class BajaDocumentosService
             'id' => $documento->id,
             'nombre' => $documento->nombre,
             'nombre_original' => $documento->nombre_original,
+            'clasificacion' => $documento->clasificacion,
             'mime' => $documento->mime,
             'tamano' => $documento->tamano,
             'subido_por' => $documento->cargadoPor?->name,

@@ -51,7 +51,7 @@ class GuardarBajaRequest extends FormRequest
             'colaborador_id.required' => 'Elige al colaborador (busca por nombre o número de empleado).',
             'forma_salida.enum' => 'Elige cómo se va: renuncia voluntaria, no renovación o rescisión.',
             'recontratable.enum' => 'Indica si es recontratable: Sí, No o Con reservas.',
-            'entrega_aviso_rescision.enum' => 'Indica cómo se entregó el aviso: personal o ante el Tribunal.',
+            'entrega_aviso_rescision.enum' => 'Indica cómo se entregó el aviso: personalmente o si se negó a recibirlo.',
             'comentarios.max' => 'El comentario admite hasta :max caracteres.',
         ];
     }

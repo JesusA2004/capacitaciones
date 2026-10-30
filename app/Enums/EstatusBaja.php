@@ -62,7 +62,7 @@ enum EstatusBaja: string
      */
     public function esLegado(): bool
     {
-        return in_array($this, [self::Borrador, self::Rechazada], true);
+        return in_array($this, [self::Borrador, self::Rechazada, self::EnRevisionJuridico], true);
     }
 
     /**

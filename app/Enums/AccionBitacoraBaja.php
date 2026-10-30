@@ -28,6 +28,10 @@ enum AccionBitacoraBaja: string
     case Cancelo = 'cancelo';
     case Migrada = 'migrada';
     case Alerta = 'alerta';
+    case DocumentoSalida = 'documento_salida';
+    case AvisoRescision = 'aviso_rescision';
+    case FirmadoSalida = 'firmado_salida';
+    case ValidoPlazo = 'valido_plazo';
 
     public function etiqueta(): string
     {
@@ -52,6 +56,10 @@ enum AccionBitacoraBaja: string
             self::Cancelo => 'Marcó que la baja no procede',
             self::Migrada => 'Registro creado desde un cierre anterior',
             self::Alerta => 'Alerta enviada',
+            self::DocumentoSalida => 'Generó el documento de salida',
+            self::AvisoRescision => 'Capturó el aviso de rescisión',
+            self::FirmadoSalida => 'Cargó el documento de salida firmado',
+            self::ValidoPlazo => 'Validó el plazo del aviso de rescisión',
         };
     }
 }

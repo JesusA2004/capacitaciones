@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EstadoFiniquito;
+use App\Enums\TipoFiniquito;
 use Database\Factories\FiniquitoCalculoFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -46,6 +47,7 @@ use Illuminate\Support\Carbon;
  * @property string|null $comentarios_ajuste
  * @property array<string, mixed>|null $snapshot
  * @property EstadoFiniquito $estado
+ * @property TipoFiniquito|null $tipo_documento NULL en finiquitos anteriores: se deriva al leer (FiniquitoService::tipoDe).
  * @property string|null $documento_generado_path
  * @property string|null $documento_firmado_path
  * @property Carbon|null $firmado_fisicamente_en
@@ -96,6 +98,7 @@ class FiniquitoCalculo extends Model
         'comentarios_ajuste',
         'snapshot',
         'estado',
+        'tipo_documento',
         'documento_generado_path',
         'documento_firmado_path',
         'firmado_fisicamente_en',
@@ -167,6 +170,7 @@ class FiniquitoCalculo extends Model
             'total_ajustado' => 'decimal:2',
             'snapshot' => 'array',
             'estado' => EstadoFiniquito::class,
+            'tipo_documento' => TipoFiniquito::class,
             'total_percepciones' => 'decimal:2',
             'total_deducciones' => 'decimal:2',
             'neto' => 'decimal:2',

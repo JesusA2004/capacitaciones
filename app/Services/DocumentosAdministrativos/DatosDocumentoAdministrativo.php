@@ -4,11 +4,14 @@ namespace App\Services\DocumentosAdministrativos;
 
 use App\Enums\CausalPermisoEspecial;
 use App\Enums\FamiliaAdministrativa;
+use App\Enums\FormaSalida;
 use App\Enums\GocePermiso;
 use App\Enums\PeriodicidadNomina;
 use App\Enums\TipoConceptoNomina;
+use App\Enums\TipoFiniquito;
 use App\Enums\TipoPermisoSolicitado;
 use App\Enums\TipoSolicitudInterna;
+use App\Models\Baja;
 use App\Models\Colaborador;
 use App\Models\FiniquitoCalculo;
 use App\Models\ReciboNomina;
@@ -112,6 +115,8 @@ class DatosDocumentoAdministrativo
         return [
             ...$this->base($finiquito->colaborador),
             'folio' => (string) ($finiquito->solicitudInterna->folio ?? $finiquito->id),
+            // Sobrescribe el título del diseño cuando el documento es una liquidación.
+            'titulo_documento' => $finiquito->tipo_documento === TipoFiniquito::Liquidacion ? 'LIQUIDACIÓN' : null,
             'fecha_ingreso' => $this->fecha($finiquito->fecha_ingreso),
             'fecha_baja' => $this->fecha($finiquito->fecha_baja),
             'dias_trabajados' => $diasTrabajados,
@@ -229,6 +234,50 @@ class DatosDocumentoAdministrativo
     }
 
     /**
+     * Documento de salida de una baja (convenio, aviso de rescisión o
+     * constancia) con los datos del expediente: nada se inventa, lo que falta
+     * lo detiene antes BajaDocumentoSalidaService::faltantes().
+     *
+     * @return array<string, mixed>
+     */
+    public function salida(Baja $baja, Colaborador $colaborador): array
+    {
+        $baja->loadMissing(['causal', 'aviso', 'sucursal', 'puesto']);
+        $base = $this->base($colaborador);
+        $aviso = $baja->aviso;
+        $ahora = Carbon::now('America/Mexico_City');
+        $causal = (string) $baja->causal?->etiquetaConClave();
+        $hoy = $this->fecha($ahora);
+
+        return [
+            ...$base,
+            'folio' => $baja->folio,
+            'caja' => [[['Folio', $baja->folio], ['Fecha', $hoy]]],
+            'fecha_ingreso' => $this->fecha($baja->fecha_ingreso),
+            'fecha_baja' => $this->fecha($baja->fecha_baja),
+            'causal' => $causal,
+            'lugar_fecha' => sprintf('%s, a %s', (string) ($baja->sucursal->nombre ?? 'México'), $this->fechaLarga($ahora)),
+            'cuerpo' => match ($baja->forma_salida) {
+                FormaSalida::NoRenovacion => sprintf('%s y %s dan por terminada la relación laboral con último día laborado el %s, por el motivo «%s».', $base['empresa_razon_social'], $base['colaborador']['nombre'], $this->fecha($baja->fecha_baja), $causal),
+                FormaSalida::OtraTerminacion => sprintf('Se hace constar que la relación laboral de %s con %s concluyó el %s por: %s. %s', $base['colaborador']['nombre'], $base['empresa_razon_social'], $this->fecha($baja->fecha_baja), $causal, (string) $baja->comentarios),
+                default => sprintf('Por este medio se notifica a %s la rescisión de la relación laboral con %s, con efectos a partir del %s, por la causal «%s».', $base['colaborador']['nombre'], $base['empresa_razon_social'], $this->fecha($baja->fecha_baja), $causal),
+            },
+            'fundamento' => (string) $aviso?->fundamento,
+            'fecha_aviso' => $aviso !== null ? $this->fecha($aviso->fecha_aviso) : '',
+            'hechos' => $aviso !== null ? [
+                'que_ocurrio' => $aviso->que_ocurrio,
+                'cuando' => $aviso->hechos_en->format('d-m-Y H:i'),
+                'lugar' => $aviso->lugar,
+                'constataron' => $aviso->constataron,
+                'relato' => $aviso->relato,
+                'testigos' => array_map(fn (array $t): string => trim(sprintf('%s · %s', $t['nombre'], $t['cargo']), ' ·'), $aviso->testigos),
+                'entrega' => $aviso->metodo_entrega->etiqueta(),
+                'fecha_entrega' => $this->fecha($aviso->fecha_entrega),
+            ] : null,
+        ];
+    }
+
+    /**
      * Datos FICTICIOS y evidentes para la vista previa.
      *
      * @return array<string, mixed>
@@ -286,6 +335,16 @@ class DatosDocumentoAdministrativo
                 ...$base, 'empresa' => 'EMPRESA DE EJEMPLO S.A. DE C.V.', 'caja' => [[['Fecha', '05-10-2026']]], 'fecha_ingreso' => '01-03-2024',
                 'lugar_fecha' => 'Sucursal de ejemplo, a 5 de octubre de 2026',
                 'cuerpo' => 'Por medio de la presente se hace constar que COLABORADOR DE EJEMPLO labora en EMPRESA DE EJEMPLO S.A. DE C.V. desde el 01-03-2024, desempeñando el puesto de Gestor.',
+            ],
+            FamiliaAdministrativa::ConvenioTerminacion, FamiliaAdministrativa::ConstanciaTerminacion, FamiliaAdministrativa::AvisoRescision => [
+                ...$base, 'folio' => 'BAJ-EJEMPLO', 'caja' => [[['Folio', 'BAJ-EJEMPLO'], ['Fecha', '15-10-2026']]], 'fecha_ingreso' => '01-03-2024', 'fecha_baja' => '15-10-2026',
+                'causal' => 'Causal de ejemplo', 'lugar_fecha' => 'Sucursal de ejemplo, a 15 de octubre de 2026',
+                'cuerpo' => 'Texto de ejemplo con los datos del expediente de la baja.',
+                'fundamento' => 'Fundamento de ejemplo', 'fecha_aviso' => '15-10-2026',
+                'hechos' => [
+                    'que_ocurrio' => 'Hechos de ejemplo', 'cuando' => '14-10-2026 10:30', 'lugar' => 'Sucursal de ejemplo', 'constataron' => 'Persona de ejemplo',
+                    'relato' => 'Relato de ejemplo.', 'testigos' => ['Testigo de ejemplo · Puesto'], 'entrega' => 'Entregado personalmente', 'fecha_entrega' => '15-10-2026',
+                ],
             ],
         };
     }

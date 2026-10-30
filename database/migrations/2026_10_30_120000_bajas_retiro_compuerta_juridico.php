@@ -34,10 +34,6 @@ return new class extends Migration
             foreach ($bajas as $baja) {
                 DB::table('bajas')->where('id', $baja->id)->update([
                     'estatus' => 'en_revision_rh',
-                    // La revisión jurídica deja de ser requisito: se limpia la
-                    // marca de aprobación para no sugerir un paso que ya no existe.
-                    'juridico_por' => null,
-                    'juridico_en' => null,
                     'updated_at' => $ahora,
                 ]);
 

@@ -69,4 +69,53 @@ class CalendarioLaboralService
     {
         return ! $fecha->isWeekend();
     }
+
+    /**
+     * Igual que sumarDiasHabiles() pero sin contar los días de descanso
+     * obligatorio (config/calendario_laboral.php). Para plazos con efecto
+     * legal como el aviso de rescisión; los plazos internos anteriores
+     * conservan su cómputo de lunes a viernes.
+     */
+    public function sumarDiasHabilesSinFestivos(Carbon|string $desde, int $diasHabiles): Carbon
+    {
+        $fecha = $desde instanceof Carbon ? $desde->copy() : Carbon::parse($desde);
+        $restantes = $diasHabiles;
+
+        while ($restantes > 0) {
+            $fecha->addDay();
+
+            if ($this->esHabil($fecha) && ! $this->esFestivo($fecha)) {
+                $restantes--;
+            }
+        }
+
+        return $fecha;
+    }
+
+    public function esFestivo(Carbon $fecha): bool
+    {
+        if (in_array($fecha->toDateString(), array_map('strval', (array) config('calendario_laboral.adicionales', [])), true)) {
+            return true;
+        }
+
+        if (in_array($fecha->format('m-d'), array_map('strval', (array) config('calendario_laboral.fijos', [])), true)) {
+            return true;
+        }
+
+        $transmision = (array) config('calendario_laboral.transmision_ejecutivo', []);
+
+        if (isset($transmision['anio_base'], $transmision['cada'], $transmision['fecha'])
+            && $fecha->format('m-d') === (string) $transmision['fecha']
+            && ($fecha->year - (int) $transmision['anio_base']) % (int) $transmision['cada'] === 0) {
+            return true;
+        }
+
+        foreach ((array) config('calendario_laboral.lunes', []) as $regla) {
+            if ($fecha->isMonday() && $fecha->month === (int) $regla[0] && (int) ceil($fecha->day / 7) === (int) $regla[1]) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }
