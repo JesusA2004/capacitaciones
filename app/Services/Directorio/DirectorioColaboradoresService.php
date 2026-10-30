@@ -71,9 +71,9 @@ class DirectorioColaboradoresService
     }
 
     /**
-     * Directorio COMPLETO para la web (sin paginar: sin gestores son pocas
-     * decenas de personas), con lo necesario para agruparlo por puesto, por
-     * área y por sucursal en pantalla.
+     * Directorio COMPLETO para la web (sin paginar: toda la plantilla activa
+     * visible son unas pocas centenas de personas como máximo), con lo
+     * necesario para agruparlo por puesto, por área y por sucursal en pantalla.
      *
      * @return list<array<string, mixed>>
      */
@@ -167,10 +167,11 @@ class DirectorioColaboradoresService
     }
 
     /**
-     * Colaboradores activos que aparecen en el directorio: sin los grupos
-     * excluidos (gestores, config/directorio.php) y dentro del alcance de
-     * quien mira (sucursalesVisibles + su jefe directo). Un puesto sin grupo
-     * sí aparece.
+     * Colaboradores activos que aparecen en el directorio: toda la plantilla
+     * activa dentro del alcance de quien mira (sucursalesVisibles + su jefe
+     * directo). Por defecto no se excluye a nadie (propuesta Etapa 1); el
+     * mecanismo de exclusión por grupo/puesto sigue disponible vía
+     * config/directorio.php por si RH decide ocultar algún grupo.
      *
      * @return Builder<Colaborador>
      */
@@ -243,11 +244,17 @@ class DirectorioColaboradoresService
      * aquí lo publica a toda la empresa. El contacto solo sale si quien
      * mira tiene derecho a verlo (puedeVerContacto); si no, va nulo.
      *
-     * @return array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, departamento: string|null, correo_corporativo: string|null, telefono_corporativo: string|null, contacto_visible: bool, es_mi_jefe: bool}
+     * `datos_por_completar` (propuesta Etapa 1): true si la persona no tiene
+     * correo NI teléfono corporativo. Solo se expone a quien ve todos los
+     * contactos (RH); para los demás va null, igual que el filtro
+     * «solo con correo», para no permitir inferir quién tiene contacto.
+     *
+     * @return array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, departamento: string|null, correo_corporativo: string|null, telefono_corporativo: string|null, contacto_visible: bool, datos_por_completar: bool|null, es_mi_jefe: bool}
      */
     public function aArray(Colaborador $colaborador, ?User $viewer = null): array
     {
         $visible = $viewer !== null && $this->puedeVerContacto($viewer, $colaborador);
+        $veTodos = $viewer !== null && $this->veTodosLosContactos($viewer);
 
         return [
             'id' => $colaborador->id,
@@ -259,8 +266,18 @@ class DirectorioColaboradoresService
             'correo_corporativo' => $visible ? $colaborador->correo_corporativo : null,
             'telefono_corporativo' => $visible ? $colaborador->telefono_corporativo : null,
             'contacto_visible' => $visible,
+            'datos_por_completar' => $veTodos ? $this->sinContactoCorporativo($colaborador) : null,
             'es_mi_jefe' => $viewer?->colaborador !== null && $viewer->colaborador->jefe_id === $colaborador->id,
         ];
+    }
+
+    /** Sin correo NI teléfono corporativo capturado (datos por completar). */
+    private function sinContactoCorporativo(Colaborador $colaborador): bool
+    {
+        $correo = $colaborador->correo_corporativo;
+        $telefono = $colaborador->telefono_corporativo;
+
+        return ($correo === null || $correo === '') && ($telefono === null || $telefono === '');
     }
 
     /** Contactos de TODO el directorio: permiso explícito o personal corporativo. */

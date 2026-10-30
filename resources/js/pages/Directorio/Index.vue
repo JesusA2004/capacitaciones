@@ -52,6 +52,8 @@ type ColaboradorDirectorio = {
     telefono_corporativo: string | null;
     /** El backend solo manda el contacto a quien puede verlo. */
     contacto_visible?: boolean;
+    /** Sin correo ni teléfono corporativo. Solo llega a RH (ve todos); si no, null. */
+    datos_por_completar?: boolean | null;
     es_mi_jefe?: boolean;
     /** Foto oficial del expediente (URL protegida); null → iniciales. */
     foto_url?: string | null;
@@ -139,6 +141,8 @@ function vistaGuardada(): Vista {
 
 const vista = ref<Vista>(vistaGuardada());
 const busqueda = ref(props.filtros.busqueda ?? '');
+/** Filtro RH: solo quienes no tienen correo ni teléfono corporativo. */
+const soloPorCompletar = ref(false);
 
 watch(vista, (valor) => {
     try {
@@ -153,13 +157,17 @@ function plegar(texto: string): string {
 }
 
 const filtrados = computed(() => {
+    const base =
+        soloPorCompletar.value && props.veTodosLosContactos
+            ? lista.value.filter((c) => c.datos_por_completar === true)
+            : lista.value;
     const palabras = plegar(busqueda.value.trim()).split(/\s+/).filter(Boolean);
 
     if (palabras.length === 0) {
-        return lista.value;
+        return base;
     }
 
-    return lista.value.filter((c) => {
+    return base.filter((c) => {
         const texto = plegar(
             [c.nombre, c.puesto, c.sucursal, c.area, c.numero_empleado]
                 .filter(Boolean)
@@ -250,15 +258,20 @@ const editando = computed(
     () => lista.value.find((c) => c.id === editandoId.value) ?? null,
 );
 
-const totales = computed(() => ({
-    personas: filtrados.value.length,
-    corporativo: filtrados.value.filter((c) => c.es_corporativo).length,
-    sucursales: new Set(
-        filtrados.value
-            .filter((c) => !c.es_corporativo && c.sucursal_id)
-            .map((c) => c.sucursal_id),
-    ).size,
-}));
+// KPIs sobre toda la plantilla activa visible (no sobre la búsqueda), para que
+// coincidan con el Tablero. «Sucursales» cuenta PERSONAS en sucursales, no el
+// número de sucursales (propuesta Etapa 1): Corporativo + Sucursales = activas.
+const totales = computed(() => {
+    const todos = lista.value;
+    const corporativo = todos.filter((c) => c.es_corporativo).length;
+
+    return {
+        personas: todos.length,
+        corporativo,
+        sucursales: todos.length - corporativo,
+        porCompletar: todos.filter((c) => c.datos_por_completar === true).length,
+    };
+});
 
 function puedeEditar(c: ColaboradorDirectorio): boolean {
     return Boolean(props.edicion) && editables.value.has(c.id);
@@ -287,26 +300,45 @@ function detalle(c: ColaboradorDirectorio): string {
 
         <!-- Conteos -->
         <section
-            class="grid grid-cols-3 gap-2.5 sm:gap-3 lg:max-w-3xl"
+            class="grid gap-2.5 sm:gap-3 lg:max-w-4xl"
+            :class="
+                veTodosLosContactos
+                    ? 'grid-cols-2 sm:grid-cols-4'
+                    : 'grid-cols-3'
+            "
             aria-label="Resumen del directorio"
         >
             <TarjetaMetrica
-                etiqueta="Personas"
+                etiqueta="Personas activas"
                 :valor="totales.personas"
                 :icono="conIconos ? Users : null"
                 tono="primario"
+                detalle="Total de la plantilla activa"
             />
             <TarjetaMetrica
                 etiqueta="Corporativo"
                 :valor="totales.corporativo"
                 :icono="conIconos ? Building2 : null"
                 tono="oro"
+                detalle="Personas en Corporativo"
             />
             <TarjetaMetrica
                 etiqueta="Sucursales"
                 :valor="totales.sucursales"
                 :icono="conIconos ? Store : null"
                 tono="info"
+                detalle="Personas en sucursales"
+            />
+            <TarjetaMetrica
+                v-if="veTodosLosContactos"
+                etiqueta="Datos por completar"
+                :valor="totales.porCompletar"
+                :icono="conIconos ? MailX : null"
+                tono="alerta"
+                detalle="Aparecen con aviso, no se ocultan"
+                clicable
+                :activa="soloPorCompletar"
+                @click="soloPorCompletar = !soloPorCompletar"
             />
         </section>
 
@@ -444,6 +476,13 @@ function detalle(c: ColaboradorDirectorio): string {
                             <p class="truncate text-xs text-muted-foreground">
                                 {{ detalle(c) }}
                             </p>
+                            <span
+                                v-if="c.datos_por_completar === true"
+                                class="mt-0.5 inline-flex w-fit items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning"
+                            >
+                                <MailX class="size-3" />
+                                Datos por completar
+                            </span>
                             <a
                                 v-if="c.correo_corporativo"
                                 :href="`mailto:${c.correo_corporativo}`"
@@ -482,7 +521,8 @@ function detalle(c: ColaboradorDirectorio): string {
                                 v-if="
                                     !c.correo_corporativo &&
                                     !c.telefono_corporativo &&
-                                    c.contacto_visible !== false
+                                    c.contacto_visible !== false &&
+                                    c.datos_por_completar !== true
                                 "
                                 class="flex size-10 items-center justify-center rounded-xl bg-muted/70 text-muted-foreground/70"
                                 title="Sin contacto corporativo"

@@ -33,7 +33,7 @@ beforeEach(function () {
     ]);
 });
 
-const DIRECTORIO_CAMPOS = ['id', 'nombre', 'numero_empleado', 'puesto', 'sucursal', 'departamento', 'correo_corporativo', 'telefono_corporativo', 'contacto_visible', 'es_mi_jefe'];
+const DIRECTORIO_CAMPOS = ['id', 'nombre', 'numero_empleado', 'puesto', 'sucursal', 'departamento', 'correo_corporativo', 'telefono_corporativo', 'contacto_visible', 'datos_por_completar', 'es_mi_jefe'];
 const DIRECTORIO_PROHIBIDOS = ['sofi.personal@gmail.test', '5559998877', 'HEPS900101AB1', 'HEPS900101MMSRZF09', '12345678901', 'Calle Secreta', '62000', '456.78', '13703'];
 
 test('API móvil: el directorio solo serializa contacto corporativo, nunca datos sensibles', function () {

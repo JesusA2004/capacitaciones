@@ -62,13 +62,17 @@
 | 7 Tiempo por nivel | `tiempoPorNivel()`. | `TableroRhService::tiempoPorNivel()` | Barras horizontales escala automática. | Front. | Visual | 🟡 |
 | 8 Plantilla por sucursal | `resumenPorSucursal()`. | idem | Barras escala común 100%, chip %, orden por cobertura, Corporativo al final, clic filtra todo el tablero. | Front + estado de filtro. | Visual | 🟡 |
 
-### Directorio (PDF pág. 5)
+### Directorio (PDF pág. 5) — 🟢 hecho y verificado
 
-| # inst. | Comportamiento actual | Archivo real | Diferencia | Modificación | Prueba | Estado |
-|---|---|---|---|---|---|---|
-| 1 Mostrar 134 activas | Excluye `grupo_documental='gestor'` y `nombre LIKE 'Gestor%'`; solo `estatus='activo'`. | `app/Services/Directorio/DirectorioColaboradoresService.php::consulta()` (177-200), `config/directorio.php` (17-20) | Gestores excluidos; "en_incorporacion" fuera. | Relajar exclusión (listar todos los vigentes visibles); conservar gating de contacto en `aArray()`/`puedeVerContacto()`. | Aceptación #3, #4, #5 | 🟡 |
-| 2 Tarjetas Corp/Suc | 4 tarjetas existen parcialmente. | Vue Directorio | Tarjeta "Datos por completar" + validar Corp+Suc = activas. | Front + conteo. | Aceptación #4 | 🟡 |
-| 3 Aviso datos por completar | Contacto gateado, no hay etiqueta. | idem | Etiqueta "Datos por completar" + filtro "Solo datos por completar". | Front + filtro backend. | Visual pág. 5 | 🟡 |
+Commit: relajar exclusión de gestores + tarjeta/filtro/etiqueta "Datos por completar".
+
+| # inst. | Comportamiento actual | Archivo real | Modificación aplicada | Prueba | Estado |
+|---|---|---|---|---|---|
+| 1 Mostrar todas las activas | Excluía `grupo_documental='gestor'` y `nombre LIKE 'Gestor%'`. | `config/directorio.php`, `DirectorioColaboradoresService.php` | `excluir_grupos`/`excluir_puestos` → `[]` (mecanismo conservado por si RH quiere ocultar algo); gating de contacto intacto en `aArray()`/`puedeVerContacto()`. | `DirectorioTest` (gestores aparecen; API también) | 🟢 |
+| 2 Tarjetas Corp/Suc + total | Tarjeta "Sucursales" contaba # sucursales, no personas. | `Directorio/Index.vue` | 4 tarjetas: Personas activas / Corporativo / Sucursales (personas) / Datos por completar; Corp+Suc = activas por construcción. | `DirectorioTest` (invariante Corp+Suc=activas) | 🟢 |
+| 3 Aviso + filtro datos por completar | Sin etiqueta ni filtro. | servicio + Vue | Bandera `datos_por_completar` (gateada a RH) en `aArray()`; etiqueta por fila + filtro "Solo datos por completar" (tarjeta clicable). | `DirectorioSeguridadTest` (campo en lista cerrada), `DirectorioTest` (bandera null para operativo) | 🟢 |
+
+> Pendiente menor: truncado "Ver los N →" por grupo (hoy lista completa) y regresión visual con captura del app corriendo.
 
 ---
 
