@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Reclutamiento;
 
 use App\Enums\EstadoAgendaEvento;
-use App\Enums\EstadoCandidato;
 use App\Enums\MotivoNoViableAgenda;
 use App\Enums\TipoAgendaEvento;
 use App\Exports\ReporteRhExport;
@@ -11,11 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Reclutamiento\AgendarEventoRequest;
 use App\Http\Requests\Reclutamiento\ResultadoSocioeconomicoAgendaRequest;
 use App\Models\AgendaEvento;
-use App\Models\Candidato;
 use App\Models\Puesto;
-use App\Models\Sucursal;
-use App\Models\User;
-use App\Services\Permisos\AlcanceModuloService;
 use App\Services\Reclutamiento\AgendaConsultaService;
 use App\Services\Reclutamiento\AgendaEventoService;
 use App\Services\Reclutamiento\CvStorageService;
@@ -25,7 +20,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
@@ -41,7 +35,6 @@ class AgendaController extends Controller
     public function __construct(
         private readonly AgendaEventoService $agenda,
         private readonly AgendaConsultaService $consulta,
-        private readonly AlcanceModuloService $alcance,
         private readonly CvStorageService $cvStorage,
     ) {}
 
@@ -60,8 +53,8 @@ class AgendaController extends Controller
             'indicadores' => $this->consulta->indicadores($usuario, $periodo),
             'record' => $this->consulta->recordPorSucursal($usuario, $periodo),
             'eventoAbierto' => $abierto !== null ? $this->consulta->aArray($abierto, $usuario, true) : null,
-            'sucursales' => $this->sucursalesVisibles($usuario),
-            'candidatos' => $this->candidatosAgendables($usuario),
+            'sucursales' => $this->consulta->sucursalesVisibles($usuario),
+            'candidatos' => $this->consulta->candidatosAgendables($usuario),
             'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre']),
             'motivosNoViable' => array_map(fn (MotivoNoViableAgenda $m): array => ['value' => $m->value, 'etiqueta' => $m->etiqueta()], MotivoNoViableAgenda::cases()),
             'estados' => array_map(fn (EstadoAgendaEvento $e): array => ['value' => $e->value, 'etiqueta' => $e->etiqueta()], EstadoAgendaEvento::cases()),
@@ -95,7 +88,7 @@ class AgendaController extends Controller
             'hora' => ['required', 'date_format:H:i'],
             'excluir_id' => ['nullable', 'integer'],
         ]);
-        abort_unless($this->sucursalesVisibles($request->user())->contains('id', (int) $datos['sucursal_id']), 403);
+        abort_unless($this->consulta->sucursalesVisibles($request->user())->contains('id', (int) $datos['sucursal_id']), 403);
 
         return response()->json(['empalmes' => $this->agenda->empalmes(
             (int) $datos['sucursal_id'],
@@ -243,41 +236,5 @@ class AgendaController extends Controller
             'estado' => $datos['estado'] ?? null,
             'busqueda' => $datos['busqueda'] ?? null,
         ];
-    }
-
-    /**
-     * @return Collection<int, Sucursal>
-     */
-    private function sucursalesVisibles(User $usuario): Collection
-    {
-        return $this->alcance->limitarPorSucursal(Sucursal::query()->where('activo', true), $usuario, 'agenda', 'id')
-            ->orderBy('nombre')
-            ->get(['id', 'nombre'])
-            ->toBase();
-    }
-
-    /**
-     * Candidatos a los que todavía se les puede agendar algo, dentro del alcance.
-     *
-     * @return list<array{id: int, nombre: string, puesto: string|null, sucursal_id: int|null}>
-     */
-    private function candidatosAgendables(User $usuario): array
-    {
-        if (! $usuario->can('agenda.agendar')) {
-            return [];
-        }
-
-        $estados = array_map(fn (EstadoCandidato $e): string => $e->value, [
-            EstadoCandidato::Recibidos, EstadoCandidato::EntrevistaPendiente, EstadoCandidato::PsicometricasPendientes,
-            EstadoCandidato::RevisionPsicometricas, EstadoCandidato::SocioeconomicoPendiente,
-        ]);
-
-        return array_values($this->alcance->limitarPorSucursal(Candidato::query()->whereIn('estado', $estados), $usuario, 'agenda')
-            ->with(['puestoObjetivo:id,nombre'])
-            ->orderBy('nombre')
-            ->limit(1000)
-            ->get()
-            ->map(fn (Candidato $c): array => ['id' => $c->id, 'nombre' => $c->nombreCompleto(), 'puesto' => $c->puestoObjetivo?->nombre, 'sucursal_id' => $c->sucursal_id])
-            ->all());
     }
 }

@@ -19,6 +19,7 @@ El subgerente solo consulta por defecto. Sin `agenda.ver_datos_candidato`, los c
 | Método y ruta | Cuerpo | Respuesta |
 |---|---|---|
 | `GET /agenda?desde&hasta&sucursal_id&tipo&estado` | Por defecto, de hoy en adelante, sin reprogramadas ni canceladas | `data.dias[] = {fecha, eventos[]}`, `meta.motivos_no_viable[]`, `meta.puede_agendar`, `meta.puede_alta_candidato` |
+| `GET /agenda/opciones` | | `data.sucursales[] = {id, nombre}` del alcance; `data.candidatos[] = {id, nombre, puesto, sucursal_id}`, vacío sin `agenda.agendar` |
 | `GET /agenda/{id}` | | `data` = evento con `historial` |
 | `POST /agenda` | Ver abajo | `201`, o `200` con `repetido: true` si la clave ya existía. `data`, `empalmes[]` |
 | `POST /agenda/{id}/reprogramar` | `fecha`, `hora`, `motivo?` | `data` = la cita NUEVA, `empalmes[]` |
@@ -33,6 +34,8 @@ El subgerente solo consulta por defecto. Sin `agenda.ver_datos_candidato`, los c
 `sucursal_id`, `tipo` (`entrevista`/`socioeconomico`), `fecha` (`Y-m-d`), `hora` (`H:i`), `candidato_id` **o** `candidato_nuevo {nombre, apellidos?, telefono?, correo?, puesto_objetivo_id?, vacante_id?}`, `notas?`, `domicilio?`, `responsable_user_id?`, `cv?` (multipart), `clave_idempotencia?`.
 
 Genera `clave_idempotencia` (UUID) al abrir el formulario y reutilízala en cada reintento: el mismo envío devuelve la misma cita. La hora es de reloj de México. `origen` lo decide el servidor según la cuenta.
+
+Archivos del candidato, con la Policy de la ficha (`candidatos.ver` + alcance): `GET /rh/candidatos/{id}/cv` y `GET /rh/candidatos/{id}/evidencias/{evidencia}`.
 
 ## Evento
 

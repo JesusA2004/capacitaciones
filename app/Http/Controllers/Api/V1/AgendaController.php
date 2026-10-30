@@ -60,6 +60,18 @@ class AgendaController extends Controller
         ]);
     }
 
+    /** Catálogos para agendar desde la app; candidatos vacíos sin agenda.agendar. */
+    public function opciones(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', AgendaEvento::class);
+        $usuario = $request->user();
+
+        return response()->json(['data' => [
+            'sucursales' => $this->consulta->sucursalesVisibles($usuario)->values(),
+            'candidatos' => $this->consulta->candidatosAgendables($usuario),
+        ]]);
+    }
+
     public function show(Request $request, AgendaEvento $evento): JsonResponse
     {
         $this->authorize('view', $evento);

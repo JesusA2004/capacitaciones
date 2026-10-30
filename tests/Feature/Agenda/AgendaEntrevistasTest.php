@@ -5,9 +5,11 @@ use App\Enums\EstadoCandidato;
 use App\Enums\OrigenAgendaEvento;
 use App\Enums\ResultadoAgendaEvento;
 use App\Enums\ResultadoEtapaCandidato;
+use App\Enums\TipoEvidenciaCandidato;
 use App\Models\AgendaEvento;
 use App\Models\Candidato;
 use App\Models\CandidatoEntrevista;
+use App\Models\CandidatoEvidencia;
 use App\Models\CandidatoSocioeconomico;
 use App\Models\Colaborador;
 use App\Models\NotificacionEntrega;
@@ -384,4 +386,47 @@ test('la pantalla web respeta alcance y permisos, y las exportaciones son solo c
     $this->actingAs($colaborador)->get('/reclutamiento/agenda')->assertForbidden();
     Sanctum::actingAs($colaborador);
     $this->getJson('/api/v1/agenda')->assertForbidden();
+});
+
+test('las opciones para agendar respetan el alcance y el permiso', function () {
+    $this->actingAs($this->gerente);
+    $this->getJson('/api/v1/agenda/opciones')
+        ->assertOk()
+        ->assertJsonCount(1, 'data.sucursales')
+        ->assertJsonPath('data.sucursales.0.id', $this->ixtlahuaca->id)
+        ->assertJsonPath('data.candidatos.0.id', $this->candidato->id);
+
+    $this->actingAs($this->gerenteTula);
+    $this->getJson('/api/v1/agenda/opciones')->assertOk()->assertJsonPath('data.candidatos', []);
+
+    $this->actingAs($this->subgerente);
+    $this->getJson('/api/v1/agenda/opciones')->assertOk()->assertJsonPath('data.candidatos', []);
+});
+
+test('CV y evidencia del candidato se descargan por la API solo con alcance', function () {
+    $disco = (string) config('reclutamiento.disk');
+    Storage::disk($disco)->put('candidatos/cv.pdf', '%PDF-1.4 cv');
+    Storage::disk($disco)->put('candidatos/foto.jpg', 'jpg');
+    $this->candidato->forceFill(['cv_disk' => $disco, 'cv_path' => 'candidatos/cv.pdf', 'cv_original_name' => 'cv.pdf'])->save();
+    $evidencia = CandidatoEvidencia::query()->create([
+        'candidato_id' => $this->candidato->id,
+        'evidenciable_type' => Candidato::class,
+        'evidenciable_id' => $this->candidato->id,
+        'tipo' => TipoEvidenciaCandidato::Fotografia,
+        'disk' => $disco,
+        'path' => 'candidatos/foto.jpg',
+        'original_name' => 'foto.jpg',
+        'mime' => 'image/jpeg',
+        'size' => 3,
+    ]);
+    $otro = Candidato::factory()->create(['sucursal_id' => $this->ixtlahuaca->id]);
+
+    $this->actingAs($this->gerente);
+    $this->get("/api/v1/rh/candidatos/{$this->candidato->id}/cv")->assertOk();
+    $this->get("/api/v1/rh/candidatos/{$this->candidato->id}/evidencias/{$evidencia->id}")->assertOk();
+    $this->getJson("/api/v1/rh/candidatos/{$otro->id}/evidencias/{$evidencia->id}")->assertNotFound();
+
+    $this->actingAs($this->gerenteTula);
+    $this->getJson("/api/v1/rh/candidatos/{$this->candidato->id}/cv")->assertForbidden();
+    $this->getJson("/api/v1/rh/candidatos/{$this->candidato->id}/evidencias/{$evidencia->id}")->assertForbidden();
 });

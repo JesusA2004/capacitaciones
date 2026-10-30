@@ -15,13 +15,16 @@ use App\Http\Requests\Reclutamiento\RegistrarReferenciaRequest;
 use App\Http\Requests\Reclutamiento\RegistrarSocioeconomicoRequest;
 use App\Http\Requests\Reclutamiento\ResultadosPsicometricasRequest;
 use App\Models\Candidato;
+use App\Models\CandidatoEvidencia;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Reclutamiento\CadenaContratacionService;
 use App\Services\Reclutamiento\CandidatoPresenter;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
+use App\Services\Reclutamiento\CvStorageService;
 use App\Services\Reclutamiento\ExpedienteCandidatoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Reclutamiento para la app (gerente / RH). Mismos FormRequests y el MISMO
@@ -40,7 +43,25 @@ class CandidatoController extends Controller
         private readonly CicloLaboralService $ciclo,
         private readonly ExpedienteCandidatoService $expediente,
         private readonly CadenaContratacionService $cadena,
+        private readonly CvStorageService $cvStorage,
     ) {}
+
+    /** CV por la misma Policy que la web; el archivo se sirve siempre desde la API, nunca del NAS. */
+    public function cv(Request $request, Candidato $candidato): StreamedResponse
+    {
+        $this->authorize('view', $candidato);
+        abort_unless($candidato->cv_path !== null, 404);
+
+        return $this->cvStorage->respuestaArchivo($request, $candidato->cv_path, (string) $candidato->cv_original_name, descargar: true);
+    }
+
+    public function evidencia(Request $request, Candidato $candidato, CandidatoEvidencia $evidencia): StreamedResponse
+    {
+        $this->authorize('view', $candidato);
+        abort_unless($evidencia->candidato_id === $candidato->id, 404);
+
+        return $this->cvStorage->respuestaArchivo($request, $evidencia->path, $evidencia->original_name, $evidencia->mime, true);
+    }
 
     public function index(Request $request): JsonResponse
     {

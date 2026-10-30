@@ -386,6 +386,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         Route::prefix('agenda')->name('agenda.')->group(function () {
             Route::get('/', [AgendaController::class, 'index'])->name('index');
             Route::post('/', [AgendaController::class, 'store'])->name('store');
+            Route::get('opciones', [AgendaController::class, 'opciones'])->name('opciones');
             Route::get('{evento}', [AgendaController::class, 'show'])->name('show')->whereNumber('evento');
             Route::post('{evento}/reprogramar', [AgendaController::class, 'reprogramar'])->name('reprogramar');
             Route::post('{evento}/cancelar', [AgendaController::class, 'cancelar'])->name('cancelar');
@@ -446,6 +447,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('{candidato}/socioeconomico/revision', [RhCandidatoController::class, 'revisarSocioeconomico'])->name('socioeconomico.revision');
                 Route::post('{candidato}/referencias', [RhCandidatoController::class, 'registrarReferencia'])->name('referencias')->middleware('throttle:api-cargas');
                 Route::post('{candidato}/evidencias', [RhCandidatoController::class, 'agregarEvidencias'])->name('evidencias')->middleware('throttle:api-cargas');
+                Route::get('{candidato}/cv', [RhCandidatoController::class, 'cv'])->name('cv');
+                Route::get('{candidato}/evidencias/{evidencia}', [RhCandidatoController::class, 'evidencia'])->name('evidencias.descargar');
                 Route::post('{candidato}/referencias/concluir', [RhCandidatoController::class, 'concluirReferencias'])->name('referencias.concluir');
                 Route::post('{candidato}/autorizar', [RhCandidatoController::class, 'autorizarRh'])->name('autorizar');
                 Route::post('{candidato}/rechazar', [RhCandidatoController::class, 'rechazarRh'])->name('rechazar');

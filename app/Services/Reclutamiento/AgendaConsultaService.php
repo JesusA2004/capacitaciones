@@ -3,11 +3,14 @@
 namespace App\Services\Reclutamiento;
 
 use App\Enums\EstadoAgendaEvento;
+use App\Enums\EstadoCandidato;
 use App\Enums\OrigenAgendaEvento;
 use App\Enums\ResultadoAgendaEvento;
 use App\Enums\TipoAgendaEvento;
 use App\Models\AgendaEvento;
 use App\Models\AgendaEventoHistorial;
+use App\Models\Candidato;
+use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Permisos\AlcanceModuloService;
 use Illuminate\Database\Eloquent\Builder;
@@ -62,6 +65,42 @@ class AgendaConsultaService
             ->with(['candidato.puestoObjetivo:id,nombre', 'candidato.vacante.puesto:id,nombre', 'sucursal:id,nombre', 'agendadoPor:id,name'])
             ->orderBy('fecha_hora')
             ->get();
+    }
+
+    /**
+     * @return Collection<int, Sucursal>
+     */
+    public function sucursalesVisibles(User $usuario): Collection
+    {
+        return $this->alcance->limitarPorSucursal(Sucursal::query()->where('activo', true), $usuario, 'agenda', 'id')
+            ->orderBy('nombre')
+            ->get(['id', 'nombre'])
+            ->toBase();
+    }
+
+    /**
+     * Candidatos a los que todavía se les puede agendar algo, dentro del alcance.
+     *
+     * @return list<array{id: int, nombre: string, puesto: string|null, sucursal_id: int|null}>
+     */
+    public function candidatosAgendables(User $usuario): array
+    {
+        if (! $usuario->can('agenda.agendar')) {
+            return [];
+        }
+
+        $estados = array_map(fn (EstadoCandidato $e): string => $e->value, [
+            EstadoCandidato::Recibidos, EstadoCandidato::EntrevistaPendiente, EstadoCandidato::PsicometricasPendientes,
+            EstadoCandidato::RevisionPsicometricas, EstadoCandidato::SocioeconomicoPendiente,
+        ]);
+
+        return array_values($this->alcance->limitarPorSucursal(Candidato::query()->whereIn('estado', $estados), $usuario, 'agenda')
+            ->with(['puestoObjetivo:id,nombre'])
+            ->orderBy('nombre')
+            ->limit(1000)
+            ->get()
+            ->map(fn (Candidato $c): array => ['id' => $c->id, 'nombre' => $c->nombreCompleto(), 'puesto' => $c->puestoObjetivo?->nombre, 'sucursal_id' => $c->sucursal_id])
+            ->all());
     }
 
     /**
