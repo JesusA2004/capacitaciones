@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Rh;
 
 use App\Enums\EntregaAvisoRescision;
 use App\Enums\EstatusBaja;
+use App\Enums\FormaPagoFiniquito;
 use App\Enums\FormaSalida;
 use App\Enums\Recontratable;
 use App\Exports\ReporteRhExport;
@@ -25,6 +26,7 @@ use App\Services\Bajas\BajaService;
 use App\Services\Bajas\CatalogoBajasService;
 use App\Services\Bajas\TableroRotacionService;
 use App\Services\CierreLaboral\CausalRotacionService;
+use App\Services\Finiquitos\FiniquitoConsultaService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -52,6 +54,7 @@ class BajaController extends Controller
         private readonly CausalRotacionService $causales,
         private readonly TableroRotacionService $tablero,
         private readonly BajaDocumentoSalidaService $salida,
+        private readonly FiniquitoConsultaService $finiquitos,
     ) {}
 
     public function index(Request $request): Response
@@ -107,6 +110,9 @@ class BajaController extends Controller
         return Inertia::render('Rh/Bajas/Causales', [
             'pestanas' => $this->consulta->pestanas($request->user()),
             'causales' => $this->causales->listado(),
+            'grupos' => $this->causales->grupos(),
+            'documentos_por_forma' => $this->causales->documentosPorForma(),
+            'historial' => $this->causales->historial(),
             'tipos_baja' => array_map(fn (FormaSalida $f): array => ['value' => $f->tipoBaja()->value, 'label' => $f->etiqueta(), 'forma' => $f->value, 'token' => $f->token()], FormaSalida::cases()),
         ]);
     }
@@ -178,8 +184,12 @@ class BajaController extends Controller
     {
         $this->authorize('view', $baja);
         $usuario = $request->user();
+        $finiquito = $usuario->can('finiquitos.ver') ? $this->finiquitos->deBaja($baja) : null;
 
         return Inertia::render('Rh/Bajas/Show', [
+            // Expediente y pestaña Finiquitos operan el MISMO registro.
+            'finiquito' => $finiquito !== null && $usuario->can('ver', $finiquito) ? $this->finiquitos->detalle($finiquito, $usuario) : null,
+            'formas_pago' => array_map(fn (FormaPagoFiniquito $f): array => ['value' => $f->value, 'label' => $f->etiqueta()], FormaPagoFiniquito::cases()),
             'baja' => $this->bajas->detalle($baja, $usuario),
             'salida' => $usuario->can('documentoSalida', $baja) ? $this->salida->panel($baja, $usuario) : null,
             'causales' => $usuario->can(BajaService::PERMISO_GESTIONAR) ? $this->catalogo->opciones() : [],

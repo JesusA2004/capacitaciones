@@ -6,10 +6,12 @@ import {
     Download,
     Eye,
     FileUp,
+    Pencil,
     Plus,
     Trash2,
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
+import EditorDocumentoSalida from '@/components/bajas/EditorDocumentoSalida.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import InputError from '@/components/InputError.vue';
 import ChipEstado from '@/components/people/ChipEstado.vue';
@@ -38,20 +40,29 @@ const procesando = ref(false);
 const motivo = ref('');
 const pidiendoVersion = ref(false);
 const huellaRegistrada = ref(false);
+const corrigiendo = ref(false);
 
 const opciones = [
     {
-        forma: 'RV',
+        clave: 'carta_renuncia',
         titulo: 'Carta de renuncia',
         detalle: 'Renuncia voluntaria',
     },
     {
-        forma: 'NR',
+        clave: 'convenio_terminacion',
         titulo: 'Convenio de terminación',
         detalle: 'No renovación',
     },
-    { forma: 'RE', titulo: 'Aviso de rescisión', detalle: 'Rescisión' },
-    { forma: 'OT', titulo: 'Constancia', detalle: 'Otras terminaciones' },
+    {
+        clave: 'aviso_rescision',
+        titulo: 'Aviso de rescisión',
+        detalle: 'Rescisión',
+    },
+    {
+        clave: 'constancia_terminacion',
+        titulo: 'Constancia',
+        detalle: 'Otras terminaciones',
+    },
 ];
 
 const esRescision = computed(() => props.panel.forma === 'RE');
@@ -174,12 +185,14 @@ function validarPlazo() {
         >
             <div
                 v-for="o in opciones"
-                :key="o.forma"
-                :aria-current="panel.forma === o.forma ? 'true' : undefined"
+                :key="o.clave"
+                :aria-current="
+                    panel.documento?.clave === o.clave ? 'true' : undefined
+                "
                 :class="
                     cn(
                         'border-r border-border/60 px-2 py-1.5 text-center text-xs last:border-r-0',
-                        panel.forma === o.forma
+                        panel.documento?.clave === o.clave
                             ? 'bg-[var(--mrl-petroleo)] font-semibold text-white'
                             : 'text-muted-foreground',
                     )
@@ -460,6 +473,12 @@ function validarPlazo() {
                 >
             </Button>
             <Button
+                v-if="!panel.generado?.firmado && !panel.faltantes.length"
+                variant="outline"
+                @click="corrigiendo = true"
+                ><Pencil class="size-4" />Corregir contenido</Button
+            >
+            <Button
                 v-if="!panel.generado || pidiendoVersion"
                 :disabled="procesando || panel.faltantes.length > 0"
                 @click="generar"
@@ -482,7 +501,10 @@ function validarPlazo() {
                     >Nueva versión</Button
                 >
                 <label
-                    v-if="panel.generado.requiere_huella && !panel.generado.firmado"
+                    v-if="
+                        panel.generado.requiere_huella &&
+                        !panel.generado.firmado
+                    "
                     class="inline-flex items-center gap-1.5 text-xs"
                 >
                     <input v-model="huellaRegistrada" type="checkbox" />
@@ -508,6 +530,18 @@ function validarPlazo() {
             </template>
         </div>
 
+        <div v-if="panel.ediciones.length" class="grid gap-1 text-xs">
+            <p class="font-medium">Correcciones</p>
+            <p v-for="e in panel.ediciones" :key="e.id">
+                {{ e.campos.join(', ') || 'Valores originales' }}:
+                <span class="italic">«{{ e.motivo }}»</span>
+                <span class="text-muted-foreground">
+                    · {{ e.usuario ?? '—' }} ·
+                    {{ formatearFechaHora(e.fecha) }}</span
+                >
+            </p>
+        </div>
+
         <ul v-if="panel.firmados.length" class="grid gap-1 text-xs">
             <li v-for="f in panel.firmados" :key="f.id">
                 <a
@@ -523,4 +557,6 @@ function validarPlazo() {
             </li>
         </ul>
     </section>
+
+    <EditorDocumentoSalida v-model:open="corrigiendo" :panel="panel" />
 </template>

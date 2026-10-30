@@ -84,6 +84,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // de los tres tipos de baja. Sin borrado de las ya usadas.
         Route::prefix('causales-rotacion')->name('causales-rotacion.')->group(function () {
             Route::post('/', [CausalRotacionController::class, 'store'])->name('store');
+            Route::post('grupos', [CausalRotacionController::class, 'grupoStore'])->name('grupos.store');
+            Route::put('grupos/{grupo}', [CausalRotacionController::class, 'grupoUpdate'])->name('grupos.update');
+            Route::patch('grupos/{grupo}/activo', [CausalRotacionController::class, 'grupoActivo'])->name('grupos.activo');
             Route::put('{causal}', [CausalRotacionController::class, 'update'])->name('update');
             Route::patch('{causal}/activo', [CausalRotacionController::class, 'activo'])->name('activo');
             Route::post('{causal}/mover', [CausalRotacionController::class, 'mover'])->name('mover');

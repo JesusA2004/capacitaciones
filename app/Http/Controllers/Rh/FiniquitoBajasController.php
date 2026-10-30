@@ -7,6 +7,7 @@ use App\Enums\TipoFiniquito;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\EntregaFiniquitoRequest;
 use App\Http\Requests\Rh\AjustarConceptoFiniquitoRequest;
+use App\Http\Requests\Rh\CorregirFiniquitoRequest;
 use App\Http\Requests\Rh\SubirFiniquitoFirmadoRequest;
 use App\Models\FiniquitoCalculo;
 use App\Models\Sucursal;
@@ -82,6 +83,27 @@ class FiniquitoBajasController extends Controller
         $this->finiquitos->ajustarConceptoAutomatico($finiquito, (string) $request->validated('concepto_clave'), (float) $request->validated('importe'), (string) $request->validated('motivo'), $request->user());
 
         return $this->ok('Importe ajustado; quedó en la bitácora y el total se recalculó.');
+    }
+
+    /** Regenera el PDF con los importes que RH está corrigiendo; no guarda nada. */
+    public function vistaPrevia(CorregirFiniquitoRequest $request, FiniquitoCalculo $finiquito): HttpResponse
+    {
+        $this->authorize('editarAjustes', $finiquito);
+
+        return response($this->finiquitos->vistaPreviaCorregida($finiquito, $request->cambios()), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="Vista previa - Finiquito.pdf"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
+    public function corregir(CorregirFiniquitoRequest $request, FiniquitoCalculo $finiquito): RedirectResponse
+    {
+        $this->authorize('editarAjustes', $finiquito);
+        $this->consulta->corregir($finiquito, $request->cambios(), (string) $request->input('motivo'), $request->user());
+
+        return $this->ok('Correcciones guardadas: el total se recalculó y el finiquito vuelve a «Calculado» para revisarse.');
     }
 
     public function cambiarTipo(Request $request, FiniquitoCalculo $finiquito): RedirectResponse

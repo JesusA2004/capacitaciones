@@ -12,6 +12,7 @@ import {
 import { computed, ref } from 'vue';
 import DocumentosBaja from '@/components/bajas/DocumentosBaja.vue';
 import GeneradorDocumentoSalida from '@/components/bajas/GeneradorDocumentoSalida.vue';
+import PanelFiniquito from '@/components/bajas/PanelFiniquito.vue';
 import Casilla from '@/components/Common/Casilla.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
@@ -36,18 +37,19 @@ import { formatearFecha, formatearFechaHora } from '@/lib/fechas';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import rutasBajas from '@/routes/rh/bajas';
-import rutasFiniquitos from '@/routes/rh/bajas/finiquitos';
 import { index as cierresIndex } from '@/routes/rh/cierres';
 import { ciclo as cicloColaborador } from '@/routes/rh/colaboradores';
 import type {
     BajaDetalle,
+    DetalleFiniquitoBaja,
     FormaSalidaOpcion,
     LimitesBaja,
     PanelDocumentoSalida,
 } from '@/types';
 
 /**
- * Expediente de la baja: datos, documentos con vista previa, bitácora y
+ * Expediente de la baja: datos, documento de salida, finiquito (el mismo
+ * registro que la pestaña Finiquitos), documentos con vista previa, bitácora y
  * acciones según el rol. La baja ya está APLICADA desde que se registró —
  * RH: completar/corregir datos, cambiar causal con motivo, generar el documento
  * de salida, Cerrar, Reabrir con motivo y «No procede»; Jurídico: consulta (ya no
@@ -57,6 +59,8 @@ import type {
 const props = defineProps<{
     baja: BajaDetalle;
     salida: PanelDocumentoSalida | null;
+    finiquito: DetalleFiniquitoBaja | null;
+    formas_pago: { value: string; label: string }[];
     causales: FormaSalidaOpcion[];
     recontratable: { value: string; label: string }[];
     entregas: { value: string; label: string }[];
@@ -153,7 +157,7 @@ const opcionesCausal = computed(() =>
     props.causales.flatMap((f) =>
         f.causales.map((c) => ({
             value: c.id,
-            label: `${f.etiqueta} · ${c.clave ? `${c.clave} ` : ''}${c.nombre}`,
+            label: `${f.etiqueta}${c.grupo ? ` · ${c.grupo}` : ''} · ${c.clave ? `${c.clave} ` : ''}${c.nombre}`,
         })),
     ),
 );
@@ -360,6 +364,21 @@ const datos = computed(() => [
             </div>
         </div>
 
+        <PanelFiniquito
+            v-if="finiquito"
+            :finiquito="finiquito"
+            :formas-pago="formas_pago"
+            :enlace-expediente="false"
+        />
+
+        <p
+            v-else-if="baja.cierre && tienePermiso('finiquitos.ver')"
+            class="rounded-2xl bg-muted px-4 py-3 text-sm"
+        >
+            Esta baja todavía no tiene finiquito calculado. Se calcula desde su
+            ciclo laboral y aparecerá aquí.
+        </p>
+
         <div class="grid gap-5 xl:grid-cols-[3fr_2fr]">
             <div class="grid content-start gap-5">
                 <section
@@ -449,7 +468,7 @@ const datos = computed(() => [
                         class="mt-4 flex flex-wrap items-center gap-2 rounded-xl bg-menta px-3 py-2 text-sm"
                     >
                         <span
-                            >Cierre laboral (finiquito y documentos generados):
+                            >Cierre laboral:
                             <strong>{{
                                 baja.cierre.estado_etiqueta
                             }}</strong></span
@@ -467,16 +486,6 @@ const datos = computed(() => [
                                     )
                                 "
                                 >Ver ciclo laboral</Link
-                            >
-                        </Button>
-                        <Button
-                            v-if="tienePermiso('finiquitos.ver')"
-                            size="sm"
-                            variant="outline"
-                            as-child
-                        >
-                            <Link :href="rutasFiniquitos.index()"
-                                >Ver finiquitos</Link
                             >
                         </Button>
                     </div>
@@ -506,8 +515,8 @@ const datos = computed(() => [
                                         },
                                     })
                                 "
-                                ><FolderOpen class="size-4" />Generados y
-                                finiquito</Link
+                                ><FolderOpen class="size-4" />Documentos
+                                generados</Link
                             >
                         </Button>
                     </div>

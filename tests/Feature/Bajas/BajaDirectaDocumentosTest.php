@@ -67,6 +67,33 @@ afterEach(function () {
     }
 });
 
+test('corregir la carta real: los datos variables salen editados y la empresa no se ofrece', function () {
+    $rh = clUsuario('rh_admin', ['sucursal_principal_id' => $this->persona->sucursal_principal_id]);
+    $this->actingAs($rh)->post(route('rh.bajas.store'), [
+        'colaborador_id' => $this->persona->id,
+        'forma_salida' => 'RV',
+        'causal_rotacion_id' => $this->causal->id,
+        'fecha_baja' => now()->subDay()->toDateString(),
+        'recontratable' => 'si',
+        'comentarios' => 'Renuncia por una mejor oferta laboral.',
+    ])->assertRedirect();
+    $baja = Baja::query()->where('colaborador_id', $this->persona->id)->latest('id')->firstOrFail();
+
+    $campos = $this->actingAs($rh)->getJson(route('rh.bajas.salida.campos', $baja))->assertOk()->json('campos');
+    $claves = array_column($campos, 'clave');
+    expect($claves)->not->toBeEmpty()
+        ->and(preg_grep('/representante|patron|razon_social|empresa|firma/i', $claves))->toBe([]);
+
+    $campo = $campos[0];
+    $this->actingAs($rh)->postJson(route('rh.bajas.salida.vista-previa-editada', $baja), ['campos' => [$campo['clave'] => 'Dato corregido por RH']])
+        ->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    $this->actingAs($rh)->post(route('rh.bajas.salida.generar', $baja), ['campos' => [$campo['clave'] => 'Dato corregido por RH'], 'motivo' => 'Dato equivocado en la carta'])->assertSessionHasNoErrors();
+
+    $vigente = GeneratedDocument::query()->where('clave_plantilla', 'carta_renuncia')->latest('id')->firstOrFail();
+    // El maestro puede normalizar el formato del campo (p. ej. a mayúsculas).
+    expect(mb_strtoupper((string) ($vigente->payload[$campo['clave']] ?? '')))->toBe('DATO CORREGIDO POR RH');
+});
+
 test('antes de registrar: la renuncia y el finiquito se ven sin crear baja, cierre, trámite ni documento; al registrar la renuncia queda generada', function () {
     $fecha = now()->subDay()->toDateString();
     $datosFlujo = http_build_query(['tipo_baja' => 'renuncia', 'causal_rotacion_id' => $this->causal->id, 'fecha_efectiva' => $fecha, 'motivo' => '']);

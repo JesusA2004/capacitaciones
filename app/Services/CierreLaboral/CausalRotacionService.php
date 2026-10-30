@@ -5,12 +5,14 @@ namespace App\Services\CierreLaboral;
 use App\Enums\DocumentoSalida;
 use App\Enums\FormaSalida;
 use App\Enums\TipoBaja;
+use App\Models\CausalGrupo;
 use App\Models\CausalRotacion;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Bajas\CatalogoBajasService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use Spatie\Activitylog\Models\Activity;
 
 /**
  * Causales de baja (segundo nivel del catálogo, docs/BAJAS_Y_CAUSALES.md):
@@ -50,7 +52,7 @@ class CausalRotacionService
 
         $causal = is_numeric($causalId) ? CausalRotacion::query()->where('id', (int) $causalId)->first() : null;
 
-        if ($causal === null || ! $causal->activo || $causal->legado) {
+        if ($causal === null || ! $causal->activo || $causal->legado || $causal->grupo?->activo === false) {
             throw ValidationException::withMessages(['causal_rotacion_id' => 'Esa causal no existe o ya no está activa.']);
         }
 
@@ -136,6 +138,7 @@ class CausalRotacionService
     {
         return array_values(CausalRotacion::query()
             ->delCatalogo()
+            ->with('grupo:id,nombre,activo')
             ->withCount(['cierres', 'solicitudes', 'bajas'])
             ->get()
             ->sortBy(fn (CausalRotacion $c): string => sprintf('%02d-%06d-%s', $c->forma()->orden(), $c->orden, $c->nombre))
@@ -152,7 +155,10 @@ class CausalRotacionService
                 'comentario_obligatorio' => $c->comentario_obligatorio,
                 'alerta' => $c->alerta,
                 'fundamento_legal' => $c->fundamento_legal,
-                'genera' => DocumentoSalida::deForma($c->forma())->etiqueta(),
+                'genera' => (DocumentoSalida::tryFrom((string) $c->documento_salida) ?? DocumentoSalida::deForma($c->forma()))->etiqueta(),
+                'documento_salida' => $c->documento_salida,
+                'causal_grupo_id' => $c->causal_grupo_id,
+                'grupo' => $c->grupo?->nombre,
                 'excluye_indemnizacion' => $c->excluye_indemnizacion,
                 'implica_indemnizacion' => $c->implica_indemnizacion,
                 'integrar_expediente_probatorio' => $c->requiere_juridico,
@@ -177,6 +183,8 @@ class CausalRotacionService
         $causal = DB::transaction(fn (): CausalRotacion => CausalRotacion::query()->create([
             'tipo' => $tipo,
             'forma_salida' => $forma,
+            'causal_grupo_id' => $this->grupoDe($datos, $forma),
+            'documento_salida' => $this->documentoDe($datos, $forma),
             'clave' => $this->siguienteClave($forma),
             'nombre' => $nombre,
             'descripcion' => $this->textoOpcional($datos['descripcion'] ?? null),
@@ -212,12 +220,14 @@ class CausalRotacionService
 
         $nombre = $this->nombreLimpio((string) $datos['nombre']);
         $this->exigirNombreLibre($tipo, $nombre, $causal->id);
-        $campos = ['tipo', 'nombre', 'descripcion', 'requiere_juridico', 'comentario_obligatorio', 'alerta', 'fundamento_legal', 'excluye_indemnizacion', 'implica_indemnizacion', 'activo'];
+        $campos = ['tipo', 'causal_grupo_id', 'documento_salida', 'nombre', 'descripcion', 'requiere_juridico', 'comentario_obligatorio', 'alerta', 'fundamento_legal', 'excluye_indemnizacion', 'implica_indemnizacion', 'activo'];
         $antes = $causal->only($campos);
 
         $causal->update([
             'tipo' => $tipo,
             'forma_salida' => $tipo->forma(),
+            'causal_grupo_id' => $this->grupoDe($datos, $tipo->forma()),
+            'documento_salida' => $this->documentoDe($datos, $tipo->forma()),
             'clave' => $tipo === $causal->tipo ? $causal->clave : $this->siguienteClave($tipo->forma()),
             'nombre' => $nombre,
             'descripcion' => $this->textoOpcional($datos['descripcion'] ?? null),
@@ -241,6 +251,162 @@ class CausalRotacionService
         $this->auditoria->registrar($activo ? 'causal_rotacion_activada' : 'causal_rotacion_desactivada', $causal, $actor, ['clave' => $causal->clave, 'nombre' => $causal->nombre]);
 
         return $causal->refresh();
+    }
+
+    /**
+     * Subcatálogos que RH capturó, con cuántas causales tiene cada uno.
+     *
+     * @return list<array{id: int, forma: string, nombre: string, descripcion: string|null, activo: bool, causales: int}>
+     */
+    public function grupos(): array
+    {
+        return array_values(CausalGrupo::query()->withCount('causales')->orderBy('orden')->orderBy('nombre')->get()
+            ->map(fn (CausalGrupo $g): array => [
+                'id' => $g->id,
+                'forma' => $g->forma_salida->value,
+                'nombre' => $g->nombre,
+                'descripcion' => $g->descripcion,
+                'activo' => $g->activo,
+                'causales' => (int) $g->getAttribute('causales_count'),
+            ])->all());
+    }
+
+    /**
+     * @param  array<string, mixed>  $datos  forma_salida, nombre, descripcion?
+     */
+    public function crearGrupo(array $datos, User $actor): CausalGrupo
+    {
+        $forma = FormaSalida::from((string) $datos['forma_salida']);
+        $nombre = $this->nombreLimpio((string) $datos['nombre']);
+        $this->exigirGrupoLibre($forma, $nombre, null);
+        $grupo = CausalGrupo::query()->create([
+            'forma_salida' => $forma,
+            'nombre' => $nombre,
+            'descripcion' => $this->textoOpcional($datos['descripcion'] ?? null),
+            'orden' => ((int) CausalGrupo::query()->where('forma_salida', $forma->value)->max('orden')) + 10,
+        ]);
+        $this->auditoria->registrar('causal_grupo_creado', $grupo, $actor, ['nombre' => $nombre, 'forma' => $forma->value]);
+
+        return $grupo;
+    }
+
+    /**
+     * La forma no cambia: reclasificaría las causales del subcatálogo.
+     *
+     * @param  array<string, mixed>  $datos  nombre, descripcion?
+     */
+    public function actualizarGrupo(CausalGrupo $grupo, array $datos, User $actor): CausalGrupo
+    {
+        $nombre = $this->nombreLimpio((string) $datos['nombre']);
+        $this->exigirGrupoLibre($grupo->forma_salida, $nombre, $grupo->id);
+        $antes = $grupo->only(['nombre', 'descripcion']);
+        $grupo->update(['nombre' => $nombre, 'descripcion' => $this->textoOpcional($datos['descripcion'] ?? null)]);
+        $this->auditoria->registrar('causal_grupo_actualizado', $grupo, $actor, ['nombre' => $nombre, 'antes' => $antes]);
+
+        return $grupo->refresh();
+    }
+
+    public function cambiarActivoGrupo(CausalGrupo $grupo, bool $activo, User $actor): CausalGrupo
+    {
+        $grupo->update(['activo' => $activo]);
+        $this->auditoria->registrar($activo ? 'causal_grupo_activado' : 'causal_grupo_desactivado', $grupo, $actor, ['nombre' => $grupo->nombre]);
+
+        return $grupo->refresh();
+    }
+
+    /**
+     * Documentos que puede generar una causal, por forma de salida.
+     *
+     * @return array<string, list<array{value: string, label: string}>>
+     */
+    public function documentosPorForma(): array
+    {
+        $opciones = [];
+
+        foreach (FormaSalida::cases() as $forma) {
+            $opciones[$forma->value] = array_map(fn (DocumentoSalida $d): array => ['value' => $d->value, 'label' => $d->etiqueta()], DocumentoSalida::opcionesDe($forma));
+        }
+
+        return $opciones;
+    }
+
+    /**
+     * Últimos cambios del catálogo (causales y subcatálogos).
+     *
+     * @return list<array{id: int, accion: string, nombre: string, usuario: string|null, fecha: string|null}>
+     */
+    public function historial(int $limite = 30): array
+    {
+        $etiquetas = [
+            'causal_rotacion_creada' => 'Agregó la causal',
+            'causal_rotacion_actualizada' => 'Editó la causal',
+            'causal_rotacion_activada' => 'Activó la causal',
+            'causal_rotacion_desactivada' => 'Desactivó la causal',
+            'causal_rotacion_reordenada' => 'Cambió el orden de',
+            'causal_grupo_creado' => 'Agregó el subcatálogo',
+            'causal_grupo_actualizado' => 'Editó el subcatálogo',
+            'causal_grupo_activado' => 'Activó el subcatálogo',
+            'causal_grupo_desactivado' => 'Desactivó el subcatálogo',
+        ];
+
+        return array_values(Activity::query()->where('log_name', AuditoriaService::LOG)->whereIn('event', array_keys($etiquetas))->with('causer')->latest('id')->limit($limite)->get()
+            ->map(function (Activity $a) use ($etiquetas): array {
+                $causante = $a->causer;
+
+                return [
+                    'id' => (int) $a->getKey(),
+                    'accion' => $etiquetas[(string) $a->event] ?? (string) $a->event,
+                    'nombre' => (string) ($a->getExtraProperty('nombre') ?? data_get($a->properties, 'despues.nombre', '')),
+                    'usuario' => $causante instanceof User ? trim(sprintf('%s %s', $causante->name, $causante->apellidos)) : null,
+                    'fecha' => $a->created_at?->toDateTimeString(),
+                ];
+            })->all());
+    }
+
+    /**
+     * @param  array<string, mixed>  $datos
+     */
+    private function grupoDe(array $datos, FormaSalida $forma): ?int
+    {
+        if (! is_numeric($datos['causal_grupo_id'] ?? null)) {
+            return null;
+        }
+
+        $grupo = CausalGrupo::query()->where('id', (int) $datos['causal_grupo_id'])->first();
+
+        if ($grupo === null || $grupo->forma_salida !== $forma) {
+            throw ValidationException::withMessages(['causal_grupo_id' => 'Ese subcatálogo no pertenece a esta forma de salida.']);
+        }
+
+        return $grupo->id;
+    }
+
+    /**
+     * @param  array<string, mixed>  $datos
+     */
+    private function documentoDe(array $datos, FormaSalida $forma): ?string
+    {
+        $documento = DocumentoSalida::tryFrom((string) ($datos['documento_salida'] ?? ''));
+
+        if ($documento === null) {
+            return null;
+        }
+
+        if (! in_array($documento, DocumentoSalida::opcionesDe($forma), true)) {
+            throw ValidationException::withMessages(['documento_salida' => 'Ese documento no corresponde a esta forma de salida.']);
+        }
+
+        return $documento->value;
+    }
+
+    private function exigirGrupoLibre(FormaSalida $forma, string $nombre, ?int $ignorar): void
+    {
+        $existe = CausalGrupo::query()->where('forma_salida', $forma->value)->where('nombre', $nombre)
+            ->when($ignorar !== null, fn ($q) => $q->where('id', '!=', $ignorar))->exists();
+
+        if ($existe) {
+            throw ValidationException::withMessages(['nombre' => sprintf('Ya existe el subcatálogo «%s» en %s.', $nombre, mb_strtolower($forma->etiqueta()))]);
+        }
     }
 
     /**

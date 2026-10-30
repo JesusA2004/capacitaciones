@@ -4,7 +4,12 @@ import PestanasBajas from '@/components/bajas/PestanasBajas.vue';
 import CausalesRotacionPanel from '@/components/Rh/CausalesRotacionPanel.vue';
 import { dashboard } from '@/routes';
 import rutasBajas from '@/routes/rh/bajas';
-import type { CausalRotacionAdmin, PestanasBajas as Pestanas } from '@/types';
+import type {
+    CausalGrupoAdmin,
+    CausalRotacionAdmin,
+    HistorialCatalogoBajas,
+    PestanasBajas as Pestanas,
+} from '@/types';
 
 /**
  * Bajas → «Catálogo de causales» (solo RH). La autorización real vive en
@@ -13,6 +18,9 @@ import type { CausalRotacionAdmin, PestanasBajas as Pestanas } from '@/types';
 defineProps<{
     pestanas: Pestanas;
     causales: CausalRotacionAdmin[];
+    grupos: CausalGrupoAdmin[];
+    documentos_por_forma: Record<string, { value: string; label: string }[]>;
+    historial: HistorialCatalogoBajas[];
     tipos_baja: {
         value: string;
         label: string;
@@ -37,6 +45,12 @@ defineOptions({
 
     <div class="pagina-ancha flex flex-col gap-5">
         <PestanasBajas :pestanas="pestanas" actual="causales" />
-        <CausalesRotacionPanel :causales="causales" :tipos="tipos_baja" />
+        <CausalesRotacionPanel
+            :causales="causales"
+            :tipos="tipos_baja"
+            :grupos="grupos"
+            :documentos-por-forma="documentos_por_forma"
+            :historial="historial"
+        />
     </div>
 </template>

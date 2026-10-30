@@ -396,6 +396,19 @@ class MotorDocumentalService
     }
 
     /**
+     * Valores con los que hoy se llenaría el maestro (solo sus campos), sin
+     * renderizar: los usa la corrección de un documento antes de generarlo.
+     *
+     * @return array<string, string>
+     */
+    public function valoresDelMaestro(DocumentTemplate $master, ContextoDocumento $contexto): array
+    {
+        $valores = $this->expresiones->completar((array) ($master->mapping ?? []), $this->datos->resolver($contexto));
+
+        return array_intersect_key($valores, array_flip($this->camposDelMaestro($master)));
+    }
+
+    /**
      * QA administrativo ("Probar con colaborador"): mismo render que
      * generarDesdeMaestro() pero sin persistir. Los datos que falten quedan
      * EN BLANCO en el PDF (nunca «[FALTA: …]» impreso en el documento) y se

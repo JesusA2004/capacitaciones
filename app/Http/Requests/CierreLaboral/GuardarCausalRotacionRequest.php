@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\CierreLaboral;
 
+use App\Enums\DocumentoSalida;
 use App\Enums\TipoBaja;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -25,6 +26,8 @@ class GuardarCausalRotacionRequest extends FormRequest
     {
         return [
             'tipo' => ['required', Rule::enum(TipoBaja::class)],
+            'causal_grupo_id' => ['nullable', 'integer'],
+            'documento_salida' => ['nullable', Rule::enum(DocumentoSalida::class)],
             'nombre' => ['required', 'string', 'min:3', 'max:80'],
             'descripcion' => ['nullable', 'string', 'max:300'],
             'requiere_juridico' => ['nullable', 'boolean'],
@@ -58,6 +61,8 @@ class GuardarCausalRotacionRequest extends FormRequest
     {
         return [
             'tipo' => (string) $this->validated('tipo'),
+            'causal_grupo_id' => $this->filled('causal_grupo_id') ? (int) $this->validated('causal_grupo_id') : null,
+            'documento_salida' => $this->filled('documento_salida') ? (string) $this->validated('documento_salida') : null,
             'nombre' => (string) $this->validated('nombre'),
             'descripcion' => $this->filled('descripcion') ? (string) $this->validated('descripcion') : null,
             'requiere_juridico' => $this->has('requiere_juridico') ? $this->boolean('requiere_juridico') : null,

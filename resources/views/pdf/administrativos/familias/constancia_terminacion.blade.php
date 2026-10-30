@@ -29,6 +29,10 @@
     </div>
 @endif
 
+@if (($d['texto_adicional'] ?? '') !== '')
+    <div class="seccion"><p style="text-align: justify; white-space: pre-line;">{{ $d['texto_adicional'] }}</p></div>
+@endif
+
 @if (($v['notas'] ?? true) && $contenido['nota'] !== '')
     <div class="seccion"><p>{{ $contenido['nota'] }}</p></div>
 @endif

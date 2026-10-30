@@ -27,6 +27,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('{finiquito}/recalcular', [FiniquitoBajasController::class, 'recalcular'])->name('recalcular');
             Route::post('{finiquito}/revisar', [FiniquitoBajasController::class, 'revisar'])->name('revisar');
             Route::post('{finiquito}/ajustar', [FiniquitoBajasController::class, 'ajustar'])->name('ajustar');
+            Route::post('{finiquito}/vista-previa', [FiniquitoBajasController::class, 'vistaPrevia'])->name('vista-previa')->middleware('throttle:30,1');
+            Route::post('{finiquito}/corregir', [FiniquitoBajasController::class, 'corregir'])->name('corregir');
             Route::post('{finiquito}/tipo', [FiniquitoBajasController::class, 'cambiarTipo'])->name('tipo');
             Route::get('{finiquito}/recibo', [FiniquitoBajasController::class, 'recibo'])->name('recibo')->middleware('throttle:30,1');
             Route::post('{finiquito}/firmado', [FiniquitoBajasController::class, 'subirFirmado'])->name('firmado')->middleware('throttle:30,1');
@@ -52,6 +54,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('aviso', [BajaDocumentoSalidaController::class, 'guardarAviso'])->name('aviso');
             Route::post('plazo', [BajaDocumentoSalidaController::class, 'validarPlazo'])->name('plazo');
             Route::get('vista-previa', [BajaDocumentoSalidaController::class, 'vistaPrevia'])->name('vista-previa')->middleware('throttle:30,1');
+            Route::get('campos', [BajaDocumentoSalidaController::class, 'campos'])->name('campos')->middleware('throttle:60,1');
+            Route::post('vista-previa-editada', [BajaDocumentoSalidaController::class, 'vistaPreviaEditada'])->name('vista-previa-editada')->middleware('throttle:30,1');
             Route::post('generar', [BajaDocumentoSalidaController::class, 'generar'])->name('generar')->middleware('throttle:30,1');
             Route::get('descargar', [BajaDocumentoSalidaController::class, 'descargar'])->name('descargar');
             Route::post('firmado', [BajaDocumentoSalidaController::class, 'subirFirmado'])->name('firmado')->middleware('throttle:30,1');

@@ -32,6 +32,8 @@ enum AccionBitacoraBaja: string
     case AvisoRescision = 'aviso_rescision';
     case FirmadoSalida = 'firmado_salida';
     case ValidoPlazo = 'valido_plazo';
+    case CorrigioDocumento = 'corrigio_documento';
+    case CorrigioFiniquito = 'corrigio_finiquito';
 
     public function etiqueta(): string
     {
@@ -60,6 +62,8 @@ enum AccionBitacoraBaja: string
             self::AvisoRescision => 'Capturó el aviso de rescisión',
             self::FirmadoSalida => 'Cargó el documento de salida firmado',
             self::ValidoPlazo => 'Validó el plazo del aviso de rescisión',
+            self::CorrigioDocumento => 'Corrigió el documento de salida',
+            self::CorrigioFiniquito => 'Corrigió importes del finiquito',
         };
     }
 }

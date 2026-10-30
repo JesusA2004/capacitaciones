@@ -12,6 +12,7 @@ export type CausalBajaOpcion = {
     id: number;
     clave: string | null;
     nombre: string;
+    grupo?: string | null;
     ayuda: string | null;
     requiere_juridico: boolean;
     comentario_obligatorio: boolean;
@@ -159,6 +160,13 @@ export type PanelDocumentoSalida = {
         requiere_huella: boolean;
         desactualizado: boolean;
     } | null;
+    ediciones: {
+        id: number;
+        motivo: string;
+        usuario: string | null;
+        fecha: string | null;
+        campos: string[];
+    }[];
     firmados: ArchivoBaja[];
     evidencias: ArchivoBaja[];
     aviso: {
@@ -216,6 +224,8 @@ export type DetalleFiniquitoBaja = FilaFiniquitoBaja & {
     total_percepciones: number;
     total_deducciones: number;
     desglose: {
+        id: number | null;
+        editable: boolean;
         clave: string;
         concepto_clave: string | null;
         concepto: string;

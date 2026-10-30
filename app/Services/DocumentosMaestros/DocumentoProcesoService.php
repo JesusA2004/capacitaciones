@@ -985,6 +985,26 @@ class DocumentoProcesoService
     }
 
     /**
+     * Valores actuales de los campos de un documento maestro: lo que RH puede
+     * corregir antes de generarlo. Heredadas o formato propio: sin campos.
+     *
+     * @return array<string, string>
+     */
+    public function camposDelDocumento(string $proceso, Model $registro, string $clave, User $actor): array
+    {
+        $colaborador = $this->colaboradorDe($registro);
+        $this->exigirVer($actor, $colaborador);
+        $this->exigirPuedeGenerar($actor, $clave, $registro);
+        $master = $this->masterPara($clave, $colaborador, $proceso);
+
+        if ($master->estado_master === null) {
+            return [];
+        }
+
+        return $this->motor->valoresDelMaestro($master, $this->motor->contextoDesde($colaborador, $registro, $actor, $this->extraPorClave($clave, $registro)));
+    }
+
+    /**
      * Claves del proceso que hoy se generarían (sin documento vigente y sin
      * bloqueo) y que quien mira puede generar: lo que muestra la vista
      * previa de un paquete o de un flujo que genera al confirmar. Con

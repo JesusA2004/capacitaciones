@@ -25,6 +25,23 @@ enum DocumentoSalida: string
         };
     }
 
+    /**
+     * Documentos que una causal de esta forma puede generar. La carta de
+     * renuncia y el aviso de rescisión tienen flujo propio y no se sustituyen.
+     * El primero es el de la forma.
+     *
+     * @return list<self>
+     */
+    public static function opcionesDe(FormaSalida $forma): array
+    {
+        return match ($forma) {
+            FormaSalida::RenunciaVoluntaria => [self::CartaRenuncia],
+            FormaSalida::Rescision => [self::AvisoRescision],
+            FormaSalida::NoRenovacion => [self::ConvenioTerminacion, self::ConstanciaTerminacion],
+            FormaSalida::OtraTerminacion => [self::ConstanciaTerminacion, self::ConvenioTerminacion],
+        };
+    }
+
     public function etiqueta(): string
     {
         return match ($this) {

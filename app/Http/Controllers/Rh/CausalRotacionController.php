@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers\Rh;
 
+use App\Enums\FormaSalida;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CierreLaboral\GuardarCausalRotacionRequest;
+use App\Models\CausalGrupo;
 use App\Models\CausalRotacion;
 use App\Services\CierreLaboral\CausalRotacionService;
 use Illuminate\Http\RedirectResponse;
@@ -52,6 +54,40 @@ class CausalRotacionController extends Controller
         $this->causales->mover($causal, (string) $datos['direccion'], $request->user());
 
         return back();
+    }
+
+    public function grupoStore(Request $request): RedirectResponse
+    {
+        $this->authorize('create', CausalRotacion::class);
+        $datos = $request->validate([
+            'forma_salida' => ['required', Rule::enum(FormaSalida::class)],
+            'nombre' => ['required', 'string', 'min:3', 'max:80'],
+            'descripcion' => ['nullable', 'string', 'max:300'],
+        ], ['nombre.required' => 'Escribe el nombre del subcatálogo.', 'nombre.min' => 'El nombre debe tener al menos 3 letras.']);
+        $grupo = $this->causales->crearGrupo($datos, $request->user());
+
+        return $this->ok(sprintf('Subcatálogo «%s» agregado.', $grupo->nombre));
+    }
+
+    public function grupoUpdate(Request $request, CausalGrupo $grupo): RedirectResponse
+    {
+        $this->authorize('editarGrupos', CausalRotacion::class);
+        $datos = $request->validate([
+            'nombre' => ['required', 'string', 'min:3', 'max:80'],
+            'descripcion' => ['nullable', 'string', 'max:300'],
+        ], ['nombre.required' => 'Escribe el nombre del subcatálogo.', 'nombre.min' => 'El nombre debe tener al menos 3 letras.']);
+        $this->causales->actualizarGrupo($grupo, $datos, $request->user());
+
+        return $this->ok('Subcatálogo actualizado.');
+    }
+
+    public function grupoActivo(Request $request, CausalGrupo $grupo): RedirectResponse
+    {
+        $this->authorize('activarGrupos', CausalRotacion::class);
+        $datos = $request->validate(['activo' => ['required', 'boolean']]);
+        $this->causales->cambiarActivoGrupo($grupo, (bool) $datos['activo'], $request->user());
+
+        return $this->ok($datos['activo'] ? 'Subcatálogo activado: sus causales activas vuelven a ofrecerse.' : 'Subcatálogo desactivado: sus causales ya no se ofrecen; el historial las conserva.');
     }
 
     private function ok(string $mensaje): RedirectResponse

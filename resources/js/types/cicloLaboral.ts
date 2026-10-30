@@ -915,7 +915,28 @@ export type CausalRotacionAdmin = {
     implica_indemnizacion: boolean;
     fundamento_legal: string | null;
     genera: string;
+    documento_salida: string | null;
+    causal_grupo_id: number | null;
+    grupo: string | null;
     activo: boolean;
     orden: number;
     usos: number;
+};
+
+/** Subcatálogo que RH captura dentro de una forma de salida. */
+export type CausalGrupoAdmin = {
+    id: number;
+    forma: FormaSalidaClave;
+    nombre: string;
+    descripcion: string | null;
+    activo: boolean;
+    causales: number;
+};
+
+export type HistorialCatalogoBajas = {
+    id: number;
+    accion: string;
+    nombre: string;
+    usuario: string | null;
+    fecha: string | null;
 };

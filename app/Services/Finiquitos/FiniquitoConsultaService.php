@@ -2,6 +2,7 @@
 
 namespace App\Services\Finiquitos;
 
+use App\Enums\AccionBitacoraBaja;
 use App\Enums\EstadoCierreLaboral;
 use App\Enums\EstadoFiniquito;
 use App\Enums\TipoFiniquito;
@@ -11,6 +12,7 @@ use App\Models\Colaborador;
 use App\Models\FiniquitoCalculo;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Bajas\BajaRegistroService;
 use App\Services\CierreLaboral\CierreLaboralService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Support\Paginacion;
@@ -48,6 +50,7 @@ class FiniquitoConsultaService
         private readonly CierreLaboralService $cierres,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly FotoColaboradorService $fotos,
+        private readonly BajaRegistroService $registro,
     ) {}
 
     /**
@@ -159,6 +162,34 @@ class FiniquitoConsultaService
         }
 
         return $this->finiquitos->confirmarPago($finiquito, $actor, (string) ($datos['forma_pago'] ?? 'Pago registrado'), Carbon::parse($datos['fecha']));
+    }
+
+    /**
+     * Correcciones confirmadas desde la pestaña o el expediente: mismo registro
+     * y, si tiene baja ligada, también quedan en su bitácora.
+     *
+     * @param  array{conceptos: array<int, array<string, mixed>>, manuales: array<int, array<string, mixed>>, nuevos: array<int, array<string, mixed>>, eliminados: array<int, int|string>}  $cambios
+     */
+    public function corregir(FiniquitoCalculo $finiquito, array $cambios, string $motivo, User $actor): void
+    {
+        $detalle = $this->finiquitos->corregir($finiquito, $cambios, $motivo, $actor);
+        $cierre = $this->cierreDe($finiquito);
+        $baja = $cierre !== null ? Baja::query()->where('cierre_laboral_id', $cierre->id)->first() : null;
+
+        if ($baja !== null) {
+            $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::CorrigioFiniquito, 'finiquito', null, mb_substr(implode('; ', $detalle), 0, 250), $motivo);
+        }
+    }
+
+    /**
+     * Finiquito del expediente de una baja: el mismo que lista la pestaña.
+     */
+    public function deBaja(Baja $baja): ?FiniquitoCalculo
+    {
+        $baja->loadMissing('cierre');
+        $solicitud = $baja->cierre?->solicitud_interna_id;
+
+        return $solicitud !== null ? FiniquitoCalculo::query()->where('solicitud_interna_id', $solicitud)->first() : null;
     }
 
     /**

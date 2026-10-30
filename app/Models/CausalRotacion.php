@@ -6,6 +6,7 @@ use App\Enums\FormaSalida;
 use App\Enums\TipoBaja;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
@@ -23,6 +24,8 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property TipoBaja $tipo
  * @property FormaSalida|null $forma_salida
+ * @property int|null $causal_grupo_id
+ * @property string|null $documento_salida Documento que genera, si difiere del de su forma.
  * @property string|null $clave
  * @property string $nombre
  * @property string|null $descripcion Ayuda «Cuándo usarla».
@@ -44,7 +47,7 @@ class CausalRotacion extends Model
     protected $table = 'causales_rotacion';
 
     protected $fillable = [
-        'tipo', 'forma_salida', 'clave', 'nombre', 'descripcion', 'requiere_juridico', 'comentario_obligatorio',
+        'tipo', 'forma_salida', 'causal_grupo_id', 'documento_salida', 'clave', 'nombre', 'descripcion', 'requiere_juridico', 'comentario_obligatorio',
         'alerta', 'fundamento_legal', 'excluye_indemnizacion', 'implica_indemnizacion', 'activo', 'legado', 'reemplazada_por_id', 'orden',
     ];
 
@@ -68,7 +71,9 @@ class CausalRotacion extends Model
      */
     public function scopeActivas(Builder $query): void
     {
-        $query->where('activo', true)->where('legado', false);
+        // Un subcatálogo desactivado deja de ofrecer sus causales.
+        $query->where('activo', true)->where('legado', false)
+            ->where(fn (Builder $q) => $q->whereNull('causal_grupo_id')->orWhereHas('grupo', fn (Builder $g) => $g->where('activo', true)));
     }
 
     /**
@@ -105,6 +110,14 @@ class CausalRotacion extends Model
         return $this->clave !== null && preg_match('/^(RV|NR|RE|OT)-\d{2}$/', $this->clave) === 1
             ? sprintf('%s · %s', $this->clave, $this->nombre)
             : $this->nombre;
+    }
+
+    /**
+     * @return BelongsTo<CausalGrupo, $this>
+     */
+    public function grupo(): BelongsTo
+    {
+        return $this->belongsTo(CausalGrupo::class, 'causal_grupo_id');
     }
 
     /**

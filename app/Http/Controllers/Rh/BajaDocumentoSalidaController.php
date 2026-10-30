@@ -7,6 +7,7 @@ use App\Http\Requests\Bajas\AdjuntarDocumentoBajaRequest;
 use App\Http\Requests\Bajas\GuardarAvisoRescisionRequest;
 use App\Models\Baja;
 use App\Services\Bajas\BajaDocumentoSalidaService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -49,11 +50,33 @@ class BajaDocumentoSalidaController extends Controller
         ]);
     }
 
+    /** Campos que RH puede corregir, con su valor vigente y el original. */
+    public function campos(Request $request, Baja $baja): JsonResponse
+    {
+        $this->authorize('documentoSalida', $baja);
+
+        return response()->json(['campos' => $this->salida->camposEditables($baja, $request->user())]);
+    }
+
+    /** Vista previa con lo que RH está corrigiendo; no guarda nada. */
+    public function vistaPreviaEditada(Request $request, Baja $baja): Response
+    {
+        $this->authorize('documentoSalida', $baja);
+        $datos = $request->validate(['campos' => ['present', 'array']]);
+
+        return response($this->salida->vistaPrevia($baja, $request->user(), $datos['campos']), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="Vista previa - Documento de salida.pdf"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'no-store',
+        ]);
+    }
+
     public function generar(Request $request, Baja $baja): RedirectResponse
     {
         $this->authorize('documentoSalida', $baja);
-        $datos = $request->validate(['motivo' => ['nullable', 'string', 'max:500']]);
-        $this->salida->generar($baja, $request->user(), $datos['motivo'] ?? null);
+        $datos = $request->validate(['motivo' => ['nullable', 'string', 'max:500'], 'campos' => ['nullable', 'array']]);
+        $this->salida->generar($baja, $request->user(), $datos['motivo'] ?? null, $datos['campos'] ?? null);
 
         return $this->ok('Documento generado: descárgalo para firma.');
     }

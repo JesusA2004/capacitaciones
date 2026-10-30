@@ -432,6 +432,118 @@ class FiniquitoService
     }
 
     /**
+     * Vista previa con importes corregidos, armada EN MEMORIA: mismo diseño
+     * del definitivo y nada se guarda hasta confirmar con corregir().
+     *
+     * @param  array{conceptos?: array<int, array<string, mixed>>, manuales?: array<int, array<string, mixed>>, nuevos?: array<int, array<string, mixed>>, eliminados?: array<int, int|string>}  $cambios
+     */
+    public function vistaPreviaCorregida(FiniquitoCalculo $finiquito, array $cambios): string
+    {
+        $this->asegurarNoFirmado($finiquito);
+        $finiquito->loadMissing(['colaborador', 'solicitudInterna']);
+        $automaticos = array_column($cambios['conceptos'] ?? [], 'importe', 'concepto_clave');
+        $manuales = array_column($cambios['manuales'] ?? [], 'importe', 'id');
+        $eliminados = array_map('intval', $cambios['eliminados'] ?? []);
+        $desglose = [];
+
+        foreach ($this->desglose($finiquito) as $renglon) {
+            if ($renglon['id'] !== null && in_array($renglon['id'], $eliminados, true)) {
+                continue;
+            }
+
+            $nuevo = $renglon['concepto_clave'] !== null ? ($automaticos[$renglon['concepto_clave']] ?? null) : ($renglon['id'] !== null ? ($manuales[$renglon['id']] ?? null) : null);
+            $desglose[] = $nuevo !== null ? [...$renglon, 'importe' => round((float) $nuevo, 2)] : $renglon;
+        }
+
+        foreach ($cambios['nuevos'] ?? [] as $nuevo) {
+            $desglose[] = ['clave' => '', 'concepto' => (string) $nuevo['concepto'], 'tipo' => (string) $nuevo['tipo'], 'importe' => round((float) $nuevo['importe'], 2), 'origen' => 'manual', 'observaciones' => null];
+        }
+
+        $percepciones = array_sum(array_map(fn (array $r): float => $r['tipo'] === TipoConceptoNomina::Percepcion->value ? (float) $r['importe'] : 0.0, $desglose));
+        $deducciones = array_sum(array_map(fn (array $r): float => $r['tipo'] === TipoConceptoNomina::Deduccion->value ? (float) $r['importe'] : 0.0, $desglose));
+
+        $copia = clone $finiquito;
+        $copia->forceFill(['total_percepciones' => round($percepciones, 2), 'total_deducciones' => round($deducciones, 2), 'neto' => round($percepciones - $deducciones, 2), 'total_ajustado' => round($percepciones - $deducciones, 2)]);
+
+        return $this->documentosAdministrativos->renderizarVigente(FamiliaAdministrativa::Finiquito, $this->datosDocumento->finiquito($copia, $desglose));
+    }
+
+    /**
+     * Aplica de una vez las correcciones confirmadas con un solo motivo. Cada
+     * cambio conserva el valor calculado y queda en el historial; el finiquito
+     * regresa a «Calculado» para revisarse de nuevo. Firmado o pagado no se toca.
+     *
+     * @param  array{conceptos?: array<int, array<string, mixed>>, manuales?: array<int, array<string, mixed>>, nuevos?: array<int, array<string, mixed>>, eliminados?: array<int, int|string>}  $cambios
+     * @return list<string> Descripción de lo que cambió.
+     */
+    public function corregir(FiniquitoCalculo $finiquito, array $cambios, string $motivo, User $actor): array
+    {
+        $this->asegurarNoFirmado($finiquito);
+        $motivo = trim($motivo);
+
+        if (mb_strlen($motivo) < 5) {
+            throw ValidationException::withMessages(['motivo' => 'Explica el motivo de la corrección: queda en la bitácora.']);
+        }
+
+        $actuales = array_column($this->desglose($finiquito), 'importe', 'concepto_clave');
+        $detalle = [];
+
+        DB::transaction(function () use ($finiquito, $cambios, $motivo, $actor, $actuales, &$detalle): void {
+            foreach ($cambios['conceptos'] ?? [] as $cambio) {
+                $clave = (string) $cambio['concepto_clave'];
+                $importe = round((float) $cambio['importe'], 2);
+
+                if (! array_key_exists($clave, $actuales) || abs((float) $actuales[$clave] - $importe) >= 0.005) {
+                    $this->ajustarConceptoAutomatico($finiquito, $clave, $importe, $motivo, $actor);
+                    $finiquito->unsetRelation('ajustes');
+                    $detalle[] = sprintf('%s: $%s', $this->conceptosAutomaticos()[$clave]['concepto'] ?? $clave, number_format($importe, 2));
+                }
+            }
+
+            foreach ($cambios['manuales'] ?? [] as $cambio) {
+                $concepto = $this->conceptoDe($finiquito, (int) $cambio['id']);
+                $importe = round((float) $cambio['importe'], 2);
+
+                if (abs((float) $concepto->importe - $importe) >= 0.005) {
+                    $anterior = (float) $concepto->importe;
+                    $this->actualizarConcepto($concepto, ['importe' => $importe], $actor);
+                    $this->registrarHistorial($finiquito->solicitudInterna, $actor, 'finiquito_concepto', sprintf('%s: $%s → $%s. %s', $concepto->concepto, number_format($anterior, 2), number_format($importe, 2), $motivo));
+                    $detalle[] = sprintf('%s: $%s', $concepto->concepto, number_format($importe, 2));
+                }
+            }
+
+            foreach ($cambios['nuevos'] ?? [] as $nuevo) {
+                $this->agregarConcepto($finiquito, [...$nuevo, 'observaciones' => $motivo], $actor);
+                $detalle[] = sprintf('Agregó %s', (string) $nuevo['concepto']);
+            }
+
+            foreach ($cambios['eliminados'] ?? [] as $id) {
+                $concepto = $this->conceptoDe($finiquito, (int) $id);
+                $this->eliminarConcepto($concepto, $actor);
+                $this->registrarHistorial($finiquito->solicitudInterna, $actor, 'finiquito_concepto', sprintf('Quitó %s ($%s). %s', $concepto->concepto, number_format((float) $concepto->importe, 2), $motivo));
+                $detalle[] = sprintf('Quitó %s', $concepto->concepto);
+            }
+        });
+
+        if ($detalle === []) {
+            throw ValidationException::withMessages(['cambios' => 'No hay cambios que guardar.']);
+        }
+
+        return $detalle;
+    }
+
+    private function conceptoDe(FiniquitoCalculo $finiquito, int $id): FiniquitoConcepto
+    {
+        $concepto = $finiquito->conceptos()->where('id', $id)->first();
+
+        if ($concepto === null) {
+            throw ValidationException::withMessages(['cambios' => 'Ese concepto no pertenece a este finiquito.']);
+        }
+
+        return $concepto;
+    }
+
+    /**
      * Finiquito PROPUESTO de una baja que todavía no se registra, armado EN
      * MEMORIA con las mismas fórmulas que calcular() (la vista previa del
      * formulario de baja, docs/BAJAS_Y_CAUSALES.md). No guarda nada: ni

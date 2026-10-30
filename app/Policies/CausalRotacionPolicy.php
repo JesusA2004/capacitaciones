@@ -30,6 +30,16 @@ class CausalRotacionPolicy
         return $this->administrar($user) && $user->can('causales_rotacion.editar');
     }
 
+    public function editarGrupos(User $user): bool
+    {
+        return $this->administrar($user) && $user->can('causales_rotacion.editar');
+    }
+
+    public function activarGrupos(User $user): bool
+    {
+        return $this->administrar($user) && $user->can('causales_rotacion.activar');
+    }
+
     /** Activar / desactivar (nunca se borran). */
     public function activar(User $user, CausalRotacion $causal): bool
     {

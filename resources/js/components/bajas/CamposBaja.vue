@@ -69,7 +69,7 @@ const comentarioObligatorio = computed(
 const opcionesCausal = computed(() =>
     (forma.value?.causales ?? []).map((c) => ({
         value: c.id,
-        label: c.clave ? `${c.clave} · ${c.nombre}` : c.nombre,
+        label: `${c.grupo ? `${c.grupo} · ` : ''}${c.clave ? `${c.clave} · ${c.nombre}` : c.nombre}`,
     })),
 );
 const largoComentario = computed(() => modelo.value.comentarios.trim().length);

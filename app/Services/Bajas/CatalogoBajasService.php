@@ -128,7 +128,7 @@ class CatalogoBajasService
      */
     public function opciones(?array $formas = null): array
     {
-        $causales = CausalRotacion::query()->activas()->ordenadas()->get()
+        $causales = CausalRotacion::query()->activas()->with('grupo:id,nombre')->ordenadas()->get()
             ->groupBy(fn (CausalRotacion $c): string => $c->forma()->value);
 
         $resultado = [];
@@ -157,7 +157,7 @@ class CatalogoBajasService
      * 1). `implica_indemnizacion`: el finiquito se calcula como liquidación
      * (regla configurable + advertencia, sujeta a validación jurídica).
      *
-     * @return array{id: int, clave: string|null, nombre: string, ayuda: string|null, descripcion: string|null, requiere_juridico: bool, integrar_expediente_probatorio: bool, comentario_obligatorio: bool, alerta: string|null, excluye_indemnizacion: bool, implica_indemnizacion: bool}
+     * @return array{id: int, clave: string|null, nombre: string, grupo: string|null, ayuda: string|null, descripcion: string|null, requiere_juridico: bool, integrar_expediente_probatorio: bool, comentario_obligatorio: bool, alerta: string|null, excluye_indemnizacion: bool, implica_indemnizacion: bool}
      */
     public function causalArray(CausalRotacion $causal): array
     {
@@ -165,6 +165,7 @@ class CatalogoBajasService
             'id' => $causal->id,
             'clave' => $causal->clave,
             'nombre' => $causal->nombre,
+            'grupo' => $causal->grupo?->nombre,
             'ayuda' => $causal->descripcion,
             // Compatibilidad (diálogo anterior y API móvil): misma ayuda.
             'descripcion' => $causal->descripcion,
