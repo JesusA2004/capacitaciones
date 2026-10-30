@@ -672,6 +672,23 @@ function guardarEdicion() {
                             >
                         </div>
                         <p
+                            v-if="recibo.id && recibo.dias_pagados != null"
+                            class="mt-1 text-[11px] text-muted-foreground"
+                        >
+                            Días pagados
+                            <b class="text-foreground tabular-nums">{{
+                                Number(recibo.dias_pagados)
+                            }}</b>
+                            · Incapacidad
+                            <b class="text-foreground tabular-nums">{{
+                                Number(recibo.dias_incapacidad ?? 0)
+                            }}</b>
+                            · Faltas
+                            <b class="text-foreground tabular-nums">{{
+                                Number(recibo.dias_falta ?? 0)
+                            }}</b>
+                        </p>
+                        <p
                             v-for="aviso in recibo.advertencias"
                             :key="aviso"
                             class="mt-1.5 text-[11px]"

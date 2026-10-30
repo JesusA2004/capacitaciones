@@ -66,6 +66,9 @@ export type ReciboLote = {
     estado: string;
     estado_etiqueta: string;
     advertencias: string[];
+    dias_pagados?: string | null;
+    dias_incapacidad?: string | null;
+    dias_falta?: string | null;
     revision: 'correcto' | 'advertencia' | 'error';
     clave_error?: number;
 };

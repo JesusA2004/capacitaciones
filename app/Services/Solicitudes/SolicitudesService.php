@@ -23,6 +23,7 @@ use App\Services\Configuracion\WorkflowRoutingService;
 use App\Services\Expedientes\ActualizacionDatosService;
 use App\Services\Expedientes\CorreccionesService;
 use App\Services\Finiquitos\FiniquitoService;
+use App\Services\Nomina\IncidenciasNominaService;
 use App\Services\Nomina\PrestamoService;
 use App\Services\Notificaciones\Aviso;
 use App\Services\Notificaciones\NotificacionEventosService;
@@ -551,7 +552,32 @@ class SolicitudesService
      */
     public function aprobar(SolicitudInterna $solicitud, User $actor, ?string $comentario = null, array $datosAprobacion = [], bool $desdeCierreLaboral = false): SolicitudInterna
     {
-        return $this->cambiarEstado($solicitud, $actor, EstadoSolicitudInterna::Aprobada, $comentario, null, $datosAprobacion, $desdeCierreLaboral);
+        $aprobada = $this->cambiarEstado($solicitud, $actor, EstadoSolicitudInterna::Aprobada, $comentario, null, $datosAprobacion, $desdeCierreLaboral);
+        $this->sincronizarNominaDePermiso($aprobada, $actor);
+
+        return $aprobada;
+    }
+
+    /**
+     * Un permiso aprobado o cancelado cambia los días pagados de sus recibos.
+     * Un fallo aquí nunca deshace la solicitud: queda en el log.
+     */
+    private function sincronizarNominaDePermiso(SolicitudInterna $solicitud, User $actor): void
+    {
+        if (! in_array($solicitud->tipo, [TipoSolicitudInterna::Permiso, TipoSolicitudInterna::PermisoConGoce, TipoSolicitudInterna::PermisoSinGoce], true)
+            || $solicitud->fecha_inicio === null) {
+            return;
+        }
+
+        try {
+            $colaborador = $solicitud->colaborador ?? $solicitud->usuario?->colaborador;
+
+            if ($colaborador !== null) {
+                app(IncidenciasNominaService::class)->sincronizarRecibos($colaborador, $solicitud->fecha_inicio, $solicitud->fecha_fin ?? $solicitud->fecha_inicio, $actor, sprintf('Permiso %s: %s', (string) $solicitud->folio, $solicitud->estado->etiqueta()));
+            }
+        } catch (Throwable $e) {
+            Log::warning('SolicitudesService: no se pudo recalcular la nómina del permiso.', ['solicitud_id' => $solicitud->id, 'error' => $e->getMessage()]);
+        }
     }
 
     public function rechazar(SolicitudInterna $solicitud, User $actor, string $motivoRechazo): SolicitudInterna
@@ -569,7 +595,10 @@ class SolicitudesService
      */
     public function cancelar(SolicitudInterna $solicitud, User $actor, bool $desdeCierreLaboral = false): SolicitudInterna
     {
-        return $this->cambiarEstado($solicitud, $actor, EstadoSolicitudInterna::Cancelada, desdeCierreLaboral: $desdeCierreLaboral);
+        $cancelada = $this->cambiarEstado($solicitud, $actor, EstadoSolicitudInterna::Cancelada, desdeCierreLaboral: $desdeCierreLaboral);
+        $this->sincronizarNominaDePermiso($cancelada, $actor);
+
+        return $cancelada;
     }
 
     /**
@@ -1062,6 +1091,26 @@ class SolicitudesService
 
     /**
      * @return array<int, array{value: string, label: string}>
+     */
+    public function tiposParaFiltro(User $revisor): array
+    {
+        $conRegistros = $this->limitarPorAlcance(SolicitudInterna::query(), $revisor)
+            ->select('tipo')->distinct()->get()
+            ->map(fn (SolicitudInterna $s): string => $s->tipo->value)
+            ->all();
+
+        $tipos = array_filter(TipoSolicitudInterna::cases(), fn (TipoSolicitudInterna $t): bool => ! $t->esLegado() || in_array($t->value, $conRegistros, true));
+
+        return array_values(array_map(fn (TipoSolicitudInterna $t): array => [
+            'value' => $t->value,
+            'label' => $t->esLegado() ? sprintf('%s (histórico)', $t->etiqueta()) : $t->etiqueta(),
+        ], $tipos));
+    }
+
+    /**
+     * Todos los tipos, con su etiqueta: también para leer registros históricos.
+     *
+     * @return list<array{value: string, label: string}>
      */
     public function tiposDisponibles(): array
     {

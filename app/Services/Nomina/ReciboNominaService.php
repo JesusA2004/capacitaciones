@@ -192,6 +192,7 @@ class ReciboNominaService
         $deducciones = array_values(array_filter($conceptos, fn (array $c) => $c['tipo'] === TipoConceptoNomina::Deduccion->value));
         $totalPercepciones = round(array_sum(array_column($percepciones, 'importe')), 2);
         $totalDeducciones = round(array_sum(array_column($deducciones, 'importe')), 2);
+        $this->exigirNetoNoNegativo($totalPercepciones, $totalDeducciones);
 
         return [
             'colaborador_id' => $colaborador->id,
@@ -489,6 +490,7 @@ class ReciboNominaService
         $deducciones = array_values(array_filter($conceptos, fn (array $c) => $c['tipo'] === TipoConceptoNomina::Deduccion->value));
         $totalPercepciones = round(array_sum(array_column($percepciones, 'importe')), 2);
         $totalDeducciones = round(array_sum(array_column($deducciones, 'importe')), 2);
+        $this->exigirNetoNoNegativo($totalPercepciones, $totalDeducciones);
 
         $recibo->conceptos()->delete();
 
@@ -905,6 +907,18 @@ class ReciboNominaService
         $recibo->update(['pdf_disk' => $documento->disk, 'pdf_path' => $documento->path, 'checksum' => $documento->checksum]);
 
         return $documento;
+    }
+
+    /**
+     * Ningún recibo sale con neto negativo: RH ajusta las deducciones.
+     *
+     * @throws ValidationException
+     */
+    private function exigirNetoNoNegativo(float $percepciones, float $deducciones): void
+    {
+        if (round($percepciones - $deducciones, 2) < 0) {
+            throw ValidationException::withMessages(['conceptos' => sprintf('Las deducciones ($%s) superan las percepciones ($%s): el neto no puede ser negativo.', number_format($deducciones, 2), number_format($percepciones, 2))]);
+        }
     }
 
     private function primerMensaje(ValidationException $e): string

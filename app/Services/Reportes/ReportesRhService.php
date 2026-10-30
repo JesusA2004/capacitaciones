@@ -21,6 +21,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Headcount\HeadcountService;
+use App\Services\Nomina\IncidenciasNominaService;
 use App\Services\Vacaciones\VacacionesService;
 use App\Services\Vacantes\VacantesListadoService;
 use Carbon\CarbonImmutable;
@@ -48,6 +49,7 @@ class ReportesRhService
         private readonly VacacionesService $vacaciones,
         private readonly VacantesListadoService $vacantesListado,
         private readonly HeadcountService $headcount,
+        private readonly IncidenciasNominaService $incidencias,
     ) {}
 
     /**
@@ -90,7 +92,8 @@ class ReportesRhService
                 ['value' => 'vacaciones_disponibles', 'label' => 'Vacaciones disponibles'],
                 ['value' => 'vacaciones_solicitudes', 'label' => 'Vacaciones solicitadas'],
                 ['value' => 'solicitudes_pendientes', 'label' => 'Solicitudes pendientes'],
-                ['value' => 'incapacidades', 'label' => 'Incapacidades'],
+                ['value' => 'incapacidades', 'label' => 'Incapacidades históricas (Solicitudes)'],
+                ['value' => 'incidencias_nomina', 'label' => 'Incidencias de nómina'],
             ]],
             ['grupo' => 'Fechas relevantes', 'opciones' => [
                 ['value' => 'cumpleanos', 'label' => 'Cumpleaños próximos'],
@@ -129,7 +132,8 @@ class ReportesRhService
             'vacaciones_disponibles' => $this->vacacionesDisponibles($usuario, $filtros),
             'vacaciones_solicitudes' => $this->vacacionesSolicitudes($usuario, $filtros),
             'solicitudes_pendientes' => $this->solicitudesInternas($usuario, $filtros, [EstadoSolicitudInterna::Enviada, EstadoSolicitudInterna::EnRevision, EstadoSolicitudInterna::RequiereCorreccion], 'Solicitudes pendientes'),
-            'incapacidades' => $this->solicitudesInternas($usuario, $filtros, null, 'Incapacidades', soloIncapacidades: true),
+            'incapacidades' => $this->solicitudesInternas($usuario, $filtros, null, 'Incapacidades históricas (Solicitudes)', soloIncapacidades: true),
+            'incidencias_nomina' => $this->incidenciasNomina($usuario, $filtros),
             'cumpleanos' => $this->fechasProximas($usuario, $filtros, 'fecha_nacimiento', 'Cumpleaños próximos (30 días)'),
             'aniversarios' => $this->fechasProximas($usuario, $filtros, 'fecha_ingreso', 'Aniversarios laborales próximos (30 días)'),
             default => ['titulo' => 'Reporte no encontrado', 'columnas' => [], 'filas' => []],
@@ -635,6 +639,44 @@ class ReportesRhService
             ->all();
 
         return ['titulo' => 'Vacaciones solicitadas', 'columnas' => ['Colaborador', 'Inicio', 'Fin', 'Días', 'Estado'], 'filas' => $filas];
+    }
+
+    /**
+     * Incidencias por periodo: mismas fuentes y cómputo que el recibo simple
+     * (IncidenciasNominaService), nunca otra fórmula. Sin fechas, el mes en curso.
+     *
+     * @param  array<string, mixed>  $filtros
+     * @return Reporte
+     */
+    private function incidenciasNomina(User $usuario, array $filtros): array
+    {
+        $desde = CarbonImmutable::parse((string) ($filtros['fecha_inicio'] ?? now('America/Mexico_City')->startOfMonth()->toDateString()));
+        $hasta = CarbonImmutable::parse((string) ($filtros['fecha_fin'] ?? now('America/Mexico_City')->endOfMonth()->toDateString()));
+        $filas = [];
+
+        foreach ($this->colaboradoresVisibles($usuario, $filtros) as $colaborador) {
+            foreach ($this->incidencias->resumen($colaborador, $desde, $hasta)['incidencias'] as $incidencia) {
+                $filas[] = [
+                    $colaborador->nombreCompleto(),
+                    $colaborador->sucursalPrincipal->nombre ?? 'Sin sucursal',
+                    $incidencia['etiqueta'],
+                    Carbon::parse($incidencia['fecha_inicio'])->format('d/m/Y'),
+                    Carbon::parse($incidencia['fecha_fin'])->format('d/m/Y'),
+                    $incidencia['dias_en_periodo'],
+                    $incidencia['goce'],
+                    $incidencia['referencia'],
+                    $incidencia['efecto'],
+                ];
+            }
+        }
+
+        usort($filas, fn (array $a, array $b): int => [$a[1], $a[0]] <=> [$b[1], $b[0]]);
+
+        return [
+            'titulo' => sprintf('Incidencias de nómina del %s al %s', $desde->format('d/m/Y'), $hasta->format('d/m/Y')),
+            'columnas' => ['Colaborador', 'Sucursal', 'Tipo', 'Inicio', 'Fin', 'Días en el periodo', 'Goce', 'Referencia', 'Efecto en nómina'],
+            'filas' => $filas,
+        ];
     }
 
     /**

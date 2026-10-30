@@ -46,6 +46,7 @@ class NominaQuincenalService
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly CompensacionService $compensacion,
         private readonly CombinadorPdfRecibos $combinador,
+        private readonly IncidenciasNominaService $incidencias,
     ) {}
 
     /**
@@ -164,7 +165,7 @@ class NominaQuincenalService
             ->where(fn (Builder $q) => $q->whereNull('fecha_ingreso')->orWhereDate('fecha_ingreso', '<=', $periodo['fin']->toDateString()))
             ->when($actor !== null && ! $this->alcance->tieneAlcanceGlobal($actor), fn (Builder $q) => $this->alcance->limitarColaboradoresPorAlcance($q, $actor))
             ->orderBy('id')
-            ->get(['id', 'name', 'apellidos', 'sueldo_mensual', 'fecha_ingreso']);
+            ->get(['id', 'name', 'apellidos', 'sueldo_mensual', 'fecha_ingreso', 'fecha_baja']);
 
         foreach ($colaboradores as $colaborador) {
             if ($yaTienen->has($colaborador->id)) {
@@ -181,7 +182,8 @@ class NominaQuincenalService
                 continue;
             }
 
-            [$importe, $etiqueta] = $this->sueldoDelPeriodo($mensual, $colaborador->fecha_ingreso, $periodo, $concepto);
+            $incidencias = $this->incidencias->resumen($colaborador, $periodo['inicio'], $periodo['fin'], 15);
+            [$importe, $etiqueta] = $this->sueldoDelPeriodo($mensual, $colaborador->fecha_ingreso, $periodo, $concepto, $incidencias['dias_pagados']);
 
             try {
                 $this->recibos->generar($colaborador, [
@@ -189,6 +191,10 @@ class NominaQuincenalService
                     'periodo_fin' => $periodo['fin']->toDateString(),
                     'fecha_pago' => $periodo['pago']->toDateString(),
                     'tipo_periodo' => ReciboNominaService::TIPO_PERIODO_QUINCENAL,
+                    'dias_pagados' => $incidencias['dias_pagados'],
+                    'dias_falta' => $incidencias['dias_sin_goce'],
+                    'dias_incapacidad' => $incidencias['dias_incapacidad'],
+                    'advertencias' => $incidencias['avisos'],
                     'sueldo_base' => $importe,
                     'conceptos' => [['tipo' => TipoConceptoNomina::Percepcion->value, 'concepto' => $etiqueta, 'importe' => $importe]],
                 ], $actor, 'Q-'.$periodo['clave'], borrador: true);
@@ -206,23 +212,25 @@ class NominaQuincenalService
     }
 
     /**
-     * Sueldo de la quincena: 15 días salariales (CompensacionService); si
-     * ingresó a media quincena, proporcional a los días trabajados.
+     * Sueldo de la quincena: 15 días salariales (CompensacionService); con
+     * ingreso a media quincena o incidencias, proporcional a los días pagados
+     * que resolvió IncidenciasNominaService.
      *
      * @param  array{inicio: CarbonImmutable, fin: CarbonImmutable}  $periodo
      * @return array{0: float, 1: string}
      */
-    private function sueldoDelPeriodo(float $mensual, ?CarbonInterface $ingreso, array $periodo, string $concepto): array
+    private function sueldoDelPeriodo(float $mensual, ?CarbonInterface $ingreso, array $periodo, string $concepto, float $diasPagados): array
     {
-        $quincena = $this->compensacion->quincenaDesdeMensual($mensual);
-
-        if ($ingreso === null || $ingreso->lte($periodo['inicio'])) {
-            return [$quincena, $concepto];
+        if ($diasPagados >= 15) {
+            return [$this->compensacion->quincenaDesdeMensual($mensual), $concepto];
         }
 
-        $dias = min(15, (int) $ingreso->startOfDay()->diffInDays($periodo['fin']) + 1);
+        $dias = rtrim(rtrim(number_format($diasPagados, 2, '.', ''), '0'), '.');
+        $importe = $this->compensacion->proporcionalDesdeMensual($mensual, $diasPagados);
 
-        return [$this->compensacion->proporcionalDesdeMensual($mensual, $dias), sprintf('%s (%d días desde su ingreso)', $concepto, $dias)];
+        return $ingreso !== null && $ingreso->gt($periodo['inicio'])
+            ? [$importe, sprintf('%s (%s días desde su ingreso)', $concepto, $dias)]
+            : [$importe, sprintf('%s (%s días)', $concepto, $dias)];
     }
 
     /**

@@ -66,6 +66,7 @@ class LoteNominaService
         private readonly CompensacionService $compensacion,
         private readonly CombinadorPdfRecibos $combinador,
         private readonly AlcanceModuloService $alcanceModulo,
+        private readonly IncidenciasNominaService $incidencias,
     ) {}
 
     /**
@@ -353,13 +354,13 @@ class LoteNominaService
                 continue;
             }
 
-            $dias = $periodicidad->diasBase();
-            $avisos = [];
+            // Fuente única de días: ingreso/baja dentro del periodo, incapacidades y permisos.
+            $incidencias = $this->incidencias->resumen($colaborador, $periodo['inicio'], $periodo['fin'], $periodicidad->diasBase());
+            $dias = $incidencias['dias_pagados'];
+            $avisos = $incidencias['avisos'];
 
-            // Ingresó a media semana/quincena: proporcional a los días trabajados.
             if ($colaborador->fecha_ingreso !== null && $colaborador->fecha_ingreso->gt($periodo['inicio'])) {
-                $dias = min($dias, (int) $colaborador->fecha_ingreso->startOfDay()->diffInDays($periodo['fin']) + 1);
-                $avisos[] = sprintf('Ingresó el %s: se pagan %d día(s) proporcionales.', $colaborador->fecha_ingreso->format('d/m/Y'), $dias);
+                $avisos[] = sprintf('Ingresó el %s: se pagan %s día(s) proporcionales.', $colaborador->fecha_ingreso->format('d/m/Y'), rtrim(rtrim(number_format($dias, 2, '.', ''), '0'), '.'));
             }
 
             foreach (['rfc' => 'RFC', 'curp' => 'CURP', 'nss' => 'NSS'] as $campo => $etiqueta) {
@@ -376,8 +377,8 @@ class LoteNominaService
                     'tipo_periodo' => $periodicidad->value,
                     'nomina_lote_id' => $lote->id,
                     'dias_pagados' => $dias,
-                    'dias_falta' => 0,
-                    'dias_incapacidad' => 0,
+                    'dias_falta' => $incidencias['dias_sin_goce'],
+                    'dias_incapacidad' => $incidencias['dias_incapacidad'],
                     'advertencias' => $avisos,
                     'conceptos' => [['tipo' => TipoConceptoNomina::Percepcion->value, 'clave' => '001', 'concepto' => 'Sueldo', 'cantidad' => $dias, 'importe' => round($diario * $dias, 2)]],
                 ], $actor, $lote->folio, borrador: true);
@@ -548,6 +549,9 @@ class LoteNominaService
                 'neto' => (string) $r->neto,
                 'estado' => $r->estado->value,
                 'estado_etiqueta' => $r->estado->etiqueta(),
+                'dias_pagados' => $r->dias_pagados,
+                'dias_incapacidad' => $r->dias_incapacidad,
+                'dias_falta' => $r->dias_falta,
                 'advertencias' => $r->advertencias ?? [],
                 'revision' => ($r->advertencias ?? []) !== [] ? 'advertencia' : 'correcto',
             ]);

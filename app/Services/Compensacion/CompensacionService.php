@@ -70,7 +70,7 @@ class CompensacionService
      * quincena/semana) a partir del mensual, sin redondear el diario
      * intermedio.
      */
-    public function proporcionalDesdeMensual(float $mensual, int $dias): float
+    public function proporcionalDesdeMensual(float $mensual, int|float $dias): float
     {
         return round($mensual / 30 * $dias, 2);
     }
