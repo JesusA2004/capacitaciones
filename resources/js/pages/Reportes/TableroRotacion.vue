@@ -1,35 +1,24 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
-    ArrowDownRight,
-    ArrowUpRight,
+    AlertTriangle,
+    ArrowDown,
+    ArrowUp,
     BarChart3,
-    Briefcase,
-    Building2,
-    CalendarClock,
     ChevronDown,
-    FileCheck2,
     FileSpreadsheet,
     FileText,
     History,
-    LayoutDashboard,
-    ListTree,
     Minus,
-    Percent,
-    SlidersHorizontal,
-    TrendingUp,
-    Users,
 } from '@lucide/vue';
-import type { Component } from 'vue';
 import { computed, ref, watch } from 'vue';
 import PestanasBajasNav from '@/components/bajas/PestanasBajas.vue';
-import AyudaBoton from '@/components/Common/AyudaBoton.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import MonthPicker from '@/components/Common/MonthPicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
-import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { claseForma, porcentaje } from '@/lib/bajas';
 import { cn } from '@/lib/utils';
@@ -37,21 +26,26 @@ import { dashboard } from '@/routes';
 import { index as rotacionHistorica } from '@/routes/reportes/rotacion';
 import rutasTablero from '@/routes/reportes/rotacion/tablero';
 import rutasBajas from '@/routes/rh/bajas';
-import type { MesRotacion, PestanasBajas, TableroRotacion } from '@/types';
+import type {
+    MesRotacion,
+    PestanasBajas,
+    SemaforoRotacion,
+    TableroRotacion,
+    VistaRotacion,
+} from '@/types';
 
 /**
- * Tablero de rotación (especificación de RH §9). Combina dos fuentes:
- * los meses anteriores al módulo salen del Excel de rotación ya importado
- * (agregados por sucursal) y, desde el mes de inicio del sistema, de las
- * bajas cerradas del módulo (es_rotacion) con la plantilla mensual. El
- * desglose por forma, causal y puesto solo existe para bajas del sistema.
- * Colores por forma: tokens --forma-salida-* (resources/css/app.css).
+ * Pestaña Rotación de Bajas (PDF Etapa 1, págs. 12, 13 y 17). Los datos salen del
+ * motor único TableroRotacionService: histórico del Excel antes del corte y bajas
+ * del sistema, por último día, desde el corte. Los meses del Excel se pintan como
+ * «sin desglose» porque no traen forma de salida.
  */
 const props = defineProps<{
     pestanas: PestanasBajas;
     tablero: TableroRotacion;
     puedeCargarExcel: boolean;
     puedeVerHistorico: boolean;
+    puedeEditarMetas: boolean;
 }>();
 
 defineOptions({
@@ -64,38 +58,42 @@ defineOptions({
     },
 });
 
-type Vista = 'resumen' | 'tendencia' | 'causales' | 'sucursales' | 'puestos';
-const vista = ref<Vista>('resumen');
-const vistas: { valor: Vista; etiqueta: string; icono: Component }[] = [
-    { valor: 'resumen', etiqueta: 'Resumen', icono: LayoutDashboard },
-    { valor: 'tendencia', etiqueta: '12 meses', icono: TrendingUp },
-    { valor: 'causales', etiqueta: 'Causales', icono: ListTree },
-    { valor: 'sucursales', etiqueta: 'Sucursales', icono: Building2 },
-    { valor: 'puestos', etiqueta: 'Puestos', icono: Briefcase },
+const vistas: { valor: VistaRotacion; etiqueta: string }[] = [
+    { valor: 'global', etiqueta: 'Global' },
+    { valor: 'corporativo', etiqueta: 'Corporativo' },
+    { valor: 'sucursales', etiqueta: 'Todas las sucursales' },
+    { valor: 'por_sucursal', etiqueta: 'Por sucursal' },
+    { valor: 'por_causales', etiqueta: 'Por causales' },
 ];
 
-/** En móvil los filtros secundarios van plegados. */
-const verFiltros = ref(false);
-
 const f = props.tablero.filtros;
+const vista = ref<VistaRotacion>(f.vista);
 const desde = ref(f.desde);
 const hasta = ref(f.hasta);
 const sucursal = ref<number | null>(f.sucursal_id);
 const puesto = ref<number | null>(f.puesto_id);
 const forma = ref<string>(f.forma ?? '');
-const causal = ref<number | null>(f.causal_id);
 
 const consulta = computed(() => ({
+    vista: vista.value,
     desde: desde.value || undefined,
     hasta: hasta.value || undefined,
-    sucursal_id: sucursal.value ?? undefined,
+    sucursal_id: conFiltroSucursal.value
+        ? (sucursal.value ?? undefined)
+        : undefined,
     puesto_id: puesto.value ?? undefined,
     forma: forma.value || undefined,
-    causal_id: causal.value ?? undefined,
 }));
 
-watch([desde, hasta, sucursal, puesto, forma, causal], () =>
-    router.get(rutasTablero.index.url(), consulta.value, {
+const conFiltroSucursal = computed(
+    () => vista.value !== 'global' && vista.value !== 'corporativo',
+);
+const esDetalle = computed(
+    () => vista.value === 'por_sucursal' || vista.value === 'por_causales',
+);
+
+watch([vista, desde, hasta, sucursal, puesto, forma], () =>
+    router.get(rutasBajas.rotacion.url(), consulta.value, {
         preserveState: true,
         preserveScroll: true,
         replace: true,
@@ -114,14 +112,6 @@ const opcionesPuesto = computed(() =>
         label: p.nombre,
     })),
 );
-const opcionesCausal = computed(() =>
-    props.tablero.opciones.causales
-        .filter((c) => !forma.value || c.forma === forma.value)
-        .map((c) => ({
-            value: c.id,
-            label: `${c.clave ?? ''} ${c.nombre}`.trim(),
-        })),
-);
 
 const urlExcel = computed(() =>
     rutasTablero.excel.url({ query: consulta.value }),
@@ -130,71 +120,255 @@ const urlPdf = computed(() => rutasTablero.pdf.url({ query: consulta.value }));
 
 const resumen = computed(() => props.tablero.resumen);
 
-const fuenteMes = (m: MesRotacion) =>
-    ({
-        excel: 'Excel de rotación',
-        excel_sin_desglose: 'Excel (sin desglose por forma/causal/puesto)',
-        sistema: 'Bajas del sistema',
-        sin_plantilla: 'Sin plantilla registrada',
-        sin_datos: 'Sin datos',
-    })[m.fuente] ?? m.fuente;
+const CHIP: Record<SemaforoRotacion, string> = {
+    verde: 'bg-semaforo-baja text-white',
+    ambar: 'bg-semaforo-ambar text-white',
+    rojo: 'bg-semaforo-sube text-white',
+};
+const VALOR: Record<SemaforoRotacion, string> = {
+    verde: 'text-semaforo-baja',
+    ambar: 'text-semaforo-ambar',
+    rojo: 'text-semaforo-sube',
+};
+const BORDE: Record<SemaforoRotacion, string> = {
+    verde: 'border-l-semaforo-baja',
+    ambar: 'border-l-semaforo-ambar',
+    rojo: 'border-l-semaforo-sube',
+};
+const claseChip = (s: SemaforoRotacion | null) =>
+    s ? CHIP[s] : 'bg-muted text-muted-foreground';
+const claseValor = (s: SemaforoRotacion | null) =>
+    s ? VALOR[s] : 'text-foreground';
+const bordeSemaforo = (s: SemaforoRotacion | null) =>
+    s ? BORDE[s] : 'border-l-border';
 
-// Tendencia: barras verticales con escala común (un solo eje).
-const maxIndice = computed(() =>
-    Math.max(
-        1,
-        ...props.tablero.tendencia.flatMap((m) => [
-            m.indice ?? 0,
-            m.indice_sucursal ?? 0,
-        ]),
+const tarjetas = computed(() => {
+    const r = resumen.value;
+
+    return [
+        {
+            etiqueta: `Rotación del mes · ${r.mes.etiqueta}${r.mes.en_curso ? ' (en curso)' : ''}`,
+            valor: porcentaje(r.mes.indice),
+            detalle:
+                r.mes.indice === null
+                    ? 'Sin datos del mes'
+                    : `${r.mes.bajas ?? '—'} bajas · meta ${porcentaje(r.mes.meta?.verde_hasta)}`,
+            semaforo: r.mes.semaforo,
+        },
+        {
+            etiqueta: 'Promedio mensual',
+            valor: porcentaje(r.promedio_mensual.indice),
+            detalle: `${r.promedio_mensual.meses} ${r.promedio_mensual.meses === 1 ? 'mes' : 'meses'} con datos`,
+            semaforo: r.promedio_mensual.semaforo,
+        },
+        {
+            etiqueta: `Acumulada ${r.acumulado.anio}`,
+            valor: porcentaje(r.acumulado.indice),
+            detalle: `${r.acumulado.bajas} bajas · plantilla promedio ${r.acumulado.plantilla_promedio ?? '—'}`,
+            semaforo: null,
+        },
+        {
+            etiqueta: 'Rotación voluntaria',
+            valor: porcentaje(r.voluntaria.porcentaje_voluntaria),
+            detalle: `${r.voluntaria.voluntarias} de ${r.voluntaria.voluntarias + r.voluntaria.involuntarias} clasificadas`,
+            semaforo: null,
+        },
+        {
+            etiqueta: 'Rotación temprana',
+            valor: porcentaje(r.rotacion_temprana.porcentaje),
+            detalle: `${r.rotacion_temprana.bajas} de ${r.bajas_sistema} bajas del sistema, menos de 90 días`,
+            semaforo: null,
+        },
+    ];
+});
+
+/* Gráfica: barras apiladas (eje izquierdo), índice y meta (eje derecho). */
+const ANCHO = 900;
+const ALTO = 320;
+const MARGEN = { izq: 34, der: 44, arriba: 24, abajo: 44 };
+const areaAlto = ALTO - MARGEN.arriba - MARGEN.abajo;
+const areaAncho = ANCHO - MARGEN.izq - MARGEN.der;
+
+const CAPAS: { clave: 'RV' | 'NR' | 'RE' | 'OT'; clase: string }[] = [
+    { clave: 'RV', clase: 'fill-forma-renuncia' },
+    { clave: 'NR', clase: 'fill-forma-no-renovacion' },
+    { clave: 'RE', clase: 'fill-forma-rescision' },
+    { clave: 'OT', clase: 'fill-forma-otra' },
+];
+
+const techoBajas = computed(() =>
+    Math.max(4, ...props.tablero.tendencia.map((m) => m.bajas ?? 0)),
+);
+const techoIndice = computed(() =>
+    Math.ceil(
+        Math.max(
+            5,
+            ...props.tablero.tendencia.flatMap((m) => [
+                m.indice ?? 0,
+                m.meta?.verde_hasta ?? 0,
+            ]),
+        ) * 1.15,
     ),
 );
+const pasoX = computed(
+    () => areaAncho / Math.max(1, props.tablero.tendencia.length),
+);
+const centroX = (i: number) => MARGEN.izq + pasoX.value * (i + 0.5);
+const yBajas = (v: number) =>
+    MARGEN.arriba + areaAlto - (v / techoBajas.value) * areaAlto;
+const yIndice = (v: number) =>
+    MARGEN.arriba + areaAlto - (v / techoIndice.value) * areaAlto;
+const anchoBarra = computed(() => Math.min(38, pasoX.value * 0.6));
+
+function segmentos(m: MesRotacion) {
+    const capas = [
+        ...CAPAS.map((c) => ({
+            clase: c.clase,
+            valor: m.por_forma[c.clave],
+        })),
+        { clase: 'fill-muted-foreground/40', valor: m.sin_desglose },
+    ];
+    let acumulado = 0;
+
+    return capas
+        .filter((c) => c.valor > 0)
+        .map((c) => {
+            const y = yBajas(acumulado + c.valor);
+            const alto = yBajas(acumulado) - y;
+            acumulado += c.valor;
+
+            return { clase: c.clase, y, alto };
+        });
+}
+
+/** Línea del índice: los meses sin datos cortan el trazo, nunca caen a 0. */
+const lineasIndice = computed(() => {
+    const tramos: string[] = [];
+    let tramo: string[] = [];
+
+    props.tablero.tendencia.forEach((m, i) => {
+        if (m.indice === null) {
+            if (tramo.length) {
+                tramos.push(tramo.join(' '));
+            }
+
+            tramo = [];
+
+            return;
+        }
+
+        tramo.push(`${centroX(i)},${yIndice(m.indice)}`);
+    });
+
+    if (tramo.length) {
+        tramos.push(tramo.join(' '));
+    }
+
+    return tramos;
+});
+
+/** La meta puede cambiar con su vigencia: la línea escalona por mes. */
+const lineaMeta = computed(() =>
+    props.tablero.tendencia
+        .flatMap((m, i) =>
+            m.meta === null
+                ? []
+                : [
+                      `${MARGEN.izq + pasoX.value * i},${yIndice(m.meta.verde_hasta)}`,
+                      `${MARGEN.izq + pasoX.value * (i + 1)},${yIndice(m.meta.verde_hasta)}`,
+                  ],
+        )
+        .join(' '),
+);
+const metaVisible = computed(
+    () => props.tablero.tendencia.at(-1)?.meta?.verde_hasta ?? null,
+);
+const hayDesgloseExcel = computed(() =>
+    props.tablero.tendencia.some((m) => m.sin_desglose > 0),
+);
+
+/* Dona voluntaria contra involuntaria. */
+const donaSegmentos = computed(() => {
+    const v = resumen.value.voluntaria;
+    const partes = [
+        {
+            etiqueta: 'Voluntaria',
+            valor: v.voluntarias,
+            trazo: 'stroke-forma-renuncia',
+            punto: 'bg-forma-renuncia',
+        },
+        {
+            etiqueta: 'Involuntaria',
+            valor: v.involuntarias,
+            trazo: 'stroke-forma-rescision',
+            punto: 'bg-forma-rescision',
+        },
+        {
+            etiqueta: 'Otras terminaciones',
+            valor: v.otras,
+            trazo: 'stroke-forma-otra',
+            punto: 'bg-forma-otra',
+        },
+        {
+            etiqueta: 'Sin clasificar (Excel)',
+            valor: v.sin_clasificar,
+            trazo: 'stroke-muted-foreground/40',
+            punto: 'bg-muted-foreground/40',
+        },
+    ];
+    const total = Math.max(1, v.total);
+    let inicio = 0;
+
+    return partes.map((p) => {
+        const parte = (p.valor / total) * 100;
+        const segmento = { ...p, porcentaje: parte, desfase: -inicio };
+        inicio += parte;
+
+        return segmento;
+    });
+});
+
+/* Por sucursal: detalle de las bajas que componen el indicador. */
+const abierta = ref<number | null>(null);
 const maxCausal = computed(() =>
     Math.max(1, ...props.tablero.causales.map((c) => c.bajas)),
 );
-const conSucursal = computed(() => sucursal.value !== null);
-const nombreSucursal = computed(
-    () =>
-        props.tablero.opciones.sucursales.find((s) => s.id === sucursal.value)
-            ?.nombre ?? '',
+const alertasCausal = computed(() =>
+    props.tablero.causales.filter((c) => c.alerta),
 );
 
-const filtrosSecundarios = computed(
-    () =>
-        [
-            sucursal.value,
-            puesto.value,
-            forma.value || null,
-            causal.value,
-        ].filter((v) => v !== null).length,
+/* Metas: una edición agrega una fila con vigencia; nunca toca meses pasados. */
+const editandoMetas = ref(false);
+const verHistorial = ref(false);
+const formMeta = useForm({
+    segmento: 'global',
+    verde_hasta: '',
+    ambar_hasta: '',
+    vigente_desde: f.hasta,
+    motivo: '',
+});
+const opcionesSegmento = computed(() =>
+    props.tablero.metas.vigentes.map((m) => ({
+        value: m.segmento,
+        label: m.etiqueta,
+    })),
 );
 
-const claseTab = (activo: boolean) =>
-    cn(
-        'inline-flex h-10 shrink-0 items-center gap-2 rounded-full px-4 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-        activo
-            ? 'bg-primary text-primary-foreground shadow-sm'
-            : 'bg-card text-muted-foreground ring-1 ring-border hover:text-foreground',
-    );
-
-/** Móvil: tarjeta solo para sucursales con bajas; las demás, en chips. */
-const sucursalesConBajas = computed(() =>
-    props.tablero.sucursales.filter((s) => s.bajas > 0),
-);
-const sucursalesSinBajas = computed(() =>
-    props.tablero.sucursales.filter((s) => s.bajas === 0),
-);
-
-const antiguedadDe = (formaClave: string) =>
-    props.tablero.resumen.antiguedad_por_forma.find(
-        (a) => a.forma === formaClave,
-    )?.dias ?? null;
+function guardarMeta() {
+    formMeta.post(rutasBajas.rotacionMetas.url(), {
+        preserveScroll: true,
+        onSuccess: () => {
+            formMeta.reset('verde_hasta', 'ambar_hasta', 'motivo');
+            editandoMetas.value = false;
+        },
+    });
+}
 </script>
 
 <template>
     <Head title="Rotación de personal" />
 
-    <div class="pagina-ancha flex flex-col gap-5">
+    <div class="pagina-ancha flex flex-col gap-4">
         <CrudPageHeader titulo="Rotación de personal" :icono="BarChart3">
             <div class="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto">
                 <Button variant="outline" as-child>
@@ -203,11 +377,13 @@ const antiguedadDe = (formaClave: string) =>
                     >
                 </Button>
                 <Button variant="outline" as-child>
-                    <a :href="urlPdf"><FileText class="size-4" />PDF</a>
+                    <a :href="urlPdf"
+                        ><FileText class="size-4" />PDF para Dirección</a
+                    >
                 </Button>
                 <Button
                     v-if="puedeVerHistorico"
-                    variant="ghost"
+                    variant="outline"
                     class="col-span-2"
                     as-child
                 >
@@ -224,732 +400,855 @@ const antiguedadDe = (formaClave: string) =>
 
         <PestanasBajasNav :pestanas="pestanas" actual="rotacion" />
 
-        <!-- Filtros: periodo siempre a la vista; el resto plegable en móvil -->
         <section
-            class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-3 shadow-sm sm:p-4"
-            aria-label="Filtros del tablero"
+            class="flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between"
+            aria-label="Vistas y filtros"
         >
-            <div
-                class="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-6 lg:items-end"
+            <nav
+                class="-mx-1 scroll-x-limpio flex max-w-full gap-2 px-1 py-0.5"
+                aria-label="Vistas de rotación"
             >
-                <div class="min-w-0">
-                    <Label class="mb-1.5 text-xs text-muted-foreground"
-                        >Desde</Label
-                    >
-                    <MonthPicker
-                        v-model="desde"
-                        aria-label="Desde"
-                        class="w-full"
-                    />
-                </div>
-                <div class="min-w-0">
-                    <Label class="mb-1.5 text-xs text-muted-foreground"
-                        >Hasta</Label
-                    >
-                    <MonthPicker
-                        v-model="hasta"
-                        aria-label="Hasta"
-                        class="w-full"
-                    />
-                </div>
-
-                <Button
-                    variant="outline"
-                    class="col-span-2 lg:hidden"
-                    :aria-expanded="verFiltros"
-                    @click="verFiltros = !verFiltros"
-                >
-                    <SlidersHorizontal class="size-4" />
-                    Más filtros
-                    <span
-                        v-if="filtrosSecundarios"
-                        class="rounded-full bg-primary px-1.5 text-xs text-primary-foreground tabular-nums"
-                        >{{ filtrosSecundarios }}</span
-                    >
-                    <ChevronDown
-                        class="ml-auto size-4 transition-transform"
-                        :class="verFiltros && 'rotate-180'"
-                    />
-                </Button>
-
-                <div
+                <button
+                    v-for="v in vistas"
+                    :key="v.valor"
+                    type="button"
                     :class="
                         cn(
-                            'col-span-2 grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 lg:col-span-4 lg:grid lg:grid-cols-4',
-                            verFiltros ? 'grid' : 'hidden',
+                            'h-9 shrink-0 rounded-full px-4 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+                            vista === v.valor
+                                ? 'bg-primary text-primary-foreground shadow-sm'
+                                : 'bg-card text-muted-foreground ring-1 ring-border hover:text-foreground',
                         )
                     "
+                    :aria-current="vista === v.valor ? 'page' : undefined"
+                    @click="vista = v.valor"
                 >
-                    <div class="min-w-0">
-                        <Label class="mb-1.5 text-xs text-muted-foreground"
-                            >Sucursal</Label
-                        >
-                        <SelectSimple
-                            v-model="sucursal"
-                            :opciones="opcionesSucursal"
-                            numerico
-                            opcion-vacia="Todas"
-                            placeholder="Todas"
-                        />
-                    </div>
-                    <div class="min-w-0">
-                        <Label class="mb-1.5 text-xs text-muted-foreground"
-                            >Puesto</Label
-                        >
-                        <SelectSimple
-                            v-model="puesto"
-                            :opciones="opcionesPuesto"
-                            numerico
-                            opcion-vacia="Todos"
-                            placeholder="Todos"
-                        />
-                    </div>
-                    <div class="min-w-0">
-                        <Label class="mb-1.5 text-xs text-muted-foreground"
-                            >Forma de salida</Label
-                        >
-                        <SelectSimple
-                            v-model="forma"
-                            :opciones="tablero.opciones.formas"
-                            opcion-vacia="Todas"
-                            placeholder="Todas"
-                        />
-                    </div>
-                    <div class="min-w-0">
-                        <Label class="mb-1.5 text-xs text-muted-foreground"
-                            >Causal</Label
-                        >
-                        <SelectSimple
-                            v-model="causal"
-                            :opciones="opcionesCausal"
-                            numerico
-                            opcion-vacia="Todas"
-                            placeholder="Todas"
-                        />
-                    </div>
+                    {{ v.etiqueta }}
+                </button>
+            </nav>
+            <div
+                class="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end"
+            >
+                <div class="min-w-0">
+                    <Label class="mb-1 text-xs text-muted-foreground"
+                        >Desde</Label
+                    >
+                    <MonthPicker v-model="desde" aria-label="Desde" />
+                </div>
+                <div class="min-w-0">
+                    <Label class="mb-1 text-xs text-muted-foreground"
+                        >Hasta</Label
+                    >
+                    <MonthPicker v-model="hasta" aria-label="Hasta" />
+                </div>
+                <div v-if="conFiltroSucursal" class="min-w-0 sm:w-44">
+                    <Label class="mb-1 text-xs text-muted-foreground"
+                        >Sucursal</Label
+                    >
+                    <SelectSimple
+                        v-model="sucursal"
+                        :opciones="opcionesSucursal"
+                        numerico
+                        opcion-vacia="Todas"
+                        placeholder="Todas"
+                    />
+                </div>
+                <div class="min-w-0 sm:w-44">
+                    <Label class="mb-1 text-xs text-muted-foreground"
+                        >Puesto</Label
+                    >
+                    <SelectSimple
+                        v-model="puesto"
+                        :opciones="opcionesPuesto"
+                        numerico
+                        opcion-vacia="Todos"
+                        placeholder="Todos"
+                    />
+                </div>
+                <div class="min-w-0 sm:w-44">
+                    <Label class="mb-1 text-xs text-muted-foreground"
+                        >Forma de salida</Label
+                    >
+                    <SelectSimple
+                        v-model="forma"
+                        :opciones="tablero.opciones.formas"
+                        opcion-vacia="Todas"
+                        placeholder="Todas"
+                    />
                 </div>
             </div>
         </section>
 
-        <nav
-            class="-mx-1 scroll-x-limpio flex max-w-full gap-2 px-1 py-0.5"
-            aria-label="Vistas del tablero"
-        >
-            <button
-                v-for="v in vistas"
-                :key="v.valor"
-                type="button"
-                :class="claseTab(vista === v.valor)"
-                :aria-current="vista === v.valor ? 'page' : undefined"
-                @click="vista = v.valor"
-            >
-                <component :is="v.icono" class="size-4" />
-                {{ v.etiqueta }}
-            </button>
-        </nav>
-
-        <!-- Resumen -->
-        <template v-if="vista === 'resumen'">
-            <div class="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
-                <TarjetaMetrica
-                    :etiqueta="`Índice · ${resumen.mes.etiqueta}`"
-                    :valor="porcentaje(resumen.mes.indice)"
-                    :icono="Percent"
-                    tono="primario"
-                    :detalle="`${resumen.mes.bajas ?? '—'} bajas · plantilla ${resumen.mes.plantilla_promedio ?? '—'}`"
-                />
-                <TarjetaMetrica
-                    :etiqueta="`Acumulado ${resumen.acumulado.anio}`"
-                    :valor="porcentaje(resumen.acumulado.indice)"
-                    :icono="TrendingUp"
-                    tono="oro"
-                    :detalle="`${resumen.acumulado.bajas} bajas · plantilla ${resumen.acumulado.plantilla_promedio ?? '—'}`"
-                />
-                <TarjetaMetrica
-                    etiqueta="Temprana (< 90 días)"
-                    :valor="porcentaje(resumen.rotacion_temprana.porcentaje)"
-                    :icono="CalendarClock"
-                    tono="alerta"
-                    :detalle="`${resumen.rotacion_temprana.bajas} de ${resumen.bajas_sistema} bajas`"
-                />
-                <TarjetaMetrica
-                    etiqueta="Expediente completo"
-                    :valor="porcentaje(resumen.calidad_expediente.porcentaje)"
-                    :icono="FileCheck2"
-                    tono="exito"
-                    :detalle="`${resumen.calidad_expediente.completas} de ${resumen.calidad_expediente.cerradas} cerradas`"
-                />
+        <!-- Global, Corporativo y Todas las sucursales -->
+        <template v-if="!esDetalle">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                <article
+                    v-for="t in tarjetas"
+                    :key="t.etiqueta"
+                    :class="
+                        cn(
+                            'flex flex-col gap-1 rounded-2xl border border-l-4 border-border/60 bg-card p-4 shadow-sm',
+                            bordeSemaforo(t.semaforo),
+                        )
+                    "
+                >
+                    <p class="text-xs text-muted-foreground">
+                        {{ t.etiqueta }}
+                    </p>
+                    <p
+                        :class="
+                            cn(
+                                'text-2xl font-bold tabular-nums',
+                                claseValor(t.semaforo),
+                            )
+                        "
+                    >
+                        {{ t.valor }}
+                    </p>
+                    <p class="text-xs text-muted-foreground">
+                        {{ t.detalle }}
+                    </p>
+                </article>
             </div>
 
-            <section class="flex flex-col gap-2">
-                <div class="flex items-center gap-1.5">
-                    <h2 class="text-sm font-semibold text-muted-foreground">
-                        Por forma de salida
-                    </h2>
-                    <AyudaBoton
-                        titulo="Cómo se calcula"
-                        :texto="`Índice = bajas ÷ plantilla promedio × 100. Hasta ${tablero.mes_inicio_sistema} se usa el Excel de rotación (solo totales por sucursal); desde ese mes, las bajas cerradas del sistema, que traen el desglose por forma, causal, puesto, antigüedad y expediente.`"
-                    />
-                    <span class="ml-auto text-xs text-muted-foreground">
-                        Antigüedad promedio al salir:
-                        <strong class="text-foreground tabular-nums"
-                            >{{
-                                resumen.antiguedad_promedio_dias ?? '—'
-                            }}
-                            días</strong
+            <div class="flex flex-wrap gap-x-6 gap-y-1 text-xs">
+                <span class="inline-flex items-center gap-1">
+                    Vs. mes anterior:
+                    <template v-if="resumen.comparativo.tendencia === 'sube'">
+                        <ArrowUp class="size-3.5 text-semaforo-sube" />
+                        <strong class="text-semaforo-sube tabular-nums"
+                            >+{{ resumen.comparativo.delta }} pts.</strong
                         >
-                    </span>
-                </div>
-                <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
-                    <article
-                        v-for="pf in resumen.por_forma"
-                        :key="pf.forma"
-                        class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+                    </template>
+                    <template
+                        v-else-if="resumen.comparativo.tendencia === 'baja'"
                     >
-                        <p
-                            class="flex items-center gap-2 text-sm font-semibold"
+                        <ArrowDown class="size-3.5 text-semaforo-baja" />
+                        <strong class="text-semaforo-baja tabular-nums"
+                            >{{ resumen.comparativo.delta }} pts.</strong
                         >
-                            <span
+                    </template>
+                    <template
+                        v-else-if="resumen.comparativo.tendencia === 'igual'"
+                    >
+                        <Minus class="size-3.5" />Igual
+                    </template>
+                    <template v-else>sin datos para comparar</template>
+                </span>
+                <span>
+                    Causal principal:
+                    <strong>{{
+                        resumen.causal_principal
+                            ? `${resumen.causal_principal.clave ?? ''} ${resumen.causal_principal.nombre} (${resumen.causal_principal.bajas})`
+                            : '—'
+                    }}</strong>
+                </span>
+                <span
+                    :class="
+                        !resumen.comprobacion.cuadra && 'text-semaforo-sube'
+                    "
+                >
+                    Corporativo {{ resumen.comprobacion.corporativo }} +
+                    Sucursales {{ resumen.comprobacion.sucursales }} = Global
+                    {{ resumen.comprobacion.global }} bajas
+                </span>
+            </div>
+
+            <div
+                class="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(18rem,1fr)]"
+            >
+                <section
+                    class="flex min-w-0 flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+                >
+                    <div>
+                        <h2 class="font-semibold">
+                            Bajas por forma de salida e índice mensual
+                        </h2>
+                        <p class="text-xs text-muted-foreground">
+                            {{ tablero.segmento.etiqueta }} · el índice usa la
+                            plantilla promedio del mes
+                        </p>
+                    </div>
+                    <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                        <span
+                            v-for="fo in tablero.opciones.formas"
+                            :key="fo.value"
+                            class="flex items-center gap-1.5"
+                            ><span
                                 :class="
                                     cn(
-                                        'size-3 shrink-0 rounded-full',
-                                        claseForma(pf.token).fondo,
+                                        'size-2.5 rounded-full',
+                                        claseForma(fo.token).fondo,
                                     )
                                 "
-                            />{{ pf.etiqueta }}
-                        </p>
-                        <div class="flex items-end gap-3">
-                            <span
-                                class="text-4xl leading-none font-bold tabular-nums"
-                                :class="
-                                    pf.bajas === 0 && 'text-muted-foreground/60'
-                                "
-                                >{{ pf.bajas }}</span
+                            />{{ fo.label }}</span
+                        >
+                        <span
+                            v-if="hayDesgloseExcel"
+                            class="flex items-center gap-1.5"
+                            ><span
+                                class="size-2.5 rounded-full bg-muted-foreground/40"
+                            />Histórico sin desglose</span
+                        >
+                        <span class="flex items-center gap-1.5"
+                            ><span class="h-0.5 w-4 bg-semaforo-sube" />Índice
+                            mensual</span
+                        >
+                        <span class="flex items-center gap-1.5"
+                            ><span
+                                class="w-4 border-t-2 border-dashed border-semaforo-baja"
+                            />Meta</span
+                        >
+                    </div>
+                    <div class="tabla-scroll">
+                        <svg
+                            :viewBox="`0 0 ${ANCHO} ${ALTO}`"
+                            class="w-full min-w-[40rem]"
+                            role="img"
+                            :aria-label="`Bajas e índice mensual de ${tablero.filtros.desde} a ${tablero.filtros.hasta}`"
+                        >
+                            <g v-for="n in 4" :key="n">
+                                <line
+                                    :x1="MARGEN.izq"
+                                    :x2="ANCHO - MARGEN.der"
+                                    :y1="yBajas((techoBajas / 4) * n)"
+                                    :y2="yBajas((techoBajas / 4) * n)"
+                                    class="stroke-border"
+                                />
+                                <text
+                                    :x="MARGEN.izq - 6"
+                                    :y="yBajas((techoBajas / 4) * n) + 4"
+                                    text-anchor="end"
+                                    class="fill-muted-foreground text-[11px]"
+                                >
+                                    {{ Math.round((techoBajas / 4) * n) }}
+                                </text>
+                                <text
+                                    :x="ANCHO - MARGEN.der + 6"
+                                    :y="yBajas((techoBajas / 4) * n) + 4"
+                                    class="fill-semaforo-sube text-[11px]"
+                                >
+                                    {{ Math.round((techoIndice / 4) * n) }}%
+                                </text>
+                            </g>
+                            <line
+                                :x1="MARGEN.izq"
+                                :x2="ANCHO - MARGEN.der"
+                                :y1="MARGEN.arriba + areaAlto"
+                                :y2="MARGEN.arriba + areaAlto"
+                                class="stroke-border"
+                            />
+                            <g
+                                v-for="(m, i) in tablero.tendencia"
+                                :key="m.periodo"
                             >
-                            <span class="pb-0.5 text-sm text-muted-foreground"
-                                >bajas</span
+                                <rect
+                                    v-for="s in segmentos(m)"
+                                    :key="s.clase"
+                                    :x="centroX(i) - anchoBarra / 2"
+                                    :y="s.y"
+                                    :width="anchoBarra"
+                                    :height="s.alto"
+                                    :class="s.clase"
+                                >
+                                    <title>
+                                        {{ m.etiqueta }}: {{ m.bajas }} bajas
+                                    </title>
+                                </rect>
+                                <text
+                                    v-if="m.bajas"
+                                    :x="centroX(i)"
+                                    :y="yBajas(m.bajas) - 4"
+                                    text-anchor="middle"
+                                    class="fill-muted-foreground text-[11px]"
+                                >
+                                    {{ m.bajas }}
+                                </text>
+                                <text
+                                    v-if="m.indice === null"
+                                    :x="centroX(i)"
+                                    :y="MARGEN.arriba + areaAlto - 6"
+                                    text-anchor="middle"
+                                    class="fill-muted-foreground text-[10px]"
+                                >
+                                    sin datos
+                                </text>
+                                <text
+                                    :x="centroX(i)"
+                                    :y="MARGEN.arriba + areaAlto + 16"
+                                    text-anchor="middle"
+                                    class="fill-muted-foreground text-[11px]"
+                                >
+                                    {{ m.etiqueta }}
+                                </text>
+                                <text
+                                    v-if="m.en_curso"
+                                    :x="centroX(i)"
+                                    :y="MARGEN.arriba + areaAlto + 30"
+                                    text-anchor="middle"
+                                    class="fill-muted-foreground text-[10px] italic"
+                                >
+                                    en curso
+                                </text>
+                            </g>
+                            <polyline
+                                v-if="lineaMeta"
+                                :points="lineaMeta"
+                                fill="none"
+                                class="stroke-semaforo-baja"
+                                stroke-width="2"
+                                stroke-dasharray="6 5"
+                            />
+                            <polyline
+                                v-for="tramo in lineasIndice"
+                                :key="tramo"
+                                :points="tramo"
+                                fill="none"
+                                class="stroke-semaforo-sube"
+                                stroke-width="2"
+                            />
+                            <g
+                                v-for="(m, i) in tablero.tendencia"
+                                :key="m.periodo"
                             >
-                            <span
-                                class="ml-auto pb-0.5 text-lg font-semibold tabular-nums"
-                                >{{ porcentaje(pf.porcentaje) }}</span
+                                <template v-if="m.indice !== null">
+                                    <circle
+                                        :cx="centroX(i)"
+                                        :cy="yIndice(m.indice)"
+                                        r="3.5"
+                                        class="fill-card stroke-semaforo-sube"
+                                        stroke-width="2"
+                                    />
+                                    <text
+                                        :x="centroX(i) + 6"
+                                        :y="yIndice(m.indice) - 6"
+                                        :class="
+                                            cn(
+                                                'text-[11px] font-semibold',
+                                                m.semaforo === 'verde'
+                                                    ? 'fill-semaforo-baja'
+                                                    : m.semaforo === 'ambar'
+                                                      ? 'fill-semaforo-ambar'
+                                                      : 'fill-semaforo-sube',
+                                            )
+                                        "
+                                    >
+                                        {{ m.indice }}%
+                                    </text>
+                                </template>
+                            </g>
+                        </svg>
+                    </div>
+                    <p
+                        v-if="metaVisible !== null"
+                        class="text-xs text-muted-foreground"
+                    >
+                        Meta verde del último mes:
+                        {{ porcentaje(metaVisible) }}. El histórico del Excel
+                        llega hasta {{ tablero.mes_inicio_sistema }}; desde ese
+                        mes cuentan las bajas del sistema.
+                    </p>
+                </section>
+
+                <aside class="flex min-w-0 flex-col gap-4">
+                    <section
+                        class="rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+                    >
+                        <h2 class="mb-2 text-sm font-semibold">
+                            Voluntaria contra involuntaria
+                        </h2>
+                        <div class="flex items-center gap-4">
+                            <svg
+                                viewBox="0 0 42 42"
+                                class="size-24 shrink-0 -rotate-90"
+                                role="img"
+                                aria-label="Distribución de bajas por tipo"
+                            >
+                                <circle
+                                    cx="21"
+                                    cy="21"
+                                    r="15.915"
+                                    fill="none"
+                                    class="stroke-muted"
+                                    stroke-width="6"
+                                />
+                                <circle
+                                    v-for="s in donaSegmentos"
+                                    :key="s.etiqueta"
+                                    cx="21"
+                                    cy="21"
+                                    r="15.915"
+                                    fill="none"
+                                    :class="s.trazo"
+                                    stroke-width="6"
+                                    :stroke-dasharray="`${s.porcentaje} ${100 - s.porcentaje}`"
+                                    :stroke-dashoffset="s.desfase"
+                                />
+                            </svg>
+                            <ul class="flex min-w-0 flex-col gap-1 text-xs">
+                                <li class="font-semibold">
+                                    {{ resumen.voluntaria.total }} bajas
+                                </li>
+                                <li
+                                    v-for="s in donaSegmentos"
+                                    :key="s.etiqueta"
+                                    v-show="s.valor > 0"
+                                    class="flex items-center gap-1.5"
+                                >
+                                    <span
+                                        :class="
+                                            cn(
+                                                'size-2.5 shrink-0 rounded-full',
+                                                s.punto,
+                                            )
+                                        "
+                                    />{{ s.etiqueta }} {{ s.valor }} ·
+                                    {{ Math.round(s.porcentaje) }}%
+                                </li>
+                            </ul>
+                        </div>
+                    </section>
+
+                    <section
+                        class="rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+                    >
+                        <div
+                            class="mb-2 flex items-center justify-between gap-2"
+                        >
+                            <h2 class="text-sm font-semibold">
+                                Metas mensuales del semáforo
+                            </h2>
+                            <Button
+                                v-if="puedeEditarMetas"
+                                variant="outline"
+                                size="sm"
+                                @click="editandoMetas = !editandoMetas"
+                                >Editar</Button
                             >
                         </div>
-                        <div
-                            class="h-2 overflow-hidden rounded-full bg-muted"
-                            aria-hidden="true"
+                        <table class="w-full text-left text-xs">
+                            <thead class="text-muted-foreground">
+                                <tr>
+                                    <th class="py-1 font-medium">Vista</th>
+                                    <th class="py-1 font-medium">Verde</th>
+                                    <th class="py-1 font-medium">Ámbar</th>
+                                    <th class="py-1 font-medium">Rojo</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr
+                                    v-for="m in tablero.metas.vigentes"
+                                    :key="m.segmento"
+                                    class="border-t border-border/50"
+                                >
+                                    <td class="py-1.5 font-medium">
+                                        {{ m.etiqueta }}
+                                    </td>
+                                    <td class="py-1.5 tabular-nums">
+                                        ≤ {{ m.verde_hasta }}%
+                                    </td>
+                                    <td class="py-1.5 tabular-nums">
+                                        {{ m.verde_hasta }} –
+                                        {{ m.ambar_hasta }}%
+                                    </td>
+                                    <td class="py-1.5 tabular-nums">
+                                        &gt; {{ m.ambar_hasta }}%
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        <form
+                            v-if="editandoMetas"
+                            class="mt-3 grid gap-2 border-t border-border/50 pt-3"
+                            @submit.prevent="guardarMeta"
                         >
+                            <SelectSimple
+                                v-model="formMeta.segmento"
+                                :opciones="opcionesSegmento"
+                            />
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <Label for="meta-verde" class="mb-1 text-xs"
+                                        >Verde hasta %</Label
+                                    >
+                                    <Input
+                                        id="meta-verde"
+                                        v-model="formMeta.verde_hasta"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                    />
+                                </div>
+                                <div>
+                                    <Label for="meta-ambar" class="mb-1 text-xs"
+                                        >Ámbar hasta %</Label
+                                    >
+                                    <Input
+                                        id="meta-ambar"
+                                        v-model="formMeta.ambar_hasta"
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <Label class="mb-1 text-xs">Aplica desde</Label>
+                                <MonthPicker
+                                    v-model="formMeta.vigente_desde"
+                                    aria-label="Aplica desde"
+                                />
+                            </div>
+                            <div>
+                                <Label for="meta-motivo" class="mb-1 text-xs"
+                                    >Motivo del cambio</Label
+                                >
+                                <Input
+                                    id="meta-motivo"
+                                    v-model="formMeta.motivo"
+                                />
+                            </div>
+                            <p
+                                v-for="(error, campo) in formMeta.errors"
+                                :key="campo"
+                                class="text-xs text-semaforo-sube"
+                            >
+                                {{ error }}
+                            </p>
+                            <Button
+                                type="submit"
+                                :disabled="formMeta.processing"
+                                >Registrar meta</Button
+                            >
+                        </form>
+
+                        <button
+                            type="button"
+                            class="mt-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                            :aria-expanded="verHistorial"
+                            @click="verHistorial = !verHistorial"
+                        >
+                            Historial de metas
+                            <ChevronDown
+                                class="size-3.5 transition-transform"
+                                :class="verHistorial && 'rotate-180'"
+                            />
+                        </button>
+                        <ul
+                            v-if="verHistorial"
+                            class="mt-2 flex flex-col gap-2 text-xs"
+                        >
+                            <li
+                                v-for="h in tablero.metas.historial"
+                                :key="h.id"
+                                class="border-t border-border/50 pt-2"
+                            >
+                                <strong>{{ h.segmento }}</strong>
+                                · ≤ {{ h.verde_hasta }}% / ≤
+                                {{ h.ambar_hasta }}% · desde
+                                {{ h.vigente_desde }}
+                                <p class="text-muted-foreground">
+                                    {{ h.motivo }}
+                                    <template v-if="h.registrado_por">
+                                        · {{ h.registrado_por }}
+                                    </template>
+                                </p>
+                            </li>
+                        </ul>
+                    </section>
+
+                    <section
+                        class="rounded-2xl border border-border/60 bg-success-soft p-4 text-xs"
+                    >
+                        <h2 class="mb-1 text-sm font-semibold">Fórmula</h2>
+                        <p>
+                            Rotación = bajas del periodo ÷ plantilla promedio ×
+                            100
+                        </p>
+                        <p class="mt-1 text-muted-foreground">
+                            Plantilla promedio = (plantilla al inicio +
+                            plantilla al cierre) ÷ 2. El índice global no es la
+                            suma de los segmentos: cada uno divide entre su
+                            plantilla; lo que sí suma son las bajas.
+                        </p>
+                    </section>
+                </aside>
+            </div>
+        </template>
+
+        <!-- Por sucursal y Por causales -->
+        <div
+            v-else
+            class="grid gap-4 xl:grid-cols-[minmax(0,7fr)_minmax(20rem,4fr)]"
+        >
+            <section
+                :class="
+                    cn(
+                        'flex min-w-0 flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm',
+                        vista === 'por_causales' && 'order-2 xl:order-1',
+                    )
+                "
+            >
+                <div>
+                    <h2 class="font-semibold">
+                        Por sucursal · {{ tablero.filtros.desde }} a
+                        {{ tablero.filtros.hasta }}
+                    </h2>
+                    <p class="text-xs text-muted-foreground">
+                        Semáforo sobre el promedio mensual contra la meta de
+                        cada segmento. Elige una sucursal para ver sus bajas.
+                    </p>
+                </div>
+                <EmptyState
+                    v-if="!tablero.sucursales.length"
+                    :icono="BarChart3"
+                    titulo="Sin datos"
+                    descripcion="No hay rotación registrada en el periodo."
+                />
+                <div v-else class="tabla-scroll">
+                    <table class="w-full min-w-[52rem] text-left text-xs">
+                        <thead
+                            class="bg-[var(--mrl-fondo)] text-muted-foreground"
+                        >
+                            <tr>
+                                <th class="px-2 py-2 font-medium">Sucursal</th>
+                                <th class="px-2 py-2 font-medium">
+                                    Plantilla prom.
+                                </th>
+                                <th class="px-2 py-2 font-medium">Bajas</th>
+                                <th class="px-2 py-2 font-medium">
+                                    Prom. mensual
+                                </th>
+                                <th class="px-2 py-2 font-medium">
+                                    Último mes
+                                </th>
+                                <th class="px-2 py-2 font-medium">
+                                    Vs. anterior
+                                </th>
+                                <th class="px-2 py-2 font-medium">
+                                    RV / NR / RE / OT
+                                </th>
+                                <th class="px-2 py-2 font-medium">
+                                    Causal principal
+                                </th>
+                                <th class="px-2 py-2 font-medium">Temprana</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template
+                                v-for="s in tablero.sucursales"
+                                :key="s.sucursal_id"
+                            >
+                                <tr
+                                    :class="
+                                        cn(
+                                            'cursor-pointer border-t border-border/50 hover:bg-muted/40',
+                                            s.es_corporativo &&
+                                                'bg-[var(--mrl-fondo)]',
+                                        )
+                                    "
+                                    :aria-expanded="abierta === s.sucursal_id"
+                                    tabindex="0"
+                                    @click="
+                                        abierta =
+                                            abierta === s.sucursal_id
+                                                ? null
+                                                : s.sucursal_id
+                                    "
+                                    @keydown.enter="
+                                        abierta =
+                                            abierta === s.sucursal_id
+                                                ? null
+                                                : s.sucursal_id
+                                    "
+                                >
+                                    <td class="px-2 py-2 font-semibold">
+                                        {{ s.sucursal }}
+                                    </td>
+                                    <td class="px-2 py-2 tabular-nums">
+                                        {{ s.plantilla_promedio ?? '—' }}
+                                    </td>
+                                    <td class="px-2 py-2 tabular-nums">
+                                        {{ s.bajas }}
+                                    </td>
+                                    <td class="px-2 py-2">
+                                        <span
+                                            :class="
+                                                cn(
+                                                    'inline-block rounded-full px-2 py-0.5 font-semibold tabular-nums',
+                                                    claseChip(s.semaforo),
+                                                )
+                                            "
+                                            >{{
+                                                porcentaje(s.promedio_mensual)
+                                            }}</span
+                                        >
+                                    </td>
+                                    <td class="px-2 py-2 tabular-nums">
+                                        {{ porcentaje(s.indice_mes) }}
+                                    </td>
+                                    <td class="px-2 py-2 tabular-nums">
+                                        <span
+                                            v-if="s.tendencia === 'sube'"
+                                            class="inline-flex items-center gap-0.5 text-semaforo-sube"
+                                            ><ArrowUp class="size-3.5" />{{
+                                                s.delta
+                                            }}</span
+                                        >
+                                        <span
+                                            v-else-if="s.tendencia === 'baja'"
+                                            class="inline-flex items-center gap-0.5 text-semaforo-baja"
+                                            ><ArrowDown class="size-3.5" />{{
+                                                Math.abs(s.delta ?? 0)
+                                            }}</span
+                                        >
+                                        <span
+                                            v-else
+                                            class="text-muted-foreground"
+                                            >{{
+                                                s.tendencia === 'igual'
+                                                    ? '='
+                                                    : '—'
+                                            }}</span
+                                        >
+                                    </td>
+                                    <td class="px-2 py-2 tabular-nums">
+                                        {{ s.conteos.RV }} /
+                                        {{ s.conteos.NR }} /
+                                        {{ s.conteos.RE }} / {{ s.conteos.OT }}
+                                        <span
+                                            v-if="s.conteos.sin_desglose"
+                                            class="text-muted-foreground"
+                                            >(+{{
+                                                s.conteos.sin_desglose
+                                            }}
+                                            Excel)</span
+                                        >
+                                    </td>
+                                    <td class="max-w-48 px-2 py-2">
+                                        {{ s.causal_principal ?? '—' }}
+                                    </td>
+                                    <td class="px-2 py-2 tabular-nums">
+                                        {{ porcentaje(s.rotacion_temprana) }}
+                                    </td>
+                                </tr>
+                                <tr v-if="abierta === s.sucursal_id">
+                                    <td
+                                        colspan="9"
+                                        class="bg-[var(--mrl-fondo)] px-3 py-2"
+                                    >
+                                        <p
+                                            v-if="!s.bajas_lista.length"
+                                            class="text-muted-foreground"
+                                        >
+                                            Sin bajas del sistema en el periodo.
+                                        </p>
+                                        <ul v-else class="flex flex-col gap-1">
+                                            <li
+                                                v-for="b in s.bajas_lista"
+                                                :key="b.id"
+                                            >
+                                                <Link
+                                                    :href="
+                                                        rutasBajas.show(b.id)
+                                                    "
+                                                    class="font-medium text-primary underline-offset-2 hover:underline"
+                                                    >{{ b.folio }} ·
+                                                    {{ b.colaborador }}</Link
+                                                >
+                                                · {{ b.fecha_baja }} ·
+                                                {{ b.causal ?? b.forma }} ·
+                                                {{ b.estatus }}
+                                            </li>
+                                        </ul>
+                                        <p
+                                            v-if="s.conteos.sin_desglose"
+                                            class="mt-1 text-muted-foreground"
+                                        >
+                                            {{ s.conteos.sin_desglose }} baja(s)
+                                            del histórico de Excel no tienen
+                                            detalle por persona.
+                                        </p>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+                <p class="text-xs text-muted-foreground">
+                    Flecha roja: la rotación subió contra el mes anterior.
+                    Flecha verde: bajó.
+                </p>
+            </section>
+
+            <section
+                :class="
+                    cn(
+                        'flex min-w-0 flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm',
+                        vista === 'por_causales' && 'order-1 xl:order-2',
+                    )
+                "
+            >
+                <div>
+                    <h2 class="font-semibold">
+                        Por causales · {{ resumen.bajas_sistema }} bajas
+                    </h2>
+                    <p class="text-xs text-muted-foreground">
+                        Bajas del sistema del periodo; el histórico de Excel no
+                        trae causal.
+                    </p>
+                </div>
+                <EmptyState
+                    v-if="!tablero.causales.length"
+                    :icono="BarChart3"
+                    titulo="Sin bajas"
+                    descripcion="No hay bajas del sistema en el periodo."
+                />
+                <ul class="flex flex-col gap-2.5">
+                    <li
+                        v-for="c in tablero.causales"
+                        :key="`${c.clave}-${c.nombre}`"
+                        class="flex flex-col gap-1 text-xs"
+                    >
+                        <div class="flex items-baseline justify-between gap-2">
+                            <span class="min-w-0"
+                                >{{ c.clave }} {{ c.nombre
+                                }}<AlertTriangle
+                                    v-if="c.alerta"
+                                    class="ml-1 inline size-3.5 text-semaforo-ambar"
+                                    aria-label="Causal con alerta"
+                            /></span>
+                            <strong class="shrink-0 tabular-nums"
+                                >{{ c.bajas }} ·
+                                {{ porcentaje(c.porcentaje) }}</strong
+                            >
+                        </div>
+                        <div class="h-2 overflow-hidden rounded-full bg-muted">
                             <div
                                 :class="
                                     cn(
                                         'h-full rounded-full',
-                                        claseForma(pf.token).fondo,
+                                        claseForma(c.token).fondo,
                                     )
                                 "
-                                :style="{ width: `${pf.porcentaje ?? 0}%` }"
+                                :style="{
+                                    width: `${(c.bajas / maxCausal) * 100}%`,
+                                }"
                             />
                         </div>
-                        <div
-                            class="flex flex-wrap justify-between gap-x-3 text-xs text-muted-foreground"
-                        >
-                            <span
-                                >Índice
-                                <strong class="text-foreground tabular-nums">{{
-                                    porcentaje(pf.indice)
-                                }}</strong></span
-                            >
-                            <span
-                                >Antigüedad
-                                <strong class="text-foreground tabular-nums">{{
-                                    antiguedadDe(pf.forma) === null
-                                        ? '—'
-                                        : `${antiguedadDe(pf.forma)} días`
-                                }}</strong></span
-                            >
-                        </div>
-                    </article>
-                </div>
+                    </li>
+                </ul>
+                <p
+                    v-for="c in alertasCausal"
+                    :key="`alerta-${c.clave}`"
+                    class="rounded-xl bg-warning-soft p-2 text-xs"
+                >
+                    <AlertTriangle
+                        class="mr-1 inline size-3.5 text-semaforo-ambar"
+                    />{{ c.clave }}: {{ c.alerta }}
+                </p>
             </section>
-        </template>
-
-        <!-- Tendencia -->
-        <section
-            v-else-if="vista === 'tendencia'"
-            class="flex flex-col gap-4 rounded-2xl border border-border/60 bg-card p-4 shadow-sm sm:p-5"
-        >
-            <div class="flex flex-wrap items-center gap-4 text-xs">
-                <span class="flex items-center gap-1.5"
-                    ><span class="size-3 rounded-sm bg-primary" />Global (tu
-                    alcance)</span
-                >
-                <span v-if="conSucursal" class="flex items-center gap-1.5"
-                    ><span class="size-3 rounded-sm bg-oro" />{{
-                        nombreSucursal
-                    }}</span
-                >
-            </div>
-            <div class="tabla-scroll">
-                <div class="flex h-64 min-w-[42rem] items-end gap-2 pb-1">
-                    <div
-                        v-for="m in tablero.tendencia"
-                        :key="m.periodo"
-                        class="flex min-w-12 flex-1 flex-col items-center gap-1"
-                    >
-                        <span class="text-[11px] font-semibold tabular-nums">{{
-                            porcentaje(m.indice)
-                        }}</span>
-                        <div
-                            class="flex h-48 w-full items-end justify-center gap-0.5"
-                        >
-                            <div
-                                class="w-1/2 max-w-7 rounded-t-md bg-primary"
-                                :style="{
-                                    height: `${((m.indice ?? 0) / maxIndice) * 100}%`,
-                                }"
-                                :title="`${m.etiqueta}: ${porcentaje(m.indice)} (${m.bajas ?? '—'} bajas, ${fuenteMes(m)})`"
-                            />
-                            <div
-                                v-if="conSucursal"
-                                class="w-1/2 max-w-7 rounded-t-md bg-oro"
-                                :style="{
-                                    height: `${((m.indice_sucursal ?? 0) / maxIndice) * 100}%`,
-                                }"
-                                :title="`${nombreSucursal} ${m.etiqueta}: ${porcentaje(m.indice_sucursal ?? null)}`"
-                            />
-                        </div>
-                        <span class="text-[11px] text-muted-foreground">{{
-                            m.etiqueta
-                        }}</span>
-                    </div>
-                </div>
-            </div>
-            <div class="tabla-scroll rounded-xl border border-border/60">
-                <table class="w-full min-w-[32rem] text-left text-sm">
-                    <thead
-                        class="bg-[var(--mrl-fondo)] text-xs text-muted-foreground"
-                    >
-                        <tr>
-                            <th class="px-3 py-2 font-medium">Mes</th>
-                            <th class="px-3 py-2 font-medium">Bajas</th>
-                            <th class="px-3 py-2 font-medium">Plantilla</th>
-                            <th class="px-3 py-2 font-medium">Índice</th>
-                            <th
-                                v-if="conSucursal"
-                                class="px-3 py-2 font-medium"
-                            >
-                                {{ nombreSucursal }}
-                            </th>
-                            <th class="px-3 py-2 font-medium">Fuente</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="m in tablero.tendencia"
-                            :key="m.periodo"
-                            class="border-t border-border/50"
-                        >
-                            <td class="px-3 py-2 font-medium">
-                                {{ m.etiqueta }}
-                            </td>
-                            <td class="px-3 py-2 tabular-nums">
-                                {{ m.bajas ?? '—' }}
-                            </td>
-                            <td class="px-3 py-2 tabular-nums">
-                                {{ m.plantilla_promedio ?? '—' }}
-                            </td>
-                            <td class="px-3 py-2 font-semibold tabular-nums">
-                                {{ porcentaje(m.indice) }}
-                            </td>
-                            <td
-                                v-if="conSucursal"
-                                class="px-3 py-2 tabular-nums"
-                            >
-                                {{ porcentaje(m.indice_sucursal ?? null) }}
-                            </td>
-                            <td class="px-3 py-2 text-xs text-muted-foreground">
-                                {{ fuenteMes(m) }}
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- Causales -->
-        <section
-            v-else-if="vista === 'causales'"
-            class="flex flex-col gap-4 rounded-2xl border border-border/60 bg-card p-4 shadow-sm sm:p-5"
-        >
-            <div class="flex flex-wrap gap-x-4 gap-y-2 text-xs">
-                <span
-                    v-for="fo in tablero.opciones.formas"
-                    :key="fo.value"
-                    class="flex items-center gap-1.5"
-                    ><span
-                        :class="
-                            cn('size-3 rounded-sm', claseForma(fo.token).fondo)
-                        "
-                    />{{ fo.label }}</span
-                >
-            </div>
-            <EmptyState
-                v-if="!tablero.causales.length"
-                :icono="ListTree"
-                titulo="Sin bajas cerradas"
-                descripcion="No hay bajas del sistema cerradas en el periodo."
-            />
-            <ul class="flex flex-col gap-3">
-                <li
-                    v-for="c in tablero.causales"
-                    :key="`${c.clave}-${c.nombre}`"
-                    class="flex flex-col gap-1.5"
-                >
-                    <div class="flex items-baseline gap-2">
-                        <span
-                            v-if="c.clave"
-                            class="shrink-0 rounded-md bg-muted px-1.5 font-mono text-[11px] text-muted-foreground"
-                            >{{ c.clave }}</span
-                        >
-                        <span class="min-w-0 flex-1 text-sm font-medium">{{
-                            c.nombre
-                        }}</span>
-                        <span class="shrink-0 text-sm font-bold tabular-nums">{{
-                            c.bajas
-                        }}</span>
-                        <span
-                            class="w-14 shrink-0 text-right text-xs text-muted-foreground tabular-nums"
-                            >{{ porcentaje(c.porcentaje) }}</span
-                        >
-                    </div>
-                    <div class="h-2.5 overflow-hidden rounded-full bg-muted">
-                        <div
-                            :class="
-                                cn(
-                                    'h-full rounded-full',
-                                    claseForma(c.token).fondo,
-                                )
-                            "
-                            :style="{
-                                width: `${(c.bajas / maxCausal) * 100}%`,
-                                minWidth: '6px',
-                            }"
-                            :title="`${c.nombre}: ${c.bajas} (${c.porcentaje}%)`"
-                        />
-                    </div>
-                </li>
-            </ul>
-        </section>
-
-        <!-- Sucursales -->
-        <template v-else-if="vista === 'sucursales'">
-            <EmptyState
-                v-if="!tablero.sucursales.length"
-                :icono="Building2"
-                titulo="Sin datos"
-                descripcion="No hay rotación registrada en el periodo."
-            />
-            <template v-else>
-                <!-- Móvil: tarjetas -->
-                <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden">
-                    <li
-                        v-for="s in sucursalesConBajas"
-                        :key="s.sucursal_id"
-                        class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
-                    >
-                        <div class="flex items-start gap-2">
-                            <p class="min-w-0 flex-1 font-semibold">
-                                {{ s.sucursal }}
-                            </p>
-                            <span
-                                v-if="s.tendencia === 'sube'"
-                                class="inline-flex items-center gap-1 rounded-full bg-danger-soft px-2 py-0.5 text-xs font-medium text-semaforo-sube"
-                                ><ArrowUpRight class="size-3.5" />Sube</span
-                            >
-                            <span
-                                v-else-if="s.tendencia === 'baja'"
-                                class="inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-semaforo-baja"
-                                ><ArrowDownRight class="size-3.5" />Baja</span
-                            >
-                        </div>
-                        <div class="flex items-end gap-4">
-                            <div>
-                                <p
-                                    class="text-3xl leading-none font-bold tabular-nums"
-                                >
-                                    {{ porcentaje(s.indice) }}
-                                </p>
-                                <p class="text-xs text-muted-foreground">
-                                    índice
-                                </p>
-                            </div>
-                            <div>
-                                <p
-                                    class="text-2xl leading-none font-semibold tabular-nums"
-                                >
-                                    {{ s.bajas }}
-                                </p>
-                                <p class="text-xs text-muted-foreground">
-                                    bajas
-                                </p>
-                            </div>
-                        </div>
-                        <dl class="grid grid-cols-3 gap-2 text-xs">
-                            <div class="rounded-lg bg-[var(--mrl-fondo)] p-2">
-                                <dt class="text-muted-foreground">RV/NR/RE</dt>
-                                <dd class="font-medium tabular-nums">
-                                    {{ porcentaje(s.por_forma.RV) }} ·
-                                    {{ porcentaje(s.por_forma.NR) }} ·
-                                    {{ porcentaje(s.por_forma.RE) }}
-                                </dd>
-                            </div>
-                            <div class="rounded-lg bg-[var(--mrl-fondo)] p-2">
-                                <dt class="text-muted-foreground">Temprana</dt>
-                                <dd class="font-medium tabular-nums">
-                                    {{ porcentaje(s.rotacion_temprana) }}
-                                </dd>
-                            </div>
-                            <div class="rounded-lg bg-[var(--mrl-fondo)] p-2">
-                                <dt class="text-muted-foreground">
-                                    Expediente
-                                </dt>
-                                <dd class="font-medium tabular-nums">
-                                    {{ porcentaje(s.calidad_expediente) }}
-                                </dd>
-                            </div>
-                        </dl>
-                        <p
-                            v-if="s.causal_principal"
-                            class="truncate text-xs text-muted-foreground"
-                            :title="s.causal_principal"
-                        >
-                            Causal principal:
-                            <span class="text-foreground">{{
-                                s.causal_principal
-                            }}</span>
-                        </p>
-                    </li>
-                </ul>
-                <div
-                    v-if="sucursalesSinBajas.length"
-                    class="flex flex-col gap-2 rounded-2xl border border-border/60 bg-card p-4 lg:hidden"
-                >
-                    <p class="text-sm font-semibold text-muted-foreground">
-                        Sin bajas en el periodo ({{
-                            sucursalesSinBajas.length
-                        }})
-                    </p>
-                    <ul class="flex flex-wrap gap-1.5">
-                        <li
-                            v-for="s in sucursalesSinBajas"
-                            :key="s.sucursal_id"
-                            class="rounded-full bg-success-soft px-2.5 py-0.5 text-xs text-success"
-                        >
-                            {{ s.sucursal }}
-                        </li>
-                    </ul>
-                </div>
-
-                <!-- Escritorio: tabla -->
-                <div
-                    class="hidden tabla-scroll rounded-2xl border border-border/60 bg-card shadow-sm lg:block"
-                >
-                    <table class="w-full text-left text-sm">
-                        <thead
-                            class="bg-[var(--mrl-fondo)] text-xs text-muted-foreground"
-                        >
-                            <tr>
-                                <th class="px-4 py-3 font-medium">Sucursal</th>
-                                <th class="px-4 py-3 font-medium">Bajas</th>
-                                <th class="px-4 py-3 font-medium">Índice</th>
-                                <th class="px-4 py-3 font-medium">
-                                    Vs. mes anterior
-                                </th>
-                                <th class="px-4 py-3 font-medium">
-                                    RV / NR / RE
-                                </th>
-                                <th class="px-4 py-3 font-medium">
-                                    Causal principal
-                                </th>
-                                <th class="px-4 py-3 font-medium">Temprana</th>
-                                <th class="px-4 py-3 font-medium">
-                                    Expediente
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                                v-for="s in tablero.sucursales"
-                                :key="s.sucursal_id"
-                                class="border-t border-border/50"
-                            >
-                                <td class="px-4 py-3 font-medium">
-                                    {{ s.sucursal }}
-                                </td>
-                                <td class="px-4 py-3 tabular-nums">
-                                    {{ s.bajas }}
-                                </td>
-                                <td
-                                    class="px-4 py-3 text-base font-bold tabular-nums"
-                                >
-                                    {{ porcentaje(s.indice) }}
-                                </td>
-                                <td class="px-4 py-3 text-xs">
-                                    <span
-                                        v-if="s.tendencia === 'sube'"
-                                        class="inline-flex items-center gap-1 rounded-full bg-danger-soft px-2 py-0.5 font-medium text-semaforo-sube"
-                                        ><ArrowUpRight class="size-3.5" />Sube
-                                        {{ porcentaje(s.indice_mes) }}</span
-                                    >
-                                    <span
-                                        v-else-if="s.tendencia === 'baja'"
-                                        class="inline-flex items-center gap-1 rounded-full bg-success-soft px-2 py-0.5 font-medium text-semaforo-baja"
-                                        ><ArrowDownRight class="size-3.5" />Baja
-                                        {{ porcentaje(s.indice_mes) }}</span
-                                    >
-                                    <span
-                                        v-else
-                                        class="inline-flex items-center gap-1 text-muted-foreground"
-                                        ><Minus class="size-4" />{{
-                                            s.tendencia === 'igual'
-                                                ? 'Igual'
-                                                : '—'
-                                        }}</span
-                                    >
-                                </td>
-                                <td class="px-4 py-3 text-xs tabular-nums">
-                                    {{ porcentaje(s.por_forma.RV) }} /
-                                    {{ porcentaje(s.por_forma.NR) }} /
-                                    {{ porcentaje(s.por_forma.RE) }}
-                                </td>
-                                <td class="max-w-64 px-4 py-3 text-xs">
-                                    {{ s.causal_principal ?? '—' }}
-                                </td>
-                                <td class="px-4 py-3 text-xs tabular-nums">
-                                    {{ porcentaje(s.rotacion_temprana) }}
-                                </td>
-                                <td class="px-4 py-3 text-xs tabular-nums">
-                                    {{ porcentaje(s.calidad_expediente) }}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </template>
-        </template>
-
-        <!-- Puestos -->
-        <template v-else>
-            <EmptyState
-                v-if="!tablero.puestos.length"
-                :icono="Users"
-                titulo="Sin bajas cerradas"
-                descripcion="No hay bajas del sistema cerradas en el periodo."
-            />
-            <template v-else>
-                <ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:hidden">
-                    <li
-                        v-for="p in tablero.puestos"
-                        :key="p.puesto"
-                        class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
-                    >
-                        <p class="font-semibold">{{ p.puesto }}</p>
-                        <div class="flex items-end gap-4">
-                            <div>
-                                <p
-                                    class="text-3xl leading-none font-bold tabular-nums"
-                                >
-                                    {{ porcentaje(p.indice) }}
-                                </p>
-                                <p class="text-xs text-muted-foreground">
-                                    índice
-                                </p>
-                            </div>
-                            <div>
-                                <p
-                                    class="text-2xl leading-none font-semibold tabular-nums"
-                                >
-                                    {{ p.bajas }}
-                                </p>
-                                <p class="text-xs text-muted-foreground">
-                                    bajas
-                                </p>
-                            </div>
-                        </div>
-                        <dl class="grid grid-cols-3 gap-2 text-xs">
-                            <div class="rounded-lg bg-[var(--mrl-fondo)] p-2">
-                                <dt class="text-muted-foreground">Plantilla</dt>
-                                <dd class="font-medium tabular-nums">
-                                    {{ p.plantilla_promedio ?? '—' }}
-                                </dd>
-                            </div>
-                            <div class="rounded-lg bg-[var(--mrl-fondo)] p-2">
-                                <dt class="text-muted-foreground">Temprana</dt>
-                                <dd class="font-medium tabular-nums">
-                                    {{ porcentaje(p.rotacion_temprana) }}
-                                </dd>
-                            </div>
-                            <div class="rounded-lg bg-[var(--mrl-fondo)] p-2">
-                                <dt class="text-muted-foreground">
-                                    Antigüedad
-                                </dt>
-                                <dd class="font-medium tabular-nums">
-                                    {{ p.antiguedad_promedio_dias ?? '—' }} d
-                                </dd>
-                            </div>
-                        </dl>
-                    </li>
-                </ul>
-                <div
-                    class="hidden tabla-scroll rounded-2xl border border-border/60 bg-card shadow-sm lg:block"
-                >
-                    <table class="w-full text-left text-sm">
-                        <thead
-                            class="bg-[var(--mrl-fondo)] text-xs text-muted-foreground"
-                        >
-                            <tr>
-                                <th class="px-4 py-3 font-medium">Puesto</th>
-                                <th class="px-4 py-3 font-medium">Bajas</th>
-                                <th class="px-4 py-3 font-medium">
-                                    Plantilla prom.
-                                </th>
-                                <th class="px-4 py-3 font-medium">Índice</th>
-                                <th class="px-4 py-3 font-medium">Temprana</th>
-                                <th class="px-4 py-3 font-medium">
-                                    Antigüedad prom.
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                                v-for="p in tablero.puestos"
-                                :key="p.puesto"
-                                class="border-t border-border/50"
-                            >
-                                <td class="px-4 py-3 font-medium">
-                                    {{ p.puesto }}
-                                </td>
-                                <td class="px-4 py-3 tabular-nums">
-                                    {{ p.bajas }}
-                                </td>
-                                <td class="px-4 py-3 tabular-nums">
-                                    {{ p.plantilla_promedio ?? '—' }}
-                                </td>
-                                <td
-                                    class="px-4 py-3 text-base font-bold tabular-nums"
-                                >
-                                    {{ porcentaje(p.indice) }}
-                                </td>
-                                <td class="px-4 py-3 tabular-nums">
-                                    {{ porcentaje(p.rotacion_temprana) }}
-                                </td>
-                                <td class="px-4 py-3 tabular-nums">
-                                    {{ p.antiguedad_promedio_dias ?? '—' }}
-                                    días
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </template>
-        </template>
+        </div>
     </div>
 </template>

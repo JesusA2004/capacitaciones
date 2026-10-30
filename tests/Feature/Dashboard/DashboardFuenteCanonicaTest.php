@@ -20,7 +20,7 @@ use Database\Seeders\RolesYPermisosSeeder;
 /**
  * El tablero de RH CONSUME la fuente canónica de cada módulo (MÓDULO →
  * SERVICE CANÓNICO → DASHBOARD) en vez de recalcular fórmulas propias:
- *  - rotación: RotacionConsultaService / RotacionPeriodo (Excel de RH);
+ *  - rotación: TableroRotacionService, el mismo motor de la pestaña Rotación;
  *  - plantilla/cobertura: HeadcountService;
  *  - costo/inversión: CostoReclutamientoService;
  *  - contratos por vencer: ContratoLaboralService::porVencer.
@@ -37,8 +37,7 @@ beforeEach(function () {
     };
 
     // Un mes de rotación cargado (como lo dejaría el Excel de RH). El índice
-    // que usa el tablero se recalcula de bajas × 100 / plantilla_final, igual
-    // que el módulo de rotación.
+    // que usa el tablero es bajas ÷ plantilla promedio × 100, igual que Bajas.
     $this->rotacionPeriodo = function (Sucursal $sucursal, int $anio, int $mes, int $bajas, int $plantillaFinal) use (&$carga): RotacionPeriodo {
         $carga ??= RotacionCarga::query()->create([
             'nombre_archivo' => 'rotacion.xlsx',
@@ -52,7 +51,8 @@ beforeEach(function () {
             'anio' => $anio,
             'mes' => $mes,
             'sucursal_excel' => $sucursal->nombre,
-            'plantilla_inicial' => $plantillaFinal + $bajas,
+            // Inicio igual al cierre: la plantilla promedio es la del argumento.
+            'plantilla_inicial' => $plantillaFinal,
             'altas' => 0,
             'bajas' => $bajas,
             'plantilla_final' => $plantillaFinal,
@@ -67,7 +67,7 @@ test('rotación del mes y la tendencia salen del periodo canónico cargado', fun
     $empresa = Empresa::factory()->create();
     $sucursal = Sucursal::factory()->create(['empresa_id' => $empresa->id]);
 
-    // 10 bajas sobre plantilla final 80 → 12.50 % (fórmula del Excel de RH).
+    // 10 bajas sobre plantilla promedio 80 → 12.50 %.
     ($this->rotacionPeriodo)($sucursal, 2026, 3, 10, 80);
 
     $dto = app(TableroRhService::class)->construir($rh, ['mes' => '2026-03', 'sucursal_id' => $sucursal->id, 'meses' => 12]);
@@ -76,7 +76,7 @@ test('rotación del mes y la tendencia salen del periodo canónico cargado', fun
 
     expect($dto['summary']['rotacion_mes']['porcentaje'])->toBe(12.5)
         ->and($dto['summary']['rotacion_mes']['bajas'])->toBe(10)
-        ->and($dto['summary']['rotacion_mes']['plantilla_final'])->toBe(80)
+        ->and($dto['summary']['rotacion_mes']['plantilla_promedio'])->toBe(80.0)
         ->and($punto['indice'])->toBe(12.5);
 });
 

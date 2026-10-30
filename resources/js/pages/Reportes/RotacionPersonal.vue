@@ -262,7 +262,7 @@ const NOMBRE_MES = [
     <div class="pagina-ancha flex flex-col gap-5">
         <CrudPageHeader
             titulo="Rotación de personal"
-            descripcion="Índice de rotación mensual por sucursal, cargado desde el Excel de RH (bajas × 100 / plantilla del mes)."
+            descripcion="Índice de rotación mensual por sucursal, cargado desde el Excel de RH (bajas ÷ plantilla promedio × 100)."
             :icono="TrendingDown"
         >
             <a

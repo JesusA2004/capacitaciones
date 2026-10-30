@@ -93,6 +93,7 @@
     --color-forma-otra: var(--forma-salida-otra);
     --color-semaforo-sube: var(--semaforo-sube);
     --color-semaforo-baja: var(--semaforo-baja);
+    --color-semaforo-ambar: var(--semaforo-ambar);
 }
 
 /*
@@ -462,6 +463,7 @@
     --forma-salida-otra: #754711;
     --semaforo-sube: #d64550;
     --semaforo-baja: #1fa774;
+    --semaforo-ambar: #d99a1e;
 
     --brand-primary: var(--pastel-petroleo);
     --brand-secondary: var(--pastel-oro);

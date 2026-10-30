@@ -213,7 +213,7 @@ const etiquetaMes = (i: number) =>
 const tooltipRotacion = (d: MesRotacion) =>
     d.indice === null
         ? `<div class="tt"><p class="tt-t">${d.etiqueta}</p><p>Sin datos cargados</p></div>`
-        : `<div class="tt"><p class="tt-t">${d.etiqueta}</p><p><b>${d.indice}%</b> de rotación</p><p>${d.bajas} ${d.bajas === 1 ? 'baja' : 'bajas'} · plantilla final ${d.plantilla_final}</p></div>`;
+        : `<div class="tt"><p class="tt-t">${d.etiqueta}</p><p><b>${d.indice}%</b> de rotación</p><p>${d.bajas} ${d.bajas === 1 ? 'baja' : 'bajas'} · plantilla promedio ${d.plantilla_promedio ?? '—'}</p></div>`;
 // Sin ningún mes con dato cargado: la gráfica muestra estado vacío claro.
 const sinRotacion = computed(() =>
     rotacion.value.every((m) => m.indice === null),
@@ -453,7 +453,7 @@ const totalesCobertura = computed(() => {
                             >Rotación mensual</CardTitle
                         >
                         <CardDescription>
-                            Índice del Excel de RH (bajas ÷ plantilla final) ·
+                            Bajas ÷ plantilla promedio ·
                             últimos {{ rotacion.length }} meses<template
                                 v-if="promedioRotacion !== null"
                             >

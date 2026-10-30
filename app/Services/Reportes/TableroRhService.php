@@ -12,10 +12,10 @@ use App\Models\Empresa;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Bajas\TableroRotacionService;
 use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Headcount\HeadcountService;
 use App\Services\Reclutamiento\CostoReclutamientoService;
-use App\Services\Rotacion\RotacionConsultaService;
 use App\Services\Vacantes\VacantesListadoService;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -34,9 +34,9 @@ use Illuminate\Support\Collection;
  * ni escribe datos—:
  *  - plantilla activa / cobertura = HeadcountService (plazas autorizadas vs
  *    ocupadas por par sucursal-puesto), la misma cifra que headcount_by_branch.
- *  - rotación del mes y tendencia = RotacionConsultaService / RotacionPeriodo
- *    (Excel de RH: bajas × 100 / plantilla final del mes). Sin periodo cargado
- *    el valor es null → la UI muestra «Sin datos cargados», nunca 0.
+ *  - rotación del mes y tendencia = TableroRotacionService, el mismo motor de
+ *    la pestaña Rotación de Bajas (bajas ÷ plantilla promedio × 100, por último
+ *    día). Sin datos el valor es null → la UI lo dice, nunca 0.
  *  - costo por contratación e inversión en campañas = CostoReclutamientoService
  *    (ANSI/SHRM: gasto interno + externo / contrataciones del periodo).
  *  - contratos por vencer = ContratoLaboralService::porVencer (alcance del
@@ -55,7 +55,7 @@ class TableroRhService
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly HeadcountService $headcount,
         private readonly VacantesListadoService $vacantesListado,
-        private readonly RotacionConsultaService $rotacion,
+        private readonly TableroRotacionService $rotacion,
         private readonly CostoReclutamientoService $costoReclutamiento,
         private readonly ContratoLaboralService $contratos,
     ) {}
@@ -92,10 +92,9 @@ class TableroRhService
         $sucursales = $sucursalFiltro !== null ? collect([$sucursalFiltro]) : $deEmpresa;
         $todas = $global && $sucursalFiltro === null && $empresaFiltro === null;
 
-        // Fuente canónica de rotación (Excel de RH), scopeada a las sucursales
-        // que el tablero ya resolvió por alcance; la misma serie alimenta el
-        // KPI del mes y la tendencia.
-        $serieRotacion = $this->rotacion->serieMensualPorSucursales($sucursales, $fin, $meses);
+        // Motor único de rotación, acotado a las sucursales que el tablero ya
+        // resolvió por alcance; la misma serie alimenta el KPI y la tendencia.
+        $serieRotacion = $this->rotacion->serieParaTablero($sucursales, $fin, $meses);
 
         return [
             'summary' => $this->resumen($usuario, $sucursales, $todas, $inicio, $fin, $this->rotacionDelMes($serieRotacion, $fin)),
@@ -163,7 +162,7 @@ class TableroRhService
 
     /**
      * @param  Collection<int, int>  $sucursales
-     * @param  array{porcentaje: float|null, bajas: int, plantilla_final: int}  $rotacionMes
+     * @param  array{porcentaje: float|null, bajas: int, plantilla_promedio: float|null, semaforo: string|null}  $rotacionMes
      * @return array<string, mixed>
      */
     private function resumen(User $usuario, Collection $sucursales, bool $todas, CarbonImmutable $inicio, CarbonImmutable $fin, array $rotacionMes): array
@@ -221,7 +220,7 @@ class TableroRhService
                 'poblacion' => $this->headcount->poblacion($todas ? null : $sucursales),
             ],
             'vacantes_abiertas' => ['valor' => $vacantesSucursales + $vacantesCorporativo, 'sucursales' => $vacantesSucursales, 'corporativo' => $vacantesCorporativo],
-            'rotacion_mes' => ['porcentaje' => $rotacionMes['porcentaje'], 'bajas' => $rotacionMes['bajas'], 'plantilla_final' => $rotacionMes['plantilla_final']],
+            'rotacion_mes' => ['porcentaje' => $rotacionMes['porcentaje'], 'bajas' => $rotacionMes['bajas'], 'plantilla_promedio' => $rotacionMes['plantilla_promedio'], 'semaforo' => $rotacionMes['semaforo']],
             'costo_por_contratacion' => ['valor' => $costo['costo_por_contratacion'], 'inversion' => $costo['gasto_total'], 'contratados' => $costo['contrataciones']],
             'tiempo_contratacion' => ['dias' => $dias->isEmpty() ? null : round((float) $dias->avg(), 1), 'contratados' => $contratados->count()],
             'permanencia_promedio' => ['meses' => $antiguedades->isEmpty() ? null : round((float) $antiguedades->avg(), 1), 'colaboradores' => $antiguedades->count()],
@@ -315,48 +314,47 @@ class TableroRhService
     }
 
     /**
-     * Tendencia mensual para la gráfica, a partir de la serie canónica del
-     * Excel de RH (RotacionConsultaService). `indice` es null en los meses sin
-     * periodo cargado → el front dibuja hueco / estado vacío, nunca 0%.
+     * Tendencia mensual para la gráfica. `indice` es null en los meses sin datos
+     * → el front dibuja hueco, nunca 0%.
      *
-     * @param  list<array{clave: string, anio: int, mes: int, etiqueta: string, sucursales: int, plantilla_inicial: int, altas: int, bajas: int, bajas_voluntarias: int|null, bajas_involuntarias: int|null, plantilla_final: int, indice: float|null}>  $serie
-     * @return list<array{mes: string, etiqueta: string, sucursales: int, bajas: int, plantilla_final: int, indice: float|null}>
+     * @param  list<array<string, mixed>>  $serie
+     * @return list<array<string, mixed>>
      */
     private function turnoverMensual(array $serie, int $meses): array
     {
         return array_map(function (array $fila) use ($meses): array {
-            $mes = CarbonImmutable::create($fila['anio'], $fila['mes'], 1);
+            $mes = CarbonImmutable::createFromFormat('!Y-m', (string) $fila['periodo']) ?: CarbonImmutable::now();
 
             return [
-                'mes' => $fila['clave'],
+                'mes' => $fila['periodo'],
                 'etiqueta' => ucfirst($mes->settings(['locale' => 'es'])->translatedFormat($meses > 12 ? 'M y' : 'M')),
-                'sucursales' => $fila['sucursales'],
-                'bajas' => $fila['bajas'],
-                'plantilla_final' => $fila['plantilla_final'],
+                'bajas' => (int) $fila['bajas'],
+                'plantilla_promedio' => $fila['plantilla_promedio'],
                 'indice' => $fila['indice'],
+                'en_curso' => $fila['en_curso'],
+                'meta' => $fila['meta'],
+                'semaforo' => $fila['semaforo'],
             ];
         }, $serie);
     }
 
     /**
-     * KPI «Rotación del mes»: el índice canónico del mes seleccionado (último
-     * de la serie). Sin periodo cargado, porcentaje = null (la UI muestra «Sin
-     * datos cargados», nunca 0 ni la fórmula vieja).
+     * KPI «Rotación del mes»: el índice del mes seleccionado (último de la serie).
      *
-     * @param  list<array{clave: string, anio: int, mes: int, etiqueta: string, sucursales: int, plantilla_inicial: int, altas: int, bajas: int, bajas_voluntarias: int|null, bajas_involuntarias: int|null, plantilla_final: int, indice: float|null}>  $serie
-     * @return array{porcentaje: float|null, bajas: int, plantilla_final: int}
+     * @param  list<array<string, mixed>>  $serie
+     * @return array{porcentaje: float|null, bajas: int, plantilla_promedio: float|null, semaforo: string|null}
      */
     private function rotacionDelMes(array $serie, CarbonImmutable $mes): array
     {
         $clave = $mes->format('Y-m');
 
         foreach ($serie as $fila) {
-            if ($fila['clave'] === $clave) {
-                return ['porcentaje' => $fila['indice'], 'bajas' => $fila['bajas'], 'plantilla_final' => $fila['plantilla_final']];
+            if ($fila['periodo'] === $clave) {
+                return ['porcentaje' => $fila['indice'], 'bajas' => (int) $fila['bajas'], 'plantilla_promedio' => $fila['plantilla_promedio'], 'semaforo' => $fila['semaforo']];
             }
         }
 
-        return ['porcentaje' => null, 'bajas' => 0, 'plantilla_final' => 0];
+        return ['porcentaje' => null, 'bajas' => 0, 'plantilla_promedio' => null, 'semaforo' => null];
     }
 
     /**

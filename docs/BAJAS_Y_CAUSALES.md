@@ -111,7 +111,7 @@ Jurídico y Contraloría entran al modo operativo con su permiso de bajas (`Navi
 | **Bajas y finiquitos → Documentos** (recopilación por persona: tarjetas con foto/iniciales, puesto, sucursal, forma · causal con su color, último día, estatus, avance N/M y la lista de documentos —generados, finiquito, entrega del finiquito, adjuntos— con estado generado/firmado/pendiente; botón grande «Vista previa» abre el visor en galería; adjuntar el que falta y descargar; filtros por estatus, sucursal, forma, documentos completos/incompletos y buscador sin mínimo) | `rh.cierres.index` (pestaña por defecto; `BajaRecopilacionService`, alcance del módulo «cierres») | 7 Cierres laborales → «Bajas y finiquitos» |
 | Cierres y finiquitos (estado del cierre y del finiquito) | `rh.cierres.index?seccion=cierres` | pestaña |
 | Catálogo | `rh.cierres.index?seccion=causales` | Bajas y finiquitos → «Causales» y Configuración → «Catálogo de bajas» |
-| Tablero de rotación | `reportes.rotacion.tablero.index` (+ `.excel`, `.pdf`) | Reportes → «Rotación de personal» |
+| Rotación | `rh.bajas.rotacion` (compatibilidad: `reportes.rotacion.tablero.index`; exporta con `.excel`, `.pdf`) | Cierres laborales → Bajas → pestaña «Rotación» |
 | Rotación histórica (carga del Excel) | `reportes.rotacion.index` | enlace «Histórico» desde el tablero |
 | API v1 | `api.v1.rh.bajas.*` (catálogo, listado, detalle, registrar, compatibilidad enviar/actualizar/rechazar, adjuntar) | — |
 
@@ -122,12 +122,19 @@ En la recopilación, el avance N/M cuenta los documentos **obligatorios para cer
 - **Foto**: `bajas:foto-plantilla` en el scheduler — día 1 a las 00:15 (`activos_inicio`) y último día del mes a las 23:50 (`activos_cierre`): colaboradores vigentes (activos / en incorporación) por sucursal principal. `plantilla_promedio = (inicio + cierre) / 2`. Sin captura manual.
 - **Backfill**: `php artisan bajas:plantilla-backfill [--desde=AAAA-MM] [--hasta=AAAA-MM]` (por defecto los últimos 24 meses) reconstruye meses sin foto con las fechas de ingreso/baja de todos los colaboradores (incluidos los dados de baja): activo en la fecha = ingresó en o antes y no tiene fecha de baja o es posterior. Usa la sucursal **actual** de cada persona (no hay historial confiable de cambios de sucursal) y no cuenta a quien no tiene fecha de ingreso (lo informa). Nunca pisa una foto.
 
-## Tablero de rotación: cómo se combinan las fuentes
+## Rotación: un solo motor (Etapa 1, PDF págs. 12, 13 y 17)
 
-- Meses **anteriores** a `bajas.tablero.mes_inicio_sistema` (`BAJAS_MES_INICIO_SISTEMA`, por defecto `2026-10`): agregados del **Excel de rotación** ya importado (`rotacion_periodos`: bajas y plantilla inicial/final por sucursal). La rotación histórica se quedó con ese Excel (decisión del usuario): no hay carga baja por baja.
-- Desde ese mes: **bajas del sistema** cerradas con `es_rotacion = true` (los movimientos internos no cuentan) y la plantilla de `plantilla_mensual`; si a un mes/sucursal le falta plantilla se usa la del Excel.
-- Índice = bajas ÷ plantilla promedio × 100 (también para los meses del Excel, con (inicial + final)/2). Acumulado = bajas del año ÷ promedio de las plantillas promedio mensuales × 100.
-- **El desglose por forma, causal, puesto, antigüedad y calidad del expediente solo existe para bajas del sistema**; con esos filtros, los meses del Excel salen «sin desglose».
-- Vistas: Resumen (índice del mes, acumulado, por forma, rotación temprana, antigüedad promedio, calidad del expediente), Tendencia 12 meses (global y sucursal seleccionada), Causales (barras coloreadas por forma con los tokens `--forma-salida-renuncia/-no-renovacion/-rescision` = #00AEEF/#AF8B51/#0D1B4B), Sucursales (semáforo `--semaforo-sube` #D64550 / `--semaforo-baja` #1FA774 contra el mes anterior), Puestos. Excel/PDF con los filtros aplicados (`ReporteRhExport` + `pdf.reporte-rh`).
-- La pantalla anterior «Rotación de personal» (Excel) **no se duplica en el menú**: el acceso del menú abre el tablero; la carga y consulta del Excel siguen en `reportes.rotacion.index` (enlace «Histórico»). Quien solo tiene `rotacion.ver` sigue entrando a la pantalla del Excel.
-- Los colores de forma vienen fijados por RH; el validador de paleta marca baja crominancia/lumen y contraste < 3:1 del teal: por eso cada barra lleva su número y porcentaje y cada vista tiene tabla.
+`TableroRotacionService` es la definición única; lo consumen la pestaña Rotación de Bajas (`rh.bajas.rotacion`), el Tablero de RH y las exportaciones. La fórmula vive en `App\Services\Rotacion\FormulaRotacion`:
+
+- **Rotación = bajas del periodo ÷ plantilla promedio × 100**; plantilla promedio = (inicio + cierre) ÷ 2. Sin plantilla el índice es `null` («sin datos»), nunca 0 ni división entre cero.
+- **Meses anteriores** a `bajas.tablero.mes_inicio_sistema` (`BAJAS_MES_INICIO_SISTEMA`, por defecto `2026-10`): agregados del **Excel** importado (`rotacion_periodos`). Un mes sin Excel queda sin datos: no se reconstruye historia.
+- **Desde ese mes**: **bajas del sistema** en el mes de su **último día laborado, aunque el expediente siga en trámite**. No cuentan «No procede», estatus del flujo anterior, movimientos internos (`es_rotacion = false`) ni un último día futuro. Una fila de Excel de esos meses no se suma, así que nada se cuenta dos veces.
+- **Plantilla desde el corte**: `plantilla_mensual`; si falta, la del Excel; si tampoco, reconstruida por fechas de ingreso y baja con la sucursal ACTUAL de cada persona (no hay historial confiable de cambios de sucursal). La baja conserva la sucursal donde ocurrió.
+- **Desglose**: forma, causal, puesto, antigüedad y expediente solo existen para bajas del sistema. El Excel se pinta como «sin desglose» y solo aporta voluntarias/involuntarias si las trae.
+- **Promedio mensual**: promedio de los índices con dato; no incluye el mes en curso si hay meses cerrados. **Acumulada**: bajas del año ÷ promedio de las plantillas promedio mensuales.
+- **Voluntaria** = RV; **involuntaria** = NR + RE; OT (Otras terminaciones) se muestra aparte y sigue dentro del total.
+- **Global = Corporativo + Sucursales en BAJAS, no en índices**: cada índice divide entre la plantilla de su segmento, así que el índice global no es la suma ni el promedio de los otros dos. `resumen.comprobacion` lo verifica con los mismos filtros.
+- **Vistas**: Global, Corporativo, Todas las sucursales, Por sucursal y Por causales, con filtros desde/hasta, puesto, forma y sucursal. Excel y PDF exportan la vista activa con sus filtros (`ReporteRhExport` + `pdf.reporte-rh`).
+- **Metas** (`rotacion_metas`, `RotacionMetaService`): por segmento, editables con `bajas.gestionar` desde la pestaña. Un cambio agrega una fila con vigencia y motivo; cada mes se mide contra la meta vigente en ese mes. Valores sembrados de la propuesta: Sucursales 4/6, Corporativo 1.7/2.5, Global 3/4.5. Aquí el semáforo es verde hasta el primer límite, ámbar hasta el segundo y rojo arriba.
+- La carga del Excel sigue en `reportes.rotacion.index` (botón «Histórico»), ya con la misma fórmula. `rotacion_periodos.indice` e `indice_excel` solo conservan lo que traía el archivo para auditar la carga. `RotacionFormatoService` sigue generando el formato de RH tal cual.
+

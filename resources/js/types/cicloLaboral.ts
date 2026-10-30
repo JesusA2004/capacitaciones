@@ -1,4 +1,8 @@
-import type { CausalBajaOpcion, FormaSalidaClave } from './bajas';
+import type {
+    CausalBajaOpcion,
+    FormaSalidaClave,
+    SemaforoRotacion,
+} from './bajas';
 import type { ContenidoPeriodoPrueba } from './formulariosEvaluacion';
 /**
  * Contrato del DTO de App\Services\CicloLaboral\CicloLaboralService::obtenerEstado()
@@ -482,11 +486,12 @@ export type TableroRhDatos = {
             corporativo: number;
         };
         rotacion_mes: {
-            // null = sin periodo de rotación cargado (Excel de RH) para el mes
-            // y el alcance seleccionados → la UI muestra «Sin datos cargados».
+            // null = mes sin datos para el alcance seleccionado → la UI lo
+            // dice, nunca 0. Mismo motor de la pestaña Rotación de Bajas.
             porcentaje: number | null;
             bajas: number;
-            plantilla_final: number;
+            plantilla_promedio: number | null;
+            semaforo: SemaforoRotacion | null;
         };
         costo_por_contratacion: {
             valor: number | null;
@@ -508,11 +513,13 @@ export type TableroRhDatos = {
     turnover_monthly: {
         mes: string;
         etiqueta: string;
-        sucursales: number;
         bajas: number;
-        plantilla_final: number;
-        // null = mes sin periodo cargado → hueco en la gráfica, nunca 0%.
+        plantilla_promedio: number | null;
+        // null = mes sin datos → hueco en la gráfica, nunca 0%.
         indice: number | null;
+        en_curso: boolean;
+        meta: { verde_hasta: number; ambar_hasta: number } | null;
+        semaforo: SemaforoRotacion | null;
     }[];
     headcount_by_branch: {
         sucursal_id: number;

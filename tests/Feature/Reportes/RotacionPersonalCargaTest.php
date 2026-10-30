@@ -246,12 +246,13 @@ test('el tablero calcula el índice mensual consolidado de los últimos 12 meses
             ->component('Reportes/RotacionPersonal')
             ->where('tablero.ventana.hasta', '2026-03')
             ->has('tablero.meses', 12)
-            // Enero 2026: bajas 3 + 0 sobre plantilla 6 + 9 = 20 %.
+            // Enero 2026: 3 bajas sobre plantilla promedio (17 + 15) ÷ 2 = 16 → 18.75 %.
             ->where('tablero.meses.10.clave', '2026-02')
             ->where('tablero.meses.9.clave', '2026-01')
             ->where('tablero.meses.9.bajas', 3)
             ->where('tablero.meses.9.plantilla_final', 15)
-            ->where('tablero.meses.9.indice', fn ($v) => (float) $v === 20.0)
+            ->where('tablero.meses.9.plantilla_promedio', fn ($v) => (float) $v === 16.0)
+            ->where('tablero.meses.9.indice', fn ($v) => (float) $v === 18.75)
             ->where('tablero.totales.bajas', 4));
 });
 

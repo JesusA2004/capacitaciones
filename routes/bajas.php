@@ -19,6 +19,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('nueva', [BajaController::class, 'create'])->name('create');
         // Pestañas de Cierres laborales → Bajas (PDF Etapa 1, Pantalla 4).
         Route::get('rotacion', [TableroRotacionController::class, 'index'])->name('rotacion');
+        Route::post('rotacion/metas', [TableroRotacionController::class, 'guardarMeta'])->name('rotacion-metas');
         Route::get('causales', [BajaController::class, 'causales'])->name('causales');
         Route::get('causales/excel', [BajaController::class, 'causalesExcel'])->name('causales-excel')->middleware('throttle:20,1');
         Route::prefix('finiquitos')->name('finiquitos.')->group(function () {

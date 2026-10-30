@@ -13,14 +13,17 @@ use Illuminate\Support\Collection;
 /**
  * Consulta de la rotación cargada desde Excel (rotacion_periodos), acotada
  * al alcance del módulo «rotacion» del usuario (AlcanceModuloService →
- * AlcanceOrganizacionalService). Mismas fórmulas que el Excel de RH:
+ * AlcanceOrganizacionalService). Es la pantalla de carga y revisión del Excel; la
+ * rotación del sistema la calcula App\Services\Bajas\TableroRotacionService con la
+ * misma definición (FormulaRotacion):
  *
- *  - índice del mes = bajas × 100 / plantilla final del mes (sumando las
- *    sucursales reportadas cuando son varias, como «ROTACIÓN MENSUAL
- *    SUCURSALES» del Excel);
+ *  - índice del mes = bajas ÷ plantilla promedio del mes × 100;
  *  - promedio mensual = promedio de los índices de los meses con datos;
- *  - rotación acumulada = bajas de la ventana × 100 / plantilla final del
- *    último mes (equivale a la «ROTACIÓN ANUAL» del Excel en 12 meses).
+ *  - rotación acumulada = bajas de la ventana ÷ promedio de las plantillas
+ *    promedio mensuales × 100.
+ *
+ * rotacion_periodos.indice e indice_excel conservan lo que traía el archivo para
+ * auditar la carga, pero aquí no se leen.
  */
 class RotacionConsultaService
 {
@@ -60,7 +63,8 @@ class RotacionConsultaService
             /** @var RotacionPeriodo $ultimo */
             $ultimo = $ordenados->last();
             $bajas = (int) $ordenados->sum('bajas');
-            $indices = $ordenados->map(fn (RotacionPeriodo $p): ?float => $p->indice === null ? null : (float) $p->indice)->filter(fn (?float $v): bool => $v !== null);
+            $plantillas = $ordenados->map(fn (RotacionPeriodo $p): float => FormulaRotacion::plantillaPromedio($p->plantilla_inicial, $p->plantilla_final));
+            $indices = $ordenados->map(fn (RotacionPeriodo $p): ?float => FormulaRotacion::indice($p->bajas, FormulaRotacion::plantillaPromedio($p->plantilla_inicial, $p->plantilla_final)))->filter(fn (?float $v): bool => $v !== null);
 
             return [
                 'sucursal_id' => $ultimo->sucursal_id,
@@ -70,7 +74,7 @@ class RotacionConsultaService
                 'bajas' => $bajas,
                 'plantilla_final' => $ultimo->plantilla_final,
                 'promedio_mensual' => $indices->isEmpty() ? null : round((float) $indices->avg(), 2),
-                'rotacion_acumulada' => $ultimo->plantilla_final > 0 ? round($bajas * 100 / $ultimo->plantilla_final, 2) : null,
+                'rotacion_acumulada' => FormulaRotacion::indice($bajas, round((float) $plantillas->avg(), 2)),
             ];
         })->sortByDesc(fn (array $f): float => (float) ($f['rotacion_acumulada'] ?? -1))->values()->all();
 
@@ -86,45 +90,10 @@ class RotacionConsultaService
                 'bajas' => $bajas,
                 'plantilla_final' => $ultimo['plantilla_final'] ?? null,
                 'promedio_mensual' => $indices === [] ? null : round(array_sum($indices) / count($indices), 2),
-                'rotacion_acumulada' => ($ultimo['plantilla_final'] ?? 0) > 0 ? round($bajas * 100 / $ultimo['plantilla_final'], 2) : null,
+                'rotacion_acumulada' => FormulaRotacion::indice($bajas, $conDatos === [] ? null : round(array_sum(array_column($conDatos, 'plantilla_promedio')) / count($conDatos), 2)),
                 'meses_con_datos' => count($conDatos),
             ],
         ];
-    }
-
-    /**
-     * Serie mensual del índice de rotación canónico (rotacion_periodos) para
-     * un conjunto EXPLÍCITO de sucursales que quien llama ya resolvió con su
-     * propio alcance (p. ej. el tablero de RH, vía AlcanceOrganizacionalService).
-     *
-     * No reaplica el alcance del módulo «rotacion»: respeta exactamente las
-     * sucursales recibidas, para que el tablero y el módulo de rotación usen
-     * la MISMA fórmula (fila(): bajas × 100 / plantilla final del mes) sin
-     * inventar una tercera. Cada mes sin periodo cargado va con indice = null
-     * (nunca 0, nunca una fórmula en vivo); así el tablero puede mostrar «Sin
-     * datos cargados».
-     *
-     * @param  Collection<int, int>  $sucursalIds
-     * @return list<array{clave: string, anio: int, mes: int, etiqueta: string, sucursales: int, plantilla_inicial: int, altas: int, bajas: int, bajas_voluntarias: int|null, bajas_involuntarias: int|null, plantilla_final: int, indice: float|null}>
-     */
-    public function serieMensualPorSucursales(Collection $sucursalIds, CarbonImmutable $hasta, int $meses): array
-    {
-        $hasta = $hasta->startOfMonth();
-        $desde = $hasta->subMonths(max(1, $meses) - 1);
-        $ids = $sucursalIds->map(fn (int|string $id): int => (int) $id)->values()->all();
-
-        $periodos = $this->enVentana(RotacionPeriodo::query()->whereIn('sucursal_id', $ids), $desde, $hasta)->get();
-        $porMes = $periodos->groupBy(fn (RotacionPeriodo $p): string => sprintf('%04d-%02d', $p->anio, $p->mes));
-
-        $serie = [];
-
-        for ($mes = $desde; $mes <= $hasta; $mes = $mes->addMonth()) {
-            /** @var Collection<int, RotacionPeriodo> $delMes */
-            $delMes = $porMes->get($mes->format('Y-m'), collect());
-            $serie[] = $this->fila($delMes, $mes);
-        }
-
-        return $serie;
     }
 
     /**
@@ -204,12 +173,13 @@ class RotacionConsultaService
 
     /**
      * @param  Collection<int, RotacionPeriodo>  $delMes
-     * @return array{clave: string, anio: int, mes: int, etiqueta: string, sucursales: int, plantilla_inicial: int, altas: int, bajas: int, bajas_voluntarias: int|null, bajas_involuntarias: int|null, plantilla_final: int, indice: float|null}
+     * @return array{clave: string, anio: int, mes: int, etiqueta: string, sucursales: int, plantilla_inicial: int, altas: int, bajas: int, bajas_voluntarias: int|null, bajas_involuntarias: int|null, plantilla_final: int, plantilla_promedio: float, indice: float|null}
      */
     private function fila(Collection $delMes, CarbonImmutable $mes): array
     {
         $final = (int) $delMes->sum('plantilla_final');
         $bajas = (int) $delMes->sum('bajas');
+        $promedio = FormulaRotacion::plantillaPromedio((int) $delMes->sum('plantilla_inicial'), $final);
         $voluntarias = $delMes->whereNotNull('bajas_voluntarias');
         $involuntarias = $delMes->whereNotNull('bajas_involuntarias');
 
@@ -225,7 +195,8 @@ class RotacionConsultaService
             'bajas_voluntarias' => $voluntarias->isEmpty() ? null : (int) $voluntarias->sum('bajas_voluntarias'),
             'bajas_involuntarias' => $involuntarias->isEmpty() ? null : (int) $involuntarias->sum('bajas_involuntarias'),
             'plantilla_final' => $final,
-            'indice' => $delMes->isNotEmpty() && $final > 0 ? round($bajas * 100 / $final, 2) : null,
+            'plantilla_promedio' => $promedio,
+            'indice' => $delMes->isNotEmpty() ? FormulaRotacion::indice($bajas, $promedio) : null,
         ];
     }
 }

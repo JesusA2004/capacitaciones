@@ -20,8 +20,8 @@ use Database\Seeders\RolesYPermisosSeeder;
 
 /*
 | Tablero de rotación (criterio de aceptación 6) y plantilla mensual: el
-| índice de un mes = bajas cerradas (es_rotacion) ÷ plantilla promedio ×
-| 100; antes del mes de inicio del sistema se usan los agregados del Excel
+| índice de un mes = bajas (es_rotacion, por último día) ÷ plantilla promedio
+| × 100; antes del mes de inicio del sistema se usan los agregados del Excel
 | de rotación.
 */
 
@@ -58,10 +58,8 @@ test('criterio 6: el índice del mes es igual al cálculo a mano con plantilla_m
 
     trBajaCerrada($this->sucursal, 'RV-01', '2026-05-10');
     trBajaCerrada($this->sucursal, 'RE-01', '2026-05-20');
-    // No cuentan: movimiento interno (RN-14) y una baja aún en revisión.
+    // No cuenta: movimiento interno (RN-14).
     trBajaCerrada($this->sucursal, 'RV-02', '2026-05-21', rotacion: false);
-    $abierta = trBajaCerrada($this->sucursal, 'RV-03', '2026-05-22');
-    $abierta->update(['estatus' => EstatusBaja::EnRevisionRh]);
 
     $tablero = app(TableroRotacionService::class)->tablero($this->rh, ['desde' => '2026-05', 'hasta' => '2026-05']);
     $mes = $tablero['resumen']['mes'];

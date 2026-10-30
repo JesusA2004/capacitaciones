@@ -352,7 +352,28 @@ export type BajaDetalle = FilaBaja & {
     bitacora: BitacoraBaja[];
 };
 
-/** Un mes del tablero (TableroRotacionService::mes). */
+export type CausalRotacionFila = {
+    clave: string | null;
+    nombre: string;
+    forma: FormaSalidaClave | null;
+    token: string | null;
+    alerta: string | null;
+    bajas: number;
+    porcentaje: number;
+};
+
+export type SemaforoRotacion = 'verde' | 'ambar' | 'rojo';
+
+export type VistaRotacion =
+    | 'global'
+    | 'corporativo'
+    | 'sucursales'
+    | 'por_sucursal'
+    | 'por_causales';
+
+export type MetaRotacion = { verde_hasta: number; ambar_hasta: number };
+
+/** Un mes del motor de rotación (TableroRotacionService::serie). */
 export type MesRotacion = {
     periodo: string;
     etiqueta: string;
@@ -360,12 +381,16 @@ export type MesRotacion = {
     plantilla_promedio: number | null;
     indice: number | null;
     fuente: string;
-    indice_sucursal?: number | null;
-    bajas_sucursal?: number | null;
+    en_curso: boolean;
+    meta: MetaRotacion | null;
+    semaforo: SemaforoRotacion | null;
+    por_forma: Record<FormaSalidaClave, number>;
+    sin_desglose: number;
 };
 
 export type TableroRotacion = {
     filtros: {
+        vista: VistaRotacion;
         desde: string;
         hasta: string;
         sucursal_id: number | null;
@@ -374,14 +399,38 @@ export type TableroRotacion = {
         causal_id: number | null;
     };
     mes_inicio_sistema: string;
+    segmento: { clave: string; etiqueta: string };
     resumen: {
-        mes: MesRotacion;
+        mes: Omit<MesRotacion, 'por_forma' | 'sin_desglose'>;
+        comparativo: {
+            indice_anterior: number | null;
+            delta: number | null;
+            tendencia: 'sube' | 'baja' | 'igual' | null;
+        };
+        promedio_mensual: {
+            indice: number | null;
+            meses: number;
+            semaforo: SemaforoRotacion | null;
+        };
         acumulado: {
             anio: number;
             bajas: number;
             plantilla_promedio: number | null;
             indice: number | null;
             meses: number;
+        };
+        rango: {
+            bajas: number;
+            plantilla_promedio: number | null;
+            indice: number | null;
+        };
+        voluntaria: {
+            voluntarias: number;
+            involuntarias: number;
+            otras: number;
+            sin_clasificar: number;
+            total: number;
+            porcentaje_voluntaria: number | null;
         };
         por_forma: {
             forma: FormaSalidaClave;
@@ -392,6 +441,7 @@ export type TableroRotacion = {
             indice: number | null;
         }[];
         rotacion_temprana: { bajas: number; porcentaje: number | null };
+        causal_principal: CausalRotacionFila | null;
         antiguedad_promedio_dias: number | null;
         antiguedad_por_forma: {
             forma: FormaSalidaClave;
@@ -404,31 +454,55 @@ export type TableroRotacion = {
             porcentaje: number | null;
         };
         bajas_sistema: number;
+        comprobacion: {
+            global: number;
+            corporativo: number;
+            sucursales: number;
+            cuadra: boolean;
+        };
     };
     tendencia: MesRotacion[];
-    causales: {
-        clave: string | null;
-        nombre: string;
-        forma: FormaSalidaClave | null;
-        token: string | null;
-        bajas: number;
-        porcentaje: number;
-    }[];
+    causales: CausalRotacionFila[];
     sucursales: {
         sucursal_id: number;
         sucursal: string;
+        es_corporativo: boolean;
         bajas: number;
         plantilla_promedio: number | null;
         indice: number | null;
+        promedio_mensual: number | null;
+        semaforo: SemaforoRotacion | null;
         indice_mes: number | null;
         indice_mes_anterior: number | null;
+        delta: number | null;
         tendencia: 'sube' | 'baja' | 'igual' | null;
+        conteos: Record<FormaSalidaClave | 'sin_desglose', number>;
         por_forma: Record<FormaSalidaClave, number | null>;
         causal_principal: string | null;
         rotacion_temprana: number | null;
         antiguedad_promedio_dias: number | null;
         calidad_expediente: number | null;
+        bajas_lista: {
+            id: number;
+            folio: string;
+            colaborador: string;
+            fecha_baja: string | null;
+            forma: string | null;
+            causal: string | null;
+            estatus: string;
+        }[];
     }[];
+    metas: {
+        vigentes: ({ segmento: string; etiqueta: string } & MetaRotacion)[];
+        historial: ({
+            id: number;
+            segmento: string;
+            vigente_desde: string;
+            motivo: string | null;
+            registrado_por: string | null;
+            registrado_en: string | null;
+        } & MetaRotacion)[];
+    };
     puestos: {
         puesto: string;
         bajas: number;
