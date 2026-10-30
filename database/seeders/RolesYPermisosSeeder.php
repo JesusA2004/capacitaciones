@@ -1003,10 +1003,9 @@ class RolesYPermisosSeeder extends Seeder
             // desde config/permisos_modulos.php → alcance_por_rol).
             'expedientes.ver', 'documentos.ver', 'solicitudes.ver', 'vacaciones.ver', 'prestamos.ver', 'actas.ver', 'actas.descargar',
             'documentos_laborales.ver', 'contratos.ver', 'evaluaciones.ver', 'candidatos.ver', 'vacantes.ver',
-            // Contratos: conserva la consulta del PDF del contrato (antes con
-            // documentos_laborales.ver; ahora es acción propia del módulo).
-            'contratos.ver_documento', 'contratos.descargar',
-            'nomina.recibos.ver', 'finiquitos.ver', 'cierres.ver', 'onboarding.ver', 'altas.ver',
+            // Sin PDF de contratos, recibos ni finiquitos: traen sueldos e importes
+            // (Etapa 1 §7) y Sistemas no los necesita para operar la plataforma.
+            'cierres.ver', 'onboarding.ver', 'altas.ver',
             'empresas.ver', 'headcount.ver', 'organigrama.ver', 'perfiles_puesto.ver', 'indicadores.ver',
             'reportes_rh.ver', 'reportes_rh.globales', 'rotacion.ver', 'reclutamiento.campanas.ver', 'celebraciones.ver',
             // Sin «Bajas» (solo gerentes, RH y super admin): Sistemas recibe el
