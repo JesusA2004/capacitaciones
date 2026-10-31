@@ -240,9 +240,6 @@ const raices = computed(() =>
     ),
 );
 
-// Un puesto regional (Gerente Regional Q1, Q3…) muestra debajo la rama de
-// sucursal que depende "del regional de su región", aunque en el catálogo
-// solo cuelgue del superior de referencia.
 function nivelPuesto(id: number): number {
     let nivel = 0;
     let actual = props.puestos.find((p) => p.id === id);

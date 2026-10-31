@@ -2,9 +2,7 @@
 
 namespace App\Services\Administracion;
 
-use App\Enums\TipoNodoComercial;
 use App\Models\Colaborador;
-use App\Models\NodoComercial;
 use App\Models\Puesto;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
@@ -178,32 +176,7 @@ class JerarquiaPuestoService
             ->orderBy('nombre')
             ->get();
 
-        $this->marcarRegiones($puestos);
-
         return $puestos;
-    }
-
-    /**
-     * Puestos regionales ligados a una región de la matriz ("Gerente Regional
-     * Q1" → Región Q1) y los que dependen de "el regional de su región"
-     * (Gerente de Sucursal): la vista por puestos muestra esa rama debajo de
-     * CADA puesto regional, no solo debajo del superior de referencia.
-     *
-     * @param  Collection<int, Puesto>  $puestos
-     */
-    private function marcarRegiones(Collection $puestos): void
-    {
-        $regionPorPuesto = NodoComercial::query()
-            ->where('tipo', TipoNodoComercial::Region->value)
-            ->whereNotNull('puesto_id')
-            ->pluck('nombre', 'puesto_id');
-
-        foreach ($puestos as $puesto) {
-            $puesto->setAttribute('region', $regionPorPuesto[$puesto->id] ?? null);
-            // Un regional bajo otro regional no es rama de sucursal: repetirlo
-            // debajo de cada regional lo pondría debajo de sí mismo.
-            $puesto->setAttribute('depende_de_region', ! isset($regionPorPuesto[$puesto->id]) && $puesto->puesto_superior_id !== null && isset($regionPorPuesto[$puesto->puesto_superior_id]));
-        }
     }
 
     /**

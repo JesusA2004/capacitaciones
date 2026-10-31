@@ -83,6 +83,10 @@ Schedule::command('bajas:foto-plantilla --momento=cierre')
 
 // Jefe directo = organigrama: red de seguridad por si un cambio entró por
 // un camino que no dispara la sincronización inmediata (SQL manual, etc.).
+Schedule::command('people:sincronizar-vacantes')
+    ->dailyAt('05:15')
+    ->timezone('America/Mexico_City');
+
 Schedule::command('organigrama:sincronizar-jefes')
     ->dailyAt('05:30')
     ->timezone('America/Mexico_City')

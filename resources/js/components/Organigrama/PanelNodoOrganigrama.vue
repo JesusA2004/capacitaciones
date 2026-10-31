@@ -27,7 +27,6 @@ import {
     contarRama,
     jefeVisible,
     lugarDeNodo,
-    regionDeNodo,
 } from '@/lib/organigramaEditable';
 import type {
     AccionMovimientoOrganigrama,

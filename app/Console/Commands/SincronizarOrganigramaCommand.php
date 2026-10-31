@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Services\Headcount\PlazasEmpresaService;
 use App\Services\Organigrama\SincronizadorOrganigramaService;
 use Illuminate\Console\Command;
 
@@ -28,13 +29,12 @@ class SincronizarOrganigramaCommand extends Command
         'regiones' => 'Regiones',
         'q2' => 'Q2',
         'cadena_regional' => 'Cadena regional (Gerente → Subgerente)',
-        'plazas_regionales' => 'Plazas regionales en plantilla',
         'rutas_clasificadas' => 'Entradas de la matriz clasificadas',
         'nodos_legacy' => 'Nodos legacy (cambian de tipo)',
         'conflictos' => 'Conflictos a revisar a mano',
     ];
 
-    public function handle(SincronizadorOrganigramaService $sincronizador): int
+    public function handle(SincronizadorOrganigramaService $sincronizador, PlazasEmpresaService $plazas): int
     {
         $simular = (bool) $this->option('simular');
 
@@ -53,6 +53,14 @@ class SincronizarOrganigramaCommand extends Command
                 $this->line(sprintf('  %s %s', $clave === 'conflictos' ? '<fg=yellow>!</>' : '-', $linea));
             }
         }
+
+        $resultado = $plazas->asegurar($simular);
+        $this->newLine();
+        $this->line(sprintf('<fg=blue>Plazas y vacantes automáticas de empresa</> (%d)', count($resultado['creadas'])));
+        array_map(fn (string $nombre) => $this->line(sprintf('  - %s', $nombre)), $resultado['creadas']);
+        $this->newLine();
+        $this->line(sprintf('<fg=blue>Puestos de sucursal sin plaza autorizada (captúralos en cada sucursal)</> (%d)', count($resultado['sucursal_sin_plaza'])));
+        array_map(fn (string $nombre) => $this->line(sprintf('  ! %s', $nombre)), $resultado['sucursal_sin_plaza']);
 
         $this->newLine();
         $this->info($simular ? 'Simulación terminada.' : 'Organigrama sincronizado.');

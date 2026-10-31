@@ -2,18 +2,14 @@
  * Árbol de la vista «Por puestos» (sin dependencias, probado en
  * tests/js/organigrama-puestos.test.mjs).
  *
- * Un puesto regional muestra además la rama de sucursal que depende «del
- * regional de su región» aunque en el catálogo cuelgue de otro regional. Esa
- * arista es solo de dibujo: la validación del catálogo no la ve, así que un
- * regional bajo otro regional cerraba un ciclo aquí y el árbol se renderizaba
- * sin fin. Toda arista que regrese a un puesto de su propia cadena se descarta.
+ * Cada puesto cuelga solo de su superior real, sin ramas duplicadas. Un ciclo
+ * en los datos no debe colgar el dibujo: toda arista que regrese a un puesto de
+ * su propia cadena se descarta.
  */
 
 export type PuestoDeArbol = {
     id: number;
     puesto_superior_id: number | null;
-    region?: string | null;
-    depende_de_region?: boolean;
 };
 
 export function hijosDePuestos<T extends PuestoDeArbol>(
@@ -25,11 +21,7 @@ export function hijosDePuestos<T extends PuestoDeArbol>(
     for (const puesto of puestos) {
         candidatos.set(
             puesto.id,
-            puestos.filter(
-                (p) =>
-                    p.puesto_superior_id === puesto.id ||
-                    (Boolean(puesto.region) && p.depende_de_region === true),
-            ),
+            puestos.filter((p) => p.puesto_superior_id === puesto.id),
         );
     }
 

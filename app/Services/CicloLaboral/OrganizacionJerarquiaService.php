@@ -3,12 +3,10 @@
 namespace App\Services\CicloLaboral;
 
 use App\Enums\EstadoUsuario;
-use App\Enums\TipoNodoComercial;
 use App\Models\Aprobacion;
 use App\Models\Candidato;
 use App\Models\CoberturaPuesto;
 use App\Models\Colaborador;
-use App\Models\NodoComercial;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;

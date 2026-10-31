@@ -51,6 +51,7 @@ class VacanteAutoGenerationService
         // Una baja/alta de un Gestor volante mueve la vacante de Gestor:
         // es la misma plaza (config/headcount.php).
         $puestoId = $this->puestos->canonico($puestoId);
+        $sucursalId = $this->puestos->sucursalDePlaza($puestoId, $sucursalId);
 
         return DB::transaction(function () use ($sucursalId, $puestoId): array {
             $this->unificarDuplicadas($sucursalId, $puestoId);

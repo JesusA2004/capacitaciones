@@ -5,7 +5,6 @@ import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import {
     contarRama,
     lugarDeNodo,
-    regionDeNodo,
 } from '@/lib/organigramaEditable';
 import type { NodoOrganigramaPersona, RegionOrganigrama } from '@/types';
 

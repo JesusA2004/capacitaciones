@@ -10,7 +10,6 @@ import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import { ESTILO_SIN_TIPO, ESTILO_TIPO_PUESTO } from '@/lib/organigrama';
 import {
     lugarDeNodo,
-    regionDeNodo,
 } from '@/lib/organigramaEditable';
 import type { NodoOrganigramaPersona, RegionOrganigrama } from '@/types';
 

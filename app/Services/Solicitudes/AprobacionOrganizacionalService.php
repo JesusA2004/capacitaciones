@@ -4,11 +4,8 @@ namespace App\Services\Solicitudes;
 
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoUsuario;
-use App\Enums\TipoNodoComercial;
 use App\Enums\TipoSolicitudInterna;
-use App\Models\CoberturaPuesto;
 use App\Models\Colaborador;
-use App\Models\NodoComercial;
 use App\Models\Prestamo;
 use App\Models\Puesto;
 use App\Models\ResponsableAprobacion;
@@ -100,7 +97,6 @@ class AprobacionOrganizacionalService
 
     public function __construct(
         private readonly OrganizacionJerarquiaService $organizacion,
-        private readonly OrganigramaPersonasService $organigrama,
         private readonly RegionalRespaldoService $regionalRespaldo,
     ) {}
 
@@ -323,7 +319,7 @@ class AprobacionOrganizacionalService
             return false;
         }
 
-        $nombresGerencia = [...(array) config('ciclo_laboral.organizacion.puestos_gerencia_sucursal', []), ...(array) config('organigrama.puestos_de_region', [])];
+        $nombresGerencia = [...(array) config('ciclo_laboral.organizacion.puestos_gerencia_sucursal', []), ...(array) config('organigrama.puestos_regionales', [])];
 
         if (in_array($puesto->nombre, $nombresGerencia, true)) {
             return true;

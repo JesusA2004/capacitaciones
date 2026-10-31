@@ -12,6 +12,7 @@ use App\Models\MovimientoLaboral;
 use App\Models\NodoComercial;
 use App\Models\Puesto;
 use App\Models\User;
+use App\Services\Headcount\PlazasEmpresaService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Support\FechaMexico;
 use Illuminate\Support\Carbon;
@@ -27,7 +28,10 @@ use Illuminate\Validation\ValidationException;
  */
 class CoberturaPuestoService
 {
-    public function __construct(private readonly MovimientoLaboralService $movimientos) {}
+    public function __construct(
+        private readonly MovimientoLaboralService $movimientos,
+        private readonly PlazasEmpresaService $plazas,
+    ) {}
 
     /**
      * @param  array{colaborador_id: int, puesto_id: int, sucursal_id?: int|null, region_id?: int|null, motivo?: string|null, nota?: string|null, fecha_inicio?: string|null}  $datos
@@ -110,6 +114,8 @@ class CoberturaPuestoService
             ->withProperties(['colaborador_id' => $colaborador->id, 'puesto_id' => $datos['puesto_id'], 'sucursal_id' => $sucursalId, 'region_id' => $regionId])
             ->log('cobertura_asignada');
 
+        $this->plazas->resincronizar($datos['puesto_id']);
+
         return $cobertura;
     }
 
@@ -139,6 +145,8 @@ class CoberturaPuestoService
             ->performedOn($cobertura)
             ->causedBy($actor)
             ->log('cobertura_finalizada');
+
+        $this->plazas->resincronizar($cobertura->puesto_id);
 
         return $cobertura;
     }

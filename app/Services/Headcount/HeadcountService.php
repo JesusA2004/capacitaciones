@@ -3,6 +3,7 @@
 namespace App\Services\Headcount;
 
 use App\Enums\EstadoUsuario;
+use App\Models\CoberturaPuesto;
 use App\Models\Colaborador;
 use App\Models\HeadcountTarget;
 use App\Models\Puesto;
@@ -36,16 +37,22 @@ class HeadcountService
      */
     public function plantillaActualPorSucursalPuesto(?Collection $sucursalesIds = null): Collection
     {
+        // Sin filtrar por sucursal en la consulta: el titular de un puesto de
+        // empresa cuenta donde vive su plaza, no donde está registrado.
         return Colaborador::query()
             ->whereIn('estatus', EstadoUsuario::valoresVigentes())
             ->whereNotNull('puesto_id')
             ->whereNotNull('sucursal_principal_id')
-            ->when($sucursalesIds !== null, fn ($q) => $q->whereIn('sucursal_principal_id', $sucursalesIds))
             ->selectRaw('sucursal_principal_id, puesto_id, count(*) as total')
             ->groupBy('sucursal_principal_id', 'puesto_id')
             ->get()
-            ->groupBy(fn ($fila) => sprintf('%d:%d', $fila->sucursal_principal_id, $this->puestos->canonico((int) $fila->puesto_id)))
-            ->map(fn (Collection $filas) => (int) $filas->sum(fn ($fila) => (int) $fila->getAttribute('total')));
+            ->groupBy(function ($fila): string {
+                $puestoId = $this->puestos->canonico((int) $fila->puesto_id);
+
+                return sprintf('%d:%d', $this->puestos->sucursalDePlaza($puestoId, (int) $fila->sucursal_principal_id), $puestoId);
+            })
+            ->map(fn (Collection $filas) => (int) $filas->sum(fn ($fila) => (int) $fila->getAttribute('total')))
+            ->filter(fn (int $total, string $clave) => $sucursalesIds === null || $sucursalesIds->contains((int) explode(':', $clave)[0]));
     }
 
     /**
@@ -140,21 +147,15 @@ class HeadcountService
             ->groupBy(fn (HeadcountTarget $t) => $this->puestos->canonico($t->puesto_id))
             ->map(fn (Collection $lista) => (int) $lista->sum('plantilla_autorizada'));
 
-        $actualPorPuesto = Colaborador::query()
-            ->whereIn('estatus', EstadoUsuario::valoresVigentes())
-            ->where('sucursal_principal_id', $sucursalId)
-            ->whereNotNull('puesto_id')
-            ->selectRaw('puesto_id, count(*) as total')
-            ->groupBy('puesto_id')
-            ->pluck('total', 'puesto_id')
-            ->groupBy(fn ($total, $puestoId) => $this->puestos->canonico((int) $puestoId), true)
-            ->map(fn (Collection $totales) => (int) $totales->sum());
+        $actualPorPuesto = $this->plantillaActualPorSucursalPuesto(collect([$sucursalId]))
+            ->mapWithKeys(fn (int $total, string $clave) => [(int) explode(':', $clave)[1] => $total]);
 
         $puestoIdsUnion = $targets->keys()->merge($actualPorPuesto->keys())->unique()->values();
 
         $nombresPuesto = Puesto::query()->whereIn('id', $puestoIdsUnion)->pluck('nombre', 'id');
 
-        return $puestoIdsUnion->map(function (int $puestoId) use ($targets, $actualPorPuesto, $nombresPuesto) {
+        return $puestoIdsUnion->map(function (int|string $clave) use ($targets, $actualPorPuesto, $nombresPuesto) {
+            $puestoId = (int) $clave;
             $autorizada = (int) ($targets[$puestoId] ?? 0);
             $actual = (int) ($actualPorPuesto[$puestoId] ?? 0);
 
@@ -404,11 +405,12 @@ class HeadcountService
             ->whereIn('puesto_id', $equivalentes)
             ->sum('plantilla_autorizada');
 
-        $ocupada = Colaborador::query()
-            ->whereIn('estatus', EstadoUsuario::valoresVigentes())
-            ->where('sucursal_principal_id', $sucursalId)
-            ->whereIn('puesto_id', $equivalentes)
-            ->count();
+        $ocupada = (int) ($this->plantillaActualPorSucursalPuesto(collect([$sucursalId]))[sprintf('%d:%d', $sucursalId, $puestoId)] ?? 0);
+
+        // Puesto de empresa: quien lo cubre también lo atiende, no hace falta vacante.
+        if ($ocupada < $autorizada && $this->puestos->esDeEmpresa($puestoId)) {
+            $ocupada += CoberturaPuesto::query()->where('puesto_id', $puestoId)->where('activa', true)->count();
+        }
 
         return ['autorizada' => $autorizada, 'ocupada' => $ocupada, 'faltantes' => max($autorizada - $ocupada, 0)];
     }

@@ -6,7 +6,7 @@ Pantalla: `Administración → Matriz comercial` (`administracion/matriz-comerci
 
 ## Regiones
 
-Solo **Q1** y **Q3**. Q2 (Aguascalientes) no existe: no se siembra, no se muestra, no se puede elegir. `MatrizComercialSeeder` y `people:sincronizar-organigrama` la eliminan si una base anterior la tiene. Cada Región apunta a su puesto de gerente regional (`puesto_id` → «Gerente Regional Q1» / «Gerente Regional Q3»).
+Solo **Q1** y **Q3**. Q2 (Aguascalientes) no existe: no se siembra, no se muestra, no se puede elegir. `MatrizComercialSeeder` y `people:sincronizar-organigrama` la eliminan si una base anterior la tiene. Son dato territorial: ninguna Región se liga a un puesto (`puesto_id` nulo); Gerente y Subgerente Regional son plazas únicas de la empresa.
 
 ## Clasificación de las entradas de cada zona
 

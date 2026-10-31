@@ -87,6 +87,8 @@ Configuración → Importar datos → **Plazas autorizadas** (solo `headcount.im
 
 ## Vacantes automáticas
 
+**Puestos de empresa** (corporativos y regionales): se ocupan a nivel empresa. Un puesto activo sin titular ni cobertura vigente recibe 1 plaza en Corporativo y su vacante automática (`PlazasEmpresaService`; corre al desplegar, con `people:sincronizar-organigrama` y a diario con `people:sincronizar-vacantes`). Un titular registrado en otra sucursal cuenta en la plaza, así que no abre vacante falsa, y una cobertura vigente de estos puestos también evita la vacante (excepción a la regla de abajo, que sigue valiendo para puestos de sucursal). `Dirección General` queda fuera (`headcount.puestos_sin_plaza_automatica`). Los puestos de sucursal sin plaza no se inventan: el comando los lista.
+
 **Regla única** (`HeadcountService::plantillaDePar()`):
 
 ```

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Headcount\PlazasEmpresaService;
 use App\Services\Vacantes\VacanteAutoGenerationService;
 use Illuminate\Console\Command;
 
@@ -23,12 +24,17 @@ class SincronizarVacantesCommand extends Command
 
     protected $description = 'Abre, ajusta y cierra vacantes automáticas según plantilla autorizada − ocupados reales (idempotente, no toca vacantes manuales)';
 
-    public function handle(VacanteAutoGenerationService $vacantes, AuditoriaService $auditoria): int
+    public function handle(VacanteAutoGenerationService $vacantes, PlazasEmpresaService $plazas, AuditoriaService $auditoria): int
     {
         $simular = (bool) $this->option('simular');
 
         if ($simular) {
             $this->warn('Modo simulación: no se escribe nada.');
+        }
+
+        // Puesto de empresa sin titular ni cobertura: plaza y vacante automática.
+        foreach ($plazas->asegurar($simular)['creadas'] as $nombre) {
+            $this->line(sprintf('Plaza de empresa nueva: %s', $nombre));
         }
 
         $reporte = $vacantes->sincronizarTodo($simular);

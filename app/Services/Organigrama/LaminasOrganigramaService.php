@@ -40,7 +40,6 @@ class LaminasOrganigramaService
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly FotoColaboradorService $fotos,
-        private readonly OrganigramaPersonasService $organigrama,
     ) {}
 
     /**

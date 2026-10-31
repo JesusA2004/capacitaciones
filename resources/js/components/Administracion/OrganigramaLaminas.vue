@@ -277,7 +277,7 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                     "
                 />
                 <div
-                    v-for="(col, indiceCol) in laminas.comercial.columnas"
+                    v-for="col in laminas.comercial.columnas"
                     :key="col.titulo"
                     class="relative flex flex-col items-center"
                 >

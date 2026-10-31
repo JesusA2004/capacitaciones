@@ -21,6 +21,12 @@ return [
     ],
 
     /*
+    | Puestos de empresa que nunca reciben plaza ni vacante automática
+    | (App\Services\Headcount\PlazasEmpresaService).
+    */
+    'puestos_sin_plaza_automatica' => ['Dirección General'],
+
+    /*
     | Nombre de sucursal en el Excel de headcount => nombre EXACTO en el
     | catálogo. Lista cerrada, solo alias confirmados por el negocio (el
     | mismo que config/expedientes.php migracion_inicial.alias_sucursales);

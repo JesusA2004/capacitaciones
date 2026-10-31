@@ -12,12 +12,11 @@ use App\Models\CoberturaPuesto;
 use App\Models\Colaborador;
 use App\Models\Departamento;
 use App\Models\HeadcountTarget;
-use App\Models\HeadcountTargetHistorial;
 use App\Models\NodoComercial;
 use App\Models\Puesto;
 use App\Models\Sucursal;
+use App\Services\Expedientes\MigracionInicial\Normalizador;
 use App\Services\MatrizComercial\ClasificadorNodoComercial;
-use App\Services\Vacantes\VacanteAutoGenerationService;
 use App\Support\FechaMexico;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -86,8 +85,8 @@ class SincronizadorOrganigramaService
     /** Puesto genérico anterior: solo difiere del nuevo en una mayúscula. */
     private const REGIONAL_GENERICO = 'Gerente regional';
 
-    /** Plazas únicas de empresa que siempre deben existir en plantilla. */
-    private const PLAZAS_REGIONALES = ['Gerente Regional', 'Subgerente Regional'];
+    /** Nombre oficial de la cadena regional. */
+    private const CADENA_REGIONAL = ['Gerente Regional', 'Subgerente Regional'];
 
     /**
      * Estructura confirmada, de arriba hacia abajo (un superior siempre va
@@ -126,11 +125,11 @@ class SincronizadorOrganigramaService
         'Coordinadora Regional' => ['superior' => 'Dirección Comercial', 'departamento' => 'Operaciones', 'nivel' => 3, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Coordinadora Regional: una sola, ubicada en Corporativo; de ella dependen las coordinadoras de sucursal.'],
         'Coordinadora de Sucursal' => ['superior' => 'Coordinadora Regional', 'departamento' => 'Operaciones', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Una por sucursal (Corporativo no tiene): cuadre de caja, control administrativo y procesos internos.', 'extra' => ['crecimiento' => 'Coordinadora Regional']],
         'Gerente Regional' => ['superior' => 'Dirección Comercial', 'departamento' => 'Ventas', 'nivel' => 3, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Gerente Regional: una sola plaza en la empresa; de él depende el Subgerente Regional.', 'extra' => ['crecimiento' => 'Dirección Comercial']],
-        'Subgerente Regional' => ['superior' => 'Gerente Regional', 'departamento' => 'Ventas', 'nivel' => 3, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Subgerente Regional: apoya al Gerente Regional; de él dependen los gerentes de sucursal.', 'extra' => ['crecimiento' => 'Gerente Regional']],
-        'Gerente de Sucursal' => ['superior' => 'Subgerente Regional', 'departamento' => 'Ventas', 'nivel' => 4, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Responsable de la sucursal (1 por sucursal). Reporta al Subgerente Regional.', 'extra' => ['esquema_comisiones' => 'Comisión por resultados de sucursal.', 'responsabilidades' => 'Supervisa la operación de la sucursal y participa en la aprobación de candidatos y solicitudes.']],
-        'Subgerente' => ['superior' => 'Gerente de Sucursal', 'departamento' => 'Ventas', 'nivel' => 5, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Uno por sucursal: apoya al gerente, lo cubre temporalmente y supervisa a los gestores.', 'extra' => ['crecimiento' => 'Gerente de Sucursal', 'esquema_comisiones' => 'Comisión por equipo de gestores.']],
-        'Gestor' => ['superior' => 'Subgerente', 'departamento' => 'Ventas', 'nivel' => 6, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Gestor de crédito: una plaza de plantilla y UNA ruta de cobro vigente (la ruta es una asignación de la matriz comercial, no parte del nombre del puesto).', 'extra' => ['crecimiento' => 'Subgerente', 'esquema_comisiones' => 'Comisión por cartera/ruta asignada.', 'requiere_ruta' => true]],
-        'Gestor Volante' => ['superior' => 'Subgerente', 'departamento' => 'Ventas', 'nivel' => 6, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Cuenta en la plantilla autorizada pero no tiene ruta fija: cubre la ruta de un gestor que faltó, una vacante temporal o apoya la operación.', 'extra' => ['crecimiento' => 'Gestor', 'esquema_comisiones' => 'Comisión variable de apoyo.']],
+        'Subgerente Regional' => ['superior' => 'Gerente Regional', 'departamento' => 'Ventas', 'nivel' => 4, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Subgerente Regional: apoya al Gerente Regional; de él dependen los gerentes de sucursal.', 'extra' => ['crecimiento' => 'Gerente Regional']],
+        'Gerente de Sucursal' => ['superior' => 'Subgerente Regional', 'departamento' => 'Ventas', 'nivel' => 5, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Responsable de la sucursal (1 por sucursal). Reporta al Subgerente Regional.', 'extra' => ['esquema_comisiones' => 'Comisión por resultados de sucursal.', 'responsabilidades' => 'Supervisa la operación de la sucursal y participa en la aprobación de candidatos y solicitudes.']],
+        'Subgerente' => ['superior' => 'Gerente de Sucursal', 'departamento' => 'Ventas', 'nivel' => 6, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Uno por sucursal: apoya al gerente, lo cubre temporalmente y supervisa a los gestores.', 'extra' => ['crecimiento' => 'Gerente de Sucursal', 'esquema_comisiones' => 'Comisión por equipo de gestores.']],
+        'Gestor' => ['superior' => 'Subgerente', 'departamento' => 'Ventas', 'nivel' => 7, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Gestor de crédito: una plaza de plantilla y UNA ruta de cobro vigente (la ruta es una asignación de la matriz comercial, no parte del nombre del puesto).', 'extra' => ['crecimiento' => 'Subgerente', 'esquema_comisiones' => 'Comisión por cartera/ruta asignada.', 'requiere_ruta' => true]],
+        'Gestor Volante' => ['superior' => 'Subgerente', 'departamento' => 'Ventas', 'nivel' => 7, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Cuenta en la plantilla autorizada pero no tiene ruta fija: cubre la ruta de un gestor que faltó, una vacante temporal o apoya la operación.', 'extra' => ['crecimiento' => 'Gestor', 'esquema_comisiones' => 'Comisión variable de apoyo.']],
     ];
 
     /**
@@ -157,10 +156,7 @@ class SincronizadorOrganigramaService
      */
     private array $renombradosSimulados = [];
 
-    public function __construct(
-        private readonly ClasificadorNodoComercial $clasificador,
-        private readonly VacanteAutoGenerationService $vacantes,
-    ) {}
+    public function __construct(private readonly ClasificadorNodoComercial $clasificador) {}
 
     /**
      * @return array<string, list<string>> sección => líneas del reporte
@@ -175,7 +171,6 @@ class SincronizadorOrganigramaService
             'relaciones_actualizadas' => [],
             'fuera_de_estructura' => [],
             'cadena_regional' => [],
-            'plazas_regionales' => [],
             'regiones' => [],
             'q2' => [],
             'rutas_clasificadas' => [],
@@ -188,9 +183,9 @@ class SincronizadorOrganigramaService
                 $this->renombrar($anterior, $nuevo);
             }
 
+            $this->normalizarCadenaRegional();
             $this->unirRegionales();
             $this->asegurarEstructura();
-            $this->asegurarPlazasRegionales();
             $this->reportarFueraDeEstructura();
             $this->sincronizarMatriz();
             $this->detectarConflictos();
@@ -254,6 +249,45 @@ class SincronizadorOrganigramaService
     private function nombreEnBase(string $nombre): string
     {
         return $this->renombradosSimulados[$nombre] ?? $nombre;
+    }
+
+    /**
+     * Reutiliza el puesto ya capturado aunque esté escrito distinto («Sub
+     * Gerente Regional»): se renombra conservando id, gente e historial. Nunca
+     * crea un duplicado; si hay dos escrituras, la de sobra vacía se retira y
+     * una con titulares se reporta.
+     */
+    private function normalizarCadenaRegional(): void
+    {
+        $clave = fn (string $nombre): string => str_replace(' ', '', Normalizador::clave($nombre));
+        $todos = Puesto::query()->orderByDesc('activo')->orderBy('id')->get();
+
+        foreach (self::CADENA_REGIONAL as $oficial) {
+            $iguales = $todos->filter(fn (Puesto $p) => $clave($p->nombre) === $clave($oficial))->values();
+            $conservado = $iguales->first(fn (Puesto $p) => $this->titularesVigentes($p)->isNotEmpty()) ?? $iguales->first();
+
+            if ($conservado === null) {
+                continue;
+            }
+
+            foreach ($iguales->reject(fn (Puesto $p) => $p->id === $conservado->id) as $sobrante) {
+                if ($this->titularesVigentes($sobrante)->isNotEmpty()) {
+                    $this->reporte['conflictos'][] = sprintf('«%s» y «%s» son el mismo puesto y ambos tienen titulares: reasigna a la gente de «%s».', $sobrante->nombre, $conservado->nombre, $sobrante->nombre);
+                } else {
+                    $this->retirarPuesto($sobrante, sprintf('%s (anterior %d)', $sobrante->nombre, $sobrante->id));
+                }
+            }
+
+            if ($conservado->nombre !== $oficial) {
+                $this->reporte['puestos_renombrados'][] = sprintf('«%s» -> «%s»', $conservado->nombre, $oficial);
+
+                if ($this->simular) {
+                    $this->renombradosSimulados[$oficial] = $conservado->nombre;
+                } else {
+                    $conservado->update(['nombre' => $oficial]);
+                }
+            }
+        }
     }
 
     /**
@@ -371,74 +405,6 @@ class SincronizadorOrganigramaService
             if (! $this->simular) {
                 $cobertura->update(['puesto_id' => $destino->id, 'region_id' => null]);
             }
-        }
-    }
-
-    /**
-     * Sin plaza autorizada no hay vacante automática: Gerente y Subgerente
-     * Regional tienen 1 plaza. Vive en Corporativo, salvo que quien la ocupa
-     * esté registrado en otra sucursal: se autoriza ahí (la plaza se cuenta
-     * por sucursal y abrir una vacante falsa en Corporativo sería peor) y se
-     * reporta. Nunca pisa una plaza ya capturada ni cambia a nadie de sucursal.
-     */
-    private function asegurarPlazasRegionales(): void
-    {
-        $corporativo = Sucursal::query()->where('clave', self::CLAVE_CORPORATIVO)->first();
-
-        foreach (self::PLAZAS_REGIONALES as $nombre) {
-            $puesto = Puesto::query()->where('nombre', $this->nombreEnBase($nombre))->first();
-
-            if ($puesto === null) {
-                $this->reporte['plazas_regionales'][] = sprintf('«%s»: se autoriza 1 plaza al crear el puesto.', $nombre);
-
-                continue;
-            }
-
-            if (HeadcountTarget::query()->where('puesto_id', $puesto->id)->exists()) {
-                continue;
-            }
-
-            $titular = $this->titularesVigentes($puesto)->first();
-            $sucursal = $titular?->sucursal_principal_id !== null
-                ? Sucursal::query()->where('id', $titular->sucursal_principal_id)->first()
-                : $corporativo;
-
-            if ($sucursal === null) {
-                $this->reporte['conflictos'][] = sprintf('«%s»: no existe Corporativo (%s) para autorizar su plaza.', $nombre, self::CLAVE_CORPORATIVO);
-
-                continue;
-            }
-
-            if ($titular !== null && $corporativo !== null && $sucursal->id !== $corporativo->id) {
-                $this->reporte['conflictos'][] = sprintf('%s es «%s» y su sucursal es «%s»: la plaza se autoriza ahí; si debe vivir en Corporativo, cambia su sucursal y su plantilla.', $titular->nombreCompleto(), $nombre, $sucursal->nombre);
-            }
-
-            $this->reporte['plazas_regionales'][] = sprintf('«%s»: 1 plaza autorizada en «%s»%s.', $nombre, $sucursal->nombre, $titular === null ? ' (sin titular: se abre su vacante)' : '');
-
-            if ($this->simular) {
-                continue;
-            }
-
-            $target = HeadcountTarget::query()->create([
-                'empresa_id' => $sucursal->empresa_id,
-                'sucursal_id' => $sucursal->id,
-                'puesto_id' => $puesto->id,
-                'plantilla_autorizada' => 1,
-                'fuente' => 'organigrama',
-                'fecha_corte' => FechaMexico::hoy(),
-            ]);
-
-            HeadcountTargetHistorial::query()->create([
-                'headcount_target_id' => $target->id,
-                'sucursal_id' => $sucursal->id,
-                'puesto_id' => $puesto->id,
-                'valor_anterior' => null,
-                'valor_nuevo' => 1,
-                'fuente' => 'organigrama',
-                'motivo' => 'Plaza única de la cadena regional (estructura confirmada).',
-            ]);
-
-            $this->vacantes->sincronizar($sucursal->id, $puesto->id);
         }
     }
 

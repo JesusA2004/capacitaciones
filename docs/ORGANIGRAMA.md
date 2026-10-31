@@ -48,28 +48,11 @@ Definición única en código: `App\Services\Organigrama\SincronizadorOrganigram
 
 **Fuera de la estructura confirmada, conservados sin cambios** (decisión de dirección): Asistente de Dirección General y Gestor grupal. El comando de sincronización los lista en «Puestos fuera de la estructura confirmada».
 
-### Gerentes regionales
+### Gerente y Subgerente Regional (2026-10-30)
 
-Son **dos puestos**: «Gerente Regional Q1» y «Gerente Regional Q3». Cada nodo Región de la matriz apunta a su puesto (`nodos_comerciales.puesto_id`). Un Gerente de Sucursal reporta al puesto regional **de la región de su sucursal** (en el catálogo, «Gerente Regional Q1» es solo el superior de referencia; en la vista por puestos, la rama de sucursal aparece debajo de cada puesto regional).
+Ya no hay puestos por región: **Gerente Regional → Subgerente Regional → Gerente de Sucursal**, plazas únicas de la empresa. El Gerente de Sucursal responde al Subgerente Regional (titular o cobertura); si está vacante, al Gerente Regional; luego a la regional de respaldo; nunca a Dirección Comercial.
 
-Si una misma persona atiende las dos regiones, **no** se le crean dos puestos: su puesto titular es uno (p. ej. Q1) y la otra región se registra como **cobertura temporal** (`CoberturaPuesto` con `region_id`). El organigrama muestra:
-
-```
-Gerente Regional Q3
-VACANTE · cubierto temporalmente
-Fernanda …   Cubierto temporalmente por esta persona · Titular de Gerente Regional Q1
-```
-
-### Q1 / Q3: de qué lado está cada Gerente de Sucursal (2026-10-20)
-
-**Q1 y Q3 son las dos REGIONES de la matriz comercial** (`nodos_comerciales` tipo `region`: «Región Q1», «Región Q3», `MatrizComercialSeeder`), cada una ligada a su puesto «Gerente Regional Q1/Q3» (`nodos_comerciales.puesto_id`). No son secciones de las láminas ni cuadrantes geográficos. Q2 no existe.
-
-Antes, el organigrama General (composición de las láminas) colgaba TODAS las sucursales de un solo «Regional Comercial» con los dos regionales juntos, así que cada gerente se veía de Q1 y de Q3 a la vez. Ahora RH **clasifica** a cada Gerente de Sucursal con un clic (Q1 · Q3 · Por clasificar):
-
-- Tabla `clasificaciones_region` (una fila por colaborador: `region_id`, `clasificada_por`, fechas; historial en `activity_log` `organigrama`/`region_clasificada`). Regla: `App\Services\Organigrama\ClasificacionRegionService`.
-- Solo se clasifica a quien ocupa un puesto **clasificable**: el que reporta a un puesto regional (hoy, Gerente de Sucursal). Su subgerente y gestores lo siguen.
-- **Sin clasificar = «Por clasificar»**, visible (aviso arriba del árbol, chip punteado en la tarjeta, lámina de Dirección Comercial). Nunca se clasifica solo: la región de su sucursal en la matriz se muestra como **sugerencia** (punto dorado) y, mientras tanto, su jefe directo sale provisionalmente de esa región (la regla de siempre).
-- Clasificado = cuelga del regional de ESE lado (o de quien lo cubra), aunque la matriz diga otra región para su sucursal. Clasificar recalcula el jefe directo y, si cambió, registra «Cambio de jefe» en su expediente.
+Q1 y Q3 siguen en la matriz comercial solo como dato territorial, sin puesto ligado. La clasificación Q1/Q3 se retiró de la UI y de las aprobaciones; `clasificaciones_region` se conserva como historial. `people:sincronizar-organigrama` reutiliza el puesto ya capturado aunque esté escrito distinto («Sub Gerente Regional»), une Q1/Q3 si solo uno tiene titular y, con titulares en varios, reporta el conflicto sin elegir a nadie.
 
 ### Organigrama editable (General · Por personas)
 
