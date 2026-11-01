@@ -76,9 +76,11 @@ class BajaDocumentoSalidaController extends Controller
     {
         $this->authorize('documentoSalida', $baja);
         $datos = $request->validate(['motivo' => ['nullable', 'string', 'max:500'], 'campos' => ['nullable', 'array']]);
-        $this->salida->generar($baja, $request->user(), $datos['motivo'] ?? null, $datos['campos'] ?? null);
+        $documento = $this->salida->generar($baja, $request->user(), $datos['motivo'] ?? null, $datos['campos'] ?? null);
 
-        return $this->ok('Documento generado: descárgalo para firma.');
+        return $this->ok($documento->wasRecentlyCreated
+            ? 'Documento generado: descárgalo para firma.'
+            : 'Sin cambios: el documento vigente ya corresponde a estos datos.');
     }
 
     public function descargar(Baja $baja): StreamedResponse

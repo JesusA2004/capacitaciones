@@ -158,7 +158,10 @@ test('escenario 20: NR genera el convenio de terminación con versiones preserva
     Storage::disk($primero->disk)->assertExists($primero->path);
 
     // Sin cambios no hay versión nueva. Con datos nuevos, otra versión exige motivo y conserva la anterior.
-    $this->actingAs($this->rh)->post(route('rh.bajas.salida.generar', $baja))->assertSessionHasNoErrors();
+    // Sin cambios no se anuncia un documento generado.
+    $this->actingAs($this->rh)->post(route('rh.bajas.salida.generar', $baja))
+        ->assertSessionHasNoErrors()
+        ->assertSessionHas('toast.message', 'Sin cambios: el documento vigente ya corresponde a estos datos.');
     expect(GeneratedDocument::query()->where('clave_plantilla', 'convenio_terminacion')->count())->toBe(1);
     $primero->update(['huella_datos' => str_repeat('0', 64)]);
     $this->actingAs($this->rh)->post(route('rh.bajas.salida.generar', $baja))->assertSessionHasErrors('motivo');
