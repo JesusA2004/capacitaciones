@@ -6,6 +6,7 @@ use App\Models\ActaAdministrativa;
 use App\Models\CierreLaboral;
 use App\Models\Colaborador;
 use App\Models\Departamento;
+use App\Models\GeneratedDocument;
 use App\Models\Prestamo;
 use App\Models\Puesto;
 use App\Models\SolicitudInterna;
@@ -331,4 +332,40 @@ test('un super_admin en papelera se puede purgar si queda otro super_admin vigen
 
     expect(User::withTrashed()->whereKey($enPapelera->id)->exists())->toBeFalse()
         ->and(User::role('super_admin')->whereKey($this->super->id)->exists())->toBeTrue();
+});
+
+test('una persona con correcciones auditadas no se purga: el historial es inmutable', function () {
+    $persona = $this->cuenta->colaborador;
+    $correccion = DB::table('correcciones')->insertGetId([
+        'clave_idempotencia' => (string) Str::uuid(),
+        'dominio' => 'personal',
+        'sujeto_type' => $persona->getMorphClass(),
+        'sujeto_id' => $persona->id,
+        'colaborador_id' => $persona->id,
+        'version' => 1,
+        'modo' => 'directo',
+        'huella_anterior' => str_repeat('a', 64),
+        'huella_nueva' => str_repeat('b', 64),
+        'motivo' => 'Corrección real',
+        'origen' => 'web',
+        'actor_id' => $this->rh->id,
+        'created_at' => now(),
+    ]);
+
+    $revision = app(PurgaPersonaService::class)->revisar($this->cuenta, $this->super);
+    expect($revision['puede'])->toBeFalse()
+        ->and(implode(' ', $revision['bloqueos']))->toContain('correcciones auditadas');
+
+    expect(fn () => app(PurgaPersonaService::class)->purgar($this->cuenta, $this->super))->toThrow(ValidationException::class);
+    expect(DB::table('correcciones')->where('id', $correccion)->exists())->toBeTrue()
+        ->and(User::query()->whereKey($this->cuenta->id)->exists())->toBeTrue();
+});
+
+test('documentos firmados o recibos emitidos también detienen la purga', function () {
+    $persona = $this->cuenta->colaborador;
+    GeneratedDocument::factory()->create(['colaborador_id' => $persona->id, 'estado_flujo' => 'firmado_fisicamente']);
+
+    $revision = app(PurgaPersonaService::class)->revisar($this->cuenta, $this->super);
+    expect($revision['puede'])->toBeFalse()
+        ->and(implode(' ', $revision['bloqueos']))->toContain('documentos firmados');
 });

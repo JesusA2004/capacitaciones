@@ -2,8 +2,10 @@
 
 use App\Enums\EstadoFiniquito;
 use App\Enums\EstadoUsuario;
+use App\Enums\TipoFiniquito;
 use App\Models\Baja;
 use App\Models\BajaBitacora;
+use App\Models\BajaDocumento;
 use App\Models\BajaDocumentoEdicion;
 use App\Models\CausalGrupo;
 use App\Models\CausalRotacion;
@@ -11,6 +13,7 @@ use App\Models\Colaborador;
 use App\Models\FiniquitoCalculo;
 use App\Models\GeneratedDocument;
 use App\Services\Bajas\BajaDocumentoSalidaService;
+use App\Services\Bajas\BajaDocumentosService;
 use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Finiquitos\FiniquitoService;
@@ -18,6 +21,7 @@ use Database\Seeders\CausalesRotacionSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
 
 /*
@@ -243,4 +247,142 @@ test('una causal de OT que genera convenio produce ese documento en la baja', fu
     $baja = correccionBaja($this, 'OT-03');
 
     expect(app(BajaDocumentoSalidaService::class)->panel($baja, $this->rh)['documento']['clave'])->toBe('convenio_terminacion');
+});
+
+/*
+| Flujo uniforme (docs/DOCUMENTOS_VERSIONES.md), módulos de bajas y finiquitos.
+*/
+
+test('escenario 4: baja con causal, documento, edición, regeneración, finiquito corregido, histórico y rotación', function () {
+    $baja = correccionBaja($this, 'NR-02');
+    $finiquito = correccionFiniquito($baja);
+    $salida = fn (string $accion) => route('rh.documentos-edicion.'.$accion, ['tipo' => 'salida', 'id' => $baja->id]);
+
+    // Documento: primera emisión.
+    $this->actingAs($this->rh)->postJson($salida('emitir'), [])->assertCreated();
+    $v1 = GeneratedDocument::query()->where('clave_plantilla', 'convenio_terminacion')->sole();
+
+    // Edición con vista previa: no guarda y lleva marca de agua.
+    $this->actingAs($this->rh)->postJson($salida('vista-previa'), ['campos' => ['cuerpo' => 'Texto corregido por RH.']])->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    expect(GeneratedDocument::query()->where('clave_plantilla', 'convenio_terminacion')->count())->toBe(1);
+
+    // Regeneración con motivo: versión ligada, edición y bitácora juntas.
+    $this->actingAs($this->rh)->postJson($salida('emitir'), ['campos' => ['cuerpo' => 'Texto corregido por RH.'], 'motivo' => 'Estaba mal la redacción.'])->assertCreated();
+    $v2 = GeneratedDocument::query()->where('clave_plantilla', 'convenio_terminacion')->latest('id')->firstOrFail();
+    expect($v2->revision_de_id)->toBe($v1->id)
+        ->and($v2->correcciones['cuerpo']['nuevo'])->toBe('Texto corregido por RH.')
+        ->and(BajaDocumentoEdicion::query()->sole()->generated_document_id)->toBe($v2->id)
+        ->and($v1->refresh()->estado_flujo?->value)->toBe('cancelado');
+
+    // Finiquito: corregir con motivo; el PDF se emite por POST, encadenado.
+    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.revisar', $finiquito))->assertSessionHasNoErrors();
+    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.generar-pdf', $finiquito))->assertSessionHasNoErrors();
+    $f1 = GeneratedDocument::query()->whereKey($finiquito->refresh()->generated_document_id)->firstOrFail();
+
+    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.corregir', $finiquito), ['conceptos' => [['concepto_clave' => 'aguinaldo_proporcional', 'importe' => 1234.56]], 'motivo' => 'El aguinaldo estaba mal.'])->assertSessionHasNoErrors();
+    expect($finiquito->refresh()->estado)->toBe(EstadoFiniquito::Borrador);
+
+    // Firmar con datos viejos no se admite, aunque ya esté revisado de nuevo.
+    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.revisar', $finiquito))->assertSessionHasNoErrors();
+    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.firmado', $finiquito), ['archivo' => clArchivoPdf('firmado.pdf')])->assertSessionHasErrors('documento');
+
+    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.generar-pdf', $finiquito), ['motivo' => 'Se corrigió el aguinaldo.'])->assertSessionHasNoErrors();
+    $f2 = GeneratedDocument::query()->whereKey($finiquito->refresh()->generated_document_id)->firstOrFail();
+    expect($f2->id)->not->toBe($f1->id)
+        ->and($f2->revision_de_id)->toBe($f1->id)
+        ->and($f2->motivo_revision)->toBe('Se corrigió el aguinaldo.')
+        ->and($f1->refresh()->estado_flujo?->value)->toBe('cancelado');
+
+    // Idempotente: otra emisión sin cambios no crea versión.
+    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.generar-pdf', $finiquito))->assertSessionHasNoErrors();
+    expect(GeneratedDocument::query()->where('documentable_id', $finiquito->id)->where('clave_plantilla', 'finiquito')->count())->toBe(2);
+
+    // Firmado: una sola vigente firmada; ya no se regenera ni se rectifica (Jurídico).
+    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.firmado', $finiquito), ['archivo' => clArchivoPdf('firmado.pdf')])->assertSessionHasNoErrors();
+    expect($f2->refresh()->estado_flujo?->firmaFisicaRegistrada())->toBeTrue();
+    $this->actingAs($this->rh)->postJson(route('rh.documentos-edicion.emitir', ['tipo' => 'finiquito', 'id' => $finiquito->id]), ['motivo' => 'Quiero corregir lo firmado.'])->assertForbidden();
+
+    // Histórico visible para autorizados, sin rutas; 403 para los demás.
+    $versiones = $this->actingAs($this->rh)->getJson(route('rh.documentos-edicion.versiones', ['tipo' => 'finiquito', 'id' => $finiquito->id]))->assertOk();
+    expect($versiones->json('versiones'))->toHaveCount(2)
+        ->and($versiones->getContent())->not->toMatch('/"(path|disk|documento_generado_path)"|expedientes\//');
+    $this->actingAs(clUsuario('colaborador'))->getJson(route('rh.documentos-edicion.versiones', ['tipo' => 'finiquito', 'id' => $finiquito->id]))->assertForbidden();
+
+    // Rotación: la baja sigue contando con su causal; corregir documentos no la toca.
+    expect($baja->refresh()->causal?->clave)->toBe('NR-02')
+        ->and(Baja::query()->where('colaborador_id', $this->persona->id)->count())->toBe(1);
+});
+
+test('un GET y el permiso de descarga no emiten el finiquito', function () {
+    $baja = correccionBaja($this, 'NR-02');
+    $finiquito = correccionFiniquito($baja);
+    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.revisar', $finiquito))->assertSessionHasNoErrors();
+    $this->actingAs($this->rh)->get(route('rh.bajas.finiquitos.recibo', $finiquito))->assertOk()->assertHeader('X-Documento-Estado', 'vista-previa');
+    expect(GeneratedDocument::query()->where('clave_plantilla', 'finiquito')->count())->toBe(0);
+
+    $soloDescarga = clUsuario('colaborador');
+    $soloDescarga->givePermissionTo(['finiquitos.ver', 'finiquitos.descargar']);
+    $this->actingAs($soloDescarga)->post(route('rh.bajas.finiquitos.generar-pdf', $finiquito))->assertForbidden();
+});
+
+test('cambiar el tipo sin mover el neto deja el PDF desactualizado: no se sirve ni se firma', function () {
+    $baja = correccionBaja($this, 'NR-02');
+    $finiquito = correccionFiniquito($baja);
+    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.revisar', $finiquito))->assertSessionHasNoErrors();
+    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.generar-pdf', $finiquito))->assertSessionHasNoErrors();
+    $neto = (string) $finiquito->refresh()->neto;
+    $tipo = $finiquito->tipo_documento === TipoFiniquito::Liquidacion ? TipoFiniquito::Finiquito : TipoFiniquito::Liquidacion;
+
+    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.tipo', $finiquito), ['tipo' => $tipo->value, 'motivo' => 'Corresponde otro tipo.'])->assertSessionHasNoErrors();
+    expect((string) $finiquito->refresh()->neto)->toBe($neto);
+
+    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.revisar', $finiquito))->assertSessionHasNoErrors();
+    $this->actingAs($this->rh)->get(route('rh.bajas.finiquitos.recibo', $finiquito))->assertOk()->assertHeader('X-Documento-Estado', 'vista-previa');
+    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.firmado', $finiquito), ['archivo' => clArchivoPdf('firmado.pdf')])->assertSessionHasErrors('documento');
+});
+
+test('la ruta del NAS y los importes no se serializan hacia quien no puede verlos', function () {
+    $finiquito = correccionFiniquito(correccionBaja($this, 'NR-02'));
+    $finiquito->update(['documento_generado_path' => 'expedientes/secreto.pdf']);
+    $datos = $finiquito->refresh()->toArray();
+
+    expect($datos)->not->toHaveKey('documento_generado_path')
+        ->and($datos)->not->toHaveKey('documento_firmado_path')
+        ->and($datos['tiene_documento_generado'])->toBeTrue();
+});
+
+test('si la baja cambia, la corrección anterior no se reaplica sola y queda como obsoleta', function () {
+    $baja = correccionBaja($this, 'NR-02');
+    $this->actingAs($this->rh)->post(route('rh.bajas.salida.generar', $baja), ['campos' => ['cuerpo' => 'Texto corregido.'], 'motivo' => 'Redacción.'])->assertSessionHasNoErrors();
+    $generado = GeneratedDocument::query()->where('clave_plantilla', 'convenio_terminacion')->latest('id')->firstOrFail();
+    $generado->update(['correcciones' => ['cuerpo' => ['anterior' => 'x', 'nuevo' => 'Texto corregido.', 'original_fuente' => 'Otro texto de la fuente.']]]);
+
+    $cuerpo = collect($this->actingAs($this->rh)->getJson(route('rh.bajas.salida.campos', $baja))->assertOk()->json('campos'))->firstWhere('clave', 'cuerpo');
+
+    expect($cuerpo['valor'])->toBe($cuerpo['original'])
+        ->and($cuerpo['obsoleta'])->toBe('Texto corregido.');
+});
+
+test('el firmado de salida queda ligado a su versión y no se puede quitar', function () {
+    $baja = correccionBaja($this, 'NR-02');
+    $this->actingAs($this->rh)->post(route('rh.bajas.salida.generar', $baja))->assertSessionHasNoErrors();
+    $generado = GeneratedDocument::query()->where('clave_plantilla', 'convenio_terminacion')->sole();
+
+    $this->actingAs($this->rh)->post(route('rh.bajas.salida.firmado', $baja), ['archivo' => clArchivoPdf('firmado.pdf')])->assertSessionHasNoErrors();
+
+    $adjunto = BajaDocumento::query()->where('clasificacion', BajaDocumentoSalidaService::FIRMADO)->sole();
+    expect($adjunto->generated_document_id)->toBe($generado->id)
+        ->and($generado->refresh()->estado_flujo?->firmaFisicaRegistrada())->toBeTrue();
+    expect(fn () => app(BajaDocumentosService::class)->quitar($adjunto, $this->rh))->toThrow(ValidationException::class);
+});
+
+test('si el flujo no admite la firma, el firmado no queda adjunto: la falla no se traga', function () {
+    $baja = correccionBaja($this, 'NR-02');
+    $this->actingAs($this->rh)->post(route('rh.bajas.salida.generar', $baja))->assertSessionHasNoErrors();
+    GeneratedDocument::query()->where('clave_plantilla', 'convenio_terminacion')->update(['requiere_testigos' => true]);
+
+    $this->actingAs($this->rh)->post(route('rh.bajas.salida.firmado', $baja), ['archivo' => clArchivoPdf('firmado.pdf')])->assertSessionHasErrors();
+
+    expect(BajaDocumento::query()->where('clasificacion', BajaDocumentoSalidaService::FIRMADO)->count())->toBe(0)
+        ->and(GeneratedDocument::query()->where('clave_plantilla', 'convenio_terminacion')->sole()->estado_flujo?->firmaFisicaRegistrada())->toBeFalse();
 });

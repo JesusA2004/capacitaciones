@@ -1,12 +1,16 @@
 <?php
 
+use App\Enums\EstadoFlujoDocumento;
 use App\Enums\EstadoResponsiva;
 use App\Enums\EstadoUsuario;
+use App\Enums\TipoEmisionDocumento;
 use App\Models\Colaborador;
 use App\Models\Empresa;
+use App\Models\GeneratedDocument;
 use App\Models\Puesto;
 use App\Models\Responsiva;
 use App\Models\Sucursal;
+use App\Services\Documentos\Versiones\Fuentes\FuenteResponsiva;
 use App\Services\Pdf\BrowsershotRenderer;
 use App\Services\Pdf\OpcionesPdf;
 use App\Services\Responsivas\ResponsivaPdfService;
@@ -431,4 +435,56 @@ test('un gerente de otra sucursal (sin alcance) no puede regenerar la responsiva
     $id = $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsMueble())->json('responsiva.id');
 
     $this->actingAs($this->gerenteOrizaba)->postJson(route('rh.responsivas.regenerar', $id))->assertForbidden();
+});
+
+test('una responsiva firmada conserva su PDF: regenerar exige rectificación con motivo y nunca borra', function () {
+    $id = $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsEquipo())->json('responsiva.id');
+    $responsiva = Responsiva::findOrFail($id);
+    $original = $responsiva->pdf_path;
+    $contenido = Storage::disk('nas')->get($original);
+
+    $this->actingAs($this->rh)->postJson(route('rh.responsivas.marcar-firmada-fisica', $responsiva))->assertOk();
+    $v1 = GeneratedDocument::query()->where('documentable_id', $id)->where('clave_plantilla', FuenteResponsiva::CLAVE)->sole();
+    expect($v1->estado_flujo)->toBe(EstadoFlujoDocumento::FirmadoFisicamente)
+        ->and($v1->path)->toBe($original)
+        ->and($v1->checksum)->toBe(hash('sha256', $contenido));
+
+    // Quien solo genera ya no alcanza una firmada.
+    $this->actingAs($this->gerente)->postJson(route('rh.responsivas.regenerar', $responsiva), ['motivo' => 'Razón social mal escrita.'])->assertForbidden();
+
+    // Cambian los datos: rectificación ligada, con motivo.
+    $this->subgerente->update(['name' => 'Nombre Corregido']);
+    $v1->update(['huella_datos' => str_repeat('0', 64)]);
+    $this->actingAs($this->rh)->postJson(route('rh.responsivas.regenerar', $responsiva))->assertUnprocessable()->assertJsonValidationErrors('motivo');
+    $this->actingAs($this->rh)->postJson(route('rh.responsivas.regenerar', $responsiva), ['motivo' => 'Razón social mal escrita.'])->assertOk();
+
+    $v2 = GeneratedDocument::query()->where('documentable_id', $id)->where('clave_plantilla', FuenteResponsiva::CLAVE)->latest('id')->firstOrFail();
+    expect($v2->id)->not->toBe($v1->id)
+        ->and($v2->revision_de_id)->toBe($v1->id)
+        ->and($v2->tipo_emision)->toBe(TipoEmisionDocumento::Rectificacion)
+        ->and($v2->motivo_revision)->toBe('Razón social mal escrita.')
+        ->and($responsiva->refresh()->pdf_path)->toBe($original)
+        ->and($responsiva->estado)->toBe(EstadoResponsiva::Firmada)
+        ->and($v1->refresh()->estado_flujo)->toBe(EstadoFlujoDocumento::FirmadoFisicamente);
+    expect(Storage::disk('nas')->get($original))->toBe($contenido);
+
+    // Historial para autorizados, sin rutas físicas; 403 fuera del alcance.
+    $versiones = $this->actingAs($this->rh)->getJson(route('rh.documentos-edicion.versiones', ['tipo' => 'responsiva', 'id' => $id]))->assertOk();
+    expect($versiones->json('versiones'))->toHaveCount(2)
+        ->and($versiones->getContent())->not->toMatch('/"(path|disk)"|Actas\//');
+    $this->actingAs($this->gerenteOrizaba)->getJson(route('rh.documentos-edicion.versiones', ['tipo' => 'responsiva', 'id' => $id]))->assertForbidden();
+    $this->actingAs($this->subgerente->user ?? clUsuario('colaborador'))->get(route('rh.documentos-laborales.descargar', $v1))->assertForbidden();
+});
+
+test('sin firmar: la nueva versión conserva el PDF anterior y el serializado no trae rutas', function () {
+    $id = $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsEquipo())->json('responsiva.id');
+    $responsiva = Responsiva::findOrFail($id);
+    $anterior = $responsiva->pdf_path;
+    GeneratedDocument::query()->where('documentable_id', $id)->where('clave_plantilla', FuenteResponsiva::CLAVE)->update(['huella_datos' => null]);
+
+    $this->actingAs($this->rh)->postJson(route('rh.responsivas.regenerar', $responsiva), ['motivo' => 'Formato vigente.'])->assertOk();
+
+    expect($responsiva->refresh()->pdf_path)->not->toBe($anterior)
+        ->and(array_key_exists('pdf_path', $responsiva->toArray()))->toBeFalse();
+    Storage::disk('nas')->assertExists($anterior);
 });

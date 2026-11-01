@@ -317,3 +317,25 @@ test('el cierre no puede ser anterior al levantamiento ni futuro (hora de Méxic
         ->assertSessionHasNoErrors();
     expect($acta->refresh()->circunstanciada['cierre'])->toBe(['fecha' => $ayer, 'hora' => '11:15']);
 });
+
+test('acta generada sin firmar: se corrige con motivo, se regenera con versión ligada; firmada ya no', function () {
+    $acta = aeLevantar($this, aeDatos());
+    $v1 = aeGenerar($this, $acta);
+
+    $this->actingAs($this->rh)->put(route('rh.actas.update', $acta), ['hechos' => 'Hechos corregidos por RH.', 'motivo_correccion' => 'La redacción estaba incompleta.'])->assertSessionHasNoErrors();
+    $url = route('rh.documentos-edicion.emitir', ['tipo' => 'acta', 'id' => $acta->id]);
+    $clave = $acta->tipo->clavePlantilla();
+    $this->actingAs($this->rh)->postJson($url, ['clave' => $clave])->assertUnprocessable()->assertJsonValidationErrors('motivo');
+    $this->actingAs($this->rh)->postJson($url, ['clave' => $clave, 'motivo' => 'Se corrigieron los hechos.'])->assertCreated();
+
+    $v2 = GeneratedDocument::query()->latest('id')->firstOrFail();
+    expect($v2->revision_de_id)->toBe($v1->id)
+        ->and($acta->refresh()->generated_document_id)->toBe($v2->id)
+        ->and($v1->refresh()->estado_flujo?->value)->toBe('cancelado');
+
+    // Sin cambios no hay versión.
+    $this->actingAs($this->rh)->postJson($url, ['clave' => $clave, 'motivo' => 'Otro clic.'])->assertOk()->assertJsonPath('creado', false);
+
+    $v2->update(['estado_flujo' => 'firmado_fisicamente']);
+    $this->actingAs($this->rh)->put(route('rh.actas.update', $acta), ['hechos' => 'Otro cambio.', 'motivo_correccion' => 'Ya no se debe poder.'])->assertSessionHasErrors('acta');
+});

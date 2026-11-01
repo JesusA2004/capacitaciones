@@ -116,3 +116,27 @@ test('API: archivo faltante responde 409 con código estable; inexistente 404; s
     $this->actingAs($ajeno)->get(route('rh.nomina.recibos.pdf', $recibo))->assertForbidden();
     $this->actingAs($this->rh)->get('/rh/nomina/recibos/999999/pdf')->assertNotFound();
 });
+
+test('reparar nunca vuelve a ligar un PDF con otros montos: se regenera con los del recibo', function () {
+    $recibo = reciboEmitido($this);
+    $viejo = GeneratedDocument::query()->where('documentable_id', $recibo->id)->firstOrFail();
+    $viejo->update(['payload' => [...$viejo->payload, 'neto' => '1.00']]);
+    $recibo->update(['pdf_path' => 'expedientes/no-existe.pdf']);
+
+    $reparado = app(ReciboNominaService::class)->regenerarPdf($recibo, $this->rh);
+
+    expect($reparado->pdf_path)->not->toBe($viejo->path)
+        ->and(GeneratedDocument::query()->where('documentable_id', $recibo->id)->latest('id')->firstOrFail()->payload['neto'])->toBe((string) $recibo->neto);
+    Storage::disk($viejo->disk)->assertExists($viejo->path);
+});
+
+test('versiones de un recibo: autorizadas, sin edición y sin rutas', function () {
+    $recibo = reciboEmitido($this);
+    $url = route('rh.documentos-edicion.versiones', ['tipo' => 'recibo', 'id' => $recibo->id]);
+    $respuesta = $this->actingAs($this->rh)->getJson($url)->assertOk();
+
+    expect($respuesta->json('versiones'))->toHaveCount(1)
+        ->and($respuesta->getContent())->not->toMatch('/"(path|disk)"/');
+    $this->actingAs(clUsuario('colaborador'))->getJson($url)->assertForbidden();
+    $this->actingAs($this->rh)->postJson(route('rh.documentos-edicion.emitir', ['tipo' => 'recibo', 'id' => $recibo->id]), ['motivo' => 'Intento de editar.'])->assertForbidden();
+});

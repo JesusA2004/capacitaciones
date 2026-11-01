@@ -273,3 +273,13 @@ test('RH sin alcance sobre el colaborador recibe 403', function () {
 
     expect(GeneratedDocument::query()->count())->toBe(0);
 });
+
+test('si el formato corregido no se puede generar, el anterior sigue vigente', function () {
+    $intento = eipdfIntento($this, [], true, eipdfPuntosD());
+    $anterior = eipdfDocumentos($intento)->first() ?? app(EvaluacionInduccionPdfService::class)->guardarEnExpediente($intento, $this->rh);
+    $pdf = Mockery::mock(EvaluacionInduccionPdfService::class)->makePartial();
+    $pdf->shouldReceive('guardarEnExpediente')->andThrow(new RuntimeException('Chrome no responde'));
+
+    expect($pdf->regenerarTrasRecalificar($intento, $this->rh))->toBeNull()
+        ->and($anterior->refresh()->estado_flujo?->value)->not->toBe('cancelado');
+});

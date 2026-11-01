@@ -2,6 +2,7 @@
 
 use App\Enums\EstadoFlujoDocumento;
 use App\Enums\TipoContratacion;
+use App\Enums\TipoEmisionDocumento;
 use App\Enums\TipoTarea;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
@@ -9,10 +10,21 @@ use App\Models\GeneratedDocument;
 use App\Models\Puesto;
 use App\Models\TareaRh;
 use App\Models\User;
+use App\Services\Auditoria\AuditoriaService;
+use App\Services\Documentos\Versiones\Fuentes\FuenteMaestro;
+use App\Services\Documentos\Versiones\VersionadoDocumentoService;
+use App\Services\DocumentosLaborales\FlujoDocumentalService;
+use App\Services\DocumentosLaborales\MotorDocumentalService;
+use App\Services\DocumentosLaborales\TestigoDocumentalService;
+use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\DocumentosMaestros\ImportadorFormatosJuridicosService;
+use App\Services\Expedientes\DocumentoStorageService;
+use App\Services\Tareas\NotificadorRhService;
+use App\Services\Tareas\TareaService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 use Spatie\Activitylog\Models\Activity;
 
 /*
@@ -268,4 +280,154 @@ test('un colaborador sin cuenta de RH no ve la acción «Regenerar»', function 
 
     expect($titular->can('regenerar', $documento))->toBeFalse()
         ->and($this->rh->can('regenerar', $documento))->toBeTrue();
+});
+
+/*
+| Flujo uniforme (docs/DOCUMENTOS_VERSIONES.md), módulo de contratación.
+*/
+
+function rgUrlEdicion(ContratoLaboral $contrato, string $accion): string
+{
+    return "/rh/documentos-edicion/contrato/{$contrato->id}/{$accion}";
+}
+
+test('escenario 1: contratación con corrección y regeneración, de principio a fin', function () {
+    $colaborador = rgColaborador($this->estructura);
+    $contrato = rgContrato($colaborador);
+    $this->postJson("/rh/documentos-proceso/contrato/{$contrato->id}/generar", ['clave' => 'contrato_capacitacion', 'proceso' => 'alta'])->assertCreated();
+    $v1 = GeneratedDocument::query()->sole();
+    expect($v1->huella_datos)->not->toBeNull()->and($v1->tipo_emision)->toBe(TipoEmisionDocumento::Original);
+
+    // Editar datos: lista blanca, sin datos de la empresa.
+    $respuesta = $this->getJson(rgUrlEdicion($contrato, 'campos').'?clave=contrato_capacitacion')->assertOk()->json();
+    $claves = array_column($respuesta['campos'], 'clave');
+    expect($claves)->toContain('domicilio_mayusculas')
+        ->and($claves)->not->toContain('nombre_completo_mayusculas')
+        ->and($claves)->not->toContain('sueldo_mensual_numero')
+        ->and($claves)->not->toContain('representante_legal')
+        ->and($claves)->not->toContain('empresa_razon_social');
+
+    // Vista previa = datos nuevos y no guarda nada.
+    $this->postJson(rgUrlEdicion($contrato, 'vista-previa'), ['clave' => 'contrato_capacitacion', 'campos' => ['domicilio_mayusculas' => 'CALLE NUEVA 77']])
+        ->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    expect(rgTextoUltimoDocx())->toContain('CALLE NUEVA 77')
+        ->and(GeneratedDocument::query()->count())->toBe(1);
+
+    // Un dato ajeno a la lista blanca se rechaza; sin motivo no se corrige.
+    $this->postJson(rgUrlEdicion($contrato, 'emitir'), ['clave' => 'contrato_capacitacion', 'campos' => ['representante_legal' => 'Otra Persona'], 'motivo' => 'Intento de pisar el dato'])->assertUnprocessable();
+    $this->postJson(rgUrlEdicion($contrato, 'emitir'), ['clave' => 'contrato_capacitacion', 'campos' => ['domicilio_mayusculas' => 'CALLE NUEVA 77']])->assertUnprocessable()->assertJsonValidationErrors('motivo');
+
+    // Regenerar: versión ligada, anterior cancelada y conservada, historial de correcciones.
+    $this->postJson(rgUrlEdicion($contrato, 'emitir'), ['clave' => 'contrato_capacitacion', 'campos' => ['domicilio_mayusculas' => 'CALLE NUEVA 77'], 'motivo' => 'El domicilio se capturó mal.'])
+        ->assertCreated()->assertJsonPath('creado', true);
+    $v2 = GeneratedDocument::query()->latest('id')->firstOrFail();
+    expect($v2->revision_de_id)->toBe($v1->id)
+        ->and($v2->payload['domicilio_mayusculas'])->toBe('CALLE NUEVA 77')
+        ->and($v2->correcciones['domicilio_mayusculas']['nuevo'])->toBe('CALLE NUEVA 77')
+        ->and($v2->tipo_emision)->toBe(TipoEmisionDocumento::Correccion)
+        ->and($v1->refresh()->estado_flujo)->toBe(EstadoFlujoDocumento::Cancelado);
+    Storage::disk($v1->disk)->assertExists($v1->path);
+    $this->assertDatabaseHas('correcciones', ['dominio' => 'documento_generado', 'sujeto_id' => $v2->id, 'actor_id' => $this->rh->id]);
+
+    // Idempotente: sin cambios, misma versión, sin archivos nuevos.
+    $archivos = count(Storage::disk($v2->disk)->allFiles());
+    $this->postJson(rgUrlEdicion($contrato, 'emitir'), ['clave' => 'contrato_capacitacion', 'campos' => ['domicilio_mayusculas' => 'CALLE NUEVA 77'], 'motivo' => 'Otro clic.'])
+        ->assertOk()->assertJsonPath('creado', false)->assertJsonPath('documento_id', $v2->id);
+    expect(count(Storage::disk($v2->disk)->allFiles()))->toBe($archivos);
+
+    // Descarga = versión vigente; la anterior solo con permiso; sin rutas físicas.
+    $this->get(route('rh.documentos-laborales.descargar', $v2))->assertOk();
+    $versiones = $this->getJson(rgUrlEdicion($contrato, 'versiones').'?clave=contrato_capacitacion')->assertOk();
+    expect($versiones->json('versiones.0.id'))->toBe($v2->id)
+        ->and($versiones->json('versiones.0.vigente'))->toBeTrue()
+        ->and($versiones->json('versiones.1.id'))->toBe($v1->id)
+        ->and($versiones->getContent())->not->toMatch('/"(path|disk|docx_path)"|expedientes\//');
+
+    $ajeno = clUsuario('colaborador');
+    $this->actingAs($ajeno)->getJson(rgUrlEdicion($contrato, 'versiones').'?clave=contrato_capacitacion')->assertForbidden();
+    $this->actingAs($ajeno)->postJson(rgUrlEdicion($contrato, 'emitir'), ['clave' => 'contrato_capacitacion'])->assertForbidden();
+    $this->actingAs($ajeno)->get(route('rh.documentos-laborales.descargar', $v1))->assertForbidden();
+});
+
+test('una corrección de un colaborador no alcanza a otro y manuales no pisa el nombre', function () {
+    $a = rgColaborador($this->estructura);
+    $b = rgColaborador($this->estructura, ['name' => 'Beatriz', 'apellidos' => 'Solís Mora', 'curp' => 'SOMB900510MMSLRT02', 'rfc' => 'SOMB900510AB2', 'nss' => '12345678902', 'correo_personal' => 'b@example.com', 'domicilio' => 'Calle Hidalgo 5']);
+    $contratoA = rgContrato($a);
+    $contratoB = rgContrato($b);
+    $generar = fn (ContratoLaboral $c, array $extra = []) => $this->postJson("/rh/documentos-proceso/contrato/{$c->id}/generar", ['clave' => 'contrato_capacitacion', 'proceso' => 'alta', ...$extra]);
+
+    $generar($contratoB)->assertCreated();
+    $generar($contratoA, ['manuales' => ['nombre_completo' => 'Beatriz Solís Mora']])->assertUnprocessable()->assertJsonValidationErrors('manuales');
+    $generar($contratoA)->assertCreated();
+    $this->postJson(rgUrlEdicion($contratoA, 'emitir'), ['clave' => 'contrato_capacitacion', 'campos' => ['domicilio_mayusculas' => 'CALLE SOLO DE A'], 'motivo' => 'Corrección solo de A.'])->assertCreated();
+
+    $documentoB = GeneratedDocument::query()->where('colaborador_id', $b->id)->sole();
+    $documentoA = GeneratedDocument::query()->where('colaborador_id', $a->id)->latest('id')->firstOrFail();
+    expect(mb_strtoupper($documentoB->payload['domicilio_mayusculas']))->toBe('CALLE HIDALGO 5')
+        ->and($documentoB->correcciones)->toBeNull()
+        ->and($documentoA->documentable_id)->toBe($contratoA->id)
+        ->and($documentoA->payload['nombre_completo_mayusculas'] ?? '')->not->toContain('BEATRIZ');
+});
+
+test('corregir un dato también corrige su variante en mayúsculas dentro del PDF', function () {
+    $contrato = rgContrato(rgColaborador($this->estructura));
+    $this->postJson("/rh/documentos-proceso/contrato/{$contrato->id}/generar", ['clave' => 'contrato_capacitacion', 'proceso' => 'alta'])->assertCreated();
+    $campos = array_column($this->getJson(rgUrlEdicion($contrato, 'campos').'?clave=contrato_capacitacion')->json('campos'), 'clave');
+    $variantes = array_filter($campos, fn (string $c): bool => str_ends_with($c, '_mayusculas') && in_array(substr($c, 0, -11), $campos, true));
+
+    expect($variantes)->toBe([])
+        ->and(FuenteMaestro::conVariantes(['telefono' => 'abc'])['telefono_mayusculas'])->toBe('ABC');
+});
+
+test('un fallo del render o de la base conserva la versión anterior y no deja archivos', function () {
+    $colaborador = rgColaborador($this->estructura);
+    $contrato = rgContrato($colaborador);
+    $this->postJson("/rh/documentos-proceso/contrato/{$contrato->id}/generar", ['clave' => 'contrato_capacitacion', 'proceso' => 'alta'])->assertCreated();
+    $v1 = GeneratedDocument::query()->sole();
+    $archivos = count(Storage::disk($v1->disk)->allFiles());
+    $emitir = fn () => $this->postJson(rgUrlEdicion($contrato, 'emitir'), ['clave' => 'contrato_capacitacion', 'campos' => ['domicilio_mayusculas' => 'CALLE NUEVA 77'], 'motivo' => 'Corrección del domicilio.']);
+
+    // Falla al cancelar la anterior (último paso): ni versión nueva ni archivo.
+    $flujo = Mockery::mock(FlujoDocumentalService::class, [app(TareaService::class), app(NotificadorRhService::class), app(AuditoriaService::class), app(DocumentoStorageService::class), app(TestigoDocumentalService::class)])->makePartial();
+    $flujo->shouldReceive('cancelar')->andThrow(new RuntimeException('falla simulada'));
+    app()->instance(FlujoDocumentalService::class, $flujo);
+    app()->forgetInstance(VersionadoDocumentoService::class);
+    app()->forgetInstance(MotorDocumentalService::class);
+    $emitir()->assertUnprocessable()->assertJsonValidationErrors('documento');
+
+    expect(GeneratedDocument::query()->count())->toBe(1)
+        ->and($v1->refresh()->estado_flujo)->not->toBe(EstadoFlujoDocumento::Cancelado)
+        ->and(count(Storage::disk($v1->disk)->allFiles()))->toBe($archivos);
+    app()->forgetInstance(FlujoDocumentalService::class);
+
+    // Falla el render: la anterior sigue vigente y no se tocó nada.
+    $fuente = Mockery::mock(FuenteMaestro::class, [app(DocumentoProcesoService::class), 'alta', $contrato, 'contrato_capacitacion'])->makePartial();
+    $fuente->shouldReceive('renderizar')->andThrow(new RuntimeException('Word no responde'));
+
+    expect(fn () => app(VersionadoDocumentoService::class)->emitir($fuente, ['domicilio_mayusculas' => 'CALLE NUEVA 77'], 'Corrección del domicilio.', $this->rh))
+        ->toThrow(ValidationException::class);
+    expect(GeneratedDocument::query()->count())->toBe(1)
+        ->and($v1->refresh()->estado_flujo)->not->toBe(EstadoFlujoDocumento::Cancelado)
+        ->and(count(Storage::disk($v1->disk)->allFiles()))->toBe($archivos);
+});
+
+test('firmado inmutable: con rectificación el original no cambia', function () {
+    $contrato = rgContrato(rgColaborador($this->estructura));
+    $this->postJson("/rh/documentos-proceso/contrato/{$contrato->id}/generar", ['clave' => 'contrato_capacitacion', 'proceso' => 'alta'])->assertCreated();
+    $firmado = GeneratedDocument::query()->sole();
+    $firmado->update(['estado_flujo' => EstadoFlujoDocumento::FirmadoFisicamente]);
+    $checksum = $firmado->checksum;
+    $contenido = Storage::disk($firmado->disk)->get($firmado->path);
+    $cuerpo = ['clave' => 'contrato_capacitacion', 'campos' => ['domicilio_mayusculas' => 'CALLE NUEVA 77'], 'motivo' => 'Domicilio mal escrito en lo firmado.'];
+
+    // RH auxiliar no rectifica; regenerar encima de lo firmado tampoco se admite.
+    $this->actingAs(clUsuario('rh_auxiliar'))->postJson(rgUrlEdicion($contrato, 'emitir'), [...$cuerpo, 'rectificar' => true])->assertForbidden();
+    $this->actingAs($this->rh)->postJson(rgUrlEdicion($contrato, 'emitir'), [...$cuerpo, 'rectificar' => true])->assertCreated();
+
+    $rectificacion = GeneratedDocument::query()->latest('id')->firstOrFail();
+    expect($rectificacion->tipo_emision)->toBe(TipoEmisionDocumento::Rectificacion)
+        ->and($rectificacion->revision_de_id)->toBe($firmado->id)
+        ->and($firmado->refresh()->estado_flujo)->toBe(EstadoFlujoDocumento::FirmadoFisicamente)
+        ->and($firmado->checksum)->toBe($checksum)
+        ->and(Storage::disk($firmado->disk)->get($firmado->path))->toBe($contenido);
 });
