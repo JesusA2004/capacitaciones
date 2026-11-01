@@ -56,6 +56,12 @@ class SolicitudInternaPolicy
             return true;
         }
 
+        // Quien la cadena de mando nombra como aprobador debe poder abrirla, aunque
+        // su sucursal sea otra: si no, el trámite se queda esperándolo sin salida.
+        if (app(AprobacionJerarquicaService::class)->esAprobadorDe($usuario, $solicitud)) {
+            return true;
+        }
+
         if ($usuario->can('solicitudes.ver') && $this->alcanceModulo->alcanzaColaborador($usuario, $solicitud->personaSolicitante(), 'solicitudes')) {
             return true;
         }
