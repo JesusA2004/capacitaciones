@@ -144,12 +144,6 @@ return [
             'destinatarios' => ['aprobador'],
             'fallback' => ['jefe_directo'],
         ],
-        'candidato_preautorizado' => [
-            'etiqueta' => 'Candidato preautorizado (reclutamiento)',
-            'descripcion' => 'El gerente preautorizó al candidato; RH debe dar la autorización final.',
-            'destinatarios' => ['rh'],
-            'fallback' => ['gerencia_rh'],
-        ],
         'expediente_completo' => [
             'etiqueta' => 'Expediente completo (generar paquete de contratación)',
             'descripcion' => 'El expediente del colaborador quedó completo: RH genera el paquete de contratación de su puesto desde su ficha. Solo quien puede generar documentos y tiene a la persona dentro de su alcance; nunca toda la plantilla.',
@@ -232,20 +226,6 @@ return [
             'fallback' => ['jefe_directo'],
         ],
         // Módulo de Bajas y Causales (docs/BAJAS_Y_CAUSALES.md).
-        'baja_por_revisar' => [
-            'etiqueta' => 'Baja por revisar (RH)',
-            'descripcion' => 'Jurídico aprobó o devolvió una baja: RH la completa (causal, documentos, fechas) y la cierra.',
-            'destinatarios' => ['usuarios_con_permiso'],
-            'permiso' => 'bajas.gestionar',
-            'fallback' => ['rh'],
-        ],
-        'baja_revision_juridico' => [
-            'etiqueta' => 'Baja por revisar (Jurídico)',
-            'descripcion' => 'La causal requiere revisión de Jurídico antes del cierre (RN-06).',
-            'destinatarios' => ['usuarios_con_permiso'],
-            'permiso' => 'bajas.revisar_juridico',
-            'fallback' => ['rh'],
-        ],
         'baja_alerta_clima_laboral' => [
             'etiqueta' => 'Alerta de clima laboral (RV-04, con correo)',
             'descripcion' => 'Baja por relación con el jefe o clima laboral: entrevista de salida obligatoria por RH y revisión conforme a NOM-035. Se envía también por correo.',
