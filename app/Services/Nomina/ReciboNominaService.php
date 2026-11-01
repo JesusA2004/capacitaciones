@@ -3,6 +3,7 @@
 namespace App\Services\Nomina;
 
 use App\Enums\CategoriaDocumento;
+use App\Enums\EstadoFlujoDocumento;
 use App\Enums\EstadoReciboNomina;
 use App\Enums\FamiliaAdministrativa;
 use App\Enums\MotorPdf;
@@ -161,7 +162,7 @@ class ReciboNominaService
         $recibo->folio = 'VISTA PREVIA';
         $recibo->setRelation('colaborador', $colaborador);
 
-        return $this->documentosAdministrativos->renderizarVigente(FamiliaAdministrativa::ReciboNomina, $this->datosDocumento->recibo($recibo));
+        return $this->documentosAdministrativos->renderizarVigente(FamiliaAdministrativa::ReciboNomina, $this->datosDocumento->recibo($recibo), DocumentoAdministrativoService::MARCA_VISTA_PREVIA);
     }
 
     /**
@@ -738,7 +739,12 @@ class ReciboNominaService
             ->orderByDesc('id')
             ->get();
 
-        $existente = $documentos->first(fn (GeneratedDocument $d) => $this->existe($d->disk, $d->path));
+        // Solo se reutiliza un PDF con los montos actuales del recibo: uno con otros
+        // montos no es «el PDF faltante» y volver a ligarlo mentiría al colaborador.
+        // Sin montos en su payload no se puede saber: tampoco se reutiliza.
+        $existente = $documentos->first(fn (GeneratedDocument $d) => $d->estado_flujo !== EstadoFlujoDocumento::Cancelado
+            && $this->tieneMontosDe($d, $recibo)
+            && $this->existe($d->disk, $d->path));
 
         if ($existente !== null) {
             $recibo->update(['pdf_disk' => $existente->disk, 'pdf_path' => $existente->path, 'checksum' => $existente->checksum]);
@@ -763,6 +769,21 @@ class ReciboNominaService
         ]);
 
         return $recibo->refresh();
+    }
+
+    private function tieneMontosDe(GeneratedDocument $documento, ReciboNomina $recibo): bool
+    {
+        $neto = $documento->payload['neto'] ?? null;
+
+        return is_numeric($neto) && abs((float) $neto - (float) $recibo->neto) < 0.005;
+    }
+
+    /**
+     * Vista previa con marca de agua de un recibo ya guardado.
+     */
+    public function vistaPreviaGuardado(ReciboNomina $recibo): string
+    {
+        return $this->documentosAdministrativos->renderizarVigente(FamiliaAdministrativa::ReciboNomina, $this->datosDocumento->recibo($recibo), DocumentoAdministrativoService::MARCA_VISTA_PREVIA);
     }
 
     /**
