@@ -146,6 +146,11 @@ const SIDEBAR_SIN_GUIA = [
     'Evaluaciones de periodo de prueba',
     'Recibo simple de pago',
     'Bajas',
+    // Pantallas de Etapa 1 que aún no tienen módulo de guía propio.
+    'Agenda de entrevistas',
+    'Incapacidades',
+    'Administración de salarios',
+    'Mis reportes',
     // Pestaña «Catálogo de causales» de Bajas (misma pantalla).
     'Catálogo de bajas',
 ];

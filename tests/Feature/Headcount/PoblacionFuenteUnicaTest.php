@@ -6,6 +6,7 @@ use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Headcount\HeadcountService;
+use App\Services\Headcount\PuestosPlantillaService;
 use App\Services\Reportes\ReportesRhService;
 use App\Services\Reportes\TableroRhService;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -73,6 +74,12 @@ test('se cumplen los invariantes de conciliación en cada segmento', function ()
 });
 
 test('una sucursal sin plazas autorizadas no divide entre cero y conserva a su gente', function () {
+    // Puesto de sucursal (desciende de Gerente de Sucursal): uno sin jerarquía
+    // sería «de empresa» y contaría donde vive su plaza, no en esta sucursal.
+    $gerencia = Puesto::factory()->create(['nombre' => 'Gerente de Sucursal', 'activo' => true]);
+    $this->gestor->update(['puesto_superior_id' => $gerencia->id]);
+    app(PuestosPlantillaService::class)->olvidar();
+
     $nueva = Sucursal::factory()->create(['nombre' => 'Nueva', 'activo' => true]);
     Colaborador::factory()->create(['sucursal_principal_id' => $nueva->id, 'puesto_id' => $this->gestor->id, 'estatus' => 'activo']);
 
