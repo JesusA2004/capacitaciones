@@ -130,7 +130,9 @@ class NominaQuincenalService
      */
     public function recibosDelPeriodo(array $periodo, User $usuario): Builder
     {
+        // Un recibo ya rectificado deja su lugar al recibo que lo rectifica.
         $query = ReciboNomina::query()
+            ->whereNull('rectificado_por_id')
             ->where('tipo_periodo', ReciboNominaService::TIPO_PERIODO_QUINCENAL)
             ->whereDate('periodo_inicio', $periodo['inicio']->toDateString())
             ->whereDate('periodo_fin', $periodo['fin']->toDateString());
@@ -302,7 +304,9 @@ class NominaQuincenalService
         $tipo = TipoConceptoNomina::from($datos['tipo'])->value;
         $modificados = 0;
 
+        // Solo preparados: un emitido se rectifica uno por uno, un cancelado no se toca.
         $this->recibosDelPeriodo($periodo, $actor)
+            ->where('estado', EstadoReciboNomina::Borrador->value)
             ->when($ids !== null, fn (Builder $q) => $q->whereIn('id', $ids))
             ->orderBy('id')
             ->each(function (ReciboNomina $recibo) use ($actor, $datos, $nombre, $tipo, &$modificados): void {
@@ -338,6 +342,21 @@ class NominaQuincenalService
             });
 
         return $modificados;
+    }
+
+    /**
+     * Recibos del periodo que un cambio masivo deja fuera (emitidos o
+     * cancelados), para decirlo en vez de omitirlos en silencio.
+     *
+     * @param  array{inicio: CarbonImmutable, fin: CarbonImmutable}  $periodo
+     * @param  array<int, int>|null  $ids
+     */
+    public function omitidosEnMasivo(array $periodo, User $actor, ?array $ids = null): int
+    {
+        return $this->recibosDelPeriodo($periodo, $actor)
+            ->where('estado', '!=', EstadoReciboNomina::Borrador->value)
+            ->when($ids !== null, fn (Builder $q) => $q->whereIn('id', $ids))
+            ->count();
     }
 
     /**

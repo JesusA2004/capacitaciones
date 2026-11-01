@@ -143,9 +143,12 @@ class NominaController extends Controller
             'tipo' => $datos['tipo'],
             'concepto' => $datos['concepto'],
             'importe' => $datos['importe'] ?? null,
-        ], isset($datos['ids']) ? array_map('intval', $datos['ids']) : null);
+        ], $ids = isset($datos['ids']) ? array_map('intval', $datos['ids']) : null);
+        $omitidos = $this->quincenas->omitidosEnMasivo($periodo, $request->user(), $ids);
 
-        return back()->with('toast', ['type' => 'success', 'message' => sprintf('Cambio aplicado a %d recibo(s).', $modificados)]);
+        return back()->with('toast', ['type' => $omitidos > 0 ? 'warning' : 'success', 'message' => $omitidos > 0
+            ? sprintf('Cambio aplicado a %d recibo(s). %d emitido(s) o cancelado(s) no cambiaron: un emitido se corrige por rectificación.', $modificados, $omitidos)
+            : sprintf('Cambio aplicado a %d recibo(s).', $modificados)]);
     }
 
     public function actualizar(ActualizarReciboNominaRequest $request, ReciboNomina $recibo): RedirectResponse
@@ -154,9 +157,7 @@ class NominaController extends Controller
 
         $this->recibos->actualizar($recibo, $request->validated(), $request->user());
 
-        return back()->with('toast', ['type' => 'success', 'message' => $recibo->estado === EstadoReciboNomina::Emitido
-            ? 'Recibo actualizado; su PDF se volvió a generar.'
-            : 'Recibo actualizado.']);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Recibo actualizado.']);
     }
 
     public function emitirUno(Request $request, ReciboNomina $recibo): RedirectResponse

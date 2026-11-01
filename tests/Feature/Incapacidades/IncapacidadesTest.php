@@ -412,8 +412,18 @@ it('un recibo emitido no cambia en silencio: rectificación auditada', function 
     $this->actingAs($this->rh)->post("/rh/incapacidades/rectificaciones/{$rectificacion->id}/aplicar")->assertRedirect();
     expect($rectificacion->refresh()->estado)->toBe(EstadoRectificacionNomina::Aplicada)
         ->and($rectificacion->resuelta_por)->toBe($this->rh->id)
-        ->and((float) $recibo->refresh()->neto)->toBe(5000.0)
-        ->and((float) $recibo->dias_incapacidad)->toBe(11.0);
+        ->and($rectificacion->recibo_resultante_id)->not->toBeNull();
+
+    // D1: el original queda intacto; la rectificación es un recibo nuevo enlazado.
+    $nuevo = ReciboNomina::query()->findOrFail($rectificacion->recibo_resultante_id);
+    expect((float) $recibo->refresh()->neto)->toBe(15000.0)
+        ->and((float) $recibo->dias_pagados)->toBe(15.0)
+        ->and($recibo->rectificado_por_id)->toBe($nuevo->id)
+        ->and($nuevo->rectifica_recibo_id)->toBe($recibo->id)
+        ->and($nuevo->folio)->not->toBe($recibo->folio)
+        ->and($nuevo->estado)->toBe(EstadoReciboNomina::Emitido)
+        ->and((float) $nuevo->neto)->toBe(5000.0)
+        ->and((float) $nuevo->dias_incapacidad)->toBe(11.0);
 });
 
 it('descartar una rectificación exige nota y no toca el recibo; cancelar la causa la descarta', function () {

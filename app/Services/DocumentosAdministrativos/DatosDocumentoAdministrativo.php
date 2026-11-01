@@ -2,6 +2,7 @@
 
 namespace App\Services\DocumentosAdministrativos;
 
+use App\Enums\EstadoReciboNomina;
 use App\Enums\CausalPermisoEspecial;
 use App\Enums\FamiliaAdministrativa;
 use App\Enums\FormaSalida;
@@ -69,6 +70,8 @@ class DatosDocumentoAdministrativo
 
         return [
             ...$this->base($recibo->colaborador),
+            // Emitido: datos fijados al emitirlo, no los vivos del colaborador.
+            ...($recibo->estado === EstadoReciboNomina::Emitido ? ($recibo->datos_emision ?? []) : []),
             'periodo' => ['inicio' => $this->fecha($recibo->periodo_inicio), 'fin' => $this->fecha($recibo->periodo_fin)],
             'numero_nomina' => $numero,
             'frecuencia' => $periodicidad?->etiqueta() ?? 'Otro periodo',

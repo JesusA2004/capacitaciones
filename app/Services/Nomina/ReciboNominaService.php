@@ -43,8 +43,8 @@ use Throwable;
  * el "RECIBO DE NÓMINA", archivado en el expediente del colaborador
  * (carpeta NominaInterna).
  *
- * Cada recibo guarda snapshot de sus conceptos: un cambio posterior de
- * sueldo no reescribe recibos emitidos.
+ * Cada recibo guarda snapshot de sus conceptos y, al emitirse, de sus datos de
+ * colaborador y empresa: un cambio posterior no reescribe recibos emitidos.
  */
 class ReciboNominaService
 {
@@ -232,11 +232,12 @@ class ReciboNominaService
     }
 
     /**
-     * Ajusta los conceptos de un recibo (borrador o ya emitido). Si ya se
-     * había emitido, se vuelve a generar su PDF (el anterior queda en el
-     * historial del expediente) y se registra en auditoría.
+     * Ajusta los conceptos de un recibo PREPARADO. Uno emitido no se edita en
+     * sitio (se rectifica: emitirRectificacion()) y uno cancelado no se toca.
      *
      * @param  array<string, mixed>  $datos  `conceptos` [{tipo, concepto, cantidad?, importe, observaciones?}] y `observaciones?`.
+     *
+     * @throws ValidationException
      */
     public function actualizar(ReciboNomina $recibo, array $datos, User $actor): ReciboNomina
     {
@@ -249,26 +250,12 @@ class ReciboNominaService
         $antes = (string) $recibo->neto;
 
         DB::transaction(function () use ($recibo, $conceptos, $datos): void {
-            ReciboNomina::query()->whereKey($recibo->id)->lockForUpdate()->first();
-            $prestamosAntes = $this->descuentosPorPrestamo($recibo);
+            $fila = ReciboNomina::query()->whereKey($recibo->id)->lockForUpdate()->first();
+            $this->exigirEditable($fila ?? $recibo);
             $this->guardarConceptos($recibo, $conceptos);
-
-            // Un recibo emitido ya descontó el préstamo: su monto no se
-            // cambia aquí (el saldo quedaría distinto del recibo).
-            if ($recibo->estado === EstadoReciboNomina::Emitido && $this->descuentosPorPrestamo($recibo->refresh()) !== $prestamosAntes) {
-                throw ValidationException::withMessages(['conceptos' => 'Este recibo ya está emitido y descontó el préstamo: no se cambia ese descuento aquí. Cancela el recibo y genera uno nuevo.']);
-            }
 
             if (array_key_exists('observaciones', $datos)) {
                 $recibo->update(['observaciones' => $datos['observaciones'] !== null ? (string) $datos['observaciones'] : null]);
-            }
-
-            // El PDF anterior (montos viejos) deja de ser "el" recibo; queda
-            // en el historial del expediente. Si el nuevo no se pudiera
-            // generar, la pantalla ofrece repararlo en vez de mostrar montos
-            // que ya no corresponden.
-            if ($recibo->estado === EstadoReciboNomina::Emitido) {
-                $recibo->update(['pdf_disk' => null, 'pdf_path' => null, 'checksum' => null]);
             }
         });
 
@@ -294,15 +281,158 @@ class ReciboNominaService
             'estado' => $recibo->estado->value,
         ]);
 
+        return $recibo->refresh();
+    }
+
+    /**
+     * Solo un recibo preparado se edita.
+     *
+     * @throws ValidationException
+     */
+    public function exigirEditable(ReciboNomina $recibo): void
+    {
         if ($recibo->estado === EstadoReciboNomina::Emitido) {
-            try {
-                $this->generarPdf($recibo, $actor);
-            } catch (ValidationException $e) {
-                throw ValidationException::withMessages(['pdf' => sprintf('Los cambios se guardaron, pero %s Usa «Reparar PDF» para reintentar.', lcfirst($this->primerMensaje($e)))]);
+            throw ValidationException::withMessages(['estado' => 'Este recibo ya está emitido y no se edita: corrígelo por rectificación. El original conserva su folio, conceptos y PDF.']);
+        }
+
+        if ($recibo->estado === EstadoReciboNomina::Cancelado) {
+            throw ValidationException::withMessages(['estado' => 'Este recibo está cancelado y no se puede modificar.']);
+        }
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    public function exigirRectificable(ReciboNomina $recibo): void
+    {
+        if ($recibo->estado !== EstadoReciboNomina::Emitido || $recibo->rectificado_por_id !== null) {
+            throw ValidationException::withMessages(['estado' => 'Solo se rectifica un recibo emitido vigente.']);
+        }
+    }
+
+    /**
+     * Rectifica un recibo emitido con un recibo NUEVO enlazado (folio y PDF
+     * propios; el PDF apunta al anterior con revision_de_id). El original no
+     * cambia salvo la marca `rectificado_por_id`, que se pone al emitirse el
+     * nuevo. Si falla el PDF, el nuevo queda preparado y se reutiliza al
+     * reintentar. Un descuento de préstamo ya aplicado no se cambia ni se
+     * vuelve a descontar.
+     *
+     * @param  list<array<string, mixed>>  $conceptos
+     * @param  array{dias_pagados?: float|int|string|null, dias_falta?: float|int|string|null, dias_incapacidad?: float|int|string|null, sueldo_base?: float|null}  $dias
+     *
+     * @throws ValidationException
+     */
+    public function emitirRectificacion(ReciboNomina $original, array $conceptos, array $dias, string $motivo, User $actor): ReciboNomina
+    {
+        $normalizados = $this->normalizarConceptos(['conceptos' => $conceptos]);
+
+        $nuevo = DB::transaction(function () use ($original, $normalizados, $dias, $motivo, $actor): ReciboNomina {
+            $fila = ReciboNomina::query()->whereKey($original->id)->lockForUpdate()->firstOrFail();
+
+            if ($fila->estado !== EstadoReciboNomina::Emitido) {
+                throw ValidationException::withMessages(['estado' => 'Solo un recibo emitido se rectifica.']);
+            }
+
+            if ($fila->rectificado_por_id !== null) {
+                throw ValidationException::withMessages(['estado' => 'Este recibo ya se rectificó: corrige el recibo vigente.']);
+            }
+
+            $conceptosFinales = $this->conservarDescuentosPrestamo($fila, $normalizados);
+            $colaborador = $fila->colaborador()->withTrashed()->firstOrFail();
+            $atributos = $this->atributosRecibo($colaborador, [
+                'periodo_inicio' => $fila->periodo_inicio->toDateString(),
+                'periodo_fin' => $fila->periodo_fin->toDateString(),
+                'fecha_pago' => $fila->fecha_pago->toDateString(),
+                'tipo_periodo' => $fila->tipo_periodo,
+                'dias_pagados' => $dias['dias_pagados'] ?? $fila->dias_pagados,
+                'dias_falta' => $dias['dias_falta'] ?? $fila->dias_falta,
+                'dias_incapacidad' => $dias['dias_incapacidad'] ?? $fila->dias_incapacidad,
+                'sueldo_base' => $dias['sueldo_base'] ?? $fila->sueldo_base,
+                'observaciones' => sprintf('Rectifica el recibo %s. Motivo: %s', (string) $fila->folio, $motivo),
+            ], $conceptosFinales);
+
+            $previo = ReciboNomina::query()
+                ->where('rectifica_recibo_id', $fila->id)
+                ->where('estado', EstadoReciboNomina::Borrador->value)
+                ->first();
+
+            // Fuera del lote: los totales del lote siguen siendo lo que se emitió.
+            $nuevo = $previo ?? ReciboNomina::query()->create([
+                ...$atributos,
+                'rectifica_recibo_id' => $fila->id,
+                'generado_por' => $actor->id,
+            ]);
+
+            if ($previo !== null) {
+                $previo->update($atributos);
+            } else {
+                $nuevo->update(['folio' => sprintf('RIN-%06d', $nuevo->id)]);
+            }
+
+            $nuevo->conceptos()->delete();
+
+            foreach ($conceptosFinales as $orden => $concepto) {
+                $nuevo->conceptos()->create([
+                    'tipo' => $concepto['tipo'],
+                    'clave' => $concepto['clave'] ?? null,
+                    'concepto' => $concepto['concepto'],
+                    'cantidad' => $concepto['cantidad'],
+                    'importe' => $concepto['importe'],
+                    'observaciones' => $concepto['observaciones'],
+                    'orden' => $orden,
+                ]);
+            }
+
+            return $nuevo;
+        });
+
+        return $this->emitir($nuevo, $actor);
+    }
+
+    /**
+     * Las líneas de préstamo del original deben seguir igual en la
+     * rectificación; el saldo ya se descontó con el recibo original.
+     *
+     * @param  list<array{tipo: string, clave?: string|null, concepto: string, cantidad: float, importe: float, observaciones: string|null, clasificacion?: string|null, prestamo_id?: int|null}>  $conceptos
+     * @return list<array{tipo: string, clave?: string|null, concepto: string, cantidad: float, importe: float, observaciones: string|null}>
+     *
+     * @throws ValidationException
+     */
+    private function conservarDescuentosPrestamo(ReciboNomina $original, array $conceptos): array
+    {
+        $prestamos = [];
+
+        foreach ($original->deducciones as $deduccion) {
+            if (($deduccion['tipo'] ?? null) === 'prestamo') {
+                $prestamos[mb_strtolower((string) $deduccion['concepto'])] = round((float) $deduccion['monto'], 2);
             }
         }
 
-        return $recibo->refresh();
+        $encontrados = [];
+        $resultado = [];
+
+        foreach ($conceptos as $concepto) {
+            $nombre = mb_strtolower($concepto['concepto']);
+
+            if ($concepto['tipo'] === TipoConceptoNomina::Deduccion->value && array_key_exists($nombre, $prestamos)) {
+                if (abs($prestamos[$nombre] - round($concepto['importe'], 2)) >= 0.005) {
+                    throw ValidationException::withMessages(['conceptos' => sprintf('«%s» ya se descontó del préstamo con el recibo original: una rectificación no lo cambia.', $concepto['concepto'])]);
+                }
+
+                $encontrados[$nombre] = true;
+                $concepto['observaciones'] = sprintf('Ya descontado del préstamo con el recibo %s.', (string) $original->folio);
+            }
+
+            unset($concepto['clasificacion'], $concepto['prestamo_id']);
+            $resultado[] = $concepto;
+        }
+
+        if (count($encontrados) !== count($prestamos)) {
+            throw ValidationException::withMessages(['conceptos' => 'Una rectificación no puede quitar un descuento de préstamo ya aplicado.']);
+        }
+
+        return $resultado;
     }
 
     /**
@@ -354,6 +484,12 @@ class ReciboNominaService
         }
 
         $recibo->refresh();
+
+        // Solo aquí el original pasa a estar rectificado: ya existe el PDF nuevo.
+        if ($recibo->rectifica_recibo_id !== null) {
+            ReciboNomina::query()->whereKey($recibo->rectifica_recibo_id)->update(['rectificado_por_id' => $recibo->id]);
+        }
+
         $this->auditoria->registrar('recibo_nomina_emitido', $recibo, $actor, ['neto' => (string) $recibo->neto]);
 
         if ($notificar) {
@@ -369,6 +505,10 @@ class ReciboNominaService
      */
     public function cancelar(ReciboNomina $recibo, User $actor): ReciboNomina
     {
+        if ($recibo->rectificado_por_id !== null) {
+            throw ValidationException::withMessages(['estado' => 'Este recibo ya se rectificó: el recibo vigente es el de la rectificación.']);
+        }
+
         $cancelado = DB::transaction(function () use ($recibo, $actor): int {
             $filas = ReciboNomina::query()
                 ->whereKey($recibo->id)
@@ -379,6 +519,11 @@ class ReciboNominaService
             // regresa con un movimiento compensatorio.
             if ($filas > 0) {
                 $this->revertirDescuentosPrestamo($recibo, $actor);
+
+                // Cancelar la rectificación devuelve la vigencia al original.
+                if ($recibo->rectifica_recibo_id !== null) {
+                    ReciboNomina::query()->whereKey($recibo->rectifica_recibo_id)->where('rectificado_por_id', $recibo->id)->update(['rectificado_por_id' => null]);
+                }
             }
 
             return $filas;
@@ -754,6 +899,8 @@ class ReciboNominaService
             'tiene_pdf' => $tienePdf,
             'requiere_reparacion' => $recibo->estado === EstadoReciboNomina::Emitido && ! $tienePdf,
             'leyenda' => 'RECIBO DE NÓMINA',
+            'rectifica_recibo_id' => $recibo->rectifica_recibo_id,
+            'rectificado_por_id' => $recibo->rectificado_por_id,
         ];
 
         if ($detalle) {
@@ -850,6 +997,20 @@ class ReciboNominaService
         try {
             $datos = $this->datosDocumento->recibo($recibo);
 
+            // Al emitir se fija a quién y de qué empresa es el recibo: reparar
+            // el PDF después no toma la sucursal o razón social de hoy.
+            if ($recibo->estado === EstadoReciboNomina::Borrador) {
+                $recibo->update(['datos_emision' => array_intersect_key($datos, array_flip(['colaborador', 'empresa_razon_social', 'empresa', 'fecha_documento']))]);
+            }
+
+            if ($recibo->rectifica_recibo_id !== null && $revisionDe === null) {
+                $revisionDe = GeneratedDocument::query()
+                    ->where('documentable_type', $recibo->getMorphClass())
+                    ->where('documentable_id', $recibo->rectifica_recibo_id)
+                    ->orderByDesc('id')
+                    ->first();
+            }
+
             if ($historico !== null && is_array($historico->layout_snapshot)) {
                 $snapshot = $historico->layout_snapshot;
                 $diseno = $this->disenos->normalizar(FamiliaAdministrativa::ReciboNomina, (array) $snapshot['diseno']);
@@ -871,7 +1032,7 @@ class ReciboNominaService
                 // maestros → Documentos administrativos. El diseño no toca montos.
                 $documento = $this->documentosAdministrativos->generar(FamiliaAdministrativa::ReciboNomina, $datos, $actor);
 
-                if ($revisionDe !== null) {
+                if ($revisionDe !== null && $recibo->rectifica_recibo_id === null) {
                     $documento['opciones_registro']['layout_snapshot']['regenerado_con_version_actual'] = true;
                 }
             }
@@ -890,7 +1051,11 @@ class ReciboNominaService
         $documento = $this->motor->registrarPdf($recibo->colaborador, $contenido, sprintf('Recibo de nómina %s', $recibo->folio ?? $recibo->id), $actor, [
             ...$documento['opciones_registro'],
             'revision_de_id' => $revisionDe?->id,
-            'motivo_revision' => $revisionDe !== null ? 'Recuperación del PDF faltante del recibo' : null,
+            'motivo_revision' => match (true) {
+                $revisionDe === null => null,
+                $recibo->rectifica_recibo_id !== null => sprintf('Rectificación del recibo: %s', (string) $recibo->observaciones),
+                default => 'Recuperación del PDF faltante del recibo',
+            },
             'clave' => 'recibo_nomina_interno',
             'categoria' => CategoriaDocumento::NominaInterna,
             'payload' => [

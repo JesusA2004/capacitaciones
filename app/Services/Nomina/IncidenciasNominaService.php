@@ -201,6 +201,7 @@ class IncidenciasNominaService
     {
         $recibos = ReciboNomina::query()
             ->where('colaborador_id', $colaborador->id)
+            ->whereNull('rectificado_por_id')
             ->where('estado', '!=', EstadoReciboNomina::Cancelado->value)
             ->whereIn('tipo_periodo', [ReciboNominaService::TIPO_PERIODO_SEMANAL, ReciboNominaService::TIPO_PERIODO_QUINCENAL])
             ->whereDate('periodo_inicio', '<=', $hasta->toDateString())
@@ -230,34 +231,168 @@ class IncidenciasNominaService
     }
 
     /**
-     * RH aplica la rectificación: recalcula con los datos de HOY (no con los de
-     * cuando se detectó), genera un PDF nuevo y el anterior queda en el
-     * historial del expediente.
+     * Tras corregir un sueldo desde $desde: los recibos preparados se ajustan
+     * al sueldo vigente en su periodo; los emitidos NUNCA cambian y quedan con
+     * una rectificación pendiente si el importe difiere.
+     *
+     * @return array{borradores: int, rectificaciones: int}
+     */
+    public function sincronizarSueldo(Colaborador $colaborador, string $desde, string $motivo, User $actor): array
+    {
+        $resultado = ['borradores' => 0, 'rectificaciones' => 0];
+
+        foreach ($this->recibosDesde($colaborador, $desde) as $recibo) {
+            $resumen = $this->resumen($colaborador, $recibo->periodo_inicio, $recibo->periodo_fin, $this->diasBaseDe($recibo));
+            $importe = $this->importeSueldo($recibo, $colaborador, $resumen);
+
+            if (abs($importe - (float) $recibo->sueldo_base) < 0.005 && $this->coincide($recibo, $resumen)) {
+                continue;
+            }
+
+            if ($recibo->estado === EstadoReciboNomina::Emitido) {
+                if ($this->registrarRectificacion($recibo, $colaborador, $resumen, $motivo, $actor, 'sueldo')) {
+                    $resultado['rectificaciones']++;
+                }
+
+                continue;
+            }
+
+            try {
+                $this->aplicar($recibo, $colaborador, $resumen, $actor);
+                $resultado['borradores']++;
+            } catch (ValidationException $e) {
+                $recibo->update(['advertencias' => $this->conAviso($recibo, sprintf('%sNo se pudo aplicar el sueldo corregido: %s', self::PREFIJO_AVISO, (string) collect($e->errors())->flatten()->first()))]);
+            }
+        }
+
+        return $resultado;
+    }
+
+    /**
+     * Vista previa de sincronizarSueldo() con el mensual propuesto: no escribe.
+     *
+     * @return list<array{recibo: ReciboNomina, importe_actual: float, importe_nuevo: float}>
+     */
+    public function recibosAfectadosPorSueldo(Colaborador $colaborador, string $desde, float $mensual): array
+    {
+        $filas = [];
+
+        foreach ($this->recibosDesde($colaborador, $desde) as $recibo) {
+            $dias = (float) ($recibo->dias_pagados ?? $this->diasBaseDe($recibo));
+            $importe = $recibo->nomina_lote_id === null
+                ? $this->compensacion->proporcionalDesdeMensual($mensual, $dias)
+                : round($this->compensacion->diarioDesdeMensual($mensual) * $dias, 2);
+
+            if (abs($importe - (float) $recibo->sueldo_base) >= 0.005) {
+                $filas[] = ['recibo' => $recibo, 'importe_actual' => (float) $recibo->sueldo_base, 'importe_nuevo' => $importe];
+            }
+        }
+
+        return $filas;
+    }
+
+    /**
+     * Rectificación capturada por RH sobre un recibo emitido: se guarda lo
+     * propuesto, el recibo no cambia hasta aplicarla y emitir el nuevo.
+     *
+     * @param  list<array<string, mixed>>  $conceptos
+     * @param  array{dias_pagados: float, dias_incapacidad: float, dias_falta: float, importe_sueldo: float}  $dias
+     */
+    public function proponerRectificacion(ReciboNomina $recibo, array $conceptos, array $dias, string $motivo, User $actor): NominaRectificacion
+    {
+        $this->recibos->exigirRectificable($recibo);
+
+        $pendiente = NominaRectificacion::query()
+            ->where('recibo_nomina_id', $recibo->id)
+            ->where('estado', EstadoRectificacionNomina::Pendiente->value)
+            ->lockForUpdate()
+            ->first();
+
+        $datos = [
+            'colaborador_id' => $recibo->colaborador_id,
+            'dias_pagados_antes' => $recibo->dias_pagados,
+            'dias_pagados_despues' => $dias['dias_pagados'],
+            'dias_incapacidad_despues' => $dias['dias_incapacidad'],
+            'dias_falta_despues' => $dias['dias_falta'],
+            'neto_antes' => $recibo->neto,
+            'importe_sueldo_despues' => $dias['importe_sueldo'],
+            'motivo' => $motivo,
+            'origen' => 'manual',
+            'conceptos_propuestos' => $conceptos,
+        ];
+
+        if ($pendiente !== null) {
+            $pendiente->update($datos);
+        } else {
+            $pendiente = NominaRectificacion::query()->create(['recibo_nomina_id' => $recibo->id, 'estado' => EstadoRectificacionNomina::Pendiente, ...$datos]);
+        }
+
+        $this->auditoria->registrar('nomina_rectificacion_propuesta', $recibo, $actor, ['rectificacion_id' => $pendiente->id, 'motivo' => $motivo]);
+
+        return $pendiente->refresh();
+    }
+
+    /**
+     * RH aplica la rectificación: emite un recibo NUEVO enlazado con el sueldo
+     * vigente EN EL PERIODO y los días de hoy (o lo capturado si fue manual).
+     * El original conserva folio, conceptos y PDF. Si el PDF falla, sigue
+     * pendiente y se puede reintentar.
+     *
+     * @throws ValidationException
      */
     public function aplicarRectificacion(NominaRectificacion $rectificacion, User $actor): NominaRectificacion
     {
         $this->exigirPendiente($rectificacion);
         $recibo = $rectificacion->recibo;
         $colaborador = $recibo->colaborador;
-        $resumen = $this->resumen($colaborador, $recibo->periodo_inicio, $recibo->periodo_fin, $this->diasBaseDe($recibo));
 
-        $resolver = function () use ($rectificacion, $actor): void {
-            $rectificacion->update(['estado' => EstadoRectificacionNomina::Aplicada, 'resuelta_por' => $actor->id, 'resuelta_en' => now()]);
-        };
+        if ($rectificacion->conceptos_propuestos !== null) {
+            $conceptos = $rectificacion->conceptos_propuestos;
+            $dias = [
+                'dias_pagados' => (float) $rectificacion->dias_pagados_despues,
+                'dias_incapacidad' => (float) $rectificacion->dias_incapacidad_despues,
+                'dias_falta' => (float) $rectificacion->dias_falta_despues,
+                'sueldo_base' => (float) $rectificacion->importe_sueldo_despues,
+            ];
+        } else {
+            $resumen = $this->resumen($colaborador, $recibo->periodo_inicio, $recibo->periodo_fin, $this->diasBaseDe($recibo));
 
-        try {
-            $this->aplicar($recibo, $colaborador, $resumen, $actor);
-        } catch (ValidationException $e) {
-            // Los montos ya se guardaron y solo falló el PDF: se repara desde el recibo.
-            if (array_key_exists('pdf', $e->errors())) {
-                $resolver();
+            if ($this->compensacion->vigenteEn($colaborador, $recibo->periodo_fin) === null) {
+                throw ValidationException::withMessages(['rectificacion' => sprintf('No hay sueldo registrado para el periodo %s – %s: revísalo antes de rectificar.', $recibo->periodo_inicio->format('d/m/Y'), $recibo->periodo_fin->format('d/m/Y'))]);
             }
 
-            throw $e;
+            $conceptos = $this->recibos->conceptosEditables($recibo);
+            $indice = $this->indiceConceptoSueldo($conceptos);
+
+            if ($indice === null) {
+                throw ValidationException::withMessages(['conceptos' => 'El recibo no tiene un concepto de sueldo identificable: captura la rectificación a mano.']);
+            }
+
+            $importe = $this->importeSueldo($recibo, $colaborador, $resumen);
+            $conceptos[$indice]['importe'] = $importe;
+            $conceptos[$indice]['cantidad'] = $resumen['dias_pagados'];
+            $dias = [
+                'dias_pagados' => $resumen['dias_pagados'],
+                'dias_incapacidad' => $resumen['dias_incapacidad'],
+                'dias_falta' => $resumen['dias_sin_goce'],
+                'sueldo_base' => $importe,
+            ];
         }
 
-        $resolver();
-        $this->auditoria->registrar('nomina_rectificacion_aplicada', $recibo, $actor, ['rectificacion_id' => $rectificacion->id, 'dias_pagados' => $resumen['dias_pagados']]);
+        $nuevo = $this->recibos->emitirRectificacion($recibo, $conceptos, $dias, $rectificacion->motivo, $actor);
+
+        // Si el préstamo no admitió la emisión, el nuevo sigue preparado.
+        if ($nuevo->estado !== EstadoReciboNomina::Emitido) {
+            throw ValidationException::withMessages(['rectificacion' => 'No se pudo emitir el recibo de la rectificación.']);
+        }
+
+        $rectificacion->update([
+            'estado' => EstadoRectificacionNomina::Aplicada,
+            'resuelta_por' => $actor->id,
+            'resuelta_en' => now(),
+            'recibo_resultante_id' => $nuevo->id,
+        ]);
+        $this->auditoria->registrar('nomina_rectificacion_aplicada', $recibo, $actor, ['rectificacion_id' => $rectificacion->id, 'dias_pagados' => $dias['dias_pagados'], 'recibo_resultante_id' => $nuevo->id]);
 
         return $rectificacion->refresh();
     }
@@ -269,6 +404,24 @@ class IncidenciasNominaService
         $this->auditoria->registrar('nomina_rectificacion_descartada', $rectificacion->recibo, $actor, ['rectificacion_id' => $rectificacion->id, 'nota' => $nota]);
 
         return $rectificacion->refresh();
+    }
+
+    /**
+     * Recibos no cancelados ni ya rectificados cuyo periodo termina en $desde
+     * o después.
+     *
+     * @return Collection<int, ReciboNomina>
+     */
+    private function recibosDesde(Colaborador $colaborador, string $desde): Collection
+    {
+        return ReciboNomina::query()
+            ->where('colaborador_id', $colaborador->id)
+            ->whereNull('rectificado_por_id')
+            ->where('estado', '!=', EstadoReciboNomina::Cancelado->value)
+            ->whereIn('tipo_periodo', [ReciboNominaService::TIPO_PERIODO_SEMANAL, ReciboNominaService::TIPO_PERIODO_QUINCENAL])
+            ->whereDate('periodo_fin', '>=', $desde)
+            ->orderBy('periodo_inicio')
+            ->get();
     }
 
     /**
@@ -393,14 +546,19 @@ class IncidenciasNominaService
      */
     private function importeSueldo(ReciboNomina $recibo, Colaborador $colaborador, array $resumen): float
     {
-        $mensual = $this->compensacion->mensualDe($colaborador);
+        // Sueldo vigente al cierre del periodo, nunca el de hoy: un aumento
+        // posterior no altera un periodo anterior. No se prorratea un cambio a
+        // media quincena (regla pendiente de validar con RH).
+        $vigente = $this->compensacion->vigenteEn($colaborador, $recibo->periodo_fin);
+        $mensual = $vigente !== null ? $vigente['mensual'] : $this->compensacion->mensualDe($colaborador);
+        $diario = $vigente !== null ? $vigente['diario'] : $this->compensacion->diarioDe($colaborador);
 
         // Lote: diario × días; quincenal automático: desde el mensual, para no perder centavos.
         if ($recibo->nomina_lote_id === null && $mensual !== null) {
             return $this->compensacion->proporcionalDesdeMensual($mensual, $resumen['dias_pagados']);
         }
 
-        return round($this->compensacion->diarioDe($colaborador) * $resumen['dias_pagados'], 2);
+        return round($diario * $resumen['dias_pagados'], 2);
     }
 
     /**
@@ -465,21 +623,29 @@ class IncidenciasNominaService
     /**
      * @param  Resumen  $resumen
      */
-    private function registrarRectificacion(ReciboNomina $recibo, Colaborador $colaborador, array $resumen, string $motivo, ?User $actor): void
+    private function registrarRectificacion(ReciboNomina $recibo, Colaborador $colaborador, array $resumen, string $motivo, ?User $actor, string $origen = 'incidencia'): bool
     {
         try {
-            DB::transaction(function () use ($recibo, $colaborador, $resumen, $motivo, $actor): void {
+            return DB::transaction(function () use ($recibo, $colaborador, $resumen, $motivo, $actor, $origen): bool {
                 $pendiente = NominaRectificacion::query()
                     ->where('recibo_nomina_id', $recibo->id)
                     ->where('estado', EstadoRectificacionNomina::Pendiente->value)
                     ->lockForUpdate()
                     ->first();
 
+                // Lo capturado a mano por RH no se recalcula ni se descarta solo.
+                if ($pendiente?->conceptos_propuestos !== null) {
+                    return false;
+                }
+
+                $importe = $this->importeSueldo($recibo, $colaborador, $resumen);
+                $mismoImporte = $origen === 'incidencia' && $pendiente?->origen !== 'sueldo' || abs($importe - (float) $recibo->sueldo_base) < 0.005;
+
                 // El cambio se deshizo (p. ej. se canceló la incapacidad): ya no hay nada que rectificar.
-                if ($this->coincide($recibo, $resumen)) {
+                if ($this->coincide($recibo, $resumen) && $mismoImporte) {
                     $pendiente?->update(['estado' => EstadoRectificacionNomina::Descartada, 'nota_resolucion' => 'Ya no aplica: '.$motivo, 'resuelta_por' => $actor?->id, 'resuelta_en' => now()]);
 
-                    return;
+                    return false;
                 }
 
                 $datos = [
@@ -489,21 +655,26 @@ class IncidenciasNominaService
                     'dias_incapacidad_despues' => $resumen['dias_incapacidad'],
                     'dias_falta_despues' => $resumen['dias_sin_goce'],
                     'neto_antes' => $recibo->neto,
-                    'importe_sueldo_despues' => $this->importeSueldo($recibo, $colaborador, $resumen),
+                    'importe_sueldo_despues' => $importe,
                     'motivo' => $motivo,
+                    'origen' => $pendiente !== null && $pendiente->origen === 'sueldo' ? 'sueldo' : $origen,
                 ];
 
                 if ($pendiente !== null) {
                     $pendiente->update($datos);
 
-                    return;
+                    return true;
                 }
 
                 $nueva = NominaRectificacion::query()->create(['recibo_nomina_id' => $recibo->id, 'estado' => EstadoRectificacionNomina::Pendiente, ...$datos]);
                 $this->auditoria->registrar('nomina_rectificacion_detectada', $recibo, $actor, ['rectificacion_id' => $nueva->id, 'motivo' => $motivo]);
+
+                return true;
             });
         } catch (Throwable $e) {
             Log::warning('IncidenciasNominaService: no se pudo registrar la rectificación.', ['recibo_id' => $recibo->id, 'error' => $e->getMessage()]);
+
+            return false;
         }
     }
 
