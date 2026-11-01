@@ -23,14 +23,12 @@ test('un super_admin puede ver la jerarquía de puestos', function () {
         ->assertOk();
 });
 
-test('un regional bajo otro regional no se marca como rama de sucursal', function () {
+test('la vista por puestos ya no reparte ramas por región: Q1/Q3 no agregan datos al árbol', function () {
     $direccion = Puesto::factory()->create(['nombre' => 'Dirección']);
-    $regionalQ1 = Puesto::factory()->create(['nombre' => 'Regional A', 'puesto_superior_id' => $direccion->id]);
-    $regionalQ3 = Puesto::factory()->create(['nombre' => 'Regional B', 'puesto_superior_id' => $regionalQ1->id]);
-    $gerente = Puesto::factory()->create(['nombre' => 'Gerente', 'puesto_superior_id' => $regionalQ1->id]);
+    $regional = Puesto::factory()->create(['nombre' => 'Gerente Regional', 'puesto_superior_id' => $direccion->id]);
+    $gerente = Puesto::factory()->create(['nombre' => 'Gerente', 'puesto_superior_id' => $regional->id]);
 
-    NodoComercial::query()->create(['nombre' => 'Región A', 'tipo' => TipoNodoComercial::Region->value, 'puesto_id' => $regionalQ1->id]);
-    NodoComercial::query()->create(['nombre' => 'Región B', 'tipo' => TipoNodoComercial::Region->value, 'puesto_id' => $regionalQ3->id]);
+    NodoComercial::query()->create(['nombre' => 'Región A', 'tipo' => TipoNodoComercial::Region->value]);
 
     $usuario = User::factory()->create();
     $usuario->assignRole('super_admin');
@@ -38,11 +36,12 @@ test('un regional bajo otro regional no se marca como rama de sucursal', functio
     $this->actingAs($usuario)
         ->get(route('administracion.jerarquia-puestos.index'))
         ->assertOk()
-        ->assertInertia(function ($pagina) use ($regionalQ3, $gerente) {
+        ->assertInertia(function ($pagina) use ($regional, $gerente) {
             $puestos = collect($pagina->toArray()['props']['puestos'])->keyBy('id');
 
-            expect($puestos[$regionalQ3->id]['depende_de_region'])->toBeFalse()
-                ->and($puestos[$gerente->id]['depende_de_region'])->toBeTrue();
+            expect($puestos[$gerente->id]['puesto_superior_id'])->toBe($regional->id)
+                ->and($puestos[$gerente->id])->not->toHaveKey('depende_de_region')
+                ->and($puestos[$regional->id])->not->toHaveKey('region');
         });
 });
 

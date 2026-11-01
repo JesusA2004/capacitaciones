@@ -32,9 +32,9 @@ test('el seeder deja la estructura confirmada por dirección (y conserva los pue
         'Reclutamiento' => 'Gerencia de Recursos Humanos',
         'Coordinadora Regional' => 'Dirección Comercial',
         'Coordinadora de Sucursal' => 'Coordinadora Regional',
-        'Gerente Regional Q1' => 'Dirección Comercial',
-        'Gerente Regional Q3' => 'Dirección Comercial',
-        'Gerente de Sucursal' => 'Gerente Regional Q1', // de referencia: se resuelve por región
+        'Gerente Regional' => 'Dirección Comercial',
+        'Subgerente Regional' => 'Gerente Regional',
+        'Gerente de Sucursal' => 'Subgerente Regional',
         'Subgerente' => 'Gerente de Sucursal',
         'Gestor' => 'Subgerente',
         'Gestor Volante' => 'Subgerente',
@@ -57,7 +57,7 @@ test('el seeder deja la estructura confirmada por dirección (y conserva los pue
     expect(Puesto::count())->toBe(count($estructura));
 
     // Nombres anteriores que no deben reaparecer; Q2 no existe.
-    expect(Puesto::whereIn('nombre', ['Gestor fijo', 'Gerente administrativo regional', 'Director comercial', 'Gerente de Sistemas', 'Gerente regional', 'Gerente Regional Q2'])->exists())->toBeFalse();
+    expect(Puesto::whereIn('nombre', ['Gestor fijo', 'Gerente administrativo regional', 'Director comercial', 'Gerente de Sistemas', 'Gerente regional', 'Gerente Regional Q1', 'Gerente Regional Q3', 'Gerente Regional Q2'])->exists())->toBeFalse();
 });
 
 test('Dirección General es la única raíz y Dirección Comercial cuelga de ella', function () {
@@ -156,7 +156,7 @@ test('renombra a los nombres confirmados conservando id y gente (incluso cambios
         ->and($persona->refresh()->puesto_id)->toBe($volante->id);
 });
 
-test('el Gerente regional anterior con ocupante NO se adivina como Q1: se conserva y se reporta', function () {
+test('el Gerente regional anterior con ocupante se normaliza a Gerente Regional conservando id y gente', function () {
     $this->seed(DepartamentoSeeder::class);
 
     $anterior = Puesto::factory()->create(['nombre' => 'Gerente regional']);
@@ -164,8 +164,8 @@ test('el Gerente regional anterior con ocupante NO se adivina como Q1: se conser
 
     $this->seed(PuestoJerarquiaSeeder::class);
 
-    expect($anterior->refresh()->nombre)->toBe('Gerente regional')
+    expect($anterior->refresh()->nombre)->toBe('Gerente Regional')
         ->and($persona->refresh()->puesto_id)->toBe($anterior->id)
-        ->and(Puesto::where('nombre', 'Gerente Regional Q1')->exists())->toBeTrue()
-        ->and(Puesto::where('nombre', 'Gerente Regional Q3')->exists())->toBeTrue();
+        ->and(Puesto::where('nombre', 'Gerente Regional')->count())->toBe(1)
+        ->and(Puesto::whereIn('nombre', ['Gerente Regional Q1', 'Gerente Regional Q3'])->exists())->toBeFalse();
 });

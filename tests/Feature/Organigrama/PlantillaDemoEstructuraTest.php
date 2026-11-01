@@ -46,10 +46,11 @@ test('la plantilla demo cumple la estructura confirmada', function () {
 
     expect($rutasPorGestor->max())->toBe(1);
 
-    // Cobertura regional demo: Q3 cubierta por la titular de Q1, sin cambiarle el puesto.
-    $cobertura = CoberturaPuesto::query()->where('activa', true)->where('puesto_id', $id('Gerente Regional Q3'))->first();
+    // Cobertura regional demo: Subgerente Regional cubierto por la titular de
+    // Gerente Regional, sin cambiarle el puesto.
+    $cobertura = CoberturaPuesto::query()->where('activa', true)->where('puesto_id', $id('Subgerente Regional'))->first();
     expect($cobertura)->not->toBeNull()
-        ->and($cobertura->colaborador->puesto_id)->toBe($id('Gerente Regional Q1'));
+        ->and($cobertura->colaborador->puesto_id)->toBe($id('Gerente Regional'));
 
     expect(app(SincronizadorOrganigramaService::class)->sincronizar(simular: true)['conflictos'])->toBe([]);
 });

@@ -111,8 +111,8 @@ test('todos los valores únicos de BASE_GENERAL tienen catálogo: 0 empresas/suc
 
     expect($puestos['Coordinadora Administrativa @ Atlacomulco'])->toBe('Coordinadora de Sucursal')
         ->and($puestos['gestor de Credito @ Cuernavaca'])->toBe('Gestor')
-        ->and($puestos['Regional de Operaciones @ Atlixco'])->toBe('Gerente Regional Q3')
-        ->and($puestos['Regional de Operaciones @ Cuernavaca'])->toBe('Gerente Regional Q1')
+        ->and($puestos['Regional de Operaciones @ Atlixco'])->toBe('Gerente Regional')
+        ->and($puestos['Regional de Operaciones @ Cuernavaca'])->toBe('Gerente Regional')
         ->and($puestos['Director General @ Corporativo'])->toBe('Dirección General')
         ->and($puestos['Director Comercial @ Corporativo'])->toBe('Dirección Comercial')
         ->and($puestos['Gerente R.H. @ Corporativo'])->toBe('Gerencia de Recursos Humanos')
@@ -137,8 +137,9 @@ test('casos ambiguos que no se pueden decidir se reportan como conflicto explíc
         ['Coordinadora Administrativa', 'Administración', 'Corporativo'],
     ]), 'base.xlsx', null)->planArray();
 
-    expect(array_column($plan['filas'], 'operacion'))->toBe(['conflicto', 'conflicto', 'conflicto'])
-        ->and(implode(' ', $plan['filas'][0]['motivos']))->toContain('Q1 o Q3')
+    // Regional de Operaciones ya no es ambiguo: hay una sola plaza de Gerente Regional.
+    expect(array_column($plan['filas'], 'operacion'))->toBe(['crear', 'conflicto', 'conflicto'])
+        ->and($plan['filas'][0]['puesto_nombre'])->toBe('Gerente Regional')
         ->and(implode(' ', $plan['filas'][1]['motivos']))->toContain('Dirección General o Comercial')
         ->and(implode(' ', $plan['filas'][2]['motivos']))->toContain('Corporativo no tiene Coordinadora de Sucursal');
 });

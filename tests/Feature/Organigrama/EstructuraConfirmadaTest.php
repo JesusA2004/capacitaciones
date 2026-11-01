@@ -62,9 +62,14 @@ function rhAdminEstructura(): User
     return $usuario;
 }
 
-test('Q1 y Q3 existen, cada una ligada a su puesto regional; Q2 no existe', function () {
-    expect(($this->region)('Q1')?->puesto_id)->toBe(($this->puesto)('Gerente Regional Q1')->id)
-        ->and(($this->region)('Q3')?->puesto_id)->toBe(($this->puesto)('Gerente Regional Q3')->id)
+test('Q1 y Q3 son solo dato territorial, sin puesto ligado; la cadena regional es única y Q2 no existe', function () {
+    expect(($this->region)('Q1'))->not->toBeNull()
+        ->and(($this->region)('Q3'))->not->toBeNull()
+        ->and(($this->region)('Q1')->puesto_id)->toBeNull()
+        ->and(($this->region)('Q3')->puesto_id)->toBeNull()
+        ->and(($this->puesto)('Subgerente Regional')->puesto_superior_id)->toBe(($this->puesto)('Gerente Regional')->id)
+        ->and(($this->puesto)('Gerente de Sucursal')->puesto_superior_id)->toBe(($this->puesto)('Subgerente Regional')->id)
+        ->and(Puesto::query()->whereIn('nombre', ['Gerente Regional Q1', 'Gerente Regional Q3'])->exists())->toBeFalse()
         ->and(($this->region)('Q2'))->toBeNull()
         ->and(NodoComercial::query()->where('nombre', 'like', '%Q2%')->orWhere('region', 'Q2')->exists())->toBeFalse()
         ->and(Puesto::query()->where('nombre', 'like', '%Q2%')->exists())->toBeFalse();
@@ -150,37 +155,36 @@ test('la cobertura de un gerente de sucursal no cambia su puesto titular ni dupl
         ->and($enCordoba['plantilla_actual'])->toBe(1);
 });
 
-test('cobertura regional: la titular de Q1 cubre Q3 sin cambiar su puesto y el organigrama lo muestra', function () {
-    $q1 = ($this->puesto)('Gerente Regional Q1');
-    $q3 = ($this->puesto)('Gerente Regional Q3');
+test('cobertura regional: la Gerente Regional cubre al Subgerente Regional sin cambiar su puesto y el organigrama lo muestra', function () {
+    $regional = ($this->puesto)('Gerente Regional');
+    $subregional = ($this->puesto)('Subgerente Regional');
     $corporativo = Sucursal::query()->where('clave', 'CORP01')->firstOrFail();
-    $fernanda = Colaborador::factory()->create(['name' => 'Fernanda', 'apellidos' => 'Prueba', 'puesto_id' => $q1->id, 'sucursal_principal_id' => $corporativo->id]);
+    $fernanda = Colaborador::factory()->create(['name' => 'Fernanda', 'apellidos' => 'Prueba', 'puesto_id' => $regional->id, 'sucursal_principal_id' => $corporativo->id]);
 
     CoberturaPuesto::query()->create([
-        'colaborador_id' => $fernanda->id, 'puesto_id' => $q3->id, 'region_id' => ($this->region)('Q3')->id,
+        'colaborador_id' => $fernanda->id, 'puesto_id' => $subregional->id,
         'motivo' => MotivoCobertura::Vacante, 'fecha_inicio' => now()->toDateString(), 'activa' => true,
     ]);
 
     $nodos = nodosPersonasEstructura(rhAdminEstructura());
     $titular = $nodos['p'.$fernanda->id];
-    $cobertura = collect($nodos)->first(fn (array $n) => $n['tipo'] === 'cobertura' && $n['puesto']['id'] === $q3->id);
+    $cobertura = collect($nodos)->first(fn (array $n) => $n['tipo'] === 'cobertura' && $n['puesto']['id'] === $subregional->id);
 
-    expect($fernanda->refresh()->puesto_id)->toBe($q1->id)
-        ->and($titular['region']['nombre'])->toBe('Región Q1')
+    expect($fernanda->refresh()->puesto_id)->toBe($regional->id)
+        ->and($titular['puesto']['nombre'])->toBe('Gerente Regional')
         ->and($cobertura)->not->toBeNull()
         ->and($cobertura['persona']['id'])->toBe($fernanda->id)
-        ->and($cobertura['cobertura']['titular_de'])->toBe('Gerente Regional Q1')
-        ->and($cobertura['region']['nombre'])->toBe('Región Q3');
+        ->and($cobertura['cobertura']['titular_de'])->toBe('Gerente Regional');
 });
 
-test('el gerente de una sucursal de Q3 cuelga del Gerente Regional Q3 (vacante si nadie lo ocupa)', function () {
+test('el gerente de cualquier sucursal cuelga del Subgerente Regional (vacante si nadie lo ocupa)', function () {
     $zonaQ3 = NodoComercial::query()->where('tipo', TipoNodoComercial::Zona->value)->where('parent_id', ($this->region)('Q3')->id)->whereNotNull('sucursal_id')->firstOrFail();
     $gerente = Colaborador::factory()->create(['puesto_id' => ($this->puesto)('Gerente de Sucursal')->id, 'sucursal_principal_id' => $zonaQ3->sucursal_id]);
 
     $nodos = nodosPersonasEstructura(rhAdminEstructura());
     $padre = $nodos[$nodos['p'.$gerente->id]['padre']];
 
-    expect($padre['puesto']['nombre'])->toBe('Gerente Regional Q3')
+    expect($padre['puesto']['nombre'])->toBe('Subgerente Regional')
         ->and($padre['tipo'])->toBe('vacante');
 });
 
@@ -190,8 +194,8 @@ test('los puestos corporativos sin titular se ven como VACANTE (no se ocultan)',
 
     expect($vacantes)->toContain('Asistente de Dirección Comercial')
         ->toContain('Responsable de Sistemas')
-        ->toContain('Gerente Regional Q1')
-        ->toContain('Gerente Regional Q3');
+        ->toContain('Gerente Regional')
+        ->toContain('Subgerente Regional');
 });
 
 test('la sincronización reporta Corporativo con coordinadora de sucursal y sucursales con 2 gerentes', function () {

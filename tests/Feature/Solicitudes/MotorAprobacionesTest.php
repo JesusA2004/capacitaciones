@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\TipoNodoComercial;
-use App\Models\ClasificacionRegion;
 use App\Models\Colaborador;
 use App\Models\NodoComercial;
 use App\Models\Puesto;
@@ -25,8 +24,8 @@ use Laravel\Sanctum\Sanctum;
 |  B) exactamente 6 meses sí.
 |  C) RH entra antes que el jefe: ve el estado y NO puede aprobar.
 |  D) el jefe aprueba → RH recibe aviso → RH ya puede aprobar.
-|  E) Gerente de Sucursal → su regional Q1/Q3 (clasificación), nunca
-|     Dirección Comercial directo; sin clasificación → detenido.
+|  E) Gerente de Sucursal → Subgerente Regional → Gerente Regional → respaldo,
+|     nunca Dirección Comercial directo; sin ningún regional → detenido.
 |  F) responsable explícito ≠ jefe organizacional → manda el explícito.
 | Más el contrato de la API (flujo, puede_actuar, elegibilidad).
 */
@@ -39,17 +38,17 @@ beforeEach(function () {
     Sucursal::query()->update(['activo' => false]);
 
     $this->puestoDc = Puesto::factory()->create(['nombre' => 'Dirección Comercial', 'nivel_jerarquico' => 2, 'activo' => true]);
-    $this->puestoQ1 = Puesto::factory()->create(['nombre' => 'Gerente Regional Q1', 'nivel_jerarquico' => 3, 'puesto_superior_id' => $this->puestoDc->id, 'activo' => true]);
-    $this->puestoQ3 = Puesto::factory()->create(['nombre' => 'Gerente Regional Q3', 'nivel_jerarquico' => 3, 'puesto_superior_id' => $this->puestoDc->id, 'activo' => true]);
-    $this->puestoGerente = Puesto::factory()->create(['nombre' => 'Gerente de Sucursal', 'nivel_jerarquico' => 4, 'puesto_superior_id' => $this->puestoQ1->id, 'activo' => true]);
+    $this->puestoRegional = Puesto::factory()->create(['nombre' => 'Gerente Regional', 'nivel_jerarquico' => 3, 'puesto_superior_id' => $this->puestoDc->id, 'activo' => true]);
+    $this->puestoSubregional = Puesto::factory()->create(['nombre' => 'Subgerente Regional', 'nivel_jerarquico' => 4, 'puesto_superior_id' => $this->puestoRegional->id, 'activo' => true]);
+    $this->puestoGerente = Puesto::factory()->create(['nombre' => 'Gerente de Sucursal', 'nivel_jerarquico' => 5, 'puesto_superior_id' => $this->puestoSubregional->id, 'activo' => true]);
     $this->puestoGestor = Puesto::factory()->create(['nombre' => 'Gestor', 'nivel_jerarquico' => 6, 'puesto_superior_id' => $this->puestoGerente->id, 'activo' => true]);
 
     $this->cuernavaca = Sucursal::factory()->create(['nombre' => 'Cuernavaca', 'activo' => true, 'es_corporativo' => false]);
     $this->cordoba = Sucursal::factory()->create(['nombre' => 'Córdoba', 'activo' => true, 'es_corporativo' => false]);
 
     $matriz = NodoComercial::factory()->create(['tipo' => TipoNodoComercial::Matriz->value, 'nombre' => 'MATRIZ']);
-    $this->q1 = NodoComercial::factory()->create(['tipo' => TipoNodoComercial::Region->value, 'nombre' => 'Región Q1', 'region' => 'Q1', 'parent_id' => $matriz->id, 'puesto_id' => $this->puestoQ1->id]);
-    $this->q3 = NodoComercial::factory()->create(['tipo' => TipoNodoComercial::Region->value, 'nombre' => 'Región Q3', 'region' => 'Q3', 'parent_id' => $matriz->id, 'puesto_id' => $this->puestoQ3->id]);
+    $this->q1 = NodoComercial::factory()->create(['tipo' => TipoNodoComercial::Region->value, 'nombre' => 'Región Q1', 'region' => 'Q1', 'parent_id' => $matriz->id]);
+    $this->q3 = NodoComercial::factory()->create(['tipo' => TipoNodoComercial::Region->value, 'nombre' => 'Región Q3', 'region' => 'Q3', 'parent_id' => $matriz->id]);
     NodoComercial::factory()->create(['tipo' => TipoNodoComercial::Zona->value, 'nombre' => 'CUERNAVACA', 'parent_id' => $this->q1->id, 'sucursal_id' => $this->cuernavaca->id]);
     NodoComercial::factory()->create(['tipo' => TipoNodoComercial::Zona->value, 'nombre' => 'CORDOBA', 'parent_id' => $this->q3->id, 'sucursal_id' => $this->cordoba->id]);
 
@@ -65,8 +64,8 @@ beforeEach(function () {
     };
 
     $this->dc = $cuenta('Alberto', $this->puestoDc, $this->cuernavaca, 'director_comercial');
-    $this->regionalQ1 = $cuenta('Regional Uno', $this->puestoQ1, $this->cuernavaca, 'gerente_regional');
-    $this->regionalQ3 = $cuenta('Regional Tres', $this->puestoQ3, $this->cordoba, 'gerente_regional');
+    $this->gerenteRegional = $cuenta('Regional Uno', $this->puestoRegional, $this->cuernavaca, 'gerente_regional');
+    $this->subregional = $cuenta('Regional Tres', $this->puestoSubregional, $this->cordoba, 'gerente_regional');
     $this->gerente = $cuenta('Gerente Cuernavaca', $this->puestoGerente, $this->cuernavaca, 'gerente_sucursal');
     $this->gestor = $cuenta('Gestor Cuernavaca', $this->puestoGestor, $this->cuernavaca, 'colaborador');
 
@@ -197,8 +196,6 @@ test('B4) el mínimo sale de config solicitudes.prestamo_meses_minimos', functio
 // ---------------------------------------------------------------- C / D
 
 test('C) RH entra antes que el jefe: ve «pendiente de» y NO puede aprobar (ni web ni API); nadie le avisó todavía', function () {
-    ClasificacionRegion::query()->create(['colaborador_id' => $this->gerente->colaborador_id, 'region_id' => $this->q1->id]);
-
     Sanctum::actingAs($this->gestor);
     $id = $this->postJson('/api/v1/solicitudes', ['tipo' => 'prestamo', 'monto_solicitado' => 5000, 'motivo' => 'Gastos'])->assertCreated()->json('id');
     $solicitud = SolicitudInterna::query()->findOrFail($id);
@@ -206,7 +203,7 @@ test('C) RH entra antes que el jefe: ve «pendiente de» y NO puede aprobar (ni 
     // Solo a quien puede actuar: el gerente sí tiene aviso; RH y el regional, no.
     expect($this->gerente->notifications()->count())->toBeGreaterThan(0)
         ->and($this->rh->notifications()->count())->toBe(0)
-        ->and($this->regionalQ1->notifications()->count())->toBe(0);
+        ->and($this->gerenteRegional->notifications()->count())->toBe(0);
 
     Sanctum::actingAs($this->rh);
     $this->getJson("/api/v1/rh/solicitudes/{$id}")
@@ -232,8 +229,6 @@ test('C) RH entra antes que el jefe: ve «pendiente de» y NO puede aprobar (ni 
 });
 
 test('badge web «Pendientes»: el mismo conteo único — al jefe le cuenta su visto bueno; a RH nada mientras espera', function () {
-    ClasificacionRegion::query()->create(['colaborador_id' => $this->gerente->colaborador_id, 'region_id' => $this->q3->id]);
-
     Sanctum::actingAs($this->gestor);
     $this->postJson('/api/v1/solicitudes', ['tipo' => 'prestamo', 'monto_solicitado' => 5000, 'motivo' => 'Gastos'])->assertCreated();
 
@@ -245,13 +240,11 @@ test('badge web «Pendientes»: el mismo conteo único — al jefe le cuenta su 
 });
 
 test('D) el jefe aprueba → avisa al regional; el regional aprueba → RH recibe aviso y ya puede autorizar', function () {
-    ClasificacionRegion::query()->create(['colaborador_id' => $this->gerente->colaborador_id, 'region_id' => $this->q3->id]);
-
     Sanctum::actingAs($this->gestor);
     $id = $this->postJson('/api/v1/solicitudes', ['tipo' => 'prestamo', 'monto_solicitado' => 5000, 'motivo' => 'Gastos'])->assertCreated()->json('id');
 
-    // El regional (Q3, por la clasificación del gerente de su sucursal) aún no puede.
-    Sanctum::actingAs($this->regionalQ3);
+    // El regional (Subgerente Regional, primero de la cadena) aún no puede.
+    Sanctum::actingAs($this->subregional);
     $this->getJson('/api/v1/equipo/pendientes')->assertOk()
         ->assertJsonCount(0, 'data.solicitudes')
         ->assertJsonPath('data.en_espera.0.id', $id)
@@ -263,21 +256,21 @@ test('D) el jefe aprueba → avisa al regional; el regional aprueba → RH recib
     $this->getJson('/api/v1/equipo/pendientes')->assertJsonPath('data.solicitudes.0.puede_actuar_usuario_actual', true);
     $this->postJson("/api/v1/equipo/solicitudes/{$id}/visto-bueno", ['aprobado' => true])->assertOk();
 
-    Sanctum::actingAs($this->regionalQ3);
+    Sanctum::actingAs($this->subregional);
     $this->getJson('/api/v1/equipo/aprobaciones/conteo')->assertJsonPath('data.visto_bueno', 1)->assertJsonPath('data.autorizar', 0);
     expect($this->motor->conteoPendientes($this->rh)['total'])->toBe(0);
 
-    expect($this->regionalQ3->notifications()->count())->toBeGreaterThan(0)
+    expect($this->subregional->notifications()->count())->toBeGreaterThan(0)
         ->and($this->rh->notifications()->count())->toBe(0)
         // Al solicitante: «Tu solicitud avanzó».
         ->and($this->gestor->notifications()->get()->contains(fn ($n) => ($n->data['titulo'] ?? null) === 'Tu solicitud avanzó'))->toBeTrue();
 
-    Sanctum::actingAs($this->regionalQ3);
+    Sanctum::actingAs($this->subregional);
     $this->postJson("/api/v1/equipo/solicitudes/{$id}/visto-bueno", ['aprobado' => true])->assertOk();
 
     expect($this->rh->notifications()->count())->toBeGreaterThan(0)
         // Conteo único web/app: al regional ya no le queda nada; a RH, autorizar 1.
-        ->and($this->motor->conteoPendientes($this->regionalQ3)['total'])->toBe(0)
+        ->and($this->motor->conteoPendientes($this->subregional)['total'])->toBe(0)
         ->and($this->motor->conteoPendientes($this->rh))->toBe(['visto_bueno' => 0, 'autorizar' => 1, 'total' => 1]);
 
     Sanctum::actingAs($this->rh);
@@ -291,54 +284,46 @@ test('D) el jefe aprueba → avisa al regional; el regional aprueba → RH recib
 
 // ---------------------------------------------------------------- E
 
-test('E) Gerente de Sucursal → su regional Q1/Q3 de la clasificación (no Dirección Comercial); sin clasificar queda detenido', function () {
+test('E) Gerente de Sucursal → Subgerente Regional → Gerente Regional → respaldo (nunca Dirección Comercial); sin ninguno queda detenido', function () {
     $gerente = $this->gerente->colaborador;
-
-    // Sin clasificación: paso bloqueado, nadie puede darlo y RH no aprueba.
-    $responsable = $this->motor->responsableDeAprobacion($gerente);
-    expect($responsable['bloqueado'])->toBeTrue()
-        ->and($responsable['origen'])->toBe(AprobacionOrganizacionalService::ORIGEN_PENDIENTE_REGION)
-        ->and($responsable['usuarios'])->toBeEmpty();
-
     $solicitud = maSolicitud($this->gerente);
-    $flujo = $this->motor->flujo($solicitud, $this->rh);
-    expect($flujo['bloqueado'])->toBeTrue()
-        ->and($flujo['pendiente_de']['texto'])->toBe('Pendiente de asignar región de aprobación')
-        ->and($flujo['puede_actuar_usuario_actual'])->toBeFalse();
 
-    $this->actingAs($this->rh)->post(route('rh.solicitudes.aprobar', $solicitud))->assertSessionHasErrors('visto_bueno');
-
-    // Clasificado en Q3 (aunque la matriz diga Q1 para Cuernavaca): su regional Q3.
-    $this->actingAs($this->rh)
-        ->put(route('administracion.jerarquia-puestos.personas.clasificar', $gerente), ['region_id' => $this->q3->id])
-        ->assertSessionHasNoErrors();
-
-    $pasos = $this->motor->pasos($solicitud->fresh());
+    // Subgerente Regional vigente: él responde, aunque esté en otra sucursal.
+    $pasos = $this->motor->pasos($solicitud);
     expect($pasos)->toHaveCount(1)
         ->and($pasos[0]['nivel'])->toBe(SolicitudAprobacion::NIVEL_REGIONAL)
-        ->and($pasos[0]['etiqueta'])->toBe('Gerente Regional Q3')
-        ->and($pasos[0]['usuarios']->pluck('id')->all())->toBe([$this->regionalQ3->id])
+        ->and($pasos[0]['etiqueta'])->toBe('Subgerente Regional')
+        ->and($pasos[0]['usuarios']->pluck('id')->all())->toBe([$this->subregional->id])
         // Vacaciones/permisos de gerente: nunca Dirección Comercial.
         ->and(collect($pasos)->pluck('nivel')->all())->not->toContain(SolicitudAprobacion::NIVEL_DIRECCION_COMERCIAL);
 
-    // Al clasificarlo, el regional que ya puede actuar recibe su aviso.
-    expect($this->regionalQ3->notifications()->count())->toBeGreaterThan(0);
+    // RH no aprueba antes que el regional.
+    $this->actingAs($this->rh)->post(route('rh.solicitudes.aprobar', $solicitud))->assertSessionHasErrors('visto_bueno');
 
     // Préstamo de gerente: regional y DESPUÉS Dirección Comercial (el tipo lo exige).
     $prestamo = maSolicitud($this->gerente, 'prestamo');
     expect(collect($this->motor->pasos($prestamo))->pluck('nivel')->all())
         ->toBe([SolicitudAprobacion::NIVEL_REGIONAL, SolicitudAprobacion::NIVEL_DIRECCION_COMERCIAL]);
 
-    // Plaza regional Q3 vacante y sin cobertura: la regional de respaldo
-    // (la otra regional vigente), nunca Dirección Comercial.
-    $this->regionalQ3->colaborador->update(['estatus' => 'inactivo']);
+    // Subgerente Regional vacante: sube al Gerente Regional.
+    $this->subregional->colaborador->update(['estatus' => 'inactivo']);
+    $siguiente = $this->motor->responsableDeAprobacion($gerente->fresh());
+    expect($siguiente['bloqueado'])->toBeFalse()
+        ->and($siguiente['usuarios']->pluck('id')->all())->toBe([$this->gerenteRegional->id]);
+
+    // Cadena vacía: la regional de respaldo (puesto regional anterior aún
+    // vigente, config organigrama.regional_respaldo), nunca Dirección Comercial.
+    $this->gerenteRegional->colaborador->update(['estatus' => 'inactivo']);
+    $puestoAnterior = Puesto::factory()->create(['nombre' => 'Regional de Operaciones', 'nivel_jerarquico' => 3, 'activo' => true]);
+    $personaRespaldo = Colaborador::factory()->create(['estatus' => 'activo', 'puesto_id' => $puestoAnterior->id, 'sucursal_principal_id' => $this->cordoba->id]);
+    $cuentaRespaldo = User::factory()->create(['colaborador_id' => $personaRespaldo->id]);
     $respaldo = $this->motor->responsableDeAprobacion($gerente->fresh());
     expect($respaldo['bloqueado'])->toBeFalse()
         ->and($respaldo['origen'])->toBe(AprobacionOrganizacionalService::ORIGEN_REGIONAL_RESPALDO)
-        ->and($respaldo['usuarios']->pluck('id')->all())->toBe([$this->regionalQ1->id]);
+        ->and($respaldo['usuarios']->pluck('id')->all())->toBe([$cuentaRespaldo->id]);
 
-    // Sin NINGUNA regional vigente: detenido con su motivo (no sube a Dirección Comercial).
-    $this->regionalQ1->colaborador->update(['estatus' => 'inactivo']);
+    // Sin NINGÚN regional vigente: detenido con su motivo (no sube a Dirección Comercial).
+    $personaRespaldo->update(['estatus' => 'inactivo']);
     $vacante = $this->motor->responsableDeAprobacion($gerente->fresh());
     expect($vacante['bloqueado'])->toBeTrue()
         ->and($vacante['origen'])->toBe(AprobacionOrganizacionalService::ORIGEN_REGIONAL_VACANTE)
@@ -398,7 +383,6 @@ test('F) responsable explícito distinto del jefe organizacional: manda el expl�
 // ---------------------------------------------------------------- Contrato API
 
 test('contrato API: el colaborador ve el flujo de su solicitud con pasos, responsables y quién sigue', function () {
-    ClasificacionRegion::query()->create(['colaborador_id' => $this->gerente->colaborador_id, 'region_id' => $this->q1->id]);
     $solicitud = maSolicitud($this->gestor);
 
     Sanctum::actingAs($this->gestor);
@@ -417,7 +401,7 @@ test('contrato API: el colaborador ve el flujo de su solicitud con pasos, respon
     expect(collect($flujo)->pluck('estado')->all())->toBe(['aprobado', 'pendiente', 'esperando', 'esperando'])
         ->and($flujo[1]['responsable']['nombre'])->toBe('Gerente Cuernavaca Prueba')
         ->and($flujo[2]['etiqueta'])->toBe('Gerente Regional')
-        ->and($flujo[2]['responsable']['nombre'])->toBe('Regional Uno Prueba')
+        ->and($flujo[2]['responsable']['nombre'])->toBe('Regional Tres Prueba')
         ->and($flujo[3]['clave'])->toBe('rh');
 });
 

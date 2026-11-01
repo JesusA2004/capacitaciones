@@ -748,7 +748,8 @@ test('PDF etapa 4: la duración sale de la configuración del puesto (Gestor 2 m
 
     expect($meses('Gestor'))->toBe(2)
         ->and($meses('Gerente de Sucursal'))->toBe(3)
-        ->and($meses('Gerente Regional Q1'))->toBe(3);
+        ->and($meses('Gerente Regional'))->toBe(3)
+        ->and($meses('Subgerente Regional'))->toBe(3);
 
     // La regla usa el valor del puesto, no su nombre: si RH lo cambia, cambia.
     $gestor = Puesto::query()->where('nombre', 'Gestor')->firstOrFail();
