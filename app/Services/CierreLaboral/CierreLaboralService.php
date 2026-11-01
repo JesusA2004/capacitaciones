@@ -33,6 +33,8 @@ use App\Services\Bajas\BajaRegistroService;
 use App\Services\CicloLaboral\AprobacionService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Colaboradores\FotoColaboradorService;
+use App\Services\Documentos\Versiones\Fuentes\FuentePlantillaMotor;
+use App\Services\Documentos\Versiones\VersionadoDocumentoService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Finiquitos\FiniquitoService;
@@ -475,7 +477,7 @@ class CierreLaboralService
      * Genera el aviso de término con la plantilla "aviso_termino" (texto
      * provisto por Jurídico) para imprimir y firmar.
      */
-    public function generarAviso(CierreLaboral $cierre, User $actor): GeneratedDocument
+    public function generarAviso(CierreLaboral $cierre, User $actor, ?string $motivo = null): GeneratedDocument
     {
         $this->exigirAutorizado($cierre);
 
@@ -491,7 +493,13 @@ class CierreLaboralService
                 ?? $this->documentosProceso->generar('baja', $cierre, 'aviso_terminacion', $actor);
         }
 
-        return $this->motor->generar($cierre->colaborador, 'aviso_termino', $actor, $this->variables($cierre), $cierre);
+        // Reintentar con los mismos datos devuelve el mismo aviso; si cambiaron, va con motivo.
+        return app(VersionadoDocumentoService::class)->emitir(
+            new FuentePlantillaMotor($this->motor, $cierre->colaborador, $cierre, 'aviso_termino', $this->variables($cierre)),
+            [],
+            $motivo,
+            $actor,
+        )->documento;
     }
 
     /**

@@ -448,14 +448,15 @@ class MotorDocumentalService
      *
      * @param  array<string, mixed>  $extra
      */
-    public function prepararDesdePlantilla(Colaborador $colaborador, DocumentTemplate $plantilla, array $extra, ?Model $documentable, User $actor): DocumentoRenderizado
+    public function prepararDesdePlantilla(Colaborador $colaborador, DocumentTemplate $plantilla, array $extra, ?Model $documentable, User $actor, ?string $titulo = null): DocumentoRenderizado
     {
+        $titulo ??= $plantilla->nombre;
         $colaborador->loadMissing(['sucursalPrincipal.empresa', 'puesto', 'departamento', 'jefe.jefe', 'gerente', 'user']);
         $referencia = strtoupper(Str::random(10));
         $payload = $this->resolver->resolver($colaborador, [...$extra, 'referencia_documento' => $referencia]);
         $categoria = $this->categoriaDe($plantilla);
 
-        return new DocumentoRenderizado($this->renderizar($plantilla, $payload, $plantilla->nombre, $referencia, $colaborador, $documentable, $actor), $plantilla->nombre, $categoria, [
+        return new DocumentoRenderizado($this->renderizar($plantilla, $payload, $titulo, $referencia, $colaborador, $documentable, $actor), $titulo, $categoria, [
             'plantilla' => $plantilla,
             'clave' => $plantilla->clave,
             'version' => $plantilla->version,
@@ -1173,7 +1174,7 @@ class MotorDocumentalService
         return $this->resolverPlantilla($clave, $colaborador);
     }
 
-    private function resolverPlantilla(DocumentTemplate|string $plantilla, ?Colaborador $colaborador = null): DocumentTemplate
+    public function resolverPlantilla(DocumentTemplate|string $plantilla, ?Colaborador $colaborador = null): DocumentTemplate
     {
         if ($plantilla instanceof DocumentTemplate) {
             if (! $plantilla->activo) {

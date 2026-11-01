@@ -28,6 +28,8 @@ class GenerarDocumentoLaboralRequest extends FormRequest
             'titulo' => ['nullable', 'string', 'max:160'],
             'extra' => ['nullable', 'array', 'max:50'],
             'extra.*' => ['nullable', 'string', 'max:2000'],
+            'motivo' => ['nullable', 'string', 'max:500'],
+            'rectificar' => ['sometimes', 'boolean'],
         ];
     }
 }

@@ -50,7 +50,7 @@ test('el documento generado guarda un snapshot: cambiar el sueldo después no al
     expect($documento->path)->toContain('/Contratos/')
         ->and(hash('sha256', (string) Storage::disk('nas')->get($documento->path)))->toBe($documento->checksum);
 
-    $segundo = $this->postJson("/api/v1/rh/colaboradores/{$this->colaborador->id}/documentos-laborales", ['clave' => 'contrato_confidencialidad'])->json('data');
+    $segundo = $this->postJson("/api/v1/rh/colaboradores/{$this->colaborador->id}/documentos-laborales", ['clave' => 'contrato_confidencialidad', 'motivo' => 'Aumento de sueldo autorizado'])->json('data');
     expect($segundo['payload']['sueldo_mensual'])->toBe('$18,000.00');
 });
 

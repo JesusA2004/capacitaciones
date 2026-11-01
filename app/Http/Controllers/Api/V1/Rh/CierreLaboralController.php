@@ -80,7 +80,10 @@ class CierreLaboralController extends Controller
     {
         $this->authorize('generarAviso', $cierre);
 
-        return response()->json(['data' => $this->documentos->aArray($this->cierres->generarAviso($cierre, $request->user()), true)], 201);
+        $datos = $request->validate(['motivo' => ['nullable', 'string', 'max:500']]);
+        $documento = $this->cierres->generarAviso($cierre, $request->user(), $datos['motivo'] ?? null);
+
+        return response()->json(['data' => $this->documentos->aArray($documento, true)], $documento->wasRecentlyCreated ? 201 : 200);
     }
 
     public function calcularFiniquito(FiniquitoCierreRequest $request, CierreLaboral $cierre): JsonResponse

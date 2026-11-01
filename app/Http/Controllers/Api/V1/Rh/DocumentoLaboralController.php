@@ -12,6 +12,8 @@ use App\Models\ContratoLaboral;
 use App\Models\DocumentTemplate;
 use App\Models\GeneratedDocument;
 use App\Services\Contratos\ContratoLaboralService;
+use App\Services\Documentos\Versiones\Fuentes\FuentePlantillaMotor;
+use App\Services\Documentos\Versiones\VersionadoDocumentoService;
 use App\Services\DocumentosLaborales\DocumentoLaboralConsultaService;
 use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
@@ -34,6 +36,7 @@ class DocumentoLaboralController extends Controller
         private readonly FlujoDocumentalService $flujo,
         private readonly DocumentoLaboralConsultaService $consulta,
         private readonly ContratoLaboralService $contratos,
+        private readonly VersionadoDocumentoService $versionado,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -62,20 +65,22 @@ class DocumentoLaboralController extends Controller
         $this->authorize('generarDocumento', $colaborador);
 
         $contratoId = $request->validated('contrato_id');
+        $motivo = $request->validated('motivo');
+        $rectificar = $request->boolean('rectificar');
 
         if ($contratoId !== null) {
             $contrato = ContratoLaboral::query()->where('id', $contratoId)->where('colaborador_id', $colaborador->id)->firstOrFail();
-            $documento = $this->contratos->generarDocumento($contrato, (string) $request->validated('clave'), $request->user());
+            $documento = $this->contratos->generarDocumento($contrato, (string) $request->validated('clave'), $request->user(), $motivo, $rectificar);
         } else {
             $plantilla = $request->validated('plantilla_id') !== null
                 ? DocumentTemplate::query()->findOrFail((int) $request->validated('plantilla_id'))
                 : (string) $request->validated('clave');
 
             $extra = array_map('strval', array_filter((array) $request->validated('extra', []), fn ($v) => $v !== null));
-            $documento = $this->motor->generar($colaborador, $plantilla, $request->user(), $extra, null, $request->validated('titulo'));
+            $documento = $this->versionado->emitir(new FuentePlantillaMotor($this->motor, $colaborador, $colaborador, $plantilla, $extra, $request->validated('titulo')), [], $motivo, $request->user(), $rectificar)->documento;
         }
 
-        return response()->json(['data' => $this->consulta->aArray($documento, true)], 201);
+        return response()->json(['data' => $this->consulta->aArray($documento, true)], $documento->wasRecentlyCreated ? 201 : 200);
     }
 
     public function show(Request $request, GeneratedDocument $documento): JsonResponse

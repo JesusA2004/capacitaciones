@@ -14,6 +14,9 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Compensacion\CompensacionService;
+use App\Services\Documentos\Versiones\AlEmitirConFuncion;
+use App\Services\Documentos\Versiones\Fuentes\FuentePlantillaMotor;
+use App\Services\Documentos\Versiones\VersionadoDocumentoService;
 use App\Services\DocumentosLaborales\FirmaDocumentalService;
 use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
@@ -150,12 +153,7 @@ class ContratoLaboralService
 
         foreach ($claves as $indice => $clave) {
             try {
-                $documento = $this->motor->generar($contrato->colaborador, $clave, $actor, $this->variablesContrato($contrato), $contrato);
-                $generados[] = $documento;
-
-                if ($indice === 0) {
-                    $contrato->update(['generated_document_id' => $documento->id]);
-                }
+                $generados[] = $this->emitirDocumento($contrato, $clave, $actor, null, false, $indice === 0);
             } catch (ValidationException $e) {
                 $pendientes[] = $clave;
 
@@ -313,16 +311,10 @@ class ContratoLaboralService
      * Genera (o regenera) un documento contractual concreto del contrato,
      * p. ej. cuando Jurídico ya cargó la plantilla que faltaba.
      */
-    public function generarDocumento(ContratoLaboral $contrato, string $clave, User $actor): GeneratedDocument
+    public function generarDocumento(ContratoLaboral $contrato, string $clave, User $actor, ?string $motivo = null, bool $rectificar = false): GeneratedDocument
     {
         $contrato->loadMissing('colaborador');
-        $documento = $this->motor->generar($contrato->colaborador, $clave, $actor, $this->variablesContrato($contrato), $contrato);
-
-        $principal = $this->clavesPaquete($contrato)[0] ?? null;
-
-        if ($clave === $principal) {
-            $contrato->update(['generated_document_id' => $documento->id]);
-        }
+        $documento = $this->emitirDocumento($contrato, $clave, $actor, $motivo, $rectificar, $clave === ($this->clavesPaquete($contrato)[0] ?? null));
 
         $faltantes = collect($this->clavesPaquete($contrato))
             ->reject(fn (string $c) => GeneratedDocument::query()
@@ -337,6 +329,28 @@ class ContratoLaboralService
         }
 
         return $documento;
+    }
+
+    /**
+     * Por VersionadoDocumentoService: un reintento con los mismos datos devuelve la
+     * vigente, un cambio exige motivo y un firmado solo admite rectificación.
+     */
+    private function emitirDocumento(ContratoLaboral $contrato, string $clave, User $actor, ?string $motivo, bool $rectificar, bool $esPrincipal): GeneratedDocument
+    {
+        $alEmitir = new AlEmitirConFuncion(function (GeneratedDocument $documento, ?GeneratedDocument $anterior) use ($contrato, $esPrincipal): void {
+            // Apunta al documento principal vigente; nunca a otra cadena de versiones.
+            if ($esPrincipal && ($contrato->generated_document_id === null || $contrato->generated_document_id === $anterior?->id)) {
+                $contrato->update(['generated_document_id' => $documento->id]);
+            }
+        });
+
+        return app(VersionadoDocumentoService::class)->emitir(
+            new FuentePlantillaMotor($this->motor, $contrato->colaborador, $contrato, $clave, $this->variablesContrato($contrato), null, $alEmitir),
+            [],
+            $motivo,
+            $actor,
+            $rectificar,
+        )->documento;
     }
 
     /**
