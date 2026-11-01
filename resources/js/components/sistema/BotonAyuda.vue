@@ -17,6 +17,7 @@ import { articulo } from '@/lib/guia';
 import { articuloDePantalla } from '@/lib/guia/contextual';
 import { tourCompleto, toursDisponibles } from '@/lib/tours/registro';
 import type { ContextoGuia, Tour } from '@/lib/tours/tipos';
+import { ayuda } from '@/routes';
 
 /**
  * Botón flotante presente en todas las pantallas autenticadas (montado una
@@ -191,7 +192,7 @@ function lanzar(tour: Tour): void {
                 class="w-full justify-start"
                 as-child
             >
-                <Link href="/ayuda" @click="abierto = false">
+                <Link :href="ayuda.url()" @click="abierto = false">
                     <BookOpen class="size-3.5" /> Ver guía completa del sistema
                 </Link>
             </Button>

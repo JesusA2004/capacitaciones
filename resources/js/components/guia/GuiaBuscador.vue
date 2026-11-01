@@ -17,6 +17,7 @@ import {
     buscarGlosario,
     buscarPreguntas,
 } from '@/lib/guia/buscador';
+import { preguntas as rutaPreguntas } from '@/routes/ayuda';
 
 /**
  * Buscador de la Guía: búsqueda local (sin IA ni servidor) sobre títulos,
@@ -194,7 +195,7 @@ defineExpose({ enfocar });
                     :href="
                         p.articulo
                             ? `/ayuda/articulo/${p.articulo}`
-                            : '/ayuda/preguntas'
+                            : rutaPreguntas.url()
                     "
                     class="flex items-center gap-2 py-1 text-sm hover:underline"
                 >
@@ -226,7 +227,7 @@ defineExpose({ enfocar });
             >
                 No encontré nada con «{{ consulta }}». Prueba con otra palabra
                 (por ejemplo «vacaciones», «QR», «finiquito») o revisa las
-                <Link href="/ayuda/preguntas" class="underline"
+                <Link :href="rutaPreguntas.url()" class="underline"
                     >preguntas frecuentes</Link
                 >.
             </p>

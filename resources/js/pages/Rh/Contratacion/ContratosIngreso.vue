@@ -18,6 +18,8 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useFiltros } from '@/composables/useFiltros';
+import { dashboard } from '@/routes';
+import { index } from '@/routes/rh/contratos-ingreso';
 import type { RespuestaPaginada } from '@/types';
 
 type DocumentoContrato = {
@@ -55,19 +57,16 @@ const props = defineProps<{
 defineOptions({
     layout: {
         breadcrumbs: [
-            { title: 'Inicio', href: '/dashboard' },
-            { title: 'Contratos de ingreso', href: '/rh/contratos-ingreso' },
+            { title: 'Inicio', href: dashboard.url() },
+            { title: 'Contratos de ingreso', href: index.url() },
         ],
     },
 });
 
-const { filtros, aplicarConDebounce, limpiar } = useFiltros(
-    '/rh/contratos-ingreso',
-    {
-        busqueda: props.filtros.busqueda ?? '',
-        sucursal_id: props.filtros.sucursal_id ?? '',
-    },
-);
+const { filtros, aplicarConDebounce, limpiar } = useFiltros(index.url(), {
+    busqueda: props.filtros.busqueda ?? '',
+    sucursal_id: props.filtros.sucursal_id ?? '',
+});
 
 function variantePaquete(
     fila: ContratoFila,

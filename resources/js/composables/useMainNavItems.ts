@@ -52,6 +52,7 @@ import type { LucideIcon } from '@lucide/vue';
 import { computed } from 'vue';
 import { useNavegacion } from '@/composables/useNavegacion';
 import { usePermisos } from '@/composables/usePermisos';
+import { ayuda } from '@/routes';
 import { dashboard, miExpediente } from '@/routes';
 import { index as indexAppReleases } from '@/routes/administracion/app-releases';
 import { index as indexConfiguracion } from '@/routes/administracion/configuracion';
@@ -221,7 +222,7 @@ export function useMainNavItems() {
                     href: indexAgenda(),
                     icon: CalendarClock,
                 },
-            { title: 'Ayuda', href: '/ayuda', icon: Compass },
+            { title: 'Ayuda', href: ayuda.url(), icon: Compass },
         ];
 
         return items.filter((i): i is NavItem => i !== false);

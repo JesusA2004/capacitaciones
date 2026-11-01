@@ -22,6 +22,10 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useFiltros } from '@/composables/useFiltros';
+import { dashboard } from '@/routes';
+import { index } from '@/routes/rh/contratacion';
+import { index as contratosIngresoIndex } from '@/routes/rh/contratos-ingreso';
+import { index as validacionIndex } from '@/routes/rh/validacion-documentos';
 import type { RespuestaPaginada } from '@/types';
 
 type Persona = {
@@ -63,19 +67,16 @@ const props = defineProps<{
 defineOptions({
     layout: {
         breadcrumbs: [
-            { title: 'Inicio', href: '/dashboard' },
-            { title: 'Personas en contratación', href: '/rh/contratacion' },
+            { title: 'Inicio', href: dashboard.url() },
+            { title: 'Personas en contratación', href: index.url() },
         ],
     },
 });
 
-const { filtros, aplicarConDebounce, limpiar } = useFiltros(
-    '/rh/contratacion',
-    {
-        busqueda: props.filtros.busqueda ?? '',
-        sucursal_id: props.filtros.sucursal_id ?? '',
-    },
-);
+const { filtros, aplicarConDebounce, limpiar } = useFiltros(index.url(), {
+    busqueda: props.filtros.busqueda ?? '',
+    sucursal_id: props.filtros.sucursal_id ?? '',
+});
 
 function fechaCorta(valor: string | null): string {
     return valor
@@ -98,13 +99,13 @@ function fechaCorta(valor: string | null): string {
             :icono="UserPlus"
         >
             <Button variant="outline" as-child>
-                <Link href="/rh/validacion-documentos">
+                <Link :href="validacionIndex.url()">
                     <ClipboardList class="size-4" />
                     Validación de documentos
                 </Link>
             </Button>
             <Button variant="outline" as-child>
-                <Link href="/rh/contratos-ingreso">
+                <Link :href="contratosIngresoIndex.url()">
                     <FileSignature class="size-4" />
                     Contratos de ingreso
                 </Link>

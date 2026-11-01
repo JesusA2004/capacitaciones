@@ -2,6 +2,12 @@ import { usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import { notificacionDeSistema } from '@/lib/avisosNavegador';
 import { enviarJson } from '@/lib/http';
+import { centro } from '@/routes/notificaciones';
+import {
+    desuscribir,
+    prueba,
+    suscribir,
+} from '@/routes/notificaciones/web-push';
 
 type EstadoWebPush =
     'no-soportado' | 'sin-configurar' | 'bloqueado' | 'pendiente' | 'activo';
@@ -150,7 +156,7 @@ export function useWebPush() {
             applicationServerKey: aBytes(clavePublica.value),
         });
 
-        await enviarJson('POST', '/notificaciones/web-push', {
+        await enviarJson('POST', suscribir.url(), {
             ...suscripcion.toJSON(),
             contentEncoding:
                 (
@@ -197,7 +203,7 @@ export function useWebPush() {
         const suscripcion = await registro?.pushManager.getSubscription();
 
         if (suscripcion) {
-            await enviarJson('DELETE', '/notificaciones/web-push', {
+            await enviarJson('DELETE', desuscribir.url(), {
                 endpoint: suscripcion.endpoint,
             }).catch(() => undefined);
             await suscripcion.unsubscribe().catch(() => undefined);
@@ -218,7 +224,7 @@ export function useWebPush() {
             return;
         }
 
-        await enviarJson('POST', '/notificaciones/web-push/prueba');
+        await enviarJson('POST', prueba.url());
     }
 
     /**
@@ -273,7 +279,7 @@ export function alRecibirWebPush(
             callback({
                 titulo: datos.titulo ?? '',
                 cuerpo: datos.cuerpo ?? '',
-                url: datos.url ?? '/notificaciones/centro',
+                url: datos.url ?? centro.url(),
             });
         }
     };
@@ -302,7 +308,7 @@ export async function olvidarSuscripcionAlSalir(): Promise<void> {
             // al desuscribir el navegador el endpoint deja de existir y el
             // siguiente envío lo depura (SendWebPushJob, 410).
             await Promise.allSettled([
-                enviarJson('DELETE', '/notificaciones/web-push', {
+                enviarJson('DELETE', desuscribir.url(), {
                     endpoint: suscripcion.endpoint,
                 }),
                 suscripcion.unsubscribe(),

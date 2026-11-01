@@ -219,11 +219,11 @@ class ContratacionListaService
             // La extracción y la vista completa del expediente viven en el
             // expediente; aquí se enlaza, no se duplica. El documento en sí
             // se revisa en el visor centrado con descargar_url (inline).
-            'expediente_url' => sprintf('/rh/expedientes/%d', $colaborador->id),
-            'descargar_url' => sprintf('/rh/documentos/%d/descargar', $documento->id),
-            'aprobar_url' => sprintf('/rh/documentos/%d/aprobar', $documento->id),
-            'rechazar_url' => sprintf('/rh/documentos/%d/rechazar', $documento->id),
-            'correccion_url' => sprintf('/rh/documentos/%d/solicitar-correccion', $documento->id),
+            'expediente_url' => route('rh.expedientes.show', $colaborador->id, false),
+            'descargar_url' => route('rh.documentos.descargar', $documento->id, false),
+            'aprobar_url' => route('rh.documentos.aprobar', $documento->id, false),
+            'rechazar_url' => route('rh.documentos.rechazar', $documento->id, false),
+            'correccion_url' => route('rh.documentos.solicitar-correccion', $documento->id, false),
         ];
     }
 

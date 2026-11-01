@@ -61,6 +61,8 @@ import { datosFaltantesCompletos } from '@/lib/datosFaltantes';
 import { getJson } from '@/lib/http';
 import { opcionesDe } from '@/lib/opcionesSelect';
 import type { Tono } from '@/lib/tonos';
+import { dashboard } from '@/routes';
+import { index as contratosIndex } from '@/routes/rh/contratos';
 import {
     completarDatos as completarDatosRuta,
     generar as generarRuta,
@@ -103,8 +105,8 @@ const props = defineProps<{
 defineOptions({
     layout: {
         breadcrumbs: [
-            { title: 'Inicio', href: '/dashboard' },
-            { title: 'Contratos', href: '/rh/contratos' },
+            { title: 'Inicio', href: dashboard.url() },
+            { title: 'Contratos', href: contratosIndex.url() },
         ],
     },
 });

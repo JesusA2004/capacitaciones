@@ -1,4 +1,8 @@
 import { leerCookie } from '@/lib/http';
+import * as rutasProcedimiento from '@/routes/rh/cierres/procedimiento';
+import { descargar as descargarDocumentoLaboral } from '@/routes/rh/documentos-laborales';
+import * as rutasProceso from '@/routes/rh/documentos-proceso';
+import * as rutasPrevia from '@/routes/rh/documentos-proceso/previa';
 import type {
     DatoFaltante,
     DocumentoVistaPrevia,
@@ -83,20 +87,21 @@ async function solicitar<T>(
     return datos as T;
 }
 
-const base = '/rh/documentos-proceso';
-
 export function useDocumentosProceso() {
     return {
         delColaborador: (colaboradorId: number) =>
             solicitar<{ data: SeccionDocumentosProceso[] }>(
                 'GET',
-                `${base}/colaborador/${colaboradorId}`,
+                rutasProceso.colaborador.url(colaboradorId),
             ).then((r) => r.data),
 
         seccion: (tipo: TipoRegistroDocumental, id: number, proceso?: string) =>
             solicitar<{ data: SeccionDocumentosProceso }>(
                 'GET',
-                `${base}/${tipo}/${id}${proceso ? `?proceso=${proceso}` : ''}`,
+                rutasProceso.show.url(
+                    { tipo, id },
+                    proceso ? { query: { proceso } } : undefined,
+                ),
             ).then((r) => r.data),
 
         generar: (
@@ -114,7 +119,7 @@ export function useDocumentosProceso() {
         ) =>
             solicitar<{ data: SeccionDocumentosProceso; documento_id: number }>(
                 'POST',
-                `${base}/${tipo}/${id}/generar`,
+                rutasProceso.generar.url({ tipo, id }),
                 cuerpo,
             ),
 
@@ -125,14 +130,14 @@ export function useDocumentosProceso() {
         ) =>
             solicitar<{ data: SeccionDocumentosProceso; message: string }>(
                 'POST',
-                `${base}/${tipo}/${id}/paquete`,
+                rutasProceso.paquete.url({ tipo, id }),
                 cuerpo,
             ),
 
         operar: (documentoId: number, accion: string, cuerpo: Cuerpo) =>
             solicitar<{ message: string }>(
                 'POST',
-                `${base}/documento/${documentoId}/${accion}`,
+                rutasProceso.operar.url({ documento: documentoId, accion }),
                 cuerpo,
             ),
 
@@ -143,7 +148,7 @@ export function useDocumentosProceso() {
         ) =>
             solicitar<{ data: SeccionDocumentosProceso; message: string }>(
                 'POST',
-                `/rh/cierres/${cierreId}/procedimiento/${accion}`,
+                rutasProcedimiento[accion].url(cierreId),
                 cuerpo,
             ),
 
@@ -173,7 +178,7 @@ export function useDocumentosProceso() {
                 );
             }
 
-            return `${base}/${tipo}/${id}/vista-previa?${consulta.toString()}`;
+            return `${rutasProceso.vistaPrevia.url({ tipo, id })}?${consulta.toString()}`;
         },
 
         /**
@@ -196,14 +201,13 @@ export function useDocumentosProceso() {
 
             return solicitar<{ data: DocumentoVistaPrevia[] }>(
                 'GET',
-                `${base}/previa/${flujo}/${id}?${consulta.toString()}`,
+                `${rutasPrevia.documentos.url({ flujo, id })}?${consulta.toString()}`,
             ).then((r) => r.data);
         },
 
         urlDescarga: (documentoId: number) =>
-            `/rh/documentos-laborales/${documentoId}/descargar`,
+            descargarDocumentoLaboral.url(documentoId),
 
-        urlWord: (documentoId: number) =>
-            `${base}/documento/${documentoId}/word`,
+        urlWord: (documentoId: number) => rutasProceso.word.url(documentoId),
     };
 }

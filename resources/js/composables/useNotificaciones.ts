@@ -15,6 +15,7 @@ import {
     sonarAviso,
 } from '@/lib/avisosNavegador';
 import { postJson } from '@/lib/http';
+import { centro } from '@/routes/notificaciones';
 import {
     abrir as rutaAbrir,
     index,
@@ -95,7 +96,7 @@ function avisarNuevas(lista: NotificacionItem[]): void {
         toast.info(`Tienes ${propias.length} notificaciones nuevas`, {
             action: {
                 label: 'Ver todas',
-                onClick: () => router.visit('/notificaciones/centro'),
+                onClick: () => router.visit(centro.url()),
             },
         });
     }
@@ -118,7 +119,7 @@ function avisarNuevas(lista: NotificacionItem[]): void {
                 'resumen',
                 'MR. LANA PEOPLE',
                 `Tienes ${propias.length} notificaciones nuevas`,
-                () => router.visit('/notificaciones/centro'),
+                () => router.visit(centro.url()),
             );
         } else {
             for (const n of mostrar) {
