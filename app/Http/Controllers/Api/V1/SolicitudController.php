@@ -68,6 +68,7 @@ class SolicitudController extends Controller
         $this->authorize('view', $solicitud);
 
         $solicitud->load(['documentos', 'historial']);
+        app(SolicitudesService::class)->ocultarImportesDelHistorial($solicitud, $request->user());
 
         return response()->json(new SolicitudInternaResource($solicitud));
     }

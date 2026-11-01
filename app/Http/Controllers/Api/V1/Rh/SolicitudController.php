@@ -76,6 +76,7 @@ class SolicitudController extends Controller
             'documentos',
             'historial.usuario:id,name,apellidos',
         ]);
+        $this->solicitudes->ocultarImportesDelHistorial($solicitud, $usuario);
 
         $flujo = $this->workflow->paraSolicitud($usuario, $solicitud);
 

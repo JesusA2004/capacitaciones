@@ -63,6 +63,7 @@ class SolicitudInternaController extends Controller
         $this->authorize('view', $solicitud);
 
         $solicitud->load(['usuario:id,name,apellidos', 'colaboradorObjetivo:id,name,apellidos', 'revisadoPor:id,name,apellidos', 'documentos', 'documentosGenerados.plantilla:id,nombre,tipo', 'officialFormatGenerations.formato:id,nombre', 'historial.usuario:id,name,apellidos']);
+        app(SolicitudesService::class)->ocultarImportesDelHistorial($solicitud, $request->user());
 
         return Inertia::render('Solicitudes/Show', [
             'solicitud' => $solicitud,

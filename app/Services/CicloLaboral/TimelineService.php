@@ -32,6 +32,11 @@ use Spatie\Activitylog\Models\Activity;
 class TimelineService
 {
     /**
+     * Su motivo es texto libre y suele citar un importe («era 20,000, debe ser 25,000»).
+     */
+    private const EVENTOS_CON_POSIBLES_IMPORTES = '/^(correccion_|documento_regenerado|documento_revision_firmado|expediente_datos|contrato_|salario|sueldo|recibo|nomina)/';
+
+    /**
      * Evento de AuditoriaService → [título, etapa].
      *
      * @var array<string, array{0: string, 1: string}>
@@ -106,15 +111,18 @@ class TimelineService
     ];
 
     /**
+     * Sin permiso expreso (por omisión) no salen sueldos, ni los motivos de eventos que
+     * pueden citar un importe: el evento se conserva, sin su texto.
+     *
      * @return list<ItemTimeline>
      */
-    public function de(Candidato|Colaborador $persona, int $limite = 300, bool $conSueldos = true): array
+    public function de(Candidato|Colaborador $persona, int $limite = 300, bool $conSueldos = false, bool $conFiniquitos = false): array
     {
         [$candidatoId, $colaboradorId] = $persona instanceof Candidato
             ? [$persona->id, $persona->colaborador_id]
             : [$persona->candidato_id, $persona->id];
 
-        $items = $this->bitacora($candidatoId, $colaboradorId, $limite);
+        $items = $this->bitacora($candidatoId, $colaboradorId, $limite, $conSueldos, $conFiniquitos);
 
         if ($candidatoId !== null) {
             $items = [...$items, ...$this->seguimientos($candidatoId, $limite)];
@@ -161,7 +169,7 @@ class TimelineService
     /**
      * @return list<ItemTimeline>
      */
-    private function bitacora(?int $candidatoId, ?int $colaboradorId, int $limite): array
+    private function bitacora(?int $candidatoId, ?int $colaboradorId, int $limite, bool $conSueldos, bool $conFiniquitos): array
     {
         if ($candidatoId === null && $colaboradorId === null) {
             return [];
@@ -198,7 +206,7 @@ class TimelineService
             $items[] = [
                 'fecha' => $a->created_at?->toIso8601String(),
                 'titulo' => $this->tituloConDetalle($titulo, $evento, $propiedades),
-                'descripcion' => $this->descripcion($propiedades),
+                'descripcion' => $this->puedeLeerDetalle($evento, $conSueldos, $conFiniquitos) ? $this->descripcion($propiedades) : null,
                 'actor' => $causer instanceof User ? $causer->nombreCompleto() : null,
                 'etapa' => $etapa,
                 'evento' => $evento,
@@ -206,6 +214,15 @@ class TimelineService
         }
 
         return $items;
+    }
+
+    private function puedeLeerDetalle(string $evento, bool $conSueldos, bool $conFiniquitos): bool
+    {
+        if (str_starts_with($evento, 'finiquito')) {
+            return $conFiniquitos;
+        }
+
+        return $conSueldos || preg_match(self::EVENTOS_CON_POSIBLES_IMPORTES, $evento) !== 1;
     }
 
     /**

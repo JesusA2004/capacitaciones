@@ -224,6 +224,8 @@ class SolicitudController extends Controller
             'finiquitoCalculo.revisadoPor:id,name,apellidos',
         ]);
 
+        $this->solicitudes->ocultarImportesDelHistorial($solicitud, $request->user());
+
         $puedeGenerarFormato = $request->user()->can('plantillas.generar');
         $finiquito = $solicitud->finiquitoCalculo;
 

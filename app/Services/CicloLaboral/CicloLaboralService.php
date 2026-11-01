@@ -187,7 +187,7 @@ class CicloLaboralService
             'bloqueos' => $bloqueos,
             'pasos' => $pasos,
             'aprobaciones' => $this->aprobaciones->resumen($c, ProcesoAprobacion::SeleccionCandidato),
-            'timeline' => $conTimeline ? $this->timeline->de($c) : [],
+            'timeline' => $conTimeline ? $this->timeline->de($c, conSueldos: app(AccesoSueldoService::class)->puedeVer($viewer, $c->colaborador_id), conFiniquitos: app(AccesoSueldoService::class)->puedeVerFiniquito($viewer, $c->colaborador_id)) : [],
             'acciones_permitidas' => $acciones,
         ];
     }
@@ -277,7 +277,7 @@ class CicloLaboralService
             'onboarding_id' => $onboarding?->id,
             'evaluacion_id' => $evaluacion?->id,
             'contrato_id' => $contrato?->id,
-            'timeline' => $conTimeline ? $this->timeline->de($colaborador, conSueldos: app(AccesoSueldoService::class)->puedeVer($viewer, $colaborador->id)) : [],
+            'timeline' => $conTimeline ? $this->timeline->de($colaborador, conSueldos: app(AccesoSueldoService::class)->puedeVer($viewer, $colaborador->id), conFiniquitos: app(AccesoSueldoService::class)->puedeVerFiniquito($viewer, $colaborador->id)) : [],
             'acciones_permitidas' => $detalle['acciones'],
         ];
     }

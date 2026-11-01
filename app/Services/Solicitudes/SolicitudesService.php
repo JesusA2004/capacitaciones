@@ -1010,6 +1010,25 @@ class SolicitudesService
         };
     }
 
+    /**
+     * Los textos del finiquito en el historial citan importes: sin permiso de verlo
+     * el evento se conserva sin su texto. Solo cambia lo cargado, nunca se guarda.
+     */
+    public function ocultarImportesDelHistorial(SolicitudInterna $solicitud, ?User $viewer): void
+    {
+        $finiquito = FiniquitoCalculo::query()->where('solicitud_interna_id', $solicitud->id)->first();
+
+        if ($finiquito !== null && $viewer !== null && $viewer->can('ver', $finiquito)) {
+            return;
+        }
+
+        foreach ($solicitud->historial as $evento) {
+            if (str_starts_with($evento->accion, 'finiquito_')) {
+                $evento->comentario = null;
+            }
+        }
+    }
+
     public function registrarHistorial(SolicitudInterna $solicitud, ?User $actor, string $accion, ?string $comentario = null): void
     {
         $solicitud->historial()->create([
