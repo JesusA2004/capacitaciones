@@ -36,6 +36,7 @@ El aviso nunca incluye el valor. Espejo móvil en `/api/v1/rh/correcciones`, sin
 | finiquito | conceptos, comentarios | directo; no corregible si firmado o pagado | `finiquitos.calcular` | `FiniquitoService::corregir()` |
 | agenda | fecha y hora | nueva cita (la anterior se conserva) | `agenda.agendar` | `reprogramar()` |
 | agenda | notas | directo si está programada | `agenda.agendar` | |
+| documento_generado | datos del documento | nueva versión (`VersionadoDocumentoService`); solo historial por esta vía | según el módulo | Ver `DOCUMENTOS_VERSIONES.md` |
 
 ## Tipos de cambio de sueldo (`historial_salarios.tipo`)
 
@@ -74,14 +75,16 @@ Mientras tanto rige la opción conservadora indicada:
 7. Cálculo de quincena (lote: diario × días; automático: desde mensual): sin cambios.
 8. Fecha de ingreso con contratos firmados, recibos o finiquito: bloqueada.
 9. Doble autorización y umbrales: no existen.
-10. Purga (`PurgaPersonaService`): borra las correcciones de la persona como el resto
-    de su historial; ser actor de correcciones ajenas detiene la purga.
+10. Purga (`PurgaPersonaService`): solo para registros erróneos o de prueba. Tener
+    correcciones, documentos firmados, recibos emitidos o finiquito firmado o pagado
+    detiene la purga, igual que ser actor de correcciones ajenas. Las filas de
+    `correcciones` de la persona solo se borrarían si la regla se relajara.
 11. Puesto y sucursal se corrigen sin vigencia: no distingue error de movimiento real.
 12. Lista completa de modos de este documento.
 
 ## Fuera de esta entrega
 
 - Cambios de sueldo con fecha futura: se rechazan; no hay programador.
-- Documentos generados: siguen en su flujo de revisión (`DocumentoProcesoService`).
+- Documentos generados: se corrigen al emitir una versión (`docs/DOCUMENTOS_VERSIONES.md`); dominio `documento_generado`, solo historial.
 - PDF de recibos emitidos antes de `datos_emision`: reparar usa datos vigentes.
 - La edición clásica del expediente sigue sin huella (D10): solo la protege este flujo.

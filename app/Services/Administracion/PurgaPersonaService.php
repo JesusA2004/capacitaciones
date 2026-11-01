@@ -2,6 +2,9 @@
 
 namespace App\Services\Administracion;
 
+use App\Enums\EstadoFiniquito;
+use App\Enums\EstadoFlujoDocumento;
+use App\Enums\EstadoReciboNomina;
 use App\Models\Colaborador;
 use App\Models\User;
 use App\Support\ReferenciasColaborador;
@@ -23,6 +26,10 @@ use Spatie\Permission\PermissionRegistrar;
  * evaluaciones, contratos, cierres, finiquitos, responsivas, actas,
  * préstamos, recibos, documentos lógicos, notificaciones, tokens, roles…—
  * respetando el orden de las llaves foráneas (hijos antes que padres).
+ *
+ * NUNCA aplica a una persona con actividad real (correcciones auditadas, documentos
+ * firmados, recibos emitidos, finiquito firmado o pagado): la purga se detiene
+ * (bloqueosActividadReal). Es exclusivamente para registros erróneos o de prueba.
  *
  * Qué NO toca:
  *  - Los ARCHIVOS del NAS (disco `nas`): PDF de responsivas, expediente,
@@ -201,7 +208,7 @@ class PurgaPersonaService
 
         if ($bloqueos !== []) {
             throw ValidationException::withMessages([
-                'frase' => 'No se puede purgar: '.implode(' ', $bloqueos).' Son datos de terceros que deben conservarse.',
+                'frase' => 'No se puede purgar: '.implode(' ', $bloqueos).' Son datos que deben conservarse: si la persona ya tuvo actividad real, da de baja o revoca el acceso en lugar de purgar.',
             ]);
         }
 
@@ -297,6 +304,10 @@ class PurgaPersonaService
             }
         }
 
+        if ($colaborador !== null) {
+            $mensajes = [...$mensajes, ...$this->bloqueosActividadReal($colaborador)];
+        }
+
         foreach (self::BLOQUEO_RESTRICT_BAJA as [$tabla, $columna, $etiqueta]) {
             if (! Schema::hasTable($tabla)) {
                 continue;
@@ -312,6 +323,34 @@ class PurgaPersonaService
 
             if ($filas > 0) {
                 $mensajes[] = sprintf('%d %s a su nombre.', $filas, $etiqueta);
+            }
+        }
+
+        return $mensajes;
+    }
+
+    /**
+     * Persona con actividad real: su historial no se destruye. Las correcciones son
+     * un historial inmutable y lo firmado, emitido o pagado tiene efectos legales.
+     * Solo se purga un registro erróneo o de prueba; lo demás se da de baja (bloquea
+     * el acceso y conserva todo).
+     *
+     * @return list<string>
+     */
+    private function bloqueosActividadReal(Colaborador $colaborador): array
+    {
+        $firmados = array_map(fn (EstadoFlujoDocumento $e): string => $e->value, array_filter(EstadoFlujoDocumento::cases(), fn (EstadoFlujoDocumento $e): bool => $e->firmaFisicaRegistrada()));
+        $conteos = [
+            'correcciones auditadas de sus datos' => DB::table('correcciones')->where('colaborador_id', $colaborador->id)->count(),
+            'documentos firmados' => DB::table('generated_documents')->where('colaborador_id', $colaborador->id)->whereIn('estado_flujo', $firmados)->count(),
+            'recibos de nómina emitidos' => DB::table('recibos_nomina')->where('colaborador_id', $colaborador->id)->where('estado', EstadoReciboNomina::Emitido->value)->count(),
+            'finiquitos firmados o pagados' => DB::table('finiquito_calculos')->where('colaborador_id', $colaborador->id)->whereIn('estado', [EstadoFiniquito::Firmado->value, EstadoFiniquito::Pagado->value])->count(),
+        ];
+        $mensajes = [];
+
+        foreach ($conteos as $etiqueta => $filas) {
+            if ($filas > 0) {
+                $mensajes[] = sprintf('%d %s.', $filas, $etiqueta);
             }
         }
 
