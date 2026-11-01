@@ -45,6 +45,7 @@ class HeadcountImportService
         // "Gerente" era un duplicado de "Gerente de Sucursal" (ver
         // PuestoJerarquiaSeeder): el gerente del Excel es el de sucursal.
         'GERENTE' => 'Gerente de Sucursal',
+        'GERENTE DE OPERACIONES' => 'Gerente de Sucursal',
         'SUBGERENTE' => 'Subgerente',
         'GESTOR GRUPAL' => 'Gestor grupal',
     ];

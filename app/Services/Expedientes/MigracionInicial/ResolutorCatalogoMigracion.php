@@ -37,6 +37,8 @@ class ResolutorCatalogoMigracion
 
     public const GERENTE = 'GERENTE';
 
+    public const GERENTE_DE_OPERACIONES = 'GERENTE DE OPERACIONES';
+
     public const COORDINADORA = 'COORDINADORA';
 
     private const CLAVE_CORPORATIVO = 'CORP01';
@@ -165,7 +167,7 @@ class ResolutorCatalogoMigracion
     /** ¿El nombre se resuelve por regla de contexto (sucursal/región/departamento) y no por catálogo? */
     public function esDeContexto(?string $nombre): bool
     {
-        return in_array(Normalizador::clave($nombre), [self::REGIONAL_OPERACIONES, self::ASISTENTE_DIRECCION, self::COORDINADORA_ADMINISTRATIVA, self::GERENTE_REGIONAL, self::GERENTE, self::COORDINADORA], true);
+        return in_array(Normalizador::clave($nombre), [self::REGIONAL_OPERACIONES, self::ASISTENTE_DIRECCION, self::COORDINADORA_ADMINISTRATIVA, self::GERENTE_REGIONAL, self::GERENTE, self::GERENTE_DE_OPERACIONES, self::COORDINADORA], true);
     }
 
     /** Nombre ya traducido por alias explícito (normalizado), para auditar qué alias se aplicó. */
@@ -186,7 +188,9 @@ class ResolutorCatalogoMigracion
 
         return match ($clave) {
             // Una sola plaza de empresa: ya no depende de la región.
-            self::REGIONAL_OPERACIONES, self::GERENTE_REGIONAL => $this->resultado('Gerente Regional', 'regional_unico'),
+            self::GERENTE_REGIONAL => $this->resultado('Gerente Regional', 'regional_unico'),
+            // Sin aclarar por la dueña del negocio: se reporta, no se reasigna a nadie.
+            self::REGIONAL_OPERACIONES => ['puesto' => null, 'regla' => null, 'motivo' => 'CONFLICTO: «Regional de Operaciones» aún no está definido en la estructura: asígnale el puesto exacto.'],
             // Asistente: la Dirección General vive en «Dirección»; la Comercial en Ventas/Operaciones.
             self::ASISTENTE_DIRECCION => match (Normalizador::clave($departamentoExcel?->nombre)) {
                 'DIRECCION' => $this->resultado('Asistente de Dirección General', 'departamento_direccion'),
@@ -202,10 +206,10 @@ class ResolutorCatalogoMigracion
             self::COORDINADORA => $esCorporativo
                 ? $this->resultado('Coordinadora Regional', 'corporativo')
                 : $this->resultado('Coordinadora de Sucursal', 'sucursal'),
-            // «Gerente» a secas en una sucursal = Gerente de Sucursal; en
-            // Corporativo hay varias gerencias y no se adivina cuál.
-            self::GERENTE => $esCorporativo || $sucursal === null
-                ? ['puesto' => null, 'regla' => null, 'motivo' => 'CONFLICTO: «Gerente» sin sucursal operativa: en Corporativo hay varias gerencias; asígnale el puesto exacto.']
+            // «Gerente» a secas o «Gerente de operaciones» en una sucursal = Gerente
+            // de Sucursal; en Corporativo hay varias gerencias y no se adivina cuál.
+            self::GERENTE, self::GERENTE_DE_OPERACIONES => $esCorporativo || $sucursal === null
+                ? ['puesto' => null, 'regla' => null, 'motivo' => sprintf('CONFLICTO: «%s» sin sucursal operativa: en Corporativo hay varias gerencias; asígnale el puesto exacto.', $clave === self::GERENTE ? 'Gerente' : 'Gerente de operaciones')]
                 : $this->resultado('Gerente de Sucursal', 'sucursal'),
             default => null,
         };

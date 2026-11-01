@@ -58,7 +58,9 @@ return [
     // notificación. El regional se resuelve por la matriz comercial (región
     // ligada a su puesto) y organigrama.puestos_de_region.
     'organizacion' => [
-        'puestos_gerencia_sucursal' => ['Gerente de Sucursal'],
+        // «Gerente de operaciones» y «Gerente» a secas son el Gerente de Sucursal
+        // (siempre ligados a una sucursal: en Corporativo no aplican).
+        'puestos_gerencia_sucursal' => ['Gerente de Sucursal', 'Gerente de operaciones', 'Gerente'],
         'puestos_gerencia_rh' => ['Gerencia de Recursos Humanos'],
         // Nivel extra de visto bueno (antes de RH) cuando quien solicita YA
         // es de gerencia o superior (Gerente de Mesa de Control, Contraloría,

@@ -69,8 +69,6 @@ function cbgCombinaciones(): array
         ['Gestor de Credito', 'Operaciones', 'Tula'],
         ['gestor de Credito', 'Operación', 'Cuernavaca'],
         ['Subgerente', 'Operaciones', 'Miacatlán'],
-        ['Regional de Operaciones', 'Operaciones', 'Atlixco'],
-        ['Regional de Operaciones', 'Operaciones', 'Cuernavaca'],
         ['Director General', 'Dirección', 'Corporativo'],
         ['Gerente R.H.', 'R.H.', 'Corporativo'],
         ['Monitorista', 'Sistemas', 'Corporativo'],
@@ -111,8 +109,6 @@ test('todos los valores únicos de BASE_GENERAL tienen catálogo: 0 empresas/suc
 
     expect($puestos['Coordinadora Administrativa @ Atlacomulco'])->toBe('Coordinadora de Sucursal')
         ->and($puestos['gestor de Credito @ Cuernavaca'])->toBe('Gestor')
-        ->and($puestos['Regional de Operaciones @ Atlixco'])->toBe('Gerente Regional')
-        ->and($puestos['Regional de Operaciones @ Cuernavaca'])->toBe('Gerente Regional')
         ->and($puestos['Director General @ Corporativo'])->toBe('Dirección General')
         ->and($puestos['Director Comercial @ Corporativo'])->toBe('Dirección Comercial')
         ->and($puestos['Gerente R.H. @ Corporativo'])->toBe('Gerencia de Recursos Humanos')
@@ -137,9 +133,9 @@ test('casos ambiguos que no se pueden decidir se reportan como conflicto explíc
         ['Coordinadora Administrativa', 'Administración', 'Corporativo'],
     ]), 'base.xlsx', null)->planArray();
 
-    // Regional de Operaciones ya no es ambiguo: hay una sola plaza de Gerente Regional.
-    expect(array_column($plan['filas'], 'operacion'))->toBe(['crear', 'conflicto', 'conflicto'])
-        ->and($plan['filas'][0]['puesto_nombre'])->toBe('Gerente Regional')
+    // Regional de Operaciones: la dueña del negocio aún no lo aclara; no se reasigna a nadie.
+    expect(array_column($plan['filas'], 'operacion'))->toBe(['conflicto', 'conflicto', 'conflicto'])
+        ->and(implode(' ', $plan['filas'][0]['motivos']))->toContain('Regional de Operaciones')
         ->and(implode(' ', $plan['filas'][1]['motivos']))->toContain('Dirección General o Comercial')
         ->and(implode(' ', $plan['filas'][2]['motivos']))->toContain('Corporativo no tiene Coordinadora de Sucursal');
 });
@@ -188,4 +184,17 @@ test('cada análisis vuelve a inventariar el NAS: uno sin carpeta y el siguiente
 
     expect($segundo['origen']['existe'])->toBeTrue()
         ->and($segundo['carpetas_total'])->toBe(1);
+});
+
+test('«Gerente de operaciones» es Gerente de Sucursal en sucursal y conflicto en Corporativo; Coordinadora sigue aparte', function () {
+    $plan = $this->servicio->analizar(cbgExcel([
+        ['Gerente de operaciones', 'Operaciones', 'Atlixco'],
+        ['Gerente de operaciones', 'Operaciones', 'Corporativo'],
+        ['Coordinadora', 'Administración', 'Atlixco'],
+    ]), 'base.xlsx', null)->planArray();
+
+    expect(array_column($plan['filas'], 'operacion'))->toBe(['crear', 'conflicto', 'crear'])
+        ->and($plan['filas'][0]['puesto_nombre'])->toBe('Gerente de Sucursal')
+        ->and(implode(' ', $plan['filas'][1]['motivos']))->toContain('Gerente de operaciones')
+        ->and($plan['filas'][2]['puesto_nombre'])->toBe('Coordinadora de Sucursal');
 });

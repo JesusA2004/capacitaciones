@@ -245,6 +245,28 @@ class SincronizadorOrganigramaService
         }
     }
 
+    /**
+     * «Gerente de operaciones» y «Gerente» a secas valen como Gerente de Sucursal
+     * solo en una sucursal operativa: con titular en Corporativo no se adivina.
+     */
+    private function reportarAliasDeGerente(): void
+    {
+        foreach ((array) config('organigrama.alias_gerente_sucursal', []) as $alias) {
+            $puesto = Puesto::query()->where('nombre', $alias)->where('activo', true)->first();
+
+            if ($puesto === null) {
+                continue;
+            }
+
+            $fueraDeSucursal = $this->titularesVigentes($puesto)
+                ->filter(fn (Colaborador $c) => $c->sucursal_principal_id === null || Sucursal::query()->whereKey($c->sucursal_principal_id)->where('es_corporativo', true)->exists());
+
+            if ($fueraDeSucursal->isNotEmpty()) {
+                $this->reporte['conflictos'][] = sprintf('«%s» con %d titular(es) en Corporativo o sin sucursal: no se toma como Gerente de Sucursal; asígnales el puesto exacto.', $alias, $fueraDeSucursal->count());
+            }
+        }
+    }
+
     /** Nombre con el que el puesto está HOY en la base (ver --simular). */
     private function nombreEnBase(string $nombre): string
     {
@@ -307,6 +329,8 @@ class SincronizadorOrganigramaService
         if ($operaciones !== null) {
             $this->reporte['conflictos'][] = sprintf('Existe «Regional de Operaciones» con %d titular(es): no se une solo; cámbialos a «Gerente Regional» o «Subgerente Regional».', $this->titularesVigentes($operaciones)->count());
         }
+
+        $this->reportarAliasDeGerente();
 
         if ($anteriores->isEmpty()) {
             return;

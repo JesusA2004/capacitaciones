@@ -5,6 +5,7 @@ namespace App\Services\Organigrama;
 use App\Models\CoberturaPuesto;
 use App\Models\Colaborador;
 use App\Models\Puesto;
+use App\Models\Sucursal;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Str;
@@ -12,8 +13,8 @@ use Illuminate\Support\Str;
 /**
  * Autoridad dentro de la línea comercial (config organigrama.linea_comercial):
  * Gerente Regional > Subgerente Regional > Gerente de Sucursal > Subgerente de
- * Sucursal > Gestores. Se modifica lo hecho por un puesto inferior o del mismo
- * nivel, nunca lo hecho por uno superior. Se resuelve por el puesto en la base
+ * Sucursal > Gestores. Se modifica lo hecho por un puesto inferior, nunca lo hecho
+ * por uno del mismo nivel o superior. Se resuelve por el puesto en la base
  * (titular o cobertura vigente), nunca por el nombre de una persona.
  *
  * La regla solo ordena esta línea: quien está fuera de ella (RH, Dirección,
@@ -40,7 +41,39 @@ class AutoridadJerarquicaService
         $rangoActor = $this->rangoDeUsuario($actor);
         $rangoAutor = $this->rangoDeUsuario($autor);
 
-        return $rangoActor === null || $rangoAutor === null || $rangoActor <= $rangoAutor;
+        return $rangoActor === null || $rangoAutor === null || $rangoActor < $rangoAutor;
+    }
+
+    /**
+     * Reabrir: el actor está a uno o más niveles por encima de quien decidió. A
+     * diferencia de puedeModificarLoHechoPor, no basta estar fuera de la línea: un
+     * mismo nivel, uno mismo, RH o un autor desconocido no cuentan como superiores.
+     * Sobre lo decidido fuera de la línea (RH…), solo Dirección General.
+     */
+    public function esRangoSuperior(User $actor, ?User $autor): bool
+    {
+        if ($autor === null || $actor->is($autor)) {
+            return false;
+        }
+
+        $rangoActor = $this->rangoParaReabrir($actor);
+
+        if ($rangoActor === null) {
+            return false;
+        }
+
+        $rangoAutor = $this->rangoParaReabrir($autor);
+
+        return $rangoAutor === null ? $rangoActor === $this->rangoMaximo() : $rangoActor < $rangoAutor;
+    }
+
+    /**
+     * Rango de la línea que corresponde a un nombre de puesto (0 es el más alto),
+     * sin importar quién lo ocupa.
+     */
+    public function rangoDeNombreDePuesto(?string $nombre): ?int
+    {
+        return $nombre === null ? null : $this->rangoDePuesto($nombre);
     }
 
     /**
@@ -142,8 +175,13 @@ class AutoridadJerarquicaService
             ->all();
 
         $rangos = [];
+        $aliasValido = ! $this->estaEnCorporativo($colaborador);
 
         foreach (Puesto::withTrashed()->whereIn('id', $puestos)->pluck('nombre') as $nombre) {
+            if (! $aliasValido && $this->esAliasDeGerente((string) $nombre)) {
+                continue;
+            }
+
             $rango = $this->rangoDePuesto((string) $nombre);
 
             if ($rango !== null) {
@@ -152,6 +190,42 @@ class AutoridadJerarquicaService
         }
 
         return $rangos === [] ? null : min($rangos);
+    }
+
+    /**
+     * Rango por encima de la línea (negativo: -1 Dirección Comercial, -2 Dirección
+     * General) o el de la línea. RH y demás roles fuera de la línea: null.
+     */
+    private function rangoParaReabrir(User $usuario): ?int
+    {
+        $puesto = $this->colaboradorDe($usuario)?->puesto?->nombre;
+        $niveles = array_values((array) config('organigrama.sobre_la_linea', []));
+
+        foreach ($niveles as $indice => $nivel) {
+            $porPuesto = $puesto !== null && in_array($this->normalizar($puesto), array_map($this->normalizar(...), $nivel['puestos']), true);
+
+            if ($usuario->hasAnyRole($nivel['roles']) || $porPuesto) {
+                return $indice - count($niveles);
+            }
+        }
+
+        return $this->rangoDeUsuario($usuario);
+    }
+
+    private function rangoMaximo(): int
+    {
+        return -count((array) config('organigrama.sobre_la_linea', []));
+    }
+
+    private function esAliasDeGerente(string $nombre): bool
+    {
+        return in_array($this->normalizar($nombre), array_map($this->normalizar(...), (array) config('organigrama.alias_gerente_sucursal', [])), true);
+    }
+
+    private function estaEnCorporativo(Colaborador $colaborador): bool
+    {
+        return $colaborador->sucursal_principal_id === null
+            || Sucursal::query()->whereKey($colaborador->sucursal_principal_id)->where('es_corporativo', true)->exists();
     }
 
     private function rangoDePuesto(string $nombre): ?int

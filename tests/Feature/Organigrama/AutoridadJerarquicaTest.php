@@ -32,8 +32,8 @@ use Laravel\Sanctum\Sanctum;
 
 /*
 | Regla confirmada: Gerente Regional > Subgerente Regional > Gerente de Sucursal >
-| Subgerente de Sucursal > Gestores. Se modifica lo de un puesto inferior o igual,
-| nunca lo de uno superior. RH y Dirección quedan fuera de esta regla.
+| Subgerente de Sucursal > Gestores. Se modifica lo de un puesto inferior, nunca lo
+| de uno igual o superior. RH y Dirección quedan fuera de esta regla.
 */
 
 beforeEach(function () {
@@ -101,8 +101,8 @@ test('el orden de la línea decide quién modifica a quién', function () {
         ->and($a->puedeModificarLoHechoPor($this->gs, $this->gr))->toBeFalse()
         ->and($a->puedeModificarLoHechoPor($this->ss, $this->gs))->toBeFalse()
         ->and($a->puedeModificarLoHechoPor($this->gestor, $this->ss))->toBeFalse()
-        // Mismo puesto y autor desconocido: se puede.
-        ->and($a->puedeModificarLoHechoPor($this->gs, $this->otroGs))->toBeTrue()
+        // Mismo puesto, no; autor desconocido, sí.
+        ->and($a->puedeModificarLoHechoPor($this->gs, $this->otroGs))->toBeFalse()
         ->and($a->puedeModificarLoHechoPor($this->sr, null))->toBeTrue()
         // RH fuera de la línea, en ambos sentidos.
         ->and($a->puedeModificarLoHechoPor($this->rh, $this->gr))->toBeTrue()
@@ -119,11 +119,12 @@ test('el rango no depende del nombre de la persona y una cuenta de baja conserva
 
 test('quien cubre una plaza regional tiene el rango de esa plaza', function () {
     CoberturaPuesto::query()->create([
-        'colaborador_id' => $this->sr->colaborador_id,
+        'colaborador_id' => $this->gs->colaborador_id,
         'puesto_id' => Puesto::query()->where('nombre', 'Gerente Regional')->value('id'), 'activa' => true, 'motivo' => 'baja', 'fecha_inicio' => now()->toDateString(),
     ]);
 
-    expect($this->autoridad->puedeModificarLoHechoPor($this->sr->fresh(), $this->gr))->toBeTrue();
+    expect($this->autoridad->puedeModificarLoHechoPor($this->gs->fresh(), $this->sr))->toBeTrue()
+        ->and($this->autoridad->puedeModificarLoHechoPor($this->gs->fresh(), $this->gr))->toBeFalse();
 });
 
 test('la autoridad sobre una persona es estricta y, bajo los regionales, por sucursal', function () {
@@ -214,7 +215,7 @@ test('la Gerente Regional sí cambia lo que decidió el Subgerente Regional', fu
     expect($api->fresh()->estado->value)->toBe('rechazada');
 });
 
-test('Gerente de Sucursal no toca lo decidido por un regional, y mismo nivel sí dentro de su alcance', function () {
+test('Gerente de Sucursal no toca lo decidido por un regional ni por otro gerente', function () {
     $this->gs->givePermissionTo('solicitudes.rechazar');
 
     foreach ([$this->gr, $this->sr] as $regional) {
@@ -231,8 +232,30 @@ test('Gerente de Sucursal no toca lo decidido por un regional, y mismo nivel sí
     ($this->visto)($solicitud, $this->otroGs);
     $this->actingAs($this->gs)
         ->post(route('rh.solicitudes.rechazar', $solicitud), ['motivo_rechazo' => 'No procede esta solicitud.'])
-        ->assertRedirect();
-    expect($solicitud->fresh()->estado->value)->toBe('rechazada');
+        ->assertForbidden();
+    expect($solicitud->fresh()->estado->value)->toBe('enviada');
+});
+
+test('«Gerente de operaciones» tiene el rango de Gerente de Sucursal; «Regional de Operaciones» y Coordinadora, ninguno', function () {
+    $a = $this->autoridad;
+    $operaciones = clUsuario('gerente', ['puesto_id' => Puesto::factory()->create(['nombre' => 'Gerente de operaciones'])->id, 'sucursal_principal_id' => $this->sucursal->id, 'estatus' => 'activo']);
+    $regionalOperaciones = clUsuario('gerente_regional', ['puesto_id' => Puesto::factory()->create(['nombre' => 'Regional de Operaciones'])->id, 'sucursal_principal_id' => $this->sucursal->id, 'estatus' => 'activo']);
+    $corporativo = Sucursal::factory()->create(['es_corporativo' => true, 'activo' => true]);
+    $enCorporativo = clUsuario('gerente', ['puesto_id' => Puesto::query()->where('nombre', 'Gerente de operaciones')->value('id'), 'sucursal_principal_id' => $corporativo->id, 'estatus' => 'activo']);
+
+    expect($a->rangoDeNombreDePuesto('Gerente de operaciones'))->toBe($a->rangoDeNombreDePuesto('Gerente de Sucursal'))
+        ->and($a->rangoDeNombreDePuesto('Gerente'))->toBe($a->rangoDeNombreDePuesto('Gerente de Sucursal'))
+        ->and($a->rangoDeNombreDePuesto('Regional de Operaciones'))->toBeNull()
+        ->and($a->rangoDeNombreDePuesto('Coordinadora de Sucursal'))->toBeNull()
+        ->and($a->puedeModificarLoHechoPor($operaciones, $this->gr))->toBeFalse()
+        ->and($a->puedeModificarLoHechoPor($this->gr, $operaciones))->toBeTrue()
+        ->and($a->tieneAlcanceDeEmpresa($regionalOperaciones))->toBeFalse()
+        // En Corporativo no se adivina: queda sin rango y lo reporta la sincronización.
+        ->and($a->esRangoSuperior($this->gr, $enCorporativo))->toBeFalse();
+
+    expect(app(SincronizadorOrganigramaService::class)->sincronizar(true)['conflictos'])
+        ->toContain('Existe «Regional de Operaciones» con 1 titular(es): no se une solo; cámbialos a «Gerente Regional» o «Subgerente Regional».')
+        ->and(collect(app(SincronizadorOrganigramaService::class)->sincronizar(true)['conflictos'])->implode(' '))->toContain('«Gerente de operaciones» con 1 titular(es) en Corporativo');
 });
 
 test('decisión sin autor conocido: no bloquea y queda anotada en el historial', function () {

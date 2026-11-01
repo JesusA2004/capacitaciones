@@ -31,16 +31,31 @@ return [
 
     /*
     | Línea comercial, de mayor a menor (App\Services\Organigrama\AutoridadJerarquicaService).
-    | Se modifica lo hecho por un puesto inferior, nunca lo de uno superior.
-    | Q1/Q3 y «Regional de Operaciones» siguen aquí solo mientras alguien ocupe esos
-    | puestos anteriores: `people:sincronizar-organigrama` los reporta como conflicto.
+    | Se modifica o reabre lo hecho por un puesto inferior; nunca lo de uno igual o
+    | superior. Q1/Q3 siguen aquí solo mientras alguien ocupe esos puestos anteriores.
+    | «Regional de Operaciones» queda SIN rango hasta que la dueña del negocio lo
+    | aclare: `people:sincronizar-organigrama` lo reporta, no se reasigna a nadie.
     */
     'linea_comercial' => [
-        ['puestos' => ['Gerente Regional', 'Gerente Regional Q1', 'Gerente Regional Q3', 'Regional de Operaciones'], 'de_empresa' => true],
+        ['puestos' => ['Gerente Regional', 'Gerente Regional Q1', 'Gerente Regional Q3'], 'de_empresa' => true],
         ['puestos' => ['Subgerente Regional'], 'de_empresa' => true],
-        ['puestos' => ['Gerente de Sucursal'], 'de_empresa' => false],
+        ['puestos' => ['Gerente de Sucursal', 'Gerente de operaciones', 'Gerente'], 'de_empresa' => false],
         ['puestos' => ['Subgerente', 'Subgerente de Sucursal'], 'de_empresa' => false],
         ['puestos' => ['Gestor', 'Gestor Volante', 'Gestor grupal'], 'de_empresa' => false],
+    ],
+
+    // Otros nombres de Gerente de Sucursal. Solo valen en una sucursal operativa: en
+    // Corporativo hay varias gerencias, no se adivina y se reporta como conflicto.
+    // «Coordinadora» es un puesto administrativo aparte y no entra en la línea.
+    'alias_gerente_sucursal' => ['Gerente de operaciones', 'Gerente'],
+
+    /*
+    | Rango por encima de la línea, solo para REABRIR decisiones (AutoridadJerarquicaService::
+    | esRangoSuperior). De mayor a menor: Dirección General y Dirección Comercial.
+    */
+    'sobre_la_linea' => [
+        ['roles' => ['super_admin', 'direccion'], 'puestos' => ['Dirección General']],
+        ['roles' => ['director_comercial'], 'puestos' => ['Dirección Comercial']],
     ],
 
     // Una cuenta con estos roles actúa con sus permisos, fuera de la línea.
