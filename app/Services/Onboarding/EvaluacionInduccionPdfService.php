@@ -5,6 +5,7 @@ namespace App\Services\Onboarding;
 use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoFlujoDocumento;
 use App\Enums\MotorPdf;
+use App\Enums\TipoEmisionDocumento;
 use App\Models\EvaluacionInduccionIntento;
 use App\Models\GeneratedDocument;
 use App\Models\User;
@@ -105,6 +106,7 @@ class EvaluacionInduccionPdfService
             }
 
             $titulo = sprintf('Evaluación de inducción · intento %d', $intento->numero);
+            $anterior = $nuevaVersion ? $this->documentoDe($intento) : null;
 
             return $this->motor->registrarPdf($intento->evaluacion->colaborador, $render['pdf'], $titulo, $actor, [
                 'clave' => self::CLAVE,
@@ -117,6 +119,9 @@ class EvaluacionInduccionPdfService
                 'conversion_engine' => $render['motor']->value,
                 'paginas' => $render['paginas'],
                 'nombre_archivo' => sprintf('%s.pdf', $this->nombreBase($intento)),
+                'revision_de_id' => $anterior?->id,
+                'motivo_revision' => $anterior !== null ? 'Evaluación calificada de nuevo.' : null,
+                'tipo_emision' => $anterior !== null ? TipoEmisionDocumento::Correccion : TipoEmisionDocumento::Original,
             ]);
         });
     }
@@ -161,11 +166,14 @@ class EvaluacionInduccionPdfService
                 return null;
             }
 
+            // Primero la versión nueva: si Chrome o el NAS fallan, el anterior sigue vigente.
+            $nuevo = $this->guardarEnExpediente($intento, $actor, true);
+
             if ($anterior !== null && ! ($anterior->estado_flujo?->estaConcluido() ?? false)) {
                 $this->flujo->cancelar($anterior, $actor, 'Evaluación calificada de nuevo: se generó el formato corregido.');
             }
 
-            return $this->guardarEnExpediente($intento, $actor, true);
+            return $nuevo;
         } catch (Throwable $e) {
             Log::warning('EvaluacionInduccionPdfService: no se pudo regenerar el formato tras calificar de nuevo.', [
                 'intento_id' => $intento->id,
