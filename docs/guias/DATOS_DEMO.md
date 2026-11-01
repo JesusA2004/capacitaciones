@@ -5,6 +5,7 @@ Las capturas de la guía (`public/guia/capturas/`) y del video (`docs/guias/vide
 ## Reglas
 
 - **Solo local o testing.** Los datos demo los siembra `DemoSeeder`, que `DatabaseSeeder` ejecuta únicamente con `APP_ENV=local|testing` (o `SEED_DEMO_DATA=true`, que **nunca** se activa en producción). No existe ningún seeder demo que corra en producción.
+- **El seeder no borra el disco por su cuenta.** `ExpedienteDemoSeeder` solo purga `expedientes/` en `testing` o con `SEED_DEMO_PURGAR_NAS=true` (carpeta desechable; nunca en producción). Si la BD está vacía y el disco ya tiene expedientes, la siembra se detiene sin borrar: apunta `NAS_ROOT` a una carpeta vacía.
 - **Nunca contra producción.** `scripts/guia/escenario-demo.php` y `scripts/guia/grabar-capturas.mjs` se niegan a correr fuera de local: el primero revisa `APP_ENV` y el segundo solo acepta `localhost`, `127.0.0.1` o un dominio `*.test`.
 - **Nada sensible en cuadro.** Antes de cada captura, el script oculta correos, CURP, RFC, NSS, teléfonos, domicilios, tokens y códigos de invitación, y rutas del NAS. También difumina los códigos QR y los visores de PDF (recibos y contratos traen RFC, CURP y NSS). La contraseña se escribe fuera de cuadro y nunca se captura.
 - **Personas ficticias.** Todas las cuentas son `@mrlana.test`. Las personas del ciclo laboral se llaman «Demo … Ciclo» y los candidatos de reclutamiento llevan «(demo-recl)». Plantillas, módulos de onboarding y activos demo están marcados «DEMO —».

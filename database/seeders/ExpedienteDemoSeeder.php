@@ -13,6 +13,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 use Throwable;
 
 /**
@@ -50,16 +51,7 @@ class ExpedienteDemoSeeder extends Seeder
         // SolicitudesDemoSeeder.
         $this->storage = app(DocumentoStorageService::class);
 
-        // Este seeder es el único dueño de expedientes/ en datos demo (ver
-        // docblock de clase) y siempre corre contra una BD recién migrada
-        // (migrate:fresh --seed / DemoSeeder solo en local/testing), pero el
-        // disco NAS físico NO se limpia con la BD: los colaboradores demo
-        // son deterministas (mismo empresa/sucursal/numero/nombre en cada
-        // corrida), así que sin este purge una segunda corrida en la misma
-        // máquina de desarrollo chocaría con el guard "nunca sobrescribir"
-        // de DocumentoStorageService::guardar() al intentar regenerar el
-        // mismo v1 de siempre.
-        $this->storage->disco()->deleteDirectory('expedientes');
+        $this->prepararDisco();
 
         // colaborador3..colaborador10 los crea DashboardDemoSeeder (no
         // duplicar sus datos aquí, ver UsuarioDemoSeeder). colaborador10
@@ -123,6 +115,37 @@ class ExpedienteDemoSeeder extends Seeder
             $this->completarTodos($cual, EstadoDocumento::Aprobado);
             $this->darDeBajaDemo($cual);
             $this->reactivarDemo($cual);
+        }
+    }
+
+    /**
+     * El disco NAS no se limpia con la BD: los colaboradores demo son
+     * deterministas, así que una BD recién migrada sobre un disco con v1 ya
+     * escritos choca con el guard «nunca sobrescribir» de
+     * DocumentoStorageService::guardar().
+     *
+     * `expedientes/` puede ser el árbol REAL de la empresa (basta un NAS_ROOT
+     * real con SEED_DEMO_DATA=true o APP_ENV=local), de modo que purgar solo se
+     * permite en testing (disco falso, ver tests/TestCase.php) o con
+     * SEED_DEMO_PURGAR_NAS=true, y nunca en producción. Sin permiso, un disco
+     * ajeno a esta BD detiene la siembra sin haber borrado nada.
+     */
+    private function prepararDisco(): void
+    {
+        $disco = $this->storage->disco();
+
+        if (! app()->isProduction()
+            && (app()->environment('testing') || config('features.seed_demo_purgar_nas') === true)) {
+            $disco->deleteDirectory('expedientes');
+
+            return;
+        }
+
+        if ($disco->directories('expedientes') !== [] && ! EmployeeDocument::withTrashed()->exists()) {
+            throw new RuntimeException(
+                'El disco de expedientes ya tiene archivos que esta base de datos no conoce y no se borran. '
+                .'Apunta NAS_ROOT a una carpeta vacía; si es una carpeta de desarrollo desechable, usa SEED_DEMO_PURGAR_NAS=true.',
+            );
         }
     }
 

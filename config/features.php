@@ -101,4 +101,15 @@ return [
     */
     'seed_demo_data' => env('SEED_DEMO_DATA', false),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Purgar expedientes/ del disco al sembrar datos demo
+    |--------------------------------------------------------------------------
+    |
+    | Solo para una carpeta de desarrollo desechable: ExpedienteDemoSeeder
+    | borra expedientes/ del disco. Nunca surte efecto en producción.
+    |
+    */
+    'seed_demo_purgar_nas' => (bool) env('SEED_DEMO_PURGAR_NAS', false),
+
 ];
