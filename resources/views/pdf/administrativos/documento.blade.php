@@ -147,6 +147,9 @@
     </style>
 </head>
 <body>
+    @if (is_string($d['marca_agua'] ?? null))
+        <div style="position: fixed; top: 45%; left: 0; right: 0; text-align: center; font-size: 30pt; font-weight: bold; color: #b91c1c; opacity: 0.22; transform: rotate(-30deg); z-index: 1000;">{{ $d['marca_agua'] }}</div>
+    @endif
     @if ($fondo_data_uri)
         <div class="fondo"><img src="{{ $fondo_data_uri }}" alt=""></div>
     @endif

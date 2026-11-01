@@ -8,6 +8,7 @@ use App\Enums\EstadoFlujoDocumento;
 use App\Enums\EstadoValidacionVisual;
 use App\Enums\FidelidadConversion;
 use App\Enums\MotorPlantilla;
+use App\Enums\TipoEmisionDocumento;
 use App\Exceptions\CampoDocumentoDesbordadoException;
 use App\Exceptions\ConversorFielNoDisponibleException;
 use App\Exceptions\DatosDocumentoFaltantesException;
@@ -23,6 +24,7 @@ use App\Models\Prestamo;
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Documentos\Versiones\DocumentoRenderizado;
 use App\Services\DocumentosMaestros\AlmacenMaestrosService;
 use App\Services\DocumentosMaestros\ContextoDocumento;
 use App\Services\DocumentosMaestros\DatosDocumentoService;
@@ -73,6 +75,8 @@ use Throwable;
  * El sistema nunca redacta cláusulas: el texto lo aporta RH/Jurídico en la
  * plantilla. Si no hay plantilla activa para una clave, se lanza una
  * ValidationException explícita (no se inventa un formato).
+ *
+ * @phpstan-type OpcionesRegistro array{plantilla?: DocumentTemplate|null, clave?: string|null, version?: int|null, categoria: CategoriaDocumento, payload?: array<string, string>, documentable?: Model|null, requiere_firma_digital?: bool, requiere_impresion?: bool, requiere_firma_fisica?: bool, requiere_huella?: bool, requiere_testigos?: bool, requiere_envio_corporativo?: bool, master_familia?: string|null, master_hash?: string|null, master_version?: int|null, proceso?: string|null, fidelidad?: string|null, conversion_engine?: string|null, paginas?: int|null, docx?: string|null, nombre_archivo?: string|null, revision_de_id?: int|null, motivo_revision?: string|null, layout_snapshot?: array<string, mixed>|null, huella_datos?: string|null, correcciones?: array<string, mixed>|null, tipo_emision?: TipoEmisionDocumento|null, ruta_guardada?: string|null, ruta_docx_guardada?: string|null}
  */
 class MotorDocumentalService
 {
@@ -183,7 +187,7 @@ class MotorDocumentalService
      * generar() y los módulos cuyo PDF se arma con una vista propia no
      * jurídica (recibo interno de nómina, comprobantes, respaldo de finiquito).
      *
-     * @param  array{plantilla?: DocumentTemplate|null, clave?: string|null, version?: int|null, categoria: CategoriaDocumento, payload?: array<string, string>, documentable?: Model|null, requiere_firma_digital?: bool, requiere_impresion?: bool, requiere_firma_fisica?: bool, requiere_huella?: bool, requiere_testigos?: bool, requiere_envio_corporativo?: bool, master_familia?: string|null, master_hash?: string|null, master_version?: int|null, proceso?: string|null, fidelidad?: string|null, conversion_engine?: string|null, paginas?: int|null, docx?: string|null, nombre_archivo?: string|null, revision_de_id?: int|null, motivo_revision?: string|null, layout_snapshot?: array<string, mixed>|null}  $opciones
+     * @param  OpcionesRegistro  $opciones
      */
     public function registrarPdf(Colaborador $colaborador, string $pdf, string $titulo, User $actor, array $opciones): GeneratedDocument
     {
@@ -194,21 +198,11 @@ class MotorDocumentalService
         $payload = $opciones['payload'] ?? [];
         $nombreArchivo = $opciones['nombre_archivo'] ?? sprintf('%s - %s.pdf', $titulo, now()->format('Y-m-d His'));
 
-        try {
-            $ruta = $this->expediente->guardarContenidoEnExpediente($colaborador, $categoria, $nombreArchivo, $pdf);
-            $rutaDocx = isset($opciones['docx']) && $opciones['docx'] !== ''
-                ? $this->expediente->guardarContenidoEnExpediente($colaborador, $categoria, (string) preg_replace('/\.pdf$/i', '.docx', $nombreArchivo), $opciones['docx'])
-                : null;
-        } catch (Throwable $e) {
-            Log::error('MotorDocumentalService: no se pudo guardar el PDF en el almacenamiento.', [
-                'colaborador_id' => $colaborador->id,
-                'clave' => $opciones['clave'] ?? null,
-                'error' => $e->getMessage(),
-            ]);
-
-            throw ValidationException::withMessages([
-                'documento' => 'No se pudo guardar el documento en el almacenamiento (NAS no disponible). Intenta de nuevo; si continúa, avisa a sistemas.',
-            ]);
+        if (isset($opciones['ruta_guardada'])) {
+            $ruta = $opciones['ruta_guardada'];
+            $rutaDocx = $opciones['ruta_docx_guardada'] ?? null;
+        } else {
+            [$ruta, $rutaDocx] = $this->guardarArchivos($colaborador, $categoria, $nombreArchivo, $pdf, $opciones['docx'] ?? null, $opciones['clave'] ?? null);
         }
 
         try {
@@ -256,6 +250,9 @@ class MotorDocumentalService
                     'docx_hash' => isset($opciones['docx']) && $opciones['docx'] !== '' ? hash('sha256', $opciones['docx']) : null,
                     'revision_de_id' => $opciones['revision_de_id'] ?? null,
                     'motivo_revision' => $opciones['motivo_revision'] ?? null,
+                    'huella_datos' => $opciones['huella_datos'] ?? null,
+                    'correcciones' => $opciones['correcciones'] ?? null,
+                    'tipo_emision' => $opciones['tipo_emision'] ?? null,
                 ]);
 
                 $this->flujo->iniciar($documento, $actor);
@@ -303,6 +300,43 @@ class MotorDocumentalService
         ]);
 
         return $documento->refresh();
+    }
+
+    /**
+     * Escribe el PDF (y su Word) en el expediente, sin tocar la base de datos.
+     *
+     * @return array{0: string, 1: string|null}
+     *
+     * @throws ValidationException Si el NAS no está disponible.
+     */
+    public function guardarArchivos(Colaborador $colaborador, CategoriaDocumento $categoria, string $nombreArchivo, string $pdf, ?string $docx = null, ?string $clave = null): array
+    {
+        try {
+            $ruta = $this->expediente->guardarContenidoEnExpediente($colaborador, $categoria, $nombreArchivo, $pdf);
+            $rutaDocx = $docx !== null && $docx !== ''
+                ? $this->expediente->guardarContenidoEnExpediente($colaborador, $categoria, (string) preg_replace('/\.pdf$/i', '.docx', $nombreArchivo), $docx)
+                : null;
+
+            return [$ruta, $rutaDocx];
+        } catch (Throwable $e) {
+            Log::error('MotorDocumentalService: no se pudo guardar el PDF en el almacenamiento.', [
+                'colaborador_id' => $colaborador->id,
+                'clave' => $clave,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw ValidationException::withMessages([
+                'documento' => 'No se pudo guardar el documento en el almacenamiento (NAS no disponible). Intenta de nuevo; si continúa, avisa a sistemas.',
+            ]);
+        }
+    }
+
+    /**
+     * Retira archivos que no llegaron a quedar registrados.
+     */
+    public function retirarArchivo(string $ruta): void
+    {
+        $this->expediente->eliminar($ruta);
     }
 
     /**
@@ -359,21 +393,37 @@ class MotorDocumentalService
      */
     public function generarDesdeMaestro(DocumentTemplate $master, ContextoDocumento $contexto, User $actor, ?Model $documentable = null, ?string $titulo = null, ?string $proceso = null, ?GeneratedDocument $revisionDe = null, ?string $motivoRevision = null): GeneratedDocument
     {
-        $colaborador = $contexto->colaborador;
+        $preparado = $this->prepararDesdeMaestro($master, $contexto, $titulo, $proceso);
+
+        return $this->registrarPdf($contexto->colaborador, $preparado->pdf, $preparado->titulo, $actor, [
+            ...$preparado->opciones,
+            'documentable' => $documentable,
+            'revision_de_id' => $revisionDe?->id,
+            'motivo_revision' => $motivoRevision,
+        ]);
+    }
+
+    /**
+     * Render de un maestro SIN guardar ni escribir nada: lo que
+     * VersionadoDocumentoService hace fuera de su transacción.
+     *
+     * @throws DatosDocumentoFaltantesException Si faltan datos requeridos.
+     */
+    public function prepararDesdeMaestro(DocumentTemplate $master, ContextoDocumento $contexto, ?string $titulo = null, ?string $proceso = null): DocumentoRenderizado
+    {
         $valores = $this->expresiones->completar((array) ($master->mapping ?? []), $this->datos->resolver($contexto));
         $this->exigirCompletos($master, $valores);
         $render = $this->renderizarMaestro($master, $valores);
         $titulo ??= $master->nombre;
         $campos = $this->camposDelMaestro($master);
 
-        return $this->registrarPdf($colaborador, $render['pdf'], $titulo, $actor, [
+        return new DocumentoRenderizado($render['pdf'], $titulo, $this->categoriaDe($master), [
             'plantilla' => $master,
             'clave' => $master->clave,
             'version' => $master->version,
             'categoria' => $this->categoriaDe($master),
             // Snapshot: SOLO los datos que el documento usó.
             'payload' => array_intersect_key($valores, array_flip($campos)),
-            'documentable' => $documentable,
             'requiere_firma_digital' => false,
             'requiere_impresion' => $master->requiere_impresion,
             'requiere_firma_fisica' => $master->requiere_firma_fisica,
@@ -389,9 +439,33 @@ class MotorDocumentalService
             'paginas' => $render['paginas'],
             'docx' => $render['docx'],
             'layout_snapshot' => $render['layout_snapshot'] ?? null,
-            'nombre_archivo' => $this->nombreArchivo($colaborador, $titulo, $contexto->fechaDocumento()),
-            'revision_de_id' => $revisionDe?->id,
-            'motivo_revision' => $motivoRevision,
+            'nombre_archivo' => $this->nombreArchivo($contexto->colaborador, $titulo, $contexto->fechaDocumento()),
+        ]);
+    }
+
+    /**
+     * Render de una plantilla heredada sin maestro, sin guardar nada.
+     *
+     * @param  array<string, mixed>  $extra
+     */
+    public function prepararDesdePlantilla(Colaborador $colaborador, DocumentTemplate $plantilla, array $extra, ?Model $documentable, User $actor): DocumentoRenderizado
+    {
+        $colaborador->loadMissing(['sucursalPrincipal.empresa', 'puesto', 'departamento', 'jefe.jefe', 'gerente', 'user']);
+        $referencia = strtoupper(Str::random(10));
+        $payload = $this->resolver->resolver($colaborador, [...$extra, 'referencia_documento' => $referencia]);
+        $categoria = $this->categoriaDe($plantilla);
+
+        return new DocumentoRenderizado($this->renderizar($plantilla, $payload, $plantilla->nombre, $referencia, $colaborador, $documentable, $actor), $plantilla->nombre, $categoria, [
+            'plantilla' => $plantilla,
+            'clave' => $plantilla->clave,
+            'version' => $plantilla->version,
+            'categoria' => $categoria,
+            'payload' => $payload,
+            'requiere_firma_digital' => $plantilla->requiere_firma_digital,
+            'requiere_impresion' => $plantilla->requiere_impresion,
+            'requiere_firma_fisica' => $plantilla->requiere_firma_fisica,
+            'requiere_huella' => $plantilla->requiere_huella,
+            'requiere_testigos' => $plantilla->requiere_testigos,
         ]);
     }
 
@@ -406,6 +480,16 @@ class MotorDocumentalService
         $valores = $this->expresiones->completar((array) ($master->mapping ?? []), $this->datos->resolver($contexto));
 
         return array_intersect_key($valores, array_flip($this->camposDelMaestro($master)));
+    }
+
+    /**
+     * Todos los valores resueltos del maestro, aunque el documento no use el campo.
+     *
+     * @return array<string, string>
+     */
+    public function valoresCompletos(DocumentTemplate $master, ContextoDocumento $contexto): array
+    {
+        return $this->expresiones->completar((array) ($master->mapping ?? []), $this->datos->resolver($contexto));
     }
 
     /**
@@ -1039,6 +1123,11 @@ class MotorDocumentalService
         $configurada = config("contratos.plantillas.{$plantilla->clave}.categoria");
 
         return is_string($configurada) ? (CategoriaDocumento::tryFrom($configurada) ?? CategoriaDocumento::Otros) : CategoriaDocumento::Otros;
+    }
+
+    public function plantillaPorClave(string $clave, ?Colaborador $colaborador = null): DocumentTemplate
+    {
+        return $this->resolverPlantilla($clave, $colaborador);
     }
 
     private function resolverPlantilla(DocumentTemplate|string $plantilla, ?Colaborador $colaborador = null): DocumentTemplate

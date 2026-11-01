@@ -24,6 +24,8 @@ use Throwable;
  */
 class DocumentoAdministrativoService
 {
+    public const MARCA_VISTA_PREVIA = 'VISTA PREVIA — NO VÁLIDA PARA FIRMA';
+
     public function __construct(
         private readonly PlantillasAdministrativasService $plantillas,
         private readonly DisenoAdministrativoService $disenos,
@@ -72,13 +74,24 @@ class DocumentoAdministrativoService
      * PDF con el diseño VIGENTE y datos reales, SIN registrar nada (vista
      * previa de un recibo preparado, de un finiquito antes de generarlo…).
      *
+     * Con $marca, el PDF lleva esa marca de agua: una vista previa nunca se
+     * confunde con el documento definitivo.
+     *
      * @param  array<string, mixed>  $datos
      */
-    public function renderizarVigente(FamiliaAdministrativa $familia, array $datos): string
+    public function renderizarVigente(FamiliaAdministrativa $familia, array $datos, ?string $marca = null): string
     {
         $vigente = $this->plantillas->vigente($familia);
 
-        return $this->renderizar($familia, $datos, $vigente['diseno'], $vigente['motor'])['pdf'];
+        return $this->renderizar($familia, $marca !== null ? [...$datos, 'marca_agua' => $marca] : $datos, $vigente['diseno'], $vigente['motor'])['pdf'];
+    }
+
+    /**
+     * Identifica el diseño vigente: si RH lo cambia, el documento ya no está al día.
+     */
+    public function huellaDisenoVigente(FamiliaAdministrativa $familia): string
+    {
+        return $this->disenos->hash($this->plantillas->vigente($familia)['diseno']);
     }
 
     /**
