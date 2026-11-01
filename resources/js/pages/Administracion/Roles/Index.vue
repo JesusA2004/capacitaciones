@@ -17,6 +17,7 @@ import {
 } from '@lucide/vue';
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import ClonarRolDialog from '@/components/Administracion/ClonarRolDialog.vue';
+import ChecklistNotificacionesRol from '@/components/Administracion/Roles/ChecklistNotificacionesRol.vue';
 import ModuloPermisosCard from '@/components/Administracion/Roles/ModuloPermisosCard.vue';
 import NuevoRolDialog from '@/components/Administracion/Roles/NuevoRolDialog.vue';
 import PermisoSwitch from '@/components/Administracion/Roles/PermisoSwitch.vue';
@@ -43,7 +44,9 @@ import {
 import { dashboard } from '@/routes';
 import { destroy, update } from '@/routes/administracion/roles';
 import type {
+    CambioNotificacionRol,
     CatalogoPermisos,
+    ChecklistNotificaciones,
     ModuloCatalogo,
     NivelAlcance,
     RolItem,
@@ -59,6 +62,10 @@ import type {
 const props = defineProps<{
     roles: RolItem[];
     catalogo: CatalogoPermisos;
+    /** Sin roles.administrar (RH) sólo se ve la pestaña de avisos. */
+    puedeAdministrarRoles: boolean;
+    checklistNotificaciones: ChecklistNotificaciones | null;
+    historialNotificaciones: Record<number, CambioNotificacionRol[]>;
 }>();
 
 defineOptions({
@@ -88,6 +95,7 @@ const soloLectura = computed(() => rol.value?.es_protegido ?? true);
 
 const borrador = ref(new Set<string>());
 const nombre = ref('');
+const cambiosAvisos = ref(0);
 
 function cargarBorrador() {
     borrador.value = new Set(rol.value?.permisos ?? []);
@@ -128,11 +136,13 @@ async function seleccionar(id: number) {
         return;
     }
 
+    const pendientes = totalCambios.value + cambiosAvisos.value;
+
     if (
-        totalCambios.value > 0 &&
+        pendientes > 0 &&
         !(await confirmarAccion(
             'Tienes cambios sin guardar',
-            `Si cambias de rol se descartan ${totalCambios.value} cambio(s) en «${rol.value?.nombre}».`,
+            `Si cambias de rol se descartan ${pendientes} cambio(s) en «${rol.value?.nombre}».`,
             'Descartar y cambiar',
         ))
     ) {
@@ -176,7 +186,7 @@ onMounted(() => {
 onBeforeUnmount(() => window.removeEventListener('beforeunload', avisarSalida));
 
 function avisarSalida(evento: BeforeUnloadEvent) {
-    if (totalCambios.value > 0) {
+    if (totalCambios.value + cambiosAvisos.value > 0) {
         evento.preventDefault();
     }
 }
@@ -357,7 +367,20 @@ async function eliminar(objetivo: RolItem) {
 }
 
 // --------------------------------------------------------------- filtros
-const vista = ref<'matriz' | 'resumen'>('matriz');
+const vista = ref<'matriz' | 'resumen' | 'notificaciones'>(
+    props.puedeAdministrarRoles ? 'matriz' : 'notificaciones',
+);
+const pestanas = computed(() => [
+    ...(props.puedeAdministrarRoles
+        ? ([
+              { valor: 'matriz', etiqueta: 'Permisos' },
+              { valor: 'resumen', etiqueta: 'Qué puede hacer' },
+          ] as const)
+        : []),
+    ...(props.checklistNotificaciones !== null
+        ? ([{ valor: 'notificaciones', etiqueta: 'Notificaciones' }] as const)
+        : []),
+]);
 const busqueda = ref('');
 const filtro = computed(() => normalizar(busqueda.value));
 const soloConAcceso = ref(false);
@@ -462,16 +485,21 @@ const dialogClonar = ref(false);
     <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             titulo="Roles y permisos"
-            descripcion="Qué puede hacer cada rol, acción por acción, en cada módulo."
+            :descripcion="
+                puedeAdministrarRoles
+                    ? 'Qué puede hacer cada rol, acción por acción, en cada módulo.'
+                    : 'Qué avisos le llegan a cada rol, acción por acción.'
+            "
             :icono="ShieldCheck"
         >
-            <Button @click="dialogNuevo = true">
+            <Button v-if="puedeAdministrarRoles" @click="dialogNuevo = true">
                 <Plus class="size-4" />
                 Nuevo rol
             </Button>
         </CrudPageHeader>
 
         <CrudStats
+            v-if="puedeAdministrarRoles"
             :estadisticas="[
                 { etiqueta: 'Roles', valor: roles.length, icono: ShieldCheck },
                 {
@@ -546,8 +574,9 @@ const dialogClonar = ref(false);
                                 />
                             </span>
                             <span class="text-xs text-muted-foreground"
-                                >{{ r.permisos.length }} permisos ·
-                                {{ r.usuarios_count }} usuario(s)</span
+                                ><template v-if="puedeAdministrarRoles"
+                                    >{{ r.permisos.length }} permisos · </template
+                                >{{ r.usuarios_count }} usuario(s)</span
                             >
                         </button>
                     </li>
@@ -563,6 +592,7 @@ const dialogClonar = ref(false);
             <!-- Editor del rol -->
             <section v-if="rol" class="flex min-w-0 flex-col gap-4">
                 <div
+                    v-if="puedeAdministrarRoles"
                     class="flex flex-col gap-4 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
                 >
                     <div
@@ -726,13 +756,7 @@ const dialogClonar = ref(false);
                         role="tablist"
                     >
                         <button
-                            v-for="opcion in [
-                                { valor: 'matriz', etiqueta: 'Permisos' },
-                                {
-                                    valor: 'resumen',
-                                    etiqueta: 'Qué puede hacer',
-                                },
-                            ] as const"
+                            v-for="opcion in pestanas"
                             :key="opcion.valor"
                             type="button"
                             role="tab"
@@ -783,9 +807,18 @@ const dialogClonar = ref(false);
                     </template>
                 </div>
 
+                <ChecklistNotificacionesRol
+                    v-if="vista === 'notificaciones' && checklistNotificaciones"
+                    :key="rol.id"
+                    :rol="rol"
+                    :checklist="checklistNotificaciones"
+                    :historial="historialNotificaciones[rol.id] ?? []"
+                    @cambios="cambiosAvisos = $event"
+                />
+
                 <!-- Resumen en español llano -->
                 <div
-                    v-if="vista === 'resumen'"
+                    v-else-if="vista === 'resumen'"
                     class="rounded-2xl border border-border/60 bg-card p-5 shadow-sm"
                 >
                     <ResumenRol
@@ -953,7 +986,12 @@ const dialogClonar = ref(false);
 
         <!-- Barra de cambios sin guardar -->
         <div
-            v-if="totalCambios > 0 && rol && !soloLectura"
+            v-if="
+                totalCambios > 0 &&
+                rol &&
+                !soloLectura &&
+                vista !== 'notificaciones'
+            "
             class="sticky bottom-20 z-20 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-warning/40 bg-warning-soft p-3 shadow-lg md:bottom-4"
             role="status"
         >

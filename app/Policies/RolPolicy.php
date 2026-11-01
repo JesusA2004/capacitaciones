@@ -7,7 +7,8 @@ use Database\Seeders\RolesYPermisosSeeder;
 use Spatie\Permission\Models\Role;
 
 /**
- * «Roles y permisos»: todo exige roles.administrar. super_admin queda
+ * «Roles y permisos»: todo exige roles.administrar, salvo la pestaña de avisos
+ * por rol (notificaciones_rol.editar), que también abre RH sin tocar permisos. super_admin queda
  * bloqueado como «todo» (no se edita ni se elimina: tiene el catálogo
  * operativo completo por Gate::before y por el seeder).
  */
@@ -15,7 +16,12 @@ class RolPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->can('roles.administrar');
+        return $user->can('roles.administrar') || $user->can('notificaciones_rol.editar');
+    }
+
+    public function editarNotificaciones(User $user, Role $rol): bool
+    {
+        return $user->can('notificaciones_rol.editar');
     }
 
     public function view(User $user, Role $rol): bool

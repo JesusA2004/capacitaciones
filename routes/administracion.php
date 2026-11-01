@@ -16,6 +16,7 @@ use App\Http\Controllers\Administracion\PlazasAutorizadasController;
 use App\Http\Controllers\Administracion\PuestoController;
 use App\Http\Controllers\Administracion\ResponsableAprobacionController;
 use App\Http\Controllers\Administracion\RolController;
+use App\Http\Controllers\Administracion\RolNotificacionesController;
 use App\Http\Controllers\Administracion\SucursalController;
 use App\Http\Controllers\Administracion\UsuarioController;
 use Illuminate\Support\Facades\Route;
@@ -98,6 +99,8 @@ Route::middleware(['auth', 'verified'])
             Route::put('{rol}', [RolController::class, 'update'])->name('update');
             Route::delete('{rol}', [RolController::class, 'destroy'])->name('destroy');
             Route::post('{rol}/clonar', [RolController::class, 'clonar'])->name('clonar');
+            Route::put('{rol}/notificaciones', [RolNotificacionesController::class, 'update'])->name('notificaciones.update');
+            Route::post('{rol}/notificaciones/restablecer', [RolNotificacionesController::class, 'restablecer'])->name('notificaciones.restablecer');
         });
 
         Route::prefix('sucursales')->name('sucursales.')->group(function () {

@@ -107,7 +107,9 @@ return [
             'etapa' => 'configuracion',
             'acceso' => 'roles.administrar',
             'alcances' => [],
-            'acciones' => [],
+            'acciones' => [
+                'notificaciones_rol.editar' => 'Decidir qué avisos le llegan a cada rol',
+            ],
         ],
         'auditoria' => [
             'etiqueta' => 'Bitácora de auditoría',
@@ -812,6 +814,8 @@ return [
     ],
 
     'herencia' => [
+        // Checklist de avisos por rol: quien hoy administra roles o notificaciones.
+        'notificaciones_rol.editar' => ['roles.administrar', 'configuracion.notificaciones'],
         // Contratación y expediente (contratos, candidatos). ver_documento y
         // descargar heredan de documentos_laborales.generar (RH), NO de
         // documentos_laborales.ver: el gerente ve los demás documentos

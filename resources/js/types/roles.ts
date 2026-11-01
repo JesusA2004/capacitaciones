@@ -44,3 +44,38 @@ export type CatalogoPermisos = {
     otros: Record<string, string[]>;
     niveles: { valor: NivelAlcance | 'propios'; etiqueta: string }[];
 };
+
+/**
+ * Checklist de avisos por rol (config/notificaciones_catalogo.php). Marcar un
+ * rol nunca amplía su alcance; desmarcarlo quita el aviso, no la tarea.
+ */
+export type EventoNotificacion = {
+    clave: string;
+    etiqueta: string;
+    /** operativa: casilla por rol. personal/asignada: siempre llega a la persona. */
+    audiencia: 'operativa' | 'personal' | 'asignada';
+};
+
+export type ModuloNotificaciones = {
+    clave: string;
+    etiqueta: string;
+    eventos: EventoNotificacion[];
+};
+
+export type ChecklistNotificaciones = {
+    modulos: ModuloNotificaciones[];
+    marcados: Record<number, string[]>;
+    obligatorios: Record<number, string[]>;
+    por_defecto: Record<number, string[]>;
+    mensaje_obligatoria: string;
+};
+
+export type CambioNotificacionRol = {
+    id: number;
+    evento: string;
+    etiqueta: string;
+    antes: boolean;
+    despues: boolean;
+    actor: string | null;
+    fecha: string | null;
+};
