@@ -2,8 +2,8 @@
 
 namespace App\Services\DocumentosAdministrativos;
 
-use App\Enums\EstadoReciboNomina;
 use App\Enums\CausalPermisoEspecial;
+use App\Enums\EstadoReciboNomina;
 use App\Enums\FamiliaAdministrativa;
 use App\Enums\FormaSalida;
 use App\Enums\GocePermiso;
