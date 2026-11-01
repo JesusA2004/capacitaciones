@@ -50,6 +50,8 @@ import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import FotoPerfilCaptura from '@/components/Common/FotoPerfilCaptura.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
+import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
+import HistorialCorrecciones from '@/components/correcciones/HistorialCorrecciones.vue';
 import InputError from '@/components/InputError.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
@@ -1320,6 +1322,10 @@ function irACompletarExpediente() {
 
                 <TabsContent v-if="historialCambios" value="cambios">
                     <HistorialCambiosDatos :historial="historialCambios" />
+                    <h3 class="mt-6 mb-3 text-sm font-semibold">
+                        Correcciones auditadas
+                    </h3>
+                    <HistorialCorrecciones :colaborador-id="colaborador.id" />
                 </TabsContent>
 
                 <TabsContent value="laborales">
@@ -1333,17 +1339,32 @@ function irACompletarExpediente() {
                                 <Briefcase class="size-4" />
                                 Datos laborales
                             </CardTitle>
-                            <Button
+                            <div
                                 v-if="
                                     puedeEditarLaborales && !editandoLaborales
                                 "
-                                size="sm"
-                                variant="ghost"
-                                @click="iniciarEdicionLaborales"
+                                class="flex flex-wrap items-center gap-2"
                             >
-                                <Pencil class="size-3.5" />
-                                Editar
-                            </Button>
+                                <BotonCorregir
+                                    v-if="puedeVerSueldo"
+                                    dominio="salario"
+                                    :sujeto-id="colaborador.id"
+                                    etiqueta="Corregir sueldo"
+                                    permiso="salarios.editar"
+                                />
+                                <BotonCorregir
+                                    dominio="laboral"
+                                    :sujeto-id="colaborador.id"
+                                />
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    @click="iniciarEdicionLaborales"
+                                >
+                                    <Pencil class="size-3.5" />
+                                    Editar
+                                </Button>
+                            </div>
                         </CardHeader>
                         <CardContent class="flex flex-col gap-6">
                             <form

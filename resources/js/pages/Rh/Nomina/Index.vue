@@ -22,6 +22,7 @@ import Casilla from '@/components/Common/Casilla.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import MetricCard from '@/components/Common/MetricCard.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
+import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import InputError from '@/components/InputError.vue';
@@ -65,6 +66,8 @@ type Recibo = {
     id: number;
     folio: string | null;
     estado: 'borrador' | 'emitido';
+    rectifica_recibo_id: number | null;
+    rectificado_por_id: number | null;
     estado_etiqueta: string;
     total_percepciones: string;
     total_deducciones: string;
@@ -313,7 +316,7 @@ async function aplicarMasivo() {
     if (
         !(await confirmarAccion(
             'Cambio en bloque',
-            `Se va a ${que} en ${alcance}. Los recibos ya emitidos regeneran su PDF.`,
+            `Se va a ${que} en ${alcance}. Solo cambian los recibos preparados: un emitido se corrige por rectificación.`,
             'Aplicar',
         ))
     ) {
@@ -689,7 +692,10 @@ const opcionesTipo = [
                             <td class="p-3">
                                 <div class="flex justify-end gap-1">
                                     <Button
-                                        v-if="puedeEditar"
+                                        v-if="
+                                            puedeEditar &&
+                                            recibo.estado === 'borrador'
+                                        "
                                         size="sm"
                                         variant="ghost"
                                         @click="abrirEdicion(recibo)"
@@ -697,6 +703,23 @@ const opcionesTipo = [
                                         <Pencil class="size-4" />
                                         Editar
                                     </Button>
+                                    <BotonCorregir
+                                        v-if="
+                                            puedeEditar &&
+                                            recibo.estado === 'emitido' &&
+                                            recibo.rectificado_por_id === null
+                                        "
+                                        dominio="recibo_nomina"
+                                        :sujeto-id="recibo.id"
+                                        etiqueta="Rectificar"
+                                        variante="ghost"
+                                    />
+                                    <span
+                                        v-if="recibo.rectificado_por_id !== null"
+                                        class="self-center text-xs text-muted-foreground"
+                                    >
+                                        Rectificado
+                                    </span>
                                     <Button
                                         v-if="
                                             puedeEmitir &&
@@ -766,11 +789,8 @@ const opcionesTipo = [
                     {{ editando?.colaborador.nombre }}</DialogTitle
                 >
                 <DialogDescription>
-                    {{
-                        editando?.estado === 'emitido'
-                            ? 'Este recibo ya se emitió: al guardar se vuelve a generar su PDF (el anterior queda en el historial).'
-                            : 'Borrador: al emitirlo se genera su PDF oficial para descargar e imprimir.'
-                    }}
+                    Borrador: al emitirlo se genera su PDF oficial para descargar e
+                    imprimir.
                 </DialogDescription>
             </DialogHeader>
 

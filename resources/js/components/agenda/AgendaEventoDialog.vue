@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
+import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
 import InputError from '@/components/InputError.vue';
 import ChipEstado from '@/components/people/ChipEstado.vue';
 import { Button } from '@/components/ui/button';
@@ -168,6 +169,12 @@ function elegirArchivos(evento: Event): void {
                 >
                     {{ evento.candidato.estado_etiqueta }}
                 </a>
+                <BotonCorregir
+                    v-if="evento.puede.gestionar"
+                    dominio="agenda"
+                    :sujeto-id="evento.id"
+                    variante="ghost"
+                />
             </div>
 
             <dl class="grid gap-1 text-sm">

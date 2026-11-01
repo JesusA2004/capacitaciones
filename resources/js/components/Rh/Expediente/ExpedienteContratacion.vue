@@ -13,6 +13,7 @@ import {
 } from '@lucide/vue';
 import type { Component } from 'vue';
 import { computed, ref } from 'vue';
+import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
 import BotonVistaPrevia from '@/components/people/BotonVistaPrevia.vue';
 import ChipEstado from '@/components/people/ChipEstado.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
@@ -248,10 +249,18 @@ const tonoPlan = computed(() => ESTADOS[props.plan.estado]?.tono ?? 'neutro');
                         >
                     </p>
                 </div>
-                <ChipEstado
-                    :etiqueta="etapa.estado_contrato ?? 'Sin registrar'"
-                    :tono="etapa.contrato_id ? 'exito' : 'neutro'"
-                />
+                <div class="flex flex-wrap items-center gap-2">
+                    <BotonCorregir
+                        v-if="etapa.contrato_id"
+                        dominio="contratacion"
+                        :sujeto-id="etapa.contrato_id"
+                        permiso="contratos.generar"
+                    />
+                    <ChipEstado
+                        :etiqueta="etapa.estado_contrato ?? 'Sin registrar'"
+                        :tono="etapa.contrato_id ? 'exito' : 'neutro'"
+                    />
+                </div>
             </header>
             <ul class="divide-y divide-border/50">
                 <li

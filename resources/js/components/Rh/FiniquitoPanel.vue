@@ -15,6 +15,7 @@ import {
 import { computed, ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
+import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -587,6 +588,16 @@ function eliminarConcepto(id: number) {
             </div>
 
             <!-- Agregar un concepto manual (percepción o deducción). -->
+            <div
+                v-if="finiquito && permisos.puedeCalcular"
+                class="flex flex-wrap items-center justify-end gap-2"
+            >
+                <BotonCorregir
+                    dominio="finiquito"
+                    :sujeto-id="finiquito.id"
+                    :etiqueta="cerrado ? 'Ver cómo corregir' : 'Corregir concepto'"
+                />
+            </div>
             <div v-if="puedeEditarAjustes" class="flex flex-col gap-2">
                 <Button
                     v-if="!agregandoConcepto"

@@ -3,6 +3,7 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 import { AlertTriangle, Download, FileText, Upload } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -18,7 +19,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatearFecha } from '@/lib/fechas';
 import {
     cancelar,
-    corregir,
     historial,
     index,
     pdf,
@@ -140,35 +140,7 @@ function enviarDocumento() {
     });
 }
 
-// Corregir / cancelar.
-const corrigiendo = ref<IncapacidadItem | null>(null);
-const formaCorreccion = useForm({
-    serie_folio_imss: '',
-    fecha_inicio: '',
-    dias: '' as string | number,
-    motivo: '',
-});
-
-function abrirCorreccion(fila: IncapacidadItem) {
-    formaCorreccion.clearErrors();
-    formaCorreccion.serie_folio_imss = fila.serie_folio_imss;
-    formaCorreccion.fecha_inicio = fila.fecha_inicio;
-    formaCorreccion.dias = fila.dias;
-    formaCorreccion.motivo = '';
-    corrigiendo.value = fila;
-}
-
-function enviarCorreccion() {
-    if (!corrigiendo.value || formaCorreccion.processing) {
-        return;
-    }
-
-    formaCorreccion.post(corregir.url(corrigiendo.value.id), {
-        preserveScroll: true,
-        onSuccess: () => (corrigiendo.value = null),
-    });
-}
-
+// Cancelar (la corrección va por BotonCorregir).
 const cancelando = ref<IncapacidadItem | null>(null);
 const formaCancelacion = useForm({ motivo: '' });
 
@@ -341,13 +313,11 @@ function enviarCancelacion() {
                                     class="px-3 py-2 text-right whitespace-nowrap"
                                 >
                                     <template v-if="fila.puede_corregir">
-                                        <button
-                                            type="button"
-                                            class="text-xs text-primary hover:underline"
-                                            @click="abrirCorreccion(fila)"
-                                        >
-                                            Corregir
-                                        </button>
+                                        <BotonCorregir
+                                            dominio="incapacidad"
+                                            :sujeto-id="fila.id"
+                                            variante="ghost"
+                                        />
                                         <button
                                             type="button"
                                             class="ml-2 text-xs text-destructive hover:underline"
@@ -631,91 +601,6 @@ function enviarCancelacion() {
                         <Spinner v-if="formaDocumento.processing" />
                         Guardar
                     </Button>
-                </DialogFooter>
-            </form>
-        </DialogContent>
-    </Dialog>
-
-    <Dialog
-        :open="corrigiendo !== null"
-        @update:open="(v) => !v && (corrigiendo = null)"
-    >
-        <DialogContent class="sm:max-w-md">
-            <DialogHeader>
-                <DialogTitle>Corregir incapacidad</DialogTitle>
-            </DialogHeader>
-            <form class="grid gap-3" @submit.prevent="enviarCorreccion">
-                <div class="grid gap-1.5">
-                    <Label for="corr_folio">Serie y folio</Label>
-                    <Input
-                        id="corr_folio"
-                        v-model="formaCorreccion.serie_folio_imss"
-                    />
-                    <p
-                        v-if="formaCorreccion.errors.serie_folio_imss"
-                        class="text-sm text-destructive"
-                        data-input-error
-                    >
-                        {{ formaCorreccion.errors.serie_folio_imss }}
-                    </p>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div class="grid gap-1.5">
-                        <Label for="corr_inicio">Fecha de inicio</Label>
-                        <DatePicker
-                            id="corr_inicio"
-                            v-model="formaCorreccion.fecha_inicio"
-                        />
-                        <p
-                            v-if="formaCorreccion.errors.fecha_inicio"
-                            class="text-sm text-destructive"
-                            data-input-error
-                        >
-                            {{ formaCorreccion.errors.fecha_inicio }}
-                        </p>
-                    </div>
-                    <div class="grid gap-1.5">
-                        <Label for="corr_dias">Días</Label>
-                        <Input
-                            id="corr_dias"
-                            v-model="formaCorreccion.dias"
-                            type="number"
-                            min="1"
-                        />
-                        <p
-                            v-if="formaCorreccion.errors.dias"
-                            class="text-sm text-destructive"
-                            data-input-error
-                        >
-                            {{ formaCorreccion.errors.dias }}
-                        </p>
-                    </div>
-                </div>
-                <div class="grid gap-1.5">
-                    <Label for="corr_motivo">Motivo de la corrección</Label>
-                    <Textarea
-                        id="corr_motivo"
-                        v-model="formaCorreccion.motivo"
-                        rows="2"
-                    />
-                    <p
-                        v-if="formaCorreccion.errors.motivo"
-                        class="text-sm text-destructive"
-                        data-input-error
-                    >
-                        {{ formaCorreccion.errors.motivo }}
-                    </p>
-                </div>
-                <DialogFooter>
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        @click="corrigiendo = null"
-                        >Cerrar</Button
-                    >
-                    <Button type="submit" :disabled="formaCorreccion.processing"
-                        >Guardar corrección</Button
-                    >
                 </DialogFooter>
             </form>
         </DialogContent>

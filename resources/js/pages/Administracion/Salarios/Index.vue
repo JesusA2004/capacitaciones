@@ -10,6 +10,7 @@ import {
     Upload,
 } from '@lucide/vue';
 import { computed, reactive, ref } from 'vue';
+import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
 import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
@@ -812,6 +813,7 @@ const consultaExportar = computed(() => ({
                                     <th class="p-2">Desempeño</th>
                                     <th class="p-2 text-right">Tope</th>
                                     <th class="p-2 text-right">Puede subir</th>
+                                    <th class="p-2"><span class="sr-only">Acciones</span></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -874,10 +876,18 @@ const consultaExportar = computed(() => ({
                                                 : moneda(persona.margen)
                                         }}
                                     </td>
+                                    <td class="p-2 text-right">
+                                        <BotonCorregir
+                                            dominio="salario"
+                                            :sujeto-id="persona.id"
+                                            permiso="salarios.editar"
+                                            variante="ghost"
+                                        />
+                                    </td>
                                 </tr>
                                 <tr v-if="colaboradores.length === 0">
                                     <td
-                                        colspan="7"
+                                        colspan="8"
                                         class="p-4 text-center text-xs text-muted-foreground"
                                     >
                                         Nadie vigente en este puesto con este

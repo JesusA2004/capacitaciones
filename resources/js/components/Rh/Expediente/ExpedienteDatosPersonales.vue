@@ -19,6 +19,7 @@ import { computed, ref, shallowRef } from 'vue';
 import CamposDomicilio from '@/components/Common/CamposDomicilio.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
+import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
 import InputError from '@/components/InputError.vue';
 import ChipEstado from '@/components/people/ChipEstado.vue';
 import { Button } from '@/components/ui/button';
@@ -385,6 +386,12 @@ const errores = computed(
                     <template v-else>Solo lectura.</template>
                 </p>
             </div>
+            <BotonCorregir
+                v-if="puedeEditar && !editando"
+                dominio="personal"
+                :sujeto-id="colaborador.id"
+                permiso="expedientes.editar"
+            />
             <Button
                 v-if="puedeEditar && !editando"
                 size="sm"
