@@ -71,6 +71,7 @@ class ActaService
         return [
             'gestionar' => $gate->allows('gestionar', $acta),
             'editar' => $gate->allows('editar', $acta),
+            'corregir_generada' => $gate->allows('editar', $acta) && $this->corregibleGenerada($acta),
             'subir_anexo' => $gate->allows('subirAnexo', $acta),
             'registrar_firma' => $gate->allows('registrarFirma', $acta),
             'registrar_entrega' => $gate->allows('registrarEntrega', $acta),
@@ -457,6 +458,17 @@ class ActaService
         // Mismo camino que la web: formato oficial, faltantes, flujo físico
         // y archivo en el expediente (DocumentoProcesoService).
         return app(DocumentoProcesoService::class)->generar('acta', $acta, $acta->tipo->clavePlantilla(), $actor, regenerar: $acta->generated_document_id !== null, motivoRevision: $motivo);
+    }
+
+    private function corregibleGenerada(ActaAdministrativa $acta): bool
+    {
+        if ($acta->estado !== EstadoActa::Generada) {
+            return false;
+        }
+
+        $documento = $acta->generated_document_id !== null ? GeneratedDocument::query()->whereKey($acta->generated_document_id)->first() : null;
+
+        return ! ($documento?->estado_flujo?->firmaFisicaRegistrada() ?? false);
     }
 
     /**

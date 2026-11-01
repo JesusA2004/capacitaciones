@@ -69,7 +69,9 @@ defineOptions({
 });
 
 const editable = computed(
-    () => props.permisos.editar && props.acta.estado === 'borrador',
+    () =>
+        props.permisos.editar &&
+        (props.acta.estado === 'borrador' || props.permisos.corregir_generada),
 );
 const abierta = computed(
     () => !['cerrada', 'cancelada'].includes(props.acta.estado),
@@ -179,6 +181,10 @@ function guardar() {
     }
 
     form.transform((datos) => ({
+        motivo_correccion:
+            props.acta.estado !== 'borrador'
+                ? motivoCorreccion.value
+                : undefined,
         ...datos,
         lugar: datos.lugar || null,
         hora: datos.hora || null,
@@ -196,6 +202,12 @@ function guardar() {
 // ───── Negativa a firmar ─────
 const negativaAbierta = ref(false);
 const negativa = useForm({ motivo: '' });
+const motivoCorreccion = ref('');
+const motivoError = computed(
+    () =>
+        (form.errors as Record<string, string | undefined>).motivo_correccion ??
+        null,
+);
 
 function registrarNegativa() {
     negativa.post(negativaFirma.url(props.acta.id), {
@@ -758,8 +770,9 @@ function cerrarActa() {
             <DialogHeader>
                 <DialogTitle>Editar acta</DialogTitle>
                 <DialogDescription>
-                    Solo mientras está en borrador. Después, los cambios se
-                    registran como seguimiento.
+                    Mientras no esté firmada. Si ya se generó, explica el motivo
+                    y luego regenera el formato. Después de firmar, los cambios
+                    se registran como seguimiento.
                 </DialogDescription>
             </DialogHeader>
             <form class="flex flex-col gap-4" @submit.prevent="guardar">
@@ -769,6 +782,27 @@ function cerrarActa() {
                     :pide-motivo="acta.tipo === 'administrativa'"
                     :sujeto-id="acta.colaborador.id"
                 />
+                <div
+                    v-if="acta.estado !== 'borrador'"
+                    class="flex flex-col gap-1.5"
+                >
+                    <label for="motivo-correccion" class="text-sm font-medium"
+                        >Motivo de la corrección</label
+                    >
+                    <textarea
+                        id="motivo-correccion"
+                        v-model="motivoCorreccion"
+                        rows="2"
+                        class="rounded-xl border border-border/60 bg-transparent px-3 py-2 text-sm"
+                    />
+                    <p
+                        v-if="motivoError"
+                        class="text-xs text-destructive"
+                        role="alert"
+                    >
+                        {{ motivoError }}
+                    </p>
+                </div>
                 <DialogFooter>
                     <Button
                         type="button"

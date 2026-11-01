@@ -182,6 +182,7 @@ export type FormularioCircunstanciada = {
 export type PermisosActa = {
     gestionar: boolean;
     editar: boolean;
+    corregir_generada: boolean;
     subir_anexo: boolean;
     registrar_firma: boolean;
     registrar_entrega: boolean;
