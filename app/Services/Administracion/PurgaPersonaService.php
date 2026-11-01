@@ -55,6 +55,7 @@ class PurgaPersonaService
         ['intervenciones_candidato', 'gerente_solicitante_id', null, 'intervenciones de candidatos solicitadas'],
         // Expediente de baja de OTRAS personas donde la cuenta actuó (FK
         // RESTRICT: la auditoría de la baja ajena no se altera).
+        ['correcciones', 'actor_id', 'colaborador_id', 'correcciones aplicadas a datos de otras personas'],
         ['bajas', 'creado_por', 'colaborador_id', 'bajas de otras personas capturadas'],
         ['bajas', 'solicitado_por', 'colaborador_id', 'bajas de otras personas solicitadas'],
         ['bajas', 'validado_por', 'colaborador_id', 'bajas de otras personas validadas'],
@@ -105,6 +106,7 @@ class PurgaPersonaService
         'colaborador_datos_medicos' => 'datos médicos',
         'cartas_compromiso' => 'cartas compromiso',
         'contratos_laborales' => 'contratos laborales',
+        'correcciones' => 'correcciones auditadas',
         'divisiones_expediente_historico' => 'divisiones de expediente histórico',
         'document_extractions' => 'lecturas automáticas de documentos',
         'employee_documents' => 'documentos del expediente',

@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Enums\TipoCambioSalario;
 use Database\Factories\HistorialSalarioFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
+use LogicException;
 
 /**
  * Ledger append-only de cambios de salario (CompensacionService::actualizarSalario()).
@@ -15,6 +17,9 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property int $colaborador_id
+ * @property TipoCambioSalario|null $tipo
+ * @property string|null $sueldo_mensual_anterior
+ * @property string|null $sueldo_mensual_nuevo
  * @property string|null $salario_diario_anterior
  * @property string $salario_diario_nuevo
  * @property string|null $salario_diario_integrado_anterior
@@ -35,14 +40,23 @@ class HistorialSalario extends Model
     protected $table = 'historial_salarios';
 
     protected $fillable = [
-        'colaborador_id', 'salario_diario_anterior', 'salario_diario_nuevo',
+        'colaborador_id', 'tipo', 'sueldo_mensual_anterior', 'sueldo_mensual_nuevo', 'salario_diario_anterior', 'salario_diario_nuevo',
         'salario_diario_integrado_anterior', 'salario_diario_integrado_nuevo',
         'fecha_efectiva', 'fuente', 'importacion_id', 'actor_id', 'motivo',
     ];
 
+    protected static function booted(): void
+    {
+        static::updating(fn (): never => throw new LogicException('El historial de salarios no se edita: una corrección agrega un renglón.'));
+        static::deleting(fn (): never => throw new LogicException('El historial de salarios no se borra.'));
+    }
+
     protected function casts(): array
     {
         return [
+            'tipo' => TipoCambioSalario::class,
+            'sueldo_mensual_anterior' => 'decimal:2',
+            'sueldo_mensual_nuevo' => 'decimal:2',
             'salario_diario_anterior' => 'decimal:2',
             'salario_diario_nuevo' => 'decimal:2',
             'salario_diario_integrado_anterior' => 'decimal:2',

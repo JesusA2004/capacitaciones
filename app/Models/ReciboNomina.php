@@ -73,6 +73,9 @@ class ReciboNomina extends Model
         'total_deducciones',
         'neto',
         'estado',
+        'rectifica_recibo_id',
+        'rectificado_por_id',
+        'datos_emision',
         'emitido_at',
         'generado_por',
         'pdf_disk',
@@ -141,6 +144,7 @@ class ReciboNomina extends Model
             'dias_incapacidad' => 'decimal:2',
             'advertencias' => 'array',
             'cancelado_at' => 'datetime',
+            'datos_emision' => 'array',
         ];
     }
 

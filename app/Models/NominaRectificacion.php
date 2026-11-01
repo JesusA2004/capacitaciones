@@ -9,7 +9,8 @@ use Illuminate\Support\Carbon;
 
 /**
  * Diferencia detectada en un recibo YA EMITIDO por una incidencia posterior.
- * El recibo no cambia hasta que RH la aplica o la descarta con su nota.
+ * El recibo original NUNCA cambia: aplicarla emite un recibo nuevo enlazado
+ * (recibo_resultante_id); descartarla exige una nota.
  *
  * @property int $id
  * @property int $recibo_nomina_id
@@ -23,6 +24,9 @@ use Illuminate\Support\Carbon;
  * @property string $importe_sueldo_despues
  * @property string $motivo
  * @property string|null $nota_resolucion
+ * @property string $origen
+ * @property list<array<string, mixed>>|null $conceptos_propuestos
+ * @property int|null $recibo_resultante_id
  * @property int|null $resuelta_por
  * @property Carbon|null $resuelta_en
  * @property-read ReciboNomina $recibo
@@ -35,13 +39,14 @@ class NominaRectificacion extends Model
     protected $fillable = [
         'recibo_nomina_id', 'colaborador_id', 'estado', 'dias_pagados_antes', 'dias_pagados_despues',
         'dias_incapacidad_despues', 'dias_falta_despues', 'neto_antes', 'importe_sueldo_despues', 'motivo',
-        'nota_resolucion', 'resuelta_por', 'resuelta_en',
+        'nota_resolucion', 'resuelta_por', 'resuelta_en', 'origen', 'conceptos_propuestos', 'recibo_resultante_id',
     ];
 
     protected function casts(): array
     {
         return [
             'estado' => EstadoRectificacionNomina::class,
+            'conceptos_propuestos' => 'array',
             'dias_pagados_antes' => 'decimal:2',
             'dias_pagados_despues' => 'decimal:2',
             'dias_incapacidad_despues' => 'decimal:2',
