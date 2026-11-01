@@ -336,6 +336,7 @@ async function ejecutarGeneracion(
         pendiente.value = null;
         faltantes.value = [];
         regeneracion.value = null;
+
         if ('creado' in respuesta && respuesta.creado === false) {
             toast.info(
                 'Sin cambios: el documento vigente ya corresponde a estos datos.',

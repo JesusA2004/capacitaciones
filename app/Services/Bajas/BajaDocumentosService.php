@@ -44,7 +44,7 @@ class BajaDocumentosService
         private readonly DocumentoProcesoService $documentosProceso,
     ) {}
 
-    /** @var array<int, list<array<string, mixed>>>|null Espacios por baja; solo tras precargar() (lecturas de listado). */
+    /** @var array<int, list<array{id: int|null, clave: string|null, nombre: string, obligatorio: bool, de_causal: bool, cumplido: bool, cumplido_por_sistema: string|null, archivos: list<array<string, mixed>>}>>|null Espacios por baja; solo tras precargar() (lecturas de listado). */
     private ?array $memoEspacios = null;
 
     /** @var array<string, Collection<int, DocumentoRequeridoBaja>> */
