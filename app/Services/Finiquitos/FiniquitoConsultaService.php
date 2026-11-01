@@ -22,6 +22,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Pestaña «Finiquitos» de Bajas (PDF Etapa 1, F1–F4): localiza y procesa cada
@@ -201,39 +202,24 @@ class FiniquitoConsultaService
     }
 
     /**
-     * Recibo PDF: vista previa mientras se calcula; desde «Revisado», el PDF
-     * registrado en el expediente (se regenera si los montos cambiaron); una
-     * vez firmado, el documento que vale.
+     * Recibo PDF. Un GET nunca emite: firmado sirve lo que vale; con PDF al día, ese
+     * PDF; sin PDF o con datos que cambiaron, una vista previa con marca de agua.
      */
-    public function recibo(FiniquitoCalculo $finiquito, User $actor): Response
+    public function recibo(FiniquitoCalculo $finiquito, User $actor): Response|StreamedResponse
     {
-        if ($finiquito->estado === EstadoFiniquito::Borrador) {
-            return response($this->finiquitos->vistaPreviaPdf($finiquito), 200, [
-                'Content-Type' => 'application/pdf',
-                'Content-Disposition' => 'inline; filename="recibo-finiquito-vista-previa.pdf"',
-                'X-Content-Type-Options' => 'nosniff',
-                'Cache-Control' => 'no-store',
-            ]);
+        $firmado = in_array($finiquito->estado, [EstadoFiniquito::Firmado, EstadoFiniquito::Pagado], true);
+
+        if (($firmado && ($finiquito->documento_generado_path !== null || $finiquito->documento_firmado_path !== null)) || $this->finiquitos->documentoAlDia($finiquito, $actor) !== null) {
+            return $this->finiquitos->descargarPdf($finiquito);
         }
 
-        if (in_array($finiquito->estado, [EstadoFiniquito::Revisado, EstadoFiniquito::Aprobado], true)) {
-            $congelado = is_array($finiquito->snapshot) && isset($finiquito->snapshot['neto']) ? round((float) $finiquito->snapshot['neto'], 2) : null;
-
-            if ($finiquito->documento_generado_path === null || $congelado !== round((float) $finiquito->neto, 2)) {
-                $finiquito = $this->finiquitos->generarPdf($finiquito, $actor);
-            }
-        }
-
-        if ($finiquito->documento_generado_path === null && $finiquito->documento_firmado_path === null) {
-            return response($this->finiquitos->vistaPreviaPdf($finiquito), 200, [
-                'Content-Type' => 'application/pdf',
-                'Content-Disposition' => 'inline; filename="recibo-finiquito.pdf"',
-                'X-Content-Type-Options' => 'nosniff',
-                'Cache-Control' => 'no-store',
-            ]);
-        }
-
-        return $this->finiquitos->descargarPdf($finiquito);
+        return response($this->finiquitos->vistaPreviaPdf($finiquito), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="recibo-finiquito-vista-previa.pdf"',
+            'X-Content-Type-Options' => 'nosniff',
+            'Cache-Control' => 'no-store',
+            'X-Documento-Estado' => 'vista-previa',
+        ]);
     }
 
     /**

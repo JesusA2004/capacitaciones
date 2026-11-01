@@ -47,6 +47,14 @@ class FiniquitoCalculoPolicy
     }
 
     /**
+     * Emitir el PDF oficial escribe una versión nueva: no basta poder descargar.
+     */
+    public function generarDocumento(User $usuario, FiniquitoCalculo $finiquito): bool
+    {
+        return $this->editarAjustes($usuario, $finiquito);
+    }
+
+    /**
      * Recalcular / ajustar montos: solo mientras no esté firmado (una vez
      * firmado por el colaborador, el documento entregado no se debe volver
      * a mover — un ajuste posterior requeriría un finiquito complementario,

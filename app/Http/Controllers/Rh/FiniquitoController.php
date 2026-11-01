@@ -141,7 +141,7 @@ class FiniquitoController extends Controller
     public function generarPdf(SolicitudInterna $solicitud): RedirectResponse
     {
         $finiquito = $this->finiquitoDe($solicitud);
-        $this->authorize('descargar', $finiquito);
+        $this->authorize('generarDocumento', $finiquito);
 
         $this->finiquitos->generarPdf($finiquito, request()->user());
 

@@ -5,6 +5,7 @@ namespace App\Services\Finiquitos;
 use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoFiniquito;
+use App\Enums\EstadoFlujoDocumento;
 use App\Enums\FamiliaAdministrativa;
 use App\Enums\TipoConceptoNomina;
 use App\Enums\TipoFiniquito;
@@ -13,13 +14,19 @@ use App\Models\Colaborador;
 use App\Models\DocumentType;
 use App\Models\FiniquitoCalculo;
 use App\Models\FiniquitoConcepto;
+use App\Models\GeneratedDocument;
 use App\Models\OfficialFormat;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudInternaHistorial;
 use App\Models\User;
 use App\Services\Compensacion\CompensacionService;
+use App\Services\Documentos\Versiones\DatosVolatiles;
+use App\Services\Documentos\Versiones\DocumentoRenderizado;
+use App\Services\Documentos\Versiones\Fuentes\FuenteFiniquito;
+use App\Services\Documentos\Versiones\VersionadoDocumentoService;
 use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
 use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
+use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Formatos\GeneradorFormatoService;
@@ -57,6 +64,7 @@ class FiniquitoService
         private readonly DocumentoAdministrativoService $documentosAdministrativos,
         private readonly DatosDocumentoAdministrativo $datosDocumento,
         private readonly CompensacionService $compensacion,
+        private readonly FlujoDocumentalService $flujoDocumental,
     ) {}
 
     /**
@@ -428,7 +436,7 @@ class FiniquitoService
     {
         $finiquito->loadMissing(['colaborador', 'solicitudInterna']);
 
-        return $this->documentosAdministrativos->renderizarVigente(FamiliaAdministrativa::Finiquito, $this->datosDocumento->finiquito($finiquito, $this->desglose($finiquito)));
+        return $this->documentosAdministrativos->renderizarVigente(FamiliaAdministrativa::Finiquito, $this->datosDocumento->finiquito($finiquito, $this->desglose($finiquito)), DocumentoAdministrativoService::MARCA_VISTA_PREVIA);
     }
 
     /**
@@ -465,7 +473,7 @@ class FiniquitoService
         $copia = clone $finiquito;
         $copia->forceFill(['total_percepciones' => round($percepciones, 2), 'total_deducciones' => round($deducciones, 2), 'neto' => round($percepciones - $deducciones, 2), 'total_ajustado' => round($percepciones - $deducciones, 2)]);
 
-        return $this->documentosAdministrativos->renderizarVigente(FamiliaAdministrativa::Finiquito, $this->datosDocumento->finiquito($copia, $desglose));
+        return $this->documentosAdministrativos->renderizarVigente(FamiliaAdministrativa::Finiquito, $this->datosDocumento->finiquito($copia, $desglose), DocumentoAdministrativoService::MARCA_VISTA_PREVIA);
     }
 
     /**
@@ -769,8 +777,10 @@ class FiniquitoService
         }
 
         $observacion = is_string($observacion) && trim($observacion) !== '' ? mb_substr(trim($observacion), 0, 500) : null;
+        $documento = $this->exigirDocumentoAlDia($finiquito, $actor);
 
-        return DB::transaction(function () use ($finiquito, $actor, $observacion): FiniquitoCalculo {
+        return DB::transaction(function () use ($finiquito, $actor, $observacion, $documento): FiniquitoCalculo {
+            $this->firmarDocumento($documento, $actor, $observacion);
             $finiquito->update([
                 'firmado_fisicamente_en' => now(),
                 'firmado_fisicamente_por' => $actor->id,
@@ -864,7 +874,13 @@ class FiniquitoService
             throw ValidationException::withMessages(['estado' => 'Marca el finiquito como revisado antes de subir el recibo firmado.']);
         }
 
-        return $this->guardarFirmado($finiquito, $archivo, $actor);
+        $documento = $this->exigirDocumentoAlDia($finiquito, $actor);
+
+        return DB::transaction(function () use ($finiquito, $archivo, $actor, $documento): FiniquitoCalculo {
+            $this->firmarDocumento($documento, $actor, 'Recibo firmado cargado.');
+
+            return $this->guardarFirmado($finiquito, $archivo, $actor);
+        });
     }
 
     /**
@@ -873,61 +889,141 @@ class FiniquitoService
      * docs/FORMATOS_OFICIALES.md), o el formato interno DomPDF como
      * respaldo cuando no lo hay. Congela un snapshot de los datos usados.
      */
-    public function generarPdf(FiniquitoCalculo $finiquito, ?User $actor = null): FiniquitoCalculo
+    public function generarPdf(FiniquitoCalculo $finiquito, ?User $actor = null, ?string $motivo = null): FiniquitoCalculo
     {
         $this->asegurarNoFirmado($finiquito);
 
         $finiquito->loadMissing(['colaborador', 'calculadoPor', 'revisadoPor', 'solicitudInterna']);
         $actor ??= $finiquito->calculadoPor;
         $finiquito = $this->recalcularTotales($finiquito);
-        $desglose = $this->desglose($finiquito);
-        $variables = $this->datosOverlay($finiquito);
 
-        // 1) Plantilla "finiquito" cargada por Jurídico en el motor documental.
-        // 2) Formato oficial PDF de finiquito (overlay) si está configurado.
-        // 3) Respaldo interno DomPDF (solo desglose de montos, sin cláusulas).
-        // En los tres casos el PDF queda en el expediente (carpeta
-        // BajaFiniquito) como documento laboral con snapshot y flujo de firma.
-        // Por defecto: el FORMATO OFICIAL de RH (docs/formatosRH/Formato_Finiquito.docx)
-        // como documento administrativo. La plantilla de Jurídico o el
-        // overlay anterior solo si se pide explícitamente (FINIQUITO_MOTOR).
+        // Sin cambios devuelve la vigente; una nueva versión liga y cancela la anterior.
+        $resultado = $this->versionado()->emitir(new FuenteFiniquito($this, $finiquito), [], $motivo ?? 'Regeneración con los datos vigentes del finiquito.', $actor);
+
+        if ($finiquito->refresh()->generated_document_id !== $resultado->documento->id) {
+            $this->ligarDocumento($finiquito, $resultado->documento);
+        }
+
+        return $finiquito->refresh();
+    }
+
+    /**
+     * PDF definitivo en memoria, sin registrar: lo emite VersionadoDocumentoService.
+     * 1) Plantilla "finiquito" de Jurídico, 2) formato oficial con overlay (solo con
+     * FINIQUITO_MOTOR=legado), 3) por defecto, documento administrativo con el diseño
+     * vigente de RH.
+     */
+    public function prepararDocumento(FiniquitoCalculo $finiquito, User $actor): DocumentoRenderizado
+    {
+        $variables = $this->datosOverlay($finiquito);
         $motorLegado = config('finiquitos.motor') === 'legado';
 
         if ($motorLegado && $this->motor->tienePlantillaActiva('finiquito')) {
-            $documento = $this->motor->generar($finiquito->colaborador, 'finiquito', $actor, $variables, $finiquito, 'Finiquito');
-        } else {
-            $formatoOficial = OfficialFormat::query()
-                ->where('tipo', TipoFormatoOficial::Finiquito->value)
-                ->where('is_active', true)
-                ->first();
+            $plantilla = $this->motor->plantillaPorClave('finiquito', $finiquito->colaborador);
 
-            $opciones = [
-                'clave' => 'finiquito',
-                'categoria' => CategoriaDocumento::BajaFiniquito,
-                'payload' => $this->resolver->resolver($finiquito->colaborador, $variables),
-                'documentable' => $finiquito,
-                'requiere_impresion' => true,
-                'requiere_firma_fisica' => true,
-            ];
-
-            if ($motorLegado && $formatoOficial !== null && $formatoOficial->tieneConfiguracion()) {
-                $contenido = $this->formatosOficiales->renderizarPara($formatoOficial, $this->formatosOficiales->contextoDesde($finiquito->colaborador, $finiquito, $actor), $variables);
-                $documento = $this->motor->registrarPdf($finiquito->colaborador, $contenido, 'Finiquito', $actor, $opciones);
-            } else {
-                // Sin formato oficial: documento administrativo con el diseño vigente
-                // (Documentos maestros → Documentos administrativos → Finiquito).
-                $administrativo = $this->documentosAdministrativos->generar(FamiliaAdministrativa::Finiquito, $this->datosDocumento->finiquito($finiquito, $desglose), $actor);
-                $documento = $this->motor->registrarPdf($finiquito->colaborador, $administrativo['pdf'], 'Finiquito', $actor, [...$administrativo['opciones_registro'], ...$opciones]);
-            }
+            return $plantilla->estado_master !== null
+                ? $this->motor->prepararDesdeMaestro($plantilla, $this->motor->contextoDesde($finiquito->colaborador, $finiquito, $actor, $variables), 'Finiquito')
+                : $this->motor->prepararDesdePlantilla($finiquito->colaborador, $plantilla, $variables, $finiquito, $actor);
         }
 
+        $opciones = [
+            'categoria' => CategoriaDocumento::BajaFiniquito,
+            'payload' => $this->resolver->resolver($finiquito->colaborador, $variables),
+            'requiere_impresion' => true,
+            'requiere_firma_fisica' => true,
+        ];
+        $formatoOficial = OfficialFormat::query()->where('tipo', TipoFormatoOficial::Finiquito->value)->where('is_active', true)->first();
+
+        if ($motorLegado && $formatoOficial !== null && $formatoOficial->tieneConfiguracion()) {
+            $contenido = $this->formatosOficiales->renderizarPara($formatoOficial, $this->formatosOficiales->contextoDesde($finiquito->colaborador, $finiquito, $actor), $variables);
+
+            return new DocumentoRenderizado($contenido, 'Finiquito', CategoriaDocumento::BajaFiniquito, $opciones);
+        }
+
+        $administrativo = $this->documentosAdministrativos->generar(FamiliaAdministrativa::Finiquito, $this->datosDocumento->finiquito($finiquito, $this->desglose($finiquito)), $actor);
+
+        return new DocumentoRenderizado($administrativo['pdf'], 'Finiquito', CategoriaDocumento::BajaFiniquito, [...$administrativo['opciones_registro'], ...$opciones]);
+    }
+
+    /**
+     * Todo lo que el documento imprime (tipo, fechas, importes y diseño): si algo de
+     * esto cambia, la versión guardada ya no sirve, aunque el neto sea el mismo.
+     *
+     * @return array<string, mixed>
+     */
+    public function valoresDocumento(FiniquitoCalculo $finiquito): array
+    {
+        $finiquito->loadMissing(['colaborador', 'solicitudInterna']);
+
+        return [
+            ...DatosVolatiles::quitar($this->datosDocumento->finiquito($finiquito, $this->desglose($finiquito))),
+            '_diseno' => $this->documentosAdministrativos->huellaDisenoVigente(FamiliaAdministrativa::Finiquito),
+        ];
+    }
+
+    public function ligarDocumento(FiniquitoCalculo $finiquito, GeneratedDocument $documento): void
+    {
         $finiquito->update([
             'documento_generado_path' => $documento->path,
             'generated_document_id' => $documento->id,
-            'snapshot' => $this->snapshot($finiquito, $desglose, ['generated_document_id' => $documento->id]),
+            'snapshot' => $this->snapshot($finiquito, $this->desglose($finiquito), ['generated_document_id' => $documento->id]),
         ]);
+    }
 
-        return $finiquito->refresh();
+    /**
+     * Documento que hoy vale para este finiquito: null si no hay PDF o ya no
+     * corresponde a los datos.
+     */
+    public function documentoAlDia(FiniquitoCalculo $finiquito, User $actor): ?GeneratedDocument
+    {
+        $documento = $finiquito->generated_document_id !== null ? GeneratedDocument::query()->whereKey($finiquito->generated_document_id)->first() : null;
+
+        if ($documento === null || $finiquito->documento_generado_path === null) {
+            return null;
+        }
+
+        if ($documento->huella_datos === null) {
+            // Versión anterior a la huella: lo único que se puede comparar es el neto.
+            $congelado = is_array($finiquito->snapshot) && isset($finiquito->snapshot['neto']) ? round((float) $finiquito->snapshot['neto'], 2) : null;
+
+            return $congelado === round((float) $finiquito->neto, 2) ? $documento : null;
+        }
+
+        return $this->versionado()->estaDesactualizado(new FuenteFiniquito($this, $finiquito), $documento, $actor) ? null : $documento;
+    }
+
+    /**
+     * Nadie firma un papel con datos viejos.
+     *
+     * @throws ValidationException
+     */
+    private function exigirDocumentoAlDia(FiniquitoCalculo $finiquito, User $actor): GeneratedDocument
+    {
+        return $this->documentoAlDia($finiquito, $actor) ?? throw ValidationException::withMessages([
+            'documento' => 'El PDF del finiquito no existe o ya no corresponde a los datos actuales. Regenera el PDF e imprímelo antes de registrar la firma.',
+        ]);
+    }
+
+    /**
+     * El documento generado acompaña a la firma del finiquito: la versión firmada
+     * queda protegida. Un fallo deshace la firma: no se traga.
+     */
+    private function firmarDocumento(GeneratedDocument $documento, User $actor, ?string $observacion): void
+    {
+        if ($documento->estado_flujo?->estaConcluido() ?? false) {
+            return;
+        }
+
+        if (in_array($documento->estado_flujo, [EstadoFlujoDocumento::Generado, EstadoFlujoDocumento::PendienteImpresion], true)) {
+            $documento = $this->flujoDocumental->marcarImpreso($documento, $actor);
+        }
+
+        $this->flujoDocumental->registrarFirmaFisica($documento, $actor, ['observaciones' => $observacion ?? 'Finiquito firmado.']);
+    }
+
+    private function versionado(): VersionadoDocumentoService
+    {
+        return app(VersionadoDocumentoService::class);
     }
 
     /**

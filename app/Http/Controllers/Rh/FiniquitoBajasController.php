@@ -22,6 +22,7 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Bajas → pestaña «Finiquitos». Delgado: autoriza con FiniquitoCalculoPolicy
@@ -118,11 +119,22 @@ class FiniquitoBajasController extends Controller
         return $this->ok('Tipo del documento actualizado; el cambio quedó en la bitácora.');
     }
 
-    public function recibo(Request $request, FiniquitoCalculo $finiquito): HttpResponse
+    public function recibo(Request $request, FiniquitoCalculo $finiquito): HttpResponse|StreamedResponse
     {
         $this->authorize('descargar', $finiquito);
 
         return $this->consulta->recibo($finiquito, $request->user());
+    }
+
+    /** Emite el PDF: autoriza como escritura, nunca con el permiso de descarga. */
+    public function generarPdf(Request $request, FiniquitoCalculo $finiquito): RedirectResponse
+    {
+        $this->authorize('generarDocumento', $finiquito);
+        $datos = $request->validate(['motivo' => ['nullable', 'string', 'max:500']]);
+        $anterior = $finiquito->generated_document_id;
+        $actualizado = $this->finiquitos->generarPdf($finiquito, $request->user(), $datos['motivo'] ?? null);
+
+        return $this->ok($actualizado->generated_document_id === $anterior ? 'Sin cambios: el PDF ya corresponde a los datos actuales.' : 'PDF generado; la versión anterior se conserva en el historial.');
     }
 
     public function subirFirmado(SubirFiniquitoFirmadoRequest $request, FiniquitoCalculo $finiquito): RedirectResponse

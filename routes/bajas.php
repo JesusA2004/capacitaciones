@@ -31,6 +31,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('{finiquito}/corregir', [FiniquitoBajasController::class, 'corregir'])->name('corregir');
             Route::post('{finiquito}/tipo', [FiniquitoBajasController::class, 'cambiarTipo'])->name('tipo');
             Route::get('{finiquito}/recibo', [FiniquitoBajasController::class, 'recibo'])->name('recibo')->middleware('throttle:30,1');
+            Route::post('{finiquito}/generar-pdf', [FiniquitoBajasController::class, 'generarPdf'])->name('generar-pdf')->middleware('throttle:30,1');
             Route::post('{finiquito}/firmado', [FiniquitoBajasController::class, 'subirFirmado'])->name('firmado')->middleware('throttle:30,1');
             Route::post('{finiquito}/pago', [FiniquitoBajasController::class, 'registrarPago'])->name('pago');
         });

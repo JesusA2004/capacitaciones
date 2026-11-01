@@ -145,9 +145,10 @@ class CierreLaboralController extends Controller
 
     public function generarFiniquito(Request $request, CierreLaboral $cierre): JsonResponse
     {
-        $this->authorize('descargarFiniquito', $cierre);
+        $finiquito = $this->cierres->exigirFiniquito($cierre);
+        $this->authorize('generarDocumento', $finiquito);
 
-        $finiquito = $this->finiquitos->generarPdf($this->cierres->exigirFiniquito($cierre), $request->user());
+        $finiquito = $this->finiquitos->generarPdf($finiquito, $request->user());
 
         return response()->json([
             'data' => $this->cierres->aArray($cierre->refresh(), true, $request->user()),

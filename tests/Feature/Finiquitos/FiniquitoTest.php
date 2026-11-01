@@ -253,6 +253,10 @@ test('marcar firmado físicamente lleva a Firmado sin archivo, registra quién/c
     // El flujo nuevo exige que el cálculo ya esté aprobado (revisado + baja aprobada).
     $finiquito->update(['estado' => 'aprobado']);
 
+    // Sin PDF al día no se registra la firma: nadie firma un papel con datos viejos.
+    $this->actingAs($this->rh)->post(route('rh.solicitudes.finiquito.firmado-fisico', $solicitud))->assertSessionHasErrors('documento');
+    $this->actingAs($this->rh)->post(route('rh.solicitudes.finiquito.generar-pdf', $solicitud))->assertSessionHasNoErrors();
+
     $this->actingAs($this->rh)
         ->post(route('rh.solicitudes.finiquito.firmado-fisico', $solicitud), ['observacion' => 'Firmado en oficina ante RH.'])
         ->assertSessionHasNoErrors();
