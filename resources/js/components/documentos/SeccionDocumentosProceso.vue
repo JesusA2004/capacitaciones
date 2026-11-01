@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { router } from '@inertiajs/vue3';
 import { Link } from '@inertiajs/vue3';
 import {
     AlertTriangle,
@@ -17,6 +18,7 @@ import {
     History,
     Lock,
     MoreHorizontal,
+    Pencil,
     PenLine,
     Printer,
     RefreshCcw,
@@ -27,7 +29,10 @@ import {
 } from '@lucide/vue';
 import { ref } from 'vue';
 import type { Component } from 'vue';
+import { toast } from 'vue-sonner';
 import AyudaBoton from '@/components/Common/AyudaBoton.vue';
+import EditorDatosDocumento from '@/components/documentos/EditorDatosDocumento.vue';
+import HistorialVersiones from '@/components/documentos/HistorialVersiones.vue';
 import BotonVistaPrevia from '@/components/people/BotonVistaPrevia.vue';
 import ChipEstado from '@/components/people/ChipEstado.vue';
 import { Button } from '@/components/ui/button';
@@ -74,6 +79,28 @@ const emit = defineEmits<{
 }>();
 
 const historialAbierto = ref<string | null>(null);
+const itemEditando = ref<ItemDocumentoProceso | null>(null);
+const editorAbierto = ref(false);
+const versionEmitida = ref(0);
+
+// «Editar datos» acompaña a «Regenerar»: el servidor ya decidió quién puede.
+function puedeEditarDatos(item: ItemDocumentoProceso): boolean {
+    return item.acciones.some((a) => a.clave === 'regenerar');
+}
+
+function abrirEditor(item: ItemDocumentoProceso) {
+    itemEditando.value = item;
+    editorAbierto.value = true;
+}
+
+function alEmitir(creado: boolean, mensaje: string) {
+    toast.success(mensaje);
+
+    if (creado) {
+        versionEmitida.value++;
+        router.reload();
+    }
+}
 
 type InfoEstado = { tono: Tono; icono: Component };
 
@@ -500,6 +527,12 @@ function varianteSeccion(a: AccionDocumento) {
                                 "
                             />
                             <DropdownMenuItem
+                                v-if="puedeEditarDatos(item)"
+                                @select="abrirEditor(item)"
+                            >
+                                <Pencil class="size-4" /> Editar datos
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
                                 v-if="item.historial.length"
                                 @select="
                                     historialAbierto =
@@ -516,19 +549,14 @@ function varianteSeccion(a: AccionDocumento) {
                     </DropdownMenu>
                 </div>
 
-                <ul
+                <HistorialVersiones
                     v-if="historialAbierto === item.clave"
-                    class="flex flex-col gap-1 border-t border-[var(--mrl-borde)] pt-2 text-xs text-muted-foreground"
-                >
-                    <li v-for="h in item.historial" :key="h.id">
-                        #{{ h.id }} · v{{ h.version_plantilla ?? '—' }} ·
-                        {{ h.estado_etiqueta }} ·
-                        {{ h.generado_en ? formatearFecha(h.generado_en) : '' }}
-                        <template v-if="h.motivo_cancelacion">
-                            · {{ h.motivo_cancelacion }}</template
-                        >
-                    </li>
-                </ul>
+                    class="border-t border-[var(--mrl-borde)] pt-2"
+                    :tipo="seccion.registro.tipo"
+                    :id="seccion.registro.id"
+                    :clave="item.clave"
+                    :recargar="versionEmitida"
+                />
             </li>
         </ul>
 
@@ -581,5 +609,14 @@ function varianteSeccion(a: AccionDocumento) {
                 </li>
             </ul>
         </div>
+
+        <EditorDatosDocumento
+            v-if="itemEditando"
+            v-model:open="editorAbierto"
+            :tipo="seccion.registro.tipo"
+            :id="seccion.registro.id"
+            :clave="itemEditando.clave"
+            @emitido="alEmitir"
+        />
     </section>
 </template>

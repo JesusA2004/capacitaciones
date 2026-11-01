@@ -436,3 +436,46 @@ export type ReporteCobertura = {
         excluidos: number;
     };
 };
+
+/** Dato corregible de un documento (VersionadoDocumentoService). */
+export type CampoDocumento = {
+    clave: string;
+    etiqueta: string;
+    tipo: string;
+    valor: string;
+    original: string;
+    obsoleta: string | null;
+};
+
+export type CamposDocumento = {
+    campos: CampoDocumento[];
+    etiqueta: string;
+    vigente: {
+        id: number;
+        version: number;
+        firmado: boolean;
+        desactualizado: boolean;
+    } | null;
+    puede_rectificar: boolean;
+};
+
+export type VersionDocumento = {
+    id: number;
+    version: number;
+    titulo: string | null;
+    vigente: boolean;
+    estado: string | null;
+    estado_etiqueta: string | null;
+    firmado: boolean;
+    tipo_emision: 'original' | 'correccion' | 'rectificacion' | null;
+    tipo_emision_etiqueta: string | null;
+    motivo: string | null;
+    motivo_cancelacion: string | null;
+    revision_de_id: number | null;
+    usuario: string | null;
+    fecha: string | null;
+    campos_corregidos: string[];
+    archivo_disponible: boolean;
+    puede_descargar: boolean;
+    firmados: { id: number; nombre: string }[];
+};

@@ -13,6 +13,7 @@ import {
 import { computed, ref, watch } from 'vue';
 import EditorDocumentoSalida from '@/components/bajas/EditorDocumentoSalida.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import HistorialVersiones from '@/components/documentos/HistorialVersiones.vue';
 import InputError from '@/components/InputError.vue';
 import ChipEstado from '@/components/people/ChipEstado.vue';
 import { Button } from '@/components/ui/button';
@@ -500,6 +501,9 @@ function validarPlazo() {
                     @click="pidiendoVersion = true"
                     >Nueva versión</Button
                 >
+                <Button v-else variant="outline" @click="corrigiendo = true"
+                    >Rectificar</Button
+                >
                 <label
                     v-if="
                         panel.generado.requiere_huella &&
@@ -559,4 +563,11 @@ function validarPlazo() {
     </section>
 
     <EditorDocumentoSalida v-model:open="corrigiendo" :panel="panel" />
+    <HistorialVersiones
+        v-if="panel.generado"
+        class="mt-3"
+        tipo="salida"
+        :id="panel.baja_id"
+        :recargar="panel.generado.id"
+    />
 </template>
