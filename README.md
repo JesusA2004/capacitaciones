@@ -175,10 +175,10 @@ npm run build               # Build de producción del frontend
 php artisan headcount:importar   # Importa el Excel real de headcount (ver docs/HEADCOUNT_Y_VACANTES.md)
 ```
 
-Después de crear o modificar rutas/controladores, regenera los helpers tipados de Wayfinder si no tienes `composer dev` corriendo. **Usa siempre `--with-form`**: sin esa bandera se regeneran todos los helpers sin las variantes `.form()` que usa el componente `<Form>` de Inertia, rompiendo páginas existentes.
+Después de crear o modificar rutas/controladores, regenera los helpers tipados de Wayfinder si no tienes `composer dev` corriendo. **Usa siempre `--with-form`**: sin esa bandera se regeneran todos los helpers sin las variantes `.form()` que usa el componente `<Form>` de Inertia, rompiendo páginas existentes. `people:wayfinder` envuelve a `wayfinder:generate` para que los tipos no dependan de la base de datos; `npm run types:check` lo corre solo antes de comprobar.
 
 ```bash
-php artisan wayfinder:generate --with-form
+npm run wayfinder   # php artisan people:wayfinder --with-form
 ```
 
 ## Tareas programadas (recordatorios)

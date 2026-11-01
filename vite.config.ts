@@ -47,6 +47,8 @@ export default defineConfig({
         }),
         wayfinder({
             formVariants: true,
+            // Mismo resultado con o sin base de datos (GenerarWayfinderCommand).
+            command: 'php artisan people:wayfinder',
         }),
     ],
 });

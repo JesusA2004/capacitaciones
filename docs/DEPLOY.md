@@ -109,7 +109,7 @@ cp .env.example .env   # solo la primera vez; luego editar con los valores reale
 php artisan key:generate   # solo la primera vez
 
 # IMPORTANTE: limpiar cache de rutas/config ANTES de `npm run build`, no despues.
-# El plugin de Vite @laravel/vite-plugin-wayfinder corre `php artisan wayfinder:generate`
+# El plugin de Vite @laravel/vite-plugin-wayfinder corre `php artisan people:wayfinder`
 # como parte de `vite build` y ese comando lee las rutas registradas por Laravel: si
 # `bootstrap/cache/routes-v7.php` quedo cacheado de un deploy anterior (`route:cache` al
 # final de esta misma rutina), el build lee esa cache VIEJA en vez de routes/*.php nuevos
