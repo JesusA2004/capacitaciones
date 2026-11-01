@@ -17,6 +17,7 @@ use App\Services\Correcciones\Dominios\LaboralDominio;
 use App\Services\Correcciones\Dominios\PersonalDominio;
 use App\Services\Correcciones\Dominios\ReciboNominaDominio;
 use App\Services\Correcciones\Dominios\SalarioDominio;
+use App\Services\Organigrama\AutoridadJerarquicaService;
 use App\Services\Salarios\AccesoSueldoService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Support\OrigenPeticion;
@@ -27,6 +28,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use Spatie\Activitylog\Models\Activity;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Throwable;
@@ -53,6 +55,7 @@ class CorreccionService
         private readonly AuditoriaService $auditoria,
         private readonly NotificadorRhService $notificador,
         private readonly AccesoSueldoService $accesoSueldo,
+        private readonly AutoridadJerarquicaService $autoridad,
     ) {}
 
     /**
@@ -80,6 +83,7 @@ class CorreccionService
         $manejador = $this->dominio($dominio);
         $sujeto = $this->sujetoAutorizado($manejador, $id, $actor);
         $normalizados = $this->valoresValidos($manejador, $sujeto, $valores, $opciones, $actor);
+        $this->exigirJerarquia($sujeto, $normalizados, $actor);
         $afectados = $manejador->afectados($sujeto, $normalizados, $opciones);
 
         return [
@@ -131,10 +135,16 @@ class CorreccionService
                 }
 
                 $normalizados = $this->valoresValidos($manejador, $sujeto, $valores, $opciones, $actor);
+                $autorDesconocido = $this->exigirJerarquia($sujeto, $normalizados, $actor);
                 $afectados = $manejador->afectados($sujeto, $normalizados, $opciones);
 
                 if (($opciones['huella_afectados'] ?? null) !== null && ! hash_equals($this->huellaAfectados($afectados), (string) $opciones['huella_afectados'])) {
                     throw new CorreccionConflictoException($this->descripcion($manejador, $sujeto, $actor), 'Los registros afectados cambiaron desde la vista previa. Revísalos y confirma de nuevo.');
+                }
+
+                // Después de comparar la huella: la vista previa no lleva esta nota.
+                if ($autorDesconocido) {
+                    $afectados[] = ['tipo' => 'historial', 'etiqueta' => 'Valor anterior sin autor conocido', 'detalle' => AutoridadJerarquicaService::NOTA_AUTOR_DESCONOCIDO, 'accion' => 'revisar'];
                 }
 
                 $cambios = $this->cambios($manejador, $sujeto, $normalizados, $actor);
@@ -380,6 +390,52 @@ class CorreccionService
         }
 
         return $reales;
+    }
+
+    /**
+     * Nunca se corrige un valor que registró un puesto superior.
+     *
+     * @param  array<string, string|null>  $valores
+     * @return bool true si algún valor anterior no tiene autor conocido
+     */
+    private function exigirJerarquia(Model $sujeto, array $valores, User $actor): bool
+    {
+        $autores = [];
+
+        foreach (array_keys($valores) as $campo) {
+            $autores[] = $this->autoridad->autorPorId($this->autorDelValor($sujeto, $campo));
+        }
+
+        return $this->autoridad->exigirPuedeModificar($actor, $autores);
+    }
+
+    /**
+     * Quién dejó el valor vigente: la última corrección del campo o, si no hay, la
+     * última entrada de la bitácora que lo cambió. Null si no se puede determinar.
+     */
+    private function autorDelValor(Model $sujeto, string $campo): ?int
+    {
+        $correccion = Correccion::query()
+            ->where('sujeto_type', $sujeto->getMorphClass())
+            ->where('sujeto_id', $sujeto->getKey())
+            ->whereHas('campos', fn ($q) => $q->where('campo', $campo))
+            ->latest('id')
+            ->first();
+
+        if ($correccion !== null) {
+            return $correccion->actor_id;
+        }
+
+        $actividad = Activity::query()
+            ->where('subject_type', $sujeto->getMorphClass())
+            ->where('subject_id', $sujeto->getKey())
+            ->where('causer_type', (new User)->getMorphClass())
+            ->latest('id')
+            ->limit(200)
+            ->get()
+            ->first(fn (Activity $a): bool => array_key_exists($campo, (array) $a->getExtraProperty('attributes')));
+
+        return $actividad === null ? null : (int) $actividad->causer_id;
     }
 
     /**
