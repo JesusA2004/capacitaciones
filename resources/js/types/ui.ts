@@ -3,6 +3,8 @@ export type AppVariant = 'header' | 'sidebar';
 export type FlashToast = {
     type: 'success' | 'info' | 'warning' | 'error';
     message: string;
+    /** Enlace del aviso; solo llega si el destino está permitido. */
+    accion?: { etiqueta: string; href: string };
 };
 
 export type EnlacePaginacion = {

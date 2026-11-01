@@ -7,6 +7,7 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import EnlaceRegreso from '@/components/flujos/EnlaceRegreso.vue';
+import FiltroColaboradorActivo from '@/components/flujos/FiltroColaboradorActivo.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -51,7 +52,7 @@ import type { EnlaceFlujo } from '@/types';
 const props = defineProps<{
     regreso?: EnlaceFlujo | null;
     contratos: RespuestaPaginada<ContratoFila>;
-    filtros: { busqueda?: string; sucursal_id?: string };
+    filtros: { busqueda?: string; sucursal_id?: string; colaborador?: string };
 }>();
 
 defineOptions({
@@ -66,6 +67,7 @@ defineOptions({
 const { filtros, aplicarConDebounce, limpiar } = useFiltros(index.url(), {
     busqueda: props.filtros.busqueda ?? '',
     sucursal_id: props.filtros.sucursal_id ?? '',
+    colaborador: props.filtros.colaborador ?? '',
 });
 
 function variantePaquete(
@@ -89,6 +91,13 @@ function varianteDocumento(estado: string | null): 'success' | 'info' {
     <Head title="Contratos de ingreso" />
 
     <div class="pagina-ancha flex flex-col gap-6">
+        <FiltroColaboradorActivo
+            :activo="!!filtros.colaborador"
+            @quitar="
+                filtros.colaborador = '';
+                aplicarConDebounce(0);
+            "
+        />
         <EnlaceRegreso :regreso="regreso" />
         <CrudPageHeader
             titulo="Contratos de ingreso"

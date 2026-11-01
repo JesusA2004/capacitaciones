@@ -11,13 +11,27 @@ import type { FlashToast } from '@/types/ui';
 const VENTANA_MS = 2000;
 let ultimoExito = 0;
 
-export function avisarExito(mensaje: string): void {
+export function avisarExito(
+    mensaje: string,
+    accion?: FlashToast['accion'],
+): void {
     if (Date.now() - ultimoExito < VENTANA_MS) {
         return;
     }
 
     ultimoExito = Date.now();
-    toast.success(mensaje);
+    toast.success(
+        mensaje,
+        accion
+            ? {
+                  action: {
+                      label: accion.etiqueta,
+                      onClick: () => router.visit(accion.href),
+                  },
+                  duration: 8000,
+              }
+            : undefined,
+    );
 }
 
 export function initializeFlashToast(): void {
@@ -30,7 +44,7 @@ export function initializeFlashToast(): void {
         }
 
         if (data.type === 'success') {
-            avisarExito(data.message);
+            avisarExito(data.message, data.accion);
 
             return;
         }

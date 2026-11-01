@@ -430,3 +430,16 @@ test('CV y evidencia del candidato se descargan por la API solo con alcance', fu
     $this->getJson("/api/v1/rh/candidatos/{$this->candidato->id}/cv")->assertForbidden();
     $this->getJson("/api/v1/rh/candidatos/{$this->candidato->id}/evidencias/{$evidencia->id}")->assertForbidden();
 });
+
+test('tras registrar el resultado en la web, el aviso lleva a la ficha solo si puede abrirla', function () {
+    Carbon::setTestNow(Carbon::parse('2026-11-02 16:00:00', 'UTC'));
+    $evento = agEvento([], $this->gerente);
+    Carbon::setTestNow(Carbon::parse('2026-11-02 17:00:00', 'UTC'));
+
+    $this->actingAs($this->gerente)
+        ->post(route('agenda.resultado-entrevista', $evento->id), ['resultado' => 'viable'])
+        ->assertRedirect()
+        ->assertSessionHas('toast.message');
+
+    expect(session('toast.accion.href'))->toContain("/rh/candidatos/{$evento->candidato_id}");
+});

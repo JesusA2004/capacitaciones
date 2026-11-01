@@ -27,6 +27,7 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import HistorialVersiones from '@/components/documentos/HistorialVersiones.vue';
 import EnlaceRegreso from '@/components/flujos/EnlaceRegreso.vue';
+import FiltroColaboradorActivo from '@/components/flujos/FiltroColaboradorActivo.vue';
 import SiguientePasoPanel from '@/components/flujos/SiguientePaso.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -158,6 +159,7 @@ function recargar(extra: Record<string, unknown> = {}) {
             periodo: props.periodo.clave,
             q: busqueda.value || undefined,
             estado: estado.value || undefined,
+            colaborador: props.filtros.colaborador ?? undefined,
             ...extra,
         },
         { preserveState: true, preserveScroll: true, replace: true },
@@ -171,12 +173,17 @@ watch(busqueda, () => {
 });
 watch(estado, () => recargar());
 
+function quitarFiltroColaborador() {
+    recargar({ colaborador: undefined });
+}
+
 function cambiarPeriodo(clave: string | null) {
     if (clave) {
         seleccion.value = [];
         router.get(index.url(), {
             ...parametrosPorPaginaActuales(),
             periodo: clave,
+            colaborador: props.filtros.colaborador ?? undefined,
         });
     }
 }
@@ -426,6 +433,10 @@ const opcionesTipo = [
             />
         </CrudPageHeader>
         <EnlaceRegreso :regreso="regreso" />
+        <FiltroColaboradorActivo
+            :activo="!!filtros.colaborador"
+            @quitar="quitarFiltroColaborador"
+        />
         <SiguientePasoPanel
             v-if="siguientePaso"
             compacto

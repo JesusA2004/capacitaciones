@@ -11,6 +11,7 @@ import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
+import FiltroColaboradorActivo from '@/components/flujos/FiltroColaboradorActivo.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -61,7 +62,7 @@ type AltaDigital = {
 const props = defineProps<{
     personas: RespuestaPaginada<Persona>;
     altasDigitales: AltaDigital[];
-    filtros: { busqueda?: string; sucursal_id?: string };
+    filtros: { busqueda?: string; sucursal_id?: string; colaborador?: string };
 }>();
 
 defineOptions({
@@ -76,6 +77,7 @@ defineOptions({
 const { filtros, aplicarConDebounce, limpiar } = useFiltros(index.url(), {
     busqueda: props.filtros.busqueda ?? '',
     sucursal_id: props.filtros.sucursal_id ?? '',
+    colaborador: props.filtros.colaborador ?? '',
 });
 
 function fechaCorta(valor: string | null): string {
@@ -93,6 +95,13 @@ function fechaCorta(valor: string | null): string {
     <Head title="Personas en contratación" />
 
     <div class="pagina-ancha flex flex-col gap-6">
+        <FiltroColaboradorActivo
+            :activo="!!filtros.colaborador"
+            @quitar="
+                filtros.colaborador = '';
+                aplicarConDebounce(0);
+            "
+        />
         <CrudPageHeader
             titulo="Personas en contratación"
             descripcion="Colaboradores en la Etapa 2 (contratación y expediente): integra tanto a quienes ya se dieron de alta como las altas digitales que aún no se aprueban."

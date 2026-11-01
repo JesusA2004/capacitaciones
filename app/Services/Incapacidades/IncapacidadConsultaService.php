@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
 use App\Services\Nomina\IncidenciasNominaService;
+use App\Services\Nomina\NominaQuincenalService;
 use App\Support\FechaMexico;
 use App\Support\Paginacion;
 use Carbon\CarbonImmutable;
@@ -192,15 +193,28 @@ class IncapacidadConsultaService
      *
      * @return array<int, array<string, mixed>>
      */
-    public function rectificacionesPendientes(User $usuario): array
+    public function rectificacionesPendientes(User $usuario, ?int $colaboradorId = null): array
     {
         $query = NominaRectificacion::query()
             ->with(['recibo:id,folio,periodo_inicio,periodo_fin,dias_pagados,neto,estado,colaborador_id', 'colaborador:id,name,apellidos'])
             ->where('estado', 'pendiente')
+            ->when($colaboradorId !== null, fn (Builder $q) => $q->where('colaborador_id', $colaboradorId))
             ->orderBy('id');
         $this->alcance->limitarPorModulo($query, $usuario, 'incapacidades', 'colaborador_id', true);
 
-        return $query->limit(50)->get()->map(fn (NominaRectificacion $r): array => [
+        $filas = $query->limit(50)->get();
+
+        // Una sola consulta para saber a qué recibos puede ir: nunca un enlace a un 403.
+        $conRecibo = $usuario->can('nomina.recibos.ver')
+            ? $this->alcance->limitarPorModulo(Colaborador::query()->whereIn('id', $filas->pluck('colaborador_id')), $usuario, 'recibos', 'id')
+                ->where('id', '!=', $usuario->colaborador_id ?? 0)->pluck('id')->flip()
+            : collect();
+        $quincenas = app(NominaQuincenalService::class);
+
+        return $filas->map(fn (NominaRectificacion $r): array => [
+            'recibo_url' => $conRecibo->has($r->colaborador_id)
+                ? route('rh.nomina.index', ['colaborador' => $r->colaborador_id, 'periodo' => $quincenas->periodo($r->recibo->periodo_inicio)['clave']], false)
+                : null,
             'id' => $r->id,
             'colaborador' => $r->colaborador->nombreCompleto(),
             'folio' => $r->recibo->folio,

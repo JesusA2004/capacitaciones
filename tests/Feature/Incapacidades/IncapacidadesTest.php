@@ -409,6 +409,14 @@ it('un recibo emitido no cambia en silencio: rectificación auditada', function 
     app(IncidenciasNominaService::class)->sincronizarRecibos($this->persona, $recibo->periodo_inicio, $recibo->periodo_fin, $this->rh, 'otra vez');
     expect(NominaRectificacion::query()->count())->toBe(1);
 
+    // El panel respeta ?colaborador= y lleva al recibo de esa quincena.
+    $this->actingAs($this->rh)->get("/rh/incapacidades?colaborador={$this->persona->id}")
+        ->assertInertia(fn ($pagina) => $pagina
+            ->has('rectificaciones', 1)
+            ->where('rectificaciones.0.recibo_url', fn (?string $url): bool => str_contains((string) $url, "colaborador={$this->persona->id}") && str_contains((string) $url, 'periodo=')));
+    $this->actingAs($this->rh)->get('/rh/incapacidades?colaborador=999999')
+        ->assertInertia(fn ($pagina) => $pagina->has('rectificaciones', 0));
+
     $this->actingAs($this->rh)->post("/rh/incapacidades/rectificaciones/{$rectificacion->id}/aplicar")->assertRedirect();
     expect($rectificacion->refresh()->estado)->toBe(EstadoRectificacionNomina::Aplicada)
         ->and($rectificacion->resuelta_por)->toBe($this->rh->id)

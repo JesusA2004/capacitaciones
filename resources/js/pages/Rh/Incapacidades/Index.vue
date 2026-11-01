@@ -9,6 +9,7 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import EnlaceRegreso from '@/components/flujos/EnlaceRegreso.vue';
+import FiltroColaboradorActivo from '@/components/flujos/FiltroColaboradorActivo.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -60,6 +61,7 @@ const props = defineProps<{
         sucursal_id?: string;
         estatus?: string;
         q?: string;
+        colaborador?: string;
         periodo: string;
     };
     tipos: OpcionIncapacidad[];
@@ -95,6 +97,7 @@ const {
     estatus: props.filtros.estatus ?? '',
     q: props.filtros.q ?? '',
     periodo: props.filtros.periodo,
+    colaborador: props.filtros.colaborador ?? '',
 });
 
 const pestanas = computed(() => [
@@ -176,6 +179,13 @@ function confirmarDescarte() {
 
     <div class="pagina-ancha flex flex-col gap-4">
         <EnlaceRegreso :regreso="regreso" />
+        <FiltroColaboradorActivo
+            :activo="!!filtrosActivos.colaborador"
+            @quitar="
+                filtrosActivos.colaborador = '';
+                aplicar();
+            "
+        />
         <CrudPageHeader
             titulo="Incapacidades"
             descripcion="Captura de Recursos Humanos con datos y documentos del IMSS."
@@ -595,6 +605,16 @@ function confirmarDescarte() {
                                 >
                                     <CheckCircle2 class="size-3.5" />
                                     Aplicar
+                                </Button>
+                                <Button
+                                    v-if="fila.recibo_url"
+                                    size="sm"
+                                    variant="ghost"
+                                    as-child
+                                >
+                                    <Link :href="fila.recibo_url"
+                                        >Ver recibo</Link
+                                    >
                                 </Button>
                                 <Button
                                     size="sm"

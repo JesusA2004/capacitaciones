@@ -329,7 +329,10 @@ const donaSegmentos = computed(() => {
 });
 
 /* Por sucursal: detalle de las bajas que componen el indicador. */
-const abierta = ref<number | null>(null);
+// Desde una baja (`?sucursal_id=`) la sucursal abre con sus bajas a la vista.
+const abierta = ref<number | null>(
+    f.vista === 'por_sucursal' ? f.sucursal_id : null,
+);
 const maxCausal = computed(() =>
     Math.max(1, ...props.tablero.causales.map((c) => c.bajas)),
 );

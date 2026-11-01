@@ -160,14 +160,29 @@ class AgendaController extends Controller
         ], ['motivo.required_if' => 'Elige el motivo.', 'comentario.required_if' => 'Escribe un comentario breve.']);
         $this->agenda->registrarResultadoEntrevista($evento, $datos, $request->user());
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Resultado guardado. El candidato ya se actualizó en su proceso.']);
+        return back()->with('toast', $this->avisoConSiguientePaso($request, $evento, 'Resultado guardado. El candidato ya se actualizó en su proceso.'));
     }
 
     public function resultadoSocioeconomico(ResultadoSocioeconomicoAgendaRequest $request, AgendaEvento $evento): RedirectResponse
     {
         $this->agenda->registrarResultadoSocioeconomico($evento, $request->safe()->except(['evidencias']), $request->archivos(), $request->user());
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Resultado y evidencia guardados en el expediente del candidato.']);
+        return back()->with('toast', $this->avisoConSiguientePaso($request, $evento, 'Resultado y evidencia guardados en el expediente del candidato.'));
+    }
+
+    /**
+     * La agenda no es donde sigue el proceso: el aviso lleva a la ficha, y solo
+     * si quien registró puede abrirla.
+     *
+     * @return array{type: string, message: string, accion?: array{etiqueta: string, href: string}}
+     */
+    private function avisoConSiguientePaso(Request $request, AgendaEvento $evento, string $mensaje): array
+    {
+        $candidato = $evento->candidato;
+        $ficha = $candidato !== null ? app(ConstructorEnlaces::class)->fichaCandidato($request->user(), $candidato) : null;
+        $aviso = ['type' => 'success', 'message' => $mensaje];
+
+        return $ficha !== null ? [...$aviso, 'accion' => ['etiqueta' => 'Ver siguiente paso', 'href' => $ficha]] : $aviso;
     }
 
     public function cv(Request $request, AgendaEvento $evento): StreamedResponse

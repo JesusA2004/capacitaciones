@@ -136,7 +136,13 @@ class ConstructorEnlaces
     public function rotacion(User $v, Baja $baja): ?string
     {
         return $v->can('verTablero', Baja::class)
-            ? $this->ruta('reportes.rotacion.tablero.index', ['sucursal_id' => $baja->sucursal_id, 'forma' => $baja->forma_salida?->value])
+            ? $this->ruta('reportes.rotacion.tablero.index', [
+                'vista' => 'por_sucursal',
+                'sucursal_id' => $baja->sucursal_id,
+                'forma' => $baja->forma_salida?->value,
+                'desde' => $baja->fecha_baja?->copy()->startOfMonth()->toDateString(),
+                'hasta' => $baja->fecha_baja?->copy()->endOfMonth()->toDateString(),
+            ])
             : null;
     }
 

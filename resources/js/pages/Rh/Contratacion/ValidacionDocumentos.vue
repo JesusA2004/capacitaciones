@@ -18,6 +18,7 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import EnlaceRegreso from '@/components/flujos/EnlaceRegreso.vue';
+import FiltroColaboradorActivo from '@/components/flujos/FiltroColaboradorActivo.vue';
 import InputError from '@/components/InputError.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import { Badge } from '@/components/ui/badge';
@@ -78,7 +79,7 @@ import type { EnlaceFlujo } from '@/types';
 const props = defineProps<{
     regreso?: EnlaceFlujo | null;
     documentos: RespuestaPaginada<DocumentoFila>;
-    filtros: { busqueda?: string; sucursal_id?: string };
+    filtros: { busqueda?: string; sucursal_id?: string; colaborador?: string };
     puedeAprobar: boolean;
     /** documentos.rechazar (misma regla que EmployeeDocumentPolicy::rechazar). */
     puedeRechazar?: boolean;
@@ -108,6 +109,7 @@ defineOptions({
 const { filtros, aplicarConDebounce, limpiar } = useFiltros(index.url(), {
     busqueda: props.filtros.busqueda ?? '',
     sucursal_id: props.filtros.sucursal_id ?? '',
+    colaborador: props.filtros.colaborador ?? '',
 });
 
 const ESTADOS: Record<string, 'warning' | 'info' | 'secondary'> = {
@@ -318,6 +320,13 @@ function confirmarDecisionVisor() {
     <Head title="Validación de documentos" />
 
     <div class="pagina-ancha flex flex-col gap-6">
+        <FiltroColaboradorActivo
+            :activo="!!filtros.colaborador"
+            @quitar="
+                filtros.colaborador = '';
+                aplicarConDebounce(0);
+            "
+        />
         <EnlaceRegreso :regreso="regreso" />
         <CrudPageHeader
             titulo="Validación de documentos"

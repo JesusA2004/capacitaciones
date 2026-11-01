@@ -294,7 +294,8 @@ it('C: el orden no se salta: primero el documento, después el finiquito, y nunc
     expect($paso->modo->value)->toBe('lineal')
         ->and($paso->accion?->clave)->not->toBe('cerrar_baja')
         ->and(collect($paso->pasos)->pluck('clave')->all())->not->toContain('rotacion')
-        ->and(collect($paso->relacionadas)->pluck('etiqueta'))->toContain('Ver en rotación');
+        ->and(collect($paso->relacionadas)->pluck('etiqueta'))->toContain('Ver en rotación')
+        ->and(collect($paso->relacionadas)->firstWhere('etiqueta', 'Ver en rotación')?->href)->toContain('vista=por_sucursal');
     spSinProhibidos($paso, $this->rh);
 });
 

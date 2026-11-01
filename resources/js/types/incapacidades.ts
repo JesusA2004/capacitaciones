@@ -48,6 +48,7 @@ export type RectificacionNominaItem = {
     dias_despues: string;
     importe_despues: string;
     motivo: string;
+    recibo_url: string | null;
 };
 
 export type DocumentoIncapacidad = {

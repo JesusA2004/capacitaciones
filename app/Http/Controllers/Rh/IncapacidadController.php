@@ -72,7 +72,7 @@ class IncapacidadController extends Controller
                 'filas' => $this->consulta->impactoNomina($usuario, $periodo['inicio'], $periodo['fin'], $sucursalId),
                 'regla' => $this->incidencias->reglaParaPantalla(),
             ],
-            'rectificaciones' => $usuario->can('nomina.recibos.crear') ? $this->consulta->rectificacionesPendientes($usuario) : [],
+            'rectificaciones' => $usuario->can('nomina.recibos.crear') ? $this->consulta->rectificacionesPendientes($usuario, isset($filtros['colaborador']) ? (int) $filtros['colaborador'] : null) : [],
             'puede' => [
                 'registrar' => $usuario->can('incapacidades.registrar'),
                 'exportar' => $usuario->can('incapacidades.exportar'),
