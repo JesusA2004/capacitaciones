@@ -296,6 +296,10 @@ class LoteNominaService
      */
     private function generarRecibosDelLote(NominaLote $lote, Collection $colaboradores, array $periodo, PeriodicidadNomina $periodicidad, User $actor, ?array $sucursalIds): array
     {
+        // Del formulario y de la columna JSON llegan como texto; el filtro compara
+        // estricto y dejaba el lote en cero recibos.
+        $sucursalIds = $sucursalIds === null ? null : array_map('intval', $sucursalIds);
+
         $errores = [];
         $advertencias = [];
         $esperados = 0;

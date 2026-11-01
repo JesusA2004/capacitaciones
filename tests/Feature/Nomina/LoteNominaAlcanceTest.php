@@ -79,6 +79,12 @@ test('el filtro de sucursales acota el semanal sin mezclar el corporativo', func
     expect($lote->esperados)->toBe(4);
 });
 
+test('el filtro de sucursales acepta los ids como texto, como llegan del formulario', function () {
+    $lote = $this->lotes->preparar(PeriodicidadNomina::Semanal, $this->fecha, $this->superAdmin, [(string) $this->sucursalB->id]);
+
+    expect($lote->esperados)->toBe(4);
+});
+
 test('un gerente de sucursal con alcance de nómina «sucursal» solo prepara su sucursal', function () {
     $gerente = clUsuario('gerente_sucursal', ['sucursal_principal_id' => $this->sucursalB->id, 'salario_diario' => 300, 'fecha_ingreso' => '2024-01-01']);
     $gerente->givePermissionTo(['nomina.recibos.ver', 'nomina.recibos.crear', 'nomina.recibos.ver_sucursal']);
