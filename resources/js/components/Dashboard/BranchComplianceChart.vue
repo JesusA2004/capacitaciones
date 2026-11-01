@@ -50,7 +50,7 @@ function nivel(porcentaje: number): {
 
 <template>
     <Card
-        class="rounded-2xl border-border/60 shadow-sm transition-all duration-200 hover:border-primary/40 hover:shadow-lg"
+        class="rounded-2xl border-border/60 shadow-sm transicion-ui hover:border-primary/40 hover:shadow-lg"
     >
         <CardHeader>
             <CardTitle class="text-base">Cumplimiento por sucursal</CardTitle>
@@ -70,7 +70,7 @@ function nivel(porcentaje: number): {
                 <div
                     v-for="(fila, indice) in ranking"
                     :key="fila.sucursal_id"
-                    class="group flex flex-col gap-2.5 rounded-xl border border-transparent p-3 transition-all duration-200 hover:border-border/60 hover:bg-accent/50 sm:flex-row sm:items-center sm:gap-4"
+                    class="group flex flex-col gap-2.5 rounded-xl border border-transparent p-3 transicion-ui hover:border-border/60 hover:bg-accent/50 sm:flex-row sm:items-center sm:gap-4"
                 >
                     <span
                         class="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-muted-foreground tabular-nums"

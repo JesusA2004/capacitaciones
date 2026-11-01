@@ -47,7 +47,7 @@ const SECCIONES = [
             v-for="seccion in SECCIONES"
             :key="seccion.clave"
             :href="seccion.href"
-            class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all"
+            class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transicion-ui"
             :class="
                 actual === seccion.clave
                     ? 'bg-background text-foreground shadow-sm'

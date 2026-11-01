@@ -564,7 +564,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                             class="h-2 overflow-hidden rounded-full bg-muted"
                         >
                             <div
-                                class="h-full rounded-full transition-all"
+                                class="h-full rounded-full transition-[width] duration-(--mov-lento)"
                                 :class="
                                     Number(campana.monto) >
                                     Number(campana.presupuesto)
@@ -594,7 +594,7 @@ async function eliminar(campana: CampanaReclutamientoItem) {
                                 class="h-2.5 overflow-hidden rounded-full bg-muted"
                             >
                                 <span
-                                    class="block h-full rounded-full transition-all"
+                                    class="block h-full rounded-full transition-[width] duration-(--mov-lento)"
                                     :class="paso.barra"
                                     :style="{
                                         width: `${anchoPaso(campana, paso.valor)}%`,

@@ -198,7 +198,7 @@ function nivel(calificacion: number | null) {
                             :aria-valuemax="r.total_maximo ?? 0"
                         >
                             <div
-                                class="h-full rounded-full transition-all"
+                                class="h-full rounded-full transition-[width] duration-(--mov-lento)"
                                 :class="
                                     r.recomienda_renovar
                                         ? 'bg-success'

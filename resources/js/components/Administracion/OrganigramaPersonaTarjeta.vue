@@ -116,7 +116,7 @@ function abrirExpediente(): void {
 
 <template>
     <div
-        class="group relative overflow-visible rounded-2xl text-center transition-all duration-300 ease-out"
+        class="group relative overflow-visible rounded-2xl text-center transicion-ui"
         :class="[
             tamano.tarjeta,
             esVacante

@@ -133,7 +133,7 @@ function cargaDeVideoCompletada() {
                         class="h-2 w-full overflow-hidden rounded-full bg-muted"
                     >
                         <div
-                            class="h-full bg-[var(--brand-primary)] transition-all"
+                            class="h-full bg-[var(--brand-primary)] transition-[width] duration-(--mov-lento)"
                             :style="{ width: `${progreso}%` }"
                         />
                     </div>

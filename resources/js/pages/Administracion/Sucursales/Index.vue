@@ -402,7 +402,7 @@ async function eliminar(sucursal: SucursalItem) {
                             :title="`Cobertura de plantilla`"
                         >
                             <div
-                                class="h-full rounded-full bg-esmeralda transition-all"
+                                class="h-full rounded-full bg-esmeralda transition-[width] duration-(--mov-lento)"
                                 :style="{
                                     width: `${Math.min(100, Math.round((((sucursal.plantilla_permitida ?? 0) - (sucursal.plantilla_vacantes ?? 0)) / Math.max(1, sucursal.plantilla_permitida ?? 0)) * 100))}%`,
                                 }"

@@ -485,7 +485,7 @@ function nivelTexto(c: ContenidoPeriodoPrueba['criterios'][number], n: number) {
             </div>
             <div class="h-2 overflow-hidden rounded-full bg-muted">
                 <div
-                    class="h-full rounded-full bg-[var(--acento)] transition-all"
+                    class="h-full rounded-full bg-[var(--acento)] transition-[width] duration-(--mov-lento)"
                     :style="{
                         width: `${contenido.total_maximo ? Math.min(100, (total / contenido.total_maximo) * 100) : 0}%`,
                     }"

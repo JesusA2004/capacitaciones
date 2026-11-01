@@ -106,7 +106,7 @@ const accion = computed<{ etiqueta: string; href: string } | null>(() => {
 // Botón principal: ancho completo cuando la tarjeta es angosta (móvil o el
 // lateral del visor) y de su tamaño cuando hay espacio.
 const claseAccion =
-    'inline-flex min-h-11 w-full items-center justify-center gap-2 self-start rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:gap-3 hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none @lg/induccion:w-auto';
+    'inline-flex min-h-11 w-full items-center justify-center gap-2 self-start rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground shadow-sm transicion-ui hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none @lg/induccion:w-auto';
 
 const CIRCULO: Record<PasoMiInduccion['estado'], string> = {
     completado: 'bg-success text-white',
@@ -187,7 +187,7 @@ const TITULO: Record<PasoMiInduccion['estado'], string> = {
                 aria-label="Avance de la inducción"
             >
                 <div
-                    class="h-full rounded-full bg-primary transition-all duration-500"
+                    class="h-full rounded-full bg-primary transition-[width] duration-(--mov-lento)"
                     :style="{ width: `${induccion.porcentaje}%` }"
                 />
             </div>

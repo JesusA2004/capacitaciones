@@ -29,7 +29,7 @@ const visibles = PASOS_ACTA.filter(
         >
             <button
                 type="button"
-                class="group flex min-w-[8.5rem] flex-1 items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm disabled:pointer-events-none disabled:opacity-60 motion-reduce:hover:translate-y-0"
+                class="group flex min-w-[8.5rem] flex-1 items-center gap-2 rounded-xl border px-2.5 py-2 text-left transicion-ui hover:-translate-y-0.5 hover:shadow-sm disabled:pointer-events-none disabled:opacity-60 motion-reduce:hover:translate-y-0"
                 :class="
                     p.numero === actual
                         ? 'border-[var(--mrl-petroleo)] bg-salvia'

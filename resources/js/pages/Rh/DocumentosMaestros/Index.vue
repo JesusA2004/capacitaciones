@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import ListaAnimada from '@/components/ui/ListaAnimada.vue';
 import {
     Sheet,
     SheetContent,
@@ -447,12 +448,11 @@ async function crearFormato() {
             }}
         </p>
 
-        <TransitionGroup
+        <ListaAnimada
             tag="ul"
             data-tour="documentos-maestros-lista"
             class="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
-            enter-active-class="transition duration-200 ease-out motion-reduce:transition-none"
-            enter-from-class="opacity-0 translate-y-1"
+            :cantidad="filtradas.length"
         >
             <li
                 v-for="f in filtradas"
@@ -529,7 +529,7 @@ async function crearFormato() {
                     </DropdownMenu>
                 </div>
             </li>
-        </TransitionGroup>
+        </ListaAnimada>
     </div>
 
     <!-- Diagnóstico del entorno (motores de conversión, OCR, fuentes) -->

@@ -144,7 +144,7 @@ const ancho = (n: number, total: number) => `${total ? (n / total) * 100 : 0}%`;
             </div>
             <Link
                 :href="index.url({ query: { todas: 1 } })"
-                class="inline-flex items-center gap-2 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] px-4 py-2 text-sm font-medium transition-all hover:gap-3 hover:border-[var(--mrl-primary)] hover:text-[var(--mrl-primary)]"
+                class="inline-flex items-center gap-2 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] px-4 py-2 text-sm font-medium transicion-ui hover:border-[var(--mrl-primary)] hover:text-[var(--mrl-primary)]"
             >
                 <Layers class="size-4" /> Ver todas en un solo tablero
                 <ArrowRight class="size-4" />
@@ -245,7 +245,7 @@ const ancho = (n: number, total: number) => `${total ? (n / total) * 100 : 0}%`;
                         v-for="t in g.tipos"
                         :key="t.clave"
                         :href="index.url({ query: { tipo: t.clave } })"
-                        class="group relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:outline-none"
+                        class="group relative flex flex-col gap-3 overflow-hidden rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-4 shadow-sm transicion-ui hover:-translate-y-0.5 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:outline-none"
                         :class="
                             t.abiertas === 0 && t.ultimo_mes === 0
                                 ? 'opacity-70 hover:opacity-100'
@@ -253,7 +253,7 @@ const ancho = (n: number, total: number) => `${total ? (n / total) * 100 : 0}%`;
                         "
                     >
                         <span
-                            class="absolute inset-x-0 top-0 h-1 transition-all group-hover:h-1.5"
+                            class="absolute inset-x-0 top-0 h-1 transicion-ui"
                             :style="{ background: g.color }"
                         />
                         <div class="flex items-center gap-3">
@@ -345,7 +345,7 @@ const ancho = (n: number, total: number) => `${total ? (n / total) * 100 : 0}%`;
                                 >{{ t.total }} en total</span
                             >
                             <ArrowRight
-                                class="ml-auto size-4 text-[var(--mrl-texto-suave)] opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100"
+                                class="ml-auto size-4 text-[var(--mrl-texto-suave)] opacity-0 transicion-ui group-hover:translate-x-0.5 group-hover:opacity-100"
                             />
                         </div>
                     </Link>

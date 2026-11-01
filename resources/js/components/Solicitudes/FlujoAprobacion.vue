@@ -186,7 +186,7 @@ function enviar(aprobado: boolean) {
                     aria-hidden="true"
                 />
                 <span
-                    class="relative z-10 flex size-9 shrink-0 items-center justify-center rounded-full transition-all"
+                    class="relative z-10 flex size-9 shrink-0 items-center justify-center rounded-full transicion-ui"
                     :class="estiloDe(paso).circulo"
                 >
                     <Lock v-if="paso.bloqueado" class="size-4" />

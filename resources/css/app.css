@@ -158,9 +158,9 @@
 @utility tarjeta-interactiva {
     cursor: pointer;
     transition:
-        transform 160ms ease,
-        box-shadow 160ms ease,
-        border-color 160ms ease;
+        transform var(--mov-rapido) var(--curva-salida),
+        box-shadow var(--mov-base) var(--curva-salida),
+        border-color var(--mov-base) var(--curva-salida);
 
     &:hover {
         transform: translateY(-2px);
@@ -264,7 +264,7 @@
 }
 
 @utility entrada-suave {
-    animation: entrada-suave 180ms ease both;
+    animation: entrada-suave var(--mov-base) var(--curva-salida) backwards;
 
     @media (prefers-reduced-motion: reduce) {
         animation: none;
@@ -273,32 +273,69 @@
 
 /*
  * Brillo de carga (skeleton): una franja clara recorre el bloque mientras
- * algo se genera (vista previa de un PDF, una tarjeta que llega). Sobre
- * cualquier fondo pastel (bg-crema, bg-salvia…).
+ * algo se genera. Única forma de carga del portal (ui/skeleton/Skeleton.vue);
+ * se mueve con transform, así que no repinta. El elemento debe estar
+ * posicionado (relative/absolute).
  */
 @keyframes brillo-carga {
     from {
-        background-position: 150% 0;
+        transform: translateX(-100%);
     }
     to {
-        background-position: -50% 0;
+        transform: translateX(100%);
     }
 }
 
 @utility brillo-carga {
-    background-image: linear-gradient(
-        100deg,
-        transparent 30%,
-        color-mix(in oklab, var(--pastel-superficie) 85%, transparent) 50%,
-        transparent 70%
-    );
-    background-size: 200% 100%;
-    background-repeat: no-repeat;
-    animation: brillo-carga 1.4s ease-in-out infinite;
+    overflow: hidden;
+
+    &::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image: linear-gradient(
+            100deg,
+            transparent 25%,
+            color-mix(in oklab, var(--pastel-superficie) 80%, transparent) 50%,
+            transparent 75%
+        );
+        animation: brillo-carga 1.4s ease-in-out infinite;
+    }
 
     @media (prefers-reduced-motion: reduce) {
-        animation: none;
+        &::after {
+            animation: none;
+            opacity: 0;
+        }
     }
+}
+
+/*
+ * Transición de componentes interactivos: reemplaza a `transition-all`.
+ * Nada de ancho, alto, margen ni gap: lo que se anima no mueve el layout.
+ */
+@utility transicion-ui {
+    transition-property:
+        transform, opacity, box-shadow, border-color, background-color, color;
+    transition-duration: var(--mov-base);
+    transition-timing-function: var(--curva-salida);
+}
+
+/*
+ * Tabla o lista que espera datos (filtrar, paginar): se atenúa sin mover
+ * filas. La aplica lib/actualizacionTablas.ts a cualquier tabla durante una
+ * visita de filtros, con un retraso para no parpadear si la respuesta es rápida.
+ */
+@utility tabla-actualizando {
+    opacity: 0.6;
+    pointer-events: none;
+    transition: opacity var(--mov-rapido) var(--curva-salida);
+}
+
+/* Entrada escalonada solo para indicadores: --i × 30 ms, con tope de 6. */
+@utility aparece-escalonado {
+    animation: entrada-suave var(--mov-lento) var(--curva-salida) backwards;
+    animation-delay: calc(min(var(--i, 0), 6) * 30ms);
 }
 
 @utility pagina-ancha {
@@ -439,6 +476,13 @@
  */
 :root {
     color-scheme: light;
+
+    /* Movimiento: tres duraciones y dos curvas para todo el portal. */
+    --mov-rapido: 120ms;
+    --mov-base: 180ms;
+    --mov-lento: 240ms;
+    --curva-salida: cubic-bezier(0.2, 0.7, 0.2, 1);
+    --curva-entrada: cubic-bezier(0.4, 0, 1, 1);
 
     /* Paleta interior base */
     --pastel-fondo: #fbf8f2;
@@ -618,15 +662,87 @@
 
 /* Preferencia "sin animaciones" (Settings/Personalizacion.vue): igual que
    prefers-reduced-motion, pero como elección explícita del usuario en vez
-   de una media query del sistema operativo. */
+   de una media query del sistema operativo. La regla global cubre también
+   modales, hojas y menús de tw-animate-css, que no traen la suya. */
 .sin-animaciones,
 .sin-animaciones *,
 .sin-animaciones *::before,
 .sin-animaciones *::after {
     animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+    transition-delay: 0ms !important;
     scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.001ms !important;
+        animation-delay: 0ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        transition-delay: 0ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* <ListaAnimada>: filas que entran, salen y se reacomodan. */
+.lista-animada-enter-active {
+    transition:
+        opacity var(--mov-base) var(--curva-salida),
+        transform var(--mov-base) var(--curva-salida);
+}
+
+.lista-animada-leave-active {
+    transition:
+        opacity var(--mov-rapido) var(--curva-entrada),
+        transform var(--mov-rapido) var(--curva-entrada);
+}
+
+.lista-animada-move {
+    transition: transform var(--mov-lento) var(--curva-salida);
+}
+
+.lista-animada-enter-from {
+    opacity: 0;
+    transform: translateY(6px);
+}
+
+.lista-animada-leave-to {
+    opacity: 0;
+    transform: scale(0.98);
+}
+
+/* <CambioSuave>: pestañas, pasos, vacío ↔ con datos. */
+.cambio-suave-enter-active,
+.cambio-suave-leave-active {
+    transition:
+        opacity var(--mov-rapido) var(--curva-salida),
+        transform var(--mov-rapido) var(--curva-salida);
+}
+
+.cambio-suave-enter-from {
+    opacity: 0;
+    transform: translateY(4px);
+}
+
+.cambio-suave-leave-to {
+    opacity: 0;
+}
+
+/* Filtrar o paginar: toda tabla del portal se atenúa mientras espera. */
+:root[data-tablas-actualizando] [data-slot='table'],
+:root[data-tablas-actualizando] [data-tabla-movil] {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+[data-slot='table'],
+[data-tabla-movil] {
+    transition: opacity var(--mov-rapido) var(--curva-salida);
 }
 
 @layer base {
@@ -679,8 +795,8 @@
         transition-property:
             color, background-color, border-color, text-decoration-color,
             box-shadow, opacity;
-        transition-duration: 150ms;
-        transition-timing-function: ease-out;
+        transition-duration: var(--mov-rapido);
+        transition-timing-function: var(--curva-salida);
     }
 
     /* Navegación con teclado: anillo de marca visible y consistente. */
@@ -692,18 +808,11 @@
         border-radius: 0.375rem;
     }
 
-    /* Raíz de cada página (pagina-ancha/media/formulario) dentro del
-       contenido: entra con fundido al navegar. */
-    [data-slot='sidebar-inset']
-        > :is(.pagina-ancha, .pagina-media, .pagina-formulario) {
-        animation: entrada-pagina 240ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-        [data-slot='sidebar-inset']
-            > :is(.pagina-ancha, .pagina-media, .pagina-formulario) {
-            animation: none;
-        }
+    /* Raíz de cada página dentro del contenido: entra con fundido al navegar.
+       Cubre también a las páginas sin clase pagina-*. `backwards` no deja
+       ningún transform al terminar, así fixed y sticky siguen funcionando. */
+    [data-slot='sidebar-inset'] > :not(header, [data-sin-entrada]) {
+        animation: entrada-pagina var(--mov-lento) var(--curva-salida) backwards;
     }
 
     /* Selección de texto con la marca en lugar del azul del navegador. */

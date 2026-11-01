@@ -41,7 +41,7 @@ defineProps<{
 
         <!-- Cuerpo de la carpeta -->
         <div
-            class="relative flex flex-col gap-3 rounded-tr-2xl rounded-b-2xl border border-[var(--brand-primary)]/15 bg-gradient-to-b from-[var(--brand-primary)]/[0.06] to-card p-4 pt-7 shadow-sm transition-all duration-200 group-hover:border-[var(--brand-primary)]/40 group-hover:shadow-xl"
+            class="relative flex flex-col gap-3 rounded-tr-2xl rounded-b-2xl border border-[var(--brand-primary)]/15 bg-gradient-to-b from-[var(--brand-primary)]/[0.06] to-card p-4 pt-7 shadow-sm transicion-ui group-hover:border-[var(--brand-primary)]/40 group-hover:shadow-xl"
         >
             <!-- Foto del colaborador: "clipeada" en la esquina de la carpeta,
                  como una foto sujeta con un clip a un folder físico. -->

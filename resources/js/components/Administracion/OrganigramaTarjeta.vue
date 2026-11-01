@@ -71,7 +71,7 @@ const sinCobertura = computed(
 
 <template>
     <div
-        class="group relative flex flex-col overflow-hidden rounded-2xl border bg-card text-left shadow-sm transition-all duration-300 ease-out hover:-translate-y-0.5 hover:shadow-xl"
+        class="group relative flex flex-col overflow-hidden rounded-2xl border bg-card text-left shadow-sm transicion-ui hover:-translate-y-0.5 hover:shadow-xl"
         :class="[
             compacto ? 'w-64' : 'w-full',
             hayBusqueda && coincide
@@ -199,7 +199,7 @@ const sinCobertura = computed(
         </button>
 
         <div
-            class="absolute top-4 right-3 flex items-center gap-0.5 rounded-lg bg-card/90 opacity-100 backdrop-blur transition-all duration-200 md:opacity-0 md:group-hover:opacity-100"
+            class="absolute top-4 right-3 flex items-center gap-0.5 rounded-lg bg-card/90 opacity-100 backdrop-blur transicion-ui md:opacity-0 md:group-hover:opacity-100"
         >
             <Tooltip>
                 <TooltipTrigger as-child>

@@ -115,9 +115,9 @@ const accesos = computed(() => [
 ]);
 
 const tarjeta =
-    'rounded-3xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-5 shadow-sm transition-all duration-200 hover:shadow-md';
+    'rounded-3xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-5 shadow-sm transicion-ui hover:shadow-md';
 const enlace =
-    'flex items-center rounded-md text-xs font-medium text-[var(--mrl-primary)] transition-all duration-200 hover:translate-x-0.5 hover:underline focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:outline-none';
+    'flex items-center rounded-md text-xs font-medium text-[var(--mrl-primary)] transicion-ui hover:translate-x-0.5 hover:underline focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:outline-none';
 </script>
 
 <template>
@@ -171,7 +171,7 @@ const enlace =
                 </div>
                 <Link
                     :href="indexNotificaciones()"
-                    class="flex size-12 shrink-0 items-center justify-center rounded-full bg-card text-primary shadow-sm ring-1 ring-border/60 transition-all duration-200 hover:scale-105 hover:ring-oro/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none max-sm:absolute max-sm:top-0 max-sm:right-0 sm:relative"
+                    class="flex size-12 shrink-0 items-center justify-center rounded-full bg-card text-primary shadow-sm ring-1 ring-border/60 transicion-ui hover:scale-105 hover:ring-oro/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none max-sm:absolute max-sm:top-0 max-sm:right-0 sm:relative"
                     :aria-label="`Notificaciones (${notificaciones.no_leidas} sin leer)`"
                 >
                     <Bell class="size-5" />
@@ -231,7 +231,7 @@ const enlace =
                     v-for="p in porHacer"
                     :key="p.clave"
                     :href="miProceso()"
-                    class="group flex items-center gap-4 rounded-2xl border border-[var(--mrl-primary)]/20 bg-[var(--mrl-surface)] p-4 transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--mrl-primary)] hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:outline-none"
+                    class="group flex items-center gap-4 rounded-2xl border border-[var(--mrl-primary)]/20 bg-[var(--mrl-surface)] p-4 transicion-ui hover:-translate-y-0.5 hover:border-[var(--mrl-primary)] hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:outline-none"
                 >
                     <div class="min-w-0 flex-1">
                         <p class="font-semibold text-[var(--mrl-texto)]">
@@ -289,7 +289,7 @@ const enlace =
                 v-for="acceso in accesos"
                 :key="acceso.titulo"
                 :href="acceso.href"
-                class="group flex min-h-24 flex-col items-start gap-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-4 shadow-sm transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-[var(--mrl-primary)]/40 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:outline-none sm:min-h-0 sm:flex-row sm:items-center sm:gap-4"
+                class="group flex min-h-24 flex-col items-start gap-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-4 shadow-sm transicion-ui hover:-translate-y-0.5 hover:border-[var(--mrl-primary)]/40 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:outline-none sm:min-h-0 sm:flex-row sm:items-center sm:gap-4"
             >
                 <span
                     class="flex size-11 shrink-0 items-center justify-center rounded-xl transition-colors duration-200"
@@ -308,7 +308,7 @@ const enlace =
                     >
                 </span>
                 <ChevronRight
-                    class="hidden size-4 shrink-0 text-[var(--mrl-texto-suave)] opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100 sm:block"
+                    class="hidden size-4 shrink-0 text-[var(--mrl-texto-suave)] opacity-0 transicion-ui group-hover:translate-x-0.5 group-hover:opacity-100 sm:block"
                 />
             </Link>
         </div>
@@ -424,7 +424,7 @@ const enlace =
                         v-for="solicitud in solicitudes_recientes.slice(0, 4)"
                         :key="solicitud.id"
                         :href="indexSolicitudes()"
-                        class="group flex items-center justify-between gap-2 rounded-xl border border-transparent p-3 text-sm transition-all duration-150 hover:border-[var(--mrl-borde)] hover:bg-[var(--mrl-fondo)]"
+                        class="group flex items-center justify-between gap-2 rounded-xl border border-transparent p-3 text-sm transicion-ui hover:border-[var(--mrl-borde)] hover:bg-[var(--mrl-fondo)]"
                     >
                         <div class="min-w-0">
                             <p

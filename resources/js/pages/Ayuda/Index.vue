@@ -293,7 +293,7 @@ function buscar(): void {
                             <Clock class="size-3.5" /> {{ p.tiempo }}
                         </span>
                         <span
-                            class="flex items-center gap-1 font-semibold text-[var(--mrl-petroleo)] transition-all group-hover:gap-2"
+                            class="flex items-center gap-1 font-semibold text-[var(--mrl-petroleo)] transicion-ui"
                         >
                             Ver guía <ArrowRight class="size-3.5" />
                         </span>

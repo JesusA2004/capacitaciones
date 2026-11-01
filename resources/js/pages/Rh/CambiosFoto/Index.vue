@@ -117,7 +117,7 @@ function confirmarRechazo(): void {
             <li
                 v-for="cambio in paginacion.filasPagina.value"
                 :key="cambio.id"
-                class="flex flex-col gap-4 rounded-2xl border bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+                class="flex flex-col gap-4 rounded-2xl border bg-card p-4 shadow-sm transicion-ui hover:-translate-y-0.5 hover:shadow-md"
             >
                 <div class="min-w-0">
                     <p class="truncate font-semibold">

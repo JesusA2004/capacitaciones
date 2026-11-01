@@ -160,7 +160,7 @@ function venceEn(tarea: TareaBandeja): { texto: string; clase: string } | null {
 }
 
 const segmento = (activo: boolean) =>
-    `rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${activo ? 'bg-[var(--mrl-primary)] text-white shadow-sm' : 'text-[var(--mrl-texto-suave)] hover:bg-[var(--mrl-fondo)] hover:text-[var(--mrl-texto)]'}`;
+    `rounded-lg px-3 py-1.5 text-sm font-medium transicion-ui ${activo ? 'bg-[var(--mrl-primary)] text-white shadow-sm' : 'text-[var(--mrl-texto-suave)] hover:bg-[var(--mrl-fondo)] hover:text-[var(--mrl-texto)]'}`;
 </script>
 
 <template>
@@ -195,7 +195,7 @@ const segmento = (activo: boolean) =>
                 >
                     <button
                         type="button"
-                        class="rounded-2xl bg-white/10 px-4 py-3 text-left backdrop-blur transition-all hover:-translate-y-0.5 hover:bg-white/20"
+                        class="rounded-2xl bg-white/10 px-4 py-3 text-left backdrop-blur transicion-ui hover:-translate-y-0.5 hover:bg-white/20"
                         @click="filtros.urgencia = ''"
                     >
                         <p
@@ -221,7 +221,7 @@ const segmento = (activo: boolean) =>
                     </div>
                     <button
                         type="button"
-                        class="rounded-2xl px-4 py-3 text-left backdrop-blur transition-all hover:-translate-y-0.5"
+                        class="rounded-2xl px-4 py-3 text-left backdrop-blur transicion-ui hover:-translate-y-0.5"
                         :class="
                             conteos.vencidas
                                 ? 'bg-[var(--mrl-danger)]/80 hover:bg-[var(--mrl-danger)]'
@@ -364,7 +364,7 @@ const segmento = (activo: boolean) =>
                         <component
                             :is="tarea.url ? Link : 'div'"
                             :href="tarea.url ?? undefined"
-                            class="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-4 pl-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--mrl-primary)]/40 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:outline-none"
+                            class="group relative flex items-center gap-4 overflow-hidden rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-4 pl-5 shadow-sm transicion-ui hover:-translate-y-0.5 hover:border-[var(--mrl-primary)]/40 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:outline-none"
                         >
                             <span
                                 class="absolute inset-y-0 left-0 w-1.5"
@@ -450,7 +450,7 @@ const segmento = (activo: boolean) =>
                             </div>
                             <span
                                 v-if="tarea.url"
-                                class="hidden shrink-0 items-center gap-1 rounded-xl bg-[var(--mrl-primary)] px-3 py-2 text-sm font-medium text-white opacity-0 transition-all group-hover:opacity-100 sm:inline-flex"
+                                class="hidden shrink-0 items-center gap-1 rounded-xl bg-[var(--mrl-primary)] px-3 py-2 text-sm font-medium text-white opacity-0 transicion-ui group-hover:opacity-100 sm:inline-flex"
                             >
                                 Atender <ArrowRight class="size-4" />
                             </span>
@@ -502,7 +502,7 @@ const segmento = (activo: boolean) =>
                                     class="h-3 rounded-full bg-[var(--mrl-fondo)]"
                                 >
                                     <span
-                                        class="block h-full rounded-r-[4px] bg-[var(--mrl-primary)] transition-all group-hover:opacity-80"
+                                        class="block h-full rounded-r-[4px] bg-[var(--mrl-primary)] transition-[width] duration-(--mov-lento) group-hover:opacity-80"
                                         :class="
                                             filtros.etapa &&
                                             filtros.etapa !== e.clave

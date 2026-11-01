@@ -115,7 +115,7 @@ const textoEstado: Record<LeccionBienvenida['estado'], string> = {
 };
 
 const claseBoton =
-    'inline-flex shrink-0 items-center gap-2 rounded-xl bg-[var(--mrl-primary)] px-4 py-2.5 text-sm font-medium text-white transition-all hover:gap-3 hover:bg-[var(--mrl-primary-alt)] focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:ring-offset-2 focus-visible:outline-none';
+    'inline-flex shrink-0 items-center gap-2 rounded-xl bg-[var(--mrl-primary)] px-4 py-2.5 text-sm font-medium text-white transicion-ui hover:bg-[var(--mrl-primary-alt)] focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:ring-offset-2 focus-visible:outline-none';
 </script>
 
 <template>
@@ -164,7 +164,7 @@ const claseBoton =
                 <article
                     v-for="p in acciones"
                     :key="p.clave"
-                    class="group flex flex-col gap-4 rounded-3xl border border-[var(--mrl-primary)]/30 bg-[var(--mrl-surface)] p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--mrl-primary)] hover:shadow-lg sm:flex-row sm:items-center"
+                    class="group flex flex-col gap-4 rounded-3xl border border-[var(--mrl-primary)]/30 bg-[var(--mrl-surface)] p-5 shadow-sm transicion-ui hover:-translate-y-0.5 hover:border-[var(--mrl-primary)] hover:shadow-lg sm:flex-row sm:items-center"
                 >
                     <span
                         class="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-[var(--mrl-primary)]/10 text-[var(--mrl-primary)] transition-colors group-hover:bg-[var(--mrl-primary)] group-hover:text-white"
@@ -237,7 +237,7 @@ const claseBoton =
                     <article
                         v-for="l in lecciones"
                         :key="l.avance_id"
-                        class="rounded-2xl border p-4 transition-all duration-200"
+                        class="rounded-2xl border p-4 transicion-ui"
                         :class="estiloLeccion[l.estado]"
                     >
                         <button
@@ -308,7 +308,7 @@ const claseBoton =
                 <!-- Descriptivo de puesto enviado por RH -->
                 <article
                     v-if="descriptivoPuesto"
-                    class="flex flex-col gap-3 rounded-3xl border p-5 transition-all duration-200 sm:flex-row sm:items-center"
+                    class="flex flex-col gap-3 rounded-3xl border p-5 transicion-ui sm:flex-row sm:items-center"
                     :class="
                         descriptivoPuesto.acusado_en
                             ? 'border-success/30 bg-success-soft/40'
@@ -347,7 +347,7 @@ const claseBoton =
 
                 <article
                     v-if="evaluacionInduccion"
-                    class="flex flex-col gap-3 rounded-3xl border p-5 transition-all duration-200"
+                    class="flex flex-col gap-3 rounded-3xl border p-5 transicion-ui"
                     :class="estiloInduccion[evaluacionInduccion.estado]"
                 >
                     <div class="flex items-center gap-3">
@@ -401,7 +401,7 @@ const claseBoton =
                     <Link
                         v-if="evaluacionInduccion.puede_presentar"
                         :href="induccionEvaluacionUrl.url()"
-                        class="inline-flex w-fit items-center gap-2 rounded-xl bg-[var(--mrl-primary)] px-4 py-2.5 text-sm font-medium text-white transition-all hover:gap-3 hover:bg-[var(--mrl-primary-alt)]"
+                        class="inline-flex w-fit items-center gap-2 rounded-xl bg-[var(--mrl-primary)] px-4 py-2.5 text-sm font-medium text-white transicion-ui hover:bg-[var(--mrl-primary-alt)]"
                     >
                         {{
                             evaluacionInduccion.intentos_count > 0
@@ -434,7 +434,7 @@ const claseBoton =
                         class="mt-3 h-2 overflow-hidden rounded-full bg-[var(--mrl-fondo)]"
                     >
                         <div
-                            class="h-full rounded-full bg-[var(--mrl-primary)] transition-all"
+                            class="h-full rounded-full bg-[var(--mrl-primary)] transition-[width] duration-(--mov-lento)"
                             :style="{
                                 width: `${documentos.requeridos ? (documentos.aprobados / documentos.requeridos) * 100 : 0}%`,
                             }"

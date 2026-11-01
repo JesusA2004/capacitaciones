@@ -29,7 +29,7 @@ const esClicable = computed(() => attrs.onClick !== undefined);
 <template>
     <div
         :class="[
-            'flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition-all duration-200 hover:border-primary/40 hover:shadow-md',
+            'flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transicion-ui hover:border-primary/40 hover:shadow-md',
             esClicable ? 'cursor-pointer active:bg-muted/40' : '',
         ]"
     >

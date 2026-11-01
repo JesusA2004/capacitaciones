@@ -832,7 +832,7 @@ function confirmarSalida() {
                                         class="h-1.5 w-16 overflow-hidden rounded-full bg-muted"
                                     >
                                         <span
-                                            class="block h-full rounded-full transition-all duration-500"
+                                            class="block h-full rounded-full transition-[width] duration-(--mov-lento)"
                                             :style="{
                                                 width: `${(fase.candidatos.length / maxEnFase) * 100}%`,
                                                 backgroundColor: estiloFase(

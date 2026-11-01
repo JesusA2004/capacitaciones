@@ -40,7 +40,7 @@ const emit = defineEmits<{
     <article
         :class="
             cn(
-                'group relative rounded-2xl border bg-card shadow-xs transition-all',
+                'group relative rounded-2xl border bg-card shadow-xs transicion-ui',
                 activa
                     ? 'border-[color-mix(in_oklab,var(--acento)_45%,transparent)] shadow-md'
                     : 'tarjeta-interactiva border-border',

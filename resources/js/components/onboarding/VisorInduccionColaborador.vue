@@ -163,7 +163,7 @@ function terminar() {
                 </div>
                 <div class="h-1.5 overflow-hidden rounded-full bg-muted">
                     <div
-                        class="h-full rounded-full bg-primary transition-all"
+                        class="h-full rounded-full bg-primary transition-[width] duration-(--mov-lento)"
                         :style="{ width: `${porcentajeHojas}%` }"
                     />
                 </div>
@@ -283,7 +283,7 @@ function terminar() {
                 </p>
                 <button
                     type="button"
-                    class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-all hover:gap-3 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 sm:self-start sm:px-6 xl:self-stretch"
+                    class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transicion-ui hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 sm:self-start sm:px-6 xl:self-stretch"
                     :disabled="!puedeTerminar"
                     @click="terminar"
                 >

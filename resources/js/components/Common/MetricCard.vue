@@ -16,7 +16,7 @@ defineProps<{
 
 <template>
     <div
-        class="group flex flex-col gap-2 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition-all duration-200 hover:border-oro/40 hover:shadow-md"
+        class="group flex flex-col gap-2 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transicion-ui hover:border-oro/40 hover:shadow-md"
     >
         <div class="flex items-center justify-between">
             <span class="text-xs font-medium text-muted-foreground">{{

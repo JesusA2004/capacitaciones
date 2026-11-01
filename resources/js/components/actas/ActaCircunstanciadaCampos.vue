@@ -20,6 +20,7 @@ import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import ListaAnimada from '@/components/ui/ListaAnimada.vue';
 import { Textarea } from '@/components/ui/textarea';
 import { ahoraLocal, conflictoPersona } from '@/lib/actas';
 import { testigos as buscarTestigos } from '@/routes/rh/actas';
@@ -132,7 +133,7 @@ function cerrarAhora() {
                     v-for="op in catalogos.incidencias"
                     :key="op.value"
                     type="button"
-                    class="group flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition-all duration-150 hover:-translate-y-0.5 hover:border-oro/60 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-oro motion-reduce:hover:translate-y-0"
+                    class="group flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transicion-ui hover:-translate-y-0.5 hover:border-oro/60 hover:shadow-sm focus-visible:outline-2 focus-visible:outline-oro motion-reduce:hover:translate-y-0"
                     :class="
                         c.incidencia.tipo === op.value
                             ? 'border-[var(--mrl-petroleo)] bg-salvia font-medium text-[var(--mrl-petroleo)]'
@@ -445,8 +446,7 @@ function cerrarAhora() {
                     solo a quienes realmente correspondan: 0, 1 o 2.
                 </p>
             </div>
-            <TransitionGroup
-                name="lista-acta"
+            <ListaAnimada
                 tag="div"
                 class="flex flex-col gap-3"
             >
@@ -534,7 +534,7 @@ function cerrarAhora() {
                         </div>
                     </div>
                 </div>
-            </TransitionGroup>
+            </ListaAnimada>
             <p
                 v-if="!c.testigos_hechos.length"
                 class="text-xs text-muted-foreground italic"
@@ -563,8 +563,7 @@ function cerrarAhora() {
                     sobre los hechos. Hasta 2.
                 </p>
             </div>
-            <TransitionGroup
-                name="lista-acta"
+            <ListaAnimada
                 tag="div"
                 class="flex flex-col gap-3"
             >
@@ -619,7 +618,7 @@ function cerrarAhora() {
                         "
                     />
                 </div>
-            </TransitionGroup>
+            </ListaAnimada>
             <Button
                 v-if="c.testigos_asistencia.length < 2"
                 type="button"
@@ -644,7 +643,7 @@ function cerrarAhora() {
             <div class="grid gap-2 sm:grid-cols-2">
                 <button
                     type="button"
-                    class="flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm motion-reduce:hover:translate-y-0"
+                    class="flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transicion-ui hover:-translate-y-0.5 hover:shadow-sm motion-reduce:hover:translate-y-0"
                     :class="
                         c.trabajador.manifesto === true
                             ? 'border-[var(--mrl-petroleo)] bg-salvia font-medium text-[var(--mrl-petroleo)]'
@@ -657,7 +656,7 @@ function cerrarAhora() {
                 </button>
                 <button
                     type="button"
-                    class="flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-sm motion-reduce:hover:translate-y-0"
+                    class="flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transicion-ui hover:-translate-y-0.5 hover:shadow-sm motion-reduce:hover:translate-y-0"
                     :class="
                         c.trabajador.manifesto === false
                             ? 'border-[var(--mrl-petroleo)] bg-salvia font-medium text-[var(--mrl-petroleo)]'
@@ -832,24 +831,3 @@ function cerrarAhora() {
     </div>
 </template>
 
-<style scoped>
-.lista-acta-enter-active,
-.lista-acta-leave-active {
-    transition:
-        opacity 180ms ease,
-        transform 180ms ease;
-}
-
-.lista-acta-enter-from,
-.lista-acta-leave-to {
-    opacity: 0;
-    transform: translateY(-4px);
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .lista-acta-enter-active,
-    .lista-acta-leave-active {
-        transition: none;
-    }
-}
-</style>

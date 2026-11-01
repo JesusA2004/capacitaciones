@@ -89,7 +89,7 @@ function formatearFecha(fecha: string): string {
             />
 
             <div
-                class="flex-1 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition-all duration-200 hover:border-primary/40 hover:shadow-md"
+                class="flex-1 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transicion-ui hover:border-primary/40 hover:shadow-md"
             >
                 <div class="flex flex-wrap items-center justify-between gap-2">
                     <Badge variant="outline" class="text-xs font-medium">{{

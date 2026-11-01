@@ -15,6 +15,7 @@ import {
     X,
 } from '@lucide/vue';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import ListaAnimada from '@/components/ui/ListaAnimada.vue';
 import { getInitials } from '@/composables/useInitials';
 import { dashboard } from '@/routes';
 import {
@@ -570,10 +571,10 @@ const avatarSeleccion = computed(() => seleccionados.value.slice(0, 5));
                     Nadie coincide con «{{ busqueda }}».
                 </p>
 
-                <TransitionGroup
+                <ListaAnimada
                     v-else
                     tag="ul"
-                    name="persona"
+                    :cantidad="filtrados.length"
                     class="grid gap-2.5 sm:grid-cols-2 2xl:grid-cols-3"
                     :aria-label="`Personas de ${departamento.nombre}`"
                 >
@@ -672,7 +673,7 @@ const avatarSeleccion = computed(() => seleccionados.value.slice(0, 5));
                             </span>
                         </component>
                     </li>
-                </TransitionGroup>
+                </ListaAnimada>
 
                 <p
                     v-if="!puedeMover && colaboradores.length > 0"
@@ -1136,7 +1137,7 @@ const avatarSeleccion = computed(() => seleccionados.value.slice(0, 5));
     transition:
         background-color 160ms ease,
         color 160ms ease,
-        transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+        transform 220ms var(--curva-salida);
 }
 
 .seleccionada .marca {
@@ -1144,7 +1145,7 @@ const avatarSeleccion = computed(() => seleccionados.value.slice(0, 5));
 }
 
 .punto {
-    transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: transform 220ms var(--curva-salida);
 }
 
 /* Botón principal propio (petróleo de la paleta). */
@@ -1189,7 +1190,7 @@ const avatarSeleccion = computed(() => seleccionados.value.slice(0, 5));
 
 /* El contador «late» cada vez que cambia la selección. */
 .contador {
-    animation: latido 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+    animation: latido 260ms var(--curva-salida);
 }
 
 @keyframes latido {
@@ -1205,21 +1206,6 @@ const avatarSeleccion = computed(() => seleccionados.value.slice(0, 5));
 }
 
 /* Personas que salen del departamento al moverse. */
-.persona-move {
-    transition: transform 280ms ease;
-}
-
-.persona-leave-active {
-    transition:
-        opacity 220ms ease,
-        transform 220ms ease;
-}
-
-.persona-leave-to {
-    opacity: 0;
-    transform: translateX(16px) scale(0.96);
-}
-
 .aparecer-enter-active,
 .aparecer-leave-active {
     transition:
@@ -1278,20 +1264,6 @@ const avatarSeleccion = computed(() => seleccionados.value.slice(0, 5));
     .flecha,
     .contador {
         animation: none;
-    }
-
-    .tarjeta-persona,
-    .marca,
-    .punto,
-    .persona-move,
-    .persona-leave-active,
-    .aparecer-enter-active,
-    .aparecer-leave-active,
-    .subir-enter-active,
-    .subir-leave-active,
-    .velo-enter-active .hoja,
-    .velo-leave-active .hoja {
-        transition: none;
     }
 }
 </style>

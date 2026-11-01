@@ -17,7 +17,7 @@ function formatearFecha(valor: string) {
 
 <template>
     <div
-        class="rounded-2xl border border-border/60 bg-card p-4 shadow-sm transition-all duration-200 hover:border-primary/40 hover:shadow-md"
+        class="rounded-2xl border border-border/60 bg-card p-4 shadow-sm transicion-ui hover:border-primary/40 hover:shadow-md"
     >
         <h2 class="mb-3 text-sm font-semibold">Próximas sesiones en vivo</h2>
 

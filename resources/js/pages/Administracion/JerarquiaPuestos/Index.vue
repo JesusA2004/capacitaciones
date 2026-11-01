@@ -478,7 +478,7 @@ watch(
                     type="button"
                     role="tab"
                     :aria-selected="vista === opcion.valor"
-                    class="inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-all"
+                    class="inline-flex h-8 items-center gap-1.5 rounded-lg px-3 text-sm font-medium transicion-ui"
                     :class="
                         vista === opcion.valor
                             ? 'bg-card text-foreground shadow-sm'
@@ -1058,7 +1058,7 @@ watch(
                                         },
                                     })
                                 "
-                                class="rounded-xl border border-border/60 bg-card p-3 text-sm transition-all duration-200 hover:border-primary/40 hover:shadow-md"
+                                class="rounded-xl border border-border/60 bg-card p-3 text-sm transicion-ui hover:border-primary/40 hover:shadow-md"
                             >
                                 <span class="block text-lg font-semibold">{{
                                     puestoSeleccionado.vacantes_abiertas_count

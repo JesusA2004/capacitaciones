@@ -72,7 +72,7 @@ const ESTADOS: Record<
             <li
                 v-for="familia in familias"
                 :key="familia.familia"
-                class="group flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                class="group flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm transicion-ui hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
             >
                 <div class="flex items-start justify-between gap-3">
                     <div class="flex items-start gap-3">

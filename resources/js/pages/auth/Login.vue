@@ -123,7 +123,7 @@ defineProps<{
 
     <a
         :href="appIndex.url()"
-        class="group mt-4 flex items-center gap-3 rounded-2xl border border-border/60 bg-muted/30 p-3.5 transition-all duration-300 hover:border-primary/40 hover:bg-muted/50 hover:shadow-md sm:p-4"
+        class="group mt-4 flex items-center gap-3 rounded-2xl border border-border/60 bg-muted/30 p-3.5 transicion-ui hover:border-primary/40 hover:bg-muted/50 hover:shadow-md sm:p-4"
     >
         <span
             class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"

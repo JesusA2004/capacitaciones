@@ -864,7 +864,7 @@ function confirmarMovimiento() {
                         v-for="solicitud in columnas[columna.estado]"
                         :key="solicitud.id"
                         :data-kanban-id="solicitud.id"
-                        class="group relative flex flex-col gap-3 overflow-hidden rounded-xl border border-border/60 bg-card p-4 pt-0 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+                        class="group relative flex flex-col gap-3 overflow-hidden rounded-xl border border-border/60 bg-card p-4 pt-0 shadow-sm transicion-ui hover:-translate-y-0.5 hover:shadow-md"
                     >
                         <!-- Banda del tipo: cada tipo conserva siempre su color. -->
                         <div

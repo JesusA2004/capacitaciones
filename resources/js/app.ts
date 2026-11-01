@@ -5,6 +5,7 @@ import { registrarServiceWorker } from '@/composables/useWebPush';
 import AppLayout from '@/layouts/AppLayout.vue';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
+import { initializeActualizacionTablas } from '@/lib/actualizacionTablas';
 import { tituloConPendientes } from '@/lib/avisosNavegador';
 import { initializeErroresGlobales } from '@/lib/erroresGlobales';
 import { initializeFlashToast } from '@/lib/flashToast';
@@ -54,6 +55,9 @@ initializeFlashToast();
 
 // Ningún 422/403/500 en silencio: toast + foco al primer error.
 initializeErroresGlobales();
+
+// Tablas atenuadas mientras se filtra o pagina.
+initializeActualizacionTablas();
 
 // Único Service Worker de PEOPLE: public/sw.js, SOLO para notificaciones de
 // escritorio (Web Push, sin caché ni handler fetch). Cualquier otro

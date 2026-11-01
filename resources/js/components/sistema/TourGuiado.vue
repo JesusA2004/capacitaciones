@@ -251,11 +251,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', alTeclado));
                 class="absolute inset-0 bg-slate-950/65 transition-opacity duration-300"
             />
             <div
-                class="pointer-events-none absolute rounded-xl border-2 border-primary shadow-[0_0_0_9999px_rgba(2,6,23,0.65)] transition-all duration-300 ease-out"
+                class="pointer-events-none absolute rounded-xl border-2 border-primary shadow-[0_0_0_9999px_rgba(2,6,23,0.65)] transition-[top,left,width,height] duration-(--mov-lento)"
                 :style="estiloSpotlight"
             />
             <div
-                class="pointer-events-none absolute animate-pulse rounded-xl border-2 border-primary/50 transition-all duration-300 ease-out"
+                class="pointer-events-none absolute animate-pulse rounded-xl border-2 border-primary/50 transition-[top,left,width,height] duration-(--mov-lento)"
                 :style="estiloSpotlight"
             />
 

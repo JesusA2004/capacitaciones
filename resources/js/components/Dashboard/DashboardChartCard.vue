@@ -82,7 +82,7 @@ const colorPorIndice = (_d: Datum, i: number) =>
 
 <template>
     <Card
-        class="gap-4 rounded-2xl border-border/60 py-5 shadow-sm transition-all duration-200 hover:border-primary/40 hover:shadow-lg"
+        class="gap-4 rounded-2xl border-border/60 py-5 shadow-sm transicion-ui hover:border-primary/40 hover:shadow-lg"
     >
         <CardHeader>
             <CardTitle class="text-base">{{ title }}</CardTitle>

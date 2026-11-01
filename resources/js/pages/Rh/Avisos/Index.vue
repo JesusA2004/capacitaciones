@@ -20,6 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import ListaAnimada from '@/components/ui/ListaAnimada.vue';
 import {
     Select,
     SelectContent,
@@ -362,11 +363,10 @@ onBeforeUnmount(liberarPrevisualizacion);
                     descripcion="Lo que envíes aparecerá aquí, con cuántas personas lo vieron."
                 />
 
-                <TransitionGroup
+                <ListaAnimada
                     tag="div"
                     class="flex flex-col gap-3"
-                    enter-active-class="transition duration-200 ease-out motion-reduce:transition-none"
-                    enter-from-class="opacity-0 translate-y-1.5"
+                    :cantidad="props.avisos.data.length"
                 >
                     <Card v-for="aviso in props.avisos.data" :key="aviso.id">
                         <CardContent
@@ -418,7 +418,7 @@ onBeforeUnmount(liberarPrevisualizacion);
                             </div>
                         </CardContent>
                     </Card>
-                </TransitionGroup>
+                </ListaAnimada>
 
                 <PaginacionTabla :datos="props.avisos" />
             </section>

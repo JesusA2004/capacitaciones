@@ -2235,7 +2235,7 @@ function irACompletarExpediente() {
                                     class="h-2 flex-1 overflow-hidden rounded-full bg-muted"
                                 >
                                     <div
-                                        class="h-full rounded-full bg-primary transition-all"
+                                        class="h-full rounded-full bg-primary transition-[width] duration-(--mov-lento)"
                                         :style="{
                                             width: `${onboardingPorcentaje}%`,
                                         }"
@@ -2309,7 +2309,7 @@ function irACompletarExpediente() {
                             <VacacionesAntiguedad :saldo="saldoVacaciones" />
                             <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                                 <div
-                                    class="group rounded-xl border p-3 text-center transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                                    class="group rounded-xl border p-3 text-center transicion-ui hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
                                 >
                                     <CalendarCheck
                                         class="mx-auto mb-1 size-4 text-primary transition-transform group-hover:scale-110"
@@ -2322,7 +2322,7 @@ function irACompletarExpediente() {
                                     </p>
                                 </div>
                                 <div
-                                    class="group rounded-xl border p-3 text-center transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                                    class="group rounded-xl border p-3 text-center transicion-ui hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
                                 >
                                     <CheckCircle2
                                         class="mx-auto mb-1 size-4 text-[var(--success)] transition-transform group-hover:scale-110"
@@ -2349,7 +2349,7 @@ function irACompletarExpediente() {
                                     </p>
                                 </div>
                                 <div
-                                    class="group rounded-xl border p-3 text-center transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                                    class="group rounded-xl border p-3 text-center transicion-ui hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
                                 >
                                     <Hourglass
                                         class="mx-auto mb-1 size-4 text-warning transition-transform group-hover:scale-110"
@@ -2362,7 +2362,7 @@ function irACompletarExpediente() {
                                     </p>
                                 </div>
                                 <div
-                                    class="group rounded-xl border p-3 text-center transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                                    class="group rounded-xl border p-3 text-center transicion-ui hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
                                 >
                                     <Sparkles
                                         class="mx-auto mb-1 size-4 text-[var(--success)] transition-transform group-hover:scale-110"

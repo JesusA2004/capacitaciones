@@ -179,7 +179,7 @@ function enviar(aprobado: boolean) {
                         "
                     />
                     <span
-                        class="flex size-9 shrink-0 items-center justify-center rounded-full transition-all"
+                        class="flex size-9 shrink-0 items-center justify-center rounded-full transicion-ui"
                         :class="estilo[p.estado].circulo"
                     >
                         <Check v-if="p.estado === 'hecho'" class="size-4" />
@@ -251,7 +251,7 @@ function enviar(aprobado: boolean) {
                 <Button
                     v-if="decidiendo !== false"
                     :disabled="form.processing"
-                    class="gap-2 transition-all hover:gap-3"
+                    class="gap-2 transicion-ui"
                     @click="enviar(true)"
                 >
                     <ThumbsUp class="size-4" /> Dar visto bueno

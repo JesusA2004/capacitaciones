@@ -191,7 +191,7 @@ const totalActividadesPendientes = computed(() => {
         :columnas="1"
     >
         <Card
-            class="rounded-2xl border-border/60 shadow-sm transition-all duration-200 hover:border-primary/40 hover:shadow-lg"
+            class="rounded-2xl border-border/60 shadow-sm transicion-ui hover:border-primary/40 hover:shadow-lg"
         >
             <CardHeader>
                 <CardTitle class="flex items-center gap-2 text-base">
