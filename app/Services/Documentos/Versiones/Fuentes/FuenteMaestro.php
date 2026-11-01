@@ -19,10 +19,14 @@ use Illuminate\Database\Eloquent\Model;
  * renuncia, permisos, préstamos, entrega de activos…. Una plantilla heredada no
  * ofrece campos, pero sí versiones. Delega en DocumentoProcesoService.
  */
-final class FuenteMaestro implements FuenteDocumento
+class FuenteMaestro implements FuenteDocumento
 {
-    /** Datos de la empresa y su firma: salen del catálogo, no se corrigen por documento. */
-    public const CAMPOS_NO_EDITABLES = '/representante|patron|razon_social|empresa|firma/i';
+    /**
+     * No se corrigen por documento: la empresa y su firma salen del catálogo; la
+     * identidad, el sueldo y la sucursal se corrigen en su fuente (docs/CORRECCIONES.md),
+     * para que el PDF nunca diga otra cosa que el expediente.
+     */
+    public const CAMPOS_NO_EDITABLES = '/representante|patron|razon_social|empresa|firma|nombre_completo|^nombre|apellido|curp|rfc|nss|sueldo|salario|sucursal/i';
 
     /**
      * @param  array<string, string>  $manuales

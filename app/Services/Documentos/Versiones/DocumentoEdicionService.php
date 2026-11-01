@@ -108,12 +108,21 @@ class DocumentoEdicionService
     private function fuente(string $tipo, int $id, ?string $clave, User $actor): FuenteDocumento
     {
         return match ($tipo) {
-            'salida' => $this->salida->fuenteDe(Baja::query()->findOrFail($id), $actor),
+            'salida' => $this->fuenteSalida(Baja::query()->findOrFail($id), $actor),
             'finiquito' => new FuenteFiniquito(app(FiniquitoService::class), FiniquitoCalculo::query()->findOrFail($id)),
             'responsiva' => new FuenteResponsiva(app(ResponsivaPdfService::class), Responsiva::query()->findOrFail($id)),
             'recibo' => new FuenteRecibo(app(ReciboNominaService::class), ReciboNomina::query()->findOrFail($id)),
             default => $this->fuenteProceso($tipo, $id, $clave),
         };
+    }
+
+    private function fuenteSalida(Baja $baja, User $actor): FuenteDocumento
+    {
+        if (! $actor->can('documentoSalida', $baja)) {
+            throw new AccessDeniedHttpException('No tienes permiso para este documento de salida.');
+        }
+
+        return $this->salida->fuenteDe($baja, $actor);
     }
 
     private function fuenteProceso(string $tipo, int $id, ?string $clave): FuenteDocumento
