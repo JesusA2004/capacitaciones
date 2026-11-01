@@ -57,6 +57,7 @@ class NotificacionEventosService
     public function __construct(
         private readonly PushNotifier $push,
         private readonly SucursalesSilenciadasService $silenciadas,
+        private readonly PoliticaNotificacionRolService $politica,
     ) {}
 
     public function confirmarAlActor(User $actor, Aviso $aviso): bool
@@ -70,9 +71,31 @@ class NotificacionEventosService
      */
     public function crearPendiente(iterable $destinatarios, Aviso $aviso, string $origen = 'directo'): Collection
     {
-        return $this->unicos($destinatarios)
+        $entregados = $this->unicos($destinatarios)
             ->filter(fn (User $usuario): bool => $this->entregar($usuario, CategoriaNotificacion::Pendiente, $aviso, $origen))
             ->values();
+
+        $this->ampliar($aviso, CategoriaNotificacion::Pendiente);
+
+        return $entregados;
+    }
+
+    /**
+     * Roles que Roles y permisos → Notificaciones agregó a este aviso: reciben
+     * sólo sobre personas dentro de su alcance. La idempotencia evita duplicar a
+     * quien ya le llegó por su regla. Nunca lanza.
+     *
+     * @param  list<int>  $excluir
+     */
+    public function ampliar(Aviso $aviso, CategoriaNotificacion $categoria, array $excluir = []): void
+    {
+        try {
+            foreach ($this->politica->usuariosAgregados($aviso, $this->colaboradorIdDe($aviso->recurso), $excluir) as $usuario) {
+                $this->entregar($usuario, $categoria, $aviso, 'checklist');
+            }
+        } catch (Throwable $e) {
+            Log::warning('NotificacionEventosService: no se pudo ampliar el aviso.', ['evento' => $aviso->evento, 'error' => $e->getMessage()]);
+        }
     }
 
     /**
@@ -213,6 +236,12 @@ class NotificacionEventosService
             return false;
         }
 
+        // Checklist por rol (Roles y permisos → Notificaciones): mismo punto para
+        // campana, tiempo real, app y navegador. La tarea sigue en «Mis pendientes».
+        if (! $this->politica->permite($usuario, $aviso, $categoria, $this->colaboradorIdDe($aviso->recurso))) {
+            return false;
+        }
+
         $relatedType = $aviso->recurso !== null ? class_basename($aviso->recurso) : null;
         $relatedId = $aviso->recurso?->getKey();
         $relatedId = is_int($relatedId) ? $relatedId : null;
@@ -252,7 +281,7 @@ class NotificacionEventosService
         }
 
         try {
-            $notificacion = $this->notificacion($aviso, $categoria, $relatedType, $relatedId, $notificationId);
+            $notificacion = $this->notificacion($aviso, $categoria, $aviso->payloadSinRecurso ? null : $relatedType, $aviso->payloadSinRecurso ? null : $relatedId, $notificationId);
             $usuario->notify($notificacion);
         } catch (Throwable $e) {
             Log::warning('NotificacionEventosService: fallo al notificar.', ['evento' => $aviso->evento, 'user_id' => $usuario->id, 'error' => $e->getMessage()]);
@@ -261,11 +290,12 @@ class NotificacionEventosService
         }
 
         try {
-            $dispositivos = $this->push->aUsuarioConDatos($usuario, $aviso->titulo, $aviso->mensaje, [
+            [$tituloPush, $mensajePush] = $this->politica->textoPush($aviso, $categoria);
+            $dispositivos = $this->push->aUsuarioConDatos($usuario, $tituloPush, $mensajePush, [
                 ...$aviso->datos,
                 'type' => $aviso->tipo,
-                'resource_id' => $relatedId,
-                'related_type' => $relatedType,
+                'resource_id' => $aviso->payloadSinRecurso ? null : $relatedId,
+                'related_type' => $aviso->payloadSinRecurso ? null : $relatedType,
                 'accion' => $aviso->accion,
                 'categoria' => $categoria->value,
                 'colaborador_id' => $this->colaboradorIdDe($aviso->recurso),

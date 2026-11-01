@@ -94,7 +94,7 @@ class WorkflowRoutingService
      * aviso ("eres su jefe directo").
      *
      * @param  array{solicitante?: User|null, creador?: User|null, evaluador?: User|Colaborador|null, aprobador?: User|null, excluir?: list<int>}  $contexto
-     * @return Collection<int, array{usuario: User, motivos: list<string>}>
+     * @return Collection<int, array{usuario: User, motivos: list<string>, directo: bool}>
      */
     public function resolver(string $evento, Colaborador|Candidato|null $sujeto, array $contexto = []): Collection
     {
@@ -180,7 +180,7 @@ class WorkflowRoutingService
      * @param  list<string>  $tipos
      * @param  array<string, mixed>  $regla
      * @param  array<string, mixed>  $contexto
-     * @return array<int, array{usuario: User, motivos: list<string>}>
+     * @return array<int, array{usuario: User, motivos: list<string>, directo: bool}>
      */
     private function porTipos(array $tipos, string $evento, array $regla, Colaborador|Candidato|null $sujeto, array $contexto, bool $avisarFaltantes): array
     {
@@ -202,8 +202,9 @@ class WorkflowRoutingService
             }
 
             foreach ($usuarios as $usuario) {
-                $encontrados[$usuario->id] ??= ['usuario' => $usuario, 'motivos' => []];
+                $encontrados[$usuario->id] ??= ['usuario' => $usuario, 'motivos' => [], 'directo' => false];
                 $encontrados[$usuario->id]['motivos'][] = $tipo->motivo();
+                $encontrados[$usuario->id]['directo'] = $encontrados[$usuario->id]['directo'] || $tipo->esDirecto();
             }
         }
 

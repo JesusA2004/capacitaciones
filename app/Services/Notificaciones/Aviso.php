@@ -20,6 +20,12 @@ use Illuminate\Notifications\Notification;
  *   texto + updated_at del recurso + el día.
  * - notificacion: clase propia cuando el payload histórico debe conservarse;
  *   por defecto PendienteRhNotification.
+ * - directo: el emisor nombró a esta persona (aprobador, evaluador, jefe): el
+ *   checklist por rol no la filtra.
+ * - pushTitulo: título para la pantalla bloqueada; sin él, el del catálogo. El
+ *   push nunca lleva nombre completo, causal, calificación, texto libre ni montos.
+ * - payloadSinRecurso: la app no debe abrir el recurso (no es una pantalla de esta
+ *   persona); la entrega lo conserva para su idempotencia y la web por `tipo`.
  */
 final class Aviso
 {
@@ -37,6 +43,9 @@ final class Aviso
         public readonly array $datos = [],
         public readonly ?string $ocurrencia = null,
         public readonly ?Notification $notificacion = null,
+        public readonly bool $directo = false,
+        public readonly ?string $pushTitulo = null,
+        public readonly bool $payloadSinRecurso = false,
     ) {}
 
     /**
@@ -49,6 +58,7 @@ final class Aviso
         return new self(
             $this->evento, $this->tipo, $titulo, $mensaje, $this->recurso,
             $this->accion, $this->prioridad, $this->datos, $this->ocurrencia, null,
+            $this->directo, $this->pushTitulo, $this->payloadSinRecurso,
         );
     }
 
@@ -61,6 +71,7 @@ final class Aviso
         return new self(
             $this->evento, $this->tipo, $this->titulo, $this->mensaje, $this->recurso,
             $this->accion, $this->prioridad, $this->datos, $ocurrencia, $this->notificacion,
+            $this->directo, $this->pushTitulo, $this->payloadSinRecurso,
         );
     }
 }

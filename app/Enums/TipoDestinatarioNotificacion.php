@@ -27,6 +27,15 @@ enum TipoDestinatarioNotificacion: string
     case Aprobador = 'aprobador';
     case Sistemas = 'sistemas';
 
+    /**
+     * El emisor nombró a esta persona (no se llegó a ella por rol o permiso):
+     * desmarcar su rol en el checklist no le quita el aviso.
+     */
+    public function esDirecto(): bool
+    {
+        return in_array($this, [self::Solicitante, self::ColaboradorAfectado, self::JefeDirecto, self::UsuarioEspecifico, self::Creador, self::Evaluador, self::Aprobador], true);
+    }
+
     public function etiqueta(): string
     {
         return match ($this) {

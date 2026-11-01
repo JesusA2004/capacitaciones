@@ -12,6 +12,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Celebraciones\FechasCelebracion;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\MobilePush\PushNotifier;
+use App\Services\Notificaciones\PoliticaNotificacionRolService;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -44,6 +45,7 @@ class CumpleanosService
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly BirthdayCardService $tarjetas,
         private readonly PushNotifier $push,
+        private readonly PoliticaNotificacionRolService $politica,
     ) {}
 
     /**
@@ -387,6 +389,11 @@ class CumpleanosService
             ->get();
 
         foreach ($destinatarios as $destinatario) {
+            // Checklist por rol: ver cumpleaños no es lo mismo que recibir el recordatorio.
+            if (! $this->politica->permiteClave($destinatario, 'rh_cumpleanos')) {
+                continue;
+            }
+
             $hoy = $this->cumpleanosDeHoy($destinatario);
             $proximos7 = $this->proximosCumpleanos($destinatario, 7);
 

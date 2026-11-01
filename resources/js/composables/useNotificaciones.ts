@@ -122,10 +122,11 @@ function avisarNuevas(lista: NotificacionItem[]): void {
             );
         } else {
             for (const n of mostrar) {
+                // Pantalla del sistema: sin el detalle del aviso, igual que el push.
                 notificacionDeSistema(
                     n.id,
-                    n.titulo,
-                    n.mensaje,
+                    'MR. LANA PEOPLE',
+                    'Tienes una notificación nueva.',
                     () => void abrirNotificacion(n.id),
                     n.url?.startsWith('/') ? n.url : undefined,
                 );

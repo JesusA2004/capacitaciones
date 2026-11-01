@@ -14,6 +14,7 @@ use App\Services\Cumpleanos\BirthdayCardService;
 use App\Services\Cumpleanos\CumpleanosService;
 use App\Services\Cumpleanos\MuroCumpleanosService;
 use App\Services\MobilePush\PushNotifier;
+use App\Services\Notificaciones\PoliticaNotificacionRolService;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -48,6 +49,7 @@ class CelebracionService
         private readonly MuroCumpleanosService $muro,
         private readonly FotoColaboradorService $fotos,
         private readonly PushNotifier $push,
+        private readonly PoliticaNotificacionRolService $politica,
     ) {}
 
     /**
@@ -248,7 +250,7 @@ class CelebracionService
 
         try {
             $homenajeado->notify(new CelebracionNotification($celebracion, $tipo, $titulo, $mensaje));
-            $this->push->aUsuarioConDatos($homenajeado, $titulo, $mensaje, [
+            $this->push->aUsuarioConDatos($homenajeado, $this->politica->tituloPush($tipo), PoliticaNotificacionRolService::MENSAJE_PUSH, [
                 'type' => $tipo,
                 'resource_id' => $celebracion->id,
                 'related_type' => 'Celebracion',
@@ -281,10 +283,10 @@ class CelebracionService
         $this->tarjeta($celebracion);
         $this->muro->abrir($celebracion, $actor, avisar: false);
 
-        $nombre = $celebracion->colaborador->name;
+        // Sin nombre en la pantalla bloqueada: el detalle se ve dentro.
         [$tipo, $titulo, $mensaje] = $celebracion->esAniversario()
-            ? ['aniversario_general', sprintf('%s cumple %s con MR. LANA', $celebracion->colaborador->nombreCompleto(), FechasCelebracion::textoAnios((int) $celebracion->anios)), 'Puedes dejarle un mensaje de felicitación.']
-            : ['cumpleanos_general', sprintf('Hoy es el cumpleaños de %s', $celebracion->colaborador->nombreCompleto()), sprintf('Déjale a %s un mensaje de felicitación.', $nombre)];
+            ? ['aniversario_general', 'Hoy hay un aniversario en MR. LANA', 'Puedes dejarle un mensaje de felicitación.']
+            : ['cumpleanos_general', $this->politica->tituloPush('cumpleanos_general'), 'Puedes dejarle un mensaje de felicitación.'];
 
         $destinatarios = 0;
 
@@ -298,6 +300,10 @@ class CelebracionService
             ->where(fn (Builder $q) => $q->whereNull('colaborador_id')->orWhere('colaborador_id', '!=', $celebracion->colaborador_id))
             ->chunkById(200, function ($usuarios) use ($celebracion, $tipo, $titulo, $mensaje, &$destinatarios): void {
                 foreach ($usuarios as $usuario) {
+                    if (! $this->politica->permiteClave($usuario, $tipo)) {
+                        continue;
+                    }
+
                     try {
                         $this->push->aUsuarioConDatos($usuario, $titulo, $mensaje, [
                             'type' => $tipo,

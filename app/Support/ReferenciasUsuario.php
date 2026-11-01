@@ -82,6 +82,8 @@ final class ReferenciasUsuario
         ['agenda_eventos', 'responsable_user_id', 'set_null'],
         ['agenda_eventos', 'resultado_por', 'set_null'],
         ['agenda_evento_historial', 'user_id', 'set_null'],
+        ['notificacion_evento_rol', 'actualizado_por', 'set_null'],
+        ['notificacion_evento_rol_historial', 'actor_id', 'set_null'],
         ['avisos', 'creado_por', 'set_null'],
         ['avisos_datos_faltantes', 'enviado_por', 'set_null'],
         ['bancos_preguntas', 'creado_por', 'cascade'],

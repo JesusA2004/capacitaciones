@@ -11,6 +11,7 @@ use App\Models\WebPushSuscripcion;
 use App\Notifications\Mobile\CelebracionNotification;
 use App\Services\Celebraciones\FechasCelebracion;
 use App\Services\MobilePush\PushNotifier;
+use App\Services\Notificaciones\PoliticaNotificacionRolService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -40,6 +41,7 @@ class MuroCumpleanosService
     public function __construct(
         private readonly CumpleanosStorageService $storage,
         private readonly PushNotifier $push,
+        private readonly PoliticaNotificacionRolService $politica,
     ) {}
 
     /**
@@ -340,7 +342,6 @@ class MuroCumpleanosService
     {
         try {
             $homenajeado = $this->cumpleanero($greeting);
-            $nombre = $greeting->colaborador->nombreCompleto();
             $data = ['type' => 'cumpleanos_muro', 'resource_id' => $greeting->id, 'related_type' => 'Celebracion', 'accion' => 'abrir_celebracion'];
 
             User::query()
@@ -350,9 +351,11 @@ class MuroCumpleanosService
                     ->orWhereIn('id', WebPushSuscripcion::query()->select('user_id')))
                 ->whereHas('colaborador', fn ($q) => $q->where('estatus', EstadoUsuario::Activo->value))
                 ->when($homenajeado !== null, fn ($q) => $q->whereKeyNot($homenajeado->id))
-                ->chunkById(200, function ($usuarios) use ($nombre, $data) {
+                ->chunkById(200, function ($usuarios) use ($data) {
                     foreach ($usuarios as $usuario) {
-                        $this->push->aUsuarioConDatos($usuario, "Hoy celebramos a {$nombre}", 'Déjale una felicitación.', $data);
+                        if ($this->politica->permiteClave($usuario, 'cumpleanos_muro')) {
+                            $this->push->aUsuarioConDatos($usuario, $this->politica->tituloPush('cumpleanos_muro'), PoliticaNotificacionRolService::MENSAJE_PUSH, $data);
+                        }
                     }
                 });
         } catch (Throwable $e) {
@@ -385,7 +388,7 @@ class MuroCumpleanosService
 
         try {
             $homenajeado->notify(new CelebracionNotification($greeting, 'celebracion_mensaje', $titulo, $cuerpo));
-            $this->push->aUsuarioConDatos($homenajeado, $titulo, $cuerpo, [
+            $this->push->aUsuarioConDatos($homenajeado, $titulo, 'Abre tu muro para leerla.', [
                 'type' => 'celebracion_mensaje',
                 'resource_id' => $greeting->id,
                 'related_type' => 'Celebracion',

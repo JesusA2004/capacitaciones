@@ -62,9 +62,10 @@ class NotificadorRhService
      * Nunca lanza: un fallo se registra y la acción principal sigue.
      *
      * @param  array{solicitante?: User|null, creador?: User|null, evaluador?: User|Colaborador|null, aprobador?: User|null, excluir?: list<int>}  $contexto
+     * @param  (callable(User): string)|null  $mensajePara  Texto por persona cuando el detalle no es para todos los destinatarios.
      * @return Collection<int, User> a quiénes se avisó
      */
-    public function notificarEvento(string $evento, Colaborador|Candidato|null $sujeto, array $contexto, string $titulo, string $mensaje, ?Model $relacionado = null, ?string $accion = null, string $prioridad = 'media'): Collection
+    public function notificarEvento(string $evento, Colaborador|Candidato|null $sujeto, array $contexto, string $titulo, string $mensaje, ?Model $relacionado = null, ?string $accion = null, string $prioridad = 'media', ?callable $mensajePara = null): Collection
     {
         // Eventos LEGACY (config configuracion_sistema.eventos.*.legacy, p. ej.
         // cierre_autorizacion_rh): se conservan para leer avisos anteriores,
@@ -83,12 +84,21 @@ class NotificadorRhService
             return collect();
         }
 
+        $categoria = $this->categoria($accion);
+
         foreach ($destinatarios as $destino) {
-            $this->notificar([$destino['usuario']], $evento, $titulo, $mensaje, $relacionado, $accion, $prioridad, [
+            $this->eventos->entregar($destino['usuario'], $categoria, new Aviso($evento, $evento, $titulo, $mensajePara !== null ? $mensajePara($destino['usuario']) : $mensaje, $relacionado, $accion, $prioridad, [
                 'route_rule' => $evento,
                 'recipient_reason' => implode('; ', array_unique($destino['motivos'])),
-            ]);
+            ], directo: $destino['directo']));
         }
+
+        // Roles que se marcaron a mano en el checklist, siempre con su alcance.
+        $this->eventos->ampliar(
+            new Aviso($evento, $evento, $titulo, $mensaje, $relacionado, $accion, $prioridad, ['route_rule' => $evento, 'recipient_reason' => 'Tu rol tiene marcado este aviso']),
+            $categoria,
+            $contexto['excluir'] ?? [],
+        );
 
         return $destinatarios->pluck('usuario')->values();
     }
@@ -103,14 +113,21 @@ class NotificadorRhService
     public function notificar(iterable $usuarios, string $tipo, string $titulo, string $mensaje, ?Model $relacionado = null, ?string $accion = null, string $prioridad = 'media', array $ruteo = []): void
     {
         $aviso = new Aviso($tipo, $tipo, $titulo, $mensaje, $relacionado, $accion, $prioridad, $ruteo);
-        $categoria = $accion !== null && ! str_starts_with($accion, 'ver')
-            ? CategoriaNotificacion::Pendiente
-            : CategoriaNotificacion::Resultado;
+        $categoria = $this->categoria($accion);
 
         foreach ($usuarios as $usuario) {
             if ($usuario instanceof User) {
                 $this->eventos->entregar($usuario, $categoria, $aviso);
             }
         }
+
+        $this->eventos->ampliar($aviso, $categoria);
+    }
+
+    private function categoria(?string $accion): CategoriaNotificacion
+    {
+        return $accion !== null && ! str_starts_with($accion, 'ver')
+            ? CategoriaNotificacion::Pendiente
+            : CategoriaNotificacion::Resultado;
     }
 }

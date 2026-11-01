@@ -103,8 +103,9 @@ class AvisoService
     {
         // Sin emoji a mano: PushNotifier::conEmoji() ya antepone el de
         // 'aviso_rh' (NotificacionesService::ESTILOS), mismo catálogo que la
-        // campana web y la API.
-        $titulo = $aviso->titulo;
+        // campana web y la API. El texto de RH es libre: se lee dentro, no en
+        // la pantalla bloqueada.
+        $titulo = 'Nuevo aviso de Recursos Humanos';
 
         if ($aviso->alcance === AlcanceAviso::Todos) {
             // "Todos" incluye a quien lo envía (también le llega el push),
@@ -121,7 +122,7 @@ class AvisoService
         }
 
         foreach ($usuarios as $usuario) {
-            $this->push->aUsuarioConDatos($usuario, $titulo, mb_substr($aviso->mensaje, 0, 180), [
+            $this->push->aUsuarioConDatos($usuario, $titulo, 'Abre MR. LANA PEOPLE para leerlo.', [
                 'type' => 'aviso_rh',
                 'resource_id' => $aviso->id,
             ]);
