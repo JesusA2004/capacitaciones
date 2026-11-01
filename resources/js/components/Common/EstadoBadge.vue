@@ -68,6 +68,7 @@ const MAPA_ESTADOS: Record<string, { variante: Variante; etiqueta: string }> = {
     // Azul/turquesa: en progreso / asignado / información.
     automatica: { variante: 'info', etiqueta: 'Automática' },
     en_progreso: { variante: 'info', etiqueta: 'En progreso' },
+    en_incorporacion: { variante: 'info', etiqueta: 'En incorporación' },
     asignado: { variante: 'info', etiqueta: 'Asignado' },
     programada: { variante: 'info', etiqueta: 'Programada' },
     calificado: { variante: 'info', etiqueta: 'Calificado' },
