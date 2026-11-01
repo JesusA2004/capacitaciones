@@ -73,8 +73,6 @@ Por `NotificadorRhService` / `NotificacionEventosService` (eventos en `config/co
 | Evento | Destinatarios | Cuándo |
 |---|---|---|
 | `cierre_baja_solicitada` «Baja registrada» | RH, regional de la persona y **Sistemas** (retirar accesos, cuentas y equipo) | Al registrar (módulo «Bajas», ciclo laboral, API): quién la dio, a quién (puesto · sucursal), forma · causal y último día. El actor recibe la confirmación «Baja registrada». |
-| `baja_revision_juridico` | bajas.revisar_juridico | Al registrar una causal con Jurídico; RH la (re)envía; la nueva causal lo requiere |
-| `baja_por_revisar` | bajas.gestionar (RH) | Jurídico aprobó o devolvió |
 | `baja_alerta_clima_laboral` (+ **correo**) | bajas.gestionar | RV-04 |
 | `baja_alerta_contraloria` | bajas.consulta_contraloria | RE-02, RE-03 |
 | `baja_alerta_juridico` | bajas.revisar_juridico | RE-03; RN-08 |

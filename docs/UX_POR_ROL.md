@@ -12,7 +12,7 @@ Regla: **WEB = administrar. APP = actuar.** El detalle de menús está en
 - Directorio.
 - Perfil (corrige datos solo por solicitud).
 
-**GERENTE** (`gerente_sucursal`, `gerente`, `subgerente`, `coordinadora`, `jefe_directo`)
+**GERENTE** (`gerente_sucursal`, `gerente`, `jefe_directo`; `subgerente` y `coordinadora` usan Mi espacio)
 
 - Mis pendientes.
 - Entrevistas y socioeconómico de candidatos (sin preautorización: la contratación la autoriza solo RH).

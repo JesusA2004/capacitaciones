@@ -49,7 +49,7 @@ DELETE /api/v1/dispositivos/push-token   { token }
 }
 ```
 
-Nunca lleva PII sensible (nombres completos, montos, CURP/RFC/NSS): el detalle se consulta ya autenticado dentro de la app.
+Nunca lleva nombre completo, causal, calificación, texto libre ni montos: el título sale del catálogo (`push_titulo` o `etiqueta` de `config/notificaciones_catalogo.php`) y el cuerpo es fijo (`PoliticaNotificacionRolService::textoPush`). El detalle se consulta ya autenticado en la campana o la bandeja. Excepción: `people:probar-notificacion`. Lo mismo aplica a la notificación del sistema que la página muestra sin Web Push (`useNotificaciones.ts`).
 
 ### Tipos (`data.type`)
 
@@ -68,14 +68,13 @@ Nunca lleva PII sensible (nombres completos, montos, CURP/RFC/NSS): el detalle s
 |---|---|---|---|
 | Colaborador crea solicitud | `SolicitudesService::crear()` | Responsables con `rh.solicitudes.aprobar` en el alcance del colaborador | `rh_solicitud` |
 | RH aprueba/rechaza/pide corrección de solicitud | `SolicitudesService::cambiarEstado()` | Colaborador dueño | `solicitud` |
-| Colaborador solicita vacaciones | `VacacionesService::solicitar()` | Responsables con `rh.vacaciones.aprobar` | `rh_vacaciones` |
 | RH aprueba/rechaza vacaciones | `VacacionesService::aprobar()`/`rechazar()` | Colaborador dueño | `vacaciones` |
-| Colaborador sube documento (incorporación) | `IncorporacionService::subirDocumento()` | Responsables con `rh.documentos.ver` | `rh_documento` |
+| Colaborador sube documento (incorporación) | `IncorporacionService::subirDocumento()` | RH: rol marcado en el checklist, con alcance (ya no Sistemas ni Auditoría, que sólo pueden ver) | `rh_documento` |
 | RH aprueba/rechaza documento | `IncorporacionService::aprobarDocumento()`/`rechazarDocumento()` | Colaborador dueño | `documento` |
-| Último documento obligatorio queda aprobado (incorporación "completo") | `IncorporacionService::avisarSiIncorporacionQuedoCompleta()` (interno, llamado desde `aprobarDocumento()`) | Responsables con `rh.incorporaciones.ver` | `rh_incorporacion` |
+| Último documento obligatorio queda aprobado (incorporación "completo") | `IncorporacionService::avisarSiIncorporacionQuedoCompleta()` (interno, llamado desde `aprobarDocumento()`) | RH: rol marcado en el checklist, con alcance | `rh_incorporacion` |
 | RH aprueba/rechaza incorporación | `IncorporacionService::aprobarIncorporacion()`/`rechazarIncorporacion()` | Colaborador | `incorporacion` |
 | Es el cumpleaños del colaborador (command diario) | `CumpleanosService::felicitarColaborador()` | Colaborador | `cumpleanos` |
-| Recordatorio diario de cumpleaños (hoy/próximos 7 días, por destinatario según su alcance) | `CumpleanosService::notificarRh()` | RH/admin con `rh.cumpleanos.ver` | `rh_cumpleanos` |
+| Recordatorio diario de cumpleaños (hoy/próximos 7 días, por destinatario según su alcance) | `CumpleanosService::notificarRh()` | `rh.cumpleanos.ver` y rol marcado en el checklist (RH; Sistemas ya no) | `rh_cumpleanos` |
 
 **Excepción a "resource_id siempre es un id real":** `rh_cumpleanos` es el único tipo cuyo `resource_id` puede ser `null` — el aviso normalmente resume varios cumpleaños (no un solo recurso), así que en vez de inventar un id (nunca un timestamp ni un conteo) el payload trae `route`/`periodo` para que la app navegue a la bandeja en el estado correcto. Cuando sí hay un único colaborador cumpliendo años hoy dentro del alcance del destinatario, `resource_id` es el `BirthdayGreeting.id` real:
 
@@ -85,6 +84,8 @@ Nunca lleva PII sensible (nombres completos, montos, CURP/RFC/NSS): el detalle s
 ```
 
 Ver `docs/CUMPLEANOS.md` y `docs/RH_MOBILE_API.md`.
+
+Qué rol recibe cada aviso se decide en Roles y permisos → Notificaciones: ver [`NOTIFICACIONES_EVENTOS.md`](NOTIFICACIONES_EVENTOS.md).
 
 **Resolución de destinatarios**: `App\Services\RhMobile\ResponsableResolverService::paraColaborador($colaborador, $permiso)` — usuarios con el permiso dado (Spatie, vía roles o directo) cuyo `App\Services\AlcanceOrganizacionalService::puedeVerUsuario()` cubre al colaborador (empresa/sucursal/jefe directo). Nunca hardcodea usuarios ni roles específicos.
 

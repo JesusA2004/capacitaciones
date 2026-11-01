@@ -129,3 +129,13 @@ En producción basta `php artisan migrate --force` (seguido, como siempre, de `p
 - Guardar valida cada permiso contra el catálogo existente en la base (`CatalogoPermisosService::asignables()`); un permiso fuera del catálogo que el rol ya tenía se puede conservar, no agregar. Cada cambio queda en la bitácora (`AuditoriaService`, eventos `rol_creado`, `rol_permisos_actualizados`, `rol_clonado`, `rol_eliminado`, con `agregados`/`quitados`).
 
 **Dividir un permiso general en acciones** (p. ej. `sucursales.administrar` → `sucursales.crear`/`editar`/`eliminar`): el general se queda como `acceso` del módulo (es lo que revisa el sidebar), las acciones nuevas se declaran en `acciones` + `herencia` (`nuevo => general`) + `descripciones`, y la Policy exige acceso **y** acción. No se tocan los arreglos de roles del seeder: `RolesYPermisosSeeder::permisosBasePorRol()` deriva los defaults de la herencia y `people:sincronizar-permisos` los otorga en producción a quien tenía el general — nadie gana ni pierde nada por el despliegue.
+
+## Pestaña «Notificaciones» y recorrido por rol (2026-11)
+
+- Roles y permisos → **Notificaciones**: qué acción le avisa a qué rol (ver `NOTIFICACIONES_EVENTOS.md`). Edita `notificaciones_rol.editar` (RH Admin, Sistemas, super_admin); RH Admin entra sólo a esta pestaña, sin ver ni tocar permisos.
+- Subgerente: sigue en Mi espacio, con la entrada «Mi agenda».
+- Jurídico y Contraloría: su inicio se llama «Mi bandeja de bajas», porque no tienen tablero.
+- «Solicitudes» aparece también a quien sólo consulta (`rh.solicitudes.ver`), igual que `SolicitudInternaPolicy`.
+- Gerente y Subgerente no ven en agenda ni en candidatos a quien aspira a Subgerente o Gerente (`AprobadorEntrevistaService::noVeReemplazos`).
+- Gerencias tienen `rh.colaboradores.detalle`: en la app abren la ficha que ya ven en web.
+- `SidebarPorRolTest` recorre cada rol: su menú responde 200 y lo ajeno 403. Falla si aparece una entrada nueva sin registrar.

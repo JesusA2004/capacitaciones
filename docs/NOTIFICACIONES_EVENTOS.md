@@ -28,6 +28,51 @@ iguales ni cero.
 avisos: la tarea solo llega a quien tiene el permiso de **acción** y alcance
 sobre la persona (o la regla de ruteo de Configuración → Notificaciones).
 
+## Checklist por rol (Roles y permisos → Notificaciones)
+
+La lista completa de acciones vive en `config/notificaciones_catalogo.php`: una
+clave por acción, con su etiqueta, módulo, audiencia, roles marcados de fábrica y
+roles obligatorios. `CatalogoNotificacionesTest` falla si el código emite una clave
+que no esté ahí, o si un pendiente de `TipoTarea` no resuelve su aviso.
+
+`PoliticaNotificacionRolService::permite()` corre dentro de `entregar()`, antes de
+crear la entrega: es el mismo punto para campana, tiempo real, app y navegador. Los
+envíos directos (cumpleaños, celebraciones) usan `permiteClave()`.
+
+| Regla | Qué hace |
+|---|---|
+| Destinatario directo | Lo propio, la confirmación, la audiencia `personal`/`asignada` y quien la regla nombra por persona (aprobador, evaluador, jefe directo, usuario específico) no se filtran |
+| Marcar un rol | Nunca amplía su alcance ni le da permiso de actuar. `ampliar()` agrega las cuentas de un rol añadido a mano sólo si alcanzan a la persona o pueden ver al candidato. Sin sujeto no se amplía |
+| Desmarcar un rol | Quita el aviso, no la tarea: sigue en «Mis pendientes». El reconciliador tampoco lo repone |
+| Varios roles | Basta uno marcado. Los roles base (`colaborador`, `jefe_directo`…) sólo cuentan si la cuenta no tiene otro |
+| Rol hecho a mano | Nace marcado: su permiso y alcance siguen decidiendo, y se puede desmarcar |
+| `super_admin` | Sólo recibe lo que se le marque y las celebraciones generales: ya no todo por permiso |
+| Fallo de configuración | `permite()` devuelve true y registra el log: nunca silencia un aviso |
+
+**Obligatorias, no se pueden quitar ni desde el backend:** los avisos al propio
+colaborador sobre su solicitud o documento, y los de una acción que ese rol debe
+aprobar (`obligatorios` en el catálogo). Decisión pendiente de confirmar con la
+dueña; lo mismo quién edita: `notificaciones_rol.editar`, hoy Administración de RH,
+Sistemas y `super_admin`. RH entra a la pantalla sólo con esta pestaña.
+
+La tabla `notificacion_evento_rol` guarda sólo las diferencias con el catálogo;
+`notificacion_evento_rol_historial` guarda quién, cuándo, antes y después. La caché
+`notificaciones.matriz_rol.v1` se invalida después del commit al guardar.
+
+`reglas_notificacion` (Configuración → Notificaciones) sigue decidiendo **quién por
+organigrama**; el checklist filtra por rol encima de ella.
+
+## Destinos
+
+Todo aviso abre algo que su destinatario puede ver (`DestinoPorRolTest`, por clave y
+rol, en web y API). Si no tiene pantalla para ese recurso, va al centro de
+notificaciones, nunca a un 403. Un candidato a Subgerente o Gerente no le llega a la
+gerencia de su sucursal: podría ser su reemplazo (`AprobadorEntrevistaService`).
+
+Verificado sin duplicar: `cierre_baja_solicitada` (al registrar) y `colaborador_baja`
+(al concluir el cierre, `CierreLaboralService`) son dos momentos. La felicitación de
+cumpleaños se protege con `enviada_at`; sólo el reenvío manual de RH vuelve a avisar.
+
 ## Idempotencia
 
 Cada entrega reclama una clave única en `notificacion_entregas`:
@@ -79,8 +124,8 @@ encolado (no vuelve a crear la notificación).
 | Evaluación de periodo de prueba | Sistema / jefe | — | Evaluador, RH (`evaluaciones.autorizar`) | Colaborador | `EvaluacionPeriodoPrueba` |
 | Excepción de Dirección General | RH | — | `excepciones.autorizar` | RH | `SolicitudExcepcionPeriodoPrueba` |
 | Préstamo autorizado | RH / Dirección | — | — | Colaborador (`prestamo_autorizado`); el genérico «Actualización de tu solicitud» ya no se duplica | `Prestamo` |
-| Baja registrada (directa, cierre laboral aplicado) | Gerente / RH | "Baja registrada" (accesos suspendidos) | RH + Regional + **Sistemas** (`cierre_baja_solicitada`): quién la dio, a quién (puesto · sucursal), forma · causal y último día; solo para enterarse (RH puede rehabilitar accesos, Sistemas retira cuentas y equipo). **Sin solicitud ni aprobación**; nunca genera «solicitud por revisar» | — | `CierreLaboral` |
-| Alertas del módulo de bajas (docs/BAJAS_Y_CAUSALES.md) | Gerente / RH / Jurídico | — | Jurídico (`baja_revision_juridico` al registrar una causal que lo requiere, `baja_alerta_juridico`), RH (`baja_por_revisar` cuando Jurídico aprueba o devuelve), Contraloría (`baja_alerta_contraloria`, RE-02/RE-03), RH con correo (`baja_alerta_clima_laboral`, RV-04), RH (`baja_rotacion_temprana`) | Quien la registró (`baja_resuelta`: cierre, no procede) | `Baja` · `baja` |
+| Baja registrada (directa, cierre laboral aplicado) | Gerente / RH | "Baja registrada" (accesos suspendidos) | RH + Regional + **Sistemas** (`cierre_baja_solicitada`): quién la dio, a quién (puesto · sucursal), forma y último día. La causal sólo aparece para quien gestiona la baja (`bajas.gestionar`, `cierres.gestionar`), nunca para Regional ni Sistemas; solo para enterarse (RH puede rehabilitar accesos, Sistemas retira cuentas y equipo). **Sin solicitud ni aprobación**; nunca genera «solicitud por revisar» | — | `CierreLaboral` |
+| Alertas del módulo de bajas (docs/BAJAS_Y_CAUSALES.md) | Gerente / RH / Jurídico | — | Jurídico (`baja_alerta_juridico`), Contraloría (`baja_alerta_contraloria`, RE-02/RE-03), RH con correo (`baja_alerta_clima_laboral`, RV-04), RH (`baja_rotacion_temprana`) | Quien la registró (`baja_resuelta`: cierre, no procede) | `Baja` · `baja` |
 | Negativa a firmar/recibir la baja | RH | — | RH que gestiona el cierre, para generar el acta de negativa con dos testigos (`cierre_negativa_firma`, `cierres.gestionar`) | — | `CierreLaboral` |
 | Finiquito / documentos de la baja por firmar | RH | — | Colaborador (`documento_firma_pendiente`) y RH que opera el documento | Colaborador | `GeneratedDocument` / `CierreLaboral` |
 | Acta administrativa | Gerente / RH | — | RH (`actas.gestionar`) | — | `ActaAdministrativa` |
