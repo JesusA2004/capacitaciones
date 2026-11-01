@@ -5,6 +5,8 @@ import { computed, ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
+import BotonReabrir from '@/components/people/BotonReabrir.vue';
+import type { ReaperturaDisponible } from '@/components/people/BotonReabrir.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import FiniquitoPanel from '@/components/Rh/FiniquitoPanel.vue';
@@ -55,6 +57,8 @@ const props = defineProps<{
     puedeGenerarFormato: boolean;
     vistosBuenos: NivelVistoBueno[];
     puedeDarVistoBueno: boolean;
+    /** Decisiones que esta cuenta puede reabrir (ReaperturaService). */
+    reaperturas: ReaperturaDisponible[];
     /** Motor central: pasos, quién sigue y si puedes actuar (y por qué no). */
     flujo: FlujoAprobacionDatos;
     documentoOficial: DocumentoOficialEsperado | null;
@@ -499,6 +503,8 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
             <div
                 class="flex flex-col gap-4 lg:sticky lg:top-6 lg:col-span-4 xl:col-span-3"
             >
+                <BotonReabrir :reaperturas="reaperturas" />
+
                 <div
                     v-if="bajaEnCierre"
                     class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-5"

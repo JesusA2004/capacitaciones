@@ -29,6 +29,8 @@ import DateTimePicker from '@/components/Common/DateTimePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
+import BotonReabrir from '@/components/people/BotonReabrir.vue';
+import type { ReaperturaDisponible } from '@/components/people/BotonReabrir.vue';
 import ChipEstado from '@/components/people/ChipEstado.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
@@ -95,6 +97,8 @@ const props = defineProps<{
     };
     /** Intervención pendiente que el usuario actual tiene autoridad para decidir (null si no aplica). */
     intervencionPendienteId: number | null;
+    /** Decisiones que esta cuenta puede reabrir (ReaperturaService). */
+    reaperturas: ReaperturaDisponible[];
     /** Puede agregar archivos al mini expediente (CandidatoPolicy::adjuntar). */
     puedeAdjuntar: boolean;
     limitesArchivos: LimitesArchivosCandidato;
@@ -689,6 +693,7 @@ function fecha(valor: string | null): string {
                         :siguiente="ciclo.siguiente_accion?.clave"
                         @accion="abrir"
                     />
+                    <BotonReabrir class="mt-3" :reaperturas="reaperturas" />
                 </CicloEstadoPanel>
 
                 <section
