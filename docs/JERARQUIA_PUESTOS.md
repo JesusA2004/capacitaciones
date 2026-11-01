@@ -43,7 +43,8 @@ Dirección General
     │   ├── Administración de Personal
     │   └── Reclutamiento
     ├── Gerente de Contraloría               (antes "Gerente de Contabilidad")
-    ├── Gerente regional                     (División comercial)
+    ├── Gerente Regional                     (División comercial; plaza única)
+    │   ├── Subgerente Regional              (plaza única; apoyo del Gerente Regional)
     │   └── Gerente de Sucursal
     │       └── Subgerente
     │           ├── Gestor fijo (ruta)
@@ -83,6 +84,29 @@ puede cubrir a Gerente de Sucursal.
 Para el organigrama **por personas**, los puestos "de sucursal" son
 `Gerente de Sucursal`, `Coordinadora` y todo lo que cuelga de ellos
 (`config/organigrama.php`).
+
+## Autoridad en la línea comercial
+
+Regla confirmada por la dueña del negocio (2026-11-01): **se puede modificar lo hecho por un puesto inferior; nunca lo hecho por un puesto superior.** El orden vive en `config/organigrama.php` → `linea_comercial`: Gerente Regional > Subgerente Regional > Gerente de Sucursal > Subgerente de Sucursal > Gestores. El reporte directo no es lo mismo: el Gerente de Sucursal reporta al Gerente Regional, aunque el Subgerente Regional también tiene autoridad sobre él.
+
+Única fuente: `App\Services\Organigrama\AutoridadJerarquicaService`.
+
+| Método | Responde |
+|---|---|
+| `puedeModificarLoHechoPor(actor, autor)` | ¿Puede cambiar lo que esa cuenta hizo? |
+| `tieneAutoridadSobre(actor, colaborador)` | ¿Manda sobre esa persona? Puesto estrictamente superior y dentro de su alcance (regionales: la empresa; los demás: sus sucursales). |
+| `exigirPuedeModificar(actor, autores)` | Rechaza con «Lo registró un puesto superior; no puedes cambiarlo.» y avisa si hay que anotar un autor desconocido. |
+
+Criterios (los tres últimos, supuestos comunicados a la dueña del negocio):
+
+- El rango es el del puesto en la base, titular o cobertura vigente; nunca un nombre de persona. Es el puesto **actual** del autor: las tablas guardan quién decidió, no qué puesto tenía entonces.
+- Mismo puesto: sí se puede, con motivo y dentro de su alcance.
+- RH, Dirección y cualquier puesto o rol fuera de la línea (`roles_fuera_de_linea`) conservan sus permisos, en ambos sentidos.
+- Sin autor conocido: se trata como de nivel inferior, sin bloquear, y queda anotado (historial de la solicitud, seguimiento del candidato o `afectados` de la corrección).
+
+**Dónde se aplica** (Service y, si hay Policy, también ahí; web y API por igual): rechazar, devolver o cancelar una solicitud ajena (`SolicitudesService::cambiarEstado`, autores: vistos buenos y `revisado_por`); aprobar o rechazar vacaciones ya revisadas (`VacacionesService`); descartar un candidato (`CandidatoWorkflowService::descartar`, autor: último cambio de estado); corregir un dato (`CorreccionService`, autor: última corrección del campo o bitácora); bajas y cierres nunca hacia arriba (`BajaService::puedeSolicitarPara`, `ColaboradorPolicy::iniciarCierre`).
+
+**Sin flujo de cambio:** un visto bueno y una intervención decididos son definitivos para todos. Si el Subgerente Regional rechaza, la Gerente Regional no tiene hoy cómo revertirlo: hay que crear ese flujo.
 
 ## Módulo `/administracion/jerarquia-puestos`
 

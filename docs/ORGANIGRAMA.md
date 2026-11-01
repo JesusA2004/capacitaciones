@@ -24,10 +24,9 @@ Dirección General
 │   │   └── Analista de Mesa de Control
 │   ├── Coordinadora Regional                     vive en Corporativo
 │   │   └── Coordinadora de Sucursal              1 por sucursal (Corporativo NO tiene)
-│   ├── Gerente Regional Q1   ─┐ cada una ligada a su región de la matriz
-│   └── Gerente Regional Q3   ─┘ (Q2 no existe)
-│       └── (sucursales de esa región)
-│           Gerente de Sucursal                   exactamente 1 por sucursal
+│   └── Gerente Regional                          1 plaza de empresa
+│       ├── Subgerente Regional                   1 plaza de empresa, apoyo del Gerente Regional
+│       └── Gerente de Sucursal                   exactamente 1 por sucursal
 │           └── Subgerente                        exactamente 1 por sucursal
 │               ├── Gestor                        1 plaza + 1 ruta de cobro vigente
 │               └── Gestor Volante                plaza de plantilla, SIN ruta fija
@@ -48,11 +47,20 @@ Definición única en código: `App\Services\Organigrama\SincronizadorOrganigram
 
 **Fuera de la estructura confirmada, conservados sin cambios** (decisión de dirección): Asistente de Dirección General y Gestor grupal. El comando de sincronización los lista en «Puestos fuera de la estructura confirmada».
 
-### Gerente y Subgerente Regional (2026-10-30)
+### Gerente y Subgerente Regional (regla confirmada por la dueña del negocio, 2026-11-01)
 
-Ya no hay puestos por región: **Gerente Regional → Subgerente Regional → Gerente de Sucursal**, plazas únicas de la empresa. El Gerente de Sucursal responde al Subgerente Regional (titular o cobertura); si está vacante, al Gerente Regional; luego a la regional de respaldo; nunca a Dirección Comercial.
+Sustituye la cadena del 2026-10-30, que colgaba la sucursal solo del Subgerente Regional. Orden de autoridad: **Gerente Regional > Subgerente Regional > Gerente de Sucursal > Subgerente de Sucursal > Gestores**.
 
-Q1 y Q3 siguen en la matriz comercial solo como dato territorial, sin puesto ligado. La clasificación Q1/Q3 se retiró de la UI y de las aprobaciones; `clasificaciones_region` se conserva como historial. `people:sincronizar-organigrama` reutiliza el puesto ya capturado aunque esté escrito distinto («Sub Gerente Regional»), une Q1/Q3 si solo uno tiene titular y, con titulares en varios, reporta el conflicto sin elegir a nadie.
+- **Gerente Regional:** plaza única, jefa directa de los Gerentes de Sucursal y del Subgerente Regional. Actúa sobre toda la línea de abajo y puede cambiar lo que cualquiera de ellos hizo. Se resuelve por puesto en la base, nunca por el nombre de una persona; ningún proceso la renombra ni la reemplaza.
+- **Subgerente Regional:** su apoyo, le reporta. Decide sobre Gerentes y Subgerentes de Sucursal y Gestores, pero nunca cambia lo hecho por la Gerente Regional.
+- **Quién responde por una sucursal:** ambos, titular o cobertura (`OrganizacionJerarquiaService::regionalVigente`): los dos pueden dar el visto bueno regional y decidir intervenciones. Si los dos faltan, la regional de respaldo; nunca Dirección Comercial. Con la Gerencia Regional vacante, el jefe del Gerente de Sucursal es el Subgerente Regional por esa misma regla de respaldo.
+- **Alcance:** las dos plazas alcanzan todas las sucursales operativas aunque la persona esté registrada en una. Requieren el rol `gerente_regional`: si un titular no lo tiene, `people:sincronizar-organigrama` lo reporta como conflicto.
+
+**Quién modifica qué:** `App\Services\Organigrama\AutoridadJerarquicaService`, ver `docs/JERARQUIA_PUESTOS.md`.
+
+La lámina de Inducción (`config/organigrama.php` → `laminas.comercial`) dibuja la línea en orden de autoridad, no de reporte directo.
+
+Q1 y Q3 siguen en la matriz comercial solo como dato territorial, sin puesto ligado. La clasificación Q1/Q3 se retiró de la UI y de las aprobaciones; `clasificaciones_region` se conserva como historial. `people:sincronizar-organigrama` reutiliza el puesto ya capturado aunque esté escrito distinto («Sub Gerente Regional»), une Q1/Q3 si solo uno tiene titular y, con titulares en varios, reporta el conflicto sin elegir a nadie. La migración `2026_11_04_200000_gerente_de_sucursal_reporta_a_gerente_regional` aplica el cambio de «reporta a» al desplegar, recalcula jefes y deja los conflictos en el log.
 
 ### Organigrama editable (General · Por personas)
 
@@ -89,13 +97,13 @@ El jefe directo **no se captura en ningún lado** (se retiró la pantalla Config
 Para cualquier puesto **de sucursal** (Gestor, Gestor Volante, Subgerente, Gerente de Sucursal, Coordinadora de Sucursal…) el jefe — y por lo tanto el «Responsable de aprobaciones» — es, en este orden:
 
 1. quien ocupa (o cubre temporalmente) el puesto superior en **su** sucursal (Gestor → Subgerente → Gerente de Sucursal; el catálogo dice Gestor → Subgerente y se respeta);
-2. el Gerente Regional de **su** región (titular o cobertura);
+2. el Gerente Regional (titular o cobertura; también responde el Subgerente Regional en aprobaciones);
 3. la **regional de respaldo** (`App\Services\Organigrama\RegionalRespaldoService`, `config/organigrama.php` → `regional_respaldo`): la persona fijada en `ORGANIGRAMA_REGIONAL_RESPALDO` (id o número de empleado) o, si no hay, el primer titular vigente (por id) de un puesto regional — los ligados a una región de la matriz más «Gerente Regional Q1/Q3», «Gerente regional», «Regional de Operaciones» — y después quien cubra una plaza regional. Con una sola regional en la empresa siempre es ella;
 4. si no existe **ningún** regional: `jefe_id` = null, «SIN JEFE ASIGNABLE» en `explicar-jefe` y en `sincronizar-jefes`, y un pendiente «Sin jefe asignable en el organigrama» en la bandeja de RH (`organigrama.editar`, se cierra solo al resolverse).
 
 **Nunca** Dirección Comercial ni Dirección General (`ciclo_laboral.organizacion.puestos_direccion_comercial` y sus superiores). Los regionales sí reportan a Dirección Comercial. El árbol visual no cambia (la plaza regional se sigue viendo VACANTE colgando de Dirección Comercial); cambia el jefe derivado. La misma regla aplica en el motor de aprobaciones (Gerente de Sucursal clasificado en una región sin regional → origen `regional_respaldo` en vez de detenerse) y en `OrganizacionJerarquiaService::regionalesDe()` (avisos y candidatos de una sucursal cuya región de la matriz no tiene regional; una sucursal fuera de la matriz no hereda regional).
 
-Caso real (2026-10-21): Luis Ángel Méndez Díaz (EMP-0131, Gestor, San Luis Potosí) salía con «Jefe: Dirección Comercial» porque SLP no tiene Gerente ni Subgerente cargados y la Región Q1 no tiene Gerente Regional. Los datos reales (`HEADCOUNT GENERAL MR LANA 16-10-2026`, hoja «SUCURSALES») ponen a **Mónica Ana Karen García Cancino** («Regional de Operaciones», Tula) al frente de las 11 sucursales, consolidado «Q1, Q3»; la carga inicial solo la registró como titular de Q3 (la región de Tula). Ahora su jefe es Mónica por respaldo. Lo formal es que RH registre a Mónica con «Cubre temporalmente» en la plaza Gerente Regional Q1 (Organigrama → tarjeta VACANTE de Q1), o cargue al gerente de SLP.
+Caso real (2026-10-21): Luis Ángel Méndez Díaz (EMP-0131, Gestor, San Luis Potosí) salía con «Jefe: Dirección Comercial» porque SLP no tiene Gerente ni Subgerente cargados y la Región Q1 no tiene Gerente Regional. Los datos reales (`HEADCOUNT GENERAL MR LANA 16-10-2026`, hoja «SUCURSALES») ponen a la «Regional de Operaciones» de Tula al frente de las 11 sucursales, consolidado «Q1, Q3»; la carga inicial solo la registró como titular de Q3. Ahora su jefe es ella por respaldo. Lo formal es asignarle la plaza regional, o que RH cargue al gerente de SLP.
 - Los nombres de `puestos_raiz_sucursal` / `puestos_de_region` se comparan sin mayúsculas ni acentos.
 
 ## Vistas

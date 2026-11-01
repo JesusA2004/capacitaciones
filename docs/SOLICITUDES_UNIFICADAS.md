@@ -82,20 +82,20 @@ Las **correcciones** (`actualizacion_datos` y demás tipos sin visto bueno) usan
 1. Responsable **explícito de la persona** (Organización → Responsables de aprobación, tabla `responsables_aprobacion`).
 2. Responsable **explícito de su puesto** (aplica a todas las personas del puesto).
 3. **Regla por puesto**:
-   - **Gerente de Sucursal** → Subgerente Regional si está ocupado o cubierto; si no, Gerente Regional; luego la regional de respaldo. Nunca Dirección Comercial. Sin ningún regional: bloqueado con su motivo.
+   - **Gerente de Sucursal** → Gerente Regional o Subgerente Regional, cualquiera de los dos (titular o cobertura); luego la regional de respaldo. Nunca Dirección Comercial. Sin ningún regional: bloqueado con su motivo.
    - **Personal de sucursal** → gerencia de su sucursal (titular o cobertura vigente).
 4. **Jefe organizacional** (organigrama; ya contempla coberturas).
 
 Un responsable explícito sin cuenta activa (baja, acceso bloqueado) se salta y sigue la regla organizacional. Nunca se asigna a sí mismo.
 
-Después del primer paso: **Regional** (personal de sucursal; Subgerente Regional o, si está vacante, Gerente Regional), **Dirección Comercial** solo en los tipos de `config('solicitudes.direccion_comercial_gerencia')` (hoy: préstamo) cuando la persona es de gerencia o superior **y depende de Dirección Comercial** (RH, Contraloría y Sistemas, que dependen de Dirección General, no pasan por ella) y, al final, **Recursos Humanos** (préstamo: `prestamos.autorizar`, con captura manual de cargo/IVA; demás: `rh.solicitudes.aprobar`/`solicitudes.aprobar`).
+Después del primer paso: **Regional** (personal de sucursal; Gerente Regional o Subgerente Regional, cualquiera de los dos), **Dirección Comercial** solo en los tipos de `config('solicitudes.direccion_comercial_gerencia')` (hoy: préstamo) cuando la persona es de gerencia o superior **y depende de Dirección Comercial** (RH, Contraloría y Sistemas, que dependen de Dirección General, no pasan por ella) y, al final, **Recursos Humanos** (préstamo: `prestamos.autorizar`, con captura manual de cargo/IVA; demás: `rh.solicitudes.aprobar`/`solicitudes.aprobar`).
 
 ### Reglas finales por rol
 
 | Solicitante | Vacaciones / permisos | Préstamo | Correcciones, constancias, incapacidad |
 |---|---|---|---|
 | Colaborador de sucursal (gestor, subgerente, coordinadora…) | Responsable explícito **o** gerente de su sucursal (titular/cobertura) → Regional (Subgerente o Gerente Regional) → RH | Igual → RH autoriza (cargo/IVA a mano) | RH |
-| Gerente de Sucursal | Subgerente Regional o, si está vacante, Gerente Regional (titular o cobertura) → RH | Regional → Dirección Comercial → RH | RH |
+| Gerente de Sucursal | Gerente Regional o Subgerente Regional (titular o cobertura) → RH | Regional → Dirección Comercial → RH | RH |
 | Gerente Regional, Gerente de Mesa de Control, Coordinadora Regional (bajo Dirección Comercial) | Explícito o jefe organizacional (Dirección Comercial) → RH | Jefe (Dirección Comercial) → RH (Dirección Comercial no se repite) | RH |
 | Dirección Comercial | Explícito o jefe organizacional (Dirección General) → RH | Igual (nunca se aprueba a sí misma) | RH |
 | RH, Contraloría, Sistemas (dependen de Dirección General) | Explícito o jefe organizacional (Dirección General) → RH. **Nunca** pasan por Dirección Comercial | Igual (sin Dirección Comercial) | RH |
