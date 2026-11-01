@@ -244,17 +244,18 @@ export function useMainNavItems() {
 
         const grupos: NavGroup[] = [
             grupo({ id: 'inicio', titulo: 'Inicio', icono: LayoutGrid }, [
-                {
-                    // Sin tablero (Jurídico, Contraloría) el inicio es su bandeja de bajas.
-                    title: algunPermiso(
-                        'dashboard.global.ver',
-                        'dashboard.sucursal.ver',
-                    )
-                        ? 'Tablero de RH'
-                        : 'Mi bandeja de bajas',
-                    href: dashboard(),
-                    icon: LayoutGrid,
-                },
+                // Sin tablero (Jurídico, Contraloría) el inicio es su bandeja de bajas.
+                algunPermiso('dashboard.global.ver', 'dashboard.sucursal.ver')
+                    ? {
+                          title: 'Tablero de RH',
+                          href: dashboard(),
+                          icon: LayoutGrid,
+                      }
+                    : {
+                          title: 'Mi bandeja de bajas',
+                          href: dashboard(),
+                          icon: LayoutGrid,
+                      },
                 { title: 'Directorio', href: indexDirectorio(), icon: Contact },
                 algunPermiso(
                     'ciclo.preautorizar',

@@ -155,7 +155,7 @@ test('el menú no tiene entradas fuera de este recorrido', function () {
     preg_match_all("/\\? '([^']+)'\\s*: '([^']+)'/", (string) file_get_contents(resource_path('js/composables/useMainNavItems.ts')), $condicionales);
 
     // Enrutadas por permiso o detrás de una bandera: no son una sola ruta fija.
-    $aparte = ['Tablero de RH', 'Bajas', 'Catálogo de bajas', 'Ayuda', 'Mi recibo', 'Mi capacitación', 'Evaluación del desempeño', 'Matriz 9 box y planes', 'Capacitación continua', 'Certificación Mr. Lana', 'Celebraciones'];
+    $aparte = ['Tablero de RH', 'Mi bandeja de bajas', 'Bajas', 'Catálogo de bajas', 'Ayuda', 'Mi recibo', 'Mi capacitación', 'Evaluación del desempeño', 'Matriz 9 box y planes', 'Capacitación continua', 'Certificación Mr. Lana', 'Celebraciones'];
 
     $sueltos = array_diff(array_unique($titulos[1]), array_keys(sbOperativo()), array_keys(sbColaborador()), $aparte);
 
