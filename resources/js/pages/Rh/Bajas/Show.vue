@@ -293,6 +293,11 @@ const datos = computed(() => [
         >
             <Button
                 v-if="puede('cerrar')"
+                :variant="
+                    siguientePaso?.accion?.clave === 'cerrar_baja'
+                        ? 'default'
+                        : 'outline'
+                "
                 :disabled="procesando"
                 @click="confirmarCierre = true"
                 ><Lock class="size-4" />Cerrar baja</Button
@@ -393,7 +398,7 @@ const datos = computed(() => [
                 <AlertTriangle class="mt-0.5 size-4 shrink-0" />{{ a.mensaje }}
             </p>
             <div
-                v-if="errores.length"
+                v-if="errores.length && !siguientePaso?.bloqueos?.length"
                 class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] px-4 py-3 text-sm"
             >
                 <p class="font-medium">Falta para cerrar:</p>

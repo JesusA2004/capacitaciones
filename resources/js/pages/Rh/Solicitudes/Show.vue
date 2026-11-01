@@ -260,9 +260,11 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
             :paso="siguientePaso"
         />
 
-        <div class="grid gap-6 lg:grid-cols-12 lg:items-start">
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-start">
             <!-- Columna principal -->
-            <div class="flex flex-col gap-6 lg:col-span-8 xl:col-span-9">
+            <div
+                class="flex min-w-0 flex-col gap-6 lg:col-span-8 xl:col-span-9"
+            >
                 <FlujoAprobacion
                     data-tour="solicitud-cadena"
                     :solicitud-id="solicitud.id"

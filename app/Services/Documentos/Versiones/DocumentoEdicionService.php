@@ -102,7 +102,11 @@ class DocumentoEdicionService
      */
     public function versiones(string $tipo, int $id, ?string $clave, User $actor): array
     {
-        return $this->versionado->versiones($this->fuente($tipo, $id, $clave, $actor), $actor);
+        $fuente = $tipo === 'salida'
+            ? $this->fuenteSalida(Baja::query()->findOrFail($id), $actor, true)
+            : $this->fuente($tipo, $id, $clave, $actor);
+
+        return $this->versionado->versiones($fuente, $actor);
     }
 
     private function fuente(string $tipo, int $id, ?string $clave, User $actor): FuenteDocumento
@@ -116,13 +120,13 @@ class DocumentoEdicionService
         };
     }
 
-    private function fuenteSalida(Baja $baja, User $actor): FuenteDocumento
+    private function fuenteSalida(Baja $baja, User $actor, bool $soloConsulta = false): FuenteDocumento
     {
         if (! $actor->can('documentoSalida', $baja)) {
             throw new AccessDeniedHttpException('No tienes permiso para este documento de salida.');
         }
 
-        return $this->salida->fuenteDe($baja, $actor);
+        return $this->salida->fuenteDe($baja, $actor, $soloConsulta);
     }
 
     private function fuenteProceso(string $tipo, int $id, ?string $clave): FuenteDocumento

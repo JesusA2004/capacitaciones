@@ -576,9 +576,9 @@ class BajaDocumentoSalidaService
         }
     }
 
-    public function fuenteDe(Baja $baja, User $actor): FuenteDocumento
+    public function fuenteDe(Baja $baja, User $actor, bool $soloConsulta = false): FuenteDocumento
     {
-        [$documento, $cierre, $colaborador] = $this->preparar($baja);
+        [$documento, $cierre, $colaborador] = $this->preparar($baja, $soloConsulta);
 
         if ($documento->familia() !== null) {
             return $this->fuente($baja, $documento, $cierre, $colaborador, $actor);
@@ -641,10 +641,11 @@ class BajaDocumentoSalidaService
     /**
      * @return array{0: DocumentoSalida, 1: CierreLaboral, 2: Colaborador}
      */
-    private function preparar(Baja $baja): array
+    private function preparar(Baja $baja, bool $soloConsulta = false): array
     {
         $baja->unsetRelation('documentos');
-        $faltantes = $this->faltantes($baja);
+        // Lo que falte impide emitir, no consultar lo ya emitido.
+        $faltantes = $soloConsulta ? [] : $this->faltantes($baja);
 
         if ($faltantes !== []) {
             throw ValidationException::withMessages(['documento' => sprintf('Falta capturar: %s.', implode(', ', $faltantes))]);

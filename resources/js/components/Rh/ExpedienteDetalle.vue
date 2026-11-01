@@ -187,7 +187,7 @@ const props = defineProps<{
 
 // Acuse de alta IMSS: lo sube RH al concluir el alta. Verde = registrado,
 // naranja = falta. Es un indicador, no un pendiente de la bandeja.
-const { mostrarExito, mostrarError, confirmarEliminacion } = useAlertas();
+const { mostrarExito, mostrarError, confirmarDelicada } = useAlertas();
 
 function reactivarColaborador() {
     accion.ejecutar('reactivarColaborador', (estado) => {
@@ -207,8 +207,10 @@ function reactivarColaborador() {
 }
 
 async function darDeBajaColaborador() {
-    const confirmado = await confirmarEliminacion(
-        `a «${props.colaborador.name} ${props.colaborador.apellidos ?? ''}» — esto termina su relación laboral (baja), no solo su acceso`,
+    const confirmado = await confirmarDelicada(
+        `¿Dar de baja a ${props.colaborador.name} ${props.colaborador.apellidos ?? ''}?`,
+        'Termina su relación laboral, no solo su acceso. Su expediente y su historial se conservan.',
+        'Dar de baja',
     );
 
     if (!confirmado) {

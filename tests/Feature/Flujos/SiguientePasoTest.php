@@ -465,3 +465,12 @@ it('solicitud: el botón de generar permiso solo aparece si falta el formato', f
     $this->actingAs($this->gerente)->get(route('rh.solicitudes.show', $solicitud))
         ->assertInertia(fn ($p) => $p->where('puedeGenerarPermiso', false));
 });
+
+it('C: el historial de versiones se consulta aunque falte un dato para emitir', function () {
+    $baja = spBaja();
+
+    $this->actingAs($this->rh)
+        ->getJson(route('rh.documentos-edicion.versiones', ['tipo' => 'salida', 'id' => $baja->id]))
+        ->assertOk()
+        ->assertJsonStructure(['versiones']);
+});
