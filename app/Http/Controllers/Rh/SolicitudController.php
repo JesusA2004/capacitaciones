@@ -153,6 +153,15 @@ class SolicitudController extends Controller
      * Formato oficial de permiso para previsualizar/imprimir (gerente y RH).
      * Solo cuando Recursos Humanos ya lo autorizó; antes responde 409 con el motivo.
      */
+    public function generarPermiso(Request $request, SolicitudInterna $solicitud): RedirectResponse
+    {
+        $this->authorize('descargarFormato', $solicitud);
+        abort_unless($request->user()->can('documentos_laborales.generar'), 403);
+        $this->solicitudes->generarPermisoFaltante($solicitud, $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Formato de permiso generado.']);
+    }
+
     public function permisoPdf(SolicitudInterna $solicitud): StreamedResponse
     {
         $this->authorize('descargarFormato', $solicitud);
@@ -307,6 +316,7 @@ class SolicitudController extends Controller
                 'puedeRevisar' => ! $esBaja && $finiquito !== null && $request->user()->can('revisar', $finiquito),
                 'puedeSubirFirmado' => ! $esBaja && $finiquito !== null && $request->user()->can('subirFirmado', $finiquito),
                 'puedeDescargar' => $finiquito !== null && $request->user()->can('descargar', $finiquito),
+                'puedeGenerarPdf' => $finiquito !== null && $request->user()->can('generarDocumento', $finiquito),
                 'puedeOmitirRevision' => $request->user()->can('solicitudes.bajas.omitir_finiquito'),
                 'usaFormatoOficial' => $this->finiquitos->tieneFormatoOficialConfigurado(),
             ],

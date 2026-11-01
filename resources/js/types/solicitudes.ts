@@ -271,6 +271,7 @@ export type FiniquitoPermisos = {
     puedeSubirFirmado: boolean;
     /** Vista previa / generar / descargar PDF (finiquitos.descargar). */
     puedeDescargar: boolean;
+    puedeGenerarPdf: boolean;
     puedeOmitirRevision: boolean;
     usaFormatoOficial: boolean;
 };

@@ -595,7 +595,9 @@ function eliminarConcepto(id: number) {
                 <BotonCorregir
                     dominio="finiquito"
                     :sujeto-id="finiquito.id"
-                    :etiqueta="cerrado ? 'Ver cómo corregir' : 'Corregir concepto'"
+                    :etiqueta="
+                        cerrado ? 'Ver cómo corregir' : 'Corregir concepto'
+                    "
                 />
             </div>
             <div v-if="puedeEditarAjustes" class="flex flex-col gap-2">
@@ -863,7 +865,7 @@ function eliminarConcepto(id: number) {
                     Marcar como revisado
                 </Button>
                 <Button
-                    v-if="!cerrado && permisos.puedeDescargar"
+                    v-if="!cerrado && permisos.puedeGenerarPdf"
                     size="sm"
                     variant="outline"
                     :disabled="formGenerarPdf.processing"

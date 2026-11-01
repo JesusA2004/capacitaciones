@@ -13,6 +13,7 @@ import {
 import { onMounted, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import HistorialVersiones from '@/components/documentos/HistorialVersiones.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -74,6 +75,7 @@ const fechaDevolucion = ref('');
 const texto = ref('');
 const enviando = ref(false);
 const regenerandoId = ref<number | null>(null);
+const versionesDe = ref<number | null>(null);
 const hoy = new Date().toLocaleDateString('en-CA');
 
 const variantes: Record<
@@ -145,13 +147,23 @@ async function regenerar(responsiva: ResponsivaItem) {
         return;
     }
 
+    const motivo = window.prompt(
+        responsiva.estado === 'firmada'
+            ? 'Esta responsiva ya está firmada: el original se conserva y se emite una rectificación aparte. ¿Cuál es el motivo?'
+            : '¿Cuál es el motivo de la nueva versión? La anterior se conserva.',
+    );
+
+    if (motivo === null) {
+        return;
+    }
+
     regenerandoId.value = responsiva.id;
 
     try {
         const respuesta = (await enviarJson(
             'POST',
             regenerarResponsiva.url(responsiva.id),
-            {},
+            { motivo },
         )) as { message: string; responsiva: ResponsivaItem };
         reemplazar(respuesta.responsiva);
         toast.success(respuesta.message);
@@ -314,7 +326,7 @@ const titulos: Record<Accion, string> = {
                                 size="sm"
                                 variant="outline"
                                 :disabled="regenerandoId === r.id"
-                                title="Vuelve a imprimir el PDF con el formato vigente"
+                                title="Emite una nueva versión con motivo; la anterior se conserva"
                                 @click="regenerar(r)"
                             >
                                 <Loader2
@@ -324,6 +336,16 @@ const titulos: Record<Accion, string> = {
                                 <RefreshCw v-else class="size-3.5" />
                                 Regenerar
                             </Button>
+                            <Button
+                                v-if="r.puede_descargar"
+                                size="sm"
+                                variant="outline"
+                                @click="
+                                    versionesDe =
+                                        versionesDe === r.id ? null : r.id
+                                "
+                                >Versiones</Button
+                            >
                             <Button
                                 v-if="r.tiene_firmada && r.puede_descargar"
                                 size="sm"
@@ -403,6 +425,12 @@ const titulos: Record<Accion, string> = {
             </ul>
         </CardContent>
 
+        <HistorialVersiones
+            v-if="versionesDe !== null"
+            class="mt-3"
+            tipo="responsiva"
+            :id="versionesDe"
+        />
         <Dialog
             :open="accion !== null"
             @update:open="(v: boolean) => (accion = v ? accion : null)"

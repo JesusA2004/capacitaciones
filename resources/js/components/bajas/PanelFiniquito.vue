@@ -7,12 +7,14 @@ import {
     FileUp,
     Pencil,
     Plus,
+    RefreshCw,
     RotateCcw,
     Trash2,
 } from '@lucide/vue';
 import { computed, onBeforeUnmount, ref } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
+import HistorialVersiones from '@/components/documentos/HistorialVersiones.vue';
 import InputError from '@/components/InputError.vue';
 import ChipEstado from '@/components/people/ChipEstado.vue';
 import { Button } from '@/components/ui/button';
@@ -71,12 +73,20 @@ const tonos: Record<string, 'alerta' | 'info' | 'primario' | 'exito'> = {
 // ── Acciones directas ──
 const procesando = ref(false);
 
+const versionesRecarga = ref(0);
+
 function accion(url: string) {
     procesando.value = true;
     router.post(
         url,
         {},
-        { preserveScroll: true, onFinish: () => (procesando.value = false) },
+        {
+            preserveScroll: true,
+            onFinish: () => {
+                procesando.value = false;
+                versionesRecarga.value++;
+            },
+        },
     );
 }
 
@@ -334,6 +344,15 @@ function guardarPago() {
                     :disabled="procesando"
                     @click="accion(rutasFiniquitos.revisar.url(finiquito.id))"
                     ><CheckCircle2 class="size-4" />Marcar como revisado</Button
+                >
+                <Button
+                    v-if="finiquito.puede.generar_pdf"
+                    variant="outline"
+                    :disabled="procesando"
+                    @click="
+                        accion(rutasFiniquitos.generarPdf.url(finiquito.id))
+                    "
+                    ><RefreshCw class="size-4" />Regenerar PDF</Button
                 >
                 <Button v-if="finiquito.puede.recibo" as-child>
                     <a
@@ -703,4 +722,10 @@ function guardarPago() {
             </form>
         </DialogContent>
     </Dialog>
+    <HistorialVersiones
+        class="mt-3"
+        tipo="finiquito"
+        :id="finiquito.id"
+        :recargar="versionesRecarga"
+    />
 </template>

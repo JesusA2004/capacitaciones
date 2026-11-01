@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import HistorialVersiones from '@/components/documentos/HistorialVersiones.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import {
     CalendarClock,
@@ -272,6 +273,7 @@ async function emitirUno(recibo: Recibo) {
 }
 
 // Recibo emitido cuyo PDF falta: se recupera/regenera con los mismos montos.
+const versionesDe = ref<number | null>(null);
 const reparando = ref<number | null>(null);
 
 function repararPdf(recibo: Recibo) {
@@ -715,7 +717,9 @@ const opcionesTipo = [
                                         variante="ghost"
                                     />
                                     <span
-                                        v-if="recibo.rectificado_por_id !== null"
+                                        v-if="
+                                            recibo.rectificado_por_id !== null
+                                        "
                                         class="self-center text-xs text-muted-foreground"
                                     >
                                         Rectificado
@@ -750,6 +754,19 @@ const opcionesTipo = [
                                         </a>
                                     </Button>
                                     <Button
+                                        v-if="recibo.tiene_pdf"
+                                        size="sm"
+                                        variant="ghost"
+                                        @click="
+                                            versionesDe =
+                                                versionesDe === recibo.id
+                                                    ? null
+                                                    : recibo.id
+                                        "
+                                    >
+                                        Versiones
+                                    </Button>
+                                    <Button
                                         v-else-if="
                                             recibo.requiere_reparacion &&
                                             recibo.reparar_url
@@ -774,6 +791,12 @@ const opcionesTipo = [
             </div>
 
             <PaginacionTabla :datos="recibos" />
+            <HistorialVersiones
+                v-if="versionesDe !== null"
+                class="mt-3"
+                tipo="recibo"
+                :id="versionesDe"
+            />
         </section>
     </div>
 
@@ -789,8 +812,8 @@ const opcionesTipo = [
                     {{ editando?.colaborador.nombre }}</DialogTitle
                 >
                 <DialogDescription>
-                    Borrador: al emitirlo se genera su PDF oficial para descargar e
-                    imprimir.
+                    Borrador: al emitirlo se genera su PDF oficial para
+                    descargar e imprimir.
                 </DialogDescription>
             </DialogHeader>
 

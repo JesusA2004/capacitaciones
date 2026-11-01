@@ -128,6 +128,7 @@ class FiniquitoConsultaService
                 'revisar' => $usuario->can('revisar', $finiquito),
                 'cambiar_tipo' => $editable,
                 'recibo' => $usuario->can('descargar', $finiquito),
+                'generar_pdf' => $usuario->can('generarDocumento', $finiquito) && $finiquito->estado !== EstadoFiniquito::Borrador,
                 'subir_firmado' => $usuario->can('subirFirmado', $finiquito) && in_array($finiquito->estado, [EstadoFiniquito::Revisado, EstadoFiniquito::Aprobado], true),
                 'registrar_pago' => $finiquito->estado === EstadoFiniquito::Firmado && $this->puedeRegistrarPago($finiquito, $usuario),
             ],

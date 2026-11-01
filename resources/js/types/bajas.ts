@@ -255,6 +255,7 @@ export type DetalleFiniquitoBaja = FilaFiniquitoBaja & {
         revisar: boolean;
         cambiar_tipo: boolean;
         recibo: boolean;
+        generar_pdf: boolean;
         subir_firmado: boolean;
         registrar_pago: boolean;
     };
