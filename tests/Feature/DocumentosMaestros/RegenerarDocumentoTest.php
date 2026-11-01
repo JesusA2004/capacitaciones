@@ -187,6 +187,7 @@ test('regenerar un documento ya impreso o firmado: se permite con motivo; el fir
     $item = collect($this->getJson("/rh/documentos-proceso/colaborador/{$colaborador->id}")->json('data.0.documentos'))->firstWhere('clave', 'contrato_capacitacion');
     expect(collect($item['acciones'])->firstWhere('clave', 'regenerar')['tipo'] ?? null)->toBe('peligro');
 
+    $colaborador->update(['domicilio' => 'Calle Corregida 123, Colonia Centro']);
     $this->postJson($url, ['clave' => 'contrato_capacitacion', 'proceso' => 'alta', 'regenerar' => true, 'motivo' => 'El domicilio estaba mal escrito en el contrato firmado.'])->assertCreated();
 
     $nueva = GeneratedDocument::query()->latest('id')->firstOrFail();
@@ -209,6 +210,7 @@ test('sin permiso no se regenera: 403 para quien no genera documentos y para RH 
 
     // RH auxiliar sí regenera uno sin firmar…
     $auxiliar = clUsuario('rh_auxiliar');
+    $colaborador->update(['domicilio' => 'Calle Corregida 123, Colonia Centro']);
     $this->actingAs($auxiliar)->postJson($url, $datos)->assertCreated();
 
     // …pero no uno ya firmado (documentos_laborales.revisar_firmado).

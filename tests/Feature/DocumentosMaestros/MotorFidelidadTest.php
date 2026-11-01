@@ -420,6 +420,7 @@ test('firmado: nunca se regenera encima; la nueva versión exige permiso y motiv
     $this->postJson("/api/v1/rh/documentos-proceso/contrato/{$contrato->id}/generar", ['clave' => 'contrato_capacitacion', 'proceso' => 'alta', 'revision' => true, 'motivo' => 'Corrección del domicilio de la sucursal'])->assertForbidden();
 
     Sanctum::actingAs($this->rh);
+    $contrato->colaborador->update(['domicilio' => 'Calle Corregida 123, Colonia Centro']);
     $this->postJson("/api/v1/rh/documentos-proceso/contrato/{$contrato->id}/generar", ['clave' => 'contrato_capacitacion', 'proceso' => 'alta', 'revision' => true, 'motivo' => 'Corrección del domicilio de la sucursal'])->assertCreated();
     $revision = GeneratedDocument::query()->latest('id')->firstOrFail();
 

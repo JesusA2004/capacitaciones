@@ -190,6 +190,14 @@ class DatosDocumentoService
         'cargo_prestamo' => 'prestamo', 'iva_prestamo' => 'prestamo', 'monto_total_prestamo' => 'prestamo', 'numero_cheque_prestamo' => 'prestamo',
     ];
 
+    /**
+     * ¿El dato se captura a mano para el acto (testigos, hora, lugar del acta…)?
+     */
+    public static function esCampoManual(string $campo): bool
+    {
+        return (self::BASE[$campo][0] ?? null) === 'manual';
+    }
+
     public function __construct(
         private readonly NumeroALetras $letras,
         private readonly CompensacionService $compensacion,

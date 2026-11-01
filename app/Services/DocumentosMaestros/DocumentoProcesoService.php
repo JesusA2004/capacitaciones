@@ -15,6 +15,7 @@ use App\Enums\TipoTarea;
 use App\Exceptions\DatosDocumentoFaltantesException;
 use App\Exceptions\DocumentoMaestroFaltanteException;
 use App\Models\ActaAdministrativa;
+use App\Models\BajaDocumentoEdicion;
 use App\Models\CierreLaboral;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
@@ -33,7 +34,11 @@ use App\Services\Actas\ActaService;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
-use App\Services\DocumentosLaborales\FlujoDocumentalService;
+use App\Services\Documentos\Versiones\AlEmitirDocumento;
+use App\Services\Documentos\Versiones\DocumentoRenderizado;
+use App\Services\Documentos\Versiones\Fuentes\FuenteActa;
+use App\Services\Documentos\Versiones\Fuentes\FuenteMaestro;
+use App\Services\Documentos\Versiones\VersionadoDocumentoService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Expedientes\ProgresoExpediente;
@@ -73,14 +78,13 @@ use Throwable;
 class DocumentoProcesoService
 {
     /** Largo mínimo del motivo al regenerar (o emitir revisión de un firmado): queda en la auditoría. */
-    public const MINIMO_MOTIVO_REGENERAR = 15;
+    public const MINIMO_MOTIVO_REGENERAR = 5;
 
     public function __construct(
         private readonly MotorDocumentalService $motor,
         private readonly ResolvedorMaestroService $resolvedor,
         private readonly CatalogoMaestrosService $catalogo,
         private readonly DatosDocumentoService $datos,
-        private readonly FlujoDocumentalService $flujo,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly OrganizacionJerarquiaService $jerarquia,
         private readonly ExpedienteService $expediente,
@@ -707,9 +711,10 @@ class DocumentoProcesoService
      * Genera (o regenera) un documento del proceso.
      *
      * @param  array<string, mixed>  $completar  Datos faltantes que el usuario capturó en el modal (columna => valor).
-     * @param  array<string, string>  $manuales  Datos del acto (testigos…).
+     * @param  array<string, string>  $manuales  Datos del acto (testigos…). Solo campos de captura manual; lo demás se corrige con $correcciones.
+     * @param  array<string, mixed>|null  $correcciones  Lista blanca de FuenteMaestro. Null conserva las de la versión vigente.
      */
-    public function generar(string $proceso, Model $registro, string $clave, User $actor, array $completar = [], array $manuales = [], bool $regenerar = false, bool $revision = false, ?string $motivoRevision = null): GeneratedDocument
+    public function generar(string $proceso, Model $registro, string $clave, User $actor, array $completar = [], array $manuales = [], bool $regenerar = false, bool $revision = false, ?string $motivoRevision = null, ?array $correcciones = null, ?AlEmitirDocumento $alEmitir = null): GeneratedDocument
     {
         // El formato de evaluación vive en el cierre de la no renovación (su
         // fecha efectiva es la fecha de entrega): desde la pantalla de la
@@ -745,14 +750,7 @@ class DocumentoProcesoService
             $revision = $existente->estado_flujo?->firmaFisicaRegistrada() ?? false;
         }
 
-        if ($regenerar || $revision) {
-            $motivoRevision = trim((string) $motivoRevision);
-
-            if (mb_strlen($motivoRevision) < self::MINIMO_MOTIVO_REGENERAR) {
-                throw ValidationException::withMessages(['motivo' => sprintf('Explica el motivo de la nueva versión (mínimo %d caracteres): queda en la auditoría.', self::MINIMO_MOTIVO_REGENERAR)]);
-            }
-        }
-
+        // El motivo lo exige VersionadoDocumentoService: sin cambios no hay versión nueva.
         // Revisión de un documento ya firmado: nunca se sobrescribe ni se
         // cancela el firmado; se emite una nueva instancia ligada a él, con
         // permiso, motivo y auditoría.
@@ -776,6 +774,12 @@ class DocumentoProcesoService
             throw ValidationException::withMessages(['documento' => $bloqueo]);
         }
 
+        $esFormatoPropio = $this->esFormatoPropio($clave, $registro);
+
+        if (! $esFormatoPropio) {
+            $this->exigirManualesPermitidos($clave, $registro, $colaborador, $proceso, $manuales, $actor);
+        }
+
         if ($completar !== []) {
             $this->completarDatos($colaborador, $completar, $actor);
         }
@@ -790,60 +794,124 @@ class DocumentoProcesoService
             $sustituye = $existente;
         }
 
-        $motivoSustitucion = sprintf('Sustituido por una nueva versión: %s', (string) $motivoRevision);
+        // Formato propio del acta (BrowserShot, sin master de Jurídico) o documento
+        // maestro: mismas reglas de arriba y mismo orden seguro de VersionadoDocumentoService.
+        $fuente = $esFormatoPropio && $registro instanceof ActaAdministrativa
+            ? new FuenteActa(app(ActaPdfService::class), $registro)
+            : new FuenteMaestro($this, $proceso, $registro, $clave, $manuales, $alEmitir);
 
-        // Acta administrativa / de hechos: formato PROPIO (BrowserShot), sin
-        // master de Jurídico. Mismas reglas de arriba (permiso, bloqueo,
-        // regenerar con motivo); mismo flujo físico después.
-        if ($this->esFormatoPropio($clave, $registro)) {
-            /** @var ActaAdministrativa $registro */
-            $documento = DB::transaction(function () use ($sustituye, $actor, $registro, $motivoSustitucion): GeneratedDocument {
-                if ($sustituye !== null) {
-                    $this->sustituir($sustituye, $actor, $motivoSustitucion);
-                }
+        if ($correcciones === null && $existente !== null && ($existente->correcciones ?? []) === []) {
+            // Corrección hecha antes de existir `correcciones` en la versión: no se pierde.
+            $correcciones = BajaDocumentoEdicion::query()->where('generated_document_id', $existente->id)->latest('id')->first()->campos ?? null;
+        }
 
-                return app(ActaPdfService::class)->registrar($registro, $actor);
-            });
-            $this->auditarNuevaVersion($documento, $sustituye, $revisionDe, $motivoRevision, $actor, $colaborador, $clave);
-            $this->ligarAlRegistro($documento, $registro, $clave, $actor);
+        $resultado = app(VersionadoDocumentoService::class)->emitir($fuente, $correcciones, $motivoRevision, $actor, $revisionDe !== null);
 
-            return $documento;
+        if ($resultado->creado) {
+            $this->ligarAlRegistro($resultado->documento, $registro, $clave, $actor);
+        }
+
+        return $resultado->documento;
+    }
+
+    /**
+     * Render definitivo sin persistir el documento (FuenteMaestro).
+     *
+     * @param  array<string, string>  $manuales
+     * @param  array<string, string>  $correcciones
+     */
+    public function prepararEmision(string $proceso, Model $registro, string $clave, User $actor, array $manuales, array $correcciones): DocumentoRenderizado
+    {
+        $colaborador = $this->colaboradorDe($registro);
+        $master = $this->masterPara($clave, $colaborador, $proceso);
+        $extra = $this->datosExtra($clave, $registro, $manuales, $correcciones);
+
+        if ($master->estado_master === null) {
+            return $this->motor->prepararDesdePlantilla($colaborador, $master, $extra, $registro, $actor);
+        }
+
+        return $this->motor->prepararDesdeMaestro($master, $this->motor->contextoDesde($colaborador, $registro, $actor, $extra), $this->titulo($master, $colaborador), $proceso);
+    }
+
+    /**
+     * Datos que llenarían el documento hoy, sin renderizar: base de la huella.
+     *
+     * @param  array<string, string>  $manuales
+     * @param  array<string, string>  $correcciones
+     * @return array<string, mixed>
+     */
+    public function valoresEmision(string $proceso, Model $registro, string $clave, User $actor, array $manuales, array $correcciones): array
+    {
+        $colaborador = $this->colaboradorDe($registro);
+        $master = $this->masterPara($clave, $colaborador, $proceso);
+        $extra = $this->datosExtra($clave, $registro, $manuales, $correcciones);
+
+        if ($master->estado_master === null) {
+            return [...$extra, '_plantilla' => $master->id.':'.$master->version];
+        }
+
+        return [
+            ...$this->motor->valoresDelMaestro($master, $this->motor->contextoDesde($colaborador, $registro, $actor, $extra)),
+            '_maestro' => (string) $master->master_hash,
+        ];
+    }
+
+    public function esActaConFormatoPropio(string $clave, Model $registro): bool
+    {
+        return $registro instanceof ActaAdministrativa && $this->esFormatoPropio($clave, $registro);
+    }
+
+    public function colaboradorDelRegistro(Model $registro): Colaborador
+    {
+        return $this->colaboradorDe($registro);
+    }
+
+    /**
+     * Los testigos de un acta SIEMPRE vienen de ActaService::variablesDocumento()
+     * (de un Colaborador real, nunca texto libre).
+     *
+     * @param  array<string, string>  $manuales
+     * @param  array<string, string>  $correcciones
+     * @return array<string, mixed>
+     */
+    private function datosExtra(string $clave, Model $registro, array $manuales, array $correcciones): array
+    {
+        $seguros = $registro instanceof ActaAdministrativa
+            ? array_diff_key($manuales, array_flip(['testigo_1_nombre', 'testigo_1_cargo', 'testigo_2_nombre', 'testigo_2_cargo']))
+            : $manuales;
+
+        return [...$this->extraPorClave($clave, $registro), ...$seguros, ...$correcciones];
+    }
+
+    /**
+     * `manuales` es para datos del acto o para llenar lo que falta. Nadie pisa por
+     * aquí un dato que ya sale del expediente (nombre, empresa, representante
+     * legal): eso se corrige con motivo por la lista blanca de FuenteMaestro.
+     *
+     * @param  array<string, string>  $manuales
+     */
+    private function exigirManualesPermitidos(string $clave, Model $registro, Colaborador $colaborador, string $proceso, array $manuales, User $actor): void
+    {
+        $ajenos = array_filter(array_keys($manuales), fn (string $campo): bool => ! DatosDocumentoService::esCampoManual($campo));
+
+        if ($ajenos === []) {
+            return;
         }
 
         $master = $this->masterPara($clave, $colaborador, $proceso);
-        $documento = DB::transaction(function () use ($sustituye, $revisionDe, $motivoRevision, $motivoSustitucion, $actor, $master, $colaborador, $registro, $manuales, $clave, $proceso): GeneratedDocument {
-            if ($sustituye !== null) {
-                $this->sustituir($sustituye, $actor, $motivoSustitucion);
+
+        if ($master->estado_master === null) {
+            return;
+        }
+
+        $contexto = $this->motor->contextoDesde($colaborador, $registro, $actor, $this->extraPorClave($clave, $registro));
+        $actuales = $this->motor->valoresCompletos($master, $contexto);
+
+        foreach ($ajenos as $campo) {
+            if (trim((string) ($actuales[$campo] ?? '')) !== '' && trim($manuales[$campo]) !== trim((string) $actuales[$campo])) {
+                throw ValidationException::withMessages(['manuales' => sprintf('El dato «%s» sale del expediente: corrígelo allá o desde «Editar datos» con motivo.', str_replace('_', ' ', $campo))]);
             }
-
-            // Los testigos de un acta SIEMPRE vienen de ActaService::variablesDocumento()
-            // (resueltos de un Colaborador real, nunca texto libre) — jamás
-            // del modal genérico de "completar datos faltantes", o cualquiera
-            // podría generar el formato oficial con un testigo inventado
-            // (encargo §24-27). El resto de llaves de $manuales sí puede
-            // pisar lo calculado (jefe_nombre, rh_cargo…).
-            $manualesSeguros = $registro instanceof ActaAdministrativa
-                ? array_diff_key($manuales, array_flip(['testigo_1_nombre', 'testigo_1_cargo', 'testigo_2_nombre', 'testigo_2_cargo']))
-                : $manuales;
-
-            $extra = [...$this->extraPorClave($clave, $registro), ...$manualesSeguros];
-            $contexto = $this->motor->contextoDesde($colaborador, $registro, $actor, $extra);
-
-            // Plantilla heredada (clave sin documento maestro): motor anterior.
-            if ($master->estado_master === null) {
-                return $this->motor->generar($colaborador, $master, $actor, $extra, $registro);
-            }
-
-            $anterior = $revisionDe ?? $sustituye;
-
-            return $this->motor->generarDesdeMaestro($master, $contexto, $actor, $registro, $this->titulo($master, $colaborador), $proceso, $anterior, $anterior !== null ? $motivoRevision : null);
-        });
-
-        $this->auditarNuevaVersion($documento, $sustituye, $revisionDe, $motivoRevision, $actor, $colaborador, $clave);
-
-        $this->ligarAlRegistro($documento, $registro, $clave, $actor);
-
-        return $documento;
+        }
     }
 
     /**
@@ -937,9 +1005,10 @@ class DocumentoProcesoService
      * @param  array<string, string>  $manuales  Datos del acto (testigos, hora…), igual que en generar().
      * @param  array<string, mixed>  $completar  Datos faltantes capturados en el modal: se aplican SOLO en memoria.
      * @param  bool  $marcarPendientes  Modo permisivo: cada faltante sale como «PENDIENTE: <dato>» (vista previa del contrato desde el expediente).
+     * @param  array<string, string>  $correcciones  Ya filtradas por la lista blanca de FuenteMaestro.
      * @return array{pdf: string, nombre: string, faltantes: int}
      */
-    public function vistaPrevia(string $proceso, Model $registro, string $clave, User $actor, array $manuales = [], array $completar = [], bool $marcarPendientes = false): array
+    public function vistaPrevia(string $proceso, Model $registro, string $clave, User $actor, array $manuales = [], array $completar = [], bool $marcarPendientes = false, array $correcciones = []): array
     {
         // Igual que generar(): el formato de evaluación vive en el cierre de
         // la no renovación.
@@ -968,10 +1037,8 @@ class DocumentoProcesoService
 
         $master = $this->masterPara($clave, $colaborador, $proceso);
         // Mismo filtro que generar(): los testigos de un acta nunca vienen del modal.
-        $manualesSeguros = $registro instanceof ActaAdministrativa
-            ? array_diff_key($manuales, array_flip(['testigo_1_nombre', 'testigo_1_cargo', 'testigo_2_nombre', 'testigo_2_cargo']))
-            : $manuales;
-        $extra = [...$this->extraPorClave($clave, $registro), ...$manualesSeguros];
+        $this->exigirManualesPermitidos($clave, $registro, $colaborador, $proceso, $manuales, $actor);
+        $extra = $this->datosExtra($clave, $registro, $manuales, $correcciones);
         $nombre = $this->titulo($master, $colaborador);
 
         // Plantilla heredada (clave sin documento maestro): motor anterior.
@@ -1862,45 +1929,6 @@ class DocumentoProcesoService
      * (FlujoDocumentalService::cancelar) y la nueva versión arranca su
      * propio flujo físico desde cero.
      */
-    private function sustituir(GeneratedDocument $anterior, User $actor, string $motivo): void
-    {
-        $this->flujo->cancelar($anterior, $actor, mb_substr($motivo, 0, 500));
-    }
-
-    /**
-     * Bitácora de una nueva versión (regenerada o revisión de un firmado):
-     * qué versión sustituye, en qué estado estaba, quién y por qué.
-     */
-    private function auditarNuevaVersion(GeneratedDocument $documento, ?GeneratedDocument $sustituye, ?GeneratedDocument $revisionDe, ?string $motivo, User $actor, Colaborador $colaborador, string $clave): void
-    {
-        $anterior = $revisionDe ?? $sustituye;
-
-        if ($anterior === null) {
-            return;
-        }
-
-        $datos = [
-            'documento_anterior_id' => $anterior->id,
-            'estado_anterior' => $revisionDe !== null ? $revisionDe->estado_flujo?->value : E::Cancelado->value,
-            'anterior_firmado' => $revisionDe !== null,
-            'version' => $this->numeroVersion($documento),
-            'motivo' => $motivo,
-            'colaborador_id' => $colaborador->id,
-            'clave' => $clave,
-        ];
-
-        $this->auditoria->registrar('documento_regenerado', $documento, $actor, $datos);
-
-        if ($revisionDe !== null) {
-            $this->auditoria->registrar('documento_revision_firmado', $documento, $actor, [
-                'documento_firmado_id' => $revisionDe->id,
-                'motivo' => $motivo,
-                'colaborador_id' => $colaborador->id,
-                'clave' => $clave,
-            ]);
-        }
-    }
-
     /**
      * Número de versión del documento dentro de su registro y clave (v1 la
      * primera emitida, v2 la regenerada…), contando también las sustituidas.
