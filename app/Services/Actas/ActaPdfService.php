@@ -9,9 +9,8 @@ use App\Enums\TipoActa;
 use App\Enums\TipoIncidenciaActa;
 use App\Models\ActaAdministrativa;
 use App\Models\ActaAnexo;
-use App\Models\GeneratedDocument;
 use App\Models\User;
-use App\Services\DocumentosLaborales\MotorDocumentalService;
+use App\Services\Documentos\Versiones\DocumentoRenderizado;
 use App\Services\DocumentosMaestros\FirmaPatronService;
 use App\Services\Pdf\OpcionesPdf;
 use App\Services\Pdf\PdfRendererFactory;
@@ -35,7 +34,6 @@ class ActaPdfService
 {
     public function __construct(
         private readonly PdfRendererFactory $pdf,
-        private readonly MotorDocumentalService $motor,
         private readonly FirmaPatronService $firmaPatron,
     ) {}
 
@@ -90,7 +88,7 @@ class ActaPdfService
      * PDF FINAL: fija cierre y control documental, congela el PDF en el
      * expediente (carpeta Actas) y arranca su flujo físico.
      */
-    public function registrar(ActaAdministrativa $acta, User $actor): GeneratedDocument
+    public function preparar(ActaAdministrativa $acta, User $actor): DocumentoRenderizado
     {
         if (($motivo = $this->faltante($acta)) !== null) {
             throw ValidationException::withMessages(['documento' => $motivo]);
@@ -113,7 +111,7 @@ class ActaPdfService
         $render = $this->renderizar($acta->refresh(), borrador: false);
         $titulo = sprintf('%s %s', $acta->tipo->etiqueta(), $acta->folio);
 
-        return $this->motor->registrarPdf($acta->colaborador, $render['pdf'], $titulo, $actor, [
+        return new DocumentoRenderizado($render['pdf'], $titulo, CategoriaDocumento::Actas, [
             'clave' => $acta->tipo->clavePlantilla(),
             'categoria' => CategoriaDocumento::Actas,
             'documentable' => $acta,
@@ -127,6 +125,31 @@ class ActaPdfService
             'paginas' => $render['paginas'],
             'nombre_archivo' => sprintf('%s - %s.pdf', $titulo, Carbon::now('America/Mexico_City')->format('Y-m-d His')),
         ]);
+    }
+
+    /**
+     * Datos que determinan el contenido del acta: base de su huella. El cierre y el
+     * control se fijan al emitir, así que no cuentan.
+     *
+     * @return array<string, mixed>
+     */
+    public function valoresDocumento(ActaAdministrativa $acta): array
+    {
+        $circunstanciada = $acta->circunstanciada ?? [];
+        unset($circunstanciada['cierre'], $circunstanciada['control']);
+
+        return [
+            'tipo' => $acta->tipo->value,
+            'folio' => $acta->folio,
+            'motivo' => $acta->motivo,
+            'fecha' => $acta->fecha->toDateString(),
+            'hora' => $acta->hora,
+            'lugar' => $acta->lugar,
+            'hechos' => $acta->hechos,
+            'testigos' => $acta->testigos,
+            'declaraciones' => $acta->declaraciones,
+            'circunstanciada' => $circunstanciada,
+        ];
     }
 
     /**

@@ -309,6 +309,11 @@ test('el cierre no puede ser anterior al levantamiento ni futuro (hora de Méxic
     // Al generar el definitivo el cierre queda congelado: ya no se edita.
     aeGenerar($this, $acta);
     $this->actingAs($this->rh)->put(route('rh.actas.update', $acta), array_diff_key(aeDatos(['cierre' => ['fecha' => $ayer, 'hora' => '13:00']]), ['tipo' => true]))
-        ->assertSessionHasErrors('acta');
+        ->assertSessionHasErrors('motivo_correccion');
+    expect($acta->refresh()->circunstanciada['cierre'])->toBe(['fecha' => $ayer, 'hora' => '11:15']);
+
+    // Corregir el acta generada, con motivo, tampoco mueve el cierre congelado.
+    $this->actingAs($this->rh)->put(route('rh.actas.update', $acta), ['hechos' => 'Hechos con la redacción corregida.', 'motivo_correccion' => 'Se corrigió la redacción de los hechos.'])
+        ->assertSessionHasNoErrors();
     expect($acta->refresh()->circunstanciada['cierre'])->toBe(['fecha' => $ayer, 'hora' => '11:15']);
 });

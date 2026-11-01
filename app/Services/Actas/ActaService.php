@@ -366,15 +366,20 @@ class ActaService
     /**
      * @param  array<string, mixed>  $datos
      */
-    public function actualizar(ActaAdministrativa $acta, array $datos, User $actor): ActaAdministrativa
+    public function actualizar(ActaAdministrativa $acta, array $datos, User $actor, ?string $motivoCorreccion = null): ActaAdministrativa
     {
-        if (! $acta->estado->esEditable()) {
-            throw ValidationException::withMessages(['acta' => 'Solo un acta en borrador puede editarse; registra cambios como seguimiento.']);
-        }
+        $correccion = $this->exigirCorregible($acta, $motivoCorreccion);
 
         $this->validarAlcanceParticipantes($datos, $acta->colaborador, $actor, $acta);
 
         $circunstanciada = is_array($datos['circunstanciada'] ?? null) ? $datos['circunstanciada'] : ($acta->circunstanciada ?? []);
+
+        // Al generar el definitivo, el cierre y el control quedan congelados.
+        if ($correccion !== null && is_array($acta->circunstanciada)) {
+            $circunstanciada = [...$circunstanciada, ...array_intersect_key($acta->circunstanciada, ['cierre' => true, 'control' => true])];
+            $datos['circunstanciada'] = $circunstanciada;
+        }
+
         $this->validarCierre(
             $circunstanciada,
             isset($datos['fecha']) ? (string) $datos['fecha'] : $acta->fecha->toDateString(),
@@ -383,7 +388,11 @@ class ActaService
 
         // responsable_id no cambia por request (GuardarActaRequest lo prohíbe).
         $acta->update($this->campos($datos, $acta->colaborador, $acta->circunstanciada, $acta->responsable_id));
-        $this->auditoria->registrar('acta_actualizada', $acta, $actor, ['campos' => array_keys($datos)]);
+        $this->auditoria->registrar('acta_actualizada', $acta, $actor, ['campos' => array_keys($datos), 'motivo' => $correccion]);
+
+        if ($correccion !== null) {
+            $this->agregarSeguimientoInterno($acta, sprintf('Datos corregidos tras generar el formato: %s', $correccion), $actor);
+        }
 
         return $acta->refresh();
     }
@@ -443,11 +452,43 @@ class ActaService
      * Genera el formato del acta con la plantilla de su tipo (texto de
      * Jurídico) y los datos capturados.
      */
-    public function generarDocumento(ActaAdministrativa $acta, User $actor): GeneratedDocument
+    public function generarDocumento(ActaAdministrativa $acta, User $actor, ?string $motivo = null): GeneratedDocument
     {
         // Mismo camino que la web: formato oficial, faltantes, flujo físico
         // y archivo en el expediente (DocumentoProcesoService).
-        return app(DocumentoProcesoService::class)->generar('acta', $acta, $acta->tipo->clavePlantilla(), $actor, regenerar: $acta->generated_document_id !== null);
+        return app(DocumentoProcesoService::class)->generar('acta', $acta, $acta->tipo->clavePlantilla(), $actor, regenerar: $acta->generated_document_id !== null, motivoRevision: $motivo);
+    }
+
+    /**
+     * Un acta se corrige en borrador o ya generada mientras no se firme (con motivo:
+     * después se regenera con esos datos). Firmada o cerrada ya no: lo que hay que
+     * agregar va como seguimiento.
+     *
+     * @return string|null Motivo de la corrección de un acta ya generada.
+     */
+    private function exigirCorregible(ActaAdministrativa $acta, ?string $motivo): ?string
+    {
+        if ($acta->estado->esEditable()) {
+            return null;
+        }
+
+        if ($acta->estado !== EstadoActa::Generada) {
+            throw ValidationException::withMessages(['acta' => 'Solo un acta en borrador o generada sin firmar puede editarse; registra cambios como seguimiento.']);
+        }
+
+        $documento = $acta->generated_document_id !== null ? GeneratedDocument::query()->whereKey($acta->generated_document_id)->first() : null;
+
+        if ($documento?->estado_flujo?->firmaFisicaRegistrada() ?? false) {
+            throw ValidationException::withMessages(['acta' => 'El acta ya está firmada: el original se conserva; registra cambios como seguimiento.']);
+        }
+
+        $motivo = trim((string) $motivo);
+
+        if (mb_strlen($motivo) < (int) config('correcciones.motivo_minimo', 5)) {
+            throw ValidationException::withMessages(['motivo_correccion' => 'Explica el motivo de la corrección: el acta ya se generó y queda en su seguimiento.']);
+        }
+
+        return $motivo;
     }
 
     public function registrarNegativaFirma(ActaAdministrativa $acta, string $motivo, User $actor): ActaAdministrativa

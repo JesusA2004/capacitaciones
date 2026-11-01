@@ -119,7 +119,7 @@ class ActaController extends Controller
     public function update(GuardarActaRequest $request, ActaAdministrativa $acta): RedirectResponse
     {
         $this->authorize('editar', $acta);
-        $this->actas->actualizar($acta, $request->validated(), $request->user());
+        $this->actas->actualizar($acta, $request->safe()->except('motivo_correccion'), $request->user(), $request->validated('motivo_correccion'));
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Acta actualizada.']);
     }

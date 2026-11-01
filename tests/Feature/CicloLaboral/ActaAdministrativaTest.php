@@ -238,7 +238,7 @@ test('el acta definitiva se congela: documento en el expediente, control documen
         ->and($acta->circunstanciada['cierre']['hora'])->not->toBeNull()
         ->and(GeneratedDocument::query()->count())->toBe(1);
 
-    $this->actingAs($this->rh)->put(route('rh.actas.update', $acta), ['hechos' => 'otro'])->assertSessionHasErrors('acta');
+    $this->actingAs($this->rh)->put(route('rh.actas.update', $acta), ['hechos' => 'otro'])->assertSessionHasErrors('motivo_correccion');
     $this->actingAs($this->rh)->post(route('rh.actas.anexos.store', $acta), ['archivo' => UploadedFile::fake()->create('tarde.pdf', 20, 'application/pdf')])
         ->assertSessionHasErrors('archivo');
     expect($acta->refresh()->hechos)->toContain('arqueo');

@@ -84,7 +84,7 @@ class ActaController extends Controller
     {
         $this->authorize('editar', $acta);
 
-        return response()->json(['data' => $this->actas->aArray($this->actas->actualizar($acta, $request->validated(), $request->user()), true)]);
+        return response()->json(['data' => $this->actas->aArray($this->actas->actualizar($acta, $request->safe()->except('motivo_correccion'), $request->user(), $request->validated('motivo_correccion')), true)]);
     }
 
     public function anexo(ArchivoLaboralRequest $request, ActaAdministrativa $acta): JsonResponse
@@ -113,7 +113,7 @@ class ActaController extends Controller
     {
         $this->authorize('generarDocumento', $acta);
 
-        return response()->json(['data' => $this->documentos->aArray($this->actas->generarDocumento($acta, $request->user()), true)], 201);
+        return response()->json(['data' => $this->documentos->aArray($this->actas->generarDocumento($acta, $request->user(), $request->string('motivo')->toString() ?: null), true)], 201);
     }
 
     /** Constancia de entrega de copia (mismo ActaService que la web). */

@@ -34,6 +34,7 @@ class GuardarActaRequest extends FormRequest
             // Resumen para listados: en el acta circunstanciada sale del tipo
             // de incidencia (ActaService); ya no se captura aparte.
             'motivo' => ['nullable', 'string', 'max:191'],
+            'motivo_correccion' => ['nullable', 'string', 'max:500'],
             'fecha' => [$requerido, 'date', 'before_or_equal:today'],
             'hora' => ['nullable', 'date_format:H:i'],
             'lugar' => ['nullable', 'string', 'max:255'],
