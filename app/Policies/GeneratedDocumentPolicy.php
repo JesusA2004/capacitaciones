@@ -6,9 +6,11 @@ use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoFlujoDocumento;
 use App\Models\ContratoLaboral;
 use App\Models\GeneratedDocument;
+use App\Models\Responsiva;
 use App\Models\User;
 use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Documentos\Versiones\Fuentes\FuenteResponsiva;
 use App\Services\Onboarding\EvaluacionInduccionPdfService;
 
 /**
@@ -29,6 +31,12 @@ class GeneratedDocumentPolicy
     {
         if ($this->esPropio($usuario, $documento) && ! $this->esAutoservicioBloqueado($documento)) {
             return $documento->estado_flujo !== null && $documento->estado_flujo !== EstadoFlujoDocumento::Borrador;
+        }
+
+        if ($documento->clave_plantilla === FuenteResponsiva::CLAVE) {
+            $responsiva = Responsiva::query()->whereKey($documento->documentable_id)->first();
+
+            return $responsiva !== null && $usuario->can('descargar', $responsiva);
         }
 
         // Contratos: permiso propio (contratos.ver_documento) — el gerente
@@ -76,6 +84,11 @@ class GeneratedDocumentPolicy
         // Evaluación de inducción calificada: trae la clave de respuestas,
         // es solo de RH (EvaluacionInduccionPdfService).
         if ($documento->clave_plantilla === EvaluacionInduccionPdfService::CLAVE) {
+            return true;
+        }
+
+        // El colaborador no consulta sus responsivas (ver ResponsivaPolicy).
+        if ($documento->clave_plantilla === FuenteResponsiva::CLAVE) {
             return true;
         }
 

@@ -57,6 +57,8 @@ class Responsiva extends Model
 {
     protected $table = 'responsivas';
 
+    protected $hidden = ['pdf_path', 'firmada_path'];
+
     protected $fillable = [
         'folio', 'colaborador_id', 'tipo', 'lugar', 'fecha_entrega', 'entregado_por', 'registrado_por', 'observaciones', 'snapshot', 'datos', 'estado',
         'pdf_path', 'firmada_path', 'firmada_subida_en', 'firmada_subida_por', 'firmada_fisicamente_en', 'firmada_fisicamente_por',

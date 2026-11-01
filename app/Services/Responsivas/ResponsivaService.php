@@ -6,19 +6,25 @@ use App\Enums\AccesorioEquipoElectronico;
 use App\Enums\AccesorioVehiculo;
 use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoConservacion;
+use App\Enums\EstadoDocumentoGenerado;
 use App\Enums\EstadoFisicoResponsiva;
+use App\Enums\EstadoFlujoDocumento;
 use App\Enums\EstadoResponsiva;
 use App\Enums\EstadoUsuario;
 use App\Enums\NivelCombustible;
 use App\Enums\TipoBienMueble;
+use App\Enums\TipoEmisionDocumento;
 use App\Enums\TipoEquipoElectronico;
 use App\Enums\TipoResponsiva;
 use App\Models\Colaborador;
+use App\Models\GeneratedDocument;
 use App\Models\Responsiva;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Colaboradores\FotoColaboradorService;
+use App\Services\Documentos\Versiones\Fuentes\FuenteResponsiva;
+use App\Services\Documentos\Versiones\VersionadoDocumentoService;
 use App\Services\DocumentosMaestros\FirmaPatronService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Tareas\NotificadorRhService;
@@ -30,6 +36,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
@@ -251,6 +258,7 @@ class ResponsivaService
                 $pdf,
             );
             $responsiva->update(['pdf_path' => $ruta]);
+            $this->registrarVersionInicial($responsiva, $actor)?->update(['huella_datos' => app(VersionadoDocumentoService::class)->huella(new FuenteResponsiva($this->pdf, $responsiva), [], $actor)]);
         } catch (Throwable $e) {
             if ($ruta !== null) {
                 $this->expediente->eliminar($ruta);
@@ -295,58 +303,79 @@ class ResponsivaService
     }
 
     /**
-     * Regenera el PDF de una responsiva ya existente con el FORMATO VIGENTE
-     * (p. ej. para corregir responsivas antiguas cuyo PDF decía «Apoderado
-     * legal» o un nombre comercial). Reemplaza el archivo almacenado sin tocar
-     * el snapshot (receptor, otorgante, fecha) ni el estado legal: la razón
-     * social y el cargo del patrón se recalculan con FirmaPatronService.
+     * Nueva versión del PDF con el formato vigente (corrige responsivas antiguas). El
+     * snapshot y el estado legal no cambian y NINGÚN PDF anterior se borra. Exige
+     * motivo. Una responsiva firmada solo admite rectificación: su PDF sigue siendo
+     * el firmado y la versión nueva queda ligada a él, para firmarse aparte.
      */
-    public function regenerar(Responsiva $responsiva, User $actor): Responsiva
+    public function regenerar(Responsiva $responsiva, User $actor, ?string $motivo = null): Responsiva
     {
-        $colaborador = $responsiva->colaborador;
-        $anterior = $responsiva->pdf_path;
-        $nueva = null;
+        $this->registrarVersionInicial($responsiva, $actor);
+        $firmada = $responsiva->estado === EstadoResponsiva::Firmada;
+        $resultado = app(VersionadoDocumentoService::class)->emitir(new FuenteResponsiva($this->pdf, $responsiva), [], $motivo, $actor, $firmada);
 
-        try {
-            $pdf = $this->pdf->renderizar($responsiva)['pdf'];
-            $nueva = $this->expediente->guardarContenidoEnExpediente(
-                $colaborador,
-                CategoriaDocumento::Actas,
-                sprintf('Responsiva %s - %s.pdf', $responsiva->folio, $responsiva->fecha_entrega->toDateString()),
-                $pdf,
-            );
-            $responsiva->update(['pdf_path' => $nueva]);
-        } catch (Throwable $e) {
-            if ($nueva !== null) {
-                $this->expediente->eliminar($nueva);
-            }
-
-            if ($e instanceof ValidationException) {
-                throw $e;
-            }
-
-            Log::error('Responsiva: no se pudo regenerar el PDF.', ['folio' => $responsiva->folio, 'error' => $e->getMessage()]);
-
-            throw ValidationException::withMessages([
-                'responsiva' => 'No se pudo regenerar la responsiva (impresión o almacenamiento no disponible). Intenta de nuevo; si continúa, avisa a sistemas.',
+        if ($resultado->creado) {
+            $this->auditoria->registrar('responsiva_regenerada', $responsiva, $actor, [
+                'folio' => $responsiva->folio,
+                'colaborador_id' => $responsiva->colaborador_id,
+                'motivo' => $motivo,
+                'documento_id' => $resultado->documento->id,
+                'rectificacion' => $firmada,
             ]);
         }
 
-        // El PDF anterior se borra SOLO cuando ya se guardó el nuevo y la ruta cambió.
-        if ($anterior !== null && $anterior !== $nueva) {
-            try {
-                $this->expediente->eliminar($anterior);
-            } catch (Throwable $e) {
-                Log::warning('Responsiva: no se pudo borrar el PDF anterior tras regenerar.', ['folio' => $responsiva->folio, 'error' => $e->getMessage()]);
-            }
+        return $responsiva->refresh()->load(['entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador']);
+    }
+
+    /**
+     * Da de alta como versión 1 el PDF que ya existe: las responsivas nacieron sin
+     * GeneratedDocument. No escribe en el NAS ni cambia el archivo.
+     */
+    public function registrarVersionInicial(Responsiva $responsiva, User $actor): ?GeneratedDocument
+    {
+        if ($responsiva->pdf_path === null) {
+            return null;
         }
 
-        $this->auditoria->registrar('responsiva_regenerada', $responsiva, $actor, [
-            'folio' => $responsiva->folio,
-            'colaborador_id' => $colaborador->id,
-        ]);
+        $existente = GeneratedDocument::query()
+            ->where('documentable_type', $responsiva->getMorphClass())
+            ->where('documentable_id', $responsiva->id)
+            ->where('clave_plantilla', FuenteResponsiva::CLAVE)
+            ->where('path', $responsiva->pdf_path)
+            ->first();
 
-        return $responsiva->refresh()->load(['entregadoPor:id,name,apellidos,colaborador_id', 'entregadoPor.colaborador', 'registradoPor:id,name,apellidos,colaborador_id', 'registradoPor.colaborador']);
+        if ($existente !== null) {
+            return $existente;
+        }
+
+        $disco = Storage::disk((string) config('expedientes.disk'));
+        $contenido = $disco->exists($responsiva->pdf_path) ? (string) $disco->get($responsiva->pdf_path) : null;
+        $colaborador = $responsiva->colaborador;
+        $firmada = $responsiva->firmada_fisicamente_en !== null || $responsiva->estado === EstadoResponsiva::Firmada;
+
+        return GeneratedDocument::query()->create([
+            'colaborador_id' => $colaborador->id,
+            'user_id' => $colaborador->user?->id,
+            'empresa_id' => $colaborador->sucursalPrincipal?->empresa_id,
+            'sucursal_id' => $colaborador->sucursal_principal_id,
+            'disk' => config('expedientes.disk'),
+            'path' => $responsiva->pdf_path,
+            'original_name' => basename($responsiva->pdf_path),
+            'generated_name' => basename($responsiva->pdf_path),
+            'mime' => 'application/pdf',
+            'size' => $contenido !== null ? strlen($contenido) : null,
+            'status' => EstadoDocumentoGenerado::Generado,
+            'generated_by' => $responsiva->registrado_por ?? $responsiva->entregado_por ?? $actor->id,
+            'documentable_type' => $responsiva->getMorphClass(),
+            'documentable_id' => $responsiva->id,
+            'clave_plantilla' => FuenteResponsiva::CLAVE,
+            'categoria' => CategoriaDocumento::Actas,
+            'titulo' => sprintf('Responsiva %s', (string) $responsiva->folio),
+            'checksum' => $contenido !== null ? hash('sha256', $contenido) : null,
+            'tipo_emision' => TipoEmisionDocumento::Original,
+            'proceso' => 'responsiva',
+            'estado_flujo' => $firmada ? EstadoFlujoDocumento::FirmadoFisicamente : EstadoFlujoDocumento::Generado,
+        ]);
     }
 
     /**
@@ -360,11 +389,15 @@ class ResponsivaService
     {
         $this->exigirVigente($responsiva, 'marcarla como firmada físicamente');
 
-        $responsiva->update([
-            'estado' => EstadoResponsiva::Firmada,
-            'firmada_fisicamente_en' => now(),
-            'firmada_fisicamente_por' => $actor->id,
-        ]);
+        // Queda ligada la versión que se firmó, con su checksum.
+        DB::transaction(function () use ($responsiva, $actor): void {
+            $this->registrarVersionInicial($responsiva, $actor)?->update(['estado_flujo' => EstadoFlujoDocumento::FirmadoFisicamente]);
+            $responsiva->update([
+                'estado' => EstadoResponsiva::Firmada,
+                'firmada_fisicamente_en' => now(),
+                'firmada_fisicamente_por' => $actor->id,
+            ]);
+        });
 
         $this->auditoria->registrar('responsiva_firmada_fisicamente', $responsiva, $actor, ['folio' => $responsiva->folio]);
 

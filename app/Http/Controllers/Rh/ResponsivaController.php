@@ -127,14 +127,15 @@ class ResponsivaController extends Controller
      * «Representante legal», razón social correcta, firmas alineadas). No toca
      * el snapshot ni el estado legal.
      */
-    public function regenerar(Responsiva $responsiva): JsonResponse
+    public function regenerar(Request $request, Responsiva $responsiva): JsonResponse
     {
         $this->authorize('regenerar', $responsiva);
+        $datos = $request->validate(['motivo' => ['nullable', 'string', 'max:500']]);
 
-        $responsiva = $this->responsivas->regenerar($responsiva, request()->user());
+        $responsiva = $this->responsivas->regenerar($responsiva, $request->user(), $datos['motivo'] ?? null);
 
         return response()->json([
-            'message' => sprintf('Responsiva %s regenerada con el formato vigente.', $responsiva->folio),
+            'message' => sprintf('Responsiva %s: nueva versión generada; la anterior se conserva.', $responsiva->folio),
             'responsiva' => $this->responsivas->presentar($responsiva, request()->user()),
         ]);
     }
