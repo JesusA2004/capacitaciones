@@ -2,8 +2,10 @@
 
 use App\Http\Controllers\Rh\DisenoDocumentoController;
 use App\Http\Controllers\Rh\DocumentoAdministrativoController;
+use App\Http\Controllers\Rh\DocumentoEdicionController;
 use App\Http\Controllers\Rh\DocumentoMaestroController;
 use App\Http\Controllers\Rh\DocumentoProcesoController;
+use App\Services\Documentos\Versiones\DocumentoEdicionService;
 use App\Services\DocumentosMaestros\VistaPreviaFlujoService;
 use Illuminate\Support\Facades\Route;
 
@@ -17,6 +19,14 @@ use Illuminate\Support\Facades\Route;
 | y en GeneratedDocumentPolicy para el flujo físico.
 */
 Route::middleware(['auth', 'verified'])->prefix('rh')->name('rh.')->group(function () {
+    // «Editar datos» e «Historial de versiones» de cualquier documento generado.
+    Route::prefix('documentos-edicion/{tipo}/{id}')->name('documentos-edicion.')->whereIn('tipo', DocumentoEdicionService::TIPOS)->whereNumber('id')->group(function () {
+        Route::get('campos', [DocumentoEdicionController::class, 'campos'])->name('campos')->middleware('throttle:60,1');
+        Route::post('vista-previa', [DocumentoEdicionController::class, 'vistaPrevia'])->name('vista-previa')->middleware('throttle:30,1');
+        Route::post('emitir', [DocumentoEdicionController::class, 'emitir'])->name('emitir')->middleware('throttle:30,1');
+        Route::get('versiones', [DocumentoEdicionController::class, 'versiones'])->name('versiones')->middleware('throttle:60,1');
+    });
+
     Route::prefix('documentos-proceso')->name('documentos-proceso.')->group(function () {
         Route::get('colaborador/{colaborador}', [DocumentoProcesoController::class, 'colaborador'])->name('colaborador')->withTrashed();
         // Buscador de testigos (negativa a firmar y firma física): activos del

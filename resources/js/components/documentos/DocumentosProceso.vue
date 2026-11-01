@@ -442,7 +442,7 @@ function previsualizarCapturados() {
 // ───────── Regenerar: nueva versión con los datos actuales ─────────
 // Siempre con motivo (auditoría). La versión anterior no se borra: queda en
 // el historial y en el NAS; si ya estaba firmada se conserva intacta.
-const MINIMO_MOTIVO = 15;
+const MINIMO_MOTIVO = 5;
 const regeneracion = ref<{
     seccion: Seccion;
     item: ItemDocumentoProceso;

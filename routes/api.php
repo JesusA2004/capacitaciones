@@ -42,6 +42,7 @@ use App\Http\Controllers\Api\V1\Rh\CredencialesController as RhCredencialesContr
 use App\Http\Controllers\Api\V1\Rh\CumpleanosController as RhCumpleanosController;
 use App\Http\Controllers\Api\V1\Rh\DashboardController as RhDashboardController;
 use App\Http\Controllers\Api\V1\Rh\DocumentoController as RhDocumentoController;
+use App\Http\Controllers\Api\V1\Rh\DocumentoEdicionController;
 use App\Http\Controllers\Api\V1\Rh\DocumentoLaboralController;
 use App\Http\Controllers\Api\V1\Rh\DocumentoProcesoController;
 use App\Http\Controllers\Api\V1\Rh\EstructuraController;
@@ -63,6 +64,7 @@ use App\Http\Controllers\Api\V1\SolicitudController;
 use App\Http\Controllers\Api\V1\TareaController;
 use App\Http\Controllers\Api\V1\VacacionesController;
 use App\Http\Middleware\AutenticarClienteIntegracion;
+use App\Services\Documentos\Versiones\DocumentoEdicionService;
 use App\Services\DocumentosMaestros\VistaPreviaFlujoService;
 use App\Services\Integraciones\TokenIntegracionService;
 use Illuminate\Http\Request;
@@ -609,6 +611,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             | reglas que la web. La app solo renderiza documentos_proceso y
             | acciones; nunca decide qué documento toca.
             */
+            Route::prefix('documentos-edicion/{tipo}/{id}')->name('documentos-edicion.')->whereIn('tipo', DocumentoEdicionService::TIPOS)->whereNumber('id')->group(function () {
+                Route::get('campos', [DocumentoEdicionController::class, 'campos'])->name('campos')->middleware('throttle:60,1');
+                Route::post('vista-previa', [DocumentoEdicionController::class, 'vistaPrevia'])->name('vista-previa')->middleware('throttle:30,1');
+                Route::post('emitir', [DocumentoEdicionController::class, 'emitir'])->name('emitir')->middleware('throttle:30,1');
+                Route::get('versiones', [DocumentoEdicionController::class, 'versiones'])->name('versiones')->middleware('throttle:60,1');
+            });
             Route::prefix('documentos-proceso')->name('documentos-proceso.')->group(function () {
                 Route::get('colaborador/{colaborador}', [DocumentoProcesoController::class, 'colaborador'])->name('colaborador')->withTrashed();
                 Route::get('testigos', [DocumentoProcesoController::class, 'buscarTestigos'])->name('testigos')->middleware('throttle:60,1');
