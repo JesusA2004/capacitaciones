@@ -52,6 +52,7 @@ import FotoPerfilCaptura from '@/components/Common/FotoPerfilCaptura.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
 import HistorialCorrecciones from '@/components/correcciones/HistorialCorrecciones.vue';
+import SiguientePasoPanel from '@/components/flujos/SiguientePaso.vue';
 import InputError from '@/components/InputError.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
@@ -133,6 +134,7 @@ import { show as showSolicitud } from '@/routes/rh/solicitudes';
 import { edit as editSeguridad } from '@/routes/security';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type {
+    SiguientePaso,
     AltaDigitalResumenExpediente,
     CompletitudDatos,
     DocumentoExpedienteItem,
@@ -167,6 +169,8 @@ const props = defineProps<{
     puedeReactivar: boolean;
     /** Ficha del Ciclo laboral (contratos, onboarding, evaluación, baja). */
     cicloUrl?: string | null;
+    siguientePaso?: SiguientePaso | null;
+    siguientePasoSueldo?: SiguientePaso | null;
     /** Jefe directo (cadena de mando) o RH: ColaboradorPolicy::iniciarCierre. */
     puedeIniciarBaja?: boolean;
     puedeGestionarAcceso: boolean;
@@ -721,6 +725,12 @@ const urlSolicitarCorreccion = indexSolicitudes.url({
     query: { nueva: 'actualizacion_datos' },
 });
 
+// «Corregir sueldo» desde el panel: abre su diálogo, con la misma validación.
+const corregirSueldoAlInicio =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('accion') ===
+        'corregir_sueldo';
+
 const PESTANAS = [
     'resumen',
     'personales',
@@ -1019,6 +1029,23 @@ function irACompletarExpediente() {
                 </div>
             </CardContent>
         </Card>
+
+        <div
+            v-if="siguientePaso || siguientePasoSueldo"
+            class="grid gap-4 lg:grid-cols-2"
+        >
+            <SiguientePasoPanel
+                v-if="siguientePaso"
+                compacto
+                :paso="siguientePaso"
+            />
+            <SiguientePasoPanel
+                v-if="siguientePasoSueldo"
+                compacto
+                titulo="Sueldo de esta persona"
+                :paso="siguientePasoSueldo"
+            />
+        </div>
 
         <Card
             v-if="completitudDatos.aplica && completitudDatos.porcentaje < 100"
@@ -1350,6 +1377,7 @@ function irACompletarExpediente() {
                                     dominio="salario"
                                     :sujeto-id="colaborador.id"
                                     etiqueta="Corregir sueldo"
+                                    :abrir-al-inicio="corregirSueldoAlInicio"
                                     permiso="salarios.editar"
                                 />
                                 <BotonCorregir

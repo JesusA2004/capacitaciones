@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { BadgeCheck, Eye, FileSearch, Hourglass, Printer } from '@lucide/vue';
+import { router } from '@inertiajs/vue3';
+import {
+    BadgeCheck,
+    Eye,
+    FilePlus2,
+    FileSearch,
+    Hourglass,
+    Printer,
+} from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,9 +30,29 @@ const props = withDefaults(
         pdfUrl: string | null;
         /** Vista previa ANTES de autorizar (solo quien puede aprobar). */
         vistaPreviaUrl?: string | null;
+        /** Autorizado pero sin formato: el reintento (POST) con su permiso. */
+        generarUrl?: string | null;
     }>(),
-    { vistaPreviaUrl: null },
+    { vistaPreviaUrl: null, generarUrl: null },
 );
+
+const generando = ref(false);
+
+function generar() {
+    if (!props.generarUrl) {
+        return;
+    }
+
+    router.post(
+        props.generarUrl,
+        {},
+        {
+            preserveScroll: true,
+            onStart: () => (generando.value = true),
+            onFinish: () => (generando.value = false),
+        },
+    );
+}
 
 const previsualizar = ref(false);
 const esVistaPrevia = ref(false);
@@ -115,7 +143,15 @@ const fecha = (valor: string | null) =>
                     </p>
                 </div>
             </div>
-            <div v-if="pdfUrl" class="flex flex-wrap gap-2">
+            <Button
+                v-if="generarUrl"
+                variant="outline"
+                :disabled="generando"
+                @click="generar"
+            >
+                <FilePlus2 class="size-4" /> Generar formato de permiso
+            </Button>
+            <div v-else-if="pdfUrl" class="flex flex-wrap gap-2">
                 <Button variant="outline" @click="abrirVisor(false)">
                     <Eye class="size-4" /> Previsualizar permiso
                 </Button>

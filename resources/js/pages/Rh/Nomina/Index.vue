@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     CalendarClock,
     Download,
@@ -26,6 +26,8 @@ import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import HistorialVersiones from '@/components/documentos/HistorialVersiones.vue';
+import EnlaceRegreso from '@/components/flujos/EnlaceRegreso.vue';
+import SiguientePasoPanel from '@/components/flujos/SiguientePaso.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -47,7 +49,7 @@ import {
     emitir as emitirRecibo,
     update as actualizarRecibo,
 } from '@/routes/rh/nomina/recibos';
-import type { RespuestaPaginada } from '@/types';
+import type { EnlaceFlujo, RespuestaPaginada, SiguientePaso } from '@/types';
 
 /**
  * Recibos de nómina quincenales (docs/NOMINA_QUINCENAL.md): el sistema los
@@ -85,6 +87,7 @@ type Recibo = {
         numero_empleado: string | null;
         sucursal: string | null;
         puesto: string | null;
+        expediente_url?: string | null;
     };
 };
 
@@ -107,7 +110,9 @@ const props = defineProps<{
         sin_pdf: number;
     };
     recibos: RespuestaPaginada<Recibo>;
-    filtros: { q: string; estado: string };
+    filtros: { q: string; estado: string; colaborador?: number | null };
+    regreso?: EnlaceFlujo | null;
+    siguientePaso?: SiguientePaso | null;
     config: { emision_automatica: boolean; dias_anticipacion: number };
     puedeEditar: boolean;
     puedeEmitir: boolean;
@@ -340,6 +345,15 @@ const formRecibo = useForm({
     observaciones: '' as string | null,
 });
 
+// Con ?colaborador= hay un solo recibo del periodo: «Revisar conceptos» lo abre.
+function revisarConceptos() {
+    const recibo = props.recibos.data[0];
+
+    if (recibo) {
+        abrirEdicion(recibo);
+    }
+}
+
 function abrirEdicion(recibo: Recibo) {
     editando.value = recibo;
     formRecibo.clearErrors();
@@ -403,6 +417,13 @@ const opcionesTipo = [
                 @update:model-value="(v) => cambiarPeriodo(v as string | null)"
             />
         </CrudPageHeader>
+        <EnlaceRegreso :regreso="regreso" />
+        <SiguientePasoPanel
+            v-if="siguientePaso"
+            compacto
+            :paso="siguientePaso"
+            @dialogo="revisarConceptos"
+        />
 
         <div
             class="flex flex-col gap-1 rounded-2xl border border-primary/30 bg-primary/5 p-4 text-sm sm:flex-row sm:items-center sm:justify-between"
@@ -651,7 +672,17 @@ const opcionesTipo = [
                             </td>
                             <td class="p-3">
                                 <p class="font-medium">
-                                    {{ recibo.colaborador.nombre }}
+                                    <Link
+                                        v-if="recibo.colaborador.expediente_url"
+                                        :href="
+                                            recibo.colaborador.expediente_url
+                                        "
+                                        class="hover:underline"
+                                        >{{ recibo.colaborador.nombre }}</Link
+                                    >
+                                    <template v-else>{{
+                                        recibo.colaborador.nombre
+                                    }}</template>
                                 </p>
                                 <p class="text-xs text-muted-foreground">
                                     {{

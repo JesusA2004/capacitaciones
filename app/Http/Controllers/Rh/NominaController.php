@@ -6,8 +6,11 @@ use App\Enums\EstadoReciboNomina;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Nomina\ActualizarReciboNominaRequest;
 use App\Http\Requests\Nomina\CambioMasivoRecibosRequest;
+use App\Models\Colaborador;
 use App\Models\ReciboNomina;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
+use App\Services\Flujos\ConstructorEnlaces;
+use App\Services\Flujos\SiguientePasoService;
 use App\Services\Nomina\NominaQuincenalService;
 use App\Services\Nomina\ReciboNominaService;
 use App\Support\Paginacion;
@@ -50,9 +53,14 @@ class NominaController extends Controller
 
         $q = trim($request->string('q')->toString());
         $estado = $request->string('estado')->toString();
+        // Acota dentro de lo visible: recibosDelPeriodo() ya aplicó el alcance.
+        $colaboradorId = $request->integer('colaborador');
+        $colaborador = $colaboradorId > 0 ? Colaborador::query()->whereKey($colaboradorId)->first() : null;
+        $enlaces = app(ConstructorEnlaces::class);
 
         $pagina = (clone $base)
             ->with(['colaborador' => fn ($c) => $c->select('id', 'name', 'apellidos', 'numero_empleado', 'sucursal_principal_id', 'puesto_id'), 'colaborador.sucursalPrincipal:id,nombre', 'colaborador.puesto:id,nombre'])
+            ->when($colaboradorId > 0, fn ($query) => $query->where('colaborador_id', $colaboradorId))
             ->when(in_array($estado, ['borrador', 'emitido'], true), fn ($query) => $query->where('estado', $estado))
             ->when($q !== '', fn ($query) => app(BuscadorColaboradoresService::class)->aplicarPorColumna($query, $q))
             ->orderBy('id')
@@ -66,6 +74,7 @@ class NominaController extends Controller
                     'numero_empleado' => $r->colaborador->numero_empleado,
                     'sucursal' => $r->colaborador->sucursalPrincipal?->nombre,
                     'puesto' => $r->colaborador->puesto?->nombre,
+                    'expediente_url' => $enlaces->expediente($usuario, $r->colaborador, 'recibos'),
                 ],
                 'pdf_url' => $r->pdf_path !== null && $usuario->can('nomina.recibos.descargar') ? route('rh.nomina.recibos.pdf', $r) : null,
                 'reparar_url' => $r->estado === EstadoReciboNomina::Emitido && $usuario->can('regenerar', $r) ? route('rh.nomina.recibos.reparar-pdf', $r) : null,
@@ -88,7 +97,11 @@ class NominaController extends Controller
                 'sin_pdf' => (int) ($resumen->sin_pdf ?? 0),
             ],
             'recibos' => $pagina,
-            'filtros' => ['q' => $q, 'estado' => $estado],
+            'filtros' => ['q' => $q, 'estado' => $estado, 'colaborador' => $colaboradorId > 0 ? $colaboradorId : null],
+            'regreso' => $enlaces->regreso($request, $usuario),
+            'siguientePaso' => $colaborador !== null && $enlaces->nomina($usuario, $colaborador) !== null
+                ? app(SiguientePasoService::class)->paraNomina($colaborador, $usuario, (clone $base)->where('colaborador_id', $colaborador->id)->first())->toArray()
+                : null,
             'config' => [
                 'emision_automatica' => (bool) config('nomina.quincenal.emision_automatica', true),
                 'dias_anticipacion' => (int) config('nomina.quincenal.dias_anticipacion', 3),

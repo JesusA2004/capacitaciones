@@ -4,6 +4,7 @@ import { AlertTriangle, Download, FileText, Upload } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
+import SiguientePasoPanel from '@/components/flujos/SiguientePaso.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -17,17 +18,13 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { formatearFecha } from '@/lib/fechas';
-import {
-    cancelar,
-    historial,
-    index,
-    pdf,
-} from '@/routes/rh/incapacidades';
+import { cancelar, historial, index, pdf } from '@/routes/rh/incapacidades';
 import {
     show as verDocumento,
     store as subirDocumento,
 } from '@/routes/rh/incapacidades/documentos';
 import type {
+    SiguientePaso,
     CadenaIncapacidad,
     IncapacidadItem,
     ReglaDiasNomina,
@@ -49,6 +46,7 @@ defineProps<{
     regla: ReglaDiasNomina;
     puede: { subir: boolean; corregir: boolean; descargar: boolean };
     pdfRaizId: number | null;
+    siguientePaso: SiguientePaso;
 }>();
 
 defineOptions({
@@ -163,6 +161,7 @@ function enviarCancelacion() {
     <Head :title="`Incapacidades · ${colaborador.nombre}`" />
 
     <div class="pagina-ancha flex flex-col gap-4">
+        <SiguientePasoPanel compacto :paso="siguientePaso" />
         <div class="flex flex-wrap items-center justify-between gap-2">
             <div>
                 <h1 class="text-lg font-semibold">{{ colaborador.nombre }}</h1>

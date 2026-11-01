@@ -5,6 +5,7 @@ import { computed, ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
+import SiguientePasoPanel from '@/components/flujos/SiguientePaso.vue';
 import BotonReabrir from '@/components/people/BotonReabrir.vue';
 import type { ReaperturaDisponible } from '@/components/people/BotonReabrir.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
@@ -32,8 +33,10 @@ import {
 } from '@/routes/rh/solicitudes';
 import { permisoPdf, vistaPrevia } from '@/routes/rh/solicitudes';
 import { ver as verDocumento } from '@/routes/rh/solicitudes/documentos';
+import { generar as generarPermiso } from '@/routes/rh/solicitudes/permiso-pdf';
 import { store as subirDocumentoSolicitud } from '@/routes/solicitudes/documentos';
 import type {
+    SiguientePaso,
     DatoPropuesto,
     DocumentoOficialEsperado,
     FiniquitoDesgloseItem,
@@ -49,6 +52,8 @@ const faltanVistosBuenosCalculo = (niveles: NivelVistoBueno[]) =>
     niveles.some((n) => n.estado !== 'aprobado');
 
 const props = defineProps<{
+    siguientePaso?: SiguientePaso | null;
+    puedeGenerarPermiso?: boolean;
     solicitud: SolicitudInternaItem;
     tipoEtiqueta: string;
     tipoBajaEtiqueta: string | null;
@@ -248,6 +253,13 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
             <EstadoBadge :estado="solicitud.estado" />
         </CrudPageHeader>
 
+        <SiguientePasoPanel
+            v-if="siguientePaso"
+            compacto
+            titulo="Relacionado con esta persona"
+            :paso="siguientePaso"
+        />
+
         <div class="grid gap-6 lg:grid-cols-12 lg:items-start">
             <!-- Columna principal -->
             <div class="flex flex-col gap-6 lg:col-span-8 xl:col-span-9">
@@ -266,6 +278,11 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                             : null
                     "
                     :vista-previa-url="vistaPreviaPermiso"
+                    :generar-url="
+                        puedeGenerarPermiso
+                            ? generarPermiso.url(solicitud.id)
+                            : null
+                    "
                 />
                 <!-- Actualización de datos: al autorizar, lo propuesto pasa al expediente. -->
                 <ComparativoDatos

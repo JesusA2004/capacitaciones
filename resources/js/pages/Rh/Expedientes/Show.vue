@@ -29,6 +29,7 @@ import type {
     PrestamoItem,
     ReciboNominaItem,
     ResumenExpediente,
+    SiguientePaso,
     SaldoVacaciones,
     SolicitudExpedienteItem,
     SolicitudVacacionesItem,
@@ -36,6 +37,8 @@ import type {
 
 const props = defineProps<{
     esPropio: boolean;
+    siguientePaso?: SiguientePaso | null;
+    siguientePasoSueldo?: SiguientePaso | null;
     puedeEditar: boolean;
     puedeGenerarRecibos?: boolean;
     puedeReactivar: boolean;
@@ -181,6 +184,8 @@ defineOptions({
         :puede-editar="puedeEditar"
         :puede-generar-recibos="puedeGenerarRecibos"
         :puede-reactivar="puedeReactivar"
+        :siguiente-paso="siguientePaso"
+        :siguiente-paso-sueldo="siguientePasoSueldo"
         :ciclo-url="cicloUrl"
         :puede-iniciar-baja="puedeIniciarBaja"
         :puede-gestionar-acceso="puedeGestionarAcceso"

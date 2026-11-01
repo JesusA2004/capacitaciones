@@ -376,6 +376,7 @@ class IncapacidadConsultaService
             ->whereDate('fecha_inicio', '<=', $hasta->toDateString())
             ->whereDate('fecha_fin', '>=', $desde->toDateString())
             ->when($filtros['tipo'] ?? null, fn (Builder $q, string $v) => $q->where('tipo', $v))
+            ->when($filtros['colaborador'] ?? null, fn (Builder $q, int|string $v) => $q->where('colaborador_id', (int) $v))
             ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, int|string $v) => $q->where('sucursal_id', (int) $v))
             ->when($filtros['q'] ?? null, fn (Builder $q, string $v) => app(BuscadorColaboradoresService::class)->aplicarPorColumna($q, $v))
             ->when($estatus === EstatusIncapacidad::Cancelada->value, fn (Builder $q) => $q->whereNotNull('cancelada_en'), fn (Builder $q) => $q->whereNull('cancelada_en'))

@@ -22,6 +22,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Finiquitos\FiniquitoService;
+use App\Services\Flujos\SiguientePasoService;
 use App\Services\Formatos\OfficialFormatCatalogoService;
 use App\Services\Reaperturas\ReaperturaService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
@@ -235,9 +236,13 @@ class SolicitudController extends Controller
         $formatoEsperado = $this->formatoOficial->formatoEsperado($solicitud);
         $acciones = $this->solicitudes->accionesBandeja($request->user(), $solicitud);
         $esBaja = $solicitud->tipo === TipoSolicitudInterna::BajaColaborador;
+        $colaboradorSolicitud = $solicitud->colaborador ?? $solicitud->usuario?->colaborador;
 
         return Inertia::render('Rh/Solicitudes/Show', [
             'solicitud' => $solicitud,
+            'siguientePaso' => $colaboradorSolicitud !== null ? app(SiguientePasoService::class)->paraSolicitud($solicitud, $colaboradorSolicitud, $request->user())->toArray() : null,
+            // Permiso autorizado cuyo formato no se generó al aprobar: mismas reglas que generarPermiso().
+            'puedeGenerarPermiso' => $request->user()->can('descargarFormato', $solicitud) && $request->user()->can('documentos_laborales.generar') && $this->solicitudes->permisoSinFormato($solicitud),
             // Botones de revisión: la misma policy que valida cada acción
             // (nunca solo «no es estado final»).
             'puedeRevisar' => $acciones['revisar'],

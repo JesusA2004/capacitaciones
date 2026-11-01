@@ -5,6 +5,7 @@ import { computed, ref, watch } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
+import EnlaceRegreso from '@/components/flujos/EnlaceRegreso.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -22,6 +23,7 @@ import type {
     InicialAbierta,
     OpcionIncapacidad,
     ReglaDiasNomina,
+    EnlaceFlujo,
 } from '@/types';
 
 const props = defineProps<{
@@ -30,6 +32,8 @@ const props = defineProps<{
     regla: ReglaDiasNomina;
     mimes: string[];
     maxKb: number;
+    colaboradorInicial?: ColaboradorBusqueda | null;
+    regreso?: EnlaceFlujo | null;
 }>();
 
 defineOptions({
@@ -43,6 +47,7 @@ defineOptions({
 });
 
 const persona = ref<ColaboradorBusqueda | null>(null);
+const desdeExpediente = props.colaboradorInicial ?? null;
 const inicialesAbiertas = ref<InicialAbierta[]>([]);
 
 const form = useForm({
@@ -61,6 +66,11 @@ const form = useForm({
     st7: null as File | null,
     fecha_st7: '',
 });
+
+if (desdeExpediente) {
+    persona.value = desdeExpediente;
+    form.colaborador_id = desdeExpediente.id;
+}
 
 const esRiesgo = computed(() => form.tipo === 'riesgo_trabajo');
 const esSubsecuente = computed(() => form.secuencia === 'subsecuente');
@@ -136,6 +146,9 @@ function enviar() {
 <template>
     <Head title="Registrar incapacidad" />
 
+    <div v-if="regreso" class="pagina-ancha pb-0">
+        <EnlaceRegreso :regreso="regreso" />
+    </div>
     <form
         class="pagina-ancha grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]"
         @submit.prevent="enviar"

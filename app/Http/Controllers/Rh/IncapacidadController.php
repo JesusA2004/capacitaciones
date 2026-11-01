@@ -16,6 +16,8 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
+use App\Services\Flujos\ConstructorEnlaces;
+use App\Services\Flujos\SiguientePasoService;
 use App\Services\Incapacidades\IncapacidadConsultaService;
 use App\Services\Incapacidades\IncapacidadService;
 use App\Services\Nomina\IncidenciasNominaService;
@@ -59,6 +61,7 @@ class IncapacidadController extends Controller
         return Inertia::render('Rh/Incapacidades/Index', [
             'incapacidades' => $this->consulta->listar($usuario, $filtros)->through(fn (Incapacidad $i): array => $this->consulta->aArray($i, $usuario)),
             'indicadores' => $this->consulta->indicadores($usuario, $mes, $sucursalId),
+            'regreso' => app(ConstructorEnlaces::class)->regreso($request, $usuario),
             'filtros' => [...$filtros, 'mes' => $this->consulta->rangoMes($mes)[0]->format('Y-m'), 'periodo' => $periodo['clave']],
             'tipos' => TipoIncapacidad::opciones(),
             'sucursales' => $this->sucursales($usuario),
@@ -82,7 +85,14 @@ class IncapacidadController extends Controller
     {
         abort_unless($request->user()->can('incapacidades.registrar'), 403);
 
+        $inicial = Colaborador::query()->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre'])->whereKey($request->integer('colaborador'))->first();
+
         return Inertia::render('Rh/Incapacidades/Registrar', [
+            // Llega desde el expediente: solo si está en su alcance y no es la propia.
+            'colaboradorInicial' => $inicial !== null && $request->user()->colaborador_id !== $inicial->id && $this->alcance->alcanzaColaboradorEnModulo($request->user(), $inicial, 'incapacidades')
+                ? ['id' => $inicial->id, 'nombre' => $inicial->nombreCompleto(), 'numero_empleado' => $inicial->numero_empleado, 'puesto' => $inicial->puesto?->nombre, 'sucursal' => $inicial->sucursalPrincipal?->nombre]
+                : null,
+            'regreso' => app(ConstructorEnlaces::class)->regreso($request, $request->user()),
             'tipos' => TipoIncapacidad::opciones(),
             'subtipos' => SubtipoRiesgoTrabajo::opciones(),
             'regla' => $this->incidencias->reglaParaPantalla(),
@@ -272,6 +282,7 @@ class IncapacidadController extends Controller
             'cadenas' => $cadenas,
             'impacto' => ['etiqueta' => $periodo['etiqueta'], 'dias_incapacidad' => $resumen['dias_incapacidad'], 'dias_naturales' => $resumen['dias_naturales']],
             'regla' => $this->incidencias->reglaParaPantalla(),
+            'siguientePaso' => app(SiguientePasoService::class)->paraIncidencias($colaborador, $usuario)->toArray(),
             'puede' => ['subir' => $usuario->can('incapacidades.registrar'), 'corregir' => $usuario->can('incapacidades.corregir'), 'descargar' => $usuario->can('incapacidades.descargar')],
         ];
     }
@@ -298,6 +309,8 @@ class IncapacidadController extends Controller
             'tipo' => ['nullable', Rule::enum(TipoIncapacidad::class)],
             'sucursal_id' => ['nullable', 'integer'],
             'estatus' => ['nullable', 'in:activa,concluida,cancelada'],
+            // Solo acota dentro de lo visible (IncapacidadConsultaService::visibles).
+            'colaborador' => ['nullable', 'integer'],
             'q' => ['nullable', 'string', 'max:80'],
             'per_page' => ['nullable', 'integer'],
         ]);

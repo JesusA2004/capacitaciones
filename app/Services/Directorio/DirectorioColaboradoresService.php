@@ -10,6 +10,7 @@ use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Colaboradores\FotoColaboradorService;
+use App\Services\Flujos\ConstructorEnlaces;
 use App\Services\Permisos\AlcanceModuloService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -168,6 +169,8 @@ class DirectorioColaboradoresService
             // Foto oficial del expediente (URL protegida), solo si quien mira
             // alcanza ese expediente; si no, la vista muestra iniciales.
             'foto_url' => $viewer !== null ? $this->fotos->urlPara($c, $viewer) : null,
+            // Abrir expediente: mismo alcance que su pantalla; sin él, no hay enlace.
+            'expediente_url' => $viewer !== null ? app(ConstructorEnlaces::class)->expediente($viewer, $c) : null,
         ];
     }
 

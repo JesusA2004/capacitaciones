@@ -8,6 +8,7 @@ import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
+import EnlaceRegreso from '@/components/flujos/EnlaceRegreso.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -35,6 +36,7 @@ import {
     descartar as descartarRectificacion,
 } from '@/routes/rh/incapacidades/rectificaciones';
 import type {
+    EnlaceFlujo,
     ImpactoIncapacidad,
     IncapacidadItem,
     OpcionIncapacidad,
@@ -44,6 +46,7 @@ import type {
 } from '@/types';
 
 const props = defineProps<{
+    regreso?: EnlaceFlujo | null;
     incapacidades: RespuestaPaginada<IncapacidadItem>;
     indicadores: {
         activas: number;
@@ -172,6 +175,7 @@ function confirmarDescarte() {
     <Head title="Incapacidades" />
 
     <div class="pagina-ancha flex flex-col gap-4">
+        <EnlaceRegreso :regreso="regreso" />
         <CrudPageHeader
             titulo="Incapacidades"
             descripcion="Captura de Recursos Humanos con datos y documentos del IMSS."

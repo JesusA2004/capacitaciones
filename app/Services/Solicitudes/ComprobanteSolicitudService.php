@@ -72,6 +72,17 @@ class ComprobanteSolicitudService
     }
 
     /**
+     * Autorizado y sin formato: el único caso en que aplica el reintento.
+     */
+    public function permisoSinFormato(SolicitudInterna $solicitud): bool
+    {
+        return $solicitud->tipo === TipoSolicitudInterna::Permiso
+            && $solicitud->estado === EstadoSolicitudInterna::Aprobada
+            && $solicitud->revisado_por !== null
+            && $this->documentoVigente($solicitud, self::CLAVE_PERMISO) === null;
+    }
+
+    /**
      * Reintento explícito (POST) cuando el formato no se generó al aprobar.
      */
     public function generarPermisoFaltante(SolicitudInterna $solicitud, User $actor): GeneratedDocument

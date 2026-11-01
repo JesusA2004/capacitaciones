@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import {
     Briefcase,
     Building2,
@@ -60,6 +60,8 @@ type ColaboradorDirectorio = {
     es_mi_jefe?: boolean;
     /** Foto oficial del expediente (URL protegida); null → iniciales. */
     foto_url?: string | null;
+    /** Solo si quien mira alcanza ese expediente. */
+    expediente_url?: string | null;
 };
 
 type Vista = 'puesto' | 'area' | 'sucursal';
@@ -548,6 +550,12 @@ function detalle(c: ColaboradorDirectorio): string {
                                 <MailX class="size-3" />
                                 Datos por completar · {{ faltantes(c) }}
                             </span>
+                            <Link
+                                v-if="c.expediente_url"
+                                :href="c.expediente_url"
+                                class="mt-0.5 w-fit text-xs font-medium text-primary hover:underline"
+                                >Abrir expediente</Link
+                            >
                             <a
                                 v-if="c.correo_corporativo"
                                 :href="`mailto:${c.correo_corporativo}`"

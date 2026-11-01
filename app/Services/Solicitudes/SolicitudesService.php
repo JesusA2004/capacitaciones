@@ -953,6 +953,11 @@ class SolicitudesService
      * PDF del formato oficial de permiso, SOLO si RH ya lo autorizó (antes
      * responde un error de validación: el gerente no puede imprimirlo).
      */
+    public function permisoSinFormato(SolicitudInterna $solicitud): bool
+    {
+        return $this->comprobantes->permisoSinFormato($solicitud);
+    }
+
     public function generarPermisoFaltante(SolicitudInterna $solicitud, User $actor): GeneratedDocument
     {
         return $this->comprobantes->generarPermisoFaltante($solicitud, $actor);

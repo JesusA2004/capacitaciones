@@ -18,6 +18,8 @@ const props = withDefaults(
         etiqueta?: string;
         permiso?: string;
         variante?: 'ghost' | 'outline' | 'secondary';
+        /** Abre el diálogo al montar (llegó desde «Siguiente paso»). */
+        abrirAlInicio?: boolean;
     }>(),
     { etiqueta: 'Corregir', variante: 'outline' },
 );
@@ -25,7 +27,7 @@ const props = withDefaults(
 const emit = defineEmits<{ corregido: [registro: RegistroCorreccion] }>();
 
 const pagina = usePage<{ auth: { user: { permissions?: string[] } | null } }>();
-const abierto = ref(false);
+const abierto = ref(props.abrirAlInicio === true);
 
 const visible = computed(
     () =>

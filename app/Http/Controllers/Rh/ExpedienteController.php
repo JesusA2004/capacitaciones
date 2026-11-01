@@ -52,6 +52,7 @@ use App\Services\Expedientes\ExpedienteZipService;
 use App\Services\Expedientes\HistorialCambiosDatosService;
 use App\Services\Expedientes\MigracionInicial\ExpedientesInitialMigrationService;
 use App\Services\Expedientes\VinculacionSynologyService;
+use App\Services\Flujos\SiguientePasoService;
 use App\Services\Nomina\PrestamoService;
 use App\Services\Nomina\ReciboNominaService;
 use App\Services\Onboarding\ChecklistAdministrativoService;
@@ -329,6 +330,9 @@ class ExpedienteController extends Controller
 
         return Inertia::render($esPropio ? 'Rh/Expedientes/MiExpediente' : 'Rh/Expedientes/Show', [
             'esPropio' => $esPropio,
+            // Modo colaborador: «Mi expediente» conserva sus pendientes; esto es de RH.
+            'siguientePaso' => $esPropio ? null : app(SiguientePasoService::class)->paraExpediente($colaborador, $usuario)->toArray(),
+            'siguientePasoSueldo' => $esPropio ? null : app(SiguientePasoService::class)->paraSueldo($colaborador, $usuario)?->toArray(),
             // Carta compromiso de documentos pendientes (la más reciente), con su PDF.
             'cartaCompromiso' => app(CartaCompromisoService::class)->paraExpediente($colaborador),
             // ⚠ Faltan datos contractuales (+ «Avisar al colaborador» para RH).
