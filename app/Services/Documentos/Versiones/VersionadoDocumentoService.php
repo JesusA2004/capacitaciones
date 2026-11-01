@@ -14,6 +14,7 @@ use App\Services\Correcciones\CorreccionService;
 use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\Organigrama\AutoridadJerarquicaService;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -33,6 +34,8 @@ use Throwable;
  */
 class VersionadoDocumentoService
 {
+    private const MENSAJE_CAMBIO_EN_CURSO = 'Este documento acaba de cambiar mientras se generaba la nueva versión. Revisa la versión vigente e intenta de nuevo.';
+
     public function __construct(
         private readonly MotorDocumentalService $motor,
         private readonly FlujoDocumentalService $flujo,
@@ -51,12 +54,16 @@ class VersionadoDocumentoService
      */
     public function emitir(FuenteDocumento $fuente, ?array $correcciones, ?string $motivo, User $actor, bool $rectificar = false): ResultadoEmision
     {
-        $vigente = $this->vigente($fuente);
-        $limpias = $this->limpiar($fuente, $correcciones ?? $this->correccionesVigentes($fuente, $vigente, $actor), $actor);
-        $firmado = $vigente?->estado_flujo?->firmaFisicaRegistrada() ?? false;
-        $this->exigirPermitido($fuente, $vigente, $firmado, $rectificar, $actor);
+        // Vigente y huella se leen bajo el bloqueo del registro: otra emisión en curso termina primero.
+        [$vigente, $limpias, $firmado, $huella] = DB::transaction(function () use ($fuente, $correcciones, $actor, $rectificar): array {
+            $this->bloquearRegistro($fuente);
+            $vigente = $this->vigente($fuente);
+            $limpias = $this->limpiar($fuente, $correcciones ?? $this->correccionesVigentes($fuente, $vigente, $actor), $actor);
+            $firmado = $vigente?->estado_flujo?->firmaFisicaRegistrada() ?? false;
+            $this->exigirPermitido($fuente, $vigente, $firmado, $rectificar, $actor);
 
-        $huella = $this->huella($fuente, $limpias, $actor);
+            return [$vigente, $limpias, $firmado, $this->huella($fuente, $limpias, $actor)];
+        });
 
         if ($vigente !== null && $vigente->huella_datos !== null && hash_equals($vigente->huella_datos, $huella)) {
             return new ResultadoEmision($vigente, false);
@@ -77,13 +84,21 @@ class VersionadoDocumentoService
 
         try {
             $resultado = DB::transaction(function () use ($fuente, $limpias, $motivo, $actor, $render, $opciones, $nombre, $ruta, $rutaDocx, $huella, $vigente, $firmado, $rectificar, &$nuevo): ResultadoEmision {
-                $registro = $fuente->registro();
-                $registro->newQuery()->whereKey($registro->getKey())->lockForUpdate()->first();
+                $registro = $this->bloquearRegistro($fuente);
                 $actual = $this->vigente($fuente);
 
-                // Doble clic: mientras se renderizaba, otra petición ya emitió lo mismo.
-                if ($actual !== null && $actual->id !== $vigente?->id && $actual->huella_datos === $huella) {
-                    return new ResultadoEmision($actual, false);
+                // Mientras se renderizaba, otra petición emitió o firmó: si emitió lo mismo
+                // (doble clic) vale esa versión; si no, seguir dejaría dos versiones vivas.
+                if ($actual?->id !== $vigente?->id) {
+                    if ($actual !== null && $actual->huella_datos === $huella) {
+                        return new ResultadoEmision($actual, false);
+                    }
+
+                    throw ValidationException::withMessages(['documento' => self::MENSAJE_CAMBIO_EN_CURSO]);
+                }
+
+                if (($actual?->estado_flujo?->firmaFisicaRegistrada() ?? false) !== $firmado) {
+                    throw ValidationException::withMessages(['documento' => self::MENSAJE_CAMBIO_EN_CURSO]);
                 }
 
                 $nuevo = $this->motor->registrarPdf($fuente->colaborador(), $render->pdf, $render->titulo, $actor, [
@@ -107,7 +122,7 @@ class VersionadoDocumentoService
                 }
 
                 // Lo último: hasta aquí la versión nueva ya está lista.
-                if ($vigente !== null && ! $firmado && $actual?->id === $vigente->id) {
+                if ($vigente !== null && ! $firmado) {
                     $this->flujo->cancelar($vigente, $actor, mb_substr(sprintf('Sustituido por una nueva versión: %s', (string) $motivo), 0, 500));
                 }
 
@@ -367,6 +382,17 @@ class VersionadoDocumentoService
         return ! DatosVolatiles::esVolatil($campo->clave)
             && $previa['original_fuente'] !== null
             && trim($previa['original_fuente']) !== trim($campo->original);
+    }
+
+    /**
+     * Fila del registro, también si está en papelera: toda emisión del documento se serializa aquí.
+     */
+    private function bloquearRegistro(FuenteDocumento $fuente): Model
+    {
+        $registro = $fuente->registro();
+        $registro->newQueryWithoutScopes()->whereKey($registro->getKey())->lockForUpdate()->first();
+
+        return $registro;
     }
 
     private function exigirPermitido(FuenteDocumento $fuente, ?GeneratedDocument $vigente, bool $firmado, bool $rectificar, User $actor): void
