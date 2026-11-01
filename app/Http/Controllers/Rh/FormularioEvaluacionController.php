@@ -121,6 +121,8 @@ class FormularioEvaluacionController extends Controller
         $this->authorize('update', $formulario);
         $this->formularios->quitarBanner($formulario, $request->user());
 
+        Inertia::flash('toast', ['type' => 'success', 'message' => 'Banner quitado.']);
+
         return back();
     }
 

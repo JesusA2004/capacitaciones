@@ -392,7 +392,7 @@ function enviarDecision(reingreso: ReingresoFila) {
                                 size="sm"
                                 class="w-fit"
                                 :disabled="decision.processing"
-                                >Confirmar</Button
+                                >Registrar decisión</Button
                             >
                         </form>
                     </div>

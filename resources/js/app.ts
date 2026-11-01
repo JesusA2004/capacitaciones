@@ -5,6 +5,7 @@ import { registrarServiceWorker } from '@/composables/useWebPush';
 import AppLayout from '@/layouts/AppLayout.vue';
 import AuthLayout from '@/layouts/AuthLayout.vue';
 import SettingsLayout from '@/layouts/settings/Layout.vue';
+import { initializeAccionesEnCurso } from '@/lib/accionesEnCurso';
 import { initializeActualizacionTablas } from '@/lib/actualizacionTablas';
 import { tituloConPendientes } from '@/lib/avisosNavegador';
 import { initializeErroresGlobales } from '@/lib/erroresGlobales';
@@ -55,6 +56,9 @@ initializeFlashToast();
 
 // Ningún 422/403/500 en silencio: toast + foco al primer error.
 initializeErroresGlobales();
+
+// Doble clic y botón ocupado en toda acción que escribe.
+initializeAccionesEnCurso();
 
 // Tablas atenuadas mientras se filtra o pagina.
 initializeActualizacionTablas();

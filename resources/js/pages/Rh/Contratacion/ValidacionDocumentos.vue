@@ -41,7 +41,10 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { useFiltros } from '@/composables/useFiltros';
+import { dashboard } from '@/routes';
+import { index } from '@/routes/rh/validacion-documentos';
 import type { ArchivoPrevisualizable, RespuestaPaginada } from '@/types';
 
 type DocumentoFila = {
@@ -93,22 +96,19 @@ const puedeDecidir = computed(
 defineOptions({
     layout: {
         breadcrumbs: [
-            { title: 'Inicio', href: '/dashboard' },
+            { title: 'Inicio', href: dashboard.url() },
             {
                 title: 'Validación de documentos',
-                href: '/rh/validacion-documentos',
+                href: index.url(),
             },
         ],
     },
 });
 
-const { filtros, aplicarConDebounce, limpiar } = useFiltros(
-    '/rh/validacion-documentos',
-    {
-        busqueda: props.filtros.busqueda ?? '',
-        sucursal_id: props.filtros.sucursal_id ?? '',
-    },
-);
+const { filtros, aplicarConDebounce, limpiar } = useFiltros(index.url(), {
+    busqueda: props.filtros.busqueda ?? '',
+    sucursal_id: props.filtros.sucursal_id ?? '',
+});
 
 const ESTADOS: Record<string, 'warning' | 'info' | 'secondary'> = {
     cargado: 'info',
@@ -126,8 +126,12 @@ function fechaCorta(valor: string | null): string {
         : '—';
 }
 
+const aprobacion = useAccionEnCurso();
+
 function aprobar(fila: DocumentoFila) {
-    router.post(fila.aprobar_url, {}, { preserveScroll: true });
+    aprobacion.ejecutar(fila.id, (estado) => {
+        router.post(fila.aprobar_url, {}, { ...estado, preserveScroll: true });
+    });
 }
 
 // Rechazar / solicitar nueva versión comparten el diálogo de motivo, pero
@@ -450,10 +454,16 @@ function confirmarDecisionVisor() {
                                         variant="ghost"
                                         size="sm"
                                         class="text-success"
-                                        title="Aprobar"
+                                        title="Aprobar documento"
+                                        aria-label="Aprobar documento"
+                                        :disabled="aprobacion.ocupado.value"
                                         @click="aprobar(fila)"
                                     >
-                                        <Check class="size-4" />
+                                        <Spinner
+                                            v-if="aprobacion.enCurso(fila.id)"
+                                            class="size-4"
+                                        />
+                                        <Check v-else class="size-4" />
                                     </Button>
                                     <Button
                                         v-if="puedeSolicitarCorreccion"

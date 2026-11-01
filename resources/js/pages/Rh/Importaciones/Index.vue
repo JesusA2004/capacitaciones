@@ -6,6 +6,8 @@ import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import InputError from '@/components/InputError.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
+import { useAlertas } from '@/composables/useAlertas';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import rutasImportaciones, {
@@ -13,6 +15,10 @@ import rutasImportaciones, {
     show as mostrarImportacion,
 } from '@/routes/rh/importaciones';
 import type { RespuestaPaginada } from '@/types';
+
+const accion = useAccionEnCurso();
+
+const alertas = useAlertas();
 
 type ImportacionResumen = {
     id: number;
@@ -46,16 +52,23 @@ defineOptions({
 const form = useForm<{ archivo: File[] }>({ archivo: [] });
 
 /** Solo las no aplicadas: las aplicadas son el historial de lo que cambió. */
-function quitar(i: ImportacionResumen) {
+async function quitar(i: ImportacionResumen) {
     if (
-        !window.confirm(
-            `¿Quitar «${i.nombre_archivo}»? No se aplicó, así que no cambió nada de ningún colaborador.`,
-        )
+        !(await alertas.confirmarDelicada(
+            `¿Quitar «${i.nombre_archivo}»?`,
+            'No se aplicó, así que no cambió nada de ningún colaborador.',
+            'Quitar archivo',
+        ))
     ) {
         return;
     }
 
-    router.delete(quitarImportacion.url(i.id), { preserveScroll: true });
+    accion.ejecutar('quitar', (estado) => {
+        router.delete(quitarImportacion.url(i.id), {
+            ...estado,
+            preserveScroll: true,
+        });
+    });
 }
 
 function analizar() {
@@ -168,12 +181,14 @@ function analizar() {
                             </td>
                             <td class="py-2 text-right">
                                 <div class="flex justify-end gap-2">
-                                    <Link :href="mostrarImportacion.url(i.id)">
-                                        <Button variant="outline" size="sm"
-                                            >Ver detalle</Button
-                                        >
-                                    </Link>
+                                    <Button variant="outline" size="sm" as-child
+                                        ><Link
+                                            :href="mostrarImportacion.url(i.id)"
+                                            >Ver detalle</Link
+                                        ></Button
+                                    >
                                     <Button
+                                        :disabled="accion.ocupado.value"
                                         v-if="i.estado !== 'aplicado'"
                                         variant="ghost"
                                         size="sm"

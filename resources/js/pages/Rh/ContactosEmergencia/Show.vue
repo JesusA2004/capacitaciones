@@ -19,6 +19,7 @@ import ChipEstado from '@/components/people/ChipEstado.vue';
 import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { useAlertas } from '@/composables/useAlertas';
 import { formatearFecha } from '@/lib/fechas';
 import type { Tono } from '@/lib/tonos';
 import { dashboard } from '@/routes';
@@ -29,6 +30,8 @@ import {
 } from '@/routes/rh/contactos-emergencia';
 import { asignar as asignarFila } from '@/routes/rh/contactos-emergencia/filas';
 import type { ColaboradorBusqueda } from '@/types';
+
+const alertas = useAlertas();
 
 type Cambio = {
     antes: string | null;
@@ -285,13 +288,15 @@ function cambiosDe(fila: FilaDetalle) {
 
 const form = useForm({});
 
-function confirmar() {
+async function confirmar() {
     const n = seleccionadas.value.length;
 
     if (
-        !window.confirm(
-            `¿Guardar los cambios de ${n} colaborador(es)? Lo demás no se toca. Queda registrado quién importó y cuándo.`,
-        )
+        !(await alertas.confirmarDelicada(
+            `¿Guardar los cambios de ${n} colaborador(es)?`,
+            'Lo demás no se toca. Queda registrado quién importó y cuándo.',
+            'Guardar cambios',
+        ))
     ) {
         return;
     }

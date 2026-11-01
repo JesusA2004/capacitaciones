@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { useAlertas } from '@/composables/useAlertas';
 import { dashboard } from '@/routes';
 import { index as indexMaestros } from '@/routes/rh/documentos-maestros';
@@ -29,6 +30,8 @@ import {
     update,
 } from '@/routes/rh/documentos-maestros/fondos';
 import type { FondoDocumento, PresetLayout } from '@/types';
+
+const accion = useAccionEnCurso();
 
 /**
  * Biblioteca de fondos de página de los documentos maestros. Un fondo en
@@ -140,11 +143,13 @@ async function alternarActivo(f: FondoDocumento) {
         return;
     }
 
-    router.put(
-        update.url(f.id),
-        { activo: !f.activo },
-        { preserveScroll: true },
-    );
+    accion.ejecutar('alternarActivo', (estado) => {
+        router.put(
+            update.url(f.id),
+            { activo: !f.activo },
+            { ...estado, preserveScroll: true },
+        );
+    });
 }
 
 // --- Reemplazo (versión nueva) -----------------------------------------------
@@ -175,11 +180,13 @@ async function alElegirArchivo(evento: Event) {
         return;
     }
 
-    router.post(
-        reemplazar.url(f.id),
-        { archivo },
-        { forceFormData: true, preserveScroll: true },
-    );
+    accion.ejecutar('alElegirArchivo', (estado) => {
+        router.post(
+            reemplazar.url(f.id),
+            { archivo },
+            { forceFormData: true, ...estado, preserveScroll: true },
+        );
+    });
 }
 
 async function eliminar(f: FondoDocumento) {
@@ -187,7 +194,9 @@ async function eliminar(f: FondoDocumento) {
         return;
     }
 
-    router.delete(destroy.url(f.id), { preserveScroll: true });
+    accion.ejecutar('eliminar', (estado) => {
+        router.delete(destroy.url(f.id), { ...estado, preserveScroll: true });
+    });
 }
 </script>
 
@@ -275,6 +284,7 @@ async function eliminar(f: FondoDocumento) {
                         Reemplazar
                     </Button>
                     <Button
+                        :disabled="accion.ocupado.value"
                         size="sm"
                         variant="ghost"
                         @click="alternarActivo(f)"
@@ -283,6 +293,7 @@ async function eliminar(f: FondoDocumento) {
                         {{ f.activo ? 'Desactivar' : 'Activar' }}
                     </Button>
                     <Button
+                        :disabled="accion.ocupado.value"
                         v-if="f.puede_eliminar"
                         size="sm"
                         variant="ghost"

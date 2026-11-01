@@ -57,6 +57,7 @@ import {
 } from '@/lib/archivosCandidato';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
+import { show as candidatoShow } from '@/routes/rh/candidatos';
 import {
     autorizar,
     contratacion,
@@ -116,7 +117,7 @@ const procesoEsEstaFicha = computed(
     () =>
         !!props.cadenaContratacion?.proceso_url &&
         props.cadenaContratacion.proceso_url.includes(
-            `/rh/candidatos/${props.candidato.id}`,
+            candidatoShow.url(props.candidato.id),
         ),
 );
 
@@ -1739,7 +1740,7 @@ function fecha(valor: string | null): string {
                                 ? 'destructive'
                                 : 'default'
                         "
-                        >Confirmar</Button
+                        >{{ accionActiva?.etiqueta ?? 'Guardar' }}</Button
                     >
                 </DialogFooter>
             </form>
@@ -1764,7 +1765,7 @@ function fecha(valor: string | null): string {
                 <DialogTitle>{{
                     decisionIntervencion?.aprueba
                         ? 'Aprobar intervención'
-                        : 'Confirmar rechazo'
+                        : 'Rechazar intervención'
                 }}</DialogTitle>
                 <DialogDescription>
                     {{ candidato.nombre_completo }} ·
@@ -1791,7 +1792,11 @@ function fecha(valor: string | null): string {
                     "
                     :disabled="formDecision.processing"
                     @click="enviarDecision"
-                    >Confirmar</Button
+                    >{{
+                        decisionIntervencion?.aprueba
+                            ? 'Aprobar intervención'
+                            : 'Rechazar intervención'
+                    }}</Button
                 >
             </DialogFooter>
         </DialogContent>

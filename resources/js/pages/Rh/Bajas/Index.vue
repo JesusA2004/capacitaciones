@@ -557,7 +557,7 @@ function avance(b: FilaBaja): string {
                                                             b.id,
                                                         )
                                                     "
-                                                    >Abrir<ArrowRight
+                                                    >Abrir baja<ArrowRight
                                                         class="size-3.5"
                                                 /></Link>
                                             </Button>

@@ -25,6 +25,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import { index as indexMaestros } from '@/routes/rh/documentos-maestros';
@@ -42,6 +43,8 @@ import type {
     RecursoDocumento,
     VersionPlantillaAdministrativa,
 } from '@/types';
+
+const accion = useAccionEnCurso();
 
 /**
  * Editor VISUAL del diseño de un documento administrativo (página,
@@ -169,11 +172,13 @@ function insertarEnPie(placeholder: string) {
 }
 
 function iniciarBorrador(): void {
-    router.post(
-        crearBorrador.url(props.familia.clave),
-        {},
-        { preserveScroll: true },
-    );
+    accion.ejecutar('iniciarBorrador', (estado) => {
+        router.post(
+            crearBorrador.url(props.familia.clave),
+            {},
+            { ...estado, preserveScroll: true },
+        );
+    });
 }
 
 function guardarBorrador(onExito?: () => void): void {
@@ -200,7 +205,9 @@ function guardarBorrador(onExito?: () => void): void {
 }
 
 function activarVersion(id: number): void {
-    router.post(activar.url(id), {}, { preserveScroll: true });
+    accion.ejecutar('activarVersion', (estado) => {
+        router.post(activar.url(id), {}, { ...estado, preserveScroll: true });
+    });
 }
 
 function activarBorrador(): void {
@@ -213,9 +220,14 @@ function activarBorrador(): void {
 }
 
 function descartarBorrador(): void {
-    if (props.borrador) {
-        router.delete(descartar.url(props.borrador.id), {
-            preserveScroll: true,
+    const borrador = props.borrador;
+
+    if (borrador) {
+        accion.ejecutar('descartarBorrador', (estado) => {
+            router.delete(descartar.url(borrador.id), {
+                ...estado,
+                preserveScroll: true,
+            });
         });
     }
 }
@@ -270,7 +282,11 @@ const claseCampo =
                     Guardar y activar
                 </Button>
             </template>
-            <Button v-else @click="iniciarBorrador">
+            <Button
+                :disabled="accion.ocupado.value"
+                v-else
+                @click="iniciarBorrador"
+            >
                 <FilePlus2 class="size-4" />
                 Editar (crear borrador)
             </Button>
@@ -1100,6 +1116,7 @@ const claseCampo =
                         Guardar y generar vista previa
                     </Button>
                     <Button
+                        :disabled="accion.ocupado.value"
                         variant="ghost"
                         class="text-destructive"
                         @click="descartarBorrador"
@@ -1169,6 +1186,7 @@ const claseCampo =
                             >
                         </Button>
                         <Button
+                            :disabled="accion.ocupado.value"
                             v-if="puedeEditar && v.estado === 'archivada'"
                             size="sm"
                             variant="outline"

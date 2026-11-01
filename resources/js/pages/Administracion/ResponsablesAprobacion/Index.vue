@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { useAlertas } from '@/composables/useAlertas';
 import { formatearFechaHora } from '@/lib/fechas';
 import {
@@ -33,6 +34,8 @@ import {
     index,
     store,
 } from '@/routes/administracion/responsables-aprobacion';
+
+const accion = useAccionEnCurso();
 
 /**
  * Organización → Responsables de aprobación. Separa «a quién reporta»
@@ -188,7 +191,12 @@ async function quitar(regla: Regla): Promise<void> {
         return;
     }
 
-    router.delete(destroy.url(regla.id), { preserveScroll: true });
+    accion.ejecutar('quitar', (estado) => {
+        router.delete(destroy.url(regla.id), {
+            ...estado,
+            preserveScroll: true,
+        });
+    });
 }
 
 const ORIGEN_CLASE: Record<string, string> = {
@@ -316,6 +324,7 @@ const ORIGEN_CLASE: Record<string, string> = {
                             </p>
                         </div>
                         <Button
+                            :disabled="accion.ocupado.value"
                             v-if="puedeEditar"
                             variant="ghost"
                             size="icon"

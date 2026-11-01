@@ -1519,7 +1519,7 @@ const etiquetaFecha: Record<string, string> = {
                                 ? 'destructive'
                                 : 'default'
                         "
-                        >Confirmar</Button
+                        >{{ accion?.etiqueta ?? 'Guardar' }}</Button
                     >
                 </DialogFooter>
             </form>

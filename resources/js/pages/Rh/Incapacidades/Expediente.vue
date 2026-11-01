@@ -283,7 +283,7 @@ function enviarCancelacion() {
                                             target="_blank"
                                             rel="noopener"
                                             class="text-primary hover:underline"
-                                            >Ver</a
+                                            >Ver documento</a
                                         >
                                         <span v-else class="text-success"
                                             >Cargado ✓</span
@@ -379,7 +379,7 @@ function enviarCancelacion() {
                                 "
                                 target="_blank"
                                 rel="noopener"
-                                >Ver</a
+                                >Ver comprobante</a
                             >
                         </Button>
                         <Button

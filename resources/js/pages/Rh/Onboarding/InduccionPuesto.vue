@@ -26,6 +26,7 @@ import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue
 import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useAlertas } from '@/composables/useAlertas';
 import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 import { formatearFecha } from '@/lib/fechas';
 import type { Tono } from '@/lib/tonos';
@@ -38,6 +39,8 @@ import {
     store,
 } from '@/routes/rh/onboarding/descriptivo-puesto/asignaciones';
 import type { DescriptivoPuestoColaborador } from '@/types';
+
+const alertas = useAlertas();
 
 /**
  * «Inducción al puesto» (3 · Onboarding): el descriptivo OFICIAL del puesto
@@ -146,7 +149,7 @@ function verPdf(fila: Fila) {
     verVistaPrevia.value = true;
 }
 
-watch(verVistaPrevia, (abierto) => {
+watch(verVistaPrevia, async (abierto) => {
     if (abierto) {
         return;
     }
@@ -156,9 +159,11 @@ watch(verVistaPrevia, (abierto) => {
 
     if (
         fila &&
-        window.confirm(
-            `¿Enviar «${fila.vista_previa?.nombre ?? 'el descriptivo'}» a ${fila.colaborador.nombre}? Es exactamente lo que acabas de revisar.`,
-        )
+        (await alertas.confirmarAccion(
+            `¿Enviar «${fila.vista_previa?.nombre ?? 'el descriptivo'}» a ${fila.colaborador.nombre}?`,
+            'Es exactamente lo que acabas de revisar.',
+            'Enviar descriptivo',
+        ))
     ) {
         enviarDirecto(fila);
     }

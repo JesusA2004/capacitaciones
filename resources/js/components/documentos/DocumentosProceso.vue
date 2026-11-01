@@ -1133,7 +1133,7 @@ async function confirmarBaja() {
                         v-if="ocupado !== null"
                         class="size-4 animate-spin"
                     />
-                    Confirmar
+                    {{ paso ? tituloPaso[paso.accion] : 'Guardar paso' }}
                 </Button>
             </DialogFooter>
         </DialogContent>

@@ -109,6 +109,7 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import VacacionesAntiguedad from '@/components/Vacaciones/VacacionesAntiguedad.vue';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { useAlertas } from '@/composables/useAlertas';
 import { formatearFecha } from '@/lib/fechas';
 import { vistaPreviaPost } from '@/lib/http';
@@ -152,6 +153,8 @@ import type {
     SolicitudExpedienteItem,
     SolicitudVacacionesItem,
 } from '@/types';
+
+const accion = useAccionEnCurso();
 
 /** Movimientos del préstamo en español (el reverso compensa un recibo cancelado). */
 const ETIQUETA_MOVIMIENTO: Record<PrestamoMovimientoTipo, string> = {
@@ -283,17 +286,20 @@ function subirAcuseImss(evento: Event) {
 const { mostrarExito, mostrarError, confirmarEliminacion } = useAlertas();
 
 function reactivarColaborador() {
-    router.post(
-        reactivar.url(props.colaborador.id),
-        {},
-        {
-            preserveScroll: true,
-            onSuccess: () =>
-                mostrarExito('Colaborador reactivado correctamente.'),
-            onError: () =>
-                mostrarError('No fue posible reactivar al colaborador.'),
-        },
-    );
+    accion.ejecutar('reactivarColaborador', (estado) => {
+        router.post(
+            reactivar.url(props.colaborador.id),
+            {},
+            {
+                ...estado,
+                preserveScroll: true,
+                onSuccess: () =>
+                    mostrarExito('Colaborador reactivado correctamente.'),
+                onError: () =>
+                    mostrarError('No fue posible reactivar al colaborador.'),
+            },
+        );
+    });
 }
 
 async function darDeBajaColaborador() {
@@ -305,49 +311,63 @@ async function darDeBajaColaborador() {
         return;
     }
 
-    router.delete(darDeBaja.url(props.colaborador.id), {
-        preserveScroll: true,
-        onSuccess: () =>
-            mostrarExito('El colaborador se dio de baja correctamente.'),
-        onError: () =>
-            mostrarError('No fue posible dar de baja al colaborador.'),
+    accion.ejecutar('darDeBajaColaborador', (estado) => {
+        router.delete(darDeBaja.url(props.colaborador.id), {
+            ...estado,
+            preserveScroll: true,
+            onSuccess: () =>
+                mostrarExito('El colaborador se dio de baja correctamente.'),
+            onError: () =>
+                mostrarError('No fue posible dar de baja al colaborador.'),
+        });
     });
 }
 
 function revocarAccesoColaborador() {
-    if (props.colaborador.usuario_id === null) {
+    const usuarioId = props.colaborador.usuario_id;
+
+    if (usuarioId === null) {
         return;
     }
 
-    router.post(
-        revocarAcceso.url(props.colaborador.usuario_id),
-        {},
-        {
-            preserveScroll: true,
-            onSuccess: () =>
-                mostrarExito(
-                    'Acceso revocado. El colaborador sigue activo en la plantilla.',
-                ),
-            onError: () => mostrarError('No fue posible revocar el acceso.'),
-        },
-    );
+    accion.ejecutar('revocarAccesoColaborador', (estado) => {
+        router.post(
+            revocarAcceso.url(usuarioId),
+            {},
+            {
+                ...estado,
+                preserveScroll: true,
+                onSuccess: () =>
+                    mostrarExito(
+                        'Acceso revocado. El colaborador sigue activo en la plantilla.',
+                    ),
+                onError: () =>
+                    mostrarError('No fue posible revocar el acceso.'),
+            },
+        );
+    });
 }
 
 function restablecerAccesoColaborador() {
-    if (props.colaborador.usuario_id === null) {
+    const usuarioId = props.colaborador.usuario_id;
+
+    if (usuarioId === null) {
         return;
     }
 
-    router.post(
-        restablecerAcceso.url(props.colaborador.usuario_id),
-        {},
-        {
-            preserveScroll: true,
-            onSuccess: () => mostrarExito('Acceso restablecido.'),
-            onError: () =>
-                mostrarError('No fue posible restablecer el acceso.'),
-        },
-    );
+    accion.ejecutar('restablecerAccesoColaborador', (estado) => {
+        router.post(
+            restablecerAcceso.url(usuarioId),
+            {},
+            {
+                ...estado,
+                preserveScroll: true,
+                onSuccess: () => mostrarExito('Acceso restablecido.'),
+                onError: () =>
+                    mostrarError('No fue posible restablecer el acceso.'),
+            },
+        );
+    });
 }
 
 const dialogoPasswordAbierto = ref(false);
@@ -936,6 +956,7 @@ function irACompletarExpediente() {
                         </Link>
                     </Button>
                     <Button
+                        :disabled="accion.ocupado.value"
                         v-if="
                             colaborador.estatus === 'inactivo' && puedeReactivar
                         "
@@ -2056,6 +2077,7 @@ function irACompletarExpediente() {
                                             Restablecer acceso
                                         </Button>
                                         <Button
+                                            :disabled="accion.ocupado.value"
                                             v-else
                                             size="sm"
                                             variant="outline"

@@ -23,6 +23,8 @@ import ChipEstado from '@/components/people/ChipEstado.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
+import { useAlertas } from '@/composables/useAlertas';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import rutasContactos, {
@@ -31,6 +33,10 @@ import rutasContactos, {
     show as mostrarImportacion,
 } from '@/routes/rh/contactos-emergencia';
 import type { RespuestaPaginada } from '@/types';
+
+const accion = useAccionEnCurso();
+
+const alertas = useAlertas();
 
 type ImportacionResumen = {
     id: number;
@@ -67,16 +73,23 @@ const form = useForm<{ archivo: File[] }>({ archivo: [] });
 const verColumnas = ref(false);
 
 /** Solo las no aplicadas: las aplicadas son el historial de lo que cambió. */
-function quitar(i: ImportacionResumen) {
+async function quitar(i: ImportacionResumen) {
     if (
-        !window.confirm(
-            `¿Quitar «${i.nombre_archivo}»? No se aplicó, así que no cambió nada de ningún colaborador.`,
-        )
+        !(await alertas.confirmarDelicada(
+            `¿Quitar «${i.nombre_archivo}»?`,
+            'No se aplicó, así que no cambió nada de ningún colaborador.',
+            'Quitar archivo',
+        ))
     ) {
         return;
     }
 
-    router.delete(quitarImportacion.url(i.id), { preserveScroll: true });
+    accion.ejecutar('quitar', (estado) => {
+        router.delete(quitarImportacion.url(i.id), {
+            ...estado,
+            preserveScroll: true,
+        });
+    });
 }
 
 function analizar() {
@@ -311,6 +324,7 @@ function analizar() {
                                 </Link>
                             </Button>
                             <Button
+                                :disabled="accion.ocupado.value"
                                 v-if="i.estado !== 'aplicado'"
                                 variant="outline-destructive"
                                 class="h-10"

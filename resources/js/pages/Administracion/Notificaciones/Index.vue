@@ -4,6 +4,7 @@ import { Bell, BellOff, Check, CheckCheck, ExternalLink } from '@lucide/vue';
 import { computed } from 'vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import { Button } from '@/components/ui/button';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 import { dashboard } from '@/routes';
 import {
@@ -12,6 +13,8 @@ import {
     leerTodas,
     leida,
 } from '@/routes/administracion/notificaciones-sistema';
+
+const accion = useAccionEnCurso();
 
 /**
  * Módulo «Notificaciones»: tus avisos con «Marcar como leída», «Marcar
@@ -71,7 +74,9 @@ function marcarLeida(fila: Fila) {
 }
 
 function marcarTodas() {
-    router.post(leerTodas.url(), {}, { preserveScroll: true });
+    accion.ejecutar('marcarTodas', (estado) => {
+        router.post(leerTodas.url(), {}, { ...estado, preserveScroll: true });
+    });
 }
 
 function ir(fila: Fila) {
@@ -139,6 +144,7 @@ function hace(valor: string | null): string {
             </div>
 
             <Button
+                :disabled="accion.ocupado.value"
                 v-if="noLeidas > 0"
                 class="gap-2"
                 data-accion="marcar-todas"
@@ -265,7 +271,7 @@ function hace(valor: string | null): string {
                     </Button>
                     <Button size="sm" class="gap-1.5" @click="ir(fila)">
                         <ExternalLink class="size-4" />
-                        Ir
+                        Abrir notificación
                     </Button>
                 </div>
             </li>

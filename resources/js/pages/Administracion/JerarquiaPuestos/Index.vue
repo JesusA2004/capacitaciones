@@ -53,6 +53,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { formatearFecha } from '@/lib/fechas';
@@ -87,6 +88,8 @@ import type {
     RegionOrganigrama,
     SeccionOrganigrama,
 } from '@/types';
+
+const accion = useAccionEnCurso();
 
 const props = defineProps<{
     puestos: PuestoJerarquiaItem[];
@@ -343,11 +346,15 @@ async function terminarCobertura(nodo: NodoOrganigramaPersona): Promise<void> {
     );
 
     if (confirmado) {
-        router.post(
-            finalizarCobertura.url(nodo.cobertura.id),
-            {},
-            { preserveScroll: true },
-        );
+        const coberturaId = nodo.cobertura.id;
+
+        accion.ejecutar('terminarCobertura', (estado) => {
+            router.post(
+                finalizarCobertura.url(coberturaId),
+                {},
+                { ...estado, preserveScroll: true },
+            );
+        });
     }
 }
 
@@ -389,15 +396,19 @@ async function quitarRelacion(puesto: PuestoJerarquiaItem) {
         return;
     }
 
-    router.put(
-        actualizar.url(puesto.id),
-        { puesto_superior_id: null },
-        {
-            preserveScroll: true,
-            onSuccess: () => mostrarExito('Se quitó la relación jerárquica.'),
-            onError: () => mostrarError('No se pudo quitar la relación.'),
-        },
-    );
+    accion.ejecutar('quitarRelacion', (estado) => {
+        router.put(
+            actualizar.url(puesto.id),
+            { puesto_superior_id: null },
+            {
+                ...estado,
+                preserveScroll: true,
+                onSuccess: () =>
+                    mostrarExito('Se quitó la relación jerárquica.'),
+                onError: () => mostrarError('No se pudo quitar la relación.'),
+            },
+        );
+    });
 }
 
 const historial = ref<PuestoHistorialResponse | null>(null);

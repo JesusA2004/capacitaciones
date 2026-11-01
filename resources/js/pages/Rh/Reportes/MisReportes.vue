@@ -19,6 +19,8 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PanelColumnasArrastre from '@/components/reportes/PanelColumnasArrastre.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
+import { useAlertas } from '@/composables/useAlertas';
 import {
     enviarJson,
     ErrorSolicitud,
@@ -50,6 +52,10 @@ import type {
     ReporteGuardadoResumen,
     VistaPreviaReporte,
 } from '@/types/misReportes';
+
+const accion = useAccionEnCurso();
+
+const alertas = useAlertas();
 
 const props = defineProps<{
     fuentes: FuenteReporte[];
@@ -295,9 +301,17 @@ function guardar() {
     }
 }
 
-function eliminar(id: number, titulo: string) {
-    if (window.confirm(`¿Eliminar el reporte «${titulo}»?`)) {
-        router.delete(destroy.url(id));
+async function eliminar(id: number, titulo: string) {
+    if (
+        await alertas.confirmarDelicada(
+            `¿Eliminar el reporte «${titulo}»?`,
+            'Se quita de tus reportes guardados.',
+            'Eliminar reporte',
+        )
+    ) {
+        accion.ejecutar('eliminar', (estado) => {
+            router.delete(destroy.url(id), { ...estado, preserveScroll: true });
+        });
     }
 }
 

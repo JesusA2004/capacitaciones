@@ -100,6 +100,8 @@ import type {
     VariableEditor,
 } from '@/types';
 
+const alertas = useAlertas();
+
 /**
  * Editor visual NO-CODE de una versión de documento maestro: RH ve el
  * documento real, asigna/confirma qué dato va en cada espacio, prueba con
@@ -565,18 +567,29 @@ const estadoGuardado = computed(() => {
 });
 
 // No perder cambios al salir: navegación Inertia y cierre/recarga del navegador.
+// `before` es síncrono: se detiene la visita y se retoma si la persona confirma.
+let salidaConfirmada = false;
 const quitarAvisoInertia = router.on('before', (evento) => {
-    const metodo = evento.detail.visit.method;
+    const visita = evento.detail.visit;
 
-    if (
-        sucio.value &&
-        metodo === 'get' &&
-        !window.confirm(
-            'Hay cambios sin guardar en este formato. ¿Salir de todos modos?',
-        )
-    ) {
-        return false;
+    if (salidaConfirmada || !sucio.value || visita.method !== 'get') {
+        return;
     }
+
+    void alertas
+        .confirmarDelicada(
+            '¿Salir sin guardar?',
+            'Hay cambios sin guardar en este formato.',
+            'Salir sin guardar',
+        )
+        .then((confirmado) => {
+            if (confirmado) {
+                salidaConfirmada = true;
+                router.visit(visita.url.href);
+            }
+        });
+
+    return false;
 });
 useEventListener(window, 'beforeunload', (e: BeforeUnloadEvent) => {
     if (sucio.value) {

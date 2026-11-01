@@ -13,6 +13,8 @@ import InputError from '@/components/InputError.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
+import { useAlertas } from '@/composables/useAlertas';
 import { formatearFechaHora } from '@/lib/fechas';
 import documentosBaja from '@/routes/rh/bajas/documentos';
 import type {
@@ -21,6 +23,10 @@ import type {
     EspacioDocumentoBaja,
     LimitesBaja,
 } from '@/types';
+
+const accion = useAccionEnCurso();
+
+const alertas = useAlertas();
 
 /**
  * Bloque 4 de la baja: un espacio por documento requerido (los de la forma
@@ -114,21 +120,29 @@ function adjuntar(espacio: EspacioDocumentoBaja, evento: Event) {
     );
 }
 
-function quitar(archivo: ArchivoBaja) {
+async function quitar(archivo: ArchivoBaja) {
+    const bajaId = props.bajaId;
+
     if (
-        props.bajaId === null ||
-        !window.confirm(`¿Quitar «${archivo.nombre_original}» de la baja?`)
+        bajaId === null ||
+        !(await alertas.confirmarDelicada(
+            `¿Quitar «${archivo.nombre_original}» de la baja?`,
+            'El documento dejará de aparecer en esta baja.',
+            'Quitar documento',
+        ))
     ) {
         return;
     }
 
-    router.delete(
-        documentosBaja.destroy.url({
-            baja: props.bajaId,
-            documento: archivo.id,
-        }),
-        { preserveScroll: true },
-    );
+    accion.ejecutar('quitar', (estado) => {
+        router.delete(
+            documentosBaja.destroy.url({
+                baja: bajaId,
+                documento: archivo.id,
+            }),
+            { ...estado, preserveScroll: true },
+        );
+    });
 }
 </script>
 
@@ -214,9 +228,10 @@ function quitar(archivo: ArchivoBaja) {
                         variant="ghost"
                         type="button"
                         @click="ver(a)"
-                        ><Eye class="size-4" />Ver</Button
+                        ><Eye class="size-4" />Ver documento</Button
                     >
                     <Button
+                        :disabled="accion.ocupado.value"
                         v-if="puedeAdjuntar"
                         size="icon"
                         variant="ghost"

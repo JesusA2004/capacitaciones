@@ -21,6 +21,8 @@ import AsignarInduccionDialog from '@/components/onboarding/AsignarInduccionDial
 import MiInduccionTarjeta from '@/components/onboarding/MiInduccionTarjeta.vue';
 import VisorInduccionColaborador from '@/components/onboarding/VisorInduccionColaborador.vue';
 import { Button } from '@/components/ui/button';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
+import { useAlertas } from '@/composables/useAlertas';
 import { dashboard } from '@/routes';
 import { miProceso } from '@/routes/portal';
 import {
@@ -34,6 +36,10 @@ import type {
     MiInduccion,
     SesionInduccionPantalla,
 } from '@/types';
+
+const accion = useAccionEnCurso();
+
+const alertas = useAlertas();
 
 /**
  * Inducción Mr. Lana = el PDF OFICIAL (docs/onboarding), dibujado página por
@@ -145,14 +151,20 @@ function subirMaterial() {
     }
 }
 
-function retirarMaterial() {
+async function retirarMaterial() {
+    const rutas = props.rutasMaterial;
+
     if (
-        props.rutasMaterial &&
-        window.confirm(
-            '¿Retirar el material? Las personas solo verán las hojas.',
-        )
+        rutas &&
+        (await alertas.confirmarDelicada(
+            '¿Retirar el material?',
+            'Las personas solo verán las hojas.',
+            'Retirar material',
+        ))
     ) {
-        router.delete(props.rutasMaterial.destroy, { preserveScroll: true });
+        accion.ejecutar('retirarMaterial', (estado) => {
+            router.delete(rutas.destroy, { ...estado, preserveScroll: true });
+        });
     }
 }
 
@@ -377,6 +389,7 @@ const ESTADO_RECURSO: Record<string, string> = {
                                 <Upload class="size-4" /> Subir y activar
                             </Button>
                             <Button
+                                :disabled="accion.ocupado.value"
                                 v-if="materialRh"
                                 type="button"
                                 size="sm"

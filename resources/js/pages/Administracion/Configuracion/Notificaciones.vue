@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { etiquetaPermiso } from '@/lib/permisos';
 import { dashboard } from '@/routes';
 import { index as configuracionIndex } from '@/routes/administracion/configuracion';
@@ -27,6 +28,8 @@ import {
     update,
 } from '@/routes/administracion/configuracion/notificaciones';
 import type { ReglaNotificacion, SeccionConfiguracion } from '@/types';
+
+const accion = useAccionEnCurso();
 
 const props = defineProps<{
     reglas: ReglaNotificacion[];
@@ -98,7 +101,12 @@ function guardar() {
 }
 
 function restaurarRegla(regla: ReglaNotificacion) {
-    router.delete(restaurar.url(regla.evento), { preserveScroll: true });
+    accion.ejecutar('restaurarRegla', (estado) => {
+        router.delete(restaurar.url(regla.evento), {
+            ...estado,
+            preserveScroll: true,
+        });
+    });
 }
 
 // Acciones en lenguaje humano (nunca el nombre técnico del permiso),
@@ -176,6 +184,7 @@ const necesitaPermiso = () =>
                 </div>
                 <div v-if="puede?.notificaciones ?? true" class="flex gap-1">
                     <Button
+                        :disabled="accion.ocupado.value"
                         v-if="r.personalizada"
                         size="sm"
                         variant="ghost"

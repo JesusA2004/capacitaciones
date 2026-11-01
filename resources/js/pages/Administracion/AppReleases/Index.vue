@@ -21,6 +21,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { useAlertas } from '@/composables/useAlertas';
 import { dashboard } from '@/routes';
 import {
@@ -30,6 +31,8 @@ import {
     index,
     publicar,
 } from '@/routes/administracion/app-releases';
+
+const accion = useAccionEnCurso();
 
 type Release = {
     id: number;
@@ -99,11 +102,23 @@ async function publicarRelease(release: Release) {
         return;
     }
 
-    router.post(publicar.url(release.id), {}, { preserveScroll: true });
+    accion.ejecutar('publicarRelease', (estado) => {
+        router.post(
+            publicar.url(release.id),
+            {},
+            { ...estado, preserveScroll: true },
+        );
+    });
 }
 
 function despublicarRelease(release: Release) {
-    router.post(despublicar.url(release.id), {}, { preserveScroll: true });
+    accion.ejecutar('despublicarRelease', (estado) => {
+        router.post(
+            despublicar.url(release.id),
+            {},
+            { ...estado, preserveScroll: true },
+        );
+    });
 }
 
 async function eliminarRelease(release: Release) {
@@ -115,7 +130,12 @@ async function eliminarRelease(release: Release) {
         return;
     }
 
-    router.delete(destroy.url(release.id), { preserveScroll: true });
+    accion.ejecutar('eliminarRelease', (estado) => {
+        router.delete(destroy.url(release.id), {
+            ...estado,
+            preserveScroll: true,
+        });
+    });
 }
 </script>
 
@@ -255,6 +275,7 @@ async function eliminarRelease(release: Release) {
                                     </a>
                                 </Button>
                                 <Button
+                                    :disabled="accion.ocupado.value"
                                     v-if="
                                         permisos.publicar &&
                                         !release.is_published
@@ -266,6 +287,7 @@ async function eliminarRelease(release: Release) {
                                     Publicar
                                 </Button>
                                 <Button
+                                    :disabled="accion.ocupado.value"
                                     v-if="
                                         permisos.publicar &&
                                         release.is_published
@@ -277,6 +299,7 @@ async function eliminarRelease(release: Release) {
                                     Despublicar
                                 </Button>
                                 <Button
+                                    :disabled="accion.ocupado.value"
                                     v-if="permisos.eliminar"
                                     size="icon"
                                     variant="ghost"

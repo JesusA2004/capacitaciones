@@ -434,7 +434,7 @@ function enviarRetro(url: string) {
                         >
                             <Spinner v-if="enviando" />
                             <Send v-else class="size-4" />
-                            Enviar
+                            Enviar retroalimentación
                         </Button>
                     </div>
                 </form>
@@ -532,7 +532,7 @@ function enviarRetro(url: string) {
                                     >
                                         <Spinner v-if="enviando" />
                                         <Send v-else class="size-4" />
-                                        Enviar
+                                        Enviar retroalimentación
                                     </Button>
                                 </div>
                             </form>

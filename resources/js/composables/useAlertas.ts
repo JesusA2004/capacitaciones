@@ -2,8 +2,8 @@ import Swal from 'sweetalert2';
 import { avisarExito } from '@/lib/flashToast';
 
 const base = Swal.mixin({
-    confirmButtonColor: '#0d3e43',
-    cancelButtonColor: '#6b7280',
+    confirmButtonColor: 'var(--primary)',
+    cancelButtonColor: 'var(--muted-foreground)',
     reverseButtons: true,
     focusCancel: true,
     buttonsStyling: true,
@@ -206,8 +206,28 @@ export function useAlertas() {
         return confirmar({ icono: 'question', titulo, texto, confirmarTexto });
     }
 
+    /** Acción difícil de revertir: mismo diálogo, con botón de peligro. */
+    async function confirmarDelicada(
+        titulo: string,
+        texto: string,
+        confirmarTexto: string,
+    ): Promise<boolean> {
+        const resultado = await base.fire({
+            icon: 'warning',
+            title: titulo,
+            text: texto,
+            showCancelButton: true,
+            confirmButtonText: confirmarTexto,
+            cancelButtonText: 'Volver',
+            confirmButtonColor: 'var(--destructive)',
+        });
+
+        return resultado.isConfirmed;
+    }
+
     return {
         confirmarAccion,
+        confirmarDelicada,
         confirmarFinCobertura,
         confirmarEliminacion,
         confirmarPublicacion,

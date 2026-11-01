@@ -165,8 +165,11 @@ test('retirar deja «Sin asignar» y cancela la reinducción; no se puede tras c
         'version' => '2026', 'estado' => EstadoEvaluacionInduccion::PendienteCalificacionRh,
     ]);
 
-    $this->actingAs($this->rh)->delete(route('rh.onboarding.induccion.asignaciones.destroy', $ana->colaborador_id))
+    $this->actingAs($this->rh)->delete(route('rh.onboarding.induccion.asignaciones.destroy', $ana->colaborador_id), ['motivo' => 'Se asignó por error'])
         ->assertSessionHasErrors('colaborador');
+
+    $this->actingAs($this->rh)->delete(route('rh.onboarding.induccion.asignaciones.destroy', $ana->colaborador_id))
+        ->assertSessionHasErrors('motivo');
 });
 
 test('por sucursal solo asigna dentro del alcance y omite a quien ya la aprobó', function () {

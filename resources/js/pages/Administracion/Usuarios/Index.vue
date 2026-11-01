@@ -39,6 +39,7 @@ import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { dashboard } from '@/routes';
@@ -49,6 +50,8 @@ import {
 } from '@/routes/administracion/usuarios';
 import type { UsuarioItem } from '@/types';
 import type { RespuestaPaginada } from '@/types';
+
+const accion = useAccionEnCurso();
 
 const props = defineProps<{
     usuarios: RespuestaPaginada<UsuarioItem>;
@@ -204,16 +207,19 @@ const tonoLaboral: Record<string, string> = {
 };
 
 function restablecer(usuario: UsuarioItem) {
-    router.post(
-        restablecerAcceso.url(usuario.id),
-        {},
-        {
-            preserveScroll: true,
-            onSuccess: () => mostrarExito('Acceso restablecido.'),
-            onError: () =>
-                mostrarError('No fue posible restablecer el acceso.'),
-        },
-    );
+    accion.ejecutar('restablecer', (estado) => {
+        router.post(
+            restablecerAcceso.url(usuario.id),
+            {},
+            {
+                ...estado,
+                preserveScroll: true,
+                onSuccess: () => mostrarExito('Acceso restablecido.'),
+                onError: () =>
+                    mostrarError('No fue posible restablecer el acceso.'),
+            },
+        );
+    });
 }
 </script>
 

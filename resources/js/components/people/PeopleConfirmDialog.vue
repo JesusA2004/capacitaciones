@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { AlertTriangle } from '@lucide/vue';
 import { computed } from 'vue';
+import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import type { ButtonVariants } from '@/components/ui/button';
 import {
@@ -36,6 +37,8 @@ const props = withDefaults(
         comentarioLabel?: string;
         comentarioPlaceholder?: string;
         comentarioModelValue?: string;
+        comentarioError?: string;
+        comentarioMaximo?: number;
         destructivo?: boolean;
         cargando?: boolean;
         textoConfirmar?: string;
@@ -47,6 +50,8 @@ const props = withDefaults(
         comentarioLabel: 'Comentario',
         comentarioPlaceholder: 'Explica el motivo…',
         comentarioModelValue: '',
+        comentarioError: '',
+        comentarioMaximo: undefined,
         destructivo: false,
         cargando: false,
         textoConfirmar: 'Confirmar',
@@ -116,10 +121,13 @@ function confirmar() {
                     :model-value="comentarioModelValue"
                     :placeholder="comentarioPlaceholder"
                     rows="3"
+                    :maxlength="comentarioMaximo"
+                    :aria-invalid="comentarioError !== '' || undefined"
                     @update:model-value="
                         (v) => emit('update:comentarioModelValue', String(v))
                     "
                 />
+                <InputError :message="comentarioError" />
             </div>
 
             <DialogFooter>

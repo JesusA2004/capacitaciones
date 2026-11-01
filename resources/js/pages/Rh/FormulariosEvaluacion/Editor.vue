@@ -841,9 +841,23 @@ const campoTitulo =
                     :contenido="contenidoInduccion"
                 >
                     <template #acciones>
-                        <Button type="button" size="lg" class="w-fit" disabled>
-                            Enviar evaluación
-                        </Button>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <Button
+                                type="button"
+                                size="lg"
+                                class="w-fit"
+                                disabled
+                                aria-describedby="envio-solo-vista-previa"
+                            >
+                                Enviar evaluación
+                            </Button>
+                            <p
+                                id="envio-solo-vista-previa"
+                                class="text-sm text-muted-foreground"
+                            >
+                                Solo vista previa: aquí no se envía.
+                            </p>
+                        </div>
                     </template>
                 </FormularioInduccion>
                 <FormularioPeriodoPrueba

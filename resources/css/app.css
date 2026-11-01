@@ -524,6 +524,14 @@
     --semaforo-baja: #1fa774;
     --semaforo-ambar: #d99a1e;
 
+    /* Login: la única pantalla oscura, con la marca fuerte. */
+    --login-petroleo: #0d3e43;
+    --login-petroleo-medio: #174a4a;
+    --login-verde: #225c54;
+    --login-bosque: #2f5937;
+    --login-oro: #af8b51;
+    --login-crema: #e9d6b0;
+
     --brand-primary: var(--pastel-petroleo);
     --brand-secondary: var(--pastel-oro);
     --brand-foreground: #fffdf9;
@@ -689,6 +697,32 @@
     }
 }
 
+/* Diálogos de useAlertas (SweetAlert2) con la superficie y forma del portal. */
+.swal2-popup {
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--popover);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+}
+
+.swal2-popup .swal2-title {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+.swal2-popup .swal2-html-container {
+    font-size: 0.9375rem;
+    color: var(--muted-foreground);
+}
+
+.swal2-popup .swal2-styled {
+    border-radius: 0.625rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
 /* <ListaAnimada>: filas que entran, salen y se reacomodan. */
 .lista-animada-enter-active {
     transition:
@@ -731,6 +765,28 @@
 
 .cambio-suave-leave-to {
     opacity: 0;
+}
+
+/* Botón cuya acción sigue en curso (lib/accionesEnCurso.ts). Si ya pinta su
+   propio spinner, no se dibuja otro. */
+[data-accion-en-curso] {
+    position: relative;
+    cursor: progress;
+    opacity: 0.8;
+    pointer-events: none;
+}
+
+[data-accion-en-curso]:not(:has(.animate-spin))::after {
+    content: '';
+    position: absolute;
+    top: calc(50% - 0.4375rem);
+    right: 0.3rem;
+    width: 0.875rem;
+    height: 0.875rem;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 999px;
+    animation: spin 700ms linear infinite;
 }
 
 /* Filtrar o paginar: toda tabla del portal se atenúa mientras espera. */

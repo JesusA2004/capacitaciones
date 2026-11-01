@@ -20,10 +20,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { formatearFechaHora } from '@/lib/fechas';
 import { cn } from '@/lib/utils';
 import rutasSalida from '@/routes/rh/bajas/salida';
 import type { PanelDocumentoSalida } from '@/types';
+
+const accion = useAccionEnCurso();
 
 /**
  * «Generar documento de salida»: según la forma, carta de renuncia, convenio,
@@ -153,11 +156,13 @@ function subir(
 }
 
 function validarPlazo() {
-    router.post(
-        rutasSalida.plazo.url(props.panel.baja_id),
-        {},
-        { preserveScroll: true },
-    );
+    accion.ejecutar('validarPlazo', (estado) => {
+        router.post(
+            rutasSalida.plazo.url(props.panel.baja_id),
+            {},
+            { ...estado, preserveScroll: true },
+        );
+    });
 }
 </script>
 
@@ -413,6 +418,7 @@ function validarPlazo() {
                 {{ formatearFechaHora(panel.plazo.validado_en) }}
             </p>
             <Button
+                :disabled="accion.ocupado.value"
                 v-else-if="panel.puede_validar_plazo"
                 type="button"
                 size="sm"

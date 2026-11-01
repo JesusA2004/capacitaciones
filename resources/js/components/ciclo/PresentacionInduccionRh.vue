@@ -15,6 +15,8 @@ import EnvioDescriptivoPuestoRh from '@/components/ciclo/EnvioDescriptivoPuestoR
 import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
+import { useAlertas } from '@/composables/useAlertas';
 import {
     cancelar,
     colaboradores,
@@ -27,6 +29,10 @@ import type {
     EtapaSeguimientoInduccion,
     SesionInduccionPantalla,
 } from '@/types';
+
+const accion = useAccionEnCurso();
+
+const alertas = useAlertas();
 
 /**
  * Lado de RH de «Presentar inducción»: ANTES de presentar se elige a quién
@@ -100,12 +106,14 @@ function iniciar() {
     );
 }
 
-function enviarEvaluacion() {
+async function enviarEvaluacion() {
     if (
         !sesion.value ||
-        !window.confirm(
-            `¿Terminaste de presentar? Se enviará la evaluación a ${sesion.value.asistentes.length} colaborador(es) y les llegará el aviso en la app.`,
-        )
+        !(await alertas.confirmarAccion(
+            '¿Terminaste de presentar?',
+            `Se enviará la evaluación a ${sesion.value.asistentes.length} colaborador(es) y les llegará el aviso en la app.`,
+            'Enviar evaluación',
+        ))
     ) {
         return;
     }
@@ -118,17 +126,27 @@ function enviarEvaluacion() {
     );
 }
 
-function cancelarSesion() {
+async function cancelarSesion() {
+    const sesionId = sesion.value?.id;
+
     if (
-        !sesion.value ||
-        !window.confirm(
-            '¿Cancelar la sesión? No se enviará ninguna evaluación.',
-        )
+        sesionId === undefined ||
+        !(await alertas.confirmarDelicada(
+            '¿Cancelar la sesión?',
+            'No se enviará ninguna evaluación.',
+            'Cancelar sesión',
+        ))
     ) {
         return;
     }
 
-    router.post(cancelar.url(sesion.value.id), {}, { preserveScroll: true });
+    accion.ejecutar('cancelarSesion', (estado) => {
+        router.post(
+            cancelar.url(sesionId),
+            {},
+            { ...estado, preserveScroll: true },
+        );
+    });
 }
 
 const tonos: Record<EtapaSeguimientoInduccion, string> = {
@@ -162,7 +180,12 @@ function fecha(iso: string | null): string {
             >
         </div>
         <div class="flex gap-2">
-            <Button variant="outline" size="sm" @click="cancelarSesion">
+            <Button
+                :disabled="accion.ocupado.value"
+                variant="outline"
+                size="sm"
+                @click="cancelarSesion"
+            >
                 Cancelar sesión
             </Button>
             <Button size="sm" :disabled="procesando" @click="enviarEvaluacion">

@@ -60,8 +60,8 @@ class AsignacionOnboardingController extends Controller
 
     public function retirarInduccion(Request $request, Colaborador $colaborador): RedirectResponse
     {
-        $datos = $request->validate(['motivo' => ['nullable', 'string', 'max:500']]);
-        $this->induccion->retirar($colaborador, $request->user(), $datos['motivo'] ?? null);
+        $datos = $request->validate(['motivo' => ['required', 'string', 'min:3', 'max:500']]);
+        $this->induccion->retirar($colaborador, $request->user(), $datos['motivo']);
 
         return back()->with('toast', ['type' => 'success', 'message' => sprintf('Se retiró la inducción asignada a %s.', $colaborador->nombreCompleto())]);
     }

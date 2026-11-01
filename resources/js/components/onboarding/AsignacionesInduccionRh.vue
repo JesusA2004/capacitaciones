@@ -20,6 +20,7 @@ import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import AsignarInduccionDialog from '@/components/onboarding/AsignarInduccionDialog.vue';
 import ChipEstado from '@/components/people/ChipEstado.vue';
+import PeopleConfirmDialog from '@/components/people/PeopleConfirmDialog.vue';
 import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -150,19 +151,31 @@ function asignar(fila?: FilaAsignacionInduccion) {
     dialogo.value = true;
 }
 
-function retirar(fila: FilaAsignacionInduccion) {
-    const motivo = window.prompt(
-        `¿Retirar la inducción asignada a ${fila.colaborador.nombre}? Dejará de verla en Mi espacio${fila.induccion.es_reinduccion ? ' y se cancela su reinducción' : ''}. Motivo (opcional):`,
-        '',
-    );
+const porRetirar = ref<FilaAsignacionInduccion | null>(null);
+const motivoRetiro = ref('');
+const errorMotivo = ref('');
+const retirando = ref(false);
 
-    if (motivo === null) {
+function retirar(fila: FilaAsignacionInduccion) {
+    porRetirar.value = fila;
+    motivoRetiro.value = '';
+    errorMotivo.value = '';
+}
+
+function confirmarRetiro() {
+    const fila = porRetirar.value;
+
+    if (!fila) {
         return;
     }
 
     router.delete(retirarAsignacion.url(fila.colaborador.id), {
-        data: { motivo: motivo || null },
+        data: { motivo: motivoRetiro.value.trim() },
         preserveScroll: true,
+        onStart: () => (retirando.value = true),
+        onFinish: () => (retirando.value = false),
+        onSuccess: () => (porRetirar.value = null),
+        onError: (errores) => (errorMotivo.value = errores.motivo ?? ''),
     });
 }
 
@@ -368,6 +381,29 @@ defineExpose({ asignar });
             v-model:open="dialogo"
             :material="material"
             :preseleccion="preseleccion"
+        />
+
+        <PeopleConfirmDialog
+            :open="porRetirar !== null"
+            :titulo="`¿Retirar la inducción de ${porRetirar?.colaborador.nombre ?? ''}?`"
+            :descripcion="
+                porRetirar?.induccion.es_reinduccion
+                    ? 'Dejará de verla en Mi espacio y se cancela su reinducción.'
+                    : 'Dejará de verla en Mi espacio.'
+            "
+            pedir-comentario
+            comentario-label="Motivo"
+            comentario-placeholder="Ej. Se asignó por error."
+            :comentario-model-value="motivoRetiro"
+            :comentario-error="errorMotivo"
+            :comentario-maximo="500"
+            destructivo
+            :cargando="retirando"
+            texto-confirmar="Retirar inducción"
+            texto-cancelar="Volver"
+            @update:open="(v) => !v && (porRetirar = null)"
+            @update:comentario-model-value="(v) => (motivoRetiro = v)"
+            @confirm="confirmarRetiro"
         />
     </section>
 </template>

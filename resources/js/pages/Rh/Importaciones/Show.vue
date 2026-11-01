@@ -7,6 +7,7 @@ import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue
 import CrearColaboradorImportacionDialog from '@/components/Rh/CrearColaboradorImportacionDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useAlertas } from '@/composables/useAlertas';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import {
@@ -15,6 +16,8 @@ import {
 } from '@/routes/rh/importaciones';
 import { asignar, confirmar } from '@/routes/rh/importaciones/filas';
 import type { ColaboradorBusqueda } from '@/types';
+
+const alertas = useAlertas();
 
 type Sugerencia = { id: number; nombre: string; sucursal_id: number | null };
 type Opcion = { id: number; nombre: string };
@@ -147,11 +150,13 @@ const aplicables = computed(
 
 const form = useForm({});
 
-function confirmarAplicar() {
+async function confirmarAplicar() {
     if (
-        !window.confirm(
-            `¿Aplicar ${aplicables.value} fila(s)? Esta acción actualiza salarios y registra ajustes de vacaciones.`,
-        )
+        !(await alertas.confirmarDelicada(
+            `¿Aplicar ${aplicables.value} fila(s)?`,
+            'Esta acción actualiza salarios y registra ajustes de vacaciones.',
+            'Aplicar importación',
+        ))
     ) {
         return;
     }
@@ -172,8 +177,14 @@ function alternarResolver(fila: number) {
     filaAbierta.value = filaAbierta.value === fila ? null : fila;
 }
 
-function asignarSugerido(fila: number, sugerencia: Sugerencia) {
-    if (!window.confirm(`¿Asignar esta fila a «${sugerencia.nombre}»?`)) {
+async function asignarSugerido(fila: number, sugerencia: Sugerencia) {
+    if (
+        !(await alertas.confirmarAccion(
+            `¿Asignar esta fila a «${sugerencia.nombre}»?`,
+            'La fila quedará ligada a este colaborador.',
+            'Asignar fila',
+        ))
+    ) {
         return;
     }
 

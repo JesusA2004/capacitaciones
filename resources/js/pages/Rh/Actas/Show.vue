@@ -30,6 +30,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
+import { useAlertas } from '@/composables/useAlertas';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import {
@@ -48,6 +50,10 @@ import type {
     FormularioActa,
     PermisosActa,
 } from '@/types';
+
+const accion = useAccionEnCurso();
+
+const alertas = useAlertas();
 
 const props = defineProps<{
     acta: ActaDetalle;
@@ -243,16 +249,24 @@ function agregarNota() {
     });
 }
 
-function cerrarActa() {
+async function cerrarActa() {
     if (
-        !window.confirm(
-            '¿Cerrar el acta? Ya no se podrá generar de nuevo el formato; el seguimiento queda como historial.',
-        )
+        !(await alertas.confirmarDelicada(
+            '¿Cerrar el acta?',
+            'Ya no se podrá generar de nuevo el formato; el seguimiento queda como historial.',
+            'Cerrar acta',
+        ))
     ) {
         return;
     }
 
-    router.post(cerrar.url(props.acta.id), {}, { preserveScroll: true });
+    accion.ejecutar('cerrarActa', (estado) => {
+        router.post(
+            cerrar.url(props.acta.id),
+            {},
+            { ...estado, preserveScroll: true },
+        );
+    });
 }
 </script>
 
@@ -279,7 +293,7 @@ function cerrarActa() {
             </Button>
             <Button
                 v-if="permisos.cerrar && acta.estado !== 'borrador' && abierta"
-                :disabled="!!faltaParaCerrar"
+                :disabled="accion.ocupado.value || !!faltaParaCerrar"
                 :title="faltaParaCerrar ?? undefined"
                 @click="cerrarActa"
             >

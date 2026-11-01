@@ -4,6 +4,7 @@ import { ArrowLeft, Download, Trash2 } from '@lucide/vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { useAlertas } from '@/composables/useAlertas';
 import { dashboard } from '@/routes';
 import {
@@ -13,6 +14,8 @@ import {
     index,
     publicar,
 } from '@/routes/administracion/app-releases';
+
+const accion = useAccionEnCurso();
 
 type Release = {
     id: number;
@@ -54,15 +57,23 @@ async function publicarRelease() {
         return;
     }
 
-    router.post(publicar.url(props.release.id), {}, { preserveScroll: true });
+    accion.ejecutar('publicarRelease', (estado) => {
+        router.post(
+            publicar.url(props.release.id),
+            {},
+            { ...estado, preserveScroll: true },
+        );
+    });
 }
 
 function despublicarRelease() {
-    router.post(
-        despublicar.url(props.release.id),
-        {},
-        { preserveScroll: true },
-    );
+    accion.ejecutar('despublicarRelease', (estado) => {
+        router.post(
+            despublicar.url(props.release.id),
+            {},
+            { ...estado, preserveScroll: true },
+        );
+    });
 }
 
 async function eliminarRelease() {
@@ -70,8 +81,11 @@ async function eliminarRelease() {
         return;
     }
 
-    router.delete(destroy.url(props.release.id), {
-        onSuccess: () => router.visit(index.url()),
+    accion.ejecutar('eliminarRelease', (estado) => {
+        router.delete(destroy.url(props.release.id), {
+            ...estado,
+            onSuccess: () => router.visit(index.url()),
+        });
     });
 }
 </script>
@@ -152,18 +166,21 @@ async function eliminarRelease() {
                         </a>
                     </Button>
                     <Button
+                        :disabled="accion.ocupado.value"
                         v-if="permisos.publicar && !release.is_published"
                         variant="outline"
                         @click="publicarRelease"
                         >Publicar</Button
                     >
                     <Button
+                        :disabled="accion.ocupado.value"
                         v-if="permisos.publicar && release.is_published"
                         variant="outline"
                         @click="despublicarRelease"
                         >Despublicar</Button
                     >
                     <Button
+                        :disabled="accion.ocupado.value"
                         v-if="permisos.eliminar"
                         variant="outline"
                         class="text-destructive"

@@ -41,6 +41,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { useAlertas } from '@/composables/useAlertas';
 import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 import { dashboard } from '@/routes';
@@ -50,6 +51,8 @@ import {
     update as actualizarRecibo,
 } from '@/routes/rh/nomina/recibos';
 import type { EnlaceFlujo, RespuestaPaginada, SiguientePaso } from '@/types';
+
+const accion = useAccionEnCurso();
 
 /**
  * Recibos de nómina quincenales (docs/NOMINA_QUINCENAL.md): el sistema los
@@ -266,15 +269,20 @@ async function emitirUno(recibo: Recibo) {
         return;
     }
 
-    router.post(
-        emitirRecibo.url(recibo.id),
-        {},
-        {
-            preserveScroll: true,
-            onError: (errores) =>
-                toast.error(Object.values(errores)[0] ?? 'No se pudo emitir.'),
-        },
-    );
+    accion.ejecutar('emitirUno', (estado) => {
+        router.post(
+            emitirRecibo.url(recibo.id),
+            {},
+            {
+                ...estado,
+                preserveScroll: true,
+                onError: (errores) =>
+                    toast.error(
+                        Object.values(errores)[0] ?? 'No se pudo emitir.',
+                    ),
+            },
+        );
+    });
 }
 
 // Recibo emitido cuyo PDF falta: se recupera/regenera con los mismos montos.
@@ -756,6 +764,7 @@ const opcionesTipo = [
                                         Rectificado
                                     </span>
                                     <Button
+                                        :disabled="accion.ocupado.value"
                                         v-if="
                                             puedeEmitir &&
                                             recibo.estado === 'borrador'

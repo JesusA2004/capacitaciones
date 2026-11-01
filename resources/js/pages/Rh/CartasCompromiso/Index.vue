@@ -279,7 +279,7 @@ function textoPlazo(c: CartaCompromisoFila): string {
                             :aria-label="`Ver carta ${c.folio ?? ''}`"
                             @click="verCarta(c)"
                         >
-                            <Eye class="size-4" /> Ver
+                            <Eye class="size-4" /> Ver carta
                         </Button>
                     </div>
                 </li>

@@ -1093,7 +1093,7 @@ function confirmarMovimiento() {
                     @click="confirmarMovimiento"
                 >
                     <Spinner v-if="enviandoMovimiento" />
-                    Confirmar
+                    Mover solicitud
                 </Button>
             </DialogFooter>
         </DialogContent>

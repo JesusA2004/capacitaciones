@@ -17,6 +17,8 @@ import InputError from '@/components/InputError.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
+import { useAlertas } from '@/composables/useAlertas';
 import { VueApexCharts } from '@/lib/apexDiferido';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
@@ -28,6 +30,10 @@ import type {
     RotacionCargaResumen,
     RotacionTablero,
 } from '@/types';
+
+const accion = useAccionEnCurso();
+
+const alertas = useAlertas();
 
 const props = defineProps<{
     tablero: RotacionTablero;
@@ -164,16 +170,22 @@ function analizar() {
 
 const procesando = ref(false);
 
-function confirmar(carga: RotacionCargaDetalle) {
+async function confirmar(carga: RotacionCargaDetalle) {
     const reemplazos = carga.periodos.filter(
         (p) => p.accion === 'reemplaza',
     ).length;
     const texto =
         reemplazos > 0
-            ? `Se cargarán los meses del archivo y se reemplazarán ${reemplazos} mes(es) ya cargado(s). ¿Continuar?`
-            : '¿Cargar los meses del archivo?';
+            ? `Se cargarán los meses del archivo y se reemplazarán ${reemplazos} mes(es) ya cargado(s).`
+            : 'Se cargarán los meses del archivo.';
 
-    if (!window.confirm(texto)) {
+    if (
+        !(await alertas.confirmarDelicada(
+            '¿Cargar el archivo?',
+            texto,
+            'Cargar meses',
+        ))
+    ) {
         return;
     }
 
@@ -188,20 +200,24 @@ function confirmar(carga: RotacionCargaDetalle) {
     );
 }
 
-function descartar(carga: RotacionCargaDetalle) {
+async function descartar(carga: RotacionCargaDetalle) {
     if (
-        !window.confirm(
-            `¿Descartar «${carga.nombre_archivo}»? No se cargará nada; el archivo queda guardado como registro.`,
-        )
+        !(await alertas.confirmarDelicada(
+            `¿Descartar «${carga.nombre_archivo}»?`,
+            'No se cargará nada; el archivo queda guardado como registro.',
+            'Descartar archivo',
+        ))
     ) {
         return;
     }
 
-    router.post(
-        rutasRotacion.descartar.url(carga.id),
-        {},
-        { preserveScroll: true },
-    );
+    accion.ejecutar('descartar', (estado) => {
+        router.post(
+            rutasRotacion.descartar.url(carga.id),
+            {},
+            { ...estado, preserveScroll: true },
+        );
+    });
 }
 
 const filtroHallazgos = ref<NivelHallazgoRotacion | 'todos'>('todos');
@@ -265,17 +281,19 @@ const NOMBRE_MES = [
             descripcion="Índice de rotación mensual por sucursal, cargado desde el Excel de RH (bajas ÷ plantilla promedio × 100)."
             :icono="TrendingDown"
         >
-            <a
-                v-if="puedeDescargar"
-                :href="
-                    rutasRotacion.formato.url({ query: { anio: anioFormato } })
-                "
-            >
-                <Button variant="outline">
+            <Button variant="outline" as-child
+                ><a
+                    v-if="puedeDescargar"
+                    :href="
+                        rutasRotacion.formato.url({
+                            query: { anio: anioFormato },
+                        })
+                    "
+                >
                     <FileDown class="size-4" /> Descargar formato
                     {{ anioFormato }}
-                </Button>
-            </a>
+                </a></Button
+            >
         </CrudPageHeader>
 
         <!-- Filtros -->
@@ -583,16 +601,18 @@ const NOMBRE_MES = [
                         >
                     </div>
                     <div class="flex flex-wrap gap-2">
-                        <a
-                            v-if="puedeDescargar"
-                            :href="
-                                rutasRotacion.archivo.url(cargaSeleccionada.id)
-                            "
-                        >
-                            <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" as-child
+                            ><a
+                                v-if="puedeDescargar"
+                                :href="
+                                    rutasRotacion.archivo.url(
+                                        cargaSeleccionada.id,
+                                    )
+                                "
+                            >
                                 <Download class="size-4" /> Archivo original
-                            </Button>
-                        </a>
+                            </a></Button
+                        >
                         <template
                             v-if="cargaSeleccionada.estado === 'analizada'"
                         >
@@ -600,7 +620,7 @@ const NOMBRE_MES = [
                                 variant="ghost"
                                 size="sm"
                                 class="text-destructive"
-                                :disabled="procesando"
+                                :disabled="accion.ocupado.value || procesando"
                                 @click="descartar(cargaSeleccionada)"
                             >
                                 <XCircle class="size-4" /> Descartar
@@ -909,18 +929,17 @@ const NOMBRE_MES = [
                                     {{ formatearFecha(c.creado_en) }}
                                 </td>
                                 <td class="py-2 text-right">
-                                    <Link
-                                        :href="
-                                            rutasRotacion.index.url({
-                                                query: { carga: c.id },
-                                            })
-                                        "
-                                        preserve-scroll
+                                    <Button variant="outline" size="sm" as-child
+                                        ><Link
+                                            :href="
+                                                rutasRotacion.index.url({
+                                                    query: { carga: c.id },
+                                                })
+                                            "
+                                            preserve-scroll
+                                            >Ver detalle</Link
+                                        ></Button
                                     >
-                                        <Button variant="outline" size="sm"
-                                            >Ver detalle</Button
-                                        >
-                                    </Link>
                                 </td>
                             </tr>
                             <tr v-if="cargas.length === 0">

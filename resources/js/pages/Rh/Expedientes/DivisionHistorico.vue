@@ -735,7 +735,7 @@ async function aplicarDato(
                                                                 v.valor,
                                                             )
                                                         "
-                                                        >Aplicar</Button
+                                                        >Aplicar dato</Button
                                                     >
                                                 </div>
                                             </td>
