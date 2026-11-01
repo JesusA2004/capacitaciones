@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import HistorialVersiones from '@/components/documentos/HistorialVersiones.vue';
 import { Head, router, useForm } from '@inertiajs/vue3';
 import {
     CalendarClock,
@@ -26,6 +25,7 @@ import SelectSimple from '@/components/Common/SelectSimple.vue';
 import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
+import HistorialVersiones from '@/components/documentos/HistorialVersiones.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
