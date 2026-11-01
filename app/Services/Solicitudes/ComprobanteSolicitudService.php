@@ -4,6 +4,7 @@ namespace App\Services\Solicitudes;
 
 use App\Enums\CategoriaDocumento;
 use App\Enums\CausalPermisoEspecial;
+use App\Enums\EstadoFlujoDocumento;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\FamiliaAdministrativa;
 use App\Enums\GocePermiso;
@@ -53,12 +54,34 @@ class ComprobanteSolicitudService
     /**
      * Formato oficial de permiso LIBERADO: solo de un permiso autorizado por
      * Recursos Humanos (estado aprobada). Antes de eso no existe ni se puede
-     * descargar/imprimir. Si la generación posterior a la aprobación falló,
-     * se reintenta aquí (idempotente: nunca duplica el documento).
+     * descargar/imprimir. Consultarlo nunca emite: si la generación posterior a la
+     * aprobación falló, RH la reintenta con generarPermisoFaltante().
      *
-     * @throws ValidationException Permiso todavía no autorizado por RH.
+     * @throws ValidationException Permiso no autorizado o sin formato generado.
      */
     public function permisoLiberado(SolicitudInterna $solicitud): GeneratedDocument
+    {
+        $this->exigirPermisoAutorizado($solicitud);
+        $documento = $this->documentoVigente($solicitud, self::CLAVE_PERMISO);
+
+        if ($documento === null) {
+            throw ValidationException::withMessages(['solicitud' => 'El formato de permiso todavía no se genera. Recursos Humanos puede generarlo desde la solicitud.']);
+        }
+
+        return $documento;
+    }
+
+    /**
+     * Reintento explícito (POST) cuando el formato no se generó al aprobar.
+     */
+    public function generarPermisoFaltante(SolicitudInterna $solicitud, User $actor): GeneratedDocument
+    {
+        $this->exigirPermisoAutorizado($solicitud);
+
+        return $this->generarSiAplica($solicitud, $actor) ?? throw ValidationException::withMessages(['solicitud' => 'No se pudo generar el formato de permiso; intenta de nuevo o avisa a sistemas.']);
+    }
+
+    private function exigirPermisoAutorizado(SolicitudInterna $solicitud): void
     {
         if ($solicitud->tipo !== TipoSolicitudInterna::Permiso) {
             throw ValidationException::withMessages(['solicitud' => 'Esta solicitud no es un permiso.']);
@@ -67,22 +90,22 @@ class ComprobanteSolicitudService
         if ($solicitud->estado !== EstadoSolicitudInterna::Aprobada || $solicitud->revisado_por === null) {
             throw ValidationException::withMessages(['solicitud' => 'El formato de permiso se libera cuando Recursos Humanos lo autoriza.']);
         }
+    }
 
-        $solicitud->loadMissing('revisadoPor');
-        $documento = $solicitud->revisadoPor !== null ? $this->generarSiAplica($solicitud, $solicitud->revisadoPor) : null;
-
-        if ($documento === null) {
-            throw ValidationException::withMessages(['solicitud' => 'No se pudo generar el formato de permiso; intenta de nuevo o avisa a sistemas.']);
-        }
-
-        return $documento;
+    private function documentoVigente(SolicitudInterna $solicitud, string $clave): ?GeneratedDocument
+    {
+        return GeneratedDocument::query()
+            ->where('documentable_type', $solicitud->getMorphClass())
+            ->where('documentable_id', $solicitud->id)
+            ->where('clave_plantilla', $clave)
+            ->where(fn ($q) => $q->whereNull('estado_flujo')->orWhere('estado_flujo', '!=', EstadoFlujoDocumento::Cancelado->value))
+            ->latest('id')
+            ->first();
     }
 
     public function respuestaPermiso(SolicitudInterna $solicitud): StreamedResponse
     {
-        $documento = $this->permisoLiberado($solicitud);
-
-        return $this->motor->respuesta($documento);
+        return $this->motor->respuesta($this->permisoLiberado($solicitud));
     }
 
     /**
@@ -129,11 +152,7 @@ class ComprobanteSolicitudService
             return null;
         }
 
-        $existente = GeneratedDocument::query()
-            ->where('documentable_type', $solicitud->getMorphClass())
-            ->where('documentable_id', $solicitud->id)
-            ->where('clave_plantilla', $clave)
-            ->first();
+        $existente = $this->documentoVigente($solicitud, $clave);
 
         if ($existente !== null) {
             return $existente;
