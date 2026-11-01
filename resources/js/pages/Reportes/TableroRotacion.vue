@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { claseForma, porcentaje } from '@/lib/bajas';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { index as rotacionHistorica } from '@/routes/reportes/rotacion';
@@ -826,7 +827,10 @@ function guardarMeta() {
                                 >Editar</Button
                             >
                         </div>
-                        <table class="w-full text-left text-xs">
+                        <table
+                            v-tabla-tarjetas
+                            class="w-full text-left text-xs"
+                        >
                             <thead class="text-muted-foreground">
                                 <tr>
                                     <th class="py-1 font-medium">Vista</th>
@@ -1007,7 +1011,10 @@ function guardarMeta() {
                     descripcion="No hay rotación registrada en el periodo."
                 />
                 <div v-else class="tabla-scroll">
-                    <table class="w-full min-w-[46rem] text-left text-xs">
+                    <table
+                        v-tabla-tarjetas
+                        class="w-full min-w-[46rem] text-left text-xs"
+                    >
                         <thead
                             class="bg-[var(--mrl-fondo)] text-muted-foreground"
                         >

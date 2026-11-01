@@ -767,6 +767,77 @@
     opacity: 0;
 }
 
+/* v-tabla-tarjetas: en móvil cada fila es una tarjeta con etiqueta y dato. */
+@media (width < 40rem) {
+    .tabla-tarjetas {
+        display: block;
+        width: 100%;
+        min-width: 0 !important;
+    }
+
+    .tabla-tarjetas > thead {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+    }
+
+    .tabla-tarjetas > tbody,
+    .tabla-tarjetas > tfoot {
+        display: flex;
+        flex-direction: column;
+        gap: 0.625rem;
+    }
+
+    .tabla-tarjetas > tbody > tr,
+    .tabla-tarjetas > tfoot > tr {
+        display: block;
+        border: 1px solid var(--border);
+        border-radius: 0.875rem;
+        background: var(--card);
+        padding: 0.5rem 0.75rem;
+    }
+
+    .tabla-tarjetas > tbody > tr > td,
+    .tabla-tarjetas > tfoot > tr > td {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 0.75rem;
+        width: 100%;
+        min-width: 0;
+        border: 0;
+        padding: 0.3rem 0;
+        text-align: right;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .tabla-tarjetas
+        > tbody
+        > tr
+        > td[data-etiqueta]:not([data-etiqueta=''])::before {
+        content: attr(data-etiqueta);
+        flex: none;
+        max-width: 45%;
+        color: var(--muted-foreground);
+        font-size: 0.75rem;
+        text-align: left;
+    }
+
+    /* Sin etiqueta o a todo el ancho (acciones, detalle, vacío): bloque. */
+    .tabla-tarjetas > tbody > tr > td[data-etiqueta=''],
+    .tabla-tarjetas > tbody > tr > td[colspan] {
+        display: block;
+        text-align: left;
+    }
+
+    .tabla-tarjetas > tbody > tr > td[colspan]::before {
+        content: none;
+    }
+}
+
 /* Botón cuya acción sigue en curso (lib/accionesEnCurso.ts). Si ya pinta su
    propio spinner, no se dibuja otro. */
 [data-accion-en-curso] {

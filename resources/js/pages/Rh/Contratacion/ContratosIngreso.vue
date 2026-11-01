@@ -19,6 +19,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useFiltros } from '@/composables/useFiltros';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { dashboard } from '@/routes';
 import { index } from '@/routes/rh/contratos-ingreso';
 import type { RespuestaPaginada } from '@/types';
@@ -203,7 +204,7 @@ function varianteDocumento(estado: string | null): 'success' | 'info' {
             v-if="contratos.data.length"
             class="hidden tabla-scroll rounded-2xl border border-border/60 xl:block"
         >
-            <Table>
+            <Table v-tabla-tarjetas>
                 <TableHeader>
                     <TableRow>
                         <TableHead>Colaborador</TableHead>

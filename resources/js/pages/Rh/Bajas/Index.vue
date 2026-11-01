@@ -28,6 +28,7 @@ import { Label } from '@/components/ui/label';
 import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 import { claseForma, estatusBaja } from '@/lib/bajas';
 import { formatearFecha } from '@/lib/fechas';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import rutasBajas from '@/routes/rh/bajas';
@@ -359,7 +360,10 @@ function avance(b: FilaBaja): string {
                     <div
                         class="tabla-scroll rounded-2xl border border-border/60 bg-card shadow-sm"
                     >
-                        <table class="w-full text-left text-sm">
+                        <table
+                            v-tabla-tarjetas
+                            class="w-full text-left text-sm"
+                        >
                             <thead
                                 class="bg-crema/40 text-xs text-muted-foreground uppercase"
                             >

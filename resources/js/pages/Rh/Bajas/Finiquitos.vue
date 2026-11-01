@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 import { claseForma } from '@/lib/bajas';
 import { formatearFecha } from '@/lib/fechas';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import rutasBajas from '@/routes/rh/bajas';
@@ -238,7 +239,7 @@ function etapaAlcanzada(fila: FilaFiniquitoBaja, clave: string): boolean {
             </p>
 
             <div v-else class="tabla-scroll">
-                <table class="w-full text-left text-sm">
+                <table v-tabla-tarjetas class="w-full text-left text-sm">
                     <thead
                         class="bg-crema/40 text-xs text-muted-foreground uppercase"
                     >

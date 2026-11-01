@@ -30,6 +30,7 @@ import { Label } from '@/components/ui/label';
 import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 import { usePermisos } from '@/composables/usePermisos';
 import { formatearFecha } from '@/lib/fechas';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { cn, formatoMoneda } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import rutasBajas from '@/routes/rh/bajas';
@@ -230,11 +231,17 @@ const rapidoActivo = computed(() => {
         return null;
     }
 
-    if (estatusDoc.value === 'abiertas' && documentosDoc.value === 'incompletos') {
+    if (
+        estatusDoc.value === 'abiertas' &&
+        documentosDoc.value === 'incompletos'
+    ) {
         return 'pendientes';
     }
 
-    if (estatusDoc.value === 'abiertas' && documentosDoc.value === 'completos') {
+    if (
+        estatusDoc.value === 'abiertas' &&
+        documentosDoc.value === 'completos'
+    ) {
         return 'listas';
     }
 
@@ -610,7 +617,7 @@ function neto(fila: FilaCierre): string {
                 <div
                     class="hidden tabla-scroll rounded-2xl border border-border/60 bg-card shadow-sm xl:block"
                 >
-                    <table class="w-full text-left text-sm">
+                    <table v-tabla-tarjetas class="w-full text-left text-sm">
                         <thead
                             class="border-b border-border/60 text-xs text-muted-foreground"
                         >

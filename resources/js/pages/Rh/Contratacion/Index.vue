@@ -23,6 +23,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useFiltros } from '@/composables/useFiltros';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { dashboard } from '@/routes';
 import { index } from '@/routes/rh/contratacion';
 import { index as contratosIngresoIndex } from '@/routes/rh/contratos-ingreso';
@@ -266,7 +267,7 @@ function fechaCorta(valor: string | null): string {
             v-if="personas.data.length"
             class="hidden tabla-scroll rounded-2xl border border-border/60 xl:block"
         >
-            <Table>
+            <Table v-tabla-tarjetas>
                 <TableHeader>
                     <TableRow>
                         <TableHead>Colaborador</TableHead>
