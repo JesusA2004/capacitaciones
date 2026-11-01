@@ -9,6 +9,7 @@ import LigarExpedienteSynology from '@/components/Rh/LigarExpedienteSynology.vue
 import ResponsivaFormDialog from '@/components/Rh/Responsivas/ResponsivaFormDialog.vue';
 import ResponsivasColaborador from '@/components/Rh/Responsivas/ResponsivasColaborador.vue';
 import { Button } from '@/components/ui/button';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useDescargaArchivo } from '@/composables/useDescargaArchivo';
 import { usePermisos } from '@/composables/usePermisos';
 import { dashboard } from '@/routes';
@@ -240,6 +241,7 @@ defineOptions({
             <Button
                 v-if="puedeDescargarExpediente"
                 size="sm"
+                variant="secondary"
                 :disabled="descargandoExpediente"
                 :aria-busy="descargandoExpediente"
                 @click="descargarExpedienteCompleto"
@@ -263,21 +265,21 @@ defineOptions({
                 @reintentar="reintentarDescarga"
                 @cerrar="cerrarDescarga"
             />
-            <template v-if="puedeGenerarResponsiva">
-                <Button
-                    size="sm"
-                    variant="secondary"
-                    @click="responsivaAbierta = true"
-                >
-                    <FileSignature class="size-3.5" />
-                    Generar responsiva
-                </Button>
-                <ResponsivaFormDialog
-                    v-model:open="responsivaAbierta"
-                    :colaborador-id="colaborador.id"
-                    @generada="versionResponsivas++"
-                />
-            </template>
+            <ResponsivaFormDialog
+                v-if="puedeGenerarResponsiva"
+                v-model:open="responsivaAbierta"
+                :colaborador-id="colaborador.id"
+                @generada="versionResponsivas++"
+            />
+        </template>
+        <template v-if="puedeGenerarResponsiva" #acciones-menu>
+            <DropdownMenuItem
+                class="font-medium"
+                @select="responsivaAbierta = true"
+            >
+                <FileSignature class="size-3.5" />
+                Generar responsiva
+            </DropdownMenuItem>
         </template>
         <template #sin-expediente-historico>
             <LigarExpedienteSynology

@@ -618,21 +618,6 @@ function irACompletarExpediente() {
                     <!-- Acciones de la página (p. ej. «Generar responsiva»). -->
                     <slot name="acciones-encabezado" />
                     <Button
-                        v-if="
-                            cicloUrl &&
-                            puedeIniciarBaja &&
-                            colaborador.estatus !== 'inactivo'
-                        "
-                        size="sm"
-                        variant="outline"
-                        class="border-destructive/40 text-destructive"
-                        as-child
-                    >
-                        <Link :href="`${cicloUrl}?accion=solicitar_baja`">
-                            Iniciar baja
-                        </Link>
-                    </Button>
-                    <Button
                         :disabled="accion.ocupado.value"
                         v-if="
                             colaborador.estatus === 'inactivo' && puedeReactivar
@@ -650,7 +635,12 @@ function irACompletarExpediente() {
                         Baja — solo un administrador puede reactivar.
                     </p>
                     <DropdownMenu
-                        v-else-if="puedeGestionarAcceso || puedeDarDeBaja"
+                        v-else-if="
+                            puedeGestionarAcceso ||
+                            puedeDarDeBaja ||
+                            $slots['acciones-menu'] ||
+                            (cicloUrl && puedeIniciarBaja)
+                        "
                     >
                         <DropdownMenuTrigger as-child>
                             <Button size="sm" variant="outline">
@@ -659,6 +649,18 @@ function irACompletarExpediente() {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" class="w-80">
+                            <slot name="acciones-menu" />
+                            <DropdownMenuItem
+                                v-if="cicloUrl && puedeIniciarBaja"
+                                as-child
+                                class="font-medium text-destructive"
+                            >
+                                <Link
+                                    :href="`${cicloUrl}?accion=solicitar_baja`"
+                                >
+                                    Iniciar baja
+                                </Link>
+                            </DropdownMenuItem>
                             <template
                                 v-if="
                                     puedeGestionarAcceso &&
