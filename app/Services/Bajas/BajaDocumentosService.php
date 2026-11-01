@@ -153,7 +153,7 @@ class BajaDocumentosService
         return $ultimoDiaPaso ? 'faltan_documentos' : 'en_tramite';
     }
 
-    public function adjuntar(Baja $baja, ?DocumentoRequeridoBaja $requerido, UploadedFile $archivo, User $actor, ?string $clasificacion = null): BajaDocumento
+    public function adjuntar(Baja $baja, ?DocumentoRequeridoBaja $requerido, UploadedFile $archivo, User $actor, ?string $clasificacion = null, ?int $generadoId = null): BajaDocumento
     {
         if (in_array($baja->estatus, [EstatusBaja::Cerrada, EstatusBaja::Cancelada], true)) {
             throw ValidationException::withMessages(['archivo' => 'La baja ya está cerrada: no se adjuntan más documentos (RH puede reabrirla con motivo).']);
@@ -179,11 +179,12 @@ class BajaDocumentosService
             throw ValidationException::withMessages(['archivo' => 'No se pudo guardar el archivo en el almacenamiento (NAS no disponible). Intenta de nuevo; si continúa, avisa a sistemas.']);
         }
 
-        return DB::transaction(function () use ($baja, $requerido, $archivo, $actor, $ruta, $clasificacion): BajaDocumento {
+        return DB::transaction(function () use ($baja, $requerido, $archivo, $actor, $ruta, $clasificacion, $generadoId): BajaDocumento {
             $documento = BajaDocumento::query()->create([
                 'baja_id' => $baja->id,
                 'documento_requerido_id' => $requerido?->id,
                 'clasificacion' => $clasificacion,
+                'generated_document_id' => $generadoId,
                 'nombre' => Str::limit($requerido->nombre ?? pathinfo($archivo->getClientOriginalName(), PATHINFO_FILENAME), 150, ''),
                 'nombre_original' => Str::limit($archivo->getClientOriginalName(), 255, ''),
                 'disco' => (string) config('expedientes.disk', 'nas'),
@@ -209,6 +210,11 @@ class BajaDocumentosService
 
         if (in_array($baja->estatus, [EstatusBaja::Cerrada, EstatusBaja::Cancelada], true)) {
             throw ValidationException::withMessages(['documento' => 'La baja ya está cerrada: sus documentos no se modifican.']);
+        }
+
+        // Quitarlo dejaría sin respaldo una versión que ya consta como firmada.
+        if ($documento->generated_document_id !== null) {
+            throw ValidationException::withMessages(['documento' => 'Este firmado ya está ligado a la versión que se firmó y se conserva. Si hay un error, genera una rectificación.']);
         }
 
         DB::transaction(function () use ($documento, $baja, $actor): void {
@@ -245,6 +251,7 @@ class BajaDocumentosService
             'tamano' => $documento->tamano,
             'subido_por' => $documento->cargadoPor?->name,
             'fecha' => $documento->created_at?->toDateTimeString(),
+            'version_firmada_id' => $documento->generated_document_id,
             'url' => route('rh.bajas.documentos.ver', [$documento->baja_id, $documento->id]),
             'url_descarga' => route('rh.bajas.documentos.ver', [$documento->baja_id, $documento->id, 'descargar' => 1]),
         ];

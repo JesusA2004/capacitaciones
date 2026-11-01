@@ -122,10 +122,10 @@ test('corregir contenido: la vista previa no guarda y la confirmación deja vers
         ->and($edicion->generated_document_id)->not->toBeNull()
         ->and(BajaBitacora::query()->where('baja_id', $baja->id)->where('accion', 'corrigio_documento')->count())->toBe(1);
 
-    // Una versión posterior sin cambios conserva la corrección.
+    // Sin cambios no hay versión nueva y la corrección se conserva.
     $this->actingAs($this->rh)->post(route('rh.bajas.salida.generar', $baja), ['motivo' => 'Se reimprime'])->assertSessionHasNoErrors();
     expect(BajaDocumentoEdicion::query()->count())->toBe(1)
-        ->and(GeneratedDocument::query()->where('clave_plantilla', 'convenio_terminacion')->count())->toBe(2);
+        ->and(GeneratedDocument::query()->where('clave_plantilla', 'convenio_terminacion')->count())->toBe(1);
 
     $panel = app(BajaDocumentoSalidaService::class)->panel($baja->refresh(), $this->rh);
     expect($panel['ediciones'])->toHaveCount(1)->and($panel['ediciones'][0]['campos'])->toBe(['Texto principal']);
@@ -135,7 +135,7 @@ test('corregir la carta de renuncia pasa los datos al documento maestro y proteg
     $baja = correccionBaja($this, 'RV-01');
     $proceso = $this->partialMock(DocumentoProcesoService::class);
     $proceso->shouldReceive('camposDelDocumento')->andReturn(['fecha_renuncia' => '01/10/2026', 'representante_legal' => 'Otra Persona']);
-    $proceso->shouldReceive('vistaPrevia')->withArgs(fn ($p, $r, $clave, $actor, array $manuales = []) => $manuales === ['fecha_renuncia' => '02/10/2026'])->once()->andReturn(['pdf' => '%PDF-falso', 'nombre' => 'Carta', 'faltantes' => 0]);
+    $proceso->shouldReceive('vistaPrevia')->withArgs(fn ($p, $r, $clave, $actor, array $manuales = [], array $completar = [], bool $pendientes = false, array $correcciones = []) => ($correcciones['fecha_renuncia'] ?? null) === '02/10/2026' && ! array_key_exists('representante_legal', $correcciones))->once()->andReturn(['pdf' => '%PDF-falso', 'nombre' => 'Carta', 'faltantes' => 0]);
 
     $campos = $this->actingAs($this->rh)->getJson(route('rh.bajas.salida.campos', $baja))->assertOk()->json('campos');
     expect(array_column($campos, 'clave'))->toBe(['fecha_renuncia']);

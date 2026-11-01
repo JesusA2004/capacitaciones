@@ -148,7 +148,10 @@ test('escenario 19: el generador de salida produce la carta RV con el documento 
     expect(str_starts_with((string) $previa->baseResponse->getContent(), '%PDF'))->toBeTrue()
         ->and(GeneratedDocument::query()->where('clave_plantilla', 'carta_renuncia')->count())->toBe(1);
 
-    // Ya generada al registrar: otra versión exige motivo y conserva la anterior en el NAS.
+    // Sin cambios no hay versión nueva. Con datos nuevos, otra versión exige motivo y conserva la anterior.
+    $this->actingAs($rh)->post(route('rh.bajas.salida.generar', $baja))->assertSessionHasNoErrors();
+    expect(GeneratedDocument::query()->where('clave_plantilla', 'carta_renuncia')->count())->toBe(1);
+    $original->update(['huella_datos' => str_repeat('0', 64)]);
     $this->actingAs($rh)->post(route('rh.bajas.salida.generar', $baja))->assertSessionHasErrors('motivo');
     $this->actingAs($rh)->post(route('rh.bajas.salida.generar', $baja), ['motivo' => 'Se corrigió el domicilio'])->assertSessionHasNoErrors();
 

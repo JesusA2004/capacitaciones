@@ -157,7 +157,10 @@ test('escenario 20: NR genera el convenio de terminación con versiones preserva
     $primero = GeneratedDocument::query()->where('clave_plantilla', 'convenio_terminacion')->sole();
     Storage::disk($primero->disk)->assertExists($primero->path);
 
-    // Otra versión exige motivo y conserva la anterior en el NAS.
+    // Sin cambios no hay versión nueva. Con datos nuevos, otra versión exige motivo y conserva la anterior.
+    $this->actingAs($this->rh)->post(route('rh.bajas.salida.generar', $baja))->assertSessionHasNoErrors();
+    expect(GeneratedDocument::query()->where('clave_plantilla', 'convenio_terminacion')->count())->toBe(1);
+    $primero->update(['huella_datos' => str_repeat('0', 64)]);
     $this->actingAs($this->rh)->post(route('rh.bajas.salida.generar', $baja))->assertSessionHasErrors('motivo');
     $this->actingAs($this->rh)->post(route('rh.bajas.salida.generar', $baja), ['motivo' => 'Se corrigió el último día'])->assertSessionHasNoErrors();
 
@@ -339,7 +342,10 @@ test('escenario 27 y F4: ajustes con bitácora y flujo Calculado → Revisado �
     $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.pago', $finiquito), ['fecha' => now()->toDateString()])->assertSessionHasErrors('estado');
 
     $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.revisar', $finiquito))->assertSessionHasNoErrors();
-    $this->actingAs($this->rh)->get(route('rh.bajas.finiquitos.recibo', $finiquito))->assertOk();
+    // Consultar el recibo no emite: la emisión es un POST con su permiso.
+    $this->actingAs($this->rh)->get(route('rh.bajas.finiquitos.recibo', $finiquito))->assertOk()->assertHeader('X-Documento-Estado', 'vista-previa');
+    expect($finiquito->refresh()->documento_generado_path)->toBeNull();
+    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.generar-pdf', $finiquito))->assertSessionHasNoErrors();
     $finiquito->refresh();
     expect($finiquito->documento_generado_path)->not->toBeNull();
 

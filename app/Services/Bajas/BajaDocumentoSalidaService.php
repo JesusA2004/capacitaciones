@@ -3,7 +3,6 @@
 namespace App\Services\Bajas;
 
 use App\Enums\AccionBitacoraBaja;
-use App\Enums\CategoriaDocumento;
 use App\Enums\DocumentoSalida;
 use App\Enums\EntregaAvisoRescision;
 use App\Enums\EstadoFlujoDocumento;
@@ -18,19 +17,25 @@ use App\Models\DocumentoRequeridoBaja;
 use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Services\Calendario\CalendarioLaboralService;
+use App\Services\Documentos\Versiones\AlEmitirDocumento;
+use App\Services\Documentos\Versiones\CampoEditable;
+use App\Services\Documentos\Versiones\DatosVolatiles;
+use App\Services\Documentos\Versiones\FuenteDocumento;
+use App\Services\Documentos\Versiones\Fuentes\FuenteMaestro;
+use App\Services\Documentos\Versiones\Fuentes\FuenteSalidaAdministrativa;
+use App\Services\Documentos\Versiones\VersionadoDocumentoService;
 use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
 use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
 use App\Services\DocumentosLaborales\FlujoDocumentalService;
-use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
-use Throwable;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 /**
  * «Generar documento de salida» de una baja (PDF Etapa 1, Pantalla 4). Según la
@@ -52,9 +57,6 @@ class BajaDocumentoSalidaService
 
     private const MAXIMO_CAMPO = 5000;
 
-    /** Datos de la empresa y su firma: salen del catálogo, no se corrigen por documento. */
-    private const CAMPOS_NO_EDITABLES = '/representante|patron|razon_social|empresa|firma/i';
-
     /** @var array<string, string> */
     private const ETIQUETAS = [
         'lugar_fecha' => 'Lugar y fecha',
@@ -69,9 +71,9 @@ class BajaDocumentoSalidaService
         private readonly DocumentoProcesoService $proceso,
         private readonly DocumentoAdministrativoService $administrativos,
         private readonly DatosDocumentoAdministrativo $datos,
-        private readonly MotorDocumentalService $motor,
         private readonly FlujoDocumentalService $flujo,
         private readonly CalendarioLaboralService $calendario,
+        private readonly VersionadoDocumentoService $versionado,
     ) {}
 
     public function documentoDe(Baja $baja): ?DocumentoSalida
@@ -115,7 +117,7 @@ class BajaDocumentoSalidaService
                 'fecha' => $vigente->created_at?->toDateTimeString(),
                 'firmado' => $vigente->estado_flujo?->firmaFisicaRegistrada() ?? false,
                 'requiere_huella' => (bool) $vigente->requiere_huella,
-                'desactualizado' => $aviso !== null && $vigente->created_at !== null && $aviso->updated_at !== null && $aviso->updated_at->gt($vigente->created_at),
+                'desactualizado' => ($aviso !== null && $vigente->created_at !== null && $aviso->updated_at !== null && $aviso->updated_at->gt($vigente->created_at)) || $this->fuenteCambio($baja, $documento, $vigente, $usuario),
             ] : null,
             'ediciones' => $documento !== null ? $this->ediciones($baja, $documento) : [],
             'firmados' => array_values($baja->documentos->where('clasificacion', self::FIRMADO)->map(fn (BajaDocumento $d): array => $this->documentos->archivoArray($d))->all()),
@@ -294,22 +296,33 @@ class BajaDocumentoSalidaService
      * variables, sin los de la empresa ni su representante legal: el texto
      * base del maestro lo administra Jurídico.
      *
-     * @return list<array{clave: string, etiqueta: string, tipo: string, valor: string, original: string}>
+     * @return list<array{clave: string, etiqueta: string, tipo: string, valor: string, original: string, obsoleta: string|null}>
      */
     public function camposEditables(Baja $baja, User $actor): array
     {
+        return array_map(fn (CampoEditable $c): array => $c->aArray(), $this->camposSalida($baja, $actor));
+    }
+
+    /**
+     * @return list<CampoEditable>
+     */
+    public function camposSalida(Baja $baja, User $actor): array
+    {
         [$documento, $cierre, $colaborador] = $this->preparar($baja);
-        $vigentes = $this->camposVigentes($baja, $documento);
+        $originales = $this->originales($baja, $documento, $cierre, $colaborador, $actor);
+        $vigentes = $this->camposVigentes($baja, $documento, $originales);
+        $obsoletas = $this->camposObsoletos($baja, $documento, $originales);
         $campos = [];
 
-        foreach ($this->originales($baja, $documento, $cierre, $colaborador, $actor) as $clave => $original) {
-            $campos[] = [
-                'clave' => $clave,
-                'etiqueta' => $this->etiquetaCampo($clave),
-                'tipo' => in_array($clave, ['cuerpo', 'texto_adicional'], true) || mb_strlen($original) > 80 ? 'area' : 'texto',
-                'valor' => $vigentes[$clave] ?? $original,
-                'original' => $original,
-            ];
+        foreach ($originales as $clave => $original) {
+            $campos[] = new CampoEditable(
+                $clave,
+                $this->etiquetaCampo($clave),
+                in_array($clave, ['cuerpo', 'texto_adicional'], true) || mb_strlen($original) > 80 ? 'area' : 'texto',
+                $vigentes[$clave] ?? $original,
+                $original,
+                $obsoletas[$clave] ?? null,
+            );
         }
 
         return $campos;
@@ -325,21 +338,20 @@ class BajaDocumentoSalidaService
     public function vistaPrevia(Baja $baja, User $actor, ?array $campos = null): string
     {
         [$documento, $cierre, $colaborador] = $this->preparar($baja);
-        $corregidos = $campos !== null ? $this->limpiarCampos($baja, $documento, $cierre, $colaborador, $actor, $campos) : $this->camposVigentes($baja, $documento);
-        $familia = $documento->familia();
+        $originales = $this->originales($baja, $documento, $cierre, $colaborador, $actor);
+        $corregidos = $campos !== null ? $this->limpiarCampos($originales, $campos) : $this->camposVigentes($baja, $documento, $originales);
 
-        if ($familia === null) {
-            return $this->proceso->vistaPrevia('baja', $cierre, $documento->value, $actor, $corregidos)['pdf'];
-        }
-
-        return $this->administrativos->renderizarVigente($familia, [...$this->datos->salida($baja, $colaborador), ...$corregidos]);
+        return $documento->familia() === null
+            ? $this->proceso->vistaPrevia('baja', $cierre, $documento->value, $actor, correcciones: FuenteMaestro::conVariantes($corregidos))['pdf']
+            : $this->fuente($baja, $documento, $cierre, $colaborador, $actor)->vistaPrevia($corregidos, $actor);
     }
 
     /**
-     * Genera el PDF para firma. Una versión nueva exige motivo y conserva la
-     * anterior (cancelada, en el NAS y en el historial); un original firmado
-     * nunca se sustituye desde aquí. Con $campos guarda además la corrección
-     * (versión, motivo, usuario y fecha); las siguientes versiones la conservan.
+     * Genera el PDF para firma por VersionadoDocumentoService: sin cambios devuelve
+     * la vigente; una versión nueva exige motivo y conserva la anterior (cancelada,
+     * en el NAS y en el historial); un original firmado nunca se sustituye desde
+     * aquí. Con $campos guarda además la corrección. Edición y bitácora se escriben
+     * en la misma transacción que la versión: si fallan, no queda a medias.
      *
      * @param  array<string, mixed>|null  $campos
      */
@@ -349,65 +361,57 @@ class BajaDocumentoSalidaService
         [$documento, $cierre, $colaborador] = $this->preparar($baja);
         $anterior = $this->proceso->documentoVigente($cierre, $documento->value);
         $motivo = trim((string) $motivo);
-        $vigentes = $this->camposVigentes($baja, $documento);
-        $corregidos = $campos !== null ? $this->limpiarCampos($baja, $documento, $cierre, $colaborador, $actor, $campos) : $vigentes;
-        $cambiaron = $corregidos != $vigentes;
+        $originales = $this->originales($baja, $documento, $cierre, $colaborador, $actor);
+        $vigentes = $this->camposVigentes($baja, $documento, $originales);
+        $corregidos = $campos !== null ? $this->limpiarCampos($originales, $campos) : $vigentes;
 
-        if ($cambiaron && mb_strlen($motivo) < self::MINIMO_MOTIVO_NUEVA_VERSION) {
+        if ($corregidos != $vigentes && mb_strlen($motivo) < self::MINIMO_MOTIVO_NUEVA_VERSION) {
             throw ValidationException::withMessages(['motivo' => 'Explica el motivo de la corrección: queda en la bitácora.']);
         }
 
-        if ($anterior !== null) {
-            if ($anterior->estado_flujo?->firmaFisicaRegistrada() ?? false) {
-                throw ValidationException::withMessages(['documento' => 'Este documento ya está firmado: el original se conserva y no se sustituye desde aquí.']);
-            }
-
-            if (mb_strlen($motivo) < self::MINIMO_MOTIVO_NUEVA_VERSION) {
-                throw ValidationException::withMessages(['motivo' => 'Explica el motivo de la nueva versión: queda en la bitácora.']);
-            }
+        if ($anterior?->estado_flujo?->firmaFisicaRegistrada() ?? false) {
+            throw ValidationException::withMessages(['documento' => 'Este documento ya está firmado: el original se conserva y no se sustituye desde aquí.']);
         }
 
-        $familia = $documento->familia();
+        $alEmitir = new class($this->registro, $this->proceso, $baja, $documento, $vigentes, $corregidos) implements AlEmitirDocumento
+        {
+            /**
+             * @param  array<string, string>  $vigentes
+             * @param  array<string, string>  $corregidos
+             */
+            public function __construct(
+                private readonly BajaRegistroService $registro,
+                private readonly DocumentoProcesoService $proceso,
+                private readonly Baja $baja,
+                private readonly DocumentoSalida $salida,
+                private readonly array $vigentes,
+                private readonly array $corregidos,
+            ) {}
 
-        if ($familia === null) {
-            $generado = $this->proceso->generar('baja', $cierre, $documento->value, $actor, manuales: $corregidos, regenerar: $anterior !== null, motivoRevision: $anterior !== null ? $motivo : null);
-        } else {
-            $render = $this->administrativos->generar($familia, [...$this->datos->salida($baja, $colaborador), ...$corregidos], $actor);
-            $generado = DB::transaction(function () use ($anterior, $actor, $motivo, $colaborador, $render, $documento, $cierre): GeneratedDocument {
-                if ($anterior !== null) {
-                    $this->flujo->cancelar($anterior, $actor, mb_substr(sprintf('Sustituido por una nueva versión: %s', $motivo), 0, 500));
+            public function __invoke(GeneratedDocument $documento, ?GeneratedDocument $anterior, array $correcciones, ?string $motivo, User $actor): void
+            {
+                if ($this->corregidos != $this->vigentes) {
+                    BajaDocumentoEdicion::query()->create([
+                        'baja_id' => $this->baja->id,
+                        'clave' => $this->salida->value,
+                        'campos' => $this->corregidos,
+                        'campos_anteriores' => $this->vigentes,
+                        'motivo' => mb_substr((string) $motivo, 0, 500),
+                        'user_id' => $actor->id,
+                        'generated_document_id' => $documento->id,
+                    ]);
+                    $this->registro->bitacora($this->baja, $actor, AccionBitacoraBaja::CorrigioDocumento, 'documento', null, implode(', ', array_keys($this->corregidos)) ?: 'Valores originales', $motivo);
                 }
 
-                return $this->motor->registrarPdf($colaborador, $render['pdf'], $documento->etiqueta(), $actor, [
-                    ...$render['opciones_registro'],
-                    'clave' => $documento->value,
-                    'categoria' => CategoriaDocumento::BajaFiniquito,
-                    'documentable' => $cierre,
-                    'proceso' => 'baja',
-                    'requiere_impresion' => true,
-                    'requiere_firma_fisica' => true,
-                    'revision_de_id' => $anterior?->id,
-                    'motivo_revision' => $anterior !== null ? $motivo : null,
-                ]);
-            });
+                $this->registro->bitacora($this->baja, $actor, AccionBitacoraBaja::DocumentoSalida, 'documento', $anterior !== null ? sprintf('Versión %d', $this->proceso->numeroVersion($anterior)) : null, sprintf('%s · versión %d', $this->salida->etiqueta(), $this->proceso->numeroVersion($documento)), $anterior !== null ? $motivo : null);
+            }
+        };
+
+        if ($documento->familia() === null) {
+            return $this->proceso->generar('baja', $cierre, $documento->value, $actor, regenerar: $anterior !== null, motivoRevision: $motivo !== '' ? $motivo : null, correcciones: $corregidos, alEmitir: $alEmitir);
         }
 
-        if ($cambiaron) {
-            BajaDocumentoEdicion::query()->create([
-                'baja_id' => $baja->id,
-                'clave' => $documento->value,
-                'campos' => $corregidos,
-                'campos_anteriores' => $vigentes,
-                'motivo' => mb_substr($motivo, 0, 500),
-                'user_id' => $actor->id,
-                'generated_document_id' => $generado->id,
-            ]);
-            $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::CorrigioDocumento, 'documento', null, implode(', ', array_keys($corregidos)) ?: 'Valores originales', $motivo);
-        }
-
-        $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::DocumentoSalida, 'documento', $anterior !== null ? sprintf('Versión %d', $this->proceso->numeroVersion($anterior)) : null, sprintf('%s · versión %d', $documento->etiqueta(), $this->proceso->numeroVersion($generado)), $anterior !== null ? $motivo : null);
-
-        return $generado;
+        return $this->versionado->emitir($this->fuente($baja, $documento, $cierre, $colaborador, $actor, $alEmitir), $corregidos, $motivo !== '' ? $motivo : null, $actor)->documento;
     }
 
     public function descargar(Baja $baja): StreamedResponse
@@ -447,26 +451,27 @@ class BajaDocumentoSalidaService
             throw ValidationException::withMessages(['huella_registrada' => 'Este documento requiere huella: confirma que se recabó antes de subir el firmado.']);
         }
 
-        // El firmado cumple el espacio de la forma, aunque la causal genere otro documento.
-        $espacio = DocumentoRequeridoBaja::query()->where('clave', DocumentoSalida::deForma($baja->forma_salida ?? FormaSalida::OtraTerminacion)->espacioRequerido())->first();
-        $cargado = $this->documentos->adjuntar($baja, $espacio, $archivo, $actor, self::FIRMADO);
-        $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::FirmadoSalida, 'documento', null, sprintf('%s (%s)', $documento->etiqueta(), $cargado->nombre_original));
-
-        // El adjunto ya cumple el espacio; si el flujo del generado no admite
-        // el paso (ya firmado, por ejemplo), no se pierde la carga.
-        if (in_array($vigente->estado_flujo, [EstadoFlujoDocumento::Generado, EstadoFlujoDocumento::PendienteImpresion, EstadoFlujoDocumento::PendienteFirmaFisica, EstadoFlujoDocumento::Impreso], true)) {
-            try {
-                if (in_array($vigente->estado_flujo, [EstadoFlujoDocumento::Generado, EstadoFlujoDocumento::PendienteImpresion], true)) {
-                    $vigente = $this->flujo->marcarImpreso($vigente, $actor);
-                }
-
-                $this->flujo->registrarFirmaFisica($vigente, $actor, ['huella_registrada' => $huellaRegistrada, 'observaciones' => sprintf('Firmado cargado a la baja %s.', $baja->folio)]);
-            } catch (Throwable $e) {
-                Log::warning('BajaDocumentoSalidaService: el firmado se adjuntó pero el flujo del generado no avanzó.', ['baja_id' => $baja->id, 'documento_id' => $vigente->id, 'error' => $e->getMessage()]);
-            }
+        // Nadie firma una versión con datos viejos: primero se regenera.
+        if ($this->fuenteCambio($baja, $documento, $vigente, $actor)) {
+            throw ValidationException::withMessages(['archivo' => 'El documento ya no corresponde a los datos actuales de la baja. Regenéralo y firma la versión nueva.']);
         }
 
-        return $cargado;
+        // El firmado cumple el espacio de la forma, aunque la causal genere otro documento.
+        $espacio = DocumentoRequeridoBaja::query()->where('clave', DocumentoSalida::deForma($baja->forma_salida ?? FormaSalida::OtraTerminacion)->espacioRequerido())->first();
+
+        // Adjunto, firma del generado y bitácora van juntos: si el flujo no admite el
+        // paso, no queda un firmado adjunto con el generado todavía sustituible.
+        return DB::transaction(function () use ($baja, $espacio, $archivo, $actor, $vigente, $documento, $huellaRegistrada): BajaDocumento {
+            if (in_array($vigente->estado_flujo, [EstadoFlujoDocumento::Generado, EstadoFlujoDocumento::PendienteImpresion, EstadoFlujoDocumento::PendienteFirmaFisica, EstadoFlujoDocumento::Impreso], true)) {
+                $paraFirmar = in_array($vigente->estado_flujo, [EstadoFlujoDocumento::Generado, EstadoFlujoDocumento::PendienteImpresion], true) ? $this->flujo->marcarImpreso($vigente, $actor) : $vigente;
+                $this->flujo->registrarFirmaFisica($paraFirmar, $actor, ['huella_registrada' => $huellaRegistrada, 'observaciones' => sprintf('Firmado cargado a la baja %s.', $baja->folio)]);
+            }
+
+            $cargado = $this->documentos->adjuntar($baja, $espacio, $archivo, $actor, self::FIRMADO, $vigente->id);
+            $this->registro->bitacora($baja, $actor, AccionBitacoraBaja::FirmadoSalida, 'documento', null, sprintf('%s (%s)', $documento->etiqueta(), $cargado->nombre_original));
+
+            return $cargado;
+        });
     }
 
     public function subirEvidencia(Baja $baja, UploadedFile $archivo, User $actor): BajaDocumento
@@ -503,13 +508,90 @@ class BajaDocumentoSalidaService
     }
 
     /**
+     * Última corrección que sigue siendo válida. Si la fuente cambió después de
+     * hacerla (otra causal, otra fecha), no se reaplica: RH decide en el editor.
+     *
+     * @param  array<string, string>  $originales
      * @return array<string, string>
      */
-    private function camposVigentes(Baja $baja, DocumentoSalida $documento): array
+    private function camposVigentes(Baja $baja, DocumentoSalida $documento, array $originales): array
+    {
+        return array_diff_key($this->ultimaEdicion($baja, $documento)['campos'], $this->camposObsoletos($baja, $documento, $originales));
+    }
+
+    /**
+     * @param  array<string, string>  $originales
+     * @return array<string, string> Campo => corrección que ya no aplica.
+     */
+    private function camposObsoletos(Baja $baja, DocumentoSalida $documento, array $originales): array
+    {
+        $ultima = $this->ultimaEdicion($baja, $documento);
+        $obsoletos = [];
+
+        foreach ($ultima['campos'] as $clave => $valor) {
+            $fuente = $ultima['detalle'][$clave]['original_fuente'] ?? null;
+
+            if (! DatosVolatiles::esVolatil($clave) && is_string($fuente) && trim($fuente) !== trim($originales[$clave] ?? $fuente)) {
+                $obsoletos[$clave] = $valor;
+            }
+        }
+
+        return $obsoletos;
+    }
+
+    /**
+     * @return array{campos: array<string, string>, detalle: array<string, array<string, mixed>>}
+     */
+    private function ultimaEdicion(Baja $baja, DocumentoSalida $documento): array
     {
         $ultima = BajaDocumentoEdicion::query()->where('baja_id', $baja->id)->where('clave', $documento->value)->latest('id')->first();
 
-        return $ultima !== null ? $ultima->campos : [];
+        if ($ultima === null) {
+            return ['campos' => [], 'detalle' => []];
+        }
+
+        $generado = $ultima->generated_document_id !== null ? GeneratedDocument::query()->whereKey($ultima->generated_document_id)->first() : null;
+
+        return ['campos' => $ultima->campos, 'detalle' => $generado->correcciones ?? []];
+    }
+
+    /**
+     * ¿La versión ya no corresponde a los datos de la baja? Solo en administrativos
+     * y cartas con huella; una versión anterior a la huella no se puede comparar.
+     */
+    private function fuenteCambio(Baja $baja, DocumentoSalida $documento, GeneratedDocument $vigente, User $actor): bool
+    {
+        if ($vigente->huella_datos === null || ! $baja->cierre instanceof CierreLaboral || $baja->colaborador === null) {
+            return false;
+        }
+
+        try {
+            $fuente = $documento->familia() === null
+                ? new FuenteMaestro($this->proceso, 'baja', $baja->cierre, $documento->value)
+                : $this->fuente($baja, $documento, $baja->cierre, $baja->colaborador, $actor);
+
+            return $this->versionado->estaDesactualizado($fuente, $vigente, $actor);
+        } catch (ValidationException|AuthorizationException|HttpExceptionInterface) {
+            return false;
+        }
+    }
+
+    public function fuenteDe(Baja $baja, User $actor): FuenteDocumento
+    {
+        [$documento, $cierre, $colaborador] = $this->preparar($baja);
+
+        if ($documento->familia() !== null) {
+            return $this->fuente($baja, $documento, $cierre, $colaborador, $actor);
+        }
+
+        return new FuenteMaestro($this->proceso, 'baja', $cierre, $documento->value);
+    }
+
+    private function fuente(Baja $baja, DocumentoSalida $documento, CierreLaboral $cierre, Colaborador $colaborador, User $actor, ?AlEmitirDocumento $alEmitir = null): FuenteSalidaAdministrativa
+    {
+        $familia = $documento->familia() ?? throw ValidationException::withMessages(['documento' => 'Este documento no es administrativo.']);
+
+        return new FuenteSalidaAdministrativa($this->administrativos, $this->datos, $baja, $documento, $familia, $cierre, $colaborador, $this->camposSalida($baja, $actor), $alEmitir);
     }
 
     /**
@@ -520,7 +602,7 @@ class BajaDocumentoSalidaService
         if ($documento->familia() === null) {
             $valores = $this->proceso->camposDelDocumento('baja', $cierre, $documento->value, $actor);
 
-            return array_filter($valores, fn (string $clave): bool => preg_match(self::CAMPOS_NO_EDITABLES, $clave) !== 1, ARRAY_FILTER_USE_KEY);
+            return array_filter($valores, fn (string $clave): bool => preg_match(FuenteMaestro::CAMPOS_NO_EDITABLES, $clave) !== 1, ARRAY_FILTER_USE_KEY);
         }
 
         $datos = $this->datos->salida($baja, $colaborador);
@@ -537,14 +619,15 @@ class BajaDocumentoSalidaService
      * Solo campos permitidos y distintos del original: lo no corregido sigue
      * saliendo del expediente. Un campo vacío regresa a su valor original.
      *
+     * @param  array<string, string>  $originales
      * @param  array<string, mixed>  $campos
      * @return array<string, string>
      */
-    private function limpiarCampos(Baja $baja, DocumentoSalida $documento, CierreLaboral $cierre, Colaborador $colaborador, User $actor, array $campos): array
+    private function limpiarCampos(array $originales, array $campos): array
     {
         $limpios = [];
 
-        foreach ($this->originales($baja, $documento, $cierre, $colaborador, $actor) as $clave => $original) {
+        foreach ($originales as $clave => $original) {
             $valor = is_string($campos[$clave] ?? null) ? trim($campos[$clave]) : '';
 
             if ($valor !== '' && $valor !== trim($original)) {
