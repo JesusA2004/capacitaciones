@@ -191,7 +191,8 @@ class ReciboNominaDominio extends DominioBase
             return ['modo' => ModoCorreccion::SoloRectificacion->value, 'resultado' => $rectificacion];
         }
 
-        $sujeto->update($dias);
+        // Solo los días capturados: los no tocados conservan su valor.
+        $sujeto->update(array_intersect_key($dias, $valores));
         $this->recibos->actualizar($sujeto, [
             'conceptos' => $conceptos,
             ...array_intersect_key($valores, ['observaciones' => true]),

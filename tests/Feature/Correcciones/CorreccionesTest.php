@@ -21,6 +21,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Compensacion\CompensacionService;
 use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
+use App\Services\Expedientes\DatosExpedienteService;
 use App\Services\Nomina\IncidenciasNominaService;
 use App\Services\Nomina\NominaQuincenalService;
 use App\Services\Nomina\ReciboNominaService;
@@ -310,6 +311,28 @@ it('vigenteEn y la rectificación usan el sueldo del periodo, no el de hoy (D2)'
     expect((float) ReciboNomina::query()->findOrFail($rectificacion->refresh()->recibo_resultante_id)->neto)->toBe(15000.0);
 });
 
+it('el recibo de rectificación avisa si no hay historial o el sueldo cambió a media quincena', function () {
+    $recibo = ($this->recibo)('2026-09-01', '2026-09-15');
+    $rectificacion = NominaRectificacion::query()->create([
+        'recibo_nomina_id' => $recibo->id, 'colaborador_id' => $this->persona->id, 'estado' => EstadoRectificacionNomina::Pendiente,
+        'dias_pagados_despues' => 15, 'dias_incapacidad_despues' => 0, 'dias_falta_despues' => 0, 'neto_antes' => $recibo->neto, 'importe_sueldo_despues' => 15000, 'motivo' => 'Sin historial previo.',
+    ]);
+    app(IncidenciasNominaService::class)->aplicarRectificacion($rectificacion, $this->rh);
+    $resultante = ReciboNomina::query()->findOrFail($rectificacion->refresh()->recibo_resultante_id);
+    expect(implode(' ', $resultante->advertencias ?? []))->toContain('Sin historial');
+
+    $servicio = app(CompensacionService::class);
+    $otro = ($this->recibo)('2026-10-01', '2026-10-15');
+    $servicio->actualizarSueldoMensual($this->persona, 30000, $this->rh, ['fuente' => 'alta', 'fecha_efectiva' => '2020-01-01']);
+    $servicio->cambiarSueldo($this->persona->refresh(), 36000, TipoCambioSalario::AjusteConVigencia, 'Ajuste autorizado.', $this->rh, '2026-10-10');
+    $rectificacion = NominaRectificacion::query()->create([
+        'recibo_nomina_id' => $otro->id, 'colaborador_id' => $this->persona->id, 'estado' => EstadoRectificacionNomina::Pendiente,
+        'dias_pagados_despues' => 15, 'dias_incapacidad_despues' => 0, 'dias_falta_despues' => 0, 'neto_antes' => $otro->neto, 'importe_sueldo_despues' => 18000, 'motivo' => 'Cambio a media quincena.',
+    ]);
+    app(IncidenciasNominaService::class)->aplicarRectificacion($rectificacion, $this->rh);
+    expect(implode(' ', ReciboNomina::query()->findOrFail($rectificacion->refresh()->recibo_resultante_id)->advertencias ?? []))->toContain('dentro del periodo');
+});
+
 it('reglas distintas por tipo de cambio de sueldo', function () {
     $servicio = app(CompensacionService::class);
     $fecha = fn (TipoCambioSalario $tipo, float $monto, ?string $dia = null) => $servicio->fechaEfectivaDe($this->persona, $monto, $tipo, $dia);
@@ -424,9 +447,25 @@ it('finiquito: sin firmar se corrige con motivo; firmado o pagado queda intacto 
     expect($firmado->refresh()->ajustes()->count())->toBe(0);
 });
 
-it('un fallo a media corrección revierte también el historial; un aviso que falla no la deshace', function () {
-    // Sin permiso sobre el dato médico: se rechaza sin escribir nada.
-    $this->actingAs($this->rh);
+it('una falla dentro de la transacción revierte el dato y el historial; un aviso que falla no deshace', function () {
+    $this->mock(DatosExpedienteService::class, function ($mock): void {
+        $mock->shouldReceive('actualizarPersonales')->once()->andReturnUsing(function (Colaborador $colaborador): never {
+            $colaborador->update(['telefono' => '5500000000']);
+
+            throw new RuntimeException('falla simulada');
+        });
+    });
+    $telefono = $this->persona->refresh()->telefono;
+    $this->withoutExceptionHandling();
+
+    expect(fn () => ($this->corregir)('personal', $this->persona->id, ['telefono' => '5599998888']))->toThrow(RuntimeException::class);
+    expect($this->persona->refresh()->telefono)->toBe($telefono)
+        ->and(Correccion::query()->count())->toBe(0);
+
+    $this->withExceptionHandling();
+    $this->forgetMock(DatosExpedienteService::class);
+
+    // Regla del acto rechazada: no queda sueldo, renglón ni corrección.
     ($this->corregir)('salario', $this->persona->id, ['sueldo_mensual' => '40000'], 'Motivo suficiente.', ['tipo' => 'ajuste_con_vigencia', 'vigente_desde' => '2019-01-01'])->assertUnprocessable();
     expect(Correccion::query()->count())->toBe(0)
         ->and(HistorialSalario::query()->where('colaborador_id', $this->persona->id)->count())->toBe(0);

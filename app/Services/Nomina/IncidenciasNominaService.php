@@ -357,7 +357,9 @@ class IncidenciasNominaService
         } else {
             $resumen = $this->resumen($colaborador, $recibo->periodo_inicio, $recibo->periodo_fin, $this->diasBaseDe($recibo));
 
-            if ($this->compensacion->vigenteEn($colaborador, $recibo->periodo_fin) === null) {
+            $vigente = $this->compensacion->vigenteEn($colaborador, $recibo->periodo_fin);
+
+            if ($vigente === null) {
                 throw ValidationException::withMessages(['rectificacion' => sprintf('No hay sueldo registrado para el periodo %s – %s: revísalo antes de rectificar.', $recibo->periodo_inicio->format('d/m/Y'), $recibo->periodo_fin->format('d/m/Y'))]);
             }
 
@@ -376,6 +378,7 @@ class IncidenciasNominaService
                 'dias_incapacidad' => $resumen['dias_incapacidad'],
                 'dias_falta' => $resumen['dias_sin_goce'],
                 'sueldo_base' => $importe,
+                'advertencias' => $this->avisosDeSueldo($colaborador, $recibo, $vigente),
             ];
         }
 
@@ -404,6 +407,32 @@ class IncidenciasNominaService
         $this->auditoria->registrar('nomina_rectificacion_descartada', $rectificacion->recibo, $actor, ['rectificacion_id' => $rectificacion->id, 'nota' => $nota]);
 
         return $rectificacion->refresh();
+    }
+
+    /**
+     * Lo que RH debe revisar a mano en el sueldo con el que se rectifica: se
+     * reporta en el recibo, no se adivina.
+     *
+     * @param  array{mensual: float, diario: float, fecha_efectiva: string|null, exacto: bool, fuente: string}  $vigente
+     * @return list<string>
+     */
+    private function avisosDeSueldo(Colaborador $colaborador, ReciboNomina $recibo, array $vigente): array
+    {
+        $avisos = [];
+
+        if (! $vigente['exacto']) {
+            $avisos[] = $vigente['fuente'] === 'sin_historial'
+                ? 'Sin historial de sueldo para este periodo: se usó el sueldo vigente. Revísalo.'
+                : 'El historial de este periodo solo guarda el diario: el mensual se calculó como diario × 30. Revísalo.';
+        }
+
+        $alInicio = $this->compensacion->vigenteEn($colaborador, $recibo->periodo_inicio);
+
+        if ($alInicio === null || abs($alInicio['mensual'] - $vigente['mensual']) >= 0.005) {
+            $avisos[] = 'El sueldo cambió dentro del periodo: se usó el vigente al cierre, sin prorratear. Revísalo.';
+        }
+
+        return $avisos;
     }
 
     /**

@@ -319,7 +319,7 @@ class ReciboNominaService
      * vuelve a descontar.
      *
      * @param  list<array<string, mixed>>  $conceptos
-     * @param  array{dias_pagados?: float|int|string|null, dias_falta?: float|int|string|null, dias_incapacidad?: float|int|string|null, sueldo_base?: float|null}  $dias
+     * @param  array{dias_pagados?: float|int|string|null, dias_falta?: float|int|string|null, dias_incapacidad?: float|int|string|null, sueldo_base?: float|null, advertencias?: list<string>}  $dias
      *
      * @throws ValidationException
      */
@@ -349,6 +349,7 @@ class ReciboNominaService
                 'dias_falta' => $dias['dias_falta'] ?? $fila->dias_falta,
                 'dias_incapacidad' => $dias['dias_incapacidad'] ?? $fila->dias_incapacidad,
                 'sueldo_base' => $dias['sueldo_base'] ?? $fila->sueldo_base,
+                'advertencias' => $dias['advertencias'] ?? [],
                 'observaciones' => sprintf('Rectifica el recibo %s. Motivo: %s', (string) $fila->folio, $motivo),
             ], $conceptosFinales);
 
