@@ -22,7 +22,7 @@ use Illuminate\Support\Facades\Schema;
  * │   ├── Asistente de Dirección Comercial   (1 plaza)
  * │   ├── Gerente de Mesa de Control → Analista de Mesa de Control
  * │   ├── Coordinadora Regional → Coordinadora de Sucursal (1 por sucursal, no en Corporativo)
- * │   └── Gerente Regional → Subgerente Regional
+ * │   └── Gerente Regional → Subgerente Regional (apoyo)
  * │       └── Gerente de Sucursal → Subgerente → Gestor, Gestor Volante
  * ├── Responsable de Sistemas → Monitorista
  * ├── Gerencia de Recursos Humanos → Administración de Personal, Reclutamiento

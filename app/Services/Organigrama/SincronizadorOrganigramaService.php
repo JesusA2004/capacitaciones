@@ -39,11 +39,11 @@ use Illuminate\Support\Facades\Schema;
  *   │   ├── Coordinadora Regional                    (vive en Corporativo)
  *   │   │   └── Coordinadora de Sucursal             (1 por sucursal; Corporativo no tiene)
  *   │   └── Gerente Regional                         (1 plaza de empresa)
- *   │       └── Subgerente Regional                  (1 plaza de empresa)
- *   │           └── Gerente de Sucursal              (1 por sucursal)
- *   │               └── Subgerente                   (1 por sucursal)
- *   │                   ├── Gestor                   (1 ruta de cobro vigente, 1 plaza)
- *   │                   └── Gestor Volante           (plaza de plantilla, sin ruta fija)
+ *   │       ├── Subgerente Regional                  (1 plaza de empresa; apoya al Gerente Regional)
+ *   │       └── Gerente de Sucursal                  (1 por sucursal)
+ *   │           └── Subgerente                       (1 por sucursal)
+ *   │               ├── Gestor                       (1 ruta de cobro vigente, 1 plaza)
+ *   │               └── Gestor Volante               (plaza de plantilla, sin ruta fija)
  *   │   └── Monitorista (de cámaras)              (hoy 1; apoyo directo a Dirección Comercial)
  *   ├── Responsable de Sistemas
  *   ├── Gerencia de Recursos Humanos
@@ -124,9 +124,9 @@ class SincronizadorOrganigramaService
         'Contador' => ['superior' => 'Gerente de Contraloría', 'departamento' => 'Contraloría', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Contabilidad general y cumplimiento fiscal.', 'extra' => ['crecimiento' => 'Gerente de Contraloría']],
         'Coordinadora Regional' => ['superior' => 'Dirección Comercial', 'departamento' => 'Operaciones', 'nivel' => 3, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Coordinadora Regional: una sola, ubicada en Corporativo; de ella dependen las coordinadoras de sucursal.'],
         'Coordinadora de Sucursal' => ['superior' => 'Coordinadora Regional', 'departamento' => 'Operaciones', 'nivel' => 4, 'tipo' => TipoPuesto::Administrativo, 'descripcion' => 'Una por sucursal (Corporativo no tiene): cuadre de caja, control administrativo y procesos internos.', 'extra' => ['crecimiento' => 'Coordinadora Regional']],
-        'Gerente Regional' => ['superior' => 'Dirección Comercial', 'departamento' => 'Ventas', 'nivel' => 3, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Gerente Regional: una sola plaza en la empresa; de él depende el Subgerente Regional.', 'extra' => ['crecimiento' => 'Dirección Comercial']],
-        'Subgerente Regional' => ['superior' => 'Gerente Regional', 'departamento' => 'Ventas', 'nivel' => 4, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Subgerente Regional: apoya al Gerente Regional; de él dependen los gerentes de sucursal.', 'extra' => ['crecimiento' => 'Gerente Regional']],
-        'Gerente de Sucursal' => ['superior' => 'Subgerente Regional', 'departamento' => 'Ventas', 'nivel' => 5, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Responsable de la sucursal (1 por sucursal). Reporta al Subgerente Regional.', 'extra' => ['esquema_comisiones' => 'Comisión por resultados de sucursal.', 'responsabilidades' => 'Supervisa la operación de la sucursal y participa en la aprobación de candidatos y solicitudes.']],
+        'Gerente Regional' => ['superior' => 'Dirección Comercial', 'departamento' => 'Ventas', 'nivel' => 3, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Gerente Regional: una sola plaza en la empresa; de él dependen el Subgerente Regional y los gerentes de sucursal.', 'extra' => ['crecimiento' => 'Dirección Comercial']],
+        'Subgerente Regional' => ['superior' => 'Gerente Regional', 'departamento' => 'Ventas', 'nivel' => 4, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Subgerente Regional: apoya al Gerente Regional y le reporta; también decide sobre gerentes, subgerentes de sucursal y gestores.', 'extra' => ['crecimiento' => 'Gerente Regional']],
+        'Gerente de Sucursal' => ['superior' => 'Gerente Regional', 'departamento' => 'Ventas', 'nivel' => 5, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Responsable de la sucursal (1 por sucursal). Reporta al Gerente Regional.', 'extra' => ['esquema_comisiones' => 'Comisión por resultados de sucursal.', 'responsabilidades' => 'Supervisa la operación de la sucursal y participa en la aprobación de candidatos y solicitudes.']],
         'Subgerente' => ['superior' => 'Gerente de Sucursal', 'departamento' => 'Ventas', 'nivel' => 6, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Uno por sucursal: apoya al gerente, lo cubre temporalmente y supervisa a los gestores.', 'extra' => ['crecimiento' => 'Gerente de Sucursal', 'esquema_comisiones' => 'Comisión por equipo de gestores.']],
         'Gestor' => ['superior' => 'Subgerente', 'departamento' => 'Ventas', 'nivel' => 7, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Gestor de crédito: una plaza de plantilla y UNA ruta de cobro vigente (la ruta es una asignación de la matriz comercial, no parte del nombre del puesto).', 'extra' => ['crecimiento' => 'Subgerente', 'esquema_comisiones' => 'Comisión por cartera/ruta asignada.', 'requiere_ruta' => true]],
         'Gestor Volante' => ['superior' => 'Subgerente', 'departamento' => 'Ventas', 'nivel' => 7, 'tipo' => TipoPuesto::Comercial, 'descripcion' => 'Cuenta en la plantilla autorizada pero no tiene ruta fija: cubre la ruta de un gestor que faltó, una vacante temporal o apoya la operación.', 'extra' => ['crecimiento' => 'Gestor', 'esquema_comisiones' => 'Comisión variable de apoyo.']],
@@ -623,6 +623,22 @@ class SincronizadorOrganigramaService
 
             foreach ($repetidos as $fila) {
                 $this->reporte['conflictos'][] = sprintf('%s: %d titulares en «%s» (debe haber 1 por sucursal).', $unoPorSucursal, (int) $fila->getAttribute('total'), Sucursal::query()->whereKey($fila->sucursal_principal_id)->value('nombre') ?? 'sin sucursal');
+            }
+        }
+
+        foreach (self::CADENA_REGIONAL as $plazaUnica) {
+            $titulares = $activos($plazaUnica)->with('user')->get();
+
+            if ($titulares->count() > 1) {
+                $this->reporte['conflictos'][] = sprintf('«%s»: %d titulares (es una sola plaza en la empresa). No se elige a nadie.', $plazaUnica, $titulares->count());
+            }
+
+            foreach ($titulares as $titular) {
+                $rol = (string) config('organigrama.rol_regional');
+
+                if ($titular->user === null || ! $titular->user->hasRole($rol)) {
+                    $this->reporte['conflictos'][] = sprintf('%s es titular de «%s» pero su cuenta no tiene el rol %s: no podrá actuar sobre la línea comercial hasta que RH se lo asigne.', $titular->nombreCompleto(), $plazaUnica, $rol);
+                }
             }
         }
 

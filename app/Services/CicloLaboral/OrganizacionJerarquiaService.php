@@ -12,6 +12,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\JerarquiaColaboradorService;
+use App\Services\Organigrama\AutoridadJerarquicaService;
 use App\Services\Organigrama\RegionalRespaldoService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -43,6 +44,7 @@ class OrganizacionJerarquiaService
         private readonly JerarquiaColaboradorService $jerarquia,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly RegionalRespaldoService $regionalRespaldo,
+        private readonly AutoridadJerarquicaService $autoridad,
     ) {}
 
     /**
@@ -143,7 +145,7 @@ class OrganizacionJerarquiaService
     {
         $solicitanteColaborador = $solicitante?->colaborador;
 
-        if ($solicitanteColaborador !== null && $this->estaEnCadenaDeMando($solicitanteColaborador, $persona)) {
+        if ($solicitanteColaborador !== null && ($this->estaEnCadenaDeMando($solicitanteColaborador, $persona) || $this->autoridad->tieneAutoridadSobre($solicitante, $persona))) {
             return ['aprobador' => $solicitanteColaborador, 'implicita' => true, 'motivo_omision' => null];
         }
 
@@ -238,6 +240,16 @@ class OrganizacionJerarquiaService
             return true;
         }
 
+        // Mando en la línea comercial: el Subgerente Regional no está en la cadena
+        // del Gerente de Sucursal, pero también decide sobre él.
+        $afectada = $aprobacion->colaborador_id !== null
+            ? Colaborador::withTrashed()->where('id', $aprobacion->colaborador_id)->first()
+            : null;
+
+        if ($afectada !== null && $this->autoridad->tieneAutoridadSobre($usuario, $afectada)) {
+            return true;
+        }
+
         $colaboradorUsuario = $usuario->colaborador;
 
         if ($colaboradorUsuario === null) {
@@ -253,7 +265,7 @@ class OrganizacionJerarquiaService
             : null;
 
         if ($aprobador !== null) {
-            return $this->estaEnCadenaDeMando($colaboradorUsuario, $aprobador);
+            return $this->estaEnCadenaDeMando($colaboradorUsuario, $aprobador) || $this->autoridad->tieneAutoridadSobre($usuario, $aprobador);
         }
 
         // Sin aprobador resuelto (p. ej. candidato sin gerente asignado): el
@@ -348,11 +360,11 @@ class OrganizacionJerarquiaService
     }
 
     /**
-     * Regional que responde por una sucursal: el primero de la cadena
-     * (Subgerente Regional → Gerente Regional, config
-     * organigrama.puestos_regionales) con titular o cobertura vigente y cuenta
-     * activa; si no hay nadie y la sucursal es operativa, la regional de
-     * respaldo. Quien ya está en la cadena solo responde ante los de arriba.
+     * Regionales que responden por una sucursal: Gerente y Subgerente Regional
+     * (config organigrama.puestos_regionales, el de mayor rango primero), cada uno
+     * con su titular o cobertura vigente y cuenta activa; si no hay nadie y la
+     * sucursal es operativa, la regional de respaldo. Quien ya está en la cadena
+     * solo responde ante los de arriba.
      *
      * @return Collection<int, User>
      */
@@ -388,8 +400,8 @@ class OrganizacionJerarquiaService
     }
 
     /**
-     * Primer puesto de la cadena regional con titular o cobertura vigente y
-     * cuenta activa (nunca la propia persona ni alguien debajo de ella).
+     * Todos los regionales vigentes por encima de la persona, el de mayor rango
+     * primero (titular o, sin titular, cobertura). `puesto` es el del primero.
      *
      * @return array{puesto: Puesto|null, por_cobertura: bool, usuarios: Collection<int, User>}
      */
@@ -399,24 +411,30 @@ class OrganizacionJerarquiaService
         $posicion = $persona !== null ? $cadena->search(fn (Puesto $p) => $p->id === $persona->puesto_id) : false;
 
         if ($posicion !== false) {
-            $cadena = $cadena->slice($posicion + 1);
+            $cadena = $cadena->take($posicion);
         }
+
+        $resultado = ['puesto' => null, 'por_cobertura' => false, 'usuarios' => collect()];
 
         foreach ($cadena as $puesto) {
             $titulares = $this->usuariosDe($this->activos()->where('puesto_id', $puesto->id)->get(), $persona);
+            $delPuesto = $titulares->isNotEmpty()
+                ? $titulares
+                : $this->usuariosDe(CoberturaPuesto::query()->where('activa', true)->where('puesto_id', $puesto->id)->with('colaborador')->get()->pluck('colaborador'), $persona);
 
-            if ($titulares->isNotEmpty()) {
-                return ['puesto' => $puesto, 'por_cobertura' => false, 'usuarios' => $titulares];
+            if ($delPuesto->isEmpty()) {
+                continue;
             }
 
-            $cobertura = $this->usuariosDe(CoberturaPuesto::query()->where('activa', true)->where('puesto_id', $puesto->id)->with('colaborador')->get()->pluck('colaborador'), $persona);
-
-            if ($cobertura->isNotEmpty()) {
-                return ['puesto' => $puesto, 'por_cobertura' => true, 'usuarios' => $cobertura];
+            if ($resultado['puesto'] === null) {
+                $resultado['puesto'] = $puesto;
+                $resultado['por_cobertura'] = $titulares->isEmpty();
             }
+
+            $resultado['usuarios'] = $resultado['usuarios']->merge($delPuesto)->unique('id')->values();
         }
 
-        return ['puesto' => null, 'por_cobertura' => false, 'usuarios' => collect()];
+        return $resultado;
     }
 
     /**

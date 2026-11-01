@@ -43,12 +43,9 @@ use Illuminate\Validation\ValidationException;
  *      aprobación);
  *   2. responsable explícito de su PUESTO;
  *   3. regla por puesto:
- *      a) Gerente de Sucursal (puesto que reporta a un regional) → Gerente
- *         Regional de SU clasificación Q1/Q3 (clasificaciones_region): el
- *         titular o, si la plaza está vacante, quien la cubre temporalmente.
- *         Sin clasificación → paso BLOQUEADO «Pendiente de asignar región de
- *         aprobación» (nunca se adivina ni sube a Dirección Comercial).
- *         Plaza regional vacante y sin cobertura → la regional de respaldo
+ *      a) Gerente de Sucursal → Gerente Regional y Subgerente Regional: los dos
+ *         pueden dar el visto bueno (titular o, con la plaza vacante, quien la
+ *         cubre). Ambas plazas vacantes y sin cobertura → la regional de respaldo
  *         (RegionalRespaldoService); bloqueado solo si no hay ninguna;
  *      b) personal de sucursal → gerencia de su sucursal (titular o
  *         cobertura vigente);
@@ -149,7 +146,7 @@ class AprobacionOrganizacionalService
             );
         }
 
-        // 3a. Gerente de Sucursal → Subgerente Regional → Gerente Regional.
+        // 3a. Gerente de Sucursal → Gerente Regional o Subgerente Regional.
         if ($this->esGerenteDeSucursal($persona)) {
             return $this->regionalDeGerente($persona);
         }
@@ -691,9 +688,9 @@ class AprobacionOrganizacionalService
     }
 
     /**
-     * Responsable de un Gerente de Sucursal: Subgerente Regional si está
-     * ocupado o cubierto; si no, Gerente Regional; luego la regional de
-     * respaldo. Nunca Dirección Comercial.
+     * Responsables de un Gerente de Sucursal: Gerente y Subgerente Regional,
+     * titulares o quienes los cubren; luego la regional de respaldo. Nunca
+     * Dirección Comercial.
      *
      * @return array{origen: string, origen_etiqueta: string, nivel: string, etiqueta_paso: string, colaboradores: Collection<int, Colaborador>, usuarios: Collection<int, User>, bloqueado: bool, mensaje: string|null, regla_id: int|null}
      */
@@ -721,7 +718,7 @@ class AprobacionOrganizacionalService
             if ($candidato !== null && $usuario !== null) {
                 return $this->resultado(
                     self::ORIGEN_REGIONAL_RESPALDO,
-                    'Regional de respaldo (Subgerente y Gerente Regional sin titular ni cobertura)',
+                    'Regional de respaldo (Gerente y Subgerente Regional sin titular ni cobertura)',
                     SolicitudAprobacion::NIVEL_REGIONAL,
                     'Gerente Regional',
                     collect([$candidato]),
@@ -738,7 +735,7 @@ class AprobacionOrganizacionalService
             collect(),
             collect(),
             bloqueado: true,
-            mensaje: 'Subgerente y Gerente Regional están vacantes y nadie los cubre: RH debe asignar una cobertura temporal o un responsable de aprobación.',
+            mensaje: 'Gerente y Subgerente Regional están vacantes y nadie los cubre: RH debe asignar una cobertura temporal o un responsable de aprobación.',
         );
     }
 
