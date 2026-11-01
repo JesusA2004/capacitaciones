@@ -16,6 +16,8 @@ import InputError from '@/components/InputError.vue';
 import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import SelectorVista from '@/components/ui/SelectorVista.vue';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { formatoMoneda } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { index as salariosIndex } from '@/routes/salarios';
@@ -316,6 +318,9 @@ const consultaExportar = computed(() => ({
         sucursal: props.sucursalId ?? undefined,
     },
 }));
+
+// Tres trabajos distintos: uno a la vista; lo capturado en los demás se conserva.
+const seccion = ref<'tabulador' | 'merito' | 'alertas'>('tabulador');
 </script>
 
 <template>
@@ -396,8 +401,8 @@ const consultaExportar = computed(() => ({
                 {{ importacion.filas_error }} con error. Ningún sueldo real se
                 modifica.
             </p>
-            <div class="mt-3 overflow-x-auto">
-                <table class="w-full text-sm">
+            <div class="mt-3 tabla-scroll">
+                <table v-tabla-tarjetas class="w-full text-sm">
                     <thead class="bg-crema text-left text-xs">
                         <tr>
                             <th class="p-2">Fila</th>
@@ -461,7 +466,18 @@ const consultaExportar = computed(() => ({
             </form>
         </section>
 
+        <SelectorVista
+            v-model="seccion"
+            etiqueta="Sección de salarios"
+            :opciones="[
+                { valor: 'tabulador', etiqueta: 'Tabulador y posición' },
+                { valor: 'merito', etiqueta: 'Matriz de mérito' },
+                { valor: 'alertas', etiqueta: 'Alertas' },
+            ]"
+        />
+
         <div
+            v-show="seccion === 'tabulador'"
             class="grid grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]"
         >
             <!-- Tabulador -->
@@ -499,8 +515,8 @@ const consultaExportar = computed(() => ({
                     :message="formArchivo.errors.archivo"
                 />
 
-                <div class="mt-3 overflow-x-auto">
-                    <table class="w-full text-sm">
+                <div class="mt-3 tabla-scroll">
+                    <table v-tabla-tarjetas class="w-full text-sm">
                         <thead class="bg-crema text-left text-xs">
                             <tr>
                                 <th class="p-2">Puesto</th>
@@ -800,8 +816,8 @@ const consultaExportar = computed(() => ({
                         para ver la posición.
                     </p>
 
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
+                    <div class="tabla-scroll">
+                        <table v-tabla-tarjetas class="w-full text-sm">
                             <thead class="bg-crema text-left text-xs">
                                 <tr>
                                     <th class="p-2">Colaborador</th>
@@ -813,7 +829,9 @@ const consultaExportar = computed(() => ({
                                     <th class="p-2">Desempeño</th>
                                     <th class="p-2 text-right">Tope</th>
                                     <th class="p-2 text-right">Puede subir</th>
-                                    <th class="p-2"><span class="sr-only">Acciones</span></th>
+                                    <th class="p-2">
+                                        <span class="sr-only">Acciones</span>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -945,167 +963,159 @@ const consultaExportar = computed(() => ({
                         </li>
                     </ul>
                 </section>
-
-                <div class="grid grid-cols-1 gap-4 2xl:grid-cols-2">
-                    <!-- Matriz de mérito -->
-                    <section class="rounded-2xl border bg-card p-4 shadow-sm">
-                        <div class="flex items-start justify-between gap-2">
-                            <div>
-                                <h2 class="font-semibold">
-                                    Matriz de mérito · incremento sugerido
-                                </h2>
-                                <p class="text-xs text-muted-foreground">
-                                    Son sugerencias: ningún aumento se aplica
-                                    solo.
-                                </p>
-                            </div>
-                            <Button
-                                v-if="puede.editar && !editandoMatriz"
-                                variant="outline"
-                                size="sm"
-                                @click="abrirMatriz"
-                            >
-                                Editar
-                            </Button>
-                        </div>
-                        <div class="mt-3 overflow-x-auto">
-                            <table class="w-full text-center text-xs">
-                                <thead class="bg-crema">
-                                    <tr>
-                                        <th class="p-2 text-left">Desempeño</th>
-                                        <th
-                                            v-for="banda in BANDAS"
-                                            :key="banda.clave"
-                                            class="p-2"
-                                        >
-                                            {{ banda.etiqueta }}
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr
-                                        v-for="nivel in NIVELES"
-                                        :key="nivel.clave"
-                                        class="border-t"
-                                    >
-                                        <td class="p-2 text-left font-medium">
-                                            {{ nivel.etiqueta }}
-                                        </td>
-                                        <td
-                                            v-for="banda in BANDAS"
-                                            :key="banda.clave"
-                                            class="p-1"
-                                        >
-                                            <Input
-                                                v-if="editandoMatriz"
-                                                v-model="
-                                                    celdas[nivel.clave][
-                                                        banda.clave
-                                                    ]
-                                                "
-                                                class="h-8 text-center text-xs"
-                                                :aria-label="`${nivel.etiqueta}, ${banda.etiqueta}`"
-                                            />
-                                            <template v-else>
-                                                {{
-                                                    textoCelda(
-                                                        matriz?.[nivel.clave]?.[
-                                                            banda.clave
-                                                        ],
-                                                    )
-                                                }}
-                                            </template>
-                                        </td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                        <div
-                            v-if="editandoMatriz"
-                            class="mt-2 flex flex-col gap-2"
-                        >
-                            <p class="text-xs text-muted-foreground">
-                                Porcentaje de 0 a 100, o escribe «Bono».
-                            </p>
-                            <Input
-                                v-model="motivoMatriz"
-                                placeholder="Motivo (opcional)"
-                            />
-                            <InputError :message="erroresMatriz ?? undefined" />
-                            <div class="flex justify-end gap-2">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    @click="editandoMatriz = false"
-                                >
-                                    Cancelar
-                                </Button>
-                                <Button size="sm" @click="guardarMatriz"
-                                    >Guardar</Button
-                                >
-                            </div>
-                        </div>
-                        <details class="mt-2 text-xs text-muted-foreground">
-                            <summary class="cursor-pointer">
-                                Historial de la matriz
-                            </summary>
-                            <ul class="mt-1 space-y-1">
-                                <li
-                                    v-for="version in historialMatriz"
-                                    :key="version.id"
-                                >
-                                    {{ version.vigente_desde }}
-                                    {{
-                                        version.vigente_hasta
-                                            ? `a ${version.vigente_hasta}`
-                                            : '(vigente)'
-                                    }}
-                                    · {{ version.usuario ?? 'Sistema' }}
-                                    <template v-if="version.motivo">
-                                        · {{ version.motivo }}</template
-                                    >
-                                </li>
-                            </ul>
-                        </details>
-                    </section>
-
-                    <!-- Alertas -->
-                    <section
-                        class="rounded-2xl border bg-crema/50 p-4 shadow-sm"
-                    >
-                        <h2 class="flex items-center gap-1 font-semibold">
-                            <TriangleAlert class="size-4 text-warning" />
-                            Alertas salariales
-                        </h2>
-                        <ul class="mt-2 space-y-2 text-sm">
-                            <li>
-                                <b class="text-destructive">{{
-                                    resumen.bajo_minimo
-                                }}</b>
-                                bajo el mínimo: riesgo de rotación.
-                            </li>
-                            <li>
-                                <b class="text-warning">{{
-                                    resumen.sobre_maximo
-                                }}</b>
-                                sobre el máximo: solo procede bono.
-                            </li>
-                            <li>
-                                <b>{{ resumen.puestos_sin_tabulador }}</b>
-                                sin tabulador capturado (puestos).
-                            </li>
-                            <li v-if="resumen.sin_sueldo > 0">
-                                <b>{{ resumen.sin_sueldo }}</b>
-                                sin sueldo capturado en su expediente.
-                            </li>
-                            <li v-if="resumen.con_evaluacion === 0">
-                                Sin evaluación de desempeño vigente: no se
-                                calculan topes ni márgenes.
-                            </li>
-                        </ul>
-                    </section>
-                </div>
             </div>
+        </div>
+
+        <div v-show="seccion === 'merito'">
+            <!-- Matriz de mérito -->
+            <section class="rounded-2xl border bg-card p-4 shadow-sm">
+                <div class="flex items-start justify-between gap-2">
+                    <div>
+                        <h2 class="font-semibold">
+                            Matriz de mérito · incremento sugerido
+                        </h2>
+                        <p class="text-xs text-muted-foreground">
+                            Son sugerencias: ningún aumento se aplica solo.
+                        </p>
+                    </div>
+                    <Button
+                        v-if="puede.editar && !editandoMatriz"
+                        variant="outline"
+                        size="sm"
+                        @click="abrirMatriz"
+                    >
+                        Editar
+                    </Button>
+                </div>
+                <div class="mt-3 tabla-scroll">
+                    <table class="w-full text-center text-xs">
+                        <thead class="bg-crema">
+                            <tr>
+                                <th class="p-2 text-left">Desempeño</th>
+                                <th
+                                    v-for="banda in BANDAS"
+                                    :key="banda.clave"
+                                    class="p-2"
+                                >
+                                    {{ banda.etiqueta }}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="nivel in NIVELES"
+                                :key="nivel.clave"
+                                class="border-t"
+                            >
+                                <td class="p-2 text-left font-medium">
+                                    {{ nivel.etiqueta }}
+                                </td>
+                                <td
+                                    v-for="banda in BANDAS"
+                                    :key="banda.clave"
+                                    class="p-1"
+                                >
+                                    <Input
+                                        v-if="editandoMatriz"
+                                        v-model="
+                                            celdas[nivel.clave][banda.clave]
+                                        "
+                                        class="h-8 text-center text-xs"
+                                        :aria-label="`${nivel.etiqueta}, ${banda.etiqueta}`"
+                                    />
+                                    <template v-else>
+                                        {{
+                                            textoCelda(
+                                                matriz?.[nivel.clave]?.[
+                                                    banda.clave
+                                                ],
+                                            )
+                                        }}
+                                    </template>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div v-if="editandoMatriz" class="mt-2 flex flex-col gap-2">
+                    <p class="text-xs text-muted-foreground">
+                        Porcentaje de 0 a 100, o escribe «Bono».
+                    </p>
+                    <Input
+                        v-model="motivoMatriz"
+                        placeholder="Motivo (opcional)"
+                    />
+                    <InputError :message="erroresMatriz ?? undefined" />
+                    <div class="flex justify-end gap-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            @click="editandoMatriz = false"
+                        >
+                            Cancelar
+                        </Button>
+                        <Button size="sm" @click="guardarMatriz"
+                            >Guardar</Button
+                        >
+                    </div>
+                </div>
+                <details class="mt-2 text-xs text-muted-foreground">
+                    <summary class="cursor-pointer">
+                        Historial de la matriz
+                    </summary>
+                    <ul class="mt-1 space-y-1">
+                        <li
+                            v-for="version in historialMatriz"
+                            :key="version.id"
+                        >
+                            {{ version.vigente_desde }}
+                            {{
+                                version.vigente_hasta
+                                    ? `a ${version.vigente_hasta}`
+                                    : '(vigente)'
+                            }}
+                            · {{ version.usuario ?? 'Sistema' }}
+                            <template v-if="version.motivo">
+                                · {{ version.motivo }}</template
+                            >
+                        </li>
+                    </ul>
+                </details>
+            </section>
+        </div>
+
+        <div v-show="seccion === 'alertas'">
+            <!-- Alertas -->
+            <section class="rounded-2xl border bg-crema/50 p-4 shadow-sm">
+                <h2 class="flex items-center gap-1 font-semibold">
+                    <TriangleAlert class="size-4 text-warning" />
+                    Alertas salariales
+                </h2>
+                <ul class="mt-2 space-y-2 text-sm">
+                    <li>
+                        <b class="text-destructive">{{
+                            resumen.bajo_minimo
+                        }}</b>
+                        bajo el mínimo: riesgo de rotación.
+                    </li>
+                    <li>
+                        <b class="text-warning">{{ resumen.sobre_maximo }}</b>
+                        sobre el máximo: solo procede bono.
+                    </li>
+                    <li>
+                        <b>{{ resumen.puestos_sin_tabulador }}</b>
+                        sin tabulador capturado (puestos).
+                    </li>
+                    <li v-if="resumen.sin_sueldo > 0">
+                        <b>{{ resumen.sin_sueldo }}</b>
+                        sin sueldo capturado en su expediente.
+                    </li>
+                    <li v-if="resumen.con_evaluacion === 0">
+                        Sin evaluación de desempeño vigente: no se calculan
+                        topes ni márgenes.
+                    </li>
+                </ul>
+            </section>
         </div>
     </div>
 </template>

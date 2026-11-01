@@ -17,10 +17,12 @@ import InputError from '@/components/InputError.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import SelectorVista from '@/components/ui/SelectorVista.vue';
 import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { useAlertas } from '@/composables/useAlertas';
 import { VueApexCharts } from '@/lib/apexDiferido';
 import { formatearFecha } from '@/lib/fechas';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { dashboard } from '@/routes';
 import { index as indexReportes } from '@/routes/reportes';
 import rutasRotacion from '@/routes/reportes/rotacion';
@@ -170,6 +172,11 @@ function analizar() {
 
 const procesando = ref(false);
 
+// Consultar y cargar son dos trabajos: una carga abierta lleva directo a ella.
+const vistaRotacion = ref<'consulta' | 'cargas'>(
+    props.cargaSeleccionada ? 'cargas' : 'consulta',
+);
+
 async function confirmar(carga: RotacionCargaDetalle) {
     const reemplazos = carga.periodos.filter(
         (p) => p.accion === 'reemplaza',
@@ -281,9 +288,8 @@ const NOMBRE_MES = [
             descripcion="Índice de rotación mensual por sucursal, cargado desde el Excel de RH (bajas ÷ plantilla promedio × 100)."
             :icono="TrendingDown"
         >
-            <Button variant="outline" as-child
+            <Button v-if="puedeDescargar" variant="outline" as-child
                 ><a
-                    v-if="puedeDescargar"
                     :href="
                         rutasRotacion.formato.url({
                             query: { anio: anioFormato },
@@ -296,247 +302,281 @@ const NOMBRE_MES = [
             >
         </CrudPageHeader>
 
-        <!-- Filtros -->
-        <section
-            data-tour="rotacion-filtros"
-            class="flex flex-wrap items-end gap-4 rounded-2xl border border-border bg-card p-4"
-        >
-            <div class="flex w-full flex-col gap-1.5 sm:w-64">
-                <Label for="filtro-sucursal">Sucursal</Label>
-                <SelectSimple
-                    id="filtro-sucursal"
-                    v-model="sucursal"
-                    :opciones="[
-                        { value: TODAS, label: 'Todas' },
-                        ...sucursales.map((s) => ({
-                            value: String(s.id),
-                            label: s.nombre,
-                        })),
-                    ]"
-                    placeholder="Todas"
-                    placeholder-busqueda="Buscar sucursal…"
-                    class="w-full"
-                />
-            </div>
-            <div class="flex flex-col gap-1.5">
-                <Label for="filtro-hasta">Hasta el mes</Label>
-                <MonthPicker
-                    id="filtro-hasta"
-                    v-model="hasta"
-                    aria-label="Último mes de la ventana"
-                />
-            </div>
-            <p class="text-xs text-muted-foreground">
-                Últimos 12 meses: {{ tablero.ventana.desde }} a
-                {{ tablero.ventana.hasta }}
-            </p>
-        </section>
+        <SelectorVista
+            v-if="puedeCargar"
+            v-model="vistaRotacion"
+            etiqueta="Parte de la pantalla"
+            :opciones="[
+                { valor: 'consulta', etiqueta: 'Consulta' },
+                { valor: 'cargas', etiqueta: 'Cargar Excel' },
+            ]"
+        />
 
-        <!-- Indicadores -->
-        <section
-            data-tour="rotacion-indicadores"
-            class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
-        >
-            <div class="rounded-2xl border border-border bg-card p-4">
-                <p class="text-xs text-muted-foreground">Altas</p>
-                <p class="text-2xl font-semibold">
-                    {{ tablero.totales.altas }}
-                </p>
-            </div>
-            <div class="rounded-2xl border border-border bg-card p-4">
-                <p class="text-xs text-muted-foreground">Bajas</p>
-                <p class="text-2xl font-semibold">
-                    {{ tablero.totales.bajas }}
-                </p>
-            </div>
-            <div class="rounded-2xl border border-border bg-card p-4">
-                <p class="text-xs text-muted-foreground">Plantilla al cierre</p>
-                <p class="text-2xl font-semibold">
-                    {{ tablero.totales.plantilla_final ?? '—' }}
-                </p>
-            </div>
-            <div class="rounded-2xl border border-border bg-salvia p-4">
-                <p class="text-xs text-muted-foreground">Promedio mensual</p>
-                <p class="text-2xl font-semibold">
-                    {{ porcentaje(tablero.totales.promedio_mensual) }}
-                </p>
-            </div>
-            <div
-                class="col-span-2 rounded-2xl border border-border bg-crema p-4 xl:col-span-1"
+        <div v-show="vistaRotacion === 'consulta'" class="flex flex-col gap-5">
+            <!-- Filtros -->
+            <section
+                data-tour="rotacion-filtros"
+                class="flex flex-wrap items-end gap-4 rounded-2xl border border-border bg-card p-4"
             >
+                <div class="flex w-full flex-col gap-1.5 sm:w-64">
+                    <Label for="filtro-sucursal">Sucursal</Label>
+                    <SelectSimple
+                        id="filtro-sucursal"
+                        v-model="sucursal"
+                        :opciones="[
+                            { value: TODAS, label: 'Todas' },
+                            ...sucursales.map((s) => ({
+                                value: String(s.id),
+                                label: s.nombre,
+                            })),
+                        ]"
+                        placeholder="Todas"
+                        placeholder-busqueda="Buscar sucursal…"
+                        class="w-full"
+                    />
+                </div>
+                <div class="flex flex-col gap-1.5">
+                    <Label for="filtro-hasta">Hasta el mes</Label>
+                    <MonthPicker
+                        id="filtro-hasta"
+                        v-model="hasta"
+                        aria-label="Último mes de la ventana"
+                    />
+                </div>
                 <p class="text-xs text-muted-foreground">
-                    Rotación acumulada ({{ tablero.totales.meses_con_datos }}
-                    meses)
+                    Últimos 12 meses: {{ tablero.ventana.desde }} a
+                    {{ tablero.ventana.hasta }}
                 </p>
-                <p class="text-2xl font-semibold">
-                    {{ porcentaje(tablero.totales.rotacion_acumulada) }}
-                </p>
-            </div>
-        </section>
+            </section>
 
-        <!-- Gráfica -->
-        <section
-            data-tour="rotacion-grafica"
-            class="rounded-2xl border border-border bg-card p-4"
-        >
-            <h2 class="mb-2 text-sm font-semibold">
-                Índice de rotación por mes
-            </h2>
-            <p
-                v-if="mesesConDatos.length === 0"
-                class="flex h-[280px] items-center justify-center text-center text-sm text-muted-foreground"
+            <!-- Indicadores -->
+            <section
+                data-tour="rotacion-indicadores"
+                class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
             >
-                Todavía no hay rotación cargada para este periodo.
-                <template v-if="puedeCargar">
-                    Sube el Excel de RH más abajo.</template
+                <div class="rounded-2xl border border-border bg-card p-4">
+                    <p class="text-xs text-muted-foreground">Altas</p>
+                    <p class="text-2xl font-semibold">
+                        {{ tablero.totales.altas }}
+                    </p>
+                </div>
+                <div class="rounded-2xl border border-border bg-card p-4">
+                    <p class="text-xs text-muted-foreground">Bajas</p>
+                    <p class="text-2xl font-semibold">
+                        {{ tablero.totales.bajas }}
+                    </p>
+                </div>
+                <div class="rounded-2xl border border-border bg-card p-4">
+                    <p class="text-xs text-muted-foreground">
+                        Plantilla al cierre
+                    </p>
+                    <p class="text-2xl font-semibold">
+                        {{ tablero.totales.plantilla_final ?? '—' }}
+                    </p>
+                </div>
+                <div class="rounded-2xl border border-border bg-salvia p-4">
+                    <p class="text-xs text-muted-foreground">
+                        Promedio mensual
+                    </p>
+                    <p class="text-2xl font-semibold">
+                        {{ porcentaje(tablero.totales.promedio_mensual) }}
+                    </p>
+                </div>
+                <div
+                    class="col-span-2 rounded-2xl border border-border bg-crema p-4 xl:col-span-1"
                 >
-            </p>
-            <VueApexCharts
-                v-else
-                type="line"
-                height="300"
-                :options="opciones"
-                :series="series"
-            />
-        </section>
+                    <p class="text-xs text-muted-foreground">
+                        Rotación acumulada ({{
+                            tablero.totales.meses_con_datos
+                        }}
+                        meses)
+                    </p>
+                    <p class="text-2xl font-semibold">
+                        {{ porcentaje(tablero.totales.rotacion_acumulada) }}
+                    </p>
+                </div>
+            </section>
 
-        <!-- Tabla mensual -->
-        <section
-            data-tour="rotacion-tabla"
-            class="rounded-2xl border border-border bg-card p-4"
-        >
-            <h2 class="mb-3 text-sm font-semibold">Detalle mensual</h2>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
-                    <thead class="text-xs text-muted-foreground">
-                        <tr>
-                            <th class="py-2 pr-3">Mes</th>
-                            <th class="py-2 pr-3 text-right">Sucursales</th>
-                            <th class="py-2 pr-3 text-right">
-                                Plantilla inicial
-                            </th>
-                            <th class="py-2 pr-3 text-right">Altas</th>
-                            <th class="py-2 pr-3 text-right">Bajas</th>
-                            <template v-if="hayVoluntarias">
+            <!-- Gráfica -->
+            <section
+                data-tour="rotacion-grafica"
+                class="rounded-2xl border border-border bg-card p-4"
+            >
+                <h2 class="mb-2 text-sm font-semibold">
+                    Índice de rotación por mes
+                </h2>
+                <p
+                    v-if="mesesConDatos.length === 0"
+                    class="flex h-[280px] items-center justify-center text-center text-sm text-muted-foreground"
+                >
+                    Todavía no hay rotación cargada para este periodo.
+                    <template v-if="puedeCargar">
+                        Sube el Excel de RH más abajo.</template
+                    >
+                </p>
+                <VueApexCharts
+                    v-else
+                    type="line"
+                    height="300"
+                    :options="opciones"
+                    :series="series"
+                />
+            </section>
+
+            <!-- Tabla mensual -->
+            <section
+                data-tour="rotacion-tabla"
+                class="rounded-2xl border border-border bg-card p-4"
+            >
+                <h2 class="mb-3 text-sm font-semibold">Detalle mensual</h2>
+                <div class="tabla-scroll">
+                    <table v-tabla-tarjetas class="w-full text-left text-sm">
+                        <thead class="text-xs text-muted-foreground">
+                            <tr>
+                                <th class="py-2 pr-3">Mes</th>
+                                <th class="py-2 pr-3 text-right">Sucursales</th>
                                 <th class="py-2 pr-3 text-right">
-                                    Voluntarias
+                                    Plantilla inicial
                                 </th>
-                                <th class="py-2 pr-3 text-right">
-                                    Involuntarias
-                                </th>
-                            </template>
-                            <th class="py-2 pr-3 text-right">
-                                Plantilla final
-                            </th>
-                            <th class="py-2 text-right">Índice</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="m in tablero.meses"
-                            :key="m.clave"
-                            class="border-t border-border"
-                        >
-                            <td class="py-2 pr-3">{{ m.etiqueta }}</td>
-                            <template v-if="m.sucursales">
-                                <td class="py-2 pr-3 text-right">
-                                    {{ m.sucursales }}
-                                </td>
-                                <td class="py-2 pr-3 text-right">
-                                    {{ m.plantilla_inicial }}
-                                </td>
-                                <td class="py-2 pr-3 text-right">
-                                    {{ m.altas }}
-                                </td>
-                                <td class="py-2 pr-3 text-right">
-                                    {{ m.bajas }}
-                                </td>
+                                <th class="py-2 pr-3 text-right">Altas</th>
+                                <th class="py-2 pr-3 text-right">Bajas</th>
                                 <template v-if="hayVoluntarias">
+                                    <th class="py-2 pr-3 text-right">
+                                        Voluntarias
+                                    </th>
+                                    <th class="py-2 pr-3 text-right">
+                                        Involuntarias
+                                    </th>
+                                </template>
+                                <th class="py-2 pr-3 text-right">
+                                    Plantilla final
+                                </th>
+                                <th class="py-2 text-right">Índice</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="m in tablero.meses"
+                                :key="m.clave"
+                                class="border-t border-border"
+                            >
+                                <td class="py-2 pr-3">{{ m.etiqueta }}</td>
+                                <template v-if="m.sucursales">
                                     <td class="py-2 pr-3 text-right">
-                                        {{ m.bajas_voluntarias ?? '—' }}
+                                        {{ m.sucursales }}
                                     </td>
                                     <td class="py-2 pr-3 text-right">
-                                        {{ m.bajas_involuntarias ?? '—' }}
+                                        {{ m.plantilla_inicial }}
+                                    </td>
+                                    <td class="py-2 pr-3 text-right">
+                                        {{ m.altas }}
+                                    </td>
+                                    <td class="py-2 pr-3 text-right">
+                                        {{ m.bajas }}
+                                    </td>
+                                    <template v-if="hayVoluntarias">
+                                        <td class="py-2 pr-3 text-right">
+                                            {{ m.bajas_voluntarias ?? '—' }}
+                                        </td>
+                                        <td class="py-2 pr-3 text-right">
+                                            {{ m.bajas_involuntarias ?? '—' }}
+                                        </td>
+                                    </template>
+                                    <td class="py-2 pr-3 text-right">
+                                        {{ m.plantilla_final }}
+                                    </td>
+                                    <td class="py-2 text-right font-medium">
+                                        {{ porcentaje(m.indice) }}
                                     </td>
                                 </template>
+                                <td
+                                    v-else
+                                    :colspan="hayVoluntarias ? 8 : 6"
+                                    class="py-2 text-right text-xs text-muted-foreground"
+                                >
+                                    Sin datos cargados
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Por sucursal -->
+            <section
+                v-if="tablero.por_sucursal.length > 1"
+                class="rounded-2xl border border-border bg-card p-4"
+            >
+                <h2 class="mb-3 text-sm font-semibold">
+                    Por sucursal (ventana)
+                </h2>
+                <div class="tabla-scroll">
+                    <table v-tabla-tarjetas class="w-full text-left text-sm">
+                        <thead class="text-xs text-muted-foreground">
+                            <tr>
+                                <th class="py-2 pr-3">Sucursal</th>
+                                <th class="py-2 pr-3 text-right">Meses</th>
+                                <th class="py-2 pr-3 text-right">Altas</th>
+                                <th class="py-2 pr-3 text-right">Bajas</th>
+                                <th class="py-2 pr-3 text-right">
+                                    Plantilla al cierre
+                                </th>
+                                <th class="py-2 pr-3 text-right">
+                                    Promedio mensual
+                                </th>
+                                <th class="py-2 text-right">
+                                    Rotación acumulada
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr
+                                v-for="s in tablero.por_sucursal"
+                                :key="s.sucursal_id"
+                                class="border-t border-border"
+                            >
+                                <td class="py-2 pr-3">
+                                    <button
+                                        type="button"
+                                        class="text-left underline-offset-2 hover:underline"
+                                        @click="
+                                            sucursal = String(s.sucursal_id)
+                                        "
+                                    >
+                                        {{ s.sucursal }}
+                                    </button>
+                                </td>
                                 <td class="py-2 pr-3 text-right">
-                                    {{ m.plantilla_final }}
+                                    {{ s.meses }}
+                                </td>
+                                <td class="py-2 pr-3 text-right">
+                                    {{ s.altas }}
+                                </td>
+                                <td class="py-2 pr-3 text-right">
+                                    {{ s.bajas }}
+                                </td>
+                                <td class="py-2 pr-3 text-right">
+                                    {{ s.plantilla_final }}
+                                </td>
+                                <td class="py-2 pr-3 text-right">
+                                    {{ porcentaje(s.promedio_mensual) }}
                                 </td>
                                 <td class="py-2 text-right font-medium">
-                                    {{ porcentaje(m.indice) }}
+                                    {{ porcentaje(s.rotacion_acumulada) }}
                                 </td>
-                            </template>
-                            <td
-                                v-else
-                                :colspan="hayVoluntarias ? 8 : 6"
-                                class="py-2 text-right text-xs text-muted-foreground"
-                            >
-                                Sin datos cargados
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
-
-        <!-- Por sucursal -->
-        <section
-            v-if="tablero.por_sucursal.length > 1"
-            class="rounded-2xl border border-border bg-card p-4"
-        >
-            <h2 class="mb-3 text-sm font-semibold">Por sucursal (ventana)</h2>
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
-                    <thead class="text-xs text-muted-foreground">
-                        <tr>
-                            <th class="py-2 pr-3">Sucursal</th>
-                            <th class="py-2 pr-3 text-right">Meses</th>
-                            <th class="py-2 pr-3 text-right">Altas</th>
-                            <th class="py-2 pr-3 text-right">Bajas</th>
-                            <th class="py-2 pr-3 text-right">
-                                Plantilla al cierre
-                            </th>
-                            <th class="py-2 pr-3 text-right">
-                                Promedio mensual
-                            </th>
-                            <th class="py-2 text-right">Rotación acumulada</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr
-                            v-for="s in tablero.por_sucursal"
-                            :key="s.sucursal_id"
-                            class="border-t border-border"
-                        >
-                            <td class="py-2 pr-3">
-                                <button
-                                    type="button"
-                                    class="text-left underline-offset-2 hover:underline"
-                                    @click="sucursal = String(s.sucursal_id)"
-                                >
-                                    {{ s.sucursal }}
-                                </button>
-                            </td>
-                            <td class="py-2 pr-3 text-right">{{ s.meses }}</td>
-                            <td class="py-2 pr-3 text-right">{{ s.altas }}</td>
-                            <td class="py-2 pr-3 text-right">{{ s.bajas }}</td>
-                            <td class="py-2 pr-3 text-right">
-                                {{ s.plantilla_final }}
-                            </td>
-                            <td class="py-2 pr-3 text-right">
-                                {{ porcentaje(s.promedio_mensual) }}
-                            </td>
-                            <td class="py-2 text-right font-medium">
-                                {{ porcentaje(s.rotacion_acumulada) }}
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
 
         <!-- Carga del Excel (solo RH con rotacion.cargar) -->
-        <template v-if="puedeCargar">
+        <div
+            v-if="puedeCargar"
+            v-show="vistaRotacion === 'cargas'"
+            class="flex flex-col gap-5"
+        >
             <section
                 data-tour="rotacion-carga"
                 class="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5"
@@ -601,9 +641,12 @@ const NOMBRE_MES = [
                         >
                     </div>
                     <div class="flex flex-wrap gap-2">
-                        <Button variant="outline" size="sm" as-child
+                        <Button
+                            v-if="puedeDescargar"
+                            variant="outline"
+                            size="sm"
+                            as-child
                             ><a
-                                v-if="puedeDescargar"
                                 :href="
                                     rutasRotacion.archivo.url(
                                         cargaSeleccionada.id,
@@ -720,7 +763,10 @@ const NOMBRE_MES = [
                         </button>
                     </div>
                     <div class="max-h-80 overflow-y-auto">
-                        <table class="w-full text-left text-sm">
+                        <table
+                            v-tabla-tarjetas
+                            class="w-full text-left text-sm"
+                        >
                             <thead class="text-xs text-muted-foreground">
                                 <tr>
                                     <th class="py-1.5 pr-3">Tipo</th>
@@ -775,7 +821,10 @@ const NOMBRE_MES = [
                         }})
                     </h3>
                     <div class="max-h-96 overflow-auto">
-                        <table class="w-full text-left text-sm">
+                        <table
+                            v-tabla-tarjetas
+                            class="w-full text-left text-sm"
+                        >
                             <thead class="text-xs text-muted-foreground">
                                 <tr>
                                     <th class="py-1.5 pr-3">Sucursal</th>
@@ -879,8 +928,8 @@ const NOMBRE_MES = [
                 <h2 class="flex items-center gap-2 text-sm font-semibold">
                     <FileSpreadsheet class="size-4" /> Cargas anteriores
                 </h2>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left text-sm">
+                <div class="tabla-scroll">
+                    <table v-tabla-tarjetas class="w-full text-left text-sm">
                         <thead class="text-xs text-muted-foreground">
                             <tr>
                                 <th class="py-2 pr-3">Archivo</th>
@@ -954,6 +1003,6 @@ const NOMBRE_MES = [
                     </table>
                 </div>
             </section>
-        </template>
+        </div>
     </div>
 </template>

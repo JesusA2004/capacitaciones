@@ -15,6 +15,7 @@ import { useFiltros } from '@/composables/useFiltros';
 import { usePaginacionLocal } from '@/composables/usePaginacion';
 import { VueApexCharts } from '@/lib/apexDiferido';
 import { opcionesDe } from '@/lib/opcionesSelect';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { dashboard } from '@/routes';
 import { excel, index, pdf } from '@/routes/rh/reportes';
 import { index as misReportes } from '@/routes/rh/reportes/mis-reportes';
@@ -211,6 +212,15 @@ function guardarLayout() {
             },
         });
 }
+
+const opcionesCatalogo = computed(() =>
+    props.catalogo.flatMap((g) =>
+        g.opciones.map((o) => ({
+            value: o.value,
+            label: `${g.grupo} · ${o.label}`,
+        })),
+    ),
+);
 </script>
 
 <template>
@@ -231,8 +241,20 @@ function guardarLayout() {
         </CrudPageHeader>
 
         <div class="grid items-start gap-5 lg:grid-cols-[17rem_minmax(0,1fr)]">
+            <!-- En móvil el catálogo es un selector: el reporte queda a la vista. -->
+            <label class="grid gap-1 text-sm font-medium lg:hidden">
+                Reporte
+                <SelectSimple
+                    :model-value="reporte"
+                    :opciones="opcionesCatalogo"
+                    placeholder="Elige un reporte"
+                    class="w-full"
+                    @update:model-value="(v) => v && elegir(String(v))"
+                />
+            </label>
+
             <nav
-                class="rounded-2xl border border-border/60 bg-card p-3 lg:sticky lg:top-4"
+                class="hidden rounded-2xl border border-border/60 bg-card p-3 lg:sticky lg:top-4 lg:block"
                 aria-label="Catálogo de reportes"
                 data-tour="reportes-tipo"
             >
@@ -579,8 +601,8 @@ function guardarLayout() {
                             descripcion="No hay información para este reporte con los filtros seleccionados."
                         />
 
-                        <div v-else class="overflow-x-auto">
-                            <table class="w-full text-sm">
+                        <div v-else class="tabla-scroll">
+                            <table v-tabla-tarjetas class="w-full text-sm">
                                 <thead>
                                     <tr
                                         class="border-b border-border/60 bg-muted/40"

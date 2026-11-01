@@ -708,6 +708,7 @@ function fecha(valor: string | null): string {
                     <div data-tour="candidato-acciones">
                         <AccionesCiclo
                             :acciones="accionesRestantes"
+                            :sin-principal="!!siguientePaso.accion"
                             @accion="abrir"
                         />
                     </div>

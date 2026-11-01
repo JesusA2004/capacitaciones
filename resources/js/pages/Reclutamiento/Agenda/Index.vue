@@ -2,6 +2,7 @@
 import { Head, router, useForm } from '@inertiajs/vue3';
 import {
     CalendarClock,
+    CalendarPlus,
     ChevronLeft,
     ChevronRight,
     TriangleAlert,
@@ -15,8 +16,16 @@ import InputError from '@/components/InputError.vue';
 import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import { Button } from '@/components/ui/button';
 import { ComboboxBuscable } from '@/components/ui/combobox-buscable';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { cn } from '@/lib/utils';
 import {
     empalmes as empalmesRuta,
@@ -162,6 +171,9 @@ function elegirCv(evento: Event): void {
     formulario.cv = (evento.target as HTMLInputElement).files?.[0] ?? null;
 }
 
+// Desde la ficha (?candidato=) abre directo: a eso venía.
+const agendarAbierto = ref(!!props.candidatoInicial);
+
 function agendar(): void {
     formulario
         .transform((datos) => ({
@@ -173,6 +185,7 @@ function agendar(): void {
             preserveScroll: true,
             forceFormData: true,
             onSuccess: () => {
+                agendarAbierto.value = false;
                 formulario.reset(
                     'candidato_id',
                     'fecha',
@@ -275,6 +288,9 @@ const consultaExportar = computed(() => ({ query: consultaActual() }));
 
     <div class="pagina-ancha flex flex-col gap-5">
         <CrudPageHeader titulo="Agenda de entrevistas" :icono="CalendarClock">
+            <Button v-if="puede.agendar" @click="agendarAbierto = true">
+                <CalendarPlus class="size-4" /> Agendar evento
+            </Button>
             <template v-if="puede.exportar">
                 <Button variant="outline" size="sm" as-child>
                     <a :href="excel.url(consultaExportar)">Excel</a>
@@ -319,169 +335,172 @@ const consultaExportar = computed(() => ({ query: consultaActual() }));
             />
         </div>
 
-        <div class="grid items-start gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-            <form
-                v-if="puede.agendar"
-                class="grid gap-3 rounded-xl border-2 border-oro bg-card p-4"
-                @submit.prevent="agendar"
-            >
-                <div>
-                    <h2 class="font-semibold">Agendar evento</h2>
-                    <p class="text-xs text-muted-foreground">
+        <Dialog v-if="puede.agendar" v-model:open="agendarAbierto">
+            <DialogContent class="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Agendar evento</DialogTitle>
+                    <DialogDescription>
                         Queda registrado quién lo agendó.
-                    </p>
-                </div>
-
-                <div class="grid gap-1 text-sm">
-                    <span class="font-medium">1 · Sucursal</span>
-                    <ComboboxBuscable
-                        v-model="formulario.sucursal_id"
-                        :opciones="opcionesSucursal"
-                        numerico
-                        placeholder="Elige la sucursal"
-                        aria-label="Sucursal"
-                    />
-                    <InputError :message="formulario.errors.sucursal_id" />
-                    <p
-                        v-if="sucursalElegida"
-                        class="rounded-md bg-salvia px-2 py-1 text-xs"
-                    >
-                        Se notificará en la app a <strong>Gerente</strong> y
-                        <strong>Subgerente</strong> de {{ sucursalElegida }}.
-                    </p>
-                </div>
-
-                <div class="grid gap-1 text-sm">
-                    <span class="font-medium">2 · Candidato</span>
-                    <template v-if="!altaRapida">
+                    </DialogDescription>
+                </DialogHeader>
+                <form class="grid gap-3" @submit.prevent="agendar">
+                    <div class="grid gap-1 text-sm">
+                        <span class="font-medium">1 · Sucursal</span>
                         <ComboboxBuscable
-                            v-model="formulario.candidato_id"
-                            :opciones="opcionesCandidato"
+                            v-model="formulario.sucursal_id"
+                            :opciones="opcionesSucursal"
                             numerico
-                            placeholder="Busca al candidato"
-                            texto-vacio="Sin candidatos para agendar"
-                            aria-label="Candidato"
+                            placeholder="Elige la sucursal"
+                            aria-label="Sucursal"
                         />
-                    </template>
-                    <div v-else class="grid gap-2">
-                        <Input
-                            v-model="candidatoNuevo.nombre"
-                            placeholder="Nombre(s)"
-                            aria-label="Nombre"
-                        />
-                        <Input
-                            v-model="candidatoNuevo.apellidos"
-                            placeholder="Apellidos"
-                            aria-label="Apellidos"
-                        />
-                        <Input
-                            v-model="candidatoNuevo.telefono"
-                            placeholder="Teléfono"
-                            aria-label="Teléfono"
-                        />
-                        <ComboboxBuscable
-                            v-model="candidatoNuevo.puesto_objetivo_id"
-                            :opciones="opcionesPuesto"
-                            numerico
-                            limpiable
-                            placeholder="Puesto"
-                            aria-label="Puesto"
-                        />
-                        <InputError
-                            :message="
-                                (formulario.errors as Record<string, string>)[
-                                    'candidato_nuevo.nombre'
-                                ]
-                            "
-                        />
-                    </div>
-                    <InputError :message="formulario.errors.candidato_id" />
-                    <button
-                        v-if="puede.alta_candidato"
-                        type="button"
-                        class="text-left text-xs font-medium text-bronce underline"
-                        @click="altaRapida = !altaRapida"
-                    >
-                        {{
-                            altaRapida
-                                ? 'Elegir de la lista'
-                                : '+ Registrar candidato nuevo'
-                        }}
-                    </button>
-                </div>
-
-                <div class="grid gap-1 text-sm">
-                    <span class="font-medium">3 · Tipo de evento</span>
-                    <div
-                        class="grid grid-cols-2 gap-1 rounded-lg border border-border p-1"
-                    >
-                        <button
-                            v-for="opcion in tiposEvento"
-                            :key="opcion.v"
-                            type="button"
-                            :aria-pressed="formulario.tipo === opcion.v"
-                            :class="
-                                cn(
-                                    'rounded-md px-2 py-1 text-xs font-medium',
-                                    formulario.tipo === opcion.v &&
-                                        'bg-primary text-primary-foreground',
-                                )
-                            "
-                            @click="formulario.tipo = opcion.v"
+                        <InputError :message="formulario.errors.sucursal_id" />
+                        <p
+                            v-if="sucursalElegida"
+                            class="rounded-md bg-salvia px-2 py-1 text-xs"
                         >
-                            {{ opcion.e }}
+                            Se notificará en la app a <strong>Gerente</strong> y
+                            <strong>Subgerente</strong> de
+                            {{ sucursalElegida }}.
+                        </p>
+                    </div>
+
+                    <div class="grid gap-1 text-sm">
+                        <span class="font-medium">2 · Candidato</span>
+                        <template v-if="!altaRapida">
+                            <ComboboxBuscable
+                                v-model="formulario.candidato_id"
+                                :opciones="opcionesCandidato"
+                                numerico
+                                placeholder="Busca al candidato"
+                                texto-vacio="Sin candidatos para agendar"
+                                aria-label="Candidato"
+                            />
+                        </template>
+                        <div v-else class="grid gap-2">
+                            <Input
+                                v-model="candidatoNuevo.nombre"
+                                placeholder="Nombre(s)"
+                                aria-label="Nombre"
+                            />
+                            <Input
+                                v-model="candidatoNuevo.apellidos"
+                                placeholder="Apellidos"
+                                aria-label="Apellidos"
+                            />
+                            <Input
+                                v-model="candidatoNuevo.telefono"
+                                placeholder="Teléfono"
+                                aria-label="Teléfono"
+                            />
+                            <ComboboxBuscable
+                                v-model="candidatoNuevo.puesto_objetivo_id"
+                                :opciones="opcionesPuesto"
+                                numerico
+                                limpiable
+                                placeholder="Puesto"
+                                aria-label="Puesto"
+                            />
+                            <InputError
+                                :message="
+                                    (
+                                        formulario.errors as Record<
+                                            string,
+                                            string
+                                        >
+                                    )['candidato_nuevo.nombre']
+                                "
+                            />
+                        </div>
+                        <InputError :message="formulario.errors.candidato_id" />
+                        <button
+                            v-if="puede.alta_candidato"
+                            type="button"
+                            class="text-left text-xs font-medium text-bronce underline"
+                            @click="altaRapida = !altaRapida"
+                        >
+                            {{
+                                altaRapida
+                                    ? 'Elegir de la lista'
+                                    : '+ Registrar candidato nuevo'
+                            }}
                         </button>
                     </div>
-                </div>
 
-                <div class="grid grid-cols-2 gap-2 text-sm">
-                    <label class="grid gap-1 font-medium">
-                        4 · Fecha
-                        <Input v-model="formulario.fecha" type="date" />
-                    </label>
-                    <label class="grid gap-1 font-medium">
-                        5 · Hora
-                        <Input v-model="formulario.hora" type="time" />
-                    </label>
-                </div>
-                <InputError :message="formulario.errors.fecha" />
-                <InputError :message="formulario.errors.hora" />
+                    <div class="grid gap-1 text-sm">
+                        <span class="font-medium">3 · Tipo de evento</span>
+                        <div
+                            class="grid grid-cols-2 gap-1 rounded-lg border border-border p-1"
+                        >
+                            <button
+                                v-for="opcion in tiposEvento"
+                                :key="opcion.v"
+                                type="button"
+                                :aria-pressed="formulario.tipo === opcion.v"
+                                :class="
+                                    cn(
+                                        'rounded-md px-2 py-1 text-xs font-medium',
+                                        formulario.tipo === opcion.v &&
+                                            'bg-primary text-primary-foreground',
+                                    )
+                                "
+                                @click="formulario.tipo = opcion.v"
+                            >
+                                {{ opcion.e }}
+                            </button>
+                        </div>
+                    </div>
 
-                <p
-                    v-for="aviso in empalmes"
-                    :key="aviso"
-                    class="flex gap-1 rounded-md bg-warning-soft px-2 py-1 text-xs"
-                >
-                    <TriangleAlert class="size-3 shrink-0" /> {{ aviso }}
-                </p>
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <label class="grid gap-1 font-medium">
+                            4 · Fecha
+                            <Input v-model="formulario.fecha" type="date" />
+                        </label>
+                        <label class="grid gap-1 font-medium">
+                            5 · Hora
+                            <Input v-model="formulario.hora" type="time" />
+                        </label>
+                    </div>
+                    <InputError :message="formulario.errors.fecha" />
+                    <InputError :message="formulario.errors.hora" />
 
-                <Input
-                    v-if="formulario.tipo === 'socioeconomico'"
-                    v-model="formulario.domicilio"
-                    placeholder="Domicilio de la visita"
-                    aria-label="Domicilio de la visita"
-                />
+                    <p
+                        v-for="aviso in empalmes"
+                        :key="aviso"
+                        class="flex gap-1 rounded-md bg-warning-soft px-2 py-1 text-xs"
+                    >
+                        <TriangleAlert class="size-3 shrink-0" /> {{ aviso }}
+                    </p>
 
-                <label class="grid gap-1 text-sm font-medium">
-                    6 · CV del candidato
-                    <input
-                        type="file"
-                        class="text-xs font-normal"
-                        @change="elegirCv"
+                    <Input
+                        v-if="formulario.tipo === 'socioeconomico'"
+                        v-model="formulario.domicilio"
+                        placeholder="Domicilio de la visita"
+                        aria-label="Domicilio de la visita"
                     />
-                </label>
-                <InputError :message="formulario.errors.cv" />
 
-                <label class="grid gap-1 text-sm font-medium">
-                    Notas para el gerente (opcional)
-                    <Textarea v-model="formulario.notas" rows="2" />
-                </label>
+                    <label class="grid gap-1 text-sm font-medium">
+                        6 · CV del candidato
+                        <input
+                            type="file"
+                            class="text-xs font-normal"
+                            @change="elegirCv"
+                        />
+                    </label>
+                    <InputError :message="formulario.errors.cv" />
 
-                <Button type="submit" :disabled="formulario.processing">
-                    Agendar y notificar
-                </Button>
-            </form>
+                    <label class="grid gap-1 text-sm font-medium">
+                        Notas para el gerente (opcional)
+                        <Textarea v-model="formulario.notas" rows="2" />
+                    </label>
 
+                    <Button type="submit" :disabled="formulario.processing">
+                        Agendar y notificar
+                    </Button>
+                </form>
+            </DialogContent>
+        </Dialog>
+
+        <div class="flex flex-col gap-4">
             <section
                 class="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-4"
             >
@@ -551,8 +570,11 @@ const consultaExportar = computed(() => ({ query: consultaActual() }));
                     @abrir="(evento) => (seleccionado = evento)"
                 />
 
-                <div v-else class="overflow-x-auto">
-                    <table class="w-full min-w-[720px] text-sm">
+                <div v-else class="tabla-scroll">
+                    <table
+                        v-tabla-tarjetas
+                        class="w-full min-w-[720px] text-sm"
+                    >
                         <thead class="bg-crema text-left text-xs uppercase">
                             <tr>
                                 <th class="px-2 py-2">Fecha</th>
@@ -620,7 +642,7 @@ const consultaExportar = computed(() => ({ query: consultaActual() }));
                     </span>
                 </div>
 
-                <div class="overflow-x-auto">
+                <div class="tabla-scroll">
                     <div class="mb-2 flex items-center gap-2">
                         <h2 class="font-semibold">Récord por sucursal</h2>
                         <Button
@@ -642,7 +664,10 @@ const consultaExportar = computed(() => ({ query: consultaActual() }));
                             >
                         </Button>
                     </div>
-                    <table class="w-full min-w-[720px] text-sm">
+                    <table
+                        v-tabla-tarjetas
+                        class="w-full min-w-[720px] text-sm"
+                    >
                         <thead class="bg-crema text-left text-xs uppercase">
                             <tr>
                                 <th class="px-2 py-2">Sucursal</th>

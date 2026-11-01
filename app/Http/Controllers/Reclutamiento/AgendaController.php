@@ -178,8 +178,7 @@ class AgendaController extends Controller
      */
     private function avisoConSiguientePaso(Request $request, AgendaEvento $evento, string $mensaje): array
     {
-        $candidato = $evento->candidato;
-        $ficha = $candidato !== null ? app(ConstructorEnlaces::class)->fichaCandidato($request->user(), $candidato) : null;
+        $ficha = app(ConstructorEnlaces::class)->fichaCandidato($request->user(), $evento->candidato);
         $aviso = ['type' => 'success', 'message' => $mensaje];
 
         return $ficha !== null ? [...$aviso, 'accion' => ['etiqueta' => 'Ver siguiente paso', 'href' => $ficha]] : $aviso;

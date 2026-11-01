@@ -22,18 +22,21 @@ const props = withDefaults(
         siguiente?: string | null;
         /** Acciones extra que la pantalla agrega (p. ej. devolver evaluación). */
         extras?: AccionCiclo[];
+        /** El panel de «Siguiente paso» ya tiene el botón principal: aquí no hay otro. */
+        sinPrincipal?: boolean;
     }>(),
-    { siguiente: null, extras: () => [] },
+    { siguiente: null, extras: () => [], sinPrincipal: false },
 );
 
 const emit = defineEmits<{ accion: [accion: AccionCiclo] }>();
 
 const todas = computed(() => [...props.acciones, ...props.extras]);
-const primaria = computed(
-    () =>
-        todas.value.find((a) => a.clave === props.siguiente) ??
-        todas.value.find((a) => a.tipo === 'primaria') ??
-        null,
+const primaria = computed(() =>
+    props.sinPrincipal
+        ? null
+        : (todas.value.find((a) => a.clave === props.siguiente) ??
+          todas.value.find((a) => a.tipo === 'primaria') ??
+          null),
 );
 const resto = computed(() => todas.value.filter((a) => a !== primaria.value));
 const visibles = computed(() =>
