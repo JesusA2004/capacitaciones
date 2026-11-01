@@ -22,18 +22,24 @@ class GenerarWayfinderCommand extends Command
 
     public function handle(): int
     {
-        config([
-            'database.default' => 'sqlite',
-            'database.connections.sqlite.url' => null,
-            'database.connections.sqlite.database' => ':memory:',
-        ]);
-        DB::purge('sqlite');
+        $anterior = config('database.default');
 
-        return $this->call('wayfinder:generate', array_filter([
-            '--path' => $this->option('path'),
-            '--skip-actions' => $this->option('skip-actions'),
-            '--skip-routes' => $this->option('skip-routes'),
-            '--with-form' => $this->option('with-form'),
-        ]));
+        // Conexión propia: no toca las que ya estén abiertas en este proceso.
+        config([
+            'database.connections.wayfinder' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => ''],
+            'database.default' => 'wayfinder',
+        ]);
+
+        try {
+            return $this->call('wayfinder:generate', array_filter([
+                '--path' => $this->option('path'),
+                '--skip-actions' => $this->option('skip-actions'),
+                '--skip-routes' => $this->option('skip-routes'),
+                '--with-form' => $this->option('with-form'),
+            ]));
+        } finally {
+            config(['database.default' => $anterior]);
+            DB::purge('wayfinder');
+        }
     }
 }

@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\File;
 test('people:wayfinder genera los mismos tipos con la base inaccesible', function () {
     $carpeta = storage_path('framework/testing/wayfinder-'.uniqid());
 
+    $conexion = config('database.default');
+
     config([
         'database.default' => 'mysql',
         'database.connections.mysql.host' => '127.0.0.1',
@@ -26,6 +28,7 @@ test('people:wayfinder genera los mismos tipos con la base inaccesible', functio
             ->and($helper)->not->toMatch('/\brol: string\b(?! \|)/')
             ->and($helper)->toContain('.form');
     } finally {
+        config(['database.default' => $conexion]);
         File::deleteDirectory($carpeta);
     }
 });
