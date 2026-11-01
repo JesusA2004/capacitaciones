@@ -87,7 +87,7 @@ Para el organigrama **por personas**, los puestos "de sucursal" son
 
 ## Autoridad en la línea comercial
 
-Regla confirmada por la dueña del negocio (2026-11-01): **se puede modificar lo hecho por un puesto inferior; nunca lo hecho por un puesto superior.** El orden vive en `config/organigrama.php` → `linea_comercial`: Gerente Regional > Subgerente Regional > Gerente de Sucursal > Subgerente de Sucursal > Gestores. El reporte directo no es lo mismo: el Gerente de Sucursal reporta al Gerente Regional, aunque el Subgerente Regional también tiene autoridad sobre él.
+Regla confirmada por la dueña del negocio (2026-11-01): **todo se puede reabrir o modificar, pero solo por alguien de rango superior, a uno o más niveles arriba de quien lo decidió; el mismo puesto o uno inferior, nunca.** El orden vive en `config/organigrama.php` → `linea_comercial`: Gerente Regional > Subgerente Regional > Gerente de Sucursal > Subgerente de Sucursal > Gestores. El reporte directo no es lo mismo: el Gerente de Sucursal reporta al Gerente Regional, aunque el Subgerente Regional también tiene autoridad sobre él.
 
 Única fuente: `App\Services\Organigrama\AutoridadJerarquicaService`.
 
@@ -96,17 +96,52 @@ Regla confirmada por la dueña del negocio (2026-11-01): **se puede modificar lo
 | `puedeModificarLoHechoPor(actor, autor)` | ¿Puede cambiar lo que esa cuenta hizo? |
 | `tieneAutoridadSobre(actor, colaborador)` | ¿Manda sobre esa persona? Puesto estrictamente superior y dentro de su alcance (regionales: la empresa; los demás: sus sucursales). |
 | `exigirPuedeModificar(actor, autores)` | Rechaza con «Lo registró un puesto superior; no puedes cambiarlo.» y avisa si hay que anotar un autor desconocido. |
+| `esRangoSuperior(actor, autor)` | ¿Puede reabrir esa decisión? Solo un rango estrictamente mayor; ver «Reabrir». |
 
 Criterios (los tres últimos, supuestos comunicados a la dueña del negocio):
 
 - El rango es el del puesto en la base, titular o cobertura vigente; nunca un nombre de persona. Es el puesto **actual** del autor: las tablas guardan quién decidió, no qué puesto tenía entonces.
-- Mismo puesto: sí se puede, con motivo y dentro de su alcance.
+- Mismo puesto: no puede cambiar ni reabrir decisiones ajenas. Corregir un dato sigue siendo posible por RH, con motivo, en el flujo de correcciones.
+- **Otros nombres:** «Gerente de operaciones» y «Gerente» a secas son Gerente de Sucursal, solo en una sucursal operativa (`organigrama.alias_gerente_sucursal`); en Corporativo no tienen rango y `people:sincronizar-organigrama` y la migración inicial lo reportan como conflicto. Coordinadora es un puesto administrativo aparte, sin rango.
+- **«Regional de Operaciones» no tiene rango** hasta que la dueña del negocio lo aclare: no se reasigna a nadie, `people:sincronizar-organigrama` reporta a sus titulares y la migración inicial lo marca como conflicto. Sigue contando como regional de respaldo.
 - RH, Dirección y cualquier puesto o rol fuera de la línea (`roles_fuera_de_linea`) conservan sus permisos, en ambos sentidos.
 - Sin autor conocido: se trata como de nivel inferior, sin bloquear, y queda anotado (historial de la solicitud, seguimiento del candidato o `afectados` de la corrección).
 
 **Dónde se aplica** (Service y, si hay Policy, también ahí; web y API por igual): rechazar, devolver o cancelar una solicitud ajena (`SolicitudesService::cambiarEstado`, autores: vistos buenos y `revisado_por`); aprobar o rechazar vacaciones ya revisadas (`VacacionesService`); descartar un candidato (`CandidatoWorkflowService::descartar`, autor: último cambio de estado); corregir un dato (`CorreccionService`, autor: última corrección del campo o bitácora); bajas y cierres nunca hacia arriba (`BajaService::puedeSolicitarPara`, `ColaboradorPolicy::iniciarCierre`).
 
-**Sin flujo de cambio:** un visto bueno y una intervención decididos son definitivos para todos. Si el Subgerente Regional rechaza, la Gerente Regional no tiene hoy cómo revertirlo: hay que crear ese flujo.
+### Reabrir (`App\Services\Reaperturas\ReaperturaService`)
+
+Una sola regla para web (`POST rh/reaperturas/{tipo}/{id}`) y API (`POST api/v1/rh/reaperturas/{tipo}/{id}`). El botón «Reabrir» solo aparece con lo que devuelve `disponibles()` (`reaperturas` en la ficha del candidato y de la solicitud; web y API).
+
+| Tipo | Quién decidió (autor) | Se reabre mientras | Qué pasa |
+|---|---|---|---|
+| `visto_bueno_solicitud` | Último visto bueno | La solicitud esté en trámite o rechazada por ese visto bueno | Vuelve a «Recibida», pendiente del nivel |
+| `solicitud_rechazada` | `revisado_por` | Esté rechazada | Vuelve a «Recibida» o «Pendiente de autorizar» según sus vistos buenos |
+| `vacaciones_rechazadas` | `revisado_por` | Esté rechazada (legacy, solo API) | Vuelve a pendiente |
+| `intervencion_candidato` | `aprobador_id` | No esté pendiente; si se aprobó, el candidato siga en «Autorizado por RH» | Vuelve a pendiente; si se aprobó, el candidato regresa al rechazo de RH |
+| `entrevista_candidato` | Quien registró la última entrevista | El candidato esté entre psicométricas y referencias, o No viable por esa entrevista | Vuelve a «Entrevista»; lo ya registrado se conserva |
+
+Criterios:
+
+- **Solo un rango estrictamente mayor al del autor**, dentro de lo que el actor ya puede ver. Inferior, mismo puesto, uno mismo, RH o autor desconocido: 403 con un mensaje que no revela datos del trámite. Sobre la línea: Dirección Comercial y, arriba, Dirección General (`organigrama.sobre_la_linea`). Lo decidido fuera de la línea (RH) solo lo reabre Dirección General.
+- Motivo obligatorio. Se guarda en `reaperturas` con el autor, quien reabrió y la decisión anterior completa, en el historial del trámite y en la bitácora, en una transacción. El visto bueno se retira de `solicitud_aprobaciones` (una decisión por nivel) y queda en ese registro.
+- Quien reabrió también puede volver a decidir la entrevista o el visto bueno, además de su responsable normal.
+- **No aplica a bajas:** las registran los regionales; cancelarlas o reabrirlas es solo de RH.
+
+## Aprobación de entrevista (`App\Services\Reclutamiento\AprobadorEntrevistaService`)
+
+Por puesto objetivo (el de la vacante o, sin vacante, el del candidato), validado en backend en web, API y agenda:
+
+| Candidato a | Aprueba | Dirección Comercial |
+|---|---|---|
+| Gestor, Gestor Volante, Gestor grupal | Gerente de Sucursal; sin gerente vigente, los regionales | No lo ve |
+| Subgerente o Gerente de Sucursal | Gerente Regional, Subgerente Regional o Dirección Comercial. Un gerente no aprueba a su reemplazo | Ve, recibe avisos y actúa |
+| Gerente o Subgerente Regional (decisión conservadora) | Dirección Comercial | Ve, recibe avisos y actúa |
+| Fuera de la línea (Coordinadora, corporativos) | Sin regla: permiso y alcance, incluida RH | No lo ve, salvo intervención dirigida a ella |
+
+Cada aprobador tiene su pendiente y su aviso; al decidir uno se cierran todos. Sin ningún aprobador vigente la atiende RH con autorización final, para que el proceso no se detenga. Un «gerente involucrado» asignado a mano solo cuenta si es gerente de sucursal. **Psicométricas y socioeconómico no cambian** (`responsableDeCandidato`). RH conserva el resto del recorrido.
+
+**Intervención:** Gestores → regionales; Subgerentes, Gerentes y puestos fuera de la línea → Dirección Comercial. El aviso abre la ficha del candidato.
 
 ## Módulo `/administracion/jerarquia-puestos`
 

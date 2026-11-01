@@ -139,3 +139,13 @@ Dirección, Regional, Jurídico, Contraloría, Auditoría): Configuración →
 propia confirmación, lo propio ni lo de su equipo directo; lo pendiente sigue
 en «Mis pendientes» (`SucursalesSilenciadasService`, aplicado en
 `NotificacionEventosService::entregar()`).
+
+## Asignar roles (2026-11-01)
+
+`usuarios.asignar_roles` es de administración: `super_admin`, `rh_admin` y `sistemas`, o un rol al que un administrador se lo otorgue. Ya no se hereda de `usuarios.editar`; los gerentes y regionales lo pierden al desplegar (migración `retira_asignar_roles_de_la_linea_comercial`).
+
+Nadie da ni quita un rol de nivel superior a los suyos (`RolPermisoService::rolesAsignablesPor`, config `permisos_modulos.asignacion_roles`): `super_admin` solo otro `super_admin`; RH no da `sistemas` ni `direccion`. Un rol personalizado solo si quien asigna ya tiene todos sus permisos. La API móvil no tiene ruta para cambiar roles.
+
+## Dirección Comercial (2026-11-01)
+
+`director_comercial` revisa solo Subgerentes y Gerentes, de sucursal y regionales: los ve, aprueba su entrevista, decide su intervención, recibe sus avisos y ve sus citas. No ve candidatos a Gestor (`AprobadorEntrevistaService::limitarCandidatos`, `esVisiblePara`). Ver `docs/JERARQUIA_PUESTOS.md`.

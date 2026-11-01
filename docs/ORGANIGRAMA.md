@@ -56,7 +56,9 @@ Sustituye la cadena del 2026-10-30, que colgaba la sucursal solo del Subgerente 
 - **Quién responde por una sucursal:** ambos, titular o cobertura (`OrganizacionJerarquiaService::regionalVigente`): los dos pueden dar el visto bueno regional y decidir intervenciones. Si los dos faltan, la regional de respaldo; nunca Dirección Comercial. Con la Gerencia Regional vacante, el jefe del Gerente de Sucursal es el Subgerente Regional por esa misma regla de respaldo.
 - **Alcance:** las dos plazas alcanzan todas las sucursales operativas aunque la persona esté registrada en una. Requieren el rol `gerente_regional`: si un titular no lo tiene, `people:sincronizar-organigrama` lo reporta como conflicto.
 
-**Quién modifica qué:** `App\Services\Organigrama\AutoridadJerarquicaService`, ver `docs/JERARQUIA_PUESTOS.md`.
+**Quién modifica o reabre qué, y quién aprueba una entrevista:** ver `docs/JERARQUIA_PUESTOS.md`.
+
+**«Regional de Operaciones»:** sin rango en `linea_comercial` y sin plaza confirmada hasta que la dueña del negocio lo aclare (2026-11-01). Los ejemplos de abajo son históricos. No se reasigna a nadie: quien lo ocupe aparece como conflicto en `people:sincronizar-organigrama` y necesita que RH le asigne «Gerente Regional» o «Subgerente Regional» para volver a tener alcance de empresa y mando sobre la línea.
 
 La lámina de Inducción (`config/organigrama.php` → `laminas.comercial`) dibuja la línea en orden de autoridad, no de reporte directo.
 

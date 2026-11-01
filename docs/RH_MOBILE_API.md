@@ -214,3 +214,11 @@ Ver `database/seeders/RolesYPermisosSeeder.php`, bloque "Backend movil v5". Asig
 - `prioridad` en la bandeja siempre `"normal"`: no hay todavía una señal de urgencia (p. ej. "vence en menos de 24h") calculada.
 - Workflow de una sola etapa ("rh"): `App\Services\RhMobile\WorkflowService` está preparado para agregar una segunda etapa (p. ej. gerencia antes de RH) sin tocar los controladores, pero esa etapa adicional no existe todavía en el modelo de datos.
 - `rh/documentos` no tiene su propio `configuracion`/adjuntos dedicado — reutiliza el mismo `EmployeeDocument`/`DocumentoStorageService` que expedientes.
+
+## Reabrir una decisión
+
+```
+POST /api/v1/rh/reaperturas/{tipo}/{id}   { "motivo": "…" }
+```
+
+`tipo`: `visto_bueno_solicitud` y `solicitud_rechazada` (`id` de la solicitud), `vacaciones_rechazadas` (`id` de la vacación), `intervencion_candidato` (`id` de la intervención), `entrevista_candidato` (`id` del candidato). Solo un puesto superior a quien decidió: 403 sin datos del trámite; 422 si ya no se puede reabrir o falta el motivo. La ficha de candidato, solicitud y vacación trae `reaperturas` con lo que esta cuenta puede reabrir: mostrar el botón solo con eso. Ver `docs/JERARQUIA_PUESTOS.md`.
