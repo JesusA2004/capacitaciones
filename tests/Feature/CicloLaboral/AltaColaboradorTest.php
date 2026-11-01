@@ -129,6 +129,8 @@ test('el alta recorre pendiente_documentos → revisión → contratos → firma
     Sanctum::actingAs($cuenta);
 
     foreach ($contratos as $contrato) {
+        $this->get("/api/v1/colaborador/documentos-laborales/{$contrato->id}/ver")->assertOk();
+        $this->postJson("/api/v1/colaborador/documentos-laborales/{$contrato->id}/apertura")->assertOk();
         $this->postJson("/api/v1/colaborador/documentos-laborales/{$contrato->id}/firmar", ['acepto' => true])->assertOk();
     }
 

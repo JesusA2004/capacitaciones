@@ -110,9 +110,11 @@ class DocumentoLaboralConsultaService
     }
 
     /**
+     * @param  User|null  $viewer  Con quien mira se agregan sus banderas de descarga
+     *                             (GeneratedDocumentPolicy); sin él no se mandan: ausente = no.
      * @return array<string, mixed>
      */
-    public function aArray(GeneratedDocument $documento, bool $detalle = false): array
+    public function aArray(GeneratedDocument $documento, bool $detalle = false, ?User $viewer = null): array
     {
         $datos = [
             'id' => $documento->id,
@@ -138,6 +140,11 @@ class DocumentoLaboralConsultaService
                 'numero_empleado' => $documento->colaborador->numero_empleado,
             ] : null,
         ];
+
+        if ($viewer !== null) {
+            $datos['puede_descargar'] = $viewer->can('descargar', $documento);
+            $datos['puede_descargar_word'] = $viewer->can('descargarWord', $documento);
+        }
 
         $seguimiento = $documento->seguimientoFisico;
 

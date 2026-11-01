@@ -96,8 +96,11 @@ test('préstamo: solicitud → visto bueno del jefe → autorización con monto/
     $this->postJson("/api/v1/rh/prestamos/{$prestamo['id']}/resguardar")->assertUnprocessable();
 
     Sanctum::actingAs($this->cuenta);
-    $this->postJson("/api/v1/colaborador/documentos-laborales/{$prestamo['contrato']['id']}/firmar", ['acepto' => true])->assertOk();
-    $this->postJson("/api/v1/colaborador/documentos-laborales/{$prestamo['pagare']['id']}/firmar", ['acepto' => true])->assertOk();
+    foreach (['contrato', 'pagare'] as $documento) {
+        $this->get("/api/v1/colaborador/documentos-laborales/{$prestamo[$documento]['id']}/ver")->assertOk();
+        $this->postJson("/api/v1/colaborador/documentos-laborales/{$prestamo[$documento]['id']}/apertura")->assertOk();
+        $this->postJson("/api/v1/colaborador/documentos-laborales/{$prestamo[$documento]['id']}/firmar", ['acepto' => true])->assertOk();
+    }
     $this->getJson('/api/v1/colaborador/prestamos')->assertOk()->assertJsonCount(1, 'data');
 
     Sanctum::actingAs($this->rh);

@@ -78,11 +78,11 @@ class DocumentoLaboralController extends Controller
         return response()->json(['data' => $this->consulta->aArray($documento, true)], 201);
     }
 
-    public function show(GeneratedDocument $documento): JsonResponse
+    public function show(Request $request, GeneratedDocument $documento): JsonResponse
     {
         $this->authorize('ver', $documento);
 
-        return response()->json(['data' => $this->consulta->aArray($documento->load(['colaborador', 'seguimientoFisico']), true)]);
+        return response()->json(['data' => $this->consulta->aArray($documento->load(['colaborador', 'seguimientoFisico']), true, $request->user())]);
     }
 
     public function descargar(GeneratedDocument $documento): StreamedResponse
@@ -90,6 +90,14 @@ class DocumentoLaboralController extends Controller
         $this->authorize('descargar', $documento);
 
         return $this->motor->respuesta($documento);
+    }
+
+    /** Consulta en línea para quien puede ver sin poder descargar. */
+    public function ver(GeneratedDocument $documento): StreamedResponse
+    {
+        $this->authorize('ver', $documento);
+
+        return $this->motor->respuestaConsulta($documento);
     }
 
     public function imprimir(OperacionDocumentoRequest $request, GeneratedDocument $documento): JsonResponse
@@ -158,6 +166,6 @@ class DocumentoLaboralController extends Controller
 
     private function respuesta(GeneratedDocument $documento): JsonResponse
     {
-        return response()->json(['data' => $this->consulta->aArray($documento->refresh()->load(['colaborador', 'seguimientoFisico']), true)]);
+        return response()->json(['data' => $this->consulta->aArray($documento->refresh()->load(['colaborador', 'seguimientoFisico']), true, request()->user())]);
     }
 }

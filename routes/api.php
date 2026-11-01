@@ -300,6 +300,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('documentos-laborales', [CicloLaboralColaboradorController::class, 'documentosLaborales'])->name('documentos-laborales.index');
             Route::get('documentos-laborales/{documento}', [CicloLaboralColaboradorController::class, 'documentoLaboral'])->name('documentos-laborales.show')->whereNumber('documento');
             Route::get('documentos-laborales/{documento}/descargar', [CicloLaboralColaboradorController::class, 'descargarDocumento'])->name('documentos-laborales.descargar');
+            Route::get('documentos-laborales/{documento}/ver', [CicloLaboralColaboradorController::class, 'verDocumento'])->name('documentos-laborales.ver');
+            Route::post('documentos-laborales/{documento}/apertura', [CicloLaboralColaboradorController::class, 'aperturaDocumento'])->name('documentos-laborales.apertura');
             Route::post('documentos-laborales/{documento}/firmar', [CicloLaboralColaboradorController::class, 'firmarDocumento'])->name('documentos-laborales.firmar');
             Route::get('contratos', [CicloLaboralColaboradorController::class, 'contratos'])->name('contratos');
             Route::get('datos-faltantes', [CicloLaboralColaboradorController::class, 'datosFaltantes'])->name('datos-faltantes');
@@ -647,6 +649,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('/', [DocumentoLaboralController::class, 'index'])->name('index');
                 Route::get('pendientes', [DocumentoLaboralController::class, 'pendientes'])->name('pendientes');
                 Route::get('{documento}', [DocumentoLaboralController::class, 'show'])->name('show');
+                Route::get('{documento}/ver', [DocumentoLaboralController::class, 'ver'])->name('ver');
                 Route::get('{documento}/descargar', [DocumentoLaboralController::class, 'descargar'])->name('descargar');
                 Route::post('{documento}/imprimir', [DocumentoLaboralController::class, 'imprimir'])->name('imprimir');
                 Route::post('{documento}/firma-fisica', [DocumentoLaboralController::class, 'firmaFisica'])->name('firma-fisica');
@@ -749,6 +752,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::get('{acta}/vista-previa', [ActaController::class, 'vistaPrevia'])->name('vista-previa');
                 Route::patch('{acta}', [ActaController::class, 'update'])->name('update');
                 Route::post('{acta}/anexos', [ActaController::class, 'anexo'])->name('anexos.store')->middleware('throttle:api-cargas');
+                Route::get('{acta}/anexos/{anexo}/ver', [ActaController::class, 'verAnexo'])->name('anexos.ver');
                 Route::get('{acta}/anexos/{anexo}', [ActaController::class, 'descargarAnexo'])->name('anexos.show');
                 Route::post('{acta}/documento', [ActaController::class, 'generarDocumento'])->name('documento');
                 Route::post('{acta}/negativa-firma', [ActaController::class, 'negativaFirma'])->name('negativa-firma');

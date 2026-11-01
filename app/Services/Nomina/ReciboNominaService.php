@@ -898,7 +898,7 @@ class ReciboNominaService
     /**
      * @return array<string, mixed>
      */
-    public function aArray(ReciboNomina $recibo, bool $detalle = false): array
+    public function aArray(ReciboNomina $recibo, bool $detalle = false, ?User $viewer = null): array
     {
         $tienePdf = $this->pdfDisponible($recibo);
         $datos = [
@@ -924,6 +924,11 @@ class ReciboNominaService
             'rectifica_recibo_id' => $recibo->rectifica_recibo_id,
             'rectificado_por_id' => $recibo->rectificado_por_id,
         ];
+
+        // Sin quien mira no se manda: ausente = no. ReciboNominaPolicy::descargar.
+        if ($viewer !== null) {
+            $datos['puede_descargar'] = $tienePdf && $viewer->can('descargar', $recibo);
+        }
 
         if ($detalle) {
             $datos['conceptos'] = $recibo->conceptos()->get()->map(fn ($c) => [

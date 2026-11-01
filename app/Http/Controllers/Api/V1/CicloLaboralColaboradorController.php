@@ -66,7 +66,7 @@ class CicloLaboralColaboradorController extends Controller
 
         return response()->json(['data' => [
             'por_cargar' => array_values(array_filter($documental['documentos'], fn (array $d) => in_array($d['estado'], ['pendiente', 'rechazado', 'requiere_correccion', 'vencido', 'cambio_autorizado'], true))),
-            'por_firmar' => array_map(fn (GeneratedDocument $d) => $this->documentos->aArray($d), $this->documentos->delColaborador($colaborador, 'pendientes_firma')->items()),
+            'por_firmar' => array_map(fn (GeneratedDocument $d) => $this->documentos->aArray($d, false, $request->user()), $this->documentos->delColaborador($colaborador, 'pendientes_firma')->items()),
         ]]);
     }
 
@@ -74,7 +74,7 @@ class CicloLaboralColaboradorController extends Controller
     {
         return $this->paginado(
             $this->documentos->delColaborador($this->colaborador($request), $request->string('estado')->toString() ?: null),
-            fn (GeneratedDocument $d) => $this->documentos->aArray($d),
+            fn (GeneratedDocument $d) => $this->documentos->aArray($d, false, $request->user()),
         );
     }
 
@@ -97,7 +97,7 @@ class CicloLaboralColaboradorController extends Controller
         );
         $this->authorize('ver', $documento);
 
-        return response()->json(['data' => $this->documentos->aArray($documento)]);
+        return response()->json(['data' => $this->documentos->aArray($documento, false, $request->user())]);
     }
 
     public function descargarDocumento(GeneratedDocument $documento): StreamedResponse
@@ -105,6 +105,28 @@ class CicloLaboralColaboradorController extends Controller
         $this->authorize('descargar', $documento);
 
         return $this->motor->respuesta($documento);
+    }
+
+    /**
+     * Consulta en línea: basta `ver`. Si es el titular con la firma pendiente,
+     * queda registrado que pidió el PDF para revisarlo.
+     */
+    public function verDocumento(Request $request, GeneratedDocument $documento): StreamedResponse
+    {
+        $this->authorize('ver', $documento);
+        $respuesta = $this->motor->respuestaConsulta($documento);
+        $this->flujo->registrarConsultaParaFirma($documento, $request->user());
+
+        return $respuesta;
+    }
+
+    /** La app confirma que el PDF se dibujó en su visor; sin esto no hay firma. */
+    public function aperturaDocumento(Request $request, GeneratedDocument $documento): JsonResponse
+    {
+        $this->authorize('firmar', $documento);
+        $this->flujo->registrarAperturaParaFirma($documento, $request->user());
+
+        return response()->json(['data' => ['apertura_registrada' => true]]);
     }
 
     /**
@@ -118,7 +140,7 @@ class CicloLaboralColaboradorController extends Controller
 
         $documento = $this->flujo->firmarDigitalmente($documento, $request->user(), $request->validated('comentario'));
 
-        return response()->json(['data' => $this->documentos->aArray($documento->refresh())]);
+        return response()->json(['data' => $this->documentos->aArray($documento->refresh(), false, $request->user())]);
     }
 
     public function contratos(Request $request): JsonResponse
@@ -163,11 +185,11 @@ class CicloLaboralColaboradorController extends Controller
         );
     }
 
-    public function recibo(ReciboNomina $recibo): JsonResponse
+    public function recibo(Request $request, ReciboNomina $recibo): JsonResponse
     {
         $this->authorize('ver', $recibo);
 
-        return response()->json(['data' => $this->recibos->aArray($recibo, true)]);
+        return response()->json(['data' => $this->recibos->aArray($recibo, true, $request->user())]);
     }
 
     public function reciboPdf(Request $request, ReciboNomina $recibo): StreamedResponse

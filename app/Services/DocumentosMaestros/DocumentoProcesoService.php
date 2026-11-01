@@ -1382,7 +1382,7 @@ class DocumentoProcesoService
                 'version_plantilla' => $d->version_plantilla,
                 'generado_en' => $d->created_at?->toIso8601String(),
                 'motivo_cancelacion' => $d->motivo_cancelacion,
-                'puede_descargar' => $viewer->can('ver', $d),
+                'puede_descargar' => $viewer->can('descargar', $d),
             ])->values()->all(),
             'acciones' => $acciones,
         ];

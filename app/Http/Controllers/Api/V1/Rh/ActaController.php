@@ -77,7 +77,7 @@ class ActaController extends Controller
         $this->authorize('ver', $acta);
 
         // `permisos` (aditivo): qué acciones ofrece la app, acción por acción.
-        return response()->json(['data' => $this->actas->aArray($acta, true), 'catalogos' => ActaService::catalogos(), 'permisos' => $this->actas->permisosDe($request->user(), $acta)]);
+        return response()->json(['data' => $this->actas->aArray($acta, true, $request->user()), 'catalogos' => ActaService::catalogos(), 'permisos' => $this->actas->permisosDe($request->user(), $acta)]);
     }
 
     public function update(GuardarActaRequest $request, ActaAdministrativa $acta): JsonResponse
@@ -107,6 +107,14 @@ class ActaController extends Controller
         $this->authorize('descargarAnexo', $acta);
 
         return $this->actas->descargarAnexo($acta, $anexo);
+    }
+
+    /** Consulta en línea para quien puede ver el acta sin poder descargar sus anexos. */
+    public function verAnexo(ActaAdministrativa $acta, ActaAnexo $anexo): StreamedResponse
+    {
+        $this->authorize('ver', $acta);
+
+        return $this->actas->verAnexo($acta, $anexo);
     }
 
     public function generarDocumento(Request $request, ActaAdministrativa $acta): JsonResponse

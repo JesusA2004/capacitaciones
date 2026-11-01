@@ -436,6 +436,20 @@ class ActaService
         return $anexo;
     }
 
+    /** Consulta en línea: no se guarda en caché. Quien llama autoriza con `ver`. */
+    public function verAnexo(ActaAdministrativa $acta, ActaAnexo $anexo): StreamedResponse
+    {
+        abort_unless($anexo->acta_administrativa_id === $acta->id, 404);
+        $nombre = str_replace(['"', '\\', '/'], '', $anexo->original_name);
+
+        return Storage::disk($anexo->disk)->response($anexo->path, $nombre, [
+            'Content-Type' => $anexo->mime ?? 'application/octet-stream',
+            'Content-Disposition' => 'inline; filename="'.$nombre.'"',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
     public function descargarAnexo(ActaAdministrativa $acta, ActaAnexo $anexo): StreamedResponse
     {
         abort_unless($anexo->acta_administrativa_id === $acta->id, 404);
@@ -647,7 +661,7 @@ class ActaService
     /**
      * @return array<string, mixed>
      */
-    public function aArray(ActaAdministrativa $acta, bool $detalle = false): array
+    public function aArray(ActaAdministrativa $acta, bool $detalle = false, ?User $viewer = null): array
     {
         $datos = [
             'id' => $acta->id,
@@ -686,6 +700,8 @@ class ActaService
                     'relacion_hechos' => $a->relacion_hechos,
                     'mime' => $a->mime,
                     'size' => $a->size,
+                    // Sin quien mira no se manda: ausente = no. ActaAdministrativaPolicy::descargarAnexo.
+                    ...($viewer !== null ? ['puede_descargar' => $viewer->can('descargarAnexo', $acta)] : []),
                 ])->all(),
             ];
         }

@@ -63,11 +63,11 @@ class ReciboNominaController extends Controller
         return response()->json(['data' => $resultado], $resultado['simulacion'] ? 200 : 201);
     }
 
-    public function show(ReciboNomina $recibo): JsonResponse
+    public function show(Request $request, ReciboNomina $recibo): JsonResponse
     {
         $this->authorize('ver', $recibo);
 
-        return response()->json(['data' => $this->recibos->aArray($recibo, true)]);
+        return response()->json(['data' => $this->recibos->aArray($recibo, true, $request->user())]);
     }
 
     public function pdf(Request $request, ReciboNomina $recibo): StreamedResponse

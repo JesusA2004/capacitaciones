@@ -1054,15 +1054,7 @@ class MotorDocumentalService
     public function respuesta(GeneratedDocument $documento, bool $inline = true): StreamedResponse
     {
         $disco = $this->disco($documento);
-
-        try {
-            $existe = $disco->exists($documento->path);
-        } catch (Throwable $e) {
-            Log::warning('MotorDocumentalService: el disco no respondió al verificar el documento.', ['documento_id' => $documento->id, 'error' => $e->getMessage()]);
-            abort(503, 'El almacenamiento no está disponible. Intenta nuevamente.');
-        }
-
-        abort_unless($existe, 404, 'Este archivo ya no está disponible.');
+        $this->exigirArchivo($documento, $disco);
 
         // Auditoría de descargas (quién y cuándo); un fallo aquí no impide descargar.
         try {
@@ -1079,6 +1071,44 @@ class MotorDocumentalService
             'Content-Disposition' => ($inline ? 'inline' : 'attachment').'; filename="'.$nombre.'"',
             'X-Content-Type-Options' => 'nosniff',
         ]);
+    }
+
+    /**
+     * Consulta en línea (visor autenticado de la app): no cuenta como descarga
+     * y no se guarda en caché. Quien llama autoriza con `ver`, no con `descargar`.
+     */
+    public function respuestaConsulta(GeneratedDocument $documento): StreamedResponse
+    {
+        $disco = $this->disco($documento);
+        $this->exigirArchivo($documento, $disco);
+
+        try {
+            $this->auditoria->registrar('documento_consultado', $documento, auth()->user() instanceof User ? auth()->user() : null, ['colaborador_id' => $documento->colaborador_id, 'clave_plantilla' => $documento->clave_plantilla]);
+        } catch (Throwable $e) {
+            Log::warning('MotorDocumentalService: no se pudo registrar la consulta.', ['documento_id' => $documento->id, 'error' => $e->getMessage()]);
+        }
+
+        $nombre = str_replace(['"', '\\', '/'], '', $documento->original_name);
+
+        return $disco->response($documento->path, $nombre, [
+            'Content-Type' => $documento->mime ?? 'application/pdf',
+            'Content-Disposition' => 'inline; filename="'.$nombre.'"',
+            'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    private function exigirArchivo(GeneratedDocument $documento, Filesystem $disco): void
+    {
+
+        try {
+            $existe = $disco->exists($documento->path);
+        } catch (Throwable $e) {
+            Log::warning('MotorDocumentalService: el disco no respondió al verificar el documento.', ['documento_id' => $documento->id, 'error' => $e->getMessage()]);
+            abort(503, 'El almacenamiento no está disponible. Intenta nuevamente.');
+        }
+
+        abort_unless($existe, 404, 'Este archivo ya no está disponible.');
     }
 
     /**

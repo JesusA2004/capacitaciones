@@ -21,7 +21,9 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Flujo documental de un documento laboral emitido (GeneratedDocument):
@@ -47,6 +49,12 @@ use Illuminate\Validation\ValidationException;
 class FlujoDocumentalService
 {
     public const PERMISO_OPERACION = 'documentos_laborales.operar_fisico';
+
+    /** El titular pidió el PDF en línea (`GET .../ver`) con la firma pendiente. */
+    public const EVENTO_CONSULTA_FIRMA = 'consultado_para_firma';
+
+    /** La app confirmó que ese PDF se dibujó en su visor. Requisito de la firma. */
+    public const EVENTO_APERTURA_FIRMA = 'apertura_verificada';
 
     /** @var list<TipoTarea> */
     private const TAREAS_FLUJO = [
@@ -86,8 +94,46 @@ class FlujoDocumentalService
     }
 
     /**
+     * El titular pidió el PDF en línea para revisarlo antes de firmar
+     * (`GET .../ver`). Sola no habilita la firma: falta que la app confirme
+     * que se dibujó. Un fallo aquí nunca impide ver el documento.
+     */
+    public function registrarConsultaParaFirma(GeneratedDocument $documento, User $usuario): void
+    {
+        if ($documento->estado_flujo !== E::PendienteFirmaColaborador || $usuario->colaborador_id === null || $usuario->colaborador_id !== $documento->colaborador_id) {
+            return;
+        }
+
+        try {
+            $this->evento($documento, self::EVENTO_CONSULTA_FIRMA, E::PendienteFirmaColaborador, E::PendienteFirmaColaborador, $usuario, null, ['hash' => $documento->checksum]);
+        } catch (Throwable $e) {
+            Log::warning('FlujoDocumentalService: no se pudo registrar la consulta para firma.', ['documento_id' => $documento->id, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * La app confirma que el PDF servido por `/ver` se dibujó en su visor.
+     * Es evidencia de apertura, no de lectura: la aceptación sigue siendo
+     * del colaborador con `acepto`.
+     */
+    public function registrarAperturaParaFirma(GeneratedDocument $documento, User $usuario): void
+    {
+        DB::transaction(function () use ($documento, $usuario): void {
+            $documento = $this->bloquear($documento);
+            $this->exigirEstado($documento, [E::PendienteFirmaColaborador], 'registrar la apertura de');
+
+            if (! $this->tieneEventoDelTitular($documento, $usuario, self::EVENTO_CONSULTA_FIRMA)) {
+                throw ValidationException::withMessages(['documento' => 'Abre el documento en la app antes de confirmar que lo revisaste.']);
+            }
+
+            $this->evento($documento, self::EVENTO_APERTURA_FIRMA, E::PendienteFirmaColaborador, E::PendienteFirmaColaborador, $usuario, null, ['hash' => $documento->checksum]);
+        });
+    }
+
+    /**
      * Aceptación/firma digital del propio colaborador desde la app/portal.
-     * Guarda fecha, IP, user agent y el hash del PDF aceptado.
+     * Guarda fecha, IP, user agent y el hash del PDF aceptado. Exige que el
+     * titular haya abierto ESTA versión del documento (registrarAperturaParaFirma).
      */
     public function firmarDigitalmente(GeneratedDocument $documento, User $colaboradorUsuario, ?string $observaciones = null): GeneratedDocument
     {
@@ -97,6 +143,10 @@ class FlujoDocumentalService
 
             if ($colaboradorUsuario->colaborador_id === null || $colaboradorUsuario->colaborador_id !== $documento->colaborador_id) {
                 throw ValidationException::withMessages(['documento' => 'Solo el colaborador titular puede firmar digitalmente este documento.']);
+            }
+
+            if (! $this->tieneEventoDelTitular($documento, $colaboradorUsuario, self::EVENTO_APERTURA_FIRMA)) {
+                throw ValidationException::withMessages(['documento' => 'Abre el documento en la app para revisarlo antes de firmar. Si no se muestra en tu teléfono, acude a Recursos Humanos.']);
             }
 
             $documento->update([
@@ -117,6 +167,16 @@ class FlujoDocumentalService
 
             return $documento;
         });
+    }
+
+    /** Evento del titular sobre el mismo archivo: otra versión del PDF no cuenta. */
+    private function tieneEventoDelTitular(GeneratedDocument $documento, User $usuario, string $accion): bool
+    {
+        return $documento->eventos()
+            ->where('accion', $accion)
+            ->where('user_id', $usuario->id)
+            ->get()
+            ->contains(fn (DocumentoEvento $evento): bool => ($evento->datos['hash'] ?? null) === $documento->checksum);
     }
 
     public function marcarImpreso(GeneratedDocument $documento, User $actor, ?string $observaciones = null): GeneratedDocument
