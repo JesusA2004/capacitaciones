@@ -1,138 +1,75 @@
 <script setup lang="ts">
-import { Deferred, Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Deferred, Head, Link, router } from '@inertiajs/vue3';
 import {
     AlertTriangle,
-    BadgeCheck,
     Briefcase,
     Building2,
     Calendar,
-    CalendarCheck,
-    CalendarClock,
-    CalendarDays,
-    CheckCircle2,
     ChevronDown,
-    CircleDashed,
     ClipboardList,
     Clock,
-    FileSearch,
     FileSignature,
     FolderOpen,
-    Hexagon,
     History,
-    Hourglass,
     IdCard,
-    KeyRound,
     LayoutDashboard,
     ListChecks,
     Lock,
     Mail,
     MapPinned,
-    Network,
-    Pencil,
     PencilLine,
     Phone,
-    Plus,
     Receipt,
     Route,
     ScrollText,
-    ShieldCheck,
-    Sparkles,
     Unlock,
     User,
     UserCog,
-    UserPlus,
     UserRound,
     Wallet,
-    X,
 } from '@lucide/vue';
-import { computed, nextTick, ref, watch } from 'vue';
-import DatePicker from '@/components/Common/DatePicker.vue';
+import type { Component } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
-import FotoPerfilCaptura from '@/components/Common/FotoPerfilCaptura.vue';
-import SelectSimple from '@/components/Common/SelectSimple.vue';
-import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
 import HistorialCorrecciones from '@/components/correcciones/HistorialCorrecciones.vue';
 import SiguientePasoPanel from '@/components/flujos/SiguientePaso.vue';
-import InputError from '@/components/InputError.vue';
-import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import AvisosComunicaciones from '@/components/Rh/AvisosComunicaciones.vue';
 import type { AvisoComunicacion } from '@/components/Rh/AvisosComunicaciones.vue';
 import CampoInfo from '@/components/Rh/CampoInfo.vue';
-import ConfirmarEntregaPrestamoDialog from '@/components/Rh/ConfirmarEntregaPrestamoDialog.vue';
 import DatosFaltantesBanner from '@/components/Rh/DatosFaltantesBanner.vue';
 import type { DatosFaltantesResumen } from '@/components/Rh/DatosFaltantesBanner.vue';
-import CartaCompromisoTarjeta from '@/components/Rh/Expediente/CartaCompromisoTarjeta.vue';
 import ExpedienteCentro from '@/components/Rh/Expediente/ExpedienteCentro.vue';
 import ExpedienteContratacion from '@/components/Rh/Expediente/ExpedienteContratacion.vue';
 import ExpedienteDatosPersonales from '@/components/Rh/Expediente/ExpedienteDatosPersonales.vue';
 import HistorialCambiosDatos from '@/components/Rh/Expediente/HistorialCambiosDatos.vue';
-import ExpedienteDocumentos from '@/components/Rh/ExpedienteDocumentos.vue';
-import GenerarCredencialesDialog from '@/components/Rh/GenerarCredencialesDialog.vue';
+import PestanaChecklist from '@/components/Rh/Expediente/PestanaChecklist.vue';
+import PestanaCuenta from '@/components/Rh/Expediente/PestanaCuenta.vue';
+import PestanaDocumentos from '@/components/Rh/Expediente/PestanaDocumentos.vue';
+import PestanaLaborales from '@/components/Rh/Expediente/PestanaLaborales.vue';
+import PestanaPrestamos from '@/components/Rh/Expediente/PestanaPrestamos.vue';
+import PestanaRecibos from '@/components/Rh/Expediente/PestanaRecibos.vue';
+import PestanaSolicitudes from '@/components/Rh/Expediente/PestanaSolicitudes.vue';
+import PestanaVacaciones from '@/components/Rh/Expediente/PestanaVacaciones.vue';
 import MovimientosLaboralesTimeline from '@/components/Rh/MovimientosLaboralesTimeline.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import {
-    Dialog,
-    DialogContent,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import { Card, CardContent } from '@/components/ui/card';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Spinner } from '@/components/ui/spinner';
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import VacacionesAntiguedad from '@/components/Vacaciones/VacacionesAntiguedad.vue';
 import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { useAlertas } from '@/composables/useAlertas';
-import { formatearFecha } from '@/lib/fechas';
-import { vistaPreviaPost } from '@/lib/http';
 import {
     restablecerAcceso,
     revocarAcceso,
-    update as actualizarCuentaUsuario,
 } from '@/routes/administracion/usuarios';
-import { foto as subirFotoPropia } from '@/routes/portal';
 import { darDeBaja, reactivar } from '@/routes/rh/expedientes';
-import { store as subirAltaImss } from '@/routes/rh/expedientes/alta-imss';
-import { update as actualizarDatosLaborales } from '@/routes/rh/expedientes/datos-laborales';
-import { show as divisionHistorico } from '@/routes/rh/expedientes/division-historico';
-import { store as subirFotoColaborador } from '@/routes/rh/expedientes/foto';
-import { store as registrarMovimientoPrestamo } from '@/routes/rh/expedientes/prestamos/movimientos';
-import {
-    descargar as descargarRecibo,
-    regenerarPdf as regenerarPdfReciboRoute,
-    store as generarReciboNomina,
-    vistaPrevia as vistaPreviaReciboNomina,
-} from '@/routes/rh/expedientes/recibos-nomina';
-import { show as showSolicitud } from '@/routes/rh/solicitudes';
-import { edit as editSeguridad } from '@/routes/security';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type {
     SiguientePaso,
@@ -146,7 +83,6 @@ import type {
     MovimientoLaboralItem,
     OnboardingItem,
     PrestamoItem,
-    PrestamoMovimientoTipo,
     ReciboNominaItem,
     ResumenExpediente,
     SaldoVacaciones,
@@ -155,14 +91,6 @@ import type {
 } from '@/types';
 
 const accion = useAccionEnCurso();
-
-/** Movimientos del préstamo en español (el reverso compensa un recibo cancelado). */
-const ETIQUETA_MOVIMIENTO: Record<PrestamoMovimientoTipo, string> = {
-    nomina: 'Descuento de nómina',
-    reverso_nomina: 'Reverso de recibo cancelado',
-    manual: 'Abono manual',
-    ajuste: 'Ajuste',
-};
 
 const props = defineProps<{
     esPropio: boolean;
@@ -259,30 +187,6 @@ const props = defineProps<{
 
 // Acuse de alta IMSS: lo sube RH al concluir el alta. Verde = registrado,
 // naranja = falta. Es un indicador, no un pendiente de la bandeja.
-const subiendoImss = ref(false);
-
-function subirAcuseImss(evento: Event) {
-    const archivo = (evento.target as HTMLInputElement).files?.[0];
-
-    if (!archivo) {
-        return;
-    }
-
-    subiendoImss.value = true;
-    router.post(
-        subirAltaImss.url(props.colaborador.id),
-        { archivo },
-        {
-            forceFormData: true,
-            preserveScroll: true,
-            onFinish: () => {
-                subiendoImss.value = false;
-                (evento.target as HTMLInputElement).value = '';
-            },
-        },
-    );
-}
-
 const { mostrarExito, mostrarError, confirmarEliminacion } = useAlertas();
 
 function reactivarColaborador() {
@@ -370,369 +274,27 @@ function restablecerAccesoColaborador() {
     });
 }
 
-const dialogoPasswordAbierto = ref(false);
-const prestamoConfirmarEntrega = ref<PrestamoItem | null>(null);
-
-const onboardingPorcentaje = computed(() => {
-    if (props.onboarding.length === 0) {
-        return 0;
-    }
-
-    const completados = props.onboarding.filter(
-        (item) => item.completado,
-    ).length;
-
-    return Math.round((completados / props.onboarding.length) * 100);
-});
-
 const anilloExpediente = computed(
     () =>
         `conic-gradient(var(--primary) ${props.resumenExpediente.porcentaje * 3.6}deg, var(--primary-foreground, var(--muted)) 0deg)`,
 );
 
 // --- Cuenta de acceso: la crea «Generar credenciales» (sin correo) ---
-function alternarRol(lista: string[], rol: string, marcado: boolean): string[] {
-    return marcado
-        ? [...new Set([...lista, rol])]
-        : lista.filter((r) => r !== rol);
-}
-
 // --- Cuenta de acceso: editar correo/roles (colaborador con cuenta) ---
-const editandoCuenta = ref(false);
-
-const formCuenta = useForm({
-    email: props.colaborador.email ?? '',
-    roles: [...props.colaborador.roles] as string[],
-});
-
-function iniciarEdicionCuenta() {
-    formCuenta.email = props.colaborador.email ?? '';
-    formCuenta.roles = [...props.colaborador.roles];
-    editandoCuenta.value = true;
-}
-
-function guardarCuenta() {
-    if (props.colaborador.usuario_id === null) {
-        return;
-    }
-
-    formCuenta
-        .transform((datos) => ({ email: datos.email, roles: datos.roles }))
-        .put(actualizarCuentaUsuario.url(props.colaborador.usuario_id), {
-            preserveScroll: true,
-            onSuccess: () => {
-                mostrarExito('Cuenta actualizada correctamente.');
-                editandoCuenta.value = false;
-            },
-            onError: () => mostrarError('No se pudo actualizar la cuenta.'),
-        });
-}
-
 // --- Datos laborales: empresa/sucursal/departamento/puesto/sueldo ---
 // (el jefe directo no se captura: sale del organigrama al guardar)
-const editandoLaborales = ref(false);
-const empresaSeleccionada = ref(
-    props.colaborador.empresa ? String(props.colaborador.empresa.id) : '',
-);
-
-const formLaborales = useForm({
-    sucursal_principal_id: props.colaborador.sucursal
-        ? String(props.colaborador.sucursal.id)
-        : '',
-    departamento_id: props.colaborador.departamento
-        ? String(props.colaborador.departamento.id)
-        : '',
-    puesto_id: props.colaborador.puesto
-        ? String(props.colaborador.puesto.id)
-        : '',
-    sueldo_mensual: props.colaborador.sueldo_mensual ?? '',
-    fecha_ingreso: props.colaborador.fecha_ingreso ?? '',
-    motivo: '',
-});
-
-const sucursalesFiltradas = computed(() =>
-    empresaSeleccionada.value
-        ? props.sucursalesDisponibles.filter(
-              (sucursal) =>
-                  String(sucursal.empresa_id) === empresaSeleccionada.value,
-          )
-        : props.sucursalesDisponibles,
-);
-
-function alCambiarEmpresa(valor: string) {
-    empresaSeleccionada.value = valor;
-
-    const sigueDisponible = sucursalesFiltradas.value.some(
-        (sucursal) =>
-            String(sucursal.id) === formLaborales.sucursal_principal_id,
-    );
-
-    if (!sigueDisponible) {
-        formLaborales.sucursal_principal_id = '';
-    }
-}
-
-function alCambiarPuestoLaboral(valor: string) {
-    formLaborales.puesto_id = valor;
-}
-
-function alCambiarSucursalLaboral(valor: string) {
-    formLaborales.sucursal_principal_id = valor;
-}
-
-function iniciarEdicionLaborales() {
-    empresaSeleccionada.value = props.colaborador.empresa
-        ? String(props.colaborador.empresa.id)
-        : '';
-    formLaborales.sucursal_principal_id = props.colaborador.sucursal
-        ? String(props.colaborador.sucursal.id)
-        : '';
-    formLaborales.departamento_id = props.colaborador.departamento
-        ? String(props.colaborador.departamento.id)
-        : '';
-    formLaborales.puesto_id = props.colaborador.puesto
-        ? String(props.colaborador.puesto.id)
-        : '';
-    formLaborales.sueldo_mensual = props.colaborador.sueldo_mensual ?? '';
-    formLaborales.fecha_ingreso = props.colaborador.fecha_ingreso ?? '';
-    formLaborales.motivo = '';
-    editandoLaborales.value = true;
-}
-
-function guardarLaborales() {
-    formLaborales
-        .transform((datos) => ({
-            sucursal_principal_id: datos.sucursal_principal_id || null,
-            departamento_id: datos.departamento_id || null,
-            puesto_id: datos.puesto_id || null,
-            sueldo_mensual: datos.sueldo_mensual || null,
-            fecha_ingreso: datos.fecha_ingreso || null,
-            motivo: datos.motivo || null,
-        }))
-        .put(actualizarDatosLaborales.url(props.colaborador.id), {
-            preserveScroll: true,
-            // El aviso (guardado, «sin cambios» o el monto que quedó) lo da el
-            // servidor con su flash toast; un 422 lo avisan los errores
-            // globales (toast + foco en el campo). Nunca un «éxito» propio.
-            onSuccess: () => {
-                editandoLaborales.value = false;
-            },
-        });
-}
-
-/**
- * Sueldo y fecha de ingreso son datos críticos: si cambian, el motivo es
- * obligatorio (ActualizarDatosLaboralesRequest). Se dice ANTES de guardar.
- */
-const motivoLaboralRequerido = computed(() => {
-    const sueldo = Number(formLaborales.sueldo_mensual || 0);
-    const actual = Number(props.colaborador.sueldo_mensual ?? 0);
-    const cambiaSueldo = sueldo > 0 && Math.abs(sueldo - actual) > 0.004;
-    const cambiaIngreso =
-        !!formLaborales.fecha_ingreso &&
-        formLaborales.fecha_ingreso !== (props.colaborador.fecha_ingreso ?? '');
-
-    return cambiaSueldo || cambiaIngreso;
-});
-
-function sueldoFormateado(valor: string | null): string {
-    if (!valor) {
-        return 'Sin capturar';
-    }
-
-    return Number(valor).toLocaleString('es-MX', {
-        style: 'currency',
-        currency: 'MXN',
-        minimumFractionDigits: 2,
-    });
-}
-
-function moneda(valor: number): string {
-    return valor.toLocaleString('es-MX', {
-        style: 'currency',
-        currency: 'MXN',
-        minimumFractionDigits: 2,
-    });
-}
-
 // --- Recibos de nómina (ver App\Services\Nomina\ReciboNominaService) ---
-
-const prestamoActivo = computed(
-    () =>
-        props.prestamos.find((prestamo) => prestamo.estado === 'activo') ??
-        null,
-);
-
-const dialogoReciboAbierto = ref(false);
-
-type ConceptoForm = {
-    concepto: string;
-    monto: number;
-    tipo?: string;
-    prestamo_id?: number;
-};
-
-const formRecibo = useForm({
-    periodo_inicio: '',
-    periodo_fin: '',
-    fecha_pago: '',
-    sueldo_base: 0,
-    percepciones: [] as ConceptoForm[],
-    deducciones: [] as ConceptoForm[],
-});
 
 // Sugerencia simple (nunca un cálculo fiscal: ISR/IMSS quedan fuera) a
 // partir del sueldo mensual registrado y el número de días del periodo —
 // RH siempre puede editar el resultado antes de generar el recibo, ver
 // App\Services\Nomina\ReciboNominaService::generar().
-function sueldoSugeridoPeriodo(): number {
-    const mensual = Number(props.colaborador.sueldo_mensual ?? 0);
-
-    if (!formRecibo.periodo_inicio || !formRecibo.periodo_fin) {
-        return mensual;
-    }
-
-    const inicio = new Date(formRecibo.periodo_inicio);
-    const fin = new Date(formRecibo.periodo_fin);
-    const dias = Math.round((fin.getTime() - inicio.getTime()) / 86400000) + 1;
-
-    if (dias <= 0) {
-        return mensual;
-    }
-
-    return Math.round(((mensual / 30) * dias + Number.EPSILON) * 100) / 100;
-}
-
-watch([() => formRecibo.periodo_inicio, () => formRecibo.periodo_fin], () => {
-    formRecibo.sueldo_base = sueldoSugeridoPeriodo();
-});
-
-function abrirDialogoRecibo() {
-    formRecibo.reset();
-    formRecibo.clearErrors();
-    formRecibo.percepciones = [];
-    formRecibo.sueldo_base = Number(props.colaborador.sueldo_mensual ?? 0);
-
-    // Sugerencia automática (RH puede quitarla/ajustarla antes de
-    // confirmar): línea de pago del préstamo activo con el pago
-    // programado — ver App\Services\Nomina\ReciboNominaService::generar().
-    formRecibo.deducciones = prestamoActivo.value
-        ? [
-              {
-                  concepto: 'Pago de préstamo interno',
-                  monto: Number(prestamoActivo.value.pago_programado),
-                  tipo: 'prestamo',
-                  prestamo_id: prestamoActivo.value.id,
-              },
-          ]
-        : [];
-
-    dialogoReciboAbierto.value = true;
-}
-
-function agregarPercepcion() {
-    formRecibo.percepciones.push({ concepto: '', monto: 0 });
-}
-
-function agregarDeduccion() {
-    formRecibo.deducciones.push({ concepto: '', monto: 0 });
-}
-
-function generarRecibo() {
-    formRecibo.post(generarReciboNomina.url(props.colaborador.id), {
-        preserveScroll: true,
-        onSuccess: () => {
-            mostrarExito('Recibo de nómina generado correctamente.');
-            dialogoReciboAbierto.value = false;
-        },
-        onError: () =>
-            mostrarError('No fue posible generar el recibo de nómina.'),
-    });
-}
 
 // Vista previa del recibo con lo capturado, ANTES de «Generar» (el backend
 // no crea el recibo ni archiva nada). Blob en memoria: los montos no viajan
 // en la URL.
-const vistaPreviaReciboUrl = ref<string | null>(null);
-const vistaPreviaReciboAbierta = ref(false);
-const cargandoVistaPreviaRecibo = ref(false);
-
-function limpiarVistaPreviaRecibo() {
-    if (vistaPreviaReciboUrl.value) {
-        URL.revokeObjectURL(vistaPreviaReciboUrl.value);
-        vistaPreviaReciboUrl.value = null;
-    }
-}
-
-async function verVistaPreviaRecibo() {
-    cargandoVistaPreviaRecibo.value = true;
-
-    try {
-        const url = await vistaPreviaPost(
-            vistaPreviaReciboNomina.url(props.colaborador.id),
-            formRecibo.data(),
-        );
-        limpiarVistaPreviaRecibo();
-        vistaPreviaReciboUrl.value = url;
-        vistaPreviaReciboAbierta.value = true;
-    } catch (e) {
-        mostrarError(
-            e instanceof Error
-                ? e.message
-                : 'No se pudo generar la vista previa del recibo.',
-        );
-    } finally {
-        cargandoVistaPreviaRecibo.value = false;
-    }
-}
-
-watch(vistaPreviaReciboAbierta, (abierta) => {
-    if (!abierta) {
-        limpiarVistaPreviaRecibo();
-    }
-});
-
-const formRegenerarPdf = useForm({});
-const reciboRegenerandoId = ref<number | null>(null);
-
-function regenerarPdfRecibo(reciboId: number) {
-    reciboRegenerandoId.value = reciboId;
-
-    formRegenerarPdf.post(regenerarPdfReciboRoute.url(reciboId), {
-        preserveScroll: true,
-        onSuccess: () => mostrarExito('PDF regenerado correctamente.'),
-        onError: () => mostrarError('No fue posible regenerar el PDF.'),
-        onFinish: () => (reciboRegenerandoId.value = null),
-    });
-}
-
-function descargarReciboUrl(reciboId: number): string {
-    return descargarRecibo.url(reciboId);
-}
 
 // --- Préstamos (ver App\Services\Nomina\PrestamoService) ---
-
-const formPago = useForm({
-    monto: 0,
-    tipo: 'manual',
-});
-
-function registrarPago(prestamoId: number) {
-    formPago.post(registrarMovimientoPrestamo.url(prestamoId), {
-        preserveScroll: true,
-        onSuccess: () => {
-            mostrarExito('Movimiento del préstamo registrado correctamente.');
-            formPago.reset();
-        },
-        onError: () => mostrarError('No fue posible registrar el movimiento.'),
-    });
-}
-
-const urlSubidaFoto = computed(() =>
-    props.esPropio
-        ? subirFotoPropia.url()
-        : subirFotoColaborador.url(props.colaborador.id),
-);
 
 /**
  * Pestaña con la que abre el expediente: `?tab=documentos` (u otra) permite
@@ -746,10 +308,12 @@ const urlSolicitarCorreccion = indexSolicitudes.url({
 });
 
 // «Corregir sueldo» desde el panel: abre su diálogo, con la misma validación.
-const corregirSueldoAlInicio =
-    typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('accion') ===
-        'corregir_sueldo';
+type PestanaExpediente = {
+    valor: string;
+    etiqueta: string;
+    icono: Component;
+    contador?: number;
+};
 
 const PESTANAS = [
     'resumen',
@@ -798,6 +362,117 @@ const datosFaltantesTotal = computed(() =>
 
 /** Pestaña visible (controlada: las tarjetas del centro cambian de pestaña). */
 const pestana = ref<string>(pestanaInicial);
+
+/**
+ * Cinco secciones en vez de 14 pestañas al mismo nivel. Los valores no cambian:
+ * `?tab=` y las tarjetas del centro siguen llevando a cada pestaña.
+ */
+const gruposPestanas = computed(() => {
+    const ajenas = !props.esPropio;
+    const grupos = [
+        {
+            clave: 'resumen',
+            etiqueta: 'Resumen',
+            icono: LayoutDashboard,
+            pestanas: [
+                {
+                    valor: 'resumen',
+                    etiqueta: 'Resumen',
+                    icono: LayoutDashboard,
+                },
+            ],
+        },
+        {
+            clave: 'datos',
+            etiqueta: 'Datos',
+            icono: IdCard,
+            pestanas: [
+                { valor: 'personales', etiqueta: 'Personales', icono: IdCard },
+                { valor: 'laborales', etiqueta: 'Laborales', icono: Briefcase },
+                ajenas && {
+                    valor: 'cuenta',
+                    etiqueta: 'Cuenta',
+                    icono: UserCog,
+                },
+                props.historialCambios && {
+                    valor: 'cambios',
+                    etiqueta: 'Cambios de datos',
+                    icono: PencilLine,
+                    contador: props.historialCambios.length,
+                },
+            ],
+        },
+        {
+            clave: 'documentos',
+            etiqueta: 'Documentos',
+            icono: FolderOpen,
+            pestanas: [
+                {
+                    valor: 'documentos',
+                    etiqueta: 'Documentos',
+                    icono: FolderOpen,
+                },
+                ajenas && {
+                    valor: 'contratacion',
+                    etiqueta: 'Contratación',
+                    icono: FileSignature,
+                },
+                ajenas && {
+                    valor: 'onboarding',
+                    etiqueta: 'Checklist',
+                    icono: ListChecks,
+                },
+            ],
+        },
+        {
+            clave: 'nomina',
+            etiqueta: 'Nómina y solicitudes',
+            icono: Receipt,
+            pestanas: [
+                {
+                    valor: 'vacaciones',
+                    etiqueta: 'Vacaciones',
+                    icono: Calendar,
+                },
+                props.recibosNomina !== null && {
+                    valor: 'recibos',
+                    etiqueta: 'Recibos de nómina',
+                    icono: Receipt,
+                },
+                { valor: 'prestamos', etiqueta: 'Préstamos', icono: Wallet },
+                {
+                    valor: 'solicitudes',
+                    etiqueta: 'Solicitudes',
+                    icono: ClipboardList,
+                },
+            ],
+        },
+        {
+            clave: 'historial',
+            etiqueta: 'Historial y avisos',
+            icono: History,
+            pestanas: [
+                {
+                    valor: 'historial',
+                    etiqueta: 'Historial RH',
+                    icono: History,
+                },
+                { valor: 'avisos', etiqueta: 'Avisos', icono: ScrollText },
+            ],
+        },
+    ];
+
+    return grupos.map((grupo) => ({
+        ...grupo,
+        pestanas: grupo.pestanas.filter((p) => !!p) as PestanaExpediente[],
+    }));
+});
+
+const grupoActivo = computed(() =>
+    gruposPestanas.value.find((g) =>
+        g.pestanas.some((p) => p.valor === pestana.value),
+    ),
+);
 
 const datosPersonalesRef = ref<InstanceType<
     typeof ExpedienteDatosPersonales
@@ -1120,110 +795,55 @@ function irACompletarExpediente() {
                 total: resumenExpediente.requeridos_total,
             }"
         />
-        <Tabs
-            v-model="pestana"
-            orientation="vertical"
-            class="items-stretch gap-4 lg:flex-row lg:items-start lg:gap-6"
-        >
-            <TabsList
-                data-tour="expediente-pestanas"
-                class="scroll-x-limpio h-auto w-full flex-row justify-start gap-1 bg-muted/60 p-1.5 lg:w-56 lg:shrink-0 lg:flex-col lg:items-stretch lg:gap-0.5 lg:overflow-visible lg:rounded-2xl lg:p-2"
-            >
-                <TabsTrigger
-                    value="resumen"
-                    class="justify-start gap-2 lg:w-full"
+        <Tabs v-model="pestana" class="gap-4">
+            <div data-tour="expediente-pestanas" class="flex flex-col gap-2">
+                <nav
+                    aria-label="Secciones del expediente"
+                    class="scroll-x-limpio flex gap-1 rounded-xl bg-muted/60 p-1"
                 >
-                    <LayoutDashboard class="size-4" /> Resumen
-                </TabsTrigger>
-                <TabsTrigger
-                    value="personales"
-                    class="justify-start gap-2 lg:w-full"
-                >
-                    <IdCard class="size-4" /> Datos personales
-                </TabsTrigger>
-                <TabsTrigger
-                    v-if="!esPropio"
-                    value="contratacion"
-                    class="justify-start gap-2 lg:w-full"
-                >
-                    <FileSignature class="size-4" /> Contratación
-                </TabsTrigger>
-                <TabsTrigger
-                    value="laborales"
-                    class="justify-start gap-2 lg:w-full"
-                >
-                    <Briefcase class="size-4" /> Datos laborales
-                </TabsTrigger>
-                <TabsTrigger
-                    v-if="!esPropio"
-                    value="cuenta"
-                    class="justify-start gap-2 lg:w-full"
-                >
-                    <UserCog class="size-4" /> Cuenta
-                </TabsTrigger>
-                <TabsTrigger
-                    value="documentos"
-                    class="justify-start gap-2 lg:w-full"
-                >
-                    <FolderOpen class="size-4" /> Documentos
-                </TabsTrigger>
-                <TabsTrigger
-                    v-if="!esPropio"
-                    value="onboarding"
-                    class="justify-start gap-2 lg:w-full"
-                >
-                    <ListChecks class="size-4" /> Checklist
-                </TabsTrigger>
-                <TabsTrigger
-                    value="avisos"
-                    class="justify-start gap-2 lg:w-full"
-                >
-                    <ScrollText class="size-4" /> Avisos / Comunicaciones
-                </TabsTrigger>
-                <TabsTrigger
-                    value="vacaciones"
-                    class="justify-start gap-2 lg:w-full"
-                >
-                    <Calendar class="size-4" /> Vacaciones
-                </TabsTrigger>
-                <TabsTrigger
-                    v-if="recibosNomina !== null"
-                    value="recibos"
-                    class="justify-start gap-2 lg:w-full"
-                >
-                    <Receipt class="size-4" /> Recibos de nómina
-                </TabsTrigger>
-                <TabsTrigger
-                    value="prestamos"
-                    class="justify-start gap-2 lg:w-full"
-                >
-                    <Wallet class="size-4" /> Préstamos
-                </TabsTrigger>
-                <TabsTrigger
-                    value="solicitudes"
-                    class="justify-start gap-2 lg:w-full"
-                >
-                    <ClipboardList class="size-4" /> Solicitudes
-                </TabsTrigger>
-                <TabsTrigger
-                    value="historial"
-                    class="justify-start gap-2 lg:w-full"
-                >
-                    <History class="size-4" /> Historial RH
-                </TabsTrigger>
-                <TabsTrigger
-                    v-if="historialCambios"
-                    value="cambios"
-                    class="justify-start gap-2 lg:w-full"
-                >
-                    <PencilLine class="size-4" /> Cambios de datos
-                    <span
-                        v-if="historialCambios.length > 0"
-                        class="ml-auto rounded-full bg-muted px-1.5 text-[10px] tabular-nums"
-                        >{{ historialCambios.length }}</span
+                    <button
+                        v-for="grupo in gruposPestanas"
+                        :key="grupo.clave"
+                        type="button"
+                        class="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-2 rounded-lg px-3 text-sm font-medium transicion-ui"
+                        :class="
+                            grupo.clave === grupoActivo?.clave
+                                ? 'bg-card text-foreground shadow-sm'
+                                : 'text-muted-foreground hover:text-foreground'
+                        "
+                        :aria-current="
+                            grupo.clave === grupoActivo?.clave
+                                ? 'true'
+                                : undefined
+                        "
+                        @click="pestana = grupo.pestanas[0].valor"
                     >
-                </TabsTrigger>
-            </TabsList>
+                        <component :is="grupo.icono" class="size-4" />
+                        {{ grupo.etiqueta }}
+                    </button>
+                </nav>
+                <TabsList
+                    class="scroll-x-limpio h-auto w-full justify-start gap-1 bg-transparent p-0"
+                    :class="{
+                        'sr-only': (grupoActivo?.pestanas.length ?? 0) < 2,
+                    }"
+                >
+                    <TabsTrigger
+                        v-for="p in grupoActivo?.pestanas ?? []"
+                        :key="p.valor"
+                        :value="p.valor"
+                        class="flex-none gap-2 border border-transparent data-[state=active]:border-border data-[state=active]:bg-card"
+                    >
+                        <component :is="p.icono" class="size-4" />
+                        {{ p.etiqueta }}
+                        <span
+                            v-if="p.contador"
+                            class="rounded-full bg-muted px-1.5 text-[10px] tabular-nums"
+                            >{{ p.contador }}</span
+                        >
+                    </TabsTrigger>
+                </TabsList>
+            </div>
 
             <div class="min-w-0 flex-1">
                 <TabsContent value="resumen" class="flex flex-col gap-4">
@@ -1376,928 +996,68 @@ function irACompletarExpediente() {
                     <HistorialCorrecciones :colaborador-id="colaborador.id" />
                 </TabsContent>
 
-                <TabsContent value="laborales">
-                    <Card class="rounded-2xl border-border/60">
-                        <CardHeader
-                            class="flex flex-row items-center justify-between gap-2"
-                        >
-                            <CardTitle
-                                class="flex items-center gap-2 text-base"
-                            >
-                                <Briefcase class="size-4" />
-                                Datos laborales
-                            </CardTitle>
-                            <div
-                                v-if="
-                                    puedeEditarLaborales && !editandoLaborales
-                                "
-                                class="flex flex-wrap items-center gap-2"
-                            >
-                                <BotonCorregir
-                                    v-if="puedeVerSueldo"
-                                    dominio="salario"
-                                    :sujeto-id="colaborador.id"
-                                    etiqueta="Corregir sueldo"
-                                    :abrir-al-inicio="corregirSueldoAlInicio"
-                                    permiso="salarios.editar"
-                                />
-                                <BotonCorregir
-                                    dominio="laboral"
-                                    :sujeto-id="colaborador.id"
-                                />
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    @click="iniciarEdicionLaborales"
-                                >
-                                    <Pencil class="size-3.5" />
-                                    Editar
-                                </Button>
-                            </div>
-                        </CardHeader>
-                        <CardContent class="flex flex-col gap-6">
-                            <form
-                                v-if="editandoLaborales"
-                                class="flex flex-col gap-4"
-                                @submit.prevent="guardarLaborales"
-                            >
-                                <div
-                                    class="grid grid-cols-1 gap-4 sm:grid-cols-2"
-                                >
-                                    <div class="grid gap-2">
-                                        <Label>Empresa</Label>
-                                        <SelectSimple
-                                            :model-value="empresaSeleccionada"
-                                            :opciones="
-                                                empresasDisponibles.map(
-                                                    (e) => ({
-                                                        value: String(e.id),
-                                                        label: e.nombre,
-                                                    }),
-                                                )
-                                            "
-                                            placeholder="Selecciona una empresa"
-                                            @update:model-value="
-                                                (v) =>
-                                                    alCambiarEmpresa(
-                                                        String(v ?? ''),
-                                                    )
-                                            "
-                                        />
-                                    </div>
-                                    <div class="grid gap-2">
-                                        <Label>Sucursal</Label>
-                                        <SelectSimple
-                                            :model-value="
-                                                formLaborales.sucursal_principal_id
-                                            "
-                                            :opciones="
-                                                sucursalesFiltradas.map(
-                                                    (s) => ({
-                                                        value: String(s.id),
-                                                        label: s.nombre,
-                                                    }),
-                                                )
-                                            "
-                                            placeholder="Selecciona una sucursal"
-                                            @update:model-value="
-                                                (v) =>
-                                                    alCambiarSucursalLaboral(
-                                                        String(v ?? ''),
-                                                    )
-                                            "
-                                        />
-                                        <InputError
-                                            :message="
-                                                formLaborales.errors
-                                                    .sucursal_principal_id
-                                            "
-                                        />
-                                    </div>
-                                    <div class="grid gap-2">
-                                        <Label>Departamento</Label>
-                                        <SelectSimple
-                                            v-model="
-                                                formLaborales.departamento_id
-                                            "
-                                            :opciones="
-                                                departamentosDisponibles.map(
-                                                    (d) => ({
-                                                        value: String(d.id),
-                                                        label: d.nombre,
-                                                    }),
-                                                )
-                                            "
-                                            placeholder="Selecciona un departamento"
-                                        />
-                                        <InputError
-                                            :message="
-                                                formLaborales.errors
-                                                    .departamento_id
-                                            "
-                                        />
-                                    </div>
-                                    <div class="grid gap-2">
-                                        <Label>Puesto</Label>
-                                        <SelectSimple
-                                            :model-value="
-                                                formLaborales.puesto_id
-                                            "
-                                            :opciones="
-                                                puestosDisponibles.map((p) => ({
-                                                    value: String(p.id),
-                                                    label: p.nombre,
-                                                }))
-                                            "
-                                            placeholder="Selecciona un puesto"
-                                            @update:model-value="
-                                                (v) =>
-                                                    alCambiarPuestoLaboral(
-                                                        String(v ?? ''),
-                                                    )
-                                            "
-                                        />
-                                        <InputError
-                                            :message="
-                                                formLaborales.errors.puesto_id
-                                            "
-                                        />
-                                    </div>
-                                    <div class="grid gap-2">
-                                        <Label>Jefe directo</Label>
-                                        <p
-                                            class="flex min-h-9 items-center rounded-md border border-dashed px-3 text-sm text-muted-foreground"
-                                        >
-                                            Se asigna solo según el organigrama
-                                            (puesto y sucursal) al guardar.
-                                        </p>
-                                    </div>
-                                    <div
-                                        v-if="puedeVerSueldo"
-                                        class="grid gap-2"
-                                    >
-                                        <Label for="sueldo_mensual"
-                                            >Sueldo mensual</Label
-                                        >
-                                        <Input
-                                            id="sueldo_mensual"
-                                            v-model="
-                                                formLaborales.sueldo_mensual
-                                            "
-                                            type="number"
-                                            min="0"
-                                            step="0.01"
-                                            placeholder="0.00"
-                                        />
-                                        <InputError
-                                            :message="
-                                                formLaborales.errors
-                                                    .sueldo_mensual
-                                            "
-                                        />
-                                    </div>
-                                    <div class="grid gap-2">
-                                        <Label for="fecha_ingreso_laboral"
-                                            >Fecha de ingreso</Label
-                                        >
-                                        <DatePicker
-                                            id="fecha_ingreso_laboral"
-                                            v-model="
-                                                formLaborales.fecha_ingreso
-                                            "
-                                        />
-                                        <p
-                                            class="text-xs text-muted-foreground"
-                                        >
-                                            De ella salen todas las fechas del
-                                            contrato.
-                                        </p>
-                                        <InputError
-                                            :message="
-                                                formLaborales.errors
-                                                    .fecha_ingreso
-                                            "
-                                        />
-                                    </div>
-                                    <div class="grid gap-2 sm:col-span-2">
-                                        <Label for="motivo_laboral"
-                                            >Motivo del cambio
-                                            {{
-                                                motivoLaboralRequerido
-                                                    ? '(obligatorio: cambias un dato crítico)'
-                                                    : '(obligatorio si cambias sueldo o fecha de ingreso)'
-                                            }}</Label
-                                        >
-                                        <Input
-                                            id="motivo_laboral"
-                                            v-model="formLaborales.motivo"
-                                            name="motivo"
-                                            :required="motivoLaboralRequerido"
-                                            :aria-invalid="
-                                                !!formLaborales.errors.motivo
-                                            "
-                                            placeholder="Ej. promoción, reubicación, ajuste de sueldo, corrección de captura..."
-                                        />
-                                        <InputError
-                                            :message="
-                                                formLaborales.errors.motivo
-                                            "
-                                        />
-                                    </div>
-                                </div>
-                                <div class="flex gap-2">
-                                    <Button
-                                        type="submit"
-                                        size="sm"
-                                        :disabled="formLaborales.processing"
-                                    >
-                                        <Spinner
-                                            v-if="formLaborales.processing"
-                                        />
-                                        Guardar cambios
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="outline"
-                                        @click="editandoLaborales = false"
-                                    >
-                                        Cancelar
-                                    </Button>
-                                </div>
-                            </form>
-
-                            <template v-else>
-                                <div class="flex flex-col gap-3">
-                                    <p
-                                        class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                                    >
-                                        <Network class="size-3.5" />
-                                        Ubicación organizacional
-                                    </p>
-                                    <div
-                                        class="grid grid-cols-1 gap-3 sm:grid-cols-2"
-                                    >
-                                        <CampoInfo
-                                            :icono="Building2"
-                                            etiqueta="Empresa"
-                                        >
-                                            {{
-                                                colaborador.empresa?.nombre ??
-                                                '—'
-                                            }}
-                                        </CampoInfo>
-                                        <CampoInfo
-                                            :icono="MapPinned"
-                                            etiqueta="Sucursal"
-                                        >
-                                            {{
-                                                colaborador.sucursal?.nombre ??
-                                                '—'
-                                            }}
-                                        </CampoInfo>
-                                        <CampoInfo
-                                            :icono="Hexagon"
-                                            etiqueta="Departamento"
-                                        >
-                                            {{
-                                                colaborador.departamento
-                                                    ?.nombre ?? '—'
-                                            }}
-                                        </CampoInfo>
-                                        <CampoInfo
-                                            :icono="BadgeCheck"
-                                            etiqueta="Puesto"
-                                        >
-                                            {{
-                                                colaborador.puesto?.nombre ??
-                                                '—'
-                                            }}
-                                        </CampoInfo>
-                                        <CampoInfo
-                                            :icono="UserRound"
-                                            etiqueta="Jefe directo"
-                                        >
-                                            <template v-if="colaborador.jefe">
-                                                {{ colaborador.jefe.name }}
-                                                {{ colaborador.jefe.apellidos }}
-                                            </template>
-                                            <template v-else
-                                                >Sin asignar</template
-                                            >
-                                        </CampoInfo>
-                                        <CampoInfo
-                                            v-if="puedeVerSueldo"
-                                            :icono="Wallet"
-                                            etiqueta="Sueldo mensual"
-                                        >
-                                            {{
-                                                sueldoFormateado(
-                                                    colaborador.sueldo_mensual,
-                                                )
-                                            }}
-                                        </CampoInfo>
-                                    </div>
-                                </div>
-
-                                <div class="flex flex-col gap-3 border-t pt-4">
-                                    <p
-                                        class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                                    >
-                                        <ShieldCheck class="size-3.5" />
-                                        Estatus laboral e IMSS
-                                    </p>
-                                    <div
-                                        class="grid grid-cols-1 gap-3 sm:grid-cols-2"
-                                    >
-                                        <CampoInfo
-                                            :icono="CalendarDays"
-                                            etiqueta="Fecha de ingreso"
-                                        >
-                                            {{
-                                                colaborador.fecha_ingreso ?? '—'
-                                            }}
-                                        </CampoInfo>
-                                        <CampoInfo etiqueta="Estado laboral">
-                                            <EstadoBadge
-                                                :estado="colaborador.estatus"
-                                            />
-                                        </CampoInfo>
-                                        <CampoInfo etiqueta="Estatus IMSS">
-                                            <EstadoBadge
-                                                :estado="
-                                                    colaborador.estatus_imss
-                                                "
-                                                etiqueta="IMSS"
-                                            />
-                                        </CampoInfo>
-                                        <CampoInfo
-                                            :icono="CalendarClock"
-                                            etiqueta="Fecha alta IMSS"
-                                        >
-                                            {{
-                                                colaborador.fecha_alta_imss ??
-                                                '—'
-                                            }}
-                                        </CampoInfo>
-                                        <CampoInfo
-                                            v-if="colaborador.imss_alta"
-                                            etiqueta="Acuse de alta IMSS"
-                                            class="sm:col-span-2"
-                                        >
-                                            <div
-                                                class="flex flex-wrap items-center gap-2"
-                                            >
-                                                <span
-                                                    class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                                                    :class="
-                                                        colaborador.imss_alta ===
-                                                        'registrada'
-                                                            ? 'bg-success-soft text-success'
-                                                            : 'bg-warning-soft text-warning'
-                                                    "
-                                                    data-imss-alta
-                                                >
-                                                    {{
-                                                        colaborador.imss_alta ===
-                                                        'registrada'
-                                                            ? 'Registrado'
-                                                            : 'Falta el acuse'
-                                                    }}
-                                                </span>
-                                                <a
-                                                    v-if="
-                                                        colaborador.imss_alta_archivo
-                                                    "
-                                                    :href="
-                                                        colaborador
-                                                            .imss_alta_archivo
-                                                            .url
-                                                    "
-                                                    target="_blank"
-                                                    rel="noopener"
-                                                    class="text-xs underline"
-                                                    >{{
-                                                        colaborador
-                                                            .imss_alta_archivo
-                                                            .nombre
-                                                    }}</a
-                                                >
-                                                <label
-                                                    v-if="
-                                                        colaborador.puede_subir_imss
-                                                    "
-                                                    class="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-primary underline"
-                                                >
-                                                    <Spinner
-                                                        v-if="subiendoImss"
-                                                        class="size-3"
-                                                    />
-                                                    {{
-                                                        colaborador.imss_alta ===
-                                                        'registrada'
-                                                            ? 'Reemplazar archivo'
-                                                            : 'Subir acuse'
-                                                    }}
-                                                    <input
-                                                        type="file"
-                                                        class="sr-only"
-                                                        accept="application/pdf,image/*"
-                                                        :disabled="subiendoImss"
-                                                        @change="subirAcuseImss"
-                                                    />
-                                                </label>
-                                            </div>
-                                        </CampoInfo>
-                                        <CampoInfo
-                                            v-if="!esPropio"
-                                            :icono="Hourglass"
-                                            etiqueta="Periodo de prueba"
-                                            class="sm:col-span-2"
-                                        >
-                                            <template
-                                                v-if="
-                                                    colaborador.periodo_prueba_inicio &&
-                                                    colaborador.periodo_prueba_fin
-                                                "
-                                            >
-                                                {{
-                                                    colaborador.periodo_prueba_inicio
-                                                }}
-                                                —
-                                                {{
-                                                    colaborador.periodo_prueba_fin
-                                                }}
-                                                <span
-                                                    v-if="
-                                                        colaborador.en_periodo_prueba
-                                                    "
-                                                    class="text-warning"
-                                                    >(vigente)</span
-                                                >
-                                            </template>
-                                            <template v-else>—</template>
-                                        </CampoInfo>
-                                    </div>
-                                </div>
-
-                                <p class="text-xs text-muted-foreground">
-                                    Los cambios de arriba quedan registrados
-                                    como movimientos laborales (ver pestaña
-                                    «Historial RH»). El correo, los roles y la
-                                    contraseña de acceso están en la pestaña
-                                    «Cuenta».
-                                </p>
-                            </template>
-                        </CardContent>
-                    </Card>
+                <TabsContent
+                    value="laborales"
+                    force-mount
+                    class="data-[state=inactive]:hidden"
+                >
+                    <PestanaLaborales
+                        :colaborador="colaborador"
+                        :departamentos-disponibles="departamentosDisponibles"
+                        :empresas-disponibles="empresasDisponibles"
+                        :es-propio="esPropio"
+                        :puede-editar-laborales="puedeEditarLaborales"
+                        :puede-ver-sueldo="puedeVerSueldo"
+                        :puestos-disponibles="puestosDisponibles"
+                        :sucursales-disponibles="sucursalesDisponibles"
+                    />
                 </TabsContent>
 
-                <TabsContent v-if="!esPropio" value="cuenta">
-                    <div
-                        v-if="!colaborador.tiene_cuenta"
-                        class="grid grid-cols-1 gap-4"
-                    >
-                        <Card
-                            v-if="puedeCrearCuenta"
-                            class="rounded-2xl border-border/60"
-                        >
-                            <CardHeader>
-                                <CardTitle
-                                    class="flex items-center gap-2 text-base"
-                                >
-                                    <UserPlus class="size-4" />
-                                    Crear cuenta de acceso
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent>
-                                <div class="flex flex-col gap-3">
-                                    <p class="text-sm text-muted-foreground">
-                                        Usuario = primer nombre + primer
-                                        apellido; no se necesita correo. Se crea
-                                        la cuenta con una contraseña temporal
-                                        que copias y entregas en privado.
-                                    </p>
-                                    <Button
-                                        class="w-fit"
-                                        data-test="abrir-generar-credenciales"
-                                        @click="dialogoPasswordAbierto = true"
-                                    >
-                                        <KeyRound class="size-4" />
-                                        Generar credenciales
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                        <p v-else class="text-sm text-muted-foreground">
-                            Este colaborador todavía no tiene cuenta de acceso y
-                            no tienes permiso para crear una.
-                        </p>
-                    </div>
-
-                    <div v-else class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                        <Card class="rounded-2xl border-border/60">
-                            <CardHeader
-                                class="flex flex-row items-center justify-between gap-2"
-                            >
-                                <CardTitle
-                                    class="flex items-center gap-2 text-base"
-                                >
-                                    <UserCog class="size-4" />
-                                    Cuenta de acceso
-                                </CardTitle>
-                                <Button
-                                    v-if="puedeEditarCuenta && !editandoCuenta"
-                                    size="sm"
-                                    variant="ghost"
-                                    @click="iniciarEdicionCuenta"
-                                >
-                                    <Pencil class="size-3.5" />
-                                    Editar
-                                </Button>
-                            </CardHeader>
-                            <CardContent class="grid gap-4 text-sm">
-                                <template v-if="editandoCuenta">
-                                    <form
-                                        class="flex flex-col gap-4"
-                                        @submit.prevent="guardarCuenta"
-                                    >
-                                        <div class="grid gap-2">
-                                            <Label for="cuenta-email"
-                                                >Correo (opcional)</Label
-                                            >
-                                            <Input
-                                                id="cuenta-email"
-                                                v-model="formCuenta.email"
-                                                type="email"
-                                            />
-                                            <InputError
-                                                :message="
-                                                    formCuenta.errors.email
-                                                "
-                                            />
-                                        </div>
-                                        <div class="grid gap-2">
-                                            <Label>Roles</Label>
-                                            <div
-                                                class="grid max-h-40 grid-cols-2 gap-2 overflow-y-auto rounded-lg border p-2"
-                                            >
-                                                <label
-                                                    v-for="rol in rolesDisponibles"
-                                                    :key="rol"
-                                                    class="flex items-center gap-2 text-sm capitalize"
-                                                >
-                                                    <Checkbox
-                                                        :model-value="
-                                                            formCuenta.roles.includes(
-                                                                rol,
-                                                            )
-                                                        "
-                                                        @update:model-value="
-                                                            (v) =>
-                                                                (formCuenta.roles =
-                                                                    alternarRol(
-                                                                        formCuenta.roles,
-                                                                        rol,
-                                                                        !!v,
-                                                                    ))
-                                                        "
-                                                    />
-                                                    {{ rol.replace(/_/g, ' ') }}
-                                                </label>
-                                            </div>
-                                            <InputError
-                                                :message="
-                                                    formCuenta.errors.roles
-                                                "
-                                            />
-                                        </div>
-                                        <div class="flex gap-2">
-                                            <Button
-                                                type="submit"
-                                                size="sm"
-                                                :disabled="
-                                                    formCuenta.processing
-                                                "
-                                            >
-                                                <Spinner
-                                                    v-if="formCuenta.processing"
-                                                />
-                                                Guardar
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="outline"
-                                                @click="editandoCuenta = false"
-                                            >
-                                                Cancelar
-                                            </Button>
-                                        </div>
-                                    </form>
-                                </template>
-                                <template v-else>
-                                    <CampoInfo
-                                        :icono="Mail"
-                                        etiqueta="Correo (usuario de acceso)"
-                                        :valor="colaborador.email"
-                                    />
-                                    <div>
-                                        <p
-                                            class="text-xs text-muted-foreground"
-                                        >
-                                            Roles
-                                        </p>
-                                        <div class="mt-1 flex flex-wrap gap-1">
-                                            <Badge
-                                                v-for="rol in colaborador.roles"
-                                                :key="rol"
-                                                variant="outline"
-                                                class="capitalize"
-                                            >
-                                                {{ rol.replace(/_/g, ' ') }}
-                                            </Badge>
-                                            <span
-                                                v-if="
-                                                    colaborador.roles.length ===
-                                                    0
-                                                "
-                                                class="text-xs text-muted-foreground"
-                                                >Sin roles asignados</span
-                                            >
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <p
-                                            class="text-xs text-muted-foreground"
-                                        >
-                                            Acceso al sistema
-                                        </p>
-                                        <p
-                                            class="flex items-center gap-1.5 font-medium"
-                                            :class="
-                                                colaborador.acceso_bloqueado_en
-                                                    ? 'text-destructive'
-                                                    : 'text-[var(--success)]'
-                                            "
-                                        >
-                                            <Lock
-                                                v-if="
-                                                    colaborador.acceso_bloqueado_en
-                                                "
-                                                class="size-3.5"
-                                            />
-                                            <ShieldCheck
-                                                v-else
-                                                class="size-3.5"
-                                            />
-                                            {{
-                                                colaborador.acceso_bloqueado_en
-                                                    ? 'Bloqueado'
-                                                    : 'Activo'
-                                            }}
-                                        </p>
-                                    </div>
-
-                                    <div
-                                        v-if="puedeGestionarAcceso"
-                                        class="flex flex-wrap gap-2 border-t pt-3"
-                                    >
-                                        <Button
-                                            v-if="
-                                                colaborador.acceso_bloqueado_en
-                                            "
-                                            size="sm"
-                                            variant="success"
-                                            @click="
-                                                restablecerAccesoColaborador
-                                            "
-                                        >
-                                            <Unlock class="size-3.5" />
-                                            Restablecer acceso
-                                        </Button>
-                                        <Button
-                                            :disabled="accion.ocupado.value"
-                                            v-else
-                                            size="sm"
-                                            variant="outline"
-                                            @click="revocarAccesoColaborador"
-                                        >
-                                            <Lock class="size-3.5" />
-                                            Quitar acceso
-                                        </Button>
-                                    </div>
-                                </template>
-                            </CardContent>
-                        </Card>
-
-                        <Card class="rounded-2xl border-border/60">
-                            <CardHeader>
-                                <CardTitle
-                                    class="flex items-center gap-2 text-base"
-                                >
-                                    <KeyRound class="size-4" />
-                                    Contraseña
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent class="flex flex-col gap-3 text-sm">
-                                <p class="text-muted-foreground">
-                                    Por seguridad, la contraseña se guarda
-                                    cifrada y no se puede consultar la actual —
-                                    ni un administrador puede leerla. Solo
-                                    puedes establecer una nueva.
-                                </p>
-                                <Button
-                                    v-if="puedeGestionarPassword"
-                                    size="sm"
-                                    class="w-fit"
-                                    @click="dialogoPasswordAbierto = true"
-                                >
-                                    <KeyRound class="size-3.5" />
-                                    Generar credenciales
-                                </Button>
-                                <p
-                                    v-else-if="esCuentaPropia"
-                                    class="text-xs text-muted-foreground"
-                                >
-                                    Es tu propia cuenta: no puedes restablecerte
-                                    la contraseña desde aquí. Usa
-                                    <Link
-                                        :href="editSeguridad.url()"
-                                        class="font-medium text-primary underline underline-offset-2"
-                                        >Configuración → Seguridad</Link
-                                    >.
-                                </p>
-                                <p v-else class="text-xs text-muted-foreground">
-                                    No tienes permiso para cambiar la contraseña
-                                    de este colaborador.
-                                </p>
-                            </CardContent>
-                        </Card>
-                    </div>
+                <TabsContent
+                    v-if="!esPropio"
+                    value="cuenta"
+                    force-mount
+                    class="data-[state=inactive]:hidden"
+                >
+                    <PestanaCuenta
+                        :colaborador="colaborador"
+                        :es-cuenta-propia="esCuentaPropia"
+                        :es-propio="esPropio"
+                        :puede-crear-cuenta="puedeCrearCuenta"
+                        :puede-editar-cuenta="puedeEditarCuenta"
+                        :puede-gestionar-acceso="puedeGestionarAcceso"
+                        :puede-gestionar-password="puedeGestionarPassword"
+                        :roles-disponibles="rolesDisponibles"
+                        :ocupado="accion.ocupado.value"
+                        @restablecer-acceso="restablecerAccesoColaborador"
+                        @revocar-acceso="revocarAccesoColaborador"
+                    />
                 </TabsContent>
 
                 <TabsContent value="documentos" class="flex flex-col gap-4">
-                    <!-- Expediente histórico: el PDF único anterior al sistema.
-                         NO es parte del checklist ni cuenta en el avance. -->
-                    <Card
-                        v-if="expedienteHistorico && expedienteHistorico.length"
-                        class="rounded-2xl border-border/60"
-                    >
-                        <CardContent class="flex flex-col gap-3 p-5">
-                            <div
-                                class="flex flex-wrap items-start justify-between gap-3"
-                            >
-                                <div>
-                                    <h3 class="text-base font-semibold">
-                                        Expediente histórico
-                                    </h3>
-                                    <p class="text-sm text-muted-foreground">
-                                        Documentación anterior al sistema en un
-                                        solo archivo. Se conserva íntegra; al
-                                        dividirlo, sus copias por documento
-                                        entran al checklist en revisión.
-                                    </p>
-                                </div>
-                                <Button
-                                    v-if="puedeVerExtraccion"
-                                    variant="outline"
-                                    size="sm"
-                                    as-child
-                                >
-                                    <Link
-                                        :href="
-                                            divisionHistorico(colaborador.id)
-                                        "
-                                        >Dividir por checklist y revisar
-                                        datos</Link
-                                    >
-                                </Button>
-                            </div>
-                            <div
-                                v-for="h in expedienteHistorico"
-                                :key="h.id"
-                                class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 p-3"
-                            >
-                                <div class="min-w-0">
-                                    <p class="truncate text-sm font-medium">
-                                        {{ h.nombre }}
-                                    </p>
-                                    <p class="text-xs text-muted-foreground">
-                                        Original: {{ h.original
-                                        }}{{
-                                            h.size
-                                                ? ` · ${(h.size / 1048576).toFixed(1)} MB`
-                                                : ''
-                                        }}
-                                    </p>
-                                </div>
-                                <div class="flex gap-2">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        as-child
-                                    >
-                                        <a
-                                            :href="h.url"
-                                            target="_blank"
-                                            rel="noopener"
-                                            >Ver</a
-                                        >
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        as-child
-                                    >
-                                        <a :href="h.descargar_url">Descargar</a>
-                                    </Button>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    <!-- Sin histórico: la página puede ofrecer «Ligar expediente de Synology». -->
-                    <slot v-else name="sin-expediente-historico" />
-                    <!-- La foto se registra junto con los documentos: es lo
-                         que identifica al colaborador en todos los módulos. -->
-                    <FotoPerfilCaptura
-                        :nombre="`${colaborador.name} ${colaborador.apellidos ?? ''}`"
-                        :foto-url="colaborador.foto_url"
-                        :url-subida="urlSubidaFoto"
-                        :puede-editar="esPropio || puedeEditar"
-                        :estado="esPropio ? colaborador.foto_estado : null"
-                    />
-                    <!-- Carta compromiso de documentos pendientes (si la tiene). -->
-                    <CartaCompromisoTarjeta />
-                    <ExpedienteDocumentos
-                        :colaborador-id="colaborador.id"
-                        :documentos="documentosRequeridos"
-                        :puede-subir="esPropio || puedeEditar"
-                        :puede-revisar="puedeRevisarDocumentos"
-                        :puede-ver-extraccion="puedeVerExtraccion"
+                    <PestanaDocumentos
+                        :colaborador="colaborador"
+                        :documentos-requeridos="documentosRequeridos"
+                        :es-propio="esPropio"
+                        :expediente-historico="expedienteHistorico"
                         :puede-aplicar-extraccion="puedeAplicarExtraccion"
-                        :puede-reprocesar-extraccion="puedeReprocesarExtraccion"
+                        :puede-editar="puedeEditar"
                         :puede-ignorar-extraccion="puedeIgnorarExtraccion"
-                    />
-                    <!-- Documentos generados desde plantillas oficiales (solo vista RH). -->
-                    <slot name="documentos-oficiales" />
+                        :puede-reprocesar-extraccion="puedeReprocesarExtraccion"
+                        :puede-revisar-documentos="puedeRevisarDocumentos"
+                        :puede-ver-extraccion="puedeVerExtraccion"
+                    >
+                        <template #sin-expediente-historico
+                            ><slot name="sin-expediente-historico"
+                        /></template>
+                        <template #documentos-oficiales
+                            ><slot name="documentos-oficiales"
+                        /></template>
+                    </PestanaDocumentos>
                 </TabsContent>
 
                 <TabsContent value="onboarding">
-                    <Card class="rounded-2xl border-border/60">
-                        <CardHeader>
-                            <CardTitle
-                                class="flex items-center gap-2 text-base"
-                            >
-                                <ListChecks class="size-4" />
-                                Checklist de incorporación
-                            </CardTitle>
-                            <div class="flex items-center gap-2 pt-1">
-                                <div
-                                    class="h-2 flex-1 overflow-hidden rounded-full bg-muted"
-                                >
-                                    <div
-                                        class="h-full rounded-full bg-primary transition-[width] duration-(--mov-lento)"
-                                        :style="{
-                                            width: `${onboardingPorcentaje}%`,
-                                        }"
-                                    />
-                                </div>
-                                <span
-                                    class="text-xs font-semibold text-muted-foreground tabular-nums"
-                                    >{{ onboardingPorcentaje }}%</span
-                                >
-                            </div>
-                        </CardHeader>
-                        <CardContent class="flex flex-col gap-2">
-                            <div
-                                v-for="item in onboarding"
-                                :key="item.clave"
-                                class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm"
-                                :class="
-                                    item.completado
-                                        ? 'bg-[var(--success)]/5'
-                                        : 'bg-muted/40'
-                                "
-                            >
-                                <CheckCircle2
-                                    v-if="item.completado"
-                                    class="size-4 shrink-0 text-[var(--success)]"
-                                />
-                                <CircleDashed
-                                    v-else
-                                    class="size-4 shrink-0 text-muted-foreground"
-                                />
-                                <span
-                                    :class="{
-                                        'text-muted-foreground':
-                                            !item.completado,
-                                    }"
-                                    >{{ item.etiqueta }}</span
-                                >
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <PestanaChecklist :onboarding="onboarding" />
                 </TabsContent>
 
                 <TabsContent value="avisos">
@@ -2306,444 +1066,31 @@ function irACompletarExpediente() {
                     />
                 </TabsContent>
                 <TabsContent value="vacaciones">
-                    <Card class="rounded-2xl border-border/60">
-                        <CardHeader>
-                            <CardTitle
-                                class="flex items-center gap-2 text-base"
-                            >
-                                <Calendar class="size-4" />
-                                Vacaciones
-                            </CardTitle>
-                            <p
-                                class="flex items-center gap-1.5 text-xs text-muted-foreground"
-                            >
-                                <Clock class="size-3.5" />
-                                {{ saldoVacaciones.antiguedad_anios }}
-                                {{
-                                    saldoVacaciones.antiguedad_anios === 1
-                                        ? 'año'
-                                        : 'años'
-                                }}
-                                de antigüedad
-                            </p>
-                        </CardHeader>
-                        <CardContent class="flex flex-col gap-4">
-                            <VacacionesAntiguedad :saldo="saldoVacaciones" />
-                            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                                <div
-                                    class="group rounded-xl border p-3 text-center transicion-ui hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
-                                >
-                                    <CalendarCheck
-                                        class="mx-auto mb-1 size-4 text-primary transition-transform group-hover:scale-110"
-                                    />
-                                    <p class="text-lg font-semibold">
-                                        {{ saldoVacaciones.dias_generados }}
-                                    </p>
-                                    <p class="text-xs text-muted-foreground">
-                                        Te corresponden este año
-                                    </p>
-                                </div>
-                                <div
-                                    class="group rounded-xl border p-3 text-center transicion-ui hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
-                                >
-                                    <CheckCircle2
-                                        class="mx-auto mb-1 size-4 text-[var(--success)] transition-transform group-hover:scale-110"
-                                    />
-                                    <p class="text-lg font-semibold">
-                                        {{ saldoVacaciones.dias_usados_total }}
-                                    </p>
-                                    <p class="text-xs text-muted-foreground">
-                                        Usados
-                                    </p>
-                                    <p
-                                        v-if="
-                                            saldoVacaciones.dias_usados_historicos >
-                                            0
-                                        "
-                                        class="text-[11px] text-muted-foreground"
-                                    >
-                                        {{ saldoVacaciones.dias_usados_people }}
-                                        en PEOPLE +
-                                        {{
-                                            saldoVacaciones.dias_usados_historicos
-                                        }}
-                                        históricos
-                                    </p>
-                                </div>
-                                <div
-                                    class="group rounded-xl border p-3 text-center transicion-ui hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
-                                >
-                                    <Hourglass
-                                        class="mx-auto mb-1 size-4 text-warning transition-transform group-hover:scale-110"
-                                    />
-                                    <p class="text-lg font-semibold">
-                                        {{ saldoVacaciones.dias_en_solicitud }}
-                                    </p>
-                                    <p class="text-xs text-muted-foreground">
-                                        En solicitud
-                                    </p>
-                                </div>
-                                <div
-                                    class="group rounded-xl border p-3 text-center transicion-ui hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
-                                >
-                                    <Sparkles
-                                        class="mx-auto mb-1 size-4 text-[var(--success)] transition-transform group-hover:scale-110"
-                                    />
-                                    <p class="text-lg font-semibold">
-                                        {{ saldoVacaciones.dias_disponibles }}
-                                    </p>
-                                    <p class="text-xs text-muted-foreground">
-                                        Disponibles
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div class="flex flex-col gap-2">
-                                <p
-                                    v-for="solicitud in solicitudesVacaciones"
-                                    :key="solicitud.id"
-                                    class="flex items-center justify-between rounded-lg border p-2 text-sm"
-                                >
-                                    <span
-                                        >{{
-                                            formatearFecha(
-                                                solicitud.fecha_inicio,
-                                            )
-                                        }}
-                                        —
-                                        {{
-                                            formatearFecha(solicitud.fecha_fin)
-                                        }}
-                                        ({{
-                                            solicitud.dias_solicitados
-                                        }}
-                                        días)</span
-                                    >
-                                    <EstadoBadge :estado="solicitud.estado" />
-                                </p>
-                                <p
-                                    v-if="!solicitudesVacaciones.length"
-                                    class="text-sm text-muted-foreground"
-                                >
-                                    Sin solicitudes de vacaciones registradas.
-                                </p>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <PestanaVacaciones
+                        :saldo-vacaciones="saldoVacaciones"
+                        :solicitudes="solicitudes"
+                        :solicitudes-vacaciones="solicitudesVacaciones"
+                    />
                 </TabsContent>
                 <TabsContent v-if="recibosNomina !== null" value="recibos">
-                    <Card class="rounded-2xl border-border/60">
-                        <CardHeader
-                            class="flex flex-row flex-wrap items-center justify-between gap-2"
-                        >
-                            <CardTitle
-                                class="flex items-center gap-2 text-base"
-                            >
-                                <Receipt class="size-4" />
-                                Recibos de nómina
-                            </CardTitle>
-                            <Button
-                                v-if="
-                                    puedeGenerarRecibos &&
-                                    colaborador.sueldo_mensual
-                                "
-                                size="sm"
-                                type="button"
-                                @click="abrirDialogoRecibo"
-                            >
-                                <Plus class="size-4" />
-                                Generar recibo
-                            </Button>
-                        </CardHeader>
-                        <CardContent class="flex flex-col gap-2">
-                            <p
-                                v-if="
-                                    puedeVerSueldo &&
-                                    !colaborador.sueldo_mensual
-                                "
-                                class="text-sm text-muted-foreground"
-                            >
-                                Captura el sueldo mensual en «Datos laborales»
-                                antes de generar un recibo.
-                            </p>
-                            <div
-                                v-for="recibo in recibosNomina ?? []"
-                                :key="recibo.id"
-                                class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 p-3 text-sm"
-                            >
-                                <div class="min-w-0">
-                                    <p class="font-medium">
-                                        {{ recibo.periodo_inicio }} —
-                                        {{ recibo.periodo_fin }}
-                                    </p>
-                                    <p class="text-xs text-muted-foreground">
-                                        Pago:
-                                        {{ formatearFecha(recibo.fecha_pago) }}
-                                        · Neto:
-                                        {{ moneda(recibo.neto) }}
-                                    </p>
-                                </div>
-                                <a
-                                    v-if="recibo.tiene_pdf"
-                                    :href="descargarReciboUrl(recibo.id)"
-                                    target="_blank"
-                                    class="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-                                >
-                                    <Receipt class="size-3.5" />
-                                    Descargar
-                                </a>
-                                <div
-                                    v-else
-                                    class="flex items-center gap-2 text-xs text-muted-foreground"
-                                >
-                                    <span
-                                        >Recibo guardado, PDF no
-                                        disponible.</span
-                                    >
-                                    <Button
-                                        v-if="puedeGenerarRecibos"
-                                        size="sm"
-                                        variant="outline"
-                                        type="button"
-                                        :disabled="
-                                            formRegenerarPdf.processing &&
-                                            reciboRegenerandoId === recibo.id
-                                        "
-                                        @click="regenerarPdfRecibo(recibo.id)"
-                                    >
-                                        Regenerar PDF
-                                    </Button>
-                                </div>
-                            </div>
-                            <p
-                                v-if="!recibosNomina?.length"
-                                class="text-sm text-muted-foreground"
-                            >
-                                Sin recibos generados.
-                            </p>
-                        </CardContent>
-                    </Card>
+                    <PestanaRecibos
+                        :colaborador="colaborador"
+                        :puede-generar-recibos="puedeGenerarRecibos"
+                        :puede-ver-sueldo="puedeVerSueldo"
+                        :recibos-nomina="recibosNomina"
+                        :prestamos="prestamos"
+                    />
                 </TabsContent>
 
                 <TabsContent value="prestamos">
-                    <Card class="rounded-2xl border-border/60">
-                        <CardHeader>
-                            <CardTitle
-                                class="flex items-center gap-2 text-base"
-                            >
-                                <Wallet class="size-4" />
-                                Préstamos
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent class="flex flex-col gap-4">
-                            <p
-                                v-if="!prestamos.length"
-                                class="text-sm text-muted-foreground"
-                            >
-                                Sin préstamos registrados.
-                            </p>
-                            <div
-                                v-for="prestamo in prestamos"
-                                :key="prestamo.id"
-                                class="rounded-xl border border-border/60 p-4"
-                            >
-                                <div
-                                    class="flex flex-wrap items-center justify-between gap-2"
-                                >
-                                    <div>
-                                        <p class="font-medium">
-                                            {{
-                                                moneda(prestamo.monto_original)
-                                            }}
-                                            · {{ prestamo.plazo }} pagos ({{
-                                                prestamo.periodicidad
-                                            }})
-                                        </p>
-                                        <p
-                                            class="text-xs text-muted-foreground"
-                                        >
-                                            Saldo:
-                                            {{ moneda(prestamo.saldo) }} · Pago
-                                            programado:
-                                            {{
-                                                moneda(prestamo.pago_programado)
-                                            }}
-                                            ·
-                                            {{
-                                                prestamo.porcentaje_pagado ?? 0
-                                            }}% pagado
-                                        </p>
-                                        <p
-                                            class="text-xs text-muted-foreground"
-                                        >
-                                            Próximo descuento:
-                                            {{
-                                                prestamo.fecha_primer_descuento ??
-                                                '—'
-                                            }}
-                                        </p>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        <EstadoBadge
-                                            :estado="prestamo.estado"
-                                        />
-                                        <Button
-                                            v-if="
-                                                puedeEditar &&
-                                                prestamo.estado ===
-                                                    'pendiente_entrega'
-                                            "
-                                            size="sm"
-                                            @click="
-                                                prestamoConfirmarEntrega =
-                                                    prestamo
-                                            "
-                                        >
-                                            Confirmar entrega
-                                        </Button>
-                                    </div>
-                                </div>
-
-                                <Table
-                                    v-if="prestamo.movimientos.length"
-                                    class="mt-3"
-                                >
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Fecha</TableHead>
-                                            <TableHead>Tipo</TableHead>
-                                            <TableHead class="text-right"
-                                                >Monto</TableHead
-                                            >
-                                            <TableHead class="text-right"
-                                                >Saldo</TableHead
-                                            >
-                                            <TableHead>Registró</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        <TableRow
-                                            v-for="movimiento in prestamo.movimientos"
-                                            :key="movimiento.id"
-                                        >
-                                            <TableCell>{{
-                                                movimiento.fecha
-                                            }}</TableCell>
-                                            <TableCell>{{
-                                                ETIQUETA_MOVIMIENTO[
-                                                    movimiento.tipo
-                                                ] ?? movimiento.tipo
-                                            }}</TableCell>
-                                            <TableCell class="text-right">
-                                                {{ moneda(movimiento.monto) }}
-                                            </TableCell>
-                                            <TableCell class="text-right">
-                                                {{
-                                                    moneda(
-                                                        movimiento.saldo_nuevo,
-                                                    )
-                                                }}
-                                            </TableCell>
-                                            <TableCell>{{
-                                                movimiento.registrado_por ?? '—'
-                                            }}</TableCell>
-                                        </TableRow>
-                                    </TableBody>
-                                </Table>
-                                <p
-                                    v-else
-                                    class="mt-3 text-xs text-muted-foreground"
-                                >
-                                    Sin movimientos registrados todavía.
-                                </p>
-
-                                <form
-                                    v-if="
-                                        puedeEditar &&
-                                        prestamo.estado === 'activo'
-                                    "
-                                    class="mt-3 flex flex-wrap items-end gap-2"
-                                    @submit.prevent="registrarPago(prestamo.id)"
-                                >
-                                    <div class="grid gap-1.5">
-                                        <Label class="text-xs"
-                                            >Monto del abono</Label
-                                        >
-                                        <Input
-                                            v-model.number="formPago.monto"
-                                            type="number"
-                                            step="0.01"
-                                            min="0.01"
-                                            class="w-36"
-                                        />
-                                    </div>
-                                    <div class="grid gap-1.5">
-                                        <Label class="text-xs">Tipo</Label>
-                                        <Select v-model="formPago.tipo">
-                                            <SelectTrigger class="w-36">
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="manual"
-                                                    >Manual</SelectItem
-                                                >
-                                                <SelectItem value="ajuste"
-                                                    >Ajuste</SelectItem
-                                                >
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <Button
-                                        type="submit"
-                                        size="sm"
-                                        :disabled="formPago.processing"
-                                    >
-                                        Registrar movimiento
-                                    </Button>
-                                </form>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <PestanaPrestamos
+                        :prestamos="prestamos"
+                        :puede-editar="puedeEditar"
+                    />
                 </TabsContent>
 
                 <TabsContent value="solicitudes">
-                    <Card class="rounded-2xl border-border/60">
-                        <CardHeader>
-                            <CardTitle
-                                class="flex items-center gap-2 text-base"
-                            >
-                                <ClipboardList class="size-4" />
-                                Solicitudes
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent class="flex flex-col gap-2">
-                            <Link
-                                v-for="solicitud in solicitudes"
-                                :key="solicitud.id"
-                                :href="showSolicitud.url(solicitud.id)"
-                                class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/60 p-3 text-sm transition-colors hover:border-primary/40 hover:bg-accent/40"
-                            >
-                                <div class="min-w-0">
-                                    <p class="font-medium">
-                                        {{ solicitud.folio }} ·
-                                        {{ solicitud.tipo_etiqueta }}
-                                    </p>
-                                    <p
-                                        class="truncate text-xs text-muted-foreground"
-                                    >
-                                        {{ solicitud.motivo }}
-                                    </p>
-                                </div>
-                                <EstadoBadge :estado="solicitud.estado" />
-                            </Link>
-                            <p
-                                v-if="!solicitudes.length"
-                                class="text-sm text-muted-foreground"
-                            >
-                                Sin solicitudes registradas.
-                            </p>
-                        </CardContent>
-                    </Card>
+                    <PestanaSolicitudes :solicitudes="solicitudes" />
                 </TabsContent>
                 <TabsContent value="historial">
                     <MovimientosLaboralesTimeline
@@ -2753,199 +1100,4 @@ function irACompletarExpediente() {
             </div>
         </Tabs>
     </div>
-
-    <GenerarCredencialesDialog
-        v-if="dialogoPasswordAbierto"
-        v-model:open="dialogoPasswordAbierto"
-        :colaborador-id="colaborador.id"
-        :colaborador-nombre="`${colaborador.name} ${colaborador.apellidos ?? ''}`"
-        :tiene-cuenta="colaborador.tiene_cuenta"
-        @generadas="router.reload()"
-    />
-
-    <ConfirmarEntregaPrestamoDialog
-        v-if="prestamoConfirmarEntrega"
-        :open="prestamoConfirmarEntrega !== null"
-        :prestamo="prestamoConfirmarEntrega"
-        @update:open="
-            (v) =>
-                (prestamoConfirmarEntrega = v ? prestamoConfirmarEntrega : null)
-        "
-    />
-
-    <Dialog v-model:open="dialogoReciboAbierto">
-        <DialogContent class="max-h-[85vh] overflow-y-auto sm:max-w-xl">
-            <DialogHeader>
-                <DialogTitle>Generar recibo de nómina</DialogTitle>
-            </DialogHeader>
-            <form class="flex flex-col gap-4" @submit.prevent="generarRecibo">
-                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <div class="grid gap-1.5">
-                        <Label>Inicio del periodo</Label>
-                        <DatePicker v-model="formRecibo.periodo_inicio" />
-                        <InputError
-                            :message="formRecibo.errors.periodo_inicio"
-                        />
-                    </div>
-                    <div class="grid gap-1.5">
-                        <Label>Fin del periodo</Label>
-                        <DatePicker v-model="formRecibo.periodo_fin" />
-                        <InputError :message="formRecibo.errors.periodo_fin" />
-                    </div>
-                    <div class="grid gap-1.5">
-                        <Label>Fecha de pago</Label>
-                        <DatePicker v-model="formRecibo.fecha_pago" />
-                        <InputError :message="formRecibo.errors.fecha_pago" />
-                    </div>
-                </div>
-
-                <div>
-                    <Label class="mb-2 block">Percepciones</Label>
-                    <div
-                        class="flex items-center justify-between rounded-lg border border-border/60 bg-muted/40 p-2.5 text-sm"
-                    >
-                        <span class="text-muted-foreground"
-                            >Sueldo mensual registrado</span
-                        >
-                        <span class="font-medium">{{
-                            sueldoFormateado(colaborador.sueldo_mensual)
-                        }}</span>
-                    </div>
-                    <div class="mt-2 grid gap-1.5">
-                        <Label for="sueldo-base-periodo" class="text-xs">
-                            Sueldo base de este recibo
-                        </Label>
-                        <Input
-                            id="sueldo-base-periodo"
-                            v-model.number="formRecibo.sueldo_base"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                        />
-                        <p class="text-xs text-muted-foreground">
-                            Sugerido según el periodo seleccionado; RH puede
-                            editarlo antes de generar el recibo.
-                        </p>
-                        <InputError :message="formRecibo.errors.sueldo_base" />
-                    </div>
-                    <div
-                        v-for="(percepcion, indice) in formRecibo.percepciones"
-                        :key="indice"
-                        class="mt-2 flex items-center gap-2"
-                    >
-                        <Input
-                            v-model="percepcion.concepto"
-                            placeholder="Concepto (bono, comisión, otros)"
-                            class="flex-1"
-                        />
-                        <Input
-                            v-model.number="percepcion.monto"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            class="w-32"
-                        />
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            @click="formRecibo.percepciones.splice(indice, 1)"
-                        >
-                            <X class="size-4" />
-                        </Button>
-                    </div>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        class="mt-2"
-                        @click="agregarPercepcion"
-                    >
-                        <Plus class="size-4" />
-                        Agregar percepción
-                    </Button>
-                </div>
-
-                <div>
-                    <Label class="mb-2 block">Deducciones</Label>
-                    <p
-                        v-if="!formRecibo.deducciones.length"
-                        class="text-xs text-muted-foreground"
-                    >
-                        Sin deducciones agregadas.
-                    </p>
-                    <div
-                        v-for="(deduccion, indice) in formRecibo.deducciones"
-                        :key="indice"
-                        class="mt-2 flex items-center gap-2"
-                    >
-                        <Input
-                            v-model="deduccion.concepto"
-                            placeholder="Concepto"
-                            class="flex-1"
-                        />
-                        <Input
-                            v-model.number="deduccion.monto"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            class="w-32"
-                        />
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            @click="formRecibo.deducciones.splice(indice, 1)"
-                        >
-                            <X class="size-4" />
-                        </Button>
-                    </div>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        class="mt-2"
-                        @click="agregarDeduccion"
-                    >
-                        <Plus class="size-4" />
-                        Agregar deducción
-                    </Button>
-                </div>
-
-                <DialogFooter>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        @click="dialogoReciboAbierto = false"
-                    >
-                        Cancelar
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        :disabled="
-                            cargandoVistaPreviaRecibo || formRecibo.processing
-                        "
-                        @click="verVistaPreviaRecibo"
-                    >
-                        <Spinner v-if="cargandoVistaPreviaRecibo" />
-                        <FileSearch v-else class="size-4" />
-                        Vista previa
-                    </Button>
-                    <Button type="submit" :disabled="formRecibo.processing">
-                        Generar recibo
-                    </Button>
-                </DialogFooter>
-            </form>
-        </DialogContent>
-    </Dialog>
-
-    <DocumentPreviewDialog
-        :open="vistaPreviaReciboAbierta"
-        :preview-url="vistaPreviaReciboUrl"
-        nombre="Recibo de nómina (vista previa).pdf"
-        mime="application/pdf"
-        estado="Vista previa — todavía no se genera"
-        @update:open="(v) => (vistaPreviaReciboAbierta = v)"
-    />
 </template>

@@ -12,7 +12,7 @@ const forwardedProps = useForwardProps(delegatedProps)
 </script>
 
 <template>
-  <TabsContent data-slot="tabs-content" v-bind="forwardedProps" :class="cn('flex-1 outline-none', props.class)">
+  <TabsContent data-slot="tabs-content" v-bind="forwardedProps" :class="cn('flex-1 outline-none data-[state=active]:entrada-suave', props.class)">
     <slot />
   </TabsContent>
 </template>
