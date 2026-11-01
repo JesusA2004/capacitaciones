@@ -427,6 +427,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('exportar-pdf', [SolicitudController::class, 'exportarPdf'])->name('exportarPdf');
             Route::get('{solicitud}', [SolicitudController::class, 'show'])->name('show');
             Route::get('{solicitud}/permiso-pdf', [SolicitudController::class, 'permisoPdf'])->name('permiso-pdf');
+            Route::post('{solicitud}/permiso-pdf/generar', [SolicitudController::class, 'generarPermiso'])->name('permiso-pdf.generar')->middleware('throttle:30,1');
             Route::get('{solicitud}/vista-previa/{documento}', [SolicitudController::class, 'vistaPreviaDocumento'])->name('vista-previa')->whereIn('documento', ['comprobante', 'formato-oficial'])->middleware('throttle:30,1');
             Route::get('{solicitud}/documentos/{documento}/ver', [SolicitudController::class, 'verDocumento'])->name('documentos.ver');
             Route::post('{solicitud}/revisar', [SolicitudController::class, 'revisar'])->name('revisar');

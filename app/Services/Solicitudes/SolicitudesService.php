@@ -12,6 +12,7 @@ use App\Enums\TipoPermisoSolicitado;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\Colaborador;
 use App\Models\FiniquitoCalculo;
+use App\Models\GeneratedDocument;
 use App\Models\OfficialFormatGeneration;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudInternaDocumento;
@@ -952,6 +953,11 @@ class SolicitudesService
      * PDF del formato oficial de permiso, SOLO si RH ya lo autorizó (antes
      * responde un error de validación: el gerente no puede imprimirlo).
      */
+    public function generarPermisoFaltante(SolicitudInterna $solicitud, User $actor): GeneratedDocument
+    {
+        return $this->comprobantes->generarPermisoFaltante($solicitud, $actor);
+    }
+
     public function respuestaPermiso(SolicitudInterna $solicitud): StreamedResponse
     {
         return $this->comprobantes->respuestaPermiso($solicitud);

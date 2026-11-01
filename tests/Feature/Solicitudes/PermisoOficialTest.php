@@ -149,3 +149,21 @@ test('el formato de permiso NO se libera sin RH; tras la autorización de RH sí
         ->and($marcada('Cumpleaños'))->toBeTrue()
         ->and($marcada('Luto'))->toBeFalse();
 });
+
+test('consultar el permiso no lo emite y un cancelado no se sirve: RH lo vuelve a generar con un POST', function () {
+    Sanctum::actingAs($this->colaborador);
+    $this->postJson('/api/v1/solicitudes', permisoValido())->assertCreated();
+    $permiso = SolicitudInterna::query()->latest('id')->firstOrFail();
+    $this->actingAs($this->jefe)->post(route('rh.solicitudes.visto-bueno', $permiso), ['aprobado' => true])->assertSessionHasNoErrors();
+    $this->actingAs($this->rh)->post(route('rh.solicitudes.aprobar', $permiso))->assertSessionHasNoErrors();
+    $documento = GeneratedDocument::query()->where('clave_plantilla', ComprobanteSolicitudService::CLAVE_PERMISO)->sole();
+    $documento->update(['estado_flujo' => 'cancelado']);
+
+    $this->actingAs($this->rh)->get(route('rh.solicitudes.permiso-pdf', $permiso))->assertStatus(409);
+    expect(GeneratedDocument::query()->where('clave_plantilla', ComprobanteSolicitudService::CLAVE_PERMISO)->count())->toBe(1);
+
+    $this->actingAs($this->jefe)->post(route('rh.solicitudes.permiso-pdf.generar', $permiso))->assertForbidden();
+    $this->actingAs($this->rh)->post(route('rh.solicitudes.permiso-pdf.generar', $permiso))->assertSessionHasNoErrors();
+    expect(GeneratedDocument::query()->where('clave_plantilla', ComprobanteSolicitudService::CLAVE_PERMISO)->count())->toBe(2);
+    $this->actingAs($this->rh)->get(route('rh.solicitudes.permiso-pdf', $permiso))->assertOk();
+});
