@@ -28,7 +28,7 @@ const CARACTERISTICAS = [
         <!-- Panel de marca: petróleo con el logo vertical negativo (zona
              amplia, fondo oscuro). Decorativo, oculto en móvil. -->
         <div
-            class="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-gradient-to-br from-[#0d3e43] via-[#174a4a] to-[#225c54] p-8 lg:flex xl:p-12"
+            class="relative hidden w-1/2 flex-col justify-between overflow-hidden bg-gradient-to-br from-(--login-petroleo) via-(--login-petroleo-medio) to-(--login-verde) p-8 lg:flex xl:p-12"
         >
             <!-- Textura sutil -->
             <div
@@ -37,7 +37,7 @@ const CARACTERISTICAS = [
                 style="
                     background-image: radial-gradient(
                         circle,
-                        #e9d6b0 1.2px,
+                        var(--login-crema) 1.2px,
                         transparent 1.2px
                     );
                     background-size: 28px 28px;
@@ -45,11 +45,11 @@ const CARACTERISTICAS = [
             />
             <div
                 aria-hidden="true"
-                class="absolute -top-32 -right-24 size-[28rem] rounded-full bg-[#af8b51]/15 blur-3xl"
+                class="absolute -top-32 -right-24 size-[28rem] rounded-full bg-(--login-oro)/15 blur-3xl"
             />
             <div
                 aria-hidden="true"
-                class="absolute -bottom-24 -left-24 size-96 rounded-full bg-[#2f5937]/40 blur-3xl"
+                class="absolute -bottom-24 -left-24 size-96 rounded-full bg-(--login-bosque)/40 blur-3xl"
             />
 
             <div
@@ -70,7 +70,7 @@ const CARACTERISTICAS = [
                     :style="{ animationDelay: `${200 + i * 120}ms` }"
                 >
                     <span
-                        class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-[#af8b51]/25 text-[#e9d6b0]"
+                        class="flex size-8 shrink-0 items-center justify-center rounded-xl bg-(--login-oro)/25 text-(--login-crema)"
                     >
                         <component :is="item.icono" class="size-4" />
                     </span>
@@ -85,7 +85,7 @@ const CARACTERISTICAS = [
         >
             <div
                 aria-hidden="true"
-                class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,color-mix(in_oklab,#af8b51_14%,transparent),transparent)]"
+                class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_80%_60%_at_50%_-10%,color-mix(in_oklab,var(--login-oro)_14%,transparent),transparent)]"
             />
 
             <div
@@ -100,7 +100,7 @@ const CARACTERISTICAS = [
                 </Link>
 
                 <div
-                    class="rounded-3xl border border-border/70 bg-card p-6 shadow-xl shadow-[#0d3e43]/5 transition-shadow duration-300 hover:shadow-2xl sm:p-8"
+                    class="rounded-3xl border border-border/70 bg-card p-6 shadow-(--login-petroleo)/5 shadow-xl transition-shadow duration-300 hover:shadow-2xl sm:p-8"
                 >
                     <div class="mb-5 space-y-1 text-center">
                         <h1 class="text-xl font-semibold tracking-tight">
