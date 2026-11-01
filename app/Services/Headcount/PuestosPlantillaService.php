@@ -4,6 +4,7 @@ namespace App\Services\Headcount;
 
 use App\Models\HeadcountTarget;
 use App\Models\Puesto;
+use Illuminate\Support\Collection;
 
 /**
  * Traduce un puesto a su "puesto de plantilla" (config/headcount.php →
@@ -17,6 +18,12 @@ class PuestosPlantillaService
 
     /** @var array<int, bool> */
     private array $deEmpresa = [];
+
+    /** @var array<int, Puesto>|null Catálogo completo: subir por la jerarquía no consulta por eslabón. */
+    private ?array $catalogoPuestos = null;
+
+    /** @var array<int, Collection<int, int>>|null */
+    private ?array $plazasPorPuesto = null;
 
     public function canonico(int $puestoId): int
     {
@@ -58,7 +65,8 @@ class PuestosPlantillaService
         }
 
         $raices = array_map('mb_strtolower', array_filter((array) config('organigrama.puestos_raiz_sucursal', []), 'is_string'));
-        $actual = Puesto::query()->where('id', $puestoId)->first(['id', 'nombre', 'puesto_superior_id']);
+        $this->catalogoPuestos ??= Puesto::query()->get(['id', 'nombre', 'puesto_superior_id'])->keyBy('id')->all();
+        $actual = $this->catalogoPuestos[$puestoId] ?? null;
         $vistos = [];
 
         while ($actual !== null && ! isset($vistos[$actual->id])) {
@@ -67,7 +75,7 @@ class PuestosPlantillaService
             }
 
             $vistos[$actual->id] = true;
-            $actual = $actual->puesto_superior_id !== null ? Puesto::query()->where('id', $actual->puesto_superior_id)->first(['id', 'nombre', 'puesto_superior_id']) : null;
+            $actual = $this->catalogoPuestos[$actual->puesto_superior_id ?? 0] ?? null;
         }
 
         return $this->deEmpresa[$puestoId] = true;
@@ -84,7 +92,11 @@ class PuestosPlantillaService
             return $sucursalId;
         }
 
-        $plazas = HeadcountTarget::query()->where('puesto_id', $puestoId)->where('plantilla_autorizada', '>', 0)->orderBy('id')->pluck('sucursal_id')->map(fn ($id) => (int) $id);
+        $this->plazasPorPuesto ??= HeadcountTarget::query()->where('plantilla_autorizada', '>', 0)->orderBy('id')->get(['puesto_id', 'sucursal_id'])
+            ->groupBy('puesto_id')
+            ->map(fn (Collection $filas) => $filas->map(fn (HeadcountTarget $fila): int => (int) $fila->sucursal_id)->values())
+            ->all();
+        $plazas = $this->plazasPorPuesto[$puestoId] ?? collect();
 
         return $plazas->isEmpty() || $plazas->contains($sucursalId) ? $sucursalId : (int) $plazas->first();
     }
