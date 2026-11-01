@@ -29,6 +29,9 @@ use Illuminate\Support\Carbon;
  * @property string $total_deducciones
  * @property string $neto
  * @property EstadoReciboNomina $estado
+ * @property int|null $rectifica_recibo_id
+ * @property int|null $rectificado_por_id
+ * @property array<string, mixed>|null $datos_emision
  * @property Carbon|null $emitido_at
  * @property int|null $generado_por
  * @property string|null $pdf_disk

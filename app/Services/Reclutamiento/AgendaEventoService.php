@@ -191,6 +191,27 @@ class AgendaEventoService
         return ['evento' => $resultado['evento'], 'empalmes' => $resultado['nuevo'] ? $empalmes : []];
     }
 
+    /**
+     * Corrige las notas de una cita programada; el motivo queda en su bitácora.
+     */
+    public function corregirNotas(AgendaEvento $evento, ?string $notas, string $motivo, User $actor): AgendaEvento
+    {
+        Gate::forUser($actor)->authorize('gestionar', $evento);
+
+        return DB::transaction(function () use ($evento, $notas, $motivo, $actor): AgendaEvento {
+            $actual = AgendaEvento::query()->lockForUpdate()->findOrFail($evento->id);
+
+            if ($actual->estado !== EstadoAgendaEvento::Programado) {
+                throw ValidationException::withMessages(['estado' => sprintf('Las notas de una cita «%s» no se modifican.', $actual->estado->etiqueta())]);
+            }
+
+            $actual->update(['notas' => $notas]);
+            $this->bitacora($actual, 'notas_corregidas', $actual->estado, $actual->estado, $motivo, $actor);
+
+            return $actual;
+        });
+    }
+
     public function cancelar(AgendaEvento $evento, string $motivo, User $actor): AgendaEvento
     {
         Gate::forUser($actor)->authorize('gestionar', $evento);

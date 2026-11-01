@@ -1085,11 +1085,4 @@ class ReciboNominaService
             throw ValidationException::withMessages(['conceptos' => sprintf('Las deducciones ($%s) superan las percepciones ($%s): el neto no puede ser negativo.', number_format($deducciones, 2), number_format($percepciones, 2))]);
         }
     }
-
-    private function primerMensaje(ValidationException $e): string
-    {
-        $mensaje = (string) (collect($e->errors())->flatten()->first() ?? 'no se pudo generar el PDF.');
-
-        return str_ends_with($mensaje, '.') ? $mensaje : $mensaje.'.';
-    }
 }

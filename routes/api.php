@@ -37,6 +37,7 @@ use App\Http\Controllers\Api\V1\Rh\CicloLaboralRhController;
 use App\Http\Controllers\Api\V1\Rh\CierreLaboralController;
 use App\Http\Controllers\Api\V1\Rh\ColaboradorController as RhColaboradorController;
 use App\Http\Controllers\Api\V1\Rh\ContratoController;
+use App\Http\Controllers\Api\V1\Rh\CorreccionController as RhCorreccionController;
 use App\Http\Controllers\Api\V1\Rh\CredencialesController as RhCredencialesController;
 use App\Http\Controllers\Api\V1\Rh\CumpleanosController as RhCumpleanosController;
 use App\Http\Controllers\Api\V1\Rh\DashboardController as RhDashboardController;
@@ -403,6 +404,16 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         // docs/RH_MOBILE_API.md).
         Route::prefix('rh')->name('rh.')->group(function () {
             Route::get('dashboard', RhDashboardController::class)->name('dashboard');
+
+            // Correcciones auditadas: mismo CorreccionService que la web (sin salario ni recibos).
+            Route::prefix('correcciones')->name('correcciones.')->group(function () {
+                Route::get('colaboradores/{colaborador}/historial', [RhCorreccionController::class, 'historialColaborador'])->name('colaborador.historial');
+                Route::get('{dominio}/{id}', [RhCorreccionController::class, 'mostrar'])->name('mostrar')->whereNumber('id');
+                Route::post('{dominio}/{id}/vista-previa', [RhCorreccionController::class, 'vistaPrevia'])->name('vista-previa')->whereNumber('id');
+                Route::post('{dominio}/{id}', [RhCorreccionController::class, 'aplicar'])->name('aplicar')->whereNumber('id');
+                Route::get('{dominio}/{id}/historial', [RhCorreccionController::class, 'historial'])->name('historial')->whereNumber('id');
+            });
+
             Route::get('pendientes', [RhPendienteController::class, 'index'])->name('pendientes');
 
             // Ciclo laboral para aprobadores (docs/CICLO_LABORAL_FINAL_IMPLEMENTADO.md).
