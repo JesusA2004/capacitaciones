@@ -7,6 +7,7 @@ use App\Models\Colaborador;
 use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Services\Actas\ActaPdfService;
+use App\Services\Documentos\Versiones\AlEmitirDocumento;
 use App\Services\Documentos\Versiones\DocumentoRenderizado;
 use App\Services\Documentos\Versiones\FuenteDocumento;
 use Illuminate\Database\Eloquent\Model;
@@ -20,6 +21,7 @@ final class FuenteActa implements FuenteDocumento
     public function __construct(
         private readonly ActaPdfService $pdf,
         private readonly ActaAdministrativa $acta,
+        private readonly ?AlEmitirDocumento $alEmitir = null,
     ) {}
 
     public function colaborador(): Colaborador
@@ -77,7 +79,12 @@ final class FuenteActa implements FuenteDocumento
         return $this->pdf->preparar($this->acta, $actor);
     }
 
-    public function despuesDeEmitir(GeneratedDocument $documento, ?GeneratedDocument $anterior, array $correcciones, ?string $motivo, User $actor): void {}
+    public function despuesDeEmitir(GeneratedDocument $documento, ?GeneratedDocument $anterior, array $correcciones, ?string $motivo, User $actor): void
+    {
+        if ($this->alEmitir !== null) {
+            ($this->alEmitir)($documento, $anterior, $correcciones, $motivo, $actor);
+        }
+    }
 
     public function bloqueo(?GeneratedDocument $vigente, bool $rectificar): ?string
     {

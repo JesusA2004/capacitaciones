@@ -45,6 +45,7 @@ use App\Services\Expedientes\ProgresoExpediente;
 use App\Services\Nomina\PrestamoAutorizacionService;
 use App\Services\Tareas\TareaService;
 use Carbon\CarbonImmutable;
+use Closure;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -794,24 +795,33 @@ class DocumentoProcesoService
             $sustituye = $existente;
         }
 
+        // Dentro de la transacción de la emisión: si ligar falla, la anterior sigue vigente.
+        $alEmitirYLigar = new class($alEmitir, fn (GeneratedDocument $documento) => $this->ligarAlRegistro($documento, $registro, $clave, $actor)) implements AlEmitirDocumento
+        {
+            public function __construct(private readonly ?AlEmitirDocumento $alEmitir, private readonly Closure $ligar) {}
+
+            public function __invoke(GeneratedDocument $documento, ?GeneratedDocument $anterior, array $correcciones, ?string $motivo, User $actor): void
+            {
+                if ($this->alEmitir !== null) {
+                    ($this->alEmitir)($documento, $anterior, $correcciones, $motivo, $actor);
+                }
+
+                ($this->ligar)($documento);
+            }
+        };
+
         // Formato propio del acta (BrowserShot, sin master de Jurídico) o documento
         // maestro: mismas reglas de arriba y mismo orden seguro de VersionadoDocumentoService.
         $fuente = $esFormatoPropio && $registro instanceof ActaAdministrativa
-            ? new FuenteActa(app(ActaPdfService::class), $registro)
-            : new FuenteMaestro($this, $proceso, $registro, $clave, $manuales, $alEmitir);
+            ? new FuenteActa(app(ActaPdfService::class), $registro, $alEmitirYLigar)
+            : new FuenteMaestro($this, $proceso, $registro, $clave, $manuales, $alEmitirYLigar);
 
         if ($correcciones === null && $existente !== null && ($existente->correcciones ?? []) === []) {
             // Corrección hecha antes de existir `correcciones` en la versión: no se pierde.
             $correcciones = BajaDocumentoEdicion::query()->where('generated_document_id', $existente->id)->latest('id')->first()->campos ?? null;
         }
 
-        $resultado = app(VersionadoDocumentoService::class)->emitir($fuente, $correcciones, $motivoRevision, $actor, $revisionDe !== null);
-
-        if ($resultado->creado) {
-            $this->ligarAlRegistro($resultado->documento, $registro, $clave, $actor);
-        }
-
-        return $resultado->documento;
+        return app(VersionadoDocumentoService::class)->emitir($fuente, $correcciones, $motivoRevision, $actor, $revisionDe !== null)->documento;
     }
 
     /**
