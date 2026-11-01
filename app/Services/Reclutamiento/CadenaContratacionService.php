@@ -147,7 +147,8 @@ class CadenaContratacionService
      */
     private function estado(Candidato $candidato, ?Colaborador $colaborador, ?array $resumen, bool $conContrato, ?IncorporacionInvitacion $invitacion, bool $conAlta, User $viewer): array
     {
-        $fichaCandidato = route('rh.candidatos.show', ['candidato' => $candidato->id, 'paso' => 'contratacion']);
+        // La ficha lee ?accion= y abre el diálogo solo si la acción está permitida.
+        $fichaCandidato = route('rh.candidatos.show', ['candidato' => $candidato->id, 'accion' => 'iniciar_contratacion']);
 
         // Seleccionado (autorizado por RH) sin contratación iniciada: aún
         // no hay colaborador ni QR → sin botón al expediente.
@@ -188,7 +189,7 @@ class CadenaContratacionService
         $qrPendiente = ! $conAlta && ($invitacion === null || ($invitacion->estado !== EstadoInvitacionIncorporacion::Usado && $invitacion->used_at === null));
 
         if ($qrPendiente) {
-            return $this->fila('en_contratacion', 'En contratación', 'Esperando registro por QR', 'alerta', $colaborador->id, $expedienteUrl, $expedienteEtiqueta, $fichaCandidato, 'Ver QR de registro');
+            return $this->fila('en_contratacion', 'En contratación', 'Esperando registro por QR', 'alerta', $colaborador->id, $expedienteUrl, $expedienteEtiqueta, route('rh.candidatos.show', $candidato->id), 'Ver QR de registro');
         }
 
         return $this->fila('expediente', $documentos ?? 'En contratación', $documentos !== null ? 'Documentos aprobados' : 'Registro por QR completado', 'alerta', $colaborador->id, $expedienteUrl, $expedienteEtiqueta, $ciclo, 'Ver contratación');

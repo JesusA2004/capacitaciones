@@ -14,6 +14,9 @@ export type AccionCiclo = {
     clave: string;
     etiqueta: string;
     tipo: 'primaria' | 'secundaria' | 'peligro' | string;
+    /** Se atiende en otra pantalla (el backend ya validó el permiso). */
+    href?: string;
+    solo_web?: boolean;
 };
 
 export type PasoCiclo = {

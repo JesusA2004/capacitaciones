@@ -38,6 +38,7 @@ use App\Services\Contratos\EvaluacionPeriodoPruebaService;
 use App\Services\Contratos\SolicitudExcepcionPeriodoPruebaService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\ExpedienteService;
+use App\Services\Flujos\ConstructorEnlaces;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Reclutamiento\FaseContratadoService;
@@ -58,7 +59,7 @@ use Illuminate\Support\Facades\Gate;
  * {persona, etapa, estado, progreso, responsable_actual, siguiente_accion,
  *  fecha_desde_estado, bloqueos[], pasos[], aprobaciones, timeline[], acciones_permitidas[]}
  *
- * @phpstan-type Accion array{clave: string, etiqueta: string, tipo: string}
+ * @phpstan-type Accion array{clave: string, etiqueta: string, tipo: string, href?: string, solo_web?: bool}
  * @phpstan-type Detalle array{estado: array{clave: string, etiqueta: string}, responsable: array{rol: string, nombre: string|null}, siguiente: array{clave: string, etiqueta: string}|null, bloqueos: list<string>, acciones: list<Accion>, progreso: int, desde: CarbonInterface|string|null}
  */
 class CicloLaboralService
@@ -77,6 +78,8 @@ class CicloLaboralService
         private readonly DocumentoProcesoService $documentosProceso,
         private readonly CausalRotacionService $causales,
         private readonly FotoColaboradorService $fotos,
+        private readonly FaseContratadoService $fases,
+        private readonly ConstructorEnlaces $enlaces,
     ) {}
 
     /**
@@ -179,7 +182,7 @@ class CicloLaboralService
             'estado' => ['clave' => $estado->value, 'etiqueta' => $estado->etiqueta()],
             'progreso' => $estado === EstadoCandidato::Contratado ? 100 : (int) round(min($orden, 11) / 11 * 100),
             'responsable_actual' => $this->reclutamiento->responsableActual($c),
-            'siguiente_accion' => $principal ?? $this->siguientePasoCandidato($estado),
+            'siguiente_accion' => $principal ?? $this->siguientePasoCandidato($estado, $faseContratado),
             'fecha_desde_estado' => ($ultimoCambio !== null ? $ultimoCambio->fecha : $c->created_at)?->toIso8601String(),
             'bloqueos' => $bloqueos,
             'pasos' => $pasos,
@@ -226,7 +229,7 @@ class CicloLaboralService
             $detalle = $this->detalleFinalizado($colaborador, $viewer);
         } elseif ($alta !== null && $alta->enContratacion()) {
             $etapa = EtapaCicloLaboral::Contratacion;
-            $detalle = $this->detalleContratacion($colaborador);
+            $detalle = $this->detalleContratacion($colaborador, $viewer);
         } elseif ($alta === EstadoAltaColaborador::EnOnboarding || $alta === EstadoAltaColaborador::PendienteActivacion) {
             $etapa = EtapaCicloLaboral::Onboarding;
             $detalle = $this->detalleOnboarding($colaborador, $onboarding, $viewer);
@@ -282,7 +285,7 @@ class CicloLaboralService
     /**
      * @return Detalle
      */
-    private function detalleContratacion(Colaborador $colaborador): array
+    private function detalleContratacion(Colaborador $colaborador, ?User $viewer): array
     {
         $alta = $colaborador->estado_alta ?? EstadoAltaColaborador::PendienteDocumentos;
         $documental = $this->expediente->estadoDocumental($colaborador);
@@ -328,7 +331,7 @@ class CicloLaboralService
                 default => ['clave' => 'firmar_contratos', 'etiqueta' => 'Imprimir, firmar y recabar huella'],
             },
             'bloqueos' => $bloqueos,
-            'acciones' => [],
+            'acciones' => $this->accionesContratacion($colaborador, $alta, $viewer),
             'progreso' => match ($alta) {
                 EstadoAltaColaborador::PendienteDocumentos => 5 + (int) round($documental['porcentaje'] * 0.15),
                 EstadoAltaColaborador::DocumentacionEnRevision => 20,
@@ -340,6 +343,28 @@ class CicloLaboralService
     }
 
     /**
+     * Cada estado de contratación con su pantalla real: se atienden fuera de la
+     * ficha (`href`, solo web). ConstructorEnlaces pasa el mismo permiso que el destino.
+     *
+     * @return list<Accion>
+     */
+    private function accionesContratacion(Colaborador $colaborador, EstadoAltaColaborador $alta, ?User $viewer): array
+    {
+        if ($viewer === null) {
+            return [];
+        }
+
+        [$clave, $etiqueta, $href] = match ($alta) {
+            EstadoAltaColaborador::PendienteDocumentos => ['completar_expediente', 'Completar expediente', $this->enlaces->completarExpediente($viewer, $colaborador)],
+            EstadoAltaColaborador::DocumentacionEnRevision => ['revisar_documentos', 'Revisar documentos', $this->enlaces->validacionDocumentos($viewer, $colaborador)],
+            EstadoAltaColaborador::PendienteContrato => ['generar_contratos', 'Generar contrato', $this->enlaces->generarContratos($viewer, $colaborador)],
+            default => ['firmar_contratos', 'Registrar firma de contratos', $this->enlaces->firmarContratos($viewer, $colaborador)],
+        };
+
+        return $href !== null ? [['clave' => $clave, 'etiqueta' => $etiqueta, 'tipo' => 'primaria', 'href' => $href, 'solo_web' => true]] : [];
+    }
+
+    /**
      * @return Detalle
      */
     private function detalleOnboarding(Colaborador $colaborador, ?OnboardingProceso $proceso, ?User $viewer): array
@@ -348,7 +373,7 @@ class CicloLaboralService
             return [
                 'estado' => ['clave' => 'pendiente', 'etiqueta' => 'Onboarding por iniciar'],
                 'responsable' => ['rol' => 'Recursos Humanos', 'nombre' => null],
-                'siguiente' => null,
+                'siguiente' => ['clave' => 'abrir_onboarding', 'etiqueta' => 'Recursos Humanos confirma que los contratos estén firmados'],
                 'bloqueos' => ['El onboarding no se ha abierto: revisa que los contratos estén firmados.'],
                 'acciones' => [],
                 'progreso' => 40,
@@ -366,6 +391,19 @@ class CicloLaboralService
         $bloqueosCierre = $proceso->estado === EstadoOnboarding::EntregaActivos ? $this->onboarding->bloqueos($proceso) : [];
 
         $acciones = [];
+        // Misma fase que el tablero y la cadena: una sola verdad sobre la inducción.
+        $porPresentarInduccion = ! in_array($proceso->estado, [EstadoOnboarding::EntregaActivos, EstadoOnboarding::Completado], true)
+            && $colaborador->candidato_id !== null
+            && $this->fases->paraColaborador($colaborador->id) === FaseContratadoService::INDUCCION;
+        $activable = $colaborador->estado_alta === EstadoAltaColaborador::PendienteActivacion;
+
+        if ($activable && $viewer !== null && ! $esTitular && $viewer->can('activar', $colaborador)) {
+            $acciones[] = ['clave' => 'activar', 'etiqueta' => 'Activar colaborador', 'tipo' => 'primaria'];
+        }
+
+        if ($porPresentarInduccion && $viewer !== null && ($presentar = $this->enlaces->presentarInduccion($viewer, $colaborador)) !== null) {
+            $acciones[] = ['clave' => 'iniciar_induccion', 'etiqueta' => 'Iniciar inducción', 'tipo' => 'primaria', 'href' => $presentar, 'solo_web' => true];
+        }
 
         if ($puedeEntregar && $proceso->estado === EstadoOnboarding::EntregaActivos) {
             $acciones[] = ['clave' => 'entregar_activos', 'etiqueta' => 'Registrar entrega de activos', 'tipo' => 'primaria'];
@@ -394,9 +432,11 @@ class CicloLaboralService
                 default => ['rol' => 'Colaborador (inducción)', 'nombre' => $colaborador->nombreCompleto()],
             },
             'siguiente' => match (true) {
+                $activable => ['clave' => 'activar', 'etiqueta' => 'Recursos Humanos activa al colaborador'],
                 $proceso->estado === EstadoOnboarding::Completado => null,
                 $proceso->estado === EstadoOnboarding::EntregaActivos => ['clave' => 'entregar_activos', 'etiqueta' => 'Entregar activos y responsivas'],
                 $refuerzo => ['clave' => 'retroalimentar_onboarding', 'etiqueta' => 'RH da retroalimentación y habilita reevaluación'],
+                $porPresentarInduccion => ['clave' => 'iniciar_induccion', 'etiqueta' => 'Recursos Humanos le presenta la inducción'],
                 default => ['clave' => 'presentar_evaluacion', 'etiqueta' => 'Presentar la evaluación del módulo disponible'],
             },
             'bloqueos' => $refuerzo ? ['Hay un módulo con calificación menor al mínimo esperando refuerzo de RH.', ...$bloqueosCierre] : $bloqueosCierre,
@@ -508,7 +548,8 @@ class CicloLaboralService
         return [
             'estado' => ['clave' => $estado->value, 'etiqueta' => sprintf('%s · %s', $cierre->tipo_baja->etiqueta(), $estado->etiqueta())],
             'responsable' => $responsable,
-            'siguiente' => null,
+            // Un cierre abierto siempre tiene algo pendiente, aunque no sea de quien consulta.
+            'siguiente' => $estado->esFinal() ? null : ['clave' => 'atender_cierre', 'etiqueta' => 'Recursos Humanos atiende el finiquito y el cierre'],
             'bloqueos' => $bloqueos,
             'acciones' => $viewer !== null ? $this->cierres->accionesPermitidas($cierre, $viewer) : [],
             'progreso' => $total > 0 ? (int) round(min($orden + 1, $total) / $total * 100) : 0,
@@ -652,9 +693,17 @@ class CicloLaboralService
     /**
      * @return array{clave: string, etiqueta: string}|null
      */
-    private function siguientePasoCandidato(EstadoCandidato $estado): ?array
+    private function siguientePasoCandidato(EstadoCandidato $estado, ?string $faseContratado = null): ?array
     {
         return match ($estado) {
+            // Mismas fases que CadenaContratacionService: nunca «sin pendientes» si los hay.
+            EstadoCandidato::Contratado => match ($faseContratado) {
+                FaseContratadoService::INDUCCION => ['clave' => 'iniciar_induccion', 'etiqueta' => 'Recursos Humanos le presenta la inducción'],
+                FaseContratadoService::EVALUACION_INDUCCION => ['clave' => 'calificar_induccion', 'etiqueta' => 'Recursos Humanos califica su evaluación de inducción'],
+                FaseContratadoService::CAPACITACION_INICIAL => ['clave' => 'asignar_evaluacion', 'etiqueta' => 'Recursos Humanos asigna su evaluación de capacitación inicial'],
+                FaseContratadoService::EVALUACION_CAPACITACION_INICIAL => ['clave' => 'capturar_evaluacion', 'etiqueta' => 'Se completa la evaluación de capacitación inicial'],
+                default => null,
+            },
             EstadoCandidato::Recibidos => ['clave' => 'evaluar_perfil', 'etiqueta' => 'Reclutamiento revisa el apego al perfil'],
             EstadoCandidato::EntrevistaPendiente => ['clave' => 'registrar_entrevista', 'etiqueta' => 'El gerente realiza la entrevista'],
             EstadoCandidato::PsicometricasPendientes => ['clave' => 'registrar_resultados_psicometricas', 'etiqueta' => 'Reclutamiento envía link y registra resultados'],

@@ -204,6 +204,7 @@ En producción, agrega la entrada de cron estándar de Laravel apuntando a `sche
 - `docs/ROLES_Y_NAVEGACION.md` — modo colaborador vs. operativo, permisos que los activan.
 - `docs/SOLICITUDES_UNIFICADAS.md` — vacaciones, permisos, préstamo, incapacidad y baja de colaborador en un solo módulo.
 - `docs/HEADCOUNT_Y_VACANTES.md` — plantilla autorizada vs. actual, importar el Excel real, cómo se generan vacantes automáticas.
+- `docs/SIGUIENTE_PASO.md` — panel «Siguiente paso»: mapa estado → acción por flujo y contexto en la URL.
 - `docs/ORGANIGRAMA.md` — estructura de puestos y matriz comercial (territorial), no confundir entre sí ni con headcount.
 - `docs/REPORTES.md` — módulo único de reportes y KPIs de rotación de personal del dashboard.
 - `docs/VACACIONES.md`, `docs/SOLICITUDES_INTERNAS.md`, `docs/REPORTES_RH.md` — documentación previa a la unificación, conservada por referencia histórica.
