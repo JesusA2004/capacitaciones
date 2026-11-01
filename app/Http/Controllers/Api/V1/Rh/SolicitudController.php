@@ -10,6 +10,7 @@ use App\Models\Prestamo;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudInternaHistorial;
 use App\Models\User;
+use App\Services\Reaperturas\ReaperturaService;
 use App\Services\RhMobile\WorkflowService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
 use App\Services\Solicitudes\AprobacionOrganizacionalService;
@@ -107,6 +108,7 @@ class SolicitudController extends Controller
                     : [],
                 'acciones_permitidas' => $flujo['acciones_permitidas'],
                 'workflow' => $flujo['workflow'],
+                'reaperturas' => app(ReaperturaService::class)->disponibles($usuario, $solicitud),
                 // Cadena de vistos buenos jerárquicos (Gerente → Regional →
                 // Dirección Comercial) antes de llegar a RH — vacío si este
                 // tipo de solicitud no la requiere (ver AprobacionJerarquicaService).

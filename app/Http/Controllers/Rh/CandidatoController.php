@@ -37,6 +37,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Bajas\AntecedenteBajaService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Puestos\PerfilPuestoService;
+use App\Services\Reaperturas\ReaperturaService;
 use App\Services\Reclutamiento\AprobadorEntrevistaService;
 use App\Services\Reclutamiento\BandejaCvService;
 use App\Services\Reclutamiento\CadenaContratacionService;
@@ -89,6 +90,7 @@ class CandidatoController extends Controller
         private readonly AntecedenteBajaService $antecedentes,
         private readonly CadenaContratacionService $cadena,
         private readonly AprobadorEntrevistaService $aprobadorEntrevista,
+        private readonly ReaperturaService $reaperturas,
     ) {}
 
     public function index(Request $request): Response
@@ -259,6 +261,7 @@ class CandidatoController extends Controller
             'ciclo' => $this->ciclo->obtenerEstado($candidato, $request->user()),
             'opciones' => $this->opciones($request->user()),
             'intervencionPendienteId' => $intervencionPendiente?->id,
+            'reaperturas' => $request->user() !== null ? $this->reaperturas->disponibles($request->user(), $candidato) : [],
             'puedeAdjuntar' => $request->user()?->can('adjuntar', $candidato) ?? false,
             // RN-09: baja previa «No recontratable» / «Con reservas» → alerta
             // en Reclutamiento (la causal solo la ve quien consulta bajas).

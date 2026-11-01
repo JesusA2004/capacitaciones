@@ -17,6 +17,7 @@ use App\Http\Requests\Reclutamiento\ResultadosPsicometricasRequest;
 use App\Models\Candidato;
 use App\Models\CandidatoEvidencia;
 use App\Services\CicloLaboral\CicloLaboralService;
+use App\Services\Reaperturas\ReaperturaService;
 use App\Services\Reclutamiento\CadenaContratacionService;
 use App\Services\Reclutamiento\CandidatoPresenter;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
@@ -203,6 +204,7 @@ class CandidatoController extends Controller
             'ciclo' => $this->ciclo->obtenerEstado($candidato, $request->user()),
             // Mismo estado candidato → contratación → expediente que la web.
             'contratacion' => $this->cadena->paraCandidato($candidato, $request->user()),
+            'reaperturas' => app(ReaperturaService::class)->disponibles($request->user(), $candidato),
         ]]);
     }
 }

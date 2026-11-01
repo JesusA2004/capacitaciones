@@ -2,6 +2,8 @@
 
 namespace App\Services\Solicitudes;
 
+use App\Enums\TipoReapertura;
+use App\Models\Reapertura;
 use App\Models\SolicitudAprobacion;
 use App\Models\SolicitudInterna;
 use App\Models\User;
@@ -164,7 +166,21 @@ class AprobacionJerarquicaService
     public function puedeDarVistoBueno(User $usuario, SolicitudInterna $solicitud): bool
     {
         return ! $solicitud->estado->esFinal()
-            && $this->aprobadoresPendientes($solicitud)->contains('id', $usuario->id);
+            && ($this->aprobadoresPendientes($solicitud)->contains('id', $usuario->id)
+                || ($this->nivelPendiente($solicitud) !== null && $this->reabrioUnVistoBueno($usuario, $solicitud)));
+    }
+
+    /**
+     * Quien reabrió un visto bueno (un puesto superior) también puede volver a darlo.
+     */
+    public function reabrioUnVistoBueno(User $usuario, SolicitudInterna $solicitud): bool
+    {
+        return Reapertura::query()
+            ->where('tipo', TipoReapertura::VistoBuenoSolicitud->value)
+            ->where('reabrible_type', $solicitud->getMorphClass())
+            ->where('reabrible_id', $solicitud->id)
+            ->latest('id')
+            ->first()?->reabierto_por === $usuario->id;
     }
 
     /**

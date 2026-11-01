@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TipoReapertura;
 use App\Http\Controllers\Api\V1\AgendaController;
 use App\Http\Controllers\Api\V1\AppConfigController;
 use App\Http\Controllers\Api\V1\AppReleaseController;
@@ -54,6 +55,7 @@ use App\Http\Controllers\Api\V1\Rh\LoteNominaController as RhLoteNominaControlle
 use App\Http\Controllers\Api\V1\Rh\PendienteController as RhPendienteController;
 use App\Http\Controllers\Api\V1\Rh\PlantillaDocumentalController;
 use App\Http\Controllers\Api\V1\Rh\PrestamoController as RhPrestamoController;
+use App\Http\Controllers\Api\V1\Rh\ReaperturaController as RhReaperturaController;
 use App\Http\Controllers\Api\V1\Rh\ReciboNominaController as RhReciboNominaController;
 use App\Http\Controllers\Api\V1\Rh\ReingresoController as RhReingresoController;
 use App\Http\Controllers\Api\V1\Rh\SesionInduccionController as RhSesionInduccionController;
@@ -406,6 +408,12 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         // docs/RH_MOBILE_API.md).
         Route::prefix('rh')->name('rh.')->group(function () {
             Route::get('dashboard', RhDashboardController::class)->name('dashboard');
+
+            // Reabrir una decisión comercial: mismo ReaperturaService que la web.
+            Route::post('reaperturas/{tipo}/{id}', [RhReaperturaController::class, 'store'])
+                ->whereIn('tipo', array_column(TipoReapertura::cases(), 'value'))
+                ->whereNumber('id')
+                ->name('reaperturas.store');
 
             // Correcciones auditadas: mismo CorreccionService que la web (sin salario ni recibos).
             Route::prefix('correcciones')->name('correcciones.')->group(function () {

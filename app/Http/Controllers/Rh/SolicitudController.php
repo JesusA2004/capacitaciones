@@ -23,6 +23,7 @@ use App\Models\User;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Finiquitos\FiniquitoService;
 use App\Services\Formatos\OfficialFormatCatalogoService;
+use App\Services\Reaperturas\ReaperturaService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
 use App\Services\Solicitudes\AprobacionOrganizacionalService;
 use App\Services\Solicitudes\SolicitudesService;
@@ -282,6 +283,7 @@ class SolicitudController extends Controller
             // Cadena de vistos buenos (gerente → regional) antes de RH.
             'vistosBuenos' => $this->aprobaciones->resumen($solicitud),
             'puedeDarVistoBueno' => $this->aprobaciones->puedeDarVistoBueno($request->user(), $solicitud),
+            'reaperturas' => app(ReaperturaService::class)->disponibles($request->user(), $solicitud),
             // Motor central: pasos con responsable/estado, si este usuario
             // puede actuar y, si no, por qué (texto humano).
             'flujo' => $this->motor->flujo($solicitud, $request->user()),

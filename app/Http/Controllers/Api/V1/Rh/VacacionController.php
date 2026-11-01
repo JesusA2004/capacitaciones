@@ -9,6 +9,7 @@ use App\Models\SolicitudVacaciones;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
+use App\Services\Reaperturas\ReaperturaService;
 use App\Services\RhMobile\WorkflowService;
 use App\Services\Vacaciones\VacacionesService;
 use Illuminate\Http\JsonResponse;
@@ -73,6 +74,7 @@ class VacacionController extends Controller
                 'motivo_rechazo' => $vacacion->motivo_rechazo,
                 'acciones_permitidas' => $flujo['acciones_permitidas'],
                 'workflow' => $flujo['workflow'],
+                'reaperturas' => app(ReaperturaService::class)->disponibles($usuario, $vacacion),
                 'historial' => [],
             ],
         ]);

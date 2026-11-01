@@ -2,12 +2,15 @@
 
 namespace App\Services\Reclutamiento;
 
+use App\Enums\EstadoCandidato;
 use App\Enums\GrupoPuestoIndicador;
 use App\Enums\NivelPuestoEntrevista;
 use App\Enums\RutaIntervencionCandidato;
+use App\Enums\TipoReapertura;
 use App\Models\AgendaEvento;
 use App\Models\Candidato;
 use App\Models\Puesto;
+use App\Models\Reapertura;
 use App\Models\User;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Organigrama\AutoridadJerarquicaService;
@@ -68,6 +71,7 @@ class AprobadorEntrevistaService
         };
 
         return collect($personas)
+            ->concat($this->quienReabrio($candidato))
             ->filter(fn (User $usuario): bool => $this->permisos->puede($usuario, CandidatoWorkflowService::PERMISO_ENTREVISTA))
             ->unique('id')
             ->values();
@@ -161,6 +165,26 @@ class AprobadorEntrevistaService
     private function tieneIntervencionDeDireccion(Candidato $candidato): bool
     {
         return $candidato->intervenciones()->where('ruta', RutaIntervencionCandidato::DireccionComercial->value)->exists();
+    }
+
+    /**
+     * Quien reabrió la entrevista (un puesto superior) también puede volver a decidirla.
+     *
+     * @return Collection<int, User>
+     */
+    private function quienReabrio(Candidato $candidato): Collection
+    {
+        if ($candidato->estado !== EstadoCandidato::EntrevistaPendiente) {
+            return collect();
+        }
+
+        $reapertura = Reapertura::query()->where('tipo', TipoReapertura::EntrevistaCandidato->value)
+            ->where('reabrible_type', $candidato->getMorphClass())
+            ->where('reabrible_id', $candidato->id)
+            ->latest('id')
+            ->first();
+
+        return collect([$reapertura?->reabiertoPor])->filter()->values();
     }
 
     /**

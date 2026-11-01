@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TipoReapertura;
 use App\Http\Controllers\Rh\ActaController;
 use App\Http\Controllers\Rh\AltaDigitalController;
 use App\Http\Controllers\Rh\CambioFotoController;
@@ -27,6 +28,7 @@ use App\Http\Controllers\Rh\MisReportesController;
 use App\Http\Controllers\Rh\NominaController;
 use App\Http\Controllers\Rh\PerfilPuestoController;
 use App\Http\Controllers\Rh\PrestamoAutorizacionController;
+use App\Http\Controllers\Rh\ReaperturaController;
 use App\Http\Controllers\Rh\ReporteRhController;
 use App\Http\Controllers\Rh\SolicitudController;
 use App\Http\Controllers\Rh\VacanteController;
@@ -421,6 +423,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // `rh/vacaciones` (Rh\VacacionesController) no estaba enlazado en
         // ningún menú y RH nunca lo usaba para aprobar/rechazar. La API
         // móvil legacy (api/v1/rh/vacaciones/*) sigue viva aparte.
+        // Reabrir una decisión comercial: mismo ReaperturaService que la API móvil.
+        Route::post('reaperturas/{tipo}/{id}', [ReaperturaController::class, 'store'])
+            ->whereIn('tipo', array_column(TipoReapertura::cases(), 'value'))
+            ->whereNumber('id')
+            ->name('reaperturas.store');
+
         Route::prefix('solicitudes')->name('solicitudes.')->group(function () {
             Route::get('/', [SolicitudController::class, 'index'])->name('index');
             Route::get('exportar-excel', [SolicitudController::class, 'exportarExcel'])->name('exportarExcel');

@@ -227,6 +227,33 @@ class TareasSolicitudService
     }
 
     /**
+     * Se reabrió una decisión: la solicitud vuelve a quien le toca, quien la reabrió
+     * también puede decidir, y el solicitante se entera.
+     */
+    public function alReabrir(SolicitudInterna $solicitud, User $actor): void
+    {
+        $tipo = $this->tipoTarea($solicitud);
+
+        if ($tipo !== null) {
+            $this->tareas->resolver($tipo, $solicitud, $actor);
+
+            if ($this->pedirVistoBuenoPendiente($solicitud, $tipo) && $this->aprobaciones->reabrioUnVistoBueno($actor, $solicitud)) {
+                $this->tareas->abrir($tipo, $solicitud, [
+                    'titulo' => sprintf('Visto bueno reabierto: %s %s', $solicitud->tipo->etiqueta(), $solicitud->folio),
+                    'prioridad' => PrioridadTarea::Alta,
+                    'colaborador' => $solicitud->personaSolicitante(),
+                    'usuario' => $actor,
+                    'accion' => 'visto_bueno',
+                ]);
+            } elseif ($this->aprobaciones->tieneVistoBuenoJefe($solicitud)) {
+                $this->abrirParaAutorizacion($solicitud, $tipo);
+            }
+        }
+
+        $this->notificador->notificar([$solicitud->usuario], 'solicitud_reabierta', 'Tu solicitud se reabrió', sprintf('Tu solicitud %s volvió a revisión.', $solicitud->folio), $solicitud, 'ver_solicitud');
+    }
+
+    /**
      * El colaborador respondió a la corrección (CorreccionesService::responder()):
      * su pendiente se cierra y vuelve a abrirse el de quien la revisa.
      */

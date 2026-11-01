@@ -594,6 +594,56 @@ class CandidatoWorkflowService
     }
 
     /**
+     * Reapertura de la aprobación de entrevista (ReaperturaService ya validó la
+     * autoridad): el candidato vuelve a ese paso; lo ya registrado se conserva.
+     *
+     * @return array<string, mixed> cómo estaba, para el registro de la reapertura
+     */
+    public function regresarAEntrevista(Candidato $candidato, User $actor, string $motivo): array
+    {
+        $anterior = [
+            'estado' => $candidato->estado->value,
+            'motivo_salida' => $candidato->motivo_salida,
+            'salida_por' => $candidato->salida_por,
+            'salida_en' => $candidato->salida_en?->toIso8601String(),
+            'fecha_entrevista' => $candidato->fecha_entrevista?->toIso8601String(),
+            'resultado_entrevista' => $candidato->resultado_entrevista,
+        ];
+
+        $this->transicionar($candidato, EstadoCandidato::EntrevistaPendiente, $actor, sprintf('Aprobación de entrevista reabierta: %s', $motivo), retroceso: true);
+        $candidato->update(['fecha_entrevista' => null, 'resultado_entrevista' => null, 'motivo_salida' => null, 'motivo_rechazo_id' => null, 'salida_en' => null, 'salida_por' => null]);
+
+        return $anterior;
+    }
+
+    /**
+     * El candidato quedó No viable justo al decidir su entrevista.
+     */
+    public function salioEnEntrevista(Candidato $candidato): bool
+    {
+        if ($candidato->estado !== EstadoCandidato::NoViable) {
+            return false;
+        }
+
+        $ultimo = $candidato->seguimientos()->where('tipo', TipoSeguimientoCandidato::CambioEstado->value)->latest('id')->first();
+
+        return $ultimo?->estado_anterior === EstadoCandidato::EntrevistaPendiente->value;
+    }
+
+    /**
+     * Devuelve al candidato al rechazo de RH cuando se reabre una intervención aprobada.
+     */
+    public function regresarARechazoRh(Candidato $candidato, User $actor, string $motivo): void
+    {
+        $this->transicionar($candidato, EstadoCandidato::RechazadoRh, $actor, sprintf('Intervención reabierta: %s', $motivo), retroceso: true);
+    }
+
+    public function actualizarPendientes(Candidato $candidato, User $actor): void
+    {
+        $this->abrirPendiente($candidato, $actor);
+    }
+
+    /**
      * Salida del proceso (desistió, no respondió, no viable, no
      * seleccionado) desde cualquier fase abierta anterior a la contratación.
      */

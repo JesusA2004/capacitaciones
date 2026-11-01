@@ -184,6 +184,67 @@ class IntervencionCandidatoService
     }
 
     /**
+     * Vuelve a Pendiente una intervención decidida (ReaperturaService ya validó la
+     * autoridad). Si se había aprobado, el candidato regresa al rechazo de RH.
+     *
+     * @return array<string, mixed> cómo estaba, para el registro de la reapertura
+     */
+    public function reabrir(IntervencionCandidato $intervencion, User $actor, string $motivo): array
+    {
+        $anterior = [
+            'estado' => $intervencion->estado->value,
+            'aprobador_id' => $intervencion->aprobador_id,
+            'comentario_decision' => $intervencion->comentario_decision,
+            'decidida_en' => $intervencion->decidida_en?->toIso8601String(),
+        ];
+        $candidato = $intervencion->candidato()->lockForUpdate()->firstOrFail();
+
+        if ($intervencion->estado === EstadoIntervencionCandidato::Aprobada) {
+            $this->workflow->regresarARechazoRh($candidato, $actor, $motivo);
+        } else {
+            $candidato->seguimientos()->create([
+                'tipo' => TipoSeguimientoCandidato::Nota,
+                'nota' => sprintf('Intervención reabierta: %s', $motivo),
+                'fecha' => now(),
+                'registrado_por' => $actor->id,
+            ]);
+        }
+
+        $intervencion->update(['estado' => EstadoIntervencionCandidato::Pendiente, 'aprobador_id' => null, 'comentario_decision' => null, 'decidida_en' => null]);
+
+        return $anterior;
+    }
+
+    /**
+     * Pendiente y aviso para quienes vuelven a decidir.
+     */
+    public function avisarReapertura(IntervencionCandidato $intervencion): void
+    {
+        $candidato = $intervencion->candidato()->first();
+
+        if ($candidato === null) {
+            return;
+        }
+
+        $aprobadores = $this->resolverRuta($candidato)['aprobadores'];
+
+        foreach ($aprobadores as $aprobador) {
+            $this->tareas->abrir(TipoTarea::CandidatoIntervencionPendiente, $intervencion, [
+                'titulo' => sprintf('Intervención reabierta: %s', $candidato->nombreCompleto()),
+                'candidato' => $candidato,
+                'sucursal_id' => $candidato->sucursal_id,
+                'usuario' => $aprobador,
+                'accion' => 'decidir_intervencion',
+                'prioridad' => PrioridadTarea::Alta,
+            ]);
+        }
+
+        if ($aprobadores->isNotEmpty()) {
+            $this->notificador->notificar($aprobadores, 'intervencion_solicitada', 'Intervención reabierta', sprintf('Se reabrió la intervención de %s: vuelve a estar pendiente.', $candidato->nombreCompleto()), $intervencion, 'decidir_intervencion', 'alta');
+        }
+    }
+
+    /**
      * @return array{ruta: RutaIntervencionCandidato, aprobadores: Collection<int, User>}
      */
     private function resolverRuta(Candidato $candidato): array
