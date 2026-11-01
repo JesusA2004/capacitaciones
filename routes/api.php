@@ -694,8 +694,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::patch('{cierre}/finiquito/conceptos/{concepto}', [CierreLaboralController::class, 'actualizarConcepto'])->name('finiquito.conceptos.update');
                 Route::delete('{cierre}/finiquito/conceptos/{concepto}', [CierreLaboralController::class, 'eliminarConcepto'])->name('finiquito.conceptos.destroy');
                 Route::post('{cierre}/finiquito/conceptos-automaticos', [CierreLaboralController::class, 'ajustarConcepto'])->name('finiquito.conceptos.ajustar');
-                // Sin «revisar/autorizar finiquito»: RH lo calcula, ajusta y
-                // registra su entrega, que cierra el cierre laboral.
+                // Mismo FiniquitoService::aprobarCalculo que la web (bajas/finiquitos/{id}/revisar).
+                Route::post('{cierre}/finiquito/revisar', [CierreLaboralController::class, 'revisarFiniquito'])->name('finiquito.revisar');
+                // RH lo calcula, ajusta y registra su entrega, que cierra el cierre laboral.
                 Route::post('{cierre}/finiquito/entrega', [CierreLaboralController::class, 'entregarFiniquito'])->name('finiquito.entrega');
                 Route::post('{cierre}/finiquito/documento', [CierreLaboralController::class, 'generarFiniquito'])->name('finiquito.documento');
                 // COMPATIBILIDAD LEGACY (firma/huella y confirmación de pago del

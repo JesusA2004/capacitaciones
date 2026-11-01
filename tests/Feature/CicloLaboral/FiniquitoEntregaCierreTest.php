@@ -196,9 +196,10 @@ test('la entrega no se registra antes de la fecha efectiva ni con fecha futura',
         ->and(FiniquitoCalculo::query()->sole()->estado)->toBe(EstadoFiniquito::Borrador);
 });
 
+// La API sí expone «revisar»: mismo FiniquitoService que bajas/finiquitos/{id}/revisar en la web.
 test('ya no existe ninguna ruta para autorizar el finiquito (web ni API)', function () {
     expect(Route::has('rh.cierres.autorizarFiniquito'))->toBeFalse()
-        ->and(collect(Route::getRoutes()->getRoutes())->contains(fn ($r) => str_contains($r->uri(), 'finiquito/autorizar') || str_contains($r->uri(), 'cierres/{cierre}/finiquito/revisar')))->toBeFalse();
+        ->and(collect(Route::getRoutes()->getRoutes())->contains(fn ($r) => str_contains($r->uri(), 'finiquito/autorizar') || (str_contains($r->uri(), 'cierres/{cierre}/finiquito/revisar') && ! str_starts_with($r->uri(), 'api/'))))->toBeFalse();
 
     $this->cierres->calcularFiniquito($this->cierre, $this->rh);
     $this->actingAs($this->rh)->post("/rh/cierres/{$this->cierre->id}/finiquito/autorizar")->assertNotFound();

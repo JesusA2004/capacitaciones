@@ -78,9 +78,14 @@ test('cierre laboral completo: renuncia (baja aplicada al iniciarla) → finiqui
     $desglose = $this->getJson("/api/v1/rh/cierres/{$cierreId}")->json('data.finiquito.desglose');
     expect(collect($desglose)->where('origen', 'manual')->pluck('concepto')->all())->toBe(['Bono de productividad', 'Uniforme no devuelto']);
 
-    // Ya no hay «revisar» ni «autorizar» finiquito: RH lo calcula, lo ajusta
-    // y registra su entrega.
-    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/revisar")->assertNotFound();
+    // «Revisar» usa el mismo FiniquitoService que la web y es opcional: la
+    // entrega no lo exige. «Autorizar» ya no existe.
+    expect($finiquito->refresh()->estado)->toBe(EstadoFiniquito::Borrador);
+    Sanctum::actingAs(clUsuario('rh_auxiliar'));
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/revisar")->assertForbidden();
+    Sanctum::actingAs($this->rh);
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/revisar")->assertOk()->assertJsonPath('data.finiquito.estado', 'revisado');
+    $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/revisar")->assertForbidden();
     $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/autorizar")->assertNotFound();
     $documentoId = $this->postJson("/api/v1/rh/cierres/{$cierreId}/finiquito/documento")->assertOk()->json('documento_id');
 

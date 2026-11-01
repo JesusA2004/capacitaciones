@@ -143,6 +143,16 @@ class CierreLaboralController extends Controller
         return $this->respuesta($request, $this->cierres->registrarEntregaFiniquito($cierre, $request->user(), $request->datosEntrega()));
     }
 
+    /** «Marcar como revisado»: mismo FiniquitoService::aprobarCalculo que la web. */
+    public function revisarFiniquito(Request $request, CierreLaboral $cierre): JsonResponse
+    {
+        $finiquito = $this->cierres->exigirFiniquito($cierre);
+        $this->authorize('revisar', $finiquito);
+        $this->finiquitos->aprobarCalculo($finiquito, $request->user());
+
+        return $this->respuesta($request, $cierre->refresh());
+    }
+
     public function generarFiniquito(Request $request, CierreLaboral $cierre): JsonResponse
     {
         $finiquito = $this->cierres->exigirFiniquito($cierre);
