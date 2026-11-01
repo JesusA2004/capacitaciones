@@ -28,7 +28,6 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Inertia\Inertia;
 use Inertia\Response;
-use Spatie\Permission\Models\Role;
 
 /**
  * Administra únicamente CUENTAS DE ACCESO (correo, roles, estado de acceso,
@@ -119,7 +118,8 @@ class UsuarioController extends Controller
                 ->whereDoesntHave('user')
                 ->orderBy('name')
                 ->get(['id', 'name', 'apellidos'])),
-            'rolesDisponibles' => Role::query()->orderBy('name')->pluck('name'),
+            // Solo los que esta cuenta puede dar o quitar.
+            'rolesDisponibles' => $this->rolPermisoService->rolesAsignablesPor($usuario),
             // «Eliminar definitivamente»: exclusivo de super_admin.
             'puedePurgar' => $usuario->hasRole('super_admin'),
             // Acciones por permiso (config/permisos_modulos.php → usuarios).
@@ -149,7 +149,7 @@ class UsuarioController extends Controller
             'password' => Hash::make(Str::random(40)),
         ]);
 
-        $this->rolPermisoService->asignarRoles($usuario, $request->input('roles', []));
+        $this->rolPermisoService->asignarRoles($usuario, $request->input('roles', []), $request->user());
 
         // Sin correo no hay enlace que mandar: la pantalla abre «Generar
         // credenciales» para copiar usuario + contraseña temporal.
@@ -175,7 +175,7 @@ class UsuarioController extends Controller
         // Los roles solo cambian si vienen distintos (UpdateUsuarioRequest ya
         // exigió «Asignar roles» en ese caso).
         if ($request->cambiaRoles($usuario)) {
-            $this->rolPermisoService->asignarRoles($usuario, $request->input('roles', []));
+            $this->rolPermisoService->asignarRoles($usuario, $request->input('roles', []), $request->user());
         }
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Usuario actualizado correctamente.']);

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Administracion;
 
 use App\Models\User;
+use App\Services\RolPermisoService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -23,7 +24,9 @@ class StoreUsuarioRequest extends FormRequest
         }
 
         // Dar roles al crear la cuenta exige además «Asignar roles».
-        return (array) $this->input('roles', []) === [] || $usuario->can('asignarRoles', User::class);
+        $roles = array_values(array_map(fn ($rol): string => (string) $rol, (array) $this->input('roles', [])));
+
+        return $roles === [] || ($usuario->can('asignarRoles', User::class) && app(RolPermisoService::class)->puedeCambiarRoles($usuario, null, $roles));
     }
 
     /**

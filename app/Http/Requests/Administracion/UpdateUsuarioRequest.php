@@ -4,6 +4,7 @@ namespace App\Http\Requests\Administracion;
 
 use App\Models\User;
 use App\Services\Autenticacion\NombreUsuarioService;
+use App\Services\RolPermisoService;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -26,7 +27,13 @@ class UpdateUsuarioRequest extends FormRequest
 
         // Cambiar los roles exige además «Asignar roles»; mandar los mismos
         // que ya tiene (formulario sin ese permiso) no cuenta como cambio.
-        return ! $this->cambiaRoles($objetivo) || $usuario->can('asignarRoles', User::class);
+        if (! $this->cambiaRoles($objetivo)) {
+            return true;
+        }
+
+        // Ni agregar ni quitar un rol superior a los propios.
+        return $usuario->can('asignarRoles', User::class)
+            && app(RolPermisoService::class)->puedeCambiarRoles($usuario, $objetivo, $this->rolesPedidos());
     }
 
     /**
@@ -42,6 +49,14 @@ class UpdateUsuarioRequest extends FormRequest
         $actuales = $objetivo->roles()->pluck('name')->map(fn ($rol): string => (string) $rol)->sort()->values()->all();
 
         return $pedidos !== $actuales;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function rolesPedidos(): array
+    {
+        return array_values(array_map(fn ($rol): string => (string) $rol, (array) $this->input('roles', [])));
     }
 
     protected function prepareForValidation(): void

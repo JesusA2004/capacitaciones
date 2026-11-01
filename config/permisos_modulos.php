@@ -795,6 +795,22 @@ return [
         'notificaciones' => 'mi_espacio',
     ],
 
+    /*
+    | Quién puede dar qué rol (App\Services\RolPermisoService::rolesAsignablesPor).
+    | Se da un rol solo con «Asignar roles» y nunca uno de nivel superior al mayor
+    | de los propios. super_admin lo da solo otro super_admin. Un rol del sistema
+    | sin nivel aquí usa `nivel_por_defecto`; un rol personalizado se compara por permisos.
+    */
+    'asignacion_roles' => [
+        'nivel_por_defecto' => 10,
+        'niveles' => [
+            'super_admin' => 100,
+            'direccion' => 90,
+            'sistemas' => 85,
+            'rh_admin' => 80,
+        ],
+    ],
+
     'herencia' => [
         // Contratación y expediente (contratos, candidatos). ver_documento y
         // descargar heredan de documentos_laborales.generar (RH), NO de
@@ -846,7 +862,6 @@ return [
         'causales_rotacion.editar' => 'finiquitos.causales_rotacion',
         'causales_rotacion.activar' => 'finiquitos.causales_rotacion',
         'causales_rotacion.ordenar' => 'finiquitos.causales_rotacion',
-        'usuarios.asignar_roles' => 'usuarios.editar',
         'usuarios.restablecer_password' => 'usuarios.editar',
         'configuracion.notificaciones.editar' => 'configuracion.notificaciones',
         'configuracion.rh.editar_parametros' => 'configuracion.rh',

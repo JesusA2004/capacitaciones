@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -146,11 +147,84 @@ class RolPermisoService
     }
 
     /**
+     * Roles que esta cuenta puede dar o quitar. Sin «Asignar roles», ninguno.
+     * Nunca uno superior a los suyos (config permisos_modulos.asignacion_roles);
+     * un rol personalizado, solo si todos sus permisos ya los tiene quien asigna.
+     *
+     * @return list<string>
+     */
+    public function rolesAsignablesPor(User $actor): array
+    {
+        if (! $actor->can('asignarRoles', User::class)) {
+            return [];
+        }
+
+        $roles = Role::query()->with('permissions:id,name')->orderBy('name')->get();
+
+        if ($actor->hasRole('super_admin')) {
+            return array_values($roles->map(fn (Role $rol): string => (string) $rol->name)->all());
+        }
+
+        $nivelActor = $actor->roles()->pluck('name')->map(fn ($rol): int => $this->nivelDeRol((string) $rol) ?? 0)->max() ?? 0;
+        $permisosActor = $actor->getAllPermissions()->pluck('name');
+
+        return array_values($roles
+            ->filter(function (Role $rol) use ($nivelActor, $permisosActor): bool {
+                $nivel = $this->nivelDeRol((string) $rol->name);
+
+                return $nivel !== null
+                    ? $nivel <= $nivelActor
+                    : $rol->permissions->pluck('name')->diff($permisosActor)->isEmpty();
+            })
+            ->map(fn (Role $rol): string => (string) $rol->name)
+            ->all());
+    }
+
+    /**
+     * true si el cambio de roles (lo que se agrega y lo que se quita) está dentro
+     * de lo que esta cuenta puede asignar. Con $objetivo null es una cuenta nueva.
+     *
      * @param  array<int, string>  $roles
      */
-    public function asignarRoles(User $usuario, array $roles): void
+    public function puedeCambiarRoles(User $actor, ?User $objetivo, array $roles): bool
     {
+        $actuales = $objetivo?->roles()->pluck('name')->map(fn ($rol): string => (string) $rol)->all() ?? [];
+        $cambios = array_merge(array_diff($roles, $actuales), array_diff($actuales, $roles));
+
+        return $cambios === [] || array_diff($cambios, $this->rolesAsignablesPor($actor)) === [];
+    }
+
+    /**
+     * Única puerta para cambiar los roles de una cuenta desde la aplicación.
+     *
+     * @param  array<int, string>  $roles
+     *
+     * @throws AuthorizationException
+     */
+    public function asignarRoles(User $usuario, array $roles, User $actor): void
+    {
+        if (! $this->puedeCambiarRoles($actor, $usuario, $roles)) {
+            throw new AuthorizationException('No puedes asignar ni quitar ese rol.');
+        }
+
         $usuario->syncRoles($roles);
+    }
+
+    /**
+     * Nivel de un rol del sistema; null si es un rol personalizado.
+     */
+    private function nivelDeRol(string $rol): ?int
+    {
+        /** @var array<string, int> $niveles */
+        $niveles = config('permisos_modulos.asignacion_roles.niveles', []);
+
+        if (isset($niveles[$rol])) {
+            return $niveles[$rol];
+        }
+
+        return array_key_exists($rol, RolesYPermisosSeeder::permisosBasePorRol())
+            ? (int) config('permisos_modulos.asignacion_roles.nivel_por_defecto', 10)
+            : null;
     }
 
     /**
