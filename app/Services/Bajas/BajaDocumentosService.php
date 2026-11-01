@@ -44,6 +44,35 @@ class BajaDocumentosService
         private readonly DocumentoProcesoService $documentosProceso,
     ) {}
 
+    /** @var array<int, list<array<string, mixed>>>|null Espacios por baja; solo tras precargar() (lecturas de listado). */
+    private ?array $memoEspacios = null;
+
+    /** @var array<string, Collection<int, DocumentoRequeridoBaja>> */
+    private array $memoRequeridos = [];
+
+    /** @var array<int, FiniquitoCalculo> */
+    private array $memoFiniquitos = [];
+
+    /**
+     * Para un listado de solo lectura: cada fila pide sus espacios varias veces
+     * (faltantes, total, cubo) y cada vez consultaba catálogo y finiquito.
+     *
+     * @param  iterable<Baja>  $bajas
+     */
+    public function precargar(iterable $bajas): void
+    {
+        $solicitudes = collect($bajas)->map(fn (Baja $b): ?int => $b->cierre?->solicitud_interna_id)->filter()->unique()->values();
+        $this->memoFiniquitos = FiniquitoCalculo::query()->whereIn('solicitud_interna_id', $solicitudes)->get()->keyBy('solicitud_interna_id')->all();
+        $this->memoEspacios = [];
+    }
+
+    public function finiquitoDe(int $solicitudInternaId): ?FiniquitoCalculo
+    {
+        return $this->memoEspacios !== null
+            ? ($this->memoFiniquitos[$solicitudInternaId] ?? null)
+            : FiniquitoCalculo::query()->where('solicitud_interna_id', $solicitudInternaId)->first();
+    }
+
     /**
      * Espacios de documentos de la baja con su estado y los adjuntos.
      *
@@ -51,6 +80,10 @@ class BajaDocumentosService
      */
     public function espacios(Baja $baja): array
     {
+        if ($this->memoEspacios !== null && isset($this->memoEspacios[$baja->id])) {
+            return $this->memoEspacios[$baja->id];
+        }
+
         $baja->loadMissing(['causal', 'documentos.cargadoPor']);
         $adjuntos = $baja->documentos->groupBy(fn (BajaDocumento $d): string => (string) ($d->documento_requerido_id ?? 'adicional'));
         $espacios = [];
@@ -92,6 +125,10 @@ class BajaDocumentosService
             ];
         }
 
+        if ($this->memoEspacios !== null) {
+            $this->memoEspacios[$baja->id] = $espacios;
+        }
+
         return $espacios;
     }
 
@@ -107,7 +144,12 @@ class BajaDocumentosService
             return collect();
         }
 
-        return $this->catalogo->documentosRequeridos($baja->forma_salida, $baja->causal);
+        if ($this->memoEspacios === null) {
+            return $this->catalogo->documentosRequeridos($baja->forma_salida, $baja->causal);
+        }
+
+        return $this->memoRequeridos[sprintf('%s:%d', $baja->forma_salida->value, $baja->causal->id ?? 0)]
+            ??= $this->catalogo->documentosRequeridos($baja->forma_salida, $baja->causal);
     }
 
     /**
@@ -269,7 +311,7 @@ class BajaDocumentosService
         }
 
         if ($clave === 'finiquito') {
-            $finiquito = $cierre->solicitud_interna_id !== null ? FiniquitoCalculo::query()->where('solicitud_interna_id', $cierre->solicitud_interna_id)->first() : null;
+            $finiquito = $cierre->solicitud_interna_id !== null ? $this->finiquitoDe($cierre->solicitud_interna_id) : null;
 
             return $finiquito !== null && (in_array($finiquito->estado, [EstadoFiniquito::Firmado, EstadoFiniquito::Pagado], true) || $finiquito->pagado_en !== null)
                 ? 'Finiquito entregado (registrado en Bajas y finiquitos).'

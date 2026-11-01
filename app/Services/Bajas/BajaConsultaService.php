@@ -138,7 +138,7 @@ class BajaConsultaService
         $estatus = is_string($filtros['estatus'] ?? null) ? $filtros['estatus'] : 'abiertas';
         $busqueda = trim((string) ($filtros['busqueda'] ?? ''));
 
-        return $this->consulta($usuario)
+        $pagina = $this->consulta($usuario)
             ->with(['causal', 'sucursal:id,nombre', 'puesto:id,nombre', 'cierre', 'documentos', 'colaborador' => fn ($q) => $q->withTrashed()])
             ->when(in_array($filtros['cubo'] ?? null, ['en_tramite', 'faltan_documentos', 'lista_para_cerrar'], true), fn (Builder $q) => $q->whereIn('bajas.id', $this->idsDelCubo($usuario, (string) $filtros['cubo'])))
             ->when($estatus === 'abiertas', fn (Builder $q) => $q->whereIn('estatus', EstatusBaja::valoresAbiertos()))
@@ -153,8 +153,10 @@ class BajaConsultaService
             ->orderBy('enviado_en')
             ->orderByDesc('id')
             ->paginate(Paginacion::porPagina(20, $filtros['per_page'] ?? null))
-            ->withQueryString()
-            ->through(fn (Baja $b): array => $this->fila($b, $viewer));
+            ->withQueryString();
+        $this->documentos->precargar($pagina->getCollection());
+
+        return $pagina->through(fn (Baja $b): array => $this->fila($b, $viewer));
     }
 
     /**
@@ -183,9 +185,10 @@ class BajaConsultaService
         $conteos = $this->consulta($usuario)->selectRaw('estatus, count(*) as total')->groupBy('estatus')->pluck('total', 'estatus');
 
         $abiertas = $this->consulta($usuario)
-            ->with(['causal', 'documentos'])
+            ->with(['causal', 'documentos', 'cierre'])
             ->whereIn('estatus', EstatusBaja::valoresAbiertos())
             ->get();
+        $this->documentos->precargar($abiertas);
 
         $cubos = $abiertas->countBy(fn (Baja $b): string => $this->documentos->cuboTablero($b));
 
@@ -204,7 +207,7 @@ class BajaConsultaService
     public function fila(Baja $baja, ?User $viewer = null): array
     {
         $faltantes = $this->documentos->faltantes($baja);
-        $finiquito = $baja->cierre?->solicitud_interna_id !== null && $viewer?->can('finiquitos.ver') ? FiniquitoCalculo::query()->where('solicitud_interna_id', $baja->cierre->solicitud_interna_id)->first() : null;
+        $finiquito = $baja->cierre?->solicitud_interna_id !== null && $viewer?->can('finiquitos.ver') ? $this->documentos->finiquitoDe($baja->cierre->solicitud_interna_id) : null;
 
         return [
             'id' => $baja->id,

@@ -8,8 +8,10 @@ use App\Models\Colaborador;
 use App\Models\FiniquitoCalculo;
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Services\Bajas\BajaService;
 use Database\Seeders\CausalesRotacionSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Permission\Models\Role;
@@ -118,4 +120,22 @@ test('vista previa del FINIQUITO antes de registrar: PDF inline, no-store, y no 
     // Sin forma de salida no hay finiquito que mostrar; fuera de alcance, 403.
     $this->actingAs($this->gerente)->get(route('rh.bajas.previa.finiquito', ['colaborador_id' => $this->persona->id]))->assertSessionHasErrors('forma_salida');
     $this->actingAs(clUsuario('jefe_directo'))->get(route('rh.bajas.previa.finiquito', $consulta))->assertForbidden();
+});
+
+test('la bandeja no repite por fila las consultas de catálogo y finiquito', function () {
+    $causal = CausalRotacion::query()->where('clave', 'RV-01')->firstOrFail();
+    $personas = collect([$this->persona, ...Colaborador::factory()->count(2)->create([
+        'sucursal_principal_id' => $this->persona->sucursal_principal_id, 'estatus' => EstadoUsuario::Activo, 'fecha_ingreso' => '2024-01-01', 'sueldo_mensual' => 15000,
+    ])]);
+    $personas->each(fn (Colaborador $c) => app(BajaService::class)->registrar([
+        'colaborador_id' => $c->id, 'forma_salida' => $causal->forma()->value, 'causal_rotacion_id' => $causal->id,
+        'fecha_baja' => now()->subDay()->toDateString(), 'recontratable' => 'si', 'comentarios' => 'Renuncia por escrito con su jefe.',
+    ], $this->rh));
+
+    DB::enableQueryLog();
+    $this->actingAs($this->rh)->get(route('rh.bajas.index'))->assertOk();
+    $veces = fn (string $tabla): int => collect(DB::getQueryLog())->filter(fn (array $q): bool => str_contains($q['query'], "from \"{$tabla}\""))->count();
+
+    expect($veces('documentos_requeridos_baja'))->toBe(1)
+        ->and($veces('finiquito_calculos'))->toBeLessThanOrEqual(2);
 });
