@@ -24,6 +24,7 @@ use App\Services\Permisos\AlcanceModuloService;
 use App\Services\Permisos\PermisoAccionService;
 use App\Support\FechaMexico;
 use Carbon\CarbonInterface;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
@@ -79,6 +80,10 @@ class AgendaEventoService
         $candidato = isset($datos['candidato_id'])
             ? Candidato::query()->findOrFail((int) $datos['candidato_id'])
             : $this->altaRapida((array) ($datos['candidato_nuevo'] ?? []), $sucursalId, $actor);
+
+        if (! $this->aprobadorEntrevista->esVisiblePara($actor, $candidato)) {
+            throw new AuthorizationException(AprobadorEntrevistaService::MENSAJE_NO_CORRESPONDE);
+        }
 
         $this->validarSucursalDelCandidato($candidato, $sucursalId);
         $empalmes = $this->empalmes($sucursalId, $fechaHora, $responsableId);

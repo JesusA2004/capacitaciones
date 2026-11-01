@@ -7,8 +7,10 @@ use App\Enums\TipoAgendaEvento;
 use App\Models\AgendaEvento;
 use App\Models\User;
 use App\Policies\Concerns\ConSuperAdminOperativo;
+use App\Services\Organigrama\AutoridadJerarquicaService;
 use App\Services\Permisos\AlcanceModuloService;
 use App\Services\Reclutamiento\AprobadorEntrevistaService;
+use Illuminate\Auth\Access\Response;
 
 /**
  * Agenda de reclutamiento: permiso de la acción + alcance del módulo sobre la
@@ -22,6 +24,7 @@ class AgendaEventoPolicy
     public function __construct(
         private readonly AlcanceModuloService $alcance,
         private readonly AprobadorEntrevistaService $aprobadorEntrevista,
+        private readonly AutoridadJerarquicaService $autoridad,
     ) {}
 
     public function viewAny(User $usuario): bool
@@ -39,9 +42,26 @@ class AgendaEventoPolicy
         return $usuario->can('agenda.agendar') && $this->alcanzaSucursal($usuario, $sucursalId);
     }
 
-    public function gestionar(User $usuario, AgendaEvento $evento): bool
+    /**
+     * Reprogramar, cancelar y corregir notas modifican lo decidido: además del alcance,
+     * nunca sobre lo que hizo un puesto superior. Registrar el resultado es el
+     * siguiente paso de la cita, no una modificación, y no pasa por aquí.
+     */
+    public function gestionar(User $usuario, AgendaEvento $evento): bool|Response
     {
-        return $this->agendarEn($usuario, $evento->sucursal_id);
+        if (! $this->agendarEn($usuario, $evento->sucursal_id) || ! $this->alcanzaCandidato($usuario, $evento)) {
+            return false;
+        }
+
+        $autores = $evento->historial()->pluck('user_id')->push($evento->agendado_por, $evento->resultado_por)->filter()->unique();
+
+        foreach ($autores as $autor) {
+            if (! $this->autoridad->puedeModificarLoHechoPor($usuario, $this->autoridad->autorPorId((int) $autor))) {
+                return Response::deny(AutoridadJerarquicaService::MENSAJE_PUESTO_SUPERIOR);
+            }
+        }
+
+        return true;
     }
 
     public function registrarResultado(User $usuario, AgendaEvento $evento): bool
