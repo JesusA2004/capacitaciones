@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useForm } from '@inertiajs/vue3';
+import { Link, useForm } from '@inertiajs/vue3';
 import { computed, ref, watch } from 'vue';
 import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
 import InputError from '@/components/InputError.vue';
@@ -23,7 +23,6 @@ import {
     resultadoEntrevista as resultadoEntrevistaRuta,
     resultadoSocioeconomico as resultadoSocioeconomicoRuta,
 } from '@/routes/agenda';
-import { show as candidatoRuta } from '@/routes/rh/candidatos';
 import type { AgendaEvento } from '@/types/agenda';
 
 const props = defineProps<{
@@ -163,12 +162,14 @@ function elegirArchivos(evento: Event): void {
                     :etiqueta="evento.resultado_etiqueta"
                     tono="exito"
                 />
-                <a
-                    :href="candidatoRuta.url(evento.candidato.id)"
+                <Link
+                    v-if="evento.candidato.ficha_url"
+                    :href="evento.candidato.ficha_url"
                     class="text-primary underline"
                 >
                     {{ evento.candidato.estado_etiqueta }}
-                </a>
+                </Link>
+                <span v-else>{{ evento.candidato.estado_etiqueta }}</span>
                 <BotonCorregir
                     v-if="evento.puede.gestionar"
                     dominio="agenda"

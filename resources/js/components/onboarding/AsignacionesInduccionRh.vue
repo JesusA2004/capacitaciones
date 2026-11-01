@@ -41,6 +41,8 @@ import type {
 const props = defineProps<{
     filas: FilaAsignacionInduccion[];
     material: 'audio' | 'video' | null;
+    /** Llegó desde «Iniciar inducción» de una persona. */
+    buscado?: string | null;
 }>();
 
 const ESTADOS: Record<
@@ -105,7 +107,7 @@ const filtros: {
 ];
 
 const filtro = ref<Filtro>('todas');
-const busqueda = ref('');
+const busqueda = ref(props.buscado ?? '');
 
 function coincide(f: FilaAsignacionInduccion, valor: Filtro): boolean {
     const def = filtros.find((x) => x.valor === valor);

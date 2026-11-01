@@ -93,6 +93,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         });
 
         Route::get('colaboradores/{colaborador}/ciclo', [CicloColaboradorController::class, 'show'])->name('colaboradores.ciclo')->withTrashed();
+        Route::post('colaboradores/{colaborador}/activar', [CicloColaboradorController::class, 'activar'])->name('colaboradores.activar');
         Route::post('colaboradores/{colaborador}/cierres', [CierreLaboralController::class, 'store'])->name('colaboradores.cierres.store');
         // «Enviar descriptivo de puesto» tras aprobar la inducción.
         Route::post('colaboradores/{colaborador}/descriptivo-puesto/enviar', [AcuseDescriptivoPuestoController::class, 'enviar'])->name('colaboradores.descriptivo-puesto.enviar');

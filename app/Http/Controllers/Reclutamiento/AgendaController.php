@@ -11,6 +11,7 @@ use App\Http\Requests\Reclutamiento\AgendarEventoRequest;
 use App\Http\Requests\Reclutamiento\ResultadoSocioeconomicoAgendaRequest;
 use App\Models\AgendaEvento;
 use App\Models\Puesto;
+use App\Services\Flujos\ConstructorEnlaces;
 use App\Services\Reclutamiento\AgendaConsultaService;
 use App\Services\Reclutamiento\AgendaEventoService;
 use App\Services\Reclutamiento\CvStorageService;
@@ -46,15 +47,19 @@ class AgendaController extends Controller
         $periodo = ['desde' => $filtros['mes_desde'], 'hasta' => $filtros['mes_hasta'], 'sucursal_id' => $filtros['sucursal_id']];
         $eventoId = $request->integer('evento');
         $abierto = $eventoId > 0 ? $this->consulta->consulta($usuario)->whereKey($eventoId)->first() : null;
+        $candidatos = $this->consulta->candidatosAgendables($usuario);
 
         return Inertia::render('Reclutamiento/Agenda/Index', [
             'filtros' => $filtros,
             'eventos' => $this->consulta->listar($usuario, $filtros)->map(fn (AgendaEvento $e): array => $this->consulta->aArray($e, $usuario))->values(),
             'indicadores' => $this->consulta->indicadores($usuario, $periodo),
             'record' => $this->consulta->recordPorSucursal($usuario, $periodo),
+            // ?candidato= llega desde su ficha: solo se precarga si es agendable y visible.
+            'candidatoInicial' => $this->candidatoInicial($request, $candidatos),
+            'regreso' => app(ConstructorEnlaces::class)->regreso($request, $usuario),
             'eventoAbierto' => $abierto !== null ? $this->consulta->aArray($abierto, $usuario, true) : null,
             'sucursales' => $this->consulta->sucursalesVisibles($usuario),
-            'candidatos' => $this->consulta->candidatosAgendables($usuario),
+            'candidatos' => $candidatos,
             'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre']),
             'motivosNoViable' => array_map(fn (MotivoNoViableAgenda $m): array => ['value' => $m->value, 'etiqueta' => $m->etiqueta()], MotivoNoViableAgenda::cases()),
             'estados' => array_map(fn (EstadoAgendaEvento $e): array => ['value' => $e->value, 'etiqueta' => $e->etiqueta()], EstadoAgendaEvento::cases()),
@@ -64,6 +69,23 @@ class AgendaController extends Controller
                 'exportar' => $usuario->can('agenda.exportar'),
             ],
         ]);
+    }
+
+    /**
+     * @param  list<array{id: int, nombre: string, puesto: string|null, sucursal_id: int|null}>  $candidatos
+     * @return array{id: int, sucursal_id: int|null}|null
+     */
+    private function candidatoInicial(Request $request, array $candidatos): ?array
+    {
+        $id = $request->integer('candidato');
+
+        foreach ($candidatos as $candidato) {
+            if ($candidato['id'] === $id) {
+                return ['id' => $id, 'sucursal_id' => $candidato['sucursal_id']];
+            }
+        }
+
+        return null;
     }
 
     public function store(AgendarEventoRequest $request): RedirectResponse

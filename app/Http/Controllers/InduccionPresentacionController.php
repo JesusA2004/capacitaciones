@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Colaborador;
+use App\Services\AlcanceOrganizacionalService;
 use App\Services\Onboarding\AsignacionInduccionService;
 use App\Services\Onboarding\InduccionPdfService;
 use App\Services\Onboarding\MaterialInduccionService;
@@ -55,6 +57,8 @@ class InduccionPresentacionController extends Controller
 
         return Inertia::render('Portal/Induccion', [
             'modoPresentacion' => true,
+            // ?colaborador= desde «Iniciar inducción»: ya filtrado por nombre (solo su alcance).
+            'colaboradorBuscado' => $this->nombreColaborador($request),
             'pdf' => $this->pdf->datosVisor(),
             'sesionRh' => $legacy ? $this->sesiones->datosPantalla($usuario) : null,
             'materialRh' => $this->materialRh(),
@@ -66,6 +70,13 @@ class InduccionPresentacionController extends Controller
             // «Asignar inducción» + estado de cada persona (AsignacionInduccionService).
             'asignaciones' => $this->asignaciones->panorama($usuario),
         ]);
+    }
+
+    private function nombreColaborador(Request $request): ?string
+    {
+        $colaborador = Colaborador::query()->whereKey($request->integer('colaborador'))->first();
+
+        return $colaborador !== null && app(AlcanceOrganizacionalService::class)->alcanzaColaborador($request->user(), $colaborador) ? $colaborador->nombreCompleto() : null;
     }
 
     /**

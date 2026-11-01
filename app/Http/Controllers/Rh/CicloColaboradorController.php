@@ -7,6 +7,9 @@ use App\Models\Colaborador;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
+use App\Services\Colaboradores\AltaColaboradorService;
+use App\Services\Flujos\SiguientePasoService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -23,6 +26,7 @@ class CicloColaboradorController extends Controller
         private readonly CicloLaboralService $ciclo,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly OrganizacionJerarquiaService $jerarquia,
+        private readonly SiguientePasoService $siguientePaso,
     ) {}
 
     public function show(Request $request, Colaborador $colaborador): Response
@@ -32,6 +36,23 @@ class CicloColaboradorController extends Controller
 
         abort_unless($this->alcance->alcanzaColaborador($usuario, $colaborador) || $enCadena, 403);
 
-        return Inertia::render('Rh/Colaboradores/Ciclo', $this->ciclo->ficha($colaborador, $usuario));
+        $ficha = $this->ciclo->ficha($colaborador, $usuario);
+
+        return Inertia::render('Rh/Colaboradores/Ciclo', [
+            ...$ficha,
+            'siguientePaso' => $this->siguientePaso->paraColaborador($colaborador, $usuario, $ficha['ciclo'])->toArray(),
+        ]);
+    }
+
+    /**
+     * Misma regla y mismo servicio que POST api/v1/rh/colaboradores/{id}/activar:
+     * el servicio rechaza si falta expediente, firma de contratos u onboarding.
+     */
+    public function activar(Request $request, Colaborador $colaborador, AltaColaboradorService $altas): RedirectResponse
+    {
+        $this->authorize('activar', $colaborador);
+        $altas->activar($colaborador, $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'Colaborador activado.']);
     }
 }

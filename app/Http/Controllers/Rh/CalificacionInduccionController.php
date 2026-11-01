@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Rh;
 
 use App\Http\Controllers\Controller;
+use App\Models\Colaborador;
+use App\Services\AlcanceOrganizacionalService;
 use App\Services\Onboarding\MaterialInduccionService;
 use App\Services\Onboarding\SesionInduccionService;
 use Illuminate\Http\Request;
@@ -31,6 +33,8 @@ class CalificacionInduccionController extends Controller
 
         return Inertia::render('Rh/Onboarding/CalificacionesInduccion', [
             'filas' => $this->sesiones->calificacionesRh($request->user()),
+            // ?colaborador= desde «Calificar inducción»: solo dentro de su alcance.
+            'colaboradorBuscado' => ($c = Colaborador::query()->whereKey($request->integer('colaborador'))->first()) !== null && app(AlcanceOrganizacionalService::class)->alcanzaColaborador($request->user(), $c) ? $c->nombreCompleto() : null,
             // «Asignar inducción» desde aquí: qué material hay vigente.
             'materialInduccion' => ($modulo = $this->materiales->moduloInstitucional()) !== null ? $this->materiales->materialActivo($modulo)?->tipo->value : null,
             'puedeAsignar' => $request->user()->can('onboarding.gestionar'),

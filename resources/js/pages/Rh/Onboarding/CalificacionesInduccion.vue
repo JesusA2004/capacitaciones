@@ -59,6 +59,8 @@ import type {
  * SesionInduccionService::calificacionesRh().
  */
 const props = defineProps<{
+    /** Llegó desde «Calificar inducción» de una persona. */
+    colaboradorBuscado?: string | null;
     filas: SeguimientoInduccion[];
     materialInduccion?: 'audio' | 'video' | null;
     puedeAsignar?: boolean;
@@ -120,7 +122,7 @@ const filtros: {
 ];
 
 const filtro = ref<EtapaSeguimientoInduccion | 'todas'>('todas');
-const busqueda = ref('');
+const busqueda = ref(props.colaboradorBuscado ?? '');
 
 function normalizar(texto: string): string {
     return texto.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();

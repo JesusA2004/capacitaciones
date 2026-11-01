@@ -135,6 +135,8 @@ class AgendaConsultaService
                 'puesto' => $candidato->puestoObjetivo->nombre ?? $candidato->vacante?->puesto->nombre,
                 'estado' => $candidato->estado->value,
                 'estado_etiqueta' => $candidato->estado->etiqueta(),
+                // Sin permiso de ver la ficha no hay enlace (nunca un 403).
+                'ficha_url' => $viewer->can('view', $candidato) ? route('rh.candidatos.show', $candidato->id, false) : null,
                 'telefono' => $verDatos ? $candidato->telefono : null,
                 'tiene_cv' => $verDatos ? $candidato->cv_path !== null : null,
             ],

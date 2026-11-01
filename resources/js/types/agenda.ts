@@ -22,6 +22,8 @@ export type AgendaEvento = {
         puesto: string | null;
         estado: string;
         estado_etiqueta: string;
+        /** Sin permiso de ver la ficha no llega. */
+        ficha_url: string | null;
         telefono: string | null;
         tiene_cv: boolean | null;
     };

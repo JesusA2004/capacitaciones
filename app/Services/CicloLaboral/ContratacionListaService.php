@@ -321,7 +321,10 @@ class ContratacionListaService
         $busqueda = isset($filtros['busqueda']) ? trim((string) $filtros['busqueda']) : '';
         $sucursalId = isset($filtros['sucursal_id']) ? (int) $filtros['sucursal_id'] : 0;
 
+        $colaborador = isset($filtros['colaborador']) ? (int) $filtros['colaborador'] : 0;
+
         $query
+            ->when($colaborador > 0, fn (Builder $sub) => $sub->whereKey($colaborador))
             ->when($busqueda !== '', fn (Builder $sub) => $sub->buscar($busqueda))
             ->when($sucursalId > 0, fn (Builder $sub) => $sub->where('sucursal_principal_id', $sucursalId));
     }
@@ -335,7 +338,10 @@ class ContratacionListaService
         $busqueda = isset($filtros['busqueda']) ? trim((string) $filtros['busqueda']) : '';
         $sucursalId = isset($filtros['sucursal_id']) ? (int) $filtros['sucursal_id'] : 0;
 
+        $colaborador = isset($filtros['colaborador']) ? (int) $filtros['colaborador'] : 0;
+
         $query
+            ->when($colaborador > 0, fn (Builder $sub) => $sub->where('colaborador_id', $colaborador))
             ->when($busqueda !== '', fn (Builder $sub) => app(BuscadorColaboradoresService::class)->aplicarPorColumna($sub, $busqueda))
             ->when($sucursalId > 0, fn (Builder $sub) => $sub->whereHas('colaborador', fn (Builder $q) => $q->where('sucursal_principal_id', $sucursalId)));
     }

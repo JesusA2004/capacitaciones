@@ -48,6 +48,7 @@ import type {
  *    servidor); si es AUDIO, es narración que no bloquea nada.
  */
 const props = defineProps<{
+    colaboradorBuscado?: string | null;
     /** null cuando el colaborador no puede verla todavía / ya no. */
     pdf: { url: string; titulo: string; total_paginas: number } | null;
     modoPresentacion?: boolean;
@@ -230,6 +231,7 @@ const ESTADO_RECURSO: Record<string, string> = {
         <AsignacionesInduccionRh
             :filas="asignaciones ?? []"
             :material="tipoMaterialRh"
+            :buscado="colaboradorBuscado"
         />
 
         <!-- Contenido -->

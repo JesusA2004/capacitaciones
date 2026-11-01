@@ -13,7 +13,6 @@ import CamposBaja from '@/components/bajas/CamposBaja.vue';
 import VistaPreviaBaja from '@/components/bajas/VistaPreviaBaja.vue';
 import AccionesCiclo from '@/components/ciclo/AccionesCiclo.vue';
 import AprobacionesResumen from '@/components/ciclo/AprobacionesResumen.vue';
-import CicloEstadoPanel from '@/components/ciclo/CicloEstadoPanel.vue';
 import CicloStepper from '@/components/ciclo/CicloStepper.vue';
 import CicloTimeline from '@/components/ciclo/CicloTimeline.vue';
 import FiniquitoCierreDialog from '@/components/ciclo/FiniquitoCierreDialog.vue';
@@ -24,6 +23,7 @@ import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
 import VistaPreviaFlujo from '@/components/documentos/VistaPreviaFlujo.vue';
+import SiguientePasoPanel from '@/components/flujos/SiguientePaso.vue';
 import FormularioPeriodoPrueba from '@/components/formularios-evaluacion/FormularioPeriodoPrueba.vue';
 import InputError from '@/components/InputError.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
@@ -45,6 +45,7 @@ import { vistaPreviaPost } from '@/lib/http';
 import { dashboard } from '@/routes';
 import rutasBajas from '@/routes/rh/bajas';
 import cierres from '@/routes/rh/cierres';
+import { activar as activarColaborador } from '@/routes/rh/colaboradores';
 import documentosLaborales from '@/routes/rh/documentos-laborales';
 import evaluaciones from '@/routes/rh/evaluaciones';
 import evaluacionesExcepcion from '@/routes/rh/evaluaciones/excepcion';
@@ -52,6 +53,7 @@ import { show as verExpediente } from '@/routes/rh/expedientes';
 import onboardingRutas from '@/routes/rh/onboarding';
 import { index as reingresos } from '@/routes/rh/reingresos';
 import type {
+    SiguientePaso,
     AccionCiclo,
     CamposBaja as CamposBajaDatos,
     EstadoCiclo,
@@ -76,6 +78,7 @@ type DocumentoLaboral = {
 };
 
 const props = defineProps<{
+    siguientePaso: SiguientePaso;
     colaborador: {
         id: number;
         nombre: string;
@@ -263,7 +266,31 @@ const accionesExtra = computed<AccionCiclo[]>(() => [
         : []),
 ]);
 
+/** El botón principal del panel no se repite entre las demás acciones. */
+const accionesRestantes = computed(() =>
+    props.ciclo.acciones_permitidas.filter(
+        (a) => a.clave !== props.siguientePaso.accion?.clave,
+    ),
+);
+
+function abrirPorClave(clave: string | null) {
+    const permitida = props.ciclo.acciones_permitidas.find(
+        (a) => a.clave === clave,
+    );
+
+    if (permitida) {
+        alElegirAccion(permitida);
+    }
+}
+
 function alElegirAccion(a: AccionCiclo) {
+    // Se atiende en otra pantalla: el backend ya validó que puede abrirla.
+    if (a.href) {
+        router.visit(a.href);
+
+        return;
+    }
+
     if (a.clave === 'solicitar_excepcion') {
         dialogoExcepcionAbierto.value = true;
 
@@ -451,6 +478,8 @@ function destino(clave: string): string {
             return evaluaciones.devolver.url(evaluacionId.value);
         case 'solicitar_baja':
             return rutasBajas.store.url();
+        case 'activar':
+            return activarColaborador.url(props.colaborador.id);
         default:
             return (
                 cierres as unknown as Record<
@@ -704,14 +733,16 @@ const etiquetaFecha: Record<string, string> = {
 
         <div class="grid gap-5 lg:grid-cols-3">
             <div class="flex flex-col gap-5 lg:col-span-2">
-                <CicloEstadoPanel :ciclo="ciclo">
+                <SiguientePasoPanel
+                    :paso="siguientePaso"
+                    @dialogo="abrirPorClave"
+                >
                     <AccionesCiclo
-                        :acciones="ciclo.acciones_permitidas"
-                        :siguiente="ciclo.siguiente_accion?.clave"
+                        :acciones="accionesRestantes"
                         :extras="accionesExtra"
                         @accion="alElegirAccion"
                     />
-                </CicloEstadoPanel>
+                </SiguientePasoPanel>
 
                 <section
                     v-if="excepcionPendiente"
@@ -867,6 +898,7 @@ const etiquetaFecha: Record<string, string> = {
                 <section
                     v-if="documentos.length"
                     class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
+                    id="documentos-laborales"
                     aria-label="Documentos laborales"
                 >
                     <h2 class="mb-3 text-sm font-semibold">

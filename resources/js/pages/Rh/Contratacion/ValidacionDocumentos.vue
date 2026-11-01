@@ -17,6 +17,7 @@ import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
+import EnlaceRegreso from '@/components/flujos/EnlaceRegreso.vue';
 import InputError from '@/components/InputError.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import { Badge } from '@/components/ui/badge';
@@ -69,7 +70,10 @@ type DocumentoFila = {
     correccion_url: string;
 };
 
+import type { EnlaceFlujo } from '@/types';
+
 const props = defineProps<{
+    regreso?: EnlaceFlujo | null;
     documentos: RespuestaPaginada<DocumentoFila>;
     filtros: { busqueda?: string; sucursal_id?: string };
     puedeAprobar: boolean;
@@ -310,6 +314,7 @@ function confirmarDecisionVisor() {
     <Head title="Validación de documentos" />
 
     <div class="pagina-ancha flex flex-col gap-6">
+        <EnlaceRegreso :regreso="regreso" />
         <CrudPageHeader
             titulo="Validación de documentos"
             descripcion="Bandeja de documentos de expediente con archivo cargado esperando tu revisión. Apruébalos, recházalos con motivo o pide una nueva versión."

@@ -36,6 +36,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Bajas\AntecedenteBajaService;
 use App\Services\CicloLaboral\CicloLaboralService;
+use App\Services\Flujos\SiguientePasoService;
 use App\Services\Puestos\PerfilPuestoService;
 use App\Services\Reaperturas\ReaperturaService;
 use App\Services\Reclutamiento\AprobadorEntrevistaService;
@@ -253,12 +254,15 @@ class CandidatoController extends Controller
             ? $this->intervenciones->pendienteDecidiblePor($candidato, $request->user())
             : null;
 
+        $ciclo = $this->ciclo->obtenerEstado($candidato, $request->user());
+
         return Inertia::render('Rh/Candidatos/Show', [
             'candidato' => $this->presenter->detalle($candidato, $request->user()),
             // Cadena candidato → contratación → expediente (botón «Ver
             // expediente…» solo cuando ya existe la incorporación).
             'cadenaContratacion' => $this->cadena->paraCandidato($candidato, $request->user()),
-            'ciclo' => $this->ciclo->obtenerEstado($candidato, $request->user()),
+            'ciclo' => $ciclo,
+            'siguientePaso' => app(SiguientePasoService::class)->paraCandidato($candidato, $request->user(), $ciclo)->toArray(),
             'opciones' => $this->opciones($request->user()),
             'intervencionPendienteId' => $intervencionPendiente?->id,
             'reaperturas' => $request->user() !== null ? $this->reaperturas->disponibles($request->user(), $candidato) : [],

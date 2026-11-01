@@ -6,6 +6,7 @@ import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
+import EnlaceRegreso from '@/components/flujos/EnlaceRegreso.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -43,7 +44,10 @@ type ContratoFila = {
     foto_url?: string | null;
 };
 
+import type { EnlaceFlujo } from '@/types';
+
 const props = defineProps<{
+    regreso?: EnlaceFlujo | null;
     contratos: RespuestaPaginada<ContratoFila>;
     filtros: { busqueda?: string; sucursal_id?: string };
 }>();
@@ -86,6 +90,7 @@ function varianteDocumento(estado: string | null): 'success' | 'info' {
     <Head title="Contratos de ingreso" />
 
     <div class="pagina-ancha flex flex-col gap-6">
+        <EnlaceRegreso :regreso="regreso" />
         <CrudPageHeader
             titulo="Contratos de ingreso"
             descripcion="Contrato vigente y documentos laborales iniciales (contrato del puesto, confidencialidad, no competencia…) de cada persona en contratación. La generación y la firma física se gestionan por persona."

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Rh;
 
 use App\Http\Controllers\Controller;
 use App\Services\CicloLaboral\ContratacionListaService;
+use App\Services\Flujos\ConstructorEnlaces;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -18,6 +19,7 @@ class ContratacionController extends Controller
 {
     public function __construct(
         private readonly ContratacionListaService $lista,
+        private readonly ConstructorEnlaces $enlaces,
     ) {}
 
     /**
@@ -29,12 +31,13 @@ class ContratacionController extends Controller
 
         abort_unless($usuario->can('contratos.ver'), 403);
 
-        $filtros = $request->only(['busqueda', 'sucursal_id']);
+        $filtros = $request->only(['busqueda', 'sucursal_id', 'colaborador']);
 
         return Inertia::render('Rh/Contratacion/Index', [
             'personas' => $this->lista->personasEnContratacion($usuario, $filtros),
             'altasDigitales' => $this->lista->altasDigitalesPendientes($usuario),
             'filtros' => $filtros,
+            'regreso' => $this->enlaces->regreso($request, $usuario),
         ]);
     }
 
@@ -49,11 +52,12 @@ class ContratacionController extends Controller
 
         abort_unless($usuario->can('documentos.revisar'), 403);
 
-        $filtros = $request->only(['busqueda', 'sucursal_id']);
+        $filtros = $request->only(['busqueda', 'sucursal_id', 'colaborador']);
 
         return Inertia::render('Rh/Contratacion/ValidacionDocumentos', [
             'documentos' => $this->lista->documentosPorRevisar($usuario, $filtros),
             'filtros' => $filtros,
+            'regreso' => $this->enlaces->regreso($request, $usuario),
             'puedeAprobar' => $usuario->can('documentos.aprobar'),
             // Mismos permisos que EmployeeDocumentPolicy::rechazar (web
             // documentos.revisar + documentos.rechazar, ya exigido arriba el
@@ -78,11 +82,12 @@ class ContratacionController extends Controller
 
         abort_unless($usuario->can('contratos.ver'), 403);
 
-        $filtros = $request->only(['busqueda', 'sucursal_id']);
+        $filtros = $request->only(['busqueda', 'sucursal_id', 'colaborador']);
 
         return Inertia::render('Rh/Contratacion/ContratosIngreso', [
             'contratos' => $this->lista->contratosDeIngreso($usuario, $filtros),
             'filtros' => $filtros,
+            'regreso' => $this->enlaces->regreso($request, $usuario),
         ]);
     }
 }

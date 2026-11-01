@@ -13,14 +13,13 @@ import {
     UserRound,
     Video,
 } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import {
     decidir,
     solicitar as solicitarIntervencion,
 } from '@/actions/App/Http/Controllers/Rh/IntervencionCandidatoController';
 import AccionesCiclo from '@/components/ciclo/AccionesCiclo.vue';
 import AprobacionesResumen from '@/components/ciclo/AprobacionesResumen.vue';
-import CicloEstadoPanel from '@/components/ciclo/CicloEstadoPanel.vue';
 import CicloStepper from '@/components/ciclo/CicloStepper.vue';
 import CicloTimeline from '@/components/ciclo/CicloTimeline.vue';
 import Casilla from '@/components/Common/Casilla.vue';
@@ -28,6 +27,7 @@ import DatePicker from '@/components/Common/DatePicker.vue';
 import DateTimePicker from '@/components/Common/DateTimePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import SiguientePasoPanel from '@/components/flujos/SiguientePaso.vue';
 import InputError from '@/components/InputError.vue';
 import BotonReabrir from '@/components/people/BotonReabrir.vue';
 import type { ReaperturaDisponible } from '@/components/people/BotonReabrir.vue';
@@ -83,6 +83,7 @@ import type {
     FormularioAccion,
     LimitesArchivosCandidato,
     PerfilPuestoCandidato,
+    SiguientePaso,
     OpcionesReclutamiento,
 } from '@/types';
 
@@ -107,6 +108,7 @@ const props = defineProps<{
     antecedenteBaja?: AntecedenteBaja | null;
     /** Candidato → contratación → expediente (null = aún no seleccionado). */
     cadenaContratacion?: EstadoCadenaContratacion | null;
+    siguientePaso: SiguientePaso;
 }>();
 
 /** El paso del proceso ya es esta ficha: no se ofrece un enlace a sí misma. */
@@ -266,6 +268,28 @@ const camposPorAccion: Record<string, () => FormularioAccion> = {
         duracion_horas: 24,
     }),
 };
+
+/** El botón principal del panel no se repite entre las demás acciones. */
+const accionesRestantes = computed(() =>
+    props.ciclo.acciones_permitidas.filter(
+        (a) => a.clave !== props.siguientePaso.accion?.clave,
+    ),
+);
+
+function abrirPorClave(clave: string | null) {
+    const permitida = props.ciclo.acciones_permitidas.find(
+        (a) => a.clave === clave,
+    );
+
+    if (permitida) {
+        abrir(permitida);
+    }
+}
+
+// ?accion= abre el diálogo solo si la acción realmente está permitida.
+onMounted(() =>
+    abrirPorClave(new URLSearchParams(window.location.search).get('accion')),
+);
 
 function abrir(accion: AccionCiclo) {
     form.clearErrors();
@@ -630,17 +654,6 @@ function fecha(valor: string | null): string {
                         >
                     </dd>
                 </div>
-                <div class="sm:col-span-2">
-                    <dt class="text-xs text-muted-foreground">
-                        Siguiente acción
-                    </dt>
-                    <dd class="font-semibold">
-                        {{
-                            ciclo.siguiente_accion?.etiqueta ??
-                            'Sin acciones pendientes'
-                        }}
-                    </dd>
-                </div>
             </dl>
 
             <div
@@ -686,15 +699,19 @@ function fecha(valor: string | null): string {
 
         <div class="grid gap-5 lg:grid-cols-3">
             <div class="flex flex-col gap-5 lg:col-span-2">
-                <CicloEstadoPanel data-tour="candidato-estado" :ciclo="ciclo">
-                    <AccionesCiclo
-                        data-tour="candidato-acciones"
-                        :acciones="ciclo.acciones_permitidas"
-                        :siguiente="ciclo.siguiente_accion?.clave"
-                        @accion="abrir"
-                    />
-                    <BotonReabrir class="mt-3" :reaperturas="reaperturas" />
-                </CicloEstadoPanel>
+                <SiguientePasoPanel
+                    data-tour="candidato-estado"
+                    :paso="siguientePaso"
+                    @dialogo="abrirPorClave"
+                >
+                    <div data-tour="candidato-acciones">
+                        <AccionesCiclo
+                            :acciones="accionesRestantes"
+                            @accion="abrir"
+                        />
+                    </div>
+                    <BotonReabrir :reaperturas="reaperturas" />
+                </SiguientePasoPanel>
 
                 <section
                     class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"

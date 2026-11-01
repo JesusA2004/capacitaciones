@@ -10,6 +10,7 @@ import { computed, ref, watch } from 'vue';
 import AgendaCalendario from '@/components/agenda/AgendaCalendario.vue';
 import AgendaEventoDialog from '@/components/agenda/AgendaEventoDialog.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import EnlaceRegreso from '@/components/flujos/EnlaceRegreso.vue';
 import InputError from '@/components/InputError.vue';
 import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ import {
     store as agendaStore,
 } from '@/routes/agenda';
 import { excel, pdf } from '@/routes/agenda/exportar';
+import type { EnlaceFlujo } from '@/types';
 import type {
     AgendaEvento,
     AgendaFiltros,
@@ -38,6 +40,8 @@ const props = defineProps<{
     indicadores: AgendaIndicadores;
     record: AgendaRecord[];
     eventoAbierto: AgendaEvento | null;
+    candidatoInicial?: { id: number; sucursal_id: number | null } | null;
+    regreso?: EnlaceFlujo | null;
     sucursales: { id: number; nombre: string }[];
     candidatos: {
         id: number;
@@ -86,9 +90,11 @@ const formulario = useForm<{
     cv: File | null;
     clave_idempotencia: string;
 }>({
-    candidato_id: null,
+    // ?candidato= desde su ficha: el backend ya validó que sea agendable.
+    candidato_id: props.candidatoInicial?.id ?? null,
     candidato_nuevo: null,
-    sucursal_id: props.filtros.sucursal_id,
+    sucursal_id:
+        props.candidatoInicial?.sucursal_id ?? props.filtros.sucursal_id,
     tipo: 'entrevista',
     fecha: '',
     hora: '',
@@ -278,6 +284,7 @@ const consultaExportar = computed(() => ({ query: consultaActual() }));
                 </Button>
             </template>
         </CrudPageHeader>
+        <EnlaceRegreso :regreso="regreso" />
 
         <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <TarjetaMetrica
