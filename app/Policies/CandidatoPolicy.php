@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Permisos\PermisoAccionService;
+use App\Services\Reclutamiento\AprobadorEntrevistaService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 
 /**
@@ -23,6 +24,7 @@ class CandidatoPolicy
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly PermisoAccionService $permisos,
+        private readonly AprobadorEntrevistaService $aprobadorEntrevista,
     ) {}
 
     public function viewAny(User $usuario): bool
@@ -80,7 +82,8 @@ class CandidatoPolicy
     private function visiblePara(User $usuario, Candidato $candidato): bool
     {
         if ($usuario->can('candidatos.ver_todos')) {
-            return true;
+            // Dirección Comercial: solo Subgerentes y Gerentes.
+            return $this->aprobadorEntrevista->esVisiblePara($usuario, $candidato);
         }
 
         if (! $usuario->can('candidatos.ver_sucursal')) {

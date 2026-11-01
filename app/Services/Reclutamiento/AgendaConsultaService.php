@@ -35,7 +35,10 @@ use Illuminate\Support\Collection;
  */
 class AgendaConsultaService
 {
-    public function __construct(private readonly AlcanceModuloService $alcance) {}
+    public function __construct(
+        private readonly AlcanceModuloService $alcance,
+        private readonly AprobadorEntrevistaService $aprobadorEntrevista,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $filtros  desde?, hasta?, sucursal_id?, tipo?, estado?, busqueda?
@@ -43,7 +46,7 @@ class AgendaConsultaService
      */
     public function consulta(User $usuario, array $filtros = []): Builder
     {
-        return $this->alcance->limitarPorSucursal(AgendaEvento::query(), $usuario, 'agenda')
+        return $this->aprobadorEntrevista->limitarAgenda($this->alcance->limitarPorSucursal(AgendaEvento::query(), $usuario, 'agenda'), $usuario)
             ->when($filtros['desde'] ?? null, fn (Builder $q, $desde) => $q->where('fecha_hora', '>=', Carbon::parse((string) $desde)->startOfDay()))
             ->when($filtros['hasta'] ?? null, fn (Builder $q, $hasta) => $q->where('fecha_hora', '<=', Carbon::parse((string) $hasta)->endOfDay()))
             ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, $id) => $q->where('sucursal_id', (int) $id))

@@ -14,6 +14,7 @@ use App\Models\ContratoLaboral;
 use App\Models\EmployeeDocument;
 use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\GeneratedDocument;
+use App\Models\IntervencionCandidato;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudVacaciones;
 use App\Models\TareaRh;
@@ -109,6 +110,8 @@ class DestinoNotificacionService
                 // su descriptivo para leerlo y darse por enterado.
                 $relacionado === 'AcuseDescriptivoPuesto' && $usuario->can('onboarding.gestionar') && (! is_numeric($datos['colaborador_id'] ?? null) || (int) $datos['colaborador_id'] !== $usuario->colaborador_id) => self::destino(route('rh.induccion-puesto.index', [], false)),
                 $relacionado === 'AcuseDescriptivoPuesto' => self::destino(route('portal.descriptivo-puesto', [], false)),
+                // Intervención: se decide en la ficha del candidato, no en una bandeja de RH.
+                $relacionado === 'IntervencionCandidato' => $this->intervencion($id, $usuario),
                 // Sobre uno mismo (onboarding, inducción…): su portal, nunca la
                 // ficha administrativa de RH.
                 $relacionado !== null && is_numeric($datos['colaborador_id'] ?? null) && (int) $datos['colaborador_id'] === $usuario->colaborador_id => self::destino(route('portal.index', [], false)),
@@ -150,6 +153,18 @@ class DestinoNotificacionService
         }
 
         return self::destino(route('rh.expedientes.show', ['colaborador' => $colaboradorId, 'tab' => $pestana], false));
+    }
+
+    /**
+     * @return Destino
+     */
+    private function intervencion(?int $id, User $usuario): array
+    {
+        $candidato = IntervencionCandidato::query()->where('id', $id)->first()?->candidato()->first();
+
+        return $candidato !== null && $usuario->can('view', $candidato)
+            ? self::destino(route('rh.candidatos.show', $candidato, false))
+            : self::destino(null);
     }
 
     /**

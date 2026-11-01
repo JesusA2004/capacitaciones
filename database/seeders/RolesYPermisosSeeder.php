@@ -724,7 +724,7 @@ class RolesYPermisosSeeder extends Seeder
             'bajas.tablero.ver',
             'vacantes.ver', 'vacantes.ver_todos',
             'candidatos.ver', 'candidatos.ver_todos',
-            // Backend movil v5: solo lectura, sin autoridad de aprobacion (igual criterio que en web).
+            // Backend movil v5: lectura; sus únicas decisiones son las de abajo.
             'mobile.bootstrap.ver', 'app.config.ver',
             'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
             'rh.mobile.dashboard.ver', 'rh.pendientes.ver',
@@ -733,10 +733,12 @@ class RolesYPermisosSeeder extends Seeder
             'rh.colaboradores.ver', 'rh.colaboradores.detalle',
             'notificaciones.leer_todas',
             'headcount.ver', 'organigrama.ver',
-            // Única autoridad que decide una intervención de un puesto
-            // superior a Gestor/Volante (CLAUDE.md §11-B) — no aprueba
-            // candidatos normales, solo esta excepción.
+            // Revisa solo Subgerentes y Gerentes, de sucursal y regionales: decide
+            // sus intervenciones, aprueba su entrevista y ve sus citas (el filtro
+            // por puesto objetivo vive en AprobadorEntrevistaService).
             'candidatos.intervencion_decidir',
+            'candidatos.aprobar_entrevista',
+            'agenda.ver', 'agenda.ver_todos', 'agenda.registrar_resultado', 'agenda.ver_datos_candidato',
         ],
 
         // Ve y administra varias sucursales de su región (sucursal principal +

@@ -37,6 +37,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Bajas\AntecedenteBajaService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Puestos\PerfilPuestoService;
+use App\Services\Reclutamiento\AprobadorEntrevistaService;
 use App\Services\Reclutamiento\BandejaCvService;
 use App\Services\Reclutamiento\CadenaContratacionService;
 use App\Services\Reclutamiento\CampanaReclutamientoService;
@@ -87,6 +88,7 @@ class CandidatoController extends Controller
         private readonly BandejaCvService $bandejaCv,
         private readonly AntecedenteBajaService $antecedentes,
         private readonly CadenaContratacionService $cadena,
+        private readonly AprobadorEntrevistaService $aprobadorEntrevista,
     ) {}
 
     public function index(Request $request): Response
@@ -141,8 +143,8 @@ class CandidatoController extends Controller
         $usuario = $request->user();
         [$inicioPeriodo, $finPeriodo] = $this->rangoMes($request->string('mes')->toString());
 
-        $base = fn () => $this->alcance
-            ->limitarPorSucursal(Candidato::query(), $usuario, 'sucursal_id', 'candidatos')
+        $base = fn () => $this->aprobadorEntrevista
+            ->limitarCandidatos($this->alcance->limitarPorSucursal(Candidato::query(), $usuario, 'sucursal_id', 'candidatos'), $usuario)
             ->when($request->integer('empresa_id'), fn ($q, $v) => $q->where('empresa_id', $v))
             ->when($request->integer('sucursal_id'), fn ($q, $v) => $q->where('sucursal_id', $v))
             ->when($request->integer('departamento_id'), fn ($q, $v) => $q->where('departamento_id', $v))

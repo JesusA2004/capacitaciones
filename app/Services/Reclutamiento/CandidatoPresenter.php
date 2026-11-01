@@ -27,6 +27,7 @@ use Illuminate\Database\Eloquent\Builder;
 class CandidatoPresenter
 {
     public function __construct(
+        private readonly AprobadorEntrevistaService $aprobadorEntrevista,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly ExpedienteCandidatoService $expediente,
         private readonly FotoColaboradorService $fotos,
@@ -114,7 +115,7 @@ class CandidatoPresenter
         $entero = fn (string $clave): int => is_numeric($filtros[$clave] ?? null) ? (int) $filtros[$clave] : 0;
         $texto = fn (string $clave): string => is_string($filtros[$clave] ?? null) ? trim($filtros[$clave]) : '';
 
-        return $this->alcance
+        $alcance = $this->alcance
             ->limitarPorSucursal(
                 Candidato::query()
                     ->with([
@@ -132,7 +133,9 @@ class CandidatoPresenter
                 $usuario,
                 'sucursal_id',
                 'candidatos',
-            )
+            );
+
+        return $this->aprobadorEntrevista->limitarCandidatos($alcance, $usuario)
             ->when($entero('empresa_id'), fn ($query, $valor) => $query->where('empresa_id', $valor))
             ->when($entero('sucursal_id'), fn ($query, $valor) => $query->where('sucursal_id', $valor))
             ->when($entero('departamento_id'), fn ($query, $valor) => $query->where('departamento_id', $valor))

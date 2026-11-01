@@ -251,6 +251,8 @@ export function useMainNavItems() {
                     'solicitudes.revisar',
                     'solicitudes.aprobar',
                     'nomina.recibos.crear',
+                    'candidatos.intervencion_decidir',
+                    'candidatos.aprobar_entrevista',
                 ) && {
                     title: 'Pendientes',
                     href: indexPendientes(),

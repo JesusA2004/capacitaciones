@@ -4,6 +4,7 @@ use App\Enums\EstadoCandidato;
 use App\Models\Candidato;
 use App\Models\CandidatoEvidencia;
 use App\Models\CandidatoReferencia;
+use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Expedientes\DocumentoStorageService;
@@ -146,6 +147,8 @@ test('Dirección Comercial consulta el expediente y ve los videos; quien no tien
     ])->assertSessionHasNoErrors();
     $video = CandidatoEvidencia::query()->firstOrFail();
 
+    // Dirección Comercial revisa Subgerentes y Gerentes.
+    $this->candidato->update(['puesto_objetivo_id' => Puesto::factory()->create(['nombre' => 'Subgerente'])->id, 'vacante_id' => null]);
     $direccion = clUsuario('director_comercial');
     $this->actingAs($direccion)->get(route('rh.candidatos.show', $this->candidato))->assertOk();
     $this->actingAs($direccion)->get(route('rh.candidatos.evidencias.descargar', [$this->candidato, $video]))->assertOk();

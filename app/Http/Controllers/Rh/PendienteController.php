@@ -37,6 +37,8 @@ class PendienteController extends Controller
         'solicitudes.revisar',
         'solicitudes.aprobar',
         'nomina.recibos.crear',
+        'candidatos.intervencion_decidir',
+        'candidatos.aprobar_entrevista',
     ];
 
     public function __construct(

@@ -4,7 +4,7 @@ namespace App\Services\Reclutamiento;
 
 use App\Enums\EstadoCandidato;
 use App\Enums\EstadoIntervencionCandidato;
-use App\Enums\GrupoPuestoIndicador;
+use App\Enums\NivelPuestoEntrevista;
 use App\Enums\PrioridadTarea;
 use App\Enums\RutaIntervencionCandidato;
 use App\Enums\TipoSeguimientoCandidato;
@@ -29,14 +29,13 @@ use Illuminate\Validation\ValidationException;
  * entrevistó pulsa «Solicitar intervención» (motivo obligatorio) se abre
  * esta excepción, y solo entonces se notifica a quien debe decidir:
  *
- *   - Gestor/Volante (App\Enums\GrupoPuestoIndicador::Gestores) → Regional
- *     de la sucursal del candidato.
- *   - Cualquier otro puesto → Dirección Comercial.
+ *   - Gestor/Volante → los regionales de la sucursal del candidato.
+ *   - Subgerentes y Gerentes, de sucursal o regionales → Dirección Comercial.
+ *   - Fuera de la línea comercial → Dirección Comercial, única con autoridad.
  *
- * Resuelto por el grupo del puesto objetivo, nunca por el nombre del
- * puesto. Si aprueban, el candidato pasa a Contratación (nunca se le crea
- * una vacante artificial); si confirman el rechazo, queda rechazado. Todo
- * queda inmutable una vez decidido.
+ * El nivel lo resuelve AprobadorEntrevistaService. Si aprueban, el candidato pasa a Contratación (nunca se le crea
+ * una vacante artificial); si confirman el rechazo, queda rechazado. Una
+ * vez decidido, solo se cambia reabriendo (App\Services\Reaperturas\ReaperturaService).
  */
 class IntervencionCandidatoService
 {
@@ -49,6 +48,7 @@ class IntervencionCandidatoService
         private readonly TareaService $tareas,
         private readonly AuditoriaService $auditoria,
         private readonly PermisoAccionService $permisos,
+        private readonly AprobadorEntrevistaService $aprobadorEntrevista,
     ) {}
 
     public function solicitar(Candidato $candidato, User $gerente, string $motivo): IntervencionCandidato
@@ -188,14 +188,11 @@ class IntervencionCandidatoService
      */
     private function resolverRuta(Candidato $candidato): array
     {
-        $candidato->loadMissing('puestoObjetivo');
-        $esGestorOVolante = $candidato->puestoObjetivo?->grupo_indicador === GrupoPuestoIndicador::Gestores;
-
-        if ($esGestorOVolante) {
+        if ($this->aprobadorEntrevista->nivel($candidato) === NivelPuestoEntrevista::Gestor) {
             return ['ruta' => RutaIntervencionCandidato::Regional, 'aprobadores' => $this->jerarquia->regionalesDe($candidato->sucursal_id)];
         }
 
-        return ['ruta' => RutaIntervencionCandidato::DireccionComercial, 'aprobadores' => $this->jerarquia->direccionComercialDe()];
+        return ['ruta' => RutaIntervencionCandidato::DireccionComercial, 'aprobadores' => $this->aprobadorEntrevista->direccionComercial()];
     }
 
     /**
