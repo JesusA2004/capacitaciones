@@ -15,6 +15,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
 use App\Services\Notificaciones\Aviso;
 use App\Services\Notificaciones\NotificacionEventosService;
+use App\Services\Organigrama\AutoridadJerarquicaService;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -40,6 +41,7 @@ class VacacionesService
     public function __construct(
         private readonly NotificacionEventosService $eventos,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly AutoridadJerarquicaService $autoridad,
     ) {}
 
     /**
@@ -410,6 +412,10 @@ class VacacionesService
 
     private function cambiarEstado(SolicitudVacaciones $solicitud, User $actor, EstadoSolicitudVacaciones $nuevoEstado, ?string $motivoRechazo = null): SolicitudVacaciones
     {
+        if ($solicitud->revisado_por !== null) {
+            $this->autoridad->exigirPuedeModificar($actor, [$this->autoridad->autorPorId($solicitud->revisado_por)]);
+        }
+
         return DB::transaction(function () use ($solicitud, $actor, $nuevoEstado, $motivoRechazo): SolicitudVacaciones {
             $datos = [
                 'estado' => $nuevoEstado,

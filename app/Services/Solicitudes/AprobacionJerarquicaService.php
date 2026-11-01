@@ -5,6 +5,7 @@ namespace App\Services\Solicitudes;
 use App\Models\SolicitudAprobacion;
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Services\Organigrama\AutoridadJerarquicaService;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
@@ -25,7 +26,31 @@ use Illuminate\Validation\ValidationException;
  */
 class AprobacionJerarquicaService
 {
-    public function __construct(private readonly AprobacionOrganizacionalService $motor) {}
+    public function __construct(
+        private readonly AprobacionOrganizacionalService $motor,
+        private readonly AutoridadJerarquicaService $autoridad,
+    ) {}
+
+    /**
+     * Quiénes decidieron algo en esta solicitud: vistos buenos y revisión final.
+     * Null = decisión registrada cuyo autor ya no se conoce.
+     *
+     * @return list<User|null>
+     */
+    public function autoresDeDecisiones(SolicitudInterna $solicitud): array
+    {
+        $autores = array_values(SolicitudAprobacion::query()
+            ->where('solicitud_interna_id', $solicitud->id)
+            ->pluck('user_id')
+            ->map(fn (?int $id): ?User => $this->autoridad->autorPorId($id))
+            ->all());
+
+        if ($solicitud->revisado_por !== null) {
+            $autores[] = $this->autoridad->autorPorId($solicitud->revisado_por);
+        }
+
+        return $autores;
+    }
 
     /**
      * Niveles de visto bueno que aplican a ESTA solicitud, en orden, con

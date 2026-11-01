@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
+use App\Services\Organigrama\AutoridadJerarquicaService;
 
 /**
  * Acciones del ciclo laboral sobre un colaborador (alta, activación,
@@ -77,6 +78,11 @@ class ColaboradorPolicy
         }
 
         if ($this->esPropio($usuario, $colaborador)) {
+            return false;
+        }
+
+        // Nunca hacia arriba en la línea comercial, aunque compartan sucursal.
+        if (app(AutoridadJerarquicaService::class)->esDePuestoSuperior($colaborador, $usuario)) {
             return false;
         }
 

@@ -20,6 +20,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\CierreLaboral\CausalRotacionService;
 use App\Services\CierreLaboral\CierreLaboralService;
 use App\Services\Finiquitos\FiniquitoService;
+use App\Services\Organigrama\AutoridadJerarquicaService;
 use App\Support\FechaMexico;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Carbon;
@@ -89,6 +90,7 @@ class BajaService
         private readonly CausalRotacionService $causales,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly FiniquitoService $finiquitos,
+        private readonly AutoridadJerarquicaService $autoridad,
     ) {}
 
     /**
@@ -551,7 +553,13 @@ class BajaService
             return true;
         }
 
-        return $actor->can(self::PERMISO_SOLICITAR) && $this->alcance->alcanzaColaboradorEnModulo($actor, $colaborador, BajaConsultaService::MODULO);
+        // Nunca hacia arriba en la línea comercial, aunque compartan sucursal.
+        if ($this->autoridad->esDePuestoSuperior($colaborador, $actor)) {
+            return false;
+        }
+
+        return $actor->can(self::PERMISO_SOLICITAR)
+            && ($this->autoridad->tieneAutoridadSobre($actor, $colaborador) || $this->alcance->alcanzaColaboradorEnModulo($actor, $colaborador, BajaConsultaService::MODULO));
     }
 
     /**
@@ -739,6 +747,10 @@ class BajaService
     {
         if ($actor->colaborador_id === $colaborador->id) {
             throw new AuthorizationException('No puedes registrar tu propia baja: si deseas renunciar, platícalo con tu jefe o con RH.');
+        }
+
+        if ($this->autoridad->esDePuestoSuperior($colaborador, $actor) && ! $actor->can(self::PERMISO_GESTIONAR)) {
+            throw new AuthorizationException(AutoridadJerarquicaService::MENSAJE_SIN_AUTORIDAD);
         }
 
         if (! $this->puedeSolicitarPara($actor, $colaborador)) {

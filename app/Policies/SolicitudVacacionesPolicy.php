@@ -6,6 +6,8 @@ use App\Models\SolicitudVacaciones;
 use App\Models\User;
 use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Organigrama\AutoridadJerarquicaService;
+use Illuminate\Auth\Access\Response;
 
 class SolicitudVacacionesPolicy
 {
@@ -42,13 +44,33 @@ class SolicitudVacacionesPolicy
         return $usuario->is($solicitud->usuario);
     }
 
-    public function aprobar(User $usuario, SolicitudVacaciones $solicitud): bool
+    public function aprobar(User $usuario, SolicitudVacaciones $solicitud): bool|Response
     {
-        return $usuario->can('vacaciones.aprobar') && $this->alcance->puedeVerUsuario($usuario, $solicitud->usuario);
+        if (! $usuario->can('vacaciones.aprobar') || ! $this->alcance->puedeVerUsuario($usuario, $solicitud->usuario)) {
+            return false;
+        }
+
+        return $this->respetaLoDecidido($usuario, $solicitud);
     }
 
-    public function rechazar(User $usuario, SolicitudVacaciones $solicitud): bool
+    public function rechazar(User $usuario, SolicitudVacaciones $solicitud): bool|Response
     {
-        return $usuario->can('vacaciones.rechazar') && $this->alcance->puedeVerUsuario($usuario, $solicitud->usuario);
+        if (! $usuario->can('vacaciones.rechazar') || ! $this->alcance->puedeVerUsuario($usuario, $solicitud->usuario)) {
+            return false;
+        }
+
+        return $this->respetaLoDecidido($usuario, $solicitud);
+    }
+
+    /**
+     * Nunca se cambia lo que ya decidió un puesto superior de la línea comercial.
+     */
+    private function respetaLoDecidido(User $usuario, SolicitudVacaciones $solicitud): bool|Response
+    {
+        $autoridad = app(AutoridadJerarquicaService::class);
+
+        return $autoridad->puedeModificarLoHechoPor($usuario, $autoridad->autorPorId($solicitud->revisado_por))
+            ? true
+            : Response::deny(AutoridadJerarquicaService::MENSAJE_PUESTO_SUPERIOR);
     }
 }

@@ -27,6 +27,7 @@ use App\Services\Nomina\IncidenciasNominaService;
 use App\Services\Nomina\PrestamoService;
 use App\Services\Notificaciones\Aviso;
 use App\Services\Notificaciones\NotificacionEventosService;
+use App\Services\Organigrama\AutoridadJerarquicaService;
 use App\Services\Permisos\AlcanceModuloService;
 use App\Services\RhMobile\ResponsableResolverService;
 use App\Services\Vacaciones\VacacionesService;
@@ -99,6 +100,7 @@ class SolicitudesService
         private readonly FechasSolicitudService $fechas,
         private readonly ActualizacionDatosService $actualizacionDatos,
         private readonly AlcanceModuloService $alcanceModulo,
+        private readonly AutoridadJerarquicaService $autoridad,
     ) {}
 
     /**
@@ -696,6 +698,13 @@ class SolicitudesService
             ]);
         }
 
+        // Rechazar, devolver o cancelar la solicitud de otro deshace lo ya decidido:
+        // nunca sobre lo hecho por un puesto superior (web y API por igual).
+        $autorDesconocido = in_array($nuevoEstado, [EstadoSolicitudInterna::Rechazada, EstadoSolicitudInterna::RequiereCorreccion, EstadoSolicitudInterna::Cancelada], true)
+            && ! $desdeCierreLaboral
+            && ! $solicitud->esDe($actor)
+            && $this->autoridad->exigirPuedeModificar($actor, $this->aprobaciones->autoresDeDecisiones($solicitud));
+
         // Vistos buenos jerárquicos (gerente → regional, config
         // solicitudes.visto_bueno_jefe): sin ellos la solicitud se queda como
         // "Recibida"; ni RH la puede pasar a "Pendiente de autorizar" ni autorizarla.
@@ -767,7 +776,7 @@ class SolicitudesService
             }
         }
 
-        $solicitud = DB::transaction(function () use ($solicitud, $actor, $nuevoEstado, $comentario, $motivoRechazo, $datosAprobacion): SolicitudInterna {
+        $solicitud = DB::transaction(function () use ($solicitud, $actor, $nuevoEstado, $comentario, $motivoRechazo, $datosAprobacion, $autorDesconocido): SolicitudInterna {
             $datos = ['estado' => $nuevoEstado];
 
             if ($motivoRechazo !== null) {
@@ -782,6 +791,10 @@ class SolicitudesService
             $solicitud->update($datos);
 
             $this->registrarHistorial($solicitud, $actor, $nuevoEstado->value, $comentario);
+
+            if ($autorDesconocido) {
+                $this->registrarHistorial($solicitud, $actor, 'autor_anterior_desconocido', AutoridadJerarquicaService::NOTA_AUTOR_DESCONOCIDO);
+            }
 
             $solicitud->refresh();
 

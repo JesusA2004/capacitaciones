@@ -22,6 +22,7 @@ use App\Models\Vacante;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\CicloLaboral\AprobacionService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
+use App\Services\Organigrama\AutoridadJerarquicaService;
 use App\Services\Permisos\PermisoAccionService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
@@ -115,6 +116,7 @@ class CandidatoWorkflowService
         private readonly VacantesListadoService $vacantesListado,
         private readonly PreguntasFiltroCandidatoService $filtros,
         private readonly PermisoAccionService $permisos,
+        private readonly AutoridadJerarquicaService $autoridad,
     ) {}
 
     /**
@@ -596,8 +598,17 @@ class CandidatoWorkflowService
 
         $this->autorizar($actor, self::PERMISO_DESCARTAR, $candidato);
 
-        $resultado = DB::transaction(function () use ($candidato, $actor, $salida, $motivo, $motivoRechazoId, $recontratable): Candidato {
+        // Descartar deshace el último avance del candidato: nunca el de un puesto superior.
+        $ultimoAvance = $candidato->seguimientos()->where('tipo', TipoSeguimientoCandidato::CambioEstado->value)->latest('id')->first();
+        $autorDesconocido = $ultimoAvance !== null
+            && $this->autoridad->exigirPuedeModificar($actor, [$this->autoridad->autorPorId($ultimoAvance->registrado_por)]);
+
+        $resultado = DB::transaction(function () use ($candidato, $actor, $salida, $motivo, $motivoRechazoId, $recontratable, $autorDesconocido): Candidato {
             $c = $this->bloquear($candidato);
+
+            if ($autorDesconocido) {
+                $this->seguimiento($c, $actor, TipoSeguimientoCandidato::Nota, AutoridadJerarquicaService::NOTA_AUTOR_DESCONOCIDO);
+            }
 
             if (! $c->estado->permiteDescartar()) {
                 throw ValidationException::withMessages(['estado' => "El candidato está en «{$c->estado->etiqueta()}»: ya no puede descartarse desde reclutamiento."]);

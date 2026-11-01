@@ -8,8 +8,10 @@ use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Organigrama\AutoridadJerarquicaService;
 use App\Services\Permisos\AlcanceModuloService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
+use Illuminate\Auth\Access\Response;
 
 /**
  * No usa los verbos CRUD por defecto de Laravel: cada método representa una
@@ -96,9 +98,13 @@ class SolicitudInternaPolicy
      * Pedir corrección al colaborador: acción propia
      * (solicitudes.requerir_correccion), separada de «marcar en revisión».
      */
-    public function requerirCorreccion(User $usuario, SolicitudInterna $solicitud): bool
+    public function requerirCorreccion(User $usuario, SolicitudInterna $solicitud): bool|Response
     {
-        return $usuario->can('solicitudes.requerir_correccion') && $this->puedeActuarSobre($usuario, $solicitud);
+        if (! $usuario->can('solicitudes.requerir_correccion') || ! $this->puedeActuarSobre($usuario, $solicitud)) {
+            return false;
+        }
+
+        return $this->respetaLoDecidido($usuario, $solicitud);
     }
 
     /**
@@ -128,10 +134,13 @@ class SolicitudInternaPolicy
             && ! app(AprobacionJerarquicaService::class)->esAprobadorDe($usuario, $solicitud);
     }
 
-    public function rechazar(User $usuario, SolicitudInterna $solicitud): bool
+    public function rechazar(User $usuario, SolicitudInterna $solicitud): bool|Response
     {
-        return ($usuario->can('solicitudes.rechazar') || $usuario->can('rh.solicitudes.rechazar'))
-            && $this->puedeActuarSobre($usuario, $solicitud);
+        if ((! $usuario->can('solicitudes.rechazar') && ! $usuario->can('rh.solicitudes.rechazar')) || ! $this->puedeActuarSobre($usuario, $solicitud)) {
+            return false;
+        }
+
+        return $this->respetaLoDecidido($usuario, $solicitud);
     }
 
     /**
@@ -144,6 +153,22 @@ class SolicitudInternaPolicy
     public function crearBaja(User $usuario, Colaborador $colaboradorObjetivo): bool
     {
         return $usuario->can('solicitudes.bajas.crear') && $this->alcance->puedeVerExpediente($usuario, $colaboradorObjetivo);
+    }
+
+    /**
+     * Nunca se deshace lo decidido por un puesto superior de la línea comercial.
+     */
+    private function respetaLoDecidido(User $usuario, SolicitudInterna $solicitud): bool|Response
+    {
+        $autoridad = app(AutoridadJerarquicaService::class);
+
+        foreach (app(AprobacionJerarquicaService::class)->autoresDeDecisiones($solicitud) as $autor) {
+            if (! $autoridad->puedeModificarLoHechoPor($usuario, $autor)) {
+                return Response::deny(AutoridadJerarquicaService::MENSAJE_PUESTO_SUPERIOR);
+            }
+        }
+
+        return true;
     }
 
     /**

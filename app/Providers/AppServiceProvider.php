@@ -24,6 +24,7 @@ use App\Services\Notificaciones\MonitorNotificacionesService;
 use App\Services\Organigrama\JefeDirectoService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\Events\NotificationSent;
@@ -84,8 +85,10 @@ class AppServiceProvider extends ServiceProvider
 
         // Diagnóstico de acceso (página 403 para super_admin/sistemas): la
         // última habilidad negada en esta petición.
-        Gate::after(function (User $usuario, string $habilidad, ?bool $resultado, array $argumentos): void {
-            if ($resultado === false && ! app()->runningInConsole()) {
+        Gate::after(function (User $usuario, string $habilidad, bool|Response|null $resultado, array $argumentos): void {
+            $negado = $resultado instanceof Response ? $resultado->denied() : $resultado === false;
+
+            if ($negado && ! app()->runningInConsole()) {
                 $modelo = collect($argumentos)->first(fn ($a): bool => is_object($a) || (is_string($a) && class_exists($a)));
                 request()->attributes->set('acceso_negado', [
                     'habilidad' => $habilidad,
