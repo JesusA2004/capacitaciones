@@ -94,10 +94,13 @@ class SolicitudInternaPolicy
      * Marcar en revisión / pedir corrección: acción de RH/gerencia, nunca
      * sobre la propia solicitud.
      */
-    public function revisar(User $usuario, SolicitudInterna $solicitud): bool
+    public function revisar(User $usuario, SolicitudInterna $solicitud): bool|Response
     {
-        return ($usuario->can('solicitudes.revisar') || $usuario->can('rh.solicitudes.correccion'))
-            && $this->puedeActuarSobre($usuario, $solicitud);
+        if ((! $usuario->can('solicitudes.revisar') && ! $usuario->can('rh.solicitudes.correccion')) || ! $this->puedeActuarSobre($usuario, $solicitud)) {
+            return false;
+        }
+
+        return $this->respetaLoDecidido($usuario, $solicitud);
     }
 
     /**
@@ -132,12 +135,16 @@ class SolicitudInternaPolicy
         return $usuario->can('solicitudes.exportar') && $this->viewAny($usuario);
     }
 
-    public function aprobar(User $usuario, SolicitudInterna $solicitud): bool
+    public function aprobar(User $usuario, SolicitudInterna $solicitud): bool|Response
     {
-        return ($usuario->can('solicitudes.aprobar') || $usuario->can('rh.solicitudes.aprobar'))
-            && $this->puedeActuarSobre($usuario, $solicitud)
+        if ((! $usuario->can('solicitudes.aprobar') && ! $usuario->can('rh.solicitudes.aprobar'))
+            || ! $this->puedeActuarSobre($usuario, $solicitud)
             // Gerente/regional dan visto bueno; la autorización final es de RH.
-            && ! app(AprobacionJerarquicaService::class)->esAprobadorDe($usuario, $solicitud);
+            || app(AprobacionJerarquicaService::class)->esAprobadorDe($usuario, $solicitud)) {
+            return false;
+        }
+
+        return $this->respetaLoDecidido($usuario, $solicitud);
     }
 
     public function rechazar(User $usuario, SolicitudInterna $solicitud): bool|Response

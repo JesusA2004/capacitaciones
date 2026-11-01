@@ -699,9 +699,10 @@ class SolicitudesService
             ]);
         }
 
-        // Rechazar, devolver o cancelar la solicitud de otro deshace lo ya decidido:
-        // nunca sobre lo hecho por un puesto superior (web y API por igual).
-        $autorDesconocido = in_array($nuevoEstado, [EstadoSolicitudInterna::Rechazada, EstadoSolicitudInterna::RequiereCorreccion, EstadoSolicitudInterna::Cancelada], true)
+        // Rechazar, devolver, cancelar, aprobar o pasar a revisión la solicitud de otro
+        // pasa sobre lo ya decidido: nunca sobre lo hecho por un puesto superior (web y
+        // API por igual). Sin decisiones previas, quien sigue en el flujo no se bloquea.
+        $autorDesconocido = in_array($nuevoEstado, [EstadoSolicitudInterna::Rechazada, EstadoSolicitudInterna::RequiereCorreccion, EstadoSolicitudInterna::Cancelada, EstadoSolicitudInterna::Aprobada, EstadoSolicitudInterna::EnRevision], true)
             && ! $desdeCierreLaboral
             && ! $solicitud->esDe($actor)
             && $this->autoridad->exigirPuedeModificar($actor, $this->aprobaciones->autoresDeDecisiones($solicitud));
