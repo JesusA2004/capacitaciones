@@ -4,6 +4,7 @@ import { Eye, PackageCheck, Pencil, Plus, Trash2 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
+import HistorialVersiones from '@/components/documentos/HistorialVersiones.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -723,6 +724,11 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
                         finiquito</Button
                     >
                 </div>
+                <HistorialVersiones
+                    class="mt-3"
+                    tipo="finiquito"
+                    :id="finiquito.id"
+                />
             </template>
         </DialogContent>
     </Dialog>

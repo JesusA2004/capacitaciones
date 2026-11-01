@@ -16,6 +16,7 @@ import { computed, ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
+import HistorialVersiones from '@/components/documentos/HistorialVersiones.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -997,5 +998,11 @@ function eliminarConcepto(id: number) {
                 solicitud.
             </p>
         </div>
+        <HistorialVersiones
+            v-if="finiquito"
+            class="mt-3"
+            tipo="finiquito"
+            :id="finiquito.id"
+        />
     </div>
 </template>

@@ -68,7 +68,7 @@ const cargando = ref(true);
 const responsivas = ref<ResponsivaItem[]>([]);
 const puedeGenerar = ref(false);
 
-type Accion = 'firmada_fisica' | 'devolucion' | 'cancelar';
+type Accion = 'firmada_fisica' | 'devolucion' | 'cancelar' | 'regenerar';
 const accion = ref<Accion | null>(null);
 const seleccionada = ref<ResponsivaItem | null>(null);
 const fechaDevolucion = ref('');
@@ -140,42 +140,6 @@ function reemplazar(actualizada: ResponsivaItem) {
     );
 }
 
-// Reimprime el PDF con el formato vigente (corrige responsivas antiguas:
-// «Representante legal», razón social correcta y firmas alineadas).
-async function regenerar(responsiva: ResponsivaItem) {
-    if (regenerandoId.value !== null) {
-        return;
-    }
-
-    const motivo = window.prompt(
-        responsiva.estado === 'firmada'
-            ? 'Esta responsiva ya está firmada: el original se conserva y se emite una rectificación aparte. ¿Cuál es el motivo?'
-            : '¿Cuál es el motivo de la nueva versión? La anterior se conserva.',
-    );
-
-    if (motivo === null) {
-        return;
-    }
-
-    regenerandoId.value = responsiva.id;
-
-    try {
-        const respuesta = (await enviarJson(
-            'POST',
-            regenerarResponsiva.url(responsiva.id),
-            { motivo },
-        )) as { message: string; responsiva: ResponsivaItem };
-        reemplazar(respuesta.responsiva);
-        toast.success(respuesta.message);
-    } catch (e) {
-        toast.error(
-            e instanceof Error ? e.message : 'No se pudo regenerar el PDF.',
-        );
-    } finally {
-        regenerandoId.value = null;
-    }
-}
-
 async function confirmar() {
     const responsiva = seleccionada.value;
 
@@ -203,6 +167,14 @@ async function confirmar() {
                     observaciones: texto.value,
                 },
             );
+        } else if (accion.value === 'regenerar') {
+            // Reimprime con el formato vigente; el motivo queda en el historial.
+            regenerandoId.value = responsiva.id;
+            respuesta = await enviarJson(
+                'POST',
+                regenerarResponsiva.url(responsiva.id),
+                { motivo: texto.value },
+            );
         } else {
             respuesta = await enviarJson(
                 'POST',
@@ -220,6 +192,7 @@ async function confirmar() {
         toast.error(e instanceof Error ? e.message : 'No se pudo completar.');
     } finally {
         enviando.value = false;
+        regenerandoId.value = null;
     }
 }
 
@@ -227,6 +200,7 @@ const titulos: Record<Accion, string> = {
     firmada_fisica: 'Marcar responsiva firmada físicamente',
     devolucion: 'Registrar devolución del equipo',
     cancelar: 'Cancelar responsiva',
+    regenerar: 'Emitir nueva versión',
 };
 </script>
 
@@ -327,7 +301,7 @@ const titulos: Record<Accion, string> = {
                                 variant="outline"
                                 :disabled="regenerandoId === r.id"
                                 title="Emite una nueva versión con motivo; la anterior se conserva"
-                                @click="regenerar(r)"
+                                @click="abrir('regenerar', r)"
                             >
                                 <Loader2
                                     v-if="regenerandoId === r.id"
@@ -497,6 +471,26 @@ const titulos: Record<Accion, string> = {
                     </p>
                 </div>
 
+                <div v-else-if="accion === 'regenerar'" class="grid gap-1.5">
+                    <Label for="responsiva-regenerar-motivo"
+                        >Motivo de la nueva versión</Label
+                    >
+                    <Textarea
+                        id="responsiva-regenerar-motivo"
+                        v-model="texto"
+                        rows="3"
+                        maxlength="500"
+                        placeholder="Se corrigió la razón social…"
+                    />
+                    <p class="text-xs text-muted-foreground">
+                        {{
+                            seleccionada?.estado === 'firmada'
+                                ? 'Ya está firmada: el original se conserva y se emite una rectificación aparte.'
+                                : 'La versión anterior se conserva.'
+                        }}
+                    </p>
+                </div>
+
                 <DialogFooter class="gap-2">
                     <Button variant="ghost" @click="accion = null"
                         >Cerrar</Button
@@ -509,7 +503,9 @@ const titulos: Record<Accion, string> = {
                             enviando ||
                             (accion === 'devolucion' &&
                                 fechaDevolucion === '') ||
-                            (accion === 'cancelar' && texto.trim().length < 5)
+                            ((accion === 'cancelar' ||
+                                accion === 'regenerar') &&
+                                texto.trim().length < 5)
                         "
                         @click="confirmar"
                     >
@@ -517,9 +513,11 @@ const titulos: Record<Accion, string> = {
                         {{
                             accion === 'cancelar'
                                 ? 'Cancelar responsiva'
-                                : accion === 'firmada_fisica'
-                                  ? 'Marcar firmada físicamente'
-                                  : 'Registrar devolución'
+                                : accion === 'regenerar'
+                                  ? 'Emitir nueva versión'
+                                  : accion === 'firmada_fisica'
+                                    ? 'Marcar firmada físicamente'
+                                    : 'Registrar devolución'
                         }}
                     </Button>
                 </DialogFooter>

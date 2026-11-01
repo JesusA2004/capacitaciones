@@ -1053,6 +1053,12 @@ class FiniquitoService
                 return $bloqueado;
             }
 
+            // Nadie entrega un papel con datos viejos: el PDF ya impreso debe
+            // corresponder. Sin PDF generado no hay papel que contradiga la entrega.
+            if ($bloqueado->generated_document_id !== null && $this->documentoAlDia($bloqueado, $actor) === null) {
+                throw ValidationException::withMessages(['documento' => 'El PDF del finiquito ya no corresponde a los datos actuales. Regenéralo antes de registrar la entrega.']);
+            }
+
             $bloqueado = $this->recalcularTotales($bloqueado);
             $desglose = $this->desglose($bloqueado);
 
