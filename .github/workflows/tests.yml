@@ -54,6 +54,9 @@ jobs:
           php-version: ${{ matrix.php-version }}
           tools: composer:v2
           coverage: none
+          # Sin OPcache cada prueba recompila config y rutas al arrancar la app y deja
+          # ~100 KB retenidos: en una corrida serial eso agota memory_limit (512 MB).
+          ini-values: opcache.enable_cli=1
 
       - name: Setup Node
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6

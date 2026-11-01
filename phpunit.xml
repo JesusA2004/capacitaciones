@@ -24,7 +24,10 @@
              sin esto, "php artisan test" completo revienta con "Allowed
              memory size exhausted" en pruebas que descargan un export real
              (ver tests/Feature/Rh/ReporteRhTest.php,
-             tests/Feature/Rh/PlantillaFormatoTest.php). -->
+             tests/Feature/Rh/PlantillaFormatoTest.php).
+             Corrida serial: requiere opcache.enable_cli=1 (no se puede fijar
+             aquí); sin él, cada arranque de la app retiene ~100 KB al
+             recompilar config y rutas, y 512M no alcanza. -->
         <ini name="memory_limit" value="512M"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
