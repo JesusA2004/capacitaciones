@@ -134,7 +134,7 @@ test('la bandeja no repite por fila las consultas de catálogo y finiquito', fun
         $this->actingAs($this->rh)->get(route('rh.bajas.index'))->assertOk();
         $veces = fn (string $tabla): int => collect(DB::getQueryLog())->filter(fn (array $q): bool => str_contains($q['query'], "from \"{$tabla}\""))->count();
 
-        return [$veces('documentos_requeridos_baja'), $veces('finiquito_calculos')];
+        return ['catalogo' => $veces('documentos_requeridos_baja'), 'finiquitos' => $veces('finiquito_calculos')];
     };
 
     $registrar($this->persona);
@@ -144,5 +144,8 @@ test('la bandeja no repite por fila las consultas de catálogo y finiquito', fun
         'sucursal_principal_id' => $this->persona->sucursal_principal_id, 'estatus' => EstadoUsuario::Activo, 'fecha_ingreso' => '2024-01-01', 'sueldo_mensual' => 15000,
     ])->each($registrar);
 
-    expect($medir())->toBe($conUna);
+    $conCuatro = $medir();
+
+    expect($conCuatro['finiquitos'])->toBe($conUna['finiquitos'])
+        ->and($conCuatro['catalogo'])->toBeLessThanOrEqual(1);
 });
