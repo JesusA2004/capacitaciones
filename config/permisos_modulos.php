@@ -956,7 +956,7 @@ return [
         'documentos.rechazar' => 'Rechaza documentos del expediente con motivo.',
         'documentos.versiones' => 'Consulta las versiones anteriores de un documento.',
         'candidatos.revisar_perfil' => 'Primer filtro: decide si el perfil del candidato recibido sigue a entrevista.',
-        'candidatos.aprobar_entrevista' => 'Registra el resultado de la entrevista de candidatos de su alcance. Con solo este paso, la persona ve el recorrido completo pero no puede avanzar los demás pasos. También la usa RH en una contratación directa.',
+        'candidatos.aprobar_entrevista' => 'Registra el resultado de la entrevista. Además del permiso, debe corresponderle por el puesto objetivo: Gestor, Gerente de Sucursal; Subgerente o Gerente de Sucursal, regionales o Dirección Comercial; puesto regional, Dirección Comercial.',
         'candidatos.registrar_psicometricas' => 'Registra el link de las pruebas psicométricas y carga los resultados.',
         'candidatos.registrar_socioeconomico' => 'Carga la visita socioeconómica (fecha, dirección, tiempo en la vivienda, evidencias). Cargar no lo aprueba.',
         'candidatos.validar_referencias' => 'Registra referencias laborales y concluye su validación.',

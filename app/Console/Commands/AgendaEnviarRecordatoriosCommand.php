@@ -47,7 +47,7 @@ class AgendaEnviarRecordatoriosCommand extends Command
                         : sprintf('Mañana: %s a las %s', mb_strtolower($evento->tipo->etiqueta()), $evento->fecha_hora->format('H:i'));
 
                     $enviados += $avisos->crearPendiente(
-                        $agenda->destinatarios($evento->sucursal_id),
+                        $agenda->destinatarios($evento->sucursal_id, $evento),
                         $agenda->aviso($evento, 'agenda_recordatorio', $titulo, sprintf('%s:%d:%s', $momento, $evento->id, $evento->fecha_hora->format('YmdHi'))),
                     )->count();
                 } catch (Throwable $e) {

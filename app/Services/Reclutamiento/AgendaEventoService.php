@@ -54,6 +54,7 @@ class AgendaEventoService
         private readonly OrganizacionJerarquiaService $jerarquia,
         private readonly AlcanceModuloService $alcance,
         private readonly PermisoAccionService $permisos,
+        private readonly AprobadorEntrevistaService $aprobadorEntrevista,
     ) {}
 
     /**
@@ -393,11 +394,19 @@ class AgendaEventoService
     /**
      * Gerencia de la sucursal (organigrama, incluye cobertura) y quienes ocupan
      * los puestos configurados. Personas reales con cuenta activa, nunca por rol.
+     * La entrevista de un Subgerente o Gerente va a quien la aprueba, no a la
+     * sucursal: ellos podrían ser a quienes se reemplaza.
      *
      * @return Collection<int, User>
      */
-    public function destinatarios(int $sucursalId): Collection
+    public function destinatarios(int $sucursalId, ?AgendaEvento $evento = null): Collection
     {
+        $candidato = $evento?->tipo === TipoAgendaEvento::Entrevista ? $evento->candidato : null;
+
+        if ($candidato !== null && $this->aprobadorEntrevista->nivel($candidato)->loRevisaDireccionComercial()) {
+            return $this->aprobadorEntrevista->aprobadores($candidato);
+        }
+
         $puestos = Puesto::query()->whereIn('nombre', (array) config('reclutamiento.agenda.puestos_a_notificar', []))->pluck('id');
         $colaboradores = Colaborador::query()
             ->where('sucursal_principal_id', $sucursalId)
@@ -574,7 +583,7 @@ class AgendaEventoService
     {
         try {
             $evento->loadMissing(['candidato', 'sucursal:id,nombre']);
-            $destinatarios = $this->destinatarios($evento->sucursal_id)->reject(fn (User $u): bool => $u->id === $actor->id);
+            $destinatarios = $this->destinatarios($evento->sucursal_id, $evento)->reject(fn (User $u): bool => $u->id === $actor->id);
 
             $this->avisos->crearPendiente($destinatarios, $this->aviso($evento, $codigo, $titulo, sprintf('%s:%d', $ocurrencia, $evento->id)));
         } catch (Throwable $e) {

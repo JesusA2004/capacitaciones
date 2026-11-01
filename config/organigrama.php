@@ -37,11 +37,11 @@ return [
     | aclare: `people:sincronizar-organigrama` lo reporta, no se reasigna a nadie.
     */
     'linea_comercial' => [
-        ['puestos' => ['Gerente Regional', 'Gerente Regional Q1', 'Gerente Regional Q3'], 'de_empresa' => true],
-        ['puestos' => ['Subgerente Regional'], 'de_empresa' => true],
-        ['puestos' => ['Gerente de Sucursal', 'Gerente de operaciones', 'Gerente'], 'de_empresa' => false],
-        ['puestos' => ['Subgerente', 'Subgerente de Sucursal'], 'de_empresa' => false],
-        ['puestos' => ['Gestor', 'Gestor Volante', 'Gestor grupal'], 'de_empresa' => false],
+        ['puestos' => ['Gerente Regional', 'Gerente Regional Q1', 'Gerente Regional Q3'], 'de_empresa' => true, 'nivel' => 'regional'],
+        ['puestos' => ['Subgerente Regional'], 'de_empresa' => true, 'nivel' => 'regional'],
+        ['puestos' => ['Gerente de Sucursal', 'Gerente de operaciones', 'Gerente'], 'de_empresa' => false, 'nivel' => 'gerencial'],
+        ['puestos' => ['Subgerente', 'Subgerente de Sucursal'], 'de_empresa' => false, 'nivel' => 'gerencial'],
+        ['puestos' => ['Gestor', 'Gestor Volante', 'Gestor grupal'], 'de_empresa' => false, 'nivel' => 'gestor'],
     ],
 
     // Otros nombres de Gerente de Sucursal. Solo valen en una sucursal operativa: en

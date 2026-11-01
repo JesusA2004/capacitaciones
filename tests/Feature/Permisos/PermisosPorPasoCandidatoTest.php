@@ -39,7 +39,7 @@ beforeEach(function () {
     Role::create(['name' => 'gerente_solo_entrevista', 'guard_name' => 'web'])
         ->givePermissionTo(['candidatos.ver', 'candidatos.ver_sucursal', 'candidatos.aprobar_entrevista']);
     app(PermissionRegistrar::class)->forgetCachedPermissions();
-    $this->gerente = clUsuario('gerente_solo_entrevista', $base);
+    $this->gerente = clUsuario('gerente_solo_entrevista', [...$base, 'puesto_id' => Puesto::factory()->create(['nombre' => 'Gerente de Sucursal'])->id]);
 
     $this->workflow = app(CandidatoWorkflowService::class);
     $this->nuevo = function (): Candidato {
@@ -89,12 +89,12 @@ test('un gerente con solo «Registrar entrevista» la registra y después ya no 
         ->and($this->workflow->responsableActual($candidato)['rol'])->toBe('Reclutamiento');
 });
 
-test('RH con «Registrar entrevista» la registra en una contratación directa', function () {
+test('RH no aprueba la entrevista de un Gestor: le corresponde al Gerente de Sucursal', function () {
     $candidato = ($this->nuevo)();
 
-    expect(collect($this->workflow->accionesPermitidas($candidato, $this->rh))->pluck('clave'))->toContain('registrar_entrevista');
-    $this->actingAs($this->rh)->post(route('rh.candidatos.entrevista', $candidato), $this->entrevista)->assertRedirect()->assertSessionHasNoErrors();
-    expect($candidato->refresh()->estado)->toBe(EstadoCandidato::PsicometricasPendientes);
+    expect(collect($this->workflow->accionesPermitidas($candidato, $this->rh))->pluck('clave'))->not->toContain('registrar_entrevista');
+    $this->actingAs($this->rh)->post(route('rh.candidatos.entrevista', $candidato), $this->entrevista)->assertForbidden();
+    expect($candidato->refresh()->estado)->toBe(EstadoCandidato::EntrevistaPendiente);
 });
 
 test('los roles sembrados conservan los pasos que cubrían los permisos generales', function () {
@@ -115,7 +115,7 @@ test('los roles sembrados conservan los pasos que cubrían los permisos generale
 
 test('el socioeconómico guarda el tiempo en la vivienda en años y meses', function () {
     $candidato = ($this->nuevo)();
-    $this->workflow->registrarEntrevista($candidato, $this->rh, $this->entrevista);
+    $this->workflow->registrarEntrevista($candidato, $this->gerente, $this->entrevista);
     $this->workflow->enviarPsicometricas($candidato->refresh(), $this->rh, 'https://pruebas.example.test/abc');
     $this->workflow->registrarResultadosPsicometricas($candidato->refresh(), $this->rh, 'Perfil adecuado.');
     $this->workflow->revisarPsicometricas($candidato->refresh(), $this->rh, true, null);

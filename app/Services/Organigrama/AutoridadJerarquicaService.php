@@ -247,11 +247,11 @@ class AutoridadJerarquicaService
     }
 
     /**
-     * @return list<array{puestos: list<string>, de_empresa: bool}>
+     * @return list<array{puestos: list<string>, de_empresa: bool, nivel: string}>
      */
     private function linea(): array
     {
-        /** @var list<array{puestos: list<string>, de_empresa: bool}> $linea */
+        /** @var list<array{puestos: list<string>, de_empresa: bool, nivel: string}> $linea */
         $linea = config('organigrama.linea_comercial', []);
 
         return $linea;

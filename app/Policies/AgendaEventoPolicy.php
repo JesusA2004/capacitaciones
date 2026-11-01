@@ -3,10 +3,12 @@
 namespace App\Policies;
 
 use App\Enums\AlcanceDatos;
+use App\Enums\TipoAgendaEvento;
 use App\Models\AgendaEvento;
 use App\Models\User;
 use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\Permisos\AlcanceModuloService;
+use App\Services\Reclutamiento\AprobadorEntrevistaService;
 
 /**
  * Agenda de reclutamiento: permiso de la acción + alcance del módulo sobre la
@@ -17,7 +19,10 @@ class AgendaEventoPolicy
 {
     use ConSuperAdminOperativo;
 
-    public function __construct(private readonly AlcanceModuloService $alcance) {}
+    public function __construct(
+        private readonly AlcanceModuloService $alcance,
+        private readonly AprobadorEntrevistaService $aprobadorEntrevista,
+    ) {}
 
     public function viewAny(User $usuario): bool
     {
@@ -26,7 +31,7 @@ class AgendaEventoPolicy
 
     public function view(User $usuario, AgendaEvento $evento): bool
     {
-        return $usuario->can('agenda.ver') && $this->alcanzaSucursal($usuario, $evento->sucursal_id);
+        return $usuario->can('agenda.ver') && $this->alcanzaSucursal($usuario, $evento->sucursal_id) && $this->alcanzaCandidato($usuario, $evento);
     }
 
     public function agendarEn(User $usuario, int $sucursalId): bool
@@ -41,13 +46,24 @@ class AgendaEventoPolicy
 
     public function registrarResultado(User $usuario, AgendaEvento $evento): bool
     {
-        return $usuario->can('agenda.registrar_resultado') && $this->alcanzaSucursal($usuario, $evento->sucursal_id);
+        if (! $usuario->can('agenda.registrar_resultado') || ! $this->alcanzaSucursal($usuario, $evento->sucursal_id) || ! $this->alcanzaCandidato($usuario, $evento)) {
+            return false;
+        }
+
+        // La entrevista la aprueba quien corresponde al puesto objetivo.
+        return $evento->tipo !== TipoAgendaEvento::Entrevista || $this->aprobadorEntrevista->puedeAprobar($usuario, $evento->candidato);
     }
 
     /** Teléfono, domicilio y CV del candidato. */
     public function verDatosCandidato(User $usuario, AgendaEvento $evento): bool
     {
-        return $usuario->can('agenda.ver_datos_candidato') && $this->alcanzaSucursal($usuario, $evento->sucursal_id);
+        return $usuario->can('agenda.ver_datos_candidato') && $this->alcanzaSucursal($usuario, $evento->sucursal_id) && $this->alcanzaCandidato($usuario, $evento);
+    }
+
+    /** Dirección Comercial solo ve las citas de los puestos que revisa. */
+    private function alcanzaCandidato(User $usuario, AgendaEvento $evento): bool
+    {
+        return $this->aprobadorEntrevista->esVisiblePara($usuario, $evento->candidato);
     }
 
     private function alcanzaSucursal(User $usuario, int $sucursalId): bool

@@ -12,13 +12,15 @@ use App\Models\User;
 use App\Models\Vacante;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
+use App\Services\Reclutamiento\AprobadorEntrevistaService;
 use Database\Seeders\RolesYPermisosSeeder;
 
 /*
 | Caso real: candidato a «Subgerente · Ixtlahuaca» mostraba «El candidato no
 | tiene gerente asignado ni la sucursal tiene responsable capturado» aunque
-| el organigrama de Ixtlahuaca tenía Gerente de Sucursal (Luis Garay). El
-| responsable sale de vacante → sucursal → puesto → organigrama.
+| el organigrama de Ixtlahuaca tenía Gerente de Sucursal. El responsable de
+| psicométricas y socioeconómico sale de vacante → sucursal → puesto → organigrama;
+| la ENTREVISTA va por puesto objetivo (AprobadorEntrevistaServiceTest).
 */
 
 beforeEach(function () {
@@ -42,14 +44,15 @@ function crResponsableVacante(Sucursal $sucursal, Puesto $puesto): Vacante
     return Vacante::factory()->create(['sucursal_id' => $sucursal->id, 'puesto_id' => $puesto->id, 'empresa_id' => $sucursal->empresa_id]);
 }
 
-test('Subgerente · Ixtlahuaca: el candidato hereda la sucursal de la vacante y su responsable es el gerente del organigrama', function () {
+test('Subgerente · Ixtlahuaca: hereda la sucursal; el gerente responde por psicométricas y socioeconómico, no por la entrevista', function () {
     $vacante = crResponsableVacante($this->ixtlahuaca, $this->puestoSubgerente);
     $candidato = Candidato::factory()->create(['vacante_id' => $vacante->id, 'sucursal_id' => null, 'gerente_involucrado_id' => null, 'estado' => EstadoCandidato::EntrevistaPendiente]);
 
     expect($candidato->refresh()->sucursal_id)->toBe($this->ixtlahuaca->id);
 
     $responsable = app(OrganizacionJerarquiaService::class)->responsableDeCandidato($candidato);
-    expect($responsable['usuario']?->id)->toBe($this->luis->id);
+    expect($responsable['usuario']?->id)->toBe($this->luis->id)
+        ->and(app(AprobadorEntrevistaService::class)->puedeAprobar($this->luis, $candidato))->toBeFalse();
 
     $ciclo = app(CicloLaboralService::class)->obtenerEstado($candidato, $this->luis);
     expect(collect($ciclo['bloqueos'] ?? [])->implode(' '))->not->toContain('no tiene gerente');

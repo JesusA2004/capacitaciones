@@ -4,6 +4,7 @@ namespace App\Services\Reclutamiento;
 
 use App\Enums\EstadoCandidato;
 use App\Enums\EstadoIntervencionCandidato;
+use App\Enums\NivelPuestoEntrevista;
 use App\Enums\PrioridadTarea;
 use App\Enums\ProcesoAprobacion;
 use App\Enums\ResultadoEtapaCandidato;
@@ -107,6 +108,7 @@ class CandidatoWorkflowService
     ];
 
     public function __construct(
+        private readonly AprobadorEntrevistaService $aprobadorEntrevista,
         private readonly AprobacionService $aprobaciones,
         private readonly OrganizacionJerarquiaService $jerarquia,
         private readonly TareaService $tareas,
@@ -324,6 +326,11 @@ class CandidatoWorkflowService
     public function registrarEntrevista(Candidato $candidato, User $actor, array $datos): Candidato
     {
         $this->autorizar($actor, self::PERMISO_ENTREVISTA, $candidato);
+
+        if (! $this->aprobadorEntrevista->puedeAprobar($actor, $candidato)) {
+            throw new AuthorizationException(AprobadorEntrevistaService::MENSAJE_NO_CORRESPONDE);
+        }
+
         $resultado = ResultadoEtapaCandidato::from((string) $datos['resultado']);
         $observaciones = isset($datos['observaciones']) ? (string) $datos['observaciones'] : null;
         $realizada = isset($datos['realizada_en']) ? (string) $datos['realizada_en'] : now()->toDateTimeString();
@@ -648,7 +655,7 @@ class CandidatoWorkflowService
                 }
                 break;
             case EstadoCandidato::EntrevistaPendiente:
-                if ($puede(self::PERMISO_ENTREVISTA)) {
+                if ($puede(self::PERMISO_ENTREVISTA) && $this->aprobadorEntrevista->puedeAprobar($usuario, $candidato)) {
                     $acciones[] = ['clave' => 'registrar_entrevista', 'etiqueta' => 'Registrar entrevista', 'tipo' => 'primaria'];
                 }
                 break;
@@ -740,6 +747,13 @@ class CandidatoWorkflowService
     {
         $rolResponsable = $this->jerarquia->esVacanteDeGerencia($candidato) ? 'Gerente Regional' : 'Gerente de sucursal';
         $reclutamiento = ['rol' => 'Reclutamiento', 'nombre' => $candidato->responsableRh?->nombreCompleto()];
+        $nivel = $this->aprobadorEntrevista->nivel($candidato);
+
+        if ($candidato->estado === EstadoCandidato::EntrevistaPendiente && $nivel !== NivelPuestoEntrevista::Otro) {
+            $nombres = $this->aprobadorEntrevista->aprobadores($candidato)->map(fn (User $u): string => $u->nombreCompleto())->implode(', ');
+
+            return ['rol' => $nivel->etiqueta(), 'nombre' => $nombres !== '' ? $nombres : null];
+        }
 
         return match ($candidato->estado) {
             EstadoCandidato::Recibidos, EstadoCandidato::PsicometricasPendientes, EstadoCandidato::ReferenciasPendientes => $reclutamiento,
@@ -921,6 +935,13 @@ class CandidatoWorkflowService
     {
         try {
             $this->tareas->resolver(TipoTarea::deReclutamiento(), $candidato, $actor);
+
+            if ($candidato->estado === EstadoCandidato::EntrevistaPendiente && $this->aprobadorEntrevista->nivel($candidato) !== NivelPuestoEntrevista::Otro) {
+                $this->abrirPendienteEntrevista($candidato);
+
+                return;
+            }
+
             $definicion = $this->tareaPara($candidato);
 
             if ($definicion === null) {
@@ -947,6 +968,45 @@ class CandidatoWorkflowService
             }
         } catch (Throwable $e) {
             Log::warning('CandidatoWorkflowService: no se pudo actualizar la bandeja.', ['candidato_id' => $candidato->id, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Entrevista: un pendiente por cada aprobador (ambos regionales, Dirección
+     * Comercial…); al decidir uno se resuelven todos. Sin nadie vigente, RH.
+     */
+    private function abrirPendienteEntrevista(Candidato $candidato): void
+    {
+        $tipo = TipoTarea::CandidatoEntrevista;
+        $base = [
+            'titulo' => sprintf('%s: %s', $tipo->etiqueta(), $candidato->nombreCompleto()),
+            'candidato' => $candidato,
+            'sucursal_id' => $candidato->sucursal_id,
+            'accion' => 'registrar_entrevista',
+            'prioridad' => PrioridadTarea::Alta,
+        ];
+        $aprobadores = $this->aprobadorEntrevista->aprobadores($candidato);
+        $avisar = collect();
+
+        foreach ($aprobadores as $aprobador) {
+            $tarea = $this->tareas->abrir($tipo, $candidato, [...$base, 'usuario' => $aprobador]);
+
+            if ($tarea !== null && $tarea->wasRecentlyCreated) {
+                $avisar->push($aprobador);
+            }
+        }
+
+        if ($aprobadores->isEmpty()) {
+            Log::warning('CandidatoWorkflowService: entrevista sin aprobador vigente; pasa a RH.', ['candidato_id' => $candidato->id]);
+            $tarea = $this->tareas->abrir($tipo, $candidato, [...$base, 'permiso' => AprobadorEntrevistaService::PERMISO_RESPALDO]);
+
+            if ($tarea !== null && $tarea->wasRecentlyCreated) {
+                $avisar = $this->tareas->destinatarios($tarea);
+            }
+        }
+
+        if ($avisar->isNotEmpty()) {
+            $this->notificador->notificar($avisar, $tipo->value, $tipo->etiqueta(), sprintf('%s · %s', $candidato->nombreCompleto(), $candidato->puestoObjetivo->nombre ?? 'candidato'), $candidato, 'registrar_entrevista');
         }
     }
 
