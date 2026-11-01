@@ -13,6 +13,7 @@ use App\Services\Bajas\BajaDocumentosService;
 use App\Services\Bajas\BajaService;
 use App\Services\Bajas\CatalogoBajasService;
 use App\Services\CierreLaboral\CausalRotacionService;
+use App\Services\Flujos\SiguientePasoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -57,7 +58,7 @@ class BajaController extends Controller
     {
         $this->authorize('view', $baja);
 
-        return response()->json(['data' => $this->bajas->detalle($baja, $request->user())]);
+        return response()->json(['data' => [...$this->bajas->detalle($baja, $request->user()), 'siguiente_paso' => app(SiguientePasoService::class)->paraBaja($baja, $request->user())->toArray()]]);
     }
 
     public function store(GuardarBajaRequest $request): JsonResponse

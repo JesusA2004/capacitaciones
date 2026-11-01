@@ -9,7 +9,7 @@ import {
     Undo2,
     UserMinus,
 } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import DocumentosBaja from '@/components/bajas/DocumentosBaja.vue';
 import GeneradorDocumentoSalida from '@/components/bajas/GeneradorDocumentoSalida.vue';
 import PanelFiniquito from '@/components/bajas/PanelFiniquito.vue';
@@ -17,6 +17,7 @@ import Casilla from '@/components/Common/Casilla.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
+import SiguientePasoPanel from '@/components/flujos/SiguientePaso.vue';
 import InputError from '@/components/InputError.vue';
 import ChipEstado from '@/components/people/ChipEstado.vue';
 import PeopleConfirmDialog from '@/components/people/PeopleConfirmDialog.vue';
@@ -34,6 +35,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { usePermisos } from '@/composables/usePermisos';
 import { claseForma, estatusBaja } from '@/lib/bajas';
 import { formatearFecha, formatearFechaHora } from '@/lib/fechas';
+import { irASeccion } from '@/lib/flujos';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import rutasBajas from '@/routes/rh/bajas';
@@ -45,6 +47,7 @@ import type {
     FormaSalidaOpcion,
     LimitesBaja,
     PanelDocumentoSalida,
+    SiguientePaso,
 } from '@/types';
 
 /**
@@ -58,6 +61,7 @@ import type {
  */
 const props = defineProps<{
     baja: BajaDetalle;
+    siguientePaso: SiguientePaso;
     salida: PanelDocumentoSalida | null;
     finiquito: DetalleFiniquitoBaja | null;
     formas_pago: { value: string; label: string }[];
@@ -200,6 +204,39 @@ function guardarDatos() {
         });
 }
 
+// ── Siguiente paso: cada clave abre lo que ya existe en esta pantalla ──
+function alSiguientePaso(clave: string): void {
+    switch (clave) {
+        case 'completar_datos':
+            datosAbierto.value = puede('actualizar');
+            break;
+        case 'cerrar_baja':
+            confirmarCierre.value = puede('cerrar');
+            break;
+        case 'generar_documento':
+        case 'corregir_documento':
+        case 'registrar_firmado':
+            irASeccion('documento-salida');
+            break;
+        case 'adjuntar_documentos':
+            irASeccion('documentos-baja');
+            break;
+        case 'revisar_finiquito':
+        case 'recalcular_finiquito':
+            irASeccion('panel-finiquito');
+            break;
+    }
+}
+
+// Viene del ciclo laboral con ?accion=: solo se abre lo que el panel propone.
+onMounted(() => {
+    const pedida = new URLSearchParams(window.location.search).get('accion');
+
+    if (pedida && pedida === props.siguientePaso.accion?.clave) {
+        alSiguientePaso(pedida);
+    }
+});
+
 const errores = computed(() => Object.values(props.baja.errores));
 const esRescision = computed(() => props.baja.forma === 'RE');
 
@@ -305,6 +342,8 @@ const datos = computed(() => [
             >
         </div>
 
+        <SiguientePasoPanel :paso="siguientePaso" @dialogo="alSiguientePaso" />
+
         <div
             v-if="
                 erroresAccion.length &&
@@ -364,12 +403,13 @@ const datos = computed(() => [
             </div>
         </div>
 
-        <PanelFiniquito
-            v-if="finiquito"
-            :finiquito="finiquito"
-            :formas-pago="formas_pago"
-            :enlace-expediente="false"
-        />
+        <div v-if="finiquito" id="panel-finiquito">
+            <PanelFiniquito
+                :finiquito="finiquito"
+                :formas-pago="formas_pago"
+                :enlace-expediente="false"
+            />
+        </div>
 
         <p
             v-else-if="baja.cierre && tienePermiso('finiquitos.ver')"
@@ -491,9 +531,12 @@ const datos = computed(() => [
                     </div>
                 </section>
 
-                <GeneradorDocumentoSalida v-if="salida" :panel="salida" />
+                <div v-if="salida" id="documento-salida">
+                    <GeneradorDocumentoSalida :panel="salida" />
+                </div>
 
                 <section
+                    id="documentos-baja"
                     class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
                 >
                     <div

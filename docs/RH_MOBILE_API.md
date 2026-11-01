@@ -222,3 +222,7 @@ POST /api/v1/rh/reaperturas/{tipo}/{id}   { "motivo": "…" }
 ```
 
 `tipo`: `visto_bueno_solicitud` y `solicitud_rechazada` (`id` de la solicitud), `vacaciones_rechazadas` (`id` de la vacación), `intervencion_candidato` (`id` de la intervención), `entrevista_candidato` (`id` del candidato). Solo un puesto superior a quien decidió: 403 sin datos del trámite; 422 si ya no se puede reabrir o falta el motivo. La ficha de candidato, solicitud y vacación trae `reaperturas` con lo que esta cuenta puede reabrir: mostrar el botón solo con eso. Ver `docs/JERARQUIA_PUESTOS.md`.
+
+## Siguiente paso
+
+`GET /api/v1/rh/candidatos/{id}`, `GET /api/v1/rh/colaboradores/{id}/ciclo` y `GET /api/v1/rh/bajas/{id}` agregan `siguiente_paso` (`tipo`: `accion`, `espera` o `terminado`; `accion`, `mensaje`, `bloqueos`, `relacionadas`). Se conservan `ciclo.siguiente_accion` y `acciones_permitidas`, que ahora puede traer entradas con `href` y `solo_web: true`: la app no las ejecuta. Con `accion.solo_web`, mostrar «Se completa en la web»; `href` es una ruta web relativa. Ver `docs/SIGUIENTE_PASO.md`.

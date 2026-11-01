@@ -11,6 +11,7 @@ use App\Models\OnboardingProceso;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
+use App\Services\Flujos\SiguientePasoService;
 use App\Services\Onboarding\AcuseDescriptivoPuestoService;
 use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\OnboardingService;
@@ -90,7 +91,9 @@ class CicloLaboralRhController extends Controller
         $enCadena = $usuario->colaborador !== null && $this->jerarquia->estaEnCadenaDeMando($usuario->colaborador, $colaborador);
         abort_unless($this->alcance->alcanzaColaborador($usuario, $colaborador) || $enCadena, 403);
 
-        return response()->json(['data' => $this->ciclo->ficha($colaborador, $usuario)]);
+        $ficha = $this->ciclo->ficha($colaborador, $usuario);
+
+        return response()->json(['data' => [...$ficha, 'siguiente_paso' => app(SiguientePasoService::class)->paraColaborador($colaborador, $usuario, $ficha['ciclo'])->toArray()]]);
     }
 
     public function entregarActivo(Request $request, OnboardingProceso $proceso): JsonResponse

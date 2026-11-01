@@ -27,6 +27,7 @@ use App\Services\Bajas\CatalogoBajasService;
 use App\Services\Bajas\TableroRotacionService;
 use App\Services\CierreLaboral\CausalRotacionService;
 use App\Services\Finiquitos\FiniquitoConsultaService;
+use App\Services\Flujos\SiguientePasoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -191,6 +192,7 @@ class BajaController extends Controller
             'finiquito' => $finiquito !== null && $usuario->can('ver', $finiquito) ? $this->finiquitos->detalle($finiquito, $usuario) : null,
             'formas_pago' => array_map(fn (FormaPagoFiniquito $f): array => ['value' => $f->value, 'label' => $f->etiqueta()], FormaPagoFiniquito::cases()),
             'baja' => $this->bajas->detalle($baja, $usuario),
+            'siguientePaso' => app(SiguientePasoService::class)->paraBaja($baja, $usuario)->toArray(),
             'salida' => $usuario->can('documentoSalida', $baja) ? $this->salida->panel($baja, $usuario) : null,
             'causales' => $usuario->can(BajaService::PERMISO_GESTIONAR) ? $this->catalogo->opciones() : [],
             'recontratable' => array_map(fn (Recontratable $r): array => ['value' => $r->value, 'label' => $r->etiqueta()], Recontratable::cases()),
