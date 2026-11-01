@@ -47,3 +47,4 @@ export * from './rh';
 export * from './solicitudes';
 export * from './ui';
 export * from './vacaciones';
+export * from './correcciones';
