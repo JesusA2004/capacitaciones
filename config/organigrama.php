@@ -24,16 +24,37 @@ return [
     // Regional son plazas únicas de la empresa (ámbito corporativo).
     'puestos_de_region' => [],
 
-    // Cadena regional, del más cercano a la sucursal hacia arriba: el Gerente
-    // de Sucursal responde al primero con titular o cobertura vigente.
-    'puestos_regionales' => ['Subgerente Regional', 'Gerente Regional'],
+    // Plazas regionales, de mayor a menor. El Gerente de Sucursal reporta al
+    // Gerente Regional; el Subgerente Regional le reporta a él y también decide
+    // sobre la línea de abajo, así que ambos responden por las sucursales.
+    'puestos_regionales' => ['Gerente Regional', 'Subgerente Regional'],
+
+    /*
+    | Línea comercial, de mayor a menor (App\Services\Organigrama\AutoridadJerarquicaService).
+    | Se modifica lo hecho por un puesto inferior, nunca lo de uno superior.
+    | Q1/Q3 y «Regional de Operaciones» siguen aquí solo mientras alguien ocupe esos
+    | puestos anteriores: `people:sincronizar-organigrama` los reporta como conflicto.
+    */
+    'linea_comercial' => [
+        ['puestos' => ['Gerente Regional', 'Gerente Regional Q1', 'Gerente Regional Q3', 'Regional de Operaciones'], 'de_empresa' => true],
+        ['puestos' => ['Subgerente Regional'], 'de_empresa' => true],
+        ['puestos' => ['Gerente de Sucursal'], 'de_empresa' => false],
+        ['puestos' => ['Subgerente', 'Subgerente de Sucursal'], 'de_empresa' => false],
+        ['puestos' => ['Gestor', 'Gestor Volante', 'Gestor grupal'], 'de_empresa' => false],
+    ],
+
+    // Una cuenta con estos roles actúa con sus permisos, fuera de la línea.
+    'roles_fuera_de_linea' => ['super_admin', 'rh_admin', 'rh_auxiliar', 'direccion', 'director_comercial'],
+
+    // Rol con el que operan los titulares de las plazas regionales.
+    'rol_regional' => 'gerente_regional',
 
     /*
     | Regional de RESPALDO (App\Services\Organigrama\RegionalRespaldoService).
     | El personal de sucursal (Gestor, Subgerente, Gerente de Sucursal…)
-    | NUNCA reporta a Dirección Comercial: si la gerencia de su sucursal y el
-    | Subgerente y Gerente Regional están vacantes (sin titular ni cobertura),
-    | su jefe y responsable de aprobaciones es esta regional. Orden:
+    | NUNCA reporta a Dirección Comercial: si la gerencia de su sucursal y la
+    | Gerencia Regional están vacantes (sin titular ni cobertura), su jefe y
+    | responsable de aprobaciones es esta regional. Orden:
     |  1. `colaborador` (id o número de empleado) si está vigente;
     |  2. titulares vigentes de los `puestos` regionales, por id;
     |  3. quien cubre temporalmente una plaza regional.
@@ -41,7 +62,7 @@ return [
     | nunca Dirección Comercial.
     */
     'regional_respaldo' => [
-        'puestos' => ['Subgerente Regional', 'Gerente Regional', 'Gerente Regional Q1', 'Gerente Regional Q3', 'Regional de Operaciones'],
+        'puestos' => ['Gerente Regional', 'Subgerente Regional', 'Gerente Regional Q1', 'Gerente Regional Q3', 'Regional de Operaciones'],
         'colaborador' => env('ORGANIGRAMA_REGIONAL_RESPALDO'),
     ],
 

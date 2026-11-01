@@ -28,8 +28,8 @@ use App\Services\Expedientes\MigracionInicial\Normalizador;
  *     de la matriz + `puestos` de config), por id ascendente;
  *  3. quienes cubren temporalmente una plaza regional, por id de cobertura.
  *
- * Con un solo regional en la empresa (hoy Mónica García Cancino) siempre
- * es ella, sin importar de qué región sea titular.
+ * Con un solo regional en la empresa siempre es esa persona, sin importar
+ * de qué región sea titular.
  */
 class RegionalRespaldoService
 {

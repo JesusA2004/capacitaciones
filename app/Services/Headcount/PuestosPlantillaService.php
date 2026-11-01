@@ -75,7 +75,7 @@ class PuestosPlantillaService
 
     /**
      * Sucursal donde cuenta una persona de este puesto: la suya o, si es de
-     * empresa y su plaza vive en otra (Mónica en Tula, plaza en Corporativo),
+     * empresa y su plaza vive en otra (registrada en una sucursal, plaza en Corporativo),
      * la de la plaza. Así un titular registrado fuera no deja una vacante falsa.
      */
     public function sucursalDePlaza(int $puestoId, int $sucursalId): int

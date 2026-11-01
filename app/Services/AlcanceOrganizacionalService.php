@@ -6,6 +6,7 @@ use App\Models\Colaborador;
 use App\Models\Departamento;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\Organigrama\AutoridadJerarquicaService;
 use App\Services\Permisos\AlcanceModuloService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -25,6 +26,8 @@ use Illuminate\Support\Collection;
  */
 class AlcanceOrganizacionalService
 {
+    public function __construct(private readonly AutoridadJerarquicaService $autoridad) {}
+
     /**
      * Roles con acceso a toda la organizacion, sin restriccion de sucursal.
      * rh_admin/rh_auxiliar se agregaron con el Portal RH: el personal de RH
@@ -78,11 +81,19 @@ class AlcanceOrganizacionalService
             return collect();
         }
 
-        return collect([$colaborador->sucursal_principal_id])
+        $propias = collect([$colaborador->sucursal_principal_id])
             ->merge($colaborador->sucursalesAdicionales()->pluck('sucursales.id'))
             ->filter()
             ->unique()
             ->values();
+
+        // Gerente y Subgerente Regional: plazas de empresa, responden por todas
+        // las sucursales operativas aunque estén registrados en una sola.
+        if ($this->tieneAlcanceDeSucursal($usuario) && $this->autoridad->tieneAlcanceDeEmpresa($usuario)) {
+            return Sucursal::query()->where('es_corporativo', false)->pluck('id')->merge($propias)->unique()->values();
+        }
+
+        return $propias;
     }
 
     /**

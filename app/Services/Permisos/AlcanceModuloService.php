@@ -6,8 +6,10 @@ use App\Enums\AlcanceDatos;
 use App\Enums\TipoNodoComercial;
 use App\Models\Colaborador;
 use App\Models\NodoComercial;
+use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Organigrama\AutoridadJerarquicaService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
@@ -35,6 +37,7 @@ class AlcanceModuloService
     public function __construct(
         private readonly AlcanceOrganizacionalService $organizacional,
         private readonly PermissionRegistrar $registrar,
+        private readonly AutoridadJerarquicaService $autoridad,
     ) {}
 
     public function nivel(User $usuario, string $modulo): AlcanceDatos
@@ -192,6 +195,12 @@ class AlcanceModuloService
             ->map(fn ($id): int => (int) $id)
             ->unique()
             ->values();
+
+        // Gerente y Subgerente Regional son plazas de empresa: su «región» son
+        // todas las sucursales operativas, no las de la zona donde están registrados.
+        if ($nivel === AlcanceDatos::Region && $this->autoridad->tieneAlcanceDeEmpresa($usuario)) {
+            return Sucursal::query()->where('es_corporativo', false)->pluck('id')->map(fn ($id): int => (int) $id)->merge($propias)->unique()->values();
+        }
 
         if ($nivel !== AlcanceDatos::Region || $propias->isEmpty()) {
             return $propias;
