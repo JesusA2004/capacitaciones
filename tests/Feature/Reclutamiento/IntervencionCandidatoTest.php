@@ -5,12 +5,10 @@ use App\Enums\EstadoIntervencionCandidato;
 use App\Enums\EstadoVacante;
 use App\Enums\GrupoPuestoIndicador;
 use App\Enums\RutaIntervencionCandidato;
-use App\Enums\TipoNodoComercial;
 use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\HeadcountTarget;
 use App\Models\IntervencionCandidato;
-use App\Models\NodoComercial;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
@@ -94,14 +92,9 @@ function icDireccionComercial(): User
  * Colaborador activo como Gerente Regional de la región de $sucursalId
  * (config organigrama.puestos_de_region + NodoComercial Matriz→Región→Zona).
  */
-function icRegionalDe(int $sucursalId): User
+function icRegionalDe(int $sucursalId, string $puesto = 'Subgerente Regional'): User
 {
-    $regional = Puesto::factory()->create(['nombre' => 'Gerente regional']);
-
-    $matriz = NodoComercial::factory()->create(['tipo' => TipoNodoComercial::Matriz->value, 'nombre' => 'MATRIZ IC']);
-    $region = NodoComercial::factory()->create(['tipo' => TipoNodoComercial::Region->value, 'nombre' => 'Región IC', 'parent_id' => $matriz->id]);
-    NodoComercial::factory()->create(['tipo' => TipoNodoComercial::Zona->value, 'nombre' => 'ZONA IC', 'parent_id' => $region->id, 'sucursal_id' => $sucursalId]);
-
+    $regional = Puesto::factory()->create(['nombre' => $puesto]);
     $colaborador = Colaborador::factory()->create(['puesto_id' => $regional->id, 'sucursal_principal_id' => $sucursalId, 'estatus' => 'activo']);
 
     return User::factory()->create(['colaborador_id' => $colaborador->id]);
@@ -193,22 +186,45 @@ test('Dirección Comercial confirma el rechazo: el candidato sigue rechazado', f
         ->and($intervencion->fresh()->estado)->toBe(EstadoIntervencionCandidato::RechazoConfirmado);
 });
 
-test('un Regional de otra región no puede decidir una intervención que no le corresponde', function () {
+test('solo el regional vigente decide: ni el Gerente Regional mientras haya Subgerente, ni alguien con el permiso fuera de la cadena', function () {
     $this->estructura['puesto']->update(['grupo_indicador' => GrupoPuestoIndicador::Gestores]);
     $candidato = icCandidatoRechazadoPorRh($this);
 
+    // Plaza única de la empresa: Subgerente Regional responde por todas las
+    // sucursales, aunque él esté registrado en otra.
     $otraSucursal = Sucursal::factory()->create();
-    $regionalOtraRegion = icRegionalDe($otraSucursal->id);
-    $regionalOtraRegion->givePermissionTo('candidatos.intervencion_decidir');
+    $vigente = icRegionalDe($otraSucursal->id);
+    $vigente->givePermissionTo('candidatos.intervencion_decidir');
+
+    $gerenteRegional = icRegionalDe($otraSucursal->id, 'Gerente Regional');
+    $gerenteRegional->givePermissionTo('candidatos.intervencion_decidir');
+
+    $ajeno = clUsuario('colaborador', ['sucursal_principal_id' => $otraSucursal->id]);
+    $ajeno->givePermissionTo('candidatos.intervencion_decidir');
 
     app(IntervencionCandidatoService::class)->solicitar($candidato, $this->gerente, 'Reconsiderar.');
     $intervencion = IntervencionCandidato::where('candidato_id', $candidato->id)->firstOrFail();
 
-    $this->actingAs($regionalOtraRegion)
+    foreach ([$gerenteRegional, $ajeno] as $sinAutoridad) {
+        $this->actingAs($sinAutoridad)
+            ->post(route('rh.intervenciones.decidir', $intervencion), ['aprueba' => true])
+            ->assertForbidden();
+
+        expect($intervencion->fresh()->estado)->toBe(EstadoIntervencionCandidato::Pendiente);
+    }
+
+    // Ser el regional vigente tampoco basta sin el permiso.
+    $vigente->revokePermissionTo('candidatos.intervencion_decidir');
+    $this->actingAs($vigente)
         ->post(route('rh.intervenciones.decidir', $intervencion), ['aprueba' => true])
         ->assertForbidden();
-
     expect($intervencion->fresh()->estado)->toBe(EstadoIntervencionCandidato::Pendiente);
+
+    $vigente->givePermissionTo('candidatos.intervencion_decidir');
+    $this->actingAs($vigente)
+        ->post(route('rh.intervenciones.decidir', $intervencion), ['aprueba' => true])
+        ->assertSessionHasNoErrors();
+    expect($intervencion->fresh()->estado)->toBe(EstadoIntervencionCandidato::Aprobada);
 });
 
 test('no se puede solicitar una segunda intervención mientras haya una pendiente de decisión', function () {
