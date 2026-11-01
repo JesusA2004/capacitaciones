@@ -14,8 +14,7 @@
         "lint:check": "eslint .",
         "test:js": "node --test \"tests/js/*.test.mjs\"",
         "wayfinder": "php artisan people:wayfinder --with-form",
-        "pretypes:check": "npm run wayfinder",
-        "types:check": "vue-tsc --noEmit"
+        "types:check": "npm run wayfinder && vue-tsc --noEmit"
     },
     "devDependencies": {
         "@eslint/js": "^9.19.0",
