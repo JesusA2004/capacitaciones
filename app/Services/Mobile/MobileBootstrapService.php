@@ -69,6 +69,9 @@ class MobileBootstrapService
         'prestamos.ver',
         'prestamos.autorizar',
         'actas.ver',
+        // Consulta de bajas: Jurídico y Contraloría no tienen otra entrada.
+        'bajas.revisar_juridico',
+        'bajas.consulta_contraloria',
     ];
 
     public function __construct(
