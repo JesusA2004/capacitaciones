@@ -1266,16 +1266,14 @@ class FiniquitoService
      * Invariante de negocio: un finiquito firmado no se recalcula, no se
      * ajusta, no se vuelve a revisar y no se regenera el PDF por encima del
      * ya entregado — el documento firmado por el colaborador es definitivo.
-     * Falta por implementar (fuera de alcance de este cambio): un flujo
-     * explícito de "corrección/anulación" que cree una versión nueva en vez
-     * de mutar la firmada, para cuando RH detecte un error después de
-     * firmado.
+     * No hay flujo de corrección o anulación de un finiquito firmado: lo tiene
+     * que definir Jurídico (docs/CORRECCIONES.md, pendiente de validación).
      */
     private function asegurarNoFirmado(FiniquitoCalculo $finiquito): void
     {
         if ($finiquito->estado === EstadoFiniquito::Firmado || $finiquito->estado === EstadoFiniquito::Pagado) {
             throw ValidationException::withMessages([
-                'estado' => 'Este finiquito ya está firmado y no puede modificarse. Si hay un error, genera una corrección/anulación explícita.',
+                'estado' => 'Este finiquito ya está firmado o pagado y no puede modificarse en el sistema. Si hay un error, repórtalo a RH y Jurídico: el procedimiento para rectificarlo está pendiente de validación.',
             ]);
         }
     }
