@@ -6,16 +6,27 @@ Sin reescribir motores. `app/Services/Documentos/Versiones`.
 ## Orden de `VersionadoDocumentoService::emitir`
 
 1. Lista blanca (`FuenteDocumento::campos`): una clave ajena se rechaza.
-2. Bloqueo del módulo y firmado: sin rectificación, 422; con ella, permiso y motivo.
-3. Huella (`huella_datos`, sin fecha de emisión, referencias ni sellos): si coincide con
-   la vigente, la devuelve sin escribir.
+2. Bloqueo del módulo y firmado: sin rectificación, 422; con ella, permiso, policy
+   `regenerar` (alcance, nunca el propio documento) y motivo.
+3. Huella (`huella_datos`, sin fecha de emisión, referencias ni sellos), leída con la
+   vigente bajo bloqueo del registro: si coincide, la devuelve sin escribir.
 4. Motivo: 5 a 500 caracteres (`config/correcciones.php`). Autoridad jerárquica.
 5. Render **fuera** de transacción. Si falla, no se tocó nada.
 6. Guarda en NAS.
-7. En transacción con `lockForUpdate`: crea la versión, escritura del módulo, historial en
-   `correcciones` y, **al final**, cancela la anterior (si no está firmada).
+7. En transacción con `lockForUpdate`: si otra emisión o una firma cambió la vigente
+   durante el render, misma huella devuelve esa versión y otra huella se rechaza. Luego
+   crea la versión, liga el registro y la escritura del módulo, historial en `correcciones`
+   y, **al final**, cancela la anterior (si no está firmada).
 8. Si falla, compensa: retira la fila nueva (por si la tabla es MyISAM y no hubo
    rollback) y su archivo. Nunca se cancela antes de tener la nueva lista.
+
+Un contrato con cualquier versión viva firmada cuenta como firmado, aunque su puntero ya
+esté en una rectificación sin firmar (`ContratoLaboralService::contratoFirmado`).
+
+Paquete del contrato, aviso de término y `POST documentos-laborales` emiten con
+`FuentePlantillaMotor`: un reintento igual responde 200 con la vigente. Comprobantes,
+carta compromiso, evaluación de inducción, responsiva de activos y recibos conservan su
+propio control contra duplicados.
 
 Sin `campos` (`null`) se conservan las correcciones de la vigente cuya fuente no cambió.
 Si la fuente cambió, la corrección no se reaplica: el editor la muestra como obsoleta.

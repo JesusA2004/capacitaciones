@@ -14,7 +14,8 @@ de cada dato siguen en sus servicios y activitylog sigue funcionando.
 4. `GET …/historial` y `GET correcciones/colaboradores/{id}/historial`.
 
 Fuera de la transacción van bitácora y aviso: si fallan, la corrección se conserva.
-El aviso nunca incluye el valor. Espejo móvil en `/api/v1/rh/correcciones`, sin
+El aviso nunca incluye el valor. El motivo se conserva en la bitácora, pero el timeline
+solo lo muestra a quien puede ver sueldos. Espejo móvil en `/api/v1/rh/correcciones`, sin
 `salario`, sin `recibo_nomina` y sin el sueldo del contrato (404 o campo ausente).
 
 ## Modos por campo (`config/correcciones.php`)
@@ -37,6 +38,10 @@ El aviso nunca incluye el valor. Espejo móvil en `/api/v1/rh/correcciones`, sin
 | agenda | fecha y hora | nueva cita (la anterior se conserva) | `agenda.agendar` | `reprogramar()` |
 | agenda | notas | directo si está programada | `agenda.agendar` | |
 | documento_generado | datos del documento | nueva versión (`VersionadoDocumentoService`); solo historial por esta vía | según el módulo | Ver `DOCUMENTOS_VERSIONES.md` |
+
+`completar` (modal de datos faltantes de un documento) solo rellena vacíos: un valor
+distinto sobre un dato ya capturado responde 422 y se corrige aquí. Rellenar la fecha de
+ingreso respeta sus bloqueos.
 
 ## Tipos de cambio de sueldo (`historial_salarios.tipo`)
 

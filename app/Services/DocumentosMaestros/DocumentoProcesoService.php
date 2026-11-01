@@ -42,13 +42,17 @@ use App\Services\Documentos\Versiones\VersionadoDocumentoService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Expedientes\ProgresoExpediente;
+use App\Services\Expedientes\DatosExpedienteService;
 use App\Services\Nomina\PrestamoAutorizacionService;
 use App\Services\Tareas\TareaService;
+use BackedEnum;
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Closure;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -781,12 +785,6 @@ class DocumentoProcesoService
             $this->exigirManualesPermitidos($clave, $registro, $colaborador, $proceso, $manuales, $actor);
         }
 
-        if ($completar !== []) {
-            $this->completarDatos($colaborador, $completar, $actor);
-        }
-
-        $this->exigirFechaIngreso($registro, $colaborador);
-
         if ($existente !== null && $revisionDe === null) {
             if (! $regenerar) {
                 throw ValidationException::withMessages(['documento' => 'Este documento ya está generado. Descárgalo o usa "Regenerar" (con motivo) si cambiaron los datos.']);
@@ -794,6 +792,13 @@ class DocumentoProcesoService
 
             $sustituye = $existente;
         }
+
+        // Después de rechazar «ya generado»: una petición rechazada no escribe en el expediente.
+        if ($completar !== []) {
+            $this->completarDatos($colaborador, $completar, $actor);
+        }
+
+        $this->exigirFechaIngreso($registro, $colaborador);
 
         // Dentro de la transacción de la emisión: si ligar falla, la anterior sigue vigente.
         $alEmitirYLigar = new class($alEmitir, fn (GeneratedDocument $documento) => $this->ligarAlRegistro($documento, $registro, $clave, $actor)) implements AlEmitirDocumento
@@ -1115,7 +1120,7 @@ class DocumentoProcesoService
      */
     private function aplicarEnMemoria(Colaborador $colaborador, array $datos): void
     {
-        [$validosColaborador, $validosSucursal] = $this->validarCompletar(...$this->separarCompletar($datos));
+        [$validosColaborador, $validosSucursal] = $this->soloVacios($colaborador, ...$this->validarCompletar(...$this->separarCompletar($datos)));
         $limpiar = fn (array $valores): array => array_map(fn (mixed $v): mixed => is_string($v) ? trim($v) : $v, $valores);
 
         if ($validosColaborador !== []) {
@@ -1179,6 +1184,73 @@ class DocumentoProcesoService
     }
 
     /**
+     * Completar rellena vacíos, nada más: un dato ya capturado se corrige por
+     * CorreccionService, con motivo, jerarquía y bloqueos. Repetir el mismo valor se
+     * ignora; uno distinto se rechaza. Rellenar la fecha de ingreso respeta sus bloqueos.
+     *
+     * @param  array<string, mixed>  $deColaborador
+     * @param  array<string, mixed>  $deSucursal
+     * @return array{0: array<string, mixed>, 1: array<string, mixed>}
+     *
+     * @throws ValidationException
+     */
+    private function soloVacios(Colaborador $colaborador, array $deColaborador, array $deSucursal): array
+    {
+        $vaciosColaborador = $this->filtrarVacios($colaborador, $deColaborador, '');
+        $sucursal = $deSucursal !== [] ? $colaborador->sucursalPrincipal : null;
+        $vaciosSucursal = $sucursal !== null ? $this->filtrarVacios($sucursal, $deSucursal, 'sucursal.') : [];
+
+        if (array_key_exists('fecha_ingreso', $vaciosColaborador)) {
+            $bloqueos = app(DatosExpedienteService::class)->bloqueosFechaIngreso($colaborador);
+
+            if ($bloqueos !== []) {
+                throw ValidationException::withMessages(['fecha_ingreso' => sprintf('La fecha de ingreso no se puede capturar: %s.', implode(', ', $bloqueos))]);
+            }
+        }
+
+        return [$vaciosColaborador, $vaciosSucursal];
+    }
+
+    /**
+     * @param  array<string, mixed>  $valores
+     * @return array<string, mixed>
+     *
+     * @throws ValidationException
+     */
+    private function filtrarVacios(Model $modelo, array $valores, string $prefijo): array
+    {
+        $vacios = [];
+
+        foreach ($valores as $columna => $valor) {
+            $actual = $this->comoTextoComparable($modelo->getAttribute($columna));
+
+            if ($actual === '') {
+                $vacios[$columna] = $valor;
+
+                continue;
+            }
+
+            $esFecha = $modelo->getAttribute($columna) instanceof CarbonInterface;
+            $nuevo = $esFecha ? Carbon::parse((string) $valor)->toDateString() : $this->comoTextoComparable($valor);
+
+            if (mb_strtolower($nuevo) !== mb_strtolower($actual)) {
+                throw ValidationException::withMessages([$prefijo.$columna => 'Este dato ya está capturado: corrígelo desde Correcciones, con motivo.']);
+            }
+        }
+
+        return $vacios;
+    }
+
+    private function comoTextoComparable(mixed $valor): string
+    {
+        return match (true) {
+            $valor instanceof CarbonInterface => $valor->toDateString(),
+            $valor instanceof BackedEnum => (string) $valor->value,
+            default => is_scalar($valor) ? trim((string) $valor) : '',
+        };
+    }
+
+    /**
      * Guarda en la ficha los datos que faltaban (solo columnas permitidas
      * y solo si el usuario puede editarlas). Lo que ya existe no se pide de
      * nuevo; esto completa el expediente para futuros documentos.
@@ -1200,7 +1272,11 @@ class DocumentoProcesoService
             throw new AuthorizationException('Solo quien administra sucursales puede completar su domicilio. Pídelo a RH.');
         }
 
-        [$validosColaborador, $validosSucursal] = $this->validarCompletar($deColaborador, $deSucursal);
+        [$validosColaborador, $validosSucursal] = $this->soloVacios($colaborador, ...$this->validarCompletar($deColaborador, $deSucursal));
+
+        if ($validosColaborador === [] && $validosSucursal === []) {
+            return;
+        }
 
         DB::transaction(function () use ($colaborador, $validosColaborador, $validosSucursal): void {
             if ($validosColaborador !== []) {
