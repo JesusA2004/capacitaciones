@@ -5,15 +5,19 @@ namespace App\Services\Reportes;
 use App\Enums\EstadoCandidato;
 use App\Enums\EstadoUsuario;
 use App\Enums\GrupoPuestoIndicador;
+use App\Http\Controllers\Rh\PendienteController;
+use App\Models\Baja;
 use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\Empresa;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Bajas\TableroRotacionService;
 use App\Services\Contratos\ContratoLaboralService;
+use App\Services\Contratos\RegularizacionContratosService;
 use App\Services\Expedientes\DatosFaltantesService;
 use App\Services\Headcount\HeadcountService;
 use App\Services\Reclutamiento\CostoReclutamientoService;
@@ -121,7 +125,48 @@ class TableroRhService
                 'empresas' => Empresa::query()->whereIn('id', Sucursal::query()->whereIn('id', $visibles)->select('empresa_id'))->orderBy('nombre')->get(['id', 'nombre'])
                     ->map(fn (Empresa $e) => ['id' => $e->id, 'nombre' => $e->nombre])->values()->all(),
             ],
+            'enlaces' => $this->enlaces($usuario, $sucursalFiltro),
+            'en_incorporacion' => $this->colaboradores($sucursales)->where('estatus', EstadoUsuario::EnIncorporacion->value)->count(),
             'generated_at' => now()->toIso8601String(),
+        ];
+    }
+
+    /**
+     * A dónde lleva cada indicador. Mismo permiso que el destino: sin él no hay
+     * enlace, y la cifra se queda como texto (nunca un 403).
+     *
+     * @return array<string, string|null>
+     */
+    private function enlaces(User $usuario, ?int $sucursal): array
+    {
+        $porSucursal = array_filter(['sucursal_id' => $sucursal]);
+        $ruta = fn (bool $puede, string $nombre, array $parametros = []): ?string => $puede ? route($nombre, $parametros, false) : null;
+        $plantilla = $ruta($usuario->can('viewAny', Sucursal::class), 'administracion.sucursales.index');
+        $vacantes = $ruta($usuario->can('viewAny', Vacante::class), 'rh.vacantes.index', $porSucursal);
+        $bajas = $ruta($usuario->can('viewAny', Baja::class), 'rh.bajas.index', $porSucursal);
+        $rotacion = $ruta($usuario->can('verTablero', Baja::class), 'rh.bajas.rotacion');
+        $candidatos = $ruta($usuario->can('viewAny', Candidato::class), 'rh.candidatos.index', $porSucursal);
+        $campanas = $ruta($usuario->can('reclutamiento.campanas.ver'), 'rh.campanas.index');
+        $expedientes = $ruta($this->alcance->puedeExplorarExpedientes($usuario), 'rh.expedientes.index');
+        $contratos = $ruta(app(RegularizacionContratosService::class)->puedeVer($usuario), 'rh.contratos.index');
+
+        return [
+            'autorizada' => $plantilla,
+            'activa' => route('directorio.index', [], false),
+            'vacantes' => $vacantes,
+            'cobertura' => $plantilla,
+            'altas' => $expedientes,
+            'bajas' => $bajas,
+            'rotacion_mes' => $rotacion,
+            'rotacion_acumulada' => $rotacion,
+            'candidatos' => $candidatos,
+            'tiempo' => $candidatos,
+            'costo' => $campanas,
+            'inversion' => $campanas,
+            'permanencia' => $expedientes,
+            'contratos' => $contratos,
+            'incompletos' => $expedientes,
+            'vencidos' => $ruta($usuario->canAny(PendienteController::PERMISOS_ACCESO), 'rh.pendientes.index'),
         ];
     }
 

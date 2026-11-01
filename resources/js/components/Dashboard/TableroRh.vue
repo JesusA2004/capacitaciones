@@ -39,6 +39,30 @@ const sucursal = ref(
 const meses = ref(props.tablero.filters.meses ?? 12);
 const cargando = ref(false);
 
+/** Solo lo accionable y distinto de cero, de más a menos urgente. */
+const atencion = computed(() =>
+    [
+        {
+            etiqueta: 'pendientes vencidos',
+            valor: props.inicio.vencidos,
+            href: props.tablero.enlaces.vencidos,
+            urgente: true,
+        },
+        {
+            etiqueta: 'contratos por vencer',
+            valor: props.tablero.summary.contratos_por_vencer.valor,
+            href: props.tablero.enlaces.contratos,
+            urgente: false,
+        },
+        {
+            etiqueta: 'expedientes incompletos',
+            valor: props.tablero.summary.expedientes_incompletos.valor ?? 0,
+            href: props.tablero.enlaces.incompletos,
+            urgente: false,
+        },
+    ].filter((a) => a.valor > 0),
+);
+
 const sucursalesDeEmpresa = computed(() =>
     empresa.value === TODAS
         ? props.tablero.filters.sucursales
@@ -328,9 +352,44 @@ const sucursalesCobertura = computed(() => {
         </header>
 
         <div
-            class="flex flex-col gap-3 transition-opacity duration-200"
+            class="flex flex-col gap-3 transition-opacity duration-(--mov-base)"
             :class="cargando ? 'opacity-50' : 'opacity-100'"
         >
+            <!-- Lo primero: qué pide acción hoy. Solo lo que está en cero se oculta. -->
+            <nav
+                aria-label="Qué requiere atención"
+                class="flex flex-wrap items-center gap-2"
+            >
+                <template v-if="atencion.length">
+                    <span class="text-sm font-semibold">Requiere atención</span>
+                    <component
+                        :is="a.href ? Link : 'span'"
+                        v-for="a in atencion"
+                        :key="a.etiqueta"
+                        :href="a.href ?? undefined"
+                        class="inline-flex min-h-9 items-center gap-2 rounded-xl px-3 text-sm font-medium transicion-ui"
+                        :class="[
+                            a.urgente
+                                ? 'bg-danger-soft text-destructive'
+                                : 'bg-warning-soft text-warning',
+                            a.href && 'hover:shadow-sm',
+                        ]"
+                    >
+                        <span class="font-bold tabular-nums">{{
+                            numero.format(a.valor)
+                        }}</span>
+                        {{ a.etiqueta }}
+                    </component>
+                </template>
+                <p
+                    v-else
+                    class="rounded-xl bg-success-soft px-3 py-2 text-sm font-medium text-success"
+                >
+                    Nada urgente: sin vencidos, contratos por vencer ni
+                    expedientes incompletos.
+                </p>
+            </nav>
+
             <!-- Cuatro bloques: cada indicador aparece una sola vez. -->
             <div
                 data-tour="dashboard-kpis"
@@ -339,7 +398,13 @@ const sucursalesCobertura = computed(() => {
                 <article class="bloque border-t-primary">
                     <h2 class="bloque-titulo text-primary">Plantilla</h2>
                     <dl class="bloque-datos">
-                        <div>
+                        <div class="dato">
+                            <Link
+                                v-if="tablero.enlaces.autorizada"
+                                :href="tablero.enlaces.autorizada"
+                                class="dato-enlace"
+                                aria-label="Ver detalle: Autorizada"
+                            />
                             <dt>Autorizada</dt>
                             <dd>
                                 {{ numero.format(poblacion.total.autorizadas) }}
@@ -351,7 +416,13 @@ const sucursalesCobertura = computed(() => {
                                 {{ poblacion.sucursales.autorizadas }}
                             </p>
                         </div>
-                        <div>
+                        <div class="dato">
+                            <Link
+                                v-if="tablero.enlaces.activa"
+                                :href="tablero.enlaces.activa"
+                                class="dato-enlace"
+                                aria-label="Ver detalle: Activa"
+                            />
                             <dt>Activa</dt>
                             <dd>
                                 {{ numero.format(poblacion.total.activos) }}
@@ -359,10 +430,20 @@ const sucursalesCobertura = computed(() => {
                             <p>
                                 Corporativo
                                 {{ poblacion.corporativo.activos }} · Sucursales
-                                {{ poblacion.sucursales.activos }}
+                                {{ poblacion.sucursales.activos
+                                }}<template v-if="tablero.en_incorporacion > 0">
+                                    · {{ tablero.en_incorporacion }} en
+                                    incorporación</template
+                                >
                             </p>
                         </div>
-                        <div>
+                        <div class="dato">
+                            <Link
+                                v-if="tablero.enlaces.vacantes"
+                                :href="tablero.enlaces.vacantes"
+                                class="dato-enlace"
+                                aria-label="Ver detalle: Vacantes"
+                            />
                             <dt>Vacantes</dt>
                             <dd class="text-bronce">
                                 {{ numero.format(poblacion.total.vacantes) }}
@@ -374,7 +455,13 @@ const sucursalesCobertura = computed(() => {
                                 {{ poblacion.sucursales.vacantes }}
                             </p>
                         </div>
-                        <div>
+                        <div class="dato">
+                            <Link
+                                v-if="tablero.enlaces.cobertura"
+                                :href="tablero.enlaces.cobertura"
+                                class="dato-enlace"
+                                aria-label="Ver detalle: Cobertura"
+                            />
                             <dt>Cobertura</dt>
                             <dd
                                 :class="
@@ -412,17 +499,35 @@ const sucursalesCobertura = computed(() => {
                         {{ tablero.filters.periodo_etiqueta }}
                     </h2>
                     <dl class="bloque-datos">
-                        <div>
+                        <div class="dato">
+                            <Link
+                                v-if="tablero.enlaces.altas"
+                                :href="tablero.enlaces.altas"
+                                class="dato-enlace"
+                                aria-label="Ver detalle: Altas del mes"
+                            />
                             <dt>Altas del mes</dt>
                             <dd>{{ numero.format(s.altas_mes.valor) }}</dd>
                             <p>Ingresos registrados</p>
                         </div>
-                        <div>
+                        <div class="dato">
+                            <Link
+                                v-if="tablero.enlaces.bajas"
+                                :href="tablero.enlaces.bajas"
+                                class="dato-enlace"
+                                aria-label="Ver detalle: Bajas del mes"
+                            />
                             <dt>Bajas del mes</dt>
                             <dd>{{ numero.format(s.rotacion_mes.bajas) }}</dd>
                             <p>Por fecha de último día</p>
                         </div>
-                        <div>
+                        <div class="dato">
+                            <Link
+                                v-if="tablero.enlaces.rotacion_mes"
+                                :href="tablero.enlaces.rotacion_mes"
+                                class="dato-enlace"
+                                aria-label="Ver detalle: Rotación del mes"
+                            />
                             <dt>Rotación del mes</dt>
                             <dd
                                 :class="
@@ -449,7 +554,13 @@ const sucursalesCobertura = computed(() => {
                                 }}
                             </p>
                         </div>
-                        <div>
+                        <div class="dato">
+                            <Link
+                                v-if="tablero.enlaces.rotacion_acumulada"
+                                :href="tablero.enlaces.rotacion_acumulada"
+                                class="dato-enlace"
+                                aria-label="Ver detalle: Acumulada"
+                            />
                             <dt>Acumulada {{ s.rotacion_acumulada.anio }}</dt>
                             <dd>
                                 {{
@@ -471,7 +582,13 @@ const sucursalesCobertura = computed(() => {
                         Reclutamiento
                     </h2>
                     <dl class="bloque-datos">
-                        <div>
+                        <div class="dato">
+                            <Link
+                                v-if="tablero.enlaces.candidatos"
+                                :href="tablero.enlaces.candidatos"
+                                class="dato-enlace"
+                                aria-label="Ver detalle: Candidatos en proceso"
+                            />
                             <dt>Candidatos en proceso</dt>
                             <dd>
                                 {{ numero.format(s.reclutamiento.en_proceso) }}
@@ -481,7 +598,13 @@ const sucursalesCobertura = computed(() => {
                                 contratados en el mes
                             </p>
                         </div>
-                        <div>
+                        <div class="dato">
+                            <Link
+                                v-if="tablero.enlaces.tiempo"
+                                :href="tablero.enlaces.tiempo"
+                                class="dato-enlace"
+                                aria-label="Ver detalle: Tiempo de contratación"
+                            />
                             <dt>Tiempo de contratación</dt>
                             <dd>
                                 {{
@@ -492,7 +615,13 @@ const sucursalesCobertura = computed(() => {
                             </dd>
                             <p>Postulación a ingreso</p>
                         </div>
-                        <div>
+                        <div class="dato">
+                            <Link
+                                v-if="tablero.enlaces.costo"
+                                :href="tablero.enlaces.costo"
+                                class="dato-enlace"
+                                aria-label="Ver detalle: Costo por contratación"
+                            />
                             <dt>Costo por contratación</dt>
                             <dd>
                                 {{
@@ -511,7 +640,13 @@ const sucursalesCobertura = computed(() => {
                                 }}
                             </p>
                         </div>
-                        <div>
+                        <div class="dato">
+                            <Link
+                                v-if="tablero.enlaces.inversion"
+                                :href="tablero.enlaces.inversion"
+                                class="dato-enlace"
+                                aria-label="Ver detalle: Inversión en campañas"
+                            />
                             <dt>Inversión en campañas</dt>
                             <dd>
                                 {{
@@ -535,7 +670,13 @@ const sucursalesCobertura = computed(() => {
                         Permanencia y expediente
                     </h2>
                     <dl class="bloque-datos">
-                        <div>
+                        <div class="dato">
+                            <Link
+                                v-if="tablero.enlaces.permanencia"
+                                :href="tablero.enlaces.permanencia"
+                                class="dato-enlace"
+                                aria-label="Ver detalle: Permanencia promedio"
+                            />
                             <dt>Permanencia promedio</dt>
                             <dd>
                                 {{
@@ -546,7 +687,13 @@ const sucursalesCobertura = computed(() => {
                             </dd>
                             <p>Antigüedad de la plantilla</p>
                         </div>
-                        <div>
+                        <div class="dato">
+                            <Link
+                                v-if="tablero.enlaces.contratos"
+                                :href="tablero.enlaces.contratos"
+                                class="dato-enlace"
+                                aria-label="Ver detalle: Contratos por vencer"
+                            />
                             <dt>Contratos por vencer</dt>
                             <dd class="text-bronce">
                                 {{
@@ -557,7 +704,13 @@ const sucursalesCobertura = computed(() => {
                                 Próximos {{ s.contratos_por_vencer.dias }} días
                             </p>
                         </div>
-                        <div>
+                        <div class="dato">
+                            <Link
+                                v-if="tablero.enlaces.incompletos"
+                                :href="tablero.enlaces.incompletos"
+                                class="dato-enlace"
+                                aria-label="Ver detalle: Expedientes incompletos"
+                            />
                             <dt>Expedientes incompletos</dt>
                             <dd
                                 :class="
@@ -576,7 +729,13 @@ const sucursalesCobertura = computed(() => {
                             </dd>
                             <p>Datos contractuales faltantes</p>
                         </div>
-                        <div>
+                        <div class="dato">
+                            <Link
+                                v-if="tablero.enlaces.vencidos"
+                                :href="tablero.enlaces.vencidos"
+                                class="dato-enlace"
+                                aria-label="Ver detalle: Pendientes vencidos"
+                            />
                             <dt>Pendientes vencidos</dt>
                             <dd
                                 :class="
@@ -1072,6 +1231,28 @@ const sucursalesCobertura = computed(() => {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.75rem 1rem;
     margin-top: 0.625rem;
+}
+
+.dato {
+    position: relative;
+    border-radius: 0.5rem;
+}
+
+.dato-enlace {
+    position: absolute;
+    inset: -0.25rem;
+    z-index: 1;
+    border-radius: 0.5rem;
+    transition: background-color var(--mov-rapido) var(--curva-salida);
+}
+
+.dato-enlace:hover {
+    background: color-mix(in oklab, var(--accent) 60%, transparent);
+}
+
+.dato-enlace:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 1px;
 }
 
 .bloque-datos dt {

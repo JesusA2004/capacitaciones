@@ -468,6 +468,10 @@ export type SegmentoPoblacion = {
 };
 
 export type TableroRhDatos = {
+    /** Destino de cada indicador; null si no tiene permiso de abrirlo. */
+    enlaces: Record<string, string | null>;
+    /** Personas vigentes que aún no están activas ni aparecen en Directorio. */
+    en_incorporacion: number;
     summary: {
         plantilla_activa: {
             /** Plazas autorizadas ocupadas por colaboradores vigentes. */
