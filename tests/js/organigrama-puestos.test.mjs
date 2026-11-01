@@ -28,17 +28,17 @@ function assertSinCiclos(hijos, raices) {
 
 const ids = (lista) => (lista ?? []).map((p) => p.id);
 
-test('la rama de sucursal cuelga solo de Subgerente Regional', () => {
+test('la rama de sucursal cuelga del Gerente Regional, junto al Subgerente Regional', () => {
     const hijos = hijosDePuestos([
         puesto(1, null),
         puesto(11, 1),
         puesto(12, 11),
-        puesto(20, 12),
+        puesto(20, 11),
         puesto(21, 20),
     ]);
 
-    assert.deepEqual(ids(hijos.get(11)), [12]);
-    assert.deepEqual(ids(hijos.get(12)), [20]);
+    assert.deepEqual(ids(hijos.get(11)), [12, 20]);
+    assert.deepEqual(ids(hijos.get(12)), []);
     assert.deepEqual(ids(hijos.get(20)), [21]);
 });
 

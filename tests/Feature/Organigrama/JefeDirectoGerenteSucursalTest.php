@@ -146,7 +146,7 @@ test('el puesto raíz de sucursal se reconoce sin importar mayúsculas ni acento
 /*
  * Caso real de producción (SLP, 2026-10-21): San Luis Potosí sin Gerente
  * ni Subgerente, Región Q1 sin Gerente Regional, y la única regional de la
- * empresa (Mónica, «Regional de Operaciones» en Tula) es titular de
+ * empresa («Regional de Operaciones» en Tula) es titular de
  * Gerente Regional Q3. Regla del dueño: el gestor reporta (y se aprueba)
  * con la regional, NUNCA con Dirección Comercial.
  */
@@ -157,8 +157,8 @@ function escenarioSlp(object $t): array
     $q3 = NodoComercial::factory()->create(['tipo' => TipoNodoComercial::Region->value, 'nombre' => 'Región Q3', 'region' => 'Q3', 'parent_id' => $t->q1->parent_id, 'puesto_id' => $regionalQ3->id]);
     NodoComercial::factory()->create(['tipo' => TipoNodoComercial::Zona->value, 'nombre' => 'TULA', 'parent_id' => $q3->id, 'sucursal_id' => $tula->id]);
 
-    $monica = personaSucursal('Mónica', $regionalQ3, $tula);
-    User::factory()->create(['colaborador_id' => $monica->id]);
+    $regionalTula = personaSucursal('Titular Regional', $regionalQ3, $tula);
+    User::factory()->create(['colaborador_id' => $regionalTula->id]);
     User::factory()->create(['colaborador_id' => $t->alberto->id]);
 
     $luis = Colaborador::factory()->create([
@@ -166,25 +166,25 @@ function escenarioSlp(object $t): array
         'puesto_id' => $t->gestor->id, 'sucursal_principal_id' => $t->slp->id, 'estatus' => 'en_incorporacion', 'jefe_id' => null,
     ]);
 
-    return [$monica, $luis, $regionalQ3, $tula];
+    return [$regionalTula, $luis, $regionalQ3, $tula];
 }
 
 test('SLP sin gerente y Q1 sin regional: el gestor reporta y se aprueba con la regional (Q3), nunca con Dirección Comercial', function () {
-    [$monica, $luis] = escenarioSlp($this);
+    [$regionalTula, $luis] = escenarioSlp($this);
     personaSucursal('Gerente SLP anterior', $this->gerente, $this->slp, 'inactivo');
 
     $resultado = app(JefeDirectoService::class)->sincronizar();
 
-    expect($luis->fresh()->jefe_id)->toBe($monica->id)
+    expect($luis->fresh()->jefe_id)->toBe($regionalTula->id)
         // El gerente de Cuernavaca (Q1 sin regional) también sube a ella.
-        ->and($this->gerenteCuernavaca->fresh()->jefe_id)->toBe($monica->id)
+        ->and($this->gerenteCuernavaca->fresh()->jefe_id)->toBe($regionalTula->id)
         // La regional sí reporta a Dirección Comercial.
-        ->and($monica->fresh()->jefe_id)->toBe($this->alberto->id)
+        ->and($regionalTula->fresh()->jefe_id)->toBe($this->alberto->id)
         ->and($resultado['sin_jefe_asignable'])->toBe([]);
 
     $resumen = app(AprobacionOrganizacionalService::class)->resumenResponsables($luis->fresh());
-    expect($resumen['jefe_organizacional']['id'] ?? null)->toBe($monica->id)
-        ->and($resumen['responsable_aprobaciones']['id'] ?? null)->toBe($monica->id);
+    expect($resumen['jefe_organizacional']['id'] ?? null)->toBe($regionalTula->id)
+        ->and($resumen['responsable_aprobaciones']['id'] ?? null)->toBe($regionalTula->id);
 
     // Gerente de Sucursal clasificado en Q1 (vacante, sin cobertura): su
     // responsable de aprobaciones es la regional de respaldo, no se detiene
@@ -193,22 +193,22 @@ test('SLP sin gerente y Q1 sin regional: el gestor reporta y se aprueba con la r
     $responsable = app(AprobacionOrganizacionalService::class)->responsableDeAprobacion($this->gerenteCuernavaca->fresh());
     expect($responsable['origen'])->toBe(AprobacionOrganizacionalService::ORIGEN_REGIONAL_RESPALDO)
         ->and($responsable['bloqueado'])->toBeFalse()
-        ->and($responsable['colaboradores']->pluck('id')->all())->toBe([$monica->id]);
+        ->and($responsable['colaboradores']->pluck('id')->all())->toBe([$regionalTula->id]);
 
     // Regional de la sucursal (notificaciones, candidatos): también ella.
-    expect(app(OrganizacionJerarquiaService::class)->regionalesDe($this->slp->id)->pluck('colaborador_id')->all())->toBe([$monica->id]);
+    expect(app(OrganizacionJerarquiaService::class)->regionalesDe($this->slp->id)->pluck('colaborador_id')->all())->toBe([$regionalTula->id]);
 });
 
 test('el regional de respaldo se puede fijar por configuración (id o número de empleado)', function () {
-    [$monica, $luis] = escenarioSlp($this);
+    [$regionalTula, $luis] = escenarioSlp($this);
     // Otra regional con un puesto regional que no es el de Q1 (por nombre en
     // config organigrama.regional_respaldo.puestos).
     $operaciones = Puesto::factory()->create(['nombre' => 'Regional de Operaciones', 'nivel_jerarquico' => 3, 'puesto_superior_id' => $this->direccion->id, 'activo' => true]);
     $otra = Colaborador::factory()->create(['name' => 'Otra regional', 'numero_empleado' => 'EMP-9001', 'puesto_id' => $operaciones->id, 'sucursal_principal_id' => $this->corporativo->id, 'estatus' => 'activo']);
 
     app(JefeDirectoService::class)->sincronizar();
-    // Sin fijar: la primera regional vigente por id (Mónica se creó antes).
-    expect($luis->fresh()->jefe_id)->toBe($monica->id);
+    // Sin fijar: la primera regional vigente por id (Titular Regional se creó antes).
+    expect($luis->fresh()->jefe_id)->toBe($regionalTula->id);
 
     config(['organigrama.regional_respaldo.colaborador' => 'EMP-9001']);
     app(JefeDirectoService::class)->sincronizar();
@@ -217,13 +217,13 @@ test('el regional de respaldo se puede fijar por configuración (id o número de
 });
 
 test('organigrama:explicar-jefe muestra la cadena con las plazas vacantes, la regional de respaldo y avisa si el jefe guardado no coincide', function () {
-    [$monica, $luis] = escenarioSlp($this);
+    [$regionalTula, $luis] = escenarioSlp($this);
     personaSucursal('Gerente SLP anterior', $this->gerente, $this->slp, 'inactivo');
     app(JefeDirectoService::class)->sincronizar();
     Colaborador::query()->whereKey($luis->id)->update(['jefe_id' => $this->alberto->id]);
 
     $this->artisan('organigrama:explicar-jefe', ['colaborador' => 'EMP-0131'])
-        ->expectsOutputToContain('Jefe según el organigrama: Mónica')
+        ->expectsOutputToContain('Jefe según el organigrama: Titular Regional')
         ->expectsOutputToContain('organigrama:sincronizar-jefes')
         ->assertSuccessful();
 
@@ -232,7 +232,7 @@ test('organigrama:explicar-jefe muestra la cadena con las plazas vacantes, la re
     expect(array_column($explicacion['pasos'], 'tipo'))->toBe(['vacante', 'vacante', 'vacante', 'persona', 'respaldo'])
         ->and($explicacion['pasos'][1]['no_vigentes'])->toBe(['Gerente SLP anterior (Inactivo)'])
         ->and($explicacion['pasos'][3]['nota'])->toContain('nunca reporta a Dirección Comercial')
-        ->and($explicacion['jefe_id'])->toBe($monica->id)
+        ->and($explicacion['jefe_id'])->toBe($regionalTula->id)
         ->and($explicacion['respaldo'])->toBeTrue()
         ->and($explicacion['sin_jefe_asignable'])->toBeFalse();
 });

@@ -55,7 +55,9 @@ beforeEach(function () {
     $this->sucursal = $estructura['sucursal'];
     $this->otraSucursal = Sucursal::factory()->create(['empresa_id' => $estructura['empresa']->id, 'nombre' => 'Cuautla']);
     $this->fueraDeRegion = Sucursal::factory()->create(['empresa_id' => $estructura['empresa']->id, 'nombre' => 'Toluca']);
-    $puestoRegional = Puesto::factory()->create(['nombre' => 'Gerente regional']);
+    // Rol regional en un puesto de zona: su alcance sigue siendo la región de la
+    // matriz. Las plazas únicas (Gerente y Subgerente Regional) alcanzan toda la empresa.
+    $puestoRegional = Puesto::factory()->create(['nombre' => 'Supervisor de zona']);
 
     // Matriz comercial: la región agrupa Cuernavaca y Cuautla (no Toluca).
     $matriz = NodoComercial::factory()->create(['tipo' => TipoNodoComercial::Matriz->value, 'nombre' => 'MATRIZ']);

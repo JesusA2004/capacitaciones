@@ -34,7 +34,7 @@ test('el seeder deja la estructura confirmada por dirección (y conserva los pue
         'Coordinadora de Sucursal' => 'Coordinadora Regional',
         'Gerente Regional' => 'Dirección Comercial',
         'Subgerente Regional' => 'Gerente Regional',
-        'Gerente de Sucursal' => 'Subgerente Regional',
+        'Gerente de Sucursal' => 'Gerente Regional',
         'Subgerente' => 'Gerente de Sucursal',
         'Gestor' => 'Subgerente',
         'Gestor Volante' => 'Subgerente',

@@ -24,7 +24,7 @@ use Laravel\Sanctum\Sanctum;
 |  B) exactamente 6 meses sí.
 |  C) RH entra antes que el jefe: ve el estado y NO puede aprobar.
 |  D) el jefe aprueba → RH recibe aviso → RH ya puede aprobar.
-|  E) Gerente de Sucursal → Subgerente Regional → Gerente Regional → respaldo,
+|  E) Gerente de Sucursal → Gerente y Subgerente Regional → respaldo,
 |     nunca Dirección Comercial directo; sin ningún regional → detenido.
 |  F) responsable explícito ≠ jefe organizacional → manda el explícito.
 | Más el contrato de la API (flujo, puede_actuar, elegibilidad).
@@ -40,7 +40,7 @@ beforeEach(function () {
     $this->puestoDc = Puesto::factory()->create(['nombre' => 'Dirección Comercial', 'nivel_jerarquico' => 2, 'activo' => true]);
     $this->puestoRegional = Puesto::factory()->create(['nombre' => 'Gerente Regional', 'nivel_jerarquico' => 3, 'puesto_superior_id' => $this->puestoDc->id, 'activo' => true]);
     $this->puestoSubregional = Puesto::factory()->create(['nombre' => 'Subgerente Regional', 'nivel_jerarquico' => 4, 'puesto_superior_id' => $this->puestoRegional->id, 'activo' => true]);
-    $this->puestoGerente = Puesto::factory()->create(['nombre' => 'Gerente de Sucursal', 'nivel_jerarquico' => 5, 'puesto_superior_id' => $this->puestoSubregional->id, 'activo' => true]);
+    $this->puestoGerente = Puesto::factory()->create(['nombre' => 'Gerente de Sucursal', 'nivel_jerarquico' => 5, 'puesto_superior_id' => $this->puestoRegional->id, 'activo' => true]);
     $this->puestoGestor = Puesto::factory()->create(['nombre' => 'Gestor', 'nivel_jerarquico' => 6, 'puesto_superior_id' => $this->puestoGerente->id, 'activo' => true]);
 
     $this->cuernavaca = Sucursal::factory()->create(['nombre' => 'Cuernavaca', 'activo' => true, 'es_corporativo' => false]);
@@ -243,7 +243,7 @@ test('D) el jefe aprueba → avisa al regional; el regional aprueba → RH recib
     Sanctum::actingAs($this->gestor);
     $id = $this->postJson('/api/v1/solicitudes', ['tipo' => 'prestamo', 'monto_solicitado' => 5000, 'motivo' => 'Gastos'])->assertCreated()->json('id');
 
-    // El regional (Subgerente Regional, primero de la cadena) aún no puede.
+    // El regional aún no puede: espera el visto bueno del gerente.
     Sanctum::actingAs($this->subregional);
     $this->getJson('/api/v1/equipo/pendientes')->assertOk()
         ->assertJsonCount(0, 'data.solicitudes')
@@ -284,16 +284,16 @@ test('D) el jefe aprueba → avisa al regional; el regional aprueba → RH recib
 
 // ---------------------------------------------------------------- E
 
-test('E) Gerente de Sucursal → Subgerente Regional → Gerente Regional → respaldo (nunca Dirección Comercial); sin ninguno queda detenido', function () {
+test('E) Gerente de Sucursal → Gerente y Subgerente Regional → respaldo (nunca Dirección Comercial); sin ninguno queda detenido', function () {
     $gerente = $this->gerente->colaborador;
     $solicitud = maSolicitud($this->gerente);
 
-    // Subgerente Regional vigente: él responde, aunque esté en otra sucursal.
+    // Ambos regionales responden, aunque estén en otra sucursal.
     $pasos = $this->motor->pasos($solicitud);
     expect($pasos)->toHaveCount(1)
         ->and($pasos[0]['nivel'])->toBe(SolicitudAprobacion::NIVEL_REGIONAL)
-        ->and($pasos[0]['etiqueta'])->toBe('Subgerente Regional')
-        ->and($pasos[0]['usuarios']->pluck('id')->all())->toBe([$this->subregional->id])
+        ->and($pasos[0]['etiqueta'])->toBe('Gerente Regional')
+        ->and($pasos[0]['usuarios']->pluck('id')->all())->toBe([$this->gerenteRegional->id, $this->subregional->id])
         // Vacaciones/permisos de gerente: nunca Dirección Comercial.
         ->and(collect($pasos)->pluck('nivel')->all())->not->toContain(SolicitudAprobacion::NIVEL_DIRECCION_COMERCIAL);
 
@@ -305,7 +305,12 @@ test('E) Gerente de Sucursal → Subgerente Regional → Gerente Regional → re
     expect(collect($this->motor->pasos($prestamo))->pluck('nivel')->all())
         ->toBe([SolicitudAprobacion::NIVEL_REGIONAL, SolicitudAprobacion::NIVEL_DIRECCION_COMERCIAL]);
 
-    // Subgerente Regional vacante: sube al Gerente Regional.
+    // Gerente Regional vacante: responde el Subgerente Regional.
+    $this->gerenteRegional->colaborador->update(['estatus' => 'inactivo']);
+    expect($this->motor->responsableDeAprobacion($gerente->fresh())['usuarios']->pluck('id')->all())->toBe([$this->subregional->id]);
+    $this->gerenteRegional->colaborador->update(['estatus' => 'activo']);
+
+    // Subgerente Regional vacante: responde el Gerente Regional.
     $this->subregional->colaborador->update(['estatus' => 'inactivo']);
     $siguiente = $this->motor->responsableDeAprobacion($gerente->fresh());
     expect($siguiente['bloqueado'])->toBeFalse()
@@ -401,7 +406,8 @@ test('contrato API: el colaborador ve el flujo de su solicitud con pasos, respon
     expect(collect($flujo)->pluck('estado')->all())->toBe(['aprobado', 'pendiente', 'esperando', 'esperando'])
         ->and($flujo[1]['responsable']['nombre'])->toBe('Gerente Cuernavaca Prueba')
         ->and($flujo[2]['etiqueta'])->toBe('Gerente Regional')
-        ->and($flujo[2]['responsable']['nombre'])->toBe('Regional Tres Prueba')
+        ->and($flujo[2]['responsable']['nombre'])->toBe('Regional Uno Prueba')
+        ->and(collect($flujo[2]['responsables'])->pluck('nombre')->all())->toContain('Regional Uno Prueba', 'Regional Tres Prueba')
         ->and($flujo[3]['clave'])->toBe('rh');
 });
 

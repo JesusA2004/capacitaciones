@@ -17,8 +17,8 @@ use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Route;
 
 /*
- * Organigrama editable (docs/ORGANIGRAMA.md): cadena única Gerente Regional →
- * Subgerente Regional → Gerente de Sucursal; Q1/Q3 son solo dato territorial.
+ * Organigrama editable (docs/ORGANIGRAMA.md): Gerente de Sucursal y Subgerente
+ * Regional cuelgan del Gerente Regional; Q1/Q3 son solo dato territorial.
  * Cubrir temporalmente una plaza y subir/bajar/mover a alguien siempre
  * recalculan el jefe directo desde el organigrama.
  */
@@ -30,7 +30,7 @@ beforeEach(function () {
     $this->director = Puesto::factory()->create(['nombre' => 'Dirección Comercial', 'nivel_jerarquico' => 2, 'activo' => true]);
     $this->regional = Puesto::factory()->create(['nombre' => 'Gerente Regional', 'nivel_jerarquico' => 3, 'puesto_superior_id' => $this->director->id, 'activo' => true]);
     $this->subregional = Puesto::factory()->create(['nombre' => 'Subgerente Regional', 'nivel_jerarquico' => 4, 'puesto_superior_id' => $this->regional->id, 'activo' => true]);
-    $this->gerente = Puesto::factory()->create(['nombre' => 'Gerente de Sucursal', 'nivel_jerarquico' => 5, 'puesto_superior_id' => $this->subregional->id, 'activo' => true]);
+    $this->gerente = Puesto::factory()->create(['nombre' => 'Gerente de Sucursal', 'nivel_jerarquico' => 5, 'puesto_superior_id' => $this->regional->id, 'activo' => true]);
     $this->subgerente = Puesto::factory()->create(['nombre' => 'Subgerente', 'nivel_jerarquico' => 6, 'puesto_superior_id' => $this->gerente->id, 'activo' => true]);
 
     $this->cuernavaca = Sucursal::factory()->create(['nombre' => 'Cuernavaca', 'activo' => true, 'es_corporativo' => false]);
@@ -76,15 +76,15 @@ function nodosEditable(User $usuario): array
     return $nodos;
 }
 
-test('el gerente de sucursal cuelga del Subgerente Regional y la clasificación Q1/Q3 ya no existe', function () {
+test('el gerente de sucursal cuelga del Gerente Regional y la clasificación Q1/Q3 ya no existe', function () {
     $nodos = nodosEditable($this->rh);
     $gerente = $nodos['p'.$this->gerenteCuernavaca->id];
 
     // Un solo lugar en el árbol, sin chip «Por clasificar».
     expect(collect($nodos)->where('persona.id', $this->gerenteCuernavaca->id)->where('tipo', 'persona')->count())->toBe(1)
-        ->and($gerente['padre'])->toBe('p'.$this->titularSubregional->id)
+        ->and($gerente['padre'])->toBe('p'.$this->titularRegional->id)
         ->and($gerente['clasificacion'] ?? null)->toBeNull()
-        ->and($this->gerenteCuernavaca->fresh()->jefe_id)->toBe($this->titularSubregional->id)
+        ->and($this->gerenteCuernavaca->fresh()->jefe_id)->toBe($this->titularRegional->id)
         // Su subgerente sigue reportándole a él.
         ->and($this->subCuernavaca->fresh()->jefe_id)->toBe($this->gerenteCuernavaca->id)
         ->and(Route::has('administracion.jerarquia-puestos.personas.clasificar'))->toBeFalse();
@@ -93,25 +93,25 @@ test('el gerente de sucursal cuelga del Subgerente Regional y la clasificación 
 });
 
 test('«Cubre temporalmente» se marca sin fechas ni motivo, no altera headcount y sus subordinados le reportan; quitarla es un clic', function () {
-    HeadcountTarget::factory()->create(['sucursal_id' => $this->cordoba->id, 'puesto_id' => $this->subregional->id, 'plantilla_autorizada' => 1]);
+    HeadcountTarget::factory()->create(['sucursal_id' => $this->cordoba->id, 'puesto_id' => $this->regional->id, 'plantilla_autorizada' => 1]);
     HeadcountTarget::factory()->create(['sucursal_id' => $this->cuernavaca->id, 'puesto_id' => $this->gerente->id, 'plantilla_autorizada' => 1]);
 
-    // Se va el titular de Subgerente Regional: la plaza queda vacante.
-    $this->titularSubregional->update(['estatus' => 'inactivo']);
+    // Se va el titular de Gerente Regional: la plaza queda vacante.
+    $this->titularRegional->update(['estatus' => 'inactivo']);
     app(JefeDirectoService::class)->sincronizar();
-    // Personal de sucursal nunca reporta a Dirección Comercial: sube al
-    // siguiente de la cadena, el Gerente Regional.
-    expect($this->gerenteCordoba->fresh()->jefe_id)->toBe($this->titularRegional->id);
+    // Personal de sucursal nunca reporta a Dirección Comercial: responde el
+    // Subgerente Regional, por respaldo.
+    expect($this->gerenteCordoba->fresh()->jefe_id)->toBe($this->titularSubregional->id);
 
     $headcount = app(HeadcountService::class);
-    $antes = $headcount->plantillaDePar($this->cordoba->id, $this->subregional->id);
+    $antes = $headcount->plantillaDePar($this->cordoba->id, $this->regional->id);
     $antesCuernavaca = $headcount->plantillaDePar($this->cuernavaca->id, $this->gerente->id);
 
-    // El Gerente Regional cubre la plaza: solo colaborador + plaza (sin motivo, sin fechas).
+    // El Subgerente Regional cubre la plaza: solo colaborador + plaza (sin motivo, sin fechas).
     $this->actingAs($this->rh)
         ->post(route('administracion.jerarquia-puestos.coberturas.store'), [
-            'colaborador_id' => $this->titularRegional->id,
-            'puesto_id' => $this->subregional->id,
+            'colaborador_id' => $this->titularSubregional->id,
+            'puesto_id' => $this->regional->id,
         ])
         ->assertSessionHasNoErrors()
         ->assertRedirect();
@@ -122,28 +122,28 @@ test('«Cubre temporalmente» se marca sin fechas ni motivo, no altera headcount
         ->and($cobertura->fecha_fin)->toBeNull()
         ->and($cobertura->registrada_por)->toBe($this->rh->id)
         // Conserva su puesto titular.
-        ->and($this->titularRegional->fresh()->puesto_id)->toBe($this->regional->id);
+        ->and($this->titularSubregional->fresh()->puesto_id)->toBe($this->subregional->id);
 
     // Auditable también en su expediente.
     expect(MovimientoLaboral::query()
-        ->where('colaborador_id', $this->titularRegional->id)
+        ->where('colaborador_id', $this->titularSubregional->id)
         ->where('tipo_movimiento', TipoMovimientoLaboral::CoberturaTemporal->value)
-        ->where('puesto_nuevo_id', $this->subregional->id)
+        ->where('puesto_nuevo_id', $this->regional->id)
         ->exists())->toBeTrue();
 
     // Headcount: puesto de empresa cubierto ya está atendido (no abre vacante,
     // docs/HEADCOUNT_Y_VACANTES.md) sin aumentar el autorizado; nada más cambia.
     expect($antes['faltantes'])->toBe(1)
-        ->and($headcount->plantillaDePar($this->cordoba->id, $this->subregional->id))->toBe(['autorizada' => 1, 'ocupada' => 1, 'faltantes' => 0])
+        ->and($headcount->plantillaDePar($this->cordoba->id, $this->regional->id))->toBe(['autorizada' => 1, 'ocupada' => 1, 'faltantes' => 0])
         ->and($headcount->plantillaDePar($this->cuernavaca->id, $this->gerente->id))->toBe($antesCuernavaca);
 
     // Regla: los subordinados de la plaza cubierta reportan a quien la cubre.
     app(JefeDirectoService::class)->sincronizar();
-    expect($this->gerenteCordoba->fresh()->jefe_id)->toBe($this->titularRegional->id);
+    expect($this->gerenteCordoba->fresh()->jefe_id)->toBe($this->titularSubregional->id);
 
     $nodos = nodosEditable($this->rh);
     $nodoCobertura = collect($nodos)->first(fn (array $n) => $n['tipo'] === 'cobertura');
-    expect($nodoCobertura['persona']['id'])->toBe($this->titularRegional->id)
+    expect($nodoCobertura['persona']['id'])->toBe($this->titularSubregional->id)
         ->and($nodoCobertura['cobertura']['registrada_por'])->toBe($this->rh->name)
         ->and($nodos['p'.$this->gerenteCordoba->id]['padre'])->toBe($nodoCobertura['clave']);
 
@@ -155,10 +155,10 @@ test('«Cubre temporalmente» se marca sin fechas ni motivo, no altera headcount
     expect($cobertura->refresh()->activa)->toBeFalse()
         ->and($cobertura->finalizada_por)->toBe($this->rh->id);
     app(JefeDirectoService::class)->sincronizar();
-    // Sin cobertura la plaza vuelve a faltar y el jefe sigue siendo el Gerente
+    // Sin cobertura la plaza vuelve a faltar y el jefe sigue siendo el Subgerente
     // Regional, no Dirección Comercial.
-    expect($headcount->plantillaDePar($this->cordoba->id, $this->subregional->id))->toBe($antes);
-    expect($this->gerenteCordoba->fresh()->jefe_id)->toBe($this->titularRegional->id)
+    expect($headcount->plantillaDePar($this->cordoba->id, $this->regional->id))->toBe($antes);
+    expect($this->gerenteCordoba->fresh()->jefe_id)->toBe($this->titularSubregional->id)
         ->and($this->gerenteCordoba->fresh()->jefe_id)->not->toBe($this->dc->id);
 });
 
@@ -176,7 +176,7 @@ test('subir de puesto registra la promoción, recalcula su jefe y el de quienes 
 
     // La vista previa no guarda nada.
     expect($vista['descripcion'])->toContain('Vas a mover a Sub Cuernavaca de Subgerente · Cuernavaca a Gerente de Sucursal · Cuernavaca')
-        ->and($vista['jefe_nuevo'])->toBe('Regional Tres')
+        ->and($vista['jefe_nuevo'])->toBe('Regional Uno')
         ->and($this->subCuernavaca->fresh()->puesto_id)->toBe($this->subgerente->id);
 
     $this->actingAs($this->rh)
@@ -188,9 +188,9 @@ test('subir de puesto registra la promoción, recalcula su jefe y el de quienes 
 
     $sub = $this->subCuernavaca->fresh();
     expect($sub->puesto_id)->toBe($this->gerente->id)
-        ->and($sub->jefe_id)->toBe($this->titularSubregional->id);
+        ->and($sub->jefe_id)->toBe($this->titularRegional->id);
 
-    // (Su jefe ya era el Subgerente Regional mientras Cuernavaca no tenía gerente:
+    // (Su jefe ya era el Gerente Regional mientras Cuernavaca no tenía gerente:
     // no hay «cambio de jefe» que registrar, solo la promoción.)
     expect(MovimientoLaboral::query()->where('colaborador_id', $sub->id)->where('tipo_movimiento', TipoMovimientoLaboral::Promocion->value)->exists())->toBeTrue();
     $this->assertDatabaseHas('activity_log', ['log_name' => 'organigrama', 'description' => 'persona_movida', 'subject_id' => $sub->id]);
@@ -226,8 +226,8 @@ test('bajar y mover bajo otra plaza pasan por el movimiento laboral y el jefe de
 
     $sub = $this->subCuernavaca->fresh();
     expect($sub->sucursal_principal_id)->toBe($this->cordoba->id)
-        // Córdoba ya no tiene gerente (bajó a subgerente): sube al Subgerente Regional.
-        ->and($sub->jefe_id)->toBe($this->titularSubregional->id)
+        // Córdoba ya no tiene gerente (bajó a subgerente): sube al Gerente Regional.
+        ->and($sub->jefe_id)->toBe($this->titularRegional->id)
         ->and(MovimientoLaboral::query()->where('colaborador_id', $sub->id)->where('tipo_movimiento', TipoMovimientoLaboral::CambioSucursal->value)->exists())->toBeTrue();
 });
 

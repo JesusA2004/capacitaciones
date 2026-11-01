@@ -25,7 +25,7 @@ test('las láminas muestran a las personas reales de cada área y sucursal', fun
     $regional = Puesto::factory()->create(['nombre' => 'Gerente Regional Q3']);
     $gerente = Puesto::factory()->create(['nombre' => 'Gerente de Sucursal']);
     Colaborador::factory()->create(['name' => 'Ana', 'apellidos' => 'Martínez Ruiz', 'puesto_id' => $sistemas->id, 'sucursal_principal_id' => $corporativo->id, 'estatus' => 'activo']);
-    Colaborador::factory()->create(['name' => 'Mónica', 'apellidos' => 'Hernández Ortega', 'puesto_id' => $regional->id, 'sucursal_principal_id' => $tula->id, 'estatus' => 'activo']);
+    Colaborador::factory()->create(['name' => 'Titular', 'apellidos' => 'Regional Prueba', 'puesto_id' => $regional->id, 'sucursal_principal_id' => $tula->id, 'estatus' => 'activo']);
     Colaborador::factory()->create(['name' => 'Luis', 'apellidos' => 'Pérez Gómez', 'puesto_id' => $gerente->id, 'sucursal_principal_id' => $tula->id, 'estatus' => 'activo']);
 
     $laminas = $this->actingAs(clUsuario('rh_admin'))->get(route('administracion.jerarquia-puestos.index'))
@@ -41,7 +41,7 @@ test('las láminas muestran a las personas reales de cada área y sucursal', fun
         // Nadie ocupa Dirección General: se usa el titular del PDF oficial.
         ->and($laminas['corporativo']['direccion_general']['personas'][0]['nombre'])->toBe('LIC. ZURIEL ÁVILA MARTÍNEZ')
         // La regional aparece con su sede.
-        ->and($regionalComercial['personas'][0])->toMatchArray(['nombre' => 'Mónica Hernández Ortega', 'sucursal' => 'Tula'])
+        ->and($regionalComercial['personas'][0])->toMatchArray(['nombre' => 'Titular Regional Prueba', 'sucursal' => 'Tula'])
         ->and($sucursales)->not->toHaveKey('Corporativo')
         ->and($sucursales['Tula']['gerente'][0]['nombre'])->toBe('Luis Pérez Gómez')
         ->and($sucursales['Tula']['subgerente'])->toBe([]);
