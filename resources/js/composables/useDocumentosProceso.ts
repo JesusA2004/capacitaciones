@@ -117,11 +117,11 @@ export function useDocumentosProceso() {
                 manuales?: Record<string, string>;
             },
         ) =>
-            solicitar<{ data: SeccionDocumentosProceso; documento_id: number }>(
-                'POST',
-                rutasProceso.generar.url({ tipo, id }),
-                cuerpo,
-            ),
+            solicitar<{
+                data: SeccionDocumentosProceso;
+                documento_id: number;
+                creado?: boolean;
+            }>('POST', rutasProceso.generar.url({ tipo, id }), cuerpo),
 
         paquete: (
             tipo: TipoRegistroDocumental,

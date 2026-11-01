@@ -470,6 +470,19 @@ class MotorDocumentalService
     }
 
     /**
+     * Valores con los que hoy se llenaría una plantilla heredada, sin renderizar.
+     *
+     * @param  array<string, mixed>  $extra
+     * @return array<string, mixed>
+     */
+    public function valoresDePlantilla(Colaborador $colaborador, array $extra): array
+    {
+        $colaborador->loadMissing(['sucursalPrincipal.empresa', 'puesto', 'departamento', 'jefe.jefe', 'gerente', 'user']);
+
+        return $this->resolver->resolver($colaborador, $extra);
+    }
+
+    /**
      * Valores con los que hoy se llenaría el maestro (solo sus campos), sin
      * renderizar: los usa la corrección de un documento antes de generarlo.
      *

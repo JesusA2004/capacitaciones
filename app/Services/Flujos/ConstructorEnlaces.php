@@ -2,6 +2,7 @@
 
 namespace App\Services\Flujos;
 
+use App\Enums\EstadoUsuario;
 use App\Models\AgendaEvento;
 use App\Models\Baja;
 use App\Models\Candidato;
@@ -87,12 +88,20 @@ class ConstructorEnlaces
             : null;
     }
 
-    /** Pestaña de contratos: mismo criterio que ExpedienteCentroService (nunca el propio). */
+    /**
+     * Mismo criterio que ExpedienteCentroService (nunca el propio). Quien sigue
+     * en contratación genera su paquete en el ciclo laboral: la pestaña de
+     * contratos del expediente solo regulariza a colaboradores activos.
+     */
     public function generarContratos(User $v, Colaborador $c): ?string
     {
-        return $this->contratos->puedeVer($v) && $this->contratos->puedeGenerar($v) && $v->colaborador_id !== $c->id
+        if (! $this->contratos->puedeVer($v) || ! $this->contratos->puedeGenerar($v) || $v->colaborador_id === $c->id) {
+            return null;
+        }
+
+        return $c->estatus === EstadoUsuario::Activo
             ? $this->expediente($v, $c, 'contratacion')
-            : null;
+            : ($this->ciclo($v, $c) ?? $this->expediente($v, $c, 'contratacion'));
     }
 
     public function completarExpediente(User $v, Colaborador $c): ?string

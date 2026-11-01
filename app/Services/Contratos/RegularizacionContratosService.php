@@ -438,7 +438,8 @@ class RegularizacionContratosService
             'contratos' => $etapas,
             'faltantes' => array_values($faltantes),
             'bloqueos' => [],
-            'generable' => $estado === Estado::PorGenerar,
+            // generar() omite a quien no está activo: su paquete sale en el ciclo laboral.
+            'generable' => $estado === Estado::PorGenerar && $colaborador->estatus === EstadoUsuario::Activo,
         ];
     }
 

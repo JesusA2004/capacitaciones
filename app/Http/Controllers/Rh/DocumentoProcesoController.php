@@ -105,7 +105,8 @@ class DocumentoProcesoController extends Controller
         );
 
         return response()->json([
-            'message' => 'Documento generado.',
+            'message' => $documento->wasRecentlyCreated ? 'Documento generado.' : 'Sin cambios: el documento vigente ya corresponde a estos datos.',
+            'creado' => $documento->wasRecentlyCreated,
             'documento_id' => $documento->id,
             'data' => $this->documentos->seccion($proceso, $registro->refresh(), $request->user()),
         ], 201);

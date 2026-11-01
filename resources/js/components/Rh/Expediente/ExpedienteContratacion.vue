@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { router } from '@inertiajs/vue3';
+import { Link, router } from '@inertiajs/vue3';
 import {
     AlertTriangle,
     CheckCircle2,
@@ -23,6 +23,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { useVistaPreviaPdf } from '@/composables/useVistaPreviaPdf';
 import { formatearFecha } from '@/lib/fechas';
 import type { Tono } from '@/lib/tonos';
+import { ciclo } from '@/routes/rh/colaboradores';
 import {
     generar as generarRuta,
     vistaPrevia as vistaPreviaRuta,
@@ -120,6 +121,11 @@ function generar() {
     );
 }
 
+// Sin activar todavía: la regularización no aplica, el paquete sale del ciclo.
+const enContratacion = computed(
+    () => props.plan.estado === 'por_generar' && !props.plan.generable,
+);
+
 const totalDocumentos = computed(() =>
     props.plan.contratos.reduce((n, e) => n + e.documentos.length, 0),
 );
@@ -165,6 +171,17 @@ const tonoPlan = computed(() => ESTADOS[props.plan.estado]?.tono ?? 'neutro');
                 </p>
             </div>
             <div class="flex flex-wrap gap-2">
+                <Button
+                    v-if="plan.puede_generar && enContratacion"
+                    size="sm"
+                    as-child
+                    data-accion="generar-en-ciclo"
+                >
+                    <Link :href="ciclo.url(plan.id)">
+                        <FilePlus2 class="size-3.5" /> Generar en su ciclo
+                        laboral
+                    </Link>
+                </Button>
                 <Button
                     v-if="plan.faltantes.length > 0 || plan.bloqueos.length > 0"
                     size="sm"

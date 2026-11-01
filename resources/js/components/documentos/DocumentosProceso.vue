@@ -336,13 +336,19 @@ async function ejecutarGeneracion(
         pendiente.value = null;
         faltantes.value = [];
         regeneracion.value = null;
-        toast.success(
-            p.clave === null
-                ? 'Paquete generado.'
-                : p.regenerar
-                  ? 'Nueva versión generada. La anterior quedó en el historial.'
-                  : 'Documento generado.',
-        );
+        if ('creado' in respuesta && respuesta.creado === false) {
+            toast.info(
+                'Sin cambios: el documento vigente ya corresponde a estos datos.',
+            );
+        } else {
+            toast.success(
+                p.clave === null
+                    ? 'Paquete generado.'
+                    : p.regenerar
+                      ? 'Nueva versión generada. La anterior quedó en el historial.'
+                      : 'Documento generado.',
+            );
+        }
     } catch (e) {
         if (e instanceof ErrorDocumento && e.codigo === 'DATOS_FALTANTES') {
             // El modal de datos faltantes toma el relevo (conserva el motivo

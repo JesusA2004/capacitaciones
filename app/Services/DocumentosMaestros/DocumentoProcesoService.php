@@ -847,7 +847,10 @@ class DocumentoProcesoService
         $extra = $this->datosExtra($clave, $registro, $manuales, $correcciones);
 
         if ($master->estado_master === null) {
-            return [...$extra, '_plantilla' => $master->id.':'.$master->version];
+            // También los datos del colaborador que la plantilla imprime: sin
+            // ellos, corregir un dato no cambiaba la huella y regenerar devolvía
+            // el PDF viejo.
+            return [...$this->motor->valoresDePlantilla($colaborador, $extra), '_plantilla' => $master->id.':'.$master->version];
         }
 
         return [
@@ -1899,6 +1902,14 @@ class DocumentoProcesoService
      */
     private function extraPorClave(string $clave, Model $registro): array
     {
+        if ($registro instanceof ContratoLaboral) {
+            // Las plantillas heredadas imprimen estas variables y sin esto salían vacías.
+            return [
+                'fecha_inicio_contrato' => $registro->fecha_inicio->format('d/m/Y'),
+                'fecha_fin_contrato' => $registro->fecha_fin?->format('d/m/Y') ?? '',
+            ];
+        }
+
         if ($registro instanceof CierreLaboral) {
             return match ($clave) {
                 // El aviso se fecha el día del vencimiento (Fase 3 del procedimiento).
