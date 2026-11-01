@@ -270,8 +270,10 @@ class ContratoLaboralService
     {
         $documentos = $this->documentosDelContrato($contrato);
 
+        // Por documento, no por versión: la rectificación de uno ya firmado no reabre el paquete.
         return $documentos->isNotEmpty()
-            && $documentos->every(fn (GeneratedDocument $d) => $this->documentoFirmadoSegunFlujo($d));
+            && $documentos->groupBy(fn (GeneratedDocument $d): string => $d->clave_plantilla ?? sprintf('sin-clave-%d', $d->id))
+                ->every(fn ($versiones): bool => $versiones->contains(fn (GeneratedDocument $d): bool => $this->documentoFirmadoSegunFlujo($d)));
     }
 
     /**
@@ -557,14 +559,24 @@ class ContratoLaboralService
     }
 
     /**
-     * true si el documento principal del contrato ya fue firmado por el
-     * colaborador (digital o físicamente).
+     * true si alguna versión viva del documento principal ya fue firmada, digital o
+     * físicamente. Rectificar mueve el puntero a una versión sin firmar, pero lo
+     * pactado sigue siendo lo firmado: el contrato no deja de contar como firmado.
      */
     public function contratoFirmado(ContratoLaboral $contrato): bool
     {
         $documento = $contrato->documento;
 
-        return $documento !== null && $this->documentoFirmadoSegunFlujo($documento);
+        if ($documento === null) {
+            return false;
+        }
+
+        if ($this->documentoFirmadoSegunFlujo($documento)) {
+            return true;
+        }
+
+        return $this->documentosDelContrato($contrato)
+            ->contains(fn (GeneratedDocument $d): bool => $d->clave_plantilla === $documento->clave_plantilla && $this->documentoFirmadoSegunFlujo($d));
     }
 
     /**
