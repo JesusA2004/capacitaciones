@@ -189,14 +189,19 @@ test('aplicar() actualiza salario_diario vía CompensacionService (sueldo_mensua
 });
 
 test('el mismo archivo (mismo hash) no se puede volver a aplicar', function () {
-    $archivo = itvArchivo([['Nadie Real', 'Atlacomulco', '1/1/2023', 12, 0, 12, 300]]);
+    // Los mismos bytes: generar el XLSX dos veces cambia su huella si cruza un segundo.
+    $original = itvArchivo([['Nadie Real', 'Atlacomulco', '1/1/2023', 12, 0, 12, 300]])->getRealPath();
+    $mismoArchivo = function () use ($original): UploadedFile {
+        $copia = tempnam(sys_get_temp_dir(), 'itv-').'.xlsx';
+        copy($original, $copia);
 
-    $importacion = $this->importador->analizar($archivo, $this->actor);
+        return new UploadedFile($copia, 'REPORTE_TRABAJADORES_VAC.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+    };
+
+    $importacion = $this->importador->analizar($mismoArchivo(), $this->actor);
     $this->importador->aplicar($importacion->fresh(), $this->actor);
 
-    $archivoRepetido = itvArchivo([['Nadie Real', 'Atlacomulco', '1/1/2023', 12, 0, 12, 300]]);
-
-    expect(fn () => $this->importador->analizar($archivoRepetido, $this->actor))->toThrow(ValidationException::class);
+    expect(fn () => $this->importador->analizar($mismoArchivo(), $this->actor))->toThrow(ValidationException::class);
 });
 
 test('aplicar() dos veces la misma importación no duplica el historial ni los ajustes (idempotente)', function () {
