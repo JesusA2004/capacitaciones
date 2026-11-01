@@ -19,6 +19,7 @@ use App\Models\CandidatoReferencia;
 use App\Models\CandidatoSocioeconomico;
 use App\Models\MotivoRechazoCandidato;
 use App\Models\User;
+use App\Models\SeguimientoCandidato;
 use App\Models\Vacante;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\CicloLaboral\AprobacionService;
@@ -68,6 +69,9 @@ class CandidatoWorkflowService
      * los tenía recibió los pasos que cubrían (config/permisos_modulos.php
      * → herencia).
      */
+    /** @var list<string> */
+    private const CAMPOS_DE_DECISION = ['vacante_id', 'puesto_objetivo_id', 'sucursal_id', 'departamento_id', 'empresa_id', 'responsable_rh_id', 'gerente_involucrado_id', 'fecha_entrevista', 'resultado_entrevista'];
+
     public const PERMISO_REVISAR_PERFIL = 'candidatos.revisar_perfil';
 
     public const PERMISO_ENTREVISTA = 'candidatos.aprobar_entrevista';
@@ -252,8 +256,9 @@ class CandidatoWorkflowService
      */
     public function actualizar(Candidato $candidato, array $datos, User $actor): Candidato
     {
-        $actualizado = DB::transaction(function () use ($candidato, $datos): Candidato {
+        $actualizado = DB::transaction(function () use ($candidato, $datos, $actor): Candidato {
             $actual = Candidato::query()->lockForUpdate()->findOrFail($candidato->id);
+            $this->exigirAutoridadSobreDatosDeDecision($actual, $actor, $datos);
 
             $nuevaVacanteId = isset($datos['vacante_id']) ? (int) $datos['vacante_id'] : null;
 
@@ -295,6 +300,7 @@ class CandidatoWorkflowService
     public function evaluarPerfil(Candidato $candidato, User $actor, bool $viable, ?string $observaciones, ?int $motivoRechazoId = null, ?bool $recontratable = null): Candidato
     {
         $this->autorizar($actor, self::PERMISO_REVISAR_PERFIL, $candidato);
+        $this->exigirRespetarDecisionesDelPaso($candidato, $actor, EstadoCandidato::Recibidos);
 
         return $this->paso($candidato, $actor, EstadoCandidato::Recibidos, function (Candidato $c) use ($actor, $viable, $observaciones, $motivoRechazoId, $recontratable): void {
             if ($viable) {
@@ -390,6 +396,7 @@ class CandidatoWorkflowService
     public function revisarPsicometricas(Candidato $candidato, User $actor, bool $viable, ?string $observaciones, ?int $motivoRechazoId = null, ?bool $recontratable = null): Candidato
     {
         $this->autorizar($actor, self::PERMISO_REVISAR_PSICOMETRICAS, $candidato);
+        $this->exigirRespetarDecisionesDelPaso($candidato, $actor, EstadoCandidato::RevisionPsicometricas);
 
         return $this->paso($candidato, $actor, EstadoCandidato::RevisionPsicometricas, function (Candidato $c) use ($actor, $viable, $observaciones, $motivoRechazoId, $recontratable): void {
             $this->psicometricaAbierta($c)->update([
@@ -455,6 +462,7 @@ class CandidatoWorkflowService
     public function revisarSocioeconomico(Candidato $candidato, User $actor, bool $viable, ?string $observaciones, ?int $motivoRechazoId = null, ?bool $recontratable = null): Candidato
     {
         $this->autorizar($actor, self::PERMISO_REVISAR_SOCIOECONOMICO, $candidato);
+        $this->exigirRespetarDecisionesDelPaso($candidato, $actor, EstadoCandidato::SocioeconomicoPendiente);
 
         return $this->paso($candidato, $actor, EstadoCandidato::SocioeconomicoPendiente, function (Candidato $c) use ($actor, $viable, $observaciones, $motivoRechazoId, $recontratable): void {
             $estudio = $this->socioeconomicoPendiente($c);
@@ -526,6 +534,7 @@ class CandidatoWorkflowService
     public function concluirReferencias(Candidato $candidato, User $actor, bool $viables, ?string $observaciones, ?int $motivoRechazoId = null, ?bool $recontratable = null): Candidato
     {
         $this->autorizar($actor, self::PERMISO_REFERENCIAS, $candidato);
+        $this->exigirRespetarDecisionesDelPaso($candidato, $actor, EstadoCandidato::ReferenciasPendientes);
 
         return $this->paso($candidato, $actor, EstadoCandidato::ReferenciasPendientes, function (Candidato $c) use ($actor, $viables, $observaciones, $motivoRechazoId, $recontratable): void {
             if (! $viables) {
@@ -1136,6 +1145,57 @@ class CandidatoWorkflowService
         return $this->permisos->puede($usuario, $permiso) ? $usuario : null;
     }
 
+    /**
+     * Un paso solo se decide de nuevo tras una reapertura: ahí sí hay una decisión
+     * previa y un puesto inferior no la revierte. La primera vez no hay nada que
+     * comparar y quien sigue en el flujo avanza. Un regreso no es decisión del paso.
+     */
+    private function exigirRespetarDecisionesDelPaso(Candidato $candidato, User $actor, EstadoCandidato $paso): void
+    {
+        $autores = $candidato->seguimientos()
+            ->where('tipo', TipoSeguimientoCandidato::CambioEstado->value)
+            ->where('estado_anterior', $paso->value)
+            ->get()
+            ->filter(function (SeguimientoCandidato $seguimiento) use ($paso): bool {
+                $destino = EstadoCandidato::tryFrom((string) $seguimiento->estado_nuevo);
+
+                return $destino !== null && ($destino->esSalida() || $paso->puedeAvanzarA($destino));
+            })
+            ->map(fn (SeguimientoCandidato $seguimiento): ?User => $this->autoridad->autorPorId($seguimiento->registrado_por));
+
+        if ($this->autoridad->exigirPuedeModificar($actor, $autores)) {
+            $this->seguimiento($candidato, $actor, TipoSeguimientoCandidato::Nota, AutoridadJerarquicaService::NOTA_AUTOR_DESCONOCIDO);
+        }
+    }
+
+    /**
+     * Vacante, responsables y resultado de entrevista cuelgan de lo ya decidido: cambiarlos
+     * pide autoridad sobre quien registró y sobre el último avance. Contacto y notas, no.
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    private function exigirAutoridadSobreDatosDeDecision(Candidato $candidato, User $actor, array $datos): void
+    {
+        $cambia = false;
+
+        foreach (self::CAMPOS_DE_DECISION as $campo) {
+            if (array_key_exists($campo, $datos) && (string) $datos[$campo] !== (string) $candidato->getRawOriginal($campo)) {
+                $cambia = true;
+            }
+        }
+
+        if (! $cambia) {
+            return;
+        }
+
+        $ultimoAvance = $candidato->seguimientos()->where('tipo', TipoSeguimientoCandidato::CambioEstado->value)->latest('id')->first();
+
+        $this->autoridad->exigirPuedeModificar($actor, [
+            $this->autoridad->autorPorId($candidato->creado_por),
+            $this->autoridad->autorPorId($ultimoAvance?->registrado_por),
+        ]);
+    }
+
     private function autorizar(User $actor, string $permiso, Candidato $candidato): void
     {
         $this->autorizarAlguno($actor, [$permiso], $candidato);
@@ -1148,7 +1208,7 @@ class CandidatoWorkflowService
     {
         $tienePermiso = $this->permisos->puedeAlguno($actor, $permisos);
 
-        if (! $tienePermiso || ! $this->jerarquia->alcanzaCandidato($actor, $candidato)) {
+        if (! $tienePermiso || ! $this->jerarquia->alcanzaCandidato($actor, $candidato) || ! $this->aprobadorEntrevista->esVisiblePara($actor, $candidato)) {
             throw new AuthorizationException('No tienes permiso para realizar esta acción sobre este candidato.');
         }
     }
