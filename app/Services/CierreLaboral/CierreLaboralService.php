@@ -245,28 +245,31 @@ class CierreLaboralService
             return $cierre;
         });
 
-        // «Baja registrada» por la capa única (RH, regionales y Sistemas):
-        // quién la dio, a quién, forma · causal y fecha. Un fallo al
-        // notificar nunca deshace la baja.
+        // «Baja registrada» por la capa única (RH, regionales y Sistemas): quién la
+        // dio, a quién y fecha. La causal es sensible: sólo la ve quien gestiona la
+        // baja, nunca Sistemas ni Regional. Un fallo al notificar nunca deshace la baja.
         try {
+            $base = sprintf(
+                '%s registró la baja de %s (%s%s) por %s',
+                trim(sprintf('%s %s', $actor->name, $actor->apellidos)),
+                $colaborador->nombreCompleto(),
+                $colaborador->puesto->nombre ?? 'sin puesto',
+                $colaborador->sucursalPrincipal !== null ? ' · '.$colaborador->sucursalPrincipal->nombre : '',
+                mb_strtolower(FormaSalida::desdeTipoBaja($tipoBaja)->etiqueta()),
+            );
+            $cierreTexto = sprintf(', último día %s. Sus accesos ya se suspendieron; RH puede rehabilitarlos desde Usuarios.', $cierre->fecha_efectiva->format('d/m/Y'));
+            $conCausal = $causal !== null ? sprintf('%s · %s%s', $base, $causal->etiquetaConClave(), $cierreTexto) : $base.$cierreTexto;
+
             $this->notificador->notificarEvento(
                 'cierre_baja_solicitada',
                 $colaborador,
                 ['solicitante' => $actor, 'excluir' => [$actor->id]],
                 sprintf('Baja registrada: %s', $colaborador->nombreCompleto()),
-                sprintf(
-                    '%s registró la baja de %s (%s%s) por %s%s, último día %s. Sus accesos ya se suspendieron; RH puede rehabilitarlos desde Usuarios.',
-                    trim(sprintf('%s %s', $actor->name, $actor->apellidos)),
-                    $colaborador->nombreCompleto(),
-                    $colaborador->puesto->nombre ?? 'sin puesto',
-                    $colaborador->sucursalPrincipal !== null ? ' · '.$colaborador->sucursalPrincipal->nombre : '',
-                    mb_strtolower(FormaSalida::desdeTipoBaja($tipoBaja)->etiqueta()),
-                    $causal !== null ? sprintf(' · %s', $causal->etiquetaConClave()) : '',
-                    $cierre->fecha_efectiva->format('d/m/Y'),
-                ),
+                $base.$cierreTexto,
                 $cierre,
                 'ver_cierre',
                 'alta',
+                fn (User $usuario): string => $usuario->can('bajas.gestionar') || $usuario->can('cierres.gestionar') ? $conCausal : $base.$cierreTexto,
             );
         } catch (Throwable $e) {
             Log::warning('CierreLaboralService: no se pudo avisar la baja registrada.', ['cierre_id' => $cierre->id, 'error' => $e->getMessage()]);

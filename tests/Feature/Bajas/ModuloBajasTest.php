@@ -198,7 +198,7 @@ test('RN-10: la fecha de baja no es anterior al ingreso ni mayor a 15 días en e
     expect(Baja::query()->count())->toBe(1);
 });
 
-test('registrar la baja la APLICA de inmediato: cierre, acceso suspendido, finiquito propuesto y aviso «Baja registrada» (quién, a quién, forma · causal, fecha) a RH y Sistemas', function () {
+test('registrar la baja la APLICA de inmediato: cierre, acceso suspendido, finiquito propuesto y aviso «Baja registrada» (quién, a quién, forma · causal, fecha) a RH y, sin causal, a Sistemas', function () {
     $baja = bjRegistrar('RV-01');
     $cierre = $baja->cierre;
 
@@ -230,7 +230,14 @@ test('registrar la baja la APLICA de inmediato: cierre, acceso suspendido, finiq
     };
 
     Notification::assertSentTo($this->rh, PendienteRhNotification::class, $esAvisoDeBaja);
-    Notification::assertSentTo($this->sistemas, PendienteRhNotification::class, $esAvisoDeBaja);
+    // Sistemas se entera para retirar accesos, sin la causal (dato sensible).
+    Notification::assertSentTo($this->sistemas, PendienteRhNotification::class, function (PendienteRhNotification $n, array $c, User $d): bool {
+        $datos = $n->toDatabase($d);
+
+        return ($datos['type'] ?? null) === 'cierre_baja_solicitada'
+            && str_contains($datos['mensaje'], $this->persona->nombreCompleto())
+            && ! str_contains($datos['mensaje'], 'RV-01');
+    });
     // Confirmación al gerente que la registró.
     Notification::assertSentTo($this->gerente, PendienteRhNotification::class, fn (PendienteRhNotification $n, array $c, User $d) => $n->toDatabase($d)['titulo'] === 'Baja registrada');
 

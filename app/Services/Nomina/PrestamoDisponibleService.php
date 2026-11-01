@@ -78,6 +78,7 @@ class PrestamoDisponibleService
                             'media',
                             [],
                             'prestamo_disponible',
+                            payloadSinRecurso: true,
                         );
 
                         if ($this->eventos->avisarResultado($usuario, $aviso)) {

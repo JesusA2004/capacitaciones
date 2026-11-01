@@ -8,8 +8,11 @@ use App\Enums\EstadoEvaluacionPrueba;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoSolicitudVacaciones;
 use App\Enums\TipoTarea;
+use App\Models\Baja;
 use App\Models\BirthdayGreeting;
+use App\Models\Candidato;
 use App\Models\CierreLaboral;
+use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\EmployeeDocument;
 use App\Models\EvaluacionPeriodoPrueba;
@@ -19,6 +22,7 @@ use App\Models\SolicitudInterna;
 use App\Models\SolicitudVacaciones;
 use App\Models\TareaRh;
 use App\Models\User;
+use App\Services\AlcanceOrganizacionalService;
 use App\Services\Celebraciones\FechasCelebracion;
 use App\Services\DocumentosLaborales\FirmaDocumentalService;
 use Illuminate\Notifications\DatabaseNotification;
@@ -46,6 +50,8 @@ use Throwable;
  */
 class DestinoNotificacionService
 {
+    public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
+
     /**
      * @return Destino
      */
@@ -90,7 +96,9 @@ class DestinoNotificacionService
                 $relacionado === 'SolicitudInterna' => $this->solicitud($id, $usuario),
                 $relacionado === 'SolicitudVacaciones' => $this->vacacionRh($id),
                 $relacionado === 'EmployeeDocument' => $this->documentoRh($id),
-                $relacionado === 'Candidato' && $id !== null => self::destino(route('rh.candidatos.show', $id, false)),
+                $relacionado === 'Candidato' && $id !== null => $this->candidato($id, $usuario),
+                // Baja: a su expediente de baja, si la puede ver (Contraloría, Jurídico, RH).
+                $relacionado === 'Baja' => $this->baja($id, $usuario),
                 $relacionado === 'AgendaEvento' => self::destino(route('agenda.index', ['evento' => $id], false)),
                 $relacionado === 'ActaAdministrativa' && $id !== null => self::destino(route('rh.actas.show', $id, false)),
                 // Foto: el colaborador va a SU expediente (nunca a la bandeja
@@ -115,8 +123,8 @@ class DestinoNotificacionService
                 // Sobre uno mismo (onboarding, inducción…): su portal, nunca la
                 // ficha administrativa de RH.
                 $relacionado !== null && is_numeric($datos['colaborador_id'] ?? null) && (int) $datos['colaborador_id'] === $usuario->colaborador_id => self::destino(route('portal.index', [], false)),
-                $relacionado !== null && is_numeric($datos['colaborador_id'] ?? null) => self::destino(route('rh.expedientes.show', ['colaborador' => (int) $datos['colaborador_id']], false)),
-                $relacionado !== null => self::destino(route('rh.pendientes.index', [], false)),
+                $relacionado !== null && is_numeric($datos['colaborador_id'] ?? null) => $this->expediente((int) $datos['colaborador_id'], $usuario),
+                $relacionado !== null && $usuario->can('rh.pendientes.ver') => self::destino(route('rh.pendientes.index', [], false)),
                 default => self::destino(null),
             };
         } catch (Throwable $e) {
@@ -153,6 +161,44 @@ class DestinoNotificacionService
         }
 
         return self::destino(route('rh.expedientes.show', ['colaborador' => $colaboradorId, 'tab' => $pestana], false));
+    }
+
+    /**
+     * Sin pantalla que esta persona pueda abrir: el centro de notificaciones.
+     *
+     * @return Destino
+     */
+    private function candidato(int $id, User $usuario): array
+    {
+        $candidato = Candidato::query()->where('id', $id)->first();
+
+        return $candidato !== null && $usuario->can('view', $candidato)
+            ? self::destino(route('rh.candidatos.show', $candidato, false))
+            : self::destino(null);
+    }
+
+    /**
+     * @return Destino
+     */
+    private function baja(?int $id, User $usuario): array
+    {
+        $baja = $id !== null ? Baja::query()->where('id', $id)->first() : null;
+
+        return $baja !== null && $usuario->can('view', $baja)
+            ? self::destino(route('rh.bajas.show', $baja, false))
+            : self::destino(null);
+    }
+
+    /**
+     * @return Destino
+     */
+    private function expediente(int $colaboradorId, User $usuario): array
+    {
+        $colaborador = Colaborador::withTrashed()->where('id', $colaboradorId)->first();
+
+        return $colaborador !== null && $this->alcance->puedeVerExpediente($usuario, $colaborador)
+            ? self::destino(route('rh.expedientes.show', ['colaborador' => $colaboradorId], false))
+            : self::destino(null);
     }
 
     /**
