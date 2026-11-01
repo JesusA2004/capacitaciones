@@ -256,7 +256,7 @@ test('el gerente aprueba la entrevista (web y API); un rol con solo «aprobar en
     // Rol armado a mano solo con la acción específica (sin candidatos.evaluar).
     $soloEntrevista = Role::create(['name' => 'entrevistador_prueba', 'guard_name' => 'web']);
     $soloEntrevista->givePermissionTo(['candidatos.ver', 'candidatos.ver_sucursal', 'candidatos.aprobar_entrevista']);
-    $entrevistador = clUsuario('entrevistador_prueba', ['estatus' => 'activo', 'sucursal_principal_id' => $this->sucursal->id]);
+    $entrevistador = clUsuario('entrevistador_prueba', ['estatus' => 'activo', 'sucursal_principal_id' => $this->sucursal->id, 'puesto_id' => Puesto::factory()->create(['nombre' => 'Gerente de Sucursal'])->id]);
     $especifico = $nuevo();
     expect(collect($workflow->accionesPermitidas($especifico, $entrevistador))->pluck('clave'))->toContain('registrar_entrevista');
     $this->actingAs($entrevistador)->post(route('rh.candidatos.entrevista', $especifico), $entrevista)->assertRedirect()->assertSessionHasNoErrors();

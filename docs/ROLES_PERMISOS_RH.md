@@ -26,7 +26,7 @@ Los permisos de altas/vacaciones/solicitudes/reportes_rh ya están sembrados y a
 
 Añadidos en el checkpoint de Solicitudes internas / API móvil. Todos reutilizan el mecanismo de alcance ya existente en `AlcanceOrganizacionalService` — ninguno necesitó lógica nueva, solo entrar en la lista correcta:
 
-- **`director_comercial`**: alcance global (`ROLES_ALCANCE_GLOBAL`), **solo lectura** de reportes y reclutamiento (`reportes_rh.*`, `vacantes.ver_todos`, `candidatos.ver_todos`). No administra expedientes, documentos ni aprueba vacaciones/solicitudes — eso sigue siendo de RH y de la línea de gerencia.
+- **`director_comercial`**: alcance global (`ROLES_ALCANCE_GLOBAL`), lectura de reportes y vacantes; en reclutamiento revisa y actúa solo sobre Subgerentes y Gerentes (ver «Dirección Comercial» abajo). No administra expedientes, documentos ni aprueba vacaciones/solicitudes — eso sigue siendo de RH y de la línea de gerencia.
 - **`gerente_regional`**: alcance de sucursal (`ROLES_ALCANCE_SUCURSAL`), pero pensado para **varias sucursales**: se le asignan varias sucursales adicionales (`sucursal_user`, igual que a `gerente_sucursal`) y ve/aprueba en todas ellas. Mismo catálogo funcional que `gerente`.
 - **`gerente`**: alcance de una sola sucursal, catálogo equivalente a `gerente_sucursal` (que se conserva intacto, no se elimina ni se renombra).
 - **`subgerente`**: mismo alcance y catálogo que `gerente`, para poder **cubrirlo** según la jerarquía de puestos (`docs/JERARQUIA_PUESTOS.md`) — no tiene permisos exclusivos propios.

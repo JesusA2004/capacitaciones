@@ -205,6 +205,8 @@ final class ReferenciasUsuario
         ['plantillas_administrativas', 'activado_por', 'set_null'],
         ['plantillas_administrativas', 'creado_por', 'set_null'],
         ['prestamo_movimientos', 'registrado_por', 'set_null'],
+        ['reaperturas', 'decidido_por', 'set_null'],
+        ['reaperturas', 'reabierto_por', 'restrict'],
         ['prestamos', 'autorizado_por', 'set_null'],
         ['prestamos', 'resguardado_por', 'set_null'],
         ['progreso_lecciones', 'user_id', 'cascade'],
