@@ -326,13 +326,13 @@ class CartaCompromisoService
      * Contrato de la carta para la app (GET colaborador/carta-compromiso,
      * cierre del registro) y para el expediente en RH.
      *
-     * @return array{id: int, folio: string|null, estado: string, estado_etiqueta: string, fecha_limite: string, dias_restantes: int, documentos: list<array{document_type_id: int, nombre: string}>, generada_en: string|null}
+     * @return array{id: int, folio: string|null, estado: string, estado_etiqueta: string, fecha_limite: string, dias_restantes: int, documentos: list<array{document_type_id: int, nombre: string}>, generada_en: string|null, puede_descargar?: bool}
      */
-    public function aArray(CartaCompromiso $carta): array
+    public function aArray(CartaCompromiso $carta, ?User $viewer = null): array
     {
         $estado = $this->estadoEfectivo($carta);
 
-        return [
+        $datos = [
             'id' => $carta->id,
             'folio' => $carta->folio,
             'estado' => $estado->value,
@@ -345,6 +345,13 @@ class CartaCompromisoService
             ], $carta->documentos),
             'generada_en' => $carta->generada_en->toIso8601String(),
         ];
+
+        // GET colaborador/carta-compromiso/pdf solo entrega la propia. Sin quien mira, ausente = no.
+        if ($viewer !== null) {
+            $datos['puede_descargar'] = $viewer->colaborador_id !== null && $viewer->colaborador_id === $carta->colaborador_id;
+        }
+
+        return $datos;
     }
 
     /**

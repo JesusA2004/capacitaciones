@@ -241,6 +241,8 @@ class CandidatoPresenter
                 'cumple' => $r->cumple,
             ])->values()->all(),
             'tiene_cv' => $candidato->tiene_cv,
+            // Sin quien mira no se manda: ausente = no. Misma regla que la ruta (CandidatoPolicy::view).
+            ...($viewer !== null ? ['puede_descargar_cv' => $candidato->tiene_cv && $viewer->can('view', $candidato)] : []),
             // Ver psicométrico / socioeconómico / video / CV sin bajar toda la ficha.
             'accesos_rapidos' => $this->accesosRapidos($candidato),
             // Mini expediente previo a la contratación (CV, psicométricos,
@@ -269,7 +271,7 @@ class CandidatoPresenter
                 'revision_resultado' => $p->revision_resultado?->value,
                 'revision_observaciones' => $p->revision_observaciones,
                 'revisada_en' => $p->revisada_en?->toIso8601String(),
-                'evidencias' => $p->evidencias->map(fn (CandidatoEvidencia $e) => $this->evidencia($e))->values()->all(),
+                'evidencias' => $p->evidencias->map(fn (CandidatoEvidencia $e) => $this->evidencia($e, $candidato, $viewer))->values()->all(),
             ])->values()->all(),
             'socioeconomicos' => $candidato->socioeconomicos->map(fn (CandidatoSocioeconomico $s) => [
                 'id' => $s->id,
@@ -285,7 +287,7 @@ class CandidatoPresenter
                 'resultado_etiqueta' => $s->resultado?->etiqueta() ?? 'Pendiente de revisión',
                 'revisado_en' => $s->revisado_en?->toIso8601String(),
                 'revision_observaciones' => $s->revision_observaciones,
-                'evidencias' => $s->evidencias->map(fn (CandidatoEvidencia $e) => $this->evidencia($e))->values()->all(),
+                'evidencias' => $s->evidencias->map(fn (CandidatoEvidencia $e) => $this->evidencia($e, $candidato, $viewer))->values()->all(),
             ])->values()->all(),
             'referencias' => $candidato->referencias->map(fn (CandidatoReferencia $r) => [
                 'id' => $r->id,
@@ -298,7 +300,7 @@ class CandidatoPresenter
                 'observaciones' => $r->observaciones,
                 'fecha_validacion' => $r->fecha_validacion->toDateString(),
                 'validada_por' => $r->validadaPor?->nombreCompleto(),
-                'evidencias' => $r->evidencias->map(fn (CandidatoEvidencia $e) => $this->evidencia($e))->values()->all(),
+                'evidencias' => $r->evidencias->map(fn (CandidatoEvidencia $e) => $this->evidencia($e, $candidato, $viewer))->values()->all(),
             ])->values()->all(),
             'invitacion' => $invitacion !== null ? [
                 'id' => $invitacion->id,
@@ -396,9 +398,12 @@ class CandidatoPresenter
     /**
      * @return array<string, mixed>
      */
-    private function evidencia(CandidatoEvidencia $evidencia): array
+    private function evidencia(CandidatoEvidencia $evidencia, Candidato $candidato, ?User $viewer): array
     {
-        return $this->expediente->evidencia($evidencia);
+        return [
+            ...$this->expediente->evidencia($evidencia),
+            ...($viewer !== null ? ['puede_descargar' => $viewer->can('view', $candidato)] : []),
+        ];
     }
 
     /**
@@ -417,9 +422,9 @@ class CandidatoPresenter
         $socio = $socioEvidencias->first(fn (CandidatoEvidencia $e) => $e->tipo !== TipoEvidenciaCandidato::Video);
 
         return [
-            'psicometrico' => $psico instanceof CandidatoEvidencia ? $this->evidencia($psico) : null,
-            'socioeconomico' => $socio instanceof CandidatoEvidencia ? $this->evidencia($socio) : null,
-            'video' => $video instanceof CandidatoEvidencia ? $this->evidencia($video) : null,
+            'psicometrico' => $psico instanceof CandidatoEvidencia ? $this->expediente->evidencia($psico) : null,
+            'socioeconomico' => $socio instanceof CandidatoEvidencia ? $this->expediente->evidencia($socio) : null,
+            'video' => $video instanceof CandidatoEvidencia ? $this->expediente->evidencia($video) : null,
             'tiene_cv' => $candidato->tiene_cv,
         ];
     }

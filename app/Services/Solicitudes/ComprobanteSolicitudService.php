@@ -124,7 +124,7 @@ class ComprobanteSolicitudService
      *
      * @return array<string, mixed>|null
      */
-    public function resumenPermiso(SolicitudInterna $solicitud): ?array
+    public function resumenPermiso(SolicitudInterna $solicitud, ?User $viewer = null): ?array
     {
         if ($solicitud->tipo !== TipoSolicitudInterna::Permiso) {
             return null;
@@ -147,6 +147,8 @@ class ComprobanteSolicitudService
             'autorizado_por' => $liberado && $solicitud->revisadoPor !== null ? trim($solicitud->revisadoPor->name.' '.$solicitud->revisadoPor->apellidos) : null,
             'autorizado_en' => $liberado ? $solicitud->revisado_en?->toIso8601String() : null,
             'pdf_disponible' => $liberado,
+            // Sin quien mira no se manda: ausente = no. SolicitudInternaPolicy::descargarFormato.
+            ...($viewer !== null ? ['puede_descargar' => $liberado && $viewer->can('descargarFormato', $solicitud)] : []),
         ];
     }
 

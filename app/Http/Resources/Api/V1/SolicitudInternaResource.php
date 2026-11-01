@@ -49,7 +49,7 @@ class SolicitudInternaResource extends JsonResource
                 : null,
             // Permiso: modalidad, goce, causal y si RH ya lo autorizó (solo
             // entonces existe el formato oficial en `permiso_pdf`).
-            'permiso' => app(SolicitudesService::class)->resumenPermiso($this->resource),
+            'permiso' => app(SolicitudesService::class)->resumenPermiso($this->resource, $request->user()),
             'permiso_pdf' => $this->tipo === TipoSolicitudInterna::Permiso ? route('api.v1.solicitudes.permiso-pdf', $this->id, false) : null,
             // «Completar mis datos»: lo propuesto (se aplica al autorizar RH).
             'datos_propuestos' => app(SolicitudesService::class)->comparativoDatos($this->resource),

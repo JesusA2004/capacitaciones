@@ -108,7 +108,7 @@ class MiProcesoController extends Controller
         // capítulos quedan solo para versiones anteriores de la app.
         $presentacion = $this->evaluacionInduccion->presentacion($request->user()) ?? ['titulo' => (string) config('induccion.titulo'), 'capitulos' => []];
 
-        return response()->json(['data' => [...$presentacion, 'pdf' => $this->induccionPdf->datosVisor(true)]]);
+        return response()->json(['data' => [...$presentacion, 'pdf' => $this->induccionPdf->datosVisor(true, $request->user())]]);
     }
 
     /**
@@ -159,7 +159,7 @@ class MiProcesoController extends Controller
             'avance_id' => $avance->id,
             'capitulos' => $this->evaluacionInduccion->capitulos($avance, $request->user()),
             'resumen' => $this->evaluacionInduccion->resumenContenido($avance->proceso),
-            'pdf' => $this->induccionPdf->datosVisor(true),
+            'pdf' => $this->induccionPdf->datosVisor(true, $request->user()),
             'puede_ver_organigrama_completo' => $request->user()->can('organigrama.ver') || $request->user()->can('puestos.administrar'),
         ]]);
     }

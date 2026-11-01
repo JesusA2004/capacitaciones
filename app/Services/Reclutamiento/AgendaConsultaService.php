@@ -155,6 +155,7 @@ class AgendaConsultaService
                 'gestionar' => $viewer->can('gestionar', $evento),
                 'registrar_resultado' => $viewer->can('registrarResultado', $evento),
                 'ver_datos_candidato' => $verDatos,
+                'descargar_cv' => $verDatos && $candidato->cv_path !== null,
                 'reprogramar' => $evento->reprogramado_a_id === null && ($vigente || $evento->estado === EstadoAgendaEvento::NoAsistio),
                 'cancelar' => $vigente,
                 'capturar' => $vigente,

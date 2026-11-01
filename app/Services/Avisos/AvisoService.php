@@ -151,7 +151,7 @@ class AvisoService
             ->orderByDesc('enviado_en')
             ->paginate($porPagina);
 
-        return $this->reemplazarItems($paginador, fn (Aviso $aviso): array => $this->aArray($aviso, incluirLeido: true));
+        return $this->reemplazarItems($paginador, fn (Aviso $aviso): array => $this->aArray($aviso, incluirLeido: true, lector: $colaborador));
     }
 
     /**
@@ -168,7 +168,13 @@ class AvisoService
         $aviso->setAttribute('leido', $lectura !== null);
         $aviso->setAttribute('leido_en', $lectura?->leido_en);
 
-        return $this->aArray($aviso, incluirLeido: true);
+        return $this->aArray($aviso, incluirLeido: true, lector: $colaborador);
+    }
+
+    /** Solo quien recibe el aviso abre su adjunto. */
+    public function esDestinatario(Aviso $aviso, ?Colaborador $colaborador): bool
+    {
+        return $colaborador !== null && ($aviso->alcance === AlcanceAviso::Todos || $aviso->colaborador_objetivo_id === $colaborador->id);
     }
 
     public function marcarLeido(Aviso $aviso, User $usuario): void
@@ -220,7 +226,7 @@ class AvisoService
     /**
      * @return array<string, mixed>
      */
-    private function aArray(Aviso $aviso, bool $incluirLeido = false): array
+    private function aArray(Aviso $aviso, bool $incluirLeido = false, ?Colaborador $lector = null): array
     {
         return [
             'id' => $aviso->id,
@@ -235,6 +241,8 @@ class AvisoService
                 'nombre' => $aviso->archivo_nombre,
                 'tamano' => $aviso->archivo_size,
                 'mime' => $aviso->archivo_mime,
+                // Sin lector no se manda: ausente = no. Misma regla que GET /avisos/{id}/archivo.
+                ...($lector !== null ? ['puede_descargar' => $this->esDestinatario($aviso, $lector)] : []),
             ] : null,
             // Compatibilidad con la app anterior (solo pinta imágenes vía
             // /{id}/imagen): no nulo únicamente si el adjunto es imagen.

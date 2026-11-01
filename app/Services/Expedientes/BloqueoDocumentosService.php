@@ -61,7 +61,7 @@ class BloqueoDocumentosService
         $pendientes = $this->pendientes->pendientes($colaborador);
 
         return [
-            'carta' => $carta !== null ? $this->cartas->aArray($carta) : null,
+            'carta' => $carta !== null ? $this->cartas->aArray($carta, $usuario) : null,
             'documentos_pendientes' => $pendientes,
             'bloqueo' => $this->estadoDe($usuario, $colaborador, count($pendientes)),
         ];

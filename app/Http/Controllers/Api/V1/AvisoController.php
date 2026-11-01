@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Enums\AlcanceAviso;
 use App\Http\Controllers\Controller;
 use App\Models\Aviso;
 use App\Services\Avisos\AvisoService;
@@ -80,8 +79,6 @@ class AvisoController extends Controller
 
     private function exigirPuedeVer(Request $request, Aviso $aviso): void
     {
-        $colaborador = $request->user()->colaborador;
-        $esSuyo = $aviso->alcance === AlcanceAviso::Todos || $aviso->colaborador_objetivo_id === $colaborador?->id;
-        abort_unless($esSuyo, 403);
+        abort_unless($this->avisos->esDestinatario($aviso, $request->user()->colaborador), 403);
     }
 }

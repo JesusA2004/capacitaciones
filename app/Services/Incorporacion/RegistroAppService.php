@@ -357,7 +357,7 @@ class RegistroAppService
 
         return [
             ...$this->estado($usuario),
-            'carta_compromiso' => $carta !== null ? $this->cartas->aArray($carta) : null,
+            'carta_compromiso' => $carta !== null ? $this->cartas->aArray($carta, $usuario) : null,
         ];
     }
 

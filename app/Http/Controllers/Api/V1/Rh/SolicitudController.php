@@ -98,7 +98,7 @@ class SolicitudController extends Controller
                 'plazo_solicitado' => $solicitud->plazo_meses,
                 'prestamo' => $solicitud->tipo === TipoSolicitudInterna::PrestamoInterno ? $this->prestamoDecision($usuario, $solicitud) : null,
                 // Permiso: «✓ Autorizado por RH» + formato oficial (solo tras RH).
-                'permiso' => $this->solicitudes->resumenPermiso($solicitud),
+                'permiso' => $this->solicitudes->resumenPermiso($solicitud, $usuario),
                 'permiso_pdf' => $solicitud->tipo === TipoSolicitudInterna::Permiso ? route('api.v1.rh.solicitudes.permiso-pdf', $solicitud->id, false) : null,
                 // Actualización de datos: qué cambia en el expediente al autorizar.
                 'datos_propuestos' => $this->solicitudes->comparativoDatos($solicitud),

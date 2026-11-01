@@ -924,9 +924,9 @@ class SolicitudesService
      *
      * @return array<string, mixed>|null
      */
-    public function resumenPermiso(SolicitudInterna $solicitud): ?array
+    public function resumenPermiso(SolicitudInterna $solicitud, ?User $viewer = null): ?array
     {
-        return $this->comprobantes->resumenPermiso($solicitud);
+        return $this->comprobantes->resumenPermiso($solicitud, $viewer);
     }
 
     /**

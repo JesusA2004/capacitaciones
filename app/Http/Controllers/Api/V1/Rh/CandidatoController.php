@@ -203,7 +203,7 @@ class CandidatoController extends Controller
         $ciclo = $this->ciclo->obtenerEstado($candidato, $request->user());
 
         return response()->json(['data' => [
-            'candidato' => $this->presenter->detalle($candidato),
+            'candidato' => $this->presenter->detalle($candidato, $request->user()),
             'ciclo' => $ciclo,
             'siguiente_paso' => app(SiguientePasoService::class)->paraCandidato($candidato, $request->user(), $ciclo)->toArray(),
             // Mismo estado candidato → contratación → expediente que la web.

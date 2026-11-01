@@ -70,15 +70,33 @@ class InduccionPdfService
     }
 
     /**
-     * @return array{url: string, titulo: string, total_paginas: int}
+     * @return array{url: string, titulo: string, total_paginas: int, puede_descargar?: bool}
      */
-    public function datosVisor(bool $api = false): array
+    public function datosVisor(bool $api = false, ?User $viewer = null): array
     {
-        return [
+        $datos = [
             'url' => $api ? route('api.v1.induccion.pdf') : route('induccion.pdf'),
             'titulo' => (string) config('induccion.titulo'),
             'total_paginas' => $this->totalPaginas(),
         ];
+
+        // Respaldo si el visor no dibuja. Sin quien mira no se manda: ausente = no.
+        if ($viewer !== null) {
+            $datos['puede_descargar'] = $this->puedeVerPdf($viewer);
+        }
+
+        return $datos;
+    }
+
+    private function puedeVerPdf(User $usuario): bool
+    {
+        try {
+            $this->acceso->exigirPdfVisible($usuario);
+
+            return true;
+        } catch (AuthorizationException) {
+            return false;
+        }
     }
 
     /**
