@@ -226,3 +226,43 @@ POST /api/v1/rh/reaperturas/{tipo}/{id}   { "motivo": "…" }
 ## Siguiente paso
 
 `GET /api/v1/rh/candidatos/{id}`, `GET /api/v1/rh/colaboradores/{id}/ciclo` y `GET /api/v1/rh/bajas/{id}` agregan `siguiente_paso` (`tipo`: `accion`, `espera` o `terminado`; `accion`, `mensaje`, `bloqueos`, `relacionadas`). Se conservan `ciclo.siguiente_accion` y `acciones_permitidas`, que ahora puede traer entradas con `href` y `solo_web: true`: la app no las ejecuta. Con `accion.solo_web`, mostrar «Se completa en la web»; `href` es una ruta web relativa. Ver `docs/SIGUIENTE_PASO.md`.
+
+## Descarga y consulta de documentos
+
+Cada documento trae su bandera; **ausente = no**. La ruta vuelve a autorizar con la misma Policy.
+
+| Respuesta | Campo | Regla |
+|---|---|---|
+| Documento laboral (colaborador y RH, en detalle) | `puede_descargar`, `puede_descargar_word` | `GeneratedDocumentPolicy::descargar`, `descargarWord` |
+| Recibo | `puede_descargar` | PDF disponible y `ReciboNominaPolicy::descargar` |
+| `permiso` de solicitud | `puede_descargar` | Formato liberado y `SolicitudInternaPolicy::descargarFormato` |
+| `aviso.archivo` | `puede_descargar` | Destinatario del aviso |
+| Carta compromiso | `puede_descargar` | Solo la propia |
+| Candidato | `puede_descargar_cv`; evidencia: `puede_descargar` | `CandidatoPolicy::view` |
+| Agenda | `puede.descargar_cv` | `agenda.ver_datos_candidato`, alcance y CV existente |
+| Anexo de acta | `puede_descargar` | `ActaAdministrativaPolicy::descargarAnexo` |
+| PDF de inducción | `pdf.puede_descargar` | Mismo acceso que la ruta del PDF |
+
+Consulta en línea (Bearer, `inline`, sin caché, no cuenta como descarga), autorizada con `ver` sin exigir `descargar`:
+
+```
+GET /api/v1/colaborador/documentos-laborales/{id}/ver
+GET /api/v1/rh/documentos-laborales/{id}/ver
+GET /api/v1/rh/actas/{id}/anexos/{anexo}/ver
+```
+
+## Firma digital con apertura registrada
+
+1. `GET colaborador/documentos-laborales/{id}/ver`: el titular con la firma pendiente deja el evento `consultado_para_firma`.
+2. `POST colaborador/documentos-laborales/{id}/apertura`: la app confirma que el PDF se dibujó (`apertura_verificada`). 422 sin el paso 1.
+3. `POST colaborador/documentos-laborales/{id}/firmar` con `acepto=true`. 422 sin el paso 2 para ese mismo `checksum`.
+
+La apertura no marca nada como leído. **Una versión de la app que firme sin estos pasos recibe 422.** Si el visor no dibuja el PDF no hay vía alterna: el colaborador acude a RH.
+
+## Finiquito
+
+`POST /api/v1/rh/cierres/{id}/finiquito/revisar` (`finiquitos.revisar`, finiquito en borrador): mismo `FiniquitoService::aprobarCalculo` que la web. La entrega no lo exige.
+
+## Bajas para Jurídico y Contraloría
+
+`GET /rh/bajas` y `GET /rh/bajas/{id}` son de consulta para ellos. `bajas.revisar_juridico` y `bajas.consulta_contraloria` abren `capabilities.rh`, sin conceder ningún otro permiso.
