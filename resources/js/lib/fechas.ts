@@ -91,7 +91,13 @@ export function formatearFechaHora(valor: string | null | undefined): string {
         return '—';
     }
 
-    const fecha = new Date(valor);
+    // Laravel manda `toDateTimeString()` en UTC y sin zona: sin esto el navegador
+    // lo tomaba por hora local y mostraba las 9 p.m. a las 3 p.m.
+    const fecha = new Date(
+        /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(valor)
+            ? `${valor.replace(' ', 'T')}Z`
+            : valor,
+    );
 
     if (Number.isNaN(fecha.getTime())) {
         return valor;
