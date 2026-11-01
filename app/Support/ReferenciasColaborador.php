@@ -35,6 +35,7 @@ final class ReferenciasColaborador
         ['avisos_datos_faltantes', 'colaborador_id', 'cascade', 'eliminar'],
         ['incapacidades', 'colaborador_id', 'restrict', 'eliminar'],
         ['nomina_rectificaciones', 'colaborador_id', 'restrict', 'eliminar'],
+        ['correcciones', 'colaborador_id', 'restrict', 'eliminar'],
         ['bajas', 'colaborador_id', 'restrict', 'eliminar'],
         ['birthday_greetings', 'colaborador_id', 'cascade', 'eliminar'],
         ['cambios_foto_perfil', 'colaborador_id', 'cascade', 'eliminar'],

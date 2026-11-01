@@ -128,6 +128,7 @@ final class ReferenciasUsuario
         ['colaboradores', 'expediente_cerrado_por', 'set_null'],
         ['configuraciones_sistema', 'actualizado_por', 'set_null'],
         ['contratos_laborales', 'creado_por', 'set_null'],
+        ['correcciones', 'actor_id', 'restrict'],
         ['cursos', 'responsable_id', 'set_null'],
         ['descriptivos_puesto', 'importado_por', 'set_null'],
         ['document_assets', 'creado_por', 'set_null'],
