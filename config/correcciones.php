@@ -156,6 +156,13 @@ return [
             ],
         ],
 
+        // Los datos de un documento se corrigen al emitir la versión
+        // (VersionadoDocumentoService): aquí solo se consulta su historial.
+        'documento_generado' => [
+            'etiqueta' => 'Documentos generados',
+            'campos' => [],
+        ],
+
         'agenda' => [
             'etiqueta' => 'Cita de la agenda',
             'campos' => [

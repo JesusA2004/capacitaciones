@@ -6,11 +6,13 @@ use App\Enums\ModoCorreccion;
 use App\Exceptions\CorreccionConflictoException;
 use App\Models\Colaborador;
 use App\Models\Correccion;
+use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Correcciones\Contracts\DominioCorreccion;
 use App\Services\Correcciones\Dominios\AgendaDominio;
 use App\Services\Correcciones\Dominios\ContratacionDominio;
+use App\Services\Correcciones\Dominios\DocumentoGeneradoDominio;
 use App\Services\Correcciones\Dominios\FiniquitoDominio;
 use App\Services\Correcciones\Dominios\IncapacidadDominio;
 use App\Services\Correcciones\Dominios\LaboralDominio;
@@ -49,6 +51,7 @@ class CorreccionService
         'recibo_nomina' => ReciboNominaDominio::class,
         'finiquito' => FiniquitoDominio::class,
         'agenda' => AgendaDominio::class,
+        'documento_generado' => DocumentoGeneradoDominio::class,
     ];
 
     public function __construct(
@@ -205,6 +208,50 @@ class CorreccionService
         $this->avisar($manejador, $correccion, $actor);
 
         return $correccion->load(['campos', 'actor']);
+    }
+
+    /**
+     * Deja en el historial inmutable lo corregido al emitir una versión de un
+     * documento. Lo llama VersionadoDocumentoService dentro de su transacción: el
+     * render no puede ocurrir aquí, por eso no pasa por aplicar().
+     *
+     * @param  list<array{campo: string, etiqueta: string, anterior: string|null, nuevo: string}>  $cambios
+     */
+    public function registrarEmisionDocumento(GeneratedDocument $documento, array $cambios, string $motivo, ?GeneratedDocument $anterior, User $actor): Correccion
+    {
+        $contexto = OrigenPeticion::contexto();
+        $huella = fn (array $valores): string => hash_hmac('sha256', (string) json_encode($valores), (string) config('app.key'));
+        $correccion = Correccion::query()->create([
+            'clave_idempotencia' => (string) Str::uuid(),
+            'dominio' => 'documento_generado',
+            'sujeto_type' => $documento->getMorphClass(),
+            'sujeto_id' => $documento->id,
+            'colaborador_id' => $documento->colaborador_id,
+            'version' => 1,
+            'modo' => ModoCorreccion::NuevaVersion->value,
+            'huella_anterior' => $huella(array_column($cambios, 'anterior', 'campo')),
+            'huella_nueva' => $huella(array_column($cambios, 'nuevo', 'campo')),
+            'motivo' => mb_substr($motivo, 0, 500),
+            'afectados' => $anterior !== null ? [['tipo' => 'documento', 'etiqueta' => 'Versión anterior', 'detalle' => sprintf('Documento %d: se conserva en el historial.', $anterior->id), 'accion' => 'se_conserva']] : [],
+            'resultado_type' => $documento->getMorphClass(),
+            'resultado_id' => $documento->id,
+            'origen' => $contexto['origen'],
+            'ip' => $contexto['ip'],
+            'user_agent' => $contexto['user_agent'],
+            'actor_id' => $actor->id,
+        ]);
+
+        foreach ($cambios as $cambio) {
+            $correccion->campos()->create([
+                'campo' => $cambio['campo'],
+                'etiqueta' => $cambio['etiqueta'],
+                'valor_anterior' => $cambio['anterior'],
+                'valor_nuevo' => $cambio['nuevo'],
+                'confidencial' => false,
+            ]);
+        }
+
+        return $correccion;
     }
 
     /**
