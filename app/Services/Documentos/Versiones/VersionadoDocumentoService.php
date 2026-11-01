@@ -411,7 +411,8 @@ class VersionadoDocumentoService
             throw ValidationException::withMessages(['documento' => 'La rectificación solo aplica a un documento ya firmado. Si aún no se firma, corrígelo y regenéralo.']);
         }
 
-        if ($rectificar && ! $fuente->puedeRectificar($actor)) {
+        // La policy además impide rectificar el propio documento y exige el alcance.
+        if ($rectificar && (! $fuente->puedeRectificar($actor) || ($vigente !== null && ! $actor->can('regenerar', $vigente)))) {
             throw new AccessDeniedHttpException('No tienes permiso para rectificar un documento firmado.');
         }
     }

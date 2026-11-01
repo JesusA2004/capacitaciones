@@ -57,7 +57,7 @@ class DocumentoEdicionService
                 'firmado' => $vigente->estado_flujo?->firmaFisicaRegistrada() ?? false,
                 'desactualizado' => $this->versionado->estaDesactualizado($fuente, $vigente, $actor),
             ] : null,
-            'puede_rectificar' => $fuente->puedeRectificar($actor),
+            'puede_rectificar' => $fuente->puedeRectificar($actor) && ($vigente === null || $actor->can('regenerar', $vigente)),
         ];
     }
 

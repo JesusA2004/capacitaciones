@@ -760,7 +760,7 @@ class DocumentoProcesoService
                 throw ValidationException::withMessages(['documento' => 'La revisión excepcional solo aplica a un documento ya firmado. Si aún no se firma, usa "Regenerar".']);
             }
 
-            if (! $actor->can('documentos_laborales.revisar_firmado')) {
+            if (! $actor->can('documentos_laborales.revisar_firmado') || ! $actor->can('regenerar', $existente)) {
                 throw new AuthorizationException('No tienes permiso para emitir una nueva revisión de un documento firmado.');
             }
 
