@@ -78,6 +78,11 @@ class ValidacionVisualMaestroService
 
     public function validar(DocumentTemplate $master, ?User $actor = null): DocumentTemplate
     {
+        // Nunca partir de una lista de fuentes instaladas que pudo quedar vieja
+        // en caché, ni siquiera si el QA se detiene antes por infraestructura:
+        // cada corrida consulta las fuentes reales.
+        $this->fuentes->invalidarCache();
+
         if ($master->estado_master === 'referencia' || ! $master->operativo) {
             return $this->guardar($master, EstadoValidacionVisual::Pendiente, ['problemas' => ['Documento de referencia: no se genera para colaboradores.']], $actor);
         }
@@ -88,10 +93,6 @@ class ValidacionVisualMaestroService
             // Infraestructura, no un defecto del formato: queda pendiente.
             return $this->guardar($master, EstadoValidacionVisual::Pendiente, ['problemas' => [$impedimento], 'infraestructura' => true], $actor);
         }
-
-        // Nunca partir de una lista de fuentes instaladas que pudo quedar
-        // vieja en caché: cada corrida del QA consulta las fuentes reales.
-        $this->fuentes->invalidarCache();
 
         try {
             $reporte = $this->esDocx($master) ? $this->validarDocx($master) : $this->validarOverlay($master);

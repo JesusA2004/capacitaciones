@@ -40,7 +40,7 @@ class RotacionConsultaService
 
         $hasta = $this->hasta($filtros['hasta'] ?? null, $base);
         $meses = (int) config('rotacion.meses_ventana', 12);
-        $desde = $hasta->subMonths($meses - 1);
+        $desde = $hasta->subMonthsNoOverflow($meses - 1);
 
         $periodos = $this->enVentana((clone $base), $desde, $hasta)
             ->with('sucursal:id,nombre')

@@ -24,6 +24,7 @@ use App\Services\Headcount\HeadcountService;
 use App\Services\Nomina\IncidenciasNominaService;
 use App\Services\Vacaciones\VacacionesService;
 use App\Services\Vacantes\VacantesListadoService;
+use App\Support\FechaMexico;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -432,7 +433,7 @@ class ReportesRhService
      */
     private function porMes(Collection $fechas, string $titulo): array
     {
-        $desde = now()->subMonths(11)->startOfMonth();
+        $desde = now(FechaMexico::ZONA)->subMonthsNoOverflow(11)->startOfMonth();
 
         $meses = collect(range(0, 11))->map(fn (int $i) => $desde->copy()->addMonths($i));
 

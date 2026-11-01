@@ -347,7 +347,7 @@ class MetricasDashboardService
     private function evolucionMensual(Collection $usuariosVisiblesIds): Collection
     {
         return collect(range(5, 0))->map(function (int $mesesAtras) use ($usuariosVisiblesIds) {
-            $inicioMes = now()->subMonths($mesesAtras)->startOfMonth();
+            $inicioMes = now()->subMonthsNoOverflow($mesesAtras)->startOfMonth();
             $finMes = $inicioMes->copy()->endOfMonth();
 
             $completados = InscripcionCurso::query()

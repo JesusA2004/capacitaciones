@@ -2,13 +2,13 @@
 
 use App\Models\Colaborador;
 use App\Models\User;
+use App\Services\Celebraciones\FechasCelebracion;
 use Database\Seeders\DepartamentoSeeder;
 use Database\Seeders\EmpresaSeeder;
 use Database\Seeders\PuestoSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
 use Database\Seeders\SucursalSeeder;
 use Database\Seeders\UsuarioDemoSeeder;
-use Illuminate\Support\Carbon;
 
 beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
@@ -18,7 +18,8 @@ test('sin filtros el panel devuelve los cumpleanos del mes actual', function () 
     $admin = User::factory()->create();
     $admin->assignRole('rh_admin');
 
-    $hoy = Carbon::today();
+    // El mes es el de México: en UTC, la noche del último día ya es el mes siguiente.
+    $hoy = FechasCelebracion::hoy();
 
     $festejado = Colaborador::factory()->create([
         'fecha_nacimiento' => $hoy->copy()->subYears(29),

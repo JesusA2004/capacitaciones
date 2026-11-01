@@ -43,7 +43,7 @@ test('API móvil: el directorio solo serializa contacto corporativo, nunca datos
     $token = $usuario->createToken('test')->plainTextToken;
 
     $respuesta = $this->withHeaders(['Authorization' => "Bearer {$token}"])
-        ->getJson('/api/v1/directorio?busqueda=Sofía Herrera')
+        ->getJson('/api/v1/directorio?'.http_build_query(['busqueda' => 'Sofía Herrera']))
         ->assertOk()
         ->assertJsonPath('data.0.correo_corporativo', 'sofia.herrera@mrlana.test')
         ->assertJsonPath('data.0.telefono_corporativo', '7771112233');

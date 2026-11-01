@@ -104,7 +104,7 @@ class TableroRhService
         return [
             'summary' => $this->resumen($usuario, $sucursales, $todas, $inicio, $fin, $this->rotacionDelMes($serieRotacion, $fin)),
             // El periodo del tablero (6, 12 o 24 meses) acota embudo y tiempos.
-            'recruitment_funnel' => $this->embudo($sucursales, $todas, $fin->subMonths($meses - 1)->startOfMonth(), $fin),
+            'recruitment_funnel' => $this->embudo($sucursales, $todas, $fin->subMonthsNoOverflow($meses - 1)->startOfMonth(), $fin),
             'time_to_hire_by_level' => $this->tiempoPorNivel($sucursales, $todas, $fin, $meses),
             'turnover_monthly' => $this->turnoverMensual($serieRotacion, $meses),
             'headcount_by_branch' => $this->headcount->resumenPorSucursal($sucursales)
@@ -314,7 +314,7 @@ class TableroRhService
     {
         $contratados = $this->candidatos($sucursales, $todas)
             ->where('estado', EstadoCandidato::Contratado->value)
-            ->whereBetween('contratado_en', [$fin->subMonths($meses - 1)->startOfMonth(), $fin])
+            ->whereBetween('contratado_en', [$fin->subMonthsNoOverflow($meses - 1)->startOfMonth(), $fin])
             ->with('puestoObjetivo:id,grupo_indicador')
             ->get(['id', 'puesto_objetivo_id', 'created_at', 'contratado_en']);
 

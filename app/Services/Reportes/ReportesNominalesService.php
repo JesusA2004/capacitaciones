@@ -106,7 +106,7 @@ class ReportesNominalesService
         $historicas = $altas->where('origen', 'Histórico');
         $desdeHistorico = $historicas->min('fecha');
         $hastaHistorico = $historicas->max('fecha');
-        $primero = CarbonImmutable::now('America/Mexico_City')->subMonths(11)->startOfMonth();
+        $primero = CarbonImmutable::now('America/Mexico_City')->subMonthsNoOverflow(11)->startOfMonth();
         $filas = [];
 
         for ($i = 0; $i < 12; $i++) {

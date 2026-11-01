@@ -227,7 +227,25 @@ test('PDF ESCANEADO: se reconoce como escaneado y el OCR LOCAL propone los espac
     $pdf->AddPage();
     $pdf->Image($ruta, 0, 0, 215.9, 279.4);
     $escaneado = (string) $pdf->Output('S');
+    $pagina = (string) file_get_contents($ruta);
     @unlink($ruta);
+
+    // Sin depender de que el servidor tenga pdftoppm: el rasterizado real se
+    // prueba en el grupo «fidelidad»; aquí importa la detección con OCR.
+    app()->instance(RasterizadorPdf::class, new class($pagina) extends RasterizadorPdf
+    {
+        public function __construct(private string $png) {}
+
+        public function disponible(): bool
+        {
+            return true;
+        }
+
+        public function rasterizar(string $pdf, int $dpi): array
+        {
+            return [['pagina' => 1, 'ancho_pt' => 612.0, 'alto_pt' => 792.0, 'dpi' => (float) $dpi, 'png' => $this->png]];
+        }
+    });
 
     expect(app(TipoArchivoDocumento::class)->detectar($escaneado))->toBe('pdf_escaneado');
 

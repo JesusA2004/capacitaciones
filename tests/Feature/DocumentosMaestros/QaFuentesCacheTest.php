@@ -9,6 +9,7 @@ use App\Services\Formatos\Motor\ConversorDocxPdf;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use PhpOffice\PhpWord\PhpWord;
@@ -62,6 +63,9 @@ beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
     Storage::fake('nas');
     Notification::fake();
+    // El «estado real del servidor» es fontconfig: se fija para no depender de
+    // las tipografías instaladas en la máquina que corre la suite.
+    Process::fake(['*fc-list*' => Process::result("/fuentes/calibri.ttf\tCalibri\n/fuentes/gothic.ttf\tCentury Gothic\n")]);
     app()->instance(ConversorDocxPdf::class, new ConversorFielDePrueba(app(FormatoPreviewService::class)));
 });
 

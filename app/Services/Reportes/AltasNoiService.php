@@ -252,7 +252,10 @@ class AltasNoiService
     private function colaboradores(User $usuario, array $filtros, CarbonImmutable $desde, CarbonImmutable $hasta): Collection
     {
         return $this->alcance->limitarColaboradoresPorAlcance(Colaborador::query(), $usuario)
-            ->whereBetween('fecha_ingreso', [$desde->toDateString(), $hasta->toDateString()])
+            // whereDate: en SQLite la columna guarda también la hora y el último
+            // día del periodo quedaría fuera de un BETWEEN con fechas puras.
+            ->whereDate('fecha_ingreso', '>=', $desde->toDateString())
+            ->whereDate('fecha_ingreso', '<=', $hasta->toDateString())
             ->when($filtros['sucursal_id'] ?? null, fn ($q, $v) => $q->where('sucursal_principal_id', $v))
             ->when($filtros['puesto_id'] ?? null, fn ($q, $v) => $q->where('puesto_id', $v))
             ->with(['sucursalPrincipal.empresa', 'departamento', 'puesto'])

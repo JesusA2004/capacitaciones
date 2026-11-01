@@ -9,6 +9,7 @@ use App\Models\SolicitudVacaciones;
 use App\Models\User;
 use App\Services\Reportes\ReportesRhService;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Support\Carbon;
 
 /**
  * Ver CLAUDE.md ("cierre real MR. LANA PEOPLE"), secciones 28-30: tres bugs
@@ -16,6 +17,10 @@ use Database\Seeders\RolesYPermisosSeeder;
  * regresión futura señale exactamente cuál se rompió.
  */
 beforeEach(function () {
+    // Fecha fija: los reportes usan el mes de México, y now() en UTC ya puede
+    // ser el mes siguiente la noche del último día.
+    Carbon::setTestNow(Carbon::parse('2026-10-15 12:00:00'));
+
     $this->seed(RolesYPermisosSeeder::class);
     $this->rhAdmin = User::factory()->create();
     $this->rhAdmin->assignRole('rh_admin');

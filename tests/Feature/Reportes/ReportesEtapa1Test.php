@@ -22,8 +22,10 @@ use App\Services\Reportes\Propios\ReportePropioService;
 use App\Services\Reportes\ReporteExcelService;
 use App\Services\Reportes\ReportesRhService;
 use Database\Seeders\RolesYPermisosSeeder;
+use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
@@ -501,8 +503,8 @@ test('altas históricas: filas que no cuadran se reportan y bloquean', function 
 
 test('altas por mes distingue periodos sin información de meses en cero', function () {
     $hoy = now('America/Mexico_City');
-    Colaborador::query()->update(['fecha_ingreso' => $hoy->copy()->subMonths(2)->toDateString()]);
-    colaboradorReporte($this, ['fecha_ingreso' => $hoy->copy()->subMonths(2)->toDateString()]);
+    Colaborador::query()->update(['fecha_ingreso' => $hoy->copy()->subMonthsNoOverflow(2)->toDateString()]);
+    colaboradorReporte($this, ['fecha_ingreso' => $hoy->copy()->subMonthsNoOverflow(2)->toDateString()]);
 
     $reporte = app(ReportesRhService::class)->generar('altas_por_mes', $this->rh, []);
 
@@ -512,6 +514,18 @@ test('altas por mes distingue periodos sin información de meses en cero', funct
         ->and($reporte['filas'][11][1])->toBe(0)
         ->and($reporte['filas'][11][2])->toBe('Con información')
         ->and($reporte['filas'][9][1])->toBe(Colaborador::query()->count());
+});
+
+test('altas por mes: el último día de un mes no recorre la ventana de 12 meses', function () {
+    // 31 de octubre: restar 11 meses caería en un «31 de noviembre» inexistente.
+    Carbon::setTestNow(Carbon::parse('2026-10-31 20:00', 'America/Mexico_City'));
+    colaboradorReporte($this, ['fecha_ingreso' => '2026-10-31']);
+
+    $filas = app(ReportesRhService::class)->generar('altas_por_mes', $this->rh, [])['filas'];
+
+    expect($filas[0][0])->toBe(CarbonImmutable::parse('2025-11-01')->translatedFormat('F Y'))
+        ->and($filas[11][0])->toBe(CarbonImmutable::parse('2026-10-01')->translatedFormat('F Y'))
+        ->and($filas[11][1])->toBe(1);
 });
 
 test('el movimiento de alta no se duplica con la fecha de ingreso', function () {
