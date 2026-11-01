@@ -44,9 +44,10 @@ final class FuenteActa implements FuenteDocumento
         return $this->acta->tipo->etiqueta();
     }
 
+    /** La policy del acta aplica el permiso y el alcance del módulo. */
     public function puedeEditar(User $actor): bool
     {
-        return $actor->can('documentos_laborales.generar');
+        return $actor->can('generarDocumento', $this->acta);
     }
 
     public function puedeVerVersiones(User $actor): bool
@@ -56,7 +57,7 @@ final class FuenteActa implements FuenteDocumento
 
     public function puedeRectificar(User $actor): bool
     {
-        return $actor->can('documentos_laborales.revisar_firmado');
+        return $actor->can('generarDocumento', $this->acta) && $actor->can('documentos_laborales.revisar_firmado');
     }
 
     public function campos(User $actor): array
