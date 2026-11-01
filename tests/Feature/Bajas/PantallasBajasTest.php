@@ -124,18 +124,25 @@ test('vista previa del FINIQUITO antes de registrar: PDF inline, no-store, y no 
 
 test('la bandeja no repite por fila las consultas de catálogo y finiquito', function () {
     $causal = CausalRotacion::query()->where('clave', 'RV-01')->firstOrFail();
-    $personas = collect([$this->persona, ...Colaborador::factory()->count(2)->create([
-        'sucursal_principal_id' => $this->persona->sucursal_principal_id, 'estatus' => EstadoUsuario::Activo, 'fecha_ingreso' => '2024-01-01', 'sueldo_mensual' => 15000,
-    ])]);
-    $personas->each(fn (Colaborador $c) => app(BajaService::class)->registrar([
+    $registrar = fn (Colaborador $c) => app(BajaService::class)->registrar([
         'colaborador_id' => $c->id, 'forma_salida' => $causal->forma()->value, 'causal_rotacion_id' => $causal->id,
         'fecha_baja' => now()->subDay()->toDateString(), 'recontratable' => 'si', 'comentarios' => 'Renuncia por escrito con su jefe.',
-    ], $this->rh));
+    ], $this->rh);
+    $medir = function (): array {
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->actingAs($this->rh)->get(route('rh.bajas.index'))->assertOk();
+        $veces = fn (string $tabla): int => collect(DB::getQueryLog())->filter(fn (array $q): bool => str_contains($q['query'], "from \"{$tabla}\""))->count();
 
-    DB::enableQueryLog();
-    $this->actingAs($this->rh)->get(route('rh.bajas.index'))->assertOk();
-    $veces = fn (string $tabla): int => collect(DB::getQueryLog())->filter(fn (array $q): bool => str_contains($q['query'], "from \"{$tabla}\""))->count();
+        return [$veces('documentos_requeridos_baja'), $veces('finiquito_calculos')];
+    };
 
-    expect($veces('documentos_requeridos_baja'))->toBe(1)
-        ->and($veces('finiquito_calculos'))->toBeLessThanOrEqual(2);
+    $registrar($this->persona);
+    $conUna = $medir();
+
+    Colaborador::factory()->count(3)->create([
+        'sucursal_principal_id' => $this->persona->sucursal_principal_id, 'estatus' => EstadoUsuario::Activo, 'fecha_ingreso' => '2024-01-01', 'sueldo_mensual' => 15000,
+    ])->each($registrar);
+
+    expect($medir())->toBe($conUna);
 });
