@@ -3,13 +3,17 @@
 namespace App\Services\Compensacion;
 
 use App\Enums\EstadoContratoLaboral;
+use App\Enums\TipoCambioSalario;
 use App\Enums\TipoMovimientoLaboral;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\HistorialSalario;
 use App\Models\MovimientoLaboral;
 use App\Models\User;
+use App\Services\Contratos\ContratoLaboralService;
 use App\Support\FechaMexico;
+use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -91,6 +95,186 @@ class CompensacionService
         return $colaborador->salario_diario !== null && (float) $colaborador->salario_diario > 0
             ? $this->mensual((float) $colaborador->salario_diario)
             : null;
+    }
+
+    /**
+     * Sueldo vigente en una FECHA, leído del ledger por `fecha_efectiva`. Null
+     * si el ledger demuestra que aún no tenía sueldo: no se adivina. Sin ningún
+     * renglón no consta cambio alguno y se responde con la columna vigente,
+     * marcado `exacto = false` para que quien lo use lo reporte. Los renglones
+     * antiguos solo guardaron el diario: el mensual es diario × 30, no exacto.
+     *
+     * @return array{mensual: float, diario: float, fecha_efectiva: string|null, exacto: bool, fuente: string}|null
+     */
+    public function vigenteEn(Colaborador $colaborador, CarbonInterface|string $fecha): ?array
+    {
+        $dia = is_string($fecha) ? substr($fecha, 0, 10) : $fecha->format('Y-m-d');
+        $renglones = HistorialSalario::query()->where('colaborador_id', $colaborador->id);
+
+        $aplicable = (clone $renglones)->whereDate('fecha_efectiva', '<=', $dia)
+            ->orderByDesc('fecha_efectiva')->orderByDesc('id')->first();
+
+        if ($aplicable !== null) {
+            $mensual = $aplicable->sueldo_mensual_nuevo !== null ? (float) $aplicable->sueldo_mensual_nuevo : null;
+
+            return [
+                'mensual' => $mensual ?? $this->mensual((float) $aplicable->salario_diario_nuevo),
+                'diario' => (float) $aplicable->salario_diario_nuevo,
+                'fecha_efectiva' => $aplicable->fecha_efectiva->toDateString(),
+                'exacto' => $mensual !== null,
+                'fuente' => 'historial',
+            ];
+        }
+
+        $siguiente = (clone $renglones)->orderBy('fecha_efectiva')->orderBy('id')->first();
+
+        if ($siguiente === null) {
+            $mensual = $this->mensualDe($colaborador);
+
+            return $mensual === null ? null : [
+                'mensual' => $mensual,
+                'diario' => $this->diarioDe($colaborador),
+                'fecha_efectiva' => null,
+                'exacto' => false,
+                'fuente' => 'sin_historial',
+            ];
+        }
+
+        // Antes del primer renglón regía el valor «anterior» de ese renglón.
+        if ($siguiente->salario_diario_anterior === null) {
+            return null;
+        }
+
+        $mensual = $siguiente->sueldo_mensual_anterior !== null ? (float) $siguiente->sueldo_mensual_anterior : null;
+
+        return [
+            'mensual' => $mensual ?? $this->mensual((float) $siguiente->salario_diario_anterior),
+            'diario' => (float) $siguiente->salario_diario_anterior,
+            'fecha_efectiva' => null,
+            'exacto' => $mensual !== null,
+            'fuente' => 'historial',
+        ];
+    }
+
+    /**
+     * Fecha desde la que rige un cambio, según las reglas de su tipo. Lanza si
+     * el acto no es válido; no escribe nada (lo usa también la vista previa).
+     *
+     * - Primera captura: solo sin sueldo previo.
+     * - Aumento: sobre un sueldo existente, mayor a él y desde hoy.
+     * - Corrección: el valor vigente fue un error; rige desde que ese valor
+     *   entró en vigor. No se elige fecha.
+     * - Ajuste con vigencia: desde una fecha elegida, nunca futura (el sistema
+     *   aún no programa cambios) ni anterior a un cambio posterior registrado.
+     * - Importación: solo por los importadores.
+     *
+     * @throws ValidationException
+     */
+    public function fechaEfectivaDe(Colaborador $colaborador, float $mensual, TipoCambioSalario $tipo, ?string $fecha = null): string
+    {
+        $hoy = FechaMexico::hoy();
+        $actual = $this->mensualDe($colaborador);
+
+        if ($mensual <= 0) {
+            throw ValidationException::withMessages(['sueldo_mensual' => 'El sueldo mensual debe ser mayor a cero.']);
+        }
+
+        if ($tipo === TipoCambioSalario::PrimeraCaptura) {
+            if ($actual !== null) {
+                throw ValidationException::withMessages(['tipo' => 'Esta persona ya tiene sueldo: elige corrección, aumento o ajuste con vigencia.']);
+            }
+
+            return $colaborador->fecha_ingreso?->toDateString() ?? $hoy;
+        }
+
+        if ($actual === null) {
+            throw ValidationException::withMessages(['tipo' => 'Esta persona aún no tiene sueldo: regístralo como primera captura.']);
+        }
+
+        if (abs($actual - round($mensual, 2)) < 0.005) {
+            throw ValidationException::withMessages(['sueldo_mensual' => 'El sueldo capturado es igual al vigente.']);
+        }
+
+        $ultimo = HistorialSalario::query()->where('colaborador_id', $colaborador->id)
+            ->orderByDesc('fecha_efectiva')->orderByDesc('id')->first();
+
+        switch ($tipo) {
+            case TipoCambioSalario::Aumento:
+                if ($mensual <= $actual) {
+                    throw ValidationException::withMessages(['sueldo_mensual' => 'Un aumento debe ser mayor al sueldo vigente. Si el vigente es un error, elige corrección.']);
+                }
+
+                return $hoy;
+
+            case TipoCambioSalario::Correccion:
+                return $ultimo?->fecha_efectiva->toDateString() ?? $colaborador->fecha_ingreso?->toDateString() ?? $hoy;
+
+            case TipoCambioSalario::AjusteConVigencia:
+                $dia = is_string($fecha) && $fecha !== '' ? substr($fecha, 0, 10) : null;
+
+                if ($dia === null) {
+                    throw ValidationException::withMessages(['vigente_desde' => 'Indica desde qué fecha aplica el ajuste.']);
+                }
+
+                if ($dia > $hoy) {
+                    throw ValidationException::withMessages(['vigente_desde' => 'Todavía no se programan cambios a futuro: captura el ajuste el día en que entra en vigor.']);
+                }
+
+                if ($colaborador->fecha_ingreso !== null && $dia < $colaborador->fecha_ingreso->toDateString()) {
+                    throw ValidationException::withMessages(['vigente_desde' => 'La vigencia no puede ser anterior a la fecha de ingreso.']);
+                }
+
+                if ($ultimo !== null && $ultimo->fecha_efectiva->toDateString() > $dia) {
+                    throw ValidationException::withMessages(['vigente_desde' => sprintf('Hay un cambio de sueldo posterior (%s): corrige primero ese registro.', $ultimo->fecha_efectiva->format('d/m/Y'))]);
+                }
+
+                return $dia;
+
+            default:
+                throw ValidationException::withMessages(['tipo' => 'Este tipo de cambio solo lo registran los importadores.']);
+        }
+    }
+
+    /**
+     * Cambio de sueldo clasificado, con motivo exigido aquí (no solo en el
+     * formulario) y las reglas de fechaEfectivaDe().
+     *
+     * @throws ValidationException
+     */
+    public function cambiarSueldo(Colaborador $colaborador, float $mensual, TipoCambioSalario $tipo, string $motivo, User $actor, ?string $fecha = null, string $fuente = 'correccion'): HistorialSalario
+    {
+        if (mb_strlen(trim($motivo)) < 5) {
+            throw ValidationException::withMessages(['motivo' => 'Explica el motivo del cambio de sueldo.']);
+        }
+
+        $mensual = round($mensual, 2);
+
+        return $this->registrar($colaborador, $this->diarioDesdeMensual($mensual), null, $mensual, $actor, [
+            'fuente' => $fuente,
+            'tipo' => $tipo,
+            'motivo' => trim($motivo),
+            'fecha_efectiva' => $this->fechaEfectivaDe($colaborador, $mensual, $tipo, $fecha),
+        ]);
+    }
+
+    /**
+     * Contratos vigentes con original firmado: el sueldo de su registro es lo
+     * firmado y no se sobrescribe. Un cambio de sueldo los reporta como
+     * «requiere modificación contractual».
+     *
+     * @return Collection<int, ContratoLaboral>
+     */
+    public function contratosVigentesFirmados(Colaborador $colaborador): Collection
+    {
+        $contratos = app(ContratoLaboralService::class);
+
+        return ContratoLaboral::query()
+            ->where('colaborador_id', $colaborador->id)
+            ->where('estado', EstadoContratoLaboral::Vigente->value)
+            ->with('documento')
+            ->get()
+            ->filter(fn (ContratoLaboral $contrato): bool => $contratos->contratoFirmado($contrato))
+            ->values();
     }
 
     /**
@@ -181,11 +365,12 @@ class CompensacionService
     }
 
     /**
-     * Escribe diario + mensual, sincroniza el contrato vigente, deja rastro
-     * en `historial_salarios` (ledger append-only) y, si el sueldo cambió, un
-     * MovimientoLaboral de cambio de sueldo para el expediente.
+     * Escribe diario + mensual, sincroniza el contrato vigente SIN FIRMAR, deja
+     * rastro en `historial_salarios` (ledger append-only) y, si el sueldo
+     * cambió, un MovimientoLaboral para el expediente. Sin `tipo`, se deduce
+     * del acto (ver tipoDeducido()).
      *
-     * @param  array{fuente: string, fecha_efectiva?: string, importacion_id?: int|null, motivo?: string|null}  $meta
+     * @param  array{fuente: string, tipo?: TipoCambioSalario, fecha_efectiva?: string, importacion_id?: int|null, motivo?: string|null}  $meta
      */
     private function registrar(Colaborador $colaborador, float $nuevoDiario, ?float $nuevoIntegrado, float $nuevoMensual, User $actor, array $meta): HistorialSalario
     {
@@ -201,18 +386,26 @@ class CompensacionService
                 'sueldo_mensual' => $nuevoMensual,
             ]);
 
-            // El contrato VIGENTE refleja el sueldo vigente: su registro
-            // guardaba la copia de cuando se capturó y la vista previa /
-            // regeneración del contrato salían con el sueldo viejo. Uno por
-            // uno (no update masivo) para que quede en su bitácora.
+            // Un contrato vigente SIN FIRMAR refleja el sueldo vigente: su
+            // registro guardaba la copia de cuando se capturó y la vista previa
+            // salía con el sueldo viejo. El FIRMADO conserva lo firmado
+            // (contratosVigentesFirmados() lo reporta). Uno por uno (no update
+            // masivo) para que quede en su bitácora.
+            $firmados = $this->contratosVigentesFirmados($colaborador)->modelKeys();
             ContratoLaboral::query()
                 ->where('colaborador_id', $colaborador->id)
                 ->where('estado', EstadoContratoLaboral::Vigente->value)
+                ->whereNotIn('id', $firmados)
                 ->get()
                 ->each(fn (ContratoLaboral $contrato) => $contrato->update(['sueldo_mensual' => $nuevoMensual]));
 
+            $tipo = $meta['tipo'] ?? $this->tipoDeducido($diarioAnterior, $mensualAnterior, $meta);
+
             $historial = HistorialSalario::query()->create([
                 'colaborador_id' => $colaborador->id,
+                'tipo' => $tipo,
+                'sueldo_mensual_anterior' => $mensualAnterior,
+                'sueldo_mensual_nuevo' => $nuevoMensual,
                 'salario_diario_anterior' => $diarioAnterior,
                 'salario_diario_nuevo' => $nuevoDiario,
                 'salario_diario_integrado_anterior' => $integradoAnterior,
@@ -232,7 +425,7 @@ class CompensacionService
                 MovimientoLaboral::query()->create([
                     'colaborador_id' => $colaborador->id,
                     'user_id' => $colaborador->user?->id,
-                    'tipo_movimiento' => TipoMovimientoLaboral::CambioSueldo->value,
+                    'tipo_movimiento' => ($tipo === TipoCambioSalario::Correccion ? TipoMovimientoLaboral::AjusteManual : TipoMovimientoLaboral::CambioSueldo)->value,
                     'motivo' => $meta['motivo'] ?? sprintf('Actualización de sueldo (%s).', $meta['fuente']),
                     'observaciones' => sprintf(
                         'Sueldo mensual: $%s → $%s (diario $%s → $%s)',
@@ -248,5 +441,21 @@ class CompensacionService
 
             return $historial;
         });
+    }
+
+    /**
+     * Tipo de los flujos que no clasifican su cambio (alta, reingreso,
+     * importadores, edición del expediente).
+     *
+     * @param  array{fuente: string, fecha_efectiva?: string, importacion_id?: int|null}  $meta
+     */
+    private function tipoDeducido(?float $diarioAnterior, ?float $mensualAnterior, array $meta): TipoCambioSalario
+    {
+        return match (true) {
+            ($meta['importacion_id'] ?? null) !== null || str_contains($meta['fuente'], 'import') || str_contains($meta['fuente'], 'carga') => TipoCambioSalario::Importacion,
+            $diarioAnterior === null && $mensualAnterior === null => TipoCambioSalario::PrimeraCaptura,
+            isset($meta['fecha_efectiva']) && substr($meta['fecha_efectiva'], 0, 10) !== FechaMexico::hoy() => TipoCambioSalario::AjusteConVigencia,
+            default => TipoCambioSalario::Aumento,
+        };
     }
 }

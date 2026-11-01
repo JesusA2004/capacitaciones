@@ -2,15 +2,21 @@
 
 namespace App\Services\Expedientes;
 
+use App\Enums\EstadoFiniquito;
+use App\Enums\EstadoReciboNomina;
 use App\Models\Colaborador;
 use App\Models\ColaboradorDatosMedicos;
+use App\Models\ContratoLaboral;
 use App\Models\Departamento;
+use App\Models\FiniquitoCalculo;
 use App\Models\Puesto;
+use App\Models\ReciboNomina;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Colaboradores\DomicilioService;
 use App\Services\Compensacion\CompensacionService;
+use App\Services\Contratos\ContratoLaboralService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Organigrama\JefeDirectoService;
 use BackedEnum;
@@ -18,6 +24,7 @@ use DateTimeInterface;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 /**
  * ÚNICO escritor de los datos personales/de contacto y laborales del
@@ -224,13 +231,14 @@ class DatosExpedienteService
      * el sueldo por defecto porque falta SALARIO_MINIMO_DIARIO.
      *
      * @param  array<string, mixed>  $datos  sucursal_principal_id?, departamento_id?, puesto_id?, sueldo_mensual?, fecha_ingreso?, motivo?
-     * @return array{cambios: list<array{campo: string, etiqueta: string, antes: string|null, despues: string|null, critico: bool, confidencial: bool}>, sin_salario_minimo: bool, sueldo_capturado: float|null, sueldo_guardado: float|null, salario_diario: float|null}
+     * @return array{cambios: list<array{campo: string, etiqueta: string, antes: string|null, despues: string|null, critico: bool, confidencial: bool}>, sin_salario_minimo: bool, sueldo_capturado: float|null, sueldo_guardado: float|null, salario_diario: float|null, requiere_modificacion_contractual: bool}
      */
     public function actualizarLaborales(Colaborador $colaborador, array $datos, User $actor, string $modulo = 'expediente'): array
     {
         $antes = $this->movimientos->snapshot($colaborador);
         $legibleAntes = $this->laboralesLegibles($colaborador);
-        $estructurales = array_intersect_key($datos, array_flip(self::CAMPOS_LABORALES));
+        // Un campo vacío nunca borra puesto, sucursal ni departamento.
+        $estructurales = array_filter(array_intersect_key($datos, array_flip(self::CAMPOS_LABORALES)), fn (mixed $valor): bool => $valor !== null);
         $motivo = is_string($datos['motivo'] ?? null) && $datos['motivo'] !== '' ? $datos['motivo'] : null;
 
         // Un campo de sueldo vacío NUNCA borra un sueldo que ya existía (el
@@ -263,6 +271,14 @@ class DatosExpedienteService
         // Fecha de ingreso (de ella salen las fechas del contrato): vacía
         // nunca borra la que ya existe.
         $nuevoIngreso = is_string($datos['fecha_ingreso'] ?? null) && $datos['fecha_ingreso'] !== '' ? substr($datos['fecha_ingreso'], 0, 10) : null;
+
+        if ($nuevoIngreso !== null && $colaborador->fecha_ingreso?->toDateString() !== $nuevoIngreso) {
+            $bloqueos = $this->bloqueosFechaIngreso($colaborador);
+
+            if ($bloqueos !== []) {
+                throw ValidationException::withMessages(['fecha_ingreso' => sprintf('La fecha de ingreso no se puede cambiar: %s. Consulta a RH y Jurídico (pendiente de validación).', implode('; ', $bloqueos))]);
+            }
+        }
 
         DB::transaction(function () use ($colaborador, $estructurales, $antes, $actor, $motivo, $nuevoSueldoMensual, $nuevoIngreso): void {
             $this->aplicarEstructurales([['colaborador' => $colaborador, 'antes' => $antes, 'cambios' => $estructurales]], $actor, $motivo);
@@ -323,7 +339,35 @@ class DatosExpedienteService
             'sueldo_capturado' => $nuevoSueldoMensual,
             'sueldo_guardado' => $actualizado->sueldo_mensual !== null ? (float) $actualizado->sueldo_mensual : null,
             'salario_diario' => $actualizado->salario_diario !== null ? (float) $actualizado->salario_diario : null,
+            'requiere_modificacion_contractual' => $nuevoSueldoMensual !== null && $this->compensacion->contratosVigentesFirmados($actualizado)->isNotEmpty(),
         ];
+    }
+
+    /**
+     * Qué impide cambiar la fecha de ingreso: de ella derivan contratos,
+     * recibos y finiquito ya cerrados. Vacío si se puede.
+     *
+     * @return list<string>
+     */
+    public function bloqueosFechaIngreso(Colaborador $colaborador): array
+    {
+        $contratos = app(ContratoLaboralService::class);
+        $bloqueos = [];
+
+        if (ContratoLaboral::query()->where('colaborador_id', $colaborador->id)->whereNotNull('generated_document_id')->with('documento')->get()
+            ->contains(fn (ContratoLaboral $contrato): bool => $contratos->contratoFirmado($contrato))) {
+            $bloqueos[] = 'tiene un contrato firmado';
+        }
+
+        if (ReciboNomina::query()->where('colaborador_id', $colaborador->id)->where('estado', EstadoReciboNomina::Emitido->value)->exists()) {
+            $bloqueos[] = 'tiene recibos emitidos';
+        }
+
+        if (FiniquitoCalculo::query()->where('colaborador_id', $colaborador->id)->whereIn('estado', [EstadoFiniquito::Firmado->value, EstadoFiniquito::Pagado->value])->exists()) {
+            $bloqueos[] = 'tiene un finiquito firmado o pagado';
+        }
+
+        return $bloqueos;
     }
 
     /**

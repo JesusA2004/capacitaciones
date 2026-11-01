@@ -432,6 +432,14 @@ class ContratoLaboralService
             ]);
         }
 
+        // Mismo criterio para el inicial: un contrato firmado conserva sus fechas.
+        if ($inicial !== null && ($this->contratoFirmado($inicial)
+            || $this->documentosDelContrato($inicial)->contains(fn (GeneratedDocument $d): bool => (bool) $d->estado_flujo?->firmaFisicaRegistrada()))) {
+            throw ValidationException::withMessages([
+                'contrato' => sprintf('El contrato inicial de %s ya está firmado: sus fechas no se corrigen por esta vía.', $colaborador->nombreCompleto()),
+            ]);
+        }
+
         $resultado = DB::transaction(function () use ($colaborador, $inicio, $fin, $autoIndeterminado, $inicial, $actor): array {
             $documentosCancelados = [];
 
@@ -557,6 +565,25 @@ class ContratoLaboralService
         $documento = $contrato->documento;
 
         return $documento !== null && $this->documentoFirmadoSegunFlujo($documento);
+    }
+
+    /**
+     * Corrige el registro de un contrato vigente SIN firmar. El firmado no se
+     * toca: requiere modificación contractual.
+     *
+     * @param  array<string, mixed>  $datos  fecha_inicio?, fecha_fin?, sueldo_mensual?, observaciones?
+     *
+     * @throws ValidationException
+     */
+    public function corregirRegistro(ContratoLaboral $contrato, array $datos): ContratoLaboral
+    {
+        if ($this->contratoFirmado($contrato)) {
+            throw ValidationException::withMessages(['contrato' => 'Este contrato ya está firmado: requiere modificación contractual.']);
+        }
+
+        $contrato->update(array_intersect_key($datos, array_flip(['fecha_inicio', 'fecha_fin', 'sueldo_mensual', 'observaciones'])));
+
+        return $contrato->refresh();
     }
 
     /**

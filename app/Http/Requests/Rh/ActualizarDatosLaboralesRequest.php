@@ -86,7 +86,9 @@ class ActualizarDatosLaboralesRequest extends FormRequest
                     return;
                 }
 
-                $cambiaSueldo = is_numeric($sueldo) && (float) $sueldo > 0
+                // Sin permiso de escribir el sueldo este campo se ignora: el error
+                // no debe revelar si el valor probado coincide con el sueldo real.
+                $cambiaSueldo = $this->user()?->can('salarios.editar') === true && is_numeric($sueldo) && (float) $sueldo > 0
                     && ($colaborador->sueldo_mensual === null || abs((float) $colaborador->sueldo_mensual - (float) $sueldo) > 0.004);
                 $ingreso = $this->input('fecha_ingreso');
                 $cambiaIngreso = is_string($ingreso) && $ingreso !== '' && $colaborador->fecha_ingreso?->toDateString() !== substr($ingreso, 0, 10);

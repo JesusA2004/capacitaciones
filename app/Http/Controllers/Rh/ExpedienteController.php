@@ -700,7 +700,8 @@ class ExpedienteController extends Controller
         // tuvo uno capturado.
         // Sin permiso de sueldo el formulario no lo muestra ni lo manda: ni se
         // sobrescribe ni se dispara el sueldo por defecto.
-        $datosLaborales = app(AccesoSueldoService::class)->puedeVer($request->user())
+        // Ver el sueldo no autoriza escribirlo: además se exige salarios.editar.
+        $datosLaborales = app(AccesoSueldoService::class)->puedeVer($request->user()) && $request->user()->can('salarios.editar')
             ? [...$request->validated(), 'sueldo_mensual' => $request->validated('sueldo_mensual')]
             : Arr::except($request->validated(), ['sueldo_mensual']);
 
@@ -715,6 +716,10 @@ class ExpedienteController extends Controller
                 'type' => 'warning',
                 'message' => 'Datos laborales actualizados, pero no se asignó un sueldo por defecto: falta configurar el salario mínimo vigente en el servidor (SALARIO_MINIMO_DIARIO). Captura el sueldo manualmente o pide a un administrador que configure esa variable.',
             ]);
+        }
+
+        if ($resultado['requiere_modificacion_contractual'] && $resultado['cambios'] !== []) {
+            return back()->with('toast', ['type' => 'warning', 'message' => 'Datos laborales actualizados. El contrato vigente ya está firmado y conserva el sueldo firmado: requiere modificación contractual.']);
         }
 
         // Nunca «éxito» si no se guardó nada.
