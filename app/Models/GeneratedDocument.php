@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\CategoriaDocumento;
 use App\Enums\EstadoDocumentoGenerado;
 use App\Enums\EstadoFlujoDocumento;
+use App\Enums\TipoEmisionDocumento;
 use Database\Factories\GeneratedDocumentFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -74,6 +75,9 @@ use Illuminate\Support\Carbon;
  * @property int|null $revision_de_id Documento firmado que esta revisión excepcional sustituye (el anterior se conserva).
  * @property string|null $motivo_revision
  * @property bool $requiere_envio_corporativo
+ * @property string|null $huella_datos SHA-256 de los datos del documento, sin fecha de emisión ni referencias.
+ * @property array<string, array{anterior: string|null, nuevo: string, original_fuente: string|null}>|null $correcciones
+ * @property TipoEmisionDocumento|null $tipo_emision
  * @property int $descargas
  * @property Carbon|null $ultima_descarga_en
  * @property Carbon|null $created_at
@@ -140,6 +144,9 @@ class GeneratedDocument extends Model
         'paginas',
         'revision_de_id',
         'motivo_revision',
+        'huella_datos',
+        'correcciones',
+        'tipo_emision',
         'requiere_envio_corporativo',
         'descargas',
         'ultima_descarga_en',
@@ -217,6 +224,8 @@ class GeneratedDocument extends Model
             'categoria' => CategoriaDocumento::class,
             'payload' => 'array',
             'layout_snapshot' => 'array',
+            'correcciones' => 'array',
+            'tipo_emision' => TipoEmisionDocumento::class,
             'requiere_firma_digital' => 'boolean',
             'requiere_impresion' => 'boolean',
             'requiere_firma_fisica' => 'boolean',

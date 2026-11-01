@@ -17,6 +17,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $documento_requerido_id
  * @property string|null $clasificacion evidencia_rescision | firmado_salida | null
  * @property string $nombre
+ * @property int|null $generated_document_id Versión del documento generado que se firmó.
  * @property string $nombre_original
  * @property string $disco
  * @property string $ruta
@@ -36,7 +37,7 @@ class BajaDocumento extends Model
 
     protected $table = 'baja_documentos';
 
-    protected $fillable = ['baja_id', 'documento_requerido_id', 'clasificacion', 'nombre', 'nombre_original', 'disco', 'ruta', 'mime', 'tamano', 'cargado_por', 'quitado_por'];
+    protected $fillable = ['baja_id', 'documento_requerido_id', 'generated_document_id', 'clasificacion', 'nombre', 'nombre_original', 'disco', 'ruta', 'mime', 'tamano', 'cargado_por', 'quitado_por'];
 
     protected $hidden = ['disco', 'ruta'];
 
@@ -51,6 +52,14 @@ class BajaDocumento extends Model
     public function baja(): BelongsTo
     {
         return $this->belongsTo(Baja::class);
+    }
+
+    /**
+     * @return BelongsTo<GeneratedDocument, $this>
+     */
+    public function documentoGenerado(): BelongsTo
+    {
+        return $this->belongsTo(GeneratedDocument::class, 'generated_document_id');
     }
 
     /**
