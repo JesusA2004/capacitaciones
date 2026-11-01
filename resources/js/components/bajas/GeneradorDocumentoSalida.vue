@@ -17,6 +17,14 @@ import HistorialVersiones from '@/components/documentos/HistorialVersiones.vue';
 import InputError from '@/components/InputError.vue';
 import ChipEstado from '@/components/people/ChipEstado.vue';
 import { Button } from '@/components/ui/button';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -41,6 +49,7 @@ const errores = computed(() =>
     Object.values((page.props.errors ?? {}) as Record<string, string>),
 );
 const procesando = ref(false);
+const MINIMO_MOTIVO = 5;
 const motivo = ref('');
 const pidiendoVersion = ref(false);
 const huellaRegistrada = ref(false);
@@ -463,14 +472,6 @@ function validarPlazo() {
             >
         </div>
 
-        <div v-if="pidiendoVersion" class="grid gap-1.5">
-            <Label for="salida-motivo">Motivo de la nueva versión</Label>
-            <Textarea id="salida-motivo" v-model="motivo" rows="2" />
-            <p class="text-xs text-muted-foreground">
-                La versión anterior se conserva en el NAS y en el historial.
-            </p>
-        </div>
-
         <div v-if="panel.abierta" class="flex flex-wrap justify-end gap-2">
             <Button variant="outline" as-child>
                 <a
@@ -486,14 +487,10 @@ function validarPlazo() {
                 ><Pencil class="size-4" />Corregir contenido</Button
             >
             <Button
-                v-if="!panel.generado || pidiendoVersion"
+                v-if="!panel.generado"
                 :disabled="procesando || panel.faltantes.length > 0"
                 @click="generar"
-                ><Download class="size-4" />{{
-                    panel.generado
-                        ? 'Generar nueva versión'
-                        : 'Generar PDF para firma'
-                }}</Button
+                ><Download class="size-4" />Generar PDF para firma</Button
             >
             <template v-else>
                 <Button as-child>
@@ -569,6 +566,58 @@ function validarPlazo() {
     </section>
 
     <EditorDocumentoSalida v-model:open="corrigiendo" :panel="panel" />
+
+    <!-- Nueva versión: con motivo y la opción de cancelar sin perder las acciones. -->
+    <Dialog
+        :open="pidiendoVersion"
+        @update:open="(v: boolean) => !procesando && (pidiendoVersion = v)"
+    >
+        <DialogContent class="sm:max-w-lg">
+            <DialogHeader>
+                <DialogTitle>Nueva versión del documento</DialogTitle>
+                <DialogDescription>
+                    Se genera con los datos actuales. La versión anterior se
+                    conserva en el NAS y en el historial.
+                </DialogDescription>
+            </DialogHeader>
+            <p
+                v-if="panel.faltantes.length"
+                class="rounded-xl bg-warning/15 px-3 py-2 text-sm text-warning"
+            >
+                Antes de generarla, falta capturar:
+                {{ panel.faltantes.join(', ') }}.
+            </p>
+            <div class="grid gap-1.5">
+                <Label for="salida-motivo">Motivo (obligatorio)</Label>
+                <Textarea
+                    id="salida-motivo"
+                    v-model="motivo"
+                    rows="3"
+                    maxlength="500"
+                />
+                <p class="text-xs text-muted-foreground">
+                    Mínimo {{ MINIMO_MOTIVO }} caracteres. Queda en la bitácora.
+                </p>
+            </div>
+            <DialogFooter>
+                <Button
+                    variant="outline"
+                    :disabled="procesando"
+                    @click="pidiendoVersion = false"
+                    >Cancelar</Button
+                >
+                <Button
+                    :disabled="
+                        procesando ||
+                        panel.faltantes.length > 0 ||
+                        motivo.trim().length < MINIMO_MOTIVO
+                    "
+                    @click="generar"
+                    ><Download class="size-4" />Generar nueva versión</Button
+                >
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
     <HistorialVersiones
         v-if="panel.generado"
         class="mt-3"
