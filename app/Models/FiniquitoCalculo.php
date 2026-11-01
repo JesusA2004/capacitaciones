@@ -67,6 +67,12 @@ class FiniquitoCalculo extends Model
 
     protected $table = 'finiquito_calculos';
 
+    /** Ruta física del NAS: nunca sale al navegador. */
+    protected $hidden = ['documento_generado_path', 'documento_firmado_path'];
+
+    /** @var list<string> */
+    protected $appends = ['tiene_documento_generado', 'tiene_documento_firmado'];
+
     protected $fillable = [
         'solicitud_interna_id',
         'colaborador_id',
@@ -224,5 +230,15 @@ class FiniquitoCalculo extends Model
     public function firmadoFisicamentePor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'firmado_fisicamente_por');
+    }
+
+    public function getTieneDocumentoGeneradoAttribute(): bool
+    {
+        return $this->documento_generado_path !== null;
+    }
+
+    public function getTieneDocumentoFirmadoAttribute(): bool
+    {
+        return $this->documento_firmado_path !== null;
     }
 }

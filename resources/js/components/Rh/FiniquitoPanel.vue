@@ -120,7 +120,7 @@ function generarPdfFiniquito() {
 
 // Firma física sin escaneo (regla vigente): el finiquito se imprime y se
 // firma en PAPEL; RH solo deja constancia de quién lo marcó como firmado y
-// cuándo. El archivo firmado legacy (documento_firmado_path) sigue visible
+// cuándo. El archivo firmado legacy (tiene_documento_firmado) sigue visible
 // como descarga de solo lectura si algún registro antiguo lo trae.
 const marcandoFirmadoFisico = ref(false);
 const formFirmadoFisico = useForm({ observacion: '' });
@@ -890,8 +890,8 @@ function eliminarConcepto(id: number) {
                 <Button
                     v-if="
                         permisos.puedeDescargar &&
-                        (finiquito.documento_generado_path ||
-                            finiquito.documento_firmado_path)
+                        (finiquito.tiene_documento_generado ||
+                            finiquito.tiene_documento_firmado)
                     "
                     as-child
                     size="sm"
@@ -904,7 +904,7 @@ function eliminarConcepto(id: number) {
                     >
                         <Download class="size-4" />
                         {{
-                            finiquito.documento_firmado_path
+                            finiquito.tiene_documento_firmado
                                 ? 'Ver finiquito firmado'
                                 : 'Descargar PDF'
                         }}
@@ -988,7 +988,7 @@ function eliminarConcepto(id: number) {
                 }}.
             </p>
             <p
-                v-else-if="finiquito.documento_firmado_path"
+                v-else-if="finiquito.tiene_documento_firmado"
                 class="text-xs text-muted-foreground"
             >
                 Documento firmado (archivo) guardado en el expediente de la

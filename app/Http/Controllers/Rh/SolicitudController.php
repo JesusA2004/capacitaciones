@@ -215,6 +215,13 @@ class SolicitudController extends Controller
 
         $puedeGenerarFormato = $request->user()->can('plantillas.generar');
         $finiquito = $solicitud->finiquitoCalculo;
+
+        // Los importes solo llegan a quien puede ver el finiquito.
+        if ($finiquito !== null && ! $request->user()->can('ver', $finiquito)) {
+            $solicitud->setRelation('finiquitoCalculo', null);
+            $finiquito = null;
+        }
+
         $formatoEsperado = $this->formatoOficial->formatoEsperado($solicitud);
         $acciones = $this->solicitudes->accionesBandeja($request->user(), $solicitud);
         $esBaja = $solicitud->tipo === TipoSolicitudInterna::BajaColaborador;
