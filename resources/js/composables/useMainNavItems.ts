@@ -214,6 +214,13 @@ export function useMainNavItems() {
                 icon: PartyPopper,
             },
             { title: 'Directorio', href: indexDirectorio(), icon: Contact },
+            // Subgerente: consulta las citas de su sucursal sin pasar a modo operativo.
+            tienePermiso('agenda.ver') &&
+                !tieneAmbosModos.value && {
+                    title: 'Mi agenda',
+                    href: indexAgenda(),
+                    icon: CalendarClock,
+                },
             { title: 'Ayuda', href: '/ayuda', icon: Compass },
         ];
 
@@ -237,7 +244,17 @@ export function useMainNavItems() {
 
         const grupos: NavGroup[] = [
             grupo({ id: 'inicio', titulo: 'Inicio', icono: LayoutGrid }, [
-                { title: 'Tablero de RH', href: dashboard(), icon: LayoutGrid },
+                {
+                    // Sin tablero (Jurídico, Contraloría) el inicio es su bandeja de bajas.
+                    title: algunPermiso(
+                        'dashboard.global.ver',
+                        'dashboard.sucursal.ver',
+                    )
+                        ? 'Tablero de RH'
+                        : 'Mi bandeja de bajas',
+                    href: dashboard(),
+                    icon: LayoutGrid,
+                },
                 { title: 'Directorio', href: indexDirectorio(), icon: Contact },
                 algunPermiso(
                     'ciclo.preautorizar',
@@ -429,9 +446,12 @@ export function useMainNavItems() {
                         href: indexExpedientes(),
                         icon: Users,
                     },
+                    // Consulta incluida (Sistemas, Auditoría, Dirección Comercial):
+                    // la misma regla de SolicitudInternaPolicy::viewAny.
                     algunPermiso(
                         'solicitudes.revisar',
                         'solicitudes.aprobar',
+                        'rh.solicitudes.ver',
                     ) && {
                         title: 'Solicitudes',
                         href: indexRhSolicitudes(),
@@ -672,7 +692,10 @@ export function useMainNavItems() {
                         href: indexUsuarios(),
                         icon: ShieldCheck,
                     },
-                    tienePermiso('roles.administrar') && {
+                    algunPermiso(
+                        'roles.administrar',
+                        'notificaciones_rol.editar',
+                    ) && {
                         title: 'Roles y permisos',
                         href: indexRoles(),
                         icon: ShieldCheck,

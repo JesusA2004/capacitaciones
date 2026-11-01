@@ -148,6 +148,7 @@ const SIDEBAR_SIN_GUIA = [
     'Bajas',
     // Pantallas de Etapa 1 que aún no tienen módulo de guía propio.
     'Agenda de entrevistas',
+    'Mi agenda',
     'Incapacidades',
     'Administración de salarios',
     'Mis reportes',

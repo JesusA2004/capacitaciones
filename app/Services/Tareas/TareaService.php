@@ -20,6 +20,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -231,6 +232,8 @@ class TareaService
                 // en Roles y permisos (gerente → su sucursal, RH → todas).
                 ->filter(fn (User $usuario): bool => $tarea->colaborador === null
                     || $this->alcanceModulo->alcanzaParaAviso($usuario, $tarea->colaborador, (string) $tarea->asignado_permiso))
+                // Un candidato que no puede abrir (su posible reemplazo) no le llega.
+                ->filter(fn (User $usuario): bool => ! $tarea->relacionado instanceof Candidato || Gate::forUser($usuario)->allows('view', $tarea->relacionado))
                 ->values();
         } catch (Throwable $e) {
             Log::warning('TareaService: no se pudieron resolver destinatarios.', ['tarea_id' => $tarea->id, 'error' => $e->getMessage()]);

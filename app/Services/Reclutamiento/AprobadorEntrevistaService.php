@@ -121,8 +121,22 @@ class AprobadorEntrevistaService
             && ! $usuario->hasAnyRole(['super_admin', 'rh_admin', 'rh_auxiliar', 'direccion', 'sistemas', 'auditor']);
     }
 
+    /**
+     * Gerente o Subgerente de Sucursal sin otro rol más amplio: no ve a quien
+     * aspira a Subgerente o Gerente, porque podría ser su propio reemplazo.
+     */
+    public function noVeReemplazos(User $usuario): bool
+    {
+        return $usuario->hasAnyRole(['gerente_sucursal', 'gerente', 'subgerente'])
+            && ! $usuario->hasAnyRole(['super_admin', 'rh_admin', 'rh_auxiliar', 'direccion', 'sistemas', 'auditor', 'director_comercial', 'gerente_regional']);
+    }
+
     public function esVisiblePara(User $usuario, Candidato $candidato): bool
     {
+        if ($this->noVeReemplazos($usuario)) {
+            return ! $this->nivel($candidato)->loRevisaDireccionComercial();
+        }
+
         return ! $this->veSoloSuNivel($usuario)
             || $this->nivel($candidato)->loRevisaDireccionComercial()
             || $this->tieneIntervencionDeDireccion($candidato);
@@ -136,6 +150,14 @@ class AprobadorEntrevistaService
      */
     public function limitarCandidatos(Builder $query, User $usuario): Builder
     {
+        if ($this->noVeReemplazos($usuario)) {
+            $puestos = $this->puestosDeSuNivel();
+
+            return $query
+                ->whereDoesntHave('vacante', fn (Builder $v) => $v->whereIn('puesto_id', $puestos))
+                ->where(fn (Builder $q) => $q->whereHas('vacante')->orWhereNull('puesto_objetivo_id')->orWhereNotIn('puesto_objetivo_id', $puestos));
+        }
+
         if (! $this->veSoloSuNivel($usuario)) {
             return $query;
         }
@@ -155,7 +177,7 @@ class AprobadorEntrevistaService
      */
     public function limitarAgenda(Builder $query, User $usuario): Builder
     {
-        if (! $this->veSoloSuNivel($usuario)) {
+        if (! $this->veSoloSuNivel($usuario) && ! $this->noVeReemplazos($usuario)) {
             return $query;
         }
 

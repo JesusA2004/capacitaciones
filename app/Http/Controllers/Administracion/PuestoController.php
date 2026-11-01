@@ -18,7 +18,8 @@ class PuestoController extends Controller
 {
     public function index(Request $request): Response
     {
-        $this->authorize('viewAny', Puesto::class);
+        // El catálogo es de quien lo administra; el organigrama tiene su pantalla.
+        abort_unless($request->user()->can('puestos.administrar'), 403);
 
         $puestos = Puesto::query()
             ->withCount(['colaboradores' => fn ($q) => $q->where('estatus', 'activo')])
@@ -33,8 +34,8 @@ class PuestoController extends Controller
             // Acciones del catálogo (config/permisos_modulos.php → puestos).
             'puede' => [
                 'crear' => $request->user()->can('create', Puesto::class),
-                'editar' => $request->user()->can('puestos.administrar') && $request->user()->can('puestos.editar'),
-                'eliminar' => $request->user()->can('puestos.administrar') && $request->user()->can('puestos.eliminar'),
+                'editar' => $request->user()->can('puestos.editar'),
+                'eliminar' => $request->user()->can('puestos.eliminar'),
             ],
             'filtros' => $request->only('busqueda'),
             'departamentosDisponibles' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),

@@ -90,6 +90,11 @@ class CandidatoPolicy
             return false;
         }
 
+        // Gerente o Subgerente: nunca a quien podría ser su reemplazo.
+        if (! $this->aprobadorEntrevista->esVisiblePara($usuario, $candidato)) {
+            return false;
+        }
+
         return $candidato->sucursal_id === null
             || $candidato->gerente_involucrado_id === $usuario->id
             || $this->alcance->sucursalesVisiblesIds($usuario)->contains($candidato->sucursal_id);

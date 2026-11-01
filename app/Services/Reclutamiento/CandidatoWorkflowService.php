@@ -1123,7 +1123,11 @@ class CandidatoWorkflowService
     private function gerenteDelPaso(Candidato $candidato): ?User
     {
         $permiso = $this->permisoPasoGerente($candidato);
-        $usuario = $this->jerarquia->responsableDeCandidato($candidato)['usuario'];
+        // Subgerente o Gerente: el paso va a quien aprueba su entrevista, nunca
+        // a la gerencia de la sucursal, que no debe ver a su posible reemplazo.
+        $usuario = $this->aprobadorEntrevista->nivel($candidato)->loRevisaDireccionComercial()
+            ? $this->aprobadorEntrevista->aprobadores($candidato)->first()
+            : $this->jerarquia->responsableDeCandidato($candidato)['usuario'];
 
         if ($permiso === null || $usuario === null) {
             return null;
