@@ -48,7 +48,7 @@ test('el historial incluye cambios de salario, ajustes de vacaciones y solicitud
         'folio' => 'SOL-0001',
     ]);
 
-    $timeline = app(TimelineService::class)->de($colaborador);
+    $timeline = app(TimelineService::class)->de($colaborador, conSueldos: true);
     $titulos = array_column($timeline, 'titulo');
 
     expect($titulos)->toContain('Cambio de salario diario: $300.00 → $350.00')
@@ -66,7 +66,7 @@ test('la evaluación de inducción calificada muestra la calificación y el nive
         'nivel' => 'sobresaliente',
     ]);
 
-    $timeline = app(TimelineService::class)->de($colaborador);
+    $timeline = app(TimelineService::class)->de($colaborador, conSueldos: true);
 
     expect(array_column($timeline, 'titulo'))->toContain('Evaluación de inducción calificada: 28.0/30 (sobresaliente)');
 });
