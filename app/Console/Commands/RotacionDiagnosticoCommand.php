@@ -38,9 +38,9 @@ class RotacionDiagnosticoCommand extends Command
         $desde = CarbonImmutable::create($anio, 1, 1);
         $hasta = $hasta->min(CarbonImmutable::today());
         $sucursales = Sucursal::query()->pluck('id')->map(fn ($id): int => (int) $id)->values();
-        $f = new FiltrosRotacion('rango', $anio, null, $desde, $hasta, $sucursales, null, null, null, null, null, null, null, 'todas', false);
+        $f = new FiltrosRotacion('rango', $anio, null, $desde, $hasta, $sucursales, null, null, null, null, null, null, null, 'todas', false, externas: true);
 
-        $this->info(sprintf('Rotación %s a %s (todas las sucursales, sin filtros de alcance)', $desde->toDateString(), $hasta->toDateString()));
+        $this->info(sprintf('Rotación %s a %s (todas las sucursales y unidades externas, sin filtros de alcance)', $desde->toDateString(), $hasta->toDateString()));
         $this->line(sprintf('Inicio del módulo de Bajas (config bajas.tablero.mes_inicio_sistema): %s', $motor->mesInicioSistema()->format('Y-m')));
 
         $celdas = $motor->celdas($f)->groupBy('mes');

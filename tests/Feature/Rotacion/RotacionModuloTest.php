@@ -211,7 +211,7 @@ test('histórico agregado sin detalle: cuenta en el total pero un filtro de caus
         ->and($filtrado['resumen']['rotacion']['indice'])->toBeNull();
 });
 
-test('conciliación: el Excel con más bajas que el detalle cuenta la diferencia como sin desglose y marca el descuadre', function () {
+test('conciliación: en un mes con histórico individual manda el detalle; el Excel con más bajas solo se informa como descuadre', function () {
     rmExcel($this->cuernavaca, 2026, 4, 5);
     rmHistorica($this->cuernavaca, '2026-04-02');
     rmHistorica($this->cuernavaca, '2026-04-12');
@@ -220,10 +220,19 @@ test('conciliación: el Excel con más bajas que el detalle cuenta la diferencia
     $d = rmDatos($this->rh);
     $abril = collect($d['tendencia']['meses'])->firstWhere('periodo', '2026-04');
 
-    expect($abril['total'])->toBe(5)
-        ->and($abril['sin_desglose'])->toBe(2)
+    expect($abril['total'])->toBe(3)
+        ->and($abril['sin_desglose'])->toBe(0)
         ->and($abril['discrepancias'])->toBe(1)
         ->and($d['calidad']['discrepancias'][0])->toMatchArray(['mes' => '2026-04', 'agregado' => 5, 'individuales' => 3, 'diferencia' => 2]);
+});
+
+test('conciliación: un mes sin histórico individual sigue usando el total del Excel como sin desglose', function () {
+    rmExcel($this->cuernavaca, 2026, 4, 5);
+
+    $abril = collect(rmDatos($this->rh)['tendencia']['meses'])->firstWhere('periodo', '2026-04');
+
+    expect($abril['total'])->toBe(5)
+        ->and($abril['sin_desglose'])->toBe(5);
 });
 
 test('sin doble conteo: la histórica ligada a una baja del sistema no cuenta y un reingreso son dos eventos', function () {

@@ -199,7 +199,7 @@ class CorreccionRotacionService
         }
 
         DB::transaction(function () use ($actor, $historicaId, $estado, $comentario, $alcance): void {
-            $historica = BajaHistorica::query()->whereKey($historicaId)->whereIn('sucursal_id', $alcance->sucursales->all())->lockForUpdate()->first()
+            $historica = BajaHistorica::query()->whereKey($historicaId)->enAlcanceRotacion($alcance->sucursales, $alcance->externas)->lockForUpdate()->first()
                 ?? throw ValidationException::withMessages(['id' => 'La baja histórica no existe o está fuera de tu alcance.']);
             $antes = $historica->estado;
             $historica->forceFill(['estado' => $estado, 'baja_id' => $estado === BajaHistorica::VALIDA ? null : $historica->baja_id])->save();
@@ -209,9 +209,11 @@ class CorreccionRotacionService
 
     private function sujeto(string $fuente, int $id, FiltrosRotacion $alcance): Baja|BajaHistorica
     {
-        $consulta = $fuente === 'sistema' ? Baja::query() : BajaHistorica::query()->where('estado', BajaHistorica::VALIDA);
+        $consulta = $fuente === 'sistema'
+            ? Baja::query()->whereIn('sucursal_id', $alcance->sucursales->all())
+            : BajaHistorica::query()->where('estado', BajaHistorica::VALIDA)->enAlcanceRotacion($alcance->sucursales, $alcance->externas);
 
-        return $consulta->whereKey($id)->whereIn('sucursal_id', $alcance->sucursales->all())->lockForUpdate()->first()
+        return $consulta->whereKey($id)->lockForUpdate()->first()
             ?? throw ValidationException::withMessages(['id' => 'La baja no existe o está fuera de tu alcance.']);
     }
 

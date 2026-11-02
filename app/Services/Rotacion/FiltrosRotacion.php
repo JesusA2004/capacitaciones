@@ -40,6 +40,9 @@ final class FiltrosRotacion
         public readonly ?RangoAntiguedad $rango,
         public readonly string $fuente,
         public readonly bool $corteParcial,
+        // Incluir las bajas históricas de unidades externas (sin sucursal en
+        // People): solo con alcance global y sin empresa ni sucursal elegida.
+        public readonly bool $externas = false,
     ) {}
 
     /** Hay algún filtro que solo las bajas individuales pueden responder. */
@@ -64,7 +67,7 @@ final class FiltrosRotacion
      */
     public function sinDetalle(): self
     {
-        return new self($this->periodo, $this->anio, $this->mes, $this->desde, $this->hasta, $this->sucursales, $this->empresaId, $this->sucursalId, null, null, null, null, null, $this->fuente, $this->corteParcial);
+        return new self($this->periodo, $this->anio, $this->mes, $this->desde, $this->hasta, $this->sucursales, $this->empresaId, $this->sucursalId, null, null, null, null, null, $this->fuente, $this->corteParcial, $this->externas);
     }
 
     /**
@@ -72,10 +75,12 @@ final class FiltrosRotacion
      */
     public function conRango(CarbonImmutable $desde, CarbonImmutable $hasta): self
     {
-        return new self($this->periodo, $this->anio, $this->mes, $desde, $hasta, $this->sucursales, $this->empresaId, $this->sucursalId, $this->departamentoId, $this->puestoId, $this->clasificacion, $this->causalAnaliticaId, $this->rango, $this->fuente, $this->corteParcial);
+        return new self($this->periodo, $this->anio, $this->mes, $desde, $hasta, $this->sucursales, $this->empresaId, $this->sucursalId, $this->departamentoId, $this->puestoId, $this->clasificacion, $this->causalAnaliticaId, $this->rango, $this->fuente, $this->corteParcial, $this->externas);
     }
 
     /**
+     * Otras sucursales (p. ej. una sola): sin unidades externas.
+     *
      * @param  Collection<int, int>  $sucursales
      */
     public function conSucursales(Collection $sucursales): self

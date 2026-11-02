@@ -239,11 +239,18 @@ const urlPdfDetallado = computed(() =>
         <div v-show="seccion === 'resumen'">
             <SeccionResumen
                 :resumen="resumen"
+                :tendencia="tendencia"
+                :causales="causales"
+                :antiguedad="antiguedad"
+                :sucursales="sucursales"
+                :calidad="calidad"
+                :filtros="filtros"
+                :opciones="opciones"
+                :mes-inicio-sistema="mesInicioSistema"
                 :hallazgos="hallazgos"
                 :metas="metas"
                 :puede="puede"
                 :con-detalle="conDetalle"
-                :mes-filtro="filtros.hasta.slice(0, 7)"
             />
         </div>
         <div v-show="seccion === 'tendencias'">

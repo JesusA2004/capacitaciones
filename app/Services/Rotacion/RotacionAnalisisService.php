@@ -142,7 +142,9 @@ class RotacionAnalisisService
                 'sin_datos' => $sinDatos,
                 'sin_desglose' => (int) $delMes->sum('sin_desglose'),
                 'plantilla_promedio' => $plantilla,
-                'indice' => $sinDatos ? null : FormulaRotacion::indice($fila['total'], $plantilla),
+                // La plantilla es la de las sucursales de People: las bajas de
+                // unidades externas no entran al índice (sí al total).
+                'indice' => $sinDatos ? null : FormulaRotacion::indice($fila['total'] - $this->deExternas($delMes), $plantilla),
                 'en_curso' => $m->isSameMonth($hoy),
                 'corte_parcial' => $m->isSameMonth($f->hasta) && ! $f->hasta->isSameDay($m->endOfMonth()),
                 'discrepancias' => $delMes->where('discrepancia', true)->count(),
@@ -262,7 +264,12 @@ class RotacionAnalisisService
         $analiticas = $this->motor->analiticas();
         $filas = [];
 
-        foreach ($f->sucursales as $id) {
+        $externas = $this->motor->unidadesExternas();
+        // Las unidades externas (ids negativos) se agregan a las sucursales solo
+        // si el filtro las incluye (alcance global, sin empresa ni sucursal).
+        $ids = $f->externas ? $f->sucursales->merge($eventos->keys()->map(fn ($id): int => (int) $id)->filter(fn (int $id): bool => $id < 0)) : $f->sucursales;
+
+        foreach ($ids as $id) {
             /** @var Collection<int, array<string, mixed>> $c */
             $c = $celdas->get($id, collect());
             /** @var Collection<int, array<string, mixed>> $ev */
@@ -273,9 +280,10 @@ class RotacionAnalisisService
                 continue;
             }
 
+            $externa = $externas[$id] ?? null;
             $una = $f->conSucursales(collect([$id]));
             $principal = $ev->groupBy('causal_analitica_id')->sortByDesc(fn (Collection $g): int => $g->count())->keys()->first();
-            $rotacion = $f->conDetalle() ? ['indice' => null, 'plantilla_promedio' => null, 'promedio_indices' => null] : $this->rotacionPeriodo($una, $bajas);
+            $rotacion = $f->conDetalle() || $externa !== null ? ['indice' => null, 'plantilla_promedio' => null, 'promedio_indices' => null] : $this->rotacionPeriodo($una, $bajas);
             $temprana = $this->temprana($ev);
             $sucursal = $nombres->get($id);
             $serie = [];
@@ -287,8 +295,9 @@ class RotacionAnalisisService
 
             $filas[] = [
                 'sucursal_id' => $id,
-                'sucursal' => $sucursal->nombre ?? sprintf('Sucursal #%d', $id),
-                'empresa' => $sucursal?->empresa_id !== null ? ($empresas[$sucursal->empresa_id] ?? null) : null,
+                'sucursal' => $externa['nombre'] ?? $sucursal->nombre ?? sprintf('Sucursal #%d', $id),
+                'empresa' => $externa !== null ? ($externa['grupo'] ?? 'Unidad externa') : ($sucursal?->empresa_id !== null ? ($empresas[$sucursal->empresa_id] ?? null) : null),
+                'unidad_externa' => $externa !== null,
                 'es_corporativo' => (bool) ($sucursal->es_corporativo ?? false),
                 'bajas' => $bajas,
                 'participacion' => $total > 0 ? round($bajas * 100 / $total, 1) : null,
@@ -297,7 +306,7 @@ class RotacionAnalisisService
                 // Semáforo del promedio mensual contra la meta de su segmento
                 // (Corporativo tiene la suya).
                 'promedio_indices' => $rotacion['promedio_indices'],
-                'semaforo' => $this->metas->semaforo($this->tablero->segmentoDe(collect([$id])), $rotacion['promedio_indices'], $f->hasta->startOfMonth()),
+                'semaforo' => $externa !== null ? null : $this->metas->semaforo($this->tablero->segmentoDe(collect([$id])), $rotacion['promedio_indices'], $f->hasta->startOfMonth()),
                 'voluntarias' => $f->conDetalle() ? $ev->where('clasificacion', ClasificacionSalida::Voluntaria)->count() : (int) $c->sum('voluntarias'),
                 'involuntarias' => $f->conDetalle() ? $ev->where('clasificacion', ClasificacionSalida::Involuntaria)->count() : (int) $c->sum('involuntarias'),
                 'sin_clasificar' => $f->conDetalle() ? $ev->where('clasificacion', ClasificacionSalida::SinClasificar)->count() : (int) $c->sum('sin_clasificar'),
@@ -322,7 +331,7 @@ class RotacionAnalisisService
     {
         $eventos = $this->motor->eventos($f);
         $analiticas = $this->motor->analiticas();
-        $nombres = Sucursal::query()->whereIn('id', $eventos->pluck('sucursal_id')->unique()->all())->pluck('nombre', 'id');
+        $nombres = $this->motor->nombresUbicaciones($eventos->pluck('sucursal_id')->unique()->values());
         $claveCausal = fn (array $e): string => $e['causal_analitica_id'] !== null ? (string) $e['causal_analitica_id'] : 'pendiente';
 
         $columnas = $eventos->groupBy($claveCausal)
@@ -376,7 +385,7 @@ class RotacionAnalisisService
         $base = $f->sinDetalle();
         $eventos = $this->motor->eventos($base);
         $sinCausal = $this->motor->idSinCausal();
-        $nombres = Sucursal::query()->whereIn('id', $base->sucursales->all())->pluck('nombre', 'id');
+        $nombres = $this->motor->nombresUbicaciones($base->sucursales);
 
         $discrepancias = $this->motor->celdas($base)->where('discrepancia', true)->values()
             ->map(fn (array $c): array => [
@@ -391,10 +400,13 @@ class RotacionAnalisisService
         return [
             'sin_causal' => $eventos->where('causal_analitica_id', $sinCausal)->count(),
             'sin_homologar' => $eventos->where('homologada', false)->count(),
-            'sin_fecha_ingreso' => $eventos->filter(fn (array $e): bool => $e['fecha_ingreso'] === null)->count(),
+            'sin_fecha_ingreso' => $eventos->filter(fn (array $e): bool => $e['fecha_ingreso'] === null && ! $e['antiguedad_aproximada'])->count(),
+            // Sin fecha de ingreso pero con la antigüedad que reportó la fuente
+            // (p. ej. «2.5 a»): cuentan en su rango; conviene completar la fecha.
+            'antiguedad_aproximada' => $eventos->where('antiguedad_aproximada', true)->count(),
             'fecha_inconsistente' => $eventos->where('fecha_inconsistente', true)->count(),
             'posibles_duplicados' => $this->posiblesDuplicados($base)->count(),
-            'duplicadas_ligadas' => BajaHistorica::query()->where('estado', BajaHistorica::DUPLICADA)->whereIn('sucursal_id', $base->sucursales->all())->whereBetween('fecha_baja', [$base->desde->toDateString(), $base->hasta->toDateString()])->count(),
+            'duplicadas_ligadas' => BajaHistorica::query()->where('estado', BajaHistorica::DUPLICADA)->enAlcanceRotacion($base->sucursales, $base->externas)->whereBetween('fecha_baja', [$base->desde->toDateString(), $base->hasta->toDateString()])->count(),
             'discrepancias' => $discrepancias,
             'meses_recortados' => $this->motor->agregadosRecortados($base),
         ];
@@ -410,7 +422,7 @@ class RotacionAnalisisService
     public function posiblesDuplicados(FiltrosRotacion $f): Collection
     {
         $base = $f->sinDetalle();
-        $eventos = $this->motor->eventos(new FiltrosRotacion($base->periodo, $base->anio, $base->mes, $base->desde->subDays(7), $base->hasta, $base->sucursales, $base->empresaId, $base->sucursalId, null, null, null, null, null, 'todas', $base->corteParcial), false);
+        $eventos = $this->motor->eventos(new FiltrosRotacion($base->periodo, $base->anio, $base->mes, $base->desde->subDays(7), $base->hasta, $base->sucursales, $base->empresaId, $base->sucursalId, null, null, null, null, null, 'todas', $base->corteParcial, $base->externas), false);
         $sistema = $eventos->where('fuente', 'sistema');
         $pares = collect();
 
@@ -550,7 +562,8 @@ class RotacionAnalisisService
             }
 
             $plantillas[] = $p;
-            $indice = FormulaRotacion::indice((int) $celdas->get($m->format('Y-m'), collect())->sum('total'), $p);
+            $delMes = $celdas->get($m->format('Y-m'), collect());
+            $indice = FormulaRotacion::indice((int) $delMes->sum('total') - $this->deExternas($delMes), $p);
 
             if ($indice !== null) {
                 $indices[] = $indice;
@@ -562,6 +575,7 @@ class RotacionAnalisisService
         }
 
         $promedio = $plantillas === [] ? null : round(array_sum($plantillas) / count($plantillas), 2);
+        $bajas -= $this->deExternas($celdas->flatten(1));
         // El mes en curso todavía puede cambiar: si hay meses cerrados, no entra.
         $base = $cerrados !== [] ? $cerrados : $indices;
 
@@ -599,6 +613,25 @@ class RotacionAnalisisService
         }
 
         return $this->plantillas[$clave];
+    }
+
+    /**
+     * Bajas de unidades externas (ids negativos) en unas celdas: cuentan en
+     * el total, pero no en el índice (su plantilla no está en People).
+     *
+     * @param  iterable<array<string, mixed>>  $celdas
+     */
+    private function deExternas(iterable $celdas): int
+    {
+        $n = 0;
+
+        foreach ($celdas as $c) {
+            if (is_numeric($c['sucursal_id'] ?? null) && (int) $c['sucursal_id'] < 0) {
+                $n += is_numeric($c['total'] ?? null) ? (int) $c['total'] : 0;
+            }
+        }
+
+        return $n;
     }
 
     /**

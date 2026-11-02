@@ -53,6 +53,12 @@ class RotacionMotorService
     /** @var array<int, int|null>|null */
     private ?array $empresas = null;
 
+    /** @var array<string, true>|null */
+    private ?array $mesesConDetalle = null;
+
+    /** @var array<int, array{nombre: string, grupo: string|null}>|null */
+    private ?array $externas = null;
+
     public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
 
     /**
@@ -63,7 +69,7 @@ class RotacionMotorService
      */
     public function sucursalesVisibles(User $usuario): Collection
     {
-        if ($usuario->can('bajas.gestionar') || $this->alcance->tieneAlcanceGlobal($usuario)) {
+        if ($this->veTodo($usuario)) {
             return Sucursal::query()->pluck('id')->map(fn ($id): int => (int) $id)->values();
         }
 
@@ -137,6 +143,9 @@ class RotacionMotorService
             rango: RangoAntiguedad::tryFrom((string) ($entrada['antiguedad'] ?? '')),
             fuente: in_array($entrada['fuente'] ?? null, ['sistema', 'historico'], true) ? (string) $entrada['fuente'] : 'todas',
             corteParcial: $corteParcial,
+            // Las unidades externas no tienen sucursal ni empresa en People: solo
+            // entran con alcance global y sin empresa ni sucursal elegida.
+            externas: $empresaId === null && $sucursalId === null && $this->veTodo($usuario),
         );
     }
 
@@ -148,7 +157,7 @@ class RotacionMotorService
      */
     public function eventos(FiltrosRotacion $f, bool $detalle = true): Collection
     {
-        $clave = implode('|', [$f->desde->toDateString(), $f->hasta->toDateString(), $f->fuente, $f->sucursales->sort()->implode(',')]);
+        $clave = implode('|', [$f->desde->toDateString(), $f->hasta->toDateString(), $f->fuente, $f->sucursales->sort()->implode(','), $f->externas ? 'x' : '']);
         $todos = $this->eventosCache[$clave] ??= $this->cargarEventos($f);
 
         if (! $detalle || ! $f->conDetalle()) {
@@ -173,6 +182,7 @@ class RotacionMotorService
         $eventos = $this->eventos($f, false)->groupBy(fn (array $e): string => $e['mes'].'|'.$e['sucursal_id']);
         $agregados = $this->agregados($f)->keyBy(fn (RotacionPeriodo $p): string => sprintf('%04d-%02d|%d', $p->anio, $p->mes, $p->sucursal_id));
         $inicioSistema = $this->mesInicioSistema()->format('Y-m');
+        $conDetalle = $this->mesesConDetalleHistorico();
         $celdas = collect();
 
         foreach ($eventos->keys()->merge($agregados->keys())->unique() as $clave) {
@@ -182,9 +192,10 @@ class RotacionMotorService
             $periodo = $agregados->get($clave);
             $individuales = $delaCelda->count();
             $agregado = $periodo?->bajas;
-            // Desde el inicio del módulo manda el sistema: una fila del Excel
-            // de esos meses no se suma, solo se compara.
-            $usaExcel = $agregado !== null && $mes < $inicioSistema;
+            // Desde el inicio del módulo manda el sistema, y en un mes con
+            // histórico individual cargado manda ese detalle: en ambos casos
+            // la fila del Excel no se suma, solo se compara (discrepancia).
+            $usaExcel = $agregado !== null && $mes < $inicioSistema && ! isset($conDetalle[$mes]);
             $total = $usaExcel ? max($individuales, (int) $agregado) : $individuales;
             $sinDesglose = $total - $individuales;
             $cuenta = fn (ClasificacionSalida $c): int => $delaCelda->where('clasificacion', $c)->count();
@@ -231,6 +242,75 @@ class RotacionMotorService
         return $celdas->isEmpty() && $this->agregados($f)->isEmpty() && $inicio->lt($this->mesInicioSistema())
             ? null
             : (int) $celdas->sum('total');
+    }
+
+    /**
+     * Meses («Y-m») con histórico individual cargado: al menos una baja
+     * histórica no descartada (válida o ligada a una del sistema), en
+     * cualquier sucursal o unidad. En esos meses el detalle individual es la
+     * fuente y el total del Excel solo se compara. Es global a propósito: si
+     * el histórico cubre el mes, una sucursal sin bajas en él tiene 0, no el
+     * total del Excel.
+     *
+     * @return array<string, true>
+     */
+    public function mesesConDetalleHistorico(): array
+    {
+        if ($this->mesesConDetalle === null) {
+            $this->mesesConDetalle = [];
+
+            foreach (BajaHistorica::query()->where('estado', '!=', BajaHistorica::DESCARTADA)->selectRaw('distinct substr(fecha_baja, 1, 7) as mes')->pluck('mes') as $mes) {
+                $this->mesesConDetalle[(string) $mes] = true;
+            }
+        }
+
+        return $this->mesesConDetalle;
+    }
+
+    /**
+     * Nombre de cada ubicación de Rotación: sucursales de People (id > 0) y
+     * unidades externas (id negativo, ver BajaHistorica::idUnidadExterna).
+     *
+     * @param  Collection<int, int>  $ids
+     * @return Collection<int, string>
+     */
+    public function nombresUbicaciones(Collection $ids): Collection
+    {
+        $positivos = $ids->filter(fn (int $id): bool => $id > 0)->unique()->values();
+        $nombres = $positivos->isEmpty() ? collect() : Sucursal::query()->withTrashed()->whereIn('id', $positivos->all())->pluck('nombre', 'id')->map(fn ($n): string => (string) $n);
+
+        foreach ($this->unidadesExternas() as $id => $unidad) {
+            if ($ids->contains($id)) {
+                $nombres->put($id, $unidad['nombre']);
+            }
+        }
+
+        return $nombres;
+    }
+
+    /**
+     * Unidades externas con bajas históricas cargadas: id negativo => nombre y
+     * grupo (unidad de negocio, de config/rotacion.php).
+     *
+     * @return array<int, array{nombre: string, grupo: string|null}>
+     */
+    public function unidadesExternas(): array
+    {
+        if ($this->externas === null) {
+            $config = (array) config('rotacion.unidades_externas', []);
+            $this->externas = [];
+
+            foreach (BajaHistorica::query()->whereNotNull('unidad_externa')->distinct()->pluck('unidad_externa') as $unidad) {
+                $nombre = (string) $unidad;
+                $definida = $config[BajaHistorica::normalizar($nombre)] ?? null;
+                $this->externas[BajaHistorica::idUnidadExterna($nombre)] = [
+                    'nombre' => $nombre,
+                    'grupo' => is_array($definida) && is_string($definida['grupo'] ?? null) ? $definida['grupo'] : null,
+                ];
+            }
+        }
+
+        return $this->externas;
     }
 
     public function mesInicioSistema(): CarbonImmutable
@@ -306,6 +386,12 @@ class RotacionMotorService
         return $this->analiticas()->first(fn (CausalAnalitica $c): bool => $c->clave === CausalAnalitica::SIN_CAUSAL)?->id;
     }
 
+    /** Ve todas las sucursales (y las unidades externas) en Rotación. */
+    public function veTodo(User $usuario): bool
+    {
+        return $usuario->can('bajas.gestionar') || $this->alcance->tieneAlcanceGlobal($usuario);
+    }
+
     public function empresaDe(int $sucursalId): ?int
     {
         if ($this->empresas === null) {
@@ -325,6 +411,8 @@ class RotacionMotorService
         $this->eventosCache = [];
         $this->analiticas = null;
         $this->catalogo = null;
+        $this->mesesConDetalle = null;
+        $this->externas = null;
     }
 
     /**
@@ -354,10 +442,9 @@ class RotacionMotorService
         }
 
         if ($f->fuente !== 'sistema') {
-            $historicas = BajaHistorica::query()->toBase()
-                ->select(['id', 'colaborador_id', 'baja_id', 'nombre', 'numero_empleado', 'sucursal_id', 'puesto_id', 'departamento_id', 'fecha_ingreso', 'fecha_baja', 'motivo_original', 'causal_analitica_id', 'estado'])
+            $historicas = BajaHistorica::query()->enAlcanceRotacion($f->sucursales, $f->externas)->toBase()
+                ->select(['id', 'colaborador_id', 'baja_id', 'nombre', 'numero_empleado', 'sucursal_id', 'puesto_id', 'departamento_id', 'fecha_ingreso', 'fecha_baja', 'motivo_original', 'causal_analitica_id', 'estado', 'unidad_externa', 'antiguedad_dias', 'rango_antiguedad'])
                 ->where('estado', BajaHistorica::VALIDA)
-                ->whereIn('sucursal_id', $ids)
                 ->whereDate('fecha_baja', '>=', $desde)
                 ->whereDate('fecha_baja', '<=', $hasta)
                 ->get();
@@ -391,7 +478,24 @@ class RotacionMotorService
             $esSistema,
         );
         $id = (int) $entero('id');
-        $sucursalId = (int) $entero('sucursal_id');
+        $externa = ! $esSistema && is_string($fila['unidad_externa'] ?? null) && $fila['unidad_externa'] !== '' && $entero('sucursal_id') === null
+            ? $fila['unidad_externa']
+            : null;
+        // Una unidad externa se agrupa con un id negativo estable: nunca
+        // coincide con una sucursal real ni con su plantilla.
+        $sucursalId = $externa !== null ? BajaHistorica::idUnidadExterna($externa) : (int) $entero('sucursal_id');
+        $rango = RangoAntiguedad::de($ingreso, $baja);
+        $dias = $ingreso !== null && $baja->gte($ingreso) ? (int) $ingreso->diffInDays($baja) : null;
+        $reportado = ! $esSistema && $ingreso === null ? RangoAntiguedad::tryFrom((string) ($fila['rango_antiguedad'] ?? '')) : null;
+        $aproximada = $reportado !== null && $reportado !== RangoAntiguedad::SinFecha;
+
+        // Sin fecha de ingreso, la antigüedad que reportó la fuente (p. ej.
+        // «2.5 a») da el rango; los días son aproximados. La fecha real, en
+        // cuanto se complete, siempre manda.
+        if ($aproximada) {
+            $rango = $reportado;
+            $dias = $entero('antiguedad_dias');
+        }
         $nombre = $fila[$esSistema ? 'nombre_colaborador' : 'nombre'] ?? '';
         $numero = $fila['numero_empleado'] ?? null;
         $motivo = $fila['motivo_original'] ?? null;
@@ -406,8 +510,9 @@ class RotacionMotorService
             'cierre_laboral_id' => $esSistema ? $entero('cierre_laboral_id') : null,
             'nombre' => is_scalar($nombre) ? (string) $nombre : '',
             'numero_empleado' => is_scalar($numero) ? (string) $numero : null,
-            'empresa_id' => $this->empresaDe($sucursalId),
+            'empresa_id' => $externa !== null ? null : $this->empresaDe($sucursalId),
             'sucursal_id' => $sucursalId,
+            'unidad_externa' => $externa,
             'puesto_id' => $entero('puesto_id'),
             'departamento_id' => $entero('departamento_id'),
             'fecha_ingreso' => $ingreso,
@@ -422,8 +527,9 @@ class RotacionMotorService
             'causal_analitica_id' => $analiticaId,
             'homologada' => $homologada,
             'clasificacion' => $clasificacion,
-            'rango' => RangoAntiguedad::de($ingreso, $baja),
-            'antiguedad_dias' => $ingreso !== null && $baja->gte($ingreso) ? (int) $ingreso->diffInDays($baja) : null,
+            'rango' => $rango,
+            'antiguedad_dias' => $dias,
+            'antiguedad_aproximada' => $aproximada,
             'fecha_inconsistente' => $ingreso !== null && $baja->lt($ingreso),
         ];
     }

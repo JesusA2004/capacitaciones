@@ -3,6 +3,7 @@
 namespace App\Services\Rotacion;
 
 use App\Enums\EstatusBaja;
+use App\Enums\RangoAntiguedad;
 use App\Models\Baja;
 use App\Models\BajaHistorica;
 use App\Models\CausalAnalitica;
@@ -35,21 +36,36 @@ use Throwable;
  *    guarda como duplicada y ligada: no cuenta dos veces.
  *  - Ingreso posterior a la baja, puesto o causal no reconocidos → aviso; el
  *    dato se carga y queda para revisión.
+ *  - Unidad de negocio fuera de People confirmada en
+ *    config/rotacion.php → unidades_externas: se guarda con sucursal_id nulo y
+ *    `unidad_externa` (no se crea ninguna sucursal).
+ *  - Sin fecha de ingreso, la columna opcional «Antigüedad (texto)» de la
+ *    fuente: «159 d» da la fecha de ingreso exacta (baja − 159 días); «2.5 a»
+ *    se guarda como antigüedad APROXIMADA (días y rango, la fecha sigue
+ *    vacía). Si los años redondeados no permiten saber el rango (p. ej. «3.0
+ *    a»), la columna «Rango de antigüedad» lo indica; si falta, aviso.
+ *
+ * Acepta Excel o CSV (UTF-8). El comando rotacion:cargar-historico usa este
+ * mismo servicio (leer → registrar → aplicar): no hay otra regla de carga.
  */
 class BajasHistoricasImportService
 {
     public const TIPO = 'bajas_historicas';
 
     private const ENCABEZADOS = [
-        'nombre' => 'nombre completo',
-        'numero' => 'numero de empleado',
-        'sucursal' => 'sucursal',
-        'puesto' => 'puesto',
-        'area' => 'area',
-        'ingreso' => 'fecha de ingreso',
-        'baja' => 'ultimo dia laborado',
-        'motivo' => 'motivo original',
-        'causal' => 'causal homologada',
+        'nombre' => ['nombre completo'],
+        'numero' => ['numero de empleado'],
+        'sucursal' => ['sucursal'],
+        'puesto' => ['puesto'],
+        'area' => ['area'],
+        'ingreso' => ['fecha de ingreso'],
+        'baja' => ['ultimo dia laborado'],
+        'motivo' => ['motivo original'],
+        'causal' => ['causal homologada'],
+        // Opcionales (histórico que trae antigüedad en vez de fecha de ingreso).
+        'antiguedad' => ['antiguedad texto', 'antiguedad'],
+        'rango' => ['rango de antiguedad'],
+        'nota' => ['nota'],
     ];
 
     private const OBLIGATORIOS = ['nombre', 'sucursal', 'baja'];
@@ -70,10 +86,24 @@ class BajasHistoricasImportService
             throw ValidationException::withMessages(['archivo' => 'Este mismo archivo ya se aplicó antes.']);
         }
 
+        $lectura = $this->leer((string) $archivo->getRealPath());
+
+        return $this->registrar($hash, $archivo->getClientOriginalName(), $lectura, $usuario);
+    }
+
+    /**
+     * Lee y resuelve el archivo SIN escribir nada (vista previa): cada fila con
+     * su estado (nuevo, sin_cambio, duplicado_sistema, error), avisos y los
+     * ids ya resueltos.
+     *
+     * @return array{filas: list<array<string, mixed>>, columnas: list<string>}
+     */
+    public function leer(string $ruta): array
+    {
         try {
-            $renglones = array_values(IOFactory::load((string) $archivo->getRealPath())->getSheet(0)->toArray(null, true, false, false));
+            $renglones = array_values(IOFactory::load($ruta)->getSheet(0)->toArray(null, true, false, false));
         } catch (Throwable) {
-            throw ValidationException::withMessages(['archivo' => 'No se pudo leer el archivo. Verifica que sea un Excel válido.']);
+            throw ValidationException::withMessages(['archivo' => 'No se pudo leer el archivo. Verifica que sea un Excel o CSV válido.']);
         }
 
         [$columnas, $inicio] = $this->encabezados($renglones);
@@ -83,10 +113,23 @@ class BajasHistoricasImportService
             throw ValidationException::withMessages(['archivo' => 'El archivo no trae bajas.']);
         }
 
+        return ['filas' => $filas, 'columnas' => array_keys($columnas)];
+    }
+
+    /**
+     * Guarda la vista previa (auditable) de una lectura: quién, cuándo, qué
+     * archivo y cada fila resuelta. Todavía no carga ninguna baja.
+     *
+     * @param  array{filas: list<array<string, mixed>>, columnas: list<string>}  $lectura
+     * @param  array<string, mixed>  $metadatos
+     */
+    public function registrar(string $hash, string $nombreArchivo, array $lectura, User $usuario, array $metadatos = []): ImportacionExcel
+    {
+        $filas = $lectura['filas'];
         $cuenta = fn (string $estado): int => count(array_filter($filas, fn (array $f): bool => $f['estado'] === $estado));
 
         return ImportacionExcel::query()->updateOrCreate(['archivo_hash' => $hash], [
-            'nombre_archivo' => mb_substr($archivo->getClientOriginalName(), 0, 255),
+            'nombre_archivo' => mb_substr($nombreArchivo, 0, 255),
             'tipo' => self::TIPO,
             'subido_por' => $usuario->id,
             'estado' => 'previsualizado',
@@ -97,7 +140,7 @@ class BajasHistoricasImportService
             'filas_no_encontradas' => 0,
             'filas_error' => $cuenta('error'),
             'detalle' => $filas,
-            'metadatos' => ['columnas' => array_keys($columnas)],
+            'metadatos' => ['columnas' => $lectura['columnas'], ...$metadatos],
         ]);
     }
 
@@ -139,14 +182,17 @@ class BajasHistoricasImportService
                     'baja_id' => $fila['baja_id'],
                     'empresa_id' => $fila['empresa_id'],
                     'sucursal_id' => $fila['sucursal_id'],
+                    'unidad_externa' => $fila['unidad_externa'] ?? null,
                     'puesto_id' => $fila['puesto_id'],
                     'departamento_id' => $fila['departamento_id'],
                     'fecha_ingreso' => $fila['fecha_ingreso'],
                     'fecha_baja' => $fila['fecha_baja'],
+                    'antiguedad_dias' => $fila['antiguedad_dias'] ?? null,
+                    'rango_antiguedad' => $fila['rango_antiguedad'] ?? null,
                     'motivo_original' => $fila['motivo_original'],
                     'causal_analitica_id' => $fila['causal_analitica_id'],
                     'estado' => $fila['estado'] === 'duplicado_sistema' ? BajaHistorica::DUPLICADA : BajaHistorica::VALIDA,
-                    'nota' => $fila['estado'] === 'duplicado_sistema' ? 'Ligada al cargar: ya existe como baja del sistema.' : null,
+                    'nota' => $this->nota($fila),
                     'registrado_por' => $usuario->id,
                 ]);
                 $guardadas++;
@@ -168,7 +214,7 @@ class BajasHistoricasImportService
     public function plantillaExcel(): Spreadsheet
     {
         $libro = new Spreadsheet;
-        $libro->getActiveSheet()->setTitle('Bajas')->fromArray(['Nombre completo', 'Número de empleado', 'Sucursal', 'Puesto', 'Área', 'Fecha de ingreso', 'Último día laborado', 'Motivo original', 'Causal homologada']);
+        $libro->getActiveSheet()->setTitle('Bajas')->fromArray(['Nombre completo', 'Número de empleado', 'Sucursal', 'Puesto', 'Área', 'Fecha de ingreso', 'Último día laborado', 'Motivo original', 'Causal homologada', 'Antigüedad (texto)', 'Rango de antigüedad', 'Nota']);
 
         $catalogos = $libro->createSheet()->setTitle('Catálogos');
         $catalogos->fromArray(['Sucursales', 'Causales homologadas']);
@@ -201,8 +247,12 @@ class BajasHistoricasImportService
 
             $columnas = [];
 
-            foreach (self::ENCABEZADOS as $clave => $encabezado) {
-                $posicion = array_search($encabezado, $textos, true);
+            foreach (self::ENCABEZADOS as $clave => $alias) {
+                $posicion = false;
+
+                foreach ($alias as $encabezado) {
+                    $posicion = $posicion === false ? array_search($encabezado, $textos, true) : $posicion;
+                }
 
                 if ($posicion === false) {
                     if (in_array($clave, self::OBLIGATORIOS, true)) {
@@ -258,6 +308,9 @@ class BajasHistoricasImportService
             $textoCausal = $this->texto($valor($renglon, 'causal'));
             $textoPuesto = $this->texto($valor($renglon, 'puesto'));
             $textoArea = $this->texto($valor($renglon, 'area'));
+            $textoAntiguedad = $this->texto($valor($renglon, 'antiguedad'));
+            $textoRango = $this->texto($valor($renglon, 'rango'));
+            $nota = $this->texto($valor($renglon, 'nota'));
 
             if ($nombre === '' && $textoSucursal === '' && $baja === null) {
                 continue;
@@ -266,12 +319,13 @@ class BajasHistoricasImportService
             $errores = [];
             $avisos = [];
             $sucursal = $sucursales->get(BajaHistorica::normalizar($textoSucursal));
+            $externa = $sucursal === null ? $this->unidadExterna($textoSucursal) : null;
 
             if ($nombre === '') {
                 $errores[] = 'Falta el nombre.';
             }
 
-            if ($sucursal === null) {
+            if ($sucursal === null && $externa === null) {
                 $errores[] = $textoSucursal === '' ? 'Falta la sucursal.' : sprintf('La sucursal «%s» no existe en People: no se crea ninguna.', $textoSucursal);
             }
 
@@ -281,7 +335,11 @@ class BajasHistoricasImportService
                 $errores[] = 'El último día laborado es futuro.';
             }
 
-            if ($ingreso === null) {
+            [$ingreso, $antiguedadDias, $rango] = $this->antiguedad($ingreso, $baja, $textoAntiguedad, $textoRango, $avisos);
+
+            if ($ingreso === null && $rango !== null) {
+                $avisos[] = sprintf('Sin fecha de ingreso: antigüedad aproximada «%s» (%s); conviene completar la fecha.', $textoAntiguedad !== '' ? $textoAntiguedad : 'reportada', $rango->etiqueta());
+            } elseif ($ingreso === null) {
                 $avisos[] = $this->texto($valor($renglon, 'ingreso')) === '' ? 'Sin fecha de ingreso: se excluye de la antigüedad.' : 'La fecha de ingreso no es válida: se carga sin ella.';
             } elseif ($baja !== null && $ingreso > $baja) {
                 $avisos[] = 'La fecha de ingreso es posterior al último día: queda para revisión.';
@@ -305,7 +363,7 @@ class BajasHistoricasImportService
                 $avisos[] = sprintf('Causal «%s» no reconocida: queda «Sin causal registrada» para corregirla.', $textoCausal);
             }
 
-            $llave = $errores === [] && $baja !== null ? BajaHistorica::llaveDe($nombre, $numero, $baja, $sucursal?->id) : null;
+            $llave = $errores === [] && $baja !== null ? BajaHistorica::llaveDe($nombre, $numero, $baja, $sucursal?->id, $externa) : null;
             $colaborador = $errores === [] ? $this->colaborador($nombre, $numero) : null;
             $duplicadoSistema = $errores === [] ? $this->bajaDelSistema($colaborador, $nombre, $baja) : null;
 
@@ -335,11 +393,16 @@ class BajasHistoricasImportService
                 'baja_id' => $duplicadoSistema?->id,
                 'empresa_id' => $sucursal?->empresa_id,
                 'sucursal_id' => $sucursal?->id,
-                'sucursal' => $sucursal->nombre ?? $textoSucursal,
+                'unidad_externa' => $externa,
+                'sucursal' => $externa ?? $sucursal->nombre ?? $textoSucursal,
                 'puesto_id' => $puesto?->id,
                 'departamento_id' => $area?->id,
                 'fecha_ingreso' => $ingreso,
                 'fecha_baja' => $baja,
+                'antiguedad_texto' => $textoAntiguedad !== '' ? $textoAntiguedad : null,
+                'antiguedad_dias' => $antiguedadDias,
+                'rango_antiguedad' => $rango?->value,
+                'nota_archivo' => $nota !== '' ? mb_substr($nota, 0, 300) : null,
                 'motivo_original' => $motivo !== '' ? mb_substr($motivo, 0, 500) : null,
                 'causal_analitica_id' => $causal->id ?? $sinCausal,
                 'causal' => $causal->nombre ?? 'Sin causal registrada',
@@ -375,6 +438,83 @@ class BajasHistoricasImportService
         }
 
         return $mapa;
+    }
+
+    /**
+     * Unidad de negocio fuera de People confirmada en config/rotacion.php
+     * (nombre a mostrar) o null.
+     */
+    private function unidadExterna(string $texto): ?string
+    {
+        $definida = ((array) config('rotacion.unidades_externas', []))[BajaHistorica::normalizar($texto)] ?? null;
+
+        return is_array($definida) && is_string($definida['nombre'] ?? null) && $definida['nombre'] !== '' ? $definida['nombre'] : null;
+    }
+
+    /**
+     * Antigüedad cuando la fila no trae fecha de ingreso: «N d» da la fecha
+     * exacta (baja − N días); «X.Y a» da días APROXIMADOS (X.Y × 365.25) y el
+     * rango, que viene de la columna «Rango de antigüedad» o, si los años
+     * redondeados no cruzan ningún límite, se deduce. Con fecha de ingreso, la
+     * fecha manda y esto no se usa.
+     *
+     * @param  list<string>  $avisos
+     * @return array{0: string|null, 1: int|null, 2: RangoAntiguedad|null}
+     */
+    private function antiguedad(?string $ingreso, ?string $baja, string $texto, string $textoRango, array &$avisos): array
+    {
+        if ($ingreso !== null || $baja === null) {
+            return [$ingreso, null, null];
+        }
+
+        $rango = $textoRango !== '' ? RangoAntiguedad::desdeTexto($textoRango) : null;
+
+        if ($textoRango !== '' && ($rango === null || $rango === RangoAntiguedad::SinFecha)) {
+            $avisos[] = sprintf('Rango de antigüedad «%s» no reconocido: se ignora.', $textoRango);
+            $rango = null;
+        }
+
+        $normal = str_replace(',', '.', mb_strtolower(trim($texto)));
+
+        if (preg_match('/^(\d{1,5})\s*d$/', $normal, $m) === 1) {
+            return [CarbonImmutable::parse($baja)->subDays((int) $m[1])->toDateString(), null, null];
+        }
+
+        if (preg_match('/^(\d{1,2}(?:\.\d)?)\s*a$/', $normal, $m) === 1) {
+            $anios = (float) $m[1];
+            $deducido = RangoAntiguedad::deAniosRedondeados($anios);
+
+            if ($rango === null && $deducido === null) {
+                $avisos[] = sprintf('Antigüedad «%s» redondeada: no se sabe si cruzó el límite del rango. Indica el «Rango de antigüedad» o completa la fecha de ingreso.', $texto);
+            }
+
+            return [null, (int) round($anios * 365.25), $rango ?? $deducido];
+        }
+
+        if ($texto !== '' && ! in_array($normal, ['—', '-', '--', 'n/a', 'na', 'sin dato'], true)) {
+            $avisos[] = sprintf('Antigüedad «%s» no reconocida (usa «159 d» o «2.5 a»): se ignora.', $texto);
+        }
+
+        return [null, null, $rango];
+    }
+
+    /**
+     * Nota que se guarda con la histórica: la del archivo y, si se liga a una
+     * baja del sistema, el aviso de la liga.
+     *
+     * @param  array<string, mixed>  $fila
+     */
+    private function nota(array $fila): ?string
+    {
+        $partes = array_filter([
+            $fila['estado'] === 'duplicado_sistema' ? 'Ligada al cargar: ya existe como baja del sistema.' : null,
+            is_string($fila['antiguedad_texto'] ?? null) && ($fila['rango_antiguedad'] ?? null) !== null && ($fila['fecha_ingreso'] ?? null) === null
+                ? sprintf('Antigüedad según la fuente: %s (aproximada, sin fecha de ingreso).', $fila['antiguedad_texto'])
+                : null,
+            is_string($fila['nota_archivo'] ?? null) ? $fila['nota_archivo'] : null,
+        ]);
+
+        return $partes === [] ? null : mb_substr(implode(' ', $partes), 0, 500);
     }
 
     /** Solo liga a un colaborador existente; nunca lo crea. */

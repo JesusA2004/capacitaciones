@@ -37,6 +37,27 @@ return [
         'tula de allende' => 'Tula',
     ],
 
+    // Unidades de negocio FUERA de People cuyas bajas sí entran en la
+    // estadística de rotación (Reporte de Rotación de Personal 2026 de RH:
+    // «unidades fuera de Mr. Lana»). Nombre normalizado => nombre a mostrar y
+    // grupo (unidad de negocio). Sus bajas históricas se guardan con
+    // sucursal_id nulo y `unidad_externa`; NO se crean sucursales ni empresas,
+    // así que no tocan headcount, vacantes, organigrama, matriz comercial,
+    // alcances ni el menú. Solo las ve quien tiene alcance global en Rotación.
+    // Un nombre que no esté aquí ni en el catálogo de sucursales es un error.
+    'unidades_externas' => [
+        'itzamarketing' => ['nombre' => 'Itzamarketing', 'grupo' => 'Itzamarketing'],
+        'zen japones' => ['nombre' => 'Zen Japonés', 'grupo' => 'Lerom (restaurantes)'],
+    ],
+
+    // Histórico individual de bajas 2026 (anexo del «Reporte de Rotación de
+    // Personal 2026», docs/rotacionNuevo/). Lo carga
+    // `php artisan rotacion:cargar-historico`; ver docs/ROTACION.md.
+    'historico_2026' => [
+        'archivo' => 'claude/rotacion/bajas_historicas_2026.csv',
+        'esperado' => 'claude/rotacion/bajas_historicas_2026.esperado.json',
+    ],
+
     // Homologación inicial: clave de causal de baja => categoría analítica
     // (causales_analiticas.clave). Solo se aplica a causales SIN mapeo; un
     // cambio posterior se hace desde Rotación › Causales y queda auditado.

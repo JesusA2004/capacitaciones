@@ -53,6 +53,42 @@ enum RangoAntiguedad: string
         };
     }
 
+    /**
+     * Rango de una antigüedad reportada en años con UN decimal (p. ej. «2.5
+     * a»), sin fecha de ingreso. El valor real está en [años − 0.05, años +
+     * 0.05): si ese intervalo cruza un límite (1.0 a cruza los 12 meses, 3.0 a
+     * los 36) no se puede saber el rango y devuelve null — nunca se adivina.
+     */
+    public static function deAniosRedondeados(float $anios): ?self
+    {
+        $porMeses = fn (float $meses): self => match (true) {
+            $meses < 3 => self::Menos3Meses,
+            $meses < 6 => self::De3A6Meses,
+            $meses < 12 => self::De6A12Meses,
+            $meses < 36 => self::De1A3Anios,
+            default => self::Mas3Anios,
+        };
+        $desde = $porMeses(max(0.0, ($anios - 0.05) * 12));
+        $hasta = $porMeses(($anios + 0.05) * 12 - 0.0001);
+
+        return $desde === $hasta ? $desde : null;
+    }
+
+    /** Valor o etiqueta del rango (sin acentos ni mayúsculas); null si no es uno. */
+    public static function desdeTexto(string $texto): ?self
+    {
+        $normal = static fn (string $t): string => trim((string) preg_replace('/[^a-z0-9]+/', ' ', strtr(mb_strtolower(trim($t)), ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n'])));
+        $buscado = $normal($texto);
+
+        foreach (self::cases() as $rango) {
+            if ($buscado !== '' && ($buscado === $normal($rango->value) || $buscado === $normal($rango->etiqueta()))) {
+                return $rango;
+            }
+        }
+
+        return null;
+    }
+
     /** Meses calendario completos (31 ene → 28 feb = 0; 15 ene → 15 abr = 3). */
     public static function mesesCompletos(CarbonInterface $ingreso, CarbonInterface $baja): int
     {

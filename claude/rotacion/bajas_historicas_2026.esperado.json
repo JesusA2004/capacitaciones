@@ -1,0 +1,56 @@
+{
+    "fuente": "docs/rotacionNuevo/Reporte_Rotacion_Personal_2026 (1).pdf (págs. 2 a 5) y Dashboard_Rotacion_2026 (2).pdf; corte 23/10/2026",
+    "desde": "2026-01-01",
+    "hasta": "2026-10-31",
+    "total": 106,
+    "por_mes": {
+        "2026-01": {"total": 10, "voluntaria": 9, "involuntaria": 1, "sin_clasificar": 0},
+        "2026-02": {"total": 12, "voluntaria": 2, "involuntaria": 7, "sin_clasificar": 3},
+        "2026-03": {"total": 13, "voluntaria": 7, "involuntaria": 4, "sin_clasificar": 2},
+        "2026-04": {"total": 9, "voluntaria": 8, "involuntaria": 1, "sin_clasificar": 0},
+        "2026-05": {"total": 6, "voluntaria": 5, "involuntaria": 1, "sin_clasificar": 0},
+        "2026-06": {"total": 10, "voluntaria": 6, "involuntaria": 4, "sin_clasificar": 0},
+        "2026-07": {"total": 10, "voluntaria": 7, "involuntaria": 3, "sin_clasificar": 0},
+        "2026-08": {"total": 10, "voluntaria": 3, "involuntaria": 5, "sin_clasificar": 2},
+        "2026-09": {"total": 20, "voluntaria": 10, "involuntaria": 9, "sin_clasificar": 1},
+        "2026-10": {"total": 6, "voluntaria": 3, "involuntaria": 3, "sin_clasificar": 0}
+    },
+    "por_causal": {
+        "oferta_laboral": 20,
+        "bajo_desempeno": 20,
+        "abandono_faltas": 15,
+        "personales_familiares": 12,
+        "probidad_conducta": 10,
+        "sin_causal": 8,
+        "renuncia_voluntaria": 7,
+        "estructural": 6,
+        "no_le_gusto": 3,
+        "salud": 3,
+        "desfases_cartera": 2
+    },
+    "por_tipo": {"voluntaria": 60, "involuntaria": 38, "sin_clasificar": 8},
+    "por_antiguedad": {
+        "menos_3_meses": 28,
+        "de_3_a_6_meses": 21,
+        "de_6_a_12_meses": 26,
+        "de_1_a_3_anios": 19,
+        "mas_3_anios": 10,
+        "sin_fecha": 2
+    },
+    "por_ubicacion": {
+        "Corporativo": 19,
+        "Cuernavaca": 18,
+        "Huamantla": 10,
+        "San Luis Potosí": 9,
+        "Atlacomulco": 7,
+        "Orizaba": 7,
+        "Miacatlán": 7,
+        "Ixtlahuaca": 6,
+        "Tula": 6,
+        "Tlaxcala": 4,
+        "Córdoba": 4,
+        "Itzamarketing": 4,
+        "Atlixco": 3,
+        "Zen Japonés": 2
+    }
+}

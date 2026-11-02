@@ -92,7 +92,7 @@ class HistoricoRotacionService
 
         $orden = in_array($entrada['orden'] ?? null, self::ORDENES, true) ? (string) $entrada['orden'] : 'fecha_baja';
         $desc = ($entrada['dir'] ?? ($orden === 'fecha_baja' ? 'desc' : 'asc')) === 'desc';
-        $nombresSucursal = $orden === 'sucursal' ? Sucursal::query()->pluck('nombre', 'id') : collect();
+        $nombresSucursal = $orden === 'sucursal' ? $this->motor->nombresUbicaciones($filtrados->pluck('sucursal_id')->unique()->values()) : collect();
 
         $llave = match ($orden) {
             'nombre' => fn (array $e): string => BajaHistorica::normalizar($e['nombre']),
@@ -128,7 +128,8 @@ class HistoricoRotacionService
     {
         $analiticas = $this->motor->analiticas();
         $sinCausal = $this->motor->idSinCausal();
-        $sucursales = Sucursal::query()->whereIn('id', $eventos->pluck('sucursal_id')->unique()->all())->pluck('nombre', 'id');
+        $sucursales = $this->motor->nombresUbicaciones($eventos->pluck('sucursal_id')->unique()->values());
+        $externas = $this->motor->unidadesExternas();
         $empresas = Empresa::query()->pluck('nombre', 'id');
         $puestos = Puesto::query()->withTrashed()->whereIn('id', $eventos->pluck('puesto_id')->filter()->unique()->all())->pluck('nombre', 'id');
         $departamentos = Departamento::query()->whereIn('id', $eventos->pluck('departamento_id')->filter()->unique()->all())->pluck('nombre', 'id');
@@ -139,7 +140,7 @@ class HistoricoRotacionService
         $finiquitos = $conAcciones ? FiniquitoCalculo::query()->whereIn('colaborador_id', $colaboradores->keys()->all())->latest('id')->get()->unique('colaborador_id')->keyBy('colaborador_id') : collect();
         $correcciones = $conAcciones ? $this->conteoCorrecciones($eventos) : collect();
 
-        return array_values($eventos->map(function (array $e) use ($usuario, $analiticas, $sinCausal, $sucursales, $empresas, $puestos, $departamentos, $puedeCorregir, $bajas, $colaboradores, $finiquitos, $correcciones, $conAcciones): array {
+        return array_values($eventos->map(function (array $e) use ($usuario, $analiticas, $sinCausal, $sucursales, $externas, $empresas, $puestos, $departamentos, $puedeCorregir, $bajas, $colaboradores, $finiquitos, $correcciones, $conAcciones): array {
             $causal = $e['causal_analitica_id'] !== null ? $analiticas->get($e['causal_analitica_id']) : null;
             $estatus = $e['estatus'] !== null ? EstatusBaja::tryFrom($e['estatus']) : null;
             $fila = [
@@ -149,7 +150,7 @@ class HistoricoRotacionService
                 'id' => $e['id'],
                 'nombre' => $e['nombre'],
                 'numero_empleado' => $e['numero_empleado'],
-                'empresa' => $e['empresa_id'] !== null ? ($empresas[$e['empresa_id']] ?? null) : null,
+                'empresa' => $e['empresa_id'] !== null ? ($empresas[$e['empresa_id']] ?? null) : ($externas[$e['sucursal_id']]['grupo'] ?? null),
                 'sucursal_id' => $e['sucursal_id'],
                 'sucursal' => (string) ($sucursales[$e['sucursal_id']] ?? ''),
                 'puesto' => $e['puesto_id'] !== null ? ($puestos[$e['puesto_id']] ?? null) : null,
@@ -157,6 +158,7 @@ class HistoricoRotacionService
                 'fecha_ingreso' => $e['fecha_ingreso']?->toDateString(),
                 'fecha_baja' => $e['fecha_baja_texto'],
                 'antiguedad_dias' => $e['antiguedad_dias'],
+                'antiguedad_aproximada' => $e['antiguedad_aproximada'],
                 'rango' => $e['rango']->value,
                 'rango_etiqueta' => $e['rango']->etiqueta(),
                 'motivo_original' => $e['motivo_original'],

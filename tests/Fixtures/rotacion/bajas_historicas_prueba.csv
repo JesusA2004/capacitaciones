@@ -1,0 +1,7 @@
+"# anexo","Nombre completo","Número de empleado",Sucursal,Puesto,Área,"Fecha de ingreso","Último día laborado","Motivo original","Causal homologada","Antigüedad (texto)","Rango de antigüedad",Nota
+1,"Ana Prueba Uno",,Cuernavaca,,,,2026-01-04,"MEJOR SUELDO",oferta_laboral,"30 d",,
+2,"Beto Prueba Dos",,Miacatlán,,,,2026-01-20,"BAJO DESEMPEÑO",bajo_desempeno,"2.5 a",,
+3,"Carla Prueba Tres",,Itzamarketing,,,,2026-02-10,"Cierre de empresa",estructural,"3.0 a",mas_3_anios,"Rango provisional de prueba"
+4,"Dario Prueba Cuatro",,"Zen Japonés",,,,2026-02-11,,sin_causal,"1.0 a",,
+5,"Ana Prueba Uno",,Cuernavaca,,,2026-02-01,2026-03-15,"ABANDONO DE EMPLEO",abandono_faltas,,,
+6,"Elsa Prueba Seis",,Cuernavaca,,,,2026-03-20,"NO LE GUSTO EL TRABAJO",no_le_gusto,—,,

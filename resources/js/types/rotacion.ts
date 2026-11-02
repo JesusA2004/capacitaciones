@@ -305,6 +305,8 @@ export type SucursalRotacionFila = {
     sucursal: string;
     empresa: string | null;
     es_corporativo: boolean;
+    /** Unidad fuera de la estructura de Mr. Lana (Itzamarketing, Lerom…). */
+    unidad_externa?: boolean;
     bajas: number;
     participacion: number | null;
     plantilla_promedio: number | null;

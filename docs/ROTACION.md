@@ -16,7 +16,8 @@ La carga del Excel de totales mensuales (`INDICE DE ROTACIÓN DE PERSONAL`) sigu
 
 ### Regla de la celda (mes × sucursal)
 
-- **Total** = bajas individuales de la celda; si el Excel trae un total **mayor**, la diferencia se cuenta como **sin desglose**.
+- **Total** = bajas individuales de la celda; si el Excel trae un total **mayor**, la diferencia se cuenta como **sin desglose** — solo en un mes **sin histórico individual** y anterior al inicio del módulo.
+- **Mes con histórico individual**: si existe al menos una baja histórica no descartada (válida o ligada a una del sistema) en ese mes, en cualquier sucursal o unidad (`RotacionMotorService::mesesConDetalleHistorico`), el detalle individual es la fuente de **todas** las celdas del mes: el total del Excel nunca se suma, solo se compara. Así el histórico 2026 de RH (106 bajas, enero a octubre) reemplaza a los totales del Excel (48 de enero a mayo, con Tenango) y la diferencia queda en «Calidad del dato».
 - Si individuales y Excel **no coinciden**, la celda es una **discrepancia**: se muestra en «Calidad del dato» y en el diagnóstico, nunca se oculta.
 - Un total mensual del Excel solo entra si el mes cae **completo** en el rango (o es el mes en curso con corte a hoy): no se recorta a días. Los meses recortados se informan.
 - Un mes sin ninguna fuente anterior al inicio del módulo (`bajas.tablero.mes_inicio_sistema`) es **«sin datos»**, no cero. Los meses futuros no se dibujan.
@@ -65,6 +66,8 @@ Sin plantilla, el índice es `null` («Sin datos de plantilla»), nunca 0. El í
 
 Meses calendario desde la fecha de ingreso **de esa relación laboral** hasta el último día laborado: `[0, 3)`, `[3, 6)`, `[6, 12)`, `[12, 36)`, `[36, ∞)`. Sin fecha de ingreso, o con baja anterior al ingreso, el registro va a «Sin fecha de ingreso válida», se excluye de los denominadores y se informa (`excluidas`, `inconsistentes`).
 
+**Antigüedad aproximada** (solo bajas históricas): si la fuente trae la antigüedad en años redondeados («2.5 a») y no la fecha de ingreso, se guarda `bajas_historicas.antiguedad_dias` (años × 365.25) y `rango_antiguedad`; la fecha de ingreso sigue **vacía** (no se inventa). El rango se deduce solo si el intervalo del redondeo (±0.05 años) no cruza un límite (`RangoAntiguedad::deAniosRedondeados`); «1.0 a» y «3.0 a» no se pueden deducir y el archivo debe indicar el «Rango de antigüedad» (queda nota). Cuentan en su rango y en promedio/mediana; «Calidad del dato» las informa (`antiguedad_aproximada`) y siguen como pendientes de «Completar fecha de ingreso»: en cuanto se captura la fecha real, ésta manda. La antigüedad en días («159 d») sí da la fecha exacta: ingreso = último día − 159.
+
 ## Correcciones (auditadas)
 
 `CorreccionRotacionService` (permiso `bajas.gestionar`): comentario obligatorio, transacción y fila en `rotacion_correcciones` con antes y después.
@@ -97,6 +100,35 @@ php artisan rotacion:diagnostico --anio=2026 --hasta=2026-10-23
 
 Por mes: total, bajas del sistema, históricas individuales, total del Excel, sin desglose, descuadres y personas dadas de baja en su expediente sin ningún registro de baja (posibles eventos faltantes). Además: identidad del total, rotación temprana, pendientes de calidad, ranking de causales y sucursales. **No modifica nada.**
 
+## Unidades externas
+
+Bajas de unidades de negocio que **no son sucursales de People** (Itzamarketing; Zen Japonés de Lerom restaurantes). Se confirman una por una en `config/rotacion.php → unidades_externas` (nombre y grupo). La baja histórica se guarda con `sucursal_id` nulo y `unidad_externa`; **no se crea ninguna sucursal ni empresa**, así que headcount, vacantes, organigrama, matriz comercial, alcances y el menú no cambian (muchas pantallas listan sucursales sin filtrar `activo`: una sucursal «inactiva» sí se habría colado).
+
+- Solo se ven con alcance global en Rotación (`bajas.gestionar` o alcance global) y sin empresa ni sucursal elegida (`FiltrosRotacion::externas`).
+- En el motor se agrupan con un id **negativo** estable (`BajaHistorica::idUnidadExterna`) para que ranking, matriz, histórico y exportaciones las traten como una ubicación más; su «empresa» es el grupo de la configuración.
+- Cuentan en el total, causales, antigüedad y ranking; **no** en el índice (su plantilla no está en People) ni en el Tablero de RH (que siempre filtra por sucursales).
+- Una sucursal que no está en el catálogo ni en `unidades_externas` sigue siendo un error de carga.
+
 ## Cargar el histórico individual
 
 Rotación → Histórico → «Cargar histórico» (`rotacion.cargar`): descargar el formato (`Nombre completo`, `Número de empleado`, `Sucursal`, `Puesto`, `Área`, `Fecha de ingreso`, `Último día laborado`, `Motivo original`, `Causal homologada`), subirlo, revisar la vista previa (errores bloquean; avisos se cargan para revisión) y confirmar con motivo. No crea colaboradores, sucursales ni puestos.
+
+### Histórico 2026 de RH (comando)
+
+Fuente: `docs/rotacionNuevo/Reporte_Rotacion_Personal_2026 (1).pdf` (anexo «Detalle de bajas 2026», págs. 8 a 11: 106 filas) y `Dashboard_Rotacion_2026 (2).pdf` (totales). El anexo se extrajo con coordenadas de palabra (`pdftotext -tsv` de poppler) y se revisó fila por fila contra la imagen de cada página. Quedó versionado en:
+
+- `claude/rotacion/bajas_historicas_2026.csv` — una fila por baja: columnas del formato + «Antigüedad (texto)», «Rango de antigüedad», «Nota» y, para auditoría, «# anexo», «Causal (reporte)» y «Tipo (reporte)» (el importador ignora columnas que no conoce). La causal va por su **clave** de `causales_analiticas` (estable aunque se renombre la categoría). «— Sin motivo anotado —» se carga como motivo vacío.
+- `claude/rotacion/bajas_historicas_2026.esperado.json` — totales publicados (por mes y tipo, causal, tipo, antigüedad y ubicación) para conciliar.
+
+```bash
+php artisan rotacion:cargar-historico                    # vista previa: no escribe nada
+php artisan rotacion:cargar-historico --aplicar          # carga (todo o nada)
+php artisan rotacion:cargar-historico --aplicar --force  # en producción (APP_ENV=production)
+# opciones: {archivo} --esperado= --usuario=correo --motivo="..."; alias rotacion:cargar-historico-2026
+```
+
+Usa `BajasHistoricasImportService` (`leer` → `registrar` → `aplicar`, la misma regla que la pantalla) desde `CargaHistoricoRotacionService`. Imprime nuevas / sin cambio / duplicadas con el sistema / errores, avisos agrupados (`-v` los lista), y una tabla **Esperado vs. Archivo vs. Rotación** (solo histórico y todas las fuentes, con `RotacionAnalisisService`, el mismo cálculo de la pantalla) más los descuadres con el Excel de totales. Audita en `importaciones_excel` (tipo `bajas_historicas`: usuario —`--usuario` o el primer super_admin—, fecha, motivo, archivo, servidor y entorno). Es **idempotente** (llave persona + fecha + sucursal/unidad): la segunda corrida dice «Sin cambios» y no escribe. Nunca borra ni modifica bajas.
+
+Una baja de este archivo que ya existe como baja del sistema (misma persona, ±7 días) se guarda **ligada** (duplicada) y cuenta la del sistema, con la causal del sistema: el comando la lista para revisarla.
+
+Decisiones del histórico 2026 (ver nota de cada fila): «1.0 a» (#101) va a 1 a 3 años porque el resumen del reporte ya tiene los 26 de 6 a 12 meses con antigüedad en días; de los dos «3.0 a» (#69 y #75) el resumen obliga a que uno quede en «3 años o más» y otro en «1 a 3 años» y el anexo no dice cuál: se asignaron provisionalmente (#69 → 3 años o más, #75 → 1 a 3 años) y conviene completar su fecha de ingreso real.

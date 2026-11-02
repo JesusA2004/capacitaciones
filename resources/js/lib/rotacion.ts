@@ -16,7 +16,7 @@ import type {
  */
 
 export const SECCIONES: { valor: SeccionRotacion; etiqueta: string }[] = [
-    { valor: 'resumen', etiqueta: 'Resumen' },
+    { valor: 'resumen', etiqueta: 'Dashboard' },
     { valor: 'tendencias', etiqueta: 'Tendencias' },
     { valor: 'causales', etiqueta: 'Causales' },
     { valor: 'sucursales', etiqueta: 'Sucursales' },
