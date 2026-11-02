@@ -429,7 +429,7 @@ test('las pestañas se muestran según permisos', function () {
         ->component('Rh/Bajas/Causales')
         ->where('pestanas.bajas', true)->where('pestanas.finiquitos', true)->where('pestanas.rotacion', true)->where('pestanas.causales', true));
 
-    $this->actingAs($this->rh)->get(route('rh.bajas.rotacion'))->assertInertia(fn (Assert $page) => $page->component('Reportes/TableroRotacion'));
+    $this->actingAs($this->rh)->get(route('rh.bajas.rotacion'))->assertInertia(fn (Assert $page) => $page->component('Reportes/Rotacion/Index'));
     $this->actingAs($this->gerente)->get(route('rh.bajas.causales'))->assertForbidden();
 });
 

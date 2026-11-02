@@ -2,7 +2,6 @@
 
 use App\Enums\EstadoUsuario;
 use App\Enums\EstatusBaja;
-use App\Enums\FormaSalida;
 use App\Enums\OrigenBaja;
 use App\Models\Baja;
 use App\Models\CausalRotacion;

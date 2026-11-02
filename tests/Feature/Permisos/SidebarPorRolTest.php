@@ -60,6 +60,7 @@ function sbOperativo(): array
         'Sucursales' => [['sucursales.administrar'], 'administracion.sucursales.index'],
         'Departamentos' => [['departamentos.administrar'], 'administracion.departamentos.index'],
         'Empresas' => [['empresas.ver'], 'administracion.empresas.index'],
+        'Rotación de personal' => [['bajas.tablero.ver'], 'reportes.rotacion.tablero.index'],
         'Reportes de RH' => [['reportes_rh.ver'], 'reportes.index'],
         'Mis reportes' => [['reportes_rh.mis_reportes'], 'rh.reportes.mis-reportes.index'],
         'Formularios de evaluación' => [['formularios_evaluacion.administrar'], 'rh.formularios-evaluacion.index'],

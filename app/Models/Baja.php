@@ -37,6 +37,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $antiguedad_dias
  * @property FormaSalida|null $forma_salida
  * @property int|null $causal_rotacion_id
+ * @property int|null $causal_analitica_id Corrección auditada de la categoría analítica (Rotación).
  * @property string|null $comentarios
  * @property Recontratable|null $recontratable
  * @property Carbon|null $fecha_conocimiento_falta

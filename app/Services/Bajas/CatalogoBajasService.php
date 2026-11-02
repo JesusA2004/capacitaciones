@@ -3,10 +3,12 @@
 namespace App\Services\Bajas;
 
 use App\Enums\FormaSalida;
+use App\Models\CausalAnalitica;
 use App\Models\CausalRotacion;
 use App\Models\DocumentoRequeridoBaja;
 use App\Models\FormaSalidaCatalogo;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Catálogos del módulo de bajas (docs/BAJAS_Y_CAUSALES.md): formas de
@@ -74,7 +76,34 @@ class CatalogoBajasService
             $creadas['documentos']++;
         }
 
+        $this->homologarCausales();
+
         return $creadas;
+    }
+
+    /**
+     * Asigna la categoría analítica inicial (config rotacion.homologacion_inicial)
+     * a las causales que aún no tienen una. Nunca pisa un mapeo existente.
+     */
+    public function homologarCausales(): void
+    {
+        // Migraciones anteriores siembran el catálogo antes de que exista la
+        // tabla de categorías; la migración de Rotación aplica su propio mapeo.
+        if (! Schema::hasColumn('causales_rotacion', 'causal_analitica_id')) {
+            return;
+        }
+
+        $categorias = CausalAnalitica::query()->pluck('id', 'clave');
+
+        foreach ((array) config('rotacion.homologacion_inicial', []) as $clave => $categoria) {
+            $id = $categorias->get((string) $categoria);
+
+            if ($id === null) {
+                continue;
+            }
+
+            CausalRotacion::query()->where('clave', (string) $clave)->whereNull('causal_analitica_id')->update(['causal_analitica_id' => $id]);
+        }
     }
 
     /**

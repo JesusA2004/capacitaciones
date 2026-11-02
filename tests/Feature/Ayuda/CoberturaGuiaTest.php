@@ -92,6 +92,7 @@ const SIDEBAR_A_GUIA = [
     'Campañas' => ['campanas'],
     'Invitaciones QR' => ['invitaciones'],
     'Reportes de RH' => ['reportes'],
+    'Rotación de personal' => ['rotacion'],
     'Celebraciones' => ['cumpleanos', 'aniversarios'],
     'Documentos maestros' => ['documentos-maestros'],
     'Empresas' => ['empresas'],
@@ -241,7 +242,7 @@ test('Aniversarios está en la guía con su ruta, permiso y temas', function () 
 const PANTALLAS_GUIA = [
     'dashboard' => ['pages/Dashboard/Global.vue', 'pages/Dashboard/Sucursal.vue'],
     'expedientes' => ['pages/Rh/Expedientes/Index.vue', 'pages/Rh/Expedientes/Show.vue'],
-    'solicitudes' => ['pages/Rh/Solicitudes/Tipos.vue', 'pages/Rh/Solicitudes/Index.vue'],
+    'solicitudes' => ['pages/Rh/Solicitudes/Index.vue'],
     'organigrama' => ['pages/Administracion/JerarquiaPuestos/Index.vue'],
     'responsables-aprobacion' => ['pages/Administracion/ResponsablesAprobacion/Index.vue'],
     'vacantes' => ['pages/Rh/Vacantes/Index.vue'],

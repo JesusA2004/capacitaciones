@@ -47,11 +47,11 @@ class RotacionMotorService
     /** @var Collection<int, CausalAnalitica>|null */
     private ?Collection $analiticas = null;
 
-    /** @var Collection<int, array{analitica_id: int|null, forma: FormaSalida, nombre: string, clave: string|null}>|null */
-    private ?Collection $catalogo = null;
+    /** @var array<int, array{analitica_id: int|null, forma: FormaSalida, nombre: string, clave: string|null}>|null */
+    private ?array $catalogo = null;
 
-    /** @var Collection<int, int|null>|null */
-    private ?Collection $empresas = null;
+    /** @var array<int, int|null>|null */
+    private ?array $empresas = null;
 
     public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
 
@@ -308,9 +308,15 @@ class RotacionMotorService
 
     public function empresaDe(int $sucursalId): ?int
     {
-        $this->empresas ??= Sucursal::query()->pluck('empresa_id', 'id')->map(fn ($id): ?int => $id === null ? null : (int) $id);
+        if ($this->empresas === null) {
+            $this->empresas = [];
 
-        return $this->empresas->get($sucursalId);
+            foreach (Sucursal::query()->get(['id', 'empresa_id']) as $s) {
+                $this->empresas[$s->id] = $s->empresa_id;
+            }
+        }
+
+        return $this->empresas[$sucursalId] ?? null;
     }
 
     /** Olvida lo calculado (tras una corrección en la misma petición). */
@@ -343,7 +349,7 @@ class RotacionMotorService
                 ->get();
 
             foreach ($bajas as $b) {
-                $eventos->push($this->evento('sistema', $b));
+                $eventos->push($this->evento('sistema', (array) $b));
             }
         }
 
@@ -357,7 +363,7 @@ class RotacionMotorService
                 ->get();
 
             foreach ($historicas as $h) {
-                $eventos->push($this->evento('historico', $h));
+                $eventos->push($this->evento('historico', (array) $h));
             }
         }
 
@@ -367,45 +373,52 @@ class RotacionMotorService
     /**
      * Normaliza una fila de `bajas` o de `bajas_historicas` al mismo arreglo.
      *
+     * @param  array<string, mixed>  $fila
      * @return array<string, mixed>
      */
-    private function evento(string $fuente, object $fila): array
+    private function evento(string $fuente, array $fila): array
     {
         $esSistema = $fuente === 'sistema';
-        $ingreso = $this->fecha($fila->fecha_ingreso ?? null);
-        $baja = $this->fecha($fila->fecha_baja ?? null) ?? CarbonImmutable::today();
-        $causalRotacionId = $esSistema && $fila->causal_rotacion_id !== null ? (int) $fila->causal_rotacion_id : null;
-        $forma = $esSistema ? FormaSalida::tryFrom((string) $fila->forma_salida) : null;
+        $entero = fn (string $campo): ?int => is_numeric($fila[$campo] ?? null) ? (int) $fila[$campo] : null;
+        $ingreso = $this->fecha($fila['fecha_ingreso'] ?? null);
+        $baja = $this->fecha($fila['fecha_baja'] ?? null) ?? CarbonImmutable::today();
+        $causalRotacionId = $esSistema ? $entero('causal_rotacion_id') : null;
+        $forma = $esSistema && is_string($fila['forma_salida'] ?? null) ? FormaSalida::tryFrom($fila['forma_salida']) : null;
         [$analiticaId, $homologada, $clasificacion] = $this->resolverCausal(
-            $fila->causal_analitica_id !== null ? (int) $fila->causal_analitica_id : null,
+            $entero('causal_analitica_id'),
             $causalRotacionId,
             $forma,
             $esSistema,
         );
-        $sucursalId = (int) $fila->sucursal_id;
+        $id = (int) $entero('id');
+        $sucursalId = (int) $entero('sucursal_id');
+        $nombre = $fila[$esSistema ? 'nombre_colaborador' : 'nombre'] ?? '';
+        $numero = $fila['numero_empleado'] ?? null;
+        $motivo = $fila['motivo_original'] ?? null;
+        $estatus = $fila['estatus'] ?? null;
 
         return [
-            'clave' => sprintf('%s:%d', $fuente, $fila->id),
+            'clave' => sprintf('%s:%d', $fuente, $id),
             'fuente' => $fuente,
-            'id' => (int) $fila->id,
-            'baja_id' => $esSistema ? (int) $fila->id : null,
-            'colaborador_id' => $fila->colaborador_id !== null ? (int) $fila->colaborador_id : null,
-            'cierre_laboral_id' => $esSistema && $fila->cierre_laboral_id !== null ? (int) $fila->cierre_laboral_id : null,
-            'nombre' => (string) ($esSistema ? $fila->nombre_colaborador : $fila->nombre),
-            'numero_empleado' => $fila->numero_empleado !== null ? (string) $fila->numero_empleado : null,
+            'id' => $id,
+            'baja_id' => $esSistema ? $id : null,
+            'colaborador_id' => $entero('colaborador_id'),
+            'cierre_laboral_id' => $esSistema ? $entero('cierre_laboral_id') : null,
+            'nombre' => is_scalar($nombre) ? (string) $nombre : '',
+            'numero_empleado' => is_scalar($numero) ? (string) $numero : null,
             'empresa_id' => $this->empresaDe($sucursalId),
             'sucursal_id' => $sucursalId,
-            'puesto_id' => $fila->puesto_id !== null ? (int) $fila->puesto_id : null,
-            'departamento_id' => $fila->departamento_id !== null ? (int) $fila->departamento_id : null,
+            'puesto_id' => $entero('puesto_id'),
+            'departamento_id' => $entero('departamento_id'),
             'fecha_ingreso' => $ingreso,
             'fecha_baja' => $baja,
             'fecha_baja_texto' => $baja->toDateString(),
             'mes' => $baja->format('Y-m'),
-            'motivo_original' => $fila->motivo_original,
+            'motivo_original' => is_string($motivo) ? $motivo : null,
             'causal_rotacion_id' => $causalRotacionId,
-            'causal_rotacion' => $causalRotacionId !== null ? ($this->catalogo()->get($causalRotacionId)['nombre'] ?? null) : null,
+            'causal_rotacion' => $causalRotacionId !== null ? ($this->catalogo()[$causalRotacionId]['nombre'] ?? null) : null,
             'forma' => $forma?->value,
-            'estatus' => $esSistema ? (string) $fila->estatus : null,
+            'estatus' => $esSistema && is_string($estatus) ? $estatus : null,
             'causal_analitica_id' => $analiticaId,
             'homologada' => $homologada,
             'clasificacion' => $clasificacion,
@@ -430,36 +443,44 @@ class RotacionMotorService
         }
 
         if ($causalRotacionId !== null) {
-            $mapeo = $this->catalogo()->get($causalRotacionId);
+            $mapeo = $this->catalogo()[$causalRotacionId] ?? null;
 
             if ($mapeo !== null && $mapeo['analitica_id'] !== null && $analiticas->has($mapeo['analitica_id'])) {
                 return [$mapeo['analitica_id'], true, $analiticas->get($mapeo['analitica_id'])->clasificacion];
             }
 
             // Causal del catálogo aún sin homologar: se clasifica por su forma.
-            $porForma = ($mapeo['forma'] ?? $forma) === FormaSalida::RV ? ClasificacionSalida::Voluntaria : ClasificacionSalida::Involuntaria;
+            $porForma = ($mapeo['forma'] ?? $forma) === FormaSalida::RenunciaVoluntaria ? ClasificacionSalida::Voluntaria : ClasificacionSalida::Involuntaria;
 
             return [null, false, $porForma];
         }
 
         if ($esSistema && $forma !== null) {
-            return [null, false, $forma === FormaSalida::RV ? ClasificacionSalida::Voluntaria : ClasificacionSalida::Involuntaria];
+            return [null, false, $forma === FormaSalida::RenunciaVoluntaria ? ClasificacionSalida::Voluntaria : ClasificacionSalida::Involuntaria];
         }
 
         return [$this->idSinCausal(), true, ClasificacionSalida::SinClasificar];
     }
 
     /**
-     * @return Collection<int, array{analitica_id: int|null, forma: FormaSalida, nombre: string, clave: string|null}>
+     * @return array<int, array{analitica_id: int|null, forma: FormaSalida, nombre: string, clave: string|null}>
      */
-    private function catalogo(): Collection
+    private function catalogo(): array
     {
-        return $this->catalogo ??= CausalRotacion::query()->get()->mapWithKeys(fn (CausalRotacion $c): array => [(int) $c->id => [
-            'analitica_id' => $c->causal_analitica_id !== null ? (int) $c->causal_analitica_id : null,
-            'forma' => $c->forma(),
-            'nombre' => $c->etiquetaConClave(),
-            'clave' => $c->clave,
-        ]]);
+        if ($this->catalogo === null) {
+            $this->catalogo = [];
+
+            foreach (CausalRotacion::query()->get() as $c) {
+                $this->catalogo[$c->id] = [
+                    'analitica_id' => $c->causal_analitica_id,
+                    'forma' => $c->forma(),
+                    'nombre' => $c->etiquetaConClave(),
+                    'clave' => $c->clave,
+                ];
+            }
+        }
+
+        return $this->catalogo;
     }
 
     private function fecha(mixed $valor): ?CarbonImmutable

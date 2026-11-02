@@ -40,6 +40,7 @@ use Illuminate\Support\Carbon;
  * @property bool $activo
  * @property bool $legado
  * @property int|null $reemplazada_por_id
+ * @property int|null $causal_analitica_id Categoría analítica de Rotación (mapeo auditable).
  * @property int $orden
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
@@ -50,7 +51,7 @@ class CausalRotacion extends Model
 
     protected $fillable = [
         'tipo', 'forma_salida', 'causal_grupo_id', 'documento_salida', 'clave', 'nombre', 'descripcion', 'requiere_juridico', 'comentario_obligatorio',
-        'alerta', 'fundamento_legal', 'activo', 'legado', 'reemplazada_por_id', 'orden',
+        'alerta', 'fundamento_legal', 'activo', 'legado', 'reemplazada_por_id', 'orden', 'causal_analitica_id',
     ];
 
     protected function casts(): array
@@ -110,6 +111,14 @@ class CausalRotacion extends Model
         return $this->clave !== null && preg_match('/^(RV|NR|RE|OT)-\d{2}$/', $this->clave) === 1
             ? sprintf('%s · %s', $this->clave, $this->nombre)
             : $this->nombre;
+    }
+
+    /**
+     * @return BelongsTo<CausalAnalitica, $this>
+     */
+    public function causalAnalitica(): BelongsTo
+    {
+        return $this->belongsTo(CausalAnalitica::class, 'causal_analitica_id');
     }
 
     /**

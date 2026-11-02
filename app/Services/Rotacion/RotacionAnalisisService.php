@@ -56,8 +56,8 @@ class RotacionAnalisisService
         $temprana = $this->temprana($eventos);
         $rotacion = $this->rotacionPeriodo($f, $conteo['total']);
         $anterior = $this->periodoAnterior($f);
-        $conteoAnterior = $anterior !== null ? $this->conteo($anterior) : null;
-        $rotacionAnterior = $anterior !== null && $conteoAnterior !== null && $this->mesesConsiderados($anterior) > 0
+        $conteoAnterior = $this->conteo($anterior);
+        $rotacionAnterior = $this->mesesConsiderados($anterior) > 0
             ? $this->rotacionPeriodo($anterior, $conteoAnterior['total'])
             : null;
         $pct = fn (int $n): ?float => $conteo['total'] > 0 ? round($n * 100 / $conteo['total'], 1) : null;
@@ -79,7 +79,7 @@ class RotacionAnalisisService
             'no_desglosables' => $conteo['no_desglosables'],
             'temprana' => $temprana,
             'rotacion' => $rotacion,
-            'comparativo' => $anterior !== null && $conteoAnterior !== null && $this->mesesConsiderados($anterior) > 0 ? [
+            'comparativo' => $this->mesesConsiderados($anterior) > 0 ? [
                 'desde' => $anterior->desde->toDateString(),
                 'hasta' => $anterior->hasta->toDateString(),
                 'total' => $conteoAnterior['total'],
@@ -87,8 +87,8 @@ class RotacionAnalisisService
                 'indice' => $rotacionAnterior['indice'] ?? null,
                 'delta_indice' => $rotacion['indice'] !== null && ($rotacionAnterior['indice'] ?? null) !== null ? round($rotacion['indice'] - $rotacionAnterior['indice'], 2) : null,
             ] : null,
-            'estructurales' => $eventos->filter(fn (array $e): bool => $e['causal_analitica_id'] !== null && ($this->motor->analiticas()->get($e['causal_analitica_id'])?->es_estructural ?? false))->count(),
-            'identidad' => $conteo['voluntarias'] + $conteo['involuntarias'] + $conteo['sin_clasificar'] === $conteo['total'],
+            'estructurales' => $eventos->filter(fn (array $e): bool => $e['causal_analitica_id'] !== null && ($this->motor->analiticas()->get($e['causal_analitica_id'])->es_estructural ?? false))->count(),
+            'identidad' => $conteo['total'] === $conteo['voluntarias'] + $conteo['involuntarias'] + $conteo['sin_clasificar'],
         ];
     }
 
@@ -199,7 +199,7 @@ class RotacionAnalisisService
             ->all();
 
         return [
-            'causales' => $causales,
+            'causales' => array_values($causales),
             'base' => $base,
             'sin_desglose' => (int) $this->motor->celdas($f)->sum('sin_desglose'),
         ];
@@ -357,8 +357,8 @@ class RotacionAnalisisService
             ->values();
 
         return [
-            'filas' => $filas->all(),
-            'columnas' => $columnas->all(),
+            'filas' => array_values($filas->all()),
+            'columnas' => array_values($columnas->all()),
             'total' => $eventos->count(),
             'maximo' => $maximo,
             'sin_desglose' => (int) $this->motor->celdas($f)->sum('sin_desglose'),
@@ -578,7 +578,7 @@ class RotacionAnalisisService
      * antes para el acumulado y el año; un rango libre se compara con el de
      * igual duración inmediatamente anterior.
      */
-    private function periodoAnterior(FiltrosRotacion $f): ?FiltrosRotacion
+    private function periodoAnterior(FiltrosRotacion $f): FiltrosRotacion
     {
         return match ($f->periodo) {
             'mes' => $f->conRango($f->desde->subMonthNoOverflow()->startOfMonth(), $f->desde->subMonthNoOverflow()->endOfMonth()->startOfDay()),

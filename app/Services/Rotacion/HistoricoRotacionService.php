@@ -85,7 +85,7 @@ class HistoricoRotacionService
                 'sin_fecha' => $e['fecha_ingreso'] === null,
                 'inconsistente' => $e['fecha_inconsistente'],
                 'temprana' => $e['rango']->esTemprana(),
-                'estructural' => $e['causal_analitica_id'] !== null && ($analiticas->get($e['causal_analitica_id'])?->es_estructural ?? false),
+                'estructural' => $e['causal_analitica_id'] !== null && ($analiticas->get($e['causal_analitica_id'])->es_estructural ?? false),
                 default => true,
             };
         });

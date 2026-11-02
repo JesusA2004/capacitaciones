@@ -54,17 +54,13 @@ class BajasHistoricasImportService
 
     private const OBLIGATORIOS = ['nombre', 'sucursal', 'baja'];
 
-    /** @var Collection<string, Collection<int, Colaborador>> */
-    private Collection $porNombre;
+    /** @var array<string, list<Colaborador>> */
+    private array $porNombre = [];
 
-    /** @var Collection<string, Colaborador> */
-    private Collection $porNumero;
+    /** @var array<string, Colaborador> */
+    private array $porNumero = [];
 
-    public function __construct()
-    {
-        $this->porNombre = collect();
-        $this->porNumero = collect();
-    }
+    public function __construct() {}
 
     public function analizar(UploadedFile $archivo, User $usuario): ImportacionExcel
     {
@@ -238,9 +234,16 @@ class BajasHistoricasImportService
         $causales = CausalAnalitica::query()->get()->flatMap(fn (CausalAnalitica $c): array => [BajaHistorica::normalizar($c->nombre) => $c, BajaHistorica::normalizar($c->clave) => $c]);
         $sinCausal = CausalAnalitica::query()->where('clave', CausalAnalitica::SIN_CAUSAL)->value('id');
         $existentes = BajaHistorica::query()->pluck('llave')->flip();
-        $this->porNombre = Colaborador::query()->withTrashed()->get(['id', 'name', 'apellidos', 'numero_empleado'])
-            ->groupBy(fn (Colaborador $c): string => BajaHistorica::normalizar($c->nombreCompleto()));
-        $this->porNumero = $this->porNombre->flatten(1)->filter(fn (Colaborador $c): bool => $c->numero_empleado !== null)->keyBy(fn (Colaborador $c): string => (string) $c->numero_empleado);
+        $this->porNombre = [];
+        $this->porNumero = [];
+
+        foreach (Colaborador::query()->withTrashed()->get(['id', 'name', 'apellidos', 'numero_empleado']) as $c) {
+            $this->porNombre[BajaHistorica::normalizar($c->nombreCompleto())][] = $c;
+
+            if ($c->numero_empleado !== null) {
+                $this->porNumero[(string) $c->numero_empleado] = $c;
+            }
+        }
         $valor = fn (array $renglon, string $clave): mixed => isset($columnas[$clave]) ? ($renglon[$columnas[$clave]] ?? null) : null;
         $filas = [];
         $vistas = [];
@@ -304,7 +307,7 @@ class BajasHistoricasImportService
 
             $llave = $errores === [] && $baja !== null ? BajaHistorica::llaveDe($nombre, $numero, $baja, $sucursal?->id) : null;
             $colaborador = $errores === [] ? $this->colaborador($nombre, $numero) : null;
-            $duplicadoSistema = $errores === [] && $baja !== null ? $this->bajaDelSistema($colaborador, $nombre, $baja) : null;
+            $duplicadoSistema = $errores === [] ? $this->bajaDelSistema($colaborador, $nombre, $baja) : null;
 
             if ($llave !== null && isset($vistas[$llave])) {
                 $errores[] = sprintf('El mismo evento ya viene en la fila %d.', $vistas[$llave]);
@@ -360,7 +363,7 @@ class BajasHistoricasImportService
         $todas = Sucursal::query()->get(['id', 'nombre', 'clave', 'empresa_id']);
         $mapa = $todas->flatMap(fn (Sucursal $s): array => array_filter([
             BajaHistorica::normalizar($s->nombre) => $s,
-            $s->clave !== null ? BajaHistorica::normalizar($s->clave) : '' => $s,
+            BajaHistorica::normalizar($s->clave) => $s,
         ], fn ($v, $k): bool => $k !== '', ARRAY_FILTER_USE_BOTH));
 
         foreach ((array) config('rotacion.alias_sucursales', []) as $alias => $destino) {
@@ -377,15 +380,14 @@ class BajasHistoricasImportService
     /** Solo liga a un colaborador existente; nunca lo crea. */
     private function colaborador(string $nombre, string $numero): ?Colaborador
     {
-        if ($numero !== '' && $this->porNumero->has($numero)) {
-            return $this->porNumero->get($numero);
+        if ($numero !== '' && isset($this->porNumero[$numero])) {
+            return $this->porNumero[$numero];
         }
 
-        /** @var Collection<int, Colaborador> $coincidencias */
-        $coincidencias = $this->porNombre->get(BajaHistorica::normalizar($nombre), collect());
+        $coincidencias = $this->porNombre[BajaHistorica::normalizar($nombre)] ?? [];
 
         // Dos personas con el mismo nombre: no se adivina cuál es.
-        return $coincidencias->count() === 1 ? $coincidencias->first() : null;
+        return count($coincidencias) === 1 ? $coincidencias[0] : null;
     }
 
     private function bajaDelSistema(?Colaborador $colaborador, string $nombre, string $fecha): ?Baja
@@ -418,15 +420,22 @@ class BajasHistoricasImportService
                 return null;
             }
 
-            foreach (['!d/m/Y', '!Y-m-d', '!d-m-Y', '!d/m/y'] as $formato) {
-                $fecha = CarbonImmutable::createFromFormat($formato, $texto);
-
-                if ($fecha !== false && $fecha->format(ltrim($formato, '!')) === $texto) {
-                    return $fecha->toDateString();
-                }
-            }
         } catch (Throwable) {
             return null;
+        }
+
+        // Carbon lanza excepción cuando el texto no coincide con el formato:
+        // cada formato se intenta por separado.
+        foreach (['!d/m/Y', '!Y-m-d', '!d-m-Y', '!d/m/y'] as $formato) {
+            try {
+                $fecha = CarbonImmutable::createFromFormat($formato, $texto);
+            } catch (Throwable) {
+                continue;
+            }
+
+            if ($fecha !== null && $fecha->format(ltrim($formato, '!')) === $texto) {
+                return $fecha->toDateString();
+            }
         }
 
         return null;

@@ -66,7 +66,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
         ],
         notificaciones: [
             '«Baja registrada» a RH, a la regional y a Sistemas: quién la dio, a quién, forma · causal y último día.',
-                        'RV-04 (clima laboral): correo a RH para entrevista de salida y NOM-035.',
+            'RV-04 (clima laboral): correo a RH para entrevista de salida y NOM-035.',
             'RE-02 y RE-03: aviso a Contraloría (RE-03 también a Jurídico).',
             'Antigüedad menor a 90 días: rotación temprana a RH.',
         ],
@@ -121,6 +121,80 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
             '¿Qué pasa con la cuenta de alguien que se va?',
             '¿La baja necesita autorización?',
             '¿Qué causal elijo?',
+        ],
+    },
+    {
+        id: 'rotacion',
+        titulo: 'Rotación de personal',
+        proceso: 'baja',
+        resumen:
+            'Módulo de consulta con una sola fuente: las bajas del sistema más el histórico conciliado. Cinco áreas conectadas (Resumen, Tendencias, Causales, Sucursales e Histórico) con los mismos filtros, y exportación a Excel y PDF con las mismas cifras de la pantalla.',
+        queEs: 'Mide cuántas personas salen, por qué y dónde. Índice = bajas del periodo ÷ plantilla promedio × 100 (si no hay plantilla el índice queda «sin dato», nunca 0). Rotación temprana = bajas con menos de 6 meses de antigüedad sobre las bajas con fecha de ingreso. Cada baja conserva su motivo original, su causal homologada y su forma de salida por separado.',
+        quien: ['rh', 'regional', 'gerente', 'direccion_comercial'],
+        quienDetalle:
+            'Cada quien ve solo las sucursales de su alcance. El detalle por persona (Histórico) lo ve quien puede ver bajas. Corregir causales, completar fechas y conciliar duplicados es de RH con permiso de gestionar bajas; cada corrección pide comentario y queda en bitácora. Cargar el histórico desde Excel es solo de super administrador.',
+        antes: [
+            'Las bajas cerradas del sistema ya cuentan solas.',
+            'Los meses anteriores al sistema salen del Excel de rotación o del histórico cargado.',
+        ],
+        pasos: [
+            {
+                titulo: 'Elige el periodo y los filtros',
+                detalle:
+                    'Acumulado, año, mes o rango; empresa, sucursal, área, puesto, clasificación, causal, antigüedad y fuente. Los filtros se conservan al cambiar de área y se usan tal cual en las exportaciones.',
+                quien: 'rh',
+            },
+            {
+                titulo: 'Explora de lo general a la persona',
+                detalle:
+                    'Un clic en un mes, una causal, una sucursal o una celda del mapa de calor abre el Histórico filtrado con esas bajas.',
+                quien: 'rh',
+            },
+            {
+                titulo: 'Corrige lo que falte',
+                detalle:
+                    'En Histórico: corregir causal homologada, completar fecha de ingreso o marcar un duplicado. Siempre con comentario; la cifra se recalcula al momento.',
+                quien: 'rh',
+            },
+            {
+                titulo: 'Exporta',
+                detalle:
+                    'Excel con todas las hojas, PDF ejecutivo (horizontal) o PDF detallado (vertical, con personas si tienes permiso).',
+                quien: 'rh',
+            },
+        ],
+        despues: [
+            'Los hallazgos señalan focos: ofertas laborales, rotación temprana, sucursales fuera de meta y registros incompletos.',
+        ],
+        errores: [
+            {
+                problema: '«Un mes dice "sin desglose".»',
+                solucion:
+                    'Ese mes solo trae totales del Excel (sin persona ni causal): cuenta en el total, pero no en filtros por causal. Cargar el histórico individual lo resuelve.',
+            },
+            {
+                problema: '«El índice dice "sin dato".»',
+                solucion:
+                    'No hay plantilla registrada para ese mes y sucursal; se toma la foto mensual o la reconstrucción de plantilla.',
+            },
+        ],
+        registro: [
+            'Bitácora de correcciones: quién, cuándo, valor anterior, valor nuevo y comentario.',
+        ],
+        relacionados: ['baja', 'finiquito'],
+        accesos: [
+            {
+                etiqueta: 'Ir a Rotación de personal',
+                ruta: '/reportes/rotacion/tablero',
+                permisos: ['bajas.tablero.ver'],
+                modo: 'operativo',
+            },
+        ],
+        preguntas: [
+            '¿Cómo se calcula el índice de rotación?',
+            '¿Por qué se van las personas?',
+            '¿Qué sucursal tiene más bajas?',
+            '¿Qué es rotación temprana?',
         ],
     },
     {

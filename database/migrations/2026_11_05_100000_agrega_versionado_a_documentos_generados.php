@@ -13,16 +13,33 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // Idempotente: en MariaDB/MyISAM una corrida interrumpida deja columnas
+        // creadas sin registrar la migración; se agrega solo lo que falta.
         Schema::table('generated_documents', function (Blueprint $table): void {
-            $table->char('huella_datos', 64)->nullable()->after('checksum');
-            $table->json('correcciones')->nullable()->after('huella_datos');
-            $table->string('tipo_emision', 20)->nullable()->after('correcciones');
-            $table->index(['documentable_type', 'documentable_id', 'clave_plantilla', 'id'], 'generated_documents_versiones_index');
+            if (! Schema::hasColumn('generated_documents', 'huella_datos')) {
+                $table->char('huella_datos', 64)->nullable()->after('checksum');
+            }
+
+            if (! Schema::hasColumn('generated_documents', 'correcciones')) {
+                $table->json('correcciones')->nullable()->after('huella_datos');
+            }
+
+            if (! Schema::hasColumn('generated_documents', 'tipo_emision')) {
+                $table->string('tipo_emision', 20)->nullable()->after('correcciones');
+            }
+
+            if (! Schema::hasIndex('generated_documents', 'generated_documents_versiones_index')) {
+                // Sin documentable_type (varchar 255): con él la llave excede
+                // los 1000 bytes de MyISAM; documentable_id ya es selectivo.
+                $table->index(['documentable_id', 'clave_plantilla', 'id'], 'generated_documents_versiones_index');
+            }
         });
 
-        Schema::table('baja_documentos', function (Blueprint $table): void {
-            $table->foreignId('generated_document_id')->nullable()->after('documento_requerido_id')->constrained('generated_documents')->nullOnDelete();
-        });
+        if (! Schema::hasColumn('baja_documentos', 'generated_document_id')) {
+            Schema::table('baja_documentos', function (Blueprint $table): void {
+                $table->foreignId('generated_document_id')->nullable()->after('documento_requerido_id')->constrained('generated_documents')->nullOnDelete();
+            });
+        }
     }
 
     public function down(): void

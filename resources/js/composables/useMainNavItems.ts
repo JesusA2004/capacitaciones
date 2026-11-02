@@ -18,6 +18,7 @@ import {
     FileSignature,
     FileSpreadsheet,
     FileStack,
+    TrendingDown,
     FolderOpen,
     GitBranch,
     GraduationCap,
@@ -79,6 +80,7 @@ import {
 import { ver as verInduccion } from '@/routes/portal/induccion';
 import { index as indexReportes } from '@/routes/reportes';
 import { index as indexRotacion } from '@/routes/reportes/rotacion';
+import { index as indexTableroRotacion } from '@/routes/reportes/rotacion/tablero';
 import { index as indexActas } from '@/routes/rh/actas';
 import { index as indexActivosResponsivas } from '@/routes/rh/activos-responsivas';
 import { index as indexAniversarios } from '@/routes/rh/aniversarios';
@@ -642,6 +644,13 @@ export function useMainNavItems() {
                     icono: BarChart3,
                 },
                 [
+                    // Módulo propio: índice, tendencias, causales, sucursales
+                    // e histórico de bajas (docs/ROTACION.md).
+                    tienePermiso('bajas.tablero.ver') && {
+                        title: 'Rotación de personal',
+                        href: indexTableroRotacion(),
+                        icon: TrendingDown,
+                    },
                     tienePermiso('reportes_rh.ver') && {
                         title: 'Reportes de RH',
                         href: indexReportes(),

@@ -106,7 +106,7 @@ function rmExcel(Sucursal $sucursal, int $anio, int $mes, int $bajas, int $volun
     $carga = RotacionCarga::query()->first() ?? RotacionCarga::query()->create(['nombre_archivo' => 'rotacion.xlsx', 'archivo_ruta' => 'rotacion/x.xlsx', 'archivo_hash' => str_repeat('a', 64), 'estado' => 'aplicada', 'subido_por' => User::factory()->create()->id]);
 
     return RotacionPeriodo::query()->create([
-        'rotacion_carga_id' => $carga->id, 'anio' => $anio, 'mes' => $mes, 'sucursal_id' => $sucursal->id,
+        'carga_id' => $carga->id, 'anio' => $anio, 'mes' => $mes, 'sucursal_id' => $sucursal->id, 'sucursal_excel' => mb_strtoupper($sucursal->nombre),
         'plantilla_inicial' => $plantilla, 'altas' => 0, 'bajas' => $bajas, 'bajas_voluntarias' => $voluntarias, 'bajas_involuntarias' => $involuntarias, 'plantilla_final' => $plantilla,
     ]);
 }
@@ -238,7 +238,7 @@ test('sin doble conteo: la histórica ligada a una baja del sistema no cuenta y 
     expect($d['resumen']['total'])->toBe(3)
         // La antigüedad es la de cada relación laboral.
         ->and(collect(app(RotacionMotorService::class)->eventos($d['f']))->where('nombre', 'Ana Reingreso')->pluck('rango')->map->value->sort()->values()->all())
-        ->toBe([RangoAntiguedad::Menos3Meses->value, RangoAntiguedad::De3A6Meses->value]);
+        ->toBe([RangoAntiguedad::De3A6Meses->value, RangoAntiguedad::Menos3Meses->value]);
 });
 
 test('bajas del sistema: «No procede», movimientos internos y últimos días futuros no cuentan', function () {

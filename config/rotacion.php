@@ -37,4 +37,37 @@ return [
         'tula de allende' => 'Tula',
     ],
 
+    // Homologación inicial: clave de causal de baja => categoría analítica
+    // (causales_analiticas.clave). Solo se aplica a causales SIN mapeo; un
+    // cambio posterior se hace desde Rotación › Causales y queda auditado.
+    // Ver docs/ROTACION.md.
+    'homologacion_inicial' => [
+        'RV-01' => 'oferta_laboral',
+        'RV-02' => 'no_le_gusto',
+        'RV-03' => 'no_le_gusto',
+        'RV-04' => 'no_le_gusto',
+        'RV-05' => 'personales_familiares',
+        'RV-06' => 'renuncia_voluntaria',
+        'NR-01' => 'bajo_desempeno',
+        'NR-02' => 'bajo_desempeno',
+        'NR-03' => 'probidad_conducta',
+        'NR-04' => 'estructural',
+        'NR-05' => 'estructural',
+        'NR-06' => 'estructural',
+        'RE-01' => 'abandono_faltas',
+        'RE-02' => 'desfases_cartera',
+        'RE-03' => 'probidad_conducta',
+        'RE-04' => 'probidad_conducta',
+        'RE-05' => 'probidad_conducta',
+        'OT-01' => 'otras_terminaciones',
+        'OT-02' => 'otras_terminaciones',
+        'OT-03' => 'otras_terminaciones',
+    ],
+
+    // Umbrales (%) a partir de los cuales Rotación muestra un hallazgo.
+    'hallazgos' => [
+        'oferta_minimo_pct' => 15,
+        'temprana_minimo_pct' => 30,
+    ],
+
 ];
