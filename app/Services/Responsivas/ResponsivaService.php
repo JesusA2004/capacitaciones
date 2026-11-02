@@ -39,6 +39,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Throwable;
 
 /**
@@ -312,7 +313,17 @@ class ResponsivaService
     {
         $this->registrarVersionInicial($responsiva, $actor);
         $firmada = $responsiva->estado === EstadoResponsiva::Firmada;
-        $resultado = app(VersionadoDocumentoService::class)->emitir(new FuenteResponsiva($this->pdf, $responsiva), [], $motivo, $actor, $firmada);
+        $fuente = new FuenteResponsiva($this->pdf, $responsiva);
+        $versionado = app(VersionadoDocumentoService::class);
+
+        // Con una rectificación sin firmar, la segunda la sustituye: no es «rectificar un
+        // firmado» para el versionado, pero sigue exigiendo el permiso de rectificar.
+        if ($firmada && ! $fuente->puedeRectificar($actor)) {
+            throw new AccessDeniedHttpException('No tienes permiso para rectificar una responsiva firmada.');
+        }
+
+        $vigenteFirmada = $versionado->vigente($fuente)?->estado_flujo?->firmaFisicaRegistrada() ?? false;
+        $resultado = $versionado->emitir($fuente, [], $motivo, $actor, $vigenteFirmada);
 
         if ($resultado->creado) {
             $this->auditoria->registrar('responsiva_regenerada', $responsiva, $actor, [

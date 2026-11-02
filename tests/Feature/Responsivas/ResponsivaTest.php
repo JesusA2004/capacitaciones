@@ -476,6 +476,29 @@ test('una responsiva firmada conserva su PDF: regenerar exige rectificación con
     $this->actingAs($this->subgerente->user ?? clUsuario('colaborador'))->get(route('rh.documentos-laborales.descargar', $v1))->assertForbidden();
 });
 
+test('hallazgo 14: una segunda rectificación sustituye a la primera sin firmar y conserva lo firmado', function () {
+    $id = $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsEquipo())->json('responsiva.id');
+    $responsiva = Responsiva::findOrFail($id);
+    $original = $responsiva->pdf_path;
+    $this->actingAs($this->rh)->postJson(route('rh.responsivas.marcar-firmada-fisica', $responsiva))->assertOk();
+    $versiones = fn () => GeneratedDocument::query()->where('documentable_id', $id)->where('clave_plantilla', FuenteResponsiva::CLAVE)->orderBy('id')->get();
+    $v1 = $versiones()->sole();
+
+    $v1->update(['huella_datos' => str_repeat('0', 64)]);
+    $this->actingAs($this->rh)->postJson(route('rh.responsivas.regenerar', $responsiva), ['motivo' => 'Primera corrección.'])->assertOk();
+    $v2 = $versiones()->last();
+
+    $v2->update(['huella_datos' => str_repeat('0', 64)]);
+    $this->actingAs($this->gerente)->postJson(route('rh.responsivas.regenerar', $responsiva), ['motivo' => 'Sin permiso de rectificar.'])->assertForbidden();
+    $this->actingAs($this->rh)->postJson(route('rh.responsivas.regenerar', $responsiva), ['motivo' => 'Segunda corrección.'])->assertOk();
+    $v3 = $versiones()->last();
+
+    expect($v3->id)->not->toBe($v2->id)
+        ->and($v2->refresh()->estado_flujo)->toBe(EstadoFlujoDocumento::Cancelado)
+        ->and($v1->refresh()->estado_flujo)->toBe(EstadoFlujoDocumento::FirmadoFisicamente)
+        ->and($responsiva->refresh()->pdf_path)->toBe($original);
+});
+
 test('sin firmar: la nueva versión conserva el PDF anterior y el serializado no trae rutas', function () {
     $id = $this->actingAs($this->gerente)->postJson(route('rh.responsivas.store', $this->subgerente), rsEquipo())->json('responsiva.id');
     $responsiva = Responsiva::findOrFail($id);
