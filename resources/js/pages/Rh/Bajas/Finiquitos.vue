@@ -8,7 +8,6 @@ import PestanasBajas from '@/components/bajas/PestanasBajas.vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
-import ChipEstado from '@/components/people/ChipEstado.vue';
 import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,7 +56,6 @@ const props = defineProps<{
         busqueda: string;
         estado: string | null;
         sucursal_id: number | null;
-        tipo: string | null;
     };
     sucursales: { value: number; label: string }[];
     formas_pago: { value: string; label: string }[];
@@ -89,7 +87,6 @@ const errores = computed(() =>
 const busqueda = ref(props.filtros.busqueda);
 const estado = ref(props.filtros.estado ?? '');
 const sucursal = ref<number | null>(props.filtros.sucursal_id);
-const tipo = ref(props.filtros.tipo ?? '');
 
 function parametros(extra: Record<string, unknown> = {}) {
     return {
@@ -97,7 +94,6 @@ function parametros(extra: Record<string, unknown> = {}) {
         busqueda: busqueda.value || undefined,
         estado: estado.value || undefined,
         sucursal_id: sucursal.value ?? undefined,
-        tipo: tipo.value || undefined,
         ...extra,
     };
 }
@@ -111,7 +107,7 @@ function filtrar() {
 }
 
 watch(busqueda, useDebounceFn(filtrar, 300));
-watch([estado, sucursal, tipo], filtrar);
+watch([estado, sucursal], filtrar);
 
 function abrir(id: number) {
     router.get(rutasFiniquitos.index.url(), parametros({ finiquito: id }), {
@@ -190,7 +186,7 @@ function etapaAlcanzada(fila: FilaFiniquitoBaja, clave: string): boolean {
         <section
             class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
         >
-            <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                 <div class="relative">
                     <Search
                         class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
@@ -220,15 +216,6 @@ function etapaAlcanzada(fila: FilaFiniquitoBaja, clave: string): boolean {
                     opcion-vacia="Todas las sucursales"
                     placeholder="Todas las sucursales"
                 />
-                <SelectSimple
-                    v-model="tipo"
-                    :opciones="[
-                        { value: 'finiquito', label: 'Finiquito' },
-                        { value: 'liquidacion', label: 'Liquidación' },
-                    ]"
-                    opcion-vacia="Finiquito y liquidación"
-                    placeholder="Finiquito y liquidación"
-                />
             </div>
 
             <p
@@ -250,7 +237,6 @@ function etapaAlcanzada(fila: FilaFiniquitoBaja, clave: string): boolean {
                             <th class="px-3 py-2 font-medium">
                                 Forma de salida
                             </th>
-                            <th class="px-3 py-2 font-medium">Tipo</th>
                             <th class="px-3 py-2 text-right font-medium">
                                 Monto
                             </th>
@@ -302,16 +288,6 @@ function etapaAlcanzada(fila: FilaFiniquitoBaja, clave: string): boolean {
                                         "
                                     />{{ f.forma_etiqueta ?? '—' }}
                                 </span>
-                            </td>
-                            <td class="px-3 py-2">
-                                <ChipEstado
-                                    :etiqueta="f.tipo_etiqueta"
-                                    :tono="
-                                        f.tipo === 'liquidacion'
-                                            ? 'oro'
-                                            : 'info'
-                                    "
-                                />
                             </td>
                             <td
                                 class="px-3 py-2 text-right font-semibold tabular-nums"

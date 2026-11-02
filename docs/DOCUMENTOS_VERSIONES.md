@@ -39,7 +39,7 @@ Si la fuente cambió, la corrección no se reaplica: el editor la muestra como o
 | Plantillas heredadas | Sin campos | Con motivo | Rectificación ligada |
 | Carta de renuncia | Igual que maestros; también desde la baja | Con motivo | Rectificación ligada |
 | Convenio, aviso de rescisión, constancia | Lugar y fecha, texto, fundamento, adicional | Con motivo | Rectificación ligada; el firmado queda ligado a su versión y no se quita |
-| Finiquito / liquidación | Conceptos y tipo en su panel, con motivo | Con motivo; firmar exige PDF al día | **Bloqueado: pendiente de Jurídico** |
+| Finiquito | Conceptos en su panel, con motivo | Con motivo; firmar exige PDF al día | **Bloqueado: pendiente de Jurídico** |
 | Recibo de nómina | Preparado, en su pantalla | Al emitir; reparar solo con los mismos montos | Rectificación con recibo nuevo (`ReciboNominaService`) |
 | Acta | Borrador; generada sin firmar con motivo; cierre congelado | Con motivo | Solo seguimiento en el acta; rectificación del formato con permiso |
 | Responsiva | Snapshot no se edita | Con motivo; nunca borra | Rectificación ligada; `pdf_path` sigue en lo firmado |

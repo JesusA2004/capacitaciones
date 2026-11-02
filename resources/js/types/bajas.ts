@@ -205,8 +205,6 @@ export type FilaFiniquitoBaja = {
     forma_etiqueta: string | null;
     forma_token: string | null;
     causal: string | null;
-    tipo: 'finiquito' | 'liquidacion';
-    tipo_etiqueta: string;
     monto: number;
     estado: string;
     estado_flujo: 'calculado' | 'revisado' | 'firmado' | 'pagado';
@@ -247,13 +245,10 @@ export type DetalleFiniquitoBaja = FilaFiniquitoBaja & {
         usuario: string | null;
         fecha: string | null;
     } | null;
-    causal_implica_indemnizacion: boolean;
-    advertencia_liquidacion: string | null;
     puede: {
         editar: boolean;
         recalcular: boolean;
         revisar: boolean;
-        cambiar_tipo: boolean;
         recibo: boolean;
         generar_pdf: boolean;
         subir_firmado: boolean;

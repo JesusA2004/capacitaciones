@@ -5,7 +5,6 @@ import {
     FileChartColumn,
     BellRing,
     Boxes,
-    Banknote,
     Briefcase,
     Building2,
     CalendarClock,
@@ -119,7 +118,6 @@ import { index as indexMisReportes } from '@/routes/rh/reportes/mis-reportes';
 import { index as indexRhSolicitudes } from '@/routes/rh/solicitudes';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
 import { index as indexValidacionDocumentos } from '@/routes/rh/validacion-documentos';
-import { index as indexSalarios } from '@/routes/salarios';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type { NavItem } from '@/types';
 
@@ -609,15 +607,13 @@ export function useMainNavItems() {
                         href: indexResponsablesAprobacion(),
                         icon: UserCheck,
                     },
-                    tienePermiso('puestos.administrar') && {
-                        title: 'Puestos y tabulador',
+                    // Un solo módulo: catálogo de puestos (puestos.*) y su
+                    // tabulador de sueldos (salarios.*, importes solo con permiso).
+                    (tienePermiso('puestos.administrar') ||
+                        tienePermiso('salarios.ver')) && {
+                        title: 'Puestos y salarios',
                         href: indexPuestos(),
                         icon: Briefcase,
-                    },
-                    tienePermiso('salarios.ver') && {
-                        title: 'Administración de salarios',
-                        href: indexSalarios(),
-                        icon: Banknote,
                     },
                     // Solo sucursales: los departamentos (y mover personas
                     // entre ellos) viven en su propio módulo, abajo.

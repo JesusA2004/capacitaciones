@@ -16,10 +16,12 @@ use App\Models\NotificacionEntrega;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Models\Vacante;
 use App\Services\Notificaciones\NotificacionEventosService;
 use App\Services\Reclutamiento\AgendaConsultaService;
 use App\Services\Reclutamiento\AgendaEventoService;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
@@ -442,4 +444,85 @@ test('tras registrar el resultado en la web, el aviso lleva a la ficha solo si p
         ->assertSessionHas('toast.message');
 
     expect(session('toast.accion.href'))->toContain("/rh/candidatos/{$evento->candidato_id}");
+});
+
+function agCandidatoDeVacante(Sucursal $sucursal, string $puesto, array $extra = []): Candidato
+{
+    $puestoId = Puesto::query()->firstOrCreate(['nombre' => $puesto])->id;
+
+    return Candidato::factory()->create([
+        'vacante_id' => Vacante::factory()->create(['sucursal_id' => $sucursal->id, 'puesto_id' => $puestoId, 'empresa_id' => $sucursal->empresa_id])->id,
+        'estado' => EstadoCandidato::EntrevistaPendiente,
+        ...$extra,
+    ]);
+}
+
+test('con puesto de sucursal, la sucursal de la cita sale de la vacante y no se pregunta', function () {
+    $subgerente = agCandidatoDeVacante($this->tula, 'Subgerente');
+    expect($subgerente->sucursal_id)->toBe($this->tula->id);
+
+    $datos = agDatos(['candidato_id' => $subgerente->id]);
+    unset($datos['sucursal_id']);
+    $evento = app(AgendaEventoService::class)->agendar($datos, $this->rh)['evento'];
+    expect($evento->sucursal_id)->toBe($this->tula->id);
+
+    // Otra sucursal se rechaza: la definió su vacante.
+    $otroSubgerente = agCandidatoDeVacante($this->tula, 'Subgerente de Sucursal');
+    expect(fn () => agEvento(['candidato_id' => $otroSubgerente->id]))->toThrow(ValidationException::class);
+
+    $opciones = collect(app(AgendaConsultaService::class)->candidatosAgendables($this->rh))->keyBy('id');
+    expect($opciones[$subgerente->id]['sucursal_fija'])->toBeTrue()
+        ->and($opciones[$subgerente->id]['sucursal'])->toBe('Tula')
+        ->and($opciones[$subgerente->id]['vacante'])->toBe('Subgerente · Tula')
+        ->and($opciones[$subgerente->id]['tiene_cv'])->toBeFalse();
+});
+
+test('un puesto regional o corporativo sí elige la sucursal de la cita, sin cambiar la del candidato', function () {
+    $regional = agCandidatoDeVacante($this->tula, 'Gerente Regional');
+    $evento = agEvento(['candidato_id' => $regional->id]);
+
+    expect($evento->sucursal_id)->toBe($this->ixtlahuaca->id)
+        ->and($regional->refresh()->sucursal_id)->toBe($this->tula->id);
+
+    $corporativo = Sucursal::factory()->create(['nombre' => 'Corporativo', 'es_corporativo' => true]);
+    $auxiliar = agCandidatoDeVacante($corporativo, 'Auxiliar contable');
+    expect(agEvento(['candidato_id' => $auxiliar->id, 'hora' => '12:00'])->sucursal_id)->toBe($this->ixtlahuaca->id);
+
+    $opciones = collect(app(AgendaConsultaService::class)->candidatosAgendables($this->rh))->keyBy('id');
+    expect($opciones[$regional->id]['sucursal_fija'])->toBeFalse()
+        ->and($opciones[$auxiliar->id]['sucursal_fija'])->toBeFalse();
+
+    // Fuera de su alcance no agenda, aunque la cita sea en su sucursal.
+    $gerenteDeTula = $this->gerenteTula;
+    $deIxtlahuaca = agCandidatoDeVacante($this->ixtlahuaca, 'Gerente Regional');
+    expect(fn () => app(AgendaEventoService::class)->agendar(agDatos(['candidato_id' => $deIxtlahuaca->id, 'sucursal_id' => $this->tula->id]), $gerenteDeTula))
+        ->toThrow(AuthorizationException::class);
+});
+
+test('sin sucursal elegida ni derivable se pide; el CV no es obligatorio y uno ya cargado se conserva', function () {
+    $sinSucursal = Candidato::factory()->create(['estado' => EstadoCandidato::EntrevistaPendiente]);
+    $datos = agDatos(['candidato_id' => $sinSucursal->id]);
+    unset($datos['sucursal_id']);
+    expect(fn () => app(AgendaEventoService::class)->agendar($datos, $this->rh))->toThrow(ValidationException::class);
+
+    $disco = (string) config('reclutamiento.disk');
+    Storage::disk($disco)->put('candidatos/cv-previo.pdf', '%PDF-1.4 cv');
+    $this->candidato->forceFill(['cv_disk' => $disco, 'cv_path' => 'candidatos/cv-previo.pdf', 'cv_original_name' => 'cv-previo.pdf'])->save();
+
+    $this->actingAs($this->rh)
+        ->post('/reclutamiento/agenda', ['candidato_id' => $this->candidato->id, 'tipo' => 'entrevista', 'fecha' => '2026-11-02', 'hora' => '11:00'])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect(AgendaEvento::query()->where('candidato_id', $this->candidato->id)->value('sucursal_id'))->toBe($this->ixtlahuaca->id)
+        ->and($this->candidato->refresh()->cv_original_name)->toBe('cv-previo.pdf');
+
+    $opcion = collect(app(AgendaConsultaService::class)->candidatosAgendables($this->rh))->firstWhere('id', $this->candidato->id);
+    expect($opcion['tiene_cv'])->toBeTrue()->and($opcion['cv_nombre'])->toBe('cv-previo.pdf');
+});
+
+test('la app sigue enviando sucursal_id y agenda igual que antes', function () {
+    Sanctum::actingAs($this->rh);
+    $this->postJson('/api/v1/agenda', agDatos())->assertCreated()->assertJsonPath('data.sucursal.id', $this->ixtlahuaca->id);
+    $this->getJson('/api/v1/agenda/opciones')->assertOk()->assertJsonPath('data.candidatos.0.sucursal_fija', true);
 });

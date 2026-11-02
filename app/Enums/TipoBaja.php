@@ -74,18 +74,6 @@ enum TipoBaja: string
     }
 
     /**
-     * El finiquito estima indemnización (si la política está habilitada):
-     * nunca en renuncia ni en otras terminaciones (fallecimiento, incapacidad
-     * permanente, jubilación: pagan finiquito, no liquidación; sus flujos los
-     * define RH/Jurídico por caso); en rescisión y no renovación sí, salvo que
-     * la causal la excluya (faltas injustificadas o abandono, RE-01).
-     */
-    public function contemplaIndemnizacion(): bool
-    {
-        return ! in_array($this, [self::Renuncia, self::OtraTerminacion], true);
-    }
-
-    /**
      * Etiqueta de un valor guardado, sea de los tres tipos vigentes o de una
      * causa anterior a la migración (historial).
      */

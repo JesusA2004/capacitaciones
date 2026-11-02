@@ -929,8 +929,6 @@ export type CausalRotacionAdmin = {
     integrar_expediente_probatorio?: boolean;
     comentario_obligatorio: boolean;
     alerta: string | null;
-    excluye_indemnizacion: boolean;
-    implica_indemnizacion: boolean;
     fundamento_legal: string | null;
     genera: string;
     documento_salida: string | null;

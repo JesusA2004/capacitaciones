@@ -3,9 +3,13 @@
 namespace App\Enums;
 
 /**
- * Tipo del documento de pago de una baja. La liquidación se PROPONE cuando la
- * causal está marcada como «Implica indemnización» (catálogo de causales); es
- * una clasificación con revisión de RH/Jurídico, no una resolución legal.
+ * Tipo del documento de pago de una baja. En PEOPLE no existen liquidaciones:
+ * toda baja (también por bajo desempeño o por una causal grave, sustentadas con
+ * actas) se cierra con FINIQUITO, nunca con indemnización ni gratificación.
+ *
+ * `Liquidacion` es LEGADO: solo existe para que los finiquitos calculados antes
+ * de esta regla (columna `tipo_documento` casteada a este enum) se sigan
+ * leyendo sin error. El sistema nunca lo produce y se muestra como «Finiquito».
  */
 enum TipoFiniquito: string
 {
@@ -14,9 +18,6 @@ enum TipoFiniquito: string
 
     public function etiqueta(): string
     {
-        return match ($this) {
-            self::Finiquito => 'Finiquito',
-            self::Liquidacion => 'Liquidación',
-        };
+        return 'Finiquito';
     }
 }

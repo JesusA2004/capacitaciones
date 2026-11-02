@@ -21,6 +21,10 @@ use Illuminate\Support\Carbon;
  * inactivas y fuera de la administración; sus bajas apuntan a la causal
  * nueva (reemplazada_por_id) y conservan el valor original.
  *
+ * Las columnas `excluye_indemnizacion` e `implica_indemnizacion` son LEGADO:
+ * se conservan en la tabla, pero ya no se leen ni se escriben. En PEOPLE no
+ * existen liquidaciones: ninguna causal genera indemnización.
+ *
  * @property int $id
  * @property TipoBaja $tipo
  * @property FormaSalida|null $forma_salida
@@ -33,8 +37,6 @@ use Illuminate\Support\Carbon;
  * @property bool $comentario_obligatorio
  * @property string|null $alerta
  * @property string|null $fundamento_legal
- * @property bool $excluye_indemnizacion
- * @property bool $implica_indemnizacion
  * @property bool $activo
  * @property bool $legado
  * @property int|null $reemplazada_por_id
@@ -48,7 +50,7 @@ class CausalRotacion extends Model
 
     protected $fillable = [
         'tipo', 'forma_salida', 'causal_grupo_id', 'documento_salida', 'clave', 'nombre', 'descripcion', 'requiere_juridico', 'comentario_obligatorio',
-        'alerta', 'fundamento_legal', 'excluye_indemnizacion', 'implica_indemnizacion', 'activo', 'legado', 'reemplazada_por_id', 'orden',
+        'alerta', 'fundamento_legal', 'activo', 'legado', 'reemplazada_por_id', 'orden',
     ];
 
     protected function casts(): array
@@ -58,8 +60,6 @@ class CausalRotacion extends Model
             'forma_salida' => FormaSalida::class,
             'requiere_juridico' => 'boolean',
             'comentario_obligatorio' => 'boolean',
-            'excluye_indemnizacion' => 'boolean',
-            'implica_indemnizacion' => 'boolean',
             'activo' => 'boolean',
             'legado' => 'boolean',
             'orden' => 'integer',

@@ -66,13 +66,39 @@ test('escenario 34: $17,000 contra medio $18,000 da compa-ratio 94.44 y queda en
     Colaborador::factory()->create(['puesto_id' => $this->puesto->id, 'estatus' => 'activo', 'sueldo_mensual' => 17000]);
     $this->actingAs($this->rh)->put(route('salarios.tabulador.guardar', $this->puesto), $this->rango)->assertRedirect();
 
-    $this->actingAs($this->rh)->get(route('salarios.index', ['puesto' => $this->puesto->id]))
-        ->assertInertia(fn (Assert $p) => $p->component('Administracion/Salarios/Index')
-            ->where('colaboradores.0.compa_ratio', 94.44)
-            ->where('colaboradores.0.banda', 'minimo_a_medio')
-            ->where('resumen.puestos_con_tabulador', 1));
+    $this->actingAs($this->rh)->get(route('administracion.puestos.show', $this->puesto))
+        ->assertInertia(fn (Assert $p) => $p->component('Administracion/Puestos/Show')
+            ->where('personas.0.compa_ratio', 94.44)
+            ->where('personas.0.banda', 'minimo_a_medio')
+            ->where('rango.medio', 18000));
+
+    $this->actingAs($this->rh)->get(route('administracion.puestos.index'))
+        ->assertInertia(fn (Assert $p) => $p->component('Administracion/Puestos/Index')
+            ->where('salarios.resumen.puestos_con_tabulador', 1)
+            ->where('puestos.data.0.tabulador.medio', 18000));
 
     expect(round(PosicionSalarialService::compaRatio(17000, 18000) ?? 0))->toBe(94.0);
+});
+
+test('la ruta anterior de salarios lleva al módulo unificado de puestos', function () {
+    $this->actingAs($this->rh)->get(route('salarios.index'))->assertRedirect(route('administracion.puestos.index'));
+    $this->actingAs($this->rh)->get(route('salarios.index', ['puesto' => $this->puesto->id]))->assertRedirect(route('administracion.puestos.show', $this->puesto));
+});
+
+test('sin salarios.ver el módulo de puestos no manda ningún importe', function () {
+    Colaborador::factory()->create(['puesto_id' => $this->puesto->id, 'estatus' => 'activo', 'sueldo_mensual' => 17345]);
+    $this->actingAs($this->rh)->put(route('salarios.tabulador.guardar', $this->puesto), $this->rango);
+    $catalogo = salariosUsuario('administrador_capacitacion');
+
+    expect($catalogo->can('puestos.administrar'))->toBeTrue()
+        ->and($catalogo->can('salarios.ver'))->toBeFalse();
+
+    $this->actingAs($catalogo)->get(route('administracion.puestos.index'))->assertOk()
+        ->assertInertia(fn (Assert $p) => $p->where('salarios', null)->where('puestos.data.0.tabulador', null));
+
+    $ficha = $this->actingAs($catalogo)->get(route('administracion.puestos.show', $this->puesto))->assertOk();
+    $ficha->assertInertia(fn (Assert $p) => $p->where('rango', null)->where('versiones', []));
+    expect($ficha->getContent())->not->toContain('17345')->not->toContain('18000');
 });
 
 test('las cuatro posiciones de la banda, con sus límites', function (float $sueldo, BandaSalarial $banda) {
@@ -132,13 +158,14 @@ test('sin evaluación vigente no inventa tope ni margen', function () {
     Colaborador::factory()->create(['puesto_id' => $this->puesto->id, 'estatus' => 'activo', 'sueldo_mensual' => 17000]);
     $this->actingAs($this->rh)->put(route('salarios.tabulador.guardar', $this->puesto), $this->rango);
 
-    $this->actingAs($this->rh)->get(route('salarios.index', ['puesto' => $this->puesto->id]))
+    $this->actingAs($this->rh)->get(route('administracion.puestos.show', $this->puesto))
         ->assertInertia(fn (Assert $p) => $p
-            ->where('colaboradores.0.desempeno_etiqueta', 'Sin evaluación de desempeño vigente')
-            ->where('colaboradores.0.tope', null)
-            ->where('colaboradores.0.margen', null)
-            ->where('colaboradores.0.sugerido', null)
-            ->where('resumen.margen', null));
+            ->where('personas.0.desempeno_etiqueta', 'Sin evaluación de desempeño vigente')
+            ->where('personas.0.tope', null)
+            ->where('personas.0.margen', null));
+
+    $this->actingAs($this->rh)->get(route('administracion.puestos.index'))
+        ->assertInertia(fn (Assert $p) => $p->where('salarios.resumen.margen', null));
 });
 
 test('topes y sugerencia según desempeño, sin aplicar aumentos (escenario 36)', function (NivelDesempeno $nivel, ?float $tope, float $margen, float|string|null $sugerido) {
@@ -208,7 +235,9 @@ test('ninguna ruta de la API expone el módulo de salarios', function () {
 test('Dirección consulta y exporta pero no captura; RH no importa', function () {
     $direccion = salariosUsuario('direccion');
 
-    $this->actingAs($direccion)->get(route('salarios.index'))->assertOk();
+    $this->actingAs($direccion)->get(route('administracion.puestos.index'))->assertOk()
+        ->assertInertia(fn (Assert $p) => $p->where('puede.ver_salarios', true)->where('puede.editar_salarios', false));
+    $this->actingAs($direccion)->get(route('administracion.puestos.show', $this->puesto))->assertOk();
     $this->actingAs($direccion)->get(route('salarios.exportar.excel'))->assertOk();
     $this->actingAs($direccion)->get(route('salarios.exportar.pdf', ['vista' => 'posiciones']))->assertOk();
     $this->actingAs($direccion)->put(route('salarios.tabulador.guardar', $this->puesto), $this->rango)->assertForbidden();
@@ -218,7 +247,7 @@ test('Dirección consulta y exporta pero no captura; RH no importa', function ()
 
 test('consultas, exportaciones y cambios quedan en bitácora sin importes', function () {
     $this->actingAs($this->rh)->put(route('salarios.tabulador.guardar', $this->puesto), $this->rango);
-    $this->actingAs($this->rh)->get(route('salarios.index'));
+    $this->actingAs($this->rh)->get(route('administracion.puestos.index'));
     $this->actingAs($this->rh)->get(route('salarios.exportar.excel', ['vista' => 'posiciones']));
 
     $actividades = Activity::query()->whereIn('event', ['salarios.tabulador_actualizado', 'salarios.consultado', 'salarios.exportado'])->get();
@@ -275,9 +304,10 @@ test('aplicar dos veces o con la versión cambiada se rechaza', function () {
 });
 
 test('sin datos: cero colaboradores no divide entre cero y puesto sin tabulador queda en null', function () {
-    $this->actingAs($this->rh)->get(route('salarios.index'))
+    $this->actingAs($this->rh)->get(route('administracion.puestos.index'))
         ->assertInertia(fn (Assert $p) => $p
-            ->where('resumen.compa_ratio_promedio', null)
-            ->where('resumen.margen', null)
-            ->where('tabulador.0.version', null));
+            ->where('salarios.resumen.compa_ratio_promedio', null)
+            ->where('salarios.resumen.margen', null)
+            ->where('puestos.data.0.tabulador', null)
+            ->where('salarios.sin_tabulador.0.puesto_id', $this->puesto->id));
 });

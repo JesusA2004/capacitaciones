@@ -9,7 +9,6 @@ use App\Enums\FormaSalida;
 use App\Enums\GocePermiso;
 use App\Enums\PeriodicidadNomina;
 use App\Enums\TipoConceptoNomina;
-use App\Enums\TipoFiniquito;
 use App\Enums\TipoPermisoSolicitado;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\Baja;
@@ -118,8 +117,6 @@ class DatosDocumentoAdministrativo
         return [
             ...$this->base($finiquito->colaborador),
             'folio' => (string) ($finiquito->solicitudInterna->folio ?? $finiquito->id),
-            // Sobrescribe el título del diseño cuando el documento es una liquidación.
-            'titulo_documento' => $finiquito->tipo_documento === TipoFiniquito::Liquidacion ? 'LIQUIDACIÓN' : null,
             'fecha_ingreso' => $this->fecha($finiquito->fecha_ingreso),
             'fecha_baja' => $this->fecha($finiquito->fecha_baja),
             'dias_trabajados' => $diasTrabajados,

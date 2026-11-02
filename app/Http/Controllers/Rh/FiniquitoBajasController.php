@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Rh;
 
 use App\Enums\FormaPagoFiniquito;
-use App\Enums\TipoFiniquito;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CicloLaboral\EntregaFiniquitoRequest;
 use App\Http\Requests\Rh\AjustarConceptoFiniquitoRequest;
@@ -18,7 +17,6 @@ use App\Services\Finiquitos\FiniquitoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -42,7 +40,7 @@ class FiniquitoBajasController extends Controller
     {
         $usuario = $request->user();
         abort_unless($usuario->can('finiquitos.ver'), 403);
-        $filtros = $request->only(['busqueda', 'estado', 'sucursal_id', 'tipo', 'per_page']);
+        $filtros = $request->only(['busqueda', 'estado', 'sucursal_id', 'per_page']);
         $seleccionado = is_numeric($request->query('finiquito')) ? FiniquitoCalculo::query()->where('id', (int) $request->query('finiquito'))->first() : null;
 
         return Inertia::render('Rh/Bajas/Finiquitos', [
@@ -54,7 +52,6 @@ class FiniquitoBajasController extends Controller
                 'busqueda' => (string) ($filtros['busqueda'] ?? ''),
                 'estado' => is_string($filtros['estado'] ?? null) ? $filtros['estado'] : null,
                 'sucursal_id' => is_numeric($filtros['sucursal_id'] ?? null) ? (int) $filtros['sucursal_id'] : null,
-                'tipo' => is_string($filtros['tipo'] ?? null) ? $filtros['tipo'] : null,
             ],
             'sucursales' => Sucursal::query()->whereIn('id', $this->tablero->sucursalesVisibles($usuario)->all())->orderBy('nombre')->get(['id', 'nombre'])
                 ->map(fn (Sucursal $s): array => ['value' => $s->id, 'label' => $s->nombre])->values()->all(),
@@ -105,18 +102,6 @@ class FiniquitoBajasController extends Controller
         $this->consulta->corregir($finiquito, $request->cambios(), (string) $request->input('motivo'), $request->user());
 
         return $this->ok('Correcciones guardadas: el total se recalculó y el finiquito vuelve a «Calculado» para revisarse.');
-    }
-
-    public function cambiarTipo(Request $request, FiniquitoCalculo $finiquito): RedirectResponse
-    {
-        $this->authorize('editarAjustes', $finiquito);
-        $datos = $request->validate([
-            'tipo' => ['required', Rule::enum(TipoFiniquito::class)],
-            'motivo' => ['required', 'string', 'min:5', 'max:500'],
-        ], ['motivo.required' => 'Indica el motivo del cambio de tipo.', 'motivo.min' => 'Indica el motivo del cambio de tipo.']);
-        $this->finiquitos->cambiarTipo($finiquito, TipoFiniquito::from($datos['tipo']), $datos['motivo'], $request->user());
-
-        return $this->ok('Tipo del documento actualizado; el cambio quedó en la bitácora.');
     }
 
     public function recibo(Request $request, FiniquitoCalculo $finiquito): HttpResponse|StreamedResponse

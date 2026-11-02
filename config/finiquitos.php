@@ -25,15 +25,9 @@ return [
     // Mínimo de ley: 15 días de aguinaldo anual.
     'dias_aguinaldo' => 15,
 
-    // Si está deshabilitada, indemnizacion() siempre regresa 0 (por ejemplo,
-    // cuando la política de la empresa es no indemnizar en renuncia
-    // voluntaria — ver FiniquitoService::calcularIndemnizacion()).
-    'indemnizacion_habilitada' => true,
-
-    // Días de sueldo por año de antigüedad usados para estimar la
-    // indemnización en bajas por despido — ajustable por admin, no es un
-    // mínimo de ley fijo (varía por tipo de baja/negociación).
-    'dias_indemnizacion_por_anio' => 12,
+    // En PEOPLE no existen liquidaciones: el finiquito nunca calcula
+    // indemnización ni gratificación (tampoco en bajas por bajo desempeño o
+    // por una causal grave, que se sustentan con actas).
 
     // Catálogo de conceptos adicionales que RH puede capturar manualmente
     // en "otros_conceptos" (clave => etiqueta), además de bonos/descuentos/

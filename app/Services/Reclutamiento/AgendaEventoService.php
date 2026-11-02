@@ -17,6 +17,7 @@ use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\Puesto;
 use App\Models\User;
+use App\Models\Vacante;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Notificaciones\Aviso;
 use App\Services\Notificaciones\NotificacionEventosService;
@@ -56,15 +57,26 @@ class AgendaEventoService
         private readonly AlcanceModuloService $alcance,
         private readonly PermisoAccionService $permisos,
         private readonly AprobadorEntrevistaService $aprobadorEntrevista,
+        private readonly AgendaConsultaService $consulta,
+        private readonly BandejaCvService $bandejaCv,
     ) {}
 
     /**
-     * @param  array<string, mixed>  $datos  sucursal_id, tipo, fecha, hora, candidato_id | candidato_nuevo, notas?, domicilio?, responsable_user_id?, clave_idempotencia?
+     * La sucursal de la cita sale del candidato cuando su puesto es de sucursal
+     * (la definió su vacante): sucursal_id es opcional y, si llega distinta, se
+     * rechaza. Puestos regionales o corporativos eligen cualquier sucursal del
+     * alcance de quien agenda (AgendaConsultaService::sucursalFija).
+     *
+     * El CV es opcional: si el candidato ya lo tiene no se vuelve a pedir; si no,
+     * puede llegar como archivo o tomarse de la bandeja de CVs ($cvBandeja).
+     *
+     * @param  array<string, mixed>  $datos  sucursal_id?, tipo, fecha, hora, candidato_id | candidato_nuevo, notas?, domicilio?, responsable_user_id?, clave_idempotencia?
      * @return array{evento: AgendaEvento, repetido: bool, empalmes: list<string>}
      */
-    public function agendar(array $datos, User $actor, ?UploadedFile $cv = null): array
+    public function agendar(array $datos, User $actor, ?UploadedFile $cv = null, ?string $cvBandeja = null): array
     {
-        $sucursalId = (int) $datos['sucursal_id'];
+        $existente = isset($datos['candidato_id']) ? Candidato::query()->findOrFail((int) $datos['candidato_id']) : null;
+        $sucursalId = $this->resolverSucursal($datos, $existente, $actor);
         Gate::forUser($actor)->authorize('agendarEn', [AgendaEvento::class, $sucursalId]);
 
         $clave = isset($datos['clave_idempotencia']) && is_string($datos['clave_idempotencia']) ? $datos['clave_idempotencia'] : null;
@@ -74,18 +86,26 @@ class AgendaEventoService
             return ['evento' => $repetido, 'repetido' => true, 'empalmes' => []];
         }
 
+        $cvBandeja = is_string($cvBandeja) && trim($cvBandeja) !== '' && ! $cv instanceof UploadedFile ? trim($cvBandeja) : null;
+
+        if ($cvBandeja !== null && ! $actor->can('viewAny', Candidato::class)) {
+            throw ValidationException::withMessages(['cv_bandeja' => 'Tu cuenta no consulta la bandeja de CVs: adjunta el archivo.']);
+        }
+
+        // Se revisa ANTES de agendar: un archivo que ya no está nunca deja la cita a medias.
+        if ($cvBandeja !== null && ! $this->bandejaCv->existe($cvBandeja)) {
+            throw ValidationException::withMessages(['cv_bandeja' => sprintf('«%s» ya no está en la bandeja de CVs. Actualiza la lista.', $cvBandeja)]);
+        }
+
         $tipo = TipoAgendaEvento::from((string) $datos['tipo']);
         $fechaHora = $this->fechaHoraFutura((string) $datos['fecha'], (string) $datos['hora']);
         $responsableId = isset($datos['responsable_user_id']) ? (int) $datos['responsable_user_id'] : null;
-        $candidato = isset($datos['candidato_id'])
-            ? Candidato::query()->findOrFail((int) $datos['candidato_id'])
-            : $this->altaRapida((array) ($datos['candidato_nuevo'] ?? []), $sucursalId, $actor);
+        $candidato = $existente ?? $this->altaRapida((array) ($datos['candidato_nuevo'] ?? []), $sucursalId, $actor);
 
         if (! $this->aprobadorEntrevista->esVisiblePara($actor, $candidato)) {
             throw new AuthorizationException(AprobadorEntrevistaService::MENSAJE_NO_CORRESPONDE);
         }
 
-        $this->validarSucursalDelCandidato($candidato, $sucursalId);
         $empalmes = $this->empalmes($sucursalId, $fechaHora, $responsableId);
 
         try {
@@ -132,6 +152,13 @@ class AgendaEventoService
 
         if ($cv instanceof UploadedFile) {
             $this->expediente->guardarCv($candidato->refresh(), $cv, $actor);
+        } elseif ($cvBandeja !== null) {
+            try {
+                $this->bandejaCv->asignar($candidato->refresh(), $cvBandeja, $actor);
+            } catch (ValidationException $e) {
+                // La cita ya quedó: se puede volver a tomar el CV desde la ficha.
+                Log::warning('AgendaEventoService: no se pudo tomar el CV de la bandeja.', ['evento_id' => $evento->id, 'error' => $e->getMessage()]);
+            }
         }
 
         $this->avisar($evento, 'agenda_evento_agendado', sprintf('Nueva %s agendada', mb_strtolower($tipo->etiqueta())), 'agendado', $actor);
@@ -518,11 +545,45 @@ class AgendaEventoService
             ->first();
     }
 
-    private function validarSucursalDelCandidato(Candidato $candidato, int $sucursalId): void
+    /**
+     * Sucursal donde será la cita. Puesto de sucursal: la del candidato, siempre.
+     * Puesto regional o corporativo: la elegida, y quien agenda también debe
+     * alcanzar la sucursal del candidato (nunca agenda a alguien que no ve).
+     * Alta rápida: la elegida o la de su vacante.
+     *
+     * @param  array<string, mixed>  $datos
+     */
+    private function resolverSucursal(array $datos, ?Candidato $candidato, User $actor): int
     {
-        if ($candidato->sucursal_id !== null && $candidato->sucursal_id !== $sucursalId) {
-            throw ValidationException::withMessages(['sucursal_id' => 'Este candidato pertenece a otra sucursal.']);
+        $pedida = isset($datos['sucursal_id']) && is_numeric($datos['sucursal_id']) ? (int) $datos['sucursal_id'] : null;
+
+        if ($candidato !== null && $candidato->sucursal_id !== null) {
+            Gate::forUser($actor)->authorize('agendarEn', [AgendaEvento::class, $candidato->sucursal_id]);
+
+            if ($this->consulta->sucursalFija($candidato)) {
+                if ($pedida !== null && $pedida !== $candidato->sucursal_id) {
+                    throw ValidationException::withMessages(['sucursal_id' => 'Este candidato pertenece a otra sucursal: la define su vacante.']);
+                }
+
+                return $candidato->sucursal_id;
+            }
+
+            return $pedida ?? $candidato->sucursal_id;
         }
+
+        if ($pedida === null && $candidato === null) {
+            $nuevo = (array) ($datos['candidato_nuevo'] ?? []);
+            $deVacante = isset($nuevo['vacante_id']) && is_numeric($nuevo['vacante_id'])
+                ? Vacante::query()->whereKey((int) $nuevo['vacante_id'])->value('sucursal_id')
+                : null;
+            $pedida = is_numeric($deVacante) ? (int) $deVacante : null;
+        }
+
+        if ($pedida === null) {
+            throw ValidationException::withMessages(['sucursal_id' => 'Elige la sucursal donde será la cita.']);
+        }
+
+        return $pedida;
     }
 
     private function validarEstadoParaAgendar(Candidato $candidato, TipoAgendaEvento $tipo): void

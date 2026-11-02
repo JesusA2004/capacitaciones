@@ -29,7 +29,9 @@ class AgendarEventoRequest extends FormRequest
             'candidato_nuevo.correo' => ['nullable', 'email', 'max:255'],
             'candidato_nuevo.puesto_objetivo_id' => ['nullable', 'integer', 'exists:puestos,id'],
             'candidato_nuevo.vacante_id' => ['nullable', 'integer', 'exists:vacantes,id'],
-            'sucursal_id' => ['required', 'integer', 'exists:sucursales,id'],
+            // Opcional: con puesto de sucursal la define la vacante del candidato
+            // (AgendaEventoService::resolverSucursal); la app puede seguir enviándola.
+            'sucursal_id' => ['nullable', 'integer', 'exists:sucursales,id'],
             'tipo' => ['required', Rule::enum(TipoAgendaEvento::class)],
             'fecha' => ['required', 'date_format:Y-m-d'],
             'hora' => ['required', 'date_format:H:i'],
@@ -37,6 +39,7 @@ class AgendarEventoRequest extends FormRequest
             'domicilio' => ['nullable', 'string', 'max:300'],
             'responsable_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'clave_idempotencia' => ['nullable', 'string', 'max:64'],
+            'cv_bandeja' => ['nullable', 'string', 'max:255'],
             'cv' => ['nullable', 'file', 'max:'.((int) config('reclutamiento.max_upload_mb') * 1024), 'mimes:'.implode(',', (array) config('reclutamiento.extensiones_permitidas'))],
         ];
     }
@@ -48,7 +51,6 @@ class AgendarEventoRequest extends FormRequest
     {
         return [
             'candidato_id.required_without' => 'Elige un candidato o dalo de alta.',
-            'sucursal_id.required' => 'Elige la sucursal.',
             'fecha.required' => 'Elige la fecha.',
             'hora.required' => 'Elige la hora.',
         ];

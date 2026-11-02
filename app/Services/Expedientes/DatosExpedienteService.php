@@ -418,6 +418,38 @@ class DatosExpedienteService
     }
 
     /**
+     * Cambio de puesto en lote («Puestos y salarios → trasladar personas»):
+     * mismo núcleo que el expediente (movimiento laboral «Cambio de puesto» o
+     * «Promoción» por persona + jefe derivado del organigrama). Si el puesto
+     * destino pertenece a un departamento, la persona pasa también a él. El
+     * sueldo NO se toca.
+     *
+     * La autorización y el filtrado (alcance, «nadie se mueve a sí mismo»,
+     * idempotencia) los resuelve quien llama.
+     *
+     * @param  iterable<Colaborador>  $colaboradores
+     */
+    public function cambiarPuestoEnLote(iterable $colaboradores, int $puestoId, ?int $departamentoId, User $actor, ?string $motivo): void
+    {
+        $cambios = array_filter(['puesto_id' => $puestoId, 'departamento_id' => $departamentoId], fn (?int $valor): bool => $valor !== null);
+        $lote = [];
+
+        foreach ($colaboradores as $colaborador) {
+            $lote[] = [
+                'colaborador' => $colaborador,
+                'antes' => $this->movimientos->snapshot($colaborador),
+                'cambios' => $cambios,
+            ];
+        }
+
+        if ($lote === []) {
+            return;
+        }
+
+        DB::transaction(fn () => $this->aplicarEstructurales($lote, $actor, $motivo));
+    }
+
+    /**
      * Núcleo compartido de los cambios estructurales (sucursal, departamento,
      * puesto): escribe, recalcula el jefe derivado del organigrama UNA vez y
      * registra los movimientos laborales de cada persona contra su snapshot.

@@ -5,7 +5,6 @@ namespace App\Services\Finiquitos;
 use App\Enums\AccionBitacoraBaja;
 use App\Enums\EstadoCierreLaboral;
 use App\Enums\EstadoFiniquito;
-use App\Enums\TipoFiniquito;
 use App\Models\Baja;
 use App\Models\CierreLaboral;
 use App\Models\Colaborador;
@@ -55,21 +54,19 @@ class FiniquitoConsultaService
     ) {}
 
     /**
-     * @param  array<string, mixed>  $filtros  busqueda, estado, sucursal_id, tipo, per_page
+     * @param  array<string, mixed>  $filtros  busqueda, estado, sucursal_id, per_page
      * @return LengthAwarePaginator<int, array<string, mixed>>
      */
     public function listado(User $usuario, array $filtros): LengthAwarePaginator
     {
         $estado = self::ESTADOS_FLUJO[(string) ($filtros['estado'] ?? '')] ?? null;
         $busqueda = trim((string) ($filtros['busqueda'] ?? ''));
-        $tipo = TipoFiniquito::tryFrom((string) ($filtros['tipo'] ?? ''));
 
         return $this->base($usuario)
             ->with(['colaborador' => fn ($q) => $q->withTrashed()->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre']), 'solicitudInterna.causalRotacion'])
             ->when($estado !== null, fn (Builder $q) => $q->whereIn('estado', array_map(fn (EstadoFiniquito $e): string => $e->value, $estado ?? [])))
             ->when(is_numeric($filtros['sucursal_id'] ?? null), fn (Builder $q) => $q->whereIn('colaborador_id', Colaborador::query()->withTrashed()->where('sucursal_principal_id', (int) $filtros['sucursal_id'])->select('id')))
             ->when($busqueda !== '', fn (Builder $q) => $q->whereIn('colaborador_id', Colaborador::query()->withTrashed()->buscar($busqueda)->select('id')))
-            ->when($tipo instanceof TipoFiniquito, fn (Builder $q) => $q->where(fn (Builder $w) => $this->filtrarTipo($w, $tipo ?? TipoFiniquito::Finiquito)))
             ->orderByRaw("case when estado = 'pagado' then 1 else 0 end")
             ->orderByDesc('id')
             ->paginate(Paginacion::porPagina(20, $filtros['per_page'] ?? null))
@@ -104,8 +101,6 @@ class FiniquitoConsultaService
     public function detalle(FiniquitoCalculo $finiquito, User $usuario): array
     {
         $finiquito->loadMissing(['colaborador' => fn ($q) => $q->withTrashed()->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre']), 'solicitudInterna.causalRotacion', 'ajustes.usuario:id,name,apellidos']);
-        $tipo = $this->finiquitos->tipoDe($finiquito);
-        $causal = $finiquito->solicitudInterna->causalRotacion;
         $editable = $usuario->can('editarAjustes', $finiquito);
 
         return [
@@ -118,15 +113,10 @@ class FiniquitoConsultaService
             'desglose' => $this->finiquitos->desglose($finiquito),
             'historial_ajustes' => $this->finiquitos->historialAjustes($finiquito),
             'ultima_edicion' => $this->finiquitos->ultimaEdicion($finiquito),
-            'causal_implica_indemnizacion' => $causal !== null && $causal->implica_indemnizacion,
-            'advertencia_liquidacion' => $tipo === TipoFiniquito::Liquidacion
-                ? 'La causal está marcada como «Implica indemnización»: se propone liquidación. Es una clasificación con revisión de RH/Jurídico según el caso; ajusta los conceptos con motivo si no aplica.'
-                : null,
             'puede' => [
                 'editar' => $editable,
                 'recalcular' => $editable,
                 'revisar' => $usuario->can('revisar', $finiquito),
-                'cambiar_tipo' => $editable,
                 'recibo' => $usuario->can('descargar', $finiquito),
                 'generar_pdf' => $usuario->can('generarDocumento', $finiquito) && $finiquito->estado !== EstadoFiniquito::Borrador,
                 'subir_firmado' => $usuario->can('subirFirmado', $finiquito) && in_array($finiquito->estado, [EstadoFiniquito::Revisado, EstadoFiniquito::Aprobado], true),
@@ -235,26 +225,6 @@ class FiniquitoConsultaService
     }
 
     /**
-     * El tipo guardado manda; los anteriores (NULL) se derivan igual que
-     * FiniquitoService::tipoDe().
-     *
-     * @param  Builder<FiniquitoCalculo>  $query
-     */
-    private function filtrarTipo(Builder $query, TipoFiniquito $elegido): void
-    {
-        $liquidacion = $elegido === TipoFiniquito::Liquidacion;
-
-        $query->where('tipo_documento', $elegido->value)
-            ->orWhere(fn (Builder $w) => $w->whereNull('tipo_documento')->where(function (Builder $d) use ($liquidacion): void {
-                if ($liquidacion) {
-                    $d->where('indemnizacion', '>', 0)->orWhereHas('solicitudInterna.causalRotacion', fn (Builder $c) => $c->where('implica_indemnizacion', true));
-                } else {
-                    $d->where('indemnizacion', '<=', 0)->whereDoesntHave('solicitudInterna.causalRotacion', fn (Builder $c) => $c->where('implica_indemnizacion', true));
-                }
-            }));
-    }
-
-    /**
      * @return array<string, mixed>
      */
     private function fila(FiniquitoCalculo $finiquito, User $usuario): array
@@ -262,7 +232,6 @@ class FiniquitoConsultaService
         $colaborador = $finiquito->colaborador;
         $solicitud = $finiquito->solicitudInterna;
         $forma = $solicitud->tipo_baja?->forma();
-        $tipo = $this->finiquitos->tipoDe($finiquito);
         $flujo = $this->estadoFlujo($finiquito->estado);
         $cierre = $this->cierreDe($finiquito);
 
@@ -276,8 +245,6 @@ class FiniquitoConsultaService
             'forma_etiqueta' => $forma?->etiqueta(),
             'forma_token' => $forma?->token(),
             'causal' => $solicitud->causalRotacion?->etiquetaConClave(),
-            'tipo' => $tipo->value,
-            'tipo_etiqueta' => $tipo->etiqueta(),
             'monto' => (float) $finiquito->neto,
             'estado' => $finiquito->estado->value,
             'estado_flujo' => $flujo,

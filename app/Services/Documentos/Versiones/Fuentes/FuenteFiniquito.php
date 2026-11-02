@@ -3,6 +3,7 @@
 namespace App\Services\Documentos\Versiones\Fuentes;
 
 use App\Enums\EstadoFiniquito;
+use App\Enums\TipoFiniquito;
 use App\Models\Colaborador;
 use App\Models\FiniquitoCalculo;
 use App\Models\GeneratedDocument;
@@ -13,7 +14,7 @@ use App\Services\Finiquitos\FiniquitoService;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * Finiquito o liquidación. Sus datos son filas calculadas: se corrigen con
+ * Finiquito (en PEOPLE no existen liquidaciones). Sus datos son filas calculadas: se corrigen con
  * FiniquitoService::corregir() (motivo y bitácora) y aquí solo se emite. Firmado
  * o pagado no admite rectificación: la define Jurídico (docs/CORRECCIONES.md).
  */
@@ -43,7 +44,7 @@ final class FuenteFiniquito implements FuenteDocumento
 
     public function etiqueta(): string
     {
-        return $this->finiquitos->tipoDe($this->finiquito)->etiqueta();
+        return TipoFiniquito::Finiquito->etiqueta();
     }
 
     public function puedeEditar(User $actor): bool

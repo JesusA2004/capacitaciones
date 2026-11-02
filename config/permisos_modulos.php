@@ -164,7 +164,7 @@ return [
             ],
         ],
         'puestos' => [
-            'etiqueta' => 'Puestos y tabulador',
+            'etiqueta' => 'Puestos y salarios · catálogo',
             'grupo' => 'Organización',
             'etapa' => 'organizacion',
             'acceso' => 'puestos.administrar',
@@ -176,7 +176,7 @@ return [
             ],
         ],
         'salarios' => [
-            'etiqueta' => 'Administración de salarios',
+            'etiqueta' => 'Puestos y salarios · sueldos y tabulador',
             'grupo' => 'Organización',
             'etapa' => 'organizacion',
             'acceso' => 'salarios.ver',

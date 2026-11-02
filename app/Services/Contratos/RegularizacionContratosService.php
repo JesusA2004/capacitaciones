@@ -351,7 +351,7 @@ class RegularizacionContratosService
         if ($inicial === null && (int) ($puesto->meses_periodo_prueba ?? 0) < 1) {
             $bloqueos[] = [
                 'etiqueta' => 'Duración del periodo de prueba del puesto',
-                'detalle' => sprintf('El puesto «%s» no tiene duración de periodo de prueba: captúrala en Organización → Puestos y tabulador.', $puesto->nombre ?? 'sin puesto'),
+                'detalle' => sprintf('El puesto «%s» no tiene duración de periodo de prueba: captúrala en Organización → Puestos y salarios.', $puesto->nombre ?? 'sin puesto'),
                 'configurar_url' => $puesto !== null ? route('administracion.puestos.index', ['busqueda' => $puesto->nombre], false) : null,
             ];
         }

@@ -12,6 +12,7 @@ use App\Enums\TipoFiniquito;
 use App\Enums\TipoFormatoOficial;
 use App\Models\Colaborador;
 use App\Models\DocumentType;
+use App\Models\FiniquitoAjuste;
 use App\Models\FiniquitoCalculo;
 use App\Models\FiniquitoConcepto;
 use App\Models\GeneratedDocument;
@@ -96,7 +97,7 @@ class FiniquitoService
                 'adeudos' => 0,
                 'total_ajustado' => $automaticos['total_calculado'],
                 'estado' => EstadoFiniquito::Borrador->value,
-                'tipo_documento' => $this->tipoPropuesto($solicitud),
+                'tipo_documento' => TipoFiniquito::Finiquito,
             ]);
 
             $this->registrarHistorial($solicitud, $actor, 'finiquito_calculado');
@@ -136,8 +137,8 @@ class FiniquitoService
                 'total_ajustado' => round($totalAjustado, 2),
                 'estado' => EstadoFiniquito::Borrador->value,
                 'revisado_por_id' => null,
-                // Recalcular vuelve a proponer el tipo según la causal vigente.
-                'tipo_documento' => $this->tipoPropuesto($solicitud),
+                // En PEOPLE no existen liquidaciones: recalcular normaliza el tipo.
+                'tipo_documento' => TipoFiniquito::Finiquito,
             ]);
 
             $this->registrarHistorial($solicitud, $actor, 'finiquito_recalculado');
@@ -183,49 +184,6 @@ class FiniquitoService
     }
 
     /**
-     * Tipo que se PROPONE según el catálogo: la causal marcada como «Implica
-     * indemnización» genera liquidación. Es clasificación con revisión de
-     * RH/Jurídico (cambiarTipo() y los ajustes por concepto), no resolución legal.
-     */
-    public function tipoPropuesto(SolicitudInterna $solicitud): TipoFiniquito
-    {
-        return $solicitud->causalRotacion?->implica_indemnizacion === true ? TipoFiniquito::Liquidacion : TipoFiniquito::Finiquito;
-    }
-
-    /**
-     * Tipo de un finiquito. Los calculados antes de existir la marca no se
-     * reescriben: se derivan de su causal y de si llevan indemnización.
-     */
-    public function tipoDe(FiniquitoCalculo $finiquito): TipoFiniquito
-    {
-        if ($finiquito->tipo_documento !== null) {
-            return $finiquito->tipo_documento;
-        }
-
-        return (float) $finiquito->indemnizacion > 0 || $finiquito->solicitudInterna->causalRotacion?->implica_indemnizacion === true
-            ? TipoFiniquito::Liquidacion
-            : TipoFiniquito::Finiquito;
-    }
-
-    /**
-     * RH/Jurídico corrige el tipo propuesto para el supuesto concreto, con
-     * motivo en la bitácora. No mueve montos: la indemnización se ajusta por
-     * concepto. Un cambio obliga a revisar de nuevo.
-     */
-    public function cambiarTipo(FiniquitoCalculo $finiquito, TipoFiniquito $tipo, string $motivo, User $actor): FiniquitoCalculo
-    {
-        $this->asegurarNoFirmado($finiquito);
-        $anterior = $this->tipoDe($finiquito);
-
-        return DB::transaction(function () use ($finiquito, $tipo, $motivo, $actor, $anterior): FiniquitoCalculo {
-            $finiquito->update(['tipo_documento' => $tipo, 'estado' => EstadoFiniquito::Borrador->value, 'revisado_por_id' => null]);
-            $this->registrarHistorial($finiquito->solicitudInterna, $actor, 'finiquito_tipo', sprintf('%s → %s. %s', $anterior->etiqueta(), $tipo->etiqueta(), trim($motivo)));
-
-            return $finiquito->refresh();
-        });
-    }
-
-    /**
      * Bitácora de ajustes con importe anterior y actualizado, más reciente primero.
      *
      * @return list<array{concepto: string, anterior: float, actualizado: float, motivo: string, usuario: string|null, fecha: string|null}>
@@ -267,7 +225,6 @@ class FiniquitoService
             'aguinaldo_proporcional' => ['clave' => '002', 'concepto' => 'Aguinaldo proporcional', 'tipo' => TipoConceptoNomina::Percepcion, 'campo' => 'aguinaldo_proporcional', 'siempre' => true],
             'vacaciones_proporcionales' => ['clave' => '003', 'concepto' => 'Vacaciones proporcionales', 'tipo' => TipoConceptoNomina::Percepcion, 'campo' => 'vacaciones_pendientes_pago', 'siempre' => true],
             'prima_vacacional' => ['clave' => '004', 'concepto' => sprintf('Prima vacacional (%d%%)', (int) config('finiquitos.prima_vacacional_porcentaje')), 'tipo' => TipoConceptoNomina::Percepcion, 'campo' => 'prima_vacacional', 'siempre' => true],
-            'indemnizacion' => ['clave' => '005', 'concepto' => 'Indemnización', 'tipo' => TipoConceptoNomina::Percepcion, 'campo' => 'indemnizacion', 'siempre' => false],
             'bonos_extra' => ['clave' => '006', 'concepto' => 'Bonos extra', 'tipo' => TipoConceptoNomina::Percepcion, 'campo' => 'bonos_extra', 'siempre' => false],
             'isr_retenido' => ['clave' => '101', 'concepto' => 'ISR retenido', 'tipo' => TipoConceptoNomina::Deduccion, 'campo' => 'isr_retenido', 'siempre' => true],
             'otras_deducciones' => ['clave' => '102', 'concepto' => 'Otras deducciones', 'tipo' => TipoConceptoNomina::Deduccion, 'campo' => 'descuentos', 'siempre' => true],
@@ -342,6 +299,16 @@ class FiniquitoService
             ];
         }
 
+        // En PEOPLE no existen liquidaciones: la indemnización (005) ya no es
+        // un concepto. Solo un finiquito firmado o pagado antes de esta regla
+        // la conserva, de solo lectura, para que su desglose cuadre con el
+        // documento entregado (nunca se reescribe un documento firmado).
+        $indemnizacionHistorica = $this->indemnizacionHistorica($finiquito, $vigentes->get('indemnizacion'));
+
+        if ($indemnizacionHistorica > 0) {
+            $renglones[] = ['id' => null, 'clave' => '005', 'concepto_clave' => null, 'concepto' => 'Indemnización (registro histórico)', 'tipo' => TipoConceptoNomina::Percepcion->value, 'cantidad' => 1.0, 'dias' => null, 'importe' => $indemnizacionHistorica, 'valor_calculado' => null, 'ajustado' => false, 'ajuste' => null, 'observaciones' => 'Capturada antes de que PEOPLE dejara de manejar liquidaciones.', 'origen' => 'historico', 'editable' => false];
+        }
+
         $siguiente = ['percepcion' => 7, 'deduccion' => 104];
 
         foreach ($finiquito->otros_conceptos ?? [] as $nombre => $valor) {
@@ -378,6 +345,19 @@ class FiniquitoService
         usort($renglones, fn (array $a, array $b): int => [$a['tipo'] === 'deduccion', $a['clave']] <=> [$b['tipo'] === 'deduccion', $b['clave']]);
 
         return $renglones;
+    }
+
+    /**
+     * Importe de indemnización de un finiquito ya firmado o pagado antes de
+     * que PEOPLE dejara de manejar liquidaciones (0 en cualquier otro caso).
+     */
+    private function indemnizacionHistorica(FiniquitoCalculo $finiquito, ?FiniquitoAjuste $ajuste): float
+    {
+        if (! in_array($finiquito->estado, [EstadoFiniquito::Firmado, EstadoFiniquito::Pagado], true)) {
+            return 0.0;
+        }
+
+        return round($ajuste !== null ? (float) $ajuste->valor_final : (float) $finiquito->indemnizacion, 2);
     }
 
     /**
@@ -575,7 +555,7 @@ class FiniquitoService
             'adeudos' => 0,
             'total_ajustado' => $automaticos['total_calculado'],
             'estado' => EstadoFiniquito::Borrador->value,
-            'tipo_documento' => $this->tipoPropuesto($solicitud),
+            'tipo_documento' => TipoFiniquito::Finiquito,
         ]);
         $finiquito->setRelation('colaborador', $colaborador);
         $finiquito->setRelation('solicitudInterna', $solicitud);
@@ -1260,9 +1240,10 @@ class FiniquitoService
         $diasAguinaldo = (int) config('finiquitos.dias_aguinaldo');
         $aguinaldoProporcional = round($diasAguinaldo * $diasTrabajadosAnio / 365 * $sueldoDiario, 2);
 
-        $indemnizacion = $this->calcularIndemnizacion($solicitud, $antiguedadAnios, $sueldoDiario);
-
-        $totalCalculado = round($sueldoPendiente + $vacacionesPendientesPago + $primaVacacional + $aguinaldoProporcional + $indemnizacion, 2);
+        // En PEOPLE no existen liquidaciones: toda baja (también bajo
+        // desempeño o una causal grave, sustentadas con actas) se cierra con
+        // finiquito, nunca con indemnización ni gratificación.
+        $totalCalculado = round($sueldoPendiente + $vacacionesPendientesPago + $primaVacacional + $aguinaldoProporcional, 2);
 
         return [
             'fecha_ingreso' => $fechaIngreso->toDateString(),
@@ -1279,7 +1260,7 @@ class FiniquitoService
             'prima_vacacional' => $primaVacacional,
             'aguinaldo_proporcional' => $aguinaldoProporcional,
             'sueldo_pendiente' => $sueldoPendiente,
-            'indemnizacion' => $indemnizacion,
+            'indemnizacion' => 0.0,
             'total_calculado' => $totalCalculado,
         ];
     }
@@ -1316,40 +1297,6 @@ class FiniquitoService
     public function diasVacaciones(FiniquitoCalculo $finiquito): float
     {
         return round($finiquito->vacaciones_pendientes + (float) $finiquito->vacaciones_proporcionales, 2);
-    }
-
-    /**
-     * Estimación configurable, no un mínimo de ley fijo (ver
-     * config/finiquitos.php): solo aplica si la baja no es renuncia
-     * voluntaria y la política de indemnización está habilitada.
-     */
-    private function calcularIndemnizacion(SolicitudInterna $solicitud, int $antiguedadAnios, float $sueldoDiario): float
-    {
-        if (! config('finiquitos.indemnizacion_habilitada')) {
-            return 0.0;
-        }
-
-        // Decide el TIPO (renuncia nunca) y, dentro del tipo, la causal de
-        // rotación (p. ej. abandono de trabajo la excluye).
-        if ($solicitud->tipo_baja === null || ! $solicitud->tipo_baja->contemplaIndemnizacion()) {
-            return 0.0;
-        }
-
-        $causal = $solicitud->causalRotacion;
-
-        if ($causal?->excluye_indemnizacion === true) {
-            return 0.0;
-        }
-
-        // Con causal del catálogo, manda su marca «Implica indemnización». Sin
-        // causal (bajas anteriores al catálogo) se conserva la regla por tipo.
-        if ($causal !== null && ! $causal->implica_indemnizacion) {
-            return 0.0;
-        }
-
-        $diasPorAnio = (int) config('finiquitos.dias_indemnizacion_por_anio');
-
-        return round($diasPorAnio * $antiguedadAnios * $sueldoDiario, 2);
     }
 
     /**

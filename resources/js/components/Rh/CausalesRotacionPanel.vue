@@ -42,7 +42,8 @@ import type {
  * Catálogo de causales de baja (RN-15, solo RH): dos niveles — forma de
  * salida (Renuncia voluntaria / No renovación / Rescisión) y su causal con
  * clave (RV-01…), ayuda «cuándo usarla», integrar expediente probatorio,
- * implica indemnización, comentario obligatorio y alerta. Las causales NUNCA se
+ * comentario obligatorio y alerta. Ninguna causal genera indemnización: toda
+ * baja se cierra con finiquito. Las causales NUNCA se
  * borran: se desactivan y su uso se conserva. Es la pestaña «Catálogo de causales»
  * de Bajas. Cada forma admite subcatálogos que RH captura (p. ej. «Pensión» en
  * Otras terminaciones). La autorización real vive en CausalRotacionPolicy.
@@ -116,8 +117,6 @@ const form = useForm({
     comentario_obligatorio: false,
     alerta: '',
     fundamento_legal: '',
-    excluye_indemnizacion: false,
-    implica_indemnizacion: false,
     activo: true,
 });
 
@@ -135,8 +134,6 @@ function nueva(tipo: string, grupoId: number | null = null) {
     form.comentario_obligatorio =
         tipo === 'rescision' || tipo === 'otra_terminacion';
     form.alerta = '';
-    form.excluye_indemnizacion = false;
-    form.implica_indemnizacion = false;
     form.activo = true;
     abierto.value = true;
 }
@@ -153,8 +150,6 @@ function editar(c: CausalRotacionAdmin) {
     form.comentario_obligatorio = c.comentario_obligatorio;
     form.alerta = c.alerta ?? '';
     form.fundamento_legal = c.fundamento_legal ?? '';
-    form.excluye_indemnizacion = c.excluye_indemnizacion;
-    form.implica_indemnizacion = c.implica_indemnizacion;
     form.activo = c.activo;
     abierto.value = true;
 }
@@ -391,11 +386,6 @@ function alternarGrupo(g: CausalGrupoAdmin) {
                                                 tono="oro"
                                             />
                                             <ChipEstado
-                                                v-if="c.implica_indemnizacion"
-                                                etiqueta="Implica indemnización"
-                                                tono="peligro"
-                                            />
-                                            <ChipEstado
                                                 v-if="c.comentario_obligatorio"
                                                 etiqueta="Comentario obligatorio"
                                                 tono="neutro"
@@ -405,11 +395,6 @@ function alternarGrupo(g: CausalGrupoAdmin) {
                                                 etiqueta="Alerta"
                                                 tono="alerta"
                                             />
-                                            <Badge
-                                                v-if="c.excluye_indemnizacion"
-                                                variant="outline"
-                                                >Sin indemnización</Badge
-                                            >
                                         </p>
                                         <p
                                             class="text-xs text-[var(--mrl-texto-suave)]"
@@ -521,11 +506,6 @@ function alternarGrupo(g: CausalGrupoAdmin) {
                                             tono="oro"
                                         />
                                         <ChipEstado
-                                            v-if="c.implica_indemnizacion"
-                                            etiqueta="Implica indemnización"
-                                            tono="peligro"
-                                        />
-                                        <ChipEstado
                                             v-if="c.comentario_obligatorio"
                                             etiqueta="Comentario obligatorio"
                                             tono="neutro"
@@ -535,11 +515,6 @@ function alternarGrupo(g: CausalGrupoAdmin) {
                                             etiqueta="Alerta"
                                             tono="alerta"
                                         />
-                                        <Badge
-                                            v-if="c.excluye_indemnizacion"
-                                            variant="outline"
-                                            >Sin indemnización</Badge
-                                        >
                                     </p>
                                     <p
                                         class="text-xs text-[var(--mrl-texto-suave)]"
@@ -642,9 +617,9 @@ function alternarGrupo(g: CausalGrupoAdmin) {
                 una autorización.
             </p>
             <p class="mb-1">
-                <ChipEstado etiqueta="Implica indemnización" tono="peligro" />
-                el finiquito se propone como liquidación, con revisión de
-                RH/Jurídico.
+                Ninguna causal genera indemnización ni gratificación: toda baja
+                se cierra con <strong>finiquito</strong> (las actas sustentan
+                las bajas por bajo desempeño o por una causal grave).
             </p>
             <p>
                 <ChipEstado etiqueta="Comentario obligatorio" tono="neutro" />
@@ -761,23 +736,8 @@ function alternarGrupo(g: CausalGrupoAdmin) {
                     >
                 </label>
                 <label class="flex items-start gap-2 text-sm">
-                    <Casilla v-model="form.implica_indemnizacion" />
-                    <span
-                        >Implica indemnización: el finiquito se calcula como
-                        liquidación (sujeto a validación jurídica de cada
-                        caso)</span
-                    >
-                </label>
-                <label class="flex items-start gap-2 text-sm">
                     <Casilla v-model="form.comentario_obligatorio" />
                     <span>Comentario obligatorio (mínimo 20 caracteres)</span>
-                </label>
-                <label class="flex items-start gap-2 text-sm">
-                    <Casilla v-model="form.excluye_indemnizacion" />
-                    <span
-                        >No estimar indemnización en el finiquito (p. ej. faltas
-                        o abandono). La renuncia nunca la estima.</span
-                    >
                 </label>
                 <label class="flex items-center gap-2 text-sm">
                     <Casilla v-model="form.activo" />

@@ -196,7 +196,7 @@ class ConstructorEnlaces
 
     public function tabulador(User $v): ?string
     {
-        return $v->can('salarios.ver') ? $this->ruta('salarios.index') : null;
+        return $v->can('salarios.ver') ? $this->ruta('administracion.puestos.index') : null;
     }
 
     public function reportes(User $v): ?string

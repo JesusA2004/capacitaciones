@@ -44,8 +44,8 @@ return [
 
     /*
     | Causales (clave => datos). `ayuda` = «Cuándo usarla» (se muestra debajo
-    | del combo). `excluye_indemnizacion`: el finiquito no estima
-    | indemnización para esa causal aunque la forma la contemple.
+    | del combo). En PEOPLE no existen liquidaciones: ninguna causal genera
+    | indemnización ni gratificación; toda baja se cierra con finiquito.
     */
     'causales' => [
         'RV-01' => ['forma' => 'RV', 'nombre' => 'Mejor oferta laboral o salarial', 'ayuda' => 'Se va a otro empleo con mejor sueldo, mejor puesto o mejor oportunidad.', 'requiere_juridico' => false, 'comentario_obligatorio' => false, 'alerta' => null],
@@ -54,20 +54,20 @@ return [
         'RV-04' => ['forma' => 'RV', 'nombre' => 'Relación con el jefe o clima laboral', 'ayuda' => 'Conflicto con el jefe inmediato, malos tratos, acoso o mal ambiente. Genera alerta a RH.', 'requiere_juridico' => false, 'comentario_obligatorio' => false, 'alerta' => 'Alerta a RH: entrevista de salida obligatoria por RH y revisión conforme a NOM-035'],
         'RV-05' => ['forma' => 'RV', 'nombre' => 'Motivos personales o familiares', 'ayuda' => 'Familia, salud propia, cambio de residencia o motivo personal que no desea explicar. El detalle va en comentarios.', 'requiere_juridico' => false, 'comentario_obligatorio' => true, 'alerta' => null],
         'RV-06' => ['forma' => 'RV', 'nombre' => 'Estudios o proyecto propio', 'ayuda' => 'Se va a estudiar, emprender un negocio propio o familiar, o busca un crecimiento que aquí no tuvo.', 'requiere_juridico' => false, 'comentario_obligatorio' => false, 'alerta' => null],
-        'NR-01' => ['forma' => 'NR', 'nombre' => 'Bajo desempeño', 'ayuda' => 'No cumplió metas de colocación, cobranza o productividad de forma reiterada, con seguimiento documentado.', 'requiere_juridico' => true, 'comentario_obligatorio' => false, 'alerta' => null, 'implica_indemnizacion' => true],
+        'NR-01' => ['forma' => 'NR', 'nombre' => 'Bajo desempeño', 'ayuda' => 'No cumplió metas de colocación, cobranza o productividad de forma reiterada, con seguimiento documentado.', 'requiere_juridico' => true, 'comentario_obligatorio' => false, 'alerta' => null],
         'NR-02' => ['forma' => 'NR', 'nombre' => 'No aprobó periodo de prueba / perfil no idóneo', 'ayuda' => 'Durante el periodo de prueba se detecta que no cubre el perfil: malas referencias, documentación incompleta, no apto para el puesto.', 'requiere_juridico' => false, 'comentario_obligatorio' => false, 'alerta' => null],
-        'NR-03' => ['forma' => 'NR', 'nombre' => 'Actitud o conflictos con el equipo', 'ayuda' => 'Conflictos recurrentes o mala actitud, sin una falta grave documentada.', 'requiere_juridico' => true, 'comentario_obligatorio' => false, 'alerta' => null, 'implica_indemnizacion' => true],
+        'NR-03' => ['forma' => 'NR', 'nombre' => 'Actitud o conflictos con el equipo', 'ayuda' => 'Conflictos recurrentes o mala actitud, sin una falta grave documentada.', 'requiere_juridico' => true, 'comentario_obligatorio' => false, 'alerta' => null],
         'NR-04' => ['forma' => 'NR', 'nombre' => 'Término de contrato temporal o suplencia', 'ayuda' => 'Concluye el contrato por tiempo determinado o la cobertura de una incapacidad.', 'requiere_juridico' => false, 'comentario_obligatorio' => false, 'alerta' => null],
-        'NR-05' => ['forma' => 'NR', 'nombre' => 'Reestructura o recorte de plantilla', 'ayuda' => 'La empresa elimina el puesto o reduce la plantilla del área.', 'requiere_juridico' => true, 'comentario_obligatorio' => false, 'alerta' => null, 'implica_indemnizacion' => true],
-        'NR-06' => ['forma' => 'NR', 'nombre' => 'Cierre de sucursal o unidad de negocio', 'ayuda' => 'Cierre definitivo de la sucursal o de la empresa.', 'requiere_juridico' => true, 'comentario_obligatorio' => false, 'alerta' => null, 'implica_indemnizacion' => true],
-        'RE-01' => ['forma' => 'RE', 'nombre' => 'Faltas injustificadas o abandono de empleo', 'ayuda' => 'Más de 3 faltas en 30 días sin permiso ni justificación, o deja de presentarse (art. 47, fr. X).', 'requiere_juridico' => true, 'comentario_obligatorio' => true, 'alerta' => null, 'excluye_indemnizacion' => true],
+        'NR-05' => ['forma' => 'NR', 'nombre' => 'Reestructura o recorte de plantilla', 'ayuda' => 'La empresa elimina el puesto o reduce la plantilla del área.', 'requiere_juridico' => true, 'comentario_obligatorio' => false, 'alerta' => null],
+        'NR-06' => ['forma' => 'NR', 'nombre' => 'Cierre de sucursal o unidad de negocio', 'ayuda' => 'Cierre definitivo de la sucursal o de la empresa.', 'requiere_juridico' => true, 'comentario_obligatorio' => false, 'alerta' => null],
+        'RE-01' => ['forma' => 'RE', 'nombre' => 'Faltas injustificadas o abandono de empleo', 'ayuda' => 'Más de 3 faltas en 30 días sin permiso ni justificación, o deja de presentarse (art. 47, fr. X).', 'requiere_juridico' => true, 'comentario_obligatorio' => true, 'alerta' => null],
         'RE-02' => ['forma' => 'RE', 'nombre' => 'Faltantes en caja o cartera (desfaces)', 'ayuda' => 'Diferencias de efectivo o de cartera detectadas en arqueo o auditoría.', 'requiere_juridico' => true, 'comentario_obligatorio' => true, 'alerta' => 'Aviso a Contraloría'],
         'RE-03' => ['forma' => 'RE', 'nombre' => 'Falta de probidad, robo o fraude', 'ayuda' => 'Robo, fraude, simulación de asalto, alteración de documentos, préstamos o créditos indebidos a clientes (art. 47, fr. II).', 'requiere_juridico' => true, 'comentario_obligatorio' => true, 'alerta' => 'Aviso a Contraloría y Jurídico'],
         'RE-04' => ['forma' => 'RE', 'nombre' => 'Alcohol en horario laboral', 'ayuda' => 'Se presenta en estado de ebriedad o consume alcohol en el trabajo (art. 47, fr. XIII).', 'requiere_juridico' => true, 'comentario_obligatorio' => true, 'alerta' => null],
         'RE-05' => ['forma' => 'RE', 'nombre' => 'Incumplimiento de reglamento o políticas', 'ayuda' => 'Malas prácticas, violación de confidencialidad, filtración de información, conflicto de interés o incumplimiento de políticas de crédito.', 'requiere_juridico' => true, 'comentario_obligatorio' => true, 'alerta' => null],
         // OT — Otras terminaciones (causa ajena a las partes). Generan una
-        // constancia según el caso (no carta/convenio/aviso) y NO se fuerzan a
-        // liquidación; sus flujos específicos (beneficiario en fallecimiento,
+        // constancia según el caso (no carta/convenio/aviso) y se cierran con
+        // finiquito; sus flujos específicos (beneficiario en fallecimiento,
         // pensión del IMSS en incapacidad permanente) los define RH/Jurídico.
         'OT-01' => ['forma' => 'OT', 'nombre' => 'Fallecimiento', 'ayuda' => 'El colaborador fallece. El finiquito se entrega a los beneficiarios conforme a la ley; adjunta el acta de defunción.', 'requiere_juridico' => false, 'comentario_obligatorio' => true, 'alerta' => null],
         'OT-02' => ['forma' => 'OT', 'nombre' => 'Incapacidad permanente total', 'ayuda' => 'El IMSS dictamina incapacidad permanente total que impide continuar laborando (ST-3). Adjunta el dictamen.', 'requiere_juridico' => false, 'comentario_obligatorio' => true, 'alerta' => null],
@@ -94,7 +94,7 @@ return [
         'RV.entrevista_salida' => ['forma' => 'RV', 'nombre' => 'Entrevista de salida'],
         'RV.finiquito' => ['forma' => 'RV', 'nombre' => 'Finiquito firmado', 'sistema' => 'finiquito'],
         'NR.convenio_o_aviso' => ['forma' => 'NR', 'nombre' => 'Convenio de terminación o aviso de término de contrato', 'sistema' => 'aviso_terminacion'],
-        'NR.finiquito' => ['forma' => 'NR', 'nombre' => 'Finiquito o liquidación firmado', 'sistema' => 'finiquito'],
+        'NR.finiquito' => ['forma' => 'NR', 'nombre' => 'Finiquito firmado', 'sistema' => 'finiquito'],
         'RE.acta_administrativa' => ['forma' => 'RE', 'nombre' => 'Acta administrativa con testigos'],
         'RE.aviso_rescision' => ['forma' => 'RE', 'nombre' => 'Aviso de rescisión entregado'],
         'RE.finiquito' => ['forma' => 'RE', 'nombre' => 'Finiquito firmado', 'sistema' => 'finiquito'],

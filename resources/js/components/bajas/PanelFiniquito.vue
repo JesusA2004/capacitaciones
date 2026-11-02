@@ -235,25 +235,6 @@ const erroresCorreccion = computed(() =>
     Object.values(formCorreccion.errors as Record<string, string>),
 );
 
-// ── Cambio de tipo ──
-const tipoAbierto = ref(false);
-const formTipo = useForm({ tipo: '', motivo: '' });
-
-function abrirTipo() {
-    formTipo.reset();
-    formTipo.clearErrors();
-    formTipo.tipo =
-        props.finiquito.tipo === 'liquidacion' ? 'finiquito' : 'liquidacion';
-    tipoAbierto.value = true;
-}
-
-function guardarTipo() {
-    formTipo.post(rutasFiniquitos.tipo.url(props.finiquito.id), {
-        preserveScroll: true,
-        onSuccess: () => (tipoAbierto.value = false),
-    });
-}
-
 // ── Registrar pago ──
 const pagoAbierto = ref(false);
 const formPago = useForm({ fecha: '', forma_pago: '', comentario: '' });
@@ -277,8 +258,7 @@ function guardarPago() {
             <header class="flex flex-wrap items-start justify-between gap-2">
                 <div class="min-w-0">
                     <h3 class="text-base font-semibold">
-                        {{ finiquito.tipo_etiqueta }} ·
-                        {{ finiquito.colaborador }}
+                        Finiquito · {{ finiquito.colaborador }}
                     </h3>
                     <p class="text-xs text-muted-foreground">
                         {{ finiquito.forma_etiqueta ?? '—' }} · ingreso
@@ -358,8 +338,7 @@ function guardarPago() {
                     <a
                         :href="rutasFiniquitos.recibo.url(finiquito.id)"
                         target="_blank"
-                        ><Download class="size-4" />Recibo de
-                        {{ finiquito.tipo_etiqueta.toLowerCase() }} (PDF)</a
+                        ><Download class="size-4" />Recibo de finiquito (PDF)</a
                     >
                 </Button>
                 <label
@@ -389,35 +368,18 @@ function guardarPago() {
                 class="flex flex-col gap-2 rounded-2xl border border-[var(--mrl-dorado)]/40 bg-crema/40 p-4 text-sm"
             >
                 <h3 class="text-base font-semibold">
-                    ¿Finiquito o liquidación?
+                    Qué incluye el finiquito
                 </h3>
                 <p>
-                    Se propone con la causal: las marcadas como
-                    <strong>«Implica indemnización»</strong> generan una
-                    <strong>liquidación</strong>.
-                </p>
-                <p
-                    v-if="finiquito.advertencia_liquidacion"
-                    class="rounded-xl bg-warning-soft px-3 py-2 text-xs text-warning"
-                >
-                    {{ finiquito.advertencia_liquidacion }}
+                    Toda baja se cierra con <strong>finiquito</strong>: sueldo
+                    pendiente, vacaciones, prima vacacional, aguinaldo
+                    proporcional y bonos extra si aplican, menos las
+                    deducciones. No incluye indemnización ni gratificación.
                 </p>
                 <p v-if="finiquito.causal" class="text-xs">
                     Causal: {{ finiquito.causal }}
                 </p>
                 <div class="flex flex-wrap gap-2">
-                    <Button
-                        v-if="finiquito.puede.cambiar_tipo"
-                        size="sm"
-                        variant="outline"
-                        @click="abrirTipo"
-                        >Cambiar a
-                        {{
-                            finiquito.tipo === 'liquidacion'
-                                ? 'finiquito'
-                                : 'liquidación'
-                        }}</Button
-                    >
                     <Button
                         v-if="enlaceExpediente && finiquito.baja_id"
                         size="sm"
@@ -467,7 +429,7 @@ function guardarPago() {
         <DialogContent class="max-h-[92vh] overflow-y-auto sm:max-w-6xl">
             <DialogHeader>
                 <DialogTitle
-                    >Corregir {{ finiquito.tipo_etiqueta.toLowerCase() }} ·
+                    >Corregir finiquito ·
                     {{ finiquito.colaborador }}</DialogTitle
                 >
                 <DialogDescription
@@ -642,35 +604,6 @@ function guardarPago() {
                     </p>
                 </div>
             </div>
-        </DialogContent>
-    </Dialog>
-
-    <Dialog v-model:open="tipoAbierto">
-        <DialogContent class="sm:max-w-lg">
-            <DialogHeader>
-                <DialogTitle>Cambiar el tipo del documento</DialogTitle>
-                <DialogDescription
-                    >Es una decisión de RH/Jurídico para este caso. No cambia
-                    los montos: la indemnización se corrige por concepto y el
-                    finiquito regresa a «Calculado».</DialogDescription
-                >
-            </DialogHeader>
-            <form class="grid gap-3" @submit.prevent="guardarTipo">
-                <Label for="tipo-motivo">Motivo</Label>
-                <Textarea id="tipo-motivo" v-model="formTipo.motivo" rows="3" />
-                <InputError :message="formTipo.errors.motivo" />
-                <DialogFooter>
-                    <Button
-                        type="button"
-                        variant="outline"
-                        @click="tipoAbierto = false"
-                        >Cancelar</Button
-                    >
-                    <Button type="submit" :disabled="formTipo.processing"
-                        >Cambiar</Button
-                    >
-                </DialogFooter>
-            </form>
         </DialogContent>
     </Dialog>
 

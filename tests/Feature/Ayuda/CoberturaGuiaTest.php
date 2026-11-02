@@ -98,7 +98,7 @@ const SIDEBAR_A_GUIA = [
     'Usuarios y permisos' => ['usuarios'],
     'Sucursales' => ['sucursales'],
     'Departamentos' => ['departamentos'],
-    'Puestos y tabulador' => ['puestos'],
+    'Puestos y salarios' => ['puestos'],
     'Roles y permisos' => ['roles'],
     'Versiones de app' => ['app-releases'],
     'Descriptivos y perfiles' => ['perfiles-puesto'],
@@ -151,7 +151,6 @@ const SIDEBAR_SIN_GUIA = [
     'Mi agenda',
     'Mi bandeja de bajas',
     'Incapacidades',
-    'Administración de salarios',
     'Mis reportes',
     // Pestaña «Catálogo de causales» de Bajas (misma pantalla).
     'Catálogo de bajas',

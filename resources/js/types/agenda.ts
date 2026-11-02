@@ -90,3 +90,25 @@ export type AgendaFiltros = {
     estado: EstadoAgenda | null;
     busqueda: string | null;
 };
+
+/** Nivel del puesto (App\Enums\NivelPuestoEntrevista). */
+export type NivelPuestoAgenda = 'gestor' | 'gerencial' | 'regional' | 'otro';
+
+/** Candidato que se puede agendar (AgendaConsultaService::candidatosAgendables). */
+export type AgendaCandidatoOpcion = {
+    id: number;
+    nombre: string;
+    puesto: string | null;
+    sucursal_id: number | null;
+    sucursal: string | null;
+    /** «Subgerente · Tlaxcala» cuando llegó por una vacante. */
+    vacante: string | null;
+    /** Puesto de sucursal: la cita va a su sucursal y no se pregunta. */
+    sucursal_fija: boolean;
+    nivel: NivelPuestoAgenda;
+    estado_etiqueta: string;
+    tiene_cv: boolean;
+    cv_nombre: string | null;
+    /** Sin permiso de ver la ficha no llega. */
+    cv_url: string | null;
+};

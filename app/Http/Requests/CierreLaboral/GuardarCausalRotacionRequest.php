@@ -34,8 +34,6 @@ class GuardarCausalRotacionRequest extends FormRequest
             'comentario_obligatorio' => ['nullable', 'boolean'],
             'alerta' => ['nullable', 'string', 'max:200'],
             'fundamento_legal' => ['nullable', 'string', 'max:255'],
-            'excluye_indemnizacion' => ['nullable', 'boolean'],
-            'implica_indemnizacion' => ['nullable', 'boolean'],
             'activo' => ['nullable', 'boolean'],
         ];
     }
@@ -69,8 +67,6 @@ class GuardarCausalRotacionRequest extends FormRequest
             'comentario_obligatorio' => $this->has('comentario_obligatorio') ? $this->boolean('comentario_obligatorio') : null,
             'alerta' => $this->filled('alerta') ? (string) $this->validated('alerta') : null,
             'fundamento_legal' => $this->filled('fundamento_legal') ? (string) $this->validated('fundamento_legal') : null,
-            'excluye_indemnizacion' => $this->boolean('excluye_indemnizacion'),
-            'implica_indemnizacion' => $this->boolean('implica_indemnizacion'),
             'activo' => $this->has('activo') ? $this->boolean('activo') : null,
         ];
     }

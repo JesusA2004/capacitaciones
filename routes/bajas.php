@@ -29,7 +29,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('{finiquito}/ajustar', [FiniquitoBajasController::class, 'ajustar'])->name('ajustar');
             Route::post('{finiquito}/vista-previa', [FiniquitoBajasController::class, 'vistaPrevia'])->name('vista-previa')->middleware('throttle:30,1');
             Route::post('{finiquito}/corregir', [FiniquitoBajasController::class, 'corregir'])->name('corregir');
-            Route::post('{finiquito}/tipo', [FiniquitoBajasController::class, 'cambiarTipo'])->name('tipo');
             Route::get('{finiquito}/recibo', [FiniquitoBajasController::class, 'recibo'])->name('recibo')->middleware('throttle:30,1');
             Route::post('{finiquito}/generar-pdf', [FiniquitoBajasController::class, 'generarPdf'])->name('generar-pdf')->middleware('throttle:30,1');
             Route::post('{finiquito}/firmado', [FiniquitoBajasController::class, 'subirFirmado'])->name('firmado')->middleware('throttle:30,1');
@@ -65,10 +64,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('{baja}/documentos/{documento}', [BajaController::class, 'quitarDocumento'])->name('documentos.destroy');
     });
 
-    // Tablero de rotación (Reportes → Rotación de personal).
+    // Reportes → Rotación de personal (docs/ROTACION.md): tablero, histórico
+    // individual, correcciones auditadas, conciliación y exportaciones.
     Route::prefix('reportes/rotacion/tablero')->name('reportes.rotacion.tablero.')->group(function () {
         Route::get('/', [TableroRotacionController::class, 'index'])->name('index');
         Route::get('excel', [TableroRotacionController::class, 'excel'])->name('excel')->middleware('throttle:20,1');
         Route::get('pdf', [TableroRotacionController::class, 'pdf'])->name('pdf')->middleware('throttle:20,1');
+        Route::get('pdf-detallado', [TableroRotacionController::class, 'pdfDetallado'])->name('pdf-detallado')->middleware('throttle:20,1');
+        Route::get('historico/{fuente}/{id}/bitacora', [TableroRotacionController::class, 'bitacora'])->name('bitacora')->whereIn('fuente', ['sistema', 'historico'])->whereNumber('id');
+        Route::post('correcciones/causal', [TableroRotacionController::class, 'corregirCausal'])->name('correcciones.causal');
+        Route::post('correcciones/fecha-ingreso', [TableroRotacionController::class, 'completarFecha'])->name('correcciones.fecha');
+        Route::post('conciliacion/vincular', [TableroRotacionController::class, 'vincular'])->name('conciliacion.vincular');
+        Route::post('conciliacion/estado', [TableroRotacionController::class, 'estadoHistorica'])->name('conciliacion.estado');
+        Route::put('causales/{causal}/mapeo', [TableroRotacionController::class, 'mapearCausal'])->name('causales.mapeo');
+        Route::post('categorias', [TableroRotacionController::class, 'guardarCategoria'])->name('categorias.store');
+        Route::put('categorias/{categoria}', [TableroRotacionController::class, 'guardarCategoria'])->name('categorias.update');
+        // Carga del histórico individual (solo rotacion.cargar = super admin).
+        Route::get('historico/formato', [TableroRotacionController::class, 'formatoHistorico'])->name('historico.formato');
+        Route::post('historico/importar', [TableroRotacionController::class, 'analizarHistorico'])->name('historico.analizar')->middleware('throttle:10,1');
+        Route::post('historico/importar/{importacion}/aplicar', [TableroRotacionController::class, 'aplicarHistorico'])->name('historico.aplicar')->middleware('throttle:10,1');
     });
 });

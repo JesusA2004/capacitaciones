@@ -5,7 +5,7 @@ import type { ArticuloGuia } from '../tipos';
  *  - App\Services\CierreLaboral\CierreLaboralService (7 pasos, acciones y permisos)
  *  - App\Services\Solicitudes\BajaColaboradorService (bloqueo real + vacante)
  *  - App\Services\Colaboradores\AvisoAltaBajaService (RH + Sistemas)
- *  - App\Services\Finiquitos\FiniquitoService (conceptos 001–006, 101–103)
+ *  - App\Services\Finiquitos\FiniquitoService (conceptos 001–004 y 006, 101–103)
  *  - App\Services\CicloLaboral\ReingresoService (misma persona, nuevo ciclo)
  */
 export const ARTICULOS_SALIDA: ArticuloGuia[] = [
@@ -72,7 +72,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
         ],
         documentos: [
             'Renuncia: carta de renuncia firmada, entrevista de salida, finiquito firmado',
-            'No renovación: convenio o aviso de término, finiquito o liquidación firmado',
+            'No renovación: convenio o aviso de término, finiquito firmado',
             'Rescisión: acta administrativa con testigos, aviso de rescisión entregado, finiquito firmado',
             'Adicionales según la causal (evidencia de desempeño, autorización de Dirección General, arqueo, evidencia de la falta)',
         ],
@@ -129,7 +129,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
         proceso: 'baja',
         resumen:
             'PEOPLE calcula sueldo pendiente, aguinaldo, vacaciones, prima vacacional e ISR; RH revisa, ajusta montos y registra la entrega, que cierra la baja.',
-        queEs: 'Es el cálculo del pago final de la persona que se va.',
+        queEs: 'Es el cálculo del pago final de la persona que se va. Toda baja se cierra con finiquito, nunca con liquidación: la empresa no indemniza; las bajas por bajo desempeño o por una causal grave se sustentan con actas.',
         quien: ['rh'],
         antes: [
             'La baja ya está registrada (Bajas o ciclo laboral): el finiquito propuesto se calcula al registrarla.',
@@ -143,7 +143,7 @@ export const ARTICULOS_SALIDA: ArticuloGuia[] = [
             {
                 titulo: 'Revisa los conceptos',
                 detalle:
-                    'Percepciones: sueldo pendiente, aguinaldo proporcional, vacaciones proporcionales, prima vacacional, indemnización y bonos extra (si aplican). Deducciones: ISR retenido, otras deducciones y adeudos.',
+                    'Percepciones: sueldo pendiente, aguinaldo proporcional, vacaciones proporcionales, prima vacacional y bonos extra (si aplican). Deducciones: ISR retenido, otras deducciones y adeudos. En PEOPLE no existen liquidaciones: ninguna baja lleva indemnización ni gratificación.',
             },
             {
                 titulo: 'Ajusta montos',

@@ -10,12 +10,13 @@ import {
     Image,
     Inbox,
     Plus,
+    RefreshCw,
     Upload,
     UserCheck,
     Video,
 } from '@lucide/vue';
 import type { Component } from 'vue';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import AyudaBoton from '@/components/Common/AyudaBoton.vue';
 import InputError from '@/components/InputError.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
@@ -110,19 +111,35 @@ function subir() {
     });
 }
 
-function subirCv(event: Event) {
-    const input = event.target as HTMLInputElement;
-    formCv.cv = input.files?.[0] ?? null;
+/** Con CV cargado, el área para subir otro solo se abre al pedir «Reemplazar». */
+const reemplazandoCv = ref(false);
+const archivosCv = ref<File[]>([]);
+const errorCv = ref('');
+const mostrarCargaCv = computed(
+    () => props.puedeAdjuntar && (!props.expediente.cv || reemplazandoCv.value),
+);
 
-    if (formCv.cv) {
-        formCv.post(cv.url(props.candidatoId), {
-            preserveScroll: true,
-            forceFormData: true,
-        });
+// Se sube al soltarlo: no hay un segundo botón que olvidar.
+watch(archivosCv, (archivos) => {
+    const archivo = archivos[0];
+
+    if (!archivo) {
+        return;
     }
 
-    input.value = '';
-}
+    errorCv.value = '';
+    formCv.cv = archivo;
+    formCv.post(cv.url(props.candidatoId), {
+        preserveScroll: true,
+        forceFormData: true,
+        onSuccess: () => {
+            reemplazandoCv.value = false;
+        },
+        onFinish: () => {
+            archivosCv.value = [];
+        },
+    });
+});
 
 const formBandeja = useForm<{ archivo: string; cv_bandeja?: string }>({
     archivo: '',
@@ -131,7 +148,10 @@ const formBandeja = useForm<{ archivo: string; cv_bandeja?: string }>({
 function tomarDeBandeja() {
     formBandeja.post(desdeBandeja.url(props.candidatoId), {
         preserveScroll: true,
-        onSuccess: () => formBandeja.reset(),
+        onSuccess: () => {
+            formBandeja.reset();
+            reemplazandoCv.value = false;
+        },
     });
 }
 
@@ -226,56 +246,102 @@ const errorArchivos = computed(
                 </span>
             </div>
 
-            <button
+            <div
                 v-if="expediente.cv"
-                type="button"
-                class="flex w-full min-w-0 tarjeta-interactiva items-center gap-3 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-3 text-left"
-                :aria-label="`Ver ${expediente.cv.nombre}`"
-                @click="emit('verCv')"
+                class="flex w-full min-w-0 flex-wrap items-center gap-3 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-3"
             >
-                <span
-                    class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-danger-soft text-danger"
+                <button
+                    type="button"
+                    class="flex min-w-0 flex-1 items-center gap-3 rounded-lg text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    :aria-label="`Ver ${expediente.cv.nombre}`"
+                    @click="emit('verCv')"
                 >
-                    <FileText class="size-5" />
-                </span>
-                <span class="min-w-0 flex-1">
-                    <span class="block truncate text-sm font-medium">{{
-                        expediente.cv.nombre
-                    }}</span>
-                    <span class="block text-xs text-muted-foreground">{{
-                        [
-                            formatoDeArchivo({ nombre: expediente.cv.nombre }),
-                            formatearTamano(expediente.cv.tamano),
-                        ]
-                            .filter(Boolean)
-                            .join(' · ')
-                    }}</span>
-                </span>
-                <span
-                    class="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-primary-foreground"
-                >
-                    <Eye class="size-4" /> Ver CV
-                </span>
-            </button>
+                    <span
+                        class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-danger-soft text-danger"
+                    >
+                        <FileText class="size-5" />
+                    </span>
+                    <span class="min-w-0 flex-1">
+                        <span class="block truncate text-sm font-medium">{{
+                            expediente.cv.nombre
+                        }}</span>
+                        <span class="block text-xs text-muted-foreground">{{
+                            [
+                                formatoDeArchivo({
+                                    nombre: expediente.cv.nombre,
+                                }),
+                                formatearTamano(expediente.cv.tamano),
+                            ]
+                                .filter(Boolean)
+                                .join(' · ')
+                        }}</span>
+                    </span>
+                </button>
+                <div class="flex shrink-0 gap-2">
+                    <Button class="h-10" @click="emit('verCv')">
+                        <Eye class="size-4" /> Ver CV
+                    </Button>
+                    <Button
+                        v-if="puedeAdjuntar"
+                        variant="outline"
+                        class="h-10"
+                        :aria-expanded="reemplazandoCv"
+                        @click="reemplazandoCv = !reemplazandoCv"
+                    >
+                        <RefreshCw class="size-4" />
+                        {{ reemplazandoCv ? 'Conservar este' : 'Reemplazar' }}
+                    </Button>
+                </div>
+            </div>
 
-            <div class="flex flex-col gap-2 @md:flex-row @md:items-start">
-                <label
-                    v-if="puedeAdjuntar"
-                    class="inline-flex h-10 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md border bg-background px-4 text-sm font-medium shadow-xs transition-colors focus-within:ring-2 focus-within:ring-ring hover:bg-accent"
+            <div
+                v-if="mostrarCargaCv"
+                class="grid gap-3 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-3"
+            >
+                <PeopleFileDropzone
+                    v-model="archivosCv"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                    :max-size-mb="limites.max_cv_mb"
+                    :loading="formCv.processing"
+                    :label="
+                        expediente.cv
+                            ? 'Arrastra el CV nuevo aquí'
+                            : 'Arrastra el CV aquí'
+                    "
+                    :hint="`PDF, Word o imagen · Máximo ${limites.max_cv_mb} MB · se guarda al soltarlo`"
+                    @error="(m) => (errorCv = m)"
+                />
+                <div
+                    v-if="formCv.processing"
+                    class="flex flex-col gap-1.5"
+                    role="status"
                 >
-                    <Spinner v-if="formCv.processing" />
-                    <Upload v-else class="size-4" />
-                    {{ expediente.cv ? 'Reemplazar CV' : 'Subir CV' }}
-                    <input
-                        type="file"
-                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
-                        class="sr-only"
-                        @change="subirCv"
+                    <div class="flex items-center justify-between text-sm">
+                        <span class="flex items-center gap-2 font-medium">
+                            <Spinner /> Subiendo CV…
+                        </span>
+                        <span
+                            v-if="formCv.progress"
+                            class="font-bold text-primary tabular-nums"
+                            >{{ formCv.progress.percentage }}%</span
+                        >
+                    </div>
+                    <Progress
+                        :model-value="formCv.progress?.percentage ?? 0"
+                        class="h-2"
                     />
-                </label>
+                </div>
+                <InputError :message="errorCv || formCv.errors.cv" />
 
                 <!-- CV descargado de WhatsApp: ya está en la bandeja del NAS. -->
-                <div v-if="puedeAdjuntar" class="grid min-w-0 flex-1 gap-2">
+                <div
+                    class="flex items-center gap-2 text-xs text-muted-foreground"
+                >
+                    <span class="h-px flex-1 bg-border" />
+                    o tómalo de la bandeja de WhatsApp
+                    <span class="h-px flex-1 bg-border" />
+                </div>
+                <div class="grid min-w-0 gap-2">
                     <BandejaCvSelector v-model="formBandeja.archivo" />
                     <InputError
                         :message="
@@ -299,7 +365,6 @@ const errorArchivos = computed(
                     </Button>
                 </div>
             </div>
-            <InputError :message="formCv.errors.cv" />
         </div>
 
         <!-- Grupos de evidencias -->

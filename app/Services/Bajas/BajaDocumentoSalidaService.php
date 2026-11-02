@@ -381,16 +381,14 @@ class BajaDocumentoSalidaService
 
         $alEmitir = new class($this->registro, $this->proceso, $baja, $documento, $vigentes, $corregidos) implements AlEmitirDocumento
         {
-            /**
-             * @param  array<string, string>  $vigentes
-             * @param  array<string, string>  $corregidos
-             */
             public function __construct(
                 private readonly BajaRegistroService $registro,
                 private readonly DocumentoProcesoService $proceso,
                 private readonly Baja $baja,
                 private readonly DocumentoSalida $salida,
+                /** @var array<string, string> */
                 private readonly array $vigentes,
+                /** @var array<string, string> */
                 private readonly array $corregidos,
             ) {}
 

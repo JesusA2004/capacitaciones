@@ -49,4 +49,14 @@ class PuestoPolicy
     {
         return $usuario->can('puestos.administrar') && $usuario->can('puestos.eliminar');
     }
+
+    /**
+     * «Puestos y salarios → trasladar personas» a otro puesto. Cambiar el
+     * puesto de alguien es editar su expediente: además del catálogo exige
+     * expedientes.editar (MovimientoPuestoService filtra por alcance).
+     */
+    public function moverColaboradores(User $usuario, Puesto $puesto): bool
+    {
+        return $this->update($usuario, $puesto) && $usuario->can('expedientes.editar');
+    }
 }

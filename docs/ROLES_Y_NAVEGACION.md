@@ -56,7 +56,7 @@ El orden es exactamente el ciclo de vida laboral + transversales:
 | | | Bajas y finiquitos (pestañas Documentos —recopilación por persona—, Cierres y finiquitos, Causales) | `cierres.ver` | `rh.cierres.index` |
 | | | Reingresos | `reingresos.solicitar`/`gestionar` | `rh.reingresos.index` |
 | — | **Organización** | Organigrama | `organigrama.ver` | `administracion.jerarquia-puestos.index` |
-| | | Puestos y tabulador | `puestos.administrar` | `administracion.puestos.index` |
+| | | Puestos y salarios | `puestos.administrar` o `salarios.ver` | `administracion.puestos.index` |
 | | | Sucursales | `sucursales.administrar` | `administracion.sucursales.index` |
 | | | Departamentos (catálogo + mover personas en lote entre departamentos) | `departamentos.administrar` (mover: + `expedientes.editar`) | `administracion.departamentos.index` |
 | — | **Reportes** | Reportes de RH (incluye Rotación) | `reportes_rh.ver` | `reportes.index` |

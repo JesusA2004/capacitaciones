@@ -19,7 +19,7 @@ El subgerente solo consulta por defecto. Sin `agenda.ver_datos_candidato`, los c
 | Método y ruta | Cuerpo | Respuesta |
 |---|---|---|
 | `GET /agenda?desde&hasta&sucursal_id&tipo&estado` | Por defecto, de hoy en adelante, sin reprogramadas ni canceladas | `data.dias[] = {fecha, eventos[]}`, `meta.motivos_no_viable[]`, `meta.puede_agendar`, `meta.puede_alta_candidato` |
-| `GET /agenda/opciones` | | `data.sucursales[] = {id, nombre}` del alcance; `data.candidatos[] = {id, nombre, puesto, sucursal_id}`, vacío sin `agenda.agendar` |
+| `GET /agenda/opciones` | | `data.sucursales[] = {id, nombre}` del alcance; `data.candidatos[] = {id, nombre, puesto, sucursal_id, sucursal, vacante, sucursal_fija, nivel, estado_etiqueta, tiene_cv, cv_nombre, cv_url}`, vacío sin `agenda.agendar`. Con `sucursal_fija` no se pregunta la sucursal; con `tiene_cv` no se pide el CV |
 | `GET /agenda/{id}` | | `data` = evento con `historial` |
 | `POST /agenda` | Ver abajo | `201`, o `200` con `repetido: true` si la clave ya existía. `data`, `empalmes[]` |
 | `POST /agenda/{id}/reprogramar` | `fecha`, `hora`, `motivo?` | `data` = la cita NUEVA, `empalmes[]` |
@@ -31,7 +31,7 @@ El subgerente solo consulta por defecto. Sin `agenda.ver_datos_candidato`, los c
 
 ### `POST /agenda`
 
-`sucursal_id`, `tipo` (`entrevista`/`socioeconomico`), `fecha` (`Y-m-d`), `hora` (`H:i`), `candidato_id` **o** `candidato_nuevo {nombre, apellidos?, telefono?, correo?, puesto_objetivo_id?, vacante_id?}`, `notas?`, `domicilio?`, `responsable_user_id?`, `cv?` (multipart), `clave_idempotencia?`.
+`sucursal_id?` (opcional: con puesto de sucursal —Gestor, Subgerente, Gerente— sale de la vacante del candidato y una distinta se rechaza con 422; regionales, corporativo o candidatos sin sucursal la eligen), `tipo` (`entrevista`/`socioeconomico`), `fecha` (`Y-m-d`), `hora` (`H:i`), `candidato_id` **o** `candidato_nuevo {nombre, apellidos?, telefono?, correo?, puesto_objetivo_id?, vacante_id?}`, `notas?`, `domicilio?`, `responsable_user_id?`, `cv?` (multipart; opcional, no se pide si el candidato ya tiene CV), `clave_idempotencia?`.
 
 Genera `clave_idempotencia` (UUID) al abrir el formulario y reutilízala en cada reintento: el mismo envío devuelve la misma cita. La hora es de reloj de México. `origen` lo decide el servidor según la cuenta.
 

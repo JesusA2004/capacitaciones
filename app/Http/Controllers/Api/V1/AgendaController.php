@@ -81,7 +81,7 @@ class AgendaController extends Controller
 
     public function store(AgendarEventoRequest $request): JsonResponse
     {
-        $resultado = $this->agenda->agendar($request->safe()->except(['cv']), $request->user(), $request->file('cv'));
+        $resultado = $this->agenda->agendar($request->safe()->except(['cv', 'cv_bandeja']), $request->user(), $request->file('cv'), $request->string('cv_bandeja')->toString());
 
         return response()->json([
             'data' => $this->consulta->aArray($resultado['evento'], $request->user(), true),

@@ -1,45 +1,43 @@
 <script setup lang="ts">
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, router } from '@inertiajs/vue3';
 import {
     CalendarClock,
     CalendarPlus,
+    CalendarX,
     ChevronLeft,
     ChevronRight,
-    TriangleAlert,
+    FileSpreadsheet,
+    FileText,
+    Search,
+    X,
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import AgendaCalendario from '@/components/agenda/AgendaCalendario.vue';
 import AgendaEventoDialog from '@/components/agenda/AgendaEventoDialog.vue';
+import AgendarEventoDialog from '@/components/agenda/AgendarEventoDialog.vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import EnlaceRegreso from '@/components/flujos/EnlaceRegreso.vue';
-import InputError from '@/components/InputError.vue';
+import ChipEstado from '@/components/people/ChipEstado.vue';
 import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import { Button } from '@/components/ui/button';
 import { ComboboxBuscable } from '@/components/ui/combobox-buscable';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import SelectorVista from '@/components/ui/SelectorVista.vue';
 import { vTablaTarjetas } from '@/lib/tablaTarjetas';
-import { cn } from '@/lib/utils';
-import {
-    empalmes as empalmesRuta,
-    index as agendaIndex,
-    store as agendaStore,
-} from '@/routes/agenda';
+import type { Tono } from '@/lib/tonos';
+import { index as agendaIndex } from '@/routes/agenda';
 import { excel, pdf } from '@/routes/agenda/exportar';
 import type { EnlaceFlujo } from '@/types';
 import type {
+    AgendaCandidatoOpcion,
     AgendaEvento,
     AgendaFiltros,
     AgendaIndicadores,
     AgendaRecord,
-    TipoAgenda,
+    EstadoAgenda,
     VistaAgenda,
 } from '@/types/agenda';
 
@@ -52,22 +50,21 @@ const props = defineProps<{
     candidatoInicial?: { id: number; sucursal_id: number | null } | null;
     regreso?: EnlaceFlujo | null;
     sucursales: { id: number; nombre: string }[];
-    candidatos: {
-        id: number;
-        nombre: string;
-        puesto: string | null;
-        sucursal_id: number | null;
-    }[];
+    candidatos: AgendaCandidatoOpcion[];
     puestos: { id: number; nombre: string }[];
     motivosNoViable: { value: string; etiqueta: string }[];
     estados: { value: string; etiqueta: string }[];
-    puede: { agendar: boolean; alta_candidato: boolean; exportar: boolean };
+    puede: {
+        agendar: boolean;
+        alta_candidato: boolean;
+        exportar: boolean;
+        bandeja_cv?: boolean;
+    };
+    cvConfig?: { max_mb: number; extensiones: string[] } | null;
 }>();
 
 const seleccionado = ref<AgendaEvento | null>(props.eventoAbierto);
 const busqueda = ref(props.filtros.busqueda ?? '');
-const altaRapida = ref(false);
-const empalmes = ref<string[]>([]);
 
 watch(
     () => props.eventoAbierto,
@@ -78,133 +75,8 @@ watch(
     },
 );
 
-function claveNueva(): string {
-    return crypto.randomUUID();
-}
-
-const formulario = useForm<{
-    candidato_id: number | null;
-    candidato_nuevo: {
-        nombre: string;
-        apellidos: string;
-        telefono: string;
-        puesto_objetivo_id: number | null;
-    } | null;
-    sucursal_id: number | null;
-    tipo: TipoAgenda;
-    fecha: string;
-    hora: string;
-    notas: string;
-    domicilio: string;
-    cv: File | null;
-    clave_idempotencia: string;
-}>({
-    // ?candidato= desde su ficha: el backend ya validó que sea agendable.
-    candidato_id: props.candidatoInicial?.id ?? null,
-    candidato_nuevo: null,
-    sucursal_id:
-        props.candidatoInicial?.sucursal_id ?? props.filtros.sucursal_id,
-    tipo: 'entrevista',
-    fecha: '',
-    hora: '',
-    notas: '',
-    domicilio: '',
-    cv: null,
-    clave_idempotencia: claveNueva(),
-});
-
-const candidatoNuevo = ref({
-    nombre: '',
-    apellidos: '',
-    telefono: '',
-    puesto_objetivo_id: null as number | null,
-});
-
-const opcionesCandidato = computed(() =>
-    props.candidatos
-        .filter(
-            (c) =>
-                formulario.sucursal_id === null ||
-                c.sucursal_id === null ||
-                c.sucursal_id === formulario.sucursal_id,
-        )
-        .map((c) => ({
-            value: c.id,
-            label: c.nombre,
-            descripcion: c.puesto ?? undefined,
-        })),
-);
-const opcionesSucursal = computed(() =>
-    props.sucursales.map((s) => ({ value: s.id, label: s.nombre })),
-);
-const opcionesPuesto = computed(() =>
-    props.puestos.map((p) => ({ value: p.id, label: p.nombre })),
-);
-const sucursalElegida = computed(
-    () =>
-        props.sucursales.find((s) => s.id === formulario.sucursal_id)?.nombre ??
-        null,
-);
-
-watch(
-    () => [formulario.sucursal_id, formulario.fecha, formulario.hora] as const,
-    async ([sucursal, fecha, hora]) => {
-        empalmes.value = [];
-
-        if (sucursal === null || fecha === '' || hora === '') {
-            return;
-        }
-
-        const respuesta = await fetch(
-            empalmesRuta.url({ query: { sucursal_id: sucursal, fecha, hora } }),
-            { headers: { Accept: 'application/json' } },
-        );
-
-        if (respuesta.ok) {
-            const datos = (await respuesta.json()) as { empalmes: string[] };
-            empalmes.value = datos.empalmes;
-        }
-    },
-);
-
-function elegirCv(evento: Event): void {
-    formulario.cv = (evento.target as HTMLInputElement).files?.[0] ?? null;
-}
-
-// Desde la ficha (?candidato=) abre directo: a eso venía.
+// Desde la ficha (?candidato=) abre directo con el candidato elegido: a eso venía.
 const agendarAbierto = ref(!!props.candidatoInicial);
-
-function agendar(): void {
-    formulario
-        .transform((datos) => ({
-            ...datos,
-            candidato_id: altaRapida.value ? null : datos.candidato_id,
-            candidato_nuevo: altaRapida.value ? candidatoNuevo.value : null,
-        }))
-        .post(agendaStore.url(), {
-            preserveScroll: true,
-            forceFormData: true,
-            onSuccess: () => {
-                agendarAbierto.value = false;
-                formulario.reset(
-                    'candidato_id',
-                    'fecha',
-                    'hora',
-                    'notas',
-                    'domicilio',
-                    'cv',
-                );
-                formulario.clave_idempotencia = claveNueva();
-                candidatoNuevo.value = {
-                    nombre: '',
-                    apellidos: '',
-                    telefono: '',
-                    puesto_objetivo_id: null,
-                };
-                altaRapida.value = false;
-            },
-        });
-}
 
 function consultaActual(
     cambios: Record<string, unknown> = {},
@@ -220,7 +92,9 @@ function consultaActual(
     };
 
     return Object.fromEntries(
-        Object.entries(base).filter(([, v]) => v !== null && v !== ''),
+        Object.entries(base).filter(
+            ([, v]) => v !== null && v !== undefined && v !== '',
+        ),
     ) as Record<string, string | number>;
 }
 
@@ -230,6 +104,11 @@ function navegar(cambios: Record<string, unknown>): void {
         preserveScroll: true,
         replace: true,
     });
+}
+
+function limpiarBusqueda(): void {
+    busqueda.value = '';
+    navegar({ busqueda: null });
 }
 
 function moverPeriodo(pasos: number): void {
@@ -247,16 +126,44 @@ function moverPeriodo(pasos: number): void {
     navegar({ fecha: `${base.getFullYear()}-${mes}-${dia}` });
 }
 
-const tiposEvento: { v: TipoAgenda; e: string }[] = [
-    { v: 'entrevista', e: 'Entrevista' },
-    { v: 'socioeconomico', e: 'Socioeconómico' },
-];
+function irAHoy(): void {
+    navegar({ fecha: null });
+}
 
 const vistas: { valor: VistaAgenda; etiqueta: string }[] = [
     { valor: 'semana', etiqueta: 'Semana' },
     { valor: 'mes', etiqueta: 'Mes' },
     { valor: 'lista', etiqueta: 'Lista' },
 ];
+
+const vistaActual = computed<VistaAgenda>({
+    get: () => props.filtros.vista,
+    set: (vista) => navegar({ vista }),
+});
+
+const opcionesSucursal = computed(() =>
+    props.sucursales.map((s) => ({ value: s.id, label: s.nombre })),
+);
+const opcionesTipo = [
+    { value: 'entrevista', label: 'Entrevistas' },
+    { value: 'socioeconomico', label: 'Socioeconómicos' },
+];
+const opcionesEstado = computed(() =>
+    props.estados.map((e) => ({ value: e.value, label: e.etiqueta })),
+);
+
+const hayFiltros = computed(
+    () =>
+        !!props.filtros.sucursal_id ||
+        !!props.filtros.tipo ||
+        !!props.filtros.estado ||
+        !!props.filtros.busqueda,
+);
+
+function quitarFiltros(): void {
+    busqueda.value = '';
+    navegar({ sucursal: null, tipo: null, estado: null, busqueda: null });
+}
 
 const tituloPeriodo = computed(() => {
     const formato = new Intl.DateTimeFormat('es-MX', {
@@ -276,6 +183,37 @@ const tituloPeriodo = computed(() => {
     }).format(desde);
 });
 
+const formatoDia = new Intl.DateTimeFormat('es-MX', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+});
+
+function diaCorto(fecha: string): string {
+    return formatoDia.format(new Date(`${fecha}T12:00:00`));
+}
+
+function hora12(hora: string): string {
+    const [h, m] = hora.split(':').map(Number);
+    const sufijo = h < 12 ? 'a. m.' : 'p. m.';
+
+    return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')} ${sufijo}`;
+}
+
+const TONO_ESTADO: Record<EstadoAgenda, Tono> = {
+    programado: 'info',
+    realizado: 'exito',
+    no_asistio: 'peligro',
+    reprogramado: 'alerta',
+    cancelado: 'neutro',
+};
+
+function tonoResultado(resultado: string | null): Tono {
+    return resultado === 'viable' || resultado === 'favorable'
+        ? 'exito'
+        : 'peligro';
+}
+
 function pct(valor: number | null): string {
     return valor === null ? 'Sin datos' : `${valor}%`;
 }
@@ -288,17 +226,21 @@ const consultaExportar = computed(() => ({ query: consultaActual() }));
 
     <div class="pagina-ancha flex flex-col gap-5">
         <CrudPageHeader titulo="Agenda de entrevistas" :icono="CalendarClock">
+            <template v-if="puede.exportar">
+                <Button variant="outline" size="sm" as-child>
+                    <a :href="excel.url(consultaExportar)">
+                        <FileSpreadsheet class="size-4" /> Excel
+                    </a>
+                </Button>
+                <Button variant="outline" size="sm" as-child>
+                    <a :href="pdf.url(consultaExportar)">
+                        <FileText class="size-4" /> PDF
+                    </a>
+                </Button>
+            </template>
             <Button v-if="puede.agendar" @click="agendarAbierto = true">
                 <CalendarPlus class="size-4" /> Agendar evento
             </Button>
-            <template v-if="puede.exportar">
-                <Button variant="outline" size="sm" as-child>
-                    <a :href="excel.url(consultaExportar)">Excel</a>
-                </Button>
-                <Button variant="outline" size="sm" as-child>
-                    <a :href="pdf.url(consultaExportar)">PDF</a>
-                </Button>
-            </template>
         </CrudPageHeader>
         <EnlaceRegreso :regreso="regreso" />
 
@@ -335,176 +277,23 @@ const consultaExportar = computed(() => ({ query: consultaActual() }));
             />
         </div>
 
-        <Dialog v-if="puede.agendar" v-model:open="agendarAbierto">
-            <DialogContent class="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>Agendar evento</DialogTitle>
-                    <DialogDescription>
-                        Queda registrado quién lo agendó.
-                    </DialogDescription>
-                </DialogHeader>
-                <form class="grid gap-3" @submit.prevent="agendar">
-                    <div class="grid gap-1 text-sm">
-                        <span class="font-medium">1 · Sucursal</span>
-                        <ComboboxBuscable
-                            v-model="formulario.sucursal_id"
-                            :opciones="opcionesSucursal"
-                            numerico
-                            placeholder="Elige la sucursal"
-                            aria-label="Sucursal"
-                        />
-                        <InputError :message="formulario.errors.sucursal_id" />
-                        <p
-                            v-if="sucursalElegida"
-                            class="rounded-md bg-salvia px-2 py-1 text-xs"
-                        >
-                            Se notificará en la app a <strong>Gerente</strong> y
-                            <strong>Subgerente</strong> de
-                            {{ sucursalElegida }}.
-                        </p>
-                    </div>
+        <AgendarEventoDialog
+            v-if="puede.agendar"
+            v-model:open="agendarAbierto"
+            :sucursales="sucursales"
+            :candidatos="candidatos"
+            :puestos="puestos"
+            :puede="puede"
+            :cv-config="cvConfig"
+            :candidato-inicial-id="candidatoInicial?.id ?? null"
+            :sucursal-sugerida="filtros.sucursal_id"
+        />
 
-                    <div class="grid gap-1 text-sm">
-                        <span class="font-medium">2 · Candidato</span>
-                        <template v-if="!altaRapida">
-                            <ComboboxBuscable
-                                v-model="formulario.candidato_id"
-                                :opciones="opcionesCandidato"
-                                numerico
-                                placeholder="Busca al candidato"
-                                texto-vacio="Sin candidatos para agendar"
-                                aria-label="Candidato"
-                            />
-                        </template>
-                        <div v-else class="grid gap-2">
-                            <Input
-                                v-model="candidatoNuevo.nombre"
-                                placeholder="Nombre(s)"
-                                aria-label="Nombre"
-                            />
-                            <Input
-                                v-model="candidatoNuevo.apellidos"
-                                placeholder="Apellidos"
-                                aria-label="Apellidos"
-                            />
-                            <Input
-                                v-model="candidatoNuevo.telefono"
-                                placeholder="Teléfono"
-                                aria-label="Teléfono"
-                            />
-                            <ComboboxBuscable
-                                v-model="candidatoNuevo.puesto_objetivo_id"
-                                :opciones="opcionesPuesto"
-                                numerico
-                                limpiable
-                                placeholder="Puesto"
-                                aria-label="Puesto"
-                            />
-                            <InputError
-                                :message="
-                                    (
-                                        formulario.errors as Record<
-                                            string,
-                                            string
-                                        >
-                                    )['candidato_nuevo.nombre']
-                                "
-                            />
-                        </div>
-                        <InputError :message="formulario.errors.candidato_id" />
-                        <button
-                            v-if="puede.alta_candidato"
-                            type="button"
-                            class="text-left text-xs font-medium text-bronce underline"
-                            @click="altaRapida = !altaRapida"
-                        >
-                            {{
-                                altaRapida
-                                    ? 'Elegir de la lista'
-                                    : '+ Registrar candidato nuevo'
-                            }}
-                        </button>
-                    </div>
-
-                    <div class="grid gap-1 text-sm">
-                        <span class="font-medium">3 · Tipo de evento</span>
-                        <div
-                            class="grid grid-cols-2 gap-1 rounded-lg border border-border p-1"
-                        >
-                            <button
-                                v-for="opcion in tiposEvento"
-                                :key="opcion.v"
-                                type="button"
-                                :aria-pressed="formulario.tipo === opcion.v"
-                                :class="
-                                    cn(
-                                        'rounded-md px-2 py-1 text-xs font-medium',
-                                        formulario.tipo === opcion.v &&
-                                            'bg-primary text-primary-foreground',
-                                    )
-                                "
-                                @click="formulario.tipo = opcion.v"
-                            >
-                                {{ opcion.e }}
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-2 text-sm">
-                        <label class="grid gap-1 font-medium">
-                            4 · Fecha
-                            <Input v-model="formulario.fecha" type="date" />
-                        </label>
-                        <label class="grid gap-1 font-medium">
-                            5 · Hora
-                            <Input v-model="formulario.hora" type="time" />
-                        </label>
-                    </div>
-                    <InputError :message="formulario.errors.fecha" />
-                    <InputError :message="formulario.errors.hora" />
-
-                    <p
-                        v-for="aviso in empalmes"
-                        :key="aviso"
-                        class="flex gap-1 rounded-md bg-warning-soft px-2 py-1 text-xs"
-                    >
-                        <TriangleAlert class="size-3 shrink-0" /> {{ aviso }}
-                    </p>
-
-                    <Input
-                        v-if="formulario.tipo === 'socioeconomico'"
-                        v-model="formulario.domicilio"
-                        placeholder="Domicilio de la visita"
-                        aria-label="Domicilio de la visita"
-                    />
-
-                    <label class="grid gap-1 text-sm font-medium">
-                        6 · CV del candidato
-                        <input
-                            type="file"
-                            class="text-xs font-normal"
-                            @change="elegirCv"
-                        />
-                    </label>
-                    <InputError :message="formulario.errors.cv" />
-
-                    <label class="grid gap-1 text-sm font-medium">
-                        Notas para el gerente (opcional)
-                        <Textarea v-model="formulario.notas" rows="2" />
-                    </label>
-
-                    <Button type="submit" :disabled="formulario.processing">
-                        Agendar y notificar
-                    </Button>
-                </form>
-            </DialogContent>
-        </Dialog>
-
-        <div class="flex flex-col gap-4">
-            <section
-                class="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-card p-4"
-            >
-                <div class="flex flex-wrap items-center gap-2">
+        <section
+            class="flex min-w-0 flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-5"
+        >
+            <div class="flex flex-wrap items-center gap-3">
+                <div class="flex items-center gap-1">
                     <Button
                         variant="ghost"
                         size="icon"
@@ -513,7 +302,9 @@ const consultaExportar = computed(() => ({ query: consultaActual() }));
                     >
                         <ChevronLeft class="size-4" />
                     </Button>
-                    <h2 class="font-semibold first-letter:uppercase">
+                    <h2
+                        class="min-w-0 text-base font-semibold first-letter:uppercase"
+                    >
                         {{ tituloPeriodo }}
                     </h2>
                     <Button
@@ -524,222 +315,319 @@ const consultaExportar = computed(() => ({ query: consultaActual() }));
                     >
                         <ChevronRight class="size-4" />
                     </Button>
-                    <div class="ml-auto flex flex-wrap items-center gap-1">
-                        <Button
-                            v-for="vista in vistas"
-                            :key="vista.valor"
-                            size="sm"
-                            :variant="
-                                filtros.vista === vista.valor
-                                    ? 'default'
-                                    : 'outline'
-                            "
-                            @click="navegar({ vista: vista.valor })"
-                        >
-                            {{ vista.etiqueta }}
-                        </Button>
-                        <ComboboxBuscable
-                            :model-value="filtros.sucursal_id"
-                            :opciones="opcionesSucursal"
-                            numerico
-                            limpiable
-                            size="sm"
-                            class="w-48"
-                            placeholder="Todas las sucursales"
-                            aria-label="Filtrar por sucursal"
-                            @update:model-value="
-                                (valor) => navegar({ sucursal: valor })
-                            "
-                        />
-                    </div>
+                    <Button variant="outline" size="sm" @click="irAHoy">
+                        Hoy
+                    </Button>
                 </div>
+                <SelectorVista
+                    v-model="vistaActual"
+                    :opciones="vistas"
+                    etiqueta="Vista de la agenda"
+                    class="ml-auto"
+                />
+            </div>
 
-                <form class="max-w-sm" @submit.prevent="navegar({})">
+            <div
+                class="grid gap-2 rounded-2xl bg-crema/50 p-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))_auto]"
+            >
+                <form
+                    class="relative"
+                    role="search"
+                    @submit.prevent="navegar({})"
+                >
+                    <Search
+                        class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                    />
                     <Input
                         v-model="busqueda"
-                        placeholder="Buscar candidato…"
+                        class="bg-card pr-9 pl-9"
+                        placeholder="Buscar candidato y presiona Enter"
                         aria-label="Buscar candidato"
                     />
+                    <button
+                        v-if="busqueda"
+                        type="button"
+                        class="absolute top-1/2 right-2 flex size-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                        aria-label="Limpiar búsqueda"
+                        @click="limpiarBusqueda"
+                    >
+                        <X class="size-3.5" />
+                    </button>
                 </form>
-
-                <AgendaCalendario
-                    v-if="filtros.vista !== 'lista'"
-                    :vista="filtros.vista"
-                    :ancla="filtros.ancla"
-                    :eventos="eventos"
-                    @abrir="(evento) => (seleccionado = evento)"
+                <ComboboxBuscable
+                    :model-value="filtros.sucursal_id"
+                    :opciones="opcionesSucursal"
+                    numerico
+                    limpiable
+                    clase-boton="bg-card"
+                    placeholder="Todas las sucursales"
+                    aria-label="Filtrar por sucursal"
+                    @update:model-value="
+                        (valor) => navegar({ sucursal: valor })
+                    "
                 />
+                <SelectSimple
+                    :model-value="filtros.tipo"
+                    :opciones="opcionesTipo"
+                    opcion-vacia="Todos los tipos"
+                    placeholder="Todos los tipos"
+                    aria-label="Filtrar por tipo"
+                    class="bg-card"
+                    @update:model-value="(valor) => navegar({ tipo: valor })"
+                />
+                <SelectSimple
+                    :model-value="filtros.estado"
+                    :opciones="opcionesEstado"
+                    opcion-vacia="Todos los estatus"
+                    placeholder="Todos los estatus"
+                    aria-label="Filtrar por estatus"
+                    class="bg-card"
+                    @update:model-value="(valor) => navegar({ estado: valor })"
+                />
+                <Button
+                    v-if="hayFiltros"
+                    variant="ghost"
+                    size="sm"
+                    class="h-9"
+                    @click="quitarFiltros"
+                >
+                    <X class="size-4" /> Quitar filtros
+                </Button>
+            </div>
 
-                <div v-else class="tabla-scroll">
+            <AgendaCalendario
+                v-if="filtros.vista !== 'lista'"
+                :vista="filtros.vista"
+                :ancla="filtros.ancla"
+                :eventos="eventos"
+                @abrir="(evento) => (seleccionado = evento)"
+            />
+
+            <template v-else>
+                <div v-if="eventos.length" class="tabla-scroll">
                     <table
                         v-tabla-tarjetas
-                        class="w-full min-w-[720px] text-sm"
+                        class="w-full min-w-[760px] text-sm"
                     >
-                        <thead class="bg-crema text-left text-xs uppercase">
+                        <thead
+                            class="bg-crema text-left text-xs font-semibold text-muted-foreground uppercase"
+                        >
                             <tr>
-                                <th class="px-2 py-2">Fecha</th>
-                                <th class="px-2 py-2">Tipo</th>
-                                <th class="px-2 py-2">Candidato</th>
-                                <th class="px-2 py-2">Sucursal</th>
-                                <th class="px-2 py-2">Estatus</th>
-                                <th class="px-2 py-2">Resultado</th>
-                                <th class="px-2 py-2">Origen</th>
+                                <th class="rounded-l-xl px-3 py-2.5">Cuándo</th>
+                                <th class="px-3 py-2.5">Candidato</th>
+                                <th class="px-3 py-2.5">Tipo</th>
+                                <th class="px-3 py-2.5">Sucursal</th>
+                                <th class="px-3 py-2.5">Estatus</th>
+                                <th class="px-3 py-2.5">Resultado</th>
+                                <th class="rounded-r-xl px-3 py-2.5">Origen</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr
                                 v-for="evento in eventos"
                                 :key="evento.id"
-                                class="tarjeta-interactiva cursor-pointer border-b border-border"
+                                class="tarjeta-interactiva border-b border-border last:border-0"
+                                tabindex="0"
                                 @click="seleccionado = evento"
+                                @keydown.enter="seleccionado = evento"
                             >
-                                <td class="px-2 py-2">
-                                    {{ evento.fecha }} {{ evento.hora }}
+                                <td class="px-3 py-3 whitespace-nowrap">
+                                    <span
+                                        class="block font-medium first-letter:uppercase"
+                                        >{{ diaCorto(evento.fecha) }}</span
+                                    >
+                                    <span
+                                        class="text-xs text-muted-foreground"
+                                        >{{ hora12(evento.hora) }}</span
+                                    >
                                 </td>
-                                <td class="px-2 py-2">
-                                    {{ evento.tipo_etiqueta }}
+                                <td class="px-3 py-3">
+                                    <div class="flex items-center gap-2.5">
+                                        <ColaboradorAvatar
+                                            :nombre="evento.candidato.nombre"
+                                            tamano="sm"
+                                        />
+                                        <div class="min-w-0">
+                                            <p class="truncate font-medium">
+                                                {{ evento.candidato.nombre }}
+                                            </p>
+                                            <p
+                                                v-if="evento.candidato.puesto"
+                                                class="truncate text-xs text-muted-foreground"
+                                            >
+                                                {{ evento.candidato.puesto }}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </td>
-                                <td class="px-2 py-2 font-medium">
-                                    {{ evento.candidato.nombre }}
+                                <td class="px-3 py-3">
+                                    <span
+                                        class="inline-flex items-center gap-1.5"
+                                    >
+                                        <span
+                                            class="size-2 rounded-full"
+                                            :class="
+                                                evento.tipo === 'entrevista'
+                                                    ? 'bg-primary'
+                                                    : 'bg-bronce'
+                                            "
+                                        />
+                                        {{ evento.tipo_etiqueta }}
+                                    </span>
                                 </td>
-                                <td class="px-2 py-2">
+                                <td class="px-3 py-3">
                                     {{ evento.sucursal.nombre }}
                                 </td>
-                                <td class="px-2 py-2">
-                                    {{ evento.estado_etiqueta }}
+                                <td class="px-3 py-3">
+                                    <ChipEstado
+                                        :etiqueta="evento.estado_etiqueta"
+                                        :tono="TONO_ESTADO[evento.estado]"
+                                    />
                                 </td>
-                                <td class="px-2 py-2">
-                                    {{ evento.resultado_etiqueta ?? '—' }}
+                                <td class="px-3 py-3">
+                                    <ChipEstado
+                                        v-if="evento.resultado_etiqueta"
+                                        :etiqueta="evento.resultado_etiqueta"
+                                        :tono="tonoResultado(evento.resultado)"
+                                    />
+                                    <span v-else class="text-muted-foreground"
+                                        >—</span
+                                    >
                                 </td>
-                                <td class="px-2 py-2">
+                                <td class="px-3 py-3 text-muted-foreground">
                                     {{ evento.origen_etiqueta }}
                                 </td>
                             </tr>
-                            <tr v-if="eventos.length === 0">
-                                <td
-                                    colspan="7"
-                                    class="px-2 py-6 text-center text-muted-foreground"
-                                >
-                                    Sin eventos en este periodo.
-                                </td>
-                            </tr>
                         </tbody>
                     </table>
                 </div>
+                <EmptyState
+                    v-else
+                    :icono="CalendarX"
+                    titulo="Sin eventos en este periodo"
+                    :descripcion="
+                        hayFiltros
+                            ? 'Prueba quitando los filtros o cambia de periodo.'
+                            : 'Cuando agendes una entrevista o un estudio aparecerá aquí.'
+                    "
+                />
+            </template>
 
-                <div class="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                    <span class="inline-flex items-center gap-1">
-                        <span class="size-2 rounded-full bg-primary" />
-                        Entrevista
-                    </span>
-                    <span class="inline-flex items-center gap-1">
-                        <span class="size-2 rounded-full bg-bronce" /> Estudio
-                        socioeconómico
-                    </span>
-                    <span class="inline-flex items-center gap-1">
-                        <span class="size-2 rounded-full bg-warning" />
-                        Reprogramado
-                    </span>
-                </div>
+            <div class="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                <span class="inline-flex items-center gap-1">
+                    <span class="size-2 rounded-full bg-primary" />
+                    Entrevista
+                </span>
+                <span class="inline-flex items-center gap-1">
+                    <span class="size-2 rounded-full bg-bronce" /> Estudio
+                    socioeconómico
+                </span>
+                <span class="inline-flex items-center gap-1">
+                    <span class="size-2 rounded-full bg-warning" />
+                    Reprogramado
+                </span>
+            </div>
+        </section>
 
-                <div class="tabla-scroll">
-                    <div class="mb-2 flex items-center gap-2">
-                        <h2 class="font-semibold">Récord por sucursal</h2>
-                        <Button
-                            v-if="puede.exportar"
-                            variant="ghost"
-                            size="sm"
-                            as-child
-                        >
-                            <a
-                                :href="
-                                    excel.url({
-                                        query: {
-                                            ...consultaActual(),
-                                            vista: 'record',
-                                        },
-                                    })
-                                "
-                                >Excel</a
-                            >
-                        </Button>
-                    </div>
-                    <table
-                        v-tabla-tarjetas
-                        class="w-full min-w-[720px] text-sm"
+        <section
+            class="flex min-w-0 flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:p-5"
+        >
+            <div class="flex items-center gap-2">
+                <h2 class="text-base font-semibold">Récord por sucursal</h2>
+                <Button
+                    v-if="puede.exportar"
+                    variant="ghost"
+                    size="sm"
+                    as-child
+                    class="ml-auto"
+                >
+                    <a
+                        :href="
+                            excel.url({
+                                query: {
+                                    ...consultaActual(),
+                                    vista: 'record',
+                                },
+                            })
+                        "
                     >
-                        <thead class="bg-crema text-left text-xs uppercase">
-                            <tr>
-                                <th class="px-2 py-2">Sucursal</th>
-                                <th class="px-2 py-2 text-center">Agendadas</th>
-                                <th class="px-2 py-2 text-center">
-                                    Realizadas
-                                </th>
-                                <th class="px-2 py-2 text-center">
-                                    No asistió
-                                </th>
-                                <th class="px-2 py-2 text-center">Viables</th>
-                                <th class="px-2 py-2 text-center">
-                                    Socioeconómicos
-                                </th>
-                                <th class="px-2 py-2 text-center">
-                                    Días a resultado
-                                </th>
-                                <th class="px-2 py-2 text-center">Por RH</th>
-                                <th class="px-2 py-2 text-center">
-                                    Mes anterior
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr
-                                v-for="fila in record"
-                                :key="fila.sucursal_id"
-                                class="border-b border-border"
+                        <FileSpreadsheet class="size-4" /> Excel
+                    </a>
+                </Button>
+            </div>
+            <div class="tabla-scroll">
+                <table v-tabla-tarjetas class="w-full min-w-[720px] text-sm">
+                    <thead
+                        class="bg-crema text-left text-xs font-semibold text-muted-foreground uppercase"
+                    >
+                        <tr>
+                            <th class="rounded-l-xl px-3 py-2.5">Sucursal</th>
+                            <th class="px-3 py-2.5 text-center">Agendadas</th>
+                            <th class="px-3 py-2.5 text-center">Realizadas</th>
+                            <th class="px-3 py-2.5 text-center">No asistió</th>
+                            <th class="px-3 py-2.5 text-center">Viables</th>
+                            <th class="px-3 py-2.5 text-center">
+                                Socioeconómicos
+                            </th>
+                            <th class="px-3 py-2.5 text-center">
+                                Días a resultado
+                            </th>
+                            <th class="px-3 py-2.5 text-center">Por RH</th>
+                            <th class="rounded-r-xl px-3 py-2.5 text-center">
+                                Mes anterior
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr
+                            v-for="fila in record"
+                            :key="fila.sucursal_id"
+                            class="border-b border-border last:border-0"
+                        >
+                            <td class="px-3 py-2.5 font-medium">
+                                {{ fila.sucursal }}
+                            </td>
+                            <td class="px-3 py-2.5 text-center tabular-nums">
+                                {{ fila.agendadas }}
+                            </td>
+                            <td class="px-3 py-2.5 text-center tabular-nums">
+                                {{ fila.realizadas }}
+                            </td>
+                            <td
+                                class="px-3 py-2.5 text-center text-destructive tabular-nums"
                             >
-                                <td class="px-2 py-2 font-medium">
-                                    {{ fila.sucursal }}
-                                </td>
-                                <td class="px-2 py-2 text-center">
-                                    {{ fila.agendadas }}
-                                </td>
-                                <td class="px-2 py-2 text-center">
-                                    {{ fila.realizadas }}
-                                </td>
-                                <td
-                                    class="px-2 py-2 text-center text-destructive"
-                                >
-                                    {{ fila.no_asistio }}
-                                </td>
-                                <td class="px-2 py-2 text-center text-success">
-                                    {{ fila.viables }}
-                                </td>
-                                <td class="px-2 py-2 text-center">
-                                    {{ fila.socioeconomicos_realizados }}
-                                </td>
-                                <td class="px-2 py-2 text-center">
-                                    {{ fila.dias_cita_resultado ?? '—' }}
-                                </td>
-                                <td class="px-2 py-2 text-center">
-                                    {{ pct(fila.pct_reclutamiento) }}
-                                </td>
-                                <td class="px-2 py-2 text-center">
-                                    {{ fila.agendadas_mes_anterior }}
-                                </td>
-                            </tr>
-                            <tr v-if="record.length === 0">
-                                <td
-                                    colspan="9"
-                                    class="px-2 py-6 text-center text-muted-foreground"
-                                >
-                                    Sin eventos en este mes.
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-        </div>
+                                {{ fila.no_asistio }}
+                            </td>
+                            <td
+                                class="px-3 py-2.5 text-center text-success tabular-nums"
+                            >
+                                {{ fila.viables }}
+                            </td>
+                            <td class="px-3 py-2.5 text-center tabular-nums">
+                                {{ fila.socioeconomicos_realizados }}
+                            </td>
+                            <td class="px-3 py-2.5 text-center tabular-nums">
+                                {{ fila.dias_cita_resultado ?? '—' }}
+                            </td>
+                            <td class="px-3 py-2.5 text-center tabular-nums">
+                                {{ pct(fila.pct_reclutamiento) }}
+                            </td>
+                            <td class="px-3 py-2.5 text-center tabular-nums">
+                                {{ fila.agendadas_mes_anterior }}
+                            </td>
+                        </tr>
+                        <tr v-if="record.length === 0">
+                            <td
+                                colspan="9"
+                                class="px-3 py-6 text-center text-muted-foreground"
+                            >
+                                Sin eventos en este mes.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
     </div>
 
     <AgendaEventoDialog

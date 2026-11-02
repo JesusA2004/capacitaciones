@@ -4,7 +4,7 @@ use App\Enums\EstadoUsuario;
 use App\Enums\EstatusBaja;
 use App\Enums\OrigenBaja;
 use App\Enums\SegmentoRotacion;
-use App\Exports\ReporteRhExport;
+use App\Exports\RotacionExport;
 use App\Models\Baja;
 use App\Models\CausalRotacion;
 use App\Models\Colaborador;
@@ -13,11 +13,16 @@ use App\Models\RotacionCarga;
 use App\Models\RotacionMeta;
 use App\Models\RotacionPeriodo;
 use App\Models\Sucursal;
+use App\Models\User;
 use App\Services\Bajas\BajaRegistroService;
 use App\Services\Bajas\TableroRotacionService;
+use App\Services\Pdf\BrowsershotRenderer;
+use App\Services\Pdf\OpcionesPdf;
 use App\Services\Reportes\TableroRhService;
 use App\Services\Rotacion\FormulaRotacion;
+use App\Services\Rotacion\RotacionAnalisisService;
 use App\Services\Rotacion\RotacionMetaService;
+use App\Services\Rotacion\RotacionMotorService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\CausalesRotacionSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -29,7 +34,7 @@ use Maatwebsite\Excel\Facades\Excel;
 | Etapa 1 · Rotación (PDF págs. 12, 13 y 17), escenarios 28-32: una sola
 | definición en Tablero, Bajas y exportaciones; la baja cuenta por su último
 | día aunque siga abierta; histórico y sistema no se duplican; Global =
-| Corporativo + Sucursales en bajas.
+| Corporativo + Sucursales en bajas. Motor: RotacionMotorService.
 */
 
 beforeEach(function () {
@@ -39,6 +44,14 @@ beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
     $this->seed(CausalesRotacionSeeder::class);
     config(['bajas.tablero.mes_inicio_sistema' => '2026-09']);
+
+    $this->app->instance(BrowsershotRenderer::class, new class extends BrowsershotRenderer
+    {
+        public function renderizar(string $html, OpcionesPdf $opciones): string
+        {
+            return '%PDF-1.4 prueba';
+        }
+    });
 
     $this->estructura = clEstructura();
     $this->sucursal = $this->estructura['sucursal'];
@@ -80,6 +93,20 @@ function rotExcel(object $test, Sucursal $sucursal, int $anio, int $mes, int $ba
     RotacionPeriodo::query()->create(['sucursal_id' => $sucursal->id, 'anio' => $anio, 'mes' => $mes, 'sucursal_excel' => $sucursal->nombre, 'plantilla_inicial' => $inicial, 'altas' => 0, 'bajas' => $bajas, 'bajas_voluntarias' => $voluntarias, 'plantilla_final' => $final, 'carga_id' => $carga->id]);
 }
 
+/**
+ * @param  array<string, mixed>  $entrada
+ * @param  list<int>|null  $sucursales
+ * @return array<string, mixed>
+ */
+function rotAnalisis(User $usuario, array $entrada, ?array $sucursales = null): array
+{
+    $f = app(RotacionMotorService::class)->filtros($usuario, $entrada);
+    $f = $sucursales !== null ? $f->conSucursales(collect($sucursales)) : $f;
+    $a = app(RotacionAnalisisService::class);
+
+    return ['resumen' => $a->resumen($f), 'tendencia' => $a->tendencia($f), 'causales' => $a->causales($f), 'sucursales' => $a->sucursales($f)];
+}
+
 test('fórmula única: plantilla promedio y sin plantilla no hay índice ni división entre cero', function () {
     expect(FormulaRotacion::plantillaPromedio(40, 38))->toBe(39.0)
         ->and(FormulaRotacion::indice(2, 39.0))->toBe(5.13)
@@ -97,7 +124,7 @@ test('escenario 28: una baja en trámite cuenta si su último día ya ocurrió; 
     rotBaja($this->sucursal, 'RV-05', '2026-10-09', EstatusBaja::Cerrada, rotacion: false);
     rotBaja($this->sucursal, 'RV-06', '2026-10-25', EstatusBaja::EnRevisionRh);
 
-    $mes = ($this->motor)()->tablero($this->rh, ['desde' => '2026-10', 'hasta' => '2026-10'])['resumen']['mes'];
+    $mes = ($this->motor)()->mes(CarbonImmutable::create(2026, 10, 1), collect([$this->sucursal->id]));
 
     expect($mes['bajas'])->toBe(2)
         ->and($mes['indice'])->toBe(4.0)
@@ -113,20 +140,23 @@ test('escenario 29: el Excel manda antes del corte y el sistema desde el corte, 
     rotBaja($this->sucursal, 'NR-02', '2026-09-30');
     rotBaja($this->sucursal, 'RE-01', '2026-10-01');
 
-    $datos = ($this->motor)()->tablero($this->rh, ['desde' => '2026-08', 'hasta' => '2026-10']);
-    $serie = collect($datos['tendencia'])->keyBy('periodo');
+    $sucursales = collect([$this->sucursal->id]);
+    $agosto = ($this->motor)()->mes(CarbonImmutable::create(2026, 8, 1), $sucursales);
+    $septiembre = ($this->motor)()->mes(CarbonImmutable::create(2026, 9, 1), $sucursales);
+    $datos = rotAnalisis($this->rh, ['periodo' => 'rango', 'desde' => '2026-08-01', 'hasta' => '2026-10-15', 'sucursal_id' => $this->sucursal->id]);
+    $serie = collect($datos['tendencia']['meses'])->keyBy('periodo');
 
-    expect($serie['2026-08']['fuente'])->toBe('excel')
-        ->and($serie['2026-08']['bajas'])->toBe(3)
-        ->and($serie['2026-08']['indice'])->toBe(6.25)
-        ->and($serie['2026-08']['sin_desglose'])->toBe(3)
-        ->and($serie['2026-09']['fuente'])->toBe('sistema')
-        ->and($serie['2026-09']['bajas'])->toBe(1)
-        // Frontera del corte: la plantilla sigue viniendo del Excel si no hay foto.
-        ->and($serie['2026-09']['plantilla_promedio'])->toBeGreaterThanOrEqual(48.0)
-        ->and($serie['2026-10']['bajas'])->toBe(1)
-        ->and($datos['resumen']['rango']['bajas'])->toBe(5)
-        ->and($datos['resumen']['bajas_sistema'])->toBe(2);
+    expect($agosto['fuente'])->toBe('excel')
+        ->and($agosto['bajas'])->toBe(3)
+        ->and($agosto['indice'])->toBe(6.25)
+        ->and($serie['2026-08']['sin_desglose'])->toBe(2)
+        ->and($septiembre['fuente'])->toBe('sistema')
+        ->and($septiembre['bajas'])->toBe(1)
+        // El Excel de septiembre (9) no se suma, pero el descuadre se muestra.
+        ->and($serie['2026-09']['discrepancias'])->toBe(1)
+        ->and($septiembre['plantilla_promedio'])->toBeGreaterThanOrEqual(48.0)
+        ->and($serie['2026-10']['total'])->toBe(1)
+        ->and($datos['resumen']['total'])->toBe(5);
 });
 
 test('mes sin datos y mes futuro no son 0% ni rompen; el promedio no incluye el mes en curso', function () {
@@ -136,23 +166,24 @@ test('mes sin datos y mes futuro no son 0% ni rompen; el promedio no incluye el 
     rotBaja($this->sucursal, 'RV-01', '2026-10-10');
     rotBaja($this->sucursal, 'RV-02', '2026-10-11');
 
-    $datos = ($this->motor)()->tablero($this->rh, ['desde' => '2026-07', 'hasta' => '2026-11']);
-    $serie = collect($datos['tendencia'])->keyBy('periodo');
+    $sucursales = collect([$this->sucursal->id]);
+    $julio = ($this->motor)()->mes(CarbonImmutable::create(2026, 7, 1), $sucursales);
+    $noviembre = ($this->motor)()->mes(CarbonImmutable::create(2026, 11, 1), $sucursales);
+    $datos = rotAnalisis($this->rh, ['periodo' => 'rango', 'desde' => '2026-07-01', 'hasta' => '2026-11-30', 'sucursal_id' => $this->sucursal->id]);
 
-    expect($serie['2026-07']['indice'])->toBeNull()
-        ->and($serie['2026-07']['fuente'])->toBe('sin_datos')
-        ->and($serie['2026-07']['semaforo'])->toBeNull()
-        ->and($serie['2026-11']['indice'])->toBeNull()
-        ->and($serie['2026-11']['fuente'])->toBe('sin_datos')
-        ->and($serie['2026-10']['en_curso'])->toBeTrue()
-        ->and($datos['resumen']['promedio_mensual']['indice'])->toBe(2.0)
-        ->and($datos['resumen']['promedio_mensual']['meses'])->toBe(1);
+    expect($julio['indice'])->toBeNull()
+        ->and($julio['fuente'])->toBe('sin_datos')
+        ->and($noviembre['indice'])->toBeNull()
+        ->and($noviembre['fuente'])->toBe('sin_datos')
+        ->and(collect($datos['tendencia']['meses'])->pluck('periodo')->last())->toBe('2026-10')
+        ->and(collect($datos['tendencia']['meses'])->firstWhere('periodo', '2026-07')['sin_datos'])->toBeTrue()
+        ->and($datos['resumen']['rotacion']['promedio_indices'])->toBe(2.0);
 });
 
 test('sin foto ni Excel, la plantilla desde el corte sale de las fechas del sistema', function () {
     Colaborador::factory()->count(10)->create(['sucursal_principal_id' => $this->sucursal->id, 'estatus' => EstadoUsuario::Activo, 'fecha_ingreso' => '2025-01-01']);
 
-    $mes = ($this->motor)()->mes(CarbonImmutable::create(2026, 10, 1), collect([$this->sucursal->id]), ['forma' => null, 'causal_id' => null, 'puesto_id' => null]);
+    $mes = ($this->motor)()->mes(CarbonImmutable::create(2026, 10, 1), collect([$this->sucursal->id]));
 
     expect($mes['fuente'])->toBe('sistema')
         ->and($mes['plantilla_promedio'])->toBeGreaterThanOrEqual(10.0);
@@ -163,11 +194,10 @@ test('cambio de sucursal: la baja se queda en la sucursal donde ocurrió', funct
     $otra = Sucursal::factory()->create(['empresa_id' => $this->estructura['empresa']->id]);
     Colaborador::query()->whereKey($baja->colaborador_id)->update(['sucursal_principal_id' => $otra->id]);
 
-    $datos = ($this->motor)()->tablero($this->rh, ['desde' => '2026-10', 'hasta' => '2026-10', 'vista' => 'por_sucursal']);
-    $filas = collect($datos['sucursales'])->keyBy('sucursal_id');
+    $filas = collect(rotAnalisis($this->rh, ['periodo' => 'mes', 'anio' => 2026, 'mes' => 10])['sucursales'])->keyBy('sucursal_id');
 
     expect($filas[$this->sucursal->id]['bajas'])->toBe(1)
-        ->and($filas->get($otra->id)['bajas'] ?? 0)->toBe(0);
+        ->and($filas->has($otra->id))->toBeFalse();
 });
 
 test('escenario 30: Global = Corporativo + Sucursales en bajas; el índice global no es la suma', function () {
@@ -177,115 +207,110 @@ test('escenario 30: Global = Corporativo + Sucursales en bajas; el índice globa
     rotBaja($this->sucursal, 'RE-01', '2026-10-03');
     rotBaja($this->corporativo, 'NR-02', '2026-10-04');
 
-    $entrada = ['desde' => '2026-10', 'hasta' => '2026-10'];
-    $global = ($this->motor)()->tablero($this->rh, [...$entrada, 'vista' => 'global']);
-    $corporativo = ($this->motor)()->tablero($this->rh, [...$entrada, 'vista' => 'corporativo']);
-    $sucursales = ($this->motor)()->tablero($this->rh, [...$entrada, 'vista' => 'sucursales']);
+    $entrada = ['periodo' => 'mes', 'anio' => 2026, 'mes' => 10];
+    $global = rotAnalisis($this->rh, $entrada, [$this->sucursal->id, $this->corporativo->id])['resumen'];
+    $corporativo = rotAnalisis($this->rh, $entrada, [$this->corporativo->id])['resumen'];
+    $sucursales = rotAnalisis($this->rh, $entrada, [$this->sucursal->id])['resumen'];
 
-    expect($global['resumen']['mes']['bajas'])->toBe($corporativo['resumen']['mes']['bajas'] + $sucursales['resumen']['mes']['bajas'])
-        ->and($global['resumen']['comprobacion'])->toBe(['global' => 3, 'corporativo' => 1, 'sucursales' => 2, 'cuadra' => true])
-        ->and($global['resumen']['mes']['indice'])->toBe(2.5)
-        ->and($corporativo['resumen']['mes']['indice'])->toBe(5.0)
-        ->and($sucursales['resumen']['mes']['indice'])->toBe(2.0);
+    expect($global['total'])->toBe($corporativo['total'] + $sucursales['total'])
+        ->and($global['total'])->toBe(3)
+        ->and($global['rotacion']['indice'])->toBe(2.5)
+        ->and($corporativo['rotacion']['indice'])->toBe(5.0)
+        ->and($sucursales['rotacion']['indice'])->toBe(2.0);
 });
 
-test('escenario 31: las cinco vistas responden por la pestaña y Corporativo usa su propia meta', function () {
+test('escenario 31: la pestaña de Bajas abre el mismo módulo y Corporativo usa su propia meta', function () {
     rotPlantilla($this->corporativo, '2026-10', 100);
     rotBaja($this->corporativo, 'RV-01', '2026-10-02');
     rotBaja($this->corporativo, 'RV-01', '2026-10-03');
 
-    foreach (TableroRotacionService::VISTAS as $vista) {
-        $this->actingAs($this->rh)->get(route('rh.bajas.rotacion', ['vista' => $vista, 'desde' => '2026-10', 'hasta' => '2026-10']))
-            ->assertOk()
-            ->assertInertia(fn (Assert $page) => $page->component('Reportes/TableroRotacion')->where('tablero.filtros.vista', $vista)->has('tablero.metas.vigentes', 3));
-    }
+    $this->actingAs($this->rh)->get(route('rh.bajas.rotacion', ['periodo' => 'mes', 'anio' => 2026, 'mes' => 10]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('Reportes/Rotacion/Index')->has('metas.vigentes', 3)->where('pestanas.rotacion', true));
 
     // 2% es verde contra la meta global (3%) y ámbar contra la de Corporativo (1.7%).
-    $mes = ($this->motor)()->tablero($this->rh, ['vista' => 'corporativo', 'desde' => '2026-10', 'hasta' => '2026-10'])['resumen']['mes'];
+    $mes = ($this->motor)()->serieParaTablero(collect([$this->corporativo->id]), CarbonImmutable::create(2026, 10, 1), 1)[0];
     expect($mes['indice'])->toBe(2.0)->and($mes['semaforo'])->toBe('ambar');
 });
 
-test('por sucursal: promedio con semáforo, comparativo, Corporativo al final y las bajas que lo componen', function () {
+test('por sucursal: semáforo del promedio mensual, Corporativo marcado y su serie mensual', function () {
     rotPlantilla($this->sucursal, '2026-09', 50);
     rotPlantilla($this->sucursal, '2026-10', 50);
     rotPlantilla($this->corporativo, '2026-10', 10);
     rotBaja($this->sucursal, 'RV-01', '2026-09-02');
-    $baja = rotBaja($this->sucursal, 'RE-01', '2026-10-02');
+    rotBaja($this->sucursal, 'RE-01', '2026-10-02');
     rotBaja($this->sucursal, 'RV-02', '2026-10-03');
     rotBaja($this->sucursal, 'RV-03', '2026-10-04');
+    rotBaja($this->corporativo, 'RV-01', '2026-10-05');
 
-    $filas = ($this->motor)()->tablero($this->rh, ['vista' => 'por_sucursal', 'desde' => '2026-09', 'hasta' => '2026-10'])['sucursales'];
-    $fila = collect($filas)->firstWhere('sucursal_id', $this->sucursal->id);
+    $filas = collect(rotAnalisis($this->rh, ['periodo' => 'rango', 'desde' => '2026-09-01', 'hasta' => '2026-10-15'])['sucursales'])->keyBy('sucursal_id');
+    $fila = $filas[$this->sucursal->id];
 
-    expect($filas[array_key_last($filas)]['es_corporativo'])->toBeTrue()
-        ->and($fila['promedio_mensual'])->toBe(2.0)
+    expect($filas[$this->corporativo->id]['es_corporativo'])->toBeTrue()
+        ->and($fila['bajas'])->toBe(4)
+        ->and($fila['participacion'])->toBe(80.0)
+        // Septiembre cerrado: 1/50 = 2%; el mes en curso no entra al promedio.
+        ->and($fila['promedio_indices'])->toBe(2.0)
         ->and($fila['semaforo'])->toBe('verde')
-        ->and($fila['tendencia'])->toBe('sube')
-        ->and($fila['delta'])->toBe(4.0)
-        ->and($fila['conteos']['RV'])->toBe(3)
-        ->and($fila['conteos']['RE'])->toBe(1)
-        ->and(collect($fila['bajas_lista'])->pluck('id')->all())->toContain($baja->id);
+        ->and($fila['serie'])->toBe([1, 3]);
 });
 
-test('por causales: ranking con cantidad y porcentaje que respeta los filtros', function () {
+test('por causales: ranking homologado con cantidad y porcentaje que respeta los filtros', function () {
     rotBaja($this->sucursal, 'RV-01', '2026-10-02');
     rotBaja($this->sucursal, 'RV-01', '2026-10-03');
-    rotBaja($this->sucursal, 'RE-01', '2026-10-04');
+    rotBaja($this->sucursal, 'RE-03', '2026-10-04');
 
-    $datos = ($this->motor)()->tablero($this->rh, ['vista' => 'por_causales', 'desde' => '2026-10', 'hasta' => '2026-10']);
-    expect($datos['causales'][0]['clave'])->toBe('RV-01')
-        ->and($datos['causales'][0]['bajas'])->toBe(2)
-        ->and($datos['causales'][0]['porcentaje'])->toBe(66.7);
+    $datos = rotAnalisis($this->rh, ['periodo' => 'mes', 'anio' => 2026, 'mes' => 10]);
+    expect($datos['causales']['causales'][0]['clave'])->toBe('oferta_laboral')
+        ->and($datos['causales']['causales'][0]['bajas'])->toBe(2)
+        ->and($datos['causales']['causales'][0]['porcentaje'])->toBe(66.7);
 
-    $soloRe = ($this->motor)()->tablero($this->rh, ['vista' => 'por_causales', 'desde' => '2026-10', 'hasta' => '2026-10', 'forma' => 'RE']);
-    expect(collect($soloRe['causales'])->pluck('clave')->all())->toBe(['RE-01']);
+    $involuntarias = rotAnalisis($this->rh, ['periodo' => 'mes', 'anio' => 2026, 'mes' => 10, 'clasificacion' => 'involuntaria']);
+    expect(collect($involuntarias['causales']['causales'])->pluck('clave')->all())->toBe(['probidad_conducta']);
 });
 
-test('voluntaria contra involuntaria: OT aparte y el Excel solo aporta lo clasificado', function () {
+test('voluntaria contra involuntaria: el Excel aporta lo clasificado y el resto es sin clasificar', function () {
     rotExcel($this, $this->sucursal, 2026, 8, 5, 50, 46, voluntarias: 2);
     rotBaja($this->sucursal, 'RV-01', '2026-10-02');
     rotBaja($this->sucursal, 'NR-02', '2026-10-03');
     rotBaja($this->sucursal, 'OT-03', '2026-10-04');
 
-    $v = ($this->motor)()->tablero($this->rh, ['desde' => '2026-08', 'hasta' => '2026-10'])['resumen']['voluntaria'];
+    $r = rotAnalisis($this->rh, ['periodo' => 'rango', 'desde' => '2026-08-01', 'hasta' => '2026-10-15'])['resumen'];
 
-    expect($v)->toMatchArray(['voluntarias' => 3, 'involuntarias' => 1, 'otras' => 1, 'sin_clasificar' => 3, 'total' => 8, 'porcentaje_voluntaria' => 75.0]);
+    expect($r['total'])->toBe(8)
+        ->and($r['voluntarias']['bajas'])->toBe(3)
+        ->and($r['involuntarias']['bajas'])->toBe(2)
+        ->and($r['sin_clasificar']['bajas'])->toBe(3)
+        ->and($r['sin_clasificar']['sin_desglose'])->toBe(5)
+        ->and($r['identidad'])->toBeTrue();
 });
 
-test('rotación temprana: menos de 90 días', function () {
+test('rotación temprana: antes de seis meses sobre bajas con fecha de ingreso válida', function () {
     rotBaja($this->sucursal, 'RV-01', '2026-10-02', ingreso: '2026-09-01');
     rotBaja($this->sucursal, 'RV-02', '2026-10-03', ingreso: '2024-01-01');
 
-    $t = ($this->motor)()->tablero($this->rh, ['desde' => '2026-10', 'hasta' => '2026-10'])['resumen']['rotacion_temprana'];
+    $t = rotAnalisis($this->rh, ['periodo' => 'mes', 'anio' => 2026, 'mes' => 10])['resumen']['temprana'];
 
-    expect($t)->toBe(['bajas' => 1, 'porcentaje' => 50.0]);
+    expect($t)->toBe(['bajas' => 1, 'base' => 2, 'excluidas' => 0, 'porcentaje' => 50.0]);
 });
 
-test('escenario 32: las exportaciones reproducen la vista y sus filtros', function () {
+test('escenario 32: las exportaciones usan los mismos filtros y cifras', function () {
     rotPlantilla($this->sucursal, '2026-10', 50);
     rotBaja($this->sucursal, 'RV-01', '2026-10-02');
     rotBaja($this->sucursal, 'RE-01', '2026-10-03');
+    $consulta = ['periodo' => 'mes', 'anio' => 2026, 'mes' => 10, 'clasificacion' => 'voluntaria'];
 
-    foreach (TableroRotacionService::VISTAS as $vista) {
-        $this->actingAs($this->rh)->get(route('reportes.rotacion.tablero.excel', ['vista' => $vista, 'desde' => '2026-10', 'hasta' => '2026-10']))->assertOk()->assertDownload();
-        $this->actingAs($this->rh)->get(route('reportes.rotacion.tablero.pdf', ['vista' => $vista, 'desde' => '2026-10', 'hasta' => '2026-10']))->assertOk();
-    }
-
-    $mensual = ($this->motor)()->exportable($this->rh, ['vista' => 'global', 'desde' => '2026-10', 'hasta' => '2026-10', 'forma' => 'RV']);
-    expect($mensual['titulo'])->toContain('Global')->toContain('2026-10 a 2026-10')->toContain('Renuncia voluntaria')
-        ->and($mensual['filas'][0][6])->toBe(1);
-
-    $causales = ($this->motor)()->exportable($this->rh, ['vista' => 'por_causales', 'desde' => '2026-10', 'hasta' => '2026-10', 'forma' => 'RE']);
-    expect($causales['titulo'])->toContain('Por causales')
-        ->and(array_column($causales['filas'], 0))->toBe(['RE-01']);
-
-    $sucursal = ($this->motor)()->exportable($this->rh, ['vista' => 'por_sucursal', 'desde' => '2026-10', 'hasta' => '2026-10', 'sucursal_id' => $this->sucursal->id]);
-    expect(array_column($sucursal['filas'], 0))->toBe([$this->sucursal->nombre])
-        ->and($sucursal['columnas'])->toContain('Promedio mensual %');
+    $this->actingAs($this->rh)->get(route('reportes.rotacion.tablero.excel', $consulta))->assertOk()->assertDownload();
+    $this->actingAs($this->rh)->get(route('reportes.rotacion.tablero.pdf', $consulta))->assertOk();
+    $this->actingAs($this->rh)->get(route('reportes.rotacion.tablero.pdf-detallado', $consulta))->assertOk();
 
     Excel::fake();
-    $this->actingAs($this->rh)->get(route('reportes.rotacion.tablero.excel', ['vista' => 'por_causales', 'desde' => '2026-10', 'hasta' => '2026-10', 'forma' => 'RE']));
-    Excel::assertDownloaded(sprintf('rotacion-%s.xlsx', now()->format('Y-m-d')), fn (ReporteRhExport $export): bool => true);
+    $this->actingAs($this->rh)->get(route('reportes.rotacion.tablero.excel', $consulta));
+    Excel::assertDownloaded(sprintf('rotacion-%s.xlsx', now()->format('Y-m-d')), function (RotacionExport $export): bool {
+        $resumen = $export->sheets()[0]->array();
+
+        return collect($resumen)->firstWhere(0, 'Total de bajas')[1] === 2;
+    });
 });
 
 test('metas: un cambio aplica desde su vigencia y un mes pasado conserva la que tenía', function () {
@@ -299,7 +324,7 @@ test('metas: un cambio aplica desde su vigencia y un mes pasado conserva la que 
     $this->actingAs($this->rh)->post(route('rh.bajas.rotacion-metas'), ['segmento' => 'sucursales', 'verde_hasta' => 2, 'ambar_hasta' => 3, 'vigente_desde' => '2026-10', 'motivo' => 'Ajuste aprobado por RH'])
         ->assertSessionHasNoErrors();
 
-    $serie = collect(($this->motor)()->tablero($this->rh, ['vista' => 'sucursales', 'desde' => '2026-09', 'hasta' => '2026-10'])['tendencia'])->keyBy('periodo');
+    $serie = collect(($this->motor)()->serieParaTablero(collect([$this->sucursal->id]), CarbonImmutable::create(2026, 10, 1), 2))->keyBy('periodo');
 
     expect($serie['2026-09']['indice'])->toBe(5.0)
         ->and($serie['2026-09']['semaforo'])->toBe('ambar')
@@ -339,6 +364,7 @@ test('permisos: sin bajas.gestionar no se editan metas ni sin tablero se consult
 
     $this->actingAs($colaborador)->get(route('rh.bajas.rotacion'))->assertForbidden();
     $this->actingAs($colaborador)->get(route('reportes.rotacion.tablero.excel'))->assertForbidden();
+    $this->actingAs($colaborador)->get(route('reportes.rotacion.tablero.pdf'))->assertForbidden();
 });
 
 test('alcance: un gerente no ve las bajas de otra sucursal aunque pida su id', function () {
@@ -347,23 +373,22 @@ test('alcance: un gerente no ve las bajas de otra sucursal aunque pida su id', f
     rotBaja($this->sucursal, 'RV-01', '2026-10-03');
     $gerente = clUsuario('gerente_sucursal', ['sucursal_principal_id' => $this->sucursal->id]);
 
-    $datos = ($this->motor)()->tablero($gerente, ['vista' => 'por_sucursal', 'desde' => '2026-10', 'hasta' => '2026-10', 'sucursal_id' => $otra->id]);
+    $datos = rotAnalisis($gerente, ['periodo' => 'mes', 'anio' => 2026, 'mes' => 10, 'sucursal_id' => $otra->id]);
 
     expect(collect($datos['sucursales'])->pluck('sucursal_id')->all())->not->toContain($otra->id)
-        ->and($datos['resumen']['comprobacion']['global'])->toBe(1);
+        ->and($datos['resumen']['total'])->toBe(1);
 });
 
-test('Tablero de RH y pestaña Rotación dan la misma cifra del mismo motor', function () {
+test('Tablero de RH y módulo de Rotación dan la misma cifra del mismo motor', function () {
     rotPlantilla($this->sucursal, '2026-10', 50);
     rotBaja($this->sucursal, 'RV-01', '2026-10-02', EstatusBaja::EnRevisionRh);
 
     $tablero = app(TableroRhService::class)->construir($this->rh, ['mes' => '2026-10', 'sucursal_id' => $this->sucursal->id, 'meses' => 6]);
-    $pestana = ($this->motor)()->tablero($this->rh, ['vista' => 'sucursales', 'sucursal_id' => $this->sucursal->id, 'desde' => '2026-10', 'hasta' => '2026-10'])['resumen']['mes'];
+    $modulo = collect(rotAnalisis($this->rh, ['periodo' => 'mes', 'anio' => 2026, 'mes' => 10, 'sucursal_id' => $this->sucursal->id])['tendencia']['meses'])->firstWhere('periodo', '2026-10');
     $punto = collect($tablero['turnover_monthly'])->firstWhere('mes', '2026-10');
 
-    expect($tablero['summary']['rotacion_mes']['porcentaje'])->toBe($pestana['indice'])
-        ->and($tablero['summary']['rotacion_mes']['bajas'])->toBe(1)
+    expect($tablero['summary']['rotacion_mes']['porcentaje'])->toBe($modulo['indice'])
+        ->and($tablero['summary']['rotacion_mes']['bajas'])->toBe($modulo['total'])
         ->and($punto['indice'])->toBe(2.0)
-        ->and($punto['en_curso'])->toBeTrue()
-        ->and($tablero['summary']['rotacion_mes']['semaforo'])->toBe($pestana['semaforo']);
+        ->and($punto['en_curso'])->toBeTrue();
 });

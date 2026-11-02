@@ -744,7 +744,7 @@ Gerente o subgerente: personas de su sucursal. RH y corporativo con alcance glob
 
 ### Baja de un colaborador (forma de salida y causal)
 
-> La baja NO es una solicitud: el gerente (de su personal) o RH la registra en «Bajas» y queda aplicada en ese momento. Antes de confirmar ves la renuncia o el formato que se generará y el finiquito propuesto. Después se completan los documentos, Jurídico revisa si la causal lo pide y RH la cierra.
+> La baja NO es una solicitud: el gerente (de su personal) o RH la registra en «Bajas» y queda aplicada en ese momento. Antes de confirmar ves la renuncia o el formato que se generará y el finiquito propuesto. Después se completan los documentos, se genera el documento de salida y RH la cierra; Jurídico no autoriza.
 
 #### Qué es
 
@@ -752,7 +752,7 @@ Es el expediente de la baja con folio BAJ-AAAA-NNNN: forma de salida y causal de
 
 #### Quién lo hace
 
-Registra el gerente (solo su personal) o RH. RH corrige la causal con motivo, completa datos, cierra, reabre y marca «No procede». Jurídico revisa las causales que lo requieren y no cierra. Contraloría consulta las de faltantes (RE-02) y robo o fraude (RE-03). Nadie más entra a «Bajas»; Dirección solo ve el tablero de rotación y Sistemas recibe el aviso para retirar accesos y equipo.
+Registra el gerente (solo su personal) o RH. RH corrige la causal con motivo, completa datos, cierra, reabre y marca «No procede». Jurídico consulta las que le corresponden y no autoriza ni cierra. Contraloría consulta las de faltantes (RE-02) y robo o fraude (RE-03). Nadie más entra a «Bajas»; Dirección solo ve el tablero de rotación y Sistemas recibe el aviso para retirar accesos y equipo.
 
 > **Importante:** Al REGISTRAR la baja se suspende de inmediato el acceso de la persona a la app y al portal. Si RH decide que no procede, la revierte y el acceso vuelve.
 
@@ -762,7 +762,7 @@ Registra el gerente (solo su personal) o RH. RH corrige la causal con motivo, co
 
 1. **«Registrar baja»** _(Gerente)_ — Cierres laborales → Bajas → «Registrar baja»: 1 ¿quién se va? (sucursal, puesto e ingreso salen solos), 2 ¿cómo se va? (tres tarjetas), 3 ¿por qué se va? (causal con su ayuda, comentario —obligatorio en RV-05 y en rescisión, mínimo 20 caracteres—, último día laborado y ¿recontratable?; en rescisión además fecha en que se conoció la falta y entrega del aviso).
 2. **Vista previa y confirmar** _(Gerente)_ — «Vista previa» abre la renuncia (renuncia voluntaria) o el formato de la causal y el finiquito propuesto, con flechas para pasar de uno a otro. Nada se guarda hasta «Sí, registrar baja». Al confirmar: accesos suspendidos, documentos generados y finiquito propuesto. En rescisión no se genera documento: el aviso de rescisión se adjunta.
-3. **Documentos y Jurídico** _(RH)_ — En el expediente de la baja o en Bajas y finiquitos → «Documentos»: imprime y firma lo generado, adjunta lo que falta. Si la causal lo requiere, la baja pasa sola a Jurídico, que la aprueba o la devuelve a RH con observaciones.
+3. **Documentos de la baja** _(RH)_ — En el expediente de la baja usa «Generar documento de salida»: vista previa, PDF para firma y carga del firmado. Adjunta lo que falta. En rescisión captura los hechos, los testigos y la entrega del aviso.
 4. **Finiquito y «Cerrar baja»** _(RH)_ — RH revisa / ajusta el finiquito y registra su entrega (Bajas y finiquitos). Con los documentos obligatorios completos, «Cerrar baja»: la persona queda inactiva y su acceso bloqueado de forma definitiva. Una baja cerrada solo se reabre con motivo; «No procede» la revierte y devuelve el acceso.
 
 #### Qué pasa después
@@ -774,7 +774,7 @@ Registra el gerente (solo su personal) o RH. RH corrige la causal con motivo, co
 #### Errores comunes
 
 - **«No me deja registrar.»** Faltan persona, forma, causal, último día laborado o ¿recontratable? (y en rescisión los datos del aviso). La pantalla marca cada campo.
-- **«RH no puede cerrar.»** Falta un documento obligatorio, la revisión de Jurídico o el finiquito revisado. El expediente dice exactamente qué falta.
+- **«RH no puede cerrar.»** Falta un documento obligatorio o el finiquito revisado. El expediente dice exactamente qué falta.
 
 #### En el sistema
 

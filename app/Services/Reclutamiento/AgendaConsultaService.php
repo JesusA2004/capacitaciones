@@ -4,6 +4,7 @@ namespace App\Services\Reclutamiento;
 
 use App\Enums\EstadoAgendaEvento;
 use App\Enums\EstadoCandidato;
+use App\Enums\NivelPuestoEntrevista;
 use App\Enums\OrigenAgendaEvento;
 use App\Enums\ResultadoAgendaEvento;
 use App\Enums\TipoAgendaEvento;
@@ -12,6 +13,7 @@ use App\Models\AgendaEventoHistorial;
 use App\Models\Candidato;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Models\Vacante;
 use App\Services\Permisos\AlcanceModuloService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -83,8 +85,10 @@ class AgendaConsultaService
 
     /**
      * Candidatos a los que todavía se les puede agendar algo, dentro del alcance.
+     * Cada uno dice si su sucursal ya está definida (sucursal_fija): la pantalla
+     * y la app solo preguntan la sucursal cuando no lo está.
      *
-     * @return list<array{id: int, nombre: string, puesto: string|null, sucursal_id: int|null}>
+     * @return list<array{id: int, nombre: string, puesto: string|null, sucursal_id: int|null, sucursal: string|null, vacante: string|null, sucursal_fija: bool, nivel: string, estado_etiqueta: string, tiene_cv: bool, cv_nombre: string|null, cv_url: string|null}>
      */
     public function candidatosAgendables(User $usuario): array
     {
@@ -96,14 +100,70 @@ class AgendaConsultaService
             EstadoCandidato::Recibidos, EstadoCandidato::EntrevistaPendiente, EstadoCandidato::PsicometricasPendientes,
             EstadoCandidato::RevisionPsicometricas, EstadoCandidato::SocioeconomicoPendiente,
         ]);
+        $verCandidatos = $usuario->can('candidatos.ver');
+        $niveles = [];
 
         return array_values($this->alcance->limitarPorSucursal(Candidato::query()->whereIn('estado', $estados), $usuario, 'agenda')
-            ->with(['puestoObjetivo:id,nombre'])
+            ->with(['puestoObjetivo:id,nombre', 'sucursal:id,nombre,es_corporativo', 'vacante.puesto:id,nombre', 'vacante.sucursal:id,nombre'])
             ->orderBy('nombre')
             ->limit(1000)
             ->get()
-            ->map(fn (Candidato $c): array => ['id' => $c->id, 'nombre' => $c->nombreCompleto(), 'puesto' => $c->puestoObjetivo?->nombre, 'sucursal_id' => $c->sucursal_id])
+            ->map(function (Candidato $c) use ($usuario, $verCandidatos, &$niveles): array {
+                // Un Puesto por consulta, no uno por candidato.
+                $puestoId = (int) ($c->vacante->puesto_id ?? $c->puesto_objetivo_id ?? 0);
+                $nivel = $niveles[$puestoId] ??= $this->aprobadorEntrevista->nivel($c);
+                $tieneCv = $c->cv_path !== null;
+
+                return [
+                    'id' => $c->id,
+                    'nombre' => $c->nombreCompleto(),
+                    'puesto' => $c->puestoObjetivo->nombre ?? $c->vacante?->puesto?->nombre,
+                    'sucursal_id' => $c->sucursal_id,
+                    'sucursal' => $c->sucursal?->nombre,
+                    'vacante' => $c->vacante !== null ? $this->etiquetaVacante($c->vacante) : null,
+                    'sucursal_fija' => $this->sucursalFija($c, $nivel),
+                    'nivel' => $nivel->value,
+                    'estado_etiqueta' => $c->estado->etiqueta(),
+                    'tiene_cv' => $tieneCv,
+                    'cv_nombre' => $tieneCv ? $c->cv_original_name : null,
+                    // Sin permiso de ver la ficha no hay enlace (nunca un 403).
+                    'cv_url' => $tieneCv && $verCandidatos && $usuario->can('view', $c) ? route('rh.candidatos.cv.previsualizar', $c->id, false) : null,
+                ];
+            })
             ->all());
+    }
+
+    /**
+     * La cita va a la sucursal del candidato cuando su puesto es de sucursal
+     * (Gestor, Subgerente o Gerente de Sucursal): la vacante ya la definió y no
+     * se pregunta. Puestos regionales o corporativos, una sucursal Corporativo o
+     * un candidato sin sucursal sí eligen dónde será la cita. Sin puesto conocido
+     * se respeta la sucursal capturada.
+     */
+    public function sucursalFija(Candidato $candidato, ?NivelPuestoEntrevista $nivel = null): bool
+    {
+        if ($candidato->sucursal_id === null) {
+            return false;
+        }
+
+        $candidato->loadMissing('sucursal');
+
+        if ($candidato->sucursal?->es_corporativo === true) {
+            return false;
+        }
+
+        $tienePuesto = ($candidato->vacante->puesto_id ?? $candidato->puesto_objetivo_id) !== null;
+
+        return match ($nivel ?? $this->aprobadorEntrevista->nivel($candidato)) {
+            NivelPuestoEntrevista::Gestor, NivelPuestoEntrevista::Gerencial => true,
+            NivelPuestoEntrevista::Regional => false,
+            NivelPuestoEntrevista::Otro => ! $tienePuesto,
+        };
+    }
+
+    private function etiquetaVacante(Vacante $vacante): string
+    {
+        return implode(' · ', array_filter([$vacante->puesto->nombre ?? 'Vacante', $vacante->sucursal?->nombre]));
     }
 
     /**

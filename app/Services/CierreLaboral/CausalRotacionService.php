@@ -159,8 +159,6 @@ class CausalRotacionService
                 'documento_salida' => $c->documento_salida,
                 'causal_grupo_id' => $c->causal_grupo_id,
                 'grupo' => $c->grupo?->nombre,
-                'excluye_indemnizacion' => $c->excluye_indemnizacion,
-                'implica_indemnizacion' => $c->implica_indemnizacion,
                 'integrar_expediente_probatorio' => $c->requiere_juridico,
                 'activo' => $c->activo,
                 'orden' => $c->orden,
@@ -171,7 +169,7 @@ class CausalRotacionService
     }
 
     /**
-     * @param  array<string, mixed>  $datos  tipo, nombre, descripcion?, requiere_juridico?, comentario_obligatorio?, alerta?, excluye_indemnizacion?, activo?
+     * @param  array<string, mixed>  $datos  tipo, nombre, descripcion?, requiere_juridico?, comentario_obligatorio?, alerta?, activo?
      */
     public function crear(array $datos, User $actor): CausalRotacion
     {
@@ -192,8 +190,6 @@ class CausalRotacionService
             'comentario_obligatorio' => (bool) ($datos['comentario_obligatorio'] ?? $forma === FormaSalida::Rescision),
             'alerta' => $this->textoOpcional($datos['alerta'] ?? null),
             'fundamento_legal' => $this->textoOpcional($datos['fundamento_legal'] ?? null),
-            'excluye_indemnizacion' => (bool) ($datos['excluye_indemnizacion'] ?? false),
-            'implica_indemnizacion' => (bool) ($datos['implica_indemnizacion'] ?? false),
             'activo' => (bool) ($datos['activo'] ?? true),
             'legado' => false,
             'orden' => ((int) CausalRotacion::query()->where('tipo', $tipo->value)->max('orden')) + 10,
@@ -220,7 +216,7 @@ class CausalRotacionService
 
         $nombre = $this->nombreLimpio((string) $datos['nombre']);
         $this->exigirNombreLibre($tipo, $nombre, $causal->id);
-        $campos = ['tipo', 'causal_grupo_id', 'documento_salida', 'nombre', 'descripcion', 'requiere_juridico', 'comentario_obligatorio', 'alerta', 'fundamento_legal', 'excluye_indemnizacion', 'implica_indemnizacion', 'activo'];
+        $campos = ['tipo', 'causal_grupo_id', 'documento_salida', 'nombre', 'descripcion', 'requiere_juridico', 'comentario_obligatorio', 'alerta', 'fundamento_legal', 'activo'];
         $antes = $causal->only($campos);
 
         $causal->update([
@@ -235,8 +231,6 @@ class CausalRotacionService
             'comentario_obligatorio' => (bool) ($datos['comentario_obligatorio'] ?? $causal->comentario_obligatorio),
             'alerta' => $this->textoOpcional($datos['alerta'] ?? null),
             'fundamento_legal' => $this->textoOpcional($datos['fundamento_legal'] ?? null),
-            'excluye_indemnizacion' => (bool) ($datos['excluye_indemnizacion'] ?? false),
-            'implica_indemnizacion' => (bool) ($datos['implica_indemnizacion'] ?? false),
             'activo' => (bool) ($datos['activo'] ?? $causal->activo),
         ]);
 

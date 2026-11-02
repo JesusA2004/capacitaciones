@@ -14,6 +14,10 @@ use App\Models\Sucursal;
 use App\Services\Bajas\BajaRegistroService;
 use App\Services\Bajas\PlantillaMensualService;
 use App\Services\Bajas\TableroRotacionService;
+use App\Services\Pdf\BrowsershotRenderer;
+use App\Services\Pdf\OpcionesPdf;
+use App\Services\Rotacion\RotacionAnalisisService;
+use App\Services\Rotacion\RotacionMotorService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\CausalesRotacionSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -61,42 +65,39 @@ test('criterio 6: el índice del mes es igual al cálculo a mano con plantilla_m
     // No cuenta: movimiento interno (RN-14).
     trBajaCerrada($this->sucursal, 'RV-02', '2026-05-21', rotacion: false);
 
-    $tablero = app(TableroRotacionService::class)->tablero($this->rh, ['desde' => '2026-05', 'hasta' => '2026-05']);
-    $mes = $tablero['resumen']['mes'];
+    $mes = app(TableroRotacionService::class)->mes(CarbonImmutable::create(2026, 5, 1), collect([$this->sucursal->id]));
 
     expect($mes['bajas'])->toBe(2)
         ->and($mes['plantilla_promedio'])->toBe(39.0)
         ->and($mes['indice'])->toBe(round(2 * 100 / 39, 2))
         ->and($mes['fuente'])->toBe('sistema');
 
-    $porForma = collect($tablero['resumen']['por_forma'])->keyBy('forma');
-    expect($porForma['RV']['bajas'])->toBe(1)->and($porForma['RE']['bajas'])->toBe(1)->and($porForma['NR']['bajas'])->toBe(0);
-
-    // Causales coloreadas por forma (token) y en orden descendente.
-    expect(collect($tablero['causales'])->pluck('token')->all())->toContain('renuncia', 'rescision');
+    $f = app(RotacionMotorService::class)->filtros($this->rh, ['periodo' => 'mes', 'anio' => 2026, 'mes' => 5]);
+    $causales = collect(app(RotacionAnalisisService::class)->causales($f)['causales'])->pluck('clave')->all();
+    expect($causales)->toContain('oferta_laboral', 'abandono_faltas');
 });
 
-test('los meses anteriores al módulo usan el Excel de rotación; el desglose por causal solo existe para bajas del sistema', function () {
+test('los meses anteriores al módulo usan el Excel de rotación; el desglose por causal solo existe para bajas individuales', function () {
     $carga = RotacionCarga::query()->create(['nombre_archivo' => 'rotacion.xlsx', 'archivo_ruta' => 'rotacion/x.xlsx', 'archivo_hash' => str_repeat('a', 64), 'estado' => 'aplicada', 'subido_por' => $this->rh->id]);
     RotacionPeriodo::query()->create(['sucursal_id' => $this->sucursal->id, 'anio' => 2026, 'mes' => 3, 'sucursal_excel' => 'CUERNAVACA', 'plantilla_inicial' => 50, 'altas' => 2, 'bajas' => 3, 'plantilla_final' => 46, 'carga_id' => $carga->id]);
 
-    $servicio = app(TableroRotacionService::class);
-    $filtros = $servicio->filtros($this->rh, []);
-    $marzo = $servicio->mes(CarbonImmutable::create(2026, 3, 1), collect([$this->sucursal->id]), $filtros);
+    $marzo = app(TableroRotacionService::class)->mes(CarbonImmutable::create(2026, 3, 1), collect([$this->sucursal->id]));
 
     expect($marzo['fuente'])->toBe('excel')
         ->and($marzo['bajas'])->toBe(3)
         ->and($marzo['indice'])->toBe(round(3 * 100 / 48, 2));
 
-    $conForma = $servicio->mes(CarbonImmutable::create(2026, 3, 1), collect([$this->sucursal->id]), [...$filtros, 'forma' => 'RV']);
-    expect($conForma['fuente'])->toBe('excel_sin_desglose')->and($conForma['bajas'])->toBeNull();
+    $motor = app(RotacionMotorService::class);
+    $analisis = app(RotacionAnalisisService::class);
+    $conDetalle = $analisis->resumen($motor->filtros($this->rh, ['periodo' => 'mes', 'anio' => 2026, 'mes' => 3, 'clasificacion' => 'voluntaria']));
+    expect($conDetalle['total'])->toBe(0)->and($conDetalle['no_desglosables'])->toBe(3);
 
-    $tablero = $servicio->tablero($this->rh, ['desde' => '2026-01', 'hasta' => '2026-05']);
-    expect(collect($tablero['tendencia'])->firstWhere('periodo', '2026-03')['fuente'])->toBe('excel')
-        ->and($tablero['resumen']['acumulado']['bajas'])->toBe(3);
+    $tendencia = $analisis->tendencia($motor->filtros($this->rh, ['periodo' => 'rango', 'desde' => '2026-01-01', 'hasta' => '2026-05-31']));
+    expect(collect($tendencia['meses'])->firstWhere('periodo', '2026-03')['total'])->toBe(3)
+        ->and(collect($tendencia['meses'])->firstWhere('periodo', '2026-03')['sin_desglose'])->toBe(3);
 });
 
-test('semáforo por sucursal: sube si el índice del mes supera al anterior', function () {
+test('por sucursal: bajas, índice con su plantilla y serie mensual', function () {
     foreach (['2026-04' => 40, '2026-05' => 40] as $periodo => $total) {
         PlantillaMensual::query()->create(['periodo' => $periodo, 'anio' => 2026, 'mes' => (int) substr($periodo, 5), 'sucursal_id' => $this->sucursal->id, 'activos_inicio' => $total, 'activos_cierre' => $total, 'plantilla_promedio' => $total, 'fuente' => 'foto']);
     }
@@ -105,19 +106,25 @@ test('semáforo por sucursal: sube si el índice del mes supera al anterior', fu
     trBajaCerrada($this->sucursal, 'RV-01', '2026-05-10');
     trBajaCerrada($this->sucursal, 'NR-01', '2026-05-12');
 
-    $fila = app(TableroRotacionService::class)->tablero($this->rh, ['desde' => '2026-04', 'hasta' => '2026-05'])['sucursales'][0];
+    $f = app(RotacionMotorService::class)->filtros($this->rh, ['periodo' => 'rango', 'desde' => '2026-04-01', 'hasta' => '2026-05-31']);
+    $fila = app(RotacionAnalisisService::class)->sucursales($f)[0];
 
-    expect($fila['tendencia'])->toBe('sube')
-        ->and($fila['bajas'])->toBe(3)
-        ->and($fila['indice_mes'])->toBe(5.0);
+    expect($fila['bajas'])->toBe(3)
+        ->and($fila['serie'])->toBe([1, 2])
+        ->and($fila['indice'])->toBe(round(3 * 100 / 40, 2));
 });
 
 test('exportar a Excel y PDF respeta los filtros', function () {
-    $this->actingAs($this->rh)->get(route('reportes.rotacion.tablero.excel', ['desde' => '2026-04', 'hasta' => '2026-05']))->assertOk()->assertDownload();
-    $this->actingAs($this->rh)->get(route('reportes.rotacion.tablero.pdf', ['desde' => '2026-04', 'hasta' => '2026-05', 'forma' => 'RV']))->assertOk();
+    $this->app->instance(BrowsershotRenderer::class, new class extends BrowsershotRenderer
+    {
+        public function renderizar(string $html, OpcionesPdf $opciones): string
+        {
+            return '%PDF-1.4 prueba';
+        }
+    });
 
-    $tabla = app(TableroRotacionService::class)->exportable($this->rh, ['desde' => '2026-04', 'hasta' => '2026-05', 'forma' => 'RV']);
-    expect($tabla['titulo'])->toContain('2026-04 a 2026-05')->toContain(FormaSalida::RenunciaVoluntaria->etiqueta());
+    $this->actingAs($this->rh)->get(route('reportes.rotacion.tablero.excel', ['periodo' => 'rango', 'desde' => '2026-04-01', 'hasta' => '2026-05-31']))->assertOk()->assertDownload();
+    $this->actingAs($this->rh)->get(route('reportes.rotacion.tablero.pdf', ['periodo' => 'rango', 'desde' => '2026-04-01', 'hasta' => '2026-05-31', 'clasificacion' => 'voluntaria']))->assertOk();
 });
 
 test('plantilla mensual: la foto cuenta activos por sucursal y el backfill reconstruye sin pisar la foto', function () {

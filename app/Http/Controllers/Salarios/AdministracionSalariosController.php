@@ -6,10 +6,7 @@ use App\Enums\MotorPdf;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Models\ImportacionExcel;
-use App\Models\MatrizMerito;
 use App\Models\Puesto;
-use App\Models\Sucursal;
-use App\Models\TabuladorSalarial;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Pdf\OpcionesPdf;
 use App\Services\Pdf\PdfRendererException;
@@ -22,15 +19,13 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
 use Illuminate\Support\Facades\Log;
-use Inertia\Inertia;
-use Inertia\Response;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Organización → Administración de salarios. Cada acción autoriza con salarios.*
+ * Organización → Puestos y salarios (importes del tabulador). Cada acción autoriza con salarios.*
  * (no bastan expedientes.* ni ser gerente); toda la regla vive en App\Services\Salarios.
  */
 class AdministracionSalariosController extends Controller
@@ -44,63 +39,20 @@ class AdministracionSalariosController extends Controller
         private readonly PdfRendererFactory $pdf,
     ) {}
 
-    public function index(Request $request): Response
+    /**
+     * La pantalla vive ahora en «Puestos y salarios» (un solo módulo): la
+     * ruta anterior se conserva para enlaces guardados y lleva a la ficha del
+     * puesto si venía uno.
+     */
+    public function index(Request $request): RedirectResponse
     {
         abort_unless($request->user()->can('salarios.ver'), 403);
 
-        $sucursalId = $request->integer('sucursal') ?: null;
-        $filas = $this->posiciones->posiciones($request->user(), $sucursalId);
-        $renglones = $this->posiciones->renglonesTabulador($filas);
-        $puestoId = $request->integer('puesto') ?: $this->puestoInicial($renglones);
-        $versiones = $puestoId !== null ? $this->tabulador->versiones($puestoId) : collect();
-        $vigente = $versiones->first(fn (TabuladorSalarial $v): bool => $v->vigente_hasta === null);
+        $puestoId = $request->integer('puesto') ?: null;
 
-        $this->auditoria->registrar('salarios.consultado', null, $request->user(), ['puesto_id' => $puestoId, 'sucursal_id' => $sucursalId]);
-
-        $puedeImportar = $request->user()->can('salarios.importar');
-        $importacionId = $request->integer('importacion');
-
-        return Inertia::render('Administracion/Salarios/Index', [
-            'resumen' => $this->posiciones->resumen($filas),
-            'tabulador' => $renglones,
-            'puestoId' => $puestoId,
-            'rango' => $vigente !== null
-                ? ['minimo' => (float) $vigente->minimo, 'medio' => (float) $vigente->medio, 'maximo' => (float) $vigente->maximo]
-                : null,
-            'colaboradores' => $filas->where('puesto_id', $puestoId)->values(),
-            'versiones' => $versiones->map(fn (TabuladorSalarial $v): array => [
-                'version' => $v->version,
-                'minimo' => (float) $v->minimo,
-                'medio' => (float) $v->medio,
-                'maximo' => (float) $v->maximo,
-                'fuente' => $v->fuente,
-                'fecha_actualizacion' => $v->fecha_actualizacion->toDateString(),
-                'vigente_desde' => $v->vigente_desde->toDateString(),
-                'vigente_hasta' => $v->vigente_hasta?->toDateString(),
-                'origen' => $v->origen,
-                'usuario' => $v->usuario?->name,
-            ])->values(),
-            'matriz' => $this->matriz->vigente()?->celdas,
-            'historialMatriz' => $this->matriz->historial()->map(fn (MatrizMerito $m): array => [
-                'id' => $m->id,
-                'vigente_desde' => $m->vigente_desde->toDateString(),
-                'vigente_hasta' => $m->vigente_hasta?->toDateString(),
-                'motivo' => $m->motivo,
-                'usuario' => $m->usuario?->name,
-            ])->values(),
-            'sucursales' => Sucursal::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
-            'sucursalId' => $sucursalId,
-            'puede' => [
-                'editar' => $request->user()->can('salarios.editar'),
-                'exportar' => $request->user()->can('salarios.exportar'),
-                'importar' => $puedeImportar,
-            ],
-            'importacion' => $puedeImportar && $importacionId > 0
-                ? ImportacionExcel::query()->where('tipo', TabuladorImportService::TIPO)->whereKey($importacionId)->first()?->only([
-                    'id', 'nombre_archivo', 'estado', 'total_filas', 'filas_aplicadas', 'filas_revision', 'filas_sin_cambios', 'filas_error', 'detalle',
-                ])
-                : null,
-        ]);
+        return $puestoId !== null
+            ? to_route('administracion.puestos.show', $puestoId)
+            : to_route('administracion.puestos.index', array_filter(['importacion' => $request->integer('importacion') ?: null]));
     }
 
     public function guardarTabulador(Request $request, Puesto $puesto): RedirectResponse
@@ -167,7 +119,7 @@ class AdministracionSalariosController extends Controller
             $resultado = $this->pdf->renderizar(
                 MotorPdf::Browsershot,
                 view('pdf.reporte-rh', $this->tablaExportable($request))->render(),
-                new OpcionesPdf(tamano: 'letter', orientacion: 'landscape', numerarPaginas: true, textoPie: 'MR. LANA PEOPLE · Administración de salarios'),
+                new OpcionesPdf(tamano: 'letter', orientacion: 'landscape', numerarPaginas: true, textoPie: 'MR. LANA PEOPLE · Puestos y salarios'),
             );
         } catch (PdfRendererException $e) {
             Log::warning('Salarios: no se pudo generar el PDF.', ['error' => $e->getMessage()]);
@@ -201,7 +153,7 @@ class AdministracionSalariosController extends Controller
 
         $importacion = $this->importador->analizar($datos['archivo'], $request->user());
 
-        return to_route('salarios.index', ['importacion' => $importacion->id])
+        return to_route('administracion.puestos.index', ['importacion' => $importacion->id])
             ->with('toast', ['type' => 'success', 'message' => 'Vista previa lista. Nada se ha guardado todavía.']);
     }
 
@@ -216,7 +168,7 @@ class AdministracionSalariosController extends Controller
 
         $aplicadas = $this->importador->aplicar($importacion, $datos['motivo'], $request->user());
 
-        return to_route('salarios.index')
+        return to_route('administracion.puestos.index')
             ->with('toast', ['type' => 'success', 'message' => sprintf('%d puesto(s) con versión nueva. Ningún sueldo cambió.', $aplicadas)]);
     }
 
@@ -234,19 +186,5 @@ class AdministracionSalariosController extends Controller
         return $vista === 'posiciones'
             ? $this->posiciones->tablaPosiciones($request->user(), $sucursalId, $puestoId)
             : $this->posiciones->tablaTabulador($request->user());
-    }
-
-    /**
-     * @param  list<array<string, mixed>>  $renglones
-     */
-    private function puestoInicial(array $renglones): ?int
-    {
-        foreach ($renglones as $renglon) {
-            if ($renglon['version'] !== null && $renglon['colaboradores'] > 0) {
-                return (int) $renglon['puesto_id'];
-            }
-        }
-
-        return isset($renglones[0]) ? (int) $renglones[0]['puesto_id'] : null;
     }
 }

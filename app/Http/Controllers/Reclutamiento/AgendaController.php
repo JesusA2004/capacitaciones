@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Reclutamiento\AgendarEventoRequest;
 use App\Http\Requests\Reclutamiento\ResultadoSocioeconomicoAgendaRequest;
 use App\Models\AgendaEvento;
+use App\Models\Candidato;
 use App\Models\Puesto;
 use App\Services\Flujos\ConstructorEnlaces;
 use App\Services\Reclutamiento\AgendaConsultaService;
@@ -67,12 +68,17 @@ class AgendaController extends Controller
                 'agendar' => $usuario->can('agenda.agendar'),
                 'alta_candidato' => $usuario->can('agenda.alta_candidato'),
                 'exportar' => $usuario->can('agenda.exportar'),
+                'bandeja_cv' => $usuario->can('viewAny', Candidato::class),
+            ],
+            'cvConfig' => [
+                'max_mb' => (int) config('reclutamiento.max_upload_mb'),
+                'extensiones' => array_values((array) config('reclutamiento.extensiones_permitidas')),
             ],
         ]);
     }
 
     /**
-     * @param  list<array{id: int, nombre: string, puesto: string|null, sucursal_id: int|null}>  $candidatos
+     * @param  list<array{id: int, sucursal_id: int|null}>  $candidatos
      * @return array{id: int, sucursal_id: int|null}|null
      */
     private function candidatoInicial(Request $request, array $candidatos): ?array
@@ -90,13 +96,13 @@ class AgendaController extends Controller
 
     public function store(AgendarEventoRequest $request): RedirectResponse
     {
-        $resultado = $this->agenda->agendar($request->safe()->except(['cv']), $request->user(), $request->file('cv'));
+        $resultado = $this->agenda->agendar($request->safe()->except(['cv', 'cv_bandeja']), $request->user(), $request->file('cv'), $request->string('cv_bandeja')->toString());
 
         return back()->with('toast', [
             'type' => $resultado['empalmes'] !== [] ? 'warning' : 'success',
             'message' => $resultado['empalmes'] !== []
                 ? sprintf('Evento agendado. Ojo: %s', implode(' ', $resultado['empalmes']))
-                : 'Evento agendado. Se avisó a gerente y subgerente de la sucursal.',
+                : 'Evento agendado. Se avisó a quienes atienden la cita.',
         ]);
     }
 

@@ -124,6 +124,13 @@ export type PuestoItem = {
     colaboradores_count: number;
     /** Duración del periodo de prueba (capacitación inicial), en meses. */
     meses_periodo_prueba: number | null;
+    /** Rango vigente del tabulador; solo con salarios.ver (null si no hay). */
+    tabulador?: {
+        minimo: number;
+        medio: number;
+        maximo: number;
+        compa_ratio: number | null;
+    } | null;
 };
 
 export type OpcionSimple = {
@@ -470,4 +477,143 @@ export type DescriptivoOficial = {
     importado_en: string | null;
     datos: DatosDescriptivo;
     advertencias: string[];
+};
+
+/* ── Puestos y salarios ─────────────────────────────────────────────── */
+
+/** Posición de un sueldo frente al rango del tabulador. */
+export type BandaSalarial =
+    'bajo_minimo' | 'minimo_a_medio' | 'medio_a_maximo' | 'sobre_maximo';
+
+export type RangoTabulador = {
+    minimo: number;
+    medio: number;
+    maximo: number;
+};
+
+export type RangoTabuladorVigente = RangoTabulador & {
+    fuente: string;
+    fecha_actualizacion: string;
+    version: number;
+};
+
+export type VersionTabulador = RangoTabulador & {
+    version: number;
+    fuente: string;
+    fecha_actualizacion: string;
+    vigente_desde: string;
+    vigente_hasta: string | null;
+    origen: string;
+    usuario: string | null;
+};
+
+export type PuestoDetalle = {
+    id: number;
+    nombre: string;
+    descripcion: string | null;
+    departamento_id: number | null;
+    departamento: string | null;
+    activo: boolean;
+    meses_periodo_prueba: number | null;
+};
+
+/** Persona vigente de un puesto; los importes solo llegan con salarios.ver. */
+export type PersonaPuesto = {
+    id: number;
+    nombre: string;
+    numero_empleado: string | null;
+    sucursal: string | null;
+    departamento: string | null;
+    foto_url: string | null;
+    en_incorporacion: boolean;
+    fecha_ingreso: string | null;
+    movible: boolean;
+    motivo_no_movible: string | null;
+    sueldo?: number | null;
+    compa_ratio?: number | null;
+    banda?: BandaSalarial | null;
+    banda_etiqueta?: string | null;
+    desempeno_etiqueta?: string | null;
+    tope?: number | null;
+    margen?: number | null;
+};
+
+export type DestinoPuesto = {
+    id: number;
+    nombre: string;
+    departamento: string | null;
+    personas: number;
+    rango: RangoTabulador | null;
+};
+
+/** Resultado de «trasladar personas» (flash `movimientoPuesto`). */
+export type ResultadoMovimientoPuesto = ResultadoMovimientoDepartamento;
+
+export type FilaImportacionTabulador = {
+    fila: number;
+    puesto: string;
+    minimo: number | null;
+    medio: number | null;
+    maximo: number | null;
+    fuente: string;
+    fecha_actualizacion: string | null;
+    estado: 'nuevo' | 'cambio' | 'sin_cambio' | 'error';
+    errores: string[];
+};
+
+export type ImportacionTabulador = {
+    id: number;
+    nombre_archivo: string;
+    estado: string;
+    total_filas: number;
+    filas_revision: number;
+    filas_sin_cambios: number;
+    filas_error: number;
+    detalle: FilaImportacionTabulador[];
+};
+
+export type MatrizMeritoCeldas = Record<
+    string,
+    Record<string, number | string>
+>;
+
+/** Lo salarial del módulo (solo con salarios.ver). */
+export type SalariosModulo = {
+    resumen: {
+        puestos_total: number;
+        puestos_con_tabulador: number;
+        puestos_sin_tabulador: number;
+        compa_ratio_promedio: number | null;
+        bajo_minimo: number;
+        sobre_maximo: number;
+        margen: number | null;
+        con_evaluacion: number;
+        colaboradores: number;
+        sin_sueldo: number;
+    };
+    fuera_de_rango: {
+        id: number;
+        nombre: string;
+        puesto_id: number | null;
+        puesto: string | null;
+        sucursal: string | null;
+        sueldo: number | null;
+        banda: BandaSalarial;
+        banda_etiqueta: string;
+        compa_ratio: number | null;
+    }[];
+    sin_tabulador: {
+        puesto_id: number;
+        puesto: string;
+        colaboradores: number;
+    }[];
+    matriz: MatrizMeritoCeldas | null;
+    historial_matriz: {
+        id: number;
+        vigente_desde: string;
+        vigente_hasta: string | null;
+        motivo: string | null;
+        usuario: string | null;
+    }[];
+    importacion: ImportacionTabulador | null;
 };

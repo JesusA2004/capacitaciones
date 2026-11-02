@@ -79,15 +79,10 @@ test('el catálogo tiene las causales de la especificación (RV/NR/RE) más el g
         ->toBe(['OT-01', 'OT-02', 'OT-03', 'RE-01', 'RE-02', 'RE-03', 'RE-04', 'RE-05', 'RV-05'])
         ->and(causalPorClave('RV-04')->alerta)->toContain('NOM-035');
 
-    // C2 — marca «Implica indemnización» en las no renovaciones indicadas.
-    expect($vigentes->where('implica_indemnizacion', true)->pluck('clave')->sort()->values()->all())
-        ->toBe(['NR-01', 'NR-03', 'NR-05', 'NR-06']);
-
     // C3 — grupo OT (otras terminaciones) con su forma y tipo.
     expect(causalPorClave('OT-01')->nombre)->toBe('Fallecimiento')
         ->and(causalPorClave('OT-01')->forma())->toBe(FormaSalida::OtraTerminacion)
-        ->and(causalPorClave('OT-01')->tipo)->toBe(TipoBaja::OtraTerminacion)
-        ->and(TipoBaja::OtraTerminacion->contemplaIndemnizacion())->toBeFalse();
+        ->and(causalPorClave('OT-01')->tipo)->toBe(TipoBaja::OtraTerminacion);
 
     // Las causales del catálogo anterior quedan como legado: inactivas, nunca borradas.
     expect(CausalRotacion::query()->where('legado', true)->where('activo', true)->count())->toBe(0);
@@ -241,21 +236,17 @@ test('una causal ya usada no cambia de forma de salida: solo se desactiva', func
         ->and(CierreLaboral::query()->firstOrFail()->motivo)->toBe('Se va a otra financiera.');
 });
 
-test('el finiquito decide la indemnización por forma y causal', function () {
-    $metodo = new ReflectionMethod(FiniquitoService::class, 'calcularIndemnizacion');
-    $finiquitos = app(FiniquitoService::class);
-    config(['finiquitos.indemnizacion_habilitada' => true, 'finiquitos.dias_indemnizacion_por_anio' => 12]);
+test('en PEOPLE no existen liquidaciones: ninguna forma ni causal genera indemnización', function () {
+    expect(method_exists(FiniquitoService::class, 'calcularIndemnizacion'))->toBeFalse()
+        ->and(method_exists(TipoBaja::class, 'contemplaIndemnizacion'))->toBeFalse()
+        ->and(config('finiquitos.indemnizacion_habilitada'))->toBeNull()
+        ->and(config('finiquitos.dias_indemnizacion_por_anio'))->toBeNull()
+        ->and(array_keys(app(FiniquitoService::class)->conceptosAutomaticos()))->not->toContain('indemnizacion')
+        ->and(config('bajas.documentos_requeridos')['NR.finiquito']['nombre'])->toBe('Finiquito firmado');
 
-    $renuncia = new SolicitudInterna(['tipo_baja' => TipoBaja::Renuncia]);
-    $rescision = new SolicitudInterna(['tipo_baja' => TipoBaja::Rescision, 'causal_rotacion_id' => causalPorClave('RE-05')->id]);
-    $abandono = new SolicitudInterna(['tipo_baja' => TipoBaja::Rescision, 'causal_rotacion_id' => causalPorClave('RE-01')->id]);
-    $noRenovacion = new SolicitudInterna(['tipo_baja' => TipoBaja::FinContrato, 'causal_rotacion_id' => causalPorClave('NR-01')->id]);
-
-    expect($metodo->invoke($finiquitos, $renuncia, 2, 100.0))->toBe(0.0)
-        // PDF Etapa 1: con causal del catálogo solo indemniza la marcada «Implica indemnización».
-        ->and($metodo->invoke($finiquitos, $rescision, 2, 100.0))->toBe(0.0)
-        ->and($metodo->invoke($finiquitos, $abandono, 2, 100.0))->toBe(0.0)
-        ->and($metodo->invoke($finiquitos, $noRenovacion, 2, 100.0))->toBe(2400.0);
+    foreach ((array) config('bajas.causales') as $datos) {
+        expect($datos)->not->toHaveKey('implica_indemnizacion')->not->toHaveKey('excluye_indemnizacion');
+    }
 });
 
 test('las causas anteriores se traducen a su tipo vigente y conservan su etiqueta en el historial', function () {

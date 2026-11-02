@@ -122,10 +122,10 @@ class BajaController extends Controller
     {
         $this->authorize('administrar', CausalRotacion::class);
         $filas = array_map(fn (array $c): array => [
-            $c['clave'], $c['nombre'], $c['forma_etiqueta'], $c['genera'], $c['fundamento_legal'] ?? '', $c['requiere_juridico'] ? 'Sí' : 'No', $c['implica_indemnizacion'] ? 'Sí' : 'No', $c['comentario_obligatorio'] ? 'Sí' : 'No', $c['alerta'] ?? '', $c['activo'] ? 'Activa' : 'Inactiva', $c['usos'],
+            $c['clave'], $c['nombre'], $c['forma_etiqueta'], $c['genera'], $c['fundamento_legal'] ?? '', $c['requiere_juridico'] ? 'Sí' : 'No', $c['comentario_obligatorio'] ? 'Sí' : 'No', $c['alerta'] ?? '', $c['activo'] ? 'Activa' : 'Inactiva', $c['usos'],
         ], $this->causales->listado());
 
-        return Excel::download(new ReporteRhExport('Catálogo de causales', ['Clave', 'Causal', 'Forma de salida', 'Genera', 'Fundamento', 'Integrar expediente probatorio', 'Implica indemnización', 'Comentario obligatorio', 'Alerta', 'Estatus', 'Usos'], $filas), 'catalogo-causales.xlsx');
+        return Excel::download(new ReporteRhExport('Catálogo de causales', ['Clave', 'Causal', 'Forma de salida', 'Genera', 'Fundamento', 'Integrar expediente probatorio', 'Comentario obligatorio', 'Alerta', 'Estatus', 'Usos'], $filas), 'catalogo-causales.xlsx');
     }
 
     public function create(Request $request): Response

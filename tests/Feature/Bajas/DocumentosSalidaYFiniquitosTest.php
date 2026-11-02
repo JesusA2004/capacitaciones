@@ -26,6 +26,7 @@ use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -294,37 +295,55 @@ test('escenarios 24 y 25: Finiquitos se consulta aparte y es el mismo registro d
     expect(FiniquitoCalculo::query()->count())->toBe(1);
 });
 
-test('escenario 26: NR-01 propone liquidación con indemnización y advertencia, RE-04 y NR-02 no', function () {
+test('escenario 26: en PEOPLE no existen liquidaciones — NR-01 (bajo desempeño) se cierra con finiquito sin indemnización', function () {
     $baja = salidaRegistrar($this, 'NR-01');
     $finiquito = salidaFiniquito($baja);
 
-    expect($finiquito->tipo_documento)->toBe(TipoFiniquito::Liquidacion)
-        ->and((float) $finiquito->indemnizacion)->toBeGreaterThan(0);
+    expect($finiquito->tipo_documento)->toBe(TipoFiniquito::Finiquito)
+        ->and((float) $finiquito->indemnizacion)->toBe(0.0);
 
     $this->actingAs($this->rh)->get(route('rh.bajas.finiquitos.index', ['finiquito' => $finiquito->id]))->assertInertia(fn (Assert $page) => $page
-        ->where('seleccionado.tipo', 'liquidacion')
-        ->where('seleccionado.advertencia_liquidacion', fn ($texto) => str_contains($texto, 'RH/Jurídico')));
+        ->missing('seleccionado.tipo')
+        ->missing('seleccionado.advertencia_liquidacion')
+        ->missing('seleccionado.puede.cambiar_tipo')
+        ->where('seleccionado.desglose', fn ($desglose) => collect($desglose)->doesntContain(fn ($r) => $r['clave'] === '005')));
 
-    // RH/Jurídico decide el supuesto concreto con motivo.
-    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.tipo', $finiquito), ['tipo' => 'finiquito', 'motivo' => ''])->assertSessionHasErrors('motivo');
-    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.tipo', $finiquito), ['tipo' => 'finiquito', 'motivo' => 'Jurídico lo revisó para este caso'])->assertSessionHasNoErrors();
-    expect($finiquito->refresh()->tipo_documento)->toBe(TipoFiniquito::Finiquito);
+    // Ya no existe el cambio de tipo ni el ajuste del concepto indemnización.
+    expect(Route::has('rh.bajas.finiquitos.tipo'))->toBeFalse();
+    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.ajustar', $finiquito), ['concepto_clave' => 'indemnizacion', 'importe' => 5000, 'motivo' => 'Intento de indemnizar'])->assertSessionHasErrors('concepto_clave');
 
-    $sinMarca = Colaborador::factory()->create(['sucursal_principal_id' => $this->estructura['sucursal']->id, 'jefe_id' => $this->gerente->colaborador_id, 'estatus' => EstadoUsuario::Activo, 'fecha_ingreso' => now()->subYears(3)->toDateString(), 'sueldo_mensual' => 12000]);
-    $this->persona = $sinMarca;
-    $otra = salidaRegistrar($this, 'RE-04');
-    $finiquitoRe = salidaFiniquito($otra);
-    expect($finiquitoRe->tipo_documento)->toBe(TipoFiniquito::Finiquito)->and((float) $finiquitoRe->indemnizacion)->toBe(0.0);
+    // Recalcular tampoco la vuelve a estimar (ninguna causal la genera).
+    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.recalcular', $finiquito))->assertSessionHasNoErrors();
+    expect((float) $finiquito->refresh()->indemnizacion)->toBe(0.0)
+        ->and($finiquito->tipo_documento)->toBe(TipoFiniquito::Finiquito);
+
+    foreach (['NR-03', 'NR-05', 'RE-01', 'RE-04'] as $clave) {
+        $this->persona = Colaborador::factory()->create(['sucursal_principal_id' => $this->estructura['sucursal']->id, 'jefe_id' => $this->gerente->colaborador_id, 'estatus' => EstadoUsuario::Activo, 'fecha_ingreso' => now()->subYears(3)->toDateString(), 'sueldo_mensual' => 12000]);
+        $otro = salidaFiniquito(salidaRegistrar($this, $clave));
+        expect($otro->tipo_documento)->toBe(TipoFiniquito::Finiquito)
+            ->and((float) $otro->indemnizacion)->toBe(0.0);
+    }
 });
 
-test('un finiquito anterior sin tipo guardado se deriva sin reescribirlo', function () {
+test('una liquidación histórica se lee como finiquito y solo conserva su indemnización si ya está firmada o pagada', function () {
     $baja = salidaRegistrar($this, 'NR-01');
     $finiquito = salidaFiniquito($baja);
-    $finiquito->update(['tipo_documento' => null]);
-
     $servicio = app(FiniquitoService::class);
-    expect($servicio->tipoDe($finiquito->refresh()))->toBe(TipoFiniquito::Liquidacion)
-        ->and($finiquito->tipo_documento)->toBeNull();
+
+    // Fila legada: tipo «liquidacion» con indemnización, aún sin firmar.
+    $finiquito->update(['tipo_documento' => TipoFiniquito::Liquidacion, 'indemnizacion' => 5000]);
+    expect($finiquito->refresh()->tipo_documento->etiqueta())->toBe('Finiquito')
+        ->and(collect($servicio->desglose($finiquito))->pluck('clave'))->not->toContain('005');
+
+    $this->actingAs($this->rh)->get(route('rh.bajas.finiquitos.index', ['finiquito' => $finiquito->id]))->assertOk();
+
+    // Firmada/pagada antes de la regla: se conserva de solo lectura para cuadrar con el documento entregado.
+    $finiquito->update(['estado' => EstadoFiniquito::Pagado]);
+    $historica = collect($servicio->desglose($finiquito->refresh()))->firstWhere('clave', '005');
+    expect($historica)->not->toBeNull()
+        ->and($historica['importe'])->toBe(5000.0)
+        ->and($historica['editable'])->toBeFalse()
+        ->and($historica['concepto_clave'])->toBeNull();
 });
 
 test('escenario 27 y F4: ajustes con bitácora y flujo Calculado → Revisado → Firmado → Pagado', function () {

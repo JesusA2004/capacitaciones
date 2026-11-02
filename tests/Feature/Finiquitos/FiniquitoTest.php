@@ -58,7 +58,8 @@ test('calcular un finiquito genera un cálculo en borrador con montos derivados'
         ->and((float) $finiquito->sueldo_mensual)->toBe(15000.0)
         ->and((float) $finiquito->sueldo_diario)->toBe(500.0)
         ->and($finiquito->antiguedad_anios)->toBe(2)
-        ->and((float) $finiquito->indemnizacion)->toBeGreaterThan(0);
+        // En PEOPLE no existen liquidaciones: el finiquito nunca indemniza.
+        ->and((float) $finiquito->indemnizacion)->toBe(0.0);
 });
 
 test('el cálculo guarda un snapshot al generar el pdf', function () {

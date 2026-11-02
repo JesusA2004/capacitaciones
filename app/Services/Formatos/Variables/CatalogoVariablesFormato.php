@@ -269,7 +269,7 @@ class CatalogoVariablesFormato
             $this->v('finiquito.vacaciones_pendientes', 'Finiquito: días de vacaciones pendientes', 'finiquito', tipo: 'numero', ejemplo: '12', contexto: 'finiquito'),
             $this->v('finiquito.prima_vacacional', 'Finiquito: prima vacacional', 'finiquito', tipo: 'moneda', ejemplo: '1500', contexto: 'finiquito', sensible: true),
             $this->v('finiquito.aguinaldo_proporcional', 'Finiquito: aguinaldo proporcional', 'finiquito', tipo: 'moneda', ejemplo: '1850', contexto: 'finiquito', sensible: true),
-            $this->v('finiquito.indemnizacion', 'Finiquito: indemnización', 'finiquito', tipo: 'moneda', ejemplo: '0', contexto: 'finiquito', sensible: true),
+            $this->v('finiquito.indemnizacion', 'Finiquito: indemnización (histórico; ya no se calcula, siempre $0)', 'finiquito', tipo: 'moneda', ejemplo: '0', contexto: 'finiquito', sensible: true),
             $this->v('finiquito.bonos_extra', 'Finiquito: bonos extra', 'finiquito', tipo: 'moneda', ejemplo: '0', contexto: 'finiquito', sensible: true),
             $this->v('finiquito.descuentos', 'Finiquito: descuentos', 'finiquito', tipo: 'moneda', ejemplo: '0', contexto: 'finiquito', sensible: true),
             $this->v('finiquito.adeudos', 'Finiquito: adeudos', 'finiquito', tipo: 'moneda', ejemplo: '0', contexto: 'finiquito', sensible: true),

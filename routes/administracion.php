@@ -126,6 +126,10 @@ Route::middleware(['auth', 'verified'])
         Route::prefix('puestos')->name('puestos.')->group(function () {
             Route::get('/', [PuestoController::class, 'index'])->name('index');
             Route::post('/', [PuestoController::class, 'store'])->name('store');
+            // Ficha del puesto (personas, tabulador, datos) + traslado en lote
+            // a otro puesto (MovimientoPuestoService → DatosExpedienteService).
+            Route::get('{puesto}', [PuestoController::class, 'show'])->name('show');
+            Route::post('{puesto}/mover-colaboradores', [PuestoController::class, 'moverColaboradores'])->name('mover-colaboradores');
             Route::put('{puesto}', [PuestoController::class, 'update'])->name('update');
             Route::delete('{puesto}', [PuestoController::class, 'destroy'])->name('destroy');
         });

@@ -2,7 +2,6 @@
 
 use App\Enums\EstadoFiniquito;
 use App\Enums\EstadoUsuario;
-use App\Enums\TipoFiniquito;
 use App\Models\Baja;
 use App\Models\BajaBitacora;
 use App\Models\BajaDocumento;
@@ -211,7 +210,6 @@ test('catálogo: RH agrega subcatálogo y causal en Otras terminaciones; desacti
         'nombre' => 'Pensión por cesantía',
         'causal_grupo_id' => $grupo->id,
         'documento_salida' => 'convenio_terminacion',
-        'implica_indemnizacion' => false,
     ])->assertSessionHasNoErrors();
 
     $causal = CausalRotacion::query()->where('nombre', 'Pensión por cesantía')->sole();
@@ -323,22 +321,6 @@ test('un GET y el permiso de descarga no emiten el finiquito', function () {
     $soloDescarga = clUsuario('colaborador');
     $soloDescarga->givePermissionTo(['finiquitos.ver', 'finiquitos.descargar']);
     $this->actingAs($soloDescarga)->post(route('rh.bajas.finiquitos.generar-pdf', $finiquito))->assertForbidden();
-});
-
-test('cambiar el tipo sin mover el neto deja el PDF desactualizado: no se sirve ni se firma', function () {
-    $baja = correccionBaja($this, 'NR-02');
-    $finiquito = correccionFiniquito($baja);
-    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.revisar', $finiquito))->assertSessionHasNoErrors();
-    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.generar-pdf', $finiquito))->assertSessionHasNoErrors();
-    $neto = (string) $finiquito->refresh()->neto;
-    $tipo = $finiquito->tipo_documento === TipoFiniquito::Liquidacion ? TipoFiniquito::Finiquito : TipoFiniquito::Liquidacion;
-
-    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.tipo', $finiquito), ['tipo' => $tipo->value, 'motivo' => 'Corresponde otro tipo.'])->assertSessionHasNoErrors();
-    expect((string) $finiquito->refresh()->neto)->toBe($neto);
-
-    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.revisar', $finiquito))->assertSessionHasNoErrors();
-    $this->actingAs($this->rh)->get(route('rh.bajas.finiquitos.recibo', $finiquito))->assertOk()->assertHeader('X-Documento-Estado', 'vista-previa');
-    $this->actingAs($this->rh)->post(route('rh.bajas.finiquitos.firmado', $finiquito), ['archivo' => clArchivoPdf('firmado.pdf')])->assertSessionHasErrors('documento');
 });
 
 test('la ruta del NAS y los importes no se serializan hacia quien no puede verlos', function () {
