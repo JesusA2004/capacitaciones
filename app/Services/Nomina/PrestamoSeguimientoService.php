@@ -4,6 +4,7 @@ namespace App\Services\Nomina;
 
 use App\Enums\EstadoSolicitudInterna;
 use App\Models\GeneratedDocument;
+use App\Models\Prestamo;
 use App\Models\SolicitudAprobacion;
 use App\Models\SolicitudInterna;
 use App\Services\DocumentosLaborales\FirmaDocumentalService;
@@ -77,7 +78,7 @@ class PrestamoSeguimientoService
         ];
 
         $firmado = $prestamo !== null && ($prestamo->resguardado_en !== null
-            || ($this->firmado($prestamo->contratoDocumento) && $this->firmado($prestamo->pagareDocumento)));
+            || ($this->firmado($prestamo, $prestamo->contratoDocumento, 'prestamo_contrato') && $this->firmado($prestamo, $prestamo->pagareDocumento, 'prestamo_pagare')));
         $etapas[] = [
             'clave' => 'firma',
             'etiqueta' => 'Firma de contrato y pagaré',
@@ -99,8 +100,10 @@ class PrestamoSeguimientoService
      * concluido según su flujo (firma física cuando la plantilla la pide; no
      * basta que esté impreso). Centralizado en FirmaDocumentalService. Ver P2-3.
      */
-    private function firmado(?GeneratedDocument $documento): bool
+    private function firmado(Prestamo $prestamo, ?GeneratedDocument $documento, string $clave): bool
     {
-        return app(FirmaDocumentalService::class)->documentoConcluidoSegunFlujo($documento);
+        $firma = app(FirmaDocumentalService::class);
+
+        return $firma->documentoConcluidoSegunFlujo($documento) || $firma->algunaVersionConcluida($prestamo, $clave);
     }
 }

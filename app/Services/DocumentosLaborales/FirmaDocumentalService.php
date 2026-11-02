@@ -2,7 +2,9 @@
 
 namespace App\Services\DocumentosLaborales;
 
+use App\Enums\EstadoFlujoDocumento;
 use App\Models\GeneratedDocument;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Criterio ÚNICO, neutral y reutilizable de «documento CONCLUIDO según su
@@ -49,5 +51,21 @@ class FirmaDocumentalService
         }
 
         return true;
+    }
+
+    /**
+     * ¿Alguna versión viva del documento ya concluyó? Rectificar mueve el puntero del
+     * registro a una versión nueva sin firmar, pero lo firmado sigue firmado: ningún
+     * bloqueo que dependa de la firma debe abrirse por eso.
+     */
+    public function algunaVersionConcluida(Model $registro, string $clave): bool
+    {
+        return GeneratedDocument::query()
+            ->where('documentable_type', $registro->getMorphClass())
+            ->where('documentable_id', $registro->getKey())
+            ->where('clave_plantilla', $clave)
+            ->where('estado_flujo', '!=', EstadoFlujoDocumento::Cancelado->value)
+            ->get()
+            ->contains(fn (GeneratedDocument $documento): bool => $this->documentoConcluidoSegunFlujo($documento));
     }
 }

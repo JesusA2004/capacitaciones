@@ -474,15 +474,26 @@ class ActaService
         return app(DocumentoProcesoService::class)->generar('acta', $acta, $acta->tipo->clavePlantilla(), $actor, regenerar: $acta->generated_document_id !== null, motivoRevision: $motivo);
     }
 
+    /**
+     * Una rectificación mueve el puntero a una versión sin firmar: lo firmado sigue firmado.
+     */
+    private function tieneVersionFirmada(ActaAdministrativa $acta): bool
+    {
+        return GeneratedDocument::query()
+            ->where('documentable_type', $acta->getMorphClass())
+            ->where('documentable_id', $acta->id)
+            ->where('clave_plantilla', $acta->tipo->clavePlantilla())
+            ->whereIn('estado_flujo', array_map(fn (EstadoFlujoDocumento $e): string => $e->value, array_filter(EstadoFlujoDocumento::cases(), fn (EstadoFlujoDocumento $e): bool => $e->firmaFisicaRegistrada())))
+            ->exists();
+    }
+
     private function corregibleGenerada(ActaAdministrativa $acta): bool
     {
         if ($acta->estado !== EstadoActa::Generada) {
             return false;
         }
 
-        $documento = $acta->generated_document_id !== null ? GeneratedDocument::query()->whereKey($acta->generated_document_id)->first() : null;
-
-        return ! ($documento?->estado_flujo?->firmaFisicaRegistrada() ?? false);
+        return ! $this->tieneVersionFirmada($acta);
     }
 
     /**
@@ -502,9 +513,7 @@ class ActaService
             throw ValidationException::withMessages(['acta' => 'Solo un acta en borrador o generada sin firmar puede editarse; registra cambios como seguimiento.']);
         }
 
-        $documento = $acta->generated_document_id !== null ? GeneratedDocument::query()->whereKey($acta->generated_document_id)->first() : null;
-
-        if ($documento?->estado_flujo?->firmaFisicaRegistrada() ?? false) {
+        if ($this->tieneVersionFirmada($acta)) {
             throw ValidationException::withMessages(['acta' => 'El acta ya está firmada: el original se conserva; registra cambios como seguimiento.']);
         }
 
@@ -584,7 +593,7 @@ class ActaService
             // impreso— más una comparación muerta a EstadoActa::Firmada (estado
             // que no se asigna en ningún punto del código), de modo que un acta
             // disciplinaria podía cerrarse sin firma física real. Ver P1-6.
-            $firmada = app(FirmaDocumentalService::class)->documentoConcluidoSegunFlujo($acta->documento);
+            $firmada = app(FirmaDocumentalService::class)->documentoConcluidoSegunFlujo($acta->documento) || $this->tieneVersionFirmada($acta);
 
             return $firmada || $acta->negativa_firma ? null : 'Registra la firma física del acta o asienta la negativa a firmar antes de cerrarla.';
         }
@@ -593,7 +602,7 @@ class ActaService
             return 'El acta no tiene un documento definitivo vigente: genéralo antes de cerrarla.';
         }
 
-        if (! $estadoDocumento->firmaFisicaRegistrada() && ! $acta->negativa_firma) {
+        if (! $this->tieneVersionFirmada($acta) && ! $acta->negativa_firma) {
             return 'Registra la firma física del acta impresa o asienta la negativa a firmar antes de cerrarla.';
         }
 
@@ -610,7 +619,7 @@ class ActaService
             throw ValidationException::withMessages(['acta' => $motivo]);
         }
 
-        $firmada = app(FirmaDocumentalService::class)->documentoConcluidoSegunFlujo($acta->documento);
+        $firmada = app(FirmaDocumentalService::class)->documentoConcluidoSegunFlujo($acta->documento) || $this->tieneVersionFirmada($acta);
 
         $acta->update([
             'estado' => EstadoActa::Cerrada,

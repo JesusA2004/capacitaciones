@@ -231,8 +231,8 @@ class PrestamoAutorizacionService
                 throw ValidationException::withMessages(['prestamo' => 'El préstamo ya está resguardado.']);
             }
 
-            foreach (['contrato' => $prestamo->contratoDocumento, 'pagaré' => $prestamo->pagareDocumento] as $nombre => $documento) {
-                if (! $this->firmado($documento)) {
+            foreach (['contrato' => [$prestamo->contratoDocumento, 'prestamo_contrato'], 'pagaré' => [$prestamo->pagareDocumento, 'prestamo_pagare']] as $nombre => [$documento, $clave]) {
+                if (! $this->firmado($documento) && ! app(FirmaDocumentalService::class)->algunaVersionConcluida($prestamo, $clave)) {
                     throw ValidationException::withMessages(['prestamo' => "El {$nombre} del préstamo debe estar generado y firmado antes del resguardo."]);
                 }
             }

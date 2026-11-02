@@ -48,7 +48,8 @@ function aeDatos(array $circunstanciada = [], array $extra = []): array
 {
     return [
         'tipo' => 'administrativa',
-        'fecha' => now()->toDateString(),
+        // El cierre del acta se valida en hora de México; en UTC ya puede ser mañana.
+        'fecha' => now('America/Mexico_City')->toDateString(),
         'lugar' => 'Toluca, Estado de México',
         'hechos' => 'El arqueo de caja arrojó un faltante.',
         'circunstanciada' => array_replace_recursive([
