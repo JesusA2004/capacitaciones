@@ -1,0 +1,107 @@
+﻿"# anexo","Nombre completo","Número de empleado",Sucursal,Puesto,Área,"Fecha de ingreso","Último día laborado","Motivo original","Causal homologada","Antigüedad (texto)","Rango de antigüedad",Nota,"Causal (reporte)","Tipo (reporte)"
+1,"Isai Muñoz Cruz",,Atlacomulco,,,2025-07-28,2026-01-03,"MEJOR SUELDO",oferta_laboral,"159 d",,,"Mejor oferta laboral / salarial",Voluntaria
+2,"David Bonilla Robles",,Atlixco,,,2025-01-13,2026-01-10,"MEJOR SUELDO",oferta_laboral,"362 d",,,"Mejor oferta laboral / salarial",Voluntaria
+3,"Raul Soto Heredia",,Cuernavaca,,,2025-04-13,2026-01-12,"CAMBIO DE RESIDENCIA",personales_familiares,"274 d",,,"Motivos personales / familiares",Voluntaria
+4,"Edwin Paez Salazar",,Huamantla,,,2025-06-17,2026-01-13,"CAMBIO DE RESIDENCIA",personales_familiares,"210 d",,,"Motivos personales / familiares",Voluntaria
+5,"Homero Gonzalez Garcia",,Atlacomulco,,,,2026-01-16,CONFLICTIVO,probidad_conducta,"6.0 a",,,"Falta de probidad / conducta",Involuntaria
+6,"Roberto Carlos Joel Ortega Galindo",,Cuernavaca,,,2025-12-07,2026-01-17,"ABANDONO DE EMPLEO",abandono_faltas,"41 d",,,"Abandono de empleo / faltas",Voluntaria
+7,"Cristobal Gamas Hernandez",,Huamantla,,,2025-10-12,2026-01-19,"PROBLEMAS PAREJA Y FAMILIARES",personales_familiares,"99 d",,,"Motivos personales / familiares",Voluntaria
+8,"Silvano Octaviano Mateo",,Ixtlahuaca,,,2025-10-07,2026-01-19,"ABANDONO DE EMPLEO",abandono_faltas,"104 d",,,"Abandono de empleo / faltas",Voluntaria
+9,"Monica Arely Lazaro Torres",,Orizaba,,,2025-12-02,2026-01-20,"FALTAS ACUMULADAS",abandono_faltas,"49 d",,,"Abandono de empleo / faltas",Voluntaria
+10,"Juan Rodrigo Flores Solano",,Huamantla,,,2025-08-31,2026-01-29,"ABANDONO DE EMPLEO",abandono_faltas,"151 d",,,"Abandono de empleo / faltas",Voluntaria
+11,"Tito Ivan Lopez Rosas",,Orizaba,,,2025-07-20,2026-02-06,"MOTIVOS PERSONALES",personales_familiares,"201 d",,,"Motivos personales / familiares",Voluntaria
+12,"Jessica Romina Arguijo Tamayo",,Corporativo,,,2025-10-15,2026-02-10,,sin_causal,"118 d",,,"Sin causal registrada","Sin clasificar"
+13,"Montserrat Bonilla Cortes",,Corporativo,,,2025-11-30,2026-02-10,,sin_causal,"72 d",,,"Sin causal registrada","Sin clasificar"
+14,"Pablo Alberto Navarro Ramos",,Corporativo,,,,2026-02-11,,sin_causal,"1.4 a",,,"Sin causal registrada","Sin clasificar"
+15,"Victor Hugo Pioquinto Vega",,Huamantla,,,2025-06-02,2026-02-15,"BAJO DESEMPEÑO",bajo_desempeno,"258 d",,,"Bajo desempeño / resultados",Involuntaria
+16,"Eudy Guillermo De Luna Noyola",,Orizaba,,,,2026-02-24,DESFACES,desfases_cartera,"2.4 a",,,"Desfases en cartera",Involuntaria
+17,"Chaidez Maytorena Ana Sofia",,Corporativo,,,2025-03-19,2026-02-27,"TEMAS PERSONALES",personales_familiares,"345 d",,,"Motivos personales / familiares",Voluntaria
+18,"Aguirre Gatica Pamela Naomi",,Corporativo,,,2026-02-18,2026-02-27,"BAJO DESEMPEÑO",bajo_desempeno,"9 d",,,"Bajo desempeño / resultados",Involuntaria
+19,"Cristhian Omar Moreno Castrejon",,Miacatlán,,,2026-02-08,2026-02-27,"PFALTA DE PROVIDAD",probidad_conducta,"19 d",,,"Falta de probidad / conducta",Involuntaria
+20,"Perla Monserrat Albavera Betancourt",,Corporativo,,,2025-10-05,2026-02-28,"RECORTE DE PERSONAL",estructural,"146 d",,,"Reestructura / cierre / fin de contrato",Involuntaria
+21,"Francisco Javier Castillo Flores",,Corporativo,,,,2026-02-28,"BAJO DESEMPEÑO",bajo_desempeno,"3.1 a",,,"Bajo desempeño / resultados",Involuntaria
+22,"Antonio Castillo Cisneros",,Huamantla,,,2025-06-16,2026-02-28,"BAJO DESEMPEÑO",bajo_desempeno,"257 d",,,"Bajo desempeño / resultados",Involuntaria
+23,"Frida Sofia Roman Herrera",,Corporativo,,,2025-04-03,2026-03-02,"RECORTE DE PERSONAL",estructural,"333 d",,,"Reestructura / cierre / fin de contrato",Involuntaria
+24,"Javier Eduardo Ordoñez Mendoza",,Atlacomulco,,,2026-02-17,2026-03-02,"ABANDONO DE EMPLEO",abandono_faltas,"13 d",,,"Abandono de empleo / faltas",Voluntaria
+25,"Jose Jean Osorio Paguia",,Ixtlahuaca,,,2026-01-14,2026-03-02,"NO LE GUSTO EL TRABAJO",no_le_gusto,"47 d",,,"No le gustó el trabajo",Voluntaria
+26,"Lilia Patricia Cacho Granados",,Corporativo,,,,2026-03-03,"RECORTE DE PERSONAL",estructural,"3.4 a",,,"Reestructura / cierre / fin de contrato",Involuntaria
+27,"Cristian Jorge Teodosio",,Miacatlán,,,2025-03-19,2026-03-03,"MOTIVOS PERSONALES",personales_familiares,"349 d",,,"Motivos personales / familiares",Voluntaria
+28,"Rosalinda Maribel Cuellar Flores",,Huamantla,,,,2026-03-10,"FILTRACIÓN DE INFORMACIÓN",probidad_conducta,"1.5 a",,,"Falta de probidad / conducta",Involuntaria
+29,"Josmar Ruiz Laguna",,Orizaba,,,2026-01-25,2026-03-17,"NO LE GUSTO EL TRABAJO",no_le_gusto,"51 d",,,"No le gustó el trabajo",Voluntaria
+30,"Omar Munive Morales",,Huamantla,,,2026-01-27,2026-03-18,"ABANDONO DE EMPLEO",abandono_faltas,"50 d",,,"Abandono de empleo / faltas",Voluntaria
+31,"Maria Isabel Alarcon Rios",,Corporativo,,,2025-07-31,2026-03-19,,sin_causal,"231 d",,,"Sin causal registrada","Sin clasificar"
+32,"Mayra Rosario Avila Hernandez",,"San Luis Potosí",,,2025-08-04,2026-03-19,"RENUNCIA VOLUNTARIA",renuncia_voluntaria,"227 d",,,"Renuncia voluntaria",Voluntaria
+33,"Lizeth Selene Barrera Sanchez",,Cuernavaca,,,2026-01-25,2026-03-20,"NO LE GUSTO EL TRABAJO",no_le_gusto,"54 d",,,"No le gustó el trabajo",Voluntaria
+34,"Arturo Lopez Sanchez",,Tlaxcala,,,,2026-03-22,"BAJO DESEMPEÑO",bajo_desempeno,"3.5 a",,,"Bajo desempeño / resultados",Involuntaria
+35,"Maria De Los Angeles Gomez Soto",,Cuernavaca,,,2026-01-25,2026-03-25,,sin_causal,"59 d",,,"Sin causal registrada","Sin clasificar"
+36,"Sandra Lizeth Legorreta De La Rosa",,Cuernavaca,,,2026-02-04,2026-04-02,"ABANDONO DE EMPLEO",abandono_faltas,"57 d",,,"Abandono de empleo / faltas",Voluntaria
+37,"Dulce Areli Hernandez Lopez",,Ixtlahuaca,,,2025-05-28,2026-04-03,"MEJOR OFERTA SALARIAL",oferta_laboral,"310 d",,,"Mejor oferta laboral / salarial",Voluntaria
+38,"Bernabel Rivera Ambrosio",,Córdoba,,,,2026-04-07,"prácticas en CFE para titularse.",personales_familiares,"1.3 a",,,"Motivos personales / familiares",Voluntaria
+39,"Julio Cesar Garcia Hernandez",,Cuernavaca,,,2025-11-23,2026-04-08,"ABANDONO DE EMPLEO",abandono_faltas,"136 d",,,"Abandono de empleo / faltas",Voluntaria
+40,"Víctor Jesús Sánchez Nava",,Cuernavaca,,,2025-06-03,2026-04-11,Desfaces,desfases_cartera,"312 d",,,"Desfases en cartera",Involuntaria
+41,"Claudia Aracely Garcia Alpizar",,"Zen Japonés",,,,2026-04-19,"CRECIMIENTO PERSONAL",oferta_laboral,"1.8 a",,,"Mejor oferta laboral / salarial",Voluntaria
+42,"Sandra Ivette Carbajal Gutgierrez",,"San Luis Potosí",,,2026-02-04,2026-04-20,"MEJOR SUELDO",oferta_laboral,"75 d",,,"Mejor oferta laboral / salarial",Voluntaria
+43,"Saul Rayon Marcelo",,"Zen Japonés",,,,2026-04-29,"MOTIVOS PERSONALES",personales_familiares,"2.0 a",,,"Motivos personales / familiares",Voluntaria
+44,"Karen Yaneli Estrada Castro",,Corporativo,,,2026-02-04,2026-04-30,"PROBLEMAS DE SALUD DELICADOS",salud,"85 d",,,"Motivos de salud",Voluntaria
+45,"Alan Omar Lopez Hernandez",,Cuernavaca,,,2026-04-19,2026-05-09,"MEJOR SUELDO",oferta_laboral,"20 d",,,"Mejor oferta laboral / salarial",Voluntaria
+46,"Rodolfo Tonathiu Gutierrez Leon Y Velez",,Cuernavaca,,,2026-03-15,2026-05-11,"MEJOR SUELDO",oferta_laboral,"57 d",,,"Mejor oferta laboral / salarial",Voluntaria
+47,"Guadalupe Jaimes Mojica",,Corporativo,,,2025-11-23,2026-05-15,"MEJOR SUELDO",oferta_laboral,"173 d",,,"Mejor oferta laboral / salarial",Voluntaria
+48,"Jessica Romina Arguijo Tamayo",,Corporativo,,,2026-03-01,2026-05-18,"ABUSO DE CONFIANZA )CHOCO EL VEHICULO ASIGNADO",probidad_conducta,"78 d",,,"Falta de probidad / conducta",Involuntaria
+49,"Angel Perez Peña",,Ixtlahuaca,,,2026-05-07,2026-05-25,"MEJOR SUELDO",oferta_laboral,"18 d",,,"Mejor oferta laboral / salarial",Voluntaria
+50,"Manuel Antonio Beristian Mojica",,Cuernavaca,,,2026-01-11,2026-05-30,"MEJOR SUELDO",oferta_laboral,"139 d",,,"Mejor oferta laboral / salarial",Voluntaria
+51,"Deyanira Lopez Quijano",,Tula,,,2025-12-15,2026-06-05,"MEJOR SUELDO",oferta_laboral,"172 d",,,"Mejor oferta laboral / salarial",Voluntaria
+52,"Josue Alejandro Lugardo Juarez",,Tula,,,,2026-06-05,"MEJOR SUELDO",oferta_laboral,"1.4 a",,,"Mejor oferta laboral / salarial",Voluntaria
+53,"Diego Martinez Romero",,Atlacomulco,,,,2026-06-05,"BAJO DESEMPEÑO",bajo_desempeno,"5.4 a",,,"Bajo desempeño / resultados",Involuntaria
+54,"Marcos Urbano Lucas",,Ixtlahuaca,,,2026-02-11,2026-06-08,"MEJOR SUELDO",oferta_laboral,"117 d",,,"Mejor oferta laboral / salarial",Voluntaria
+55,"Pavel Castro Martinez",,Atlixco,,,2025-08-07,2026-06-13,"DISTANCIA DE CARTERA ASIGNADA",personales_familiares,"310 d",,,"Motivos personales / familiares",Voluntaria
+56,"Blanca Casandra Cruz Cruz",,Tula,,,2025-11-16,2026-06-22,"CERO TOLERANCIA",probidad_conducta,"218 d",,,"Falta de probidad / conducta",Involuntaria
+57,"Main Agusto Diaz Mancera",,Itzamarketing,,,2026-02-01,2026-06-22,"BAJO DESEMPEÑO",bajo_desempeno,"141 d",,,"Bajo desempeño / resultados",Involuntaria
+58,"Job Espinosa Urbano",,Cuernavaca,,,2026-04-10,2026-06-23,"ABANDONO DE EMPLEO",abandono_faltas,"74 d",,,"Abandono de empleo / faltas",Voluntaria
+59,"Hector Emmanuel Diaz Santana",,Corporativo,,,2025-07-15,2026-06-26,"MEJOR SUELDO",oferta_laboral,"346 d",,,"Mejor oferta laboral / salarial",Voluntaria
+60,"Luis Alberto Aguilar Barrera",,Tula,,,2025-09-22,2026-06-27,"CERO TOLERANCIA",probidad_conducta,"278 d",,,"Falta de probidad / conducta",Involuntaria
+61,"Victor Hugo Cruz Barrios",,Atlacomulco,,,2026-02-15,2026-07-03,"abandiono de trabajo por faltas",abandono_faltas,"138 d",,,"Abandono de empleo / faltas",Voluntaria
+62,"Jose Alberto Ameca Rodriguez",,Córdoba,,,2025-10-28,2026-07-04,"MEJOR SUELDO",oferta_laboral,"249 d",,,"Mejor oferta laboral / salarial",Voluntaria
+63,"Ninfa Itzel Mendoza Avelino",,Corporativo,,,,2026-07-09,"CRECIMIENTO PROFESIONAL",oferta_laboral,"1.3 a",,,"Mejor oferta laboral / salarial",Voluntaria
+64,"Gerardo Alonso Pinet Sardaneta",,Cuernavaca,,,2026-05-10,2026-07-09,RENUNCIA,renuncia_voluntaria,"60 d",,,"Renuncia voluntaria",Voluntaria
+65,"Luis Antonio Peña Jeronimo",,Ixtlahuaca,,,2026-04-02,2026-07-13,"ABANDONO DE EMPLEO",abandono_faltas,"102 d",,,"Abandono de empleo / faltas",Voluntaria
+66,"José Alberto Cisneros Flores",,Cuernavaca,,,2026-05-10,2026-07-14,"BAJO DESEMPEÑO",bajo_desempeno,"65 d",,,"Bajo desempeño / resultados",Involuntaria
+67,"Oswaldo Lozano Murgado",,Cuernavaca,,,,2026-07-15,"PROBLEMAS PAREJA Y FAMILIARES",personales_familiares,—,,,"Motivos personales / familiares",Voluntaria
+68,"Teresa De Jesus Cazares Robles",,"San Luis Potosí",,,2025-10-05,2026-07-18,"BAJO DESEMPEÑO",bajo_desempeno,"286 d",,,"Bajo desempeño / resultados",Involuntaria
+69,"Roberto Christian González Ramírez",,Atlixco,,,,2026-07-25,"MEJOR SUELDO",oferta_laboral,"3.0 a",mas_3_anios,"Antigüedad 3.0 a: el redondeo no dice si ya cumplía 3 años; el resumen del reporte (más de 3 años = 10) obliga a que uno de los dos registros «3.0 a» (#69 y #75) quede en cada rango y el anexo no dice cuál. Rango provisional: confirmar con la fecha de ingreso real.","Mejor oferta laboral / salarial",Voluntaria
+70,"Yuliana Diaz Rodriguez",,Cuernavaca,,,2026-05-31,2026-07-31,"BAJO DESEMPEÑO",bajo_desempeno,"61 d",,,"Bajo desempeño / resultados",Involuntaria
+71,"Jose Alfredo Valentin Flores",,Cuernavaca,,,,2026-08-04,"MEJOR SUELDO",oferta_laboral,—,,,"Mejor oferta laboral / salarial",Voluntaria
+72,"Luis Jonathan Dominguez Juarez",,Atlacomulco,,,2025-11-13,2026-08-12,ENFERMEDAD,salud,"272 d",,,"Motivos de salud",Voluntaria
+73,"Felipe Miguel Gutierrez Salgado",,Miacatlán,,,,2026-08-13,"BAJO DESEMPEÑO",bajo_desempeno,"1.1 a",,,"Bajo desempeño / resultados",Involuntaria
+74,"Omar Muñoz Sánchez",,Huamantla,,,,2026-08-15,"No se tiene el motivo?",sin_causal,"1.3 a",,,"Sin causal registrada","Sin clasificar"
+75,"Carlos Eduardo Torres Castillo",,"San Luis Potosí",,,,2026-08-15,"MEJOR SUELDO",oferta_laboral,"3.0 a",de_1_a_3_anios,"Antigüedad 3.0 a: el redondeo no dice si ya cumplía 3 años; el resumen del reporte (más de 3 años = 10) obliga a que uno de los dos registros «3.0 a» (#69 y #75) quede en cada rango y el anexo no dice cuál. Rango provisional: confirmar con la fecha de ingreso real.","Mejor oferta laboral / salarial",Voluntaria
+76,"Bryan Adams Mejia",,"San Luis Potosí",,,2026-05-03,2026-08-15,"BAJO DESEMPEÑO",bajo_desempeno,"104 d",,,"Bajo desempeño / resultados",Involuntaria
+77,"Jessica Junuen Diaz Velazquez",,Tula,,,2025-11-30,2026-08-17,"FALTA DE PROVIDAD",probidad_conducta,"260 d",,,"Falta de probidad / conducta",Involuntaria
+78,"Diego Fernando Chavarria Carranco",,Miacatlán,,,2025-10-26,2026-08-22,"BAJO DESEMPEÑO",bajo_desempeno,"300 d",,,"Bajo desempeño / resultados",Involuntaria
+79,"Jose Eduardo Vazquez Gutierrez",,"San Luis Potosí",,,2026-08-16,2026-08-24,,sin_causal,"8 d",,,"Sin causal registrada","Sin clasificar"
+80,"Alberto Florentino Bravo Bravo",,"San Luis Potosí",,,,2026-08-29,"BAJO DESEMPEÑO",bajo_desempeno,"3.1 a",,,"Bajo desempeño / resultados",Involuntaria
+81,"Antonio Sánchez Rojas",,Tlaxcala,,,2026-03-18,2026-09-02,"problemas de salud",salud,"168 d",,,"Motivos de salud",Voluntaria
+82,"Anohard Sanchez Jimenez",,Huamantla,,,2026-02-02,2026-09-05,"ABANDONO DE EMPLEO",abandono_faltas,"215 d",,,"Abandono de empleo / faltas",Voluntaria
+83,"Daniel Alejandro Guzmán García",,Tula,,,2026-03-29,2026-09-05,"MEJOR OPORTUNIDAD LABORAL",oferta_laboral,"160 d",,,"Mejor oferta laboral / salarial",Voluntaria
+84,"Isai Barrera Bernabe",,Miacatlán,,,2026-03-31,2026-09-05,"ABANDONO DE EMPLEO",abandono_faltas,"158 d",,,"Abandono de empleo / faltas",Voluntaria
+85,"Campos Gutierrez Lorenzo",,Miacatlán,,,,2026-09-05,"ABANDONO DE EMPLEO",abandono_faltas,"5.2 a",,,"Abandono de empleo / faltas",Voluntaria
+86,"Avelar Morales Jose Eduardo",,Miacatlán,,,2025-10-12,2026-09-05,"ABANDONO DE EMPLEO",abandono_faltas,"328 d",,,"Abandono de empleo / faltas",Voluntaria
+87,"Isidro Hernandez Morales",,Huamantla,,,2026-02-08,2026-09-10,"BAJO DESEMPEÑO",bajo_desempeno,"214 d",,,"Bajo desempeño / resultados",Involuntaria
+88,"Jonathan David Zarate Miranda",,Cuernavaca,,,2026-05-31,2026-09-12,"RENUNCIA DE UN DIA PARA OTRO",renuncia_voluntaria,"104 d",,,"Renuncia voluntaria",Voluntaria
+89,"Luis Lugo Lozano",,"San Luis Potosí",,,,2026-09-12,"RENUNCIA DE UN DIA PARA OTRO",renuncia_voluntaria,"2.0 a",,,"Renuncia voluntaria",Voluntaria
+90,"Luis Gerardo Romero Romero",,Orizaba,,,,2026-09-15,"FALTA DE PROBIDAD",probidad_conducta,"1.7 a",,,"Falta de probidad / conducta",Involuntaria
+91,"Jesus Enrique Ocampo Perez",,Corporativo,,,2026-07-15,2026-09-19,DESEMPEÑO,bajo_desempeno,"66 d",,,"Bajo desempeño / resultados",Involuntaria
+92,"Bryan Adams Mejia",,"San Luis Potosí",,,2026-08-16,2026-09-19,,sin_causal,"34 d",,,"Sin causal registrada","Sin clasificar"
+93,"Zuriel Avila Martinez",,Corporativo,,,,2026-09-24,"RENUNCIA VOLUNTARIA",renuncia_voluntaria,"1.4 a",,,"Renuncia voluntaria",Voluntaria
+94,"Jose Alberto Carlos Bueno",,Corporativo,,,,2026-09-24,"RENUNCIA VOLUNTARIA",renuncia_voluntaria,"1.2 a",,,"Renuncia voluntaria",Voluntaria
+95,"David Ruiz Salgado",,Orizaba,,,2026-06-07,2026-09-26,"BAJA X RESULTADOS EN CREDITO GRUPAL",bajo_desempeno,"111 d",,,"Bajo desempeño / resultados",Involuntaria
+96,"Albino Reyes Vasquez",,Orizaba,,,2026-04-19,2026-09-26,"BAJA X RESULTADOS EN CREDITO GRUPAL",bajo_desempeno,"160 d",,,"Bajo desempeño / resultados",Involuntaria
+97,"Shanik Lopez Rios",,Itzamarketing,,,2026-01-25,2026-09-28,"Cierre de empresa",estructural,"246 d",,,"Reestructura / cierre / fin de contrato",Involuntaria
+98,"Ariel Jair Vergara Perez",,Itzamarketing,,,2026-07-16,2026-09-28,"Cierre de empresa",estructural,"74 d",,,"Reestructura / cierre / fin de contrato",Involuntaria
+99,"Sarahi Betsabe Perez Reyes",,Itzamarketing,,,2026-08-09,2026-09-28,"Cierre de empresa",estructural,"50 d",,,"Reestructura / cierre / fin de contrato",Involuntaria
+100,"Ana Karen Bernabe Gamboa",,Córdoba,,,,2026-09-30,"BAJO DESEMPEÑO",bajo_desempeno,"3.5 a",,,"Bajo desempeño / resultados",Involuntaria
+101,"Almmer Arim Cruz Ballesteros",,Atlacomulco,,,,2026-10-05,"TEMAS PERSONALES",personales_familiares,"1.0 a",de_1_a_3_anios,"Antigüedad 1.0 a: el redondeo no dice si ya cumplía 12 meses; el resumen del reporte (6-12 meses = 26, todas con antigüedad en días) la ubica en 1 a 3 años. Confirmar con la fecha de ingreso real.","Motivos personales / familiares",Voluntaria
+102,"Cesar Emmanuel Hernandez Ortiz",,Cuernavaca,,,2026-09-22,2026-10-06,"RENUNCIA VOLUNTARIA",renuncia_voluntaria,"14 d",,,"Renuncia voluntaria",Voluntaria
+103,"Eden Díaz Vazquez",,Tlaxcala,,,,2026-10-06,"TEMAS PERSONALES",personales_familiares,"2.5 a",,,"Motivos personales / familiares",Voluntaria
+104,"Ernesto Lopez Lopez",,Córdoba,,,,2026-10-10,"Realizaba prestamos personales",probidad_conducta,"5.1 a",,,"Falta de probidad / conducta",Involuntaria
+105,"Kevin Emmanuel Hernandez Buenrostro",,Corporativo,,,,2026-10-14,"BAJO DESEMPEÑO",bajo_desempeno,"2.7 a",,,"Bajo desempeño / resultados",Involuntaria
+106,"Isaias Farias Bonila",,Tlaxcala,,,,2026-10-23,"CONSUMO DE ALCOHOL EN HORARIO LABORAL Y EN LA OFICINA",probidad_conducta,"2.5 a",,,"Falta de probidad / conducta",Involuntaria
