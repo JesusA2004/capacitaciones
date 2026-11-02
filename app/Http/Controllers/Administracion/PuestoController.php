@@ -11,6 +11,7 @@ use App\Models\Departamento;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Puestos\EliminacionPuestoService;
 use App\Services\Puestos\FichaPuestoService;
 use App\Services\Puestos\MovimientoPuestoService;
 use App\Services\Salarios\PosicionSalarialService;
@@ -33,6 +34,7 @@ class PuestoController extends Controller
         private readonly MovimientoPuestoService $movimientos,
         private readonly PosicionSalarialService $posiciones,
         private readonly AuditoriaService $auditoria,
+        private readonly EliminacionPuestoService $eliminacion,
     ) {}
 
     public function index(Request $request): Response
@@ -189,12 +191,23 @@ class PuestoController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Puesto actualizado correctamente.']);
     }
 
-    public function destroy(Puesto $puesto): RedirectResponse
+    /**
+     * Bloquea si el puesto sigue en la estructura (personas, subordinados,
+     * coberturas, matriz, candidatos); si no, libera sus plazas y cancela
+     * sus vacantes en la misma transacción (EliminacionPuestoService).
+     */
+    public function destroy(Request $request, Puesto $puesto): RedirectResponse
     {
         $this->authorize('delete', $puesto);
 
-        $puesto->delete();
+        $resultado = $this->eliminacion->eliminar($puesto, $request->user());
+        $canceladas = count($resultado['vacantes_canceladas']);
 
-        return to_route('administracion.puestos.index')->with('toast', ['type' => 'success', 'message' => 'Puesto eliminado correctamente.']);
+        return to_route('administracion.puestos.index')->with('toast', [
+            'type' => 'success',
+            'message' => $canceladas > 0
+                ? sprintf('Puesto eliminado. %s: %d.', $canceladas === 1 ? 'Vacante abierta cancelada' : 'Vacantes abiertas canceladas', $canceladas)
+                : 'Puesto eliminado correctamente.',
+        ]);
     }
 }

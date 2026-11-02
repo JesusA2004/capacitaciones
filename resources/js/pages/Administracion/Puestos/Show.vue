@@ -98,7 +98,7 @@ defineOptions({
 });
 
 const numero = new Intl.NumberFormat('es-MX');
-const { confirmarEliminacion } = useAlertas();
+const { confirmarEliminacion, mostrarError } = useAlertas();
 
 function personasTexto(n: number): string {
     return `${numero.format(n)} ${n === 1 ? 'persona' : 'personas'}`;
@@ -455,7 +455,14 @@ const resumenSueldos = computed(() => {
 
 async function eliminar(): Promise<void> {
     if (await confirmarEliminacion(`el puesto «${props.puesto.nombre}»`)) {
-        router.delete(destroy.url(props.puesto.id));
+        // Si el puesto sigue en la estructura, el servidor explica por qué.
+        router.delete(destroy.url(props.puesto.id), {
+            onError: (errores) =>
+                mostrarError(
+                    errores.puesto ?? 'No fue posible eliminar el puesto.',
+                    'No se eliminó el puesto',
+                ),
+        });
     }
 }
 </script>
@@ -718,9 +725,7 @@ async function eliminar(): Promise<void> {
                             class="text-xs text-muted-foreground tabular-nums"
                         >
                             {{ totalSeleccionadas }} de
-                            {{
-                                personas.filter((p) => p.movible).length
-                            }}
+                            {{ personas.filter((p) => p.movible).length }}
                             seleccionadas
                         </p>
                     </div>

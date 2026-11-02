@@ -90,6 +90,7 @@ class HeadcountService
         // ej. puestos del Corporativo mal asignados) ni un puesto "tapa" la
         // vacante de otro.
         $autorizadaPorPar = HeadcountTarget::query()
+            ->whereHas('puesto')
             ->when($sucursalesIds !== null, fn ($q) => $q->whereIn('sucursal_id', $sucursalesIds))
             ->get(['sucursal_id', 'puesto_id', 'plantilla_autorizada'])
             ->groupBy(fn (HeadcountTarget $t) => sprintf('%d:%d', $t->sucursal_id, $this->puestos->canonico($t->puesto_id)))
@@ -142,6 +143,7 @@ class HeadcountService
     public function resumenPorPuesto(int $sucursalId): Collection
     {
         $targets = HeadcountTarget::query()
+            ->whereHas('puesto')
             ->where('sucursal_id', $sucursalId)
             ->get(['puesto_id', 'plantilla_autorizada'])
             ->groupBy(fn (HeadcountTarget $t) => $this->puestos->canonico($t->puesto_id))
@@ -321,6 +323,7 @@ class HeadcountService
     public function coberturaDetallada(?Collection $sucursalesIds = null, ?int $empresaId = null): array
     {
         $targets = HeadcountTarget::query()
+            ->whereHas('puesto')
             ->when($sucursalesIds !== null, fn ($q) => $q->whereIn('sucursal_id', $sucursalesIds))
             ->when($empresaId !== null, fn ($q) => $q->whereHas('sucursal', fn ($s) => $s->where('empresa_id', $empresaId)))
             ->get(['sucursal_id', 'puesto_id', 'plantilla_autorizada'])
@@ -388,7 +391,8 @@ class HeadcountService
      * (colaboradores vigentes titulares de ese puesto en esa sucursal) y
      * faltantes = max(autorizada − ocupada, 0). Las plazas de un puesto
      * equivalente (Gestor volante) se cuentan en su puesto de plantilla
-     * (Gestor), nunca por separado.
+     * (Gestor), nunca por separado. Un puesto eliminado del catálogo
+     * (SoftDeletes) ya no tiene plazas: nunca abre ni sostiene una vacante.
      *
      * @return array{autorizada: int, ocupada: int, faltantes: int}
      */
@@ -401,6 +405,7 @@ class HeadcountService
         $equivalentes = $this->puestos->equivalentes($puestoId);
 
         $autorizada = (int) HeadcountTarget::query()
+            ->whereHas('puesto')
             ->where('sucursal_id', $sucursalId)
             ->whereIn('puesto_id', $equivalentes)
             ->sum('plantilla_autorizada');
@@ -425,6 +430,7 @@ class HeadcountService
     public function plantillaAutorizadaPorSucursalPuesto(?Collection $sucursalesIds = null): Collection
     {
         return HeadcountTarget::query()
+            ->whereHas('puesto')
             ->when($sucursalesIds !== null, fn ($q) => $q->whereIn('sucursal_id', $sucursalesIds))
             ->get(['sucursal_id', 'puesto_id', 'plantilla_autorizada'])
             ->groupBy(fn (HeadcountTarget $t) => sprintf('%d:%d', $t->sucursal_id, $this->puestos->canonico($t->puesto_id)))

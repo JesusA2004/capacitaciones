@@ -42,7 +42,9 @@ class VacantesListadoService
         $busqueda = trim((string) ($filtros['busqueda'] ?? ''));
 
         $consulta = Vacante::query()
-            ->with(['sucursal:id,nombre', 'departamento:id,nombre', 'puesto:id,nombre'])
+            // Con eliminados: el historial de una vacante cuyo puesto salió del
+            // catálogo conserva su nombre, nunca «Puesto sin definir».
+            ->with(['sucursal:id,nombre', 'departamento:id,nombre', 'puesto' => fn ($q) => $q->withTrashed()->select(['id', 'nombre', 'deleted_at'])])
             ->withCount([
                 'candidatos',
                 'candidatos as candidatos_activos_count' => fn (Builder $q) => $q->whereIn('estado', $this->estadosCandidatoActivos()),
@@ -358,7 +360,9 @@ class VacantesListadoService
         return [
             'id' => $vacante->id,
             'puesto_id' => $vacante->puesto_id,
-            'puesto' => $vacante->puesto?->nombre,
+            'puesto' => $vacante->puesto !== null && $vacante->puesto->trashed()
+                ? sprintf('%s (puesto eliminado)', $vacante->puesto->nombre)
+                : $vacante->puesto?->nombre,
             'sucursal_id' => $vacante->sucursal_id,
             'sucursal' => $vacante->sucursal?->nombre,
             'departamento' => $vacante->departamento?->nombre,

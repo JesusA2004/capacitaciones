@@ -90,7 +90,7 @@ const { filtros, aplicar, aplicarConDebounce, limpiar } = useFiltros(
 const filtrosActivos = computed(
     () => [filtros.departamento, filtros.estado].filter(Boolean).length,
 );
-const { confirmarEliminacion, mostrarExito, mostrarError } = useAlertas();
+const { confirmarEliminacion, mostrarError } = useAlertas();
 
 type Seccion = 'puestos' | 'alertas' | 'merito' | 'importar';
 const seccion = ref<Seccion>(
@@ -165,8 +165,13 @@ async function eliminar(puesto: PuestoItem) {
 
     router.delete(destroy.url(puesto.id), {
         preserveScroll: true,
-        onSuccess: () => mostrarExito('El puesto se eliminó correctamente.'),
-        onError: () => mostrarError('No fue posible eliminar el puesto.'),
+        // El aviso de éxito (con las vacantes canceladas) llega del servidor;
+        // si el puesto sigue en la estructura, el servidor explica por qué.
+        onError: (errores) =>
+            mostrarError(
+                errores.puesto ?? 'No fue posible eliminar el puesto.',
+                'No se eliminó el puesto',
+            ),
     });
 }
 

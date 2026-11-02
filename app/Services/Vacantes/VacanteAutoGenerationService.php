@@ -6,6 +6,7 @@ use App\Enums\EstadoCandidato;
 use App\Enums\EstadoVacante;
 use App\Enums\MotivoVacante;
 use App\Models\HeadcountTarget;
+use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\Vacante;
 use App\Services\Headcount\HeadcountService;
@@ -115,9 +116,12 @@ class VacanteAutoGenerationService
                 // directa, migración, ajuste de headcount, movimiento
                 // interno) → cancelada con su motivo.
                 $cubiertaPorContratacion = $cubiertas > 0 || $vacanteAutomatica->colaborador_contratado_id !== null;
-                $motivo = $sucursalActiva
-                    ? sprintf('Cerrada automáticamente: %d de %d plazas autorizadas ocupadas.', $plantilla['ocupada'], $plantilla['autorizada'])
-                    : 'Cerrada automáticamente: la sucursal está inactiva.';
+                $motivo = match (true) {
+                    ! $sucursalActiva => 'Cerrada automáticamente: la sucursal está inactiva.',
+                    // Puesto eliminado del catálogo (SoftDeletes): plantillaDePar() ya no le cuenta plazas.
+                    ! Puesto::query()->whereKey($puestoId)->exists() => 'Cerrada automáticamente: el puesto se eliminó del catálogo.',
+                    default => sprintf('Cerrada automáticamente: %d de %d plazas autorizadas ocupadas.', $plantilla['ocupada'], $plantilla['autorizada']),
+                };
 
                 $vacanteAutomatica->update([
                     'estado' => $cubiertaPorContratacion ? EstadoVacante::Cubierta->value : EstadoVacante::Cancelada->value,

@@ -112,6 +112,27 @@ El listado (web y API) además se protege solo: una automática abierta cuya pla
 
 Regla operativa: cuando alguien se da de baja, plantilla actual baja y la vacante sube sola; cuando alguien se da de alta en esa (sucursal, puesto), plantilla actual sube y la vacante se cierra sola. Nunca hay que "crear la vacante a mano" para que esto funcione.
 
+### Eliminar un puesto (2026-11-02)
+
+Caso real: se eliminó un puesto corporativo que no tenía a nadie y RH → Vacantes siguió mostrando «Puesto sin definir · Corporativo · 1 plaza por cubrir · 0 de 1 ocupadas». Causa: `Puesto` usa **SoftDeletes**, así que los `cascadeOnDelete`/`nullOnDelete` de `headcount_targets` y `vacantes` nunca se disparan. La plaza automática de Corporativo (`PlazasEmpresaService`, puesto de empresa sin titular) y su vacante quedaban vivas, y el listado ya no encontraba el nombre del puesto.
+
+Regla (`App\Services\Puestos\EliminacionPuestoService`, usada por `Administracion\PuestoController::destroy`):
+
+- **Se bloquea**, con el motivo en pantalla, si el puesto sigue en la estructura: personas vigentes, puestos que le reportan en el organigrama (no se reconectan solos: RH decide a quién reportan), una cobertura temporal vigente, un nodo activo de la matriz comercial o candidatos en proceso en sus vacantes.
+- Si no, en **una transacción**: sus plazas autorizadas pasan a 0 con renglón en `headcount_target_historial` (fuente `puesto_eliminado`), sus vacantes abiertas —automáticas y manuales— se **cancelan** con motivo (nunca se borran), se limpia la ruta de crecimiento que apuntaba a él y el puesto se desactiva y se elimina (lógico). Queda `puesto_eliminado` en la auditoría.
+- Defensa en vivo: `HeadcountService` no cuenta plazas de un puesto eliminado, `people:sincronizar-vacantes` cierra su automática («el puesto se eliminó del catálogo») y el listado muestra el nombre real con «(puesto eliminado)» en el historial, nunca «Puesto sin definir».
+
+Reparación de puestos eliminados antes de esta regla (producción, idempotente, no borra nada):
+
+```bash
+php artisan people:reparar-puestos-eliminados --simular   # solo muestra qué haría
+php artisan people:reparar-puestos-eliminados             # aplica (queda en la auditoría)
+```
+
+Libera plazas y cancela vacantes abiertas de cada puesto eliminado, cancela automáticas abiertas sin puesto, y solo **reporta** lo que pide decisión de RH (personas vigentes o puestos que todavía reportan al eliminado).
+
+Crear un puesto o cambiar sus plazas: el organigrama lo lee en vivo; capturar plazas (`PlantillaAutorizadaService`) abre, ajusta o cierra la vacante al momento; un puesto de empresa nuevo sin titular recibe su plaza en Corporativo con la siguiente corrida de `people:sincronizar-vacantes` / `people:sincronizar-organigrama`.
+
 ### Pantalla RH > Vacantes
 
 Arriba, **totales concretos** de lo que se está viendo (sin tarjetas de KPIs ni costos): cuántas plazas faltan de cada puesto —gerentes, gestores, etc.— y en qué sucursales (`VacantesListadoService::resumen()`); un clic en el puesto o en la sucursal filtra la lista. El costo **no** vive en Vacantes: el costo por colaborador contratado está en Campañas.
