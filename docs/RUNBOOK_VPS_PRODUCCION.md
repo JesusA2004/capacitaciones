@@ -14,7 +14,7 @@ Pasos para dejar MR. LANA PEOPLE listo con datos reales en el VPS. Cada comando 
   - **NAS/expedientes**: `EXPEDIENTES_DISK=nas`, `NAS_DRIVER` (`local` si está montado por carpeta, o `sftp`), `NAS_ROOT` apuntando al montaje real. Ver `docs/CONFIGURACION_NAS.md`, `docs/SYNOLOGY_STORAGE.md`, `docs/ESTRUCTURA_EXPEDIENTES_NAS.md`.
   - **OCR** (división de expedientes históricos): instalar `tesseract-ocr tesseract-ocr-spa poppler-utils`; en `.env` `EXPEDIENTES_OCR_DRIVER=tesseract` (y si hace falta `EXPEDIENTES_TESSERACT_PATH`, `EXPEDIENTES_PDFTOPPM_PATH`). Si no hay OCR, la división no falla: marca esas páginas como «escaneada sin OCR».
   - **PDF / formatos**: LibreOffice (`FORMATOS_LIBREOFFICE_PATH`) para convertir formatos oficiales.
-  - **Multimedia** (solo si se enciende `capacitacion`): FFmpeg/FFprobe (`FFMPEG_BIN`/`FFPROBE_BIN`).
+  - **Multimedia** (video de la Inducción institucional, y la biblioteca si se enciende `capacitacion`): FFmpeg/FFprobe (`FFMPEG_BIN`/`FFPROBE_BIN`) y el worker de video `deploy/supervisor/people-media.conf`. Diagnóstico: `php artisan people:videos-pendientes` (ver `docs/PROCESAMIENTO_VIDEO.md` §6).
   - **Cola**: un worker real (`php artisan queue:work`) para los jobs (división de expedientes, PDFs, notificaciones).
 - `php artisan storage:link`.
 - `SEED_DEMO_DATA` **sin definir o `false`** (jamás datos de demo en producción).

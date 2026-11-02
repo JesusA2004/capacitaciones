@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Process;
 class FfmpegService
 {
     /**
-     * @return array{duracion_segundos: int|null, ancho: int|null, alto: int|null}
+     * @return array{duracion_segundos: int|null, ancho: int|null, alto: int|null, tiene_audio: bool}
      */
     public function inspeccionar(string $rutaLocal): array
     {
@@ -33,6 +33,8 @@ class FfmpegService
             'duracion_segundos' => isset($datos['format']['duration']) ? (int) round((float) $datos['format']['duration']) : null,
             'ancho' => $streamVideo['width'] ?? null,
             'alto' => $streamVideo['height'] ?? null,
+            // Sin pista de audio no se puede mapear 0:a:0 en el HLS.
+            'tiene_audio' => collect($streams)->contains(fn (array $stream) => ($stream['codec_type'] ?? null) === 'audio'),
         ];
     }
 
@@ -48,51 +50,123 @@ class FfmpegService
     }
 
     /**
-     * Convierte el video a HLS, generando solo las resoluciones candidatas
-     * que sean menores o iguales a la altura original (nunca se escala hacia
-     * arriba), mas un manifiesto maestro que las referencia a todas.
+     * Convierte el video a HLS en UNA sola pasada de FFmpeg: decodifica el
+     * original una vez y codifica todas las variantes a la vez (split +
+     * var_stream_map), en lugar de una codificación completa por resolución.
+     * Solo genera las resoluciones candidatas menores o iguales a la altura
+     * original (nunca escala hacia arriba). Preset/CRF configurables
+     * (config('media.video.preset'/'crf'); «veryfast» + CRF 23 por defecto:
+     * varias veces más rápido que «medium» + CRF 20, con calidad de sobra
+     * para una explicación). Keyframes forzados en cada límite de segmento,
+     * para que cada segmento empiece en keyframe.
      *
-     * @param  array<int, int>  $resolucionesCandidatas  alturas en pixeles (p. ej. 360, 480, 720, 1080)
+     * Nombres de salida (los esperan ManifiestoHlsService y los endpoints de
+     * segmentos): {altura}p.m3u8 y {altura}p_NNN.ts, más master.m3u8.
+     *
+     * @param  array<int, int>  $resolucionesCandidatas  alturas en pixeles (p. ej. 480, 720)
      * @return array<int, int> alturas realmente generadas
      */
-    public function convertirAHls(string $rutaVideo, string $carpetaSalida, int $alturaOriginal, array $resolucionesCandidatas, int $segmentoSegundos): array
+    public function convertirAHls(string $rutaVideo, string $carpetaSalida, int $alturaOriginal, array $resolucionesCandidatas, int $segmentoSegundos, bool $conAudio = true): array
     {
         if (! is_dir($carpetaSalida) && ! mkdir($carpetaSalida, 0755, true) && ! is_dir($carpetaSalida)) {
             throw new \RuntimeException("No se pudo crear la carpeta de salida HLS: {$carpetaSalida}");
         }
 
-        $alturasAGenerar = array_values(array_filter($resolucionesCandidatas, fn (int $altura) => $altura <= $alturaOriginal));
+        $alturasAGenerar = array_values(array_unique(array_filter($resolucionesCandidatas, fn (int $altura) => $altura <= $alturaOriginal)));
+        sort($alturasAGenerar);
 
         if ($alturasAGenerar === [] && $alturaOriginal > 0) {
             $alturasAGenerar = [$alturaOriginal];
         }
 
+        if ($alturasAGenerar === []) {
+            throw new \RuntimeException('No se pudo determinar la resolución del video para convertirlo a HLS.');
+        }
+
+        $resultado = Process::timeout(3500)->run($this->comandoHls($rutaVideo, $carpetaSalida, $alturasAGenerar, $segmentoSegundos, $conAudio));
+
+        if ($resultado->failed()) {
+            throw new \RuntimeException(sprintf(
+                'Falló la conversión HLS (%s): %s',
+                implode(', ', array_map(fn (int $altura) => sprintf('%dp', $altura), $alturasAGenerar)),
+                $resultado->errorOutput(),
+            ));
+        }
+
         $variantes = [];
 
         foreach ($alturasAGenerar as $altura) {
-            $nombreSalida = "{$altura}p.m3u8";
-
-            $resultado = Process::timeout(1800)->run([
-                config('media.ffmpeg_bin'), '-y', '-i', $rutaVideo,
-                '-vf', "scale=-2:{$altura}",
-                '-c:a', 'aac', '-ar', '48000',
-                '-c:v', 'h264', '-profile:v', 'main', '-crf', '20', '-sc_threshold', '0',
-                '-g', '48', '-keyint_min', '48',
-                '-hls_time', (string) $segmentoSegundos, '-hls_playlist_type', 'vod',
-                '-hls_segment_filename', "{$carpetaSalida}/{$altura}p_%03d.ts",
-                "{$carpetaSalida}/{$nombreSalida}",
-            ]);
-
-            if ($resultado->failed()) {
-                throw new \RuntimeException("Falló la conversión HLS a {$altura}p: {$resultado->errorOutput()}");
-            }
-
-            $variantes[$altura] = $nombreSalida;
+            $variantes[$altura] = sprintf('%dp.m3u8', $altura);
         }
 
         $this->generarManifiestoMaestro($carpetaSalida, $variantes);
 
         return array_keys($variantes);
+    }
+
+    /**
+     * Comando de FFmpeg de una sola pasada para todas las variantes HLS.
+     *
+     * @param  list<int>  $alturas
+     * @return list<string>
+     */
+    public function comandoHls(string $rutaVideo, string $carpetaSalida, array $alturas, int $segmentoSegundos, bool $conAudio = true): array
+    {
+        $filtro = sprintf('[0:v]split=%d', count($alturas));
+
+        foreach (array_keys($alturas) as $i) {
+            $filtro .= sprintf('[v%d]', $i);
+        }
+
+        foreach ($alturas as $i => $altura) {
+            $filtro .= sprintf(';[v%d]scale=-2:%d[v%dout]', $i, $altura, $i);
+        }
+
+        $comando = [
+            (string) config('media.ffmpeg_bin'), '-y', '-hide_banner', '-loglevel', 'error',
+            '-i', $rutaVideo,
+            '-filter_complex', $filtro,
+        ];
+        $mapa = [];
+
+        foreach ($alturas as $i => $altura) {
+            $comando[] = '-map';
+            $comando[] = sprintf('[v%dout]', $i);
+
+            if ($conAudio) {
+                $comando[] = '-map';
+                $comando[] = '0:a:0';
+            }
+
+            $mapa[] = $conAudio ? sprintf('v:%d,a:%d,name:%dp', $i, $i, $altura) : sprintf('v:%d,name:%dp', $i, $altura);
+        }
+
+        array_push(
+            $comando,
+            '-c:v', 'libx264',
+            '-preset', (string) config('media.video.preset', 'veryfast'),
+            '-crf', (string) config('media.video.crf', 23),
+            '-profile:v', 'main', '-pix_fmt', 'yuv420p',
+            '-threads', '0',
+            '-sc_threshold', '0',
+            '-force_key_frames', sprintf('expr:gte(t,n_forced*%d)', $segmentoSegundos),
+        );
+
+        if ($conAudio) {
+            array_push($comando, '-c:a', 'aac', '-b:a', '128k', '-ar', '48000', '-ac', '2');
+        }
+
+        array_push(
+            $comando,
+            '-f', 'hls',
+            '-hls_time', (string) $segmentoSegundos,
+            '-hls_playlist_type', 'vod',
+            '-hls_segment_filename', sprintf('%s/%%v_%%03d.ts', $carpetaSalida),
+            '-var_stream_map', implode(' ', $mapa),
+            sprintf('%s/%%v.m3u8', $carpetaSalida),
+        );
+
+        return $comando;
     }
 
     /**

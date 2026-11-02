@@ -40,18 +40,60 @@ type CargaPendiente = {
 
 const CLAVE_LOCAL_STORAGE = 'capacitacion.carga_video_pendiente';
 
-export function guardarCargaPendiente(carga: CargaPendiente) {
-    localStorage.setItem(CLAVE_LOCAL_STORAGE, JSON.stringify(carga));
+/**
+ * Endpoints de una sesión de carga por bloques. Por defecto los de la
+ * biblioteca multimedia (feature:capacitacion); la inducción institucional
+ * usa los suyos (rh.onboarding.induccion.material.cargas.*), mismo contrato.
+ */
+export type RutasCargaResumible = {
+    iniciar: () => string;
+    estado: (identificador: string) => string;
+    bloque: (identificador: string) => string;
+    pausar: (identificador: string) => string;
+    reanudar: (identificador: string) => string;
+    cancelar: (identificador: string) => string;
+};
+
+const RUTAS_MULTIMEDIA: RutasCargaResumible = {
+    iniciar: () => rutaIniciar.url(),
+    estado: (identificador) => rutaEstado.url(identificador),
+    bloque: (identificador) => rutaBloque.url(identificador),
+    pausar: (identificador) => rutaPausar.url(identificador),
+    reanudar: (identificador) => rutaReanudar.url(identificador),
+    cancelar: (identificador) => rutaCancelar.url(identificador),
+};
+
+// localStorage puede no existir o lanzar (ventana privada, datos bloqueados):
+// recordar la carga pendiente es solo una comodidad, nunca rompe la carga.
+export function guardarCargaPendiente(
+    carga: CargaPendiente,
+    clave: string = CLAVE_LOCAL_STORAGE,
+) {
+    try {
+        localStorage.setItem(clave, JSON.stringify(carga));
+    } catch {
+        // Sin almacenamiento local: no se podrá reanudar tras recargar.
+    }
 }
 
-export function leerCargaPendiente(): CargaPendiente | null {
-    const valor = localStorage.getItem(CLAVE_LOCAL_STORAGE);
+export function leerCargaPendiente(
+    clave: string = CLAVE_LOCAL_STORAGE,
+): CargaPendiente | null {
+    try {
+        const valor = localStorage.getItem(clave);
 
-    return valor ? (JSON.parse(valor) as CargaPendiente) : null;
+        return valor ? (JSON.parse(valor) as CargaPendiente) : null;
+    } catch {
+        return null;
+    }
 }
 
-export function limpiarCargaPendiente() {
-    localStorage.removeItem(CLAVE_LOCAL_STORAGE);
+export function limpiarCargaPendiente(clave: string = CLAVE_LOCAL_STORAGE) {
+    try {
+        localStorage.removeItem(clave);
+    } catch {
+        // Sin almacenamiento local: no hay nada que limpiar.
+    }
 }
 
 function cabecerasJson(): HeadersInit {
@@ -73,6 +115,7 @@ async function leerRespuesta(respuesta: Response): Promise<RespuestaCarga> {
 }
 
 function subirBloque(
+    url: string,
     identificador: string,
     numeroBloque: number,
     datosBloque: Blob,
@@ -84,7 +127,7 @@ function subirBloque(
     formData.append('bloque', datosBloque, 'bloque.part');
 
     const promesa = new Promise<RespuestaCarga>((resolve, reject) => {
-        xhr.open('POST', rutaBloque.url(identificador));
+        xhr.open('POST', url);
         xhr.setRequestHeader('X-XSRF-TOKEN', leerCookie('XSRF-TOKEN') ?? '');
         xhr.setRequestHeader('Accept', 'application/json');
         xhr.withCredentials = true;
@@ -134,7 +177,12 @@ function subirBloque(
  * secuencia (permitiendo pausar/cancelar en cualquier momento), y reporta
  * progreso/velocidad real basados en bytes efectivamente enviados.
  */
-export function useCargaResumible() {
+export function useCargaResumible(
+    opciones: { rutas?: RutasCargaResumible; claveLocal?: string } = {},
+) {
+    const rutas = opciones.rutas ?? RUTAS_MULTIMEDIA;
+    const claveLocal = opciones.claveLocal ?? CLAVE_LOCAL_STORAGE;
+
     const estadoActual = reactive({
         estado: 'inactivo' as EstadoCargaResumible,
         identificador: null as string | null,
@@ -212,6 +260,7 @@ export function useCargaResumible() {
             const bytesPreviosDeOtrosBloques = estadoActual.bytesEnviados;
 
             const { promesa, xhr } = subirBloque(
+                rutas.bloque(estadoActual.identificador),
                 estadoActual.identificador,
                 numero,
                 datosBloque,
@@ -257,7 +306,7 @@ export function useCargaResumible() {
         archivo = archivoSeleccionado;
         estadoActual.error = null;
 
-        const respuesta = await fetch(rutaIniciar.url(), {
+        const respuesta = await fetch(rutas.iniciar(), {
             method: 'POST',
             credentials: 'same-origin',
             headers: cabecerasJson(),
@@ -269,16 +318,31 @@ export function useCargaResumible() {
         }).then(leerRespuesta);
 
         aplicarRespuesta(respuesta);
-        guardarCargaPendiente({
-            identificador: respuesta.identificador,
-            nombreOriginal: archivoSeleccionado.name,
-            tamanoTotalBytes: archivoSeleccionado.size,
-        });
+        guardarCargaPendiente(
+            {
+                identificador: respuesta.identificador,
+                nombreOriginal: archivoSeleccionado.name,
+                tamanoTotalBytes: archivoSeleccionado.size,
+            },
+            claveLocal,
+        );
+
+        // El backend reutiliza una carga previa del mismo archivo; si quedó
+        // pausada, se reanuda antes de mandar bloques (si no, los rechaza).
+        if (respuesta.estado === 'pausada') {
+            await fetch(rutas.reanudar(respuesta.identificador), {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: cabecerasJson(),
+            })
+                .then(leerRespuesta)
+                .then(aplicarRespuesta);
+        }
 
         await enviarBloquesPendientes();
 
         if (estadoActual.estado === 'completada') {
-            limpiarCargaPendiente();
+            limpiarCargaPendiente(claveLocal);
         }
     }
 
@@ -295,7 +359,7 @@ export function useCargaResumible() {
         archivo = archivoSeleccionado;
         estadoActual.error = null;
 
-        const respuestaEstado = await fetch(rutaEstado.url(identificador), {
+        const respuestaEstado = await fetch(rutas.estado(identificador), {
             credentials: 'same-origin',
             headers: { Accept: 'application/json' },
         }).then(leerRespuesta);
@@ -303,7 +367,7 @@ export function useCargaResumible() {
         aplicarRespuesta(respuestaEstado);
 
         if (respuestaEstado.estado === 'pausada') {
-            await fetch(rutaReanudar.url(identificador), {
+            await fetch(rutas.reanudar(identificador), {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: cabecerasJson(),
@@ -315,7 +379,7 @@ export function useCargaResumible() {
         await enviarBloquesPendientes();
 
         if (estadoActual.estado === 'completada') {
-            limpiarCargaPendiente();
+            limpiarCargaPendiente(claveLocal);
         }
     }
 
@@ -325,7 +389,7 @@ export function useCargaResumible() {
         estadoActual.estado = 'pausada';
 
         if (estadoActual.identificador) {
-            void fetch(rutaPausar.url(estadoActual.identificador), {
+            void fetch(rutas.pausar(estadoActual.identificador), {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: cabecerasJson(),
@@ -338,7 +402,7 @@ export function useCargaResumible() {
             return;
         }
 
-        await fetch(rutaReanudar.url(estadoActual.identificador), {
+        await fetch(rutas.reanudar(estadoActual.identificador), {
             method: 'POST',
             credentials: 'same-origin',
             headers: cabecerasJson(),
@@ -354,14 +418,14 @@ export function useCargaResumible() {
         xhrActual?.abort();
 
         if (estadoActual.identificador) {
-            await fetch(rutaCancelar.url(estadoActual.identificador), {
+            await fetch(rutas.cancelar(estadoActual.identificador), {
                 method: 'DELETE',
                 credentials: 'same-origin',
                 headers: cabecerasJson(),
             }).catch(() => undefined);
         }
 
-        limpiarCargaPendiente();
+        limpiarCargaPendiente(claveLocal);
         estadoActual.estado = 'cancelada';
     }
 

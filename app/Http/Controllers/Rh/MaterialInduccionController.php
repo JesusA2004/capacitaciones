@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Rh;
 use App\Enums\EstadoMultimedia;
 use App\Enums\OrigenRecursoMultimedia;
 use App\Enums\TipoMaterialInduccion;
-use App\Enums\TipoModuloOnboarding;
 use App\Enums\TipoRecursoMultimedia;
 use App\Enums\VisibilidadRecursoMultimedia;
 use App\Http\Controllers\Controller;
@@ -15,7 +14,6 @@ use App\Models\RecursoMultimedia;
 use App\Services\Multimedia\FfmpegService;
 use App\Services\Multimedia\MediaStorageService;
 use App\Services\Onboarding\MaterialInduccionService;
-use App\Services\Onboarding\OnboardingService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -52,7 +50,9 @@ class MaterialInduccionController extends Controller
             'tipo' => ['required', 'in:audio,video'],
             'archivo' => [
                 'required', 'file',
-                'max:'.(config('media.max_upload_mb') * 1024),
+                // El video grande va por bloques (CargaMaterialInduccionController);
+                // aquí el audio (un solo request) se limita a lo que admite Nginx/PHP.
+                'max:'.(($request->input('tipo') === 'video' ? (int) config('media.max_upload_mb') : (int) config('media.audio_max_mb')) * 1024),
                 $request->input('tipo') === 'video'
                     ? 'mimetypes:video/mp4,video/quicktime,video/webm,video/x-matroska'
                     : 'mimetypes:audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/wav,audio/x-wav,audio/webm',
@@ -126,20 +126,26 @@ class MaterialInduccionController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Material de inducción retirado.']);
     }
 
+    /**
+     * Vuelve a lanzar la conversión del video vigente (falló o la cola no lo
+     * tomó), sin volver a subirlo.
+     *
+     * @throws AuthorizationException
+     * @throws ValidationException
+     */
+    public function reprocesar(Request $request): RedirectResponse
+    {
+        $this->materiales->reprocesarVideo($request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => 'El video volvió a la cola de procesamiento.']);
+    }
+
+    /**
+     * @throws ValidationException
+     */
     private function moduloInduccion(): OnboardingModulo
     {
-        $modulo = OnboardingModulo::query()
-            ->whereNotNull('evaluacion_formal_clave')
-            ->where('tipo', TipoModuloOnboarding::Institucional->value)
-            ->where('activo', true)
-            ->orderBy('orden')
-            ->first();
-
-        if ($modulo === null) {
-            throw ValidationException::withMessages(['modulo' => 'No hay un módulo de inducción institucional activo donde colocar el material.']);
-        }
-
-        return $modulo;
+        return $this->materiales->moduloInstitucionalObligatorio();
     }
 
     private function duracionAudio(string $ruta): ?int
@@ -159,10 +165,11 @@ class MaterialInduccionController extends Controller
         }
     }
 
+    /**
+     * @throws AuthorizationException
+     */
     private function exigirPermiso(Request $request): void
     {
-        if (! $request->user()->can(OnboardingService::PERMISO_GESTIONAR) || ! $request->user()->can('onboarding.configurar')) {
-            throw new AuthorizationException('Solo Recursos Humanos gestiona el material de inducción.');
-        }
+        $this->materiales->exigirPermisoConfigurar($request->user());
     }
 }

@@ -1,18 +1,16 @@
 <script setup lang="ts">
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
 import {
     ArrowRight,
     ClipboardCheck,
     Eye,
     GraduationCap,
     Presentation,
-    Upload,
     UserPlus,
     Video as VideoIcon,
-    Volume2,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
-import MaterialInduccionVistaPreviaRh from '@/components/ciclo/MaterialInduccionVistaPreviaRh.vue';
+import MaterialInduccionTarjetaRh from '@/components/ciclo/MaterialInduccionTarjetaRh.vue';
 import PresentacionInduccionRh from '@/components/ciclo/PresentacionInduccionRh.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import VisorPdf from '@/components/documentos/VisorPdf.vue';
@@ -21,8 +19,6 @@ import AsignarInduccionDialog from '@/components/onboarding/AsignarInduccionDial
 import MiInduccionTarjeta from '@/components/onboarding/MiInduccionTarjeta.vue';
 import VisorInduccionColaborador from '@/components/onboarding/VisorInduccionColaborador.vue';
 import { Button } from '@/components/ui/button';
-import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
-import { useAlertas } from '@/composables/useAlertas';
 import { dashboard } from '@/routes';
 import { miProceso } from '@/routes/portal';
 import {
@@ -31,15 +27,13 @@ import {
 } from '@/routes/rh/onboarding/induccion';
 import type {
     AccesoInduccionColaborador,
+    EstadoMaterialInduccionRh,
     FilaAsignacionInduccion,
+    LimitesMaterialInduccion,
     MaterialInduccion,
     MiInduccion,
     SesionInduccionPantalla,
 } from '@/types';
-
-const accion = useAccionEnCurso();
-
-const alertas = useAlertas();
 
 /**
  * Inducción Mr. Lana = el PDF OFICIAL (docs/onboarding), dibujado página por
@@ -61,15 +55,11 @@ const props = defineProps<{
     /** RH (legacy): sesión de presentación en vivo. */
     sesionRh?: SesionInduccionPantalla | null;
     /** RH: material de explicación vigente. */
-    materialRh?: {
-        tipo: string;
-        tipo_etiqueta: string;
-        recurso_nombre: string | null;
-        recurso_estado: string;
-        duracion_segundos: number | null;
-    } | null;
+    materialRh?: EstadoMaterialInduccionRh | null;
     /** RH: endpoints para cargar/retirar material. */
     rutasMaterial?: { store: string; destroy: string } | null;
+    /** RH: límites reales del backend para la zona de carga. */
+    limitesMaterial?: LimitesMaterialInduccion;
     /** RH: si puede subir/retirar material (onboarding.configurar). */
     puedeConfigurarMaterial?: boolean;
     /** RH: personas con la inducción asignada y su paso. */
@@ -135,45 +125,6 @@ function abrirAsignar(contenido: 'ambos' | 'presentacion' | 'material') {
 }
 
 const repasando = ref(false);
-
-// --- RH: carga de material ---
-const formMaterial = useForm<{ tipo: 'audio' | 'video'; archivo: File | null }>(
-    { tipo: 'video', archivo: null },
-);
-
-function subirMaterial() {
-    if (props.rutasMaterial) {
-        formMaterial.post(props.rutasMaterial.store, {
-            forceFormData: true,
-            preserveScroll: true,
-            onSuccess: () => formMaterial.reset('archivo'),
-        });
-    }
-}
-
-async function retirarMaterial() {
-    const rutas = props.rutasMaterial;
-
-    if (
-        rutas &&
-        (await alertas.confirmarDelicada(
-            '¿Retirar el material?',
-            'Las personas solo verán las hojas.',
-            'Retirar material',
-        ))
-    ) {
-        accion.ejecutar('retirarMaterial', (estado) => {
-            router.delete(rutas.destroy, { ...estado, preserveScroll: true });
-        });
-    }
-}
-
-const ESTADO_RECURSO: Record<string, string> = {
-    disponible: 'Listo para verse',
-    procesando: 'Procesando…',
-    pendiente: 'En cola para procesarse',
-    error: 'Falló el procesamiento: vuelve a subirlo',
-};
 </script>
 
 <template>
@@ -303,114 +254,18 @@ const ESTADO_RECURSO: Record<string, string> = {
                     </div>
                 </article>
 
-                <article
-                    class="flex flex-col gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm"
-                >
-                    <div class="flex items-center gap-3">
-                        <span
-                            class="flex size-10 items-center justify-center rounded-2xl bg-crema text-bronce"
-                        >
-                            <Volume2
-                                v-if="materialRh?.tipo === 'audio'"
-                                class="size-5"
-                            />
-                            <VideoIcon v-else class="size-5" />
-                        </span>
-                        <div class="min-w-0">
-                            <h3 class="font-semibold">
-                                2 · Video o audio de explicación
-                            </h3>
-                            <p class="truncate text-xs text-muted-foreground">
-                                <template v-if="materialRh">
-                                    {{ materialRh.tipo_etiqueta }} ·
-                                    {{
-                                        ESTADO_RECURSO[
-                                            materialRh.recurso_estado
-                                        ] ?? materialRh.recurso_estado
-                                    }}
-                                </template>
-                                <template v-else>Sin material cargado</template>
-                            </p>
-                        </div>
-                    </div>
-                    <p class="text-sm text-muted-foreground">
-                        Un video es obligatorio (sin adelantar) y desbloquea la
-                        evaluación; un audio acompaña las hojas. Solo uno activo
-                        a la vez.
-                    </p>
-                    <MaterialInduccionVistaPreviaRh v-if="materialRh" />
-                    <form
-                        v-if="puedeConfigurarMaterial && rutasMaterial"
-                        class="flex flex-col gap-2 rounded-2xl bg-muted/40 p-3"
-                        @submit.prevent="subirMaterial"
-                    >
-                        <label class="flex flex-col gap-1 text-xs font-medium">
-                            {{ materialRh ? 'Reemplazar por' : 'Subir' }}
-                            <select
-                                v-model="formMaterial.tipo"
-                                class="h-9 rounded-lg border border-input bg-card px-2 text-sm"
-                            >
-                                <option value="video">
-                                    Video (obligatorio)
-                                </option>
-                                <option value="audio">Audio (narración)</option>
-                            </select>
-                        </label>
-                        <input
-                            type="file"
-                            class="text-sm file:mr-2 file:rounded-lg file:border-0 file:bg-salvia file:px-3 file:py-1.5 file:text-primary"
-                            :accept="
-                                formMaterial.tipo === 'video'
-                                    ? 'video/*'
-                                    : 'audio/*'
-                            "
-                            aria-label="Archivo de material"
-                            @change="
-                                formMaterial.archivo =
-                                    ($event.target as HTMLInputElement)
-                                        .files?.[0] ?? null
-                            "
-                        />
-                        <p
-                            v-if="formMaterial.errors.archivo"
-                            class="text-xs text-destructive"
-                        >
-                            {{ formMaterial.errors.archivo }}
-                        </p>
-                        <div class="flex flex-wrap gap-2">
-                            <Button
-                                type="submit"
-                                size="sm"
-                                :disabled="
-                                    !formMaterial.archivo ||
-                                    formMaterial.processing
-                                "
-                            >
-                                <Upload class="size-4" /> Subir y activar
-                            </Button>
-                            <Button
-                                :disabled="accion.ocupado.value"
-                                v-if="materialRh"
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                @click="retirarMaterial"
-                            >
-                                Retirar
-                            </Button>
-                        </div>
-                    </form>
-                    <Button
-                        v-if="materialRh"
-                        variant="ghost"
-                        size="sm"
-                        class="self-start"
-                        @click="abrirAsignar('material')"
-                    >
-                        <UserPlus class="size-4" /> Asignar solo el
-                        {{ materialRh.tipo === 'audio' ? 'audio' : 'video' }}
-                    </Button>
-                </article>
+                <MaterialInduccionTarjetaRh
+                    :material="materialRh ?? null"
+                    :puede-configurar="puedeConfigurarMaterial ?? false"
+                    :rutas="rutasMaterial ?? null"
+                    :limites="
+                        limitesMaterial ?? {
+                            video_max_mb: 2048,
+                            audio_max_mb: 200,
+                        }
+                    "
+                    @asignar="abrirAsignar('material')"
+                />
 
                 <article
                     class="flex flex-col gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm"

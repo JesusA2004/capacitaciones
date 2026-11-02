@@ -32,16 +32,20 @@ Pruebas: `tests/Feature/Multimedia/CargaResumibleTest.php` (bloques fuera de ord
 
 ## 2. Procesamiento (`ProcesarVideoJob`)
 
-`app/Jobs/ProcesarVideoJob.php` es un job en cola (`tries=2`, `timeout=3600`, `backoff=30`) idempotente: si el recurso ya no está en `estado = pendiente` cuando se ejecuta (por ejemplo, un reintento posterior a que otro worker ya lo dejó `disponible`), no hace nada.
+`app/Jobs/ProcesarVideoJob.php` es un job en cola (`tries=2`, `timeout=3600`, `backoff=30`, `failOnTimeout`) que va a su **propia conexión/cola** (`config('media.cola')` → conexión `media`, cola `media`; ver §6). Es idempotente: si el recurso ya no está en `estado = pendiente` cuando se ejecuta, no hace nada — salvo un **reintento** (`attempts() > 1`) de un recurso que quedó en `procesando` porque el worker anterior murió a la mitad, que sí se reprocesa. Si se agota el tiempo o los intentos, `failed()` lo deja en `error` con el motivo (visible para RH).
 
 Pasos, usando `App\Services\Multimedia\FfmpegService`:
 
-1. `inspeccionar()` — ejecuta `ffprobe` y obtiene duración, ancho y alto del video original.
-2. `convertirAHls()` — genera únicamente las resoluciones candidatas (`config('media.video.resoluciones')`, por defecto 360/480/720/1080) que sean **menores o iguales** a la altura original (nunca se escala hacia arriba), más un manifiesto maestro (`master.m3u8`) que las referencia.
-3. `generarMiniatura()` — un fotograma de portada.
+1. `inspeccionar()` — ejecuta `ffprobe` y obtiene duración, ancho, alto y si trae pista de audio.
+2. `convertirAHls()` — **una sola pasada de FFmpeg** (decodifica una vez; `split` + `-var_stream_map` codifica todas las variantes a la vez) con `-preset veryfast -crf 23` (configurables: `VIDEO_PRESET`, `VIDEO_CRF`) y keyframes forzados en cada límite de segmento. Solo genera las resoluciones candidatas (`VIDEO_RESOLUCIONES`, por defecto `480,720`) **menores o iguales** a la altura original (nunca escala hacia arriba), más `master.m3u8`. Salida: `{altura}p.m3u8` + `{altura}p_NNN.ts`. Antes eran 4 codificaciones completas en serie (360/480/720/1080, preset `medium`, CRF 20): varias veces más lento.
+3. `generarMiniatura()` — un fotograma de portada (a los 3 s, o a la mitad si el video es más corto).
 4. Se suben la carpeta HLS completa y la miniatura al disco `nas`, y se actualiza el `RecursoMultimedia` a `estado = disponible` con `duracion_segundos`, `resolucion_original` y `ruta_hls_manifiesto`.
 
+**Dónde queda todo:** el original (`originales/`), los bloques de una carga (`temporales/cargas/`), el HLS (`hls/{nombre_interno}/`) y la miniatura (`miniaturas/`) viven en el disco multimedia `nas` (`config('media.disk')`, `NAS_ROOT` = el Synology montado, en producción `/mnt/people-storage`). FFmpeg solo trabaja en temporales locales (`sys_get_temp_dir()`) que se copian al `nas` y se borran en el `finally`.
+
 Si cualquier paso falla, el `catch (\Throwable)` deja `estado = error` con el mensaje en `error_procesamiento` y reporta la excepción; nunca deja el recurso a medias en `procesando`.
+
+**Vista previa de RH mientras se procesa (inducción):** RH puede ver el **archivo original** (`rh.onboarding.induccion.material.vista-previa.original`, firmada, con `Range` → 206 para adelantar/retroceder al instante) mientras el HLS no está listo. El colaborador **siempre** recibe el HLS con anti-adelanto (§3). Un `.mov`/`.mkv` puede no reproducirse directo en todos los navegadores (el reproductor lo avisa); MP4 (H.264) es lo más seguro. La tarjeta de RH consulta `rh.onboarding.induccion.material.estado` cada 5 s mientras el video está en cola/procesando, muestra el error si falló y avisa si lleva más de `MEDIA_QUEUE_ALERTA_MINUTOS` (10) sin que nadie lo tome («la cola de video podría no estar corriendo»), con un botón «Reintentar procesamiento» que lo vuelve a encolar sin subirlo de nuevo.
 
 Todo el trabajo con FFmpeg ocurre sobre rutas **locales absolutas**. Si el disco `nas` no es local (`NAS_DRIVER=sftp`), el original se descarga primero a un temporal (`MediaStorageService::descargarATemporal()`) y los temporales se limpian siempre en el `finally`, haya o no error.
 
@@ -114,3 +118,47 @@ Pruebas: `tests/Feature/Multimedia/XAccelRedirectTest.php` verifica que el heade
 ```
 
 `config('media.video.salto_tolerancia_segundos')` (5 segundos, no expuesto como variable de entorno por ahora) es la tolerancia de avance descrita en 3.1.
+
+## 6. Cola dedicada de video y checklist de producción
+
+`ProcesarVideoJob` **no** usa `QUEUE_CONNECTION`: va siempre a `config('media.cola')` → conexión `media` de `config/queue.php` (driver `database`, tabla `jobs`, cola `media`, `retry_after = MEDIA_QUEUE_RETRY_AFTER` = 3700 s, mayor que el `timeout` de 3600 s del job). Por eso un `queue:work redis` o un `queue:work database --queue=default` **nunca lo toman**: necesita su worker, `deploy/supervisor/people-media.conf` (`queue:work media --queue=media --timeout=3600`). Con `QUEUE_CONNECTION=sync` (pruebas) se procesa en línea. En desarrollo, `composer run dev` escucha `--queue=media,default`.
+
+Regla de tiempos: el `retry_after` de **cualquier** conexión que ejecute trabajos largos debe ser mayor que su `--timeout`; si no, el trabajo se relanza a la mitad. `REDIS_QUEUE_RETRY_AFTER` vale 90 s por defecto (sirve para trabajos cortos, nunca para video); `DB_QUEUE_RETRY_AFTER` vale 7260 s.
+
+La subida del video de la **Inducción institucional** va por bloques (§1) en `rh/onboarding/induccion/material/cargas/*` (sin `feature:capacitacion`): cada request trae un bloque de `MEDIA_CHUNK_SIZE_MB` (8 MB), muy por debajo del `client_max_body_size 300M` / `post_max_size 300M` que ya exige `docs/DEPLOY.md` («Subida de APK»). El audio de narración se sube en un solo request, limitado por `MEDIA_AUDIO_MAX_MB` (200 MB, debe caber en esos 300M).
+
+### Checklist si un video no se procesa («En cola para procesarse» / «Procesando…» para siempre)
+
+```bash
+cd /var/www/people
+
+# 1) Diagnóstico (solo lectura): disco/raíz/espacio, conexión y cola de video,
+#    trabajos esperando en `jobs`, y videos pendientes/procesando/error con antigüedad.
+sudo -u www-data php artisan people:videos-pendientes
+sudo -u www-data php artisan people:diagnostico-multimedia   # NAS escritura real + FFmpeg + X-Accel
+
+# 2) ¿El Synology está montado donde apunta NAS_ROOT?
+mount | grep people-storage
+ls -la /mnt/people-storage/originales /mnt/people-storage/hls | head
+
+# 3) FFmpeg/FFprobe visibles para www-data (o FFMPEG_BIN/FFPROBE_BIN en .env)
+sudo -u www-data which ffmpeg ffprobe
+
+# 4) Procesar YA los pendientes, en línea, sin esperar a la cola (idempotente)
+sudo -u www-data php artisan people:videos-pendientes --procesar
+#    …y los que quedaron en error (p. ej. antes de instalar FFmpeg):
+sudo -u www-data php artisan people:videos-pendientes --procesar --incluir-errores
+
+# 5) Dejar el worker de video permanente
+sudo cp deploy/supervisor/people-media.conf /etc/supervisor/conf.d/
+sudo supervisorctl reread && sudo supervisorctl update
+sudo supervisorctl status people-media:*
+tail -f storage/logs/media-worker.log
+
+# 6) Trabajos fallidos
+php artisan queue:failed
+php artisan queue:retry all      # tras corregir la causa
+
+# 7) En cada deploy
+php artisan config:clear && php artisan queue:restart
+```

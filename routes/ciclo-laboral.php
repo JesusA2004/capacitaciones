@@ -6,6 +6,7 @@ use App\Http\Controllers\Portal\MiProcesoController;
 use App\Http\Controllers\Rh\AcuseDescriptivoPuestoController;
 use App\Http\Controllers\Rh\AsignacionOnboardingController;
 use App\Http\Controllers\Rh\CalificacionInduccionController;
+use App\Http\Controllers\Rh\CargaMaterialInduccionController;
 use App\Http\Controllers\Rh\CausalRotacionController;
 use App\Http\Controllers\Rh\CicloColaboradorController;
 use App\Http\Controllers\Rh\CierreLaboralController;
@@ -125,6 +126,21 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('induccion/material', [MaterialInduccionController::class, 'store'])->name('induccion.material.store')->middleware('throttle:20,1');
             Route::post('induccion/material/activar', [MaterialInduccionController::class, 'activar'])->name('induccion.material.activar');
             Route::delete('induccion/material', [MaterialInduccionController::class, 'destroy'])->name('induccion.material.destroy');
+            Route::post('induccion/material/reprocesar', [MaterialInduccionController::class, 'reprocesar'])->name('induccion.material.reprocesar')->middleware('throttle:10,1');
+            Route::get('induccion/material/estado', [VistaPreviaInduccionController::class, 'estado'])->name('induccion.material.estado');
+
+            // Video por bloques reanudable (JSON, useCargaResumible.ts): el
+            // mismo CargaResumibleService de la biblioteca multimedia, pero sin
+            // feature:capacitacion. Un video grande en un solo request choca
+            // con client_max_body_size / post_max_size.
+            Route::prefix('induccion/material/cargas')->name('induccion.material.cargas.')->group(function () {
+                Route::post('/', [CargaMaterialInduccionController::class, 'iniciar'])->name('iniciar')->middleware('throttle:20,1');
+                Route::get('{identificador}', [CargaMaterialInduccionController::class, 'estado'])->name('estado');
+                Route::post('{identificador}/bloques', [CargaMaterialInduccionController::class, 'bloque'])->name('bloque');
+                Route::post('{identificador}/pausar', [CargaMaterialInduccionController::class, 'pausar'])->name('pausar');
+                Route::post('{identificador}/reanudar', [CargaMaterialInduccionController::class, 'reanudar'])->name('reanudar');
+                Route::delete('{identificador}', [CargaMaterialInduccionController::class, 'cancelar'])->name('cancelar');
+            });
 
             // «Calificaciones y refuerzo»: resultados de la inducción (FO-RH-EI
             // + lecciones), retroalimentación y reevaluación.
@@ -154,6 +170,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::get('video/{altura}.m3u8', [VistaPreviaInduccionController::class, 'variante'])->whereNumber('altura')->name('variante');
                 Route::get('video/segmento/{altura}/{archivo}', [VistaPreviaInduccionController::class, 'segmento'])->whereNumber('altura')->name('segmento');
                 Route::get('audio', [VistaPreviaInduccionController::class, 'audio'])->name('audio');
+                // Original del video mientras el HLS no está listo (solo RH).
+                Route::get('video/original', [VistaPreviaInduccionController::class, 'original'])->name('original');
             });
         });
 

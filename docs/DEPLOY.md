@@ -175,12 +175,13 @@ php artisan route:list --path=api/v1 | grep app
 
 ## Procesos supervisados (Supervisor)
 
-Tres procesos, versionados en `deploy/supervisor/` (ajusta ruta/PHP/usuario si tu
+Cuatro procesos, versionados en `deploy/supervisor/` (ajusta ruta/PHP/usuario si tu
 VPS no es `/var/www/people` + `/usr/bin/php` + `www-data`):
 
 | Archivo | Proceso | Para qué |
 |---|---|---|
-| `people-worker.conf` | `queue:work database --queue=default` | Trabajos pesados: PDF, extracción, migración, video |
+| `people-worker.conf` | `queue:work database --queue=default` | Trabajos pesados: PDF, extracción, migración |
+| `people-media.conf` | `queue:work media --queue=media --timeout=3600` | **Video** (`ProcesarVideoJob`: HLS del video de inducción y de la biblioteca). Sin él, los videos se quedan «en cola» — ver `docs/PROCESAMIENTO_VIDEO.md` §6 |
 | `people-notifications.conf` | `queue:work notificaciones --queue=notifications` | **Prioritario**: notificación en BD, broadcast Reverb, push Expo |
 | `people-reverb.conf` | `reverb:start --host=127.0.0.1 --port=8080` | WebSocket (detrás de Nginx, `deploy/nginx/reverb.conf`) |
 
@@ -190,10 +191,11 @@ levantarlo); sin Reverb la BD y el push siguen y la campana web consulta cada 30
 ```bash
 sudo cp deploy/supervisor/people-worker.conf /etc/supervisor/conf.d/
 sudo cp deploy/supervisor/people-notifications.conf /etc/supervisor/conf.d/
+sudo cp deploy/supervisor/people-media.conf /etc/supervisor/conf.d/
 sudo cp deploy/supervisor/people-reverb.conf /etc/supervisor/conf.d/
 sudo supervisorctl reread
 sudo supervisorctl update
-sudo supervisorctl restart people-worker:* people-notifications:* people-reverb
+sudo supervisorctl restart people-worker:* people-notifications:* people-media:* people-reverb
 sudo supervisorctl status
 ```
 

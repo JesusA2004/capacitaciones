@@ -7,7 +7,10 @@ use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Symfony\Component\Mime\MimeTypes;
 
 /**
  * Unica puerta de entrada al almacenamiento multimedia (disco 'nas'). Nunca
@@ -231,6 +234,56 @@ class MediaStorageService
         fclose($flujo);
 
         return hash_final($contexto);
+    }
+
+    /**
+     * Tipo MIME de un archivo del disco multimedia: el que detecte el
+     * almacenamiento por su contenido y, si no puede, el de su extensión.
+     * null si no se reconoce ninguno.
+     */
+    public function tipoMime(string $ruta): ?string
+    {
+        try {
+            /** @var FilesystemAdapter $adaptador */
+            $adaptador = $this->disco();
+            $detectado = $adaptador->mimeType($ruta);
+
+            if (is_string($detectado) && $detectado !== '' && $detectado !== 'application/octet-stream') {
+                return $detectado;
+            }
+        } catch (\Throwable) {
+            // Algunos drivers remotos no detectan el tipo: se usa la extensión.
+        }
+
+        $extension = strtolower(pathinfo($ruta, PATHINFO_EXTENSION));
+
+        return $extension !== '' ? (MimeTypes::getDefault()->getMimeTypes($extension)[0] ?? null) : null;
+    }
+
+    /**
+     * Respuesta para REPRODUCIR un archivo completo (audio/video original) en
+     * el navegador, con soporte de peticiones parciales (`Range` → 206), que
+     * los reproductores necesitan para adelantar/retroceder y Safari exige
+     * para reproducir siquiera. Con X-Accel-Redirect, Nginx ya atiende los
+     * rangos; con el disco local se usa BinaryFileResponse (rangos nativos);
+     * con un driver remoto se transmite completo (sin rangos).
+     *
+     * @param  array<string, string>  $headers
+     */
+    public function respuestaReproducible(string $ruta, array $headers = []): SymfonyResponse
+    {
+        if ($this->debeUsarXAccelRedirect()) {
+            return $this->respuestaXAccelRedirect($ruta, $headers);
+        }
+
+        if ($this->esDiscoLocal()) {
+            $respuesta = new BinaryFileResponse($this->rutaLocalAbsoluta($ruta), 200, $headers, false, null, false, false);
+            $respuesta->headers->set('Accept-Ranges', 'bytes');
+
+            return $respuesta;
+        }
+
+        return $this->respuesta($ruta, $headers);
     }
 
     /**

@@ -14,6 +14,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -107,6 +108,33 @@ class VistaPreviaInduccionController extends Controller
 
         return $this->storage->respuesta($recurso->ruta_original, [
             'Content-Type' => $recurso->mime_type ?? 'audio/mpeg',
+            'X-Content-Type-Options' => 'nosniff',
+        ]);
+    }
+
+    /**
+     * Estado real del material vigente (en cola / procesando / listo / error,
+     * con el motivo) para el sondeo automático de la tarjeta de RH.
+     */
+    public function estado(Request $request): JsonResponse
+    {
+        return response()->json(['data' => $this->materiales->estadoParaRh($request->user())]);
+    }
+
+    /**
+     * El ARCHIVO ORIGINAL del video vigente, para que RH lo vea mientras el
+     * HLS todavía no está listo. Solo RH (onboarding.gestionar en el Service)
+     * y por URL firmada: el colaborador nunca recibe esta ruta — él siempre
+     * ve el HLS con anti-adelanto. Soporta Range (adelantar/retroceder).
+     */
+    public function original(Request $request): SymfonyResponse
+    {
+        $recurso = $this->video($request);
+        abort_unless($recurso !== null && $this->storage->existe($recurso->ruta_original), 404);
+
+        return $this->storage->respuestaReproducible($recurso->ruta_original, [
+            'Content-Type' => $recurso->mime_type ?? $this->storage->tipoMime($recurso->ruta_original) ?? 'video/mp4',
+            'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }

@@ -19,7 +19,13 @@ use Illuminate\Queue\SerializesModels;
  *
  * Idempotente: si el recurso ya no esta en estado "pendiente" (por ejemplo,
  * porque un reintento anterior ya lo dejo "disponible" o porque se descarto),
- * no vuelve a procesarlo.
+ * no vuelve a procesarlo. Excepción: un REINTENTO (attempts() > 1) de un
+ * recurso que quedó en "procesando" — el worker anterior murió o se reinició a
+ * la mitad — sí se reprocesa; si no, quedaría «procesando» para siempre.
+ *
+ * Va a su propia conexión/cola (config('media.cola'), worker
+ * deploy/supervisor/people-media.conf) y, si se agota el tiempo o los
+ * intentos, failed() deja el recurso en "error" con el motivo visible para RH.
  */
 class ProcesarVideoJob implements ShouldQueue
 {
@@ -31,13 +37,26 @@ class ProcesarVideoJob implements ShouldQueue
 
     public int $backoff = 30;
 
-    public function __construct(public readonly RecursoMultimedia $recurso) {}
+    /** Un timeout marca el job como fallido (→ failed()), no lo reintenta a ciegas. */
+    public bool $failOnTimeout = true;
+
+    public function __construct(public readonly RecursoMultimedia $recurso)
+    {
+        $this->onConnection((string) config('media.cola.conexion'));
+        $this->onQueue((string) config('media.cola.nombre'));
+    }
 
     public function handle(MediaStorageService $storage, FfmpegService $ffmpeg): void
     {
         $recurso = $this->recurso->fresh();
 
-        if (! $recurso || $recurso->estado !== EstadoMultimedia::Pendiente) {
+        if (! $recurso) {
+            return;
+        }
+
+        $reintentoAMedias = $recurso->estado === EstadoMultimedia::Procesando && $this->attempts() > 1;
+
+        if ($recurso->estado !== EstadoMultimedia::Pendiente && ! $reintentoAMedias) {
             return;
         }
 
@@ -66,10 +85,12 @@ class ProcesarVideoJob implements ShouldQueue
                 $altura,
                 config('media.video.resoluciones'),
                 config('media.video.segmento_segundos'),
+                $info['tiene_audio'],
             );
 
+            // Fotograma de portada: a los 3 s, o a la mitad si el video dura menos.
             $rutaMiniaturaLocal = sys_get_temp_dir().'/'.$recurso->nombre_interno.'.jpg';
-            $ffmpeg->generarMiniatura($rutaLocalOriginal, $rutaMiniaturaLocal);
+            $ffmpeg->generarMiniatura($rutaLocalOriginal, $rutaMiniaturaLocal, min(3, intdiv((int) ($info['duracion_segundos'] ?? 0), 2)));
 
             $carpetaHlsDestino = $storage->rutaHlsCarpeta($recurso->nombre_interno);
 
@@ -97,6 +118,27 @@ class ProcesarVideoJob implements ShouldQueue
         } finally {
             $this->limpiarTemporales($rutaMiniaturaLocal, $carpetaHlsLocal, $esTemporalDescargado ? $rutaLocalOriginal : null);
         }
+    }
+
+    /**
+     * El job se agotó (timeout) o falló todos sus intentos fuera del
+     * try/catch de handle(): el recurso nunca debe quedarse «procesando».
+     */
+    public function failed(?\Throwable $excepcion): void
+    {
+        $recurso = $this->recurso->fresh();
+
+        if ($recurso === null || $recurso->estado === EstadoMultimedia::Disponible) {
+            return;
+        }
+
+        $recurso->update([
+            'estado' => EstadoMultimedia::Error->value,
+            'error_procesamiento' => sprintf(
+                'El procesamiento no terminó: %s',
+                $excepcion?->getMessage() ?: 'el trabajo de la cola se agotó o se interrumpió.',
+            ),
+        ]);
     }
 
     private function limpiarTemporales(?string $rutaMiniatura, ?string $carpetaHls, ?string $rutaOriginalTemporal): void

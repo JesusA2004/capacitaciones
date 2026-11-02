@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Eye, Volume2, Video as VideoIcon } from '@lucide/vue';
+import { Eye, Info, Volume2, Video as VideoIcon } from '@lucide/vue';
 import Hls from 'hls.js';
 import { nextTick, onBeforeUnmount, ref } from 'vue';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,10 @@ import { datos as datosVistaPrevia } from '@/routes/rh/onboarding/induccion/mate
  * avance: los endpoints de vista previa sirven el video HLS completo y la
  * narración original (MaterialInduccionService::vistaPreviaRh). Las URLs
  * firmadas se piden al reproducir, para que no caduquen con la página.
+ *
+ * Mientras el HLS del video no está listo (en cola, procesando o con error),
+ * RH puede ver el ARCHIVO ORIGINAL que subió (`original_url`, solo RH). El
+ * colaborador siempre recibe el HLS con anti-adelanto.
  */
 type DatosVistaPrevia = {
     tipo: string;
@@ -19,6 +23,9 @@ type DatosVistaPrevia = {
     disponible: boolean;
     audio_url: string | null;
     video_url: string | null;
+    original_url: string | null;
+    estado: string;
+    error: string | null;
 };
 
 const cargando = ref(false);
@@ -39,12 +46,14 @@ async function abrir() {
 
         if (!respuesta.data) {
             error.value = 'No hay material de explicación activo.';
-        } else if (!respuesta.data.disponible) {
-            error.value =
-                'El material todavía se está procesando. Vuelve en unos minutos.';
         } else if (respuesta.data.video_url) {
             await nextTick();
             montarVideo(respuesta.data.video_url);
+        } else if (!respuesta.data.disponible && !respuesta.data.original_url) {
+            error.value =
+                respuesta.data.estado === 'error'
+                    ? 'El video no se pudo procesar y su archivo original no está disponible. Vuelve a subirlo.'
+                    : 'El material todavía no está disponible. Vuelve en unos minutos.';
         }
     } catch {
         error.value = 'No fue posible cargar el material.';
@@ -70,6 +79,11 @@ function montarVideo(url: string) {
     ) {
         elementoVideo.value.src = url;
     }
+}
+
+function alFallarOriginal() {
+    error.value =
+        'Tu navegador no puede reproducir este formato de video directamente. Podrás verlo en cuanto termine el procesamiento.';
 }
 
 function cerrar() {
@@ -109,13 +123,21 @@ onBeforeUnmount(() => reproductorHls?.destroy());
         <p v-if="error" class="text-sm text-muted-foreground">{{ error }}</p>
 
         <div
-            v-if="datos && datos.disponible"
+            v-if="datos && (datos.disponible || datos.original_url)"
             class="flex flex-col gap-2 rounded-2xl border bg-warning-soft/40 p-3"
         >
-            <p class="flex items-center gap-2 text-xs font-medium">
+            <p
+                v-if="datos.disponible"
+                class="flex items-center gap-2 text-xs font-medium"
+            >
                 <Eye class="size-3.5" /> Vista previa — así lo verá el
                 colaborador. Para ti no hay anti-adelanto y no se registra
                 avance.
+            </p>
+            <p v-else class="flex items-start gap-2 text-xs font-medium">
+                <Info class="mt-0.5 size-3.5 shrink-0" /> Estás viendo el
+                archivo original que subiste. El colaborador lo verá (sin poder
+                adelantar) en cuanto termine el procesamiento.
             </p>
             <div
                 v-if="datos.audio_url"
@@ -131,17 +153,27 @@ onBeforeUnmount(() => reproductorHls?.destroy());
                 controlslist="nodownload"
                 class="w-full"
             />
-            <template v-if="datos.video_url">
+            <template v-if="datos.video_url || datos.original_url">
                 <div class="flex items-center gap-2 text-sm font-semibold">
                     <VideoIcon class="size-4 text-primary" /> Video de la
                     inducción (obligatorio para el colaborador)
                 </div>
                 <div class="overflow-hidden rounded-lg bg-foreground">
                     <video
+                        v-if="datos.video_url"
                         ref="elementoVideo"
                         controls
                         controlslist="nodownload"
                         class="aspect-video w-full"
+                    />
+                    <video
+                        v-else-if="datos.original_url"
+                        :src="datos.original_url"
+                        controls
+                        controlslist="nodownload"
+                        preload="metadata"
+                        class="aspect-video w-full"
+                        @error="alFallarOriginal"
                     />
                 </div>
             </template>

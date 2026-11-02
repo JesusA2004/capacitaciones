@@ -53,7 +53,7 @@ class InduccionPresentacionController extends Controller
 
         // Subir / reemplazar / retirar el material exige además
         // onboarding.configurar (mismo chequeo que MaterialInduccionController).
-        $puedeConfigurarMaterial = $usuario->can('onboarding.configurar');
+        $puedeConfigurarMaterial = $this->materiales->puedeConfigurar($usuario);
 
         return Inertia::render('Portal/Induccion', [
             'modoPresentacion' => true,
@@ -61,12 +61,20 @@ class InduccionPresentacionController extends Controller
             'colaboradorBuscado' => $this->nombreColaborador($request),
             'pdf' => $this->pdf->datosVisor(),
             'sesionRh' => $legacy ? $this->sesiones->datosPantalla($usuario) : null,
-            'materialRh' => $this->materialRh(),
+            // Estado real del procesamiento (y si la cola parece detenida);
+            // la tarjeta lo vuelve a pedir sola mientras no esté listo.
+            'materialRh' => $this->materiales->estadoParaRh($usuario),
             'puedeConfigurarMaterial' => $puedeConfigurarMaterial,
             'rutasMaterial' => $puedeConfigurarMaterial ? [
                 'store' => route('rh.onboarding.induccion.material.store'),
                 'destroy' => route('rh.onboarding.induccion.material.destroy'),
             ] : null,
+            // Límites reales del backend para la zona de carga (el video va
+            // por bloques; el audio en un solo request).
+            'limitesMaterial' => [
+                'video_max_mb' => (int) config('media.max_upload_mb'),
+                'audio_max_mb' => (int) config('media.audio_max_mb'),
+            ],
             // «Asignar inducción» + estado de cada persona (AsignacionInduccionService).
             'asignaciones' => $this->asignaciones->panorama($usuario),
         ]);
@@ -77,35 +85,6 @@ class InduccionPresentacionController extends Controller
         $colaborador = Colaborador::query()->whereKey($request->integer('colaborador'))->first();
 
         return $colaborador !== null && app(AlcanceOrganizacionalService::class)->alcanzaColaborador($request->user(), $colaborador) ? $colaborador->nombreCompleto() : null;
-    }
-
-    /**
-     * Material de explicación vigente de la inducción para la pantalla de RH
-     * (tipo + estado del recurso). null si no hay módulo o material.
-     *
-     * @return array{tipo: string, tipo_etiqueta: string, recurso_nombre: string|null, recurso_estado: string, duracion_segundos: int|null}|null
-     */
-    private function materialRh(): ?array
-    {
-        $modulo = $this->materiales->moduloInstitucional();
-
-        if ($modulo === null) {
-            return null;
-        }
-
-        $material = $this->materiales->materialActivo($modulo);
-
-        if ($material === null) {
-            return null;
-        }
-
-        return [
-            'tipo' => $material->tipo->value,
-            'tipo_etiqueta' => $material->tipo->etiqueta(),
-            'recurso_nombre' => $material->recurso?->nombre_original,
-            'recurso_estado' => $material->recurso?->estado->value ?? 'desconocido',
-            'duracion_segundos' => $material->recurso?->duracion_segundos,
-        ];
     }
 
     /**

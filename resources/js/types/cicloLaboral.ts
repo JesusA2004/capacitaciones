@@ -701,6 +701,35 @@ export type MaterialInduccion = {
     video_disponible: boolean;
 };
 
+/**
+ * RH: estado del material vigente de la inducción
+ * (MaterialInduccionService::estadoParaRh). La tarjeta lo vuelve a pedir sola
+ * mientras el video no esté listo.
+ */
+export type EstadoMaterialInduccionRh = {
+    tipo: 'audio' | 'video' | string;
+    tipo_etiqueta: string;
+    recurso_id: number | null;
+    recurso_nombre: string | null;
+    recurso_estado:
+        'pendiente' | 'procesando' | 'disponible' | 'error' | string;
+    recurso_estado_etiqueta: string;
+    error: string | null;
+    tamano_bytes: number | null;
+    duracion_segundos: number | null;
+    minutos_en_estado: number;
+    /** El video lleva demasiado sin avanzar: la cola de video podría no correr. */
+    cola_detenida: boolean;
+    puede_reprocesar: boolean;
+    listo: boolean;
+};
+
+/** RH: límites reales del backend para subir el material. */
+export type LimitesMaterialInduccion = {
+    video_max_mb: number;
+    audio_max_mb: number;
+};
+
 /** Asistente de una sesión de presentación de inducción. */
 export type AsistenteSesionInduccion = {
     id: number;

@@ -73,6 +73,20 @@ return [
             'after_commit' => (bool) env('DB_QUEUE_AFTER_COMMIT', true),
         ],
 
+        // Misma tabla `jobs`, solo para la conversión de video
+        // (ProcesarVideoJob, config('media.cola')): retry_after SIEMPRE mayor
+        // que el timeout del job (3600 s), si no un video aún en conversión se
+        // volvería a lanzar en paralelo. Worker:
+        // deploy/supervisor/people-media.conf (`queue:work media --queue=media`).
+        'media' => [
+            'driver' => 'database',
+            'connection' => env('DB_QUEUE_CONNECTION'),
+            'table' => env('DB_QUEUE_TABLE', 'jobs'),
+            'queue' => env('MEDIA_QUEUE', 'media'),
+            'retry_after' => (int) env('MEDIA_QUEUE_RETRY_AFTER', 3700),
+            'after_commit' => (bool) env('DB_QUEUE_AFTER_COMMIT', true),
+        ],
+
         'beanstalkd' => [
             'driver' => 'beanstalkd',
             'host' => env('BEANSTALKD_QUEUE_HOST', 'localhost'),

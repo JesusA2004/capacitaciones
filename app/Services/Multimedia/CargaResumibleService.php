@@ -69,6 +69,41 @@ class CargaResumibleService
     }
 
     /**
+     * Carga identificada por su UUID público, SIEMPRE scopeada al usuario que
+     * la inició: una carga nunca es visible/operable por otro usuario. La usan
+     * tanto la biblioteca multimedia como la carga del material de inducción.
+     */
+    public function deUsuario(User $usuario, string $identificador): CargaMultimedia
+    {
+        return CargaMultimedia::query()
+            ->where('identificador', $identificador)
+            ->where('user_id', $usuario->id)
+            ->firstOrFail();
+    }
+
+    /**
+     * DTO estable (JSON) de una carga: el mismo para todo endpoint que la
+     * exponga al frontend (resources/js/composables/useCargaResumible.ts).
+     *
+     * @return array{identificador: string, estado: string, tamano_total_bytes: int|null, tamano_bloque_bytes: int|null, total_bloques: int|null, bytes_recibidos: int, bloques_recibidos: array<int, int>, porcentaje: int, error: string|null, recurso_multimedia_id: int|null}
+     */
+    public function presentar(CargaMultimedia $carga): array
+    {
+        return [
+            'identificador' => $carga->identificador,
+            'estado' => $carga->estado->value,
+            'tamano_total_bytes' => $carga->tamano_total_bytes,
+            'tamano_bloque_bytes' => $carga->tamano_bloque_bytes,
+            'total_bloques' => $carga->total_bloques,
+            'bytes_recibidos' => $carga->bytes_recibidos,
+            'bloques_recibidos' => $carga->bloques_recibidos ?? [],
+            'porcentaje' => $carga->porcentaje(),
+            'error' => $carga->error,
+            'recurso_multimedia_id' => $carga->recurso_multimedia_id,
+        ];
+    }
+
+    /**
      * @throws \RuntimeException si la carga no admite bloques (pausada, cancelada, expirada...)
      *                           o si el número de bloque no corresponde a esta carga
      */
@@ -191,6 +226,10 @@ class CargaResumibleService
             'nombre_interno' => $nombreInterno,
             'disco' => config('media.disk'),
             'ruta_original' => $rutaDestino,
+            // El tipo MIME real permite servir el original con el
+            // Content-Type correcto (p. ej. la vista previa de RH mientras el
+            // HLS todavía no está listo).
+            'mime_type' => $this->storage->tipoMime($rutaDestino),
             'tamano_bytes' => $tamanoFinal,
             'hash_sha256' => $hashCalculado,
             'estado' => $carga->tipo === TipoRecursoMultimedia::Video ? EstadoMultimedia::Pendiente->value : EstadoMultimedia::Disponible->value,
