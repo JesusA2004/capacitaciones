@@ -295,7 +295,7 @@ it('C: el orden no se salta: primero el documento, después el finiquito, y nunc
         ->and($paso->accion?->clave)->not->toBe('cerrar_baja')
         ->and(collect($paso->pasos)->pluck('clave')->all())->not->toContain('rotacion')
         ->and(collect($paso->relacionadas)->pluck('etiqueta'))->toContain('Ver en rotación')
-        ->and(collect($paso->relacionadas)->firstWhere('etiqueta', 'Ver en rotación')?->href)->toContain('vista=por_sucursal');
+        ->and(collect($paso->relacionadas)->firstWhere('etiqueta', 'Ver en rotación')?->href)->toContain('seccion=historico');
     spSinProhibidos($paso, $this->rh);
 });
 

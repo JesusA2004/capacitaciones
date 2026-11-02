@@ -136,7 +136,7 @@ test('las pantallas de CONSULTA siguen abiertas para rh_admin, sin botones de im
     $this->actingAs($rh)->get(route('reportes.rotacion.index'))
         ->assertInertia(fn (AssertableInertia $page) => $page->where('puedeCargar', false));
     $this->actingAs($rh)->get(route('reportes.rotacion.tablero.index'))
-        ->assertInertia(fn (AssertableInertia $page) => $page->where('puedeCargarExcel', false));
+        ->assertInertia(fn (AssertableInertia $page) => $page->where('puede.cargar_historico', false));
     $this->actingAs($rh)->get(route('rh.nomina.lotes.index'))
         ->assertInertia(fn (AssertableInertia $page) => $page->where('puedeImportar', false)->where('puedeCrear', true));
     $this->actingAs($rh)->get(route('rh.perfiles-puesto.index'))

@@ -522,7 +522,7 @@ test('quién accede: solo gerente (su alcance), RH y super admin registran/ven; 
     // Dirección: solo el tablero.
     $this->actingAs($this->direccion)->get(route('reportes.rotacion.tablero.index'))->assertOk();
     $this->actingAs($this->gerente)->get(route('reportes.rotacion.tablero.index'))->assertOk()
-        ->assertInertia(fn ($p) => $p->has('tablero.opciones.sucursales', 1));
+        ->assertInertia(fn ($p) => $p->has('opciones.sucursales', 1));
     $this->actingAs($this->juridico)->get(route('reportes.rotacion.tablero.index'))->assertForbidden();
 
     // Jurídico y Contraloría tienen modo operativo: su inicio es la bandeja.
