@@ -1,7 +1,16 @@
 <script setup lang="ts">
-import { FileText, Image, Upload, X } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import {
+    AlertCircle,
+    FileText,
+    Image,
+    RefreshCw,
+    Trash2,
+    Upload,
+    X,
+} from '@lucide/vue';
+import { computed, onBeforeUnmount, ref, useId, watch } from 'vue';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
 /**
@@ -11,6 +20,13 @@ import { cn } from '@/lib/utils';
  * cuenta — solo junta los archivos elegidos (drag o click) y los expone por
  * `v-model`; quien la usa decide cuándo y cómo enviarlos (auto-submit al
  * cambiar el modelo, o esperar un botón "Subir").
+ *
+ * Opcionales (no cambian a quien ya la usa):
+ * - `vista-previa`: con un solo archivo, muestra la imagen o el PDF elegido
+ *   dentro de una tarjeta con «Cambiar archivo» y «Quitar» antes de enviar.
+ * - `progreso`: porcentaje de la subida en curso (p. ej. `form.progress`).
+ * - `error`: mensaje del servidor para este campo; se pinta en rojo junto a
+ *   los rechazos locales (formato o tamaño), que también se emiten.
  */
 const props = withDefaults(
     defineProps<{
@@ -22,6 +38,10 @@ const props = withDefaults(
         loading?: boolean;
         label?: string;
         hint?: string;
+        vistaPrevia?: boolean;
+        progreso?: number | null;
+        error?: string | null;
+        id?: string;
     }>(),
     {
         modelValue: () => [],
@@ -32,6 +52,10 @@ const props = withDefaults(
         loading: false,
         label: 'Arrastra tus archivos aquí',
         hint: undefined,
+        vistaPrevia: false,
+        progreso: null,
+        error: null,
+        id: undefined,
     },
 );
 
@@ -40,8 +64,11 @@ const emit = defineEmits<{
     error: [mensaje: string];
 }>();
 
+const idBase = props.id ?? `dropzone-${useId()}`;
+const idAyuda = `${idBase}-ayuda`;
 const arrastrando = ref(false);
 const inputRef = ref<HTMLInputElement | null>(null);
+const errorLocal = ref<string | null>(null);
 let contadorDragEnter = 0;
 
 const extensionesAceptadas = computed(() =>
@@ -58,8 +85,43 @@ const textoAyuda = computed(
         `${extensionesAceptadas.value} · Máximo ${props.maxSizeMb} MB`,
 );
 
+const mensajeError = computed(() => errorLocal.value ?? props.error ?? null);
+const bloqueado = computed(() => props.disabled || props.loading);
+const mostrarProgreso = computed(
+    () => props.loading && props.progreso !== null,
+);
+
+/** Tarjeta con la vista previa en lugar de la zona (un solo archivo). */
+const archivoUnico = computed<File | null>(() =>
+    props.vistaPrevia && !props.multiple ? (props.modelValue[0] ?? null) : null,
+);
+
+const urlPrevia = ref<string | null>(null);
+
+function liberarPrevia() {
+    if (urlPrevia.value) {
+        URL.revokeObjectURL(urlPrevia.value);
+    }
+
+    urlPrevia.value = null;
+}
+
+watch(
+    archivoUnico,
+    (archivo) => {
+        liberarPrevia();
+
+        if (archivo && (esImagen(archivo) || esPdf(archivo))) {
+            urlPrevia.value = URL.createObjectURL(archivo);
+        }
+    },
+    { immediate: true },
+);
+
+onBeforeUnmount(liberarPrevia);
+
 function abrirSelector() {
-    if (props.disabled || props.loading) {
+    if (bloqueado.value) {
         return;
     }
 
@@ -83,22 +145,31 @@ function extensionValida(archivo: File): boolean {
     );
 }
 
+function rechazar(mensaje: string) {
+    errorLocal.value = mensaje;
+    emit('error', mensaje);
+}
+
 function procesarArchivos(lista: FileList | File[]) {
     const archivos = Array.from(lista);
     const validos: File[] = [];
+    errorLocal.value = null;
 
     for (const archivo of archivos) {
         if (!extensionValida(archivo)) {
-            emit(
-                'error',
+            rechazar(
                 `«${archivo.name}» no tiene un formato permitido (${extensionesAceptadas.value}).`,
             );
             continue;
         }
 
+        if (archivo.size === 0) {
+            rechazar(`«${archivo.name}» está vacío.`);
+            continue;
+        }
+
         if (archivo.size > props.maxSizeMb * 1024 * 1024) {
-            emit(
-                'error',
+            rechazar(
                 `«${archivo.name}» supera el tamaño máximo de ${props.maxSizeMb} MB.`,
             );
             continue;
@@ -122,7 +193,7 @@ function alSoltar(evento: DragEvent) {
     arrastrando.value = false;
     contadorDragEnter = 0;
 
-    if (props.disabled || props.loading || !evento.dataTransfer) {
+    if (bloqueado.value || !evento.dataTransfer) {
         return;
     }
 
@@ -133,7 +204,7 @@ function alEntrarArrastre(evento: DragEvent) {
     evento.preventDefault();
     contadorDragEnter += 1;
 
-    if (!props.disabled && !props.loading) {
+    if (!bloqueado.value) {
         arrastrando.value = true;
     }
 }
@@ -160,6 +231,7 @@ function alSeleccionarInput(evento: Event) {
 function quitarArchivo(indice: number) {
     const restantes = [...props.modelValue];
     restantes.splice(indice, 1);
+    errorLocal.value = null;
     emit('update:modelValue', restantes);
 }
 
@@ -178,20 +250,127 @@ function formatearTamano(bytes: number): string {
 function esImagen(archivo: File): boolean {
     return archivo.type.startsWith('image/');
 }
+
+function esPdf(archivo: File): boolean {
+    return (
+        archivo.type === 'application/pdf' ||
+        archivo.name.toLowerCase().endsWith('.pdf')
+    );
+}
 </script>
 
 <template>
     <div class="flex flex-col gap-3">
+        <input
+            :id="idBase"
+            ref="inputRef"
+            type="file"
+            class="hidden"
+            :accept="accept"
+            :multiple="multiple"
+            :disabled="bloqueado"
+            @change="alSeleccionarInput"
+        />
+
+        <!-- Un solo archivo con vista previa: tarjeta en lugar de la zona. -->
         <div
-            role="button"
-            tabindex="0"
+            v-if="archivoUnico"
             :class="
                 cn(
-                    'flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-6 text-center transition-colors',
+                    'flex flex-col gap-3 rounded-2xl border p-3 transition-colors',
+                    arrastrando
+                        ? 'border-primary bg-primary/5'
+                        : mensajeError
+                          ? 'border-destructive/60 bg-card'
+                          : 'border-border/70 bg-card',
+                )
+            "
+            @dragenter="alEntrarArrastre"
+            @dragover.prevent
+            @dragleave="alSalirArrastre"
+            @drop="alSoltar"
+        >
+            <div
+                class="flex max-h-80 min-h-32 items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-crema/40"
+            >
+                <img
+                    v-if="urlPrevia && esImagen(archivoUnico)"
+                    :src="urlPrevia"
+                    :alt="`Vista previa de ${archivoUnico.name}`"
+                    class="max-h-80 w-full object-contain"
+                />
+                <iframe
+                    v-else-if="urlPrevia && esPdf(archivoUnico)"
+                    :src="urlPrevia"
+                    :title="`Vista previa de ${archivoUnico.name}`"
+                    class="h-80 w-full"
+                />
+                <div
+                    v-else
+                    class="flex flex-col items-center gap-1.5 p-6 text-muted-foreground"
+                >
+                    <FileText class="size-8" />
+                    <span class="text-xs">Sin vista previa disponible</span>
+                </div>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2">
+                <span
+                    class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
+                >
+                    <Image v-if="esImagen(archivoUnico)" class="size-4" />
+                    <FileText v-else class="size-4" />
+                </span>
+                <div class="min-w-0 flex-1">
+                    <p class="truncate text-sm font-medium">
+                        {{ archivoUnico.name }}
+                    </p>
+                    <p class="text-xs text-muted-foreground">
+                        {{ formatearTamano(archivoUnico.size) }} ·
+                        {{ loading ? 'subiendo…' : 'listo para enviar' }}
+                    </p>
+                </div>
+                <div class="flex gap-1.5">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        :disabled="bloqueado"
+                        @click="abrirSelector"
+                    >
+                        <RefreshCw class="size-3.5" />
+                        Cambiar archivo
+                    </Button>
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        class="text-destructive hover:text-destructive"
+                        :disabled="bloqueado"
+                        @click="quitarArchivo(0)"
+                    >
+                        <Trash2 class="size-3.5" />
+                        Quitar
+                    </Button>
+                </div>
+            </div>
+        </div>
+
+        <div
+            v-else
+            role="button"
+            tabindex="0"
+            :aria-disabled="bloqueado"
+            :aria-describedby="idAyuda"
+            :class="
+                cn(
+                    'flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-6 text-center transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
                     arrastrando
                         ? 'border-[var(--brand-primary)] bg-[var(--brand-primary)]/5'
-                        : 'border-border/70 hover:border-primary/40 hover:bg-accent/40',
-                    (disabled || loading) && 'pointer-events-none opacity-60',
+                        : mensajeError
+                          ? 'border-destructive/60 hover:bg-accent/40'
+                          : 'border-border/70 hover:border-primary/40 hover:bg-accent/40',
+                    bloqueado && 'pointer-events-none opacity-60',
                 )
             "
             @click="abrirSelector"
@@ -209,20 +388,15 @@ function esImagen(archivo: File): boolean {
                     o haz clic para seleccionar</span
                 >
             </p>
-            <p class="text-xs text-muted-foreground">{{ textoAyuda }}</p>
-
-            <input
-                ref="inputRef"
-                type="file"
-                class="hidden"
-                :accept="accept"
-                :multiple="multiple"
-                :disabled="disabled || loading"
-                @change="alSeleccionarInput"
-            />
+            <p :id="idAyuda" class="text-xs text-muted-foreground">
+                {{ textoAyuda }}
+            </p>
         </div>
 
-        <ul v-if="modelValue.length > 0" class="flex flex-col gap-2">
+        <ul
+            v-if="!archivoUnico && modelValue.length > 0"
+            class="flex flex-col gap-2"
+        >
             <li
                 v-for="(archivo, indice) in modelValue"
                 :key="`${archivo.name}-${archivo.lastModified}-${indice}`"
@@ -246,11 +420,29 @@ function esImagen(archivo: File): boolean {
                     size="icon"
                     class="size-7 shrink-0"
                     :disabled="loading"
+                    :aria-label="`Quitar ${archivo.name}`"
                     @click.stop="quitarArchivo(indice)"
                 >
                     <X class="size-4" />
                 </Button>
             </li>
         </ul>
+
+        <div v-if="mostrarProgreso" class="flex flex-col gap-1.5">
+            <p class="text-xs font-medium text-primary">
+                Subiendo… {{ Math.round(progreso ?? 0) }}%
+            </p>
+            <Progress :model-value="progreso ?? 0" class="h-1.5" />
+        </div>
+
+        <p
+            v-if="mensajeError"
+            class="flex items-start gap-1.5 text-sm text-destructive"
+            role="alert"
+            data-input-error
+        >
+            <AlertCircle class="mt-0.5 size-4 shrink-0" />
+            <span>{{ mensajeError }}</span>
+        </p>
     </div>
 </template>

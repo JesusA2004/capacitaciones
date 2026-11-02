@@ -8,6 +8,7 @@ use App\Enums\TipoIncapacidad;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Incapacidades\RegistrarIncapacidadRequest;
+use App\Http\Requests\Incapacidades\SubirDocumentoIncapacidadRequest;
 use App\Models\Colaborador;
 use App\Models\Incapacidad;
 use App\Models\IncapacidadDocumento;
@@ -193,19 +194,19 @@ class IncapacidadController extends Controller
         return back()->with('success', 'Incapacidad cancelada. El registro y sus documentos se conservan.');
     }
 
-    public function subirDocumento(Request $request, Incapacidad $incapacidad): RedirectResponse
+    public function subirDocumento(SubirDocumentoIncapacidadRequest $request, Incapacidad $incapacidad): RedirectResponse
     {
         $this->authorize('subirDocumento', $incapacidad);
-        $datos = $request->validate([
-            'tipo' => ['required', Rule::enum(TipoDocumentoIncapacidad::class)],
-            'archivo' => ['required', 'file', 'mimes:'.implode(',', (array) config('incapacidades.documentos.mimes', [])), 'max:'.(int) config('incapacidades.documentos.max_kb', 15360)],
-            'fecha_documento' => ['nullable', 'date'],
-            'motivo' => ['nullable', 'string', 'max:500'],
-        ], ['archivo.required' => 'Elige el archivo (PDF o imagen).']);
+        $datos = $request->validated();
+        $tipo = TipoDocumentoIncapacidad::from((string) $datos['tipo']);
+        $fecha = isset($datos['fecha_documento']) ? (string) $datos['fecha_documento'] : null;
+        $motivo = isset($datos['motivo']) ? trim((string) $datos['motivo']) : null;
 
-        $this->incapacidades->subirDocumento($incapacidad, TipoDocumentoIncapacidad::from($datos['tipo']), $request->file('archivo'), $datos['fecha_documento'] ?? null, $datos['motivo'] ?? null, $request->user());
+        $documento = $this->incapacidades->subirDocumento($incapacidad, $tipo, $request->file('archivo'), $fecha, $motivo, $request->user());
 
-        return back()->with('success', 'Documento cargado.');
+        return back()->with('success', $documento->reemplaza_id !== null
+            ? sprintf('%s reemplazado. La versión anterior se conserva.', explode(' · ', $tipo->etiqueta())[0])
+            : sprintf('%s cargado.', explode(' · ', $tipo->etiqueta())[0]));
     }
 
     public function descargarDocumento(Request $request, IncapacidadDocumento $documento): StreamedResponse
@@ -284,6 +285,8 @@ class IncapacidadController extends Controller
             'regla' => $this->incidencias->reglaParaPantalla(),
             'siguientePaso' => app(SiguientePasoService::class)->paraIncidencias($colaborador, $usuario)->toArray(),
             'puede' => ['subir' => $usuario->can('incapacidades.registrar'), 'corregir' => $usuario->can('incapacidades.corregir'), 'descargar' => $usuario->can('incapacidades.descargar')],
+            'mimes' => (array) config('incapacidades.documentos.mimes', []),
+            'maxKb' => (int) config('incapacidades.documentos.max_kb', 15360),
         ];
     }
 

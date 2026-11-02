@@ -1,19 +1,29 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { AlertTriangle, Download, FileText, Upload } from '@lucide/vue';
+import {
+    AlertTriangle,
+    Ban,
+    Download,
+    Eye,
+    FileText,
+    RefreshCw,
+    Upload,
+} from '@lucide/vue';
 import { computed, ref } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
 import SiguientePasoPanel from '@/components/flujos/SiguientePaso.vue';
+import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
@@ -24,13 +34,15 @@ import {
     store as subirDocumento,
 } from '@/routes/rh/incapacidades/documentos';
 import type {
+    ArchivoPrevisualizable,
     SiguientePaso,
     CadenaIncapacidad,
+    DocumentoIncapacidad,
     IncapacidadItem,
     ReglaDiasNomina,
 } from '@/types';
 
-defineProps<{
+const props = defineProps<{
     colaborador: {
         id: number;
         nombre: string;
@@ -47,6 +59,8 @@ defineProps<{
     puede: { subir: boolean; corregir: boolean; descargar: boolean };
     pdfRaizId: number | null;
     siguientePaso: SiguientePaso;
+    mimes: string[];
+    maxKb: number;
 }>();
 
 defineOptions({
@@ -95,8 +109,54 @@ function vigente(cadena: CadenaIncapacidad, tipo: string) {
     return cadena.documentos.find((d) => d.tipo === tipo && d.vigente);
 }
 
+function certificadoDe(cadena: CadenaIncapacidad, incapacidadId: number) {
+    return cadena.documentos.find(
+        (d) =>
+            d.tipo === 'certificado' &&
+            d.incapacidad_id === incapacidadId &&
+            d.vigente,
+    );
+}
+
 const documentosHistoricos = (cadena: CadenaIncapacidad) =>
     cadena.documentos.filter((d) => !d.vigente);
+
+// Visor inline (PDF e imágenes) con todos los documentos de la cadena.
+const visor = ref<{
+    archivos: ArchivoPrevisualizable[];
+    indice: number;
+} | null>(null);
+
+function aPrevisualizable(d: DocumentoIncapacidad): ArchivoPrevisualizable {
+    return {
+        clave: `doc-${d.id}`,
+        nombre: d.nombre_original,
+        previewUrl: verDocumento.url(d.id),
+        mime: d.mime,
+        tamano: d.tamano,
+        etiqueta: d.vigente ? d.etiqueta : `${d.etiqueta} (versión anterior)`,
+        fecha: d.fecha_documento ?? d.cargado_en,
+        subidoPor: d.cargado_por,
+    };
+}
+
+function verDocumentoEnVisor(
+    cadena: CadenaIncapacidad,
+    documento: DocumentoIncapacidad,
+) {
+    const lista = [
+        ...cadena.documentos.filter((d) => d.vigente),
+        ...documentosHistoricos(cadena),
+    ];
+
+    visor.value = {
+        archivos: lista.map(aPrevisualizable),
+        indice: Math.max(
+            0,
+            lista.findIndex((d) => d.id === documento.id),
+        ),
+    };
+}
 
 // Subir / reemplazar documento.
 const formaDocumento = useForm({
@@ -108,17 +168,49 @@ const formaDocumento = useForm({
 const subiendo = ref<{
     incapacidadId: number;
     etiqueta: string;
-    reemplaza: boolean;
+    reemplaza: DocumentoIncapacidad | null;
 } | null>(null);
 const pideFecha = computed(() =>
     ['st7', 'st2', 'st3'].includes(formaDocumento.tipo),
 );
+const fechaObligatoria = computed(() => formaDocumento.tipo === 'st2');
+const maxMb = computed(() => Math.floor(props.maxKb / 1024));
+const aceptar = computed(() => props.mimes.map((m) => `.${m}`).join(','));
+const ayudaArchivo = computed(
+    () =>
+        `${props.mimes.map((m) => m.toUpperCase()).join(', ')} · Máximo ${maxMb.value} MB`,
+);
+const progresoDocumento = computed(() =>
+    formaDocumento.progress ? (formaDocumento.progress.percentage ?? 0) : null,
+);
+/** Faltantes que se avisan antes de enviar (el servidor los vuelve a exigir). */
+const faltaParaEnviar = computed(() => {
+    if (!formaDocumento.archivo) {
+        return 'Elige el archivo.';
+    }
+
+    if (fechaObligatoria.value && !formaDocumento.fecha_documento) {
+        return 'Captura la fecha del dictamen de alta.';
+    }
+
+    if (subiendo.value?.reemplaza && formaDocumento.motivo.trim().length < 1) {
+        return 'Indica el motivo del reemplazo.';
+    }
+
+    return null;
+});
+// Errores del servidor sin campo propio en el diálogo (cancelada, NAS…).
+const errorGeneralDocumento = computed(() => {
+    const errores = formaDocumento.errors as Record<string, string | undefined>;
+
+    return errores.incapacidad ?? errores.tipo ?? null;
+});
 
 function abrirSubida(
     incapacidadId: number,
     tipo: string,
     etiqueta: string,
-    reemplaza: boolean,
+    reemplaza: DocumentoIncapacidad | null,
 ) {
     formaDocumento.reset();
     formaDocumento.clearErrors();
@@ -126,15 +218,31 @@ function abrirSubida(
     subiendo.value = { incapacidadId, etiqueta, reemplaza };
 }
 
+function cerrarSubida() {
+    if (formaDocumento.processing) {
+        return;
+    }
+
+    subiendo.value = null;
+}
+
+function elegirArchivo(archivos: File[]) {
+    formaDocumento.archivo = archivos[0] ?? null;
+    formaDocumento.clearErrors('archivo');
+}
+
 function enviarDocumento() {
-    if (!subiendo.value || formaDocumento.processing) {
+    if (!subiendo.value || formaDocumento.processing || faltaParaEnviar.value) {
         return;
     }
 
     formaDocumento.post(subirDocumento.url(subiendo.value.incapacidadId), {
         forceFormData: true,
         preserveScroll: true,
-        onSuccess: () => (subiendo.value = null),
+        onSuccess: () => {
+            subiendo.value = null;
+            formaDocumento.reset();
+        },
     });
 }
 
@@ -266,65 +374,110 @@ function enviarCancelacion() {
                                     {{ formatearFecha(fila.fecha_fin) }}
                                 </td>
                                 <td class="px-3 py-2">
-                                    <template
-                                        v-for="documento in cadena.documentos.filter(
-                                            (d) =>
-                                                d.tipo === 'certificado' &&
-                                                d.incapacidad_id === fila.id &&
-                                                d.vigente,
-                                        )"
-                                        :key="documento.id"
+                                    <div
+                                        class="flex flex-wrap items-center gap-1.5"
                                     >
-                                        <a
-                                            v-if="puede.descargar"
-                                            :href="
-                                                verDocumento.url(documento.id)
+                                        <template
+                                            v-if="
+                                                certificadoDe(cadena, fila.id)
                                             "
-                                            target="_blank"
-                                            rel="noopener"
-                                            class="text-primary hover:underline"
-                                            >Ver documento</a
                                         >
-                                        <span v-else class="text-success"
-                                            >Cargado ✓</span
+                                            <Button
+                                                v-if="puede.descargar"
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                :title="
+                                                    certificadoDe(
+                                                        cadena,
+                                                        fila.id,
+                                                    )!.nombre_original
+                                                "
+                                                @click="
+                                                    verDocumentoEnVisor(
+                                                        cadena,
+                                                        certificadoDe(
+                                                            cadena,
+                                                            fila.id,
+                                                        )!,
+                                                    )
+                                                "
+                                            >
+                                                <Eye class="size-3.5" />
+                                                Ver
+                                            </Button>
+                                            <span
+                                                v-else
+                                                class="rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success"
+                                                >Cargado ✓</span
+                                            >
+                                        </template>
+                                        <span
+                                            v-else
+                                            class="rounded-full bg-warning-soft px-2 py-0.5 text-xs font-medium text-warning"
+                                            >Sin certificado</span
                                         >
-                                    </template>
-                                    <button
-                                        v-if="
-                                            puede.subir &&
-                                            fila.estatus !== 'cancelada'
-                                        "
-                                        type="button"
-                                        class="ml-2 text-xs text-muted-foreground hover:underline"
-                                        @click="
-                                            abrirSubida(
-                                                fila.id,
-                                                'certificado',
-                                                'Certificado de incapacidad',
-                                                true,
-                                            )
-                                        "
-                                    >
-                                        Reemplazar
-                                    </button>
+                                        <Button
+                                            v-if="
+                                                puede.subir &&
+                                                fila.estatus !== 'cancelada'
+                                            "
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            @click="
+                                                abrirSubida(
+                                                    fila.id,
+                                                    'certificado',
+                                                    'Certificado de incapacidad',
+                                                    certificadoDe(
+                                                        cadena,
+                                                        fila.id,
+                                                    ) ?? null,
+                                                )
+                                            "
+                                        >
+                                            <RefreshCw
+                                                v-if="
+                                                    certificadoDe(
+                                                        cadena,
+                                                        fila.id,
+                                                    )
+                                                "
+                                                class="size-3.5"
+                                            />
+                                            <Upload v-else class="size-3.5" />
+                                            {{
+                                                certificadoDe(cadena, fila.id)
+                                                    ? 'Reemplazar'
+                                                    : 'Subir'
+                                            }}
+                                        </Button>
+                                    </div>
                                 </td>
                                 <td
                                     class="px-3 py-2 text-right whitespace-nowrap"
                                 >
-                                    <template v-if="fila.puede_corregir">
+                                    <div
+                                        v-if="fila.puede_corregir"
+                                        class="flex items-center justify-end gap-1.5"
+                                    >
                                         <BotonCorregir
                                             dominio="incapacidad"
                                             :sujeto-id="fila.id"
                                             variante="ghost"
                                         />
-                                        <button
+                                        <Button
                                             type="button"
-                                            class="ml-2 text-xs text-destructive hover:underline"
+                                            variant="ghost"
+                                            size="sm"
+                                            class="text-destructive hover:text-destructive"
                                             @click="cancelando = fila"
                                         >
+                                            <Ban class="size-3.5" />
                                             Cancelar
-                                        </button>
-                                    </template>
+                                        </Button>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
@@ -367,35 +520,55 @@ function enviarCancelacion() {
                             v-if="
                                 vigente(cadena, espacio.tipo) && puede.descargar
                             "
-                            as-child
+                            type="button"
                             variant="outline"
                             size="sm"
+                            :title="
+                                vigente(cadena, espacio.tipo)!.nombre_original
+                            "
+                            @click="
+                                verDocumentoEnVisor(
+                                    cadena,
+                                    vigente(cadena, espacio.tipo)!,
+                                )
+                            "
                         >
-                            <a
-                                :href="
-                                    verDocumento.url(
-                                        vigente(cadena, espacio.tipo)!.id,
-                                    )
-                                "
-                                target="_blank"
-                                rel="noopener"
-                                >Ver comprobante</a
-                            >
+                            <Eye class="size-3.5" />
+                            Ver
                         </Button>
                         <Button
                             v-if="puede.subir && cadena.estatus !== 'cancelada'"
-                            variant="outline"
+                            type="button"
+                            :variant="
+                                vigente(cadena, espacio.tipo)
+                                    ? 'ghost'
+                                    : 'default'
+                            "
                             size="sm"
+                            :disabled="
+                                espacio.tipo === 'st2' &&
+                                !vigente(cadena, 'st7')
+                            "
+                            :title="
+                                espacio.tipo === 'st2' &&
+                                !vigente(cadena, 'st7')
+                                    ? 'Carga primero el ST-7'
+                                    : undefined
+                            "
                             @click="
                                 abrirSubida(
                                     cadena.id,
                                     espacio.tipo,
                                     espacio.etiqueta,
-                                    Boolean(vigente(cadena, espacio.tipo)),
+                                    vigente(cadena, espacio.tipo) ?? null,
                                 )
                             "
                         >
-                            <Upload class="size-3.5" />
+                            <RefreshCw
+                                v-if="vigente(cadena, espacio.tipo)"
+                                class="size-3.5"
+                            />
+                            <Upload v-else class="size-3.5" />
                             {{
                                 vigente(cadena, espacio.tipo)
                                     ? 'Reemplazar'
@@ -413,14 +586,14 @@ function enviarCancelacion() {
                             :key="documento.id"
                         >
                             {{ documento.etiqueta }} ·
-                            <a
+                            <button
                                 v-if="puede.descargar"
-                                :href="verDocumento.url(documento.id)"
-                                target="_blank"
-                                rel="noopener"
-                                class="hover:underline"
-                                >{{ documento.nombre_original }}</a
+                                type="button"
+                                class="text-primary hover:underline"
+                                @click="verDocumentoEnVisor(cadena, documento)"
                             >
+                                {{ documento.nombre_original }}
+                            </button>
                             <template v-else>{{
                                 documento.nombre_original
                             }}</template>
@@ -523,39 +696,62 @@ function enviarCancelacion() {
 
     <Dialog
         :open="subiendo !== null"
-        @update:open="(v) => !v && (subiendo = null)"
+        @update:open="(v) => !v && cerrarSubida()"
     >
-        <DialogContent class="sm:max-w-md">
+        <DialogContent class="sm:max-w-xl">
             <DialogHeader>
-                <DialogTitle>{{ subiendo?.etiqueta }}</DialogTitle>
+                <DialogTitle>
+                    {{ subiendo?.reemplaza ? 'Reemplazar' : 'Subir' }}
+                    {{ subiendo?.etiqueta }}
+                </DialogTitle>
+                <DialogDescription>
+                    <template v-if="subiendo?.reemplaza">
+                        Sustituye a «{{ subiendo.reemplaza.nombre_original }}».
+                        El archivo anterior no se borra: queda en «Versiones
+                        anteriores».
+                    </template>
+                    <template v-else>
+                        Revisa la vista previa antes de guardar: el archivo
+                        queda en el expediente del colaborador.
+                    </template>
+                </DialogDescription>
             </DialogHeader>
-            <form class="grid gap-3" @submit.prevent="enviarDocumento">
-                <div class="grid gap-1.5">
-                    <Label for="archivo">Archivo (PDF o imagen)</Label>
-                    <Input
-                        id="archivo"
-                        type="file"
-                        accept=".pdf,.jpg,.jpeg,.png,.webp"
-                        @change="
-                            formaDocumento.archivo =
-                                ($event.target as HTMLInputElement)
-                                    .files?.[0] ?? null
-                        "
-                    />
-                    <p
-                        v-if="formaDocumento.errors.archivo"
-                        class="text-sm text-destructive"
-                        data-input-error
-                    >
-                        {{ formaDocumento.errors.archivo }}
-                    </p>
-                </div>
+            <form class="grid gap-4" @submit.prevent="enviarDocumento">
+                <PeopleFileDropzone
+                    id="archivo"
+                    vista-previa
+                    :model-value="
+                        formaDocumento.archivo ? [formaDocumento.archivo] : []
+                    "
+                    :accept="aceptar"
+                    :max-size-mb="maxMb"
+                    :hint="ayudaArchivo"
+                    :loading="formaDocumento.processing"
+                    :progreso="progresoDocumento"
+                    :error="formaDocumento.errors.archivo ?? null"
+                    label="Arrastra el documento aquí"
+                    @update:model-value="elegirArchivo"
+                />
                 <div v-if="pideFecha" class="grid gap-1.5">
-                    <Label for="fecha_documento">Fecha del documento</Label>
+                    <Label for="fecha_documento">
+                        Fecha del documento
+                        <span v-if="fechaObligatoria" class="text-destructive"
+                            >*</span
+                        >
+                        <span v-else class="font-normal text-muted-foreground"
+                            >(opcional)</span
+                        >
+                    </Label>
                     <DatePicker
                         id="fecha_documento"
                         v-model="formaDocumento.fecha_documento"
                     />
+                    <p
+                        v-if="fechaObligatoria"
+                        class="text-xs text-muted-foreground"
+                    >
+                        Con la fecha del alta el riesgo pasa a Concluida.
+                    </p>
                     <p
                         v-if="formaDocumento.errors.fecha_documento"
                         class="text-sm text-destructive"
@@ -565,45 +761,89 @@ function enviarCancelacion() {
                     </p>
                 </div>
                 <div v-if="subiendo?.reemplaza" class="grid gap-1.5">
-                    <Label for="motivo_documento">Motivo del reemplazo</Label>
+                    <Label for="motivo_documento">
+                        Motivo del reemplazo
+                        <span class="text-destructive">*</span>
+                    </Label>
                     <Textarea
                         id="motivo_documento"
                         v-model="formaDocumento.motivo"
                         rows="2"
+                        maxlength="500"
+                        placeholder="Ej. el certificado anterior estaba ilegible"
                     />
-                    <p class="text-xs text-muted-foreground">
-                        El archivo anterior se conserva como versión anterior.
+                    <p
+                        v-if="formaDocumento.errors.motivo"
+                        class="text-sm text-destructive"
+                        data-input-error
+                    >
+                        {{ formaDocumento.errors.motivo }}
                     </p>
                 </div>
                 <p
-                    v-if="formaDocumento.errors.motivo"
-                    class="text-sm text-destructive"
+                    v-if="errorGeneralDocumento"
+                    class="flex items-start gap-1.5 rounded-lg bg-danger-soft p-2.5 text-sm text-destructive"
+                    role="alert"
                     data-input-error
                 >
-                    {{ formaDocumento.errors.motivo }}
+                    <AlertTriangle class="mt-0.5 size-4 shrink-0" />
+                    {{ errorGeneralDocumento }}
                 </p>
-                <p
-                    v-if="formaDocumento.errors.tipo"
-                    class="text-sm text-destructive"
-                    data-input-error
-                >
-                    {{ formaDocumento.errors.tipo }}
-                </p>
-                <DialogFooter>
+                <DialogFooter class="items-center gap-2">
+                    <p
+                        v-if="faltaParaEnviar && !formaDocumento.processing"
+                        class="mr-auto text-xs text-muted-foreground"
+                    >
+                        {{ faltaParaEnviar }}
+                    </p>
                     <Button
                         type="button"
                         variant="secondary"
-                        @click="subiendo = null"
+                        :disabled="formaDocumento.processing"
+                        @click="cerrarSubida"
                         >Cancelar</Button
                     >
-                    <Button type="submit" :disabled="formaDocumento.processing">
+                    <Button
+                        type="submit"
+                        :disabled="
+                            formaDocumento.processing || !!faltaParaEnviar
+                        "
+                    >
                         <Spinner v-if="formaDocumento.processing" />
-                        Guardar
+                        <template v-if="formaDocumento.processing">
+                            Subiendo…
+                            {{
+                                progresoDocumento !== null
+                                    ? `${Math.round(progresoDocumento)}%`
+                                    : ''
+                            }}
+                        </template>
+                        <template v-else>
+                            <RefreshCw
+                                v-if="subiendo?.reemplaza"
+                                class="size-3.5"
+                            />
+                            <Upload v-else class="size-3.5" />
+                            {{
+                                subiendo?.reemplaza
+                                    ? 'Reemplazar documento'
+                                    : 'Subir documento'
+                            }}
+                        </template>
                     </Button>
                 </DialogFooter>
             </form>
         </DialogContent>
     </Dialog>
+
+    <DocumentPreviewDialog
+        v-if="visor"
+        :open="visor !== null"
+        :archivos="visor.archivos"
+        :indice="visor.indice"
+        @update:open="(v) => !v && (visor = null)"
+        @update:indice="(i) => visor && (visor.indice = i)"
+    />
 
     <Dialog
         :open="cancelando !== null"

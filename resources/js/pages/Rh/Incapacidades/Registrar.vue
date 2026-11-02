@@ -6,6 +6,7 @@ import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
 import EnlaceRegreso from '@/components/flujos/EnlaceRegreso.vue';
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -83,26 +84,61 @@ const errorArchivo = computed(
 );
 const aceptar = computed(() => props.mimes.map((m) => `.${m}`).join(','));
 
-watch(persona, async (actual) => {
-    form.colaborador_id = actual?.id ?? null;
-    form.incapacidad_inicial_id = '';
-    inicialesAbiertas.value = [];
+const cargandoIniciales = ref(false);
+const errorIniciales = ref(false);
+let consultaIniciales = 0;
 
-    if (!actual) {
-        return;
-    }
+/**
+ * Inmediato: si llega desde el expediente (colaboradorInicial) también se
+ * cargan sus iniciales abiertas; antes solo se pedían al cambiar de persona.
+ * Una respuesta vieja (cambió de persona a media consulta) se descarta.
+ */
+watch(
+    persona,
+    async (actual) => {
+        const consulta = ++consultaIniciales;
+        form.colaborador_id = actual?.id ?? null;
+        form.incapacidad_inicial_id = '';
+        inicialesAbiertas.value = [];
+        errorIniciales.value = false;
 
-    const r = await fetch(iniciales.url(actual.id), {
-        headers: { Accept: 'application/json' },
-        credentials: 'same-origin',
-    });
+        if (!actual) {
+            return;
+        }
 
-    if (r.ok) {
-        inicialesAbiertas.value = (
-            (await r.json()) as { data: InicialAbierta[] }
-        ).data;
-    }
-});
+        cargandoIniciales.value = true;
+
+        try {
+            const r = await fetch(iniciales.url(actual.id), {
+                headers: { Accept: 'application/json' },
+                credentials: 'same-origin',
+            });
+
+            if (consulta !== consultaIniciales) {
+                return;
+            }
+
+            if (!r.ok) {
+                errorIniciales.value = true;
+
+                return;
+            }
+
+            inicialesAbiertas.value = (
+                (await r.json()) as { data: InicialAbierta[] }
+            ).data;
+        } catch {
+            if (consulta === consultaIniciales) {
+                errorIniciales.value = true;
+            }
+        } finally {
+            if (consulta === consultaIniciales) {
+                cargandoIniciales.value = false;
+            }
+        }
+    },
+    { immediate: true },
+);
 
 watch(
     () => form.tipo,
@@ -111,10 +147,47 @@ watch(
 
         if (!esRiesgo.value) {
             form.subtipo_riesgo = '';
-            form.st7 = null;
+            quitarSt7();
         }
     },
 );
+
+// El ST-7 vive en la inicial del riesgo: una subsecuente no lo envía.
+watch(esSubsecuente, (subsecuente) => {
+    if (subsecuente) {
+        quitarSt7();
+    } else {
+        form.incapacidad_inicial_id = '';
+    }
+});
+
+const maxMb = computed(() => Math.floor(props.maxKb / 1024));
+const ayudaArchivo = computed(
+    () =>
+        `${props.mimes.map((m) => m.toUpperCase()).join(', ')} · Máximo ${maxMb.value} MB`,
+);
+const progreso = computed(() =>
+    form.progress ? (form.progress.percentage ?? 0) : null,
+);
+
+function elegirCertificado(archivos: File[]) {
+    form.certificado = archivos[0] ?? null;
+    form.clearErrors('certificado');
+}
+
+function elegirSt7(archivos: File[]) {
+    form.st7 = archivos[0] ?? null;
+    form.clearErrors('st7');
+
+    if (!form.st7) {
+        form.fecha_st7 = '';
+    }
+}
+
+function quitarSt7() {
+    form.st7 = null;
+    form.fecha_st7 = '';
+}
 
 /** Vista previa; el valor que cuenta lo calcula el servidor. */
 const terminoPrevio = computed(() => {
@@ -130,12 +203,18 @@ const terminoPrevio = computed(() => {
     return `${fin.getFullYear()}-${String(fin.getMonth() + 1).padStart(2, '0')}-${String(fin.getDate()).padStart(2, '0')}`;
 });
 
-function archivoDe(evento: Event): File | null {
-    return (evento.target as HTMLInputElement).files?.[0] ?? null;
-}
-
 function enviar() {
     if (form.processing) {
+        return;
+    }
+
+    // Aviso inmediato; el servidor lo vuelve a exigir.
+    if (!form.certificado) {
+        form.setError(
+            'certificado',
+            'Adjunta el certificado de incapacidad del IMSS.',
+        );
+
         return;
     }
 
@@ -287,7 +366,27 @@ function enviar() {
                         "
                     />
                     <p
-                        v-if="persona && !inicialesDelTipo.length"
+                        v-if="cargandoIniciales"
+                        class="flex items-center gap-1.5 text-xs text-muted-foreground"
+                    >
+                        <Spinner class="size-3" /> Buscando sus incapacidades
+                        iniciales…
+                    </p>
+                    <p
+                        v-else-if="errorIniciales"
+                        class="text-xs text-destructive"
+                    >
+                        No se pudieron cargar sus incapacidades iniciales.
+                        Vuelve a elegir al colaborador.
+                    </p>
+                    <p
+                        v-else-if="!persona"
+                        class="text-xs text-muted-foreground"
+                    >
+                        Elige primero al colaborador.
+                    </p>
+                    <p
+                        v-else-if="!inicialesDelTipo.length"
                         class="text-xs text-muted-foreground"
                     >
                         Esta persona no tiene iniciales abiertas de este tipo.
@@ -384,71 +483,92 @@ function enviar() {
                 </div>
             </div>
 
-            <div class="grid gap-2">
-                <h2 class="text-sm font-medium">Documentos</h2>
-                <label
-                    class="flex flex-wrap items-center gap-3 rounded-lg border border-border/60 p-3"
+            <div class="grid gap-3">
+                <h2 class="flex items-center gap-1.5 text-sm font-medium">
+                    <FileUp class="size-4" />
+                    Documentos
+                </h2>
+                <div
+                    class="grid gap-3"
+                    :class="esRiesgo && !esSubsecuente ? 'xl:grid-cols-2' : ''"
                 >
-                    <span class="min-w-0 flex-1">
-                        <span class="block text-sm font-semibold"
-                            >Certificado de incapacidad ({{
-                                esSubsecuente ? 'subsecuente' : 'inicial'
-                            }})</span
-                        >
-                        <span class="block text-xs text-muted-foreground"
-                            >Obligatorio. PDF o foto del certificado del
-                            IMSS.</span
-                        >
-                    </span>
-                    <span class="flex items-center gap-2 text-sm">
-                        <FileUp class="size-4" />
-                        <input
-                            type="file"
+                    <div
+                        class="flex flex-col gap-2 rounded-xl border border-border/60 p-3"
+                    >
+                        <div>
+                            <p class="text-sm font-semibold">
+                                Certificado de incapacidad ({{
+                                    esSubsecuente ? 'subsecuente' : 'inicial'
+                                }})
+                                <span class="text-destructive">*</span>
+                            </p>
+                            <p class="text-xs text-muted-foreground">
+                                Obligatorio. PDF o foto legible del certificado
+                                del IMSS.
+                            </p>
+                        </div>
+                        <PeopleFileDropzone
+                            id="certificado"
+                            vista-previa
+                            :model-value="
+                                form.certificado ? [form.certificado] : []
+                            "
                             :accept="aceptar"
-                            class="max-w-52 text-xs"
-                            @change="form.certificado = archivoDe($event)"
+                            :max-size-mb="maxMb"
+                            :hint="ayudaArchivo"
+                            :loading="form.processing"
+                            :progreso="form.certificado ? progreso : null"
+                            :error="form.errors.certificado ?? null"
+                            label="Arrastra el certificado aquí"
+                            @update:model-value="elegirCertificado"
                         />
-                    </span>
-                </label>
-                <p
-                    v-if="form.errors.certificado"
-                    class="text-sm text-destructive"
-                    data-input-error
-                >
-                    {{ form.errors.certificado }}
-                </p>
+                    </div>
 
-                <label
-                    v-if="esRiesgo && !esSubsecuente"
-                    class="flex flex-wrap items-center gap-3 rounded-lg border border-border/60 p-3"
-                >
-                    <span class="min-w-0 flex-1">
-                        <span class="block text-sm font-semibold"
-                            >ST-7 · Aviso para calificar probable riesgo de
-                            trabajo</span
-                        >
-                        <span class="block text-xs text-muted-foreground"
-                            >Se carga una vez por riesgo; si aún no lo tienes,
-                            súbelo después desde el expediente.</span
-                        >
-                    </span>
-                    <span class="flex items-center gap-2 text-sm">
-                        <FileUp class="size-4" />
-                        <input
-                            type="file"
+                    <div
+                        v-if="esRiesgo && !esSubsecuente"
+                        class="flex flex-col gap-2 rounded-xl border border-border/60 p-3"
+                    >
+                        <div>
+                            <p class="text-sm font-semibold">
+                                ST-7 · Aviso para calificar probable riesgo de
+                                trabajo
+                                <span class="font-normal text-muted-foreground"
+                                    >(opcional)</span
+                                >
+                            </p>
+                            <p class="text-xs text-muted-foreground">
+                                Se carga una vez por riesgo; si aún no lo
+                                tienes, súbelo después desde el expediente.
+                            </p>
+                        </div>
+                        <PeopleFileDropzone
+                            id="st7"
+                            vista-previa
+                            :model-value="form.st7 ? [form.st7] : []"
                             :accept="aceptar"
-                            class="max-w-52 text-xs"
-                            @change="form.st7 = archivoDe($event)"
+                            :max-size-mb="maxMb"
+                            :hint="ayudaArchivo"
+                            :loading="form.processing"
+                            :error="form.errors.st7 ?? null"
+                            label="Arrastra el ST-7 aquí"
+                            @update:model-value="elegirSt7"
                         />
-                    </span>
-                </label>
-                <p
-                    v-if="form.errors.st7"
-                    class="text-sm text-destructive"
-                    data-input-error
-                >
-                    {{ form.errors.st7 }}
-                </p>
+                        <div v-if="form.st7" class="grid gap-1.5">
+                            <Label for="fecha_st7">Fecha del ST-7</Label>
+                            <DatePicker
+                                id="fecha_st7"
+                                v-model="form.fecha_st7"
+                            />
+                            <p
+                                v-if="form.errors.fecha_st7"
+                                class="text-sm text-destructive"
+                                data-input-error
+                            >
+                                {{ form.errors.fecha_st7 }}
+                            </p>
+                        </div>
+                    </div>
+                </div>
                 <p v-if="esRiesgo" class="text-xs text-muted-foreground">
                     ST-2 (dictamen de alta) y ST-3 (opcional, incapacidad
                     permanente) se suben al expediente del riesgo cuando
@@ -456,9 +576,11 @@ function enviar() {
                 </p>
                 <p
                     v-if="errorArchivo"
-                    class="text-sm text-destructive"
+                    class="flex items-start gap-1.5 rounded-lg bg-danger-soft p-2.5 text-sm text-destructive"
+                    role="alert"
                     data-input-error
                 >
+                    <AlertTriangle class="mt-0.5 size-4 shrink-0" />
                     {{ errorArchivo }}
                 </p>
             </div>
@@ -478,7 +600,11 @@ function enviar() {
                 </Button>
                 <Button type="submit" :disabled="form.processing">
                     <Spinner v-if="form.processing" />
-                    Guardar incapacidad
+                    {{
+                        form.processing
+                            ? `Guardando… ${progreso !== null ? `${Math.round(progreso)}%` : ''}`
+                            : 'Guardar incapacidad'
+                    }}
                 </Button>
             </div>
         </div>

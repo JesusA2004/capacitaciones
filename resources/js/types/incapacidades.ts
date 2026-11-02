@@ -57,6 +57,8 @@ export type DocumentoIncapacidad = {
     etiqueta: string;
     incapacidad_id: number;
     nombre_original: string;
+    mime: string | null;
+    tamano: number;
     fecha_documento: string | null;
     cargado_por: string | null;
     cargado_en: string | null;

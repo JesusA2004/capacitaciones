@@ -483,6 +483,8 @@ class IncapacidadConsultaService
             'etiqueta' => $d->tipo->etiqueta(),
             'incapacidad_id' => $d->incapacidad_id,
             'nombre_original' => $d->nombre_original,
+            'mime' => $d->mime,
+            'tamano' => $d->tamano,
             'fecha_documento' => $d->fecha_documento?->toDateString(),
             'cargado_por' => $d->cargadoPor?->nombreCompleto(),
             'cargado_en' => $d->created_at?->toIso8601String(),

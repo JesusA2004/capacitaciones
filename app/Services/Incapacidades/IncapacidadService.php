@@ -64,6 +64,11 @@ class IncapacidadService
             throw ValidationException::withMessages(['st7' => 'El ST-7 solo aplica a riesgo de trabajo.']);
         }
 
+        // El ST-7 es del riesgo completo y vive en la inicial: una subsecuente no lo trae.
+        if ($st7 !== null && $inicial !== null) {
+            throw ValidationException::withMessages(['st7' => 'El ST-7 se carga en la incapacidad inicial del riesgo: súbelo desde su expediente.']);
+        }
+
         $this->exigirFechasValidas($colaborador, $inicio, $fin);
         $this->exigirFolioLibre($folio, null);
         $this->exigirSinTraslape($colaborador->id, $inicio, $fin, null);
@@ -271,7 +276,16 @@ class IncapacidadService
         $guardado = $this->guardarArchivo($destino->colaborador_id, $archivo);
 
         try {
-            $documento = DB::transaction(function () use ($destino, $tipo, $archivo, $guardado, $fechaDocumento, $motivo, $vigente, $actor): IncapacidadDocumento {
+            $documento = DB::transaction(function () use ($destino, $tipo, $archivo, $guardado, $fechaDocumento, $motivo, $actor): IncapacidadDocumento {
+                // Dos cargas simultáneas (doble clic, dos pestañas) se forman en fila:
+                // la segunda reemplaza a la primera en vez de dejar dos vigentes.
+                Incapacidad::query()->whereKey($destino->id)->lockForUpdate()->first();
+                $vigente = $destino->documentos()->where('tipo', $tipo->value)->whereNull('reemplazado_en')->latest('id')->first();
+
+                if ($vigente !== null && blank($motivo)) {
+                    throw ValidationException::withMessages(['motivo' => 'Ya hay un documento cargado: indica el motivo para reemplazarlo.']);
+                }
+
                 $documento = $this->crearDocumento($destino, $tipo, $archivo, $guardado, $fechaDocumento, $vigente, $actor, $motivo);
 
                 if ($tipo === TipoDocumentoIncapacidad::St2) {
@@ -289,7 +303,7 @@ class IncapacidadService
         $this->auditoria->registrar('incapacidad_documento_cargado', $destino, $actor, [
             'documento' => $tipo->value,
             'documento_id' => $documento->id,
-            'reemplaza_id' => $vigente?->id,
+            'reemplaza_id' => $documento->reemplaza_id,
             'motivo' => $motivo,
         ]);
 
@@ -300,14 +314,15 @@ class IncapacidadService
     {
         abort_unless(Storage::disk($documento->disco)->exists($documento->ruta), 404, 'El archivo ya no está en el almacenamiento.');
         $this->auditoria->registrar('incapacidad_documento_consultado', $documento->incapacidad, $actor, ['documento_id' => $documento->id, 'documento' => $documento->tipo->value]);
-        $nombre = str_replace('"', '', $documento->nombre_original);
+        $nombre = str_replace(['"', '/', '\\'], '', $documento->nombre_original);
 
+        // Inline para el visor (PDF/imagen) y con nombre ASCII de respaldo: un
+        // acento en el nombre original («certificado José.pdf») no rompe el encabezado.
         return Storage::disk($documento->disco)->response($documento->ruta, $nombre, [
             'Content-Type' => $documento->mime ?? 'application/octet-stream',
-            'Content-Disposition' => sprintf('inline; filename="%s"', $nombre),
             'X-Content-Type-Options' => 'nosniff',
             'Cache-Control' => 'no-store, private',
-        ]);
+        ], 'inline');
     }
 
     public function fechaTermino(CarbonImmutable $inicio, int $dias): CarbonImmutable
