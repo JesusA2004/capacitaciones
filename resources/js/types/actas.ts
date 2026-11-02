@@ -36,6 +36,8 @@ export type ActaResumen = {
 };
 
 export type ActaDetalle = ActaResumen & {
+    /** Cambia con cada corrección: «Formato del acta» se vuelve a leer. */
+    actualizada_en?: string | null;
     hechos: string;
     responsable_id: number | null;
     testigos: TestigoActa[];

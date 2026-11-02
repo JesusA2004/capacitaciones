@@ -756,6 +756,8 @@ class CicloLaboralService
                 'requiere_huella' => (bool) $d->requiere_huella,
                 'requiere_testigos' => (bool) $d->requiere_testigos,
                 'acciones' => $puedeOperarFisico ? self::pasosFisicos($d->estado_flujo, $d->requiere_impresion || $d->requiere_firma_fisica) : [],
+                // Acta, préstamo o responsiva: se regeneran en su módulo.
+                'origen' => $this->documentosProceso->origen($d),
             ])
             ->values()
             ->all();

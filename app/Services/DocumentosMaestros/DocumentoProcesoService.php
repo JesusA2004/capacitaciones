@@ -25,6 +25,7 @@ use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\FiniquitoCalculo;
 use App\Models\GeneratedDocument;
 use App\Models\Prestamo;
+use App\Models\Responsiva;
 use App\Models\SolicitudInterna;
 use App\Models\Sucursal;
 use App\Models\TareaRh;
@@ -56,6 +57,7 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
@@ -693,7 +695,13 @@ class DocumentoProcesoService
     {
         $colaborador = $this->colaboradorDe($acta);
         $this->exigirVer($viewer, $colaborador);
-        $bloqueo = $this->bloqueoGeneracion('acta', $acta, $acta->tipo->clavePlantilla());
+        $clave = $acta->tipo->clavePlantilla();
+        $bloqueo = $this->bloqueoGeneracion('acta', $acta, $clave);
+        $item = $this->item($clave, $colaborador, $acta, $viewer, 'acta', [
+            'motivo' => $acta->motivo !== null && $acta->motivo !== '' ? sprintf('%s por %s.', $acta->tipo->etiqueta(), mb_strtolower($acta->motivo)) : $acta->tipo->etiqueta().'.',
+            'bloqueo' => $bloqueo,
+        ]);
+        $item['desactualizado'] = $this->actaDesactualizada($acta, $clave, $viewer);
 
         return [
             'proceso' => 'acta',
@@ -703,11 +711,30 @@ class DocumentoProcesoService
             'colaborador' => $this->resumenColaborador($colaborador),
             'bloqueo' => $bloqueo,
             'acciones' => [],
-            'documentos' => [$this->item($acta->tipo->clavePlantilla(), $colaborador, $acta, $viewer, 'acta', [
-                'motivo' => $acta->motivo !== null && $acta->motivo !== '' ? sprintf('%s por %s.', $acta->tipo->etiqueta(), mb_strtolower($acta->motivo)) : $acta->tipo->etiqueta().'.',
-                'bloqueo' => $bloqueo,
-            ])],
+            'documentos' => [$item],
         ];
+    }
+
+    /**
+     * El acta se corrigió (con motivo) después de generar su formato y el PDF
+     * vigente ya no corresponde: se avisa a quien puede regenerarlo. Misma
+     * huella que usa VersionadoDocumentoService para decidir si hay cambios.
+     */
+    private function actaDesactualizada(ActaAdministrativa $acta, string $clave, User $viewer): bool
+    {
+        $documento = $this->documentoVigente($acta, $clave);
+
+        if ($documento === null || ! $this->esFormatoPropio($clave, $acta) || ($documento->estado_flujo?->firmaFisicaRegistrada() ?? false) || ! $viewer->can('regenerar', $documento)) {
+            return false;
+        }
+
+        try {
+            return app(VersionadoDocumentoService::class)->estaDesactualizado(new FuenteActa(app(ActaPdfService::class), $acta), $documento, $viewer);
+        } catch (Throwable $e) {
+            Log::warning('DocumentoProcesoService: no se pudo comparar el acta con su PDF vigente.', ['acta_id' => $acta->id, 'error' => $e->getMessage()]);
+
+            return false;
+        }
     }
 
     // ───────────────────────── Acciones ─────────────────────────
@@ -1446,6 +1473,9 @@ class DocumentoProcesoService
                 default => $this->etiquetaEstado($documento),
             },
             'bloqueo' => $documento === null ? $bloqueo : null,
+            // Ya generado y sin firmar: por qué no se ofrece «Regenerar» (para
+            // quien sí podría generarlo), en vez de esconderlo sin explicación.
+            'aviso_regenerar' => $this->avisoRegenerar($documento, $bloqueo, $viewer, $clave, $registro),
             'formato_faltante' => $faltaFormato,
             'master' => $master !== null ? [
                 'id' => $master->id,
@@ -1480,6 +1510,17 @@ class DocumentoProcesoService
             ])->values()->all(),
             'acciones' => $acciones,
         ];
+    }
+
+    private function avisoRegenerar(?GeneratedDocument $documento, ?string $bloqueo, User $viewer, string $clave, Model $registro): ?string
+    {
+        if ($documento === null || $bloqueo === null || $documento->estado_flujo === E::Cancelado || ($documento->estado_flujo?->firmaFisicaRegistrada() ?? false)) {
+            return null;
+        }
+
+        return $this->puedeGenerar($viewer, $clave, $registro) && $viewer->can('regenerar', $documento)
+            ? sprintf('No se puede regenerar: %s', $bloqueo)
+            : null;
     }
 
     /**
@@ -1550,8 +1591,13 @@ class DocumentoProcesoService
         // cualquier estado: si RH se equivocó o el dato estaba mal. Un
         // documento ya firmado también, con aviso (el firmado se conserva):
         // GeneratedDocumentPolicy::regenerar decide quién.
+        // Firmado: la nueva versión es una rectificación ligada (el original no
+        // se toca), también para el formato propio del acta y las plantillas
+        // heredadas (VersionadoDocumentoService). Sin firmar, un bloqueo del
+        // proceso (acta cerrada, cierre concluido…) impide regenerar: generar()
+        // lo rechazaría, así que no se ofrece (avisoRegenerar() dice por qué).
         $firmado = $estado?->firmaFisicaRegistrada() ?? false;
-        $admiteNuevaVersion = $firmado ? $master !== null && $master->estado_master !== null : ($master !== null || $formatoPropio);
+        $admiteNuevaVersion = ($master !== null || $formatoPropio) && ($firmado || $bloqueo === null);
 
         if ($genera && $estado !== E::Cancelado && $admiteNuevaVersion && $viewer->can('regenerar', $documento)) {
             // Antes de regenerar: ver cómo quedaría con los datos actuales.
@@ -2166,6 +2212,32 @@ class DocumentoProcesoService
         } catch (Throwable) {
             return false;
         }
+    }
+
+    /**
+     * Pantalla del módulo donde se opera (vista previa, regenerar, firma) un
+     * documento que vive fuera del ciclo laboral: acta, préstamo o responsiva.
+     * Solo un enlace: la pantalla destino aplica su Policy y su alcance.
+     *
+     * @return array{etiqueta: string, url: string}|null
+     */
+    public function origen(GeneratedDocument $documento): ?array
+    {
+        $tipo = $documento->documentable_type;
+        $id = (int) $documento->documentable_id;
+
+        if ($tipo === null || $id === 0) {
+            return null;
+        }
+
+        return match ($tipo) {
+            (new ActaAdministrativa)->getMorphClass() => ['etiqueta' => 'Abrir acta', 'url' => route('rh.actas.show', $id, false)],
+            (new Responsiva)->getMorphClass() => ['etiqueta' => 'Abrir responsivas', 'url' => route('rh.expedientes.show', $documento->colaborador_id, false)],
+            (new Prestamo)->getMorphClass() => ($solicitud = Prestamo::query()->whereKey($id)->value('solicitud_id')) !== null
+                ? ['etiqueta' => 'Abrir préstamo', 'url' => route('rh.solicitudes.show', (int) $solicitud, false)]
+                : null,
+            default => null,
+        };
     }
 
     public function documentoVigente(Model $registro, string $clave): ?GeneratedDocument

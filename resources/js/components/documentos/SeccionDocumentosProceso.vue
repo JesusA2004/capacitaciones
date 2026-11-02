@@ -458,6 +458,38 @@ function varianteSeccion(a: AccionDocumento) {
                     />
                     {{ item.bloqueo }}
                 </p>
+                <div
+                    v-if="item.desactualizado && puedeEditarDatos(item)"
+                    class="flex flex-col gap-2 rounded-xl bg-warning-soft/70 p-3 text-sm sm:flex-row sm:items-center"
+                    data-aviso="documento-desactualizado"
+                >
+                    <p class="flex flex-1 items-start gap-2">
+                        <RefreshCcw
+                            class="mt-0.5 size-4 shrink-0 text-warning"
+                        />
+                        <span>
+                            Los datos cambiaron después de generar este PDF.
+                            Regenéralo para que el formato quede al día; la
+                            versión actual se conserva en el historial.
+                        </span>
+                    </p>
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        :disabled="ocupado !== null"
+                        @click="abrirEditor(item)"
+                    >
+                        <RefreshCcw class="size-4" /> Regenerar
+                    </Button>
+                </div>
+                <p
+                    v-if="item.aviso_regenerar"
+                    class="flex items-start gap-2 text-xs text-muted-foreground"
+                    data-aviso="sin-regenerar"
+                >
+                    <Lock class="mt-0.5 size-3.5 shrink-0" />
+                    {{ item.aviso_regenerar }}
+                </p>
 
                 <!-- Acciones -->
                 <div

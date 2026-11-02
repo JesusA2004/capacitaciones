@@ -11,6 +11,7 @@ use App\Models\ActaAdministrativa;
 use App\Models\ActaAnexo;
 use App\Models\User;
 use App\Services\Documentos\Versiones\DocumentoRenderizado;
+use App\Services\Documentos\Versiones\HuellaFormato;
 use App\Services\DocumentosMaestros\FirmaPatronService;
 use App\Services\Pdf\OpcionesPdf;
 use App\Services\Pdf\PdfRendererFactory;
@@ -138,7 +139,18 @@ class ActaPdfService
         $circunstanciada = $acta->circunstanciada ?? [];
         unset($circunstanciada['cierre'], $circunstanciada['control']);
 
+        // Lo que el formato imprime del expediente (nombre, número, puesto, área,
+        // centro, jefe, razón social, logo) y los anexos también cuenta: si RH
+        // corrige el expediente, regenerar debe emitir otra versión. Lo que se
+        // registra después de imprimir (cierre, control, entrega de copia y
+        // negativa) no.
+        $impreso = self::esCircunstanciada($acta) ? $this->datosCircunstanciada($acta) : $this->datos($acta);
+        unset($impreso['cierre'], $impreso['control'], $impreso['entrega'], $impreso['negativa_firma']);
+        $impreso['logo'] = is_string($impreso['logo'] ?? null) ? hash('sha256', $impreso['logo']) : null;
+
         return [
+            'formato' => HuellaFormato::deVista(self::esCircunstanciada($acta) ? 'pdf.actas.circunstanciada' : 'pdf.actas.acta'),
+            'impreso' => $impreso,
             'tipo' => $acta->tipo->value,
             'folio' => $acta->folio,
             'motivo' => $acta->motivo,

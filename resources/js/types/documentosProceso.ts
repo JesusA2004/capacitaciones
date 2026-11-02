@@ -83,6 +83,10 @@ export type ItemDocumentoProceso = {
     estado: string;
     estado_etiqueta: string;
     bloqueo: string | null;
+    /** Generado sin firmar y el proceso ya no admite regenerarlo: por qué. */
+    aviso_regenerar?: string | null;
+    /** Los datos cambiaron desde el PDF vigente (acta corregida): regenerar. */
+    desactualizado?: boolean;
     formato_faltante: {
         code: string;
         mensaje: string;

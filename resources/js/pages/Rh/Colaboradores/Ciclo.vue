@@ -75,6 +75,8 @@ type DocumentoLaboral = {
     requiere_huella: boolean;
     requiere_testigos: boolean;
     acciones: string[];
+    /** Acta, préstamo o responsiva: se regenera en su propio módulo. */
+    origen?: { etiqueta: string; url: string } | null;
 };
 
 const props = defineProps<{
@@ -924,6 +926,17 @@ const etiquetaFecha: Record<string, string> = {
                                 >{{ d.estado_etiqueta }}</span
                             >
                             <span class="ml-auto flex flex-wrap gap-1">
+                                <Button
+                                    v-if="d.origen"
+                                    size="sm"
+                                    variant="ghost"
+                                    as-child
+                                    :title="`${d.origen.etiqueta}: ahí se ve la vista previa, se regenera y se registra la firma`"
+                                >
+                                    <Link :href="d.origen.url">{{
+                                        d.origen.etiqueta
+                                    }}</Link>
+                                </Button>
                                 <Button
                                     v-for="paso in d.acciones"
                                     :key="paso"

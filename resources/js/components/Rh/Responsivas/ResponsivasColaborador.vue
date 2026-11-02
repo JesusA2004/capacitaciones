@@ -13,6 +13,7 @@ import {
 import { onMounted, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import EditorDatosDocumento from '@/components/documentos/EditorDatosDocumento.vue';
 import HistorialVersiones from '@/components/documentos/HistorialVersiones.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -42,7 +43,6 @@ import {
     index as indexResponsivas,
     marcarFirmadaFisica as marcarFirmadaFisicaResponsiva,
     pdf as pdfResponsiva,
-    regenerar as regenerarResponsiva,
 } from '@/routes/rh/responsivas';
 import type {
     EstadoResponsiva,
@@ -68,14 +68,34 @@ const cargando = ref(true);
 const responsivas = ref<ResponsivaItem[]>([]);
 const puedeGenerar = ref(false);
 
-type Accion = 'firmada_fisica' | 'devolucion' | 'cancelar' | 'regenerar';
+type Accion = 'firmada_fisica' | 'devolucion' | 'cancelar';
 const accion = ref<Accion | null>(null);
 const seleccionada = ref<ResponsivaItem | null>(null);
 const fechaDevolucion = ref('');
 const texto = ref('');
 const enviando = ref(false);
-const regenerandoId = ref<number | null>(null);
 const versionesDe = ref<number | null>(null);
+const versionesRecarga = ref(0);
+
+// Regenerar: el mismo editor que el resto de los documentos (vista previa con
+// marca de agua, motivo obligatorio y rectificación si ya está firmada). La
+// regla vive en ResponsivaService::regenerar (DocumentoEdicionService).
+const regenerando = ref<ResponsivaItem | null>(null);
+const editorAbierto = ref(false);
+
+function abrirRegenerar(responsiva: ResponsivaItem) {
+    regenerando.value = responsiva;
+    editorAbierto.value = true;
+}
+
+function alRegenerar(creado: boolean, mensaje: string) {
+    toast.success(mensaje);
+
+    if (creado) {
+        versionesRecarga.value++;
+        void cargar();
+    }
+}
 const hoy = new Date().toLocaleDateString('en-CA');
 
 const variantes: Record<
@@ -167,14 +187,6 @@ async function confirmar() {
                     observaciones: texto.value,
                 },
             );
-        } else if (accion.value === 'regenerar') {
-            // Reimprime con el formato vigente; el motivo queda en el historial.
-            regenerandoId.value = responsiva.id;
-            respuesta = await enviarJson(
-                'POST',
-                regenerarResponsiva.url(responsiva.id),
-                { motivo: texto.value },
-            );
         } else {
             respuesta = await enviarJson(
                 'POST',
@@ -192,7 +204,6 @@ async function confirmar() {
         toast.error(e instanceof Error ? e.message : 'No se pudo completar.');
     } finally {
         enviando.value = false;
-        regenerandoId.value = null;
     }
 }
 
@@ -200,7 +211,6 @@ const titulos: Record<Accion, string> = {
     firmada_fisica: 'Marcar responsiva firmada físicamente',
     devolucion: 'Registrar devolución del equipo',
     cancelar: 'Cancelar responsiva',
-    regenerar: 'Emitir nueva versión',
 };
 </script>
 
@@ -299,16 +309,19 @@ const titulos: Record<Accion, string> = {
                                 v-if="r.puede_regenerar"
                                 size="sm"
                                 variant="outline"
-                                :disabled="regenerandoId === r.id"
-                                title="Emite una nueva versión con motivo; la anterior se conserva"
-                                @click="abrir('regenerar', r)"
+                                :title="
+                                    r.estado === 'firmada'
+                                        ? 'Emite una rectificación con motivo; el original firmado se conserva'
+                                        : 'Emite una nueva versión con motivo; la anterior se conserva'
+                                "
+                                @click="abrirRegenerar(r)"
                             >
-                                <Loader2
-                                    v-if="regenerandoId === r.id"
-                                    class="size-3.5 animate-spin"
-                                />
-                                <RefreshCw v-else class="size-3.5" />
-                                Regenerar
+                                <RefreshCw class="size-3.5" />
+                                {{
+                                    r.estado === 'firmada'
+                                        ? 'Rectificar'
+                                        : 'Regenerar'
+                                }}
                             </Button>
                             <Button
                                 v-if="r.puede_descargar"
@@ -404,6 +417,7 @@ const titulos: Record<Accion, string> = {
             class="mt-3"
             tipo="responsiva"
             :id="versionesDe"
+            :recargar="versionesRecarga"
         />
         <Dialog
             :open="accion !== null"
@@ -471,26 +485,6 @@ const titulos: Record<Accion, string> = {
                     </p>
                 </div>
 
-                <div v-else-if="accion === 'regenerar'" class="grid gap-1.5">
-                    <Label for="responsiva-regenerar-motivo"
-                        >Motivo de la nueva versión</Label
-                    >
-                    <Textarea
-                        id="responsiva-regenerar-motivo"
-                        v-model="texto"
-                        rows="3"
-                        maxlength="500"
-                        placeholder="Se corrigió la razón social…"
-                    />
-                    <p class="text-xs text-muted-foreground">
-                        {{
-                            seleccionada?.estado === 'firmada'
-                                ? 'Ya está firmada: el original se conserva y se emite una rectificación aparte.'
-                                : 'La versión anterior se conserva.'
-                        }}
-                    </p>
-                </div>
-
                 <DialogFooter class="gap-2">
                     <Button variant="ghost" @click="accion = null"
                         >Cerrar</Button
@@ -503,9 +497,7 @@ const titulos: Record<Accion, string> = {
                             enviando ||
                             (accion === 'devolucion' &&
                                 fechaDevolucion === '') ||
-                            ((accion === 'cancelar' ||
-                                accion === 'regenerar') &&
-                                texto.trim().length < 5)
+                            (accion === 'cancelar' && texto.trim().length < 5)
                         "
                         @click="confirmar"
                     >
@@ -513,15 +505,22 @@ const titulos: Record<Accion, string> = {
                         {{
                             accion === 'cancelar'
                                 ? 'Cancelar responsiva'
-                                : accion === 'regenerar'
-                                  ? 'Emitir nueva versión'
-                                  : accion === 'firmada_fisica'
-                                    ? 'Marcar firmada físicamente'
-                                    : 'Registrar devolución'
+                                : accion === 'firmada_fisica'
+                                  ? 'Marcar firmada físicamente'
+                                  : 'Registrar devolución'
                         }}
                     </Button>
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+
+        <EditorDatosDocumento
+            v-if="regenerando"
+            v-model:open="editorAbierto"
+            tipo="responsiva"
+            :id="regenerando.id"
+            :titulo="`responsiva ${regenerando.folio}`"
+            @emitido="alRegenerar"
+        />
     </Card>
 </template>

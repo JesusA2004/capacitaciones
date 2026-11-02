@@ -254,8 +254,14 @@ onBeforeUnmount(revocar);
                     </p>
 
                     <div class="grid gap-1.5">
-                        <Label for="dato-motivo">Motivo</Label>
-                        <Textarea id="dato-motivo" v-model="motivo" rows="2" />
+                        <Label for="dato-motivo">Motivo (obligatorio)</Label>
+                        <Textarea
+                            id="dato-motivo"
+                            v-model="motivo"
+                            rows="2"
+                            maxlength="500"
+                            placeholder="Qué se corrigió y por qué…"
+                        />
                         <InputError
                             v-if="motivo && !motivoValido"
                             message="Escribe al menos 5 caracteres."
@@ -290,11 +296,18 @@ onBeforeUnmount(revocar);
                         <Button
                             v-if="!confirmando"
                             type="submit"
-                            :disabled="!previaAlDia || bloqueado || cargando"
+                            :disabled="
+                                !previaAlDia ||
+                                !motivoValido ||
+                                bloqueado ||
+                                cargando
+                            "
                             :title="
-                                previaAlDia
-                                    ? undefined
-                                    : 'Actualiza la vista previa para ver estos datos antes de generar.'
+                                !previaAlDia
+                                    ? 'Actualiza la vista previa para ver estos datos antes de generar.'
+                                    : !motivoValido
+                                      ? 'Escribe el motivo (al menos 5 caracteres): queda en el historial.'
+                                      : undefined
                             "
                         >
                             <FileCheck2 class="size-4" />{{

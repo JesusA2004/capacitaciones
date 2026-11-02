@@ -346,6 +346,7 @@ async function cerrarActa() {
                     <DocumentosProceso
                         tipo="acta"
                         :id="acta.id"
+                        :version="acta.actualizada_en ?? undefined"
                         @actualizado="refrescar"
                     />
 
@@ -637,6 +638,7 @@ async function cerrarActa() {
                     <DocumentosProceso
                         tipo="acta"
                         :id="acta.id"
+                        :version="acta.actualizada_en ?? undefined"
                         @actualizado="refrescar"
                     />
 
@@ -786,7 +788,9 @@ async function cerrarActa() {
                 <DialogDescription>
                     Mientras no esté firmada. Si ya se generó, explica el motivo
                     y luego regenera el formato. Después de firmar, los cambios
-                    se registran como seguimiento.
+                    se registran como seguimiento; si el formato firmado trae un
+                    error, quien tenga el permiso emite una rectificación desde
+                    «Formato del acta» (el original firmado se conserva).
                 </DialogDescription>
             </DialogHeader>
             <form class="flex flex-col gap-4" @submit.prevent="guardar">

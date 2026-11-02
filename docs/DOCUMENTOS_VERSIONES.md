@@ -47,6 +47,24 @@ Si la fuente cambió, la corrección no se reaplica: el editor la muestra como o
 | Evaluación de inducción | Por recalificación | Primero la nueva, después cancela | Se conserva |
 | Reportes y exportes | Definición y filtros | Cada ejecución | No aplica: no son documentos firmables |
 
+### Formatos propios (acta, responsiva)
+
+- La huella del acta incluye lo que el formato imprime del expediente (nombre, número,
+  puesto, área, centro, jefe, razón social, logo) y los anexos; no el cierre, el control,
+  la entrega de copia ni la negativa (se registran después de imprimir).
+- Acta y responsiva suman la huella de su vista Blade (`HuellaFormato`): si el formato
+  cambia, «Regenerar» reimprime con el vigente aunque los datos sean los mismos.
+- «Formato del acta» marca `desactualizado` cuando el acta o el expediente cambiaron
+  después del PDF vigente, y ofrece regenerar desde ahí.
+- Un documento generado sin firmar cuyo proceso ya no admite regenerar (acta cerrada,
+  cierre concluido…) no ofrece «Regenerar»: `aviso_regenerar` dice por qué. Firmado,
+  la rectificación sí se ofrece (también en formato propio y plantillas heredadas) a
+  quien tenga `documentos_laborales.revisar_firmado`.
+- Responsivas: «Regenerar» / «Rectificar» abre el mismo editor (vista previa, motivo,
+  historial) vía `documentos-edicion/responsiva`.
+- El historial de documentos del ciclo laboral enlaza el acta, el préstamo o la
+  responsiva con su módulo (`DocumentoProcesoService::origen`), donde se regeneran.
+
 ## Superficie
 
 Web `rh/documentos-edicion/{tipo}/{id}` y API `api/v1/rh/documentos-edicion/{tipo}/{id}`

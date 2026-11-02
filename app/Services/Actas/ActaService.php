@@ -692,6 +692,8 @@ class ActaService
 
         if ($detalle) {
             $datos += [
+                // La pantalla recarga «Formato del acta» cuando el acta cambia.
+                'actualizada_en' => $acta->updated_at?->toIso8601String(),
                 'hechos' => $acta->hechos,
                 'responsable_id' => $acta->responsable_id,
                 'testigos' => $acta->testigos ?? [],

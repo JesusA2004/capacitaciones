@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Documentos\Versiones\DatosVolatiles;
 use App\Services\Documentos\Versiones\DocumentoRenderizado;
 use App\Services\Documentos\Versiones\FuenteDocumento;
+use App\Services\Documentos\Versiones\HuellaFormato;
 use App\Services\Responsivas\ResponsivaPdfService;
 use Illuminate\Database\Eloquent\Model;
 
@@ -70,7 +71,8 @@ final class FuenteResponsiva implements FuenteDocumento
 
     public function valoresHuella(array $correcciones, User $actor): array
     {
-        return DatosVolatiles::quitar($this->pdf->datos($this->responsiva));
+        // El snapshot no cambia; el formato sí puede (reimprimir con el vigente).
+        return [...DatosVolatiles::quitar($this->pdf->datos($this->responsiva)), 'formato' => HuellaFormato::deVista('pdf.responsivas.responsiva')];
     }
 
     public function vistaPrevia(array $correcciones, User $actor): string
