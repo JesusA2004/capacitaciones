@@ -84,8 +84,7 @@ class DocumentoEdicionService
         $registro = $fuente->registro();
 
         match (true) {
-            $tipo === 'salida' && ! $rectificar => $this->salida->generar(Baja::query()->findOrFail($id), $actor, $motivo, $campos),
-            $tipo === 'salida' => $this->versionado->emitir($fuente, $campos, $motivo, $actor, true),
+            $tipo === 'salida' => $this->salida->generar(Baja::query()->findOrFail($id), $actor, $motivo, $campos, $rectificar),
             $fuente instanceof FuenteMaestro || $fuente instanceof FuenteActa => $this->proceso->generar($this->procesoPorDefecto($tipo), $registro, $fuente->clave(), $actor, regenerar: $anterior !== null && ! $rectificar, revision: $rectificar, motivoRevision: $motivo, correcciones: $campos),
             $registro instanceof FiniquitoCalculo => app(FiniquitoService::class)->generarPdf($registro, $actor, $motivo),
             $registro instanceof Responsiva => app(ResponsivaService::class)->regenerar($registro, $actor, $motivo),
@@ -132,6 +131,10 @@ class DocumentoEdicionService
     private function fuenteProceso(string $tipo, int $id, ?string $clave): FuenteDocumento
     {
         $registro = $this->proceso->registro($tipo, $id);
+
+        if ($clave !== null) {
+            $registro = $this->proceso->registroDelDocumento($registro, $clave);
+        }
 
         if ($clave === null || $clave === '') {
             throw ValidationException::withMessages(['clave' => 'Indica el documento.']);

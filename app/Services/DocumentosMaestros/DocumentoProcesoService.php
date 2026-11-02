@@ -713,6 +713,20 @@ class DocumentoProcesoService
     // ───────────────────────── Acciones ─────────────────────────
 
     /**
+     * El formato de evaluación vive en el cierre de la no renovación (su fecha efectiva
+     * es la de entrega): la pantalla de la evaluación y el editor lo leen y lo generan
+     * sobre ese cierre, igual que lo muestra la sección.
+     */
+    public function registroDelDocumento(Model $registro, string $clave): Model
+    {
+        if ($registro instanceof EvaluacionPeriodoPrueba && $clave === 'evaluacion_capacitacion' && $registro->exists) {
+            return CierreLaboral::query()->where('evaluacion_id', $registro->id)->latest('id')->first() ?? $registro;
+        }
+
+        return $registro;
+    }
+
+    /**
      * Genera (o regenera) un documento del proceso.
      *
      * @param  array<string, mixed>  $completar  Datos faltantes que el usuario capturó en el modal (columna => valor).
@@ -721,12 +735,7 @@ class DocumentoProcesoService
      */
     public function generar(string $proceso, Model $registro, string $clave, User $actor, array $completar = [], array $manuales = [], bool $regenerar = false, bool $revision = false, ?string $motivoRevision = null, ?array $correcciones = null, ?AlEmitirDocumento $alEmitir = null): GeneratedDocument
     {
-        // El formato de evaluación vive en el cierre de la no renovación (su
-        // fecha efectiva es la fecha de entrega): desde la pantalla de la
-        // evaluación se genera sobre ese cierre, igual que lo muestra la sección.
-        if ($registro instanceof EvaluacionPeriodoPrueba && $clave === 'evaluacion_capacitacion') {
-            $registro = CierreLaboral::query()->where('evaluacion_id', $registro->id)->latest('id')->first() ?? $registro;
-        }
+        $registro = $this->registroDelDocumento($registro, $clave);
 
         $colaborador = $this->colaboradorDe($registro);
         $this->exigirVer($actor, $colaborador);
@@ -1028,11 +1037,7 @@ class DocumentoProcesoService
      */
     public function vistaPrevia(string $proceso, Model $registro, string $clave, User $actor, array $manuales = [], array $completar = [], bool $marcarPendientes = false, array $correcciones = []): array
     {
-        // Igual que generar(): el formato de evaluación vive en el cierre de
-        // la no renovación.
-        if ($registro instanceof EvaluacionPeriodoPrueba && $clave === 'evaluacion_capacitacion' && $registro->exists) {
-            $registro = CierreLaboral::query()->where('evaluacion_id', $registro->id)->latest('id')->first() ?? $registro;
-        }
+        $registro = $this->registroDelDocumento($registro, $clave);
 
         $colaborador = $this->colaboradorDe($registro);
         $this->exigirVer($actor, $colaborador);

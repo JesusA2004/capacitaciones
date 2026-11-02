@@ -353,11 +353,17 @@ class BajaDocumentoSalidaService
      * aquí. Con $campos guarda además la corrección. Edición y bitácora se escriben
      * en la misma transacción que la versión: si fallan, no queda a medias.
      *
+     * Con $rectificar emite la rectificación de un firmado, también con la baja concluida
+     * (el original no se toca) y con la misma bitácora: lo corregido no se pierde después.
+     *
      * @param  array<string, mixed>|null  $campos
      */
-    public function generar(Baja $baja, User $actor, ?string $motivo = null, ?array $campos = null): GeneratedDocument
+    public function generar(Baja $baja, User $actor, ?string $motivo = null, ?array $campos = null, bool $rectificar = false): GeneratedDocument
     {
-        $this->exigirAbierta($baja);
+        if (! $rectificar) {
+            $this->exigirAbierta($baja);
+        }
+
         [$documento, $cierre, $colaborador] = $this->preparar($baja);
         $anterior = $this->proceso->documentoVigente($cierre, $documento->value);
         $motivo = trim((string) $motivo);
@@ -369,7 +375,7 @@ class BajaDocumentoSalidaService
             throw ValidationException::withMessages(['motivo' => 'Explica el motivo de la corrección: queda en la bitácora.']);
         }
 
-        if ($anterior?->estado_flujo?->firmaFisicaRegistrada() ?? false) {
+        if (! $rectificar && ($anterior?->estado_flujo?->firmaFisicaRegistrada() ?? false)) {
             throw ValidationException::withMessages(['documento' => 'Este documento ya está firmado: el original se conserva y no se sustituye desde aquí.']);
         }
 
@@ -408,10 +414,10 @@ class BajaDocumentoSalidaService
         };
 
         if ($documento->familia() === null) {
-            return $this->proceso->generar('baja', $cierre, $documento->value, $actor, regenerar: $anterior !== null, motivoRevision: $motivo !== '' ? $motivo : null, correcciones: $corregidos, alEmitir: $alEmitir);
+            return $this->proceso->generar('baja', $cierre, $documento->value, $actor, regenerar: $anterior !== null && ! $rectificar, revision: $rectificar, motivoRevision: $motivo !== '' ? $motivo : null, correcciones: $corregidos, alEmitir: $alEmitir);
         }
 
-        return $this->versionado->emitir($this->fuente($baja, $documento, $cierre, $colaborador, $actor, $alEmitir), $corregidos, $motivo !== '' ? $motivo : null, $actor)->documento;
+        return $this->versionado->emitir($this->fuente($baja, $documento, $cierre, $colaborador, $actor, $alEmitir), $corregidos, $motivo !== '' ? $motivo : null, $actor, $rectificar)->documento;
     }
 
     public function descargar(Baja $baja): StreamedResponse
