@@ -28,6 +28,9 @@ final class ReferenciasUsuario
         ['responsivas', 'firmada_subida_por', 'set_null'],
         ['responsivas', 'registrado_por', 'set_null'],
         ['rotacion_cargas', 'aplicado_por', 'restrict'],
+        // Rotación (2026-11-09): histórico individual y bitácora de correcciones.
+        ['bajas_historicas', 'registrado_por', 'set_null'],
+        ['rotacion_correcciones', 'usuario_id', 'set_null'],
         ['rotacion_cargas', 'subido_por', 'restrict'],
         ['sesiones_induccion', 'presentada_por', 'restrict'],
         // Migración 2026-10-19: material de explicación de la Inducción

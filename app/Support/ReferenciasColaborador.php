@@ -37,6 +37,7 @@ final class ReferenciasColaborador
         ['nomina_rectificaciones', 'colaborador_id', 'restrict', 'eliminar'],
         ['correcciones', 'colaborador_id', 'restrict', 'eliminar'],
         ['bajas', 'colaborador_id', 'restrict', 'eliminar'],
+        ['bajas_historicas', 'colaborador_id', 'set_null', 'eliminar'],
         ['birthday_greetings', 'colaborador_id', 'cascade', 'eliminar'],
         ['cambios_foto_perfil', 'colaborador_id', 'cascade', 'eliminar'],
         ['cartas_compromiso', 'colaborador_id', 'restrict', 'eliminar'],
