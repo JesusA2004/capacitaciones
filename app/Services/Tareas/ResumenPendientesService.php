@@ -61,7 +61,7 @@ class ResumenPendientesService
 
         $definiciones = [
             ['solicitudes', 'Solicitudes', 'Permisos, vacaciones y préstamos por revisar o autorizar.', 'primario', $usuario->can('solicitudes.revisar') || $usuario->can('solicitudes.aprobar'),
-                fn () => (int) array_sum(array_column($this->solicitudes->resumenPorTipo($usuario), 'abiertas')), fn () => route('rh.solicitudes.index', ['todas' => 1])],
+                fn () => (int) array_sum(array_column($this->solicitudes->resumenPorTipo($usuario), 'abiertas')), fn () => route('rh.solicitudes.index')],
             ['cambios_foto', 'Cambios de foto', 'Fotos de perfil que esperan aprobación de RH.', 'neutro', $usuario->can('expedientes.revisar'),
                 fn () => $enAlcance(CambioFotoPerfil::query()->where('estado', EstadoCambioFoto::Pendiente->value))->count(), fn () => route('rh.cambios-foto.index')],
             ['evaluaciones', 'Evaluaciones de periodo de prueba', 'Por capturar, corregir o decidir.', 'oro', $usuario->can('evaluaciones.capturar') || $usuario->can('evaluaciones.autorizar'),

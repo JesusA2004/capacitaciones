@@ -59,14 +59,9 @@ class SolicitudController extends Controller
     {
         $this->authorize('viewAny', SolicitudInterna::class);
 
-        // Pantalla de entrada: primero se elige el tipo (préstamos, permisos,
-        // vacaciones…); el tablero se abre ya filtrado por ese tipo.
-        if (! $request->hasAny(self::FILTROS) && ! $request->boolean('todas')) {
-            return Inertia::render('Rh/Solicitudes/Tipos', [
-                'tipos' => $this->solicitudes->resumenPorTipo($request->user()),
-            ]);
-        }
-
+        // Permanencia › Solicitudes abre directo el tablero con «Todos los
+        // tipos» (Propuesta de mejoras etapa 1, pantalla 3); el tipo se
+        // acota con el filtro, sin pantalla intermedia.
         $tablero = $this->solicitudes->paraTablero($request->user(), $request->only(self::FILTROS));
 
         // Miniatura del solicitante en cada tarjeta. `foto_path` (ruta del

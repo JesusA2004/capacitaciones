@@ -552,10 +552,13 @@ it('Incapacidad no se puede crear por Solicitudes y el histórico sigue consulta
         ->where('tiposFiltro', fn ($tipos) => ! collect($tipos)->pluck('value')->contains('incapacidad'))
     );
 
-    SolicitudInterna::factory()->create(['user_id' => $this->rh->id, 'colaborador_id' => $this->persona->id, 'tipo' => TipoSolicitudInterna::Incapacidad, 'estado' => EstadoSolicitudInterna::Aprobada]);
+    $historica = SolicitudInterna::factory()->create(['user_id' => $this->rh->id, 'colaborador_id' => $this->persona->id, 'tipo' => TipoSolicitudInterna::Incapacidad, 'estado' => EstadoSolicitudInterna::Aprobada]);
 
+    // Propuesta etapa 1, pantalla 3: Incapacidad sale de la lista de tipos
+    // aun con históricos; el registro se consulta pidiéndolo explícitamente.
     $this->actingAs($this->rh)->get('/rh/solicitudes?tipo=incapacidad')->assertOk()->assertInertia(fn (Assert $p) => $p
-        ->where('tiposFiltro', fn ($tipos) => collect($tipos)->firstWhere('value', 'incapacidad')['label'] === 'Incapacidad (histórico)')
+        ->where('tiposFiltro', fn ($tipos) => ! collect($tipos)->pluck('value')->contains('incapacidad'))
+        ->where('solicitudes', fn ($lista) => collect($lista)->pluck('id')->contains($historica->id))
     );
 
     $this->assertDatabaseHas('solicitudes_internas', ['tipo' => 'incapacidad']);

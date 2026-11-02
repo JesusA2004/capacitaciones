@@ -2,6 +2,12 @@
 
 Un solo módulo (`App\Models\SolicitudInterna`, tabla `solicitudes_internas`) para vacaciones, permisos, préstamo interno, incapacidad, baja de colaborador y trámites administrativos. Antes existían módulos separados (vacaciones tenía su propia tabla `solicitudes_vacaciones`); esa tabla se conserva **intacta pero legacy** — sin datos que migrar porque estaba vacía al unificar — y sus endpoints siguen respondiendo por compatibilidad, pero ya no aparecen en el menú (ver `docs/ROLES_Y_NAVEGACION.md`).
 
+## Tablero de RH (Propuesta de mejoras etapa 1, pantalla 3)
+
+`Permanencia › Solicitudes` (`/rh/solicitudes`) abre **directo el tablero** con «Todos los tipos» — ya no hay pantalla intermedia por tipo. Indicadores y columnas: Recibidas · En revisión · Requiere corrección · Aprobadas · No aprobadas. Cada tarjeta lleva arriba una banda con el color fijo de su tipo (tokens `--tipo-solicitud-*` de `resources/css/app.css`) y la leyenda de colores va arriba del tablero; vacaciones y permisos por días muestran su periodo («3 días · 10 – 12 nov 2026»).
+
+**Incapacidad salió de Solicitudes**: se registra en su propio módulo (Permanencia › Incapacidades). `SolicitudesService::tiposParaFiltro()` nunca la ofrece y `queryRevision()` (tablero web, exportaciones y bandeja de la API móvil) la excluye de «Todos los tipos»; los registros históricos `tipo = incapacidad` se conservan y solo se listan pidiendo `?tipo=incapacidad` de forma explícita (o abriendo su folio).
+
 ## Tipos (`App\Enums\TipoSolicitudInterna`)
 
 `vacaciones`, `permiso_con_goce`, `permiso_sin_goce`, `permiso_tiempo`, `salida_temprano`, `llegada_tarde`, `incapacidad`, `constancia_laboral`, `actualizacion_datos`, `actualizacion_bancaria`, `reposicion_documental`, `prestamo`, `baja_colaborador`, `permiso_especial_cumpleanos`, `permiso_especial_paternidad`, `permiso_especial_fallecimiento`, `solicitud_general`.

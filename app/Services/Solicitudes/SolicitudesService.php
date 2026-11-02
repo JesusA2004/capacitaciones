@@ -64,6 +64,12 @@ class SolicitudesService
     private const LIMITE_TABLERO = 500;
 
     /**
+     * Tipos que no cuentan como pendientes de la bandeja: la baja se atiende
+     * en el Cierre laboral y la incapacidad en su propio módulo.
+     */
+    private const TIPOS_FUERA_DE_LA_BANDEJA = [TipoSolicitudInterna::BajaColaborador, TipoSolicitudInterna::Incapacidad];
+
+    /**
      * Una baja de colaborador no se aprueba/rechaza/corrige desde la bandeja
      * de Solicitudes: hacerlo saltaría el Cierre laboral (finiquito,
      * documentos, fecha efectiva). Ver CierreLaboralService.
@@ -463,6 +469,11 @@ class SolicitudesService
         return $query
             ->when($filtros['estado'] ?? null, fn (Builder $q, string $v) => $q->where('estado', $v))
             ->when($filtros['tipo'] ?? null, fn (Builder $q, string $v) => $q->where('tipo', $v))
+            // Incapacidad salió de Solicitudes (Propuesta de mejoras etapa 1,
+            // pantalla 3): se gestiona en su propio módulo. «Todos los tipos»
+            // nunca la trae; un registro histórico sigue consultable solo si
+            // se pide ese tipo de forma explícita (enlaces anteriores).
+            ->when(blank($filtros['tipo'] ?? null), fn (Builder $q) => $q->where('tipo', '!=', TipoSolicitudInterna::Incapacidad->value))
             ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, string $v) => $q->where('sucursal_id', $v))
             ->when($filtros['empresa_id'] ?? null, fn (Builder $q, string $v) => $q->where('empresa_id', $v))
             ->when($filtros['departamento_id'] ?? null, fn (Builder $q, string $v) => $q->where(fn (Builder $sub) => $sub
@@ -1086,8 +1097,8 @@ class SolicitudesService
     }
 
     /**
-     * Resumen por tipo de solicitud para la pantalla de entrada de
-     * Operación RH → Solicitudes: cuántas hay recibidas (esperan visto
+     * Resumen por tipo de solicitud (conteo de pendientes de la bandeja, ver
+     * ResumenPendientesService): cuántas hay recibidas (esperan visto
      * bueno), pendientes de autorizar, en corrección, abiertas y del último
      * mes, siempre dentro del alcance del usuario.
      *
@@ -1105,8 +1116,9 @@ class SolicitudesService
         $resumen = [];
 
         foreach (TipoSolicitudInterna::cases() as $tipo) {
-            // La baja se gestiona en el Cierre laboral, no en esta bandeja.
-            if ($tipo === TipoSolicitudInterna::BajaColaborador) {
+            // La baja se gestiona en el Cierre laboral y la incapacidad en su
+            // propio módulo, no en esta bandeja.
+            if (in_array($tipo, self::TIPOS_FUERA_DE_LA_BANDEJA, true)) {
                 continue;
             }
 
@@ -1143,7 +1155,13 @@ class SolicitudesService
             ->map(fn (SolicitudInterna $s): string => $s->tipo->value)
             ->all();
 
-        $tipos = array_filter(TipoSolicitudInterna::cases(), fn (TipoSolicitudInterna $t): bool => ! $t->esLegado() || in_array($t->value, $conRegistros, true));
+        // Incapacidad no se ofrece nunca (Propuesta etapa 1, pantalla 3:
+        // «retirar Incapacidad de la lista de tipos»), aunque haya históricos.
+        $tipos = array_filter(
+            TipoSolicitudInterna::cases(),
+            fn (TipoSolicitudInterna $t): bool => $t !== TipoSolicitudInterna::Incapacidad
+                && (! $t->esLegado() || in_array($t->value, $conRegistros, true)),
+        );
 
         return array_values(array_map(fn (TipoSolicitudInterna $t): array => [
             'value' => $t->value,

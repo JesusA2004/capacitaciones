@@ -268,19 +268,23 @@ export const MODULOS_GUIA: ModuloGuia[] = [
         grupo: 'Personal',
         icono: ClipboardList,
         descripcion:
-            'Solicitudes de los colaboradores por tipo (préstamos, permisos, vacaciones…): visto bueno del gerente y del regional, y autorización de RH.',
+            'Tablero de solicitudes de los colaboradores (permisos, vacaciones, préstamos…), con el tipo a la vista por color: visto bueno del gerente y del regional, y autorización de RH.',
         pasos: [
             {
                 titulo: 'Solicitudes de los colaboradores',
                 texto: 'Todo lo que un colaborador pide llega aquí. Primero da su visto bueno el gerente de la sucursal, luego el regional, y al final Recursos Humanos autoriza.',
             },
             {
-                selector: sel('solicitudes-tipos'),
-                titulo: 'Elige el tipo',
-                texto: 'Cada tarjeta es un tipo de solicitud con cuántas están recibidas, pendientes de autorizar o en corrección. Da clic en una para abrir su tablero — ahora te llevo a uno.',
+                selector: sel('solicitudes-indicadores'),
+                titulo: 'Cuántas hay en cada fase',
+                texto: 'Recibidas, en revisión, que requieren corrección, aprobadas y no aprobadas, con los filtros que tengas aplicados.',
             },
             {
-                rutaDesde: `${sel('solicitudes-tipos')} a[href]`,
+                selector: sel('solicitudes-leyenda'),
+                titulo: 'Tipo de solicitud a primera vista',
+                texto: 'Cada tipo conserva siempre su color: la tarjeta lleva arriba una banda con el nombre del tipo. Las incapacidades ya no son una solicitud: se gestionan en su propio módulo.',
+            },
+            {
                 selector: sel('solicitudes-limite'),
                 titulo: 'Aviso de límite',
                 texto: 'El tablero muestra hasta cierto número de tarjetas para mantenerse ágil. Cuando aparece este aviso, usa los filtros para ver el resto: ninguna solicitud se pierde.',
@@ -299,7 +303,7 @@ export const MODULOS_GUIA: ModuloGuia[] = [
             {
                 selector: sel('solicitudes-tablero'),
                 titulo: 'El tablero',
-                texto: 'Columnas por estado: Solicitudes recibidas (esperan el visto bueno del gerente y del regional) → Pendiente de autorizar (ya con ambos vistos buenos) → Requiere corrección → Aprobadas / No aprobadas.',
+                texto: 'Columnas por estado: Recibidas (esperan el visto bueno del gerente y del regional) → En revisión (ya con ambos vistos buenos, las autoriza RH) → Requiere corrección → Aprobadas / No aprobadas.',
             },
             {
                 selector: '[data-tour="solicitudes-tablero"] [data-kanban-id]',

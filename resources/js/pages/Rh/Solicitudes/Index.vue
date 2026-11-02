@@ -7,6 +7,7 @@ import {
     Baby,
     Cake,
     CalendarDays,
+    CalendarRange,
     CircleCheckBig,
     CircleSlash,
     ClipboardList,
@@ -59,6 +60,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { useKanbanTransition } from '@/composables/useKanbanTransition';
+import { formatearPeriodo } from '@/lib/fechas';
 import { opcionesDe } from '@/lib/opcionesSelect';
 import { index as indexIncapacidades } from '@/routes/rh/incapacidades';
 import {
@@ -96,23 +98,15 @@ const props = defineProps<{
     puedeVerIncapacidades: boolean;
 }>();
 
+// Permanencia › Solicitudes (Propuesta de mejoras etapa 1, pantalla 3): el
+// tablero es la pantalla del módulo; el tipo se acota con su filtro.
 defineOptions({
-    layout: (pageProps: {
-        filtros: { tipo?: string | null };
-        tipos: { value: string; label: string }[];
-    }) => ({
+    layout: {
         breadcrumbs: [
-            // Regresa a la pantalla de tipos (préstamos, permisos, vacaciones…).
-            { title: 'Solicitudes', href: index() },
-            {
-                title:
-                    pageProps.tipos.find(
-                        (t) => t.value === pageProps.filtros.tipo,
-                    )?.label ?? 'Todas',
-                href: '',
-            },
+            { title: 'Permanencia', href: '' },
+            { title: 'Solicitudes', href: index.url() },
         ],
-    }),
+    },
 });
 
 const { mostrarExito, mostrarError } = useAlertas();
@@ -148,49 +142,64 @@ function urlExportar(
 // alarma) para que el tablero no se vea agresivo.
 type ColumnaDefinicion = {
     estado: string;
+    /** Nombre de la fase tal como lo pide la propuesta (pantalla 3). */
     titulo: string;
+    /** Qué significa la fase, para el título emergente del indicador. */
+    ayuda: string;
     icono: Component;
     /** Fondo + texto del ícono y del contador. */
     suave: string;
     /** Fondo tenue del encabezado de la columna. */
     cabecera: string;
+    /** Filo de color del indicador superior. */
+    filo: string;
 };
 
 const COLUMNAS: ColumnaDefinicion[] = [
     {
         estado: 'enviada',
-        titulo: 'Solicitudes recibidas',
+        titulo: 'Recibidas',
+        ayuda: 'Esperan el visto bueno del gerente y del regional.',
         icono: Inbox,
         suave: 'bg-info-soft text-info',
         cabecera: 'bg-info-soft/80',
+        filo: 'border-l-primary',
     },
     {
         estado: 'en_revision',
-        titulo: 'Pendiente de autorizar',
+        titulo: 'En revisión',
+        ayuda: 'Ya tienen los vistos buenos: Recursos Humanos las autoriza.',
         icono: Eye,
-        suave: 'bg-info-soft text-info',
-        cabecera: 'bg-info-soft/80',
+        suave: 'bg-crema text-bronce',
+        cabecera: 'bg-crema/70',
+        filo: 'border-l-bronce',
     },
     {
         estado: 'requiere_correccion',
         titulo: 'Requiere corrección',
+        ayuda: 'Regresaron al colaborador para que corrija algo.',
         icono: PencilLine,
         suave: 'bg-warning-soft text-warning',
         cabecera: 'bg-warning-soft/80',
+        filo: 'border-l-oro',
     },
     {
         estado: 'aprobada',
         titulo: 'Aprobadas',
+        ayuda: 'Autorizadas por Recursos Humanos.',
         icono: CircleCheckBig,
         suave: 'bg-success-soft text-success',
         cabecera: 'bg-success-soft/80',
+        filo: 'border-l-success',
     },
     {
         estado: 'rechazada',
         titulo: 'No aprobadas',
+        ayuda: 'Rechazadas con su motivo en el historial.',
         icono: CircleSlash,
         suave: 'bg-crema-2 text-foreground',
         cabecera: 'bg-crema/60',
+        filo: 'border-l-muted-foreground',
     },
 ];
 
@@ -290,6 +299,26 @@ function etiquetaBanda(solicitud: SolicitudInternaItem): string {
     }
 
     return etiquetaTipo(solicitud.tipo);
+}
+
+/**
+ * Periodo que pide la tarjeta, como en la propuesta: «3 días · 10 – 12 nov
+ * 2026» en vacaciones y permisos por días. null si el tipo no lleva fechas.
+ */
+function periodoTarjeta(solicitud: SolicitudInternaItem): string | null {
+    if (!solicitud.fecha_inicio) {
+        return null;
+    }
+
+    const periodo = formatearPeriodo(
+        solicitud.fecha_inicio,
+        solicitud.fecha_fin,
+    );
+    const dias = solicitud.dias_solicitados;
+
+    return dias
+        ? `${dias} ${dias === 1 ? 'día' : 'días'} · ${periodo}`
+        : periodo;
 }
 
 function diasEsperando(solicitud: SolicitudInternaItem): number {
@@ -577,7 +606,7 @@ function confirmarMovimiento() {
 </script>
 
 <template>
-    <Head title="Solicitudes internas" />
+    <Head title="Solicitudes" />
 
     <div class="pagina-ancha flex flex-col gap-3">
         <Alert
@@ -752,34 +781,31 @@ function confirmarMovimiento() {
             </div>
         </CrudPageHeader>
 
-        <!-- Resumen visual por estado -->
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+        <!-- Indicadores por fase (pantalla 3): Recibidas · En revisión ·
+             Requiere corrección · Aprobadas · No aprobadas. -->
+        <div
+            data-tour="solicitudes-indicadores"
+            class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
+        >
             <div
                 v-for="columna in COLUMNAS"
                 :key="`resumen-${columna.estado}`"
-                class="flex items-center gap-3 rounded-2xl border border-border/60 bg-card p-3.5 shadow-sm"
+                class="rounded-xl border border-l-4 border-border/60 bg-card p-3.5 shadow-sm"
+                :class="columna.filo"
+                :title="columna.ayuda"
             >
-                <span
-                    class="flex size-11 shrink-0 items-center justify-center rounded-xl"
-                    :class="columna.suave"
-                >
-                    <component :is="columna.icono" class="size-5" />
-                </span>
-                <div class="min-w-0">
-                    <p class="text-2xl leading-none font-bold tabular-nums">
-                        {{ columnas[columna.estado]?.length ?? 0 }}
-                    </p>
-                    <p
-                        class="mt-1 line-clamp-2 text-sm leading-tight text-muted-foreground"
-                    >
-                        {{ columna.titulo }}
-                    </p>
-                </div>
+                <p class="truncate text-sm text-muted-foreground">
+                    {{ columna.titulo }}
+                </p>
+                <p class="text-2xl font-bold tabular-nums">
+                    {{ columnas[columna.estado]?.length ?? 0 }}
+                </p>
             </div>
         </div>
 
         <!-- Leyenda: qué color tiene cada tipo de solicitud. -->
         <div
+            data-tour="solicitudes-leyenda"
             class="flex flex-wrap items-center gap-1.5 rounded-xl border border-border/60 bg-card px-3 py-2"
         >
             <span class="text-xs font-semibold">Tipo de solicitud:</span>
@@ -809,16 +835,17 @@ function confirmarMovimiento() {
         <!-- Tablero: horizontal real, sin comprimir columnas -->
         <div
             data-tour="solicitudes-tablero"
-            class="flex w-full min-w-0 gap-4 overflow-x-auto pb-3"
+            class="flex w-full min-w-0 gap-3 overflow-x-auto pb-3"
         >
             <div
                 v-for="columna in COLUMNAS"
                 :key="columna.estado"
-                class="flex w-[340px] min-w-[340px] shrink-0 flex-col overflow-hidden rounded-2xl border border-border/60 bg-muted/30"
+                class="flex min-w-[216px] flex-1 basis-0 flex-col overflow-hidden rounded-2xl border border-border/60 bg-muted/30"
             >
                 <div
                     class="flex items-center justify-between gap-2 border-b border-border/60 px-4 py-3"
                     :class="columna.cabecera"
+                    :title="columna.ayuda"
                 >
                     <div class="flex min-w-0 items-center gap-2.5">
                         <span
@@ -867,75 +894,78 @@ function confirmarMovimiento() {
                         class="group relative flex flex-col gap-3 overflow-hidden rounded-xl border border-border/60 bg-card p-4 pt-0 shadow-sm transicion-ui hover:-translate-y-0.5 hover:shadow-md"
                     >
                         <!-- Banda del tipo: cada tipo conserva siempre su color. -->
+                        <!-- Las acciones van en la banda: el nombre usa todo el ancho de la tarjeta. -->
                         <div
-                            class="-mx-4 flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold tracking-wide text-white uppercase"
+                            class="-mx-4 flex items-center justify-between gap-2 py-1 pr-1.5 pl-4 text-xs font-bold tracking-wide text-white uppercase"
                             :class="claseBanda(solicitud)"
                         >
-                            <component
-                                :is="iconoTipo(solicitud.tipo)"
-                                class="size-3.5"
-                            />
-                            {{ etiquetaBanda(solicitud) }}
-                        </div>
-
-                        <div class="flex items-start justify-between gap-2">
-                            <div class="flex min-w-0 items-center gap-3">
-                                <ColaboradorAvatar
-                                    :nombre="`${solicitud.usuario?.name ?? ''} ${solicitud.usuario?.apellidos ?? ''}`"
-                                    :foto-url="solicitud.foto_url"
-                                    tamano="md"
+                            <span class="flex min-w-0 items-center gap-1.5">
+                                <component
+                                    :is="iconoTipo(solicitud.tipo)"
+                                    class="size-3.5 shrink-0"
                                 />
-                                <div class="min-w-0">
-                                    <p
-                                        class="line-clamp-2 text-[15px] leading-tight font-semibold break-words"
-                                    >
-                                        {{ solicitud.usuario?.name }}
-                                        {{ solicitud.usuario?.apellidos }}
-                                    </p>
-                                    <p
-                                        class="mt-0.5 line-clamp-2 text-xs text-muted-foreground"
-                                    >
-                                        {{ solicitud.folio }}
-                                        <template
-                                            v-if="
-                                                solicitud.usuario?.colaborador
-                                                    ?.puesto
-                                            "
-                                        >
-                                            ·
-                                            {{
-                                                solicitud.usuario.colaborador
-                                                    .puesto.nombre
-                                            }}
-                                        </template>
-                                    </p>
-                                </div>
-                            </div>
+                                <span class="line-clamp-2">{{
+                                    etiquetaBanda(solicitud)
+                                }}</span>
+                            </span>
                             <div class="flex shrink-0 items-center gap-0.5">
                                 <Link
                                     :href="show.url(solicitud.id)"
-                                    class="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                                    class="flex size-6 items-center justify-center rounded-md text-white/90 transition-colors hover:bg-white/20 hover:text-white"
                                     title="Abrir detalle"
                                 >
                                     <ArrowUpRight class="size-4" />
                                 </Link>
                                 <span
                                     v-if="puedeArrastrar(solicitud)"
-                                    class="kanban-drag-handle flex size-7 cursor-grab items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground active:cursor-grabbing"
+                                    class="kanban-drag-handle flex size-6 cursor-grab items-center justify-center rounded-md text-white/90 hover:bg-white/20 hover:text-white active:cursor-grabbing"
                                     title="Arrastrar para mover"
                                 >
                                     <GripVertical class="size-4" />
                                 </span>
                                 <span
                                     v-else
-                                    class="flex size-7 items-center justify-center rounded-lg text-muted-foreground/60"
+                                    class="flex size-6 items-center justify-center rounded-md text-white/70"
                                     :title="
                                         solicitud.acciones?.motivo_bloqueo ??
                                         'Solo consulta: sin permiso para moverla.'
                                     "
                                 >
-                                    <Lock class="size-4" />
+                                    <Lock class="size-3.5" />
                                 </span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-start gap-2.5">
+                            <ColaboradorAvatar
+                                :nombre="`${solicitud.usuario?.name ?? ''} ${solicitud.usuario?.apellidos ?? ''}`"
+                                :foto-url="solicitud.foto_url"
+                                tamano="sm"
+                            />
+                            <div class="min-w-0 flex-1">
+                                <p
+                                    class="line-clamp-2 text-sm leading-tight font-semibold"
+                                >
+                                    {{ solicitud.usuario?.name }}
+                                    {{ solicitud.usuario?.apellidos }}
+                                </p>
+                                <p
+                                    class="mt-0.5 line-clamp-2 text-xs text-muted-foreground"
+                                >
+                                    {{ solicitud.folio }}
+                                    <template
+                                        v-if="
+                                            solicitud.usuario?.colaborador
+                                                ?.puesto
+                                        "
+                                    >
+                                        ·
+                                        {{
+                                            solicitud.usuario.colaborador.puesto
+                                                .nombre
+                                        }}
+                                    </template>
+                                </p>
                             </div>
                         </div>
 
@@ -974,6 +1004,16 @@ function confirmarMovimiento() {
                                 }}
                             </span>
                         </div>
+
+                        <p
+                            v-if="periodoTarjeta(solicitud)"
+                            class="inline-flex items-center gap-1.5 text-sm font-medium"
+                        >
+                            <CalendarRange
+                                class="size-4 shrink-0 text-muted-foreground"
+                            />
+                            {{ periodoTarjeta(solicitud) }}
+                        </p>
 
                         <p
                             v-if="solicitud.motivo"

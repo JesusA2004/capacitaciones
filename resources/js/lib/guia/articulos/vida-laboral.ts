@@ -279,9 +279,9 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
         ],
         pasos: [
             {
-                titulo: 'Elige el tipo',
+                titulo: 'Abre el tablero',
                 detalle:
-                    'Personal → Solicitudes: una tarjeta por tipo (préstamos, permisos, vacaciones…) con recibidas, por autorizar y en corrección. «Ver todas» abre el tablero completo.',
+                    'Permanencia → Solicitudes: un solo tablero con «Todos los tipos»; cada tarjeta lleva arriba una banda con el color y el nombre de su tipo (permiso, vacaciones, préstamo…). Acota con los filtros de tipo y sucursal. Las incapacidades se registran en su propio módulo.',
                 canal: 'web',
             },
             {
@@ -306,7 +306,7 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
         llamados: [
             {
                 tono: 'info',
-                texto: 'Columnas: Solicitudes recibidas (esperan vistos buenos) → Pendiente de autorizar → Requiere corrección → Aprobadas / No aprobadas. Una solicitud aprobada ya terminó: lo que sigue (documentos, pago) vive en su propio proceso.',
+                texto: 'Columnas: Recibidas (esperan vistos buenos) → En revisión (pendientes de autorizar por RH) → Requiere corrección → Aprobadas / No aprobadas. Una solicitud aprobada ya terminó: lo que sigue (documentos, pago) vive en su propio proceso.',
             },
         ],
         despues: [

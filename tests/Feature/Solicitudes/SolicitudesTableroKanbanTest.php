@@ -3,6 +3,7 @@
 use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Notifications\Mobile\SolicitudActualizadaNotification;
+use App\Services\Solicitudes\SolicitudesService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Notification;
 
@@ -163,25 +164,64 @@ test('no se puede mover una solicitud rechazada directo a aprobada', function ()
     expect($solicitud->fresh()->estado->value)->toBe('rechazada');
 });
 
-test('la entrada de Solicitudes agrupa por tipo y cada tipo abre el tablero ya filtrado', function () {
+test('Permanencia › Solicitudes abre directo el tablero con todos los tipos y el filtro de tipo lo acota (propuesta etapa 1, pantalla 3)', function () {
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
 
     SolicitudInterna::factory()->count(2)->create(['tipo' => 'prestamo', 'estado' => 'enviada']);
-    SolicitudInterna::factory()->create(['tipo' => 'prestamo', 'estado' => 'en_revision']);
-    SolicitudInterna::factory()->create(['tipo' => 'vacaciones', 'estado' => 'cancelada']);
+    SolicitudInterna::factory()->create(['tipo' => 'vacaciones', 'estado' => 'en_revision']);
 
     $this->actingAs($rh)
         ->get(route('rh.solicitudes.index'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('Rh/Solicitudes/Tipos')
-            ->where('tipos', fn ($tipos) => collect($tipos)->firstWhere('clave', 'prestamo')['recibidas'] === 2
-                && collect($tipos)->firstWhere('clave', 'prestamo')['por_autorizar'] === 1
-                && collect($tipos)->firstWhere('clave', 'vacaciones')['abiertas'] === 0));
+            ->component('Rh/Solicitudes/Index')
+            ->has('solicitudes', 3)
+            ->where('tiposFiltro', fn ($tipos) => collect($tipos)->pluck('value')->contains('prestamo')));
 
     $this->actingAs($rh)
         ->get(route('rh.solicitudes.index', ['tipo' => 'prestamo']))
         ->assertOk()
-        ->assertInertia(fn ($page) => $page->component('Rh/Solicitudes/Index')->where('filtros.tipo', 'prestamo')->has('solicitudes', 3));
+        ->assertInertia(fn ($page) => $page->component('Rh/Solicitudes/Index')->where('filtros.tipo', 'prestamo')->has('solicitudes', 2));
+});
+
+test('Incapacidad sale de Solicitudes: no está en la lista de tipos ni en «Todos los tipos», y el histórico se conserva', function () {
+    $rh = User::factory()->create();
+    $rh->assignRole('rh_admin');
+
+    $permiso = SolicitudInterna::factory()->create(['tipo' => 'permiso', 'estado' => 'enviada']);
+    $historica = SolicitudInterna::factory()->create(['tipo' => 'incapacidad', 'estado' => 'en_revision']);
+
+    $this->actingAs($rh)
+        ->get(route('rh.solicitudes.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('solicitudes', fn ($lista) => collect($lista)->pluck('id')->all() === [$permiso->id])
+            ->where('solicitudesResumen.total', 1)
+            ->where('tiposFiltro', fn ($tipos) => ! collect($tipos)->pluck('value')->contains('incapacidad')));
+
+    // La exportación respeta lo mismo que el tablero.
+    $filas = app(SolicitudesService::class)->paraExportar($rh, []);
+    expect($filas->pluck('id')->all())->toBe([$permiso->id]);
+
+    // El registro histórico sigue en la base y se consulta pidiéndolo de forma explícita.
+    $this->actingAs($rh)
+        ->get(route('rh.solicitudes.index', ['tipo' => 'incapacidad']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('solicitudes', fn ($lista) => collect($lista)->pluck('id')->all() === [$historica->id]));
+
+    $this->actingAs($rh)->get(route('rh.solicitudes.show', $historica))->assertOk();
+});
+
+test('el conteo de pendientes de Solicitudes no incluye incapacidades ni bajas', function () {
+    $rh = User::factory()->create();
+    $rh->assignRole('rh_admin');
+
+    SolicitudInterna::factory()->create(['tipo' => 'permiso', 'estado' => 'enviada']);
+    SolicitudInterna::factory()->create(['tipo' => 'incapacidad', 'estado' => 'enviada']);
+
+    $resumen = app(SolicitudesService::class)->resumenPorTipo($rh);
+
+    expect(collect($resumen)->pluck('clave')->all())->not->toContain('incapacidad', 'baja_colaborador')
+        ->and(array_sum(array_column($resumen, 'abiertas')))->toBe(1);
 });

@@ -81,9 +81,9 @@ export const RECORRIDOS_PROCESO: RecorridoProceso[] = [
             },
             {
                 ruta: '/rh/solicitudes',
-                selector: sel('solicitudes-tipos'),
+                selector: sel('solicitudes-leyenda'),
                 titulo: 'Solicitudes',
-                texto: 'Permisos, vacaciones y préstamos por tipo: gerente y regional dan visto bueno; RH autoriza.',
+                texto: 'Permisos, vacaciones y préstamos en un tablero, cada tipo con su color: gerente y regional dan visto bueno; RH autoriza.',
                 permisos: ['solicitudes.revisar', 'solicitudes.aprobar'],
             },
             {
@@ -299,15 +299,9 @@ export const RECORRIDOS_PROCESO: RecorridoProceso[] = [
         pasos: [
             {
                 ruta: '/rh/solicitudes',
-                selector: sel('solicitudes-tipos'),
-                titulo: 'Por tipo',
-                texto: 'Cada tarjeta muestra recibidas, por autorizar y en corrección. Te llevo a un tablero.',
-            },
-            {
-                rutaDesde: `${sel('solicitudes-tipos')} a[href]`,
                 selector: sel('solicitudes-tablero'),
                 titulo: 'El tablero',
-                texto: 'Recibidas (esperan vistos buenos) → Pendiente de autorizar → Requiere corrección → Aprobadas / No aprobadas.',
+                texto: 'Recibidas (esperan vistos buenos) → En revisión (las autoriza RH) → Requiere corrección → Aprobadas / No aprobadas. Filtra «Todos los tipos» para ver solo permisos.',
             },
             {
                 rutaDesde: `${sel('solicitudes-tablero')} a[href]`,
