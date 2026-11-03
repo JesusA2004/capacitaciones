@@ -24,7 +24,7 @@ use Illuminate\Testing\PendingCommand;
 
 const CARPETA_TITO = 'candidatos/Tito Ivan Lopez - 5';
 const CARPETA_VICTOR = 'candidatos/Victor Ricardo Arriola - 4';
-const EXPEDIENTE_TITO = 'expedientes/MR LANA/Centro/EMP-0133 - Tito Ivan Lopez';
+const EXPEDIENTE_TITO = 'expedientes/MR LANA/Centro/EMP-0133 - Tito Ivan Lopez Rosas';
 const EXPEDIENTE_VICTOR = 'expedientes/MR LANA/Centro/EMP-0135 - Victor Ricardo Arriola';
 
 beforeEach(function () {
@@ -34,7 +34,7 @@ beforeEach(function () {
     $this->rh = User::factory()->create(['colaborador_id' => null]);
 
     // --- Personas de prueba con los ID reales de producción ---------------
-    $this->tito = Colaborador::factory()->create(['id' => 133, 'name' => 'Tito Iván', 'apellidos' => 'López', 'numero_empleado' => 'EMP-0133', 'expediente_storage_path' => EXPEDIENTE_TITO]);
+    $this->tito = Colaborador::factory()->create(['id' => 133, 'name' => 'Tito Iván', 'apellidos' => 'López Rosas', 'numero_empleado' => 'EMP-0133', 'expediente_storage_path' => EXPEDIENTE_TITO]);
     $this->victor = Colaborador::factory()->create(['id' => 135, 'name' => 'Víctor Ricardo', 'apellidos' => 'Arriola', 'numero_empleado' => 'EMP-0135', 'expediente_storage_path' => EXPEDIENTE_VICTOR]);
     $this->cuentaTito = User::factory()->create(['id' => 133, 'colaborador_id' => 133, 'email' => 'tito.prueba@example.test']);
 
@@ -218,6 +218,30 @@ test('aborta sin tocar nada si un nombre no coincide', function () {
 
     expect(huellaPrueba())->toBe($antes);
 });
+
+test('acepta el nombre exacto de cada registro: candidato «Tito Iván López» y colaborador «Tito Iván López Rosas»', function () {
+    $plan = app(LimpiezaRegistrosPruebaService::class)->inventariar();
+    $nombres = collect($plan->validaciones)->filter(fn (array $v): bool => str_starts_with($v['dato'], 'Nombre del'))->keyBy('dato');
+
+    expect($plan->errores)->toBe([])
+        ->and($nombres['Nombre del candidato #5']['encontrado'])->toBe('tito ivan lopez')
+        ->and($nombres['Nombre del colaborador #133']['encontrado'])->toBe('tito ivan lopez rosas')
+        ->and($nombres->every(fn (array $v): bool => $v['ok']))->toBeTrue();
+});
+
+test('los nombres siguen siendo exactos por registro: no se intercambian ni se aceptan parciales', function (string $tabla, int $id, array $cambio) {
+    DB::table($tabla)->where('id', $id)->update($cambio);
+    $antes = huellaPrueba();
+
+    ejecutarLimpieza(['--dry-run' => true])->expectsOutputToContain('NO COINCIDE')->assertFailed();
+
+    expect(huellaPrueba())->toBe($antes);
+})->with([
+    'colaborador #133 sin «Rosas»' => ['colaboradores', 133, ['apellidos' => 'López']],
+    'candidato #5 con «Rosas»' => ['candidatos', 5, ['apellidos' => 'López Rosas']],
+    'colaborador #133 con otro apellido' => ['colaboradores', 133, ['apellidos' => 'López Ramos']],
+    'colaborador #135 con «Rosas» de más' => ['colaboradores', 135, ['apellidos' => 'Arriola Rosas']],
+]);
 
 test('exige respaldo verificado y la frase exacta', function () {
     $antes = huellaPrueba();

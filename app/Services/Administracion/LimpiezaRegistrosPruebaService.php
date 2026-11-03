@@ -50,11 +50,11 @@ class LimpiezaRegistrosPruebaService
      * Los dos candidatos ficticios verificados en producción. Cada dato se
      * revalida antes de borrar; si uno no coincide, la limpieza no corre.
      *
-     * @var list<array{etiqueta: string, nombre: string, candidato_id: int, colaborador_id: int, numero_empleado: string, user_id: int|null, invitacion_id: int}>
+     * @var list<array{etiqueta: string, nombre_candidato: string, nombre_colaborador: string, candidato_id: int, colaborador_id: int, numero_empleado: string, user_id: int|null, invitacion_id: int}>
      */
     public const PERSONAS = [
-        ['etiqueta' => 'Tito Iván López', 'nombre' => 'Tito Iván López', 'candidato_id' => 5, 'colaborador_id' => 133, 'numero_empleado' => 'EMP-0133', 'user_id' => 133, 'invitacion_id' => 4],
-        ['etiqueta' => 'Víctor Ricardo Arriola', 'nombre' => 'Víctor Ricardo Arriola', 'candidato_id' => 4, 'colaborador_id' => 135, 'numero_empleado' => 'EMP-0135', 'user_id' => null, 'invitacion_id' => 6],
+        ['etiqueta' => 'Tito Iván López', 'nombre_candidato' => 'Tito Iván López', 'nombre_colaborador' => 'Tito Iván López Rosas', 'candidato_id' => 5, 'colaborador_id' => 133, 'numero_empleado' => 'EMP-0133', 'user_id' => 133, 'invitacion_id' => 4],
+        ['etiqueta' => 'Víctor Ricardo Arriola', 'nombre_candidato' => 'Víctor Ricardo Arriola', 'nombre_colaborador' => 'Víctor Ricardo Arriola', 'candidato_id' => 4, 'colaborador_id' => 135, 'numero_empleado' => 'EMP-0135', 'user_id' => null, 'invitacion_id' => 6],
     ];
 
     /** Lo que se identificó en producción: si no coincide, se advierte (no aborta). */
@@ -214,14 +214,13 @@ class LimpiezaRegistrosPruebaService
     {
         foreach (self::PERSONAS as $p) {
             $persona = $p['etiqueta'];
-            $esperado = $this->normalizarNombre($p['nombre']);
 
             $candidato = DB::table('candidatos')->where('id', $p['candidato_id'])->first();
             $this->validar($plan, $persona, sprintf('Candidato #%d existe', $p['candidato_id']), 'sí', $candidato !== null ? 'sí' : 'no');
 
             if ($candidato !== null) {
                 $nombre = $this->normalizarNombre(trim(sprintf('%s %s', $candidato->nombre ?? '', $candidato->apellidos ?? '')));
-                $this->validar($plan, $persona, sprintf('Nombre del candidato #%d', $p['candidato_id']), $esperado, $nombre);
+                $this->validar($plan, $persona, sprintf('Nombre del candidato #%d', $p['candidato_id']), $this->normalizarNombre($p['nombre_candidato']), $nombre);
                 $this->validar($plan, $persona, 'Candidato → colaborador', sprintf('vacío o #%d', $p['colaborador_id']), $this->texto($candidato->colaborador_id ?? null), in_array($candidato->colaborador_id ?? null, [null, $p['colaborador_id']], false));
             }
 
@@ -230,7 +229,7 @@ class LimpiezaRegistrosPruebaService
 
             if ($colaborador !== null) {
                 $nombre = $this->normalizarNombre(trim(sprintf('%s %s', $colaborador->name ?? '', $colaborador->apellidos ?? '')));
-                $this->validar($plan, $persona, sprintf('Nombre del colaborador #%d', $p['colaborador_id']), $esperado, $nombre);
+                $this->validar($plan, $persona, sprintf('Nombre del colaborador #%d', $p['colaborador_id']), $this->normalizarNombre($p['nombre_colaborador']), $nombre);
                 $this->validar($plan, $persona, 'Expediente', $p['numero_empleado'], $this->texto($colaborador->numero_empleado ?? null));
                 $this->validar($plan, $persona, 'Colaborador → candidato', sprintf('vacío o #%d', $p['candidato_id']), $this->texto($colaborador->candidato_id ?? null), in_array($colaborador->candidato_id ?? null, [null, $p['candidato_id']], false));
             }
