@@ -21,6 +21,8 @@ use App\Services\Onboarding\ReproduccionVideoInduccionService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
 
 /*
@@ -190,4 +192,100 @@ test('endpoints HTTP: iniciar/heartbeat del video respetan el gate y el anti-see
     $otro = User::factory()->create(['colaborador_id' => Colaborador::factory()->create()->id]);
     $otro->assignRole('colaborador');
     $this->actingAs($otro)->postJson(route('portal.induccion.video.iniciar', $this->avance))->assertForbidden();
+});
+
+/** HLS falso de 20 minutos (200 segmentos de 6 s) en el disco de media. */
+function imHlsLargo(): void
+{
+    $disco = Storage::fake((string) config('media.disk'));
+    $disco->put('hls/demo/master.m3u8', implode("\n", [
+        '#EXTM3U',
+        '#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=1280x720',
+        '720p.m3u8',
+    ]));
+
+    $variante = ['#EXTM3U', '#EXT-X-VERSION:3', '#EXT-X-TARGETDURATION:6', '#EXT-X-PLAYLIST-TYPE:VOD'];
+    for ($i = 0; $i < 200; $i++) {
+        $variante[] = '#EXTINF:6.0,';
+        $variante[] = sprintf('720p_%03d.ts', $i);
+    }
+    $variante[] = '#EXT-X-ENDLIST';
+    $disco->put('hls/demo/720p.m3u8', implode("\n", $variante));
+    $disco->put('hls/demo/720p_000.ts', 'seg-0');
+    $disco->put('hls/demo/720p_150.ts', 'seg-150');
+}
+
+test('precarga: la variante se sirve COMPLETA (VOD + ENDLIST) aunque no se haya visto nada', function () {
+    imHlsLargo();
+    $this->materiales->activar($this->modulo, imVideo($this, 1200), $this->rh);
+
+    $contenido = $this->actingAs($this->usuario)
+        ->get(URL::temporarySignedRoute('portal.induccion.video.variante', now()->addMinutes(5), ['avance' => $this->avance, 'altura' => 720]))
+        ->assertOk()
+        ->getContent();
+
+    expect(substr_count((string) $contenido, '#EXTINF:'))->toBe(200)
+        ->and($contenido)->toContain('#EXT-X-ENDLIST')
+        ->and($contenido)->toContain('#EXT-X-PLAYLIST-TYPE:VOD')
+        ->and($contenido)->not->toContain('#EXT-X-PLAYLIST-TYPE:EVENT')
+        ->and($contenido)->toContain('signature=');
+});
+
+test('precarga: un segmento por delante de lo visto se sirve (sin 403 por posición)', function () {
+    imHlsLargo();
+    $this->materiales->activar($this->modulo, imVideo($this, 1200), $this->rh);
+
+    // Minuto 15, sin haber visto nada: el reproductor puede precargarlo.
+    $this->actingAs($this->usuario)
+        ->get(URL::temporarySignedRoute('portal.induccion.video.segmento', now()->addMinutes(5), ['avance' => $this->avance, 'altura' => 720, 'archivo' => '720p_150.ts']))
+        ->assertOk();
+
+    // Un nombre de archivo ajeno a la variante sigue siendo 404.
+    $this->actingAs($this->usuario)
+        ->get(URL::temporarySignedRoute('portal.induccion.video.segmento', now()->addMinutes(5), ['avance' => $this->avance, 'altura' => 720, 'archivo' => 'otro.ts']))
+        ->assertNotFound();
+});
+
+test('heartbeat: la reproducción normal (8 s reales entre reportes) nunca se rechaza', function () {
+    $this->materiales->activar($this->modulo, imVideo($this, 1200), $this->rh);
+    $this->video->iniciarSesion($this->usuario, $this->avance->refresh());
+
+    // Antes la tolerancia (5 s) era menor que el intervalo (8 s): cada
+    // heartbeat de reproducción normal salía «No puedes adelantar…».
+    foreach ([8, 16, 24, 32, 40] as $pos) {
+        $this->travel(8)->seconds();
+        $respuesta = $this->video->registrarHeartbeat($this->usuario, $this->avance->refresh(), $pos);
+        expect($respuesta['permitido'])->toBeTrue("rechazó la posición {$pos}");
+    }
+
+    expect($this->video->segundoMaximoAlcanzado($this->usuario, $this->avance->refresh()))->toBe(40);
+});
+
+test('heartbeat: un buffering solo frena el avance, no lo rechaza', function () {
+    $this->materiales->activar($this->modulo, imVideo($this, 1200), $this->rh);
+    $this->video->iniciarSesion($this->usuario, $this->avance->refresh());
+
+    // Trabado: pasan 8 s reales y apenas avanzó 1 s; luego retoma.
+    $this->travel(8)->seconds();
+    expect($this->video->registrarHeartbeat($this->usuario, $this->avance->refresh(), 1)['permitido'])->toBeTrue();
+    $this->travel(8)->seconds();
+    expect($this->video->registrarHeartbeat($this->usuario, $this->avance->refresh(), 9)['permitido'])->toBeTrue();
+});
+
+test('heartbeat: un salto grande no cuenta como visto ni marca el video completo', function () {
+    $this->materiales->activar($this->modulo, imVideo($this, 1200), $this->rh);
+    $this->video->iniciarSesion($this->usuario, $this->avance->refresh());
+
+    $this->travel(8)->seconds();
+    $this->video->registrarHeartbeat($this->usuario, $this->avance->refresh(), 8);
+
+    // A los 8 s reales salta al final del video.
+    $this->travel(8)->seconds();
+    $respuesta = $this->video->registrarHeartbeat($this->usuario, $this->avance->refresh(), 1199);
+
+    expect($respuesta['permitido'])->toBeFalse()
+        ->and($respuesta['completada'])->toBeFalse()
+        ->and($respuesta['posicion_permitida'])->toBeLessThanOrEqual(8 + (int) config('media.video.salto_tolerancia_segundos'))
+        ->and($this->video->videoCompletado($this->avance->refresh()))->toBeFalse()
+        ->and($this->video->segundoMaximoAlcanzado($this->usuario, $this->avance->refresh()))->toBe(8);
 });

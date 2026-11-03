@@ -6,6 +6,7 @@ use App\Models\IntervaloVideoInduccion;
 use App\Models\OnboardingAvance;
 use App\Models\RecursoMultimedia;
 use App\Models\User;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
 
@@ -16,10 +17,11 @@ use Illuminate\Support\Facades\URL;
  * induccion_video_intervalos + OnboardingAvance, para NO tocar las tablas del
  * módulo de Capacitación (congelado tras feature:capacitacion).
  *
- * El límite de avance (segundoMaximoPermitido = lo realmente visto +
- * tolerancia) es lo único que el controlador usa para truncar las variantes
- * HLS y rechazar segmentos: el anti-adelanto queda respaldado por el servidor,
- * no solo por el reproductor. El progreso vive en el servidor (intervalos +
+ * Dos límites distintos: lo que se puede DESCARGAR (segundoMaximoDescargable,
+ * por defecto el video completo para que precargue y no se trabe) y lo que
+ * cuenta como VISTO (heartbeat: nunca avanza más rápido que el tiempo real
+ * del servidor). El anti-adelanto del crédito queda respaldado por el
+ * servidor; el del seek, por el reproductor. El progreso vive en el servidor (intervalos +
  * progreso_contenido.video del avance), así que sobrevive a F5 y a cerrar y
  * reabrir el reproductor. Al llegar a media.video.completion_percent se marca
  * progreso_contenido.video.completado_en, que BLOQUEA la evaluación hasta que
@@ -47,14 +49,18 @@ class ReproduccionVideoInduccionService
      * actual. Fija el ancla de posición en progreso_contenido.video para que
      * el primer heartbeat forme un tramo coherente.
      *
-     * @return array{sesion_id: int, posicion_inicial: int, duracion_total_segundos: int|null, porcentaje_visto: float, segundo_maximo_permitido: int, heartbeat_segundos: int, completada: bool, url_manifiesto: string}
+     * @return array{sesion_id: int, posicion_inicial: int, duracion_total_segundos: int|null, porcentaje_visto: float, segundo_maximo_permitido: int, segundo_maximo_visto: int, heartbeat_segundos: int, completada: bool, url_manifiesto: string}
      */
     public function iniciarSesion(User $usuario, OnboardingAvance $avance): array
     {
         $recurso = $this->recurso($avance);
         $maximo = $this->segundoMaximoAlcanzado($usuario, $avance);
 
-        $this->actualizarVideo($avance, ['ultima_posicion' => $maximo, 'duracion' => $recurso?->duracion_segundos]);
+        $this->actualizarVideo($avance, [
+            'ultima_posicion' => $maximo,
+            'ultimo_heartbeat_en' => now()->toIso8601String(),
+            'duracion' => $recurso?->duracion_segundos,
+        ]);
 
         return [
             'sesion_id' => $avance->id,
@@ -62,6 +68,7 @@ class ReproduccionVideoInduccionService
             'duracion_total_segundos' => $recurso?->duracion_segundos,
             'porcentaje_visto' => $this->porcentajeVisto($usuario, $avance),
             'segundo_maximo_permitido' => $this->segundoMaximoPermitido($usuario, $avance),
+            'segundo_maximo_visto' => $maximo,
             'heartbeat_segundos' => (int) config('media.video.heartbeat_seconds'),
             'completada' => $this->videoCompletado($avance),
             'url_manifiesto' => URL::temporarySignedRoute(
@@ -80,9 +87,46 @@ class ReproduccionVideoInduccionService
             ->max('fin_segundo') ?? 0);
     }
 
+    /**
+     * Hasta dónde puede BUSCAR el colaborador (lo visto + tolerancia). Ya NO
+     * limita la descarga: el controlador sirve la variante HLS completa.
+     */
     public function segundoMaximoPermitido(User $usuario, OnboardingAvance $avance): int
     {
-        return $this->segundoMaximoAlcanzado($usuario, $avance) + (int) config('media.video.salto_tolerancia_segundos');
+        return $this->segundoMaximoAlcanzado($usuario, $avance) + $this->tolerancia();
+    }
+
+    private function tolerancia(): int
+    {
+        return (int) config('media.video.salto_tolerancia_segundos');
+    }
+
+    /**
+     * Límite del heartbeat: lo ya visto + tolerancia, o la última posición
+     * reportada + el tiempo REAL transcurrido desde el último heartbeat
+     * aceptado (× velocidad permitida) + tolerancia. Así la reproducción
+     * normal (8 s entre heartbeats) nunca se rechaza, un buffering solo la
+     * hace avanzar más lento, y nadie acumula «visto» más rápido que el reloj
+     * del servidor (no depende del reloj del cliente).
+     *
+     * @param  array<string, mixed>  $video
+     */
+    private function limiteHeartbeat(User $usuario, OnboardingAvance $avance, array $video): int
+    {
+        $alcanzado = $this->segundoMaximoAlcanzado($usuario, $avance);
+        $ancla = (int) ($video['ultima_posicion'] ?? $alcanzado);
+        $ultimoHeartbeat = $video['ultimo_heartbeat_en'] ?? null;
+
+        $transcurrido = is_string($ultimoHeartbeat)
+            ? max(0.0, Carbon::parse($ultimoHeartbeat)->diffInSeconds(now(), false))
+            : (float) config('media.video.heartbeat_seconds');
+
+        $velocidad = max(1.0, (float) config('media.video.playback_rate'));
+
+        return max(
+            $alcanzado + $this->tolerancia(),
+            $ancla + (int) ceil($transcurrido * $velocidad) + $this->tolerancia(),
+        );
     }
 
     public function porcentajeVisto(User $usuario, OnboardingAvance $avance): float
@@ -128,25 +172,29 @@ class ReproduccionVideoInduccionService
     }
 
     /**
-     * @return array{permitido: bool, posicion_permitida: int, segundo_maximo_permitido: int, porcentaje_visto: float, completada: bool}
+     * @return array{permitido: bool, posicion_permitida: int, segundo_maximo_permitido: int, segundo_maximo_visto: int, porcentaje_visto: float, completada: bool}
      */
     public function registrarHeartbeat(User $usuario, OnboardingAvance $avance, int $posicionReportada): array
     {
-        $limitePermitido = $this->segundoMaximoPermitido($usuario, $avance);
+        $video = $this->video($avance);
+        $limitePermitido = $this->limiteHeartbeat($usuario, $avance, $video);
 
         if ($posicionReportada > $limitePermitido) {
-            // Intento de adelantar: ni se extienden los tramos ni se mueve el
-            // ancla; el cliente debe regresar a la posición permitida.
+            // Adelanto real (más rápido que el tiempo transcurrido): ni se
+            // extienden los tramos ni se mueve el ancla ni el reloj; el
+            // cliente regresa a lo ya visto.
+            $permitida = $this->segundoMaximoPermitido($usuario, $avance);
+
             return [
                 'permitido' => false,
-                'posicion_permitida' => $limitePermitido,
-                'segundo_maximo_permitido' => $limitePermitido,
+                'posicion_permitida' => $permitida,
+                'segundo_maximo_permitido' => $permitida,
+                'segundo_maximo_visto' => $this->segundoMaximoAlcanzado($usuario, $avance),
                 'porcentaje_visto' => $this->porcentajeVisto($usuario, $avance),
                 'completada' => $this->videoCompletado($avance),
             ];
         }
 
-        $video = $this->video($avance);
         $ancla = (int) ($video['ultima_posicion'] ?? $this->segundoMaximoAlcanzado($usuario, $avance));
         $inicioTramo = min($ancla, $posicionReportada);
         $finTramo = max($ancla, $posicionReportada);
@@ -159,6 +207,7 @@ class ReproduccionVideoInduccionService
         $completada = $this->videoCompletado($avance);
         $cambios = [
             'ultima_posicion' => $posicionReportada,
+            'ultimo_heartbeat_en' => now()->toIso8601String(),
             'segundo_max' => max((int) ($video['segundo_max'] ?? 0), $this->segundoMaximoAlcanzado($usuario, $avance)),
             'porcentaje' => $porcentaje,
         ];
@@ -174,6 +223,7 @@ class ReproduccionVideoInduccionService
             'permitido' => true,
             'posicion_permitida' => $posicionReportada,
             'segundo_maximo_permitido' => $this->segundoMaximoPermitido($usuario, $avance),
+            'segundo_maximo_visto' => $this->segundoMaximoAlcanzado($usuario, $avance),
             'porcentaje_visto' => $porcentaje,
             'completada' => $completada,
         ];

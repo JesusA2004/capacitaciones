@@ -23,8 +23,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  *  - Audio: narración continua (se sirve el original con el content-type del
  *    recurso); no bloquea la evaluación.
  *  - Video: reproductor HLS con anti-adelanto RESPALDADO POR EL SERVIDOR
- *    (manifiesto/variantes/segmentos firmados y truncados al límite visto,
- *    heartbeat) — mismo patrón que MiCapacitacion\ReproduccionController, pero
+ *    en lo que cuenta como VISTO (heartbeat: nunca más rápido que el tiempo
+ *    real). La variante se sirve COMPLETA para que precargue; el seek más
+ *    allá de lo visto lo bloquea el reproductor — mismo patrón que MiCapacitacion\ReproduccionController, pero
  *    sobre ReproduccionVideoInduccionService (tablas propias, no las de
  *    Capacitación). El video BLOQUEA la evaluación hasta verse completo.
  *
@@ -116,21 +117,31 @@ class InduccionReproduccionController extends Controller
 
     public function variante(Request $request, OnboardingAvance $avance, int $altura): Response
     {
-        $usuario = $request->user();
-        $this->autorizar($usuario, $avance);
+        $this->autorizar($request->user(), $avance);
         $manifiesto = $this->rutaManifiesto($avance);
 
         $rutaVariante = dirname($manifiesto)."/{$altura}p.m3u8";
         abort_unless($this->storage->existe($rutaVariante), 404);
 
-        $limite = $this->reproduccion->segundoMaximoPermitido($usuario, $avance);
+        // Variante COMPLETA (VOD + #EXT-X-ENDLIST), sin truncar a lo visto:
+        // truncarla dejaba al reproductor con 1–2 segmentos (~12 s) como
+        // playlist «EVENT»; se quedaba sin contenido, se trababa y el
+        // heartbeat al reanudar caía fuera del límite («No puedes
+        // adelantar…» sin adelantar). El anti-adelanto del seek vive en el
+        // reproductor y lo que cuenta como VISTO, en el heartbeat.
+        //
+        // Como un VOD no se vuelve a pedir, las firmas de los segmentos duran
+        // lo que el video (×3, por pausas/buffering) + 1 h, nunca menos que
+        // media.token_ttl; cada segmento sigue exigiendo sesión del titular.
+        $duracion = (int) ($this->reproduccion->recurso($avance)->duracion_segundos ?? 0);
+        $vigenciaSegmentos = max((int) config('media.token_ttl'), $duracion * 3 + 3600);
 
         $resultado = $this->manifiestos->truncarVariante(
             $this->storage->disco()->get($rutaVariante) ?? '',
-            $limite,
+            PHP_INT_MAX,
             fn (int $indice, string $archivo) => URL::temporarySignedRoute(
                 'portal.induccion.video.segmento',
-                now()->addSeconds((int) config('media.token_ttl')),
+                now()->addSeconds($vigenciaSegmentos),
                 ['avance' => $avance->id, 'altura' => $altura, 'archivo' => $archivo],
             ),
         );
@@ -140,17 +151,13 @@ class InduccionReproduccionController extends Controller
 
     public function segmento(Request $request, OnboardingAvance $avance, int $altura, string $archivo): StreamedResponse
     {
-        $usuario = $request->user();
-        $this->autorizar($usuario, $avance);
+        $this->autorizar($request->user(), $avance);
         $manifiesto = $this->rutaManifiesto($avance);
 
-        if (! preg_match('/^'.$altura.'p_(\d+)\.ts$/', $archivo, $coincidencias)) {
+        // Sin 403 por posición: el reproductor precarga el video completo.
+        if (! preg_match('/^'.$altura.'p_\d+\.ts$/', $archivo)) {
             abort(404);
         }
-
-        $segundoSegmento = ((int) $coincidencias[1]) * (int) config('media.video.segmento_segundos');
-
-        abort_if($segundoSegmento > $this->reproduccion->segundoMaximoPermitido($usuario, $avance), 403, 'Todavía no puedes ver esta parte del video.');
 
         $ruta = dirname($manifiesto)."/{$archivo}";
         abort_unless($this->storage->existe($ruta), 404);
