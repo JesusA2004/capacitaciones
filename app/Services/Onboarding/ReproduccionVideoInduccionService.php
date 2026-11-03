@@ -96,6 +96,30 @@ class ReproduccionVideoInduccionService
         return round(min(100, ($this->segundosUnicosVistos($usuario, $avance) / $duracion) * 100), 2);
     }
 
+    /**
+     * Porcentaje del video ya visto según el último heartbeat del titular
+     * (progreso_contenido.video.porcentaje), 0–100. Lo usa el avance que ve
+     * RH: un video a medias ya cuenta como «viendo», no como «sin empezar».
+     */
+    public function porcentajeRegistrado(OnboardingAvance $avance): float
+    {
+        if ($this->videoCompletado($avance)) {
+            return 100.0;
+        }
+
+        $video = $this->video($avance);
+
+        return max(0.0, min(100.0, (float) ($video['porcentaje'] ?? 0)));
+    }
+
+    /** El titular ya reprodujo algo del video (aunque sea un tramo). */
+    public function videoIniciado(OnboardingAvance $avance): bool
+    {
+        $video = $this->video($avance);
+
+        return (int) ($video['segundo_max'] ?? 0) > 0 || (float) ($video['porcentaje'] ?? 0) > 0;
+    }
+
     public function videoCompletado(OnboardingAvance $avance): bool
     {
         $video = $this->video($avance);

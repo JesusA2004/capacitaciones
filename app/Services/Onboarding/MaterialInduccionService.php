@@ -178,21 +178,30 @@ class MaterialInduccionService
      * para reproducirse (el reproductor usa los endpoints de video). El video
      * se reproduce con ReproduccionVideoInduccionService, no con una URL suelta.
      *
-     * @return array{tipo: string|null, audio_url: string|null, video_disponible: bool}
+     * Mientras el video no está listo (en carga, en cola, procesando o con
+     * error) `video_disponible` es false y `video_estado`/`video_mensaje`
+     * (aditivos) dicen por qué, para que la app muestre «Se está preparando»
+     * en vez de intentar reproducir un manifiesto que aún no existe.
+     *
+     * @return array{tipo: string|null, audio_url: string|null, video_disponible: bool, video_estado: string|null, video_mensaje: string|null}
      */
     public function datosParaColaborador(OnboardingAvance $avance): array
     {
         $material = $this->materialActivoDeAvance($avance);
 
         if ($material === null) {
-            return ['tipo' => null, 'audio_url' => null, 'video_disponible' => false];
+            return ['tipo' => null, 'audio_url' => null, 'video_disponible' => false, 'video_estado' => null, 'video_mensaje' => null];
         }
 
         if ($material->tipo->bloqueaEvaluacion()) {
+            $listo = $this->videoListo($material->recurso);
+
             return [
                 'tipo' => $material->tipo->value,
                 'audio_url' => null,
-                'video_disponible' => $material->recurso?->estaDisponible() ?? false,
+                'video_disponible' => $listo,
+                'video_estado' => $listo ? 'listo' : 'preparando',
+                'video_mensaje' => $listo ? null : 'El video de la inducción se está preparando. Vuelve a intentarlo en unos minutos.',
             ];
         }
 
@@ -204,7 +213,19 @@ class MaterialInduccionService
                 ['avance' => $avance->id],
             ) : null,
             'video_disponible' => false,
+            'video_estado' => null,
+            'video_mensaje' => null,
         ];
+    }
+
+    /**
+     * El video se puede reproducir por HLS: ya se convirtió («disponible») y
+     * tiene manifiesto. Un video en carga, en cola, procesando, con error o
+     * «disponible» sin manifiesto NO está listo (el reproductor fallaría).
+     */
+    public function videoListo(?RecursoMultimedia $recurso): bool
+    {
+        return $recurso !== null && $recurso->estaDisponible() && $recurso->ruta_hls_manifiesto !== null;
     }
 
     /**

@@ -64,6 +64,8 @@ export type MiInduccion = {
         obligatorio: boolean;
         completado: boolean;
         disponible: boolean;
+        porcentaje: number;
+        iniciado: boolean;
     } | null;
     evaluacion: {
         id: number;

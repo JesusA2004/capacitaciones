@@ -87,12 +87,10 @@ class ProgresoInduccionService
         $material = $this->datosMaterial($avance, $incluye['material']);
         $estadoRh = $this->estadoRh($avance, $retirada, $evaluacion, $vistas, $contenidoVisto, $material);
 
-        return $this->conPasos([
+        $datos = $this->conPasos([
             ...$resumen,
             'estado_rh' => $estadoRh->value,
-            'estado_rh_etiqueta' => $estadoRh === EstadoAsignacionInduccion::Viendo && $total > 0
-                ? sprintf('Viendo · %d%%', (int) floor(min($vistas, $total) / $total * 100))
-                : $estadoRh->etiqueta(),
+            'estado_rh_etiqueta' => $estadoRh->etiqueta(),
             'es_reinduccion' => $proceso?->esReinduccion() ?? false,
             'asignacion' => $this->datosAsignacion($asignacion, $avance),
             'evaluacion' => $evaluacion !== null ? [
@@ -110,10 +108,18 @@ class ProgresoInduccionService
             'porcentaje' => $presentacionCompleta ? 100 : ($total > 0 ? (int) floor($vistas / $total * 100) : 0),
             'completada' => $presentacionCompleta,
         ], $material, $evaluacion?->estado, $evaluacion?->ultima_calificacion !== null ? (float) $evaluacion->ultima_calificacion : null, $contenidoVisto);
+
+        // «Viendo · N %»: el MISMO avance general de la tarjeta (hojas y video
+        // a medias cuentan), no solo las hojas de la presentación.
+        if ($estadoRh === EstadoAsignacionInduccion::Viendo) {
+            $datos['estado_rh_etiqueta'] = sprintf('Viendo · %d%%', $datos['porcentaje']);
+        }
+
+        return $datos;
     }
 
     /**
-     * @param  array{incluido: bool, tipo: string, tipo_etiqueta: string, obligatorio: bool, completado: bool, disponible: bool}|null  $material
+     * @param  array{incluido: bool, tipo: string, tipo_etiqueta: string, obligatorio: bool, completado: bool, disponible: bool, porcentaje: int, iniciado: bool}|null  $material
      */
     private function estadoRh(?OnboardingAvance $avance, bool $retirada, ?EvaluacionInduccion $evaluacion, int $vistas, bool $contenidoVisto, ?array $material): EstadoAsignacionInduccion
     {
@@ -131,13 +137,15 @@ class ProgresoInduccionService
             $evaluacion?->estado === EstadoEvaluacionInduccion::RequiereReforzamiento => EstadoAsignacionInduccion::Reforzamiento,
             $evaluacion !== null => EstadoAsignacionInduccion::EvaluacionPendiente,
             $contenidoVisto || ($material !== null && $material['incluido'] && $material['completado']) => EstadoAsignacionInduccion::MaterialVisto,
-            $vistas > 0 => EstadoAsignacionInduccion::Viendo,
+            // Empezó si vio hojas O reprodujo parte del video/audio (una
+            // reinducción de solo video no tiene hojas que contar).
+            $vistas > 0 || ($material !== null && $material['incluido'] && $material['iniciado']) => EstadoAsignacionInduccion::Viendo,
             default => EstadoAsignacionInduccion::Asignada,
         };
     }
 
     /**
-     * @return array{incluido: bool, tipo: string, tipo_etiqueta: string, obligatorio: bool, completado: bool, disponible: bool}|null
+     * @return array{incluido: bool, tipo: string, tipo_etiqueta: string, obligatorio: bool, completado: bool, disponible: bool, porcentaje: int, iniciado: bool}|null
      */
     private function datosMaterial(?OnboardingAvance $avance, bool $incluido): ?array
     {
@@ -149,15 +157,38 @@ class ProgresoInduccionService
         }
 
         $esVideo = $material->tipo->bloqueaEvaluacion();
+        $completado = $avance !== null && ($esVideo ? $this->video->videoCompletado($avance) : $avance->contenido_visto_en !== null);
+        $porcentaje = match (true) {
+            $avance === null => 0,
+            $completado => 100,
+            $esVideo => (int) floor($this->video->porcentajeRegistrado($avance)),
+            default => $this->porcentajeAudio($avance, $material->recurso?->duracion_segundos),
+        };
 
         return [
             'incluido' => $incluido,
             'tipo' => $material->tipo->value,
             'tipo_etiqueta' => $esVideo ? 'Video' : 'Audio',
             'obligatorio' => $incluido && $esVideo,
-            'completado' => $avance !== null && ($esVideo ? $this->video->videoCompletado($avance) : $avance->contenido_visto_en !== null),
-            'disponible' => $material->recurso?->estaDisponible() ?? false,
+            'completado' => $completado,
+            // Video: listo para reproducirse por HLS (no solo «disponible»).
+            'disponible' => $esVideo ? $this->materiales->videoListo($material->recurso) : ($material->recurso?->estaDisponible() ?? false),
+            'porcentaje' => $porcentaje,
+            'iniciado' => $porcentaje > 0 || ($avance !== null && $esVideo && $this->video->videoIniciado($avance)),
         ];
+    }
+
+    /** Lo escuchado de la narración (progreso_contenido.audio.max_posicion / duración), 0–100. */
+    private function porcentajeAudio(OnboardingAvance $avance, ?int $duracion): int
+    {
+        $audio = (array) (((array) ($avance->progreso_contenido ?? []))['audio'] ?? []);
+        $maximo = (int) ($audio['max_posicion'] ?? 0);
+
+        if ($duracion === null || $duracion < 1) {
+            return 0;
+        }
+
+        return (int) floor(min(100, $maximo / $duracion * 100));
     }
 
     /**
@@ -196,7 +227,7 @@ class ProgresoInduccionService
      *
      * @param  array<string, mixed>  $datos
      * @param  array{incluida: bool, total_paginas: int, paginas_vistas: int, porcentaje: int, completada: bool}  $presentacion
-     * @param  array{incluido: bool, tipo: string, tipo_etiqueta: string, obligatorio: bool, completado: bool, disponible: bool}|null  $material
+     * @param  array{incluido: bool, tipo: string, tipo_etiqueta: string, obligatorio: bool, completado: bool, disponible: bool, porcentaje: int, iniciado: bool}|null  $material
      * @return array<string, mixed>
      */
     private function conPasos(array $datos, array $presentacion, ?array $material, ?EstadoEvaluacionInduccion $estadoEval, ?float $calificacion, bool $contenidoVisto): array
@@ -223,6 +254,8 @@ class ProgresoInduccionService
                     $material === null => 'Sin material cargado',
                     ! $material['incluido'] => 'No asignado',
                     $material['completado'] || $contenidoVisto => $material['tipo'] === 'video' ? 'Video completo' : 'Escuchado',
+                    $material['tipo'] === 'video' && ! $material['disponible'] => 'El video se está preparando',
+                    $material['tipo'] === 'video' && $material['porcentaje'] > 0 => sprintf('%d %% visto · velo completo para desbloquear tu evaluación', $material['porcentaje']),
                     $material['tipo'] === 'video' => 'Velo completo para desbloquear tu evaluación',
                     default => 'Narración que acompaña las hojas',
                 },
@@ -275,13 +308,24 @@ class ProgresoInduccionService
             $resultado[] = ['clave' => $paso['clave'], 'titulo' => $paso['titulo'], 'detalle' => $paso['detalle'], 'estado' => $estado];
         }
 
+        // Avance general: cada paso no omitido vale lo mismo; la presentación
+        // y el video/audio suman su avance PARCIAL (hojas vistas, porcentaje
+        // del video), así una reinducción de solo video no se queda en 0 %
+        // mientras la persona lo está viendo.
+        $parcial = [
+            'presentacion' => $presentacion['porcentaje'] / 100,
+            'material' => $material !== null ? $material['porcentaje'] / 100 : 0,
+        ];
         $contables = array_values(array_filter($resultado, fn (array $p): bool => $p['estado'] !== 'omitido'));
-        $hechos = count(array_filter($contables, fn (array $p): bool => $p['estado'] === 'completado'));
+        $avance = array_sum(array_map(
+            fn (array $p): float => $p['estado'] === 'completado' ? 1.0 : (float) min(1, max(0, $parcial[$p['clave']] ?? 0)),
+            $contables,
+        ));
 
         return [
             ...$datos,
             'pasos' => $resultado,
-            'porcentaje' => (int) round($hechos / max(1, count($contables)) * 100),
+            'porcentaje' => (int) round($avance / max(1, count($contables)) * 100),
         ];
     }
 }

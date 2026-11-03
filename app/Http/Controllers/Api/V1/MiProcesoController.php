@@ -213,7 +213,7 @@ class MiProcesoController extends Controller
         $usuario = $request->user();
         $this->autorizarInduccion($usuario, $avance);
         $recurso = $this->videoInduccion->recurso($avance);
-        abort_unless($recurso !== null && $recurso->estaDisponible(), 422, 'El video de la inducción no está disponible todavía.');
+        abort_unless($this->materialInduccion->videoListo($recurso), 422, 'El video de la inducción se está preparando. Vuelve a intentarlo en unos minutos.');
 
         return response()->json(['data' => $this->videoInduccion->iniciarSesion($usuario, $avance)]);
     }

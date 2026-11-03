@@ -188,7 +188,7 @@ class InduccionReproduccionController extends Controller
     private function exigirVideo(OnboardingAvance $avance): void
     {
         $recurso = $this->reproduccion->recurso($avance);
-        abort_unless($recurso !== null && $recurso->estaDisponible(), 422, 'El video de la inducción no está disponible todavía.');
+        abort_unless($this->materiales->videoListo($recurso), 422, 'El video de la inducción se está preparando. Vuelve a intentarlo en unos minutos.');
     }
 
     /**
