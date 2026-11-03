@@ -315,18 +315,12 @@ const lista = computed(() => {
                     </p>
                 </div>
             </div>
-            <Button
-                size="sm"
-                :variant="tieneExpedienteNuevo ? 'outline' : 'default'"
-                class="shrink-0"
-                @click="abrir"
-            >
+            <!-- Botón claro y visible en todo expediente sin expediente
+                 ligado: la acción es la misma (buscar una carpeta libre del
+                 NAS y ligarla), tenga o no carpeta del sistema. -->
+            <Button size="sm" variant="default" class="shrink-0" @click="abrir">
                 <Link2 class="size-3.5" />
-                {{
-                    tieneExpedienteNuevo
-                        ? 'Ligar expediente histórico'
-                        : 'Ligar expediente de Synology'
-                }}
+                Ligar expediente de Synology
             </Button>
         </CardContent>
     </Card>
