@@ -30,6 +30,21 @@ use Illuminate\Support\Facades\Route;
 | en routes/rh.php. Cada controlador autoriza (Policy/permiso + alcance) y
 | delega al MISMO Service que la API v1.
 */
+
+/*
+| Manifiesto, variantes y segmentos HLS de la Inducción (y el audio): los
+| piden el portal web (sesión) Y la app móvil (token Bearer de Sanctum, que
+| `iniciar` del API v1 entrega con estas mismas URL firmadas). `auth:sanctum`
+| acepta ambos (primero la sesión `web`, luego el token). La firma caduca y
+| el controlador exige que la persona sea la titular del avance.
+*/
+Route::middleware(['auth:sanctum', 'signed'])->group(function () {
+    Route::get('mi-proceso/induccion/video/{avance}/manifiesto/master.m3u8', [InduccionReproduccionController::class, 'manifiestoMaestro'])->name('portal.induccion.video.manifiesto-maestro');
+    Route::get('mi-proceso/induccion/video/{avance}/manifiesto/{altura}.m3u8', [InduccionReproduccionController::class, 'variante'])->name('portal.induccion.video.variante');
+    Route::get('mi-proceso/induccion/video/{avance}/segmento/{altura}/{archivo}', [InduccionReproduccionController::class, 'segmento'])->name('portal.induccion.video.segmento');
+    Route::get('mi-proceso/induccion/audio/{avance}/stream', [InduccionReproduccionController::class, 'audio'])->name('portal.induccion.audio');
+});
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('can:modo-colaborador')->group(function () {
         Route::get('mi-proceso', [MiProcesoController::class, 'show'])->name('portal.mi-proceso');
@@ -62,13 +77,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('mi-proceso/induccion/video/{avance}/iniciar', [InduccionReproduccionController::class, 'videoIniciar'])->name('portal.induccion.video.iniciar');
         Route::post('mi-proceso/induccion/video/{avance}/heartbeat', [InduccionReproduccionController::class, 'videoHeartbeat'])->name('portal.induccion.video.heartbeat');
         Route::post('mi-proceso/induccion/audio/{avance}/progreso', [InduccionReproduccionController::class, 'audioProgreso'])->name('portal.induccion.audio-progreso');
-
-        Route::middleware('signed')->group(function () {
-            Route::get('mi-proceso/induccion/video/{avance}/manifiesto/master.m3u8', [InduccionReproduccionController::class, 'manifiestoMaestro'])->name('portal.induccion.video.manifiesto-maestro');
-            Route::get('mi-proceso/induccion/video/{avance}/manifiesto/{altura}.m3u8', [InduccionReproduccionController::class, 'variante'])->name('portal.induccion.video.variante');
-            Route::get('mi-proceso/induccion/video/{avance}/segmento/{altura}/{archivo}', [InduccionReproduccionController::class, 'segmento'])->name('portal.induccion.video.segmento');
-            Route::get('mi-proceso/induccion/audio/{avance}/stream', [InduccionReproduccionController::class, 'audio'])->name('portal.induccion.audio');
-        });
     });
 
     Route::prefix('rh')->name('rh.')->group(function () {

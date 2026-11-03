@@ -16,6 +16,7 @@ use App\Services\Onboarding\ProgresoInduccionService;
 use App\Services\Onboarding\ReproduccionVideoInduccionService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 
 /*
@@ -197,4 +198,43 @@ test('reinducción solo video: el avance de RH sube con el video a medias (no «
     $completo = $progreso->resumen($activo->refresh());
     expect($completo['estado_rh'])->toBe('material_visto')
         ->and($completo['porcentaje'])->toBe(33);
+});
+
+test('la app reproduce el video con su token: manifiesto y variante firmados aceptan Bearer de Sanctum', function () {
+    Storage::fake((string) config('media.disk'));
+    Storage::disk((string) config('media.disk'))->put('hls/demo/master.m3u8', "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=854x480\n480p.m3u8\n");
+    Storage::disk((string) config('media.disk'))->put('hls/demo/480p.m3u8', "#EXTM3U\n#EXT-X-TARGETDURATION:6\n#EXTINF:6.0,\nseg_000.ts\n#EXT-X-ENDLIST\n");
+
+    $recurso = RecursoMultimedia::factory()->create([
+        'tipo' => TipoRecursoMultimedia::Video,
+        'estado' => EstadoMultimedia::Disponible,
+        'duracion_segundos' => 120,
+        'ruta_hls_manifiesto' => 'hls/demo/master.m3u8',
+        'subido_por' => $this->rh->id,
+    ]);
+    app(MaterialInduccionService::class)->activar($this->modulo, $recurso, $this->rh);
+
+    // Token real (no sesión): así llega la app móvil.
+    $token = $this->usuario->createToken('app')->plainTextToken;
+    $cabeceras = ['Authorization' => 'Bearer '.$token, 'Accept' => 'application/json'];
+
+    $url = $this->withHeaders($cabeceras)->postJson('/api/v1/colaborador/induccion/video/'.$this->avance->id.'/iniciar')
+        ->assertOk()->json('data.url_manifiesto');
+    expect($url)->toContain('signature=');
+
+    $maestro = $this->withHeaders($cabeceras)->get($url);
+    $maestro->assertOk();
+    preg_match('/^https?:\S+$/m', $maestro->getContent(), $variante);
+    expect($variante)->not->toBeEmpty();
+
+    $this->withHeaders($cabeceras)->get($variante[0])->assertOk();
+
+    // El portal web (sesión, sin token) sigue reproduciendo.
+    $this->app['auth']->forgetGuards();
+    $this->actingAs($this->usuario, 'web')->withHeaders(['Authorization' => ''])->get($url)->assertOk();
+
+    // Sin token ni sesión, la URL firmada sola no basta.
+    auth()->guard('web')->logout();
+    $this->app['auth']->forgetGuards();
+    $this->withHeaders(['Authorization' => '', 'Accept' => 'application/json'])->get($url)->assertUnauthorized();
 });
