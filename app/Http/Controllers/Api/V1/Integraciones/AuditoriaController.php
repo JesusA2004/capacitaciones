@@ -4,9 +4,12 @@ namespace App\Http\Controllers\Api\V1\Integraciones;
 
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\AutenticarClienteIntegracion;
+use App\Http\Resources\Api\V1\Integraciones\ColaboradorActaAuditoriaResource;
 use App\Http\Resources\Api\V1\Integraciones\ColaboradorAuditoriaResource;
+use App\Http\Resources\Api\V1\Integraciones\SucursalActaAuditoriaResource;
 use App\Http\Resources\Api\V1\Integraciones\SucursalAuditoriaResource;
 use App\Services\Integraciones\Auditoria\ColaboradoresAuditoriaService;
+use App\Services\Integraciones\Auditoria\ContextoActaAuditoriaService;
 use App\Services\Integraciones\Auditoria\CursorAuditoria;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -14,17 +17,24 @@ use Illuminate\Http\Request;
 use Throwable;
 
 /**
- * API servidor-a-servidor para el sistema Auditoría (contrato
- * «people-auditoria/1»). Sólo lectura; independiente de la API móvil del
- * colaborador. Delgado: la consulta vive en ColaboradoresAuditoriaService.
+ * API servidor-a-servidor para el sistema Auditoría. Sólo lectura;
+ * independiente de la API móvil del colaborador. Delgado: las consultas viven
+ * en ColaboradoresAuditoriaService (contrato «people-auditoria/1», sin
+ * cambios) y ContextoActaAuditoriaService (contrato «people-auditoria/2»: sólo
+ * los dos recursos del acta). Ver docs/integraciones/AUDITORIA.md.
  */
 class AuditoriaController extends Controller
 {
     public const CONTRATO = 'people-auditoria/1';
 
+    public const CONTRATO_ACTA = 'people-auditoria/2';
+
     private const FORMATO_FECHA = '/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:?\d{2})?)?$/';
 
-    public function __construct(private readonly ColaboradoresAuditoriaService $servicio) {}
+    public function __construct(
+        private readonly ColaboradoresAuditoriaService $servicio,
+        private readonly ContextoActaAuditoriaService $contextoActa,
+    ) {}
 
     public function catalogo(Request $request): JsonResponse
     {
@@ -32,6 +42,8 @@ class AuditoriaController extends Controller
 
         return response()->json([
             'contrato' => self::CONTRATO,
+            // Aditivo: un cliente v1 lo ignora; uno v2 sabe que existe el acta.
+            'contratos' => [self::CONTRATO, self::CONTRATO_ACTA],
             'generado_en' => now()->toIso8601String(),
             'capacidades' => ['colaboradores', 'delta_updated_since', 'sucursales'],
             'empresas' => $this->servicio->empresas($cliente),
@@ -109,6 +121,48 @@ class AuditoriaController extends Controller
         return response()->json([
             'data' => SucursalAuditoriaResource::collection($this->servicio->sucursales($cliente, $empresaId))->resolve($request),
         ]);
+    }
+
+    /**
+     * Contexto del acta de una sucursal (contrato «people-auditoria/2»):
+     * domicilio y responsable. Otra empresa = no existe.
+     */
+    public function sucursalActa(Request $request, string $sucursal): JsonResponse
+    {
+        $cliente = AutenticarClienteIntegracion::cliente($request);
+        $fila = preg_match('/^\d{1,18}$/', $sucursal) === 1 ? $this->contextoActa->sucursal($cliente, (int) $sucursal) : null;
+
+        if ($fila === null) {
+            return $this->error('La sucursal no existe o no está disponible para este cliente.', 'no_encontrado', 404);
+        }
+
+        return $this->respuestaActa((new SucursalActaAuditoriaResource($fila))->resolve($request));
+    }
+
+    /**
+     * Contexto del acta de un colaborador (contrato «people-auditoria/2»):
+     * fecha de nacimiento, domicilio, identificación registrada y gerente.
+     */
+    public function colaboradorActa(Request $request, string $colaborador): JsonResponse
+    {
+        $cliente = AutenticarClienteIntegracion::cliente($request);
+        $fila = preg_match('/^\d{1,18}$/', $colaborador) === 1 ? $this->contextoActa->colaborador($cliente, (int) $colaborador) : null;
+
+        if ($fila === null) {
+            return $this->error('El colaborador no existe o no está disponible para este cliente.', 'no_encontrado', 404);
+        }
+
+        return $this->respuestaActa((new ColaboradorActaAuditoriaResource($fila))->resolve($request));
+    }
+
+    /**
+     * @param  array<string, mixed>  $datos
+     */
+    private function respuestaActa(array $datos): JsonResponse
+    {
+        // Datos personales: ningún intermediario los guarda.
+        return response()->json(['contrato' => self::CONTRATO_ACTA, 'generado_en' => now()->toIso8601String(), 'data' => $datos])
+            ->header('Cache-Control', 'no-store, private');
     }
 
     /**

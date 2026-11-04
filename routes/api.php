@@ -120,8 +120,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::post('registrar', [IncorporacionInvitacionController::class, 'registrar'])->name('registrar');
         });
 
-    // API servidor-a-servidor del sistema Auditoría (contrato
-    // «people-auditoria/1»): token de ClienteIntegracion, NO Sanctum ni
+    // API servidor-a-servidor del sistema Auditoría (contratos
+    // «people-auditoria/1» y «/2»): token de ClienteIntegracion, NO Sanctum ni
     // cuentas de colaborador (un token de la app móvil da 401 aquí).
     // Autenticación antes del límite, que se lleva por cliente.
     Route::prefix('auditoria')->name('auditoria.')
@@ -131,6 +131,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('colaboradores', [IntegracionAuditoriaController::class, 'colaboradores'])->name('colaboradores.index');
             Route::get('colaboradores/{colaborador}', [IntegracionAuditoriaController::class, 'colaborador'])->name('colaboradores.show');
             Route::get('sucursales', [IntegracionAuditoriaController::class, 'sucursales'])->name('sucursales.index');
+            // «people-auditoria/2»: sólo el contexto del acta (docs/integraciones/AUDITORIA.md).
+            Route::get('colaboradores/{colaborador}/acta', [IntegracionAuditoriaController::class, 'colaboradorActa'])->name('colaboradores.acta');
+            Route::get('sucursales/{sucursal}/acta', [IntegracionAuditoriaController::class, 'sucursalActa'])->name('sucursales.acta');
         });
 
     // contrasena.temporal: con contraseña temporal solo responden logout, me
