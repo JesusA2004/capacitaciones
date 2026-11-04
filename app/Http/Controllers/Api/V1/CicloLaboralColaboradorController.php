@@ -215,7 +215,7 @@ class CicloLaboralColaboradorController extends Controller
 
     public function jerarquia(Request $request): JsonResponse
     {
-        return response()->json(['data' => $this->jerarquia->jerarquia($this->colaborador($request))]);
+        return response()->json(['data' => $this->jerarquia->jerarquia($this->colaborador($request), $request->user())]);
     }
 
     public function alta(Request $request): JsonResponse

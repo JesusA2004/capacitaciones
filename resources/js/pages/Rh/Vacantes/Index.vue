@@ -313,8 +313,16 @@ const TONO_ESTADO: Record<string, string> = {
             v-if="vacantes.length === 0"
             data-tour="vacantes-lista"
             :icono="Briefcase"
-            titulo="No hay vacantes con estos filtros"
-            descripcion="Las vacantes se abren solas cuando una sucursal tiene menos personas que su plantilla autorizada."
+            :titulo="
+                activos > 0 || filtros.busqueda
+                    ? 'No hay vacantes con estos filtros'
+                    : 'Aún no hay vacantes registradas'
+            "
+            :descripcion="
+                activos > 0 || filtros.busqueda
+                    ? 'Prueba con otros filtros o límpialos para ver todas las vacantes.'
+                    : 'Las vacantes se abren solas cuando una sucursal tiene menos personas que su plantilla autorizada.'
+            "
         />
 
         <!-- Una fila por vacante: puesto primero (es lo que se busca cubrir). -->

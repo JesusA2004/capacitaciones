@@ -7,6 +7,7 @@ use App\Enums\SubtipoRiesgoTrabajo;
 use App\Enums\TipoIncapacidad;
 use App\Models\Colaborador;
 use App\Models\Incapacidad;
+use App\Support\FechaMexico;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -36,7 +37,7 @@ class RegistrarIncapacidadRequest extends FormRequest
             'dias' => ['required', 'integer', 'min:1', 'max:'.(int) config('incapacidades.dias_maximos', 365)],
             'fecha_evento' => ['nullable', 'date'],
             'descripcion_evento' => ['nullable', 'string', 'max:2000'],
-            'fecha_st7' => ['nullable', 'date', 'before_or_equal:today'],
+            'fecha_st7' => ['nullable', 'date', 'before_or_equal:'.FechaMexico::hoy()],
             'observaciones' => ['nullable', 'string', 'max:2000'],
             'certificado' => ['required', ...$archivo],
             'st7' => ['nullable', ...$archivo],

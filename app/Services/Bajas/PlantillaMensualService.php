@@ -5,6 +5,7 @@ namespace App\Services\Bajas;
 use App\Enums\EstadoUsuario;
 use App\Models\Colaborador;
 use App\Models\PlantillaMensual;
+use App\Support\FechaMexico;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -75,7 +76,7 @@ class PlantillaMensualService
             ->get(['id', 'sucursal_principal_id', 'fecha_ingreso', 'fecha_baja', 'estatus']);
         $sinIngreso = $personas->whereNull('fecha_ingreso')->count();
         $conIngreso = $personas->whereNotNull('fecha_ingreso')->values();
-        $hoy = CarbonImmutable::today();
+        $hoy = FechaMexico::inicioDeHoyInmutable();
         $meses = 0;
         $filas = 0;
 

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Loader2, Search, UserRound, X } from '@lucide/vue';
+import { Loader2, Search, X } from '@lucide/vue';
 import { onClickOutside, useDebounceFn } from '@vueuse/core';
 import { nextTick, ref, useId, useTemplateRef, watch } from 'vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import { colaboradores } from '@/routes/rh/documentos-maestros';
 import type { ColaboradorBusqueda } from '@/types';
 
@@ -180,11 +181,12 @@ function idOpcion(i: number): string {
             v-if="modelo"
             class="flex items-center gap-3 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] px-3 py-2"
         >
-            <span
-                class="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
-            >
-                <UserRound class="size-4" />
-            </span>
+            <!-- Foto oficial si el buscador la manda (foto_url); si no, iniciales. -->
+            <ColaboradorAvatar
+                :nombre="modelo.nombre"
+                :foto-url="modelo.foto_url"
+                tamano="sm"
+            />
             <div class="min-w-0 flex-1">
                 <p class="truncate text-sm font-medium">{{ modelo.nombre }}</p>
                 <p class="truncate text-xs text-[var(--mrl-texto-suave)]">

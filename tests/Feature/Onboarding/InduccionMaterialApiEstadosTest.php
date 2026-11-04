@@ -6,10 +6,12 @@ use App\Enums\TipoModuloOnboarding;
 use App\Enums\TipoRecursoMultimedia;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
+use App\Models\OnboardingAvance;
 use App\Models\OnboardingModulo;
 use App\Models\RecursoMultimedia;
 use App\Models\User;
 use App\Services\Onboarding\AccesoInduccionColaboradorService;
+use App\Services\Onboarding\InduccionPdfService;
 use App\Services\Onboarding\MaterialInduccionService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Onboarding\ProgresoInduccionService;
@@ -56,6 +58,13 @@ beforeEach(function () {
     $this->avance = $proceso->avances()->firstOrFail();
 });
 
+/** Orden obligatorio: el video abre al terminar la presentación (todas las hojas vistas). */
+function iaePresentacionCompleta(OnboardingAvance $avance): void
+{
+    $total = app(InduccionPdfService::class)->totalPaginas();
+    $avance->update(['progreso_contenido' => [...(array) ($avance->progreso_contenido ?? []), 'paginas_vistas' => $total > 0 ? range(1, $total) : []]]);
+}
+
 dataset('estados del video', [
     'cargando' => [EstadoMultimedia::Cargando, null, null],
     'pendiente (solo original)' => [EstadoMultimedia::Pendiente, null, null],
@@ -92,8 +101,9 @@ test('la API de inducción responde 200 con forma estable en cualquier estado de
         ->assertJsonPath('data.tipo', 'video')
         ->assertJsonPath('data.video_disponible', $estado === EstadoMultimedia::Disponible && $manifiesto !== null);
 
+    // 423: orden obligatorio (presentación sin terminar → el video aún no abre).
     $iniciar = $this->postJson('/api/v1/colaborador/induccion/video/'.$this->avance->id.'/iniciar');
-    expect($iniciar->status())->toBeIn([200, 422]);
+    expect($iniciar->status())->toBeIn([200, 422, 423]);
 })->with('estados del video');
 
 test('reinducción SOLO con video: la app abre la inducción sin error', function (EstadoMultimedia $estado, ?string $manifiesto, ?int $duracion) {
@@ -144,6 +154,7 @@ test('material: mientras el video no está listo la API dice «preparando» y no
     $this->postJson('/api/v1/colaborador/induccion/video/'.$this->avance->id.'/iniciar')->assertStatus(422);
 
     $recurso->update(['ruta_hls_manifiesto' => 'hls/demo/master.m3u8', 'duracion_segundos' => 100]);
+    iaePresentacionCompleta($this->avance);
     $this->getJson('/api/v1/colaborador/induccion/material/'.$this->avance->id)->assertOk()
         ->assertJsonPath('data.video_disponible', true)
         ->assertJsonPath('data.video_estado', 'listo');
@@ -213,6 +224,7 @@ test('la app reproduce el video con su token: manifiesto y variante firmados ace
         'subido_por' => $this->rh->id,
     ]);
     app(MaterialInduccionService::class)->activar($this->modulo, $recurso, $this->rh);
+    iaePresentacionCompleta($this->avance);
 
     // Token real (no sesión): así llega la app móvil.
     $token = $this->usuario->createToken('app')->plainTextToken;

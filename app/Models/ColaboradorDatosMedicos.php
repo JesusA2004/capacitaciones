@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property int $colaborador_id
  * @property string|null $condicion_medica
  * @property string|null $alergias
+ * @property string|null $tipo_sanguineo Valor de App\Enums\TipoSanguineo (cifrado; «desconocido» = no lo sabe).
  * @property string|null $fuente
  * @property int|null $actualizado_por
  */
@@ -21,13 +22,13 @@ class ColaboradorDatosMedicos extends Model
 {
     protected $table = 'colaborador_datos_medicos';
 
-    protected $fillable = ['colaborador_id', 'condicion_medica', 'alergias', 'fuente', 'actualizado_por'];
+    protected $fillable = ['colaborador_id', 'condicion_medica', 'alergias', 'tipo_sanguineo', 'fuente', 'actualizado_por'];
 
-    protected $hidden = ['condicion_medica', 'alergias'];
+    protected $hidden = ['condicion_medica', 'alergias', 'tipo_sanguineo'];
 
     protected function casts(): array
     {
-        return ['condicion_medica' => 'encrypted', 'alergias' => 'encrypted'];
+        return ['condicion_medica' => 'encrypted', 'alergias' => 'encrypted', 'tipo_sanguineo' => 'encrypted'];
     }
 
     /**

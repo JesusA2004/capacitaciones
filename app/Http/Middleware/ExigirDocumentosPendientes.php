@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Services\Expedientes\BloqueoDocumentosService;
+use App\Services\Mobile\MobileBootstrapService;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -13,6 +14,10 @@ use Symfony\Component\HttpFoundation\Response;
  * plazo, la API solo responde lo necesario para subirlos (sesión, perfil,
  * expediente, incorporación documental, carta compromiso…) y lo demás da
  * 403 «documentos_pendientes». Se levanta solo al subir el último.
+ *
+ * Quien tiene Gestión RH (MobileBootstrapService::tieneGestionOperativa)
+ * solo queda bloqueado en su autoservicio
+ * (ExigirExpedienteCompleto::AUTOSERVICIO); la operación sigue abierta.
  *
  * Compatibilidad: solo se exige a la app que declara entender este bloqueo
  * (cabecera X-People-Documentos). Las APKs ya instaladas no la mandan y no
@@ -60,6 +65,14 @@ class ExigirDocumentosPendientes
         $estado = $this->bloqueo->estado($usuario);
 
         if (! $estado['activo']) {
+            return $next($request);
+        }
+
+        // El bloqueo es del AUTOSERVICIO propio: un gerente/regional/RH con su
+        // expediente incompleto sigue operando (rh.*, equipo, aprobaciones,
+        // tareas, agenda, evaluaciones…). Misma lista que ExigirExpedienteCompleto.
+        if (! $request->routeIs(...ExigirExpedienteCompleto::AUTOSERVICIO)
+            && app(MobileBootstrapService::class)->tieneGestionOperativa($usuario)) {
             return $next($request);
         }
 

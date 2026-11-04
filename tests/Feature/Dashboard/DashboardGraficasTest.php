@@ -35,16 +35,11 @@ test('el inicio operativo trae solo el tablero de RH con sus secciones', functio
     });
 });
 
-test('el inicio del colaborador solo incluye su subconjunto personal, sin el tablero', function () {
+test('el inicio del colaborador es su portal, nunca el tablero', function () {
     $colaborador = User::factory()->create();
     $colaborador->assignRole('colaborador');
 
-    $this->actingAs($colaborador)->get(route('dashboard'))->assertOk()->assertInertia(function ($page) {
-        $props = $page->toArray()['props'];
-
-        expect($props)->toHaveKeys(['miExpediente', 'misDocumentosPendientes', 'misVacaciones', 'misSolicitudes', 'avisosPendientes'])
-            ->and($props)->not->toHaveKey('tablero');
-    });
+    $this->actingAs($colaborador)->get(route('dashboard'))->assertRedirect(route('portal.index'));
 });
 
 test('el tablero de un gerente solo ofrece y cuenta su propia sucursal', function () {

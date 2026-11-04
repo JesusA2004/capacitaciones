@@ -8,10 +8,12 @@ use App\Models\SolicitudInterna;
 use App\Models\User;
 use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Navigation\NavigationService;
 use App\Services\Organigrama\AutoridadJerarquicaService;
 use App\Services\Permisos\AlcanceModuloService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
 use Illuminate\Auth\Access\Response;
+use Illuminate\Support\Facades\Gate;
 
 /**
  * No usa los verbos CRUD por defecto de Laravel: cada método representa una
@@ -30,6 +32,10 @@ use Illuminate\Auth\Access\Response;
 class SolicitudInternaPolicy
 {
     use ConSuperAdminOperativo;
+
+    public const MENSAJE_SIN_COLABORADOR = 'Tu cuenta no está vinculada a un expediente de colaborador, por eso no puedes crear solicitudes propias. Pide a Recursos Humanos que vincule tu cuenta.';
+
+    public const MENSAJE_SIN_MODO_COLABORADOR = 'Tu cuenta no tiene acceso a «Mi espacio» (colaborador activo), por eso no puedes crear solicitudes propias. Consulta con Recursos Humanos.';
 
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
@@ -71,9 +77,26 @@ class SolicitudInternaPolicy
         return $usuario->can('rh.solicitudes.detalle') && $this->alcanzaAutor($usuario, $solicitud);
     }
 
-    public function create(User $usuario): bool
+    /**
+     * Solicitudes PROPIAS de autoservicio (vacaciones, permisos, préstamo,
+     * completar mis datos): toda persona con colaborador vinculado que entra
+     * a «Mi espacio» (Gate `modo-colaborador`) puede pedirlas, sin importar su
+     * rol operativo — un gerente o un regional también es trabajador con
+     * derecho a vacaciones. `solicitudes.crear` se sigue aceptando (roles que
+     * ya lo tenían). La baja de colaborador NO pasa por aquí: tiene su propio
+     * permiso (`solicitudes.bajas.crear`, crearBaja()).
+     */
+    public function create(User $usuario): bool|Response
     {
-        return $usuario->can('solicitudes.crear');
+        if ($usuario->colaborador_id === null) {
+            return Response::deny(self::MENSAJE_SIN_COLABORADOR);
+        }
+
+        if ($usuario->can('solicitudes.crear') || Gate::forUser($usuario)->allows(NavigationService::GATE_MODO_COLABORADOR)) {
+            return true;
+        }
+
+        return Response::deny(self::MENSAJE_SIN_MODO_COLABORADOR);
     }
 
     public function cancelar(User $usuario, SolicitudInterna $solicitud): bool
@@ -158,9 +181,8 @@ class SolicitudInternaPolicy
 
     /**
      * Crear una solicitud de baja de colaborador: permiso dedicado, no
-     * `solicitudes.crear` genérico — un gerente puede solicitar la baja de
-     * su equipo sin necesariamente poder crear otros tipos de solicitud
-     * sobre sí mismo. (Aprobarla ya no es una acción de la bandeja: la baja
+     * `solicitudes.crear` genérico ni el autoservicio de create(): pedir la
+     * baja de alguien de su equipo es una acción operativa. (Aprobarla ya no es una acción de la bandeja: la baja
      * se ejecuta en el Cierre laboral, ver CierreLaboralPolicy.)
      */
     public function crearBaja(User $usuario, Colaborador $colaboradorObjetivo): bool

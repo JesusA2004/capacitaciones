@@ -23,6 +23,7 @@ use App\Services\Rotacion\RotacionAnalisisService;
 use App\Services\Rotacion\RotacionExportService;
 use App\Services\Rotacion\RotacionMetaService;
 use App\Services\Rotacion\RotacionMotorService;
+use App\Support\FechaMexico;
 use App\Support\Paginacion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -129,7 +130,7 @@ class TableroRotacionController extends Controller
     {
         $datos = $request->validate([
             'id' => ['required', 'integer'],
-            'fecha_ingreso' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'fecha_ingreso' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.FechaMexico::hoy()],
             'comentario' => ['required', 'string', 'min:5', 'max:1000'],
         ], ['fecha_ingreso.required' => 'Indica la fecha de ingreso.', 'comentario.required' => 'Escribe de dónde sale el dato: queda en la bitácora.']);
 

@@ -47,11 +47,11 @@ class ReingresoController extends Controller
         }
 
         $listado = $this->reingresos->listar($usuario, $request->only(['estado', 'per_page']))->withQueryString();
-        $listado->getCollection()->transform(fn (Reingreso $r) => $this->reingresos->aArray($r, $usuario));
+        $listado->getCollection()->transform(fn (Reingreso $r) => $this->reingresos->filaWeb($r, $usuario));
 
         return Inertia::render('Rh/Reingresos/Index', [
             'busqueda' => $busqueda,
-            'resultados' => $this->reingresos->buscar($busqueda, $usuario),
+            'resultados' => $this->reingresos->buscarWeb($busqueda, $usuario),
             'historial' => $historial,
             'reingresos' => $listado,
             'opciones' => [

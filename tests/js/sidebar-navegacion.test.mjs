@@ -82,6 +82,7 @@ const ESPERADO = [
             'Solicitudes',
             'Incapacidades',
             'Actas administrativas',
+            'Recepción documental',
             'Recibo simple de pago',
             'Importar salarios y vacaciones',
             'Contactos de emergencia',

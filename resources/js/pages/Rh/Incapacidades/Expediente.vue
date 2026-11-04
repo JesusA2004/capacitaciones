@@ -10,6 +10,7 @@ import {
     Upload,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
 import SiguientePasoPanel from '@/components/flujos/SiguientePaso.vue';
@@ -48,6 +49,8 @@ const props = defineProps<{
         nombre: string;
         puesto: string | null;
         sucursal: string | null;
+        /** Foto oficial del expediente (URL protegida); null → iniciales. */
+        foto_url: string | null;
     };
     cadenas: CadenaIncapacidad[];
     impacto: {
@@ -271,12 +274,21 @@ function enviarCancelacion() {
     <div class="pagina-ancha flex flex-col gap-4">
         <SiguientePasoPanel compacto :paso="siguientePaso" />
         <div class="flex flex-wrap items-center justify-between gap-2">
-            <div>
-                <h1 class="text-lg font-semibold">{{ colaborador.nombre }}</h1>
-                <p class="text-sm text-muted-foreground">
-                    {{ colaborador.puesto ?? 'Sin puesto' }} ·
-                    {{ colaborador.sucursal ?? 'Sin sucursal' }}
-                </p>
+            <div class="flex min-w-0 items-center gap-3">
+                <ColaboradorAvatar
+                    :nombre="colaborador.nombre"
+                    :foto-url="colaborador.foto_url"
+                    tamano="md"
+                />
+                <div class="min-w-0">
+                    <h1 class="text-lg font-semibold">
+                        {{ colaborador.nombre }}
+                    </h1>
+                    <p class="text-sm text-muted-foreground">
+                        {{ colaborador.puesto ?? 'Sin puesto' }} ·
+                        {{ colaborador.sucursal ?? 'Sin sucursal' }}
+                    </p>
+                </div>
             </div>
             <Button
                 v-if="pdfRaizId !== null"

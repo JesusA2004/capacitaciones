@@ -19,6 +19,7 @@ import {
 import { computed, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import Casilla from '@/components/Common/Casilla.vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import MetricCard from '@/components/Common/MetricCard.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
@@ -92,6 +93,8 @@ type Recibo = {
         sucursal: string | null;
         puesto: string | null;
         expediente_url?: string | null;
+        /** Foto oficial del expediente (URL protegida); null → iniciales. */
+        foto_url?: string | null;
     };
 };
 
@@ -690,31 +693,49 @@ const opcionesTipo = [
                                 />
                             </td>
                             <td class="p-3">
-                                <p class="font-medium">
-                                    <Link
-                                        v-if="recibo.colaborador.expediente_url"
-                                        :href="
-                                            recibo.colaborador.expediente_url
-                                        "
-                                        class="hover:underline"
-                                        >{{ recibo.colaborador.nombre }}</Link
-                                    >
-                                    <template v-else>{{
-                                        recibo.colaborador.nombre
-                                    }}</template>
-                                </p>
-                                <p class="text-xs text-muted-foreground">
-                                    {{
-                                        [
-                                            recibo.colaborador.numero_empleado
-                                                ? `N.º ${recibo.colaborador.numero_empleado}`
-                                                : null,
-                                            recibo.colaborador.puesto,
-                                        ]
-                                            .filter(Boolean)
-                                            .join(' · ')
-                                    }}
-                                </p>
+                                <div class="flex items-center gap-2.5">
+                                    <ColaboradorAvatar
+                                        :nombre="recibo.colaborador.nombre"
+                                        :foto-url="recibo.colaborador.foto_url"
+                                        tamano="sm"
+                                    />
+                                    <div class="min-w-0">
+                                        <p class="font-medium">
+                                            <Link
+                                                v-if="
+                                                    recibo.colaborador
+                                                        .expediente_url
+                                                "
+                                                :href="
+                                                    recibo.colaborador
+                                                        .expediente_url
+                                                "
+                                                class="hover:underline"
+                                                >{{
+                                                    recibo.colaborador.nombre
+                                                }}</Link
+                                            >
+                                            <template v-else>{{
+                                                recibo.colaborador.nombre
+                                            }}</template>
+                                        </p>
+                                        <p
+                                            class="text-xs text-muted-foreground"
+                                        >
+                                            {{
+                                                [
+                                                    recibo.colaborador
+                                                        .numero_empleado
+                                                        ? `N.º ${recibo.colaborador.numero_empleado}`
+                                                        : null,
+                                                    recibo.colaborador.puesto,
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(' · ')
+                                            }}
+                                        </p>
+                                    </div>
+                                </div>
                             </td>
                             <td class="p-3">
                                 {{ recibo.colaborador.sucursal ?? '—' }}

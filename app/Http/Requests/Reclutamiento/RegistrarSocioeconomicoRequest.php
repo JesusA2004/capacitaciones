@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Reclutamiento;
 
+use App\Support\FechaMexico;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -33,7 +34,7 @@ class RegistrarSocioeconomicoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'fecha_visita' => ['required', 'date', 'before_or_equal:today'],
+            'fecha_visita' => ['required', 'date', 'before_or_equal:'.FechaMexico::hoy()],
             'direccion' => ['required', 'string', 'max:500'],
             'checklist' => ['nullable', 'array'],
             'checklist.vivienda_en_orden' => ['nullable', 'boolean'],

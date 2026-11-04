@@ -4,10 +4,17 @@ namespace App\Policies;
 
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\CicloLaboral\OrganizacionJerarquiaService;
+use App\Services\Organigrama\AutoridadJerarquicaService;
+use Illuminate\Auth\Access\Response;
 
 class UserPolicy
 {
-    public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
+    public function __construct(
+        private readonly AlcanceOrganizacionalService $alcance,
+        private readonly AutoridadJerarquicaService $autoridad,
+        private readonly OrganizacionJerarquiaService $jerarquia,
+    ) {}
 
     public function viewAny(User $usuario): bool
     {
@@ -59,11 +66,43 @@ class UserPolicy
      * (usuarios.restablecer_password); por defecto lo tiene quien tenía
      * usuarios.editar (config/permisos_modulos.php → herencia).
      */
-    public function restablecerPassword(User $usuario, User $objetivo): bool
+    public function restablecerPassword(User $usuario, User $objetivo): Response
     {
-        return $usuario->can('usuarios.ver') && $usuario->can('usuarios.restablecer_password')
-            && ! $usuario->is($objetivo)
-            && $this->alcance->puedeVerUsuario($usuario, $objetivo);
+        if (! $usuario->can('usuarios.ver') || ! $usuario->can('usuarios.restablecer_password') || $usuario->is($objetivo)) {
+            return Response::deny('No tienes permiso para restablecer contraseñas. Pide a RH que lo haga.');
+        }
+
+        if (! $this->alcance->puedeVerUsuario($usuario, $objetivo)) {
+            return Response::deny('Esta persona está fuera de tu alcance.');
+        }
+
+        // Administración de cuentas (RH, Sistemas, super admin: quien puede
+        // revocar accesos): toda cuenta de su alcance.
+        if ($usuario->can('usuarios.desactivar')) {
+            return Response::allow();
+        }
+
+        // Gerencias (2026-11-04, antisuplantación): solo a SU gente —quien
+        // está bajo su mando en la línea comercial o en su cadena de mando—,
+        // nunca a pares, superiores, RH ni a otra cuenta que administre a
+        // otras personas. Siempre auditado y con aviso al titular.
+        $colaborador = $objetivo->colaborador;
+        $actor = $usuario->colaborador;
+
+        $bajoSuMando = $colaborador !== null && (
+            $this->autoridad->tieneAutoridadSobre($usuario, $colaborador)
+            || ($actor !== null && $this->jerarquia->estaEnCadenaDeMando($actor, $colaborador))
+        );
+
+        if (! $bajoSuMando) {
+            return Response::deny('Solo puedes restablecer la contraseña de colaboradores bajo tu mando. Para cualquier otra cuenta, pide a RH.');
+        }
+
+        if ($objetivo->can('usuarios.restablecer_password') || $objetivo->can('usuarios.desactivar')) {
+            return Response::deny('Esa cuenta administra a otras personas: solo RH puede restablecer su contraseña.');
+        }
+
+        return Response::allow();
     }
 
     /**

@@ -99,10 +99,17 @@ test('RH no aprueba la entrevista de un Gestor: le corresponde al Gerente de Suc
 
 test('los roles sembrados conservan los pasos que cubrían los permisos generales', function () {
     $gerente = Role::findByName('gerente_sucursal');
+    $reclutamiento = Role::findByName('rh_auxiliar');
     $rh = Role::findByName('rh_admin');
 
+    // El gerente solo aprueba la entrevista (2026-10-22/26); los demás pasos
+    // que antes cubría candidatos.evaluar los atiende Reclutamiento/RH.
     foreach (CandidatoWorkflowService::PERMISOS_PASOS_GERENTE as $permiso) {
-        expect($gerente->hasPermissionTo($permiso))->toBeTrue();
+        expect($gerente->hasPermissionTo($permiso))->toBe($permiso === CandidatoWorkflowService::PERMISO_ENTREVISTA);
+
+        if ($permiso !== CandidatoWorkflowService::PERMISO_ENTREVISTA) {
+            expect($reclutamiento->hasPermissionTo($permiso))->toBeTrue();
+        }
     }
 
     foreach (CandidatoWorkflowService::PERMISOS_PASOS as $permiso) {
@@ -110,7 +117,7 @@ test('los roles sembrados conservan los pasos que cubrían los permisos generale
     }
 
     expect($gerente->hasPermissionTo('candidatos.revisar_perfil'))->toBeFalse()
-        ->and($gerente->hasPermissionTo('candidatos.cerrar_proceso'))->toBeTrue();
+        ->and($gerente->hasPermissionTo('candidatos.cerrar_proceso'))->toBeFalse();
 });
 
 test('el socioeconómico guarda el tiempo en la vivienda en años y meses', function () {

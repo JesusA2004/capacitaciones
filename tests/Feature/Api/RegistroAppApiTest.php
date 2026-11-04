@@ -185,7 +185,10 @@ test('no se puede finalizar sin datos ni documentos; completo, entra a la app', 
         ->assertOk()
         ->assertJsonPath('data.datos.completo', true)
         ->assertJsonPath('data.documentos.completo', false)
-        ->assertJsonPath('data.puede_finalizar', true);
+        // Los documentos se podrían marcar «No tengo este documento», pero
+        // la fotografía para expediente no: sin ella no se puede finalizar.
+        ->assertJsonPath('data.foto.completo', false)
+        ->assertJsonPath('data.puede_finalizar', false);
     test()->withHeaders($headers)->postJson('/api/v1/colaborador/registro/finalizar')
         ->assertUnprocessable()
         ->assertJsonValidationErrors('registro');
@@ -194,6 +197,21 @@ test('no se puede finalizar sin datos ni documentos; completo, entra a la app', 
         ->post("/api/v1/colaborador/incorporacion/documentos/{$tipo->id}/subir", [
             'archivo' => UploadedFile::fake()->create('ine.pdf', 200, 'application/pdf'),
         ])->assertOk();
+
+    // Sin «Fotografía para expediente» el servicio no cierra el registro.
+    test()->withHeaders($headers)->getJson('/api/v1/colaborador/registro')
+        ->assertJsonPath('data.foto.completo', false)
+        ->assertJsonPath('data.puede_finalizar', false);
+    test()->withHeaders($headers)->postJson('/api/v1/colaborador/registro/finalizar')
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['foto' => 'Agrega tu fotografía para expediente.']);
+
+    test()->withHeaders($headers)->post('/api/v1/colaborador/foto', ['foto' => UploadedFile::fake()->image('yo.jpg', 600, 800)], ['Accept' => 'application/json'])
+        ->assertOk()
+        ->assertJsonPath('resultado', 'oficial');
+    test()->withHeaders($headers)->getJson('/api/v1/colaborador/registro')
+        ->assertJsonPath('data.foto.completo', true)
+        ->assertJsonPath('data.puede_finalizar', true);
 
     test()->withHeaders($headers)->postJson('/api/v1/colaborador/registro/finalizar')
         ->assertOk()

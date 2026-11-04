@@ -29,6 +29,17 @@ Activa la identidad y navegación de Portal RH (fase actual, ver `docs/PORTAL_RH
 - No se le envía aviso/push al emitir.
 - RH (`nomina.recibos.ver`, `documentos_laborales.ver`) los sigue viendo y descargando igual.
 
+## `bloqueo_expediente_incompleto`
+
+`BLOQUEO_EXPEDIENTE_INCOMPLETO` (por defecto `true`). «Modo completar expediente» de la app. La regla vive en `App\Services\Expedientes\ExpedienteIncompletoService::estado()`:
+
+- **Bloquea** si al colaborador le faltan datos personales requeridos (`DatosFaltantesService::PERSONALES`; si ya los envió y RH los revisa, no), documentos requeridos que él sube (`DocumentosPendientesService`) sin subir/vencidos (salvo carta compromiso vigente) o documentos **rechazados** / con corrección pedida.
+- **No bloquea** por documentos ya subidos en revisión de RH, ni a `super_admin`, ni mientras su registro por QR siga abierto, ni con la bandera en `false`.
+- Middleware `expediente.completo` (`ExigirExpedienteCompleto`): solo en el **autoservicio** (`api.v1.colaborador.*`, `api.v1.solicitudes.*`, `api.v1.vacaciones.*`) responde **423** con `code`/`codigo` = `expediente_incompleto`, `message` claro y `expediente` (motivos). Permite lo que la guía necesita: perfil, foto, dashboard, notificaciones, guía, mi-proceso, incorporación (subir documentos), inducción, descriptivo, documentos laborales (firmas), datos faltantes, carta compromiso, ver/responder solicitudes y crear solicitudes de `actualizacion_datos`, `actualizacion_bancaria`, `reposicion_documental` y `baja_colaborador`. Lo operativo (`equipo.*`, `evaluaciones.*`, `tareas.*`, `agenda.*`, `rh.*`, avisos, directorio) nunca se bloquea.
+- Solo aplica a la app que manda la cabecera `X-People-Expediente` (las APKs anteriores no cambian).
+- La app lo lee de `GET /api/v1/mobile/bootstrap` → `expediente_incompleto` y de `GET /api/v1/colaborador/guia` («Tu siguiente paso»: pasos ordenados datos → foto → documentos → inducción → firmas, con `siguiente`, estado por paso y `accion.app` + `params`; `GuiaSiguientePasoService`).
+- Pruebas: `tests/Feature/Api/ExpedienteIncompletoTest.php`.
+
 ## `capacitacion`
 
 Controla la visibilidad y el acceso de **todo** el módulo de capacitación: cursos, mi capacitación, biblioteca multimedia, cuestionarios/banco de preguntas, actividades/calificaciones, sesiones en vivo/asistencias, asignaciones, reporte de cumplimiento y el calendario de sesiones.

@@ -24,6 +24,9 @@ class JerarquiaColaboradorService
      */
     private const PROFUNDIDAD_MAXIMA = 15;
 
+    /** Resuelta tarde (resumenCon) para no acoplar el constructor. */
+    private ?FotoColaboradorService $fotos = null;
+
     public function jefeDe(Colaborador $colaborador): ?Colaborador
     {
         return $colaborador->jefe;
@@ -165,16 +168,34 @@ class JerarquiaColaboradorService
      *
      * @return array<string, mixed>
      */
-    public function jerarquia(Colaborador $colaborador): array
+    public function jerarquia(Colaborador $colaborador, ?User $viewer = null): array
     {
         $colaborador->loadMissing(['jefe.puesto', 'gerente.puesto', 'jefe.jefe.puesto', 'puesto', 'departamento', 'sucursalPrincipal.empresa']);
         $gerente = $this->gerenteDe($colaborador);
 
         return [
-            'colaborador' => $this->resumen($colaborador),
-            'jefe_inmediato' => $colaborador->jefe !== null ? $this->resumen($colaborador->jefe) : null,
-            'gerente' => $gerente !== null ? $this->resumen($gerente) : null,
-            'subordinados_directos' => $this->subordinadosDirectos($colaborador)->map(fn (Colaborador $c) => $this->resumen($c))->values()->all(),
+            'colaborador' => $this->resumenCon($colaborador, $viewer),
+            'jefe_inmediato' => $colaborador->jefe !== null ? $this->resumenCon($colaborador->jefe, $viewer) : null,
+            'gerente' => $gerente !== null ? $this->resumenCon($gerente, $viewer) : null,
+            'subordinados_directos' => $this->subordinadosDirectos($colaborador)->map(fn (Colaborador $c) => $this->resumenCon($c, $viewer))->values()->all(),
         ];
+    }
+
+    /**
+     * resumen() + `foto_url` para la app (Bearer) cuando hay quien mira:
+     * null si no alcanza esa foto (FotoColaboradorService::puedeVerFoto).
+     *
+     * @return array<string, mixed>
+     */
+    public function resumenCon(Colaborador $colaborador, ?User $viewer): array
+    {
+        if ($viewer === null) {
+            return $this->resumen($colaborador);
+        }
+
+        // Una sola instancia: su contexto de visibilidad se calcula una vez.
+        $this->fotos ??= app(FotoColaboradorService::class);
+
+        return [...$this->resumen($colaborador), 'foto_url' => $this->fotos->urlApiPara($colaborador, $viewer)];
     }
 }

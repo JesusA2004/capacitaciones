@@ -179,7 +179,8 @@ test('primer login con contraseña temporal obliga a cambiarla antes de navegar 
 
     expect($usuario->fresh()->debe_cambiar_contrasena)->toBeFalse()
         ->and(Hash::check('NuevaClave#2026', $usuario->fresh()->password))->toBeTrue();
-    $this->get(route('dashboard'))->assertOk();
+    // Ya navega: en modo colaborador «Inicio» lleva a Mi portal.
+    $this->get(route('dashboard'))->assertRedirect(route('portal.index'));
 });
 
 test('primer login con contraseña temporal: la API solo deja cambiarla', function () {

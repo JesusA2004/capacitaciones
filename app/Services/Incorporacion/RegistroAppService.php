@@ -10,10 +10,13 @@ use App\Models\IncorporacionInvitacion;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Colaboradores\DomicilioService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Expedientes\ActualizacionDatosService;
 use App\Services\Expedientes\CartaCompromisoService;
 use App\Services\Expedientes\DatosFaltantesService;
 use App\Services\Expedientes\DocumentosPendientesService;
+use App\Services\Expedientes\RequisitoDocumentoGeneradoService;
+use App\Services\Incorporacion\SolicitudEmpleo\SolicitudEmpleoRegistroService;
 use BackedEnum;
 use DateTimeInterface;
 use Illuminate\Support\Facades\DB;
@@ -59,6 +62,9 @@ class RegistroAppService
     /** metadata de la invitación: cuándo y cómo se resolvió la carta diferida. */
     public const META_CARTA_DIFERIDA_RESUELTA = 'carta_compromiso_diferida_resuelta';
 
+    /** Mensaje cuando falta la «Fotografía para expediente» (docs/FOTO_EXPEDIENTE.md). */
+    public const MENSAJE_FALTA_FOTO = 'Agrega tu fotografía para expediente.';
+
     /** Documentos que todavía no cuentan como «subidos» para el registro (regla única). */
     private const ESTADOS_DOCUMENTO_FALTANTE = DocumentosPendientesService::ESTADOS_FALTANTES;
 
@@ -70,6 +76,7 @@ class RegistroAppService
         private readonly AuditoriaService $auditoria,
         private readonly CartaCompromisoService $cartas,
         private readonly DocumentosPendientesService $pendientesDocumentos,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     /** Invitación QR con la que esta cuenta se registró (la más reciente). */
@@ -161,6 +168,7 @@ class RegistroAppService
         $faltanDatos = $this->datosFaltantes($colaborador);
         $faltanDocumentos = $this->documentosFaltantes($colaborador);
         $documentos = $this->incorporacion->estadoIncorporacion($colaborador);
+        $faltaFoto = $this->faltaFoto($colaborador);
 
         return [
             'aplica' => $aplica,
@@ -179,18 +187,39 @@ class RegistroAppService
             'datos_medicos' => [
                 'capturados' => $this->datosMedicosDe($colaborador) !== null,
             ],
+            // «Fotografía para expediente»: la MISMA foto de perfil
+            // (FotoColaboradorService, docs/FOTO_EXPEDIENTE.md). Se sube con
+            // POST colaborador/foto; mientras el registro está abierto se
+            // puede reemplazar directo.
+            'foto' => [
+                'obligatoria' => $this->fotoObligatoria(),
+                'completo' => $colaborador->foto_path !== null,
+                'url' => $this->fotos->urlPropiaApi($colaborador),
+                'pendiente_revision' => $this->fotos->pendienteDe($colaborador) !== null,
+                'puede_reemplazar' => $aplica,
+                // El documento «2 fotografías tamaño infantil» queda cubierto
+                // en digital por esta foto (las físicas, si RH las pide, se
+                // entregan en papel).
+                'cubre_documento' => $this->documentoCubiertoPorFoto($documentos['documentos']),
+            ],
             'documentos' => [
                 'completo' => $faltanDocumentos === [],
                 'progreso' => $documentos['progreso'],
-                'lista' => array_values(array_filter($documentos['documentos'], fn (array $d): bool => (bool) $d['obligatorio'])),
+                'lista' => array_map(
+                    fn (array $d): array => $this->conPresentacionDeRegistro($d, $aplica),
+                    array_values(array_filter($documentos['documentos'], fn (array $d): bool => (bool) $d['obligatorio'] && ! $this->esCubiertoPorFoto($d, $colaborador))),
+                ),
             ],
             // Los documentos faltantes no impiden cerrar: se pueden marcar «No
             // tengo este documento» (documentos_sin_tener → carta compromiso).
             // Con más de `max_documentos_carta` marcados también se cierra,
             // pero sin carta y con la app limitada a subir documentos.
-            'puede_finalizar' => $aplica && $faltanDatos === [] && $this->faltantesMarcables($colaborador),
+            'puede_finalizar' => $aplica && $faltanDatos === [] && ! $faltaFoto && $this->faltantesMarcables($colaborador) && $this->solicitudEmpleo()->completaParaRegistro($colaborador),
+            // Solicitud de empleo + Estudio socioeconómico: avance por sección
+            // (GET/POST colaborador/registro/solicitud, docs/SOLICITUD_EMPLEO_Y_SOCIOECONOMICO.md).
+            'solicitud_empleo' => $this->solicitudEmpleo()->resumen($colaborador),
             'max_documentos_carta' => $this->cartas->maxDocumentos(),
-            'pendientes' => $this->pendientesLegibles($faltanDatos, $faltanDocumentos, $documentos['documentos']),
+            'pendientes' => $this->pendientesLegibles($faltanDatos, $faltanDocumentos, $documentos['documentos'], $faltaFoto),
         ];
     }
 
@@ -315,14 +344,26 @@ class RegistroAppService
         }
 
         $faltanDocumentos = array_values(array_diff_key($faltantesPorId, array_flip($sinTener)));
+        $faltaFoto = $this->faltaFoto($colaborador);
 
         if ($faltanDatos !== [] || $faltanDocumentos !== []) {
             $documentos = $this->incorporacion->estadoIncorporacion($colaborador)['documentos'];
 
             throw ValidationException::withMessages([
-                'registro' => sprintf('Todavía falta: %s.', implode('; ', $this->pendientesLegibles($faltanDatos, $faltanDocumentos, $documentos))),
+                'registro' => sprintf('Todavía falta: %s.', implode('; ', $this->pendientesLegibles($faltanDatos, $faltanDocumentos, $documentos, $faltaFoto))),
+                ...($faltaFoto ? ['foto' => self::MENSAJE_FALTA_FOTO] : []),
             ]);
         }
+
+        // Regla de servicio (no solo de la app): sin fotografía para
+        // expediente no se cierra el registro.
+        if ($faltaFoto) {
+            throw ValidationException::withMessages(['foto' => self::MENSAJE_FALTA_FOTO]);
+        }
+
+        // Solicitud de empleo + Estudio socioeconómico completos (a la app
+        // que los implementa; ver SolicitudEmpleoRegistroService).
+        $this->solicitudEmpleo()->exigirParaRegistro($colaborador);
 
         $invitacion = $this->invitacionDe($usuario);
         // Más faltantes de los que cubre una carta: el registro se cierra
@@ -395,7 +436,10 @@ class RegistroAppService
         $faltantes = [];
 
         foreach ($this->incorporacion->estadoIncorporacion($colaborador)['documentos'] as $d) {
-            if ((bool) $d['obligatorio'] && in_array($d['estado'], self::ESTADOS_DOCUMENTO_FALTANTE, true)) {
+            // Solicitud de empleo / Estudio socioeconómico: los genera PEOPLE
+            // con el paso «Solicitud de empleo» (nunca se suben ni se marcan
+            // «No tengo este documento»).
+            if ((bool) $d['obligatorio'] && in_array($d['estado'], self::ESTADOS_DOCUMENTO_FALTANTE, true) && ! $this->esCubiertoPorFoto($d, $colaborador) && ($d['generado_por_sistema'] ?? null) === null) {
                 $faltantes[(int) $d['id']] = (string) $d['nombre'];
             }
         }
@@ -409,7 +453,7 @@ class RegistroAppService
      * @param  array<int, array<string, mixed>>  $documentos
      * @return list<string>
      */
-    private function pendientesLegibles(array $faltanDatos, array $faltanDocumentos, array $documentos): array
+    private function pendientesLegibles(array $faltanDatos, array $faltanDocumentos, array $documentos, bool $faltaFoto = false): array
     {
         $pendientes = [];
 
@@ -418,11 +462,85 @@ class RegistroAppService
             $pendientes[] = sprintf('datos: %s', implode(', ', $etiquetas));
         }
 
+        if ($faltaFoto) {
+            $pendientes[] = 'fotografía para expediente';
+        }
+
         if ($faltanDocumentos !== []) {
             $pendientes[] = sprintf('documentos: %s', implode(', ', $faltanDocumentos));
         }
 
         return $pendientes;
+    }
+
+    /**
+     * Con el registro abierto, un formato que PEOPLE genera se presenta como
+     * «Se genera con tus datos de la Solicitud de empleo» (captura en el
+     * paso del registro), no como «Lo prepara Recursos Humanos».
+     *
+     * @param  array<string, mixed>  $documento
+     * @return array<string, mixed>
+     */
+    private function conPresentacionDeRegistro(array $documento, bool $registroAbierto): array
+    {
+        $generado = $documento['generado_por_sistema'] ?? null;
+
+        if (! $registroAbierto || ! is_array($generado) || ($generado['estado'] ?? null) !== RequisitoDocumentoGeneradoService::ESTADO_POR_GENERAR) {
+            return $documento;
+        }
+
+        return [...$documento, 'generado_por_sistema' => [
+            ...$generado,
+            'titulo' => 'Se genera con tus datos',
+            'mensaje' => 'Se genera con tus datos de la Solicitud de empleo. No tienes que subir ningún archivo.',
+            'captura' => RequisitoDocumentoGeneradoService::CAPTURA_REGISTRO,
+        ]];
+    }
+
+    public function fotoObligatoria(): bool
+    {
+        return (bool) config('incorporacion.registro_app.foto_obligatoria', true);
+    }
+
+    /** ¿Le falta la fotografía para expediente (y es obligatoria)? */
+    private function faltaFoto(Colaborador $colaborador): bool
+    {
+        return $this->fotoObligatoria() && $colaborador->foto_path === null;
+    }
+
+    /**
+     * ¿Este documento requerido lo cubre la foto de perfil en el registro
+     * digital? El tipo «2 fotografías tamaño infantil» (clave en
+     * config incorporacion.registro_app.documento_cubierto_por_foto) no se
+     * pide subir aparte: con la foto obligatoria lo sustituye ese paso; sin
+     * ella, solo cuando la foto ya existe. Nunca se borra el tipo documental.
+     *
+     * @param  array<string, mixed>  $documento
+     */
+    private function esCubiertoPorFoto(array $documento, Colaborador $colaborador): bool
+    {
+        $clave = config('incorporacion.registro_app.documento_cubierto_por_foto');
+
+        return is_string($clave) && $clave !== ''
+            && ($documento['tipo'] ?? null) === $clave
+            && ($this->fotoObligatoria() || $colaborador->foto_path !== null);
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $documentos
+     * @return array{id: int, nombre: string}|null
+     */
+    private function documentoCubiertoPorFoto(array $documentos): ?array
+    {
+        $clave = config('incorporacion.registro_app.documento_cubierto_por_foto');
+
+        foreach ($documentos as $d) {
+            if (is_string($clave) && ($d['tipo'] ?? null) === $clave) {
+                return ['id' => (int) $d['id'], 'nombre' => (string) $d['nombre']];
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -512,5 +630,11 @@ class RegistroAppService
             $valor === null, $valor === '' => null,
             default => (string) $valor,
         };
+    }
+
+    /** Solicitud de empleo + Estudio socioeconómico dentro del registro. */
+    private function solicitudEmpleo(): SolicitudEmpleoRegistroService
+    {
+        return app(SolicitudEmpleoRegistroService::class);
     }
 }

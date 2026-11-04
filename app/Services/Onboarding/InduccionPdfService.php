@@ -6,6 +6,7 @@ use App\Exceptions\ArchivoGeneradoNoDisponibleException;
 use App\Models\OnboardingAvance;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use setasign\Fpdi\Fpdi;
@@ -160,6 +161,91 @@ class InduccionPdfService
     }
 
     /**
+     * ORDEN OBLIGATORIO de la inducción: presentación completa → video →
+     * «Terminé». Páginas de la presentación que aún faltan para poder abrir
+     * el VIDEO (vacío = el video se puede ver). Nunca se bloquea
+     * retroactivamente: si ya empezó o terminó el video, si ya marcó la
+     * inducción como vista, si la presentación no se le asignó o si el PDF
+     * no se pudo leer, no hay bloqueo.
+     *
+     * @return list<int>
+     */
+    public function paginasFaltantesParaVideo(OnboardingAvance $avance): array
+    {
+        if ($avance->contenido_visto_en !== null
+            || ! $this->acceso->contenidoAsignado($avance)['presentacion']
+            || $this->video->videoIniciado($avance)
+            || $this->video->videoCompletado($avance)) {
+            return [];
+        }
+
+        $total = $this->totalPaginas();
+
+        if ($total < 1) {
+            return [];
+        }
+
+        $vistas = array_map('intval', (array) (((array) ($avance->progreso_contenido ?? []))['paginas_vistas'] ?? []));
+
+        return array_values(array_diff(range(1, $total), $vistas));
+    }
+
+    /**
+     * Datos aditivos para el material del colaborador (web y app):
+     * `video_bloqueado`, `paginas_faltantes` y el mensaje para la persona.
+     *
+     * @return array{video_bloqueado: bool, paginas_faltantes: list<int>, video_bloqueado_mensaje: string|null}
+     */
+    public function bloqueoVideo(OnboardingAvance $avance): array
+    {
+        $faltantes = $this->paginasFaltantesParaVideo($avance);
+
+        return [
+            'video_bloqueado' => $faltantes !== [],
+            'paginas_faltantes' => $faltantes,
+            'video_bloqueado_mensaje' => $faltantes !== [] ? $this->mensajePresentacionIncompleta($faltantes) : null,
+        ];
+    }
+
+    /**
+     * 423 «presentacion_incompleta» al intentar abrir el video (iniciar o
+     * manifiesto) antes de terminar la presentación. Mismo gate web y API.
+     *
+     * @throws HttpResponseException
+     */
+    public function exigirPresentacionParaVideo(OnboardingAvance $avance): void
+    {
+        $faltantes = $this->paginasFaltantesParaVideo($avance);
+
+        if ($faltantes === []) {
+            return;
+        }
+
+        throw new HttpResponseException(response()->json([
+            'message' => $this->mensajePresentacionIncompleta($faltantes),
+            'code' => 'presentacion_incompleta',
+            'codigo' => 'presentacion_incompleta',
+            'paginas_faltantes' => $faltantes,
+        ], 423));
+    }
+
+    /**
+     * «Primero termina la presentación: te falta la página 30.»
+     *
+     * @param  non-empty-list<int>  $faltantes
+     */
+    public function mensajePresentacionIncompleta(array $faltantes): string
+    {
+        $cantidad = count($faltantes);
+
+        return match (true) {
+            $cantidad === 1 => sprintf('Primero termina la presentación: te falta la página %d.', $faltantes[0]),
+            $cantidad <= 5 => sprintf('Primero termina la presentación: te faltan las páginas %s y %d.', implode(', ', array_slice($faltantes, 0, -1)), $faltantes[$cantidad - 1]),
+            default => sprintf('Primero termina la presentación: te faltan %d páginas (empieza en la página %d).', $cantidad, $faltantes[0]),
+        };
+    }
+
+    /**
      * «Terminé la inducción»: solo si el colaborador recorrió TODAS las
      * páginas Y —cuando el material activo del módulo es un VIDEO— vio ese
      * video completo. Marca el contenido visto (única fuente del gate que
@@ -178,7 +264,11 @@ class InduccionPdfService
         $asignado = $this->acceso->contenidoAsignado($avance);
 
         if ($asignado['presentacion'] && ($total < 1 || $vistas < $total)) {
-            throw ValidationException::withMessages(['induccion' => sprintf('Te faltan %d página(s) por revisar antes de terminar.', max(1, $total - $vistas))]);
+            $faltantes = $total < 1 ? [] : array_values(array_diff(range(1, $total), array_map('intval', (array) (((array) ($avance->progreso_contenido ?? []))['paginas_vistas'] ?? []))));
+
+            throw ValidationException::withMessages(['induccion' => $faltantes === []
+                ? sprintf('Te faltan %d página(s) por revisar antes de terminar.', max(1, $total - $vistas))
+                : str_replace('Primero termina la presentación', 'Antes de terminar revisa la presentación', $this->mensajePresentacionIncompleta($faltantes))]);
         }
 
         // El video de explicación (si el material activo es video y se le

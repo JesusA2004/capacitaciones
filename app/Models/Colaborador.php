@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Escolaridad;
 use App\Enums\EstadoAltaColaborador;
 use App\Enums\EstadoCivil;
 use App\Enums\EstadoUsuario;
@@ -85,6 +86,8 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property string|null $lugar_nacimiento
  * @property string|null $clave_elector
  * @property string|null $profesion
+ * @property string|null $telefono_alterno Segundo teléfono (Solicitud de empleo).
+ * @property Escolaridad|null $escolaridad Último grado de estudios.
  * @property string|null $beneficiario_nombre
  * @property string|null $beneficiario_parentesco
  * @property string|null $domicilio_colonia
@@ -133,6 +136,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'nacionalidad', 'estado_civil', 'lugar_nacimiento', 'clave_elector', 'profesion', 'beneficiario_nombre', 'beneficiario_parentesco',
     'domicilio_colonia', 'domicilio_municipio', 'domicilio_estado', 'domicilio_cp',
     'domicilio_calle', 'domicilio_numero_exterior', 'domicilio_numero_interior',
+    'telefono_alterno', 'escolaridad',
 ])]
 class Colaborador extends Model
 {
@@ -187,6 +191,7 @@ class Colaborador extends Model
             'fecha_baja' => 'date',
             'expediente_cerrado_en' => 'datetime',
             'estado_civil' => EstadoCivil::class,
+            'escolaridad' => Escolaridad::class,
         ];
     }
 

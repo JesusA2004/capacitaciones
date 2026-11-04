@@ -10,6 +10,7 @@ use App\Enums\TipoSolicitudInterna;
 use App\Models\Colaborador;
 use App\Models\SolicitudVacacionDia;
 use App\Models\SolicitudVacaciones;
+use App\Support\FechaMexico;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -147,7 +148,7 @@ class FechasSolicitudService
                 throw ValidationException::withMessages(['dias' => sprintf('El %s es domingo: los domingos no cuentan como vacaciones.', $dia->format('d/m/Y'))]);
             }
 
-            if ($dia->lessThan(CarbonImmutable::today())) {
+            if ($dia->lessThan(FechaMexico::inicioDeHoyInmutable())) {
                 throw ValidationException::withMessages(['dias' => sprintf('El %s ya pasó: elige días a partir de hoy.', $dia->format('d/m/Y'))]);
             }
 

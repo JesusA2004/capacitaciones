@@ -10,6 +10,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Permisos\PermisoAccionService;
 use App\Services\Reclutamiento\AprobadorEntrevistaService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
+use Illuminate\Auth\Access\Response;
 
 /**
  * Visibilidad y edición de candidatos. Los AVANCES del pipeline no se
@@ -32,9 +33,15 @@ class CandidatoPolicy
         return $usuario->can('candidatos.ver');
     }
 
-    public function view(User $usuario, Candidato $candidato): bool
+    public function view(User $usuario, Candidato $candidato): Response
     {
-        return $usuario->can('candidatos.ver') && $this->visiblePara($usuario, $candidato);
+        if (! $usuario->can('candidatos.ver')) {
+            return Response::deny('No tienes permiso para ver candidatos. Si lo necesitas, pide acceso a RH.');
+        }
+
+        return $this->visiblePara($usuario, $candidato)
+            ? Response::allow()
+            : Response::deny('Este candidato está fuera de tu alcance (otra sucursal o un puesto que no te corresponde revisar).');
     }
 
     public function create(User $usuario): bool
@@ -95,8 +102,10 @@ class CandidatoPolicy
             return false;
         }
 
+        // Ser el «gerente involucrado» no abre candidatos de otra sucursal: un
+        // gerente que cambia de sucursal (o un dato mal capturado) no conserva
+        // el acceso. Manda siempre el alcance de sucursal vigente.
         return $candidato->sucursal_id === null
-            || $candidato->gerente_involucrado_id === $usuario->id
             || $this->alcance->sucursalesVisiblesIds($usuario)->contains($candidato->sucursal_id);
     }
 }

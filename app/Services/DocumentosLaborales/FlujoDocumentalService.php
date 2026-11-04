@@ -17,6 +17,7 @@ use App\Services\Auditoria\AuditoriaService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
+use App\Support\FechaMexico;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -372,12 +373,15 @@ class FlujoDocumentalService
         }
 
         $valor = CarbonImmutable::parse($fecha);
+        // Solo fecha (sin hora): se compara contra el día calendario de
+        // México, no contra el de UTC (la app corre en UTC).
+        $soloFecha = $valor->isStartOfDay();
 
-        if ($valor->isFuture()) {
+        if ($soloFecha ? $valor->toDateString() > FechaMexico::hoy() : $valor->isFuture()) {
             throw ValidationException::withMessages(['fecha' => 'La fecha no puede ser futura.']);
         }
 
-        return $valor->isStartOfDay() && $valor->isToday() ? CarbonImmutable::now() : $valor;
+        return $soloFecha && $valor->toDateString() === FechaMexico::hoy() ? CarbonImmutable::now() : $valor;
     }
 
     public function cancelar(GeneratedDocument $documento, User $actor, string $motivo): GeneratedDocument

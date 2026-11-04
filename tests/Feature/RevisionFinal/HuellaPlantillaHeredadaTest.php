@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\Notification;
 */
 
 test('cambiar el domicilio cambia la huella de una plantilla heredada y emite otra versión', function () {
+    // Cubre el contrato, no el requisito previo de Solicitud de Empleo y Estudio
+    // Socioeconómico (ver Incorporacion/SolicitudEmpleoTest).
+    config(['incorporacion.documentos_ingreso.exigir_antes_de_contrato' => false]);
     $this->seed(RolesYPermisosSeeder::class);
     Notification::fake();
     $rh = clUsuario('rh_admin');

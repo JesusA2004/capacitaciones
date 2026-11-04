@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Vacaciones;
 
 use App\Models\SolicitudVacaciones;
+use App\Support\FechaMexico;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreSolicitudVacacionesRequest extends FormRequest
@@ -18,7 +19,7 @@ class StoreSolicitudVacacionesRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'fecha_inicio' => ['required', 'date', 'after_or_equal:today'],
+            'fecha_inicio' => ['required', 'date', 'after_or_equal:'.FechaMexico::hoy()],
             'fecha_fin' => ['required', 'date', 'after_or_equal:fecha_inicio'],
             'dias_solicitados' => ['required', 'integer', 'min:1', 'max:60'],
             'comentario' => ['nullable', 'string', 'max:1000'],

@@ -84,8 +84,10 @@ class CandidatoController extends Controller
             ->paginate((int) ($filtros['per_page'] ?? 20));
 
         $this->presenter->precargarFases($pagina->items());
+        // Foto del colaborador enlazado (Bearer), en lote: sin consultas por fila.
+        $fotos = $this->presenter->fotosOficiales($pagina->items(), $request->user(), true);
 
-        return $this->paginado($pagina, fn (Candidato $c) => $this->presenter->fila($c), [
+        return $this->paginado($pagina, fn (Candidato $c) => [...$this->presenter->fila($c), 'foto_url' => $fotos[$c->id] ?? null], [
             'estados' => array_map(fn (EstadoCandidato $e) => ['value' => $e->value, 'etiqueta' => $e->etiqueta()], EstadoCandidato::cases()),
         ]);
     }
@@ -203,7 +205,7 @@ class CandidatoController extends Controller
         $ciclo = $this->ciclo->obtenerEstado($candidato, $request->user());
 
         return response()->json(['data' => [
-            'candidato' => $this->presenter->detalle($candidato, $request->user()),
+            'candidato' => $this->presenter->detalle($candidato, $request->user(), true),
             'ciclo' => $ciclo,
             'siguiente_paso' => app(SiguientePasoService::class)->paraCandidato($candidato, $request->user(), $ciclo)->toArray(),
             // Mismo estado candidato → contratación → expediente que la web.

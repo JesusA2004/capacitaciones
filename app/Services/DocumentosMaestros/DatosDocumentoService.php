@@ -17,6 +17,8 @@ use App\Services\Colaboradores\DomicilioService;
 use App\Services\Compensacion\CompensacionService;
 use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Formatos\Variables\NumeroALetras;
+use App\Services\Incorporacion\SolicitudEmpleo\DatosSolicitudEmpleoService;
+use App\Support\FechaMexico;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
@@ -400,6 +402,8 @@ class DatosDocumentoService
             ...$this->datosCierre($contexto, $lugar, $sucursal),
             ...$this->datosSolicitud($contexto),
             ...$this->datosPrestamo($contexto),
+            // Solicitud de empleo (sol_*) y Estudio socioeconómico (ese_*).
+            ...app(DatosSolicitudEmpleoService::class)->valores($c, $hoy),
         ];
     }
 
@@ -410,6 +414,14 @@ class DatosDocumentoService
      */
     public function fuente(string $campo): array
     {
+        // Solicitud de empleo / Estudio socioeconómico: el dato se completa en
+        // la sección «Solicitud de empleo» del alta (no desde el modal).
+        $ingreso = DatosSolicitudEmpleoService::fuente($campo);
+
+        if ($ingreso !== null) {
+            return $ingreso;
+        }
+
         $base = self::DEPENDE[$campo] ?? $campo;
 
         // Domicilio del patrón configurado como «de la sucursal»: lo que
@@ -493,7 +505,7 @@ class DatosDocumentoService
         return [
             'nacionalidad' => 'nullable|string|max:60',
             'genero' => 'nullable|in:masculino,femenino',
-            'fecha_nacimiento' => 'nullable|date|before:today',
+            'fecha_nacimiento' => 'nullable|date|before:'.FechaMexico::hoy(),
             'estado_civil' => 'nullable|in:'.implode(',', array_map(fn (EstadoCivil $e) => $e->value, EstadoCivil::cases())),
             'lugar_nacimiento' => 'nullable|string|max:120',
             'clave_elector' => 'nullable|string|max:30',

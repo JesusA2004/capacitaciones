@@ -234,9 +234,9 @@ function p128CandidatoAutorizado(array $estructura, User $rh, User $gerente): Ca
     $wf->evaluarPerfil($c, $rh, true, null);
     $wf->registrarEntrevista($c, $gerente, ['realizada_en' => '2026-02-10 10:00:00', 'resultado' => 'viable']);
     $wf->registrarResultadosPsicometricas($c, $rh, 'En perfil.');
-    $wf->revisarPsicometricas($c, $gerente, true, null);
-    $wf->registrarSocioeconomico($c, $gerente, ['fecha_visita' => '2026-02-15', 'direccion' => 'Calle 1']);
-    $wf->revisarSocioeconomico($c, $gerente, true, null);
+    $wf->revisarPsicometricas($c, $rh, true, null);
+    $wf->registrarSocioeconomico($c, $rh, ['fecha_visita' => '2026-02-15', 'direccion' => 'Calle 1']);
+    $wf->revisarSocioeconomico($c, $rh, true, null);
     $wf->registrarReferencia($c, $rh, ['empresa' => 'X', 'contacto' => 'Y', 'resultado' => 'positiva']);
     $wf->concluirReferencias($c, $rh, true, null);
     $wf->autorizarRh($c, $rh, null);

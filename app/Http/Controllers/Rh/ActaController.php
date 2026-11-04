@@ -105,7 +105,7 @@ class ActaController extends Controller
         $this->authorize('ver', $acta);
 
         return Inertia::render('Rh/Actas/Show', [
-            'acta' => $this->actas->aArray($acta, true),
+            'acta' => $this->actas->detalleWeb($acta, $request->user()),
             'puedeGestionar' => $request->user()->can('gestionar', $acta),
             // Acción por acción (misma policy que cada endpoint).
             'permisos' => $this->actas->permisosDe($request->user(), $acta),

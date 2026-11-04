@@ -7,6 +7,7 @@ use App\Enums\TipoContratacion;
 use App\Models\Colaborador;
 use App\Rules\NombreSinApellidos;
 use App\Services\Colaboradores\DomicilioService;
+use App\Support\FechaMexico;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -45,7 +46,7 @@ class AltaColaboradorRequest extends FormRequest
             'telefono' => ['nullable', 'string', 'max:20'],
             'email' => ['nullable', 'email', 'max:190', 'unique:users,email'],
             'correo_personal' => ['nullable', 'email', 'max:190'],
-            'fecha_nacimiento' => ['nullable', 'date', 'before:today'],
+            'fecha_nacimiento' => ['nullable', 'date', 'before:'.FechaMexico::hoy()],
             'curp' => ['nullable', 'string', 'size:18', 'regex:/^[A-Za-z0-9]{18}$/'],
             'rfc' => ['nullable', 'string', 'min:12', 'max:13', 'regex:/^[A-Za-z&Ññ0-9]{12,13}$/u'],
             'nss' => ['nullable', 'digits:11'],

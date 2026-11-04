@@ -12,6 +12,7 @@ use App\Models\TareaRh;
 use App\Models\User;
 use App\Services\Configuracion\WorkflowRoutingService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
+use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Tareas\TareaService;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -104,7 +105,23 @@ class ReconciliadorNotificacionesService
      */
     private function resolverObsoletos(): int
     {
-        return $this->resolverLegacy() + $this->resolverDocumentalesObsoletos();
+        return $this->resolverLegacy() + $this->resolverDocumentalesObsoletos() + $this->reasignarCandidatosFueraDeAlcance();
+    }
+
+    /**
+     * Pendientes de candidatos asignados a quien ya no puede atenderlos
+     * (fuera de su alcance o sin el permiso del paso): se recalculan con el
+     * responsable vigente (CandidatoWorkflowService).
+     */
+    private function reasignarCandidatosFueraDeAlcance(): int
+    {
+        try {
+            return app(CandidatoWorkflowService::class)->reconciliarPendientesAsignados();
+        } catch (Throwable $e) {
+            Log::warning('ReconciliadorNotificaciones: no se pudieron reasignar pendientes de candidatos.', ['error' => $e->getMessage()]);
+
+            return 0;
+        }
     }
 
     /**

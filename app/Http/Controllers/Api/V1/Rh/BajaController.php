@@ -13,6 +13,7 @@ use App\Services\Bajas\BajaDocumentosService;
 use App\Services\Bajas\BajaService;
 use App\Services\Bajas\CatalogoBajasService;
 use App\Services\CierreLaboral\CausalRotacionService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Flujos\SiguientePasoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,6 +36,7 @@ class BajaController extends Controller
         private readonly BajaDocumentosService $documentos,
         private readonly CatalogoBajasService $catalogo,
         private readonly CausalRotacionService $causales,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     public function catalogo(Request $request): JsonResponse
@@ -51,14 +53,19 @@ class BajaController extends Controller
     {
         $this->authorize('viewAny', Baja::class);
 
-        return response()->json($this->consulta->bandeja($request->user(), $request->only(['estatus', 'sucursal_id', 'forma', 'busqueda', 'per_page'])));
+        return response()->json($this->consulta->bandeja($request->user(), $request->only(['estatus', 'sucursal_id', 'forma', 'busqueda', 'per_page']), $request->user(), true));
     }
 
     public function show(Request $request, Baja $baja): JsonResponse
     {
         $this->authorize('view', $baja);
 
-        return response()->json(['data' => [...$this->bajas->detalle($baja, $request->user()), 'siguiente_paso' => app(SiguientePasoService::class)->paraBaja($baja, $request->user())->toArray()]]);
+        return response()->json(['data' => [
+            ...$this->bajas->detalle($baja, $request->user()),
+            // Foto de quien se va (Bearer); null = iniciales.
+            'foto_url' => $baja->colaborador !== null ? $this->fotos->urlApiPara($baja->colaborador, $request->user()) : null,
+            'siguiente_paso' => app(SiguientePasoService::class)->paraBaja($baja, $request->user())->toArray(),
+        ]]);
     }
 
     public function store(GuardarBajaRequest $request): JsonResponse

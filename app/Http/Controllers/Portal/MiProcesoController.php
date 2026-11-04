@@ -122,7 +122,8 @@ class MiProcesoController extends Controller
             // Nuevo flujo: la inducción se ve sola (hojas + material) antes de
             // la evaluación. El avance titular es el que lleva el progreso.
             'avanceId' => $avance?->id,
-            'material' => $avance !== null ? $this->materialInduccion->datosParaColaborador($avance) : null,
+            // + video_bloqueado / paginas_faltantes: presentación completa → video.
+            'material' => $avance !== null ? [...$this->materialInduccion->datosParaColaborador($avance), ...$this->induccionPdf->bloqueoVideo($avance)] : null,
             'videoCompletado' => $avance !== null && $this->videoInduccion->videoCompletado($avance),
             // Pasos (Presentación → Video → Evaluación → Resultado) y qué le
             // asignó RH (presentación y/o material).

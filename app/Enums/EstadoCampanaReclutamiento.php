@@ -3,8 +3,8 @@
 namespace App\Enums;
 
 use App\Models\CampanaReclutamiento;
+use App\Support\FechaMexico;
 use Carbon\CarbonInterface;
-use Illuminate\Support\Carbon;
 
 /**
  * Estado de una campaña de reclutamiento. No es una columna: se deriva de
@@ -29,7 +29,7 @@ enum EstadoCampanaReclutamiento: string
 
     public static function de(CampanaReclutamiento $campana, ?CarbonInterface $hoy = null): self
     {
-        $hoy = ($hoy ?? Carbon::today())->copy()->startOfDay();
+        $hoy = ($hoy ?? FechaMexico::inicioDeHoy())->copy()->startOfDay();
 
         if ($campana->fecha_inicio === null) {
             $clave = $campana->anio * 100 + $campana->mes;

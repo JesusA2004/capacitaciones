@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\CicloLaboral;
 
+use App\Support\FechaMexico;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -21,7 +22,7 @@ class ProgramarPagoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'fecha' => ['required', 'date', 'after_or_equal:today'],
+            'fecha' => ['required', 'date', 'after_or_equal:'.FechaMexico::hoy()],
             'monto' => ['nullable', 'numeric', 'min:0'],
             'metodo' => ['required', 'string', 'max:60'],
             'responsable_user_id' => ['nullable', 'integer', 'exists:users,id'],

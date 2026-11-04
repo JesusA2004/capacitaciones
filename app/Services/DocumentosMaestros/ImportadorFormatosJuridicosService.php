@@ -8,6 +8,7 @@ use App\Enums\MotorPlantilla;
 use App\Enums\TipoPlantillaDocumento;
 use App\Models\DocumentTemplate;
 use App\Models\DocumentTemplateField;
+use App\Models\DocumentType;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\DocumentosMaestros\Calidad\ValidacionVisualMaestroService;
@@ -225,6 +226,12 @@ class ImportadorFormatosJuridicosService
             'observaciones' => $observaciones === [] ? null : implode("\n", $observaciones),
             'version' => $version,
         ];
+
+        // Tipo documental del expediente (p. ej. solicitud_empleo): el
+        // generado queda ligado a él. Solo si la familia lo declara.
+        if (is_string($definicion['tipo_documental'] ?? null)) {
+            $datos['document_type_id'] = DocumentType::query()->where('clave', $definicion['tipo_documental'])->value('id');
+        }
 
         $master = DB::transaction(function () use ($existente, $datos, $familia, $actor, $definicion, $version, $heredarDe): DocumentTemplate {
             if ($existente !== null) {

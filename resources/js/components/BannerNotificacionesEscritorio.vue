@@ -9,10 +9,19 @@ import { useWebPush } from '@/composables/useWebPush';
  * Franja superior al estilo WhatsApp Web («Recibe notificaciones de
  * mensajes nuevos · Activar notificaciones de escritorio»): aparece
  * mientras el navegador no tiene el permiso, con un clic lo pide y se va.
- * «Ahora no» la oculta 7 días en este navegador.
+ * «Ahora no» la oculta 7 días en este navegador (30 en celular, donde
+ * estorba más). En celular va compacta: una sola línea, sin descripción.
  */
 const CLAVE = 'people:banner-notificaciones-oculto-hasta';
-const SIETE_DIAS = 7 * 86_400_000;
+const DIA = 86_400_000;
+
+function diasOculto(): number {
+    try {
+        return window.matchMedia('(max-width: 639px)').matches ? 30 : 7;
+    } catch {
+        return 7;
+    }
+}
 
 const { estado, procesando, activar, probar } = useWebPush();
 
@@ -31,7 +40,7 @@ function ahoraNo(): void {
     oculto.value = true;
 
     try {
-        localStorage.setItem(CLAVE, String(Date.now() + SIETE_DIAS));
+        localStorage.setItem(CLAVE, String(Date.now() + diasOculto() * DIA));
     } catch {
         // Sin almacenamiento: se oculta solo en esta pestaña.
     }
@@ -63,21 +72,25 @@ async function alActivar(): Promise<void> {
             v-if="visible"
             role="region"
             aria-label="Activar notificaciones de escritorio"
-            class="mx-4 mt-3 flex items-center gap-3 rounded-2xl border border-info/20 bg-info-soft px-3 py-2.5 sm:mx-6 md:mx-8"
+            class="mx-4 mt-2 flex items-center gap-2 rounded-xl border border-info/20 bg-info-soft px-2.5 py-1.5 sm:mx-6 sm:mt-3 sm:gap-3 sm:rounded-2xl sm:px-3 sm:py-2.5 md:mx-8"
             data-banner-notificaciones
         >
             <span
-                class="flex size-9 shrink-0 items-center justify-center rounded-full bg-info text-info-soft"
+                class="hidden size-9 shrink-0 items-center justify-center rounded-full bg-info text-info-soft sm:flex"
             >
                 <BellRing class="size-4" />
             </span>
             <div
                 class="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-center sm:gap-2"
             >
-                <p class="text-sm font-semibold text-foreground">
+                <p
+                    class="truncate text-xs font-semibold text-foreground sm:text-sm"
+                >
                     Recibe avisos de PEOPLE al instante
                 </p>
-                <p class="text-xs text-muted-foreground sm:text-sm">
+                <p
+                    class="hidden text-xs text-muted-foreground sm:block sm:text-sm"
+                >
                     Chrome te avisa de solicitudes y aprobaciones aunque estés
                     en otra pestaña.
                 </p>

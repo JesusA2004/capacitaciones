@@ -7,7 +7,7 @@ use App\Models\HeadcountTargetHistorial;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
-use Illuminate\Support\Carbon;
+use App\Support\FechaMexico;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
@@ -166,7 +166,7 @@ class HeadcountImportService
                                 'empresa_id' => $sucursal->empresa_id,
                                 'plantilla_autorizada' => $fila['plantilla_autorizada'],
                                 'fuente' => 'excel:'.Str::slug($nombreHoja),
-                                'fecha_corte' => Carbon::today(),
+                                'fecha_corte' => FechaMexico::inicioDeHoy(),
                                 'updated_by_id' => $usuario?->id,
                                 'created_by_id' => $existente->created_by_id ?? $usuario?->id,
                             ],

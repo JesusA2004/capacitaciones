@@ -10,7 +10,9 @@ use App\Enums\TipoPermisoSolicitado;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\SolicitudInterna;
 use App\Services\Expedientes\ActualizacionDatosService;
+use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 class StoreSolicitudInternaRequest extends FormRequest
@@ -24,7 +26,7 @@ class StoreSolicitudInternaRequest extends FormRequest
      * App\Services\Solicitudes\SolicitudesService::crear() (defensa en
      * profundidad, mismo criterio que SolicitudInternaPolicy::crearBaja()).
      */
-    public function authorize(): bool
+    public function authorize(): bool|Response
     {
         $usuario = $this->user();
 
@@ -38,7 +40,9 @@ class StoreSolicitudInternaRequest extends FormRequest
             return $usuario->can('solicitudes.bajas.crear');
         }
 
-        return $usuario->can('create', SolicitudInterna::class);
+        // Autoservicio propio (SolicitudInternaPolicy::create): inspect() para
+        // que el 403 lleve el motivo en español.
+        return Gate::forUser($usuario)->inspect('create', SolicitudInterna::class);
     }
 
     /**

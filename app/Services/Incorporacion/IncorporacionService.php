@@ -17,6 +17,7 @@ use App\Services\Expedientes\CartaCompromisoService;
 use App\Services\Expedientes\DocumentoParService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Expedientes\ProgresoExpediente;
+use App\Services\Expedientes\RequisitoDocumentoGeneradoService;
 use App\Services\Notificaciones\Aviso;
 use App\Services\Notificaciones\NotificacionEventosService;
 use App\Services\RhMobile\ResponsableResolverService;
@@ -68,6 +69,7 @@ class IncorporacionService
         private readonly ResponsableResolverService $responsables,
         private readonly NotificacionEventosService $eventos,
         private readonly DocumentoParService $pares,
+        private readonly RequisitoDocumentoGeneradoService $generados,
     ) {}
 
     /**
@@ -107,9 +109,11 @@ class IncorporacionService
         $tipos = $this->tiposDocumento($colaborador);
         $vigentes = $this->expediente->documentosVigentes($colaborador);
 
-        $documentos = $tipos->map(fn (DocumentType $tipo) => $this->documentoParaColaborador($tipo, $vigentes->get($tipo->id), $vigentes));
+        $generados = $this->generados->generadosDe($colaborador);
 
-        $progreso = $this->progreso($tipos, $vigentes);
+        $documentos = $tipos->map(fn (DocumentType $tipo) => $this->documentoParaColaborador($tipo, $vigentes->get($tipo->id), $vigentes, $generados));
+
+        $progreso = $this->progreso($tipos, $vigentes, $colaborador);
         $estado = $this->estadoGeneral($colaborador, $tipos, $vigentes);
 
         return [
@@ -161,11 +165,18 @@ class IncorporacionService
 
     /**
      * @param  Collection<int, EmployeeDocument>  $vigentes
+     * @param  array<string, int>  $generados  clave del tipo => id del GeneratedDocument vigente
      * @return array<string, mixed>
      */
-    private function documentoParaColaborador(DocumentType $tipo, ?EmployeeDocument $documento, Collection $vigentes): array
+    private function documentoParaColaborador(DocumentType $tipo, ?EmployeeDocument $documento, Collection $vigentes, array $generados = []): array
     {
         $estadoDocumento = $documento === null ? null : $documento->status;
+        // Solicitud de empleo / Estudio socioeconómico: PEOPLE los genera con
+        // los datos capturados; la persona nunca los sube
+        // (RequisitoDocumentoGeneradoService). Null para cualquier otro tipo.
+        $generadoPorSistema = $this->generados->esGenerable($tipo)
+            ? $this->generados->presentacion($tipo, $documento, $generados, false)
+            : null;
 
         return [
             'id' => $tipo->id,
@@ -180,8 +191,8 @@ class IncorporacionService
             'motivo_rechazo' => $documento !== null && in_array($estadoDocumento, [EstadoDocumento::Rechazado, EstadoDocumento::RequiereCorreccion], true)
                 ? $documento->rejection_reason
                 : null,
-            'puede_subir' => $documento === null || in_array($estadoDocumento, self::ESTADOS_SUBIDA_DIRECTA, true),
-            'puede_reemplazar' => in_array($estadoDocumento, self::ESTADOS_REEMPLAZO_AUTORIZADO, true),
+            'puede_subir' => $generadoPorSistema === null && ($documento === null || in_array($estadoDocumento, self::ESTADOS_SUBIDA_DIRECTA, true)),
+            'puede_reemplazar' => $generadoPorSistema === null && in_array($estadoDocumento, self::ESTADOS_REEMPLAZO_AUTORIZADO, true),
             'puede_solicitar_cambio' => in_array($estadoDocumento, self::ESTADOS_SOLICITAN_CAMBIO, true),
             'fecha_subida' => $documento?->created_at?->toIso8601String(),
             'fecha_revision' => $documento?->reviewed_at?->toIso8601String(),
@@ -189,6 +200,9 @@ class IncorporacionService
             // de recomendación): la app ofrece «este archivo trae también…»
             // solo si `par.puede_subir`. Null si el tipo no tiene par.
             'par' => $this->pares->resumenPar($tipo, $vigentes),
+            // {estado: escaneo|generado|por_generar, cumplido, titulo, mensaje,
+            // captura: registro|rh, documento_generado_id} o null.
+            'generado_por_sistema' => $generadoPorSistema,
         ];
     }
 
@@ -202,9 +216,12 @@ class IncorporacionService
      * @param  Collection<int, EmployeeDocument>  $vigentes
      * @return array<string, int|bool>
      */
-    public function progreso(Collection $tipos, Collection $vigentes): array
+    public function progreso(Collection $tipos, Collection $vigentes, ?Colaborador $colaborador = null): array
     {
-        $p = ProgresoExpediente::calcular($tipos, $vigentes);
+        // Con el colaborador, lo que PEOPLE ya generó (Solicitud de empleo,
+        // Estudio socioeconómico) cuenta como completo.
+        $porGenerado = $colaborador !== null ? $this->generados->idsCumplidosPorGenerado($colaborador, $tipos, $vigentes) : [];
+        $p = ProgresoExpediente::calcular($tipos, $vigentes, $porGenerado);
 
         return [
             'total' => $p['total_obligatorios'],
@@ -236,8 +253,9 @@ class IncorporacionService
         }
 
         $requeridos = $tipos->where('requerido', true);
+        $porGenerado = $this->generados->idsCumplidosPorGenerado($colaborador, $requeridos, $vigentes);
 
-        $todosAprobados = $requeridos->every(fn (DocumentType $tipo) => $vigentes->get($tipo->id)?->status === EstadoDocumento::Aprobado);
+        $todosAprobados = $requeridos->every(fn (DocumentType $tipo) => in_array($tipo->id, $porGenerado, true) || $vigentes->get($tipo->id)?->status === EstadoDocumento::Aprobado);
 
         if ($todosAprobados) {
             return 'completo';

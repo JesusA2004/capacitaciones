@@ -69,7 +69,7 @@ class CumpleanosController extends Controller
         // en el calendario ni en las listas, así que RH necesita verlos
         // aparte para saber a quién le falta completar el dato.
         $sinFechaNacimiento = $this->cumpleanos->sinFechaNacimiento($usuario, $filtros)
-            ->map(fn (Colaborador $c) => ['id' => $c->id, 'nombre' => $c->nombreCompleto(), 'sucursal' => $c->sucursalPrincipal?->nombre])
+            ->map(fn (Colaborador $c) => $this->cumpleanos->filaSinFechaNacimiento($c, $usuario))
             ->values();
 
         // Misma forma de fila que Aniversarios (CelebracionService): el

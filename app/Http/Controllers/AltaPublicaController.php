@@ -11,6 +11,7 @@ use App\Models\AltaDigital;
 use App\Models\AltaDigitalDocumento;
 use App\Models\DocumentType;
 use App\Services\AltaDigital\AltaDigitalStorageService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -19,7 +20,10 @@ use RuntimeException;
 
 class AltaPublicaController extends Controller
 {
-    public function __construct(private readonly AltaDigitalStorageService $storage) {}
+    public function __construct(
+        private readonly AltaDigitalStorageService $storage,
+        private readonly FotoColaboradorService $fotos,
+    ) {}
 
     public function show(AltaDigital $alta): Response
     {
@@ -54,24 +58,35 @@ class AltaPublicaController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Datos personales guardados.']);
     }
 
+    /**
+     * «Fotografía para expediente»: la misma foto de perfil que tendrá como
+     * colaborador. Se normaliza aquí (MIME real, EXIF, recorte cuadrado
+     * 800×800 JPEG, FotoColaboradorService) para avisar de inmediato si la
+     * imagen no sirve; al convertir el alta se fija como foto oficial.
+     */
     public function subirFoto(SubirFotoRequest $request, AltaDigital $alta): RedirectResponse
     {
+        $archivo = $request->file('foto');
+        $bytes = $this->fotos->normalizar($archivo);
+        $nombre = sprintf('%s.jpg', pathinfo($archivo->getClientOriginalName(), PATHINFO_FILENAME) ?: 'fotografia');
+        $ruta = $this->storage->ruta($alta->id, 'foto', $this->storage->nombreInterno($nombre));
+
+        if ($this->storage->disco()->put($ruta, $bytes) === false || ! $this->storage->disco()->exists($ruta)) {
+            throw new RuntimeException("No se pudo guardar la fotografía en el almacenamiento: {$ruta}");
+        }
+
+        // Solo tras confirmar la nueva: nunca se pierde la anterior válida.
         if ($alta->foto_path) {
             $this->storage->eliminar($alta->foto_path);
         }
 
-        $archivo = $request->file('foto');
-        $nombreInterno = $this->storage->nombreInterno($archivo->getClientOriginalName());
-        $ruta = $this->storage->ruta($alta->id, 'foto', $nombreInterno);
-        $this->storage->guardar($archivo, $ruta);
-
         $alta->update([
             'foto_disk' => config('altas.disk'),
             'foto_path' => $ruta,
-            'foto_original_name' => $archivo->getClientOriginalName(),
+            'foto_original_name' => $nombre,
         ]);
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Fotografía cargada.']);
+        return back()->with('toast', ['type' => 'success', 'message' => 'Fotografía para expediente cargada.']);
     }
 
     public function subirDocumento(SubirDocumentoRequest $request, AltaDigital $alta): RedirectResponse
@@ -121,6 +136,13 @@ class AltaPublicaController extends Controller
     {
         abort_unless($alta->tokenVigente() && $alta->estado->permiteCaptura(), 403);
         abort_unless($alta->aviso_privacidad_aceptado && $alta->consentimiento_datos_aceptado, 422, 'Debes aceptar el aviso de privacidad y el consentimiento antes de enviar.');
+
+        // Fotografía para expediente: obligatoria (será su foto de perfil).
+        if ($alta->foto_path === null) {
+            throw ValidationException::withMessages([
+                'foto' => 'Agrega tu fotografía para expediente antes de enviar.',
+            ]);
+        }
 
         $alta->update([
             'estado' => EstadoAltaDigital::EnviadaPorCandidato,

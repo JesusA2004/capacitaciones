@@ -4,6 +4,7 @@ import { ChevronDown, PenLine, TriangleAlert } from '@lucide/vue';
 import { computed } from 'vue';
 import CelebracionesPanel from '@/components/Celebraciones/CelebracionesPanel.vue';
 import type { NavegacionCelebraciones } from '@/components/Celebraciones/CelebracionesPanel.vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import { dashboard } from '@/routes';
 import { felicitacion, index } from '@/routes/rh/cumpleanos';
 import { index as configuracionIndex } from '@/routes/rh/cumpleanos/configuracion';
@@ -41,6 +42,7 @@ const props = defineProps<{
         id: number;
         nombre: string;
         sucursal: string | null;
+        foto_url: string | null;
     }[];
     opciones: {
         sucursales: OpcionCelebracion[];
@@ -171,13 +173,21 @@ function navegar({ anio, mes, filtros: f, rango }: NavegacionCelebraciones) {
                     <li
                         v-for="colaborador in sinFechaNacimiento"
                         :key="colaborador.id"
+                        class="flex items-center gap-1.5"
                     >
-                        {{ colaborador.nombre
-                        }}<span
-                            v-if="colaborador.sucursal"
-                            class="text-muted-foreground"
-                        >
-                            · {{ colaborador.sucursal }}</span
+                        <ColaboradorAvatar
+                            :nombre="colaborador.nombre"
+                            :foto-url="colaborador.foto_url"
+                            tamano="xs"
+                        />
+                        <span
+                            >{{ colaborador.nombre
+                            }}<span
+                                v-if="colaborador.sucursal"
+                                class="text-muted-foreground"
+                            >
+                                · {{ colaborador.sucursal }}</span
+                            ></span
                         >
                     </li>
                 </ul>

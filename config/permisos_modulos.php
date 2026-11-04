@@ -448,6 +448,25 @@ return [
                 'actas.seguimiento' => 'Notas de seguimiento', 'actas.cerrar' => 'Cerrar', 'actas.descargar' => 'Generar / descargar formato (PDF) y anexos',
             ],
         ],
+        // Recepción documental RH (docs/RECEPCION_DOCUMENTAL_RH.md): control
+        // mensual de originales firmados recibidos por paquetería. Alcance
+        // por sucursal del renglón (RecepcionDocumentalService::visibles).
+        'recepcion_documental' => [
+            'etiqueta' => 'Recepción documental RH',
+            'grupo' => 'People',
+            'etapa' => 'permanencia',
+            'acceso' => 'recepcion_documental.ver',
+            'alcances' => ['todos' => 'recepcion_documental.ver_todos', 'region' => 'recepcion_documental.ver_region', 'sucursal' => 'recepcion_documental.ver_sucursal'],
+            'descripcion' => 'Cortes mensuales de los originales firmados que RH recibe (altas, bajas, nómina, vacaciones, préstamos…). Lo esperado lo calcula el sistema desde eventos reales.',
+            'acciones' => [
+                'recepcion_documental.generar' => 'Calcular / actualizar el corte del mes',
+                'recepcion_documental.recibir' => 'Marcar originales como recibidos',
+                'recepcion_documental.observar' => 'Registrar observación, «No recibido» o «No aplica»',
+                'recepcion_documental.cerrar' => 'Cerrar el corte',
+                'recepcion_documental.reabrir' => 'Reabrir un corte cerrado (con motivo)',
+                'recepcion_documental.descargar_pdf' => 'Generar / descargar el PDF de control',
+            ],
+        ],
         // Información médica: por defecto solo RH (Etapa 1, Incapacidades).
         'incapacidades' => [
             'etiqueta' => 'Incapacidades',

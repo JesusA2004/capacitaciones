@@ -705,7 +705,7 @@ class ReportesRhService
      */
     private function fechasProximas(User $usuario, array $filtros, string $campo, string $titulo): array
     {
-        $hoy = now()->startOfDay();
+        $hoy = FechaMexico::inicioDeHoy();
 
         $filas = $this->colaboradoresVisibles($usuario, $filtros)
             ->filter(fn (Colaborador $u) => $u->{$campo} !== null)

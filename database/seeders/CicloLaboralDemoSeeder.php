@@ -295,10 +295,10 @@ class CicloLaboralDemoSeeder extends Seeder
                 $wf->enviarPsicometricas($c, $this->como($this->reclutador), 'https://pruebas.example.test/demo');
                 $wf->registrarResultadosPsicometricas($c, $this->reclutador, 'Resultados demo dentro del perfil.');
             },
-            EstadoCandidato::SocioeconomicoPendiente->orden() => fn () => $wf->revisarPsicometricas($c, $this->como($this->gerente), true, null),
+            EstadoCandidato::SocioeconomicoPendiente->orden() => fn () => $wf->revisarPsicometricas($c, $this->como($this->reclutador), true, null),
             EstadoCandidato::ReferenciasPendientes->orden() => function () use ($wf, $c): void {
-                $wf->registrarSocioeconomico($c, $this->como($this->gerente), ['fecha_visita' => now()->toDateString(), 'direccion' => 'Domicilio demo', 'checklist' => ['vivienda_en_orden' => true]]);
-                $wf->revisarSocioeconomico($c, $this->gerente, true, null);
+                $wf->registrarSocioeconomico($c, $this->como($this->reclutador), ['fecha_visita' => now()->toDateString(), 'direccion' => 'Domicilio demo', 'checklist' => ['vivienda_en_orden' => true]]);
+                $wf->revisarSocioeconomico($c, $this->reclutador, true, null);
             },
             // Sin preautorización: referencias concluidas = autorización de RH pendiente.
             EstadoCandidato::AutorizacionRhPendiente->orden() => function () use ($wf, $c): void {
@@ -401,7 +401,17 @@ class CicloLaboralDemoSeeder extends Seeder
         $contrato = app(ContratoLaboralService::class)->vigente($colaborador);
 
         if ($contrato !== null) {
-            app(DocumentoProcesoService::class)->generarPaquete('alta', $contrato, $this->rh);
+            // La demo no captura la Solicitud de Empleo ni el Estudio
+            // Socioeconómico (decenas de datos personales que no se inventan):
+            // el requisito previo al contrato se omite SOLO en este paso.
+            $exigir = (bool) config('incorporacion.documentos_ingreso.exigir_antes_de_contrato', true);
+            config(['incorporacion.documentos_ingreso.exigir_antes_de_contrato' => false]);
+
+            try {
+                app(DocumentoProcesoService::class)->generarPaquete('alta', $contrato, $this->rh);
+            } finally {
+                config(['incorporacion.documentos_ingreso.exigir_antes_de_contrato' => $exigir]);
+            }
         }
 
         // Firma física de los contratos (impresión + firma con huella).

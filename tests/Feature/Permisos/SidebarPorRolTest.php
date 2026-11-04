@@ -49,6 +49,7 @@ function sbOperativo(): array
         'Solicitudes' => [['solicitudes.revisar', 'solicitudes.aprobar', 'rh.solicitudes.ver'], 'rh.solicitudes.index'],
         'Incapacidades' => [['incapacidades.ver'], 'rh.incapacidades.index'],
         'Actas administrativas' => [['actas.ver'], 'rh.actas.index'],
+        'Recepción documental' => [['recepcion_documental.ver'], 'rh.recepcion-documental.index'],
         'Recibo simple de pago' => [['nomina.recibos.ver'], 'rh.nomina.lotes.index'],
         'Importar salarios y vacaciones' => [['colaboradores.importar_salarios_vacaciones'], 'rh.importaciones.index'],
         'Contactos de emergencia' => [['contactos_emergencia.importar'], 'rh.contactos-emergencia.index'],

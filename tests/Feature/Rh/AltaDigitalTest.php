@@ -89,6 +89,10 @@ test('el candidato puede completar el wizard publico por token y enviarlo', func
         'firma' => 'data:image/png;base64,'.base64_encode('firma-de-prueba'),
     ])->assertSessionHasNoErrors();
 
+    // Sin fotografía para expediente no se envía.
+    $this->post(route('alta-publica.enviar', $alta->token))->assertSessionHasErrors(['foto' => 'Agrega tu fotografía para expediente antes de enviar.']);
+    $this->post(route('alta-publica.foto', $alta->token), ['foto' => UploadedFile::fake()->image('yo.jpg', 600, 900)])->assertSessionHasNoErrors();
+
     $this->post(route('alta-publica.enviar', $alta->token))->assertSessionHasNoErrors();
 
     $alta->refresh();
@@ -257,7 +261,8 @@ test('al convertir un alta con foto, la foto se copia al expediente del colabora
         'foto_path' => 'altas/test/foto-original.jpg',
         'foto_original_name' => 'foto-original.jpg',
     ]);
-    Storage::disk('nas')->put($alta->foto_path, 'contenido-de-la-foto');
+    $imagen = UploadedFile::fake()->image('foto-original.jpg', 1000, 600);
+    Storage::disk('nas')->put($alta->foto_path, (string) file_get_contents($imagen->getRealPath()));
 
     $usuario = User::factory()->create();
     $usuario->assignRole('rh_admin');
@@ -275,7 +280,8 @@ test('al convertir un alta con foto, la foto se copia al expediente del colabora
     expect($colaborador->foto_path)->not->toBeNull()
         ->and($colaborador->foto_path)->not->toBe($alta->foto_path)
         ->and(Storage::disk('nas')->exists($colaborador->foto_path))->toBeTrue()
-        ->and(Storage::disk('nas')->get($colaborador->foto_path))->toBe('contenido-de-la-foto');
+        // Misma normalización que cualquier foto de perfil (800×800 JPEG).
+        ->and(getimagesizefromstring((string) Storage::disk('nas')->get($colaborador->foto_path)))->toMatchArray([0 => 800, 1 => 800, 'mime' => 'image/jpeg']);
 });
 
 test('rh_auxiliar no puede aprobar un alta digital', function () {

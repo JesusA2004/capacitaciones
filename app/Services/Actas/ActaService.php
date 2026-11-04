@@ -668,6 +668,20 @@ class ActaService
     }
 
     /**
+     * Detalle de la pantalla web: aArray($acta, true) + la foto oficial de
+     * la persona (misma regla de alcance que filaIndice()).
+     *
+     * @return array<string, mixed>
+     */
+    public function detalleWeb(ActaAdministrativa $acta, User $viewer): array
+    {
+        $datos = $this->aArray($acta, true);
+        $datos['colaborador']['foto_url'] = $this->fotos->urlPara($acta->colaborador, $viewer);
+
+        return $datos;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function aArray(ActaAdministrativa $acta, bool $detalle = false, ?User $viewer = null): array

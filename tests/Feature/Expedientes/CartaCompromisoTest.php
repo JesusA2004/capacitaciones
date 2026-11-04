@@ -113,6 +113,8 @@ function ccpRegistrarPorQr(): array
     ];
 
     test()->withHeaders($headers)->postJson('/api/v1/colaborador/registro/datos', ['datos' => ccpDatosCompletos($colaborador->fresh())])->assertOk();
+    // Fotografía para expediente: obligatoria para cerrar el registro (docs/FOTO_EXPEDIENTE.md).
+    test()->withHeaders($headers)->post('/api/v1/colaborador/foto', ['foto' => UploadedFile::fake()->image('yo.jpg', 600, 600)], ['Accept' => 'application/json'])->assertOk();
 
     return ['colaborador' => $colaborador->fresh(), 'headers' => $headers];
 }

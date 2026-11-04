@@ -9,7 +9,11 @@ use App\Notifications\CredencialesActualizadasNotification;
 use App\Services\Administracion\GeneradorPasswordService;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Notificaciones\Aviso;
+use App\Services\Notificaciones\NotificacionEventosService;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -41,6 +45,7 @@ class CredencialesService
         private readonly GeneradorPasswordService $generador,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly AuditoriaService $auditoria,
+        private readonly NotificacionEventosService $avisos,
     ) {}
 
     /**
@@ -49,13 +54,43 @@ class CredencialesService
      */
     public function puedeGenerar(User $actor, Colaborador $colaborador): bool
     {
-        if ($actor->colaborador_id === $colaborador->id || ! $this->alcance->alcanzaColaborador($actor, $colaborador)) {
+        try {
+            $this->autorizarGeneracion($actor, $colaborador);
+
+            return true;
+        } catch (AuthorizationException) {
             return false;
+        }
+    }
+
+    /**
+     * Igual que puedeGenerar(), pero con el motivo en español (403 que la app
+     * y la web muestran tal cual).
+     *
+     * @throws AuthorizationException
+     */
+    public function autorizarGeneracion(User $actor, Colaborador $colaborador): void
+    {
+        if ($actor->colaborador_id === $colaborador->id) {
+            throw new AuthorizationException('No puedes generar tus propias credenciales: pídeselo a RH.');
+        }
+
+        if (! $this->alcance->alcanzaColaborador($actor, $colaborador)) {
+            throw new AuthorizationException('Esta persona está fuera de tu alcance.');
         }
 
         $cuenta = User::withTrashed()->where('colaborador_id', $colaborador->id)->first();
+        $gate = Gate::forUser($actor);
 
-        return $cuenta === null ? $actor->can('create', User::class) : $actor->can('restablecerPassword', $cuenta);
+        if ($cuenta === null) {
+            if ($gate->denies('create', User::class)) {
+                throw new AuthorizationException('No tienes permiso para crear cuentas. Pide a RH que genere sus credenciales.');
+            }
+
+            return;
+        }
+
+        $gate->inspect('restablecerPassword', $cuenta)->authorize();
     }
 
     /**
@@ -87,6 +122,7 @@ class CredencialesService
                 $existente->forceFill(['password' => Hash::make($contrasena), 'debe_cambiar_contrasena' => true])->save();
             });
             $this->auditoria->registrar('credenciales_generadas', $existente, $actor, ['colaborador_id' => $colaborador->id, 'usuario' => $existente->username, 'cuenta_nueva' => false]);
+            $this->avisarAlTitular($existente, $actor);
 
             return ['usuario' => $existente->username, 'contrasena' => $contrasena, 'cuenta_nueva' => false, 'correo' => $existente->email];
         }
@@ -114,6 +150,51 @@ class CredencialesService
         $this->auditoria->registrar('credenciales_generadas', $cuenta, $actor, ['colaborador_id' => $colaborador->id, 'usuario' => $cuenta->username, 'cuenta_nueva' => true]);
 
         return ['usuario' => $cuenta->username, 'contrasena' => $contrasena, 'cuenta_nueva' => true, 'correo' => $cuenta->email];
+    }
+
+    /**
+     * «Establecer contraseña» desde Administración → Usuarios: otra persona
+     * la define, así que es temporal (se pide cambiarla al entrar), queda en
+     * la bitácora (sin la contraseña) y el titular recibe un aviso.
+     * Devuelve la contraseña en claro UNA vez para copiarla.
+     */
+    public function restablecerContrasena(User $cuenta, User $actor, ?string $contrasenaManual = null): string
+    {
+        $contrasena = $contrasenaManual !== null && $contrasenaManual !== '' ? $contrasenaManual : $this->generador->generar();
+
+        $cuenta->forceFill(['password' => Hash::make($contrasena), 'debe_cambiar_contrasena' => true])->save();
+        $this->auditoria->registrar('contrasena_restablecida', $cuenta, $actor, ['colaborador_id' => $cuenta->colaborador_id, 'usuario' => $cuenta->username, 'manual' => $contrasenaManual !== null && $contrasenaManual !== '']);
+        $this->avisarAlTitular($cuenta, $actor);
+
+        return $contrasena;
+    }
+
+    /**
+     * Aviso al titular: alguien más le cambió la contraseña. Si no lo pidió,
+     * sabe que debe avisar a RH (evita la suplantación silenciosa). Un fallo
+     * al avisar nunca revierte el cambio.
+     */
+    private function avisarAlTitular(User $cuenta, User $actor): void
+    {
+        if ($cuenta->is($actor)) {
+            return;
+        }
+
+        try {
+            $this->avisos->avisarResultado($cuenta, new Aviso(
+                'cuenta_contrasena_restablecida',
+                'cuenta',
+                'Tu contraseña fue restablecida',
+                sprintf('%s te asignó una contraseña temporal; al entrar se te pedirá cambiarla. Si no lo pediste, avisa a RH de inmediato.', $actor->nombreCompleto()),
+                $cuenta,
+                'contrasena_restablecida',
+                'alta',
+                ocurrencia: sprintf('contrasena-%s', now()->format('YmdHisu')),
+                directo: true,
+            ));
+        } catch (Throwable $e) {
+            Log::warning('No se pudo avisar al titular del cambio de contraseña.', ['usuario_id' => $cuenta->id, 'error' => $e->getMessage()]);
+        }
     }
 
     /**

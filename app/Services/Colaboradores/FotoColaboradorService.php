@@ -2,6 +2,7 @@
 
 namespace App\Services\Colaboradores;
 
+use App\Enums\AlcanceDatos;
 use App\Enums\EstadoCambioFoto;
 use App\Models\CambioFotoPerfil;
 use App\Models\Colaborador;
@@ -9,6 +10,8 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Expedientes\DocumentoStorageService;
+use App\Services\Incorporacion\RegistroAppService;
+use App\Services\Permisos\AlcanceModuloService;
 use App\Services\Tareas\NotificadorRhService;
 use GdImage;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -31,6 +34,17 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  *    oficial y la anterior queda en el historial; al rechazar, no cambia
  *    nada y se avisa el motivo.
  *  - RH desde el expediente (actualizar()) sí la cambia directo.
+ *  - Nuevo ingreso con el REGISTRO DE APP abierto (RegistroAppService::aplica):
+ *    es su «Fotografía para expediente», obligatoria para terminar el
+ *    registro; mientras no lo termina puede reemplazarla directo (sin
+ *    propuesta), con auditoría. Ver docs/FOTO_EXPEDIENTE.md.
+ *  - Alta pública web: la foto que capturó la persona se fija con
+ *    fijarDesdeContenido() al convertir el alta (misma normalización).
+ *
+ * Quién VE la foto de otra persona (puedeVerFoto): quien alcanza su
+ * expediente (alcance del módulo Expedientes) y su jerarquía directa (su
+ * jefe directo/gerente y quienes le reportan). Un compañero sin esa relación
+ * no la ve (DirectorioFotoTest).
  *
  * Toda foto se normaliza aquí — MIME real verificado al decodificarla,
  * orientación EXIF corregida, recorte cuadrado al centro, 800×800 JPEG —
@@ -44,11 +58,20 @@ class FotoColaboradorService
 
     private const CALIDAD_JPEG = 85;
 
+    /**
+     * Contexto de visibilidad por visor (una vez por petición): así una
+     * lista arma `foto_url` sin consultas por fila.
+     *
+     * @var array<int, array{propio: int|null, jefe: int|null, gerente: int|null, nivel: AlcanceDatos, sucursales: array<int, true>}>
+     */
+    private array $visores = [];
+
     public function __construct(
         private readonly DocumentoStorageService $storage,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly NotificadorRhService $notificador,
         private readonly AuditoriaService $auditoria,
+        private readonly AlcanceModuloService $alcanceModulos,
     ) {}
 
     /**
@@ -74,6 +97,21 @@ class FotoColaboradorService
     public function subirPropia(Colaborador $colaborador, UploadedFile $archivo, User $actor): array
     {
         $bytes = $this->normalizar($archivo);
+
+        // Nuevo ingreso con el registro de app abierto: corrige su fotografía
+        // para expediente directo (todavía no hay una foto «oficial» que RH
+        // haya validado: la revisa junto con el resto del registro).
+        if ($colaborador->foto_path !== null && $this->registroAbiertoDe($colaborador, $actor)) {
+            $ruta = $this->guardar($colaborador, $bytes, 'Foto de perfil');
+            $anterior = $colaborador->foto_path;
+            $colaborador->update(['foto_path' => $ruta]);
+
+            $this->auditoria->registrar('foto_perfil_actualizada', $colaborador, $actor, [
+                'foto_anterior' => $anterior, 'foto_nueva' => $ruta, 'origen' => 'registro_app_reemplazo',
+            ]);
+
+            return ['resultado' => 'oficial', 'cambio' => null];
+        }
 
         if ($colaborador->foto_path === null) {
             $ruta = $this->guardar($colaborador, $bytes, 'Foto de perfil');
@@ -105,6 +143,34 @@ class FotoColaboradorService
         $ruta = $this->guardar($colaborador, $bytes, 'Propuesta de foto');
 
         return ['resultado' => 'pendiente', 'cambio' => $this->registrarPropuesta($colaborador, $ruta, $actor)];
+    }
+
+    /**
+     * Fija la foto oficial desde el contenido de un archivo que no llegó
+     * como UploadedFile (p. ej. la foto del alta pública guardada en su
+     * disco): misma normalización que cualquier otra foto. Devuelve la ruta
+     * en el NAS. Si la imagen no se puede leer lanza ValidationException.
+     */
+    public function fijarDesdeContenido(Colaborador $colaborador, string $contenido, User $actor, string $origen): string
+    {
+        $ruta = $this->guardar($colaborador, $this->normalizarContenido($contenido), 'Foto de perfil');
+
+        $anterior = $colaborador->foto_path;
+        $colaborador->update(['foto_path' => $ruta]);
+
+        $this->auditoria->registrar('foto_perfil_actualizada', $colaborador, $actor, ['foto_anterior' => $anterior, 'foto_nueva' => $ruta, 'origen' => $origen]);
+
+        return $ruta;
+    }
+
+    /**
+     * ¿La cuenta del propio colaborador sigue en su registro de app (QR)?
+     * Se resuelve tarde para no crear una dependencia circular con
+     * RegistroAppService (que también usa este servicio).
+     */
+    private function registroAbiertoDe(Colaborador $colaborador, User $actor): bool
+    {
+        return $actor->colaborador_id === $colaborador->id && app(RegistroAppService::class)->aplica($actor);
     }
 
     public function aprobar(CambioFotoPerfil $cambio, User $revisor): CambioFotoPerfil
@@ -185,7 +251,8 @@ class FotoColaboradorService
                 default => 'Foto oficial',
             },
             'foto_url' => $api ? $this->urlPropiaApi($colaborador) : $this->url($colaborador),
-            'puede_subir_directo' => $colaborador->foto_path === null,
+            'puede_subir_directo' => $colaborador->foto_path === null
+                || ($colaborador->user !== null && $this->registroAbiertoDe($colaborador, $colaborador->user)),
             'pendiente' => $pendiente !== null ? [
                 'id' => $pendiente->id,
                 'solicitada_en' => $pendiente->created_at->toIso8601String(),
@@ -302,10 +369,99 @@ class FotoColaboradorService
         return $colaborador->foto_path !== null ? route('api.v1.colaborador.foto', ['v' => $this->version($colaborador->foto_path)]) : null;
     }
 
-    /** Foto de otra persona para RH en la app (Bearer token), versionada. */
+    /**
+     * Foto de otra persona para RH en la app (Bearer token), versionada. La
+     * ruta exige alcance de expediente (Api\V1\Rh\ColaboradorController::foto).
+     */
     public function urlRhApi(Colaborador $colaborador): ?string
     {
-        return $colaborador->foto_path !== null ? route('api.v1.rh.cumpleanos.foto', ['colaborador' => $colaborador->id, 'v' => $this->version($colaborador->foto_path)]) : null;
+        return $colaborador->foto_path !== null ? route('api.v1.rh.colaboradores.foto', ['colaborador' => $colaborador->id, 'v' => $this->version($colaborador->foto_path)]) : null;
+    }
+
+    /**
+     * Foto de otra persona para la app (Bearer token), solo si $viewer puede
+     * verla (puedeVerFoto); si no, null y la app muestra iniciales. No hace
+     * consultas por fila: requiere foto_path, sucursal_principal_id, jefe_id
+     * y gerente_id cargados.
+     */
+    public function urlApiPara(Colaborador $colaborador, User $viewer): ?string
+    {
+        if ($colaborador->foto_path === null || ! $this->puedeVerFoto($viewer, $colaborador)) {
+            return null;
+        }
+
+        return route('api.v1.colaboradores.foto', ['colaborador' => $colaborador->id, 'v' => $this->version($colaborador->foto_path)]);
+    }
+
+    /**
+     * ¿$viewer puede ver la foto de $colaborador? La propia; la de quien
+     * alcanza su expediente (alcance del módulo Expedientes: Todos, Región,
+     * Sucursal, Equipo) y su jerarquía directa: su jefe directo y su gerente,
+     * y quienes le reportan (jefe_id/gerente_id). Nadie más (sin IDOR: la
+     * ruta vuelve a evaluar esto, no confía en la URL).
+     */
+    public function puedeVerFoto(User $viewer, Colaborador $colaborador): bool
+    {
+        $visor = $this->visor($viewer);
+        $propio = $visor['propio'];
+
+        if ($propio !== null && (
+            $colaborador->id === $propio
+            || $colaborador->id === $visor['jefe']
+            || $colaborador->id === $visor['gerente']
+            || $colaborador->jefe_id === $propio
+            || $colaborador->gerente_id === $propio
+        )) {
+            return true;
+        }
+
+        return match ($visor['nivel']) {
+            AlcanceDatos::Todos => true,
+            AlcanceDatos::Region, AlcanceDatos::Sucursal => $colaborador->sucursal_principal_id !== null
+                && isset($visor['sucursales'][(int) $colaborador->sucursal_principal_id]),
+            AlcanceDatos::Equipo, AlcanceDatos::Propios => false,
+        };
+    }
+
+    /** Binario de la foto oficial (nunca expone `foto_path`). */
+    public function respuestaOficial(Colaborador $colaborador): StreamedResponse
+    {
+        abort_if($colaborador->foto_path === null || ! $this->storage->existe($colaborador->foto_path), 404);
+
+        return $this->storage->respuesta($colaborador->foto_path, [
+            'Content-Type' => 'image/jpeg',
+            'Content-Disposition' => 'inline; filename="foto.jpg"',
+            'Cache-Control' => 'private, max-age=86400',
+        ]);
+    }
+
+    /**
+     * @return array{propio: int|null, jefe: int|null, gerente: int|null, nivel: AlcanceDatos, sucursales: array<int, true>}
+     */
+    private function visor(User $viewer): array
+    {
+        if (isset($this->visores[$viewer->id])) {
+            return $this->visores[$viewer->id];
+        }
+
+        $propio = $viewer->colaborador;
+        $nivel = $this->alcanceModulos->nivel($viewer, 'expedientes');
+        $sucursales = [];
+
+        if ($nivel === AlcanceDatos::Region || $nivel === AlcanceDatos::Sucursal) {
+            foreach ($this->alcanceModulos->sucursalesPara($viewer, $nivel) as $id) {
+                $sucursales[$id] = true;
+            }
+        }
+
+        return $this->visores[$viewer->id] = [
+            'propio' => $propio?->id,
+            'jefe' => $propio?->jefe_id,
+            // Mismo criterio que JerarquiaColaboradorService::gerenteDe.
+            'gerente' => $propio->gerente_id ?? $propio?->jefe?->jefe_id,
+            'nivel' => $nivel,
+            'sucursales' => $sucursales,
+        ];
     }
 
     public static function version(string $ruta): string
@@ -387,11 +543,21 @@ class FotoColaboradorService
     }
 
     /**
+     * Pública para que el alta pública valide y normalice la foto en cuanto
+     * la persona la sube (aviso inmediato si la imagen no sirve).
+     *
      * @return string Bytes JPEG cuadrados de LADO×LADO.
      */
-    private function normalizar(UploadedFile $archivo): string
+    public function normalizar(UploadedFile $archivo): string
     {
-        $contenido = (string) file_get_contents($archivo->getRealPath());
+        return $this->normalizarContenido((string) file_get_contents($archivo->getRealPath()));
+    }
+
+    /**
+     * @return string Bytes JPEG cuadrados de LADO×LADO.
+     */
+    private function normalizarContenido(string $contenido): string
+    {
         // MIME real (no la extensión ni lo que diga el cliente).
         $mime = (new \finfo(FILEINFO_MIME_TYPE))->buffer($contenido);
         $origen = in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true) ? @imagecreatefromstring($contenido) : false;
@@ -402,7 +568,7 @@ class FotoColaboradorService
             ]);
         }
 
-        $origen = $this->corregirOrientacion($origen, $archivo, $mime);
+        $origen = $this->corregirOrientacion($origen, $contenido, $mime);
 
         $ancho = imagesx($origen);
         $alto = imagesy($origen);
@@ -438,13 +604,24 @@ class FotoColaboradorService
      * Las fotos de celular suelen venir "acostadas" con la rotación real en
      * los metadatos EXIF: se aplica para que la miniatura quede derecha.
      */
-    private function corregirOrientacion(GdImage $imagen, UploadedFile $archivo, string|false $mime): GdImage
+    private function corregirOrientacion(GdImage $imagen, string $contenido, string|false $mime): GdImage
     {
         if (! function_exists('exif_read_data') || $mime !== 'image/jpeg') {
             return $imagen;
         }
 
-        $exif = @exif_read_data($archivo->getRealPath());
+        // EXIF desde los mismos bytes (sirve igual para un upload que para
+        // un archivo leído de otro disco, sin escribir temporales).
+        $flujo = fopen('php://memory', 'r+b');
+
+        if ($flujo === false) {
+            return $imagen;
+        }
+
+        fwrite($flujo, $contenido);
+        rewind($flujo);
+        $exif = @exif_read_data($flujo);
+        fclose($flujo);
         $orientacion = is_array($exif) ? (int) ($exif['Orientation'] ?? 1) : 1;
 
         $grados = match ($orientacion) {

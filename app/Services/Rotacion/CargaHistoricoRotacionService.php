@@ -9,6 +9,7 @@ use App\Models\CausalAnalitica;
 use App\Models\ImportacionExcel;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Support\FechaMexico;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -109,7 +110,7 @@ class CargaHistoricoRotacionService
         // Instancias nuevas: el motor guarda en memoria lo ya calculado y aquí
         // se consulta antes y después de cargar en el mismo proceso.
         $analisis = app(RotacionAnalisisService::class);
-        $hasta = $hasta->min(CarbonImmutable::today());
+        $hasta = $hasta->min(FechaMexico::inicioDeHoyInmutable());
         $sucursales = Sucursal::query()->pluck('id')->map(fn ($id): int => (int) $id)->values();
         $f = new FiltrosRotacion('rango', $desde->year, null, $desde, $hasta, $sucursales, null, null, null, null, null, null, null, $fuente, false, externas: true);
         $t = $this->vacio();

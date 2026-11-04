@@ -157,25 +157,27 @@ return [
             'etiqueta' => 'Candidato con psicométricas por revisar',
             'modulo' => 'reclutamiento',
             'audiencia' => 'operativa',
-            'defecto' => [...$rh, ...$linea],
+            // El gerente solo aprueba la entrevista (2026-10-22/26): estos
+            // pasos son de Reclutamiento/RH y no le llegan por defecto.
+            'defecto' => $rh,
         ],
         'candidato_socioeconomico' => [
             'etiqueta' => 'Candidato con estudio socioeconómico pendiente',
             'modulo' => 'reclutamiento',
             'audiencia' => 'operativa',
-            'defecto' => [...$rh, ...$linea],
+            'defecto' => $rh,
         ],
         'candidato_referencias' => [
             'etiqueta' => 'Candidato con referencias por validar',
             'modulo' => 'reclutamiento',
             'audiencia' => 'operativa',
-            'defecto' => [...$rh, ...$linea],
+            'defecto' => $rh,
         ],
         'candidato_preautorizacion' => [
             'etiqueta' => 'Candidato por preautorizar',
             'modulo' => 'reclutamiento',
             'audiencia' => 'operativa',
-            'defecto' => [...$linea, 'rh_admin'],
+            'defecto' => ['rh_admin'],
         ],
         'candidato_autorizacion_rh' => [
             'etiqueta' => 'Candidato pendiente de autorización final de RH',
@@ -686,6 +688,12 @@ return [
         // ─────────────── Cuenta y diagnóstico ───────────────
         'cuenta_credenciales' => [
             'etiqueta' => 'Tus accesos y credenciales (por correo)',
+            'modulo' => 'cuenta',
+            'audiencia' => 'personal',
+        ],
+        'cuenta_contrasena_restablecida' => [
+            'etiqueta' => 'Alguien restableció tu contraseña',
+            'push_titulo' => 'Tu contraseña cambió',
             'modulo' => 'cuenta',
             'audiencia' => 'personal',
         ],

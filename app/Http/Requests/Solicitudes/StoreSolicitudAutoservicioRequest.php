@@ -4,6 +4,8 @@ namespace App\Http\Requests\Solicitudes;
 
 use App\Enums\TipoSolicitudInterna;
 use App\Models\SolicitudInterna;
+use Illuminate\Auth\Access\Response;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 /**
@@ -22,9 +24,13 @@ use Illuminate\Validation\Rule;
  */
 class StoreSolicitudAutoservicioRequest extends StoreSolicitudInternaRequest
 {
-    public function authorize(): bool
+    public function authorize(): bool|Response
     {
-        return $this->user()?->can('create', SolicitudInterna::class) ?? false;
+        $usuario = $this->user();
+
+        // inspect(): el 403 lleva el motivo en español (p. ej. cuenta sin
+        // colaborador vinculado), no el genérico.
+        return $usuario === null ? false : Gate::forUser($usuario)->inspect('create', SolicitudInterna::class);
     }
 
     /**

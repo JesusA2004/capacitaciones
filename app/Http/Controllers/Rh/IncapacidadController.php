@@ -17,6 +17,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Flujos\ConstructorEnlaces;
 use App\Services\Flujos\SiguientePasoService;
 use App\Services\Incapacidades\IncapacidadConsultaService;
@@ -48,6 +49,7 @@ class IncapacidadController extends Controller
         private readonly IncidenciasNominaService $incidencias,
         private readonly NominaQuincenalService $quincenas,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     public function index(Request $request): Response
@@ -91,7 +93,7 @@ class IncapacidadController extends Controller
         return Inertia::render('Rh/Incapacidades/Registrar', [
             // Llega desde el expediente: solo si está en su alcance y no es la propia.
             'colaboradorInicial' => $inicial !== null && $request->user()->colaborador_id !== $inicial->id && $this->alcance->alcanzaColaboradorEnModulo($request->user(), $inicial, 'incapacidades')
-                ? ['id' => $inicial->id, 'nombre' => $inicial->nombreCompleto(), 'numero_empleado' => $inicial->numero_empleado, 'puesto' => $inicial->puesto?->nombre, 'sucursal' => $inicial->sucursalPrincipal?->nombre]
+                ? ['id' => $inicial->id, 'nombre' => $inicial->nombreCompleto(), 'numero_empleado' => $inicial->numero_empleado, 'puesto' => $inicial->puesto?->nombre, 'sucursal' => $inicial->sucursalPrincipal?->nombre, 'foto_url' => $this->fotos->urlPara($inicial, $request->user())]
                 : null,
             'regreso' => app(ConstructorEnlaces::class)->regreso($request, $request->user()),
             'tipos' => TipoIncapacidad::opciones(),
@@ -122,6 +124,7 @@ class IncapacidadController extends Controller
             'numero_empleado' => $c->numero_empleado,
             'puesto' => $c->puesto?->nombre,
             'sucursal' => $c->sucursalPrincipal?->nombre,
+            'foto_url' => $this->fotos->urlPara($c, $request->user()),
         ])->values()->all()]);
     }
 
@@ -279,7 +282,7 @@ class IncapacidadController extends Controller
         $resumen = $this->incidencias->resumen($colaborador, $periodo['inicio'], $periodo['fin']);
 
         return [
-            'colaborador' => ['id' => $colaborador->id, 'nombre' => $colaborador->nombreCompleto(), 'puesto' => $colaborador->puesto?->nombre, 'sucursal' => $colaborador->sucursalPrincipal?->nombre],
+            'colaborador' => ['id' => $colaborador->id, 'nombre' => $colaborador->nombreCompleto(), 'puesto' => $colaborador->puesto?->nombre, 'sucursal' => $colaborador->sucursalPrincipal?->nombre, 'foto_url' => $this->fotos->urlPara($colaborador, $usuario)],
             'cadenas' => $cadenas,
             'impacto' => ['etiqueta' => $periodo['etiqueta'], 'dias_incapacidad' => $resumen['dias_incapacidad'], 'dias_naturales' => $resumen['dias_naturales']],
             'regla' => $this->incidencias->reglaParaPantalla(),

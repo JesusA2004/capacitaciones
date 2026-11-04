@@ -585,6 +585,9 @@ class RolesYPermisosSeeder extends Seeder
             'responsivas.ver', 'responsivas.generar', 'responsivas.cancelar',
             // Cartas compromiso de documentos pendientes (nuevo ingreso).
             'cartas_compromiso.ver', 'cartas_compromiso.generar', 'cartas_compromiso.subir_firmada', 'cartas_compromiso.descargar',
+            // Recepción documental RH: control mensual de originales firmados.
+            'recepcion_documental.ver', 'recepcion_documental.generar', 'recepcion_documental.recibir', 'recepcion_documental.observar',
+            'recepcion_documental.cerrar', 'recepcion_documental.reabrir', 'recepcion_documental.descargar_pdf',
             'ciclo.autorizar_rh', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.gestionar', 'onboarding.entregar_activos', 'cierres.solicitar', 'cierres.programar_pago', 'reingresos.solicitar', 'reingresos.gestionar',
             'formularios_evaluacion.administrar',
             // RH administra jefes directos, ruteo de avisos y parámetros de
@@ -613,6 +616,9 @@ class RolesYPermisosSeeder extends Seeder
             'reportes_rh.ver', 'rotacion.ver',
             'vacantes.ver', 'vacantes.ver_todos', 'vacantes.crear', 'vacantes.editar',
             'candidatos.ver', 'candidatos.ver_todos', 'candidatos.crear', 'candidatos.editar',
+            // Revisión de psicométricas y socioeconómico: pasan a Reclutamiento
+            // cuando el gerente ya no los atiende (solo aprueba la entrevista).
+            'candidatos.revisar_psicometricas', 'candidatos.revisar_socioeconomico',
             'agenda.ver', 'agenda.ver_todos', 'agenda.agendar', 'agenda.alta_candidato', 'agenda.registrar_resultado', 'agenda.ver_datos_candidato', 'agenda.exportar',
             'reclutamiento.campanas.ver',
             'plantillas.ver', 'plantillas.generar', 'celebraciones.ver',
@@ -649,6 +655,10 @@ class RolesYPermisosSeeder extends Seeder
             'incapacidades.ver', 'incapacidades.ver_todos', 'incapacidades.registrar', 'incapacidades.descargar', 'incapacidades.exportar',
             'responsivas.ver', 'responsivas.generar',
             'cartas_compromiso.ver', 'cartas_compromiso.generar', 'cartas_compromiso.subir_firmada', 'cartas_compromiso.descargar',
+            // Recepción documental RH: recibe, observa, cierra e imprime; reabrir
+            // un corte cerrado es decisión de RH Admin.
+            'recepcion_documental.ver', 'recepcion_documental.generar', 'recepcion_documental.recibir', 'recepcion_documental.observar',
+            'recepcion_documental.cerrar', 'recepcion_documental.descargar_pdf',
             'onboarding.ver', 'onboarding.gestionar', 'reingresos.solicitar',
         ],
 
@@ -668,7 +678,13 @@ class RolesYPermisosSeeder extends Seeder
             'solicitudes.ver', 'solicitudes.revisar', 'solicitudes.aprobar',
             'reportes_rh.ver', 'reportes_rh.sucursal',
             'vacantes.ver', 'vacantes.ver_sucursal', 'vacantes.crear',
-            'candidatos.ver', 'candidatos.ver_sucursal', 'candidatos.aprobar', 'candidatos.rechazar',
+            // Reclutamiento (2026-10-22/26): el gerente ve a los candidatos de su
+            // alcance y SOLO aprueba la entrevista (y sube el contrato firmado,
+            // contratos.subir_firmado). Psicométricas, socioeconómico,
+            // referencias, cierre del proceso y adjuntos son de Reclutamiento/RH.
+            // Conserva «Solicitar intervención» sobre el rechazo de RH de quien
+            // entrevistó (lo decide Regional / Dirección Comercial, CLAUDE.md §11).
+            'candidatos.ver', 'candidatos.ver_sucursal', 'candidatos.aprobar_entrevista', 'candidatos.solicitar_intervencion',
             'agenda.ver', 'agenda.ver_sucursal', 'agenda.agendar', 'agenda.alta_candidato', 'agenda.registrar_resultado', 'agenda.ver_datos_candidato',
             'altas.ver', 'altas.revisar', 'altas.aprobar',
             // Backend movil v5: aprueba solicitudes/vacaciones de su sucursal desde la app.
@@ -685,7 +701,7 @@ class RolesYPermisosSeeder extends Seeder
             'actas.ver', 'actas.crear', 'documentos_laborales.ver', 'indicadores.ver',
             // Responsivas de equipo para su equipo y su subgerente.
             'responsivas.ver', 'responsivas.generar',
-            'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
+            'ciclo.preautorizar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
             // Solicitud de baja de su personal + tablero de su alcance.
             'bajas.ver', 'bajas.solicitar', 'bajas.tablero.ver',
             // Contratos: el gerente solo SUBE el firmado de su gente (no ve,
@@ -761,7 +777,13 @@ class RolesYPermisosSeeder extends Seeder
             'solicitudes.ver', 'solicitudes.revisar', 'solicitudes.aprobar',
             'reportes_rh.ver', 'reportes_rh.sucursal',
             'vacantes.ver', 'vacantes.ver_sucursal', 'vacantes.crear',
-            'candidatos.ver', 'candidatos.ver_sucursal', 'candidatos.aprobar', 'candidatos.rechazar',
+            // Reclutamiento (2026-10-22/26): el gerente ve a los candidatos de su
+            // alcance y SOLO aprueba la entrevista (y sube el contrato firmado,
+            // contratos.subir_firmado). Psicométricas, socioeconómico,
+            // referencias, cierre del proceso y adjuntos son de Reclutamiento/RH.
+            // Conserva «Solicitar intervención» sobre el rechazo de RH de quien
+            // entrevistó (lo decide Regional / Dirección Comercial, CLAUDE.md §11).
+            'candidatos.ver', 'candidatos.ver_sucursal', 'candidatos.aprobar_entrevista', 'candidatos.solicitar_intervencion',
             'agenda.ver', 'agenda.ver_sucursal', 'agenda.agendar', 'agenda.alta_candidato', 'agenda.registrar_resultado', 'agenda.ver_datos_candidato',
             'mobile.bootstrap.ver', 'app.config.ver',
             'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
@@ -771,7 +793,7 @@ class RolesYPermisosSeeder extends Seeder
             'notificaciones.leer_todas',
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
             'solicitudes.bajas.crear', 'headcount.ver', 'organigrama.ver',
-            'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
+            'ciclo.preautorizar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
             // Solicitud de baja de su personal + tablero de su alcance.
             'bajas.ver', 'bajas.solicitar', 'bajas.tablero.ver',
             // Contratos: el gerente solo SUBE el firmado de su gente (no ve,
@@ -802,7 +824,13 @@ class RolesYPermisosSeeder extends Seeder
             'solicitudes.ver', 'solicitudes.revisar', 'solicitudes.aprobar',
             'reportes_rh.ver', 'reportes_rh.sucursal',
             'vacantes.ver', 'vacantes.ver_sucursal', 'vacantes.crear',
-            'candidatos.ver', 'candidatos.ver_sucursal', 'candidatos.aprobar', 'candidatos.rechazar',
+            // Reclutamiento (2026-10-22/26): el gerente ve a los candidatos de su
+            // alcance y SOLO aprueba la entrevista (y sube el contrato firmado,
+            // contratos.subir_firmado). Psicométricas, socioeconómico,
+            // referencias, cierre del proceso y adjuntos son de Reclutamiento/RH.
+            // Conserva «Solicitar intervención» sobre el rechazo de RH de quien
+            // entrevistó (lo decide Regional / Dirección Comercial, CLAUDE.md §11).
+            'candidatos.ver', 'candidatos.ver_sucursal', 'candidatos.aprobar_entrevista', 'candidatos.solicitar_intervencion',
             'agenda.ver', 'agenda.ver_sucursal', 'agenda.agendar', 'agenda.alta_candidato', 'agenda.registrar_resultado', 'agenda.ver_datos_candidato',
             'mobile.bootstrap.ver', 'app.config.ver',
             'dispositivos.push_token.registrar', 'dispositivos.push_token.revocar',
@@ -812,7 +840,7 @@ class RolesYPermisosSeeder extends Seeder
             'notificaciones.leer_todas',
             'solicitudes.configuracion.ver', 'solicitudes.adjuntos.subir',
             'solicitudes.bajas.crear', 'headcount.ver', 'organigrama.ver',
-            'ciclo.preautorizar', 'candidatos.evaluar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
+            'ciclo.preautorizar', 'onboarding.ver', 'onboarding.entregar_activos', 'cierres.ver', 'cierres.solicitar', 'contratos.ver', 'evaluaciones.ver', 'evaluaciones.capturar', 'documentos_laborales.ver', 'documentos_laborales.operar_fisico', 'reingresos.solicitar',
             // Solicitud de baja de su personal + tablero de su alcance.
             'bajas.ver', 'bajas.solicitar', 'bajas.tablero.ver',
             // Contratos: el gerente solo SUBE el firmado de su gente (no ve,
@@ -1233,6 +1261,10 @@ class RolesYPermisosSeeder extends Seeder
                     }
                 }
             } while (count($permisos) !== $antes);
+
+            // Los permisos retirados ya repartieron su herencia (arriba) y no
+            // habilitan nada por sí solos: ningún rol los conserva en su base.
+            $permisos = array_values(array_diff($permisos, self::retirados()));
 
             $resultado[$rol] = array_values(array_unique([...$permisos, ...self::alcancesPara($rol, $permisos)]));
         }

@@ -32,14 +32,17 @@ final class ProgresoExpediente
     /**
      * @param  Collection<int, DocumentType>  $tipos  Tipos a considerar (se filtran los obligatorios).
      * @param  Collection<int, EmployeeDocument>  $vigentes  Documento vigente por document_type_id.
+     * @param  list<int>  $cumplidosPorGenerado  Tipos que PEOPLE ya generó (Solicitud de empleo, Estudio
+     *                                           socioeconómico): cuentan como completos aunque no haya escaneo
+     *                                           (RequisitoDocumentoGeneradoService::idsCumplidosPorGenerado()).
      * @return array{total_obligatorios: int, completos: int, faltantes: int, en_revision: int, rechazados: int, pendientes: int, porcentaje: int, completo: bool, sin_obligatorios: bool}
      */
-    public static function calcular(Collection $tipos, Collection $vigentes): array
+    public static function calcular(Collection $tipos, Collection $vigentes, array $cumplidosPorGenerado = []): array
     {
         $estados = [];
 
         foreach ($tipos->filter(fn (DocumentType $tipo) => (bool) $tipo->requerido) as $tipo) {
-            $estados[] = self::estadoDe($vigentes->get($tipo->id));
+            $estados[] = in_array($tipo->id, $cumplidosPorGenerado, true) ? EstadoDocumento::Aprobado : self::estadoDe($vigentes->get($tipo->id));
         }
 
         return self::calcularDesdeEstados($estados);

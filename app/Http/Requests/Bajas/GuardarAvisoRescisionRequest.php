@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Bajas;
 
 use App\Enums\EntregaAvisoRescision;
+use App\Support\FechaMexico;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -32,9 +33,9 @@ class GuardarAvisoRescisionRequest extends FormRequest
             'testigos' => ['required', 'array', 'max:6'],
             'testigos.*.nombre' => ['nullable', 'string', 'max:150'],
             'testigos.*.cargo' => ['nullable', 'string', 'max:150'],
-            'fecha_aviso' => ['required', 'date', 'before_or_equal:today'],
+            'fecha_aviso' => ['required', 'date', 'before_or_equal:'.FechaMexico::hoy()],
             'metodo_entrega' => ['required', Rule::enum(EntregaAvisoRescision::class)->only(EntregaAvisoRescision::vigentes())],
-            'fecha_entrega' => ['required', 'date', 'before_or_equal:today'],
+            'fecha_entrega' => ['required', 'date', 'before_or_equal:'.FechaMexico::hoy()],
         ];
     }
 

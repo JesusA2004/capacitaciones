@@ -83,7 +83,20 @@ class ExpedienteService
      */
     public function resumenCompletitud(Colaborador $colaborador): array
     {
-        return $this->formatearResumen(ProgresoExpediente::calcular($this->tiposRequeridosPara($colaborador), $this->documentosVigentes($colaborador)));
+        $tipos = $this->tiposRequeridosPara($colaborador);
+        $vigentes = $this->documentosVigentes($colaborador);
+
+        return $this->formatearResumen(ProgresoExpediente::calcular($tipos, $vigentes, $this->generados()->idsCumplidosPorGenerado($colaborador, $tipos, $vigentes)));
+    }
+
+    /**
+     * Requisitos que PEOPLE genera (Solicitud de empleo, Estudio
+     * socioeconómico): cuentan como completos ya generados. Resuelto al
+     * vuelo para no cambiar el constructor (se instancia sin argumentos).
+     */
+    private function generados(): RequisitoDocumentoGeneradoService
+    {
+        return app(RequisitoDocumentoGeneradoService::class);
     }
 
     /**
@@ -105,6 +118,11 @@ class ExpedienteService
         // y «3 documento(s) pendiente(s)» mientras el expediente decía 100 %.
         $idsTipos = $this->tiposRequeridos()->pluck('id')->all();
         $idsTiposAlta = $this->soloDeAlta($this->tiposRequeridos())->pluck('id')->all();
+        // Tipos que PEOPLE genera: id => clave (un generado vigente los cumple).
+        $generables = $this->tiposRequeridos()
+            ->filter(fn (DocumentType $tipo): bool => $this->generados()->esGenerable($tipo))
+            ->mapWithKeys(fn (DocumentType $tipo): array => [$tipo->id => $tipo->clave])
+            ->all();
         $resumenes = [];
 
         foreach ($idsColaboradores->unique()->chunk(1000) as $lote) {
@@ -137,11 +155,20 @@ class ExpedienteService
                 $vigentes[$colaboradorId][$tipoId] ??= EstadoDocumento::from(sprintf('%s', $fila->status));
             }
 
+            $generadosLote = $generables !== [] ? $this->generados()->generadosPorLote($lote->values()) : [];
+
             foreach ($lote as $idColaborador) {
                 $estados = [];
 
                 foreach (isset($enContratacion[(int) $idColaborador]) ? $idsTiposAlta : $idsTipos as $tipoId) {
-                    $estados[] = $vigentes[$idColaborador][$tipoId] ?? EstadoDocumento::Pendiente;
+                    $estado = $vigentes[$idColaborador][$tipoId] ?? EstadoDocumento::Pendiente;
+                    $claveGenerable = $generables[$tipoId] ?? null;
+
+                    if ($claveGenerable !== null && isset($generadosLote[(int) $idColaborador][$claveGenerable]) && ! $this->generados()->escaneoCumple($estado)) {
+                        $estado = EstadoDocumento::Aprobado;
+                    }
+
+                    $estados[] = $estado;
                 }
 
                 $resumenes[$idColaborador] = $this->formatearResumen(ProgresoExpediente::calcularDesdeEstados($estados));
@@ -209,6 +236,8 @@ class ExpedienteService
         // documentos»).
         $tiposRequeridos = $soloAlta ? $this->soloDeAlta($this->tiposRequeridos()) : $this->tiposRequeridosPara($colaborador);
         $vigentes = $this->documentosVigentes($colaborador);
+        // Solicitud de empleo / Estudio socioeconómico ya generados por PEOPLE: cumplidos sin escaneo.
+        $porGenerado = $this->generados()->idsCumplidosPorGenerado($colaborador, $tiposRequeridos, $vigentes);
 
         $entregados = 0;
         $documentos = [];
@@ -217,8 +246,9 @@ class ExpedienteService
             $documento = $vigentes->get($tipo->id);
             $estado = $documento?->status;
             $rechazado = in_array($estado, [EstadoDocumento::Rechazado, EstadoDocumento::RequiereCorreccion, EstadoDocumento::Vencido], true);
+            $generado = in_array($tipo->id, $porGenerado, true);
 
-            if ($documento !== null && ! $rechazado) {
+            if (($documento !== null && ! $rechazado) || $generado) {
                 $entregados++;
             }
 
@@ -237,10 +267,12 @@ class ExpedienteService
                 'validado_en' => $documento?->reviewed_at?->toIso8601String(),
                 'motivo_rechazo' => $documento?->rejection_reason,
                 'observaciones' => $documento?->comments,
+                // Cumplido porque PEOPLE ya lo generó (sin escaneo subido).
+                'cumplido_por_generado' => $generado,
             ];
         }
 
-        $p = ProgresoExpediente::calcular($tiposRequeridos, $vigentes);
+        $p = ProgresoExpediente::calcular($tiposRequeridos, $vigentes, $porGenerado);
 
         return [
             'requeridos' => $p['total_obligatorios'],

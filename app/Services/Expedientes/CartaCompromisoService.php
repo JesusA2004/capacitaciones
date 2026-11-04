@@ -21,6 +21,7 @@ use App\Services\Pdf\OpcionesPdf;
 use App\Services\Pdf\PdfRendererException;
 use App\Services\Pdf\PdfRendererFactory;
 use App\Services\RhMobile\ResponsableResolverService;
+use App\Support\FechaMexico;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -155,7 +156,7 @@ class CartaCompromisoService
                 'colaborador_id' => $colaborador->id,
                 'estado' => EstadoCartaCompromiso::Vigente,
                 'documentos' => $documentos,
-                'fecha_limite' => now()->startOfDay()->addDays($this->diasPlazo())->toDateString(),
+                'fecha_limite' => FechaMexico::inicioDeHoy()->addDays($this->diasPlazo())->toDateString(),
                 'generada_en' => now(),
                 'generada_por' => $actor->id,
             ]);
@@ -199,7 +200,7 @@ class CartaCompromisoService
     public function vistaPrevia(Colaborador $colaborador, array $documentTypeIds): string
     {
         $documentos = $this->snapshotDocumentos($colaborador, $documentTypeIds);
-        $datos = $this->datos($colaborador, $documentos, 'VISTA PREVIA', now()->startOfDay()->addDays($this->diasPlazo()), now());
+        $datos = $this->datos($colaborador, $documentos, 'VISTA PREVIA', FechaMexico::inicioDeHoy()->addDays($this->diasPlazo()), now());
 
         return $this->renderizar($datos, true);
     }

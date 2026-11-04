@@ -2,6 +2,7 @@
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ArrowLeft, ClipboardCheck, Eye, Lock, LockOpen } from '@lucide/vue';
 import { computed, ref, useTemplateRef } from 'vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
 import MiInduccionTarjeta from '@/components/onboarding/MiInduccionTarjeta.vue';
@@ -90,7 +91,14 @@ const tieneContenido = computed(
                 <p class="text-sm text-muted-foreground">
                     <template v-if="colaborador">
                         Estás viendo la inducción de
-                        <strong>{{ colaborador.nombre }}</strong>
+                        <span
+                            class="inline-flex items-center gap-1.5 align-middle"
+                            ><ColaboradorAvatar
+                                :nombre="colaborador.nombre"
+                                :foto-url="colaborador.foto_url"
+                                tamano="xs"
+                            /><strong>{{ colaborador.nombre }}</strong></span
+                        >
                         <template v-if="colaborador.puesto">
                             · {{ colaborador.puesto }}</template
                         >

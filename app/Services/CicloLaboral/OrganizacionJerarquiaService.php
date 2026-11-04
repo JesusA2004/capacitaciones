@@ -312,10 +312,8 @@ class OrganizacionJerarquiaService
             return true;
         }
 
-        if ($candidato->gerente_involucrado_id !== null && $candidato->gerente_involucrado_id === $usuario->id) {
-            return true;
-        }
-
+        // El «gerente involucrado» no amplía el alcance (misma regla que
+        // CandidatoPolicy): manda la sucursal vigente del candidato.
         return $candidato->sucursal_id !== null && $this->alcance->sucursalesVisiblesIds($usuario)->contains($candidato->sucursal_id);
     }
 

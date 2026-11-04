@@ -7,6 +7,7 @@ use App\Enums\NivelDesempeno;
 use App\Models\MatrizMerito;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
+use App\Support\FechaMexico;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -38,11 +39,11 @@ class MatrizMeritoService
         $limpias = $this->validar($celdas);
 
         return DB::transaction(function () use ($limpias, $motivo, $usuario): MatrizMerito {
-            MatrizMerito::query()->whereNull('vigente_hasta')->lockForUpdate()->update(['vigente_hasta' => now()->toDateString()]);
+            MatrizMerito::query()->whereNull('vigente_hasta')->lockForUpdate()->update(['vigente_hasta' => FechaMexico::hoy()]);
 
             $nueva = MatrizMerito::query()->create([
                 'celdas' => $limpias,
-                'vigente_desde' => now()->toDateString(),
+                'vigente_desde' => FechaMexico::hoy(),
                 'motivo' => $motivo,
                 'usuario_id' => $usuario->id,
             ]);

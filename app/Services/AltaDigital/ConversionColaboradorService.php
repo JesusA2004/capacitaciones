@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\Asignaciones\AsignacionService;
 use App\Services\Colaboradores\AvisoAltaBajaService;
 use App\Services\Colaboradores\DomicilioService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Reclutamiento\CvStorageService;
@@ -46,6 +47,7 @@ class ConversionColaboradorService
         private readonly MovimientoLaboralService $movimientos,
         private readonly AsignacionService $asignaciones,
         private readonly AvisoAltaBajaService $avisoAltaBaja,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     public function convertir(AltaDigital $alta, User $aprobadoPor): User
@@ -106,16 +108,19 @@ class ConversionColaboradorService
             $colaborador->setRelation('user', $usuario);
 
             if ($alta->foto_path !== null) {
-                $extension = pathinfo($alta->foto_original_name ?? 'foto.jpg', PATHINFO_EXTENSION);
-                $rutaDestino = $this->documentoStorage->rutaFoto($colaborador, $extension);
+                // «Fotografía para expediente» = foto de perfil oficial, con la
+                // MISMA normalización que cualquier foto (MIME real, EXIF,
+                // recorte cuadrado 800×800 JPEG): FotoColaboradorService.
+                // Si el archivo no existe o el NAS no confirma la escritura,
+                // lanza y toda la conversión se revierte — nunca se deja
+                // foto_path apuntando a un archivo inexistente.
+                $contenido = $this->altaStorage->disco()->get($alta->foto_path);
 
-                // Copia verificada (SHA-256) del alta al expediente: si el NAS
-                // no confirma la escritura, copiarDesdeDisco() lanza y toda la
-                // conversión se revierte — nunca se deja foto_path apuntando a
-                // un archivo inexistente (CLAUDE.md: confirmar antes de persistir).
-                $this->documentoStorage->copiarDesdeDisco($this->altaStorage->disco(), $alta->foto_path, $rutaDestino);
+                if ($contenido === null) {
+                    throw new RuntimeException("No se encontró la fotografía del alta en el almacenamiento: {$alta->foto_path}");
+                }
 
-                $colaborador->update(['foto_path' => $rutaDestino]);
+                $this->fotos->fijarDesdeContenido($colaborador, $contenido, $aprobadoPor, 'alta_publica');
             }
 
             foreach ($alta->documentos as $documentoAlta) {

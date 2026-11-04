@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use App\Services\Expedientes\DatosFaltantesService;
 use App\Services\Navigation\NavigationService;
-use App\Services\Reportes\MetricasRhDashboardService;
 use App\Services\Reportes\TableroRhService;
 use App\Services\Tareas\TareaService;
 use Illuminate\Http\RedirectResponse;
@@ -16,7 +15,6 @@ use Inertia\Response;
 class DashboardController extends Controller
 {
     public function __construct(
-        private readonly MetricasRhDashboardService $metricas,
         private readonly NavigationService $navegacion,
         private readonly TableroRhService $tablero,
         private readonly TareaService $tareas,
@@ -59,7 +57,10 @@ class DashboardController extends Controller
             ]);
         }
 
-        return Inertia::render('Dashboard/Colaborador', $this->metricas->colaborador($usuario));
+        // Modo colaborador: «Mi inicio» (/mi-portal) es el ÚNICO inicio
+        // personal. El antiguo Dashboard/Colaborador contaba distinto los
+        // documentos pendientes y contradecía al portal y a Mi expediente.
+        return to_route('portal.index');
     }
 
     /**

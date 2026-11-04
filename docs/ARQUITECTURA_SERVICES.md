@@ -12,7 +12,7 @@ app/
     Expedientes/          ExpedienteService, DocumentoStorageService
     Vacaciones/            VacacionesService
     Solicitudes/           SolicitudesService, SolicitudDocumentoStorageService
-    Reportes/               MetricasRhDashboardService, ReportesRhService
+    Reportes/               TableroRhService, ReportesRhService
     Plantillas/              PlaceholderResolver, PlantillaDocumentoService, PlantillaStorageService
     Colaboradores/            ColaboradorPerfilService, NotificacionesService
     AltaDigital/               AltaDigitalStorageService, ConversionColaboradorService

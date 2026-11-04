@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Reclutamiento;
 
 use App\Enums\ResultadoReferencia;
+use App\Support\FechaMexico;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -25,7 +26,7 @@ class RegistrarReferenciaRequest extends FormRequest
             'relacion_puesto' => ['nullable', 'string', 'max:190'],
             'resultado' => ['required', Rule::enum(ResultadoReferencia::class)],
             'observaciones' => ['nullable', 'string', 'max:2000'],
-            'fecha_validacion' => ['nullable', 'date', 'before_or_equal:today'],
+            'fecha_validacion' => ['nullable', 'date', 'before_or_equal:'.FechaMexico::hoy()],
             ...ReglasArchivosCandidato::para('archivos', ['documento', 'foto']),
         ];
     }

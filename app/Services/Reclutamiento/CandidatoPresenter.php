@@ -58,7 +58,7 @@ class CandidatoPresenter
      * @param  iterable<Candidato>  $candidatos
      * @return array<int, string> URL por candidato_id
      */
-    public function fotosOficiales(iterable $candidatos, User $viewer): array
+    public function fotosOficiales(iterable $candidatos, User $viewer, bool $api = false): array
     {
         $idsColaborador = [];
 
@@ -83,11 +83,15 @@ class CandidatoPresenter
         foreach ($candidatos as $candidato) {
             $colaborador = $candidato->colaborador_id !== null ? $colaboradores->get($candidato->colaborador_id) : null;
 
-            if ($colaborador === null || ! $this->alcance->puedeVerExpediente($viewer, $colaborador)) {
+            if ($colaborador === null) {
                 continue;
             }
 
-            $url = $this->fotos->url($colaborador);
+            // App (Bearer): misma regla que su ruta (puedeVerFoto), sin
+            // consultas por fila. Web: URL de sesión por alcance de expediente.
+            $url = $api
+                ? $this->fotos->urlApiPara($colaborador, $viewer)
+                : ($this->alcance->puedeVerExpediente($viewer, $colaborador) ? $this->fotos->url($colaborador) : null);
 
             if ($url !== null) {
                 $urls[$candidato->id] = $url;
@@ -98,9 +102,9 @@ class CandidatoPresenter
     }
 
     /** Foto oficial de un solo candidato (ficha), ver fotosOficiales(). */
-    public function fotoOficial(Candidato $candidato, User $viewer): ?string
+    public function fotoOficial(Candidato $candidato, User $viewer, bool $api = false): ?string
     {
-        return $this->fotosOficiales([$candidato], $viewer)[$candidato->id] ?? null;
+        return $this->fotosOficiales([$candidato], $viewer, $api)[$candidato->id] ?? null;
     }
 
     /**
@@ -178,7 +182,7 @@ class CandidatoPresenter
     /**
      * @return array<string, mixed>
      */
-    public function detalle(Candidato $candidato, ?User $viewer = null): array
+    public function detalle(Candidato $candidato, ?User $viewer = null, bool $api = false): array
     {
         $candidato->loadMissing([
             'empresa:id,nombre', 'sucursal:id,nombre', 'departamento:id,nombre', 'puestoObjetivo:id,nombre',
@@ -251,7 +255,7 @@ class CandidatoPresenter
             'colaborador_id' => $candidato->colaborador_id,
             // Foto oficial del expediente (URL protegida, nunca foto_path);
             // sin quien consulta (API móvil) no se calcula.
-            'foto_url' => $viewer !== null ? $this->fotoOficial($candidato, $viewer) : null,
+            'foto_url' => $viewer !== null ? $this->fotoOficial($candidato, $viewer, $api) : null,
             'creado_en' => $candidato->created_at?->toIso8601String(),
             'contratado_en' => $candidato->contratado_en?->toIso8601String(),
             'entrevistas' => $candidato->entrevistas->map(fn (CandidatoEntrevista $e) => [

@@ -16,6 +16,7 @@ use App\Http\Requests\Rh\GuardarResponsivaRequest;
 use App\Models\Colaborador;
 use App\Models\Responsiva;
 use App\Services\Responsivas\ResponsivaService;
+use App\Support\FechaMexico;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -161,7 +162,7 @@ class ResponsivaController extends Controller
     {
         $this->authorize('registrarDevolucion', $responsiva);
         $datos = $request->validate([
-            'devuelta_en' => ['required', 'date', 'before_or_equal:today'],
+            'devuelta_en' => ['required', 'date', 'before_or_equal:'.FechaMexico::hoy()],
             'observaciones' => ['nullable', 'string', 'max:2000'],
         ], ['devuelta_en.before_or_equal' => 'La fecha de devolución no puede ser futura.'], ['devuelta_en' => 'fecha de devolución']);
 

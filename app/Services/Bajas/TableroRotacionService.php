@@ -12,6 +12,7 @@ use App\Services\Rotacion\FormulaRotacion;
 use App\Services\Rotacion\RotacionExcelLector;
 use App\Services\Rotacion\RotacionMetaService;
 use App\Services\Rotacion\RotacionMotorService;
+use App\Support\FechaMexico;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -148,7 +149,7 @@ class TableroRotacionService
     {
         $mes = $mes->startOfMonth();
 
-        if ($mes->isAfter(CarbonImmutable::today())) {
+        if ($mes->isAfter(FechaMexico::inicioDeHoyInmutable())) {
             return $this->filaMes($mes, null, null, 'sin_datos');
         }
 
@@ -212,7 +213,7 @@ class TableroRotacionService
                 ->get(['id', 'sucursal_principal_id', 'fecha_ingreso', 'fecha_baja', 'estatus']);
 
             $alInicio = $this->plantillas->activosEn($this->personas, $mes->startOfMonth());
-            $alCierre = $this->plantillas->activosEn($this->personas, $mes->endOfMonth()->startOfDay()->min(CarbonImmutable::today()));
+            $alCierre = $this->plantillas->activosEn($this->personas, $mes->endOfMonth()->startOfDay()->min(FechaMexico::inicioDeHoyInmutable()));
 
             return $alInicio->keys()->merge($alCierre->keys())->unique()
                 ->mapWithKeys(fn (int|string $id): array => [$id => FormulaRotacion::plantillaPromedio((int) ($alInicio[$id] ?? 0), (int) ($alCierre[$id] ?? 0))]);
@@ -243,7 +244,7 @@ class TableroRotacionService
             'plantilla_promedio' => $plantilla,
             'indice' => FormulaRotacion::indice($bajas, $plantilla),
             'fuente' => $fuente,
-            'en_curso' => $mes->isSameMonth(CarbonImmutable::today()),
+            'en_curso' => $mes->isSameMonth(FechaMexico::inicioDeHoyInmutable()),
         ];
     }
 

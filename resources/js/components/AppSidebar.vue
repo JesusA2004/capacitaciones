@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useMainNavItems } from '@/composables/useMainNavItems';
 import { dashboard } from '@/routes';
+import { index as indexPortal } from '@/routes/portal';
 
 // El Portal RH es la experiencia principal (ver docs/PORTAL_RH.md).
 // Capacitación se conserva por completo detrás del feature flag
@@ -40,7 +41,10 @@ const { navGroups, tieneAmbosModos, esColaborador, cambiarModo } =
                         as-child
                         class="h-auto rounded-2xl py-1.5 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:py-0 hover:bg-crema/60"
                     >
-                        <Link :href="dashboard()" aria-label="Ir al inicio">
+                        <Link
+                            :href="esColaborador ? indexPortal() : dashboard()"
+                            aria-label="Ir al inicio"
+                        >
                             <AppLogo />
                         </Link>
                     </SidebarMenuButton>

@@ -40,6 +40,39 @@ return [
     */
     'registro_app' => [
         'campos_opcionales' => [],
+
+        // «Fotografía para expediente» (= foto de perfil, FotoColaboradorService)
+        // obligatoria para cerrar el registro (docs/FOTO_EXPEDIENTE.md). Solo
+        // se apaga si una versión de la app sin el paso «foto» sigue en uso.
+        'foto_obligatoria' => (bool) env('REGISTRO_APP_FOTO_OBLIGATORIA', true),
+
+        // Tipo documental que la foto de perfil cubre en el registro digital
+        // («2 fotografías tamaño infantil»): no se pide subirlo aparte.
+        'documento_cubierto_por_foto' => 'fotografia',
+
+        // Solicitud de empleo + Estudio socioeconómico en el registro
+        // (docs/SOLICITUD_EMPLEO_Y_SOCIOECONOMICO.md). «cliente»: finalizar()
+        // los exige solo a la app que declara implementarlos (cabecera
+        // X-People-Solicitud-Empleo: 1); las versiones instaladas siguen
+        // cerrando su registro y RH completa lo faltante en la web.
+        // «siempre»: se exige a todos. «nunca»: no se exige en el registro.
+        // En cualquier caso, el contrato no se genera sin ambos documentos.
+        'exigir_solicitud_empleo' => env('INCORPORACION_REGISTRO_EXIGE_SOLICITUD', 'cliente'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Documentos de ingreso antes del contrato
+    |--------------------------------------------------------------------------
+    |
+    | La Solicitud de empleo y el Estudio socioeconómico deben estar completos
+    | y generados antes del paquete de contratación (App\Services\
+    | Incorporacion\SolicitudEmpleo\RequisitoDocumentosIngresoService). No es
+    | retroactivo: solo personas en incorporación sin contrato generado.
+    |
+    */
+    'documentos_ingreso' => [
+        'exigir_antes_de_contrato' => (bool) env('INCORPORACION_DOCUMENTOS_INGRESO_ANTES_DE_CONTRATO', true),
     ],
 
 ];

@@ -21,6 +21,7 @@ use App\Services\DocumentosLaborales\FirmaDocumentalService;
 use App\Services\DocumentosLaborales\FlujoDocumentalService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
+use App\Services\Incorporacion\SolicitudEmpleo\RequisitoDocumentosIngresoService;
 use App\Services\Salarios\AccesoSueldoService;
 use App\Services\Tareas\TareaService;
 use App\Support\FechaMexico;
@@ -337,6 +338,14 @@ class ContratoLaboralService
      */
     private function emitirDocumento(ContratoLaboral $contrato, string $clave, User $actor, ?string $motivo, bool $rectificar, bool $esPrincipal): GeneratedDocument
     {
+        // Solicitud de empleo + Estudio socioeconómico antes del contrato
+        // (solo altas en incorporación sin documentos de contrato todavía).
+        $bloqueo = app(RequisitoDocumentosIngresoService::class)->bloqueoContrato($contrato);
+
+        if ($bloqueo !== null) {
+            throw ValidationException::withMessages(['documento' => $bloqueo]);
+        }
+
         $alEmitir = new AlEmitirConFuncion(function (GeneratedDocument $documento, ?GeneratedDocument $anterior) use ($contrato, $esPrincipal): void {
             // Apunta al documento principal vigente; nunca a otra cadena de versiones.
             if ($esPrincipal && ($contrato->generated_document_id === null || $contrato->generated_document_id === $anterior?->id)) {

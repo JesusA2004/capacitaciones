@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Incapacidades;
 
 use App\Enums\TipoDocumentoIncapacidad;
+use App\Support\FechaMexico;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -27,7 +28,7 @@ class SubirDocumentoIncapacidadRequest extends FormRequest
         return [
             'tipo' => ['required', Rule::enum(TipoDocumentoIncapacidad::class)],
             'archivo' => ['required', ...RegistrarIncapacidadRequest::reglasArchivo()],
-            'fecha_documento' => ['nullable', 'date', 'before_or_equal:today'],
+            'fecha_documento' => ['nullable', 'date', 'before_or_equal:'.FechaMexico::hoy()],
             'motivo' => ['nullable', 'string', 'max:500'],
         ];
     }

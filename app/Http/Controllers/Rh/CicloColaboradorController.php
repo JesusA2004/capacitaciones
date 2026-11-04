@@ -9,6 +9,8 @@ use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Colaboradores\AltaColaboradorService;
 use App\Services\Flujos\SiguientePasoService;
+use App\Services\Incorporacion\SolicitudEmpleo\PerfilIngresoService;
+use App\Services\Incorporacion\SolicitudEmpleo\RequisitoDocumentosIngresoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -41,6 +43,9 @@ class CicloColaboradorController extends Controller
         return Inertia::render('Rh/Colaboradores/Ciclo', [
             ...$ficha,
             'siguientePaso' => $this->siguientePaso->paraColaborador($colaborador, $usuario, $ficha['ciclo'])->toArray(),
+            // Solicitud de empleo + Estudio socioeconómico (incorporación): RH ve lo capturado y completa lo faltante.
+            'mostrar_solicitud_empleo' => app(RequisitoDocumentosIngresoService::class)->aplicaSeccion($colaborador)
+                && app(PerfilIngresoService::class)->puedeGestionar($usuario, $colaborador),
         ]);
     }
 

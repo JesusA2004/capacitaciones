@@ -148,6 +148,8 @@ const SIDEBAR_SIN_GUIA = [
     'Recibo simple de pago',
     'Bajas',
     // Pantallas de Etapa 1 que aún no tienen módulo de guía propio.
+    // Recepción documental RH: documentada en docs/RECEPCION_DOCUMENTAL_RH.md.
+    'Recepción documental',
     'Agenda de entrevistas',
     'Mi agenda',
     'Mi bandeja de bajas',

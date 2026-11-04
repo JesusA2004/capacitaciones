@@ -26,6 +26,7 @@ use App\Http\Requests\Rh\SubirCvCandidatoRequest;
 use App\Http\Requests\Rh\UpdateCandidatoRequest;
 use App\Models\Candidato;
 use App\Models\CandidatoEvidencia;
+use App\Models\Colaborador;
 use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\MotivoRechazoCandidato;
@@ -37,6 +38,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Bajas\AntecedenteBajaService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Flujos\SiguientePasoService;
+use App\Services\Notificaciones\AvisoAltaSistemasService;
 use App\Services\Puestos\PerfilPuestoService;
 use App\Services\Reaperturas\ReaperturaService;
 use App\Services\Reclutamiento\AprobadorEntrevistaService;
@@ -270,6 +272,8 @@ class CandidatoController extends Controller
             // RN-09: baja previa «No recontratable» / «Con reservas» → alerta
             // en Reclutamiento (la causal solo la ve quien consulta bajas).
             'antecedenteBaja' => $this->antecedenteBaja($candidato, $request),
+            // Correo «Alta para asignar usuarios» a Sistemas (fase 6).
+            'avisoSistemas' => $this->avisoSistemas($candidato, $request),
             // Qué debe tener quien se postula (perfil de puesto de RH).
             'perfilPuesto' => $request->user()?->can('perfiles_puesto.ver') ? $this->perfilesPuesto->paraCandidato($candidato) : null,
             'limitesArchivos' => [
@@ -648,6 +652,25 @@ class CandidatoController extends Controller
         }
 
         return $mapa;
+    }
+
+    /**
+     * Estado del último aviso de alta a Sistemas (solo desde contratación y
+     * para quien puede contratar).
+     *
+     * @return array{estado: string|null, estado_etiqueta: string|null, enviado_en: string|null, ultimo_error: string|null, puede_reenviar: bool}|null
+     */
+    private function avisoSistemas(Candidato $candidato, Request $request): ?array
+    {
+        $usuario = $request->user();
+
+        if ($usuario === null || $candidato->colaborador_id === null || ! $usuario->can(AvisoAltaSistemasService::PERMISO_REENVIAR)) {
+            return null;
+        }
+
+        $colaborador = Colaborador::withTrashed()->where('id', $candidato->colaborador_id)->first();
+
+        return $colaborador !== null ? app(AvisoAltaSistemasService::class)->resumen($colaborador, $usuario) : null;
     }
 
     /**

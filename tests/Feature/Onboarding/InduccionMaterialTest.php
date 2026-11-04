@@ -10,6 +10,7 @@ use App\Models\ContratoLaboral;
 use App\Models\EvaluacionInduccion;
 use App\Models\InduccionMaterialExplicacion;
 use App\Models\IntervaloVideoInduccion;
+use App\Models\OnboardingAvance;
 use App\Models\OnboardingModulo;
 use App\Models\RecursoMultimedia;
 use App\Models\User;
@@ -63,6 +64,70 @@ beforeEach(function () {
 
     $this->proceso = $this->onboarding->iniciar($this->colaborador, ContratoLaboral::factory()->create(['colaborador_id' => $this->colaborador->id]), $this->rh);
     $this->avance = $this->proceso->avances()->firstOrFail();
+});
+
+/** Marca todas las hojas de la presentación como vistas (requisito para abrir el video). */
+function imPresentacionCompleta(OnboardingAvance $avance): void
+{
+    $total = app(InduccionPdfService::class)->totalPaginas();
+    $avance->update(['progreso_contenido' => [...(array) ($avance->progreso_contenido ?? []), 'paginas_vistas' => $total > 0 ? range(1, $total) : []]]);
+}
+
+test('orden obligatorio: el video no abre (web ni API) hasta terminar la presentación y dice qué página falta', function () {
+    $total = $this->pdf->totalPaginas();
+    expect($total)->toBeGreaterThan(1);
+    $this->materiales->activar($this->modulo, imVideo($this, 100), $this->rh);
+
+    // Todas menos la última.
+    $this->avance->update(['progreso_contenido' => ['paginas_vistas' => range(1, $total - 1)]]);
+
+    $this->actingAs($this->usuario)
+        ->postJson(route('portal.induccion.video.iniciar', $this->avance))
+        ->assertStatus(423)
+        ->assertJsonPath('code', 'presentacion_incompleta')
+        ->assertJsonPath('paginas_faltantes', [$total])
+        ->assertJsonPath('message', sprintf('Primero termina la presentación: te falta la página %d.', $total));
+
+    // El manifiesto firmado tampoco se sirve.
+    $this->actingAs($this->usuario)
+        ->get(URL::temporarySignedRoute('portal.induccion.video.manifiesto-maestro', now()->addMinutes(5), ['avance' => $this->avance]))
+        ->assertStatus(423);
+
+    $this->actingAs($this->usuario, 'sanctum')
+        ->postJson('/api/v1/colaborador/induccion/video/'.$this->avance->id.'/iniciar')
+        ->assertStatus(423)
+        ->assertJsonPath('code', 'presentacion_incompleta');
+    $this->actingAs($this->usuario, 'sanctum')
+        ->getJson('/api/v1/colaborador/induccion/material/'.$this->avance->id)
+        ->assertOk()
+        ->assertJsonPath('data.video_bloqueado', true)
+        ->assertJsonPath('data.paginas_faltantes', [$total]);
+
+    // Presentación completa: abre.
+    imPresentacionCompleta($this->avance->refresh());
+    $this->actingAs($this->usuario, 'sanctum')
+        ->postJson('/api/v1/colaborador/induccion/video/'.$this->avance->id.'/iniciar')
+        ->assertOk();
+    $this->actingAs($this->usuario, 'sanctum')
+        ->getJson('/api/v1/colaborador/induccion/material/'.$this->avance->id)
+        ->assertOk()
+        ->assertJsonPath('data.video_bloqueado', false)
+        ->assertJsonPath('data.paginas_faltantes', []);
+});
+
+test('orden obligatorio: quien ya empezó el video no se bloquea retroactivamente', function () {
+    $this->materiales->activar($this->modulo, imVideo($this, 100), $this->rh);
+    imPresentacionCompleta($this->avance);
+    $this->video->iniciarSesion($this->usuario, $this->avance->refresh());
+    $this->video->registrarHeartbeat($this->usuario, $this->avance->refresh(), 5);
+
+    // Datos previos a la regla (solo una hoja vista): sigue pudiendo ver el video.
+    $avance = $this->avance->refresh();
+    $avance->update(['progreso_contenido' => [...(array) $avance->progreso_contenido, 'paginas_vistas' => [1]]]);
+
+    expect($this->video->videoIniciado($avance->refresh()))->toBeTrue()
+        ->and($this->pdf->paginasFaltantesParaVideo($avance->refresh()))->toBe([]);
+    $this->actingAs($this->usuario)->postJson(route('portal.induccion.video.iniciar', $this->avance))->assertOk();
 });
 
 /** Recurso de video listo para reproducir. */
@@ -176,6 +241,13 @@ test('refresh: la 2a reproducción retoma en el máximo alcanzado (no reinicia n
 
 test('endpoints HTTP: iniciar/heartbeat del video respetan el gate y el anti-seek', function () {
     $this->materiales->activar($this->modulo, imVideo($this, 100), $this->rh);
+
+    // Orden obligatorio: sin terminar la presentación el video no abre (423).
+    $this->actingAs($this->usuario)
+        ->postJson(route('portal.induccion.video.iniciar', $this->avance))
+        ->assertStatus(423)
+        ->assertJsonPath('code', 'presentacion_incompleta');
+    imPresentacionCompleta($this->avance);
 
     $iniciar = $this->actingAs($this->usuario)
         ->postJson(route('portal.induccion.video.iniciar', $this->avance))

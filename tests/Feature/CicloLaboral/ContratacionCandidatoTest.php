@@ -66,9 +66,9 @@ function clCandidatoAutorizado(object $t, bool $autorizar = true): Candidato
     $wf->evaluarPerfil($c, $t->rh, true, null);
     $wf->registrarEntrevista($c, $t->gerente, ['realizada_en' => now()->subDay()->toDateTimeString(), 'resultado' => 'viable']);
     $wf->registrarResultadosPsicometricas($c, $t->rh, 'En perfil.');
-    $wf->revisarPsicometricas($c, $t->gerente, true, null);
-    $wf->registrarSocioeconomico($c, $t->gerente, ['fecha_visita' => now()->toDateString(), 'direccion' => 'Calle 1']);
-    $wf->revisarSocioeconomico($c, $t->gerente, true, null);
+    $wf->revisarPsicometricas($c, $t->rh, true, null);
+    $wf->registrarSocioeconomico($c, $t->rh, ['fecha_visita' => now()->toDateString(), 'direccion' => 'Calle 1']);
+    $wf->revisarSocioeconomico($c, $t->rh, true, null);
     $wf->registrarReferencia($c, $t->rh, ['empresa' => 'X', 'contacto' => 'Y', 'resultado' => 'positiva']);
     $wf->concluirReferencias($c, $t->rh, true, null);
 

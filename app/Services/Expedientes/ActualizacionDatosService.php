@@ -578,7 +578,12 @@ class ActualizacionDatosService
     }
 
     /** Valor como lo lee una persona (etiqueta del enum, fecha dd/mm/aaaa). */
-    private function legible(string $campo, ?string $valor): ?string
+    /**
+     * Valor de un dato personal como lo lee una persona (etiqueta del enum,
+     * fecha dd/mm/aaaa). Lo reutiliza la Solicitud de Empleo para mostrar los
+     * datos ya registrados.
+     */
+    public function legible(string $campo, ?string $valor): ?string
     {
         if ($valor === null) {
             return null;

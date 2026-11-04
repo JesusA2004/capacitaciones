@@ -15,6 +15,7 @@ use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Vacaciones\VacacionesService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -37,8 +38,13 @@ class SolicitudInternaController extends Controller
     public function index(Request $request): Response
     {
         $usuario = $request->user();
+        // Misma regla que el POST (SolicitudInternaPolicy::create): nunca se
+        // ofrece un formulario que termina en 403.
+        $creacion = Gate::forUser($usuario)->inspect('create', SolicitudInterna::class);
 
         return Inertia::render('Solicitudes/Index', [
+            'puedeCrear' => $creacion->allowed(),
+            'motivoNoPuedeCrear' => $creacion->allowed() ? null : $creacion->message(),
             'solicitudes' => $this->solicitudes->paraColaborador($usuario),
             'tipos' => $this->solicitudes->tiposConFormulario(),
             'saldoVacaciones' => $this->vacaciones->saldo($usuario),

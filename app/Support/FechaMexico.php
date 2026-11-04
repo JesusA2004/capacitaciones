@@ -2,6 +2,7 @@
 
 namespace App\Support;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Carbon;
 
 /**
@@ -27,5 +28,11 @@ class FechaMexico
     public static function inicioDeHoy(): Carbon
     {
         return Carbon::parse(self::hoy());
+    }
+
+    /** Igual que inicioDeHoy(), inmutable (servicios que trabajan con CarbonImmutable). */
+    public static function inicioDeHoyInmutable(): CarbonImmutable
+    {
+        return CarbonImmutable::parse(self::hoy());
     }
 }

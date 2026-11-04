@@ -48,7 +48,8 @@ test('API móvil: el directorio solo serializa contacto corporativo, nunca datos
         ->assertJsonPath('data.0.correo_corporativo', 'sofia.herrera@mrlana.test')
         ->assertJsonPath('data.0.telefono_corporativo', '7771112233');
 
-    expect(array_keys($respuesta->json('data.0')))->toEqualCanonicalizing(DIRECTORIO_CAMPOS);
+    // + foto_url: URL protegida (Bearer) de la foto, nunca foto_path (docs/FOTO_EXPEDIENTE.md).
+    expect(array_keys($respuesta->json('data.0')))->toEqualCanonicalizing([...DIRECTORIO_CAMPOS, 'foto_url']);
 
     foreach (DIRECTORIO_PROHIBIDOS as $dato) {
         expect($respuesta->getContent())->not->toContain($dato);

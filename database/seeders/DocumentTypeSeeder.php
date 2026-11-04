@@ -71,6 +71,8 @@ class DocumentTypeSeeder extends Seeder
             ['clave' => 'formato_vacaciones', 'nombre' => 'Formato de vacaciones'],
             ['clave' => 'documento_baja', 'nombre' => 'Documento de baja'],
             ['clave' => 'contrato_credito_colaborador', 'nombre' => 'Contrato de crédito para colaboradores'],
+            // Lo genera PEOPLE en la incorporación (formato interno de RH).
+            ['clave' => 'estudio_socioeconomico', 'nombre' => 'Estudio socioeconómico (Formato interno)'],
             ['clave' => 'otro', 'nombre' => 'Otro documento'],
         ];
 

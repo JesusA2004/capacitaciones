@@ -251,7 +251,8 @@ test('el socioeconómico guarda resultado y evidencia en el expediente del candi
     $evento = agEvento(['tipo' => 'socioeconomico', 'domicilio' => 'Calle 1, Ixtlahuaca']);
     Carbon::setTestNow(Carbon::parse('2026-11-02 17:00:00', 'UTC'));
 
-    Sanctum::actingAs($this->gerente);
+    // El socioeconómico lo registra RH (el gerente solo aprueba la entrevista).
+    Sanctum::actingAs($this->rh);
     $this->post("/api/v1/agenda/{$evento->id}/resultado-socioeconomico", ['resultado' => 'favorable'], ['Accept' => 'application/json'])->assertUnprocessable();
     $this->post("/api/v1/agenda/{$evento->id}/resultado-socioeconomico", [
         'resultado' => 'favorable',

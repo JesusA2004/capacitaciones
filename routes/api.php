@@ -18,6 +18,8 @@ use App\Http\Controllers\Api\V1\DirectorioController;
 use App\Http\Controllers\Api\V1\DispositivoController;
 use App\Http\Controllers\Api\V1\EquipoController;
 use App\Http\Controllers\Api\V1\EvaluacionController;
+use App\Http\Controllers\Api\V1\FotoColaboradorController;
+use App\Http\Controllers\Api\V1\GuiaColaboradorController;
 use App\Http\Controllers\Api\V1\IncorporacionController;
 use App\Http\Controllers\Api\V1\IncorporacionInvitacionController;
 use App\Http\Controllers\Api\V1\Integraciones\AuditoriaController as IntegracionAuditoriaController;
@@ -56,18 +58,22 @@ use App\Http\Controllers\Api\V1\Rh\PendienteController as RhPendienteController;
 use App\Http\Controllers\Api\V1\Rh\PlantillaDocumentalController;
 use App\Http\Controllers\Api\V1\Rh\PrestamoController as RhPrestamoController;
 use App\Http\Controllers\Api\V1\Rh\ReaperturaController as RhReaperturaController;
+use App\Http\Controllers\Api\V1\Rh\RecepcionDocumentalController as RhRecepcionDocumentalController;
 use App\Http\Controllers\Api\V1\Rh\ReciboNominaController as RhReciboNominaController;
 use App\Http\Controllers\Api\V1\Rh\ReingresoController as RhReingresoController;
 use App\Http\Controllers\Api\V1\Rh\SesionInduccionController as RhSesionInduccionController;
 use App\Http\Controllers\Api\V1\Rh\SolicitudController as RhSolicitudController;
+use App\Http\Controllers\Api\V1\Rh\SolicitudEmpleoIngresoController as RhSolicitudEmpleoIngresoController;
 use App\Http\Controllers\Api\V1\Rh\VacacionController as RhVacacionController;
 use App\Http\Controllers\Api\V1\Rh\VacanteController as RhVacanteController;
 use App\Http\Controllers\Api\V1\SolicitudController;
+use App\Http\Controllers\Api\V1\SolicitudEmpleoRegistroController;
 use App\Http\Controllers\Api\V1\TareaController;
 use App\Http\Controllers\Api\V1\VacacionesController;
 use App\Http\Middleware\AutenticarClienteIntegracion;
 use App\Services\Documentos\Versiones\DocumentoEdicionService;
 use App\Services\DocumentosMaestros\VistaPreviaFlujoService;
+use App\Services\Incorporacion\SolicitudEmpleo\CatalogoSolicitudEmpleo;
 use App\Services\Integraciones\TokenIntegracionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Broadcast;
@@ -144,7 +150,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     // documentos.pendientes: con documentos requeridos sin subir (sin carta
     // compromiso en plazo) solo responde lo necesario para subirlos (403
     // «documentos_pendientes»; solo a la app que manda X-People-Documentos).
-    Route::middleware(['auth:sanctum', 'throttle:api', 'contrasena.temporal', 'registro.app', 'documentos.pendientes'])->group(function () {
+    // expediente.completo: con datos/documentos requeridos pendientes, el
+    // AUTOSERVICIO (solicitudes, vacaciones, préstamos…) responde 423
+    // «expediente_incompleto»; lo operativo nunca (ExigirExpedienteCompleto).
+    Route::middleware(['auth:sanctum', 'throttle:api', 'contrasena.temporal', 'registro.app', 'documentos.pendientes', 'expediente.completo'])->group(function () {
         Route::post('logout', [AuthController::class, 'logout'])->name('logout');
         Route::get('me', [AuthController::class, 'me'])->name('me');
         Route::post('cambiar-contrasena', [AuthController::class, 'cambiarContrasena'])->name('cambiar-contrasena')->middleware('throttle:api-reautenticar');
@@ -269,6 +278,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             // Mi proceso: etapa, qué falta, siguiente acción, inducción y
             // expediente (mismo CicloLaboralService que la web).
             Route::get('mi-proceso', [MiProcesoController::class, 'show'])->name('mi-proceso');
+            // «Tu siguiente paso»: pendientes ordenados + modo completar
+            // expediente (GuiaSiguientePasoService / ExpedienteIncompletoService).
+            Route::get('guia', [GuiaColaboradorController::class, 'show'])->name('guia');
             Route::post('onboarding/avances/{avance}/evaluacion', [MiProcesoController::class, 'evaluacion'])
                 ->name('onboarding.evaluacion')
                 ->middleware('throttle:30,1');
@@ -314,6 +326,13 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('registro', [RegistroAppController::class, 'show'])->name('registro.show');
             Route::post('registro/datos', [RegistroAppController::class, 'datos'])->name('registro.datos')->middleware('throttle:60,1');
             Route::post('registro/finalizar', [RegistroAppController::class, 'finalizar'])->name('registro.finalizar')->middleware('throttle:20,1');
+            // Solicitud de empleo + Estudio socioeconómico por secciones
+            // (docs/SOLICITUD_EMPLEO_Y_SOCIOECONOMICO.md). Permitidas por
+            // registro.app durante el registro (api.v1.colaborador.registro.*).
+            Route::get('registro/solicitud', [SolicitudEmpleoRegistroController::class, 'show'])->name('registro.solicitud.show');
+            Route::post('registro/solicitud/{seccion}', [SolicitudEmpleoRegistroController::class, 'guardar'])->name('registro.solicitud.guardar')
+                ->whereIn('seccion', array_keys(CatalogoSolicitudEmpleo::SECCIONES))
+                ->middleware('throttle:60,1');
             // Carta compromiso de documentos pendientes («No tengo este
             // documento» al registrarse) y estado del bloqueo de la app
             // (CartaCompromisoService / BloqueoDocumentosService).
@@ -379,6 +398,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('opciones', [DirectorioController::class, 'opciones'])->name('opciones');
         });
 
+        // Foto de perfil de otra persona (`foto_url` de los listados): alcance
+        // de expedientes + jerarquía directa, FotoColaboradorService::puedeVerFoto.
+        Route::get('colaboradores/{colaborador}/foto', [FotoColaboradorController::class, 'show'])->name('colaboradores.foto')->withTrashed();
+
         // Avisos de RH (mensaje + imagen, a toda la empresa o a este
         // colaborador). Solo lectura: enviarlos sigue siendo exclusivo del
         // Portal RH web (App\Http\Controllers\Rh\AvisoController).
@@ -435,6 +458,10 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('tablero', [CicloLaboralRhController::class, 'tablero'])->name('tablero');
             Route::get('ciclo/pendientes', [CicloLaboralRhController::class, 'pendientes'])->name('ciclo.pendientes');
             Route::get('colaboradores/{colaborador}/ciclo', [CicloLaboralRhController::class, 'ciclo'])->name('colaboradores.ciclo')->withTrashed();
+            // Solicitud de empleo + Estudio socioeconómico: ver y completar lo faltante (mismo controlador que la web).
+            Route::get('colaboradores/{colaborador}/solicitud-empleo', [RhSolicitudEmpleoIngresoController::class, 'show'])->name('solicitud-empleo.show');
+            Route::post('colaboradores/{colaborador}/solicitud-empleo/{seccion}', [RhSolicitudEmpleoIngresoController::class, 'guardar'])->name('solicitud-empleo.guardar')
+                ->whereIn('seccion', array_keys(CatalogoSolicitudEmpleo::SECCIONES));
             Route::post('onboarding/{proceso}/activos', [CicloLaboralRhController::class, 'entregarActivo'])->name('onboarding.activos');
             Route::post('onboarding/{proceso}/activos/vista-previa', [CicloLaboralRhController::class, 'vistaPreviaResponsiva'])->name('onboarding.responsiva.vista-previa')->middleware('throttle:30,1');
             Route::post('onboarding/{proceso}/completar', [CicloLaboralRhController::class, 'completar'])->name('onboarding.completar');
@@ -540,6 +567,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::prefix('colaboradores')->name('colaboradores.')->group(function () {
                 Route::get('/', [RhColaboradorController::class, 'index'])->name('index');
                 Route::get('{colaborador}', [RhColaboradorController::class, 'show'])->name('show');
+                // Foto oficial por alcance de expedientes (docs/FOTO_EXPEDIENTE.md).
+                Route::get('{colaborador}/foto', [RhColaboradorController::class, 'foto'])->name('foto')->withTrashed();
                 // Usuario + contraseña temporal (sin correo), docs/AUTENTICACION.md.
                 Route::post('{colaborador}/credenciales', [RhCredencialesController::class, 'store'])->name('credenciales')->middleware('throttle:api-reautenticar');
             });
@@ -762,6 +791,15 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
                 Route::post('{acta}/entrega', [ActaController::class, 'entrega'])->name('entrega');
                 Route::post('{acta}/seguimiento', [ActaController::class, 'seguimiento'])->name('seguimiento');
                 Route::post('{acta}/cerrar', [ActaController::class, 'cerrar'])->name('cerrar');
+            });
+
+            // Recepción documental RH: mismo RecepcionDocumentalService que la web.
+            Route::prefix('recepcion-documental')->name('recepcion-documental.')->group(function () {
+                Route::get('/', [RhRecepcionDocumentalController::class, 'index'])->name('index');
+                Route::get('renglones/{renglon}', [RhRecepcionDocumentalController::class, 'renglon'])->name('renglones.show')->whereNumber('renglon');
+                Route::patch('renglones/{renglon}', [RhRecepcionDocumentalController::class, 'marcar'])->name('renglones.marcar')->whereNumber('renglon');
+                Route::get('{corte}', [RhRecepcionDocumentalController::class, 'show'])->name('show')->whereNumber('corte');
+                Route::get('{corte}/renglones', [RhRecepcionDocumentalController::class, 'renglones'])->name('renglones')->whereNumber('corte');
             });
 
             Route::get('plantilla/cobertura', [EstructuraController::class, 'cobertura'])->name('plantilla.cobertura');

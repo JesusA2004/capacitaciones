@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import { ArrowLeft, Eye } from '@lucide/vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DescriptivoPuestoColaborador from '@/components/onboarding/DescriptivoPuestoColaborador.vue';
 import { Button } from '@/components/ui/button';
@@ -57,7 +58,13 @@ defineOptions({
                 </p>
                 <p class="text-sm text-muted-foreground">
                     Descriptivo de puesto de
-                    <strong>{{ colaborador.nombre }}</strong>
+                    <span class="inline-flex items-center gap-1.5 align-middle"
+                        ><ColaboradorAvatar
+                            :nombre="colaborador.nombre"
+                            :foto-url="colaborador.foto_url"
+                            tamano="xs"
+                        /><strong>{{ colaborador.nombre }}</strong></span
+                    >
                     <template v-if="colaborador.puesto">
                         · {{ colaborador.puesto }}</template
                     >.

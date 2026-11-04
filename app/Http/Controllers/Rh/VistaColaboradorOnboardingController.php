@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Rh;
 
 use App\Http\Controllers\Controller;
 use App\Models\Colaborador;
+use App\Models\User;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Onboarding\AcuseDescriptivoPuestoService;
 use App\Services\Onboarding\AsignacionInduccionService;
 use App\Services\Onboarding\InduccionPdfService;
@@ -25,6 +27,7 @@ class VistaColaboradorOnboardingController extends Controller
         private readonly ProgresoInduccionService $progreso,
         private readonly InduccionPdfService $pdf,
         private readonly AcuseDescriptivoPuestoService $descriptivos,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     public function induccion(Request $request, ?Colaborador $colaborador = null): Response
@@ -32,7 +35,7 @@ class VistaColaboradorOnboardingController extends Controller
         $this->asignaciones->autorizarVistaPrevia($request->user(), $colaborador);
 
         return Inertia::render('Rh/Onboarding/VistaColaboradorInduccion', [
-            'colaborador' => $colaborador !== null ? $this->persona($colaborador) : null,
+            'colaborador' => $colaborador !== null ? $this->persona($colaborador, $request->user()) : null,
             'miInduccion' => $colaborador !== null ? $this->progreso->resumen($colaborador) : $this->progreso->resumenGenerico(),
             'pdf' => $this->pdf->datosVisor(),
         ]);
@@ -43,16 +46,16 @@ class VistaColaboradorOnboardingController extends Controller
         $vista = $this->descriptivos->vistaPreviaColaborador($colaborador, $request->user());
 
         return Inertia::render('Rh/Onboarding/VistaColaboradorDescriptivo', [
-            'colaborador' => $this->persona($colaborador),
+            'colaborador' => $this->persona($colaborador, $request->user()),
             'acuse' => $vista['acuse'],
             'motivo' => $vista['motivo'],
         ]);
     }
 
     /**
-     * @return array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null}
+     * @return array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, foto_url: string|null}
      */
-    private function persona(Colaborador $colaborador): array
+    private function persona(Colaborador $colaborador, User $viewer): array
     {
         $colaborador->loadMissing(['puesto:id,nombre', 'sucursalPrincipal:id,nombre']);
 
@@ -62,6 +65,8 @@ class VistaColaboradorOnboardingController extends Controller
             'numero_empleado' => $colaborador->numero_empleado,
             'puesto' => $colaborador->puesto?->nombre,
             'sucursal' => $colaborador->sucursalPrincipal?->nombre,
+            // Foto oficial (URL protegida, solo dentro del alcance de quien mira).
+            'foto_url' => $this->fotos->urlPara($colaborador, $viewer),
         ];
     }
 }

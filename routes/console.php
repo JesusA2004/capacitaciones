@@ -115,3 +115,13 @@ Schedule::command('notificaciones:reconciliar')
 // no es null). Comando propio del paquete, solo borra filas cuyo
 // expires_at ya pasó — nunca toca un token todavía vigente.
 Schedule::command('sanctum:prune-expired --hours=24')->daily();
+
+// Recepción documental RH (docs/RECEPCION_DOCUMENTAL_RH.md): calcula los
+// originales esperados del mes en curso (y del anterior si sigue abierto)
+// desde eventos reales. Idempotente; un corte cerrado nunca se recalcula.
+Schedule::command('recepcion-documental:materializar --anterior')
+    ->dailyAt((string) config('recepcion_documental.programacion.hora', '06:40'))
+    ->timezone('America/Mexico_City')
+    ->when(fn (): bool => (bool) config('recepcion_documental.programacion.activa', true))
+    ->withoutOverlapping()
+    ->onOneServer();

@@ -14,6 +14,7 @@ import ActaAnexos from '@/components/actas/ActaAnexos.vue';
 import ActaCampos from '@/components/actas/ActaCampos.vue';
 import ActaCircunstanciadaEditor from '@/components/actas/ActaCircunstanciadaEditor.vue';
 import ActaCircunstanciadaResumen from '@/components/actas/ActaCircunstanciadaResumen.vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
 import InputError from '@/components/InputError.vue';
@@ -532,14 +533,23 @@ async function cerrarActa() {
                             <dt class="text-xs text-muted-foreground">
                                 Colaborador
                             </dt>
-                            <dd class="font-medium">
-                                {{ acta.colaborador.nombre }}
-                                <span
-                                    v-if="acta.colaborador.numero_empleado"
-                                    class="text-xs font-normal text-muted-foreground"
-                                    >·
-                                    {{ acta.colaborador.numero_empleado }}</span
-                                >
+                            <dd class="flex items-center gap-2 font-medium">
+                                <ColaboradorAvatar
+                                    :nombre="acta.colaborador.nombre"
+                                    :foto-url="acta.colaborador.foto_url"
+                                    tamano="sm"
+                                />
+                                <span class="min-w-0">
+                                    {{ acta.colaborador.nombre }}
+                                    <span
+                                        v-if="acta.colaborador.numero_empleado"
+                                        class="text-xs font-normal text-muted-foreground"
+                                        >·
+                                        {{
+                                            acta.colaborador.numero_empleado
+                                        }}</span
+                                    >
+                                </span>
                             </dd>
                         </div>
                         <div>

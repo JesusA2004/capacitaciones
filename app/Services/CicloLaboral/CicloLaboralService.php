@@ -526,7 +526,8 @@ class CicloLaboralService
 
         $bloqueos = [];
 
-        if ($cierre->fecha_efectiva->isFuture()) {
+        // Día calendario de México (la app corre en UTC).
+        if ($cierre->fecha_efectiva->toDateString() > FechaMexico::hoy()) {
             $bloqueos[] = sprintf('La baja no se ejecuta antes de la fecha efectiva (%s).', $cierre->fecha_efectiva->format('d/m/Y'));
         }
 

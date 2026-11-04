@@ -19,6 +19,9 @@ use Illuminate\Support\Facades\Notification;
 */
 
 beforeEach(function () {
+    // Estas pruebas cubren el contrato, no el requisito previo de Solicitud de
+    // Empleo y Estudio Socioeconómico (ver Incorporacion/SolicitudEmpleoTest).
+    config(['incorporacion.documentos_ingreso.exigir_antes_de_contrato' => false]);
     $this->seed(RolesYPermisosSeeder::class);
     Notification::fake();
     $this->rh = clUsuario('rh_admin');

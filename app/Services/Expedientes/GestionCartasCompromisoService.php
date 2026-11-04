@@ -12,10 +12,10 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
 use App\Services\Incorporacion\RegistroAppService;
+use App\Support\FechaMexico;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -156,7 +156,7 @@ class GestionCartasCompromisoService
             ], $pendientes),
             'max_documentos' => $this->cartas->maxDocumentos(),
             'dias_plazo' => $this->cartas->diasPlazo(),
-            'fecha_limite' => now()->startOfDay()->addDays($this->cartas->diasPlazo())->toDateString(),
+            'fecha_limite' => FechaMexico::inicioDeHoy()->addDays($this->cartas->diasPlazo())->toDateString(),
             'motivo_no_elegible' => $this->motivoNoElegible($colaborador, count($pendientes), $abierta),
             // «Ver carta» también cuando aún no se puede generar solo por
             // tener más faltantes que el máximo (solo consulta).
@@ -424,13 +424,13 @@ class GestionCartasCompromisoService
      */
     private function aplicarPestana(Builder $query, string $pestana): void
     {
-        $hoy = Carbon::today()->toDateString();
+        $hoy = FechaMexico::inicioDeHoy()->toDateString();
         $vigente = EstadoCartaCompromiso::Vigente->value;
 
         match ($pestana) {
             'vigentes' => $query->where('estado', $vigente)->where('fecha_limite', '>=', $hoy),
             'por_vencer' => $query->where('estado', $vigente)->where('fecha_limite', '>=', $hoy)
-                ->where('fecha_limite', '<=', Carbon::today()->addDays($this->diasPorVencer())->toDateString()),
+                ->where('fecha_limite', '<=', FechaMexico::inicioDeHoy()->addDays($this->diasPorVencer())->toDateString()),
             'vencidas' => $query->where(fn (Builder $q) => $q
                 ->where('estado', EstadoCartaCompromiso::Vencida->value)
                 ->orWhere(fn (Builder $v) => $v->where('estado', $vigente)->where('fecha_limite', '<', $hoy))),

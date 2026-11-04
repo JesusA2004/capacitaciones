@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Enums\CategoriaDocumento;
+use App\Enums\DocumentoSalida;
 use App\Enums\EstadoFlujoDocumento;
 use App\Models\ContratoLaboral;
 use App\Models\GeneratedDocument;
@@ -12,6 +13,7 @@ use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Documentos\Versiones\Fuentes\FuenteResponsiva;
 use App\Services\Onboarding\EvaluacionInduccionPdfService;
+use Illuminate\Auth\Access\Response;
 
 /**
  * Documentos laborales emitidos por el motor documental. El colaborador ve,
@@ -27,7 +29,12 @@ class GeneratedDocumentPolicy
 
     public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
 
-    public function ver(User $usuario, GeneratedDocument $documento): bool
+    public function ver(User $usuario, GeneratedDocument $documento): Response
+    {
+        return $this->puedeVer($usuario, $documento) ? Response::allow() : Response::deny(self::motivoSinAcceso($documento));
+    }
+
+    private function puedeVer(User $usuario, GeneratedDocument $documento): bool
     {
         if ($this->esPropio($usuario, $documento) && ! $this->esAutoservicioBloqueado($documento)) {
             return $documento->estado_flujo !== null && $documento->estado_flujo !== EstadoFlujoDocumento::Borrador;
@@ -46,7 +53,60 @@ class GeneratedDocumentPolicy
             return self::puedeVerContratos($usuario) && $this->enAlcance($usuario, $documento);
         }
 
+        // Recibos de nómina y documentos de salida con importes: su permiso
+        // propio, además de documentos_laborales.ver (el gerente consulta los
+        // documentos de su gente, pero nunca la nómina ni el finiquito).
+        if (! self::puedeVerCategoriaSensible($usuario, $documento)) {
+            return false;
+        }
+
         return $usuario->can('documentos_laborales.ver') && $this->enAlcance($usuario, $documento);
+    }
+
+    /**
+     * Motivo en español cuando ver() niega: la app lo muestra tal cual.
+     */
+    public static function motivoSinAcceso(GeneratedDocument $documento): string
+    {
+        if (self::esContrato($documento)) {
+            return 'No tienes permiso para ver contratos. Si lo necesitas, pide acceso a RH.';
+        }
+
+        if ($documento->categoria === CategoriaDocumento::NominaInterna) {
+            return 'Los recibos de nómina solo los consulta RH. Si lo necesitas, pide acceso a RH.';
+        }
+
+        if (self::esSalidaConImportes($documento)) {
+            return 'Los documentos de finiquito y terminación solo los consulta RH. Si lo necesitas, pide acceso a RH.';
+        }
+
+        return 'No tienes permiso para ver este documento o la persona está fuera de tu alcance.';
+    }
+
+    /**
+     * Categorías con datos económicos: el recibo de nómina exige
+     * nomina.recibos.ver; finiquito, convenio, aviso de rescisión y
+     * constancia de la baja exigen finiquitos.ver (o gestionar bajas, RH).
+     * La carta de renuncia queda con la regla general.
+     */
+    public static function puedeVerCategoriaSensible(User $usuario, GeneratedDocument $documento): bool
+    {
+        if ($documento->categoria === CategoriaDocumento::NominaInterna) {
+            return $usuario->can('nomina.recibos.ver');
+        }
+
+        if (self::esSalidaConImportes($documento)) {
+            return $usuario->can('finiquitos.ver') || $usuario->can('bajas.gestionar');
+        }
+
+        return true;
+    }
+
+    /** Documento de salida de la baja distinto de la carta de renuncia. */
+    public static function esSalidaConImportes(GeneratedDocument $documento): bool
+    {
+        return $documento->categoria === CategoriaDocumento::BajaFiniquito
+            && $documento->clave_plantilla !== DocumentoSalida::CartaRenuncia->value;
     }
 
     /**
@@ -105,7 +165,7 @@ class GeneratedDocumentPolicy
      */
     public function descargar(User $usuario, GeneratedDocument $documento): bool
     {
-        if (! $this->ver($usuario, $documento)) {
+        if (! $this->puedeVer($usuario, $documento)) {
             return false;
         }
 

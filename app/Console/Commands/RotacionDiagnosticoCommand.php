@@ -10,6 +10,7 @@ use App\Models\Sucursal;
 use App\Services\Rotacion\FiltrosRotacion;
 use App\Services\Rotacion\RotacionAnalisisService;
 use App\Services\Rotacion\RotacionMotorService;
+use App\Support\FechaMexico;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 
@@ -30,13 +31,13 @@ class RotacionDiagnosticoCommand extends Command
 
     public function handle(RotacionMotorService $motor, RotacionAnalisisService $analisis): int
     {
-        $anio = is_numeric($this->option('anio')) ? (int) $this->option('anio') : CarbonImmutable::today()->year;
+        $anio = is_numeric($this->option('anio')) ? (int) $this->option('anio') : FechaMexico::inicioDeHoyInmutable()->year;
         $hastaTexto = $this->option('hasta');
         $hasta = is_string($hastaTexto) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $hastaTexto) === 1
-            ? CarbonImmutable::createFromFormat('!Y-m-d', $hastaTexto) ?: CarbonImmutable::today()
-            : CarbonImmutable::today();
+            ? CarbonImmutable::createFromFormat('!Y-m-d', $hastaTexto) ?: FechaMexico::inicioDeHoyInmutable()
+            : FechaMexico::inicioDeHoyInmutable();
         $desde = CarbonImmutable::create($anio, 1, 1);
-        $hasta = $hasta->min(CarbonImmutable::today());
+        $hasta = $hasta->min(FechaMexico::inicioDeHoyInmutable());
         $sucursales = Sucursal::query()->pluck('id')->map(fn ($id): int => (int) $id)->values();
         $f = new FiltrosRotacion('rango', $anio, null, $desde, $hasta, $sucursales, null, null, null, null, null, null, null, 'todas', false, externas: true);
 

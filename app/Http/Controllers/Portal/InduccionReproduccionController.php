@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Multimedia\ManifiestoHlsService;
 use App\Services\Multimedia\MediaStorageService;
 use App\Services\Onboarding\AccesoInduccionColaboradorService;
+use App\Services\Onboarding\InduccionPdfService;
 use App\Services\Onboarding\MaterialInduccionService;
 use App\Services\Onboarding\ReproduccionVideoInduccionService;
 use Illuminate\Auth\Access\AuthorizationException;
@@ -39,13 +40,14 @@ class InduccionReproduccionController extends Controller
         private readonly ManifiestoHlsService $manifiestos,
         private readonly MediaStorageService $storage,
         private readonly AccesoInduccionColaboradorService $acceso,
+        private readonly InduccionPdfService $induccionPdf,
     ) {}
 
     public function material(Request $request, OnboardingAvance $avance): JsonResponse
     {
         $this->autorizar($request->user(), $avance);
 
-        return response()->json(['data' => $this->materiales->datosParaColaborador($avance)]);
+        return response()->json(['data' => [...$this->materiales->datosParaColaborador($avance), ...$this->induccionPdf->bloqueoVideo($avance)]]);
     }
 
     public function videoIniciar(Request $request, OnboardingAvance $avance): JsonResponse
@@ -53,6 +55,8 @@ class InduccionReproduccionController extends Controller
         $usuario = $request->user();
         $this->autorizar($usuario, $avance);
         $this->exigirVideo($avance);
+        // Orden obligatorio: presentación completa → video (423 «presentacion_incompleta»).
+        $this->induccionPdf->exigirPresentacionParaVideo($avance);
 
         return response()->json($this->reproduccion->iniciarSesion($usuario, $avance));
     }
@@ -101,6 +105,7 @@ class InduccionReproduccionController extends Controller
     public function manifiestoMaestro(Request $request, OnboardingAvance $avance): Response
     {
         $this->autorizar($request->user(), $avance);
+        $this->induccionPdf->exigirPresentacionParaVideo($avance);
         $manifiesto = $this->rutaManifiesto($avance);
 
         $contenido = $this->manifiestos->reescribirMaestro(

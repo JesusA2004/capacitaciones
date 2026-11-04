@@ -10,6 +10,7 @@ use App\Enums\NivelCombustible;
 use App\Enums\TipoBienMueble;
 use App\Enums\TipoEquipoElectronico;
 use App\Enums\TipoResponsiva;
+use App\Support\FechaMexico;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -34,7 +35,7 @@ class GuardarResponsivaRequest extends FormRequest
         return [
             'tipo' => ['required', Rule::enum(TipoResponsiva::class)],
             'lugar' => ['required', 'string', 'max:160'],
-            'fecha_entrega' => ['required', 'date', 'before_or_equal:today'],
+            'fecha_entrega' => ['required', 'date', 'before_or_equal:'.FechaMexico::hoy()],
             // Responsable de entrega (quien realmente entregó). Si no se envía,
             // se asume al capturador. El alcance se valida en ResponsivaService.
             'responsable_entrega_id' => ['nullable', 'integer', 'exists:users,id'],

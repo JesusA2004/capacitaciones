@@ -29,6 +29,7 @@ import {
     Megaphone,
     Network,
     Package,
+    PackageCheck,
     PartyPopper,
     QrCode,
     ReceiptText,
@@ -115,6 +116,7 @@ import {
 } from '@/routes/rh/onboarding';
 import { index as indexPendientes } from '@/routes/rh/pendientes';
 import { index as indexPerfilesPuesto } from '@/routes/rh/perfiles-puesto';
+import { index as indexRecepcionDocumental } from '@/routes/rh/recepcion-documental';
 import { index as indexReingresos } from '@/routes/rh/reingresos';
 import { index as indexMisReportes } from '@/routes/rh/reportes/mis-reportes';
 import { index as indexRhSolicitudes } from '@/routes/rh/solicitudes';
@@ -168,6 +170,10 @@ export function useMainNavItems() {
         return total > 99 ? '99+' : total > 0 ? String(total) : '';
     });
 
+    const tieneColaboradorVinculado = computed(
+        () => (page.props.auth?.user?.colaborador_id ?? null) !== null,
+    );
+
     const algunPermiso = (...permisos: string[]): boolean =>
         permisos.some((p) => tienePermiso(p));
 
@@ -182,7 +188,13 @@ export function useMainNavItems() {
                 href: miExpediente(),
                 icon: FolderOpen,
             },
-            algunPermiso('portal.solicitudes.ver', 'solicitudes.crear') && {
+            // Autoservicio propio: cualquiera con colaborador vinculado en Mi
+            // espacio, sin importar su rol operativo (SolicitudInternaPolicy::create).
+            (tieneColaboradorVinculado.value ||
+                algunPermiso(
+                    'portal.solicitudes.ver',
+                    'solicitudes.crear',
+                )) && {
                 title: 'Mis solicitudes',
                 href: indexSolicitudes(),
                 icon: ClipboardList,
@@ -468,6 +480,13 @@ export function useMainNavItems() {
                         title: 'Actas administrativas',
                         href: indexActas(),
                         icon: FilePen,
+                    },
+                    // Originales firmados recibidos por paquetería (control
+                    // mensual; docs/RECEPCION_DOCUMENTAL_RH.md).
+                    tienePermiso('recepcion_documental.ver') && {
+                        title: 'Recepción documental',
+                        href: indexRecepcionDocumental(),
+                        icon: PackageCheck,
                     },
                     tienePermiso('nomina.recibos.ver') && {
                         title: 'Recibo simple de pago',

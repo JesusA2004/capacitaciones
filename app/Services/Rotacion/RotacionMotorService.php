@@ -14,6 +14,7 @@ use App\Models\RotacionPeriodo;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Support\FechaMexico;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -85,7 +86,7 @@ class RotacionMotorService
      */
     public function filtros(User $usuario, array $entrada): FiltrosRotacion
     {
-        $hoy = CarbonImmutable::today();
+        $hoy = FechaMexico::inicioDeHoyInmutable();
         $anio = is_numeric($entrada['anio'] ?? null) ? max(2000, min((int) $entrada['anio'], $hoy->year)) : $hoy->year;
         $mes = is_numeric($entrada['mes'] ?? null) && (int) $entrada['mes'] >= 1 && (int) $entrada['mes'] <= 12 ? (int) $entrada['mes'] : null;
         $periodo = in_array($entrada['periodo'] ?? null, ['acumulado', 'anio', 'mes', 'rango'], true) ? (string) $entrada['periodo'] : 'acumulado';
@@ -232,11 +233,11 @@ class RotacionMotorService
     {
         $inicio = $mes->startOfMonth();
 
-        if ($inicio->isAfter(CarbonImmutable::today())) {
+        if ($inicio->isAfter(FechaMexico::inicioDeHoyInmutable())) {
             return null;
         }
 
-        $f = new FiltrosRotacion('mes', $inicio->year, $inicio->month, $inicio, $inicio->endOfMonth()->startOfDay()->min(CarbonImmutable::today()), $sucursales, null, null, null, null, null, null, null, 'todas', false);
+        $f = new FiltrosRotacion('mes', $inicio->year, $inicio->month, $inicio, $inicio->endOfMonth()->startOfDay()->min(FechaMexico::inicioDeHoyInmutable()), $sucursales, null, null, null, null, null, null, null, 'todas', false);
         $celdas = $this->celdas($f);
 
         return $celdas->isEmpty() && $this->agregados($f)->isEmpty() && $inicio->lt($this->mesInicioSistema())
@@ -342,7 +343,7 @@ class RotacionMotorService
                 // El mes en curso entra completo si el corte es hoy: su total
                 // del Excel también va «a la fecha».
                 return $inicio->gte($f->desde)
-                    && ($inicio->endOfMonth()->startOfDay()->lte($f->hasta) || ($inicio->isSameMonth(CarbonImmutable::today()) && $f->hasta->isToday()));
+                    && ($inicio->endOfMonth()->startOfDay()->lte($f->hasta) || ($inicio->isSameMonth(FechaMexico::inicioDeHoyInmutable()) && $f->hasta->toDateString() === FechaMexico::hoy()));
             })
             ->values();
     }
@@ -422,7 +423,7 @@ class RotacionMotorService
     {
         $ids = $f->sucursales->all();
         $desde = $f->desde->toDateString();
-        $hasta = $f->hasta->min(CarbonImmutable::today())->toDateString();
+        $hasta = $f->hasta->min(FechaMexico::inicioDeHoyInmutable())->toDateString();
         $eventos = collect();
 
         if ($f->fuente !== 'historico') {
@@ -468,7 +469,7 @@ class RotacionMotorService
         $esSistema = $fuente === 'sistema';
         $entero = fn (string $campo): ?int => is_numeric($fila[$campo] ?? null) ? (int) $fila[$campo] : null;
         $ingreso = $this->fecha($fila['fecha_ingreso'] ?? null);
-        $baja = $this->fecha($fila['fecha_baja'] ?? null) ?? CarbonImmutable::today();
+        $baja = $this->fecha($fila['fecha_baja'] ?? null) ?? FechaMexico::inicioDeHoyInmutable();
         $causalRotacionId = $esSistema ? $entero('causal_rotacion_id') : null;
         $forma = $esSistema && is_string($fila['forma_salida'] ?? null) ? FormaSalida::tryFrom($fila['forma_salida']) : null;
         [$analiticaId, $homologada, $clasificacion] = $this->resolverCausal(

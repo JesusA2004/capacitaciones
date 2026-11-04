@@ -64,6 +64,9 @@ use Illuminate\Validation\ValidationException;
 */
 
 beforeEach(function () {
+    // Estas pruebas cubren el contrato, no el requisito previo de Solicitud de
+    // Empleo y Estudio Socioeconómico (ver Incorporacion/SolicitudEmpleoTest).
+    config(['incorporacion.documentos_ingreso.exigir_antes_de_contrato' => false]);
     Carbon::setTestNow(Carbon::parse('2026-10-01 10:00:00', 'America/Mexico_City'));
     $this->seed(RolesYPermisosSeeder::class);
     Storage::fake('nas');
@@ -185,9 +188,9 @@ function cfHastaPreautorizado(object $t, Candidato $c): Candidato
     $wf->registrarEntrevista($c, $t->gerenteA, ['realizada_en' => now()->subDay()->toDateTimeString(), 'resultado' => 'viable', 'observaciones' => 'Buena entrevista.']);
     $wf->enviarPsicometricas($c, $t->reclutador, 'https://pruebas.example.test/1');
     $wf->registrarResultadosPsicometricas($c, $t->reclutador, 'Resultados en perfil.');
-    $wf->revisarPsicometricas($c, $t->gerenteA, true, null);
-    $wf->registrarSocioeconomico($c, $t->gerenteA, ['fecha_visita' => now()->toDateString(), 'direccion' => 'Calle 1', 'checklist' => ['vivienda_en_orden' => true]]);
-    $wf->revisarSocioeconomico($c, $t->gerenteA, true, null);
+    $wf->revisarPsicometricas($c, $t->reclutador, true, null);
+    $wf->registrarSocioeconomico($c, $t->reclutador, ['fecha_visita' => now()->toDateString(), 'direccion' => 'Calle 1', 'checklist' => ['vivienda_en_orden' => true]]);
+    $wf->revisarSocioeconomico($c, $t->reclutador, true, null);
     $wf->registrarReferencia($c, $t->reclutador, ['empresa' => 'Empresa X', 'contacto' => 'Jefe X', 'resultado' => 'positiva']);
 
     return $wf->concluirReferencias($c, $t->reclutador, true, null);
@@ -226,6 +229,8 @@ function cfContratarYRegistrar(object $t, Candidato $c): array
 function cfExpedienteAprobado(object $t, Colaborador $colaborador, User $usuario): void
 {
     $incorporacion = app(IncorporacionService::class);
+    // Requisito del contrato: Solicitud de empleo y Estudio socioeconómico generados.
+    clDocumentosIngresoGenerados($colaborador);
 
     foreach ($t->tipos as $tipo) {
         $incorporacion->subirDocumento($colaborador, $tipo, clArchivoPdf("{$tipo->clave}.pdf"), $usuario->id);

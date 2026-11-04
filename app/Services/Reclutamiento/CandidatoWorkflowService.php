@@ -19,6 +19,7 @@ use App\Models\CandidatoReferencia;
 use App\Models\CandidatoSocioeconomico;
 use App\Models\MotivoRechazoCandidato;
 use App\Models\SeguimientoCandidato;
+use App\Models\TareaRh;
 use App\Models\User;
 use App\Models\Vacante;
 use App\Services\Auditoria\AuditoriaService;
@@ -35,6 +36,7 @@ use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -650,6 +652,66 @@ class CandidatoWorkflowService
     public function actualizarPendientes(Candidato $candidato, User $actor): void
     {
         $this->abrirPendiente($candidato, $actor);
+    }
+
+    /**
+     * Red de seguridad (reconciliador de avisos): pendientes de candidatos
+     * asignados a una cuenta que YA NO puede atenderlos —el candidato quedó
+     * fuera de su alcance (cambió de sucursal, cambió el responsable del
+     * organigrama) o su rol perdió el permiso del paso— se recalculan con las
+     * reglas vigentes: van al responsable correcto o, si su rol no tiene el
+     * permiso, a Reclutamiento/RH por permiso. Nunca deja un paso huérfano.
+     *
+     * Idempotente: solo toca pendientes inválidos, y el recalculado ya es válido.
+     *
+     * @return int candidatos recalculados
+     */
+    public function reconciliarPendientesAsignados(): int
+    {
+        $candidatos = [];
+
+        TareaRh::query()
+            ->whereNull('resuelta_en')
+            ->whereNotNull('asignado_user_id')
+            ->whereNotNull('candidato_id')
+            ->whereIn('tipo', array_map(fn (TipoTarea $t): string => $t->value, TipoTarea::deReclutamiento()))
+            ->with(['asignado', 'candidato'])
+            ->chunkById(100, function (EloquentCollection $tareas) use (&$candidatos): void {
+                foreach ($tareas as $tarea) {
+                    $candidato = $tarea->candidato;
+
+                    if ($candidato instanceof Candidato && ! isset($candidatos[$candidato->id]) && ! $this->asignacionVigente($tarea, $candidato)) {
+                        $candidatos[$candidato->id] = $candidato;
+                    }
+                }
+            });
+
+        foreach ($candidatos as $candidato) {
+            $this->abrirPendiente($candidato);
+        }
+
+        return count($candidatos);
+    }
+
+    /**
+     * La cuenta asignada sigue activa, ve al candidato y, si es un paso del
+     * gerente, su rol tiene el permiso de ese paso.
+     */
+    private function asignacionVigente(TareaRh $tarea, Candidato $candidato): bool
+    {
+        $usuario = $tarea->asignado;
+
+        if (! $usuario instanceof User || $usuario->acceso_bloqueado_en !== null) {
+            return false;
+        }
+
+        if (! $this->tareas->candidatoEnAlcance($usuario, $tarea) || Gate::forUser($usuario)->denies('view', $candidato)) {
+            return false;
+        }
+
+        $permiso = $tarea->tipo === TipoTarea::CandidatoEntrevista ? self::PERMISO_ENTREVISTA : $this->permisoPasoGerente($candidato);
+
+        return $permiso === null || $this->permisos->puede($usuario, $permiso);
     }
 
     /**

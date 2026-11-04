@@ -127,7 +127,7 @@ test('el ejemplo del negocio: un gerente que solo aprueba entrevista y no ve con
 
     $gerente->refresh();
     expect($gerente->hasPermissionTo('contratos.ver'))->toBeFalse()
-        ->and($gerente->hasPermissionTo('candidatos.evaluar'))->toBeTrue();
+        ->and($gerente->hasPermissionTo('candidatos.aprobar_entrevista'))->toBeTrue();
 
     // Un deploy (sincronizar) no le devuelve lo que se le quitó.
     $this->artisan('people:sincronizar-permisos')->assertSuccessful();

@@ -16,6 +16,7 @@ use App\Services\Onboarding\AcuseDescriptivoPuestoService;
 use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\OnboardingCatalogoService;
 use App\Services\Onboarding\OnboardingService;
+use App\Support\FechaMexico;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -42,7 +43,7 @@ class OnboardingController extends Controller
             'tipo_activo_id' => ['required', 'integer', 'exists:tipos_activo,id'],
             'identificador' => ['nullable', 'string', 'max:120'],
             'descripcion' => ['nullable', 'string', 'max:190'],
-            'entregado_en' => ['nullable', 'date', 'before_or_equal:today'],
+            'entregado_en' => ['nullable', 'date', 'before_or_equal:'.FechaMexico::hoy()],
             'observaciones' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -61,7 +62,7 @@ class OnboardingController extends Controller
             'tipo_activo_id' => ['required', 'integer', 'exists:tipos_activo,id'],
             'identificador' => ['nullable', 'string', 'max:120'],
             'descripcion' => ['nullable', 'string', 'max:190'],
-            'entregado_en' => ['nullable', 'date', 'before_or_equal:today'],
+            'entregado_en' => ['nullable', 'date', 'before_or_equal:'.FechaMexico::hoy()],
         ]);
 
         return response($this->onboarding->vistaPreviaResponsiva($proceso, $request->user(), $datos), 200, [

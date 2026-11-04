@@ -22,6 +22,7 @@ use App\Services\Pdf\OpcionesPdf;
 use App\Services\Pdf\PdfRendererException;
 use App\Services\Pdf\PdfRendererFactory;
 use App\Services\Permisos\AlcanceModuloService;
+use App\Support\FechaMexico;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -95,7 +96,7 @@ class ReporteCampanasService
         }
 
         if ($filtros->estados !== []) {
-            $hoy = Carbon::today();
+            $hoy = FechaMexico::inicioDeHoy();
             $consulta->where(function (Builder $q) use ($filtros, $hoy): void {
                 foreach ($filtros->estados as $estado) {
                     $q->orWhere(fn (Builder $s) => $this->enEstado($s, $estado, $hoy));

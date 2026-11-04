@@ -15,6 +15,7 @@ use App\Services\Salarios\MatrizMeritoService;
 use App\Services\Salarios\PosicionSalarialService;
 use App\Services\Salarios\TabuladorImportService;
 use App\Services\Salarios\TabuladorSalarialService;
+use App\Support\FechaMexico;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response as HttpResponse;
@@ -64,7 +65,7 @@ class AdministracionSalariosController extends Controller
             'medio' => ['required', 'numeric', 'gte:minimo', 'max:99999999'],
             'maximo' => ['required', 'numeric', 'gte:medio', 'max:99999999'],
             'fuente' => ['required', 'string', 'max:160'],
-            'fecha_actualizacion' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'fecha_actualizacion' => ['required', 'date_format:Y-m-d', 'before_or_equal:'.FechaMexico::hoy()],
             'motivo' => ['nullable', 'string', 'max:400'],
         ], [
             'minimo.gt' => 'El mínimo debe ser mayor a cero.',

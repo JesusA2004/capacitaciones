@@ -10,6 +10,7 @@ use App\Models\Prestamo;
 use App\Models\SolicitudInterna;
 use App\Models\SolicitudInternaHistorial;
 use App\Models\User;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Reaperturas\ReaperturaService;
 use App\Services\RhMobile\WorkflowService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
@@ -38,6 +39,7 @@ class SolicitudController extends Controller
         private readonly WorkflowService $workflow,
         private readonly AprobacionJerarquicaService $aprobaciones,
         private readonly AprobacionOrganizacionalService $motor,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -69,7 +71,7 @@ class SolicitudController extends Controller
 
         $solicitud->load([
             'usuario:id,name,apellidos,colaborador_id',
-            'usuario.colaborador:id,numero_empleado,sucursal_principal_id,puesto_id',
+            'usuario.colaborador:id,numero_empleado,sucursal_principal_id,puesto_id,foto_path,jefe_id,gerente_id',
             'usuario.colaborador.sucursalPrincipal:id,nombre',
             'usuario.colaborador.puesto:id,nombre',
             'revisadoPor:id,name,apellidos',
@@ -86,7 +88,7 @@ class SolicitudController extends Controller
                 'folio' => $solicitud->folio,
                 'tipo' => $solicitud->tipo->value,
                 'estado' => $solicitud->estado->value,
-                'colaborador' => $this->colaboradorResumen($solicitud->usuario),
+                'colaborador' => $this->colaboradorResumen($solicitud->usuario, $usuario),
                 'fecha_inicio' => $solicitud->fecha_inicio?->toDateString(),
                 'fecha_fin' => $solicitud->fecha_fin?->toDateString(),
                 'motivo' => $solicitud->motivo,
@@ -307,7 +309,7 @@ class SolicitudController extends Controller
             'tipo' => $s->tipo->value,
             'titulo' => $s->tipo->etiqueta(),
             'estado' => $s->estado->value,
-            'colaborador' => $this->colaboradorResumen($s->usuario),
+            'colaborador' => $this->colaboradorResumen($s->usuario, $usuario),
             'resumen' => $s->motivo,
             'creado_en' => $s->created_at?->toIso8601String(),
             'acciones_permitidas' => $this->workflow->paraSolicitud($usuario, $s)['acciones_permitidas'],
@@ -335,18 +337,22 @@ class SolicitudController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function colaboradorResumen(?User $colaborador): array
+    private function colaboradorResumen(?User $colaborador, User $viewer): array
     {
         if ($colaborador === null) {
-            return ['id' => null, 'nombre' => null, 'numero_empleado' => null, 'puesto' => null, 'sucursal' => null];
+            return ['id' => null, 'nombre' => null, 'numero_empleado' => null, 'puesto' => null, 'sucursal' => null, 'foto_url' => null];
         }
+
+        $persona = $colaborador->colaborador;
 
         return [
             'id' => $colaborador->id,
             'nombre' => $colaborador->nombreCompleto(),
-            'numero_empleado' => $colaborador->colaborador?->numero_empleado,
-            'puesto' => $colaborador->colaborador?->puesto?->nombre,
-            'sucursal' => $colaborador->colaborador?->sucursalPrincipal?->nombre,
+            'numero_empleado' => $persona?->numero_empleado,
+            'puesto' => $persona?->puesto?->nombre,
+            'sucursal' => $persona?->sucursalPrincipal?->nombre,
+            // Abre con el Bearer token; null = iniciales (docs/FOTO_EXPEDIENTE.md).
+            'foto_url' => $persona !== null ? $this->fotos->urlApiPara($persona, $viewer) : null,
         ];
     }
 }

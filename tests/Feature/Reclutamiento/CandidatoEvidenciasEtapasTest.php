@@ -36,7 +36,7 @@ test('subir resultados psicométricos NO avanza a socioeconómico: queda en revi
     $this->wf->registrarResultadosPsicometricas($c, $this->rh, 'En perfil.', [UploadedFile::fake()->create('psicometrico.pdf', 100, 'application/pdf')]);
     expect($c->refresh()->estado)->toBe(EstadoCandidato::RevisionPsicometricas);
 
-    $this->wf->revisarPsicometricas($c, $this->gerente, true, null);
+    $this->wf->revisarPsicometricas($c, $this->rh, true, null);
     expect($c->refresh()->estado)->toBe(EstadoCandidato::SocioeconomicoPendiente);
 });
 
@@ -54,13 +54,13 @@ test('cargar el socioeconómico NO decide: pendiente de revisión, y solo la rev
     $c->refresh();
     expect($c->estado)->toBe(EstadoCandidato::SocioeconomicoPendiente)
         ->and($this->wf->socioeconomicoPendiente($c))->not->toBeNull()
-        ->and(collect($this->wf->accionesPermitidas($c, $this->gerente))->pluck('clave'))->toContain('revisar_socioeconomico')->not->toContain('registrar_socioeconomico');
+        ->and(collect($this->wf->accionesPermitidas($c, $this->rh))->pluck('clave'))->toContain('revisar_socioeconomico')->not->toContain('registrar_socioeconomico');
 
     // No se puede cargar otro encima del pendiente.
     $this->actingAs($this->rh)->post(route('rh.candidatos.socioeconomico', $c), ['fecha_visita' => now()->toDateString(), 'direccion' => 'Calle 2'])
         ->assertSessionHasErrors('estado');
 
-    $this->actingAs($this->gerente)->post(route('rh.candidatos.socioeconomico.revision', $c), ['viable' => true])->assertSessionHasNoErrors();
+    $this->actingAs($this->rh)->post(route('rh.candidatos.socioeconomico.revision', $c), ['viable' => true])->assertSessionHasNoErrors();
 
     expect($c->refresh()->estado)->toBe(EstadoCandidato::ReferenciasPendientes);
 });
@@ -68,14 +68,14 @@ test('cargar el socioeconómico NO decide: pendiente de revisión, y solo la rev
 test('revisar el socioeconómico sin haberlo cargado se rechaza con un motivo claro', function () {
     $c = Candidato::factory()->create(['sucursal_id' => $this->estructura['sucursal']->id, 'estado' => EstadoCandidato::SocioeconomicoPendiente, 'gerente_involucrado_id' => $this->gerente->id]);
 
-    $this->actingAs($this->gerente)->post(route('rh.candidatos.socioeconomico.revision', $c), ['viable' => true])->assertSessionHasErrors('estado');
+    $this->actingAs($this->rh)->post(route('rh.candidatos.socioeconomico.revision', $c), ['viable' => true])->assertSessionHasErrors('estado');
     expect($c->refresh()->estado)->toBe(EstadoCandidato::SocioeconomicoPendiente);
 });
 
 test('la ficha y el índice dan accesos rápidos por etapa (psicométrico, socioeconómico, video) sin mezclarlos', function () {
     $c = Candidato::factory()->create(['sucursal_id' => $this->estructura['sucursal']->id, 'estado' => EstadoCandidato::PsicometricasPendientes, 'gerente_involucrado_id' => $this->gerente->id]);
     $this->wf->registrarResultadosPsicometricas($c, $this->rh, 'En perfil.', [UploadedFile::fake()->create('psicometrico.pdf', 100, 'application/pdf')]);
-    $this->wf->revisarPsicometricas($c, $this->gerente, true, null);
+    $this->wf->revisarPsicometricas($c, $this->rh, true, null);
     $this->wf->registrarSocioeconomico($c, $this->rh, ['fecha_visita' => now()->toDateString(), 'direccion' => 'Calle 1'], [
         UploadedFile::fake()->create('visita.mp4', 500, 'video/mp4'),
         UploadedFile::fake()->create('estudio.pdf', 100, 'application/pdf'),

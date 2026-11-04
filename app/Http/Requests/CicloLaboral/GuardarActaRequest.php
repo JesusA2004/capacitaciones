@@ -9,6 +9,7 @@ use App\Enums\TipoActa;
 use App\Enums\TipoIncidenciaActa;
 use App\Models\ActaAdministrativa;
 use App\Models\Colaborador;
+use App\Support\FechaMexico;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -35,7 +36,7 @@ class GuardarActaRequest extends FormRequest
             // de incidencia (ActaService); ya no se captura aparte.
             'motivo' => ['nullable', 'string', 'max:191'],
             'motivo_correccion' => ['nullable', 'string', 'max:500'],
-            'fecha' => [$requerido, 'date', 'before_or_equal:today'],
+            'fecha' => [$requerido, 'date', 'before_or_equal:'.FechaMexico::hoy()],
             'hora' => ['nullable', 'date_format:H:i'],
             'lugar' => ['nullable', 'string', 'max:255'],
             'sucursal_id' => ['nullable', 'integer', 'exists:sucursales,id'],
@@ -95,8 +96,8 @@ class GuardarActaRequest extends FormRequest
             'circunstanciada.incidencia.fecha_hechos' => ['nullable', 'string', 'max:120'],
             // Fecha o período elegido con DatePicker/TimePicker: el texto
             // natural («del 6 al 8 de octubre de 2026») lo compone ActaService.
-            'circunstanciada.incidencia.fecha_desde' => ['nullable', 'date', 'before_or_equal:today'],
-            'circunstanciada.incidencia.fecha_hasta' => ['nullable', 'date', 'after_or_equal:circunstanciada.incidencia.fecha_desde', 'before_or_equal:today'],
+            'circunstanciada.incidencia.fecha_desde' => ['nullable', 'date', 'before_or_equal:'.FechaMexico::hoy()],
+            'circunstanciada.incidencia.fecha_hasta' => ['nullable', 'date', 'after_or_equal:circunstanciada.incidencia.fecha_desde', 'before_or_equal:'.FechaMexico::hoy()],
             'circunstanciada.incidencia.hora_desde' => ['nullable', 'date_format:H:i'],
             'circunstanciada.incidencia.hora_hasta' => ['nullable', 'date_format:H:i'],
             'circunstanciada.incidencia.hora_hechos' => ['nullable', 'string', 'max:60'],

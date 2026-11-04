@@ -10,6 +10,7 @@ use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Configuracion\ConfiguracionSistemaService;
 use App\Services\Expedientes\CorreccionesService;
+use App\Services\Expedientes\ExpedienteIncompletoService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Incorporacion\IncorporacionService;
 use App\Services\Permisos\PermisoAccionService;
@@ -98,6 +99,8 @@ class MobileBootstrapService
             'theme' => app(ConfiguracionSistemaService::class)->tema(),
             'ciclo_laboral' => $this->cicloLaboral($usuario),
             'pendientes' => $this->tareas->conteos($usuario),
+            // Modo completar expediente: bloqueado + motivos (aditivo).
+            'expediente_incompleto' => app(ExpedienteIncompletoService::class)->estado($usuario),
             'server' => [
                 'time' => now()->toIso8601String(),
                 'timezone' => config('app.mobile_timezone', 'America/Mexico_City'),
@@ -140,6 +143,19 @@ class MobileBootstrapService
         }
 
         return ['id' => $modelo->id, 'nombre' => $modelo->nombre];
+    }
+
+    /**
+     * ¿La cuenta tiene «Gestión RH» (modo operativo) en la app? Misma regla
+     * que capabilities.rh/manager/director. La usa también el bloqueo por
+     * documentos faltantes (ExigirDocumentosPendientes): el expediente propio
+     * incompleto bloquea el autoservicio, nunca la operación.
+     */
+    public function tieneGestionOperativa(User $usuario): bool
+    {
+        $capacidades = $this->capabilities($usuario);
+
+        return $capacidades['rh'] || $capacidades['manager'] || $capacidades['director'];
     }
 
     /**
@@ -248,7 +264,7 @@ class MobileBootstrapService
         $colaborador = $usuario->colaborador;
 
         if ($colaborador !== null && $colaborador->estatus === EstadoUsuario::EnIncorporacion) {
-            $progreso = $this->incorporacion->progreso($this->incorporacion->tiposDocumento($colaborador), $this->expediente->documentosVigentes($colaborador));
+            $progreso = $this->incorporacion->progreso($this->incorporacion->tiposDocumento($colaborador), $this->expediente->documentosVigentes($colaborador), $colaborador);
             $documentosPendientes = $progreso['pendientes'] + $progreso['rechazados'];
         } else {
             $documentosPendientes = $colaborador !== null ? $this->expediente->documentosPendientesCount($colaborador) : 0;

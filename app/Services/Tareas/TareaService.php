@@ -172,7 +172,7 @@ class TareaService
     public function esDestinatario(User $usuario, TareaRh $tarea): bool
     {
         if ($tarea->asignado_user_id !== null) {
-            return $tarea->asignado_user_id === $usuario->id;
+            return $tarea->asignado_user_id === $usuario->id && $this->candidatoEnAlcance($usuario, $tarea);
         }
 
         if ($tarea->asignado_permiso === null || ! $usuario->can($tarea->asignado_permiso)) {
@@ -204,6 +204,21 @@ class TareaService
     }
 
     /**
+     * Pendiente de un candidato (sin colaborador todavía) asignado a una
+     * cuenta: solo cuenta si la sucursal del candidato sigue en el alcance de
+     * esa cuenta. Misma regla que queryBandeja() y CandidatoPolicy.
+     */
+    public function candidatoEnAlcance(User $usuario, TareaRh $tarea): bool
+    {
+        if ($tarea->colaborador_id !== null || $tarea->candidato_id === null || $tarea->sucursal_id === null) {
+            return true;
+        }
+
+        return $this->alcance->tieneAlcanceGlobal($usuario)
+            || $this->alcance->sucursalesVisiblesIds($usuario)->contains($tarea->sucursal_id);
+    }
+
+    /**
      * Quiénes deben ATENDER esta tarea (y por tanto recibir su aviso): la
      * cuenta asignada, o las cuentas activas con el permiso asignado y
      * alcance sobre la persona — exactamente quienes la ven en «Mis
@@ -215,7 +230,9 @@ class TareaService
     public function destinatarios(TareaRh $tarea): Collection
     {
         if ($tarea->asignado_user_id !== null) {
-            return User::query()->where('id', $tarea->asignado_user_id)->whereNull('acceso_bloqueado_en')->get()->values();
+            return User::query()->where('id', $tarea->asignado_user_id)->whereNull('acceso_bloqueado_en')->get()
+                ->filter(fn (User $usuario): bool => $this->candidatoEnAlcance($usuario, $tarea))
+                ->values();
         }
 
         if ($tarea->asignado_permiso === null) {
@@ -320,7 +337,20 @@ class TareaService
         $sucursalesVisibles = $global ? [] : $this->alcance->sucursalesVisiblesIds($usuario)->all();
 
         $query = TareaRh::query()->where(function (Builder $q) use ($usuario, $permisos, $colaboradoresVisibles, $sucursalesVisibles): void {
-            $q->where('asignado_user_id', $usuario->id);
+            $q->where(function (Builder $propia) use ($usuario, $colaboradoresVisibles, $sucursalesVisibles): void {
+                $propia->where('asignado_user_id', $usuario->id);
+
+                // Asignada a su cuenta pero de un candidato de una sucursal que
+                // ya no está en su alcance (cambió de sucursal, dato mal
+                // capturado): no se muestra; el reconciliador la reasigna.
+                if ($colaboradoresVisibles !== null) {
+                    $propia->where(fn (Builder $c) => $c
+                        ->whereNotNull('colaborador_id')
+                        ->orWhereNull('candidato_id')
+                        ->orWhereNull('sucursal_id')
+                        ->orWhereIn('sucursal_id', $sucursalesVisibles));
+                }
+            });
 
             if ($permisos !== []) {
                 $q->orWhere(function (Builder $sub) use ($usuario, $permisos, $colaboradoresVisibles, $sucursalesVisibles): void {

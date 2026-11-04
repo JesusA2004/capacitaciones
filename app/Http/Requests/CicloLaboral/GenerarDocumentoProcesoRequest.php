@@ -28,7 +28,7 @@ class GenerarDocumentoProcesoRequest extends FormRequest
     {
         return [
             'clave' => ['sometimes', 'required', 'string', 'max:80', 'regex:/^[a-z0-9_]+$/'],
-            'proceso' => ['nullable', 'string', 'in:alta,renovacion,evaluacion,baja,negativa_firma,permiso,prestamo,activos,acta,expediente'],
+            'proceso' => ['nullable', 'string', 'in:alta,renovacion,evaluacion,baja,negativa_firma,permiso,prestamo,activos,acta,expediente,incorporacion'],
             // Regenerar = nueva versión con los datos actuales: SIEMPRE con
             // motivo (queda en la auditoría). Sobre un documento ya firmado
             // exige además documentos_laborales.revisar_firmado.

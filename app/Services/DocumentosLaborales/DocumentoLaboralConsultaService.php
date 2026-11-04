@@ -3,10 +3,13 @@
 namespace App\Services\DocumentosLaborales;
 
 use App\Enums\CategoriaDocumento;
+use App\Enums\DocumentoSalida;
 use App\Enums\EstadoFlujoDocumento;
 use App\Models\Colaborador;
+use App\Models\ContratoLaboral;
 use App\Models\GeneratedDocument;
 use App\Models\User;
+use App\Policies\GeneratedDocumentPolicy;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Onboarding\EvaluacionInduccionPdfService;
 use App\Support\Paginacion;
@@ -63,6 +66,7 @@ class DocumentoLaboralConsultaService
 
         // Alcance del módulo «documentos» (Roles y permisos), no por nombre de rol.
         $this->alcance->limitarPorModulo($query, $usuario, 'documentos', 'colaborador_id', true);
+        $this->limitarCategoriasConPermisoPropio($query, $usuario);
 
         $etapa = $filtros['etapa'] ?? null;
         $etapas = FlujoDocumentalService::etapasPendientes();
@@ -73,6 +77,33 @@ class DocumentoLaboralConsultaService
             ->when($filtros['colaborador_id'] ?? null, fn (Builder $q, int|string $v) => $q->where('colaborador_id', (int) $v))
             ->when($filtros['clave'] ?? null, fn (Builder $q, string $v) => $q->where('clave_plantilla', $v))
             ->when($filtros['categoria'] ?? null, fn (Builder $q, string $v) => $q->where('categoria', $v));
+    }
+
+    /**
+     * Mismas reglas de GeneratedDocumentPolicy::ver(): el listado nunca
+     * muestra un documento cuyo detalle daría 403. Contratos exigen
+     * contratos.ver_documento (o generar); recibos de nómina,
+     * nomina.recibos.ver; documentos de salida con importes (todo lo de la
+     * baja salvo la carta de renuncia), finiquitos.ver o bajas.gestionar.
+     *
+     * @param  Builder<GeneratedDocument>  $query
+     */
+    private function limitarCategoriasConPermisoPropio(Builder $query, User $usuario): void
+    {
+        if (! GeneratedDocumentPolicy::puedeVerContratos($usuario)) {
+            $query->where(fn (Builder $q) => $q->whereNull('categoria')->orWhere('categoria', '!=', CategoriaDocumento::Contratos->value))
+                ->where(fn (Builder $q) => $q->whereNull('documentable_type')->orWhere('documentable_type', '!=', (new ContratoLaboral)->getMorphClass()));
+        }
+
+        if (! $usuario->can('nomina.recibos.ver')) {
+            $query->where(fn (Builder $q) => $q->whereNull('categoria')->orWhere('categoria', '!=', CategoriaDocumento::NominaInterna->value));
+        }
+
+        if (! $usuario->can('finiquitos.ver') && ! $usuario->can('bajas.gestionar')) {
+            $query->where(fn (Builder $q) => $q->whereNull('categoria')
+                ->orWhere('categoria', '!=', CategoriaDocumento::BajaFiniquito->value)
+                ->orWhere('clave_plantilla', DocumentoSalida::CartaRenuncia->value));
+        }
     }
 
     /**

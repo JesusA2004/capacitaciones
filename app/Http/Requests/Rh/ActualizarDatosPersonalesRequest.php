@@ -10,6 +10,7 @@ use App\Rules\NombreSinApellidos;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\DomicilioService;
 use App\Services\Expedientes\DatosExpedienteService;
+use App\Support\FechaMexico;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -77,7 +78,7 @@ class ActualizarDatosPersonalesRequest extends FormRequest
             'name' => ['sometimes', 'required', 'string', 'max:150', new NombreSinApellidos],
             'apellidos' => ['sometimes', 'nullable', 'string', 'max:150'],
             'genero' => ['sometimes', 'nullable', Rule::enum(Genero::class)],
-            'fecha_nacimiento' => ['nullable', 'date', 'before:today'],
+            'fecha_nacimiento' => ['nullable', 'date', 'before:'.FechaMexico::hoy()],
             'nacionalidad' => ['sometimes', 'nullable', 'string', 'max:80'],
             'estado_civil' => ['sometimes', 'nullable', Rule::enum(EstadoCivil::class)],
             'lugar_nacimiento' => ['sometimes', 'nullable', 'string', 'max:150'],

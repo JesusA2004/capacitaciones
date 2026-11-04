@@ -53,7 +53,11 @@ class BloqueoDocumentosService
      * (GET colaborador/carta-compromiso). Pone al día el estado de la carta
      * (y genera la carta diferida si ya le faltan max o menos).
      *
-     * @return array{carta: array<string, mixed>|null, documentos_pendientes: list<array<string, mixed>>, bloqueo: EstadoBloqueo}
+     * `documentos_generados`: formatos que PEOPLE genera con sus datos
+     * (Solicitud de empleo, Estudio socioeconómico). Solo informativos: no
+     * se suben, no bloquean ni cuentan para la carta compromiso.
+     *
+     * @return array{carta: array<string, mixed>|null, documentos_pendientes: list<array<string, mixed>>, documentos_generados: list<array<string, mixed>>, bloqueo: EstadoBloqueo}
      */
     public function resumen(User $usuario, Colaborador $colaborador): array
     {
@@ -63,6 +67,7 @@ class BloqueoDocumentosService
         return [
             'carta' => $carta !== null ? $this->cartas->aArray($carta, $usuario) : null,
             'documentos_pendientes' => $pendientes,
+            'documentos_generados' => $this->pendientes->generadosPorSistema($colaborador),
             'bloqueo' => $this->estadoDe($usuario, $colaborador, count($pendientes)),
         ];
     }

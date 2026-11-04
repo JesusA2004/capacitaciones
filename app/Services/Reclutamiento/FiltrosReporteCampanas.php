@@ -6,6 +6,7 @@ use App\Enums\CanalReclutamiento;
 use App\Enums\CriterioFechaReporteCampanas;
 use App\Enums\EstadoCampanaReclutamiento;
 use App\Enums\EstadoCandidato;
+use App\Support\FechaMexico;
 use Illuminate\Support\Carbon;
 
 /**
@@ -52,8 +53,8 @@ final readonly class FiltrosReporteCampanas
     {
         $mes = self::entero($datos['mes'] ?? null);
         $anio = self::entero($datos['anio'] ?? null);
-        $base = $mes !== null && $anio !== null ? Carbon::create($anio, $mes, 1) : Carbon::today();
-        $base = ($base ?? Carbon::today())->startOfDay();
+        $base = $mes !== null && $anio !== null ? Carbon::create($anio, $mes, 1) : FechaMexico::inicioDeHoy();
+        $base = ($base ?? FechaMexico::inicioDeHoy())->startOfDay();
 
         $desde = self::fecha($datos['desde'] ?? null);
         $hasta = self::fecha($datos['hasta'] ?? null);
@@ -66,7 +67,7 @@ final readonly class FiltrosReporteCampanas
             $desde = $hasta->copy()->startOfMonth();
         } elseif ($hasta === null) {
             // Solo inicio: hasta hoy (o el mismo día si el inicio es futuro).
-            $hasta = Carbon::today()->max($desde)->copy()->startOfDay();
+            $hasta = FechaMexico::inicioDeHoy()->max($desde)->copy()->startOfDay();
         }
 
         return new self(

@@ -11,6 +11,8 @@ use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Models\Vacante;
+use App\Services\CicloLaboral\OrganizacionJerarquiaService;
+use App\Services\Reclutamiento\AprobadorEntrevistaService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Reclutamiento\PreguntasFiltroCandidatoService;
 use App\Services\Vacantes\VacanteAutoGenerationService;
@@ -50,9 +52,8 @@ class ReclutamientoDemoSeeder extends Seeder
         $gestorVolante = Puesto::where('nombre', 'Gestor Volante')->first();
         $rhAdmin = User::where('email', 'rh.admin@mrlana.test')->first();
         $reclutamiento = User::where('email', 'rh.auxiliar@mrlana.test')->first() ?? $rhAdmin;
-        $gerente = User::where('email', 'gerente.sucursal@mrlana.test')->first();
 
-        if ($sucursalUno === null || $sucursalDos === null || $gestorFijo === null || $gestorVolante === null || $rhAdmin === null || $gerente === null || $reclutamiento === null) {
+        if ($sucursalUno === null || $sucursalDos === null || $gestorFijo === null || $gestorVolante === null || $rhAdmin === null || $reclutamiento === null) {
             return;
         }
 
@@ -88,7 +89,7 @@ class ReclutamientoDemoSeeder extends Seeder
         $fuentes = [FuenteCandidato::FacebookGrupos, FuenteCandidato::Meta, FuenteCandidato::Whatsapp, FuenteCandidato::Referido];
         $indice = 0;
 
-        $registrar = function (string $nombre, array $par, ?Vacante $vacante) use ($departamento, $reclutamiento, $gerente, $fuentes, &$indice): Candidato {
+        $registrar = function (string $nombre, array $par, ?Vacante $vacante) use ($departamento, $reclutamiento, $fuentes, &$indice): Candidato {
             $indice++;
 
             return $this->workflow->registrar([
@@ -105,7 +106,9 @@ class ReclutamientoDemoSeeder extends Seeder
                 'observaciones' => 'Candidato de demostración '.self::MARCA,
                 'respuestas_filtro' => app(PreguntasFiltroCandidatoService::class)->respuestasQueCumplen(),
                 'responsable_rh_id' => $reclutamiento->id,
-                'gerente_involucrado_id' => $gerente->id,
+                // Gerente involucrado = la gerencia de LA sucursal del
+                // candidato, nunca la de otra (no da acceso fuera de alcance).
+                'gerente_involucrado_id' => app(OrganizacionJerarquiaService::class)->gerenciaSucursalDe($par['sucursal']->id)->first()?->id,
             ], $reclutamiento);
         };
 
@@ -124,7 +127,7 @@ class ReclutamientoDemoSeeder extends Seeder
 
         foreach ($planes as [$nombre, $par, $vacante, $meta]) {
             $candidato = $registrar($nombre, $par, $vacante);
-            $this->avanzarHasta($candidato, $meta, $reclutamiento, $gerente, $rhAdmin);
+            $this->avanzarHasta($candidato, $meta, $reclutamiento, $rhAdmin);
         }
 
         // Salidas con motivo (cada una en una fase distinta).
@@ -132,35 +135,40 @@ class ReclutamientoDemoSeeder extends Seeder
         $this->workflow->evaluarPerfil($noViable, $reclutamiento, false, 'No cuenta con licencia de motocicleta vigente.');
 
         $rechazadoRh = $registrar('Itzel Guzman', $parA, $vacanteA);
-        $this->avanzarHasta($rechazadoRh, EstadoCandidato::AutorizacionRhPendiente, $reclutamiento, $gerente, $rhAdmin);
+        $this->avanzarHasta($rechazadoRh, EstadoCandidato::AutorizacionRhPendiente, $reclutamiento, $rhAdmin);
         $this->workflow->rechazarRh($rechazadoRh, $rhAdmin, 'Inconsistencias en referencias detectadas por RH.');
 
         $desistio = $registrar('Luis Olvera', $parB, $vacanteB);
         $this->workflow->evaluarPerfil($desistio, $reclutamiento, true, null);
-        $this->workflow->descartar($desistio, $gerente, EstadoCandidato::Desistio, 'Aceptó otra oferta antes de la entrevista.');
+        $this->workflow->descartar($desistio, $reclutamiento, EstadoCandidato::Desistio, 'Aceptó otra oferta antes de la entrevista.');
     }
 
     /**
      * Ejecuta las acciones reales del workflow hasta el estado indicado.
      */
-    private function avanzarHasta(Candidato $candidato, EstadoCandidato $meta, User $reclutamiento, User $gerente, User $rh): void
+    private function avanzarHasta(Candidato $candidato, EstadoCandidato $meta, User $reclutamiento, User $rh): void
     {
+        // El gerente solo aprueba la entrevista (la de SU sucursal, por el
+        // organigrama); sin aprobador vigente, la registra RH (respaldo).
+        // Psicométricas, socioeconómico y referencias son de Reclutamiento.
+        $entrevistador = fn (Candidato $c): User => app(AprobadorEntrevistaService::class)->aprobadores($c)->first() ?? $rh;
+
         $pasos = [
             EstadoCandidato::EntrevistaPendiente->value => fn (Candidato $c) => $this->workflow->evaluarPerfil($c, $reclutamiento, true, 'Cubre el perfil: experiencia en cobranza y moto propia.'),
-            EstadoCandidato::PsicometricasPendientes->value => fn (Candidato $c) => $this->workflow->registrarEntrevista($c, $gerente, ['realizada_en' => now()->subDays(6)->toDateTimeString(), 'resultado' => 'viable', 'observaciones' => 'Buena actitud y disponibilidad.']),
+            EstadoCandidato::PsicometricasPendientes->value => fn (Candidato $c) => $this->workflow->registrarEntrevista($c, $entrevistador($c), ['realizada_en' => now()->subDays(6)->toDateTimeString(), 'resultado' => 'viable', 'observaciones' => 'Buena actitud y disponibilidad.']),
             EstadoCandidato::RevisionPsicometricas->value => function (Candidato $c) use ($reclutamiento): void {
                 $this->workflow->enviarPsicometricas($c, $reclutamiento, 'https://evaluaciones.example.test/prueba/'.$c->id);
                 $this->workflow->registrarResultadosPsicometricas($c, $reclutamiento, 'Perfil estable, orientado a resultados.');
             },
-            EstadoCandidato::SocioeconomicoPendiente->value => fn (Candidato $c) => $this->workflow->revisarPsicometricas($c, $gerente, true, 'En perfil.'),
-            EstadoCandidato::ReferenciasPendientes->value => function (Candidato $c) use ($gerente): void {
-                $this->workflow->registrarSocioeconomico($c, $gerente, [
+            EstadoCandidato::SocioeconomicoPendiente->value => fn (Candidato $c) => $this->workflow->revisarPsicometricas($c, $reclutamiento, true, 'En perfil.'),
+            EstadoCandidato::ReferenciasPendientes->value => function (Candidato $c) use ($reclutamiento): void {
+                $this->workflow->registrarSocioeconomico($c, $reclutamiento, [
                     'fecha_visita' => now()->subDays(3)->toDateString(),
                     'direccion' => 'Calle Demostración 45, Ixtapaluca, Edo. Méx.',
                     'checklist' => ['vivienda_en_orden' => true, 'vive_con_familia' => true, 'arraigo_anios' => 3, 'arraigo_meses' => 4, 'resguardo_motocicleta' => true],
                     'observaciones' => 'Vivienda en orden, arraigo de 3 años 4 meses.',
                 ]);
-                $this->workflow->revisarSocioeconomico($c, $gerente, true, 'Visita revisada.');
+                $this->workflow->revisarSocioeconomico($c, $reclutamiento, true, 'Visita revisada.');
             },
             // Sin preautorización: referencias concluidas = autorización de RH pendiente.
             EstadoCandidato::AutorizacionRhPendiente->value => function (Candidato $c) use ($reclutamiento): void {

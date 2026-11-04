@@ -42,7 +42,7 @@ class EnviarFelicitacionesCumpleanos extends Command
             } catch (\Throwable $e) {
                 $fallidas++;
                 Log::error('cumpleanos:enviar-felicitaciones: fallo con un colaborador', [
-                    'user_id' => $colaborador->id,
+                    'colaborador_id' => $colaborador->id,
                     'error' => $e->getMessage(),
                 ]);
             }

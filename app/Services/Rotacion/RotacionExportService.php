@@ -7,7 +7,7 @@ use App\Models\Empresa;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
-use Carbon\CarbonImmutable;
+use App\Support\FechaMexico;
 
 /**
  * Datos del módulo de Rotación para la pantalla y TODAS las exportaciones
@@ -77,7 +77,7 @@ class RotacionExportService
             'desde' => $f->desde->toDateString(),
             'hasta' => $f->hasta->toDateString(),
             'corte' => $f->hasta->toDateString(),
-            'corte_parcial' => $f->hasta->isSameDay(CarbonImmutable::today()) && ! $f->hasta->isLastOfMonth(),
+            'corte_parcial' => $f->hasta->isSameDay(FechaMexico::inicioDeHoyInmutable()) && ! $f->hasta->isLastOfMonth(),
             'generado' => now()->format('Y-m-d H:i'),
             'filtros' => $f->aArray(),
         ];

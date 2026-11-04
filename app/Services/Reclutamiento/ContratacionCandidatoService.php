@@ -6,6 +6,7 @@ use App\Enums\EstadoCandidato;
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoInvitacionIncorporacion;
 use App\Enums\EstadoVacante;
+use App\Enums\OrigenAvisoAltaSistemas;
 use App\Enums\ProcesoAprobacion;
 use App\Enums\TipoContratacion;
 use App\Enums\TipoSeguimientoCandidato;
@@ -23,6 +24,7 @@ use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Colaboradores\AltaColaboradorService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Incorporacion\IncorporacionInvitacionService;
+use App\Services\Notificaciones\AvisoAltaSistemasService;
 use App\Services\Tareas\TareaService;
 use App\Services\Vacantes\VacantesListadoService;
 use App\Support\FechaMexico;
@@ -142,6 +144,11 @@ class ContratacionCandidatoService
             'colaborador_id' => $colaborador->id,
             'invitacion_id' => $invitacion->id,
         ]);
+
+        // Fase 6 «Contratación»: Sistemas recibe sus datos para asignarle
+        // usuarios en las demás plataformas (una vez, después del commit;
+        // un fallo nunca revierte la contratación).
+        app(AvisoAltaSistemasService::class)->programar($colaborador, OrigenAvisoAltaSistemas::Candidato, $candidato->id, $actor);
 
         return ['colaborador' => $colaborador, 'invitacion' => $invitacion, 'token' => $token];
     }

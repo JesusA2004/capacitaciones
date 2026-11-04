@@ -12,9 +12,9 @@ use App\Models\Colaborador;
 use App\Models\User;
 use App\Notifications\CredencialesActualizadasNotification;
 use App\Services\Administracion\AccesoCuentaService;
-use App\Services\Administracion\GeneradorPasswordService;
 use App\Services\Administracion\PurgaPersonaService;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Autenticacion\CredencialesService;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
 use App\Services\RolPermisoService;
 use App\Support\Paginacion;
@@ -46,9 +46,9 @@ class UsuarioController extends Controller
 {
     public function __construct(
         private readonly RolPermisoService $rolPermisoService,
-        private readonly GeneradorPasswordService $generadorPassword,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly AccesoCuentaService $acceso,
+        private readonly CredencialesService $credenciales,
     ) {}
 
     public function index(Request $request): Response
@@ -249,12 +249,9 @@ class UsuarioController extends Controller
             'password' => ['nullable', 'string', PasswordRule::defaults()],
         ]);
 
-        $passwordNueva = $datos['password'] ?? $this->generadorPassword->generar();
-
-        // La define otra persona: es temporal y se pide cambiarla al entrar.
-        $usuario->forceFill(['password' => Hash::make($passwordNueva), 'debe_cambiar_contrasena' => true])->save();
-
-        return response()->json(['password' => $passwordNueva]);
+        // La define otra persona: temporal (cambio obligatorio al entrar),
+        // auditada y con aviso al titular (CredencialesService).
+        return response()->json(['password' => $this->credenciales->restablecerContrasena($usuario, $request->user(), $datos['password'] ?? null)]);
     }
 
     /**

@@ -263,14 +263,7 @@ class CumpleanosService
     public function tarjetaColaborador(Colaborador $colaborador, ?bool $mostrarEdad = null, ?User $solicitante = null): array
     {
         $mostrarEdad ??= (bool) config('cumpleanos.show_age');
-
-        // Misma ruta protegida que usa el explorador de expedientes
-        // (Rh\ExpedienteController::descargarFoto) y con su mismo criterio
-        // de alcance: nunca se expone foto_path, ni se manda una URL que
-        // terminaría en 403 (fuera de alcance → iniciales).
-        $fotoUrl = $colaborador->foto_path !== null && $solicitante !== null && $this->puedeVerFoto($solicitante, $colaborador)
-            ? route('rh.expedientes.foto', ['colaborador' => $colaborador, 'v' => FotoColaboradorService::version($colaborador->foto_path)])
-            : null;
+        $fotoUrl = $this->fotoUrl($colaborador, $solicitante);
 
         return [
             'id' => $colaborador->id,
@@ -286,6 +279,35 @@ class CumpleanosService
             'tiene_foto' => $colaborador->foto_path !== null,
             'foto_url' => $fotoUrl,
         ];
+    }
+
+    /**
+     * Renglón de la alerta «sin fecha de nacimiento» del panel RH, con la
+     * foto oficial (mismo criterio de alcance que tarjetaColaborador()).
+     *
+     * @return array{id: int, nombre: string, sucursal: string|null, foto_url: string|null}
+     */
+    public function filaSinFechaNacimiento(Colaborador $colaborador, ?User $solicitante): array
+    {
+        return [
+            'id' => $colaborador->id,
+            'nombre' => $colaborador->nombreCompleto(),
+            'sucursal' => $colaborador->sucursalPrincipal?->nombre,
+            'foto_url' => $this->fotoUrl($colaborador, $solicitante),
+        ];
+    }
+
+    /**
+     * Misma ruta protegida que usa el explorador de expedientes
+     * (Rh\ExpedienteController::descargarFoto) y con su mismo criterio de
+     * alcance: nunca se expone foto_path, ni se manda una URL que terminaría
+     * en 403 (fuera de alcance → iniciales).
+     */
+    private function fotoUrl(Colaborador $colaborador, ?User $solicitante): ?string
+    {
+        return $colaborador->foto_path !== null && $solicitante !== null && $this->puedeVerFoto($solicitante, $colaborador)
+            ? route('rh.expedientes.foto', ['colaborador' => $colaborador, 'v' => FotoColaboradorService::version($colaborador->foto_path)])
+            : null;
     }
 
     /**

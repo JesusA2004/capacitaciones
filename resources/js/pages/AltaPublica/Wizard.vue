@@ -173,6 +173,10 @@ function guardarConsentimientos() {
 }
 
 const formEnviar = useForm({});
+// El backend rechaza el envío sin fotografía con el error `foto`.
+const errorEnvioFoto = computed(
+    () => (formEnviar.errors as Record<string, string | undefined>).foto,
+);
 function enviarAlta() {
     formEnviar.post(rutas.enviar.url(props.alta.token));
 }
@@ -309,19 +313,41 @@ function enviarAlta() {
                 </div>
 
                 <div class="grid gap-2">
-                    <Label>Fotografía</Label>
+                    <Label>Fotografía para expediente (obligatoria)</Label>
+                    <p class="text-sm text-muted-foreground">
+                        Será tu foto de perfil en el sistema. Usa una foto
+                        clara y formal: de frente, con el rostro descubierto y
+                        fondo claro. Se recorta en cuadro al centro.
+                    </p>
                     <label
                         class="inline-flex w-fit cursor-pointer items-center gap-1.5 rounded-md border px-3 py-2 text-sm"
                     >
                         <Upload class="size-4" />
-                        {{ alta.tiene_foto ? 'Reemplazar foto' : 'Subir foto' }}
+                        {{
+                            formFoto.processing
+                                ? 'Subiendo…'
+                                : alta.tiene_foto
+                                  ? 'Reemplazar fotografía'
+                                  : 'Subir fotografía'
+                        }}
                         <input
                             type="file"
-                            accept="image/*"
+                            accept="image/jpeg,image/png,image/webp"
                             class="hidden"
+                            :disabled="formFoto.processing"
                             @change="subirFoto"
                         />
                     </label>
+                    <p
+                        v-if="alta.tiene_foto"
+                        class="flex items-center gap-1.5 text-sm text-success"
+                    >
+                        <CheckCircle2 class="size-4" />
+                        Fotografía para expediente cargada.
+                    </p>
+                    <p v-if="formFoto.errors.foto" class="text-sm text-destructive">
+                        {{ formFoto.errors.foto }}
+                    </p>
                 </div>
 
                 <Button
@@ -502,12 +528,21 @@ function enviarAlta() {
                     a Recursos Humanos. Una vez enviada, RH la revisará y te
                     contactará.
                 </p>
+                <p
+                    v-if="!alta.tiene_foto || errorEnvioFoto"
+                    class="rounded-md bg-warning-soft p-3 text-sm text-warning"
+                >
+                    {{
+                        errorEnvioFoto ??
+                        'Agrega tu fotografía para expediente (paso 1) antes de enviar.'
+                    }}
+                </p>
                 <div class="flex justify-between">
                     <Button variant="secondary" @click="paso--"
                         ><ChevronLeft class="size-4" />Atrás</Button
                     >
                     <Button
-                        :disabled="formEnviar.processing"
+                        :disabled="formEnviar.processing || !alta.tiene_foto"
                         @click="enviarAlta"
                         >Enviar a Recursos Humanos</Button
                     >

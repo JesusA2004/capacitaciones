@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\User;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Navigation\NavigationService;
 use App\Services\Solicitudes\AprobacionOrganizacionalService;
 use App\Services\WebPush\ClavesVapidService;
@@ -65,6 +66,9 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user' => $user ? [
                     ...$user->toArray(),
+                    // Foto de perfil (= fotografía para expediente) en el
+                    // header/sidebar (UserInfo.vue); sin foto, iniciales.
+                    'avatar' => $user->colaborador !== null ? app(FotoColaboradorService::class)->urlPara($user->colaborador, $user) : null,
                     'roles' => $user->getRoleNames(),
                     // super_admin ve en el menú todas las herramientas
                     // operativas aunque su rol en producción no tenga aún algún

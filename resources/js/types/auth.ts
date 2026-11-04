@@ -3,12 +3,15 @@ export type User = {
     name: string;
     username: string;
     email: string | null;
-    avatar?: string;
+    /** URL protegida de su foto de perfil (null = iniciales). */
+    avatar?: string | null;
     email_verified_at: string | null;
     created_at: string;
     updated_at: string;
     roles?: string[];
     permissions?: string[];
+    /** Expediente vinculado (null = cuenta sin colaborador). */
+    colaborador_id?: number | null;
     preferencias_ui?: {
         tema_color: string;
         avatar_color: string;

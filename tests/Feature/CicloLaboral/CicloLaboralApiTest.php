@@ -64,7 +64,7 @@ test('el reclutamiento avanza por la API con acciones del workflow; sin preautor
     $this->postJson("/api/v1/rh/candidatos/{$this->candidato->id}/psicometricas/enviar", ['link' => 'https://pruebas.example.test/1'])->assertOk();
     $this->postJson("/api/v1/rh/candidatos/{$this->candidato->id}/psicometricas/resultados", ['resumen' => 'Resultados en perfil.'])->assertOk();
 
-    Sanctum::actingAs($this->gerente);
+    // Psicométricas y socioeconómico los revisa RH (el gerente solo aprueba la entrevista).
     $this->postJson("/api/v1/rh/candidatos/{$this->candidato->id}/psicometricas/revision", ['viable' => true])->assertOk();
     // Cargar NO decide (un «resultado» de un cliente viejo se descarta).
     $this->postJson("/api/v1/rh/candidatos/{$this->candidato->id}/socioeconomico", ['fecha_visita' => now()->toDateString(), 'direccion' => 'Calle 1', 'resultado' => 'viable', 'checklist' => ['vivienda_en_orden' => true]])

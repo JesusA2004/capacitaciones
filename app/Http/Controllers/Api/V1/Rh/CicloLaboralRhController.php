@@ -11,12 +11,14 @@ use App\Models\OnboardingProceso;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Flujos\SiguientePasoService;
 use App\Services\Onboarding\AcuseDescriptivoPuestoService;
 use App\Services\Onboarding\EvaluacionInduccionService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Reportes\TableroRhService;
 use App\Services\Tareas\TareaService;
+use App\Support\FechaMexico;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -39,6 +41,7 @@ class CicloLaboralRhController extends Controller
         private readonly OrganizacionJerarquiaService $jerarquia,
         private readonly EvaluacionInduccionService $evaluacionInduccion,
         private readonly AcuseDescriptivoPuestoService $acusesDescriptivo,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     public function tablero(Request $request): JsonResponse
@@ -93,7 +96,12 @@ class CicloLaboralRhController extends Controller
 
         $ficha = $this->ciclo->ficha($colaborador, $usuario);
 
-        return response()->json(['data' => [...$ficha, 'siguiente_paso' => app(SiguientePasoService::class)->paraColaborador($colaborador, $usuario, $ficha['ciclo'])->toArray()]]);
+        return response()->json(['data' => [
+            ...$ficha,
+            // Fotografía para expediente (Bearer); null = iniciales.
+            'foto_url' => $this->fotos->urlApiPara($colaborador, $usuario),
+            'siguiente_paso' => app(SiguientePasoService::class)->paraColaborador($colaborador, $usuario, $ficha['ciclo'])->toArray(),
+        ]]);
     }
 
     public function entregarActivo(Request $request, OnboardingProceso $proceso): JsonResponse
@@ -102,7 +110,7 @@ class CicloLaboralRhController extends Controller
             'tipo_activo_id' => ['required', 'integer', 'exists:tipos_activo,id'],
             'identificador' => ['nullable', 'string', 'max:120'],
             'descripcion' => ['nullable', 'string', 'max:190'],
-            'entregado_en' => ['nullable', 'date', 'before_or_equal:today'],
+            'entregado_en' => ['nullable', 'date', 'before_or_equal:'.FechaMexico::hoy()],
             'observaciones' => ['nullable', 'string', 'max:2000'],
         ]);
 
@@ -121,7 +129,7 @@ class CicloLaboralRhController extends Controller
             'tipo_activo_id' => ['required', 'integer', 'exists:tipos_activo,id'],
             'identificador' => ['nullable', 'string', 'max:120'],
             'descripcion' => ['nullable', 'string', 'max:190'],
-            'entregado_en' => ['nullable', 'date', 'before_or_equal:today'],
+            'entregado_en' => ['nullable', 'date', 'before_or_equal:'.FechaMexico::hoy()],
         ]);
 
         return response($this->onboarding->vistaPreviaResponsiva($proceso, $request->user(), $datos), 200, [

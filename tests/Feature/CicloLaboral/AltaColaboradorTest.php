@@ -118,6 +118,11 @@ test('el alta recorre pendiente_documentos → revisión → contratos → firma
         ->and(GeneratedDocument::query()->where('colaborador_id', $id)->count())->toBe(0);
 
     $contratoLaboral = ContratoLaboral::query()->where('colaborador_id', $id)->firstOrFail();
+    // Antes del contrato: Solicitud de empleo y Estudio socioeconómico generados.
+    $this->postJson("/api/v1/rh/documentos-proceso/contrato/{$contratoLaboral->id}/paquete", ['proceso' => 'alta'])
+        ->assertUnprocessable()
+        ->assertJsonPath('errors.documento.0', fn (string $m): bool => str_starts_with($m, 'Antes del contrato se deben generar la Solicitud de Empleo y el Estudio Socioeconómico.'));
+    clDocumentosIngresoGenerados($colaborador);
     $this->postJson("/api/v1/rh/documentos-proceso/contrato/{$contratoLaboral->id}/paquete", ['proceso' => 'alta'])->assertCreated();
     expect($colaborador->refresh()->estado_alta)->toBe(EstadoAltaColaborador::PendienteFirma);
 

@@ -4,15 +4,18 @@ use App\Http\Middleware\EnsureCuentaActiva;
 use App\Http\Middleware\EnsureFeatureEnabled;
 use App\Http\Middleware\ExigirCambioContrasena;
 use App\Http\Middleware\ExigirDocumentosPendientes;
+use App\Http\Middleware\ExigirExpedienteCompleto;
 use App\Http\Middleware\ExigirRegistroApp;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Support\DiagnosticoAcceso;
 use App\Support\LimitesSubida;
+use App\Support\MensajesErrorApi;
 use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Exceptions\PostTooLargeException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -49,13 +52,17 @@ return Application::configure(basePath: dirname(__DIR__))
             'contrasena.temporal' => ExigirCambioContrasena::class,
             'registro.app' => ExigirRegistroApp::class,
             'documentos.pendientes' => ExigirDocumentosPendientes::class,
+            'expediente.completo' => ExigirExpedienteCompleto::class,
         ]);
 
         $middleware->web(append: [
             HandleInertiaRequests::class,
             EnsureCuentaActiva::class,
             ExigirCambioContrasena::class,
-            AddLinkHeadersForPreloadedAssets::class,
+            // Solo los primeros 12 assets: sin límite, Rh/Expedientes/Show
+            // mandaba un header Link de ~16 KB y Nginx (fastcgi_buffer_size
+            // de 4–8 KB) responde 502 «upstream sent too big header».
+            AddLinkHeadersForPreloadedAssets::using(12),
         ]);
 
         // El webhook de Zoom lo llama Zoom directamente (sin sesión de
@@ -114,6 +121,34 @@ return Application::configure(basePath: dirname(__DIR__))
                     'content_length' => $request->server('CONTENT_LENGTH'),
                     ...LimitesSubida::resumen(),
                 ]);
+            }
+
+            // 403 de la API sin motivo (abort(403), policy que solo dice false):
+            // la app muestra el texto tal cual, así que nunca va vacío ni en inglés.
+            if ($estado === 403 && $respuesta instanceof JsonResponse && ($request->is('api/*') || $request->expectsJson())) {
+                $datos = $respuesta->getData(true);
+                $motivo = is_array($datos) && is_string($datos['message'] ?? null) ? trim($datos['message']) : '';
+
+                if (is_array($datos) && ($motivo === '' || $motivo === 'This action is unauthorized.' || $motivo === 'Forbidden' || str_starts_with($motivo, 'User does not have the right') || str_starts_with($motivo, 'User is not logged in'))) {
+                    $datos['message'] = 'No tienes permiso para realizar esta acción o la información está fuera de tu alcance. Si lo necesitas, pide acceso a RH.';
+                    $respuesta->setData($datos);
+                }
+            }
+
+            // Resto de mensajes genéricos del framework en inglés (401, 404,
+            // 429, 500…) para la app / peticiones JSON: en español. Un
+            // mensaje propio nunca se reemplaza (App\Support\MensajesErrorApi).
+            if ($estado >= 400 && $respuesta instanceof JsonResponse && ($request->is('api/*') || $request->expectsJson())) {
+                $datos = $respuesta->getData(true);
+
+                if (is_array($datos) && is_string($datos['message'] ?? '')) {
+                    $traducido = MensajesErrorApi::traducir($estado, (string) ($datos['message'] ?? ''));
+
+                    if ($traducido !== null) {
+                        $datos['message'] = $traducido;
+                        $respuesta->setData($datos);
+                    }
+                }
             }
 
             if (config('app.debug') || $request->is('api/*') || $request->expectsJson()) {

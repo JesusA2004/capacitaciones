@@ -62,6 +62,10 @@ const props = defineProps<{
     elegibilidadPrestamo?: ElegibilidadPrestamo | null;
     /** Correcciones del expediente con su estado (CorreccionesService). */
     correcciones?: CorreccionesColaborador;
+    /** Misma regla que el POST (SolicitudInternaPolicy::create). */
+    puedeCrear?: boolean;
+    /** Por qué no puede crear (cuenta sin colaborador vinculado, etc.). */
+    motivoNoPuedeCrear?: string | null;
 }>();
 
 defineOptions({
@@ -164,7 +168,11 @@ function abrirNuevaSolicitud() {
 onMounted(() => {
     const nueva = new URLSearchParams(window.location.search).get('nueva');
 
-    if (nueva && props.tipos.some((t) => t.clave === nueva)) {
+    if (
+        props.puedeCrear !== false &&
+        nueva &&
+        props.tipos.some((t) => t.clave === nueva)
+    ) {
         form.tipo = nueva;
         pasoFormulario.value = 'detalle';
         dialogoAbierto.value = true;
@@ -314,6 +322,7 @@ function nombreTipo(clave: string): string {
             :icono="ClipboardList"
         >
             <Button
+                v-if="puedeCrear !== false"
                 data-tour="mis-solicitudes-nueva"
                 @click="abrirNuevaSolicitud"
             >
@@ -321,6 +330,14 @@ function nombreTipo(clave: string): string {
                 Nueva solicitud
             </Button>
         </CrudPageHeader>
+
+        <p
+            v-if="puedeCrear === false && motivoNoPuedeCrear"
+            class="rounded-lg border bg-crema px-4 py-3 text-sm text-muted-foreground"
+            role="status"
+        >
+            {{ motivoNoPuedeCrear }}
+        </p>
 
         <!-- Correcciones del expediente: estado, comentario de RH y qué te toca. -->
         <MisCorrecciones
@@ -332,9 +349,13 @@ function nombreTipo(clave: string): string {
             v-if="!solicitudes.data.length"
             :icono="ClipboardList"
             titulo="Todavía no tienes solicitudes"
-            descripcion="Crea tu primera solicitud interna con el botón de arriba."
+            :descripcion="
+                puedeCrear === false
+                    ? 'Aquí verás tus solicitudes cuando tu cuenta pueda crearlas.'
+                    : 'Crea tu primera solicitud interna con el botón de arriba.'
+            "
         >
-            <Button @click="abrirNuevaSolicitud">
+            <Button v-if="puedeCrear !== false" @click="abrirNuevaSolicitud">
                 <Plus class="size-4" />
                 Crear la primera
             </Button>

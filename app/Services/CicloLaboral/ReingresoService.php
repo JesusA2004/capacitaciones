@@ -7,6 +7,7 @@ use App\Enums\EstadoCierreLaboral;
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoReingreso;
 use App\Enums\EstadoUsuario;
+use App\Enums\OrigenAvisoAltaSistemas;
 use App\Enums\PrioridadTarea;
 use App\Enums\ProcesoAprobacion;
 use App\Enums\TipoContratacion;
@@ -24,16 +25,19 @@ use App\Services\Administracion\AccesoCuentaService;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Colaboradores\AltaColaboradorService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Colaboradores\IdentidadColaboradorService;
 use App\Services\Compensacion\CompensacionService;
 use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
+use App\Services\Notificaciones\AvisoAltaSistemasService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
 use App\Support\FechaMexico;
 use App\Support\Paginacion;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\QueryException;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
@@ -76,6 +80,7 @@ class ReingresoService
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly AccesoCuentaService $acceso,
         private readonly CompensacionService $compensacion,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     /**
@@ -83,29 +88,71 @@ class ReingresoService
      */
     public function buscar(string $termino, User $usuario): array
     {
+        return array_values($this->coincidencias($termino, $usuario)
+            ->map(fn (Colaborador $c): array => $this->filaBusqueda($c))
+            ->all());
+    }
+
+    /**
+     * buscar() para la pantalla web: cada resultado lleva además la foto
+     * oficial (URL de sesión, solo dentro del alcance de quien mira; si
+     * no, iniciales). La API sigue usando buscar().
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function buscarWeb(string $termino, User $usuario): array
+    {
+        return array_values($this->coincidencias($termino, $usuario)
+            ->map(fn (Colaborador $c): array => [...$this->filaBusqueda($c), 'foto_url' => $this->fotos->urlPara($c, $usuario)])
+            ->all());
+    }
+
+    /**
+     * Renglón del listado web: aArray() + la foto oficial de la persona
+     * (mismo criterio que buscarWeb()). La API sigue usando aArray().
+     *
+     * @return array<string, mixed>
+     */
+    public function filaWeb(Reingreso $reingreso, User $viewer): array
+    {
+        $fila = $this->aArray($reingreso, $viewer);
+        $fila['colaborador']['foto_url'] = $this->fotos->urlPara($reingreso->colaborador, $viewer);
+
+        return $fila;
+    }
+
+    /**
+     * @return Collection<int, Colaborador>
+     */
+    private function coincidencias(string $termino, User $usuario): Collection
+    {
         $this->exigirAlguno($usuario, [self::PERMISO_GESTIONAR, self::PERMISO_SOLICITAR]);
 
-        return array_values($this->identidad->buscar($termino)
-            ->filter(fn (Colaborador $c) => $this->alcance->tieneAlcanceGlobal($usuario) || $this->alcance->alcanzaColaborador($usuario, $c))
-            ->map(function (Colaborador $c): array {
-                $ultimoCierre = CierreLaboral::query()->where('colaborador_id', $c->id)->latest('id')->first();
+        return $this->identidad->buscar($termino)
+            ->filter(fn (Colaborador $c) => $this->alcance->tieneAlcanceGlobal($usuario) || $this->alcance->alcanzaColaborador($usuario, $c));
+    }
 
-                return [
-                    'id' => $c->id,
-                    'nombre' => $c->nombreCompleto(),
-                    'numero_empleado' => $c->numero_empleado,
-                    'curp' => $c->curp,
-                    'rfc' => $c->rfc,
-                    'puesto' => $c->puesto?->nombre,
-                    'sucursal' => $c->sucursalPrincipal?->nombre,
-                    'estatus' => $c->estatus->value,
-                    'dado_de_baja' => $c->trashed() || $c->estado_alta === EstadoAltaColaborador::Baja,
-                    'fecha_baja' => $c->fecha_baja?->toDateString(),
-                    'causa_salida' => $ultimoCierre?->tipo_baja->etiqueta(),
-                    'reingreso_abierto' => Reingreso::query()->where('colaborador_abierto_id', $c->id)->exists(),
-                ];
-            })
-            ->all());
+    /**
+     * @return array<string, mixed>
+     */
+    private function filaBusqueda(Colaborador $c): array
+    {
+        $ultimoCierre = CierreLaboral::query()->where('colaborador_id', $c->id)->latest('id')->first();
+
+        return [
+            'id' => $c->id,
+            'nombre' => $c->nombreCompleto(),
+            'numero_empleado' => $c->numero_empleado,
+            'curp' => $c->curp,
+            'rfc' => $c->rfc,
+            'puesto' => $c->puesto?->nombre,
+            'sucursal' => $c->sucursalPrincipal?->nombre,
+            'estatus' => $c->estatus->value,
+            'dado_de_baja' => $c->trashed() || $c->estado_alta === EstadoAltaColaborador::Baja,
+            'fecha_baja' => $c->fecha_baja?->toDateString(),
+            'causa_salida' => $ultimoCierre?->tipo_baja->etiqueta(),
+            'reingreso_abierto' => Reingreso::query()->where('colaborador_abierto_id', $c->id)->exists(),
+        ];
     }
 
     /**
@@ -301,6 +348,10 @@ class ReingresoService
             if ($colaborador->user !== null) {
                 $this->notificador->notificar([$colaborador->user], 'reingreso_autorizado', 'Tu reingreso fue autorizado', 'Actualiza los documentos que se te piden desde la app.', $reingreso, 'subir_documentos', 'alta');
             }
+
+            // Reingreso = nueva contratación: Sistemas vuelve a recibir el
+            // aviso para reasignarle usuarios (uno por reingreso).
+            app(AvisoAltaSistemasService::class)->programar($colaborador, OrigenAvisoAltaSistemas::Reingreso, $reingreso->id, $actor);
         }
 
         return $reingreso->refresh();
@@ -335,7 +386,7 @@ class ReingresoService
     {
         $this->exigirAlguno($usuario, [self::PERMISO_GESTIONAR, self::PERMISO_SOLICITAR]);
 
-        $query = Reingreso::query()->with(['colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id', 'puesto:id,nombre', 'sucursal:id,nombre']);
+        $query = Reingreso::query()->with(['colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,foto_path,jefe_id,gerente_id', 'puesto:id,nombre', 'sucursal:id,nombre']);
 
         if (! $this->alcance->tieneAlcanceGlobal($usuario)) {
             $query->whereIn('colaborador_id', $this->alcance->limitarColaboradoresPorAlcance(Colaborador::withTrashed(), $usuario)->select('id'));

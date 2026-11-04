@@ -10,6 +10,7 @@ use App\Models\EvaluacionInduccion;
 use App\Models\InduccionAsignacion;
 use App\Models\OnboardingAvance;
 use App\Models\OnboardingProceso;
+use App\Support\FechaMexico;
 
 /**
  * «Mi inducción»: el avance de la Inducción Mr. Lana en pasos —
@@ -214,7 +215,8 @@ class ProgresoInduccionService
             'incluye_presentacion' => $asignacion->incluye_presentacion,
             'incluye_material' => $asignacion->incluye_material,
             'fecha_limite' => $asignacion->fecha_limite?->toDateString(),
-            'vencida' => $asignacion->fecha_limite !== null && $asignacion->fecha_limite->endOfDay()->isPast(),
+            // Día calendario de México (la app corre en UTC).
+            'vencida' => $asignacion->fecha_limite !== null && $asignacion->fecha_limite->toDateString() < FechaMexico::hoy(),
             'mensaje' => $asignacion->mensaje,
             'asignada_en' => $asignacion->asignada_en->toIso8601String(),
             'asignada_por' => $asignacion->asignadaPor?->nombreCompleto(),

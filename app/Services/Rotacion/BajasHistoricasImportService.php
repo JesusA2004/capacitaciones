@@ -13,6 +13,7 @@ use App\Models\ImportacionExcel;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
+use App\Support\FechaMexico;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -331,7 +332,7 @@ class BajasHistoricasImportService
 
             if ($baja === null) {
                 $errores[] = 'El último día laborado falta o no es una fecha válida.';
-            } elseif (CarbonImmutable::parse($baja)->isAfter(CarbonImmutable::today())) {
+            } elseif (CarbonImmutable::parse($baja)->isAfter(FechaMexico::inicioDeHoyInmutable())) {
                 $errores[] = 'El último día laborado es futuro.';
             }
 

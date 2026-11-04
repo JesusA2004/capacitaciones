@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EstadoCartaCompromiso;
+use App\Support\FechaMexico;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
@@ -125,12 +126,13 @@ class CartaCompromiso extends Model
     /** ¿Ya pasó la fecha límite? (el día límite completo todavía cuenta). */
     public function plazoVencido(): bool
     {
-        return $this->fecha_limite->copy()->endOfDay()->isPast();
+        // Día calendario de México (la app corre en UTC).
+        return $this->fecha_limite->toDateString() < FechaMexico::hoy();
     }
 
     /** Días que faltan para la fecha límite (0 si ya venció o vence hoy). */
     public function diasRestantes(): int
     {
-        return max(0, (int) now()->startOfDay()->diffInDays($this->fecha_limite->copy()->startOfDay(), false));
+        return max(0, (int) FechaMexico::inicioDeHoy()->diffInDays($this->fecha_limite->copy()->startOfDay(), false));
     }
 }

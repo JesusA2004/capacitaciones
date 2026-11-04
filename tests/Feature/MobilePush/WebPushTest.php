@@ -118,6 +118,6 @@ test('la ruta del clic marca leída la notificación y redirige; una inválida c
 
 test('la clave pública se comparte al frontend solo con sesión', function () {
     $this->actingAs(User::factory()->create())
-        ->get('/dashboard')
+        ->get(route('portal.index'))
         ->assertInertia(fn ($pagina) => $pagina->where('webPush.clavePublica', fn ($clave) => is_string($clave) && $clave !== ''));
 });

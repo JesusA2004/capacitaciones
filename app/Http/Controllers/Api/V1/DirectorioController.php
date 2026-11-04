@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Colaborador;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Directorio\DirectorioColaboradoresService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,7 +16,10 @@ use Illuminate\Http\Request;
  */
 class DirectorioController extends Controller
 {
-    public function __construct(private readonly DirectorioColaboradoresService $directorio) {}
+    public function __construct(
+        private readonly DirectorioColaboradoresService $directorio,
+        private readonly FotoColaboradorService $fotos,
+    ) {}
 
     public function index(Request $request): JsonResponse
     {
@@ -24,7 +28,12 @@ class DirectorioController extends Controller
         $paginador = $this->directorio->buscar($filtros, $request->integer('per_page', 30), $request->user());
 
         return response()->json([
-            'data' => array_map(fn (Colaborador $c) => $this->directorio->aArray($c, $request->user()), $paginador->items()),
+            // foto_url: abre con el Bearer token; null (iniciales) si quien
+            // mira no alcanza esa foto (FotoColaboradorService::puedeVerFoto).
+            'data' => array_map(fn (Colaborador $c) => [
+                ...$this->directorio->aArray($c, $request->user()),
+                'foto_url' => $this->fotos->urlApiPara($c, $request->user()),
+            ], $paginador->items()),
             'meta' => [
                 'current_page' => $paginador->currentPage(),
                 'last_page' => $paginador->lastPage(),

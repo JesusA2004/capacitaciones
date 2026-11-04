@@ -152,6 +152,313 @@ $noCompetenciaDeclaracion = [
 
 $fechasFijas = ['28 de noviembre de 2023'];
 
+/*
+| SOLICITUD DE EMPLEO (Gestor 2025, 4 págs. carta) y ESTUDIO SOCIOECONÓMICO
+| (3 hojas: 596×794 pt las dos primeras, 613×793 pt la tercera). Overlay
+| sobre el PDF original; coordenadas en mm medidas sobre el PDF real
+| (pdftotext -bbox de Poppler para las etiquetas y detección de cajas sobre
+| el raster a 100 dpi). Datos: App\Services\Incorporacion\SolicitudEmpleo\
+| DatosSolicitudEmpleoService (sol_* / ese_* / marca_*). Casillas marca_*
+| = X vectorial centrada en la «pastilla» o recuadro de la opción.
+*/
+$caja = fn (string $campo, int $pagina, float $x, float $y, float $ancho, float $alto, float $tamano = 9.0, array $extra = []): array => ['campo' => $campo, 'pagina' => $pagina, 'x' => $x, 'y' => $y, 'ancho' => $ancho, 'alto' => $alto, 'tamano' => $tamano, ...$extra];
+$casilla = fn (string $campo, int $pagina, float $x, float $y, float $ancho = 5.3, float $alto = 5.1): array => ['campo' => $campo, 'pagina' => $pagina, 'x' => $x, 'y' => $y, 'ancho' => $ancho, 'alto' => $alto, 'tamano' => 10, 'alineacion' => 'C'];
+$multilinea = fn (float $interlineado, float $minimo = 5.5): array => ['multilinea' => true, 'interlineado' => $interlineado, 'tamano_minimo' => $minimo];
+
+$solicitudEmpleoCampos = [
+    // Página 1 — encabezado y DATOS PERSONALES (cajas grises de 11.9 mm; la etiqueta ocupa el primer renglón).
+    $caja('sol_fecha_dia', 1, 163.3, 22.4, 13.2, 5.5, 9, ['alineacion' => 'C']),
+    $caja('sol_fecha_mes', 1, 176.5, 22.4, 17.8, 5.5, 9, ['alineacion' => 'C']),
+    $caja('sol_fecha_anio', 1, 194.3, 22.4, 13.7, 5.5, 9, ['alineacion' => 'C']),
+    $caja('nombre_completo_mayusculas', 1, 8.5, 67.1, 175.0, 6.4, 10, ['tamano_minimo' => 6]),
+    $casilla('marca_sexo_f', 1, 190.8, 68.1),
+    $casilla('marca_sexo_m', 1, 198.6, 68.1),
+    $caja('fecha_nacimiento_corta', 1, 8.5, 80.8, 55.5, 6.4, 9.5),
+    $caja('edad_numero', 1, 67.0, 80.8, 32.5, 6.4, 9.5),
+    $caja('telefono', 1, 102.3, 80.8, 58.8, 6.4, 9.5),
+    $caja('estado_civil', 1, 164.0, 80.8, 43.3, 6.4, 9.5),
+    $caja('sol_hijos', 1, 8.5, 94.3, 55.8, 6.4, 9.5),
+    $casilla('marca_licencia_si', 1, 70.4, 95.2),
+    $casilla('marca_licencia_no', 1, 78.2, 95.2),
+    $caja('sol_anios_moto', 1, 139.6, 94.3, 67.7, 6.4, 9.5),
+    $caja('domicilio_completo', 1, 8.5, 107.8, 198.8, 7.2, 8.5, $multilinea(3.4)),
+    $caja('sol_tiempo_traslado', 1, 8.5, 121.4, 104.8, 6.4, 9.5),
+    $caja('sol_con_quien_vive', 1, 116.3, 121.4, 91.0, 6.4, 9.5, ['tamano_minimo' => 6]),
+    $caja('sol_tenencia', 1, 8.5, 135.3, 104.8, 6.4, 9.5),
+    $caja('sol_tiempo_residencia', 1, 116.3, 135.3, 91.0, 6.4, 9.5),
+    $caja('sol_dependientes', 1, 8.5, 148.9, 198.8, 7.2, 8.5, $multilinea(3.4, 5.0)),
+    $caja('sol_telefono_alterno', 1, 8.5, 162.8, 58.9, 6.4, 9.5),
+    $caja('correo', 1, 70.5, 162.8, 47.4, 6.4, 9, ['tamano_minimo' => 5.5]),
+    $caja('nss', 1, 121.1, 162.8, 40.0, 6.4, 9.5),
+    $caja('rfc', 1, 164.3, 162.8, 43.0, 6.4, 9.5),
+    $caja('curp', 1, 8.5, 176.7, 46.7, 6.4, 9, ['tamano_minimo' => 6]),
+    $caja('sol_conyuge', 1, 58.6, 176.7, 148.7, 6.4, 9.5, ['tamano_minimo' => 6]),
+    $casilla('marca_infonavit_si', 1, 16.5, 191.5, 5.1, 5.3),
+    $casilla('marca_infonavit_no', 1, 24.4, 191.5, 5.1, 5.3),
+    $casilla('marca_retencion_si', 1, 53.6, 191.5, 5.1, 5.3),
+    $casilla('marca_retencion_no', 1, 61.5, 191.5, 5.1, 5.3),
+    $caja('sol_enfermedades', 1, 81.2, 190.7, 126.2, 6.4, 9, ['tamano_minimo' => 5.5]),
+    $casilla('marca_proceso_legal_si', 1, 33.3, 205.5, 5.3, 5.3),
+    $casilla('marca_proceso_legal_no', 1, 41.1, 205.5, 5.3, 5.3),
+    $casilla('marca_salud_bueno', 1, 100.6, 205.2, 13.0, 5.1),
+    $casilla('marca_salud_regular', 1, 117.1, 205.2, 13.0, 5.1),
+    $casilla('marca_salud_malo', 1, 133.6, 205.2, 11.2, 5.1),
+    // «Referencias:» (cómo llegar): 6 renglones de 5.88 mm sobre las líneas impresas.
+    $caja('sol_referencias_domicilio', 1, 133.1, 224.5, 68.0, 35.3, 8, $multilinea(5.88)),
+    // Página 2 — vacante, formación, competencias y perfil humano.
+    $casilla('marca_vacante_redes', 2, 11.7, 68.1, 22.6, 5.1),
+    $casilla('marca_vacante_recomendacion', 2, 37.6, 68.1, 25.1, 5.1),
+    $casilla('marca_vacante_sucursal', 2, 65.5, 68.1, 14.5, 5.1),
+    $casilla('marca_vacante_bolsa', 2, 83.6, 68.1, 24.9, 5.1),
+    $casilla('marca_vacante_otros', 2, 113.5, 68.1, 10.5, 5.1),
+    $caja('sol_vacante_otro', 2, 124.2, 68.1, 80.5, 5.1, 9, ['tamano_minimo' => 6]),
+    $casilla('marca_aplico_si', 2, 28.7, 81.3, 5.3, 5.3),
+    $casilla('marca_aplico_no', 2, 36.6, 81.3, 5.3, 5.3),
+    $casilla('marca_familiares_si', 2, 83.8, 81.3, 5.1, 5.3),
+    $casilla('marca_familiares_no', 2, 91.7, 81.3, 5.3, 5.3),
+    $caja('sol_familiares_nombre', 2, 98.0, 81.1, 53.0, 5.6, 8, ['tamano_minimo' => 5.5]),
+    $caja('sol_escolaridad', 2, 48.5, 104.9, 62.5, 4.6, 8, ['tamano_minimo' => 6]),
+    $casilla('marca_escolaridad_bachillerato', 2, 11.7, 110.5, 18.8, 5.1),
+    $casilla('marca_escolaridad_tecnica', 2, 32.8, 110.5, 25.1, 5.1),
+    $casilla('marca_escolaridad_licenciatura', 2, 59.9, 110.5, 50.0, 5.1),
+    $caja('sol_area_cursos', 2, 114.6, 108.9, 93.0, 7.6, 8, $multilinea(3.4)),
+    $casilla('marca_ventas_si', 2, 15.7, 144.8, 5.3, 5.3),
+    $casilla('marca_ventas_no', 2, 23.6, 144.8, 5.3, 5.3),
+    $caja('sol_ventas_anios', 2, 47.5, 144.9, 16.0, 6.4, 8.5, ['alineacion' => 'C', 'tamano_minimo' => 5]),
+    $casilla('marca_cobranza_si', 2, 73.4, 144.8, 5.1, 5.3),
+    $casilla('marca_cobranza_no', 2, 81.3, 144.8, 5.1, 5.3),
+    $caja('sol_cobranza_anios', 2, 104.9, 144.9, 16.3, 6.4, 8.5, ['alineacion' => 'C', 'tamano_minimo' => 5]),
+    $casilla('marca_creditos_si', 2, 131.6, 144.8, 5.1, 5.3),
+    $casilla('marca_creditos_no', 2, 139.4, 144.8, 5.1, 5.3),
+    $caja('sol_creditos_donde', 2, 177.0, 144.9, 30.5, 6.4, 8.5, ['tamano_minimo' => 5]),
+    $casilla('marca_prospeccion_si', 2, 15.7, 159.0),
+    $casilla('marca_prospeccion_no', 2, 23.6, 159.0),
+    $casilla('marca_apps_si', 2, 54.9, 159.0),
+    $casilla('marca_apps_no', 2, 62.7, 159.0),
+    $casilla('marca_estilo_metas', 2, 87.9, 159.0, 28.7, 5.1),
+    $casilla('marca_estilo_cliente', 2, 117.3, 159.0, 28.7, 5.1),
+    $casilla('marca_estilo_campo', 2, 146.8, 159.0, 27.2, 5.1),
+    $casilla('marca_estilo_presion', 2, 174.5, 159.0, 30.2, 5.1),
+    $casilla('marca_comisiones_si', 2, 15.7, 173.0),
+    $casilla('marca_comisiones_no', 2, 23.6, 173.0),
+    $caja('sol_tres_palabras', 2, 8.5, 202.8, 198.8, 6.6, 9, ['tamano_minimo' => 6]),
+    $caja('sol_fortalezas', 2, 8.5, 216.6, 198.8, 7.2, 8, $multilinea(3.4, 5.0)),
+    $caja('sol_logro', 2, 8.5, 230.7, 198.8, 7.4, 8, $multilinea(3.4, 5.0)),
+    $caja('sol_situacion_dificil', 2, 8.5, 244.7, 198.8, 7.4, 8, $multilinea(3.4, 5.0)),
+    $caja('sol_areas_oportunidad', 2, 8.5, 258.6, 96.5, 7.4, 8, $multilinea(3.4, 5.0)),
+    $caja('sol_jefes', 2, 107.8, 258.6, 99.6, 7.4, 8, $multilinea(3.4, 5.0)),
+    // Página 4 — DECLARACIÓN: nombre impreso a la izquierda de la línea (la firma, a mano).
+    $caja('nombre_completo', 4, 44.0, 191.9, 100.0, 4.5, 9, ['tamano_minimo' => 6]),
+    $caja('fecha_documento_larga', 4, 25.0, 202.1, 78.0, 4.5, 9),
+];
+
+// Últimos 3 empleos: Empresa 1 y 2 en la página 3 (+80 mm entre bloques), Empresa 3 en la 4.
+// «Funciones» abarca los 3 renglones grises (interlineado = paso entre cajas, 15.25 mm).
+foreach ([1 => [3, 0.0], 2 => [3, 80.0], 3 => [4, 0.0]] as $n => [$pagina, $dy]) {
+    array_push(
+        $solicitudEmpleoCampos,
+        $caja("sol_empleo_{$n}_empresa", $pagina, 8.5, 67.6 + $dy, 84.4, 6.4, 9, ['tamano_minimo' => 5.5]),
+        $caja("sol_empleo_{$n}_puesto", $pagina, 95.6, 67.6 + $dy, 52.1, 6.4, 9, ['tamano_minimo' => 5.5]),
+        $caja("sol_empleo_{$n}_periodo", $pagina, 150.5, 67.6 + $dy, 56.9, 6.4, 9, ['tamano_minimo' => 6]),
+        $caja("sol_empleo_{$n}_funciones", $pagina, 8.5, 78.4 + $dy, 198.8, 45.7, 8, $multilinea(15.25, 8.0)),
+        $caja("sol_empleo_{$n}_motivo", $pagina, 8.5, 128.3 + $dy, 139.1, 6.4, 9, ['tamano_minimo' => 5.5]),
+        $caja("sol_empleo_{$n}_telefono", $pagina, 150.5, 128.3 + $dy, 56.9, 6.4, 9),
+    );
+}
+
+$solicitudEmpleoBlancos = [
+    'sol_vacante_otro' => 'Solo cuando supo de la vacante por «Otros».',
+    'sol_familiares_nombre' => 'Solo si tiene familiares en la empresa.',
+];
+
+foreach ([1, 2, 3] as $n) {
+    foreach (['empresa', 'puesto', 'periodo', 'funciones', 'motivo', 'telefono'] as $dato) {
+        if ($n === 1 && $dato === 'empresa') {
+            continue;
+        }
+
+        $solicitudEmpleoBlancos["sol_empleo_{$n}_{$dato}"] = $n === 1
+            ? 'Vacío solo si es su primer empleo (Empresa 1 dice «Sin experiencia laboral»); la completitud exige cada dato del empleo capturado.'
+            : 'El formato trae 3 espacios; se llena solo si declaró ese empleo (la completitud exige cada dato del empleo capturado).';
+    }
+}
+
+$estudioCampos = [
+    // Hoja 1 — Datos personales (recuadros blancos de 4.6 mm).
+    $caja('nombre_mayusculas', 1, 16.3, 49.6, 65.0, 4.4, 9, ['tamano_minimo' => 5.5]),
+    $caja('apellido_paterno_mayusculas', 1, 82.6, 49.6, 60.5, 4.4, 9, ['tamano_minimo' => 5.5]),
+    $caja('apellido_materno_mayusculas', 1, 144.3, 49.6, 52.0, 4.4, 9, ['tamano_minimo' => 5.5]),
+    $caja('fecha_nacimiento_corta', 1, 48.6, 57.2, 51.5, 4.4, 9),
+    $caja('edad_numero', 1, 112.0, 56.8, 5.6, 5.2, 8, ['alineacion' => 'C', 'tamano_minimo' => 5]),
+    $caja('curp', 1, 139.0, 57.2, 57.5, 4.4, 9, ['tamano_minimo' => 6]),
+    $casilla('marca_civil_casado', 1, 55.9, 65.0, 5.6, 5.6),
+    $casilla('marca_civil_soltero', 1, 82.8, 64.8, 5.6, 5.6),
+    $casilla('marca_civil_divorciado', 1, 114.8, 64.8, 5.6, 5.6),
+    $casilla('marca_civil_viudo', 1, 138.9, 64.8, 5.6, 5.6),
+    $caja('ese_civil_otro', 1, 157.0, 65.2, 39.5, 4.6, 8.5),
+    $caja('ese_domicilio_1', 1, 32.1, 73.0, 164.4, 4.4, 9, ['tamano_minimo' => 5.5]),
+    $caja('ese_domicilio_2', 1, 16.0, 80.4, 180.5, 4.4, 9, ['tamano_minimo' => 5.5]),
+    $caja('domicilio_municipio', 1, 33.1, 87.5, 71.7, 4.4, 9, ['tamano_minimo' => 5.5]),
+    $caja('domicilio_estado', 1, 136.7, 87.5, 59.8, 4.4, 9, ['tamano_minimo' => 5.5]),
+    $caja('ese_residencia_anios', 1, 82.0, 94.6, 8.1, 4.4, 8, ['alineacion' => 'C', 'tamano_minimo' => 5]),
+    $caja('telefono', 1, 123.0, 94.6, 73.5, 4.4, 9),
+    $casilla('marca_tel_casa', 1, 25.7, 101.6, 5.6, 5.6),
+    $casilla('marca_tel_oficina', 1, 45.7, 101.6, 5.6, 5.6),
+    $casilla('marca_tel_celular', 1, 65.5, 101.6, 5.6, 5.6),
+    $caja('ese_tel_otro', 1, 83.4, 101.9, 113.0, 4.8, 8.5),
+    $casilla('marca_id_ine', 1, 55.9, 109.2, 5.6, 5.6),
+    $casilla('marca_id_licencia', 1, 98.0, 109.2, 5.6, 5.6),
+    $casilla('marca_id_cedula', 1, 124.5, 109.2, 5.6, 5.6),
+    $caja('ese_id_otro', 1, 142.3, 109.4, 54.2, 4.8, 8.5, ['tamano_minimo' => 5.5]),
+    $caja('ese_id_institucion', 1, 54.9, 117.6, 141.5, 4.8, 9, ['tamano_minimo' => 5.5]),
+    $caja('ese_id_folio', 1, 35.4, 126.0, 72.0, 4.8, 9, ['tamano_minimo' => 5.5]),
+    $caja('ese_tipo_sanguineo', 1, 139.0, 126.0, 57.5, 4.8, 9),
+    // Croquis de vivienda: dirección y calles (la cuadrícula se dibuja a mano).
+    $caja('domicilio_completo', 1, 30.0, 213.4, 166.6, 4.7, 8.5, ['tamano_minimo' => 5]),
+    $caja('ese_entre_calle_1', 1, 22.9, 222.6, 46.4, 4.6, 8.5, ['tamano_minimo' => 5.5]),
+    $caja('ese_entre_calle_2', 1, 22.9, 230.3, 46.4, 4.6, 8.5, ['tamano_minimo' => 5.5]),
+    $caja('ese_calle_posterior', 1, 22.9, 238.3, 46.4, 4.6, 8.5, ['tamano_minimo' => 5.5]),
+    $caja('ese_calle_lateral', 1, 22.9, 245.8, 46.4, 4.6, 8.5, ['tamano_minimo' => 5.5]),
+    // Hoja 2 — Bienes inmuebles.
+    $caja('ese_inm_ubicacion', 2, 34.1, 45.9, 107.6, 4.9, 8.5, ['tamano_minimo' => 5.5]),
+    $caja('ese_inm_metros', 2, 176.5, 45.9, 19.2, 4.9, 8, ['alineacion' => 'C', 'tamano_minimo' => 5]),
+    $caja('ese_inm_valor', 2, 49.0, 53.8, 19.6, 4.9, 8, ['tamano_minimo' => 5]),
+    $casilla('marca_inm_privada', 2, 30.5, 68.3, 5.6, 5.6),
+    $casilla('marca_inm_ejidal', 2, 50.8, 68.3, 5.6, 5.6),
+    $casilla('marca_inm_comunal', 2, 74.7, 68.3, 5.3, 5.6),
+    $casilla('marca_inm_urbana', 2, 109.2, 67.3, 5.6, 5.6),
+    $casilla('marca_inm_semiurbana', 2, 141.7, 67.3, 5.6, 5.6),
+    $casilla('marca_inm_rural', 2, 164.1, 67.3, 5.6, 5.6),
+    $casilla('marca_inm_compraventa', 2, 39.4, 81.8, 5.6, 5.6),
+    $casilla('marca_inm_herencia', 2, 65.0, 81.8, 5.6, 5.6),
+    $casilla('marca_inm_legado', 2, 87.9, 81.8, 5.6, 5.6),
+    $casilla('marca_inm_otros', 2, 110.0, 81.8, 5.3, 5.6),
+    $caja('ese_inm_especifique', 2, 149.9, 82.5, 45.6, 4.9, 8, ['tamano_minimo' => 5]),
+    // Egresos mensuales: el «$» viene impreso dentro de cada recuadro.
+    $caja('ese_egreso_otros_concepto', 2, 168.0, 111.6, 28.0, 4.9, 7.5, ['tamano_minimo' => 5]),
+    // Referencias personales: 4 renglones.
+    $caja('ese_ref_1', 2, 16.8, 173.8, 178.5, 4.4, 8.5, ['tamano_minimo' => 5.5]),
+    $caja('ese_ref_2', 2, 16.8, 179.8, 178.5, 4.4, 8.5, ['tamano_minimo' => 5.5]),
+    $caja('ese_ref_3', 2, 16.8, 185.9, 178.5, 4.4, 8.5, ['tamano_minimo' => 5.5]),
+    $caja('ese_ref_4', 2, 16.8, 192.1, 178.5, 4.4, 8.5, ['tamano_minimo' => 5.5]),
+    // Datos de la vivienda donde habita.
+    $casilla('marca_viv_casa', 2, 29.0, 222.5, 5.8, 5.6),
+    $casilla('marca_viv_departamento', 2, 65.8, 222.5, 5.8, 5.6),
+    $casilla('marca_viv_cuarto', 2, 89.9, 222.5, 5.8, 5.6),
+    $casilla('marca_viv_propia', 2, 115.6, 222.5, 5.8, 5.6),
+    $casilla('marca_viv_renta', 2, 140.0, 222.5, 5.8, 5.6),
+    $casilla('marca_viv_prestada', 2, 168.9, 222.5, 5.8, 5.6),
+    $casilla('marca_viv_hipotecada', 2, 37.1, 230.9, 5.8, 5.6),
+    // Hoja 3 — Tipo de construcción.
+    $casilla('marca_pared_concreto', 3, 31.2, 53.6, 5.6, 5.6),
+    $casilla('marca_pared_lamina', 3, 57.9, 53.6, 5.6, 5.6),
+    $casilla('marca_pared_adobe', 3, 83.1, 53.6, 5.6, 5.6),
+    $casilla('marca_pared_otros', 3, 106.2, 53.6, 5.6, 5.6),
+    $caja('ese_paredes_especifique', 3, 138.5, 53.9, 55.4, 5.0, 8, ['tamano_minimo' => 5.5]),
+    $caja('ese_cuartos', 3, 46.2, 63.6, 9.4, 5.0, 8, ['alineacion' => 'C', 'tamano_minimo' => 5]),
+    $caja('ese_banos', 3, 92.5, 63.6, 9.7, 5.0, 8, ['alineacion' => 'C', 'tamano_minimo' => 5]),
+    $caja('ese_patio', 3, 119.1, 63.6, 9.7, 5.0, 7.5, ['alineacion' => 'C', 'tamano_minimo' => 5]),
+    $caja('ese_construccion_otros', 3, 144.8, 63.6, 49.3, 5.0, 8, ['tamano_minimo' => 5]),
+    // Servicios: «Drenaje» no trae recuadro (la X va junto a la etiqueta); la casilla «Adobe» es Gas (errata del formato).
+    $casilla('marca_serv_agua', 3, 28.7, 81.8, 5.6, 5.6),
+    $casilla('marca_serv_luz', 3, 49.3, 81.8, 5.6, 5.6),
+    $casilla('marca_serv_drenaje', 3, 76.5, 81.8, 5.6, 5.6),
+    $casilla('marca_serv_gas', 3, 101.1, 81.8, 5.6, 5.6),
+    $casilla('marca_serv_telefono', 3, 128.0, 81.8, 5.6, 5.6),
+    $casilla('marca_serv_otros', 3, 149.4, 81.8, 6.3, 5.6),
+    $caja('ese_servicios_especifique', 3, 38.1, 89.6, 158.2, 5.0, 8.5, ['tamano_minimo' => 5.5]),
+    $caja('ese_personas_habitan', 3, 78.2, 95.4, 5.3, 5.0, 8, ['alineacion' => 'C', 'tamano_minimo' => 5]),
+    // Relación de bienes muebles.
+    $casilla('marca_bien_vehiculo', 3, 34.5, 119.9, 5.8, 5.6),
+    $casilla('marca_bien_moto', 3, 54.4, 119.9, 5.8, 5.6),
+    $casilla('marca_bien_otros', 3, 77.7, 119.9, 6.1, 5.6),
+    $caja('ese_vehiculo_especifique', 3, 117.0, 120.1, 79.0, 5.0, 8.5, ['tamano_minimo' => 5.5]),
+    $caja('ese_vehiculo_modelo', 3, 32.6, 128.5, 163.4, 5.0, 8.5, ['tamano_minimo' => 5.5]),
+    $caja('ese_vehiculo_tipo', 3, 27.5, 135.8, 168.5, 5.0, 8.5, ['tamano_minimo' => 5.5]),
+    $caja('ese_vehiculo_marca', 3, 30.3, 143.5, 165.7, 5.0, 8.5, ['tamano_minimo' => 5.5]),
+    $caja('ese_vehiculo_valor', 3, 47.3, 150.8, 148.7, 5.0, 8.5),
+    $caja('ese_muebles_especifique', 3, 38.7, 183.1, 55.3, 5.0, 8, ['tamano_minimo' => 5]),
+    // Servicio médico con que cuenta.
+    $casilla('marca_sm_issste', 3, 34.0, 199.4, 5.6, 5.6),
+    $casilla('marca_sm_imss', 3, 53.8, 199.4, 5.6, 5.6),
+    $casilla('marca_sm_seguro_popular', 3, 99.8, 199.4, 5.6, 5.6),
+    $casilla('marca_sm_particular', 3, 133.9, 199.4, 5.8, 5.6),
+    $caja('ese_sm_especifique', 3, 164.1, 199.6, 32.3, 5.0, 8, ['tamano_minimo' => 5]),
+    // «Nombre y firma del Empleado»: nombre centrado bajo la línea; firma a mano.
+    $caja('nombre_completo', 3, 75.4, 237.0, 68.9, 4.2, 8, ['alineacion' => 'C', 'tamano_minimo' => 5.5]),
+    $caja('lugar_documento', 3, 31.0, 247.3, 165.4, 5.0, 9),
+    $caja('ese_fecha_dia', 3, 31.8, 255.5, 6.9, 5.0, 8.5, ['alineacion' => 'C', 'tamano_minimo' => 6]),
+    $caja('ese_fecha_mes', 3, 42.2, 255.5, 31.5, 5.0, 8.5, ['alineacion' => 'C']),
+    $caja('ese_fecha_anio', 3, 77.7, 255.5, 10.2, 5.0, 8, ['alineacion' => 'C', 'tamano_minimo' => 5.5]),
+];
+
+// Egresos mensuales [campo => [x, y, ancho]] (texto alineado a la derecha, después del «$» impreso).
+foreach ([
+    'alimentacion' => [42.2, 103.8, 15.5], 'vestido' => [88.7, 103.8, 15.7], 'gas' => [130.7, 103.8, 16.7],
+    'renta' => [32.0, 111.6, 15.3], 'diversion' => [91.5, 111.6, 15.5], 'otros' => [150.8, 111.6, 16.1],
+    'agua' => [31.0, 119.6, 15.3], 'predial' => [87.0, 119.6, 16.4],
+    'luz' => [28.4, 127.7, 15.3], 'hipoteca' => [89.8, 127.7, 16.2],
+    'telefono' => [35.8, 135.8, 15.3], 'transporte' => [90.9, 135.8, 16.1],
+    'servicios_medicos' => [50.1, 143.7, 15.2], 'gasolina' => [131.6, 143.7, 17.6],
+] as $egreso => [$x, $y, $ancho]) {
+    $estudioCampos[] = $caja("ese_egreso_{$egreso}", 2, $x, $y, $ancho, 4.9, 8, ['alineacion' => 'R', 'tamano_minimo' => 5]);
+}
+
+// Dependientes económicos: 6 renglones de la tabla [y, alto].
+foreach ([1 => [158.5, 4.6], 2 => [163.3, 5.8], 3 => [169.4, 5.6], 4 => [175.3, 5.8], 5 => [181.4, 5.8], 6 => [187.5, 6.9]] as $n => [$y, $alto]) {
+    $yTexto = $y + ($alto - 4.2) / 2;
+    array_push(
+        $estudioCampos,
+        $caja("ese_dep_{$n}_nombre", 1, 16.0, $yTexto, 35.5, 4.2, 8, ['tamano_minimo' => 5]),
+        $caja("ese_dep_{$n}_paterno", 1, 52.0, $yTexto, 33.4, 4.2, 8, ['tamano_minimo' => 5]),
+        $caja("ese_dep_{$n}_materno", 1, 85.6, $yTexto, 27.5, 4.2, 8, ['tamano_minimo' => 5]),
+        $caja("ese_dep_{$n}_parentesco", 1, 113.7, $yTexto, 22.3, 4.2, 8, ['tamano_minimo' => 5]),
+        $caja("ese_dep_{$n}_edad", 1, 136.6, $yTexto, 12.8, 4.2, 8, ['alineacion' => 'C', 'tamano_minimo' => 5]),
+        $caja("ese_dep_{$n}_escolaridad", 1, 150.1, $yTexto, 46.8, 4.2, 8, ['tamano_minimo' => 5]),
+    );
+}
+
+// «Demás bienes muebles» (valores de App\Enums\BienMueble): fila 1 y fila 2 del formato.
+foreach ([
+    'dvd' => [28.7, 167.6], 'radio' => [51.3, 167.6], 'lavadora' => [77.0, 167.6], 'computadora' => [109.7, 167.6], 'television' => [135.9, 167.6], 'alhajas' => [175.5, 167.6],
+    'estufa' => [30.7, 175.0], 'sala' => [50.8, 175.3], 'comedor' => [77.0, 175.3], 'refrigerador' => [108.0, 175.3], 'microondas' => [152.7, 175.3], 'otro' => [172.7, 175.5],
+] as $bien => [$x, $y]) {
+    $estudioCampos[] = $casilla('marca_mueble_'.$bien, 3, $x, $y, 5.8, 5.6);
+}
+
+$estudioBlancos = [
+    'apellido_materno_mayusculas' => 'Solo aplica si tiene segundo apellido.',
+    'ese_civil_otro' => 'Solo para unión libre (estado civil sin casilla propia).',
+    'ese_tel_otro' => 'El teléfono que registra PEOPLE es celular: se marca la casilla «Celular».',
+    'ese_id_otro' => 'Solo si la identificación no es INE, licencia ni cédula.',
+    'ese_inm_metros' => 'Solo si tiene un bien inmueble (si no, Ubicación dice «No aplica»).',
+    'ese_inm_valor' => 'Solo si tiene un bien inmueble (si no, Ubicación dice «No aplica»).',
+    'ese_inm_especifique' => 'Solo si la forma de adquisición es «Otros».',
+    'ese_egreso_otros_concepto' => 'Solo si declaró otros gastos mayores a cero.',
+    'ese_ref_3' => 'El mínimo son 2 referencias personales; el formato trae 4 renglones.',
+    'ese_ref_4' => 'El mínimo son 2 referencias personales; el formato trae 4 renglones.',
+    'ese_paredes_especifique' => 'Solo si el material de las paredes es «Otros».',
+    'ese_servicios_especifique' => 'Solo si marcó otro servicio.',
+    'ese_vehiculo_especifique' => 'Solo si el vehículo es «Otros».',
+    'ese_vehiculo_tipo' => 'Solo si tiene vehículo (si no, Modelo dice «No aplica»).',
+    'ese_vehiculo_marca' => 'Solo si tiene vehículo (si no, Modelo dice «No aplica»).',
+    'ese_vehiculo_valor' => 'Solo si tiene vehículo (si no, Modelo dice «No aplica»).',
+    'ese_muebles_especifique' => 'Solo si marcó otro bien mueble.',
+    'ese_sm_especifique' => 'Solo cuando no cuenta con servicio médico (se imprime «Ninguno»).',
+];
+
+foreach (range(1, 6) as $n) {
+    foreach (['nombre', 'paterno', 'materno', 'parentesco', 'edad', 'escolaridad'] as $dato) {
+        if ($n === 1 && $dato === 'nombre') {
+            continue;
+        }
+
+        $estudioBlancos["ese_dep_{$n}_{$dato}"] = $n === 1
+            ? 'Vacío solo si no tiene dependientes (el renglón 1 dice «Sin dependientes económicos»); la completitud exige cada dato del dependiente.'
+            : 'La tabla trae 6 renglones; se llena solo si declaró ese dependiente (la completitud exige cada dato).';
+    }
+}
+
 return [
 
     // Disco privado (NAS) donde viven originales, masters y outputs. Nunca
@@ -276,7 +583,13 @@ return [
         'activos' => 'Entrega de activos',
         'expediente' => 'Expediente (a demanda)',
         'referencia' => 'Referencia (no se genera)',
+        'incorporacion' => 'Incorporación (solicitud de empleo y estudio socioeconómico)',
     ],
+
+    // Documentos de la incorporación que PEOPLE genera con lo que la persona
+    // capturó en su registro (App\Services\Incorporacion\SolicitudEmpleo):
+    // obligatorios ANTES del contrato de contratación.
+    'documentos_incorporacion' => ['solicitud_empleo', 'estudio_socioeconomico'],
 
     /*
     | Detección de espacios al subir un formato nuevo (editor no-code).
@@ -1316,6 +1629,44 @@ return [
             'observaciones' => [
                 'Intereses moratorios: el pagaré deja la cantidad en blanco y PEOPLE no la tiene definida; se deja en blanco para llenado de RH/Jurídico.',
                 'Domicilio del beneficiario (Av. Domingo Diez 1003) viene impreso en el original: se conserva.',
+            ],
+        ],
+
+        // ───────────────────────── INCORPORACIÓN ─────────────────────────
+        // Formatos internos de RH que PEOPLE llena con lo que la persona
+        // capturó en su registro (docs/SOLICITUD_EMPLEO_Y_SOCIOECONOMICO.md).
+        // Se imprimen y la persona los firma a mano; van al expediente con su
+        // tipo documental. Obligatorios antes del contrato de contratación.
+        'solicitud_empleo.general' => [
+            'clave' => 'solicitud_empleo',
+            'nombre' => 'Solicitud de empleo',
+            'proceso' => 'incorporacion', 'evento' => 'registro_completo', 'grupos' => null, 'motor' => 'pdf_overlay', 'categoria' => 'personales',
+            'tipo_documental' => 'solicitud_empleo',
+            'fuentes' => ['81c2f7bf31d6c31b5bcea3d5a3ce92fa91654fa28d5efbe14f0c3120807c6d05' => ['version' => 1, 'activa' => true]],
+            'banderas' => ['requiere_impresion' => true, 'requiere_firma_fisica' => true],
+            'representante' => 'no_aplica',
+            'campos' => $solicitudEmpleoCampos,
+            'blancos_intencionales' => $solicitudEmpleoBlancos,
+            'observaciones' => [
+                'Es la «Solicitud de empleo para Gestor 2025» (único formato entregado): se usa para todos los puestos hasta que RH entregue variantes; las preguntas de moto/cobranza se responden Sí/No o «No aplica».',
+                'Croquis (6 recuadros) y firma: en blanco para llenarse a mano.',
+            ],
+        ],
+
+        'estudio_socioeconomico.general' => [
+            'clave' => 'estudio_socioeconomico',
+            'nombre' => 'Estudio socioeconómico',
+            'proceso' => 'incorporacion', 'evento' => 'registro_completo', 'grupos' => null, 'motor' => 'pdf_overlay', 'categoria' => 'personales',
+            'tipo_documental' => 'estudio_socioeconomico',
+            'fuentes' => ['5b2cc9c8c85cef0b15b47573fd1e7f41ea4ef3e457a98cc6fb1dc410284eacaa' => ['version' => 1, 'activa' => true]],
+            'banderas' => ['requiere_impresion' => true, 'requiere_firma_fisica' => true],
+            'representante' => 'no_aplica',
+            'campos' => $estudioCampos,
+            'blancos_intencionales' => $estudioBlancos,
+            'observaciones' => [
+                'La cuadrícula del croquis se dibuja a mano; dirección y calles se imprimen.',
+                'La casilla «Adobe» de Servicios de la vivienda se interpreta como Gas (errata del original; confirmar con RH). «Drenaje» no trae recuadro: la X se dibuja junto a la etiqueta.',
+                'Las hojas 1-2 miden 596×794 pt y la 3, 613×793 pt: el overlay respeta el tamaño de cada página del original.',
             ],
         ],
 

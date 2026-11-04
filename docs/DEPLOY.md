@@ -216,6 +216,46 @@ Diagnóstico sin secretos: `php artisan people:diagnostico-notificaciones`.
 En cada deploy, después de `migrate --force`: `php artisan people:sincronizar-permisos`
 y `php artisan queue:restart` (los workers recargan el código nuevo).
 
+## Correo a Sistemas al entrar a Contratación
+
+Cuando RH inicia la contratación de un candidato (fase 6 «Contratación» del
+tablero: se crea su colaborador y su QR de registro) o autoriza un reingreso,
+PEOPLE manda **un** correo «Alta para asignar usuarios: {Nombre} — {Puesto},
+{Sucursal}» con los datos personales y laborales principales y la liga al
+expediente, para que Sistemas le dé sus usuarios en las demás plataformas
+(`App\Services\Notificaciones\AvisoAltaSistemasService`). Lo que aún no está
+capturado aparece como «Sin capturar»; no lleva adjuntos.
+
+`.env` de producción (además del SMTP real):
+
+```dotenv
+MAIL_MAILER=smtp
+MAIL_HOST=…                 # SMTP del proveedor
+MAIL_PORT=587
+MAIL_USERNAME=…
+MAIL_PASSWORD=…
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=…         # el buzón desde el que debe salir (el remitente de TODO correo de PEOPLE)
+MAIL_FROM_NAME="${APP_NAME}"
+
+SISTEMAS_ALTA_CORREO_ACTIVO=true
+SISTEMAS_ALTA_CORREO_PARA=sistemas@mr-lana.com
+SISTEMAS_ALTA_CORREO_CC=jesus.arizmendi@mr-lana.com   # varias: separadas por comas
+```
+
+Luego `php artisan migrate --force` (tabla `avisos_alta_sistemas`),
+`php artisan config:cache` y `php artisan queue:restart`. El correo sale por la
+cola de avisos (`notifications`), así que **requiere `people-notifications`
+corriendo**; sin worker queda en `jobs` y sale al levantarlo.
+
+- Una vez por contratación: un reintento de la cola o repetir «Iniciar
+  contratación» no lo duplica; un reingreso sí genera un aviso nuevo.
+- Si el envío falla (SMTP caído), la contratación NO se revierte: se reintenta
+  3 veces, queda «No se pudo enviar» en la ficha del candidato, en
+  `storage/logs` (warning) y en la auditoría (`aviso_sistemas_alta_fallido`).
+- Reenvío: botón «Reenviar a Sistemas» en la ficha del candidato (permiso
+  `candidatos.contratar`) o `php artisan sistemas:reenviar-aviso-alta {número de empleado|id}`.
+
 ## Scheduler (cron)
 
 Una sola línea de cron para **todos** los comandos programados de `routes/console.php`

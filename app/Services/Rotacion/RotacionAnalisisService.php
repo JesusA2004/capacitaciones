@@ -13,6 +13,7 @@ use App\Models\Puesto;
 use App\Models\RotacionPeriodo;
 use App\Models\Sucursal;
 use App\Services\Bajas\TableroRotacionService;
+use App\Support\FechaMexico;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -103,7 +104,7 @@ class RotacionAnalisisService
     {
         $celdas = $this->motor->celdas($f)->groupBy('mes');
         $eventos = $this->motor->eventos($f)->groupBy('mes');
-        $hoy = CarbonImmutable::today();
+        $hoy = FechaMexico::inicioDeHoyInmutable();
         $meses = [];
 
         for ($m = $f->desde->startOfMonth(); $m->lte($f->hasta); $m = $m->addMonth()) {
@@ -568,7 +569,7 @@ class RotacionAnalisisService
             if ($indice !== null) {
                 $indices[] = $indice;
 
-                if (! $m->isSameMonth(CarbonImmutable::today())) {
+                if (! $m->isSameMonth(FechaMexico::inicioDeHoyInmutable())) {
                     $cerrados[] = $indice;
                 }
             }
@@ -609,7 +610,7 @@ class RotacionAnalisisService
         $clave = $mes->format('Y-m').'|'.$sucursales->sort()->implode(',');
 
         if (! array_key_exists($clave, $this->plantillas)) {
-            $this->plantillas[$clave] = $mes->startOfMonth()->isAfter(CarbonImmutable::today()) ? null : $this->tablero->plantillaMes($mes->startOfMonth(), $sucursales);
+            $this->plantillas[$clave] = $mes->startOfMonth()->isAfter(FechaMexico::inicioDeHoyInmutable()) ? null : $this->tablero->plantillaMes($mes->startOfMonth(), $sucursales);
         }
 
         return $this->plantillas[$clave];
@@ -674,7 +675,7 @@ class RotacionAnalisisService
      */
     private function aniosConDatos(): array
     {
-        $anios = collect([CarbonImmutable::today()->year])
+        $anios = collect([FechaMexico::inicioDeHoyInmutable()->year])
             ->merge(BajaHistorica::query()->selectRaw('distinct substr(fecha_baja, 1, 4) as anio')->pluck('anio')->map(fn ($a): int => (int) $a))
             ->merge(RotacionPeriodo::query()->distinct()->pluck('anio')->map(fn ($a): int => (int) $a))
             ->merge(Baja::query()->whereNotNull('fecha_baja')->selectRaw('distinct substr(fecha_baja, 1, 4) as anio')->pluck('anio')->map(fn ($a): int => (int) $a));

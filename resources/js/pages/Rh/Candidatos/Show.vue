@@ -34,6 +34,8 @@ import type { ReaperturaDisponible } from '@/components/people/BotonReabrir.vue'
 import ChipEstado from '@/components/people/ChipEstado.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
+import AvisoAltaSistemas from '@/components/Rh/AvisoAltaSistemas.vue';
+import type { ResumenAvisoSistemas } from '@/components/Rh/AvisoAltaSistemas.vue';
 import CandidatoExpedientePanel from '@/components/Rh/CandidatoExpedientePanel.vue';
 import CandidatoFormDialog from '@/components/Rh/CandidatoFormDialog.vue';
 import CandidatoPerfilPuesto from '@/components/Rh/CandidatoPerfilPuesto.vue';
@@ -110,6 +112,8 @@ const props = defineProps<{
     /** Candidato → contratación → expediente (null = aún no seleccionado). */
     cadenaContratacion?: EstadoCadenaContratacion | null;
     siguientePaso: SiguientePaso;
+    /** Correo «Alta para asignar usuarios» a Sistemas (null = no aplica / sin permiso). */
+    avisoSistemas?: ResumenAvisoSistemas | null;
 }>();
 
 /** El paso del proceso ya es esta ficha: no se ofrece un enlace a sí misma. */
@@ -713,6 +717,12 @@ function fecha(valor: string | null): string {
                         />
                     </div>
                     <BotonReabrir :reaperturas="reaperturas" />
+                    <AvisoAltaSistemas
+                        v-if="avisoSistemas"
+                        class="mt-3"
+                        :candidato-id="candidato.id"
+                        :aviso="avisoSistemas"
+                    />
                 </SiguientePasoPanel>
 
                 <section

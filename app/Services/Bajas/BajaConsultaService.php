@@ -133,7 +133,7 @@ class BajaConsultaService
      * @param  array<string, mixed>  $filtros
      * @return LengthAwarePaginator<int, array<string, mixed>>
      */
-    public function bandeja(User $usuario, array $filtros, ?User $viewer = null): LengthAwarePaginator
+    public function bandeja(User $usuario, array $filtros, ?User $viewer = null, bool $api = false): LengthAwarePaginator
     {
         $estatus = is_string($filtros['estatus'] ?? null) ? $filtros['estatus'] : 'abiertas';
         $busqueda = trim((string) ($filtros['busqueda'] ?? ''));
@@ -156,7 +156,7 @@ class BajaConsultaService
             ->withQueryString();
         $this->documentos->precargar($pagina->getCollection());
 
-        return $pagina->through(fn (Baja $b): array => $this->fila($b, $viewer));
+        return $pagina->through(fn (Baja $b): array => $this->fila($b, $viewer, $api));
     }
 
     /**
@@ -204,7 +204,7 @@ class BajaConsultaService
     /**
      * @return array<string, mixed>
      */
-    public function fila(Baja $baja, ?User $viewer = null): array
+    public function fila(Baja $baja, ?User $viewer = null, bool $api = false): array
     {
         $faltantes = $this->documentos->faltantes($baja);
         $finiquito = $baja->cierre?->solicitud_interna_id !== null && $viewer?->can('finiquitos.ver') ? $this->documentos->finiquitoDe($baja->cierre->solicitud_interna_id) : null;
@@ -234,7 +234,10 @@ class BajaConsultaService
             // Aviso para resguardar evidencia, no una autorización (PDF Etapa 1).
             'integrar_expediente' => $baja->forma_salida === FormaSalida::Rescision || $baja->requiereJuridico(),
             'cubo' => $baja->estatus->esAbierta() ? $this->documentos->cuboTablero($baja) : $baja->estatus->value,
-            'foto_url' => $viewer !== null && $baja->colaborador !== null ? $this->fotos->urlPara($baja->colaborador, $viewer) : null,
+            // Web: URL de sesión; app (`$api`): URL con Bearer token.
+            'foto_url' => $viewer !== null && $baja->colaborador !== null
+                ? ($api ? $this->fotos->urlApiPara($baja->colaborador, $viewer) : $this->fotos->urlPara($baja->colaborador, $viewer))
+                : null,
             'finiquito' => $finiquito !== null ? ['id' => $finiquito->id, 'estado' => $finiquito->estado->value, 'etiqueta' => $this->etiquetaFiniquito($finiquito)] : null,
             'origen' => $baja->origen->value,
         ];

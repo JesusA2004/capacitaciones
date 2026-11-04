@@ -25,6 +25,7 @@ import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
 import VistaPreviaFlujo from '@/components/documentos/VistaPreviaFlujo.vue';
 import SiguientePasoPanel from '@/components/flujos/SiguientePaso.vue';
 import FormularioPeriodoPrueba from '@/components/formularios-evaluacion/FormularioPeriodoPrueba.vue';
+import SolicitudEmpleoIngreso from '@/components/incorporacion/SolicitudEmpleoIngreso.vue';
 import InputError from '@/components/InputError.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
@@ -98,6 +99,8 @@ const props = defineProps<{
     puede_solicitar_excepcion: boolean;
     puede_resolver_excepcion: boolean;
     puede_devolver_evaluacion?: boolean;
+    /** Solicitud de empleo + estudio socioeconómico (incorporación). */
+    mostrar_solicitud_empleo?: boolean;
     opciones: {
         // Formas de salida (renuncia / no renovación / rescisión) con sus
         // causales activas, ayuda y reglas (módulo de Bajas).
@@ -874,6 +877,11 @@ const etiquetaFecha: Record<string, string> = {
                     </div>
                 </section>
 
+                <SolicitudEmpleoIngreso
+                    v-if="mostrar_solicitud_empleo"
+                    :colaborador-id="colaborador.id"
+                    @actualizado="refrescarDocumentos"
+                />
                 <DocumentosProceso
                     :key="`colaborador-${versionDocumentos}`"
                     tipo="colaborador"

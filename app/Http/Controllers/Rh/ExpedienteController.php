@@ -271,8 +271,14 @@ class ExpedienteController extends Controller
             ->when($request->string('fecha_fin')->toString(), fn ($query, string $valor) => $query->whereDate('fecha_ingreso', '<=', $valor));
     }
 
-    public function show(Request $request, Colaborador $colaborador): Response
+    public function show(Request $request, Colaborador $colaborador): Response|RedirectResponse
     {
+        // Su propio expediente sin permisos operativos de expediente: la
+        // vista de RH mezclaría los modos; su lugar es «Mi expediente».
+        if ($request->user()->colaborador_id === $colaborador->id && ! $this->alcance->puedeExplorarExpedientes($request->user())) {
+            return to_route('mi-expediente');
+        }
+
         return $this->renderExpediente($request, $colaborador, esPropio: false);
     }
 

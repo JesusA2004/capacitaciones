@@ -44,6 +44,8 @@ use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\Expedientes\DatosExpedienteService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Expedientes\ProgresoExpediente;
+use App\Services\Incorporacion\SolicitudEmpleo\PerfilIngresoService;
+use App\Services\Incorporacion\SolicitudEmpleo\RequisitoDocumentosIngresoService;
 use App\Services\Nomina\PrestamoAutorizacionService;
 use App\Services\Tareas\TareaService;
 use BackedEnum;
@@ -124,6 +126,10 @@ class DocumentoProcesoService
             $secciones[] = $this->seccionRenovacion($renovacion, $viewer);
         }
 
+        if (app(RequisitoDocumentosIngresoService::class)->aplicaSeccion($colaborador)) {
+            $secciones[] = $this->seccionIncorporacion($colaborador, $viewer);
+        }
+
         $aDemanda = $this->seccionADemanda($colaborador, $viewer);
 
         if ($aDemanda !== null) {
@@ -141,7 +147,9 @@ class DocumentoProcesoService
         $contrato->loadMissing('colaborador.puesto');
         $colaborador = $contrato->colaborador;
         $estado = $this->expediente->estadoDocumental($colaborador);
-        $bloqueo = $estado['completo'] ? null : sprintf('El expediente aún no está completo (%d de %d documentos obligatorios aprobados). Al aprobarse el último, aquí se habilita el paquete de contratación.', $estado['aprobados'], $estado['requeridos']);
+        $bloqueo = $estado['completo']
+            ? app(RequisitoDocumentosIngresoService::class)->bloqueoContrato($contrato)
+            : sprintf('El expediente aún no está completo (%d de %d documentos obligatorios aprobados). Al aprobarse el último, aquí se habilita el paquete de contratación.', $estado['aprobados'], $estado['requeridos']);
         $grupo = $colaborador->puesto?->grupo_documental;
         $items = [];
 
@@ -569,6 +577,43 @@ class DocumentoProcesoService
     }
 
     /**
+     * Solicitud de empleo y Estudio socioeconómico (incorporación): se
+     * generan con lo que la persona capturó en su registro; RH completa lo
+     * faltante en la sección «Solicitud de empleo» del alta. Sin bloqueo: la
+     * vista previa siempre está disponible y generar() responde 422
+     * DATOS_FALTANTES con la lista exacta si falta algo.
+     *
+     * @return array<string, mixed>
+     */
+    public function seccionIncorporacion(Colaborador $colaborador, User $viewer): array
+    {
+        $this->exigirVer($viewer, $colaborador);
+        $requisito = app(RequisitoDocumentosIngresoService::class);
+        $completitud = app(PerfilIngresoService::class)->completitud($colaborador);
+        $items = [];
+
+        foreach ($requisito->claves() as $clave) {
+            $documento = $completitud['documentos'][$clave] ?? null;
+            $items[] = $this->item($clave, $colaborador, $colaborador, $viewer, 'incorporacion', [
+                'motivo' => $documento === null || $documento['completo']
+                    ? 'Datos completos: revisa la vista previa y genéralo para imprimir y firmar.'
+                    : $documento['mensaje'],
+            ]);
+        }
+
+        return [
+            'proceso' => 'incorporacion',
+            'titulo' => 'Solicitud de empleo y estudio socioeconómico',
+            'descripcion' => sprintf('Se llenan con lo que la persona capturó en su registro (avance %d %%). Son obligatorios antes del contrato de contratación.', $completitud['porcentaje']),
+            'registro' => ['tipo' => 'colaborador', 'id' => $colaborador->id],
+            'colaborador' => $this->resumenColaborador($colaborador),
+            'bloqueo' => null,
+            'acciones' => [],
+            'documentos' => $items,
+        ];
+    }
+
+    /**
      * @return list<string>
      */
     private function clavesADemanda(): array
@@ -827,6 +872,12 @@ class DocumentoProcesoService
             }
 
             $sustituye = $existente;
+        }
+
+        // Solicitud de empleo / Estudio socioeconómico: nunca un PDF incompleto
+        // (422 DATOS_FALTANTES con la lista exacta de lo que falta capturar).
+        if ($proceso === 'incorporacion') {
+            app(PerfilIngresoService::class)->exigirCompleto($colaborador, $clave);
         }
 
         // Después de rechazar «ya generado»: una petición rechazada no escribe en el expediente.
@@ -1360,6 +1411,7 @@ class DocumentoProcesoService
             $registro instanceof EvaluacionPeriodoPrueba => $this->seccionEvaluacion($registro, $viewer),
             $registro instanceof EntregaActivo => $this->seccionEntregaActivo($registro, $viewer),
             $registro instanceof ActaAdministrativa => $this->seccionActa($registro, $viewer),
+            $registro instanceof Colaborador && $proceso === 'incorporacion' => $this->seccionIncorporacion($registro, $viewer),
             $registro instanceof Colaborador => $this->seccionADemanda($registro, $viewer),
             $registro instanceof ContratoLaboral && ($proceso === 'renovacion' || $registro->contrato_anterior_id !== null) => $this->seccionRenovacion($registro, $viewer),
             $registro instanceof ContratoLaboral => $this->seccionAlta($registro, $viewer),
@@ -1982,7 +2034,9 @@ class DocumentoProcesoService
                 ! CierreLaboral::query()->where('evaluacion_id', $registro->id)->exists() => 'Se genera con la no renovación: primero se abre el cierre laboral.',
                 default => null,
             },
-            $registro instanceof ContratoLaboral && $proceso === 'alta' => $this->expediente->estadoDocumental($registro->colaborador)['completo'] ? null : 'El expediente aún no está completo.',
+            $registro instanceof ContratoLaboral && $proceso === 'alta' => $this->expediente->estadoDocumental($registro->colaborador)['completo']
+                ? app(RequisitoDocumentosIngresoService::class)->bloqueoContrato($registro)
+                : 'El expediente aún no está completo.',
             default => null,
         };
     }
@@ -2002,6 +2056,7 @@ class DocumentoProcesoService
             $registro instanceof EvaluacionPeriodoPrueba => ['evaluacion_capacitacion'],
             $registro instanceof EntregaActivo => ['carta_responsiva'],
             $registro instanceof ActaAdministrativa => [$registro->tipo->clavePlantilla()],
+            $registro instanceof Colaborador && $proceso === 'incorporacion' => app(RequisitoDocumentosIngresoService::class)->claves(),
             $registro instanceof Colaborador => $this->clavesADemanda(),
             default => [],
         };

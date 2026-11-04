@@ -9,6 +9,7 @@ use App\Http\Requests\CicloLaboral\DecisionRequest;
 use App\Models\Colaborador;
 use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\SolicitudInterna;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Colaboradores\JerarquiaColaboradorService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
 use App\Services\Solicitudes\AprobacionOrganizacionalService;
@@ -30,13 +31,14 @@ class EquipoController extends Controller
         private readonly AprobacionJerarquicaService $aprobaciones,
         private readonly VistoBuenoService $vistoBueno,
         private readonly AprobacionOrganizacionalService $motor,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     public function index(Request $request): JsonResponse
     {
         $yo = $this->colaborador($request);
 
-        return response()->json(['data' => $this->jerarquia->subordinadosDirectos($yo)->map(fn (Colaborador $c) => $this->jerarquia->resumen($c))->values()]);
+        return response()->json(['data' => $this->jerarquia->subordinadosDirectos($yo)->map(fn (Colaborador $c) => $this->jerarquia->resumenCon($c, $request->user()))->values()]);
     }
 
     public function pendientes(Request $request): JsonResponse
@@ -48,7 +50,7 @@ class EquipoController extends Controller
         $abiertas = SolicitudInterna::query()
             ->where('estado', EstadoSolicitudInterna::Enviada->value)
             ->whereIn('tipo', (array) config('solicitudes.visto_bueno_jefe', []))
-            ->with(['colaborador:id,name,apellidos,numero_empleado,jefe_id,gerente_id,sucursal_principal_id', 'usuario.colaborador:id,name,apellidos,numero_empleado,jefe_id,gerente_id,sucursal_principal_id', 'aprobaciones'])
+            ->with(['colaborador:id,name,apellidos,numero_empleado,jefe_id,gerente_id,sucursal_principal_id,foto_path', 'usuario.colaborador:id,name,apellidos,numero_empleado,jefe_id,gerente_id,sucursal_principal_id,foto_path', 'aprobaciones'])
             ->orderBy('created_at')
             ->limit(500)
             ->get();
@@ -73,6 +75,7 @@ class EquipoController extends Controller
             'tipo_etiqueta' => $s->tipo->etiqueta(),
             'estado' => $s->estado->value,
             'colaborador' => $s->personaSolicitante()?->nombreCompleto(),
+            'colaborador_foto_url' => $s->personaSolicitante() !== null ? $this->fotos->urlApiPara($s->personaSolicitante(), $request->user()) : null,
             'fecha_inicio' => $s->fecha_inicio?->toDateString(),
             'fecha_fin' => $s->fecha_fin?->toDateString(),
             'monto_solicitado' => $s->monto_solicitado,
@@ -86,7 +89,7 @@ class EquipoController extends Controller
         $evaluaciones = EvaluacionPeriodoPrueba::query()
             ->whereIn('estado', [EstadoEvaluacionPrueba::Pendiente->value, EstadoEvaluacionPrueba::Devuelta->value])
             ->where(fn (Builder $q) => $q->where('evaluador_colaborador_id', $yo->id)->orWhereHas('colaborador', fn (Builder $c) => $c->where('jefe_id', $yo->id)))
-            ->with(['colaborador:id,name,apellidos,numero_empleado', 'contrato:id,fecha_fin'])
+            ->with(['colaborador:id,name,apellidos,numero_empleado,jefe_id,gerente_id,sucursal_principal_id,foto_path', 'contrato:id,fecha_fin'])
             ->orderBy('fecha_limite')
             ->get();
 
@@ -96,6 +99,7 @@ class EquipoController extends Controller
             'evaluaciones' => $evaluaciones->map(fn (EvaluacionPeriodoPrueba $e) => [
                 'id' => $e->id,
                 'colaborador' => $e->colaborador->nombreCompleto(),
+                'colaborador_foto_url' => $this->fotos->urlApiPara($e->colaborador, $request->user()),
                 'estado' => $e->estado->value,
                 'fecha_limite' => $e->fecha_limite?->toDateString(),
             ])->values(),

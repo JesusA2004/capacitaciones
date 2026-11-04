@@ -110,6 +110,9 @@ function rgCambiarSueldo(Colaborador $colaborador, int $mensual): void
 }
 
 beforeEach(function () {
+    // Estas pruebas cubren el contrato, no el requisito previo de Solicitud de
+    // Empleo y Estudio Socioeconómico (ver Incorporacion/SolicitudEmpleoTest).
+    config(['incorporacion.documentos_ingreso.exigir_antes_de_contrato' => false]);
     if (! is_dir(base_path('docs/formatos_fuente')) || glob(base_path('docs/formatos_fuente').'/*.docx') === []) {
         $this->markTestSkipped('Sin originales jurídicos en docs/formatos_fuente (no se versionan).');
     }

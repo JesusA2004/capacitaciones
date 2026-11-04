@@ -33,7 +33,7 @@ class VistaPreviaDocumentoRequest extends FormRequest
     {
         return [
             'clave' => [$this->routeIs('*.previa.documentos') ? 'nullable' : 'required', 'string', 'max:80', 'regex:/^[a-z0-9_]+$/'],
-            'proceso' => ['nullable', 'string', 'in:alta,renovacion,evaluacion,baja,negativa_firma,permiso,prestamo,activos,acta,expediente'],
+            'proceso' => ['nullable', 'string', 'in:alta,renovacion,evaluacion,baja,negativa_firma,permiso,prestamo,activos,acta,expediente,incorporacion'],
             'completar' => ['nullable', 'array', 'max:30'],
             'completar.*' => ['nullable', 'string', 'max:191'],
             'manuales' => ['nullable', 'array', 'max:20'],

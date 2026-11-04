@@ -22,7 +22,7 @@ function grColaborador(array $estructura, array $extra = []): Colaborador
 {
     $puesto = Puesto::factory()->create(['nombre' => 'Gestor', 'grupo_documental' => 'gestor', 'meses_periodo_prueba' => 3]);
 
-    $colaborador = clExpedienteCompleto(Colaborador::factory()->create([
+    $colaborador = clExpedienteCompleto(clDocumentosIngresoGenerados(Colaborador::factory()->create([
         'name' => 'Nancy Nallely',
         'apellidos' => 'López García',
         'estatus' => 'en_incorporacion',
@@ -53,7 +53,7 @@ function grColaborador(array $estructura, array $extra = []): Colaborador
         'beneficiario_nombre' => 'María García Ruiz',
         'beneficiario_parentesco' => 'Madre',
         ...$extra,
-    ]));
+    ])));
     User::factory()->create(['colaborador_id' => $colaborador->id]);
 
     return $colaborador;
@@ -101,7 +101,7 @@ test('RH y super_admin generan el paquete de un Gestor en incorporación por la 
     $this->postJson("/rh/documentos-proceso/contrato/{$contrato->id}/generar", ['clave' => 'contrato_capacitacion', 'proceso' => 'alta'])
         ->assertUnprocessable();
 
-    $generados = GeneratedDocument::query()->where('documentable_id', $contrato->id)->get();
+    $generados = GeneratedDocument::query()->whereMorphedTo('documentable', $contrato)->get();
     expect($generados)->toHaveCount(3);
 
     // Las fechas de los TRES documentos del paquete son la fecha de ingreso
@@ -128,7 +128,8 @@ test('sin fecha de ingreso: generar y previsualizar el contrato responden 422 pi
         ->assertUnprocessable()
         ->assertJsonValidationErrors('fecha_ingreso');
 
-    expect(GeneratedDocument::query()->count())->toBe(0);
+    // Los del contrato (la solicitud y el estudio socioeconómico ya existen).
+    expect(GeneratedDocument::query()->where('documentable_type', $contrato->getMorphClass())->count())->toBe(0);
 });
 
 test('regresión 500: con un nombre muy largo la ruta del NAS nunca pasa de 191 caracteres (MariaDB estricto)', function () {
@@ -145,7 +146,7 @@ test('regresión 500: con un nombre muy largo la ruta del NAS nunca pasa de 191 
     $this->postJson("/rh/documentos-proceso/contrato/{$contrato->id}/generar", ['clave' => 'contrato_capacitacion', 'proceso' => 'alta'])
         ->assertCreated();
 
-    $documento = GeneratedDocument::query()->where('documentable_id', $contrato->id)->firstOrFail();
+    $documento = GeneratedDocument::query()->whereMorphedTo('documentable', $contrato)->firstOrFail();
 
     expect(mb_strlen($documento->path))->toBeLessThanOrEqual(191)
         ->and(mb_strlen((string) $documento->docx_path))->toBeLessThanOrEqual(191)
@@ -165,7 +166,8 @@ test('regresión 500: si la BD rechaza el registro, responde 422 con un mensaje 
         ->assertUnprocessable()
         ->assertJsonPath('errors.documento.0', fn (string $m): bool => str_contains($m, 'No se pudo registrar') && str_contains($m, 'Sistemas'));
 
-    expect(GeneratedDocument::query()->count())->toBe(0)
+    // Los del contrato (la solicitud y el estudio socioeconómico ya existen).
+    expect(GeneratedDocument::query()->where('documentable_type', $contrato->getMorphClass())->count())->toBe(0)
         ->and(collect(Storage::disk(config('expedientes.disk'))->allFiles())->filter(fn (string $f): bool => str_contains($f, '/Contratos/'))->all())->toBe([]);
 });
 

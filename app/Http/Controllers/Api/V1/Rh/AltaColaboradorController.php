@@ -73,11 +73,11 @@ class AltaColaboradorController extends Controller
         return response()->json(['data' => $this->altas->checklist($colaborador, $request->user())]);
     }
 
-    public function jerarquia(Colaborador $colaborador): JsonResponse
+    public function jerarquia(Request $request, Colaborador $colaborador): JsonResponse
     {
         $this->authorize('verJerarquia', $colaborador);
 
-        return response()->json(['data' => $this->jerarquia->jerarquia($colaborador)]);
+        return response()->json(['data' => $this->jerarquia->jerarquia($colaborador, $request->user())]);
     }
 
     /**

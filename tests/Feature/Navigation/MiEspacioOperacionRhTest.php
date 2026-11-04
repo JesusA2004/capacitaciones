@@ -97,9 +97,7 @@ test('6) cambiar de modo persiste en cookie y el Inicio respeta el modo elegido'
     $this->actingAs($usuario)
         ->withUnencryptedCookie(NavigationService::nombreCookie(), 'colaborador')
         ->get(route('dashboard'))
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('Dashboard/Colaborador')
-            ->where('navegacion.modoActual', 'colaborador'));
+        ->assertRedirect(route('portal.index'));
 
     $this->actingAs($usuario)
         ->withUnencryptedCookie(NavigationService::nombreCookie(), 'operativo')

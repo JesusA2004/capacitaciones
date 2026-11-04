@@ -15,8 +15,9 @@ test('authenticated users with a valid role can visit the dashboard', function (
     $user->assignRole('colaborador');
     $this->actingAs($user);
 
-    $response = $this->get(route('dashboard'));
-    $response->assertOk();
+    // Modo colaborador: su inicio es /mi-portal (portal.index).
+    $this->get(route('dashboard'))->assertRedirect(route('portal.index'));
+    $this->followingRedirects()->get(route('dashboard'))->assertOk();
 });
 
 test('an authenticated user with no role (no operativo, no colaborador) gets 403 instead of a fake dashboard', function () {

@@ -200,7 +200,7 @@ class MiProcesoController extends Controller
     {
         $this->autorizarInduccion($request->user(), $avance);
 
-        return response()->json(['data' => $this->materialInduccion->datosParaColaborador($avance)]);
+        return response()->json(['data' => [...$this->materialInduccion->datosParaColaborador($avance), ...$this->induccionPdf->bloqueoVideo($avance)]]);
     }
 
     /**
@@ -214,6 +214,8 @@ class MiProcesoController extends Controller
         $this->autorizarInduccion($usuario, $avance);
         $recurso = $this->videoInduccion->recurso($avance);
         abort_unless($this->materialInduccion->videoListo($recurso), 422, 'El video de la inducción se está preparando. Vuelve a intentarlo en unos minutos.');
+        // Orden obligatorio: presentación completa → video (423 «presentacion_incompleta»).
+        $this->induccionPdf->exigirPresentacionParaVideo($avance);
 
         return response()->json(['data' => $this->videoInduccion->iniciarSesion($usuario, $avance)]);
     }

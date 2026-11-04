@@ -285,7 +285,11 @@ class DatosFaltantesService
         });
     }
 
-    private function solicitudAbierta(Colaborador $colaborador): bool
+    /**
+     * ¿Ya envió sus datos y RH los está revisando? (También lo usa
+     * ExpedienteIncompletoService: esa espera nunca bloquea la app.)
+     */
+    public function solicitudAbierta(Colaborador $colaborador): bool
     {
         return SolicitudInterna::query()
             ->where('colaborador_id', $colaborador->id)

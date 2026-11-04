@@ -129,13 +129,14 @@ test('fuera de la línea (Coordinadora): sin regla nueva, permiso y alcance como
         ->and($this->servicio->puedeAprobar($this->gs, $candidato))->toBeTrue();
 });
 
-test('psicométricas y socioeconómico no cambian: el responsable sigue siendo el de siempre', function () {
+test('psicométricas y socioeconómico no son del gerente (solo aprueba la entrevista): los revisa RH/Reclutamiento', function () {
     $candidato = ($this->candidatoA)('Subgerente');
     $candidato->update(['estado' => EstadoCandidato::RevisionPsicometricas]);
 
-    $claves = collect(app(CandidatoWorkflowService::class)->accionesPermitidas($candidato->fresh(), $this->gs))->pluck('clave');
+    $workflow = app(CandidatoWorkflowService::class);
 
-    expect($claves)->toContain('revisar_psicometricas');
+    expect(collect($workflow->accionesPermitidas($candidato->fresh(), $this->gs))->pluck('clave'))->not->toContain('revisar_psicometricas')
+        ->and(collect($workflow->accionesPermitidas($candidato->fresh(), $this->rh))->pluck('clave'))->toContain('revisar_psicometricas');
 });
 
 test('la cita de un Subgerente o Gerente avisa a sus aprobadores, no a la sucursal; la de un Gestor, a la sucursal', function () {

@@ -6,6 +6,7 @@ use App\Models\Puesto;
 use App\Models\TabuladorSalarial;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
+use App\Support\FechaMexico;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -59,7 +60,7 @@ class TabuladorSalarialService
             }
 
             $version = (int) TabuladorSalarial::query()->where('puesto_id', $puesto->id)->max('version') + 1;
-            $actual?->update(['vigente_hasta' => now()->toDateString()]);
+            $actual?->update(['vigente_hasta' => FechaMexico::hoy()]);
 
             $nueva = TabuladorSalarial::query()->create([
                 'puesto_id' => $puesto->id,
@@ -69,7 +70,7 @@ class TabuladorSalarialService
                 'maximo' => $maximo,
                 'fuente' => $datos['fuente'],
                 'fecha_actualizacion' => $datos['fecha_actualizacion'],
-                'vigente_desde' => now()->toDateString(),
+                'vigente_desde' => FechaMexico::hoy(),
                 'origen' => $origen,
                 'motivo' => $datos['motivo'] ?? null,
                 'importacion_id' => $importacionId,

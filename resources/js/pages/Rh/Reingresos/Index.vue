@@ -5,6 +5,7 @@ import { useDebounceFn } from '@vueuse/core';
 import { ref, watch } from 'vue';
 import AprobacionesResumen from '@/components/ciclo/AprobacionesResumen.vue';
 import Casilla from '@/components/Common/Casilla.vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -33,11 +34,18 @@ type Resultado = {
     fecha_baja: string | null;
     causa_salida: string | null;
     reingreso_abierto: boolean;
+    /** Foto oficial del expediente (URL protegida); null → iniciales. */
+    foto_url?: string | null;
 };
 
 type ReingresoFila = {
     id: number;
-    colaborador: { id: number; nombre: string; numero_empleado: string | null };
+    colaborador: {
+        id: number;
+        nombre: string;
+        numero_empleado: string | null;
+        foto_url?: string | null;
+    };
     estado: string;
     estado_etiqueta: string;
     motivo: string;
@@ -156,24 +164,35 @@ function enviarDecision(reingreso: ReingresoFila) {
                 :key="r.id"
                 class="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 text-sm"
             >
-                <div class="w-full min-w-0 sm:w-auto sm:flex-1">
-                    <p class="font-medium">
-                        {{ r.nombre }}
-                        <span class="text-xs text-[var(--mrl-texto-suave)]">{{
-                            r.numero_empleado
-                        }}</span>
-                    </p>
-                    <p class="text-xs text-[var(--mrl-texto-suave)]">
-                        {{ r.puesto ?? '—' }} · {{ r.sucursal ?? '—' }} · CURP
-                        {{ r.curp ?? '—' }}
-                    </p>
-                    <p v-if="r.dado_de_baja" class="text-xs">
-                        Baja {{ formatearFecha(r.fecha_baja) }} · causa:
-                        {{ r.causa_salida ?? 'sin registro' }}
-                    </p>
-                    <p v-else class="text-xs text-[var(--mrl-verde)]">
-                        Activo actualmente
-                    </p>
+                <div
+                    class="flex w-full min-w-0 items-center gap-3 sm:w-auto sm:flex-1"
+                >
+                    <ColaboradorAvatar
+                        :nombre="r.nombre"
+                        :foto-url="r.foto_url"
+                        tamano="md"
+                    />
+                    <div class="min-w-0">
+                        <p class="font-medium">
+                            {{ r.nombre }}
+                            <span
+                                class="text-xs text-[var(--mrl-texto-suave)]"
+                                >{{ r.numero_empleado }}</span
+                            >
+                        </p>
+                        <p class="text-xs text-[var(--mrl-texto-suave)]">
+                            {{ r.puesto ?? '—' }} · {{ r.sucursal ?? '—' }} ·
+                            CURP
+                            {{ r.curp ?? '—' }}
+                        </p>
+                        <p v-if="r.dado_de_baja" class="text-xs">
+                            Baja {{ formatearFecha(r.fecha_baja) }} · causa:
+                            {{ r.causa_salida ?? 'sin registro' }}
+                        </p>
+                        <p v-else class="text-xs text-[var(--mrl-verde)]">
+                            Activo actualmente
+                        </p>
+                    </div>
                 </div>
                 <Link
                     :href="cicloColaborador.url(r.id)"
@@ -307,6 +326,11 @@ function enviarDecision(reingreso: ReingresoFila) {
                     class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 text-sm"
                 >
                     <div class="flex flex-wrap items-center gap-2">
+                        <ColaboradorAvatar
+                            :nombre="r.colaborador.nombre"
+                            :foto-url="r.colaborador.foto_url"
+                            tamano="sm"
+                        />
                         <Link
                             :href="cicloColaborador.url(r.colaborador.id)"
                             class="font-medium hover:underline"

@@ -23,6 +23,7 @@ use App\Services\Reclutamiento\CampanaReclutamientoService;
 use App\Services\Reclutamiento\CostoReclutamientoService;
 use App\Services\Reclutamiento\ReporteCampanasService;
 use App\Services\Vacantes\VacantesListadoService;
+use App\Support\FechaMexico;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -304,7 +305,7 @@ class CampanaReclutamientoController extends Controller
         $costos = $this->costos;
         abort_unless($request->user()?->can('reclutamiento.campanas.ver') && $request->user()->can('reclutamiento.campanas.exportar'), 403);
         $desde = Carbon::parse($request->date('desde')?->toDateString() ?? now()->startOfMonth()->toDateString());
-        $hasta = Carbon::parse($request->date('hasta')?->toDateString() ?? now()->toDateString());
+        $hasta = Carbon::parse($request->date('hasta')?->toDateString() ?? FechaMexico::hoy());
         $resumen = $costos->resumen($desde, $hasta);
         $filas = array_map(fn (array $f) => [$f['nombre'], $f['puesto'], $f['sucursal'], $f['fuente'], $f['contratado_en'], $f['costo_directo'], $f['prorrateo_general'], $f['costo_total']], $costos->porContratado($desde, $hasta));
         $filas[] = ['TOTAL PERIODO (ANSI/SHRM)', null, null, null, null, $resumen['gasto_total'], $resumen['contrataciones'], $resumen['costo_por_contratacion']];

@@ -6,6 +6,7 @@ use App\Models\DocumentTemplate;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
 use App\Models\Empresa;
+use App\Models\GeneratedDocument;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
@@ -185,6 +186,26 @@ function clExpedienteCompleto(Colaborador $colaborador): Colaborador
             'user_id' => null,
             'colaborador_id' => $colaborador->id,
             'document_type_id' => $tipo->id,
+        ]);
+    }
+
+    return $colaborador;
+}
+
+/**
+ * Solicitud de empleo y Estudio socioeconómico ya generados (registro del
+ * documento, sin PDF): requisito del paquete de alta para personas en
+ * incorporación (RequisitoDocumentosIngresoService). Las pruebas del
+ * contrato que no tratan de esos formatos parten de aquí; la regla misma se
+ * prueba en tests/Feature/Incorporacion/SolicitudEmpleoTest.php.
+ */
+function clDocumentosIngresoGenerados(Colaborador $colaborador): Colaborador
+{
+    foreach (['solicitud_empleo', 'estudio_socioeconomico'] as $clave) {
+        GeneratedDocument::factory()->create([
+            'documentable_type' => $colaborador->getMorphClass(),
+            'documentable_id' => $colaborador->id,
+            'clave_plantilla' => $clave,
         ]);
     }
 

@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\V1\Rh;
 use App\Enums\EstadoUsuario;
 use App\Http\Controllers\Controller;
 use App\Models\Colaborador;
+use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Incorporacion\IncorporacionService;
 use App\Services\RhMobile\WorkflowService;
@@ -34,6 +36,7 @@ class IncorporacionController extends Controller
         private readonly IncorporacionService $incorporacion,
         private readonly WorkflowService $workflow,
         private readonly ExpedienteService $expediente,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -70,7 +73,7 @@ class IncorporacionController extends Controller
             'id' => "incorporacion:{$f['colaborador']->id}",
             'resource_id' => $f['colaborador']->id,
             'estado' => $f['estado'],
-            'colaborador' => $this->colaboradorResumen($f['colaborador']),
+            'colaborador' => $this->colaboradorResumen($f['colaborador'], $usuario),
             'creado_en' => $f['colaborador']->created_at?->toIso8601String(),
             'acciones_permitidas' => $this->workflow->paraIncorporacion($usuario, $f['colaborador'], $f['estado'])['acciones_permitidas'],
         ])->values();
@@ -93,9 +96,9 @@ class IncorporacionController extends Controller
 
         return response()->json([
             'data' => [
-                'colaborador' => $this->colaboradorResumen($colaborador),
+                'colaborador' => $this->colaboradorResumen($colaborador, $usuario),
                 'estado' => $estadoGeneral,
-                'progreso' => $this->incorporacion->progreso($this->incorporacion->tiposDocumento($colaborador), $this->expediente->documentosVigentes($colaborador)),
+                'progreso' => $this->incorporacion->progreso($this->incorporacion->tiposDocumento($colaborador), $this->expediente->documentosVigentes($colaborador), $colaborador),
                 'documentos' => $documentos,
                 'documentos_faltantes' => collect($documentos)->where('documento_id', null)->values(),
                 'documentos_rechazados' => collect($documentos)->whereIn('estado', ['rechazado', 'requiere_correccion'])->values(),
@@ -155,7 +158,7 @@ class IncorporacionController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function colaboradorResumen(Colaborador $colaborador): array
+    private function colaboradorResumen(Colaborador $colaborador, User $viewer): array
     {
         $colaborador->loadMissing(['sucursalPrincipal:id,nombre', 'puesto:id,nombre']);
 
@@ -165,6 +168,8 @@ class IncorporacionController extends Controller
             'numero_empleado' => $colaborador->numero_empleado,
             'puesto' => $colaborador->puesto?->nombre,
             'sucursal' => $colaborador->sucursalPrincipal?->nombre,
+            // Su fotografía para expediente (Bearer); null = iniciales.
+            'foto_url' => $this->fotos->urlApiPara($colaborador, $viewer),
         ];
     }
 }

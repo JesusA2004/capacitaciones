@@ -101,7 +101,7 @@ El sistema separa modo **colaborador** (portal personal) de modo **operativo** (
 | `/administracion/jerarquia-puestos` | Organigrama — estructura de puestos (`docs/ORGANIGRAMA.md`) |
 | `/administracion/matriz-comercial` | Organigrama — matriz territorial (regiones/zonas/rutas, `docs/ORGANIGRAMA.md`) |
 
-`/vacaciones` y `/rh/vacaciones` (módulo legacy, previo a la unificación) siguen respondiendo por compatibilidad pero ya no aparecen en el menú — usa `/solicitudes` y `/rh/solicitudes`.
+`/vacaciones` y `/rh/vacaciones` (módulo legacy, previo a la unificación) ya se retiraron de la web y responden 404 — usa `/solicitudes` (cualquier persona con colaborador vinculado pide ahí sus vacaciones, permisos y préstamos) y `/rh/solicitudes`. La app móvil conserva `/api/v1/vacaciones/*` solo por compatibilidad.
 
 Los 8 listados operativos (Vacantes, Candidatos, Altas digitales, Plantillas, Formatos,
 Solicitudes, Expedientes, Vacaciones) tienen filtros completos y botones "Excel"/"PDF"

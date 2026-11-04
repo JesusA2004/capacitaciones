@@ -9,6 +9,7 @@ use App\Http\Requests\Nomina\CambioMasivoRecibosRequest;
 use App\Models\Colaborador;
 use App\Models\ReciboNomina;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Flujos\ConstructorEnlaces;
 use App\Services\Flujos\SiguientePasoService;
 use App\Services\Nomina\NominaQuincenalService;
@@ -57,9 +58,10 @@ class NominaController extends Controller
         $colaboradorId = $request->integer('colaborador');
         $colaborador = $colaboradorId > 0 ? Colaborador::query()->whereKey($colaboradorId)->first() : null;
         $enlaces = app(ConstructorEnlaces::class);
+        $fotos = app(FotoColaboradorService::class);
 
         $pagina = (clone $base)
-            ->with(['colaborador' => fn ($c) => $c->select('id', 'name', 'apellidos', 'numero_empleado', 'sucursal_principal_id', 'puesto_id'), 'colaborador.sucursalPrincipal:id,nombre', 'colaborador.puesto:id,nombre'])
+            ->with(['colaborador' => fn ($c) => $c->select('id', 'name', 'apellidos', 'numero_empleado', 'sucursal_principal_id', 'puesto_id', 'foto_path', 'jefe_id', 'gerente_id'), 'colaborador.sucursalPrincipal:id,nombre', 'colaborador.puesto:id,nombre'])
             ->when($colaboradorId > 0, fn ($query) => $query->where('colaborador_id', $colaboradorId))
             ->when(in_array($estado, ['borrador', 'emitido'], true), fn ($query) => $query->where('estado', $estado))
             ->when($q !== '', fn ($query) => app(BuscadorColaboradoresService::class)->aplicarPorColumna($query, $q))
@@ -75,6 +77,7 @@ class NominaController extends Controller
                     'sucursal' => $r->colaborador->sucursalPrincipal?->nombre,
                     'puesto' => $r->colaborador->puesto?->nombre,
                     'expediente_url' => $enlaces->expediente($usuario, $r->colaborador, 'recibos'),
+                    'foto_url' => $fotos->urlPara($r->colaborador, $usuario),
                 ],
                 'pdf_url' => $r->pdf_path !== null && $usuario->can('nomina.recibos.descargar') ? route('rh.nomina.recibos.pdf', $r) : null,
                 'reparar_url' => $r->estado === EstadoReciboNomina::Emitido && $usuario->can('regenerar', $r) ? route('rh.nomina.recibos.reparar-pdf', $r) : null,

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\CicloLaboral;
 
 use App\Enums\FormaPagoFiniquito;
+use App\Support\FechaMexico;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,7 +25,7 @@ class EntregaFiniquitoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'fecha' => ['required', 'date', 'before_or_equal:today'],
+            'fecha' => ['required', 'date', 'before_or_equal:'.FechaMexico::hoy()],
             'forma_pago' => ['nullable', Rule::enum(FormaPagoFiniquito::class)],
             'comentario' => ['nullable', 'string', 'max:500'],
         ];

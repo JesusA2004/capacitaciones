@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Reclutamiento;
 
+use App\Support\FechaMexico;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\UploadedFile;
 
@@ -22,7 +23,7 @@ class ResultadoSocioeconomicoAgendaRequest extends FormRequest
             'resultado' => ['required', 'in:favorable,no_favorable'],
             'comentario' => ['nullable', 'string', 'max:2000'],
             'direccion' => ['nullable', 'string', 'max:300'],
-            'fecha_visita' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:today'],
+            'fecha_visita' => ['nullable', 'date_format:Y-m-d', 'before_or_equal:'.FechaMexico::hoy()],
             ...ReglasArchivosCandidato::para('evidencias', ['video', 'foto', 'documento'], true),
         ];
     }

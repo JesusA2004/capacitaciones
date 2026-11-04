@@ -3,6 +3,7 @@
 use App\Enums\TipoReapertura;
 use App\Http\Controllers\Rh\ActaController;
 use App\Http\Controllers\Rh\AltaDigitalController;
+use App\Http\Controllers\Rh\AvisoAltaSistemasController;
 use App\Http\Controllers\Rh\CambioFotoController;
 use App\Http\Controllers\Rh\CampanaReclutamientoController;
 use App\Http\Controllers\Rh\CandidatoController;
@@ -341,6 +342,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('{candidato}/devolver', [CandidatoController::class, 'devolverRh'])->name('devolver');
             Route::post('{candidato}/descartar', [CandidatoController::class, 'descartar'])->name('descartar');
             Route::post('{candidato}/contratacion', [CandidatoController::class, 'iniciarContratacion'])->name('contratacion');
+            // Reenvío manual del correo «Alta para asignar usuarios» a Sistemas.
+            Route::post('{candidato}/aviso-sistemas/reenviar', [AvisoAltaSistemasController::class, 'reenviar'])->name('aviso-sistemas.reenviar');
             // Intervención por jerarquía sobre un rechazo de RH (CLAUDE.md
             // §10-11): el gerente solicita, Regional o Dirección Comercial
             // decide — nunca otra fase del kanban.

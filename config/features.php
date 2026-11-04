@@ -88,6 +88,18 @@ return [
     'realtime_web' => (bool) env('VITE_REVERB_ENABLED', false),
 
     /*
+    | «Modo completar expediente» de la app (ExpedienteIncompletoService +
+    | middleware expediente.completo): al colaborador con datos personales
+    | requeridos sin capturar o documentos requeridos SIN SUBIR (o rechazados)
+    | se le bloquea el AUTOSERVICIO (solicitudes, vacaciones, préstamos,
+    | recibos…) con 423 «expediente_incompleto» hasta completarlo. Documentos
+    | ya subidos en revisión de RH no bloquean. Nunca bloquea acciones de modo
+    | operativo (aprobar, equipo, RH). Solo a la app que manda X-People-Expediente.
+    | Ver docs/FEATURE_FLAGS.md.
+    */
+    'bloqueo_expediente_incompleto' => (bool) env('BLOQUEO_EXPEDIENTE_INCOMPLETO', true),
+
+    /*
     |--------------------------------------------------------------------------
     | Datos de demostración
     |--------------------------------------------------------------------------
