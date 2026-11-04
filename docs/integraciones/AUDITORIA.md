@@ -55,6 +55,10 @@ Los datos sirven únicamente para imprimir el acta de constancia de auditoría (
 - Servicios: `app/Services/Integraciones/Auditoria/ColaboradoresAuditoriaService.php` (v1), `ContextoActaAuditoriaService.php` (v2).
 - Pruebas: `tests/Feature/Integraciones/AuditoriaIntegracionApiTest.php` (v1) y `AuditoriaActaIntegracionApiTest.php` (v2: cliente permitido, token Sanctum rechazado, sin habilidad 403, otra empresa invisible, campos prohibidos ausentes, domicilio legado sin partir, responsable sin persona o de baja).
 
+## Diagnóstico del acta (sólo lectura)
+
+`php artisan auditoria:diagnosticar-acta --sucursal=<id|clave> --colaborador=<id|número de empleado> [--mostrar]` (opciones repetibles; `DiagnosticoActaAuditoriaService`). Por cada dato del acta (sucursal: dirección, colonia, municipio, ciudad, estado, C.P., responsable; persona: fecha de nacimiento, domicilio texto, calle, exterior, interior, colonia, municipio, estado, C.P., puesto, gerente, clave de elector registrada) imprime la tabla/columna de origen, si existe en la base (sí/no + longitud) y si la respuesta v2 que recibe Auditoría lo trae (resuelta con el cliente `auditoria` real, sin red). Señala además fuentes que **no** son autoridad del acta (texto legado en `users.domicilio`, alta digital, sugerencias OCR sin revisar) para capturarlas en el expediente. Nunca escribe; sin `--mostrar` no imprime valores, y la clave de elector nunca. La contraparte en Auditoría es `php artisan people:contexto-acta --diagnosticar=<folio>`.
+
 ## Despliegue
 
 1. Desplegar People (sin migraciones nuevas; no requiere cambios de `.env`).
