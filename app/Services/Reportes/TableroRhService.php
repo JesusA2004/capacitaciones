@@ -165,7 +165,7 @@ class TableroRhService
             'inversion' => $campanas,
             'permanencia' => $expedientes,
             'contratos' => $contratos,
-            'incompletos' => $expedientes,
+            'incompletos' => $ruta($this->alcance->puedeExplorarExpedientes($usuario), 'rh.expedientes.index', ['datos' => 'incompletos', ...$porSucursal]),
             'vencidos' => $ruta($usuario->canAny(PendienteController::PERMISOS_ACCESO), 'rh.pendientes.index'),
         ];
     }
@@ -290,10 +290,11 @@ class TableroRhService
                     ->count(),
                 'contratados_mes' => $contratados->count(),
             ],
+            // Misma fuente y permiso que la lista que abre su enlace
+            // (Expedientes → «Datos incompletos»): un gerente que ve faltantes
+            // en esa lista ya no lee «Nada urgente» en su Inicio.
             'expedientes_incompletos' => [
-                'valor' => $usuario->can('expedientes.revisar')
-                    ? $this->datosFaltantes->filtrarIncompletos($this->colaboradores($sucursales)->where('estatus', EstadoUsuario::Activo->value))->count()
-                    : null,
+                'valor' => $this->datosFaltantes->conteoIncompletosVisible($usuario, $todas ? null : $sucursales),
             ],
         ];
     }

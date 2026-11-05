@@ -385,8 +385,11 @@ const sucursalesCobertura = computed(() => {
                     v-else
                     class="rounded-xl bg-success-soft px-3 py-2 text-sm font-medium text-success"
                 >
-                    Nada urgente: sin vencidos, contratos por vencer ni
-                    expedientes incompletos.
+                    {{
+                        tablero.summary.expedientes_incompletos.valor === null
+                            ? 'Nada urgente: sin pendientes vencidos ni contratos por vencer.'
+                            : 'Nada urgente: sin vencidos, contratos por vencer ni expedientes incompletos.'
+                    }}
                 </p>
             </nav>
 

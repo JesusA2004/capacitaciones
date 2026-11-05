@@ -23,6 +23,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 /**
@@ -417,6 +418,18 @@ class VacacionesService
         }
 
         return DB::transaction(function () use ($solicitud, $actor, $nuevoEstado, $motivoRechazo): SolicitudVacaciones {
+            // Doble envío (doble toque o reintento de la app): se revalida con
+            // la fila bloqueada. Repetir la MISMA decisión no vuelve a
+            // guardarla ni a avisar; un superior sí puede cambiarla (ver
+            // AutoridadJerarquicaService arriba).
+            $vigente = SolicitudVacaciones::query()->whereKey($solicitud->getKey())->lockForUpdate()->firstOrFail();
+
+            if ($vigente->estado === $nuevoEstado) {
+                throw ValidationException::withMessages([
+                    'estado' => sprintf('Esta solicitud de vacaciones ya está «%s»: alguien más (o un envío repetido) ya la atendió. Recarga para ver su estado actual.', $nuevoEstado->etiqueta()),
+                ]);
+            }
+
             $datos = [
                 'estado' => $nuevoEstado,
                 'revisado_por' => $actor->id,

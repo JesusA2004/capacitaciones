@@ -76,7 +76,7 @@ class DashboardController extends Controller
             'vencidos' => (int) $conteos['vencidas'],
             'indicadores' => [
                 ...$this->tablero->inicio($usuario),
-                'expedientes_incompletos' => $usuario->can('expedientes.revisar') ? $this->datosFaltantes->conteoIncompletos($usuario) : null,
+                'expedientes_incompletos' => $this->datosFaltantes->conteoIncompletosVisible($usuario),
             ],
         ];
     }

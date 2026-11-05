@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Tareas\NotificadorRhService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -249,11 +250,32 @@ class DatosFaltantesService
 
     /**
      * Cuántos colaboradores ACTIVOS del alcance tienen algún dato
-     * contractual vacío (para «Mis pendientes»).
+     * contractual vacío (atajo de «Mis pendientes» y tablero de Inicio).
+     * Misma consulta que la lista a la que llevan esos números
+     * (rh.expedientes.index?datos=incompletos: alcance del módulo
+     * Expedientes, solo activos), para que la cifra y la lista nunca se
+     * contradigan. `$sucursales` acota al filtro del tablero.
+     *
+     * @param  Collection<int, int>|null  $sucursales
      */
-    public function conteoIncompletos(User $usuario): int
+    public function conteoIncompletos(User $usuario, ?Collection $sucursales = null): int
     {
-        return $this->filtrarIncompletos($this->alcance->limitarColaboradoresPorAlcance(Colaborador::query()->where('estatus', EstadoUsuario::Activo->value), $usuario))->count();
+        $consulta = $this->alcance->limitarExpedientesPorAlcance(Colaborador::query()->where('estatus', EstadoUsuario::Activo->value), $usuario)
+            ->when($sucursales !== null, fn (Builder $q) => $q->whereIn('sucursal_principal_id', $sucursales ?? []));
+
+        return $this->filtrarIncompletos($consulta)->count();
+    }
+
+    /**
+     * Indicador «Expedientes incompletos» del tablero: lo ve quien puede abrir
+     * la lista de expedientes (mismo permiso que su enlace); null = no aplica
+     * a esta cuenta (la UI muestra «—» y no afirma que no haya incompletos).
+     *
+     * @param  Collection<int, int>|null  $sucursales
+     */
+    public function conteoIncompletosVisible(User $usuario, ?Collection $sucursales = null): ?int
+    {
+        return $this->alcance->puedeExplorarExpedientes($usuario) ? $this->conteoIncompletos($usuario, $sucursales) : null;
     }
 
     /**
