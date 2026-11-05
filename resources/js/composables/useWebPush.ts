@@ -18,6 +18,9 @@ const RUTA_SW = '/sw.js';
 // activación: un solo registro del Service Worker por pestaña.
 const permiso = ref<NotificationPermission | 'no-soportado'>('default');
 const suscrito = ref(false);
+// «Desactivar» en esta pestaña: el permiso del navegador sigue concedido,
+// pero la suscripción se quitó a petición del usuario.
+const desactivado = ref(false);
 const procesando = ref(false);
 let registroSw: Promise<ServiceWorkerRegistration | null> | null = null;
 
@@ -121,7 +124,12 @@ export function useWebPush() {
             return permiso.value === 'granted' ? 'activo' : 'pendiente';
         }
 
-        return permiso.value === 'granted' && suscrito.value
+        // Con el permiso concedido ya está activado: si el registro de la
+        // suscripción en el servidor falla o tarda, los avisos siguen
+        // llegando con PEOPLE abierto y `sincronizar` lo reintenta al cargar
+        // la siguiente página. Nunca se vuelve a pedir «Activar».
+        return permiso.value === 'granted' &&
+            (suscrito.value || !desactivado.value)
             ? 'activo'
             : 'pendiente';
     });
@@ -186,11 +194,17 @@ export function useWebPush() {
                 return false;
             }
 
+            desactivado.value = false;
+
             if (modoLocal.value) {
                 return true;
             }
 
-            return await suscribirEnNavegador();
+            // El permiso ya quedó concedido: aunque falle el registro en el
+            // servidor, se considera activado (se reintenta en `sincronizar`).
+            await suscribirEnNavegador().catch(() => false);
+
+            return true;
         } catch {
             return false;
         } finally {
@@ -210,6 +224,7 @@ export function useWebPush() {
         }
 
         suscrito.value = false;
+        desactivado.value = true;
     }
 
     async function probar(): Promise<void> {
@@ -233,7 +248,11 @@ export function useWebPush() {
      * el mismo navegador y llaves VAPID nuevas). Nunca pide permiso solo.
      */
     async function sincronizar(): Promise<void> {
-        if (!soportado() || Notification.permission !== 'granted') {
+        if (
+            !soportado() ||
+            Notification.permission !== 'granted' ||
+            desactivado.value
+        ) {
             return;
         }
 
