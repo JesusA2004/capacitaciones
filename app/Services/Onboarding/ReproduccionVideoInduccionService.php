@@ -6,6 +6,7 @@ use App\Models\IntervaloVideoInduccion;
 use App\Models\OnboardingAvance;
 use App\Models\RecursoMultimedia;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
@@ -115,18 +116,48 @@ class ReproduccionVideoInduccionService
     {
         $alcanzado = $this->segundoMaximoAlcanzado($usuario, $avance);
         $ancla = (int) ($video['ultima_posicion'] ?? $alcanzado);
-        $ultimoHeartbeat = $video['ultimo_heartbeat_en'] ?? null;
-
-        $transcurrido = is_string($ultimoHeartbeat)
-            ? max(0.0, Carbon::parse($ultimoHeartbeat)->diffInSeconds(now(), false))
-            : (float) config('media.video.heartbeat_seconds');
-
-        $velocidad = max(1.0, (float) config('media.video.playback_rate'));
 
         return max(
             $alcanzado + $this->tolerancia(),
-            $ancla + (int) ceil($transcurrido * $velocidad) + $this->tolerancia(),
+            $ancla + $this->segundosAcreditables($video) + $this->tolerancia(),
         );
+    }
+
+    /**
+     * Segundos de video que el reloj del servidor permite acreditar desde el
+     * último heartbeat. Con tope de 3 heartbeats: esperar sin reproducir (o
+     * dejar la pestaña abierta) no «ahorra» tiempo para marcar el video de un
+     * solo golpe.
+     *
+     * @param  array<string, mixed>  $video
+     */
+    private function segundosAcreditables(array $video): int
+    {
+        return (int) floor($this->transcurridoTopado($video) * $this->velocidad());
+    }
+
+    /** @param  array<string, mixed>  $video */
+    private function transcurridoTopado(array $video): float
+    {
+        $tope = 3.0 * (float) config('media.video.heartbeat_seconds');
+        $ultimoHeartbeat = $video['ultimo_heartbeat_en'] ?? null;
+
+        if (! is_string($ultimoHeartbeat)) {
+            return $tope;
+        }
+
+        return min($tope, max(0.0, Carbon::parse($ultimoHeartbeat)->diffInSeconds(now(), false)));
+    }
+
+    private function velocidad(): float
+    {
+        return max(1.0, (float) config('media.video.playback_rate'));
+    }
+
+    /** Marca de tiempo con microsegundos: el tiempo no acreditado se arrastra al siguiente heartbeat. */
+    private function marcaTiempo(CarbonInterface $momento): string
+    {
+        return $momento->format('Y-m-d\TH:i:s.uP');
     }
 
     public function porcentajeVisto(User $usuario, OnboardingAvance $avance): float
@@ -196,18 +227,34 @@ class ReproduccionVideoInduccionService
         }
 
         $ancla = (int) ($video['ultima_posicion'] ?? $this->segundoMaximoAlcanzado($usuario, $avance));
-        $inicioTramo = min($ancla, $posicionReportada);
-        $finTramo = max($ancla, $posicionReportada);
+        $ahora = now();
 
-        if ($finTramo > $inicioTramo) {
-            $this->fusionarTramo($usuario, $avance, $inicioTramo, $finTramo);
+        if ($posicionReportada > $ancla) {
+            // Solo se acredita lo que el reloj del servidor permite (la
+            // tolerancia acepta la posición, pero NO cuenta como visto): varios
+            // heartbeats seguidos sin que pase tiempo no suman nada. El ancla y
+            // el reloj avanzan exactamente lo acreditado, así el tiempo sobrante
+            // (o la posición adelantada dentro de la tolerancia) se acredita en
+            // el siguiente heartbeat, sin huecos en la reproducción normal.
+            $credito = min($posicionReportada - $ancla, $this->segundosAcreditables($video));
+            $inicioReloj = $ahora->copy()->subMicroseconds((int) round($this->transcurridoTopado($video) * 1_000_000));
+            $nuevaAncla = $ancla + $credito;
+            $nuevoReloj = $inicioReloj->addMicroseconds((int) round($credito / $this->velocidad() * 1_000_000));
+
+            if ($credito > 0) {
+                $this->fusionarTramo($usuario, $avance, $ancla, $nuevaAncla);
+            }
+        } else {
+            // Retrocedió o sigue en el mismo punto (pausa/buffering): nada nuevo que acreditar.
+            $nuevaAncla = $posicionReportada;
+            $nuevoReloj = $ahora;
         }
 
         $porcentaje = $this->porcentajeVisto($usuario, $avance);
         $completada = $this->videoCompletado($avance);
         $cambios = [
-            'ultima_posicion' => $posicionReportada,
-            'ultimo_heartbeat_en' => now()->toIso8601String(),
+            'ultima_posicion' => $nuevaAncla,
+            'ultimo_heartbeat_en' => $this->marcaTiempo($nuevoReloj),
             'segundo_max' => max((int) ($video['segundo_max'] ?? 0), $this->segundoMaximoAlcanzado($usuario, $avance)),
             'porcentaje' => $porcentaje,
         ];

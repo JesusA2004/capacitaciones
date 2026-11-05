@@ -224,6 +224,9 @@ class MiProcesoController extends Controller
     {
         $usuario = $request->user();
         $this->autorizarInduccion($usuario, $avance);
+        // Mismo orden que «iniciar»: sin esto, un heartbeat directo marcaba el
+        // video como iniciado y saltaba el bloqueo de la presentación.
+        $this->induccionPdf->exigirPresentacionParaVideo($avance);
         $datos = $request->validate(['posicion_segundos' => ['required', 'integer', 'min:0']]);
 
         return response()->json(['data' => $this->videoInduccion->registrarHeartbeat($usuario, $avance, (int) $datos['posicion_segundos'])]);

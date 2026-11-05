@@ -66,6 +66,9 @@ class InduccionReproduccionController extends Controller
         $usuario = $request->user();
         $this->autorizar($usuario, $avance);
         $this->exigirVideo($avance);
+        // Mismo orden que «iniciar»: sin esto, un heartbeat directo marcaba el
+        // video como iniciado y saltaba el bloqueo de la presentación.
+        $this->induccionPdf->exigirPresentacionParaVideo($avance);
 
         $datos = $request->validate([
             'posicion_segundos' => ['required', 'integer', 'min:0'],

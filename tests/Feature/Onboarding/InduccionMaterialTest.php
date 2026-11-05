@@ -119,6 +119,7 @@ test('orden obligatorio: quien ya empezó el video no se bloquea retroactivament
     $this->materiales->activar($this->modulo, imVideo($this, 100), $this->rh);
     imPresentacionCompleta($this->avance);
     $this->video->iniciarSesion($this->usuario, $this->avance->refresh());
+    $this->travel(5)->seconds(); // el servidor solo acredita el tiempo real transcurrido
     $this->video->registrarHeartbeat($this->usuario, $this->avance->refresh(), 5);
 
     // Datos previos a la regla (solo una hoja vista): sigue pudiendo ver el video.
@@ -188,6 +189,7 @@ test('material video: terminar (y habilitar evaluación) solo tras ver el video 
     // Ver el video completo (incremental, respetando el límite de avance).
     $this->video->iniciarSesion($this->usuario, $this->avance->refresh());
     foreach ([5, 10] as $pos) {
+        $this->travel(5)->seconds(); // el servidor solo acredita el tiempo real transcurrido
         $this->video->registrarHeartbeat($this->usuario, $this->avance->refresh(), $pos);
     }
 
@@ -230,6 +232,7 @@ test('refresh: la 2a reproducción retoma en el máximo alcanzado (no reinicia n
     $this->video->iniciarSesion($this->usuario, $this->avance->refresh());
 
     foreach ([5, 10, 15, 20] as $pos) {
+        $this->travel(5)->seconds(); // el servidor solo acredita el tiempo real transcurrido
         $this->video->registrarHeartbeat($this->usuario, $this->avance->refresh(), $pos);
     }
 
@@ -360,4 +363,64 @@ test('heartbeat: un salto grande no cuenta como visto ni marca el video completo
         ->and($respuesta['posicion_permitida'])->toBeLessThanOrEqual(8 + (int) config('media.video.salto_tolerancia_segundos'))
         ->and($this->video->videoCompletado($this->avance->refresh()))->toBeFalse()
         ->and($this->video->segundoMaximoAlcanzado($this->usuario, $this->avance->refresh()))->toBe(8);
+});
+
+test('heartbeat: muchos reportes seguidos sin que pase tiempo no acreditan video', function () {
+    $this->materiales->activar($this->modulo, imVideo($this, 1200), $this->rh);
+    $this->video->iniciarSesion($this->usuario, $this->avance->refresh());
+
+    // Abuso directo a la API: +5 s por petición con el reloj detenido.
+    foreach (range(1, 40) as $i) {
+        $this->video->registrarHeartbeat($this->usuario, $this->avance->refresh(), $i * 5);
+    }
+
+    expect($this->video->segundoMaximoAlcanzado($this->usuario, $this->avance->refresh()))->toBe(0)
+        ->and($this->video->porcentajeVisto($this->usuario, $this->avance->refresh()))->toBe(0.0);
+});
+
+test('heartbeat: esperar sin reproducir y mandar un solo reporte no marca el video completo', function () {
+    $this->materiales->activar($this->modulo, imVideo($this, 1200), $this->rh);
+    $this->video->iniciarSesion($this->usuario, $this->avance->refresh());
+
+    $this->travel(20)->minutes();
+    $respuesta = $this->video->registrarHeartbeat($this->usuario, $this->avance->refresh(), 1200);
+
+    expect($respuesta['permitido'])->toBeFalse()
+        ->and($respuesta['completada'])->toBeFalse()
+        ->and($this->video->videoCompletado($this->avance->refresh()))->toBeFalse();
+});
+
+test('heartbeat: la tolerancia acepta la posición pero solo acredita el tiempo real, sin huecos', function () {
+    $this->materiales->activar($this->modulo, imVideo($this, 1200), $this->rh);
+    $this->video->iniciarSesion($this->usuario, $this->avance->refresh());
+
+    // Reporta 5 s adelantado dentro de la tolerancia: se acepta, pero solo cuentan los 8 s reales.
+    $this->travel(8)->seconds();
+    expect($this->video->registrarHeartbeat($this->usuario, $this->avance->refresh(), 13)['permitido'])->toBeTrue()
+        ->and($this->video->segundoMaximoAlcanzado($this->usuario, $this->avance->refresh()))->toBe(8);
+
+    // Al seguir reproduciendo, el tramo continúa desde lo acreditado.
+    $this->travel(8)->seconds();
+    $this->video->registrarHeartbeat($this->usuario, $this->avance->refresh(), 21);
+    $this->travel(8)->seconds();
+    $this->video->registrarHeartbeat($this->usuario, $this->avance->refresh(), 29);
+
+    expect($this->video->segundoMaximoAlcanzado($this->usuario, $this->avance->refresh()))->toBe(24)
+        ->and(IntervaloVideoInduccion::query()->where('onboarding_avance_id', $this->avance->id)->count())->toBe(1);
+});
+
+test('heartbeat HTTP sin terminar la presentación responde 423 y no abre el video', function () {
+    $this->materiales->activar($this->modulo, imVideo($this, 100), $this->rh);
+
+    $this->actingAs($this->usuario)
+        ->postJson(route('portal.induccion.video.heartbeat', $this->avance), ['posicion_segundos' => 5])
+        ->assertStatus(423)
+        ->assertJsonPath('code', 'presentacion_incompleta');
+
+    expect($this->video->videoIniciado($this->avance->refresh()))->toBeFalse();
+
+    // Tras el intento, «iniciar» sigue bloqueado.
+    $this->actingAs($this->usuario)
+        ->postJson(route('portal.induccion.video.iniciar', $this->avance))
+        ->assertStatus(423);
 });

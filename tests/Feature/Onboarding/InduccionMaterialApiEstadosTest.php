@@ -192,6 +192,7 @@ test('reinducción solo video: el avance de RH sube con el video a medias (no «
     $video = app(ReproduccionVideoInduccionService::class);
     $video->iniciarSesion($persona, $avance);
     foreach ([5, 10, 15, 20, 25, 30, 35, 40, 45, 50] as $pos) {
+        $this->travel(5)->seconds(); // el servidor solo acredita el tiempo real transcurrido
         $video->registrarHeartbeat($persona, $avance->refresh(), $pos);
     }
 
@@ -204,6 +205,7 @@ test('reinducción solo video: el avance de RH sube con el video a medias (no «
 
     // Completo: el paso del video queda hecho (1 de 3).
     foreach ([55, 60, 65, 70, 75, 80, 85, 90, 95, 100] as $pos) {
+        $this->travel(5)->seconds(); // el servidor solo acredita el tiempo real transcurrido
         $video->registrarHeartbeat($persona, $avance->refresh(), $pos);
     }
     $completo = $progreso->resumen($activo->refresh());
