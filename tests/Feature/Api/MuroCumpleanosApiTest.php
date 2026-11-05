@@ -181,7 +181,10 @@ test('un colaborador dado de baja no participa en el muro', function () {
     $baja = colaboradorMuro();
     $baja->colaborador->forceFill(['estatus' => EstadoUsuario::Inactivo->value])->save();
 
-    $this->withHeaders(bearerMuro($baja))->getJson('/api/v1/cumpleanos/muros')->assertForbidden();
+    // La cuenta inactiva ya no puede usar su token: se revoca y la app recibe 401
+    // (RevocarTokenCuentaInactiva), en vez de seguir navegando con 403 por módulo.
+    $this->withHeaders(bearerMuro($baja))->getJson('/api/v1/cumpleanos/muros')->assertUnauthorized();
+    expect($baja->tokens()->count())->toBe(0);
 });
 
 test('el detalle rh incluye el estado del muro', function () {
