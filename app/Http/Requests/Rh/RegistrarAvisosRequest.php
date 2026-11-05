@@ -3,6 +3,8 @@
 namespace App\Http\Requests\Rh;
 
 use App\Models\Colaborador;
+use App\Models\User;
+use App\Services\AlcanceOrganizacionalService;
 use Illuminate\Foundation\Http\FormRequest;
 
 class RegistrarAvisosRequest extends FormRequest
@@ -10,13 +12,20 @@ class RegistrarAvisosRequest extends FormRequest
     public function authorize(): bool
     {
         $colaborador = $this->route('colaborador');
-        $colaboradorId = $colaborador instanceof Colaborador ? $colaborador->id : null;
+        $usuario = $this->user();
 
-        if ($this->user()?->colaborador_id === $colaboradorId) {
-            return $this->user()->can('expedientes.ver');
+        if (! $colaborador instanceof Colaborador || ! $usuario instanceof User) {
+            return false;
         }
 
-        return $this->user()?->can('expedientes.editar') ?? false;
+        // La persona acepta sus propios avisos desde Mi expediente.
+        if ($usuario->colaborador_id === $colaborador->id) {
+            return $usuario->can('expedientes.ver');
+        }
+
+        // RH los registra por otra persona, solo dentro de su alcance.
+        return $usuario->can('expedientes.editar')
+            && app(AlcanceOrganizacionalService::class)->puedeVerExpediente($usuario, $colaborador);
     }
 
     /**

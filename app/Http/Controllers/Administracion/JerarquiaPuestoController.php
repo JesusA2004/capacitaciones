@@ -39,6 +39,9 @@ class JerarquiaPuestoController extends Controller
         $this->authorize('viewAny', Puesto::class);
 
         $usuario = $request->user();
+        // El organigrama (con ocupantes) es de organigrama.ver, igual que su
+        // entrada del menú; puestos.administrar solo abre el catálogo de puestos.
+        abort_unless($usuario->can('organigrama.ver'), 403);
         $puestos = $this->jerarquia->arbol($request);
         $this->jerarquia->agregarOcupantes($puestos, $usuario, $request);
         // Editar el organigrama (coberturas, Q1/Q3, subir/bajar/mover): solo

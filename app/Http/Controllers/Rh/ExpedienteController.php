@@ -687,6 +687,25 @@ class ExpedienteController extends Controller
             && $this->alcance->puedeVerExpediente($usuario, $colaborador);
     }
 
+    /**
+     * Confirmar la entrega o registrar abonos de un préstamo: RH
+     * (expedientes.editar) con alcance sobre el colaborador y nunca sobre
+     * su propio préstamo — mismo criterio que el botón (`puedeEditar`).
+     */
+    private function exigirGestionPrestamo(Request $request, Prestamo $prestamo): void
+    {
+        $usuario = $request->user();
+        $colaborador = $prestamo->colaborador;
+
+        abort_unless(
+            $usuario instanceof User
+                && $usuario->can('expedientes.editar')
+                && $usuario->colaborador_id !== $colaborador->id
+                && $this->alcance->puedeVerExpediente($usuario, $colaborador),
+            403,
+        );
+    }
+
     public function actualizarDatosPersonales(ActualizarDatosPersonalesRequest $request, Colaborador $colaborador): RedirectResponse
     {
         $cambios = $this->datosExpediente->actualizarPersonales($colaborador, $request->datos(), $request->user(), $request->motivo(), 'expediente');
@@ -845,7 +864,7 @@ class ExpedienteController extends Controller
      */
     public function registrarPagoPrestamo(Request $request, Prestamo $prestamo): RedirectResponse
     {
-        abort_unless($request->user()->can('expedientes.editar'), 403);
+        $this->exigirGestionPrestamo($request, $prestamo);
 
         $datos = $request->validate([
             'monto' => ['required', 'numeric', 'min:0.01', 'max:9999999.99'],
@@ -865,7 +884,7 @@ class ExpedienteController extends Controller
      */
     public function activarPrestamo(Request $request, Prestamo $prestamo): RedirectResponse
     {
-        abort_unless($request->user()->can('expedientes.editar'), 403);
+        $this->exigirGestionPrestamo($request, $prestamo);
 
         $datos = $request->validate([
             'fecha_otorgamiento' => ['required', 'date'],
@@ -955,7 +974,8 @@ class ExpedienteController extends Controller
     {
         $usuario = $request->user();
 
-        abort_unless($usuario->can('expedientes.editar') && $this->alcance->puedeVerExpediente($usuario, $colaborador), 403);
+        // Nunca el propio (nadie gestiona su expediente de RH; el botón ya se oculta).
+        abort_unless($usuario->can('expedientes.editar') && $usuario->colaborador_id !== $colaborador->id && $this->alcance->puedeVerExpediente($usuario, $colaborador), 403);
         $request->validate(['archivo' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,webp', 'max:10240']], [], ['archivo' => 'acuse de alta IMSS']);
 
         $archivo = $request->file('archivo');

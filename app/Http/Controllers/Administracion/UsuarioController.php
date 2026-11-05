@@ -100,6 +100,9 @@ class UsuarioController extends Controller
             $u->setAttribute('estado_colaborador', $this->acceso->estadoColaborador($u, in_array($u->colaborador_id, $enBaja, true)));
             $u->setAttribute('puede_revocar', $u->acceso_bloqueado_en === null && $usuario->can('revocarAcceso', $u));
             $u->setAttribute('puede_restablecer', $u->acceso_bloqueado_en !== null && $usuario->can('restablecerAcceso', $u));
+            // Por fila: una cuenta de rol superior no se edita ni se le cambia la contraseña.
+            $u->setAttribute('puede_editar', $usuario->can('update', $u));
+            $u->setAttribute('puede_restablecer_password', $u->colaborador_id !== null && $usuario->can('restablecerPassword', $u));
 
             return $u;
         });

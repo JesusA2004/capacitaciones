@@ -102,8 +102,8 @@ beforeEach(function () {
     $this->sucursal = Sucursal::factory()->create();
 });
 
-dataset('rolesOperativos', ['gerente_sucursal', 'gerente', 'gerente_regional', 'direccion', 'director_comercial', 'rh_admin', 'rh_auxiliar', 'sistemas', 'juridico', 'auditor', 'contraloria']);
-dataset('rolesColaborador', ['colaborador', 'subgerente', 'coordinadora']);
+dataset('rolesOperativos', ['gerente_sucursal', 'gerente', 'gerente_regional', 'direccion', 'director_comercial', 'rh_admin', 'rh_auxiliar', 'sistemas', 'juridico', 'auditor', 'contraloria', 'jefe_directo', 'supervisor', 'instructor', 'administrador_capacitacion']);
+dataset('rolesColaborador', ['colaborador', 'subgerente', 'coordinadora', 'coordinadora_regional']);
 
 test('cada entrada del menú operativo responde 200 y las ajenas 403', function (string $rol) {
     $usuario = clUsuario($rol, ['sucursal_principal_id' => $this->sucursal->id]);

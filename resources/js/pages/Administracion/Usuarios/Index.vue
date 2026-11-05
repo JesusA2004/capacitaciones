@@ -384,14 +384,13 @@ function restablecer(usuario: UsuarioItem) {
             </template>
             <template #acciones="{ fila }">
                 <CrudActionMenu>
-                    <DropdownMenuItem @select="abrirEditarRoles(fila)"
+                    <DropdownMenuItem
+                        v-if="fila.puede_editar"
+                        @select="abrirEditarRoles(fila)"
                         >Editar cuenta</DropdownMenuItem
                     >
                     <DropdownMenuItem
-                        v-if="
-                            fila.colaborador_id !== null &&
-                            (permisosUsuarios?.restablecer_password ?? true)
-                        "
+                        v-if="fila.puede_restablecer_password"
                         @select="abrirPassword(fila)"
                     >
                         <KeyRound class="size-3.5" />
@@ -465,15 +464,13 @@ function restablecer(usuario: UsuarioItem) {
                     </span>
                     <template #acciones>
                         <CrudActionMenu>
-                            <DropdownMenuItem @select="abrirEditarRoles(fila)"
+                            <DropdownMenuItem
+                                v-if="fila.puede_editar"
+                                @select="abrirEditarRoles(fila)"
                                 >Editar cuenta</DropdownMenuItem
                             >
                             <DropdownMenuItem
-                                v-if="
-                                    fila.colaborador_id !== null &&
-                                    (permisosUsuarios?.restablecer_password ??
-                                        true)
-                                "
+                                v-if="fila.puede_restablecer_password"
                                 @select="abrirPassword(fila)"
                                 >Generar credenciales</DropdownMenuItem
                             >

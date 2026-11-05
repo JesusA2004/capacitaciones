@@ -65,6 +65,9 @@ export type UsuarioItem = {
     estado_colaborador: { clave: string; etiqueta: string };
     puede_revocar: boolean;
     puede_restablecer: boolean;
+    /** Por fila (UserPolicy): nunca una cuenta de rol superior. */
+    puede_editar: boolean;
+    puede_restablecer_password: boolean;
 };
 
 export type DepartamentoItem = {

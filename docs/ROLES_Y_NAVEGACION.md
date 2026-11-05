@@ -111,10 +111,15 @@ Decisión del negocio: la **Coordinadora** (roles `coordinadora` y `coordinadora
 | `2026_10_20_250000_bajas_directas_sin_borrador` | `jefe_directo`, `auditor`, `sistemas` | **Solo** los permisos de «Bajas» (bajas.ver, bajas.solicitar y sus alcances) y, a `jefe_directo`, el atajo `cierres.solicitar` / `solicitudes.bajas.crear`: «Bajas» es de gerentes, RH y super admin. Revocación puntual (no `alinearAlBase`): nada más de esos roles cambia. |
 | `2026_10_15_180100_auditor_minimo_privilegio` | `auditor` | Recibos de nómina, préstamos y actas (con sus permisos de alcance) y cualquier permiso fuera de su base: el auditor es solo lectura de empresas, expedientes, documentos, vacaciones, solicitudes, reportes RH, reclutamiento y ciclo laboral (contratos, evaluaciones, cierres, documentos laborales). |
 | `2026_10_20_230000_importaciones_solo_super_admin` | todos menos `super_admin` (roles y permisos directos de usuarios) | SOLO los permisos de importación/carga masiva: `expedientes.migrar` (migración y carga inicial), `headcount.importar`, `colaboradores.importar_salarios_vacaciones`, `rotacion.cargar`, `nomina.recibos.importar`, `contactos_emergencia.importar`, `perfiles_puesto.importar`. RH conserva la consulta (tablero e histórico de rotación, headcount, expedientes, recibos, perfiles) y generar recibos desde el sueldo. No usa `alinearAlBase`: no toca ningún otro permiso. |
+| `2026_11_13_500200_sistemas_sin_descarga_ni_alcance_de_recibos_y_finiquitos` | `sistemas` | Lo que la herencia le dejó de recibos y finiquitos tras retirarle `nomina.recibos.ver`/`finiquitos.ver` (`nomina.recibos.descargar`, `*.ver_todos`/`ver_region`/`ver_sucursal`/`ver_equipo`): con descargar + alcance «Todos» podía bajar el lote completo de recibos para imprimir. Revocación puntual y auditada. |
 
 En producción basta `php artisan migrate --force` (seguido, como siempre, de `php artisan people:sincronizar-permisos`). Si después se personaliza uno de esos roles desde «Roles y permisos», la migración ya corrió y no lo vuelve a tocar.
 
 `sistemas` conserva su **lectura global para soporte** sin acciones de decisión (decisión documentada en `docs/FLUJO_OPERATIVO_Y_PERMISOS.md` §4); no se le aplicó revocación.
+
+## Cuentas de rol superior (2026-11-04)
+
+Quien no puede DAR un rol tampoco puede cambiar la contraseña, el usuario/correo ni revocar el acceso de una cuenta que lo tiene (sería suplantarla): `RolPermisoService::esCuentaSuperior()` usa los mismos niveles de `config/permisos_modulos.php → asignacion_roles` (super_admin 100, direccion 90, sistemas 85, rh_admin 80, el resto 10; un rol personalizado es superior si tiene un permiso que el actor no tiene) y lo aplican `UserPolicy::update`, `revocarAcceso` y `restablecerPassword` (web y API `credenciales`). El listado de Usuarios oculta «Editar cuenta» y «Generar credenciales» por fila (`puede_editar`, `puede_restablecer_password`). super_admin nunca tiene superior.
 
 ## Pantalla «Roles y permisos» (matriz por acción, 2026-10-22)
 

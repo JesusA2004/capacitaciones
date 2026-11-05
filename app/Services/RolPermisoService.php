@@ -211,6 +211,32 @@ class RolPermisoService
     }
 
     /**
+     * true si $objetivo tiene algún rol por encima de los de $actor (mismo
+     * criterio que «Asignar roles»: nivel de config permisos_modulos
+     * .asignacion_roles; un rol personalizado es superior si tiene algún
+     * permiso que $actor no tiene). Quien no puede dar un rol tampoco puede
+     * cambiar la contraseña, el usuario/correo ni revocar el acceso de quien
+     * lo tiene: sería suplantarlo. super_admin nunca tiene superior.
+     */
+    public function esCuentaSuperior(User $actor, User $objetivo): bool
+    {
+        if ($actor->is($objetivo) || $actor->hasRole('super_admin')) {
+            return false;
+        }
+
+        $nivelActor = $actor->roles()->pluck('name')->map(fn ($rol): int => $this->nivelDeRol((string) $rol) ?? 0)->max() ?? 0;
+        $permisosActor = $actor->getAllPermissions()->pluck('name');
+
+        return Role::query()->with('permissions:id,name')->whereIn('name', $objetivo->getRoleNames())->get()->contains(function (Role $rol) use ($nivelActor, $permisosActor): bool {
+            $nivel = $this->nivelDeRol((string) $rol->name);
+
+            return $nivel !== null
+                ? $nivel > $nivelActor
+                : $rol->permissions->pluck('name')->diff($permisosActor)->isNotEmpty();
+        });
+    }
+
+    /**
      * Nivel de un rol del sistema; null si es un rol personalizado.
      */
     private function nivelDeRol(string $rol): ?int

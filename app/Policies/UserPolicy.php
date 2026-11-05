@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Organigrama\AutoridadJerarquicaService;
+use App\Services\RolPermisoService;
 use Illuminate\Auth\Access\Response;
 
 class UserPolicy
@@ -14,6 +15,7 @@ class UserPolicy
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly AutoridadJerarquicaService $autoridad,
         private readonly OrganizacionJerarquiaService $jerarquia,
+        private readonly RolPermisoService $roles,
     ) {}
 
     public function viewAny(User $usuario): bool
@@ -33,7 +35,11 @@ class UserPolicy
 
     public function update(User $usuario, User $objetivo): bool
     {
-        return $usuario->can('usuarios.editar') && $this->alcance->puedeVerUsuario($usuario, $objetivo);
+        // Nunca una cuenta de rol superior (cambiarle usuario/correo sería
+        // suplantarla, igual que restablecer su contraseña).
+        return $usuario->can('usuarios.editar')
+            && $this->alcance->puedeVerUsuario($usuario, $objetivo)
+            && ! $this->roles->esCuentaSuperior($usuario, $objetivo);
     }
 
     /**
@@ -46,7 +52,8 @@ class UserPolicy
     {
         return $usuario->can('usuarios.desactivar')
             && ! $usuario->is($objetivo)
-            && $this->alcance->puedeVerUsuario($usuario, $objetivo);
+            && $this->alcance->puedeVerUsuario($usuario, $objetivo)
+            && ! $this->roles->esCuentaSuperior($usuario, $objetivo);
     }
 
     /**
@@ -74,6 +81,11 @@ class UserPolicy
 
         if (! $this->alcance->puedeVerUsuario($usuario, $objetivo)) {
             return Response::deny('Esta persona está fuera de tu alcance.');
+        }
+
+        // Nunca la de una cuenta de rol superior (sería suplantarla).
+        if ($this->roles->esCuentaSuperior($usuario, $objetivo)) {
+            return Response::deny('Esa cuenta tiene un rol superior al tuyo: pide a un administrador de ese nivel que restablezca su contraseña.');
         }
 
         // Administración de cuentas (RH, Sistemas, super admin: quien puede
