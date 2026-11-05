@@ -25,6 +25,7 @@ use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Permisos\AlcanceModuloService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Support\Paginacion;
+use App\Support\TipoContenidoSeguro;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -422,7 +423,7 @@ class ActaService
             'disk' => config('expedientes.disk'),
             'path' => $ruta,
             'original_name' => $archivo->getClientOriginalName(),
-            'mime' => $archivo->getClientMimeType(),
+            'mime' => TipoContenidoSeguro::deArchivo($archivo),
             'size' => $archivo->getSize() ?: null,
             'checksum' => hash('sha256', $contenido),
             'descripcion' => $descripcion,
@@ -443,7 +444,7 @@ class ActaService
         $nombre = str_replace(['"', '\\', '/'], '', $anexo->original_name);
 
         return Storage::disk($anexo->disk)->response($anexo->path, $nombre, [
-            'Content-Type' => $anexo->mime ?? 'application/octet-stream',
+            ...TipoContenidoSeguro::encabezados($anexo->mime),
             'Content-Disposition' => 'inline; filename="'.$nombre.'"',
             'Cache-Control' => 'private, no-store',
             'X-Content-Type-Options' => 'nosniff',
@@ -457,7 +458,7 @@ class ActaService
         $nombre = str_replace(['"', '\\', '/'], '', $anexo->original_name);
 
         return $disco->response($anexo->path, $nombre, [
-            'Content-Type' => $anexo->mime ?? 'application/octet-stream',
+            ...TipoContenidoSeguro::encabezados($anexo->mime),
             'Content-Disposition' => 'inline; filename="'.$nombre.'"',
             'X-Content-Type-Options' => 'nosniff',
         ]);

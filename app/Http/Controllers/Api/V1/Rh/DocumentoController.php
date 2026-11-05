@@ -12,6 +12,7 @@ use App\Services\Documentos\DocumentExtractionService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Incorporacion\IncorporacionService;
 use App\Services\RhMobile\WorkflowService;
+use App\Support\TipoContenidoSeguro;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -110,7 +111,7 @@ class DocumentoController extends Controller
         $ascii = trim(preg_replace('/[^A-Za-z0-9 ._()-]+/', '', Str::ascii($nombre)) ?? '');
 
         return $this->storage->respuesta($documento->path, [
-            'Content-Type' => $documento->mime ?? 'application/octet-stream',
+            ...TipoContenidoSeguro::encabezados($documento->mime),
             'Content-Disposition' => HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_ATTACHMENT, $nombre, $ascii !== '' ? $ascii : 'documento'),
         ]);
     }
@@ -142,7 +143,7 @@ class DocumentoController extends Controller
         abort_unless($this->puedeVer($usuario, $documento), 403);
 
         return $this->storage->respuesta($documento->path, [
-            'Content-Type' => $documento->mime ?? 'application/octet-stream',
+            ...TipoContenidoSeguro::encabezados($documento->mime),
             'Content-Disposition' => 'inline; filename="'.$documento->original_name.'"',
         ]);
     }

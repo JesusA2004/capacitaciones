@@ -22,7 +22,8 @@ class GuardarConsentimientosRequest extends FormRequest
         return [
             'aviso_privacidad_aceptado' => ['required', 'accepted'],
             'consentimiento_datos_aceptado' => ['required', 'accepted'],
-            'firma' => ['required', 'string'],
+            // Data URL del lienzo de firma: unos KB; 2 MB de texto es de sobra.
+            'firma' => ['required', 'string', 'max:2000000'],
         ];
     }
 }

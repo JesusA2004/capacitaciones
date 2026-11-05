@@ -11,6 +11,7 @@ use App\Services\Expedientes\CartaCompromisoFirmaService;
 use App\Services\Expedientes\CartaCompromisoService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\GestionCartasCompromisoService;
+use App\Support\TipoContenidoSeguro;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -155,7 +156,7 @@ class GestionCartasCompromisoController extends Controller
         abort_if($documento === null, 404, 'Esta carta todavía no tiene su escaneo firmado.');
 
         return $storage->respuesta($documento->path, [
-            'Content-Type' => (string) ($documento->mime ?? 'application/octet-stream'),
+            ...TipoContenidoSeguro::encabezados($documento->mime),
             'Content-Disposition' => sprintf('inline; filename="Carta compromiso firmada %s.%s"', (string) $carta->folio, (string) ($documento->extension ?? 'pdf')),
             'Cache-Control' => 'private, no-store',
         ]);

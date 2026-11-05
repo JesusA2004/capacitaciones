@@ -12,6 +12,7 @@ use App\Services\Expedientes\CartaCompromisoService;
 use App\Services\Expedientes\DocumentoParService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Incorporacion\IncorporacionService;
+use App\Support\TipoContenidoSeguro;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -67,7 +68,7 @@ class EmployeeDocumentController extends Controller
         $this->authorize('descargar', $documento);
 
         return $this->storage->respuesta($documento->path, [
-            'Content-Type' => $documento->mime ?? 'application/octet-stream',
+            ...TipoContenidoSeguro::encabezados($documento->mime),
             'Content-Disposition' => 'inline; filename="'.$documento->original_name.'"',
         ]);
     }

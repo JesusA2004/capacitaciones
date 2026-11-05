@@ -7,6 +7,7 @@ use App\Http\Middleware\ExigirDocumentosPendientes;
 use App\Http\Middleware\ExigirExpedienteCompleto;
 use App\Http\Middleware\ExigirRegistroApp;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\RevocarTokenCuentaInactiva;
 use App\Support\DiagnosticoAcceso;
 use App\Support\LimitesSubida;
 use App\Support\MensajesErrorApi;
@@ -63,6 +64,13 @@ return Application::configure(basePath: dirname(__DIR__))
             // mandaba un header Link de ~16 KB y Nginx (fastcgi_buffer_size
             // de 4–8 KB) responde 502 «upstream sent too big header».
             AddLinkHeadersForPreloadedAssets::using(12),
+        ]);
+
+        // App móvil: un token de una cuenta que ya no puede entrar (baja,
+        // suspensión, acceso revocado) se borra en su siguiente petición,
+        // aunque el cambio de estatus no haya pasado por AccesoCuentaService.
+        $middleware->api(append: [
+            RevocarTokenCuentaInactiva::class,
         ]);
 
         // El webhook de Zoom lo llama Zoom directamente (sin sesión de

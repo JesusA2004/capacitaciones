@@ -86,7 +86,8 @@ test('el candidato puede completar el wizard publico por token y enviarlo', func
     $this->put(route('alta-publica.consentimientos', $alta->token), [
         'aviso_privacidad_aceptado' => true,
         'consentimiento_datos_aceptado' => true,
-        'firma' => 'data:image/png;base64,'.base64_encode('firma-de-prueba'),
+        // PNG real de 1×1: la firma se valida por su contenido, no por el prefijo.
+        'firma' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
     ])->assertSessionHasNoErrors();
 
     // Sin fotografía para expediente no se envía.

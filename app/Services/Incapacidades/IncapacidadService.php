@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Nomina\IncidenciasNominaService;
 use App\Support\ExtensionArchivo;
+use App\Support\TipoContenidoSeguro;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Database\QueryException;
@@ -319,7 +320,7 @@ class IncapacidadService
         // Inline para el visor (PDF/imagen) y con nombre ASCII de respaldo: un
         // acento en el nombre original («certificado José.pdf») no rompe el encabezado.
         return Storage::disk($documento->disco)->response($documento->ruta, $nombre, [
-            'Content-Type' => $documento->mime ?? 'application/octet-stream',
+            ...TipoContenidoSeguro::encabezados($documento->mime),
             'X-Content-Type-Options' => 'nosniff',
             'Cache-Control' => 'no-store, private',
         ], 'inline');

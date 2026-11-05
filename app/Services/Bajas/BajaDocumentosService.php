@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Support\ExtensionArchivo;
 use App\Support\FechaMexico;
+use App\Support\TipoContenidoSeguro;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -273,7 +274,7 @@ class BajaDocumentosService
         $nombre = str_replace('"', '', $documento->nombre_original);
 
         return $disco->response($documento->ruta, $nombre, [
-            'Content-Type' => $documento->mime ?? 'application/octet-stream',
+            ...TipoContenidoSeguro::encabezados($documento->mime),
             'Content-Disposition' => sprintf('%s; filename="%s"', $descargar ? 'attachment' : 'inline', $nombre),
             'X-Content-Type-Options' => 'nosniff',
         ]);

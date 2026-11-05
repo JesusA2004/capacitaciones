@@ -10,6 +10,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteZipService;
 use App\Services\Incorporacion\IncorporacionService;
+use App\Support\TipoContenidoSeguro;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -146,7 +147,7 @@ class ExpedienteController extends Controller
         $nombre = $documento->original_name !== '' ? $documento->original_name : sprintf('documento-%d', $documento->id);
 
         return $this->storage->respuesta($documento->path, [
-            'Content-Type' => $documento->mime ?? 'application/octet-stream',
+            ...TipoContenidoSeguro::encabezados($documento->mime),
             'Content-Disposition' => HeaderUtils::makeDisposition(HeaderUtils::DISPOSITION_ATTACHMENT, $nombre, $this->nombreAscii($nombre)),
         ]);
     }
@@ -225,7 +226,7 @@ class ExpedienteController extends Controller
         abort_unless($documento->colaborador_id === $colaborador->id, 404);
 
         return $this->storage->respuesta($documento->path, [
-            'Content-Type' => $documento->mime ?? 'application/octet-stream',
+            ...TipoContenidoSeguro::encabezados($documento->mime),
             'Content-Disposition' => 'inline; filename="'.$documento->original_name.'"',
         ]);
     }

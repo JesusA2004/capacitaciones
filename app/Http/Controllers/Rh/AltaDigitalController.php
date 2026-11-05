@@ -19,6 +19,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\AltaDigital\AltaDigitalStorageService;
 use App\Services\AltaDigital\ConversionColaboradorService;
 use App\Support\Paginacion;
+use App\Support\TipoContenidoSeguro;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -253,6 +254,7 @@ class AltaDigitalController extends Controller
         abort_unless($documento->alta_digital_id === $alta->id, 404);
 
         return $this->storage->respuesta($documento->path, [
+            ...TipoContenidoSeguro::encabezados($documento->mime),
             'Content-Disposition' => 'attachment; filename="'.$documento->original_name.'"',
         ]);
     }
@@ -263,6 +265,8 @@ class AltaDigitalController extends Controller
         abort_unless($alta->foto_path !== null, 404);
 
         return $this->storage->respuesta($alta->foto_path, [
+            'Content-Type' => 'image/jpeg',
+            'X-Content-Type-Options' => 'nosniff',
             'Content-Disposition' => 'inline; filename="'.$alta->foto_original_name.'"',
         ]);
     }
@@ -273,6 +277,8 @@ class AltaDigitalController extends Controller
         abort_unless($alta->firma_path !== null, 404);
 
         return $this->storage->respuesta($alta->firma_path, [
+            'Content-Type' => 'image/png',
+            'X-Content-Type-Options' => 'nosniff',
             'Content-Disposition' => 'inline; filename="firma.png"',
         ]);
     }

@@ -12,6 +12,7 @@ use App\Models\AltaDigitalDocumento;
 use App\Models\DocumentType;
 use App\Services\AltaDigital\AltaDigitalStorageService;
 use App\Services\Colaboradores\FotoColaboradorService;
+use App\Support\TipoContenidoSeguro;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -109,7 +110,7 @@ class AltaPublicaController extends Controller
             'disk' => config('altas.disk'),
             'path' => $ruta,
             'original_name' => $archivo->getClientOriginalName(),
-            'mime' => $archivo->getClientMimeType(),
+            'mime' => TipoContenidoSeguro::deArchivo($archivo),
             'size' => $archivo->getSize(),
         ]);
 
@@ -176,6 +177,17 @@ class AltaPublicaController extends Controller
         if ($binario === false || $binario === '') {
             throw ValidationException::withMessages([
                 'firma' => 'La firma no se pudo procesar. Vuelve a firmar en el recuadro.',
+            ]);
+        }
+
+        // El prefijo «data:image/...» lo escribe quien manda la petición (liga
+        // pública, sin sesión): el contenido real debe ser PNG/JPEG. Si no,
+        // un HTML guardado como «firma.png» se le servía a RH como página.
+        $tipoReal = (new \finfo(FILEINFO_MIME_TYPE))->buffer($binario);
+
+        if (! in_array($tipoReal, ['image/png', 'image/jpeg'], true)) {
+            throw ValidationException::withMessages([
+                'firma' => 'La firma no es una imagen válida. Vuelve a firmar en el recuadro.',
             ]);
         }
 

@@ -34,6 +34,7 @@ use App\Services\RhMobile\ResponsableResolverService;
 use App\Services\Vacaciones\VacacionesService;
 use App\Support\OrigenPeticion;
 use App\Support\Paginacion;
+use App\Support\TipoContenidoSeguro;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -790,6 +791,20 @@ class SolicitudesService
         }
 
         $solicitud = DB::transaction(function () use ($solicitud, $actor, $nuevoEstado, $comentario, $motivoRechazo, $datosAprobacion, $autorDesconocido): SolicitudInterna {
+            // Doble envío (doble toque en la app, reintento por timeout mientras
+            // la primera aprobación seguía generando documentos): las dos
+            // peticiones leyeron la solicitud antes de que la primera
+            // confirmara. Se revalida contra la fila bloqueada; la segunda ya
+            // la ve decidida y se detiene sin repetir historial, efectos ni el
+            // aviso al colaborador (su clave cambiaba con updated_at).
+            $vigente = SolicitudInterna::query()->whereKey($solicitud->getKey())->lockForUpdate()->firstOrFail();
+
+            if (! $vigente->estado->puedeTransicionarA($nuevoEstado)) {
+                throw ValidationException::withMessages([
+                    'estado' => sprintf('Esta solicitud ya está «%s»: alguien más (o un envío repetido) ya la atendió. Recarga para ver su estado actual.', $vigente->estado->etiqueta()),
+                ]);
+            }
+
             $datos = ['estado' => $nuevoEstado];
 
             if ($motivoRechazo !== null) {
@@ -1072,7 +1087,7 @@ class SolicitudesService
             'path' => $ruta,
             'original_name' => $archivo->getClientOriginalName(),
             'stored_name' => $nombreInterno,
-            'mime' => $archivo->getClientMimeType(),
+            'mime' => TipoContenidoSeguro::deArchivo($archivo),
             'size' => $archivo->getSize() ?: null,
             'subido_por' => $actor->id,
         ]);
@@ -1091,7 +1106,7 @@ class SolicitudesService
         abort_unless($documento->solicitud_interna_id === $solicitud->id, 404);
 
         return $this->storage->respuesta($documento->path, [
-            'Content-Type' => $documento->mime ?? 'application/octet-stream',
+            ...TipoContenidoSeguro::encabezados($documento->mime),
             'Content-Disposition' => 'inline; filename="'.$documento->original_name.'"',
         ]);
     }
