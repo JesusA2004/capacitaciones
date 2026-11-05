@@ -481,13 +481,6 @@ export function useMainNavItems() {
                         href: indexActas(),
                         icon: FilePen,
                     },
-                    // Originales firmados recibidos por paquetería (control
-                    // mensual; docs/RECEPCION_DOCUMENTAL_RH.md).
-                    tienePermiso('recepcion_documental.ver') && {
-                        title: 'Recepción documental',
-                        href: indexRecepcionDocumental(),
-                        icon: PackageCheck,
-                    },
                     tienePermiso('nomina.recibos.ver') && {
                         title: 'Recibo simple de pago',
                         href: indexLotesNomina(),
@@ -679,6 +672,13 @@ export function useMainNavItems() {
                         title: 'Mis reportes',
                         href: indexMisReportes(),
                         icon: FileChartColumn,
+                    },
+                    // Originales firmados recibidos por paquetería (control
+                    // mensual; docs/RECEPCION_DOCUMENTAL_RH.md).
+                    tienePermiso('recepcion_documental.ver') && {
+                        title: 'Recepción documental',
+                        href: indexRecepcionDocumental(),
+                        icon: PackageCheck,
                     },
                 ],
             ),
