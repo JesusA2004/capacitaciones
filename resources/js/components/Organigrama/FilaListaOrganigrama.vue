@@ -2,10 +2,7 @@
 import { ChevronRight, Shuffle, UserRound } from '@lucide/vue';
 import { computed } from 'vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
-import {
-    contarRama,
-    lugarDeNodo,
-} from '@/lib/organigramaEditable';
+import { contarRama, lugarDeNodo } from '@/lib/organigramaEditable';
 import type { NodoOrganigramaPersona, RegionOrganigrama } from '@/types';
 
 defineOptions({ name: 'FilaListaOrganigrama' });

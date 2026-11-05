@@ -446,10 +446,7 @@ function cerrarAhora() {
                     solo a quienes realmente correspondan: 0, 1 o 2.
                 </p>
             </div>
-            <ListaAnimada
-                tag="div"
-                class="flex flex-col gap-3"
-            >
+            <ListaAnimada tag="div" class="flex flex-col gap-3">
                 <div
                     v-for="(t, i) in c.testigos_hechos"
                     :key="`h${i}`"
@@ -563,10 +560,7 @@ function cerrarAhora() {
                     sobre los hechos. Hasta 2.
                 </p>
             </div>
-            <ListaAnimada
-                tag="div"
-                class="flex flex-col gap-3"
-            >
+            <ListaAnimada tag="div" class="flex flex-col gap-3">
                 <div
                     v-for="(t, i) in c.testigos_asistencia"
                     :key="`a${i}`"
@@ -830,4 +824,3 @@ function cerrarAhora() {
         </section>
     </div>
 </template>
-

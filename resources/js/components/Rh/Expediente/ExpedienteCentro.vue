@@ -64,7 +64,9 @@ const contratacion = props.centro.contratacion;
             data-bloque="organizacion"
         >
             <div class="flex items-start gap-3">
-                <span class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-salvia text-primary">
+                <span
+                    class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-salvia text-primary"
+                >
                     <BadgeCheck class="size-4" />
                 </span>
                 <div class="min-w-0">
@@ -75,7 +77,9 @@ const contratacion = props.centro.contratacion;
                 </div>
             </div>
             <div class="flex items-start gap-3">
-                <span class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-salvia text-primary">
+                <span
+                    class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-salvia text-primary"
+                >
                     <Hexagon class="size-4" />
                 </span>
                 <div class="min-w-0">
@@ -86,7 +90,9 @@ const contratacion = props.centro.contratacion;
                 </div>
             </div>
             <div class="flex items-start gap-3">
-                <span class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-salvia text-primary">
+                <span
+                    class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-salvia text-primary"
+                >
                     <MapPinned class="size-4" />
                 </span>
                 <div class="min-w-0">
@@ -103,14 +109,24 @@ const contratacion = props.centro.contratacion;
                     </p>
                 </div>
             </div>
-            <div class="flex items-start gap-3" data-bloque="jefe-organizacional">
-                <span class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-info-soft text-info">
+            <div
+                class="flex items-start gap-3"
+                data-bloque="jefe-organizacional"
+            >
+                <span
+                    class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-info-soft text-info"
+                >
                     <Network class="size-4" />
                 </span>
                 <div class="min-w-0">
-                    <p class="text-xs text-muted-foreground">Jefe organizacional</p>
+                    <p class="text-xs text-muted-foreground">
+                        Jefe organizacional
+                    </p>
                     <p class="truncate text-sm font-semibold">
-                        {{ centro.organizacion.jefe_organizacional?.nombre ?? 'Sin asignar' }}
+                        {{
+                            centro.organizacion.jefe_organizacional?.nombre ??
+                            'Sin asignar'
+                        }}
                     </p>
                     <p
                         v-if="centro.organizacion.jefe_organizacional?.puesto"
@@ -120,7 +136,10 @@ const contratacion = props.centro.contratacion;
                     </p>
                 </div>
             </div>
-            <div class="flex items-start gap-3 xl:col-span-2" data-bloque="responsable-aprobacion">
+            <div
+                class="flex items-start gap-3 xl:col-span-2"
+                data-bloque="responsable-aprobacion"
+            >
                 <span
                     :class="
                         cn(
@@ -134,16 +153,31 @@ const contratacion = props.centro.contratacion;
                     <UserCheck class="size-4" />
                 </span>
                 <div class="min-w-0">
-                    <p class="text-xs text-muted-foreground">Responsable de aprobaciones</p>
+                    <p class="text-xs text-muted-foreground">
+                        Responsable de aprobaciones
+                    </p>
                     <p class="text-sm font-semibold">
-                        {{ centro.organizacion.responsable_aprobacion.nombre ?? 'Pendiente de asignar' }}
+                        {{
+                            centro.organizacion.responsable_aprobacion.nombre ??
+                            'Pendiente de asignar'
+                        }}
                     </p>
                     <p class="text-xs text-muted-foreground">
-                        <template v-if="centro.organizacion.responsable_aprobacion.puesto">
-                            {{ centro.organizacion.responsable_aprobacion.puesto }} ·
+                        <template
+                            v-if="
+                                centro.organizacion.responsable_aprobacion
+                                    .puesto
+                            "
+                        >
+                            {{
+                                centro.organizacion.responsable_aprobacion
+                                    .puesto
+                            }}
+                            ·
                         </template>
                         {{
-                            centro.organizacion.responsable_aprobacion.mensaje ??
+                            centro.organizacion.responsable_aprobacion
+                                .mensaje ??
                             centro.organizacion.responsable_aprobacion.origen
                         }}
                     </p>
@@ -171,7 +205,9 @@ const contratacion = props.centro.contratacion;
                 <template v-if="centro.origen">
                     <p class="text-sm">
                         Candidato
-                        <span class="font-medium">{{ centro.origen.nombre }}</span>
+                        <span class="font-medium">{{
+                            centro.origen.nombre
+                        }}</span>
                         <template v-if="centro.origen.puesto">
                             · {{ centro.origen.puesto }}</template
                         >
@@ -186,7 +222,10 @@ const contratacion = props.centro.contratacion;
                     </p>
                     <div v-if="centro.origen.url">
                         <Button size="sm" variant="outline" as-child>
-                            <Link :href="centro.origen.url" data-accion="ver-origen">
+                            <Link
+                                :href="centro.origen.url"
+                                data-accion="ver-origen"
+                            >
                                 <UserRound class="size-3.5" /> Ver origen en
                                 reclutamiento
                             </Link>
@@ -205,7 +244,8 @@ const contratacion = props.centro.contratacion;
             >
                 <div class="flex items-center justify-between gap-2">
                     <h3 class="flex items-center gap-2 text-sm font-semibold">
-                        <FileSignature class="size-4 text-primary" /> Contratación
+                        <FileSignature class="size-4 text-primary" />
+                        Contratación
                     </h3>
                     <ChipEstado
                         v-if="contratacion"
@@ -219,9 +259,14 @@ const contratacion = props.centro.contratacion;
                         "
                     />
                 </div>
-                <template v-if="contratacion && contratacion.contratos.length === 0">
+                <template
+                    v-if="contratacion && contratacion.contratos.length === 0"
+                >
                     <p class="text-sm text-warning">
-                        {{ contratacion.motivo ?? 'Aún no hay contratos que calcular.' }}
+                        {{
+                            contratacion.motivo ??
+                            'Aún no hay contratos que calcular.'
+                        }}
                     </p>
                     <div class="flex flex-wrap gap-1.5">
                         <span
@@ -239,7 +284,9 @@ const contratacion = props.centro.contratacion;
                                 contratacion.contratos.reduce(
                                     (n, e) =>
                                         n +
-                                        e.documentos.filter((d) => d.estado === 'generado').length,
+                                        e.documentos.filter(
+                                            (d) => d.estado === 'generado',
+                                        ).length,
                                     0,
                                 )
                             }}/{{
@@ -254,16 +301,24 @@ const contratacion = props.centro.contratacion;
                             ·
                             <span class="text-warning"
                                 >{{ contratacion.faltantes.length }} dato{{
-                                    contratacion.faltantes.length === 1 ? '' : 's'
+                                    contratacion.faltantes.length === 1
+                                        ? ''
+                                        : 's'
                                 }}
                                 pendiente{{
-                                    contratacion.faltantes.length === 1 ? '' : 's'
+                                    contratacion.faltantes.length === 1
+                                        ? ''
+                                        : 's'
                                 }}</span
                             >
                         </template>
                     </p>
                     <div>
-                        <Button size="sm" variant="outline" @click="emit('pestana', 'contratacion')">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            @click="emit('pestana', 'contratacion')"
+                        >
                             Ver contratación <ArrowRight class="size-3.5" />
                         </Button>
                     </div>
@@ -275,7 +330,9 @@ const contratacion = props.centro.contratacion;
         </div>
 
         <!-- Tarjetas por área -->
-        <div class="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4 2xl:grid-cols-7">
+        <div
+            class="grid grid-cols-2 gap-2 sm:gap-3 xl:grid-cols-4 2xl:grid-cols-7"
+        >
             <component
                 :is="t.url ? Link : t.pestana ? 'button' : 'div'"
                 v-for="t in centro.tarjetas"
@@ -285,27 +342,45 @@ const contratacion = props.centro.contratacion;
                 :class="
                     cn(
                         'flex min-w-0 flex-col gap-2 rounded-2xl border border-border/60 bg-card p-3 text-left',
-                        (t.url || t.pestana) && 'tarjeta-interactiva cursor-pointer',
+                        (t.url || t.pestana) &&
+                            'tarjeta-interactiva cursor-pointer',
                     )
                 "
                 :data-tarjeta="t.clave"
                 @click="!t.url && accion(t)"
             >
                 <div class="flex items-start justify-between gap-2">
-                    <span class="text-xs leading-tight font-medium text-muted-foreground">{{
-                        t.titulo
-                    }}</span>
                     <span
-                        :class="cn('flex size-8 shrink-0 items-center justify-center rounded-xl', TONO_SUAVE[t.tono])"
+                        class="text-xs leading-tight font-medium text-muted-foreground"
+                        >{{ t.titulo }}</span
+                    >
+                    <span
+                        :class="
+                            cn(
+                                'flex size-8 shrink-0 items-center justify-center rounded-xl',
+                                TONO_SUAVE[t.tono],
+                            )
+                        "
                         aria-hidden="true"
                     >
-                        <component :is="ICONOS[t.icono] ?? Sparkles" class="size-4" />
+                        <component
+                            :is="ICONOS[t.icono] ?? Sparkles"
+                            class="size-4"
+                        />
                     </span>
                 </div>
-                <span :class="cn('text-lg leading-tight font-bold', TONO_TEXTO[t.tono])">{{
-                    t.valor
+                <span
+                    :class="
+                        cn(
+                            'text-lg leading-tight font-bold',
+                            TONO_TEXTO[t.tono],
+                        )
+                    "
+                    >{{ t.valor }}</span
+                >
+                <span v-if="t.detalle" class="text-xs text-muted-foreground">{{
+                    t.detalle
                 }}</span>
-                <span v-if="t.detalle" class="text-xs text-muted-foreground">{{ t.detalle }}</span>
                 <span
                     v-if="t.accion && (t.url || t.pestana)"
                     class="mt-auto flex items-center gap-1 text-xs font-medium text-primary"

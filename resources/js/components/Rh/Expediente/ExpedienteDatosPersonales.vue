@@ -58,7 +58,14 @@ const props = defineProps<{
 type Campo = {
     campo: CampoForm;
     etiqueta: string;
-    tipo?: 'texto' | 'fecha' | 'email' | 'tel' | 'genero' | 'estado_civil' | 'largo';
+    tipo?:
+        | 'texto'
+        | 'fecha'
+        | 'email'
+        | 'tel'
+        | 'genero'
+        | 'estado_civil'
+        | 'largo';
     max?: number;
     mayusculas?: boolean;
     ayuda?: string;
@@ -82,11 +89,23 @@ const SECCIONES: Seccion[] = [
         campos: [
             { campo: 'name', etiqueta: 'Nombre(s)', max: 150 },
             { campo: 'apellidos', etiqueta: 'Apellidos', max: 150 },
-            { campo: 'fecha_nacimiento', etiqueta: 'Fecha de nacimiento', tipo: 'fecha' },
+            {
+                campo: 'fecha_nacimiento',
+                etiqueta: 'Fecha de nacimiento',
+                tipo: 'fecha',
+            },
             { campo: 'genero', etiqueta: 'Sexo', tipo: 'genero' },
             { campo: 'nacionalidad', etiqueta: 'Nacionalidad', max: 80 },
-            { campo: 'estado_civil', etiqueta: 'Estado civil', tipo: 'estado_civil' },
-            { campo: 'lugar_nacimiento', etiqueta: 'Lugar de nacimiento', max: 150 },
+            {
+                campo: 'estado_civil',
+                etiqueta: 'Estado civil',
+                tipo: 'estado_civil',
+            },
+            {
+                campo: 'lugar_nacimiento',
+                etiqueta: 'Lugar de nacimiento',
+                max: 150,
+            },
             { campo: 'profesion', etiqueta: 'Profesión u oficio', max: 150 },
         ],
     },
@@ -95,10 +114,27 @@ const SECCIONES: Seccion[] = [
         titulo: 'Identificación oficial',
         icono: Fingerprint,
         campos: [
-            { campo: 'curp', etiqueta: 'CURP', max: 18, mayusculas: true, ayuda: '18 caracteres' },
-            { campo: 'rfc', etiqueta: 'RFC', max: 13, mayusculas: true, ayuda: 'Con homoclave' },
+            {
+                campo: 'curp',
+                etiqueta: 'CURP',
+                max: 18,
+                mayusculas: true,
+                ayuda: '18 caracteres',
+            },
+            {
+                campo: 'rfc',
+                etiqueta: 'RFC',
+                max: 13,
+                mayusculas: true,
+                ayuda: 'Con homoclave',
+            },
             { campo: 'nss', etiqueta: 'NSS', max: 11, ayuda: '11 dígitos' },
-            { campo: 'clave_elector', etiqueta: 'Clave de elector (INE)', max: 18, mayusculas: true },
+            {
+                campo: 'clave_elector',
+                etiqueta: 'Clave de elector (INE)',
+                max: 18,
+                mayusculas: true,
+            },
         ],
     },
     {
@@ -106,10 +142,30 @@ const SECCIONES: Seccion[] = [
         titulo: 'Contacto',
         icono: Mail,
         campos: [
-            { campo: 'telefono', etiqueta: 'Teléfono personal', tipo: 'tel', max: 30 },
-            { campo: 'telefono_corporativo', etiqueta: 'Teléfono corporativo', tipo: 'tel', max: 30, opcional: true },
-            { campo: 'correo_personal', etiqueta: 'Correo personal', tipo: 'email' },
-            { campo: 'correo_corporativo', etiqueta: 'Correo corporativo', tipo: 'email', opcional: true },
+            {
+                campo: 'telefono',
+                etiqueta: 'Teléfono personal',
+                tipo: 'tel',
+                max: 30,
+            },
+            {
+                campo: 'telefono_corporativo',
+                etiqueta: 'Teléfono corporativo',
+                tipo: 'tel',
+                max: 30,
+                opcional: true,
+            },
+            {
+                campo: 'correo_personal',
+                etiqueta: 'Correo personal',
+                tipo: 'email',
+            },
+            {
+                campo: 'correo_corporativo',
+                etiqueta: 'Correo corporativo',
+                tipo: 'email',
+                opcional: true,
+            },
         ],
     },
     {
@@ -117,10 +173,28 @@ const SECCIONES: Seccion[] = [
         titulo: 'Contacto de emergencia',
         icono: PhoneCall,
         campos: [
-            { campo: 'contacto_emergencia_nombre', etiqueta: 'Nombre', max: 150 },
-            { campo: 'contacto_emergencia_parentesco', etiqueta: 'Parentesco', max: 80 },
-            { campo: 'contacto_emergencia_telefono', etiqueta: 'Teléfono', tipo: 'tel', max: 30 },
-            { campo: 'contacto_emergencia_direccion', etiqueta: 'Dirección', max: 255, opcional: true },
+            {
+                campo: 'contacto_emergencia_nombre',
+                etiqueta: 'Nombre',
+                max: 150,
+            },
+            {
+                campo: 'contacto_emergencia_parentesco',
+                etiqueta: 'Parentesco',
+                max: 80,
+            },
+            {
+                campo: 'contacto_emergencia_telefono',
+                etiqueta: 'Teléfono',
+                tipo: 'tel',
+                max: 30,
+            },
+            {
+                campo: 'contacto_emergencia_direccion',
+                etiqueta: 'Dirección',
+                max: 255,
+                opcional: true,
+            },
         ],
     },
     {
@@ -129,7 +203,11 @@ const SECCIONES: Seccion[] = [
         icono: Users,
         campos: [
             { campo: 'beneficiario_nombre', etiqueta: 'Nombre', max: 150 },
-            { campo: 'beneficiario_parentesco', etiqueta: 'Parentesco', max: 80 },
+            {
+                campo: 'beneficiario_parentesco',
+                etiqueta: 'Parentesco',
+                max: 80,
+            },
         ],
     },
 ];
@@ -140,7 +218,12 @@ const SECCION_MEDICA: Seccion = {
     icono: HeartPulse,
     confidencial: true,
     campos: [
-        { campo: 'condicion_medica', etiqueta: 'Condición médica', tipo: 'largo', max: 1000 },
+        {
+            campo: 'condicion_medica',
+            etiqueta: 'Condición médica',
+            tipo: 'largo',
+            max: 1000,
+        },
         { campo: 'alergias', etiqueta: 'Alergias', tipo: 'largo', max: 1000 },
     ],
 };
@@ -285,7 +368,8 @@ function guardar() {
         const envio: Record<string, string | null> = {};
 
         for (const c of cambios.value) {
-            envio[c.campo] = normalizar(c.campo, String(datos[c.campo] ?? '')) || null;
+            envio[c.campo] =
+                normalizar(c.campo, String(datos[c.campo] ?? '')) || null;
         }
 
         // El domicilio se manda completo si cambió alguna parte: el
@@ -312,7 +396,9 @@ function valorLegible(campo: CampoForm): string | null {
 
     switch (campo) {
         case 'fecha_nacimiento':
-            return c.fecha_nacimiento ? formatearFecha(c.fecha_nacimiento) : null;
+            return c.fecha_nacimiento
+                ? formatearFecha(c.fecha_nacimiento)
+                : null;
         case 'genero':
             return c.genero_etiqueta ?? null;
         case 'estado_civil':
@@ -330,14 +416,19 @@ function valorLegible(campo: CampoForm): string | null {
 }
 
 function faltantesDe(seccion: Seccion): number {
-    return seccion.campos.filter((c) => !c.opcional && !valorLegible(c.campo)).length;
+    return seccion.campos.filter((c) => !c.opcional && !valorLegible(c.campo))
+        .length;
 }
 
 const domicilioTexto = computed(() => {
     const c = props.colaborador;
     const partes = [
-        [c.domicilio_calle, c.domicilio_numero_exterior].filter(Boolean).join(' '),
-        c.domicilio_numero_interior ? `Int. ${c.domicilio_numero_interior}` : '',
+        [c.domicilio_calle, c.domicilio_numero_exterior]
+            .filter(Boolean)
+            .join(' '),
+        c.domicilio_numero_interior
+            ? `Int. ${c.domicilio_numero_interior}`
+            : '',
         c.domicilio_colonia ? `Col. ${c.domicilio_colonia}` : '',
         c.domicilio_cp ? `C.P. ${c.domicilio_cp}` : '',
         [c.domicilio_municipio, c.domicilio_estado].filter(Boolean).join(', '),
@@ -357,9 +448,7 @@ const domicilioFaltantes = computed(
 
 defineExpose({ iniciarEdicion });
 
-const errores = computed(
-    () => form.errors as Partial<Record<string, string>>,
-);
+const errores = computed(() => form.errors as Partial<Record<string, string>>);
 </script>
 
 <template>
@@ -496,7 +585,9 @@ const errores = computed(
                 </header>
                 <p
                     class="text-sm font-medium break-words"
-                    :class="domicilioTexto ? '' : 'text-muted-foreground/70 italic'"
+                    :class="
+                        domicilioTexto ? '' : 'text-muted-foreground/70 italic'
+                    "
                 >
                     {{ domicilioTexto ?? 'Sin capturar' }}
                 </p>
@@ -519,7 +610,10 @@ const errores = computed(
                 <legend
                     class="flex items-center gap-2 px-1 text-sm font-semibold"
                 >
-                    <component :is="seccion.icono" class="size-4 text-primary" />
+                    <component
+                        :is="seccion.icono"
+                        class="size-4 text-primary"
+                    />
                     {{ seccion.titulo }}
                     <span
                         v-if="seccion.confidencial"
@@ -579,10 +673,18 @@ const errores = computed(
                             v-else
                             :id="`dp_${c.campo}`"
                             v-model="form[c.campo]"
-                            :type="c.tipo === 'email' ? 'email' : c.tipo === 'tel' ? 'tel' : 'text'"
+                            :type="
+                                c.tipo === 'email'
+                                    ? 'email'
+                                    : c.tipo === 'tel'
+                                      ? 'tel'
+                                      : 'text'
+                            "
                             :maxlength="c.max"
                             :class="c.mayusculas ? 'uppercase' : ''"
-                            :inputmode="c.campo === 'nss' ? 'numeric' : undefined"
+                            :inputmode="
+                                c.campo === 'nss' ? 'numeric' : undefined
+                            "
                         />
                         <p
                             v-if="c.ayuda && !errores[c.campo]"
@@ -619,7 +721,7 @@ const errores = computed(
 
             <!-- Resumen + motivo + guardar (fijo abajo) -->
             <div
-                class="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 sm:bottom-2 flex flex-col gap-3 rounded-2xl border border-border/70 bg-card/95 p-4 shadow-lg backdrop-blur"
+                class="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-10 flex flex-col gap-3 rounded-2xl border border-border/70 bg-card/95 p-4 shadow-lg backdrop-blur sm:bottom-2"
                 data-resumen-cambios
             >
                 <div class="flex flex-wrap items-center gap-2 text-sm">

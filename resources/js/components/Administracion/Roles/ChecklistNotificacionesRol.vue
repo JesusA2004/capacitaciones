@@ -75,7 +75,10 @@ const modulosFiltrados = computed(() => {
 });
 
 function esEditable(evento: EventoNotificacion): boolean {
-    return evento.audiencia === 'operativa' && !obligatorios.value.has(evento.clave);
+    return (
+        evento.audiencia === 'operativa' &&
+        !obligatorios.value.has(evento.clave)
+    );
 }
 
 function estaMarcado(evento: EventoNotificacion): boolean {
@@ -182,10 +185,11 @@ function fechaLegible(fecha: string | null): string {
         >
             <Info class="mt-0.5 size-4 shrink-0 text-info" />
             <span>
-                Decide qué acciones le avisan a «{{ rol.nombre }}» en la campana,
-                la app y el navegador. Marcar no amplía lo que el rol puede ver
-                ni hacer: sólo recibe avisos de personas dentro de su alcance.
-                Quitar un aviso no quita la tarea: sigue en «Mis pendientes».
+                Decide qué acciones le avisan a «{{ rol.nombre }}» en la
+                campana, la app y el navegador. Marcar no amplía lo que el rol
+                puede ver ni hacer: sólo recibe avisos de personas dentro de su
+                alcance. Quitar un aviso no quita la tarea: sigue en «Mis
+                pendientes».
             </span>
         </div>
 
@@ -262,12 +266,11 @@ function fechaLegible(fecha: string | null): string {
             class="rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
             :aria-label="modulo.etiqueta"
         >
-            <header class="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <header
+                class="mb-3 flex flex-wrap items-center justify-between gap-2"
+            >
                 <h3 class="text-sm font-semibold">{{ modulo.etiqueta }}</h3>
-                <div
-                    v-if="modulo.eventos.some(esEditable)"
-                    class="flex gap-1"
-                >
+                <div v-if="modulo.eventos.some(esEditable)" class="flex gap-1">
                     <Button
                         variant="ghost"
                         size="sm"

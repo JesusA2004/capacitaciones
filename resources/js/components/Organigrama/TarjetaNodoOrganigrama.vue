@@ -1,16 +1,9 @@
 <script setup lang="ts">
-import {
-    MapPin,
-    Shuffle,
-    UserCheck,
-    UserRound,
-} from '@lucide/vue';
+import { MapPin, Shuffle, UserCheck, UserRound } from '@lucide/vue';
 import { computed } from 'vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import { ESTILO_SIN_TIPO, ESTILO_TIPO_PUESTO } from '@/lib/organigrama';
-import {
-    lugarDeNodo,
-} from '@/lib/organigramaEditable';
+import { lugarDeNodo } from '@/lib/organigramaEditable';
 import type { NodoOrganigramaPersona, RegionOrganigrama } from '@/types';
 
 /**

@@ -70,7 +70,9 @@ function asignarCriterio(clave: string, cambios: Partial<Calificacion>): void {
 
     criterios.value = props.contenido.criterios
         .map((c) => previos.get(c.clave))
-        .filter((c): c is Calificacion => c !== undefined && c.calificacion > 0);
+        .filter(
+            (c): c is Calificacion => c !== undefined && c.calificacion > 0,
+        );
 }
 
 function respuestaDe(clave: string): boolean | null {
@@ -278,7 +280,9 @@ function nivelTexto(c: ContenidoPeriodoPrueba['criterios'][number], n: number) {
         <section
             class="flex flex-col gap-2 rounded-2xl border border-border bg-card p-4 shadow-xs"
         >
-            <h3 class="text-sm font-semibold">Paso 1 · Califica cada criterio</h3>
+            <h3 class="text-sm font-semibold">
+                Paso 1 · Califica cada criterio
+            </h3>
             <p class="text-xs text-muted-foreground">
                 En cada renglón elige la tarjeta que mejor describa lo que viste
                 del colaborador. Califica hechos, no impresiones.
@@ -379,7 +383,9 @@ function nivelTexto(c: ContenidoPeriodoPrueba['criterios'][number], n: number) {
                         "
                         @click="asignarCriterio(c.clave, { calificacion: n })"
                     >
-                        <span class="flex items-center gap-1.5 text-sm font-semibold">
+                        <span
+                            class="flex items-center gap-1.5 text-sm font-semibold"
+                        >
                             <span
                                 :class="
                                     cn(

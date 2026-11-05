@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { ArrowRight, History, Lock, MessageSquareText, ShieldAlert } from '@lucide/vue';
+import {
+    ArrowRight,
+    History,
+    Lock,
+    MessageSquareText,
+    ShieldAlert,
+} from '@lucide/vue';
 import ChipEstado from '@/components/people/ChipEstado.vue';
 import { formatearFechaHora } from '@/lib/fechas';
 import type { HistorialCambioExpediente } from '@/types';
@@ -44,15 +50,24 @@ defineProps<{ historial: HistorialCambioExpediente[] }>();
                     >
                 </div>
                 <time class="text-xs text-muted-foreground tabular-nums">
-                    {{ registro.fecha ? formatearFechaHora(registro.fecha) : '—' }}
+                    {{
+                        registro.fecha
+                            ? formatearFechaHora(registro.fecha)
+                            : '—'
+                    }}
                 </time>
             </div>
             <p
                 v-if="registro.motivo"
                 class="mt-2 flex items-start gap-1.5 rounded-xl bg-crema px-3 py-2 text-xs"
             >
-                <MessageSquareText class="mt-0.5 size-3.5 shrink-0 text-bronce" />
-                <span><span class="font-semibold">Motivo:</span> {{ registro.motivo }}</span>
+                <MessageSquareText
+                    class="mt-0.5 size-3.5 shrink-0 text-bronce"
+                />
+                <span
+                    ><span class="font-semibold">Motivo:</span>
+                    {{ registro.motivo }}</span
+                >
             </p>
             <ul class="mt-3 flex flex-col gap-2">
                 <li
@@ -77,12 +92,14 @@ defineProps<{ historial: HistorialCambioExpediente[] }>();
                         class="flex min-w-0 flex-wrap items-center gap-1.5 text-sm"
                     >
                         <span
-                            class="rounded-md bg-danger-soft px-1.5 text-destructive line-through decoration-1 break-all"
+                            class="rounded-md bg-danger-soft px-1.5 break-all text-destructive line-through decoration-1"
                             >{{ cambio.antes ?? 'vacío' }}</span
                         >
-                        <ArrowRight class="size-3.5 shrink-0 text-muted-foreground" />
+                        <ArrowRight
+                            class="size-3.5 shrink-0 text-muted-foreground"
+                        />
                         <span
-                            class="rounded-md bg-success-soft px-1.5 font-medium text-success break-all"
+                            class="rounded-md bg-success-soft px-1.5 font-medium break-all text-success"
                             >{{ cambio.despues ?? 'vacío' }}</span
                         >
                     </span>

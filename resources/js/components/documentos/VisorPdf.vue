@@ -94,7 +94,9 @@ async function dibujar() {
     // frames en vez de dibujar en blanco; el watch de tamaño lo retoma si el
     // contenedor aparece más tarde.
     const ancho =
-        anchoCaja.value > 0 ? anchoCaja.value : (lienzoCaja.value?.clientWidth ?? 0);
+        anchoCaja.value > 0
+            ? anchoCaja.value
+            : (lienzoCaja.value?.clientWidth ?? 0);
 
     if (ancho <= 0) {
         if (intentosAncho < 30) {

@@ -37,7 +37,7 @@ withDefaults(
                 <span class="h-2 flex-1 rounded-full bg-crema/70" />
                 <span class="h-2 flex-1 rounded-full bg-crema/70" />
             </span>
-            <span class="absolute inset-0 brillo-carga" />
+            <span class="brillo-carga absolute inset-0" />
         </div>
         <div class="flex flex-col items-center gap-1 text-center">
             <p

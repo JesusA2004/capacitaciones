@@ -18,7 +18,10 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select';
+import {
+    NativeSelect,
+    NativeSelectOption,
+} from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { ErrorCorreccion, pedirCorreccion } from '@/lib/correcciones';
@@ -69,9 +72,8 @@ const MOTIVO_MINIMO = 5;
 
 const campo = computed(
     () =>
-        descripcion.value?.campos.find(
-            (c) => c.campo === campoElegido.value,
-        ) ?? null,
+        descripcion.value?.campos.find((c) => c.campo === campoElegido.value) ??
+        null,
 );
 
 const puedeRevisar = computed(
@@ -166,7 +168,8 @@ async function cargar(): Promise<void> {
             ),
         );
     } catch (e) {
-        error.value = e instanceof Error ? e.message : 'No se pudo cargar el dato.';
+        error.value =
+            e instanceof Error ? e.message : 'No se pudo cargar el dato.';
     } finally {
         cargando.value = false;
     }
@@ -292,8 +295,8 @@ function cerrar(): void {
                     <template v-if="descripcion">
                         {{ descripcion.sujeto }}.
                     </template>
-                    Revisa el antes y el después antes de confirmar: queda en
-                    el historial.
+                    Revisa el antes y el después antes de confirmar: queda en el
+                    historial.
                 </DialogDescription>
             </DialogHeader>
 
@@ -343,7 +346,8 @@ function cerrar(): void {
                             :key="c.campo"
                             :value="c.campo"
                         >
-                            {{ c.etiqueta }}{{ c.editable ? '' : ' (bloqueado)' }}
+                            {{ c.etiqueta
+                            }}{{ c.editable ? '' : ' (bloqueado)' }}
                         </NativeSelectOption>
                     </NativeSelect>
                 </div>
@@ -351,7 +355,10 @@ function cerrar(): void {
                 <template v-if="campo">
                     <div class="rounded-xl bg-crema px-3 py-2 text-sm">
                         <p class="text-xs text-muted-foreground">Dato actual</p>
-                        <p class="font-medium break-words" data-correccion-actual>
+                        <p
+                            class="font-medium break-words"
+                            data-correccion-actual
+                        >
                             {{ campo.legible ?? 'Sin capturar' }}
                         </p>
                     </div>
@@ -379,7 +386,9 @@ function cerrar(): void {
                             v-if="descripcion.tipos_cambio.length"
                             class="grid gap-1.5"
                         >
-                            <Label for="correccion-tipo">¿Qué es este cambio?</Label>
+                            <Label for="correccion-tipo"
+                                >¿Qué es este cambio?</Label
+                            >
                             <NativeSelect
                                 id="correccion-tipo"
                                 v-model="tipo"
@@ -406,7 +415,9 @@ function cerrar(): void {
                             v-if="tipo === 'ajuste_con_vigencia'"
                             class="grid gap-1.5"
                         >
-                            <Label for="correccion-vigencia">Aplica desde</Label>
+                            <Label for="correccion-vigencia"
+                                >Aplica desde</Label
+                            >
                             <Input
                                 id="correccion-vigencia"
                                 v-model="vigenteDesde"
@@ -442,7 +453,9 @@ function cerrar(): void {
                                 v-model="valorNuevo"
                                 :type="tipoInput"
                                 :step="campo.tipo === 'entero' ? '1' : '0.01'"
-                                :aria-invalid="primerError(campo.campo) !== null"
+                                :aria-invalid="
+                                    primerError(campo.campo) !== null
+                                "
                             />
                         </div>
                     </template>
@@ -482,7 +495,9 @@ function cerrar(): void {
                                 {{ cambio.etiqueta }}
                             </p>
                             <p class="flex flex-wrap items-center gap-2">
-                                <span class="text-muted-foreground line-through">
+                                <span
+                                    class="text-muted-foreground line-through"
+                                >
                                     {{ cambio.antes ?? 'Sin capturar' }}
                                 </span>
                                 <ArrowRight
@@ -498,7 +513,9 @@ function cerrar(): void {
                 </div>
 
                 <div>
-                    <h3 class="mb-2 text-sm font-semibold">Qué más se afecta</h3>
+                    <h3 class="mb-2 text-sm font-semibold">
+                        Qué más se afecta
+                    </h3>
                     <p
                         v-if="previa.afectados.length === 0"
                         class="text-sm text-muted-foreground"
@@ -533,7 +550,9 @@ function cerrar(): void {
                 </div>
 
                 <div class="grid gap-1.5">
-                    <Label for="correccion-motivo">Motivo de la corrección</Label>
+                    <Label for="correccion-motivo"
+                        >Motivo de la corrección</Label
+                    >
                     <Textarea
                         id="correccion-motivo"
                         v-model="motivo"

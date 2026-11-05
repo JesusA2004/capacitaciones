@@ -236,7 +236,8 @@ const ETIQUETAS_PERMISO: Record<string, string> = {
         'Ver el finiquito propuesto al registrar una baja',
     'bajas.cambiar_causal': 'Cambiar la causal de una baja',
     'bajas.editar': 'Corregir los datos de una baja',
-    'bajas.enviar_juridico': 'Enviar una baja a Jurídico (retirado: ya no se usa)',
+    'bajas.enviar_juridico':
+        'Enviar una baja a Jurídico (retirado: ya no se usa)',
     'bajas.cerrar': 'Cerrar bajas',
     'bajas.reabrir': 'Reabrir bajas cerradas',
     'bajas.cancelar': 'Marcar una baja como «No procede»',
@@ -246,7 +247,8 @@ const ETIQUETAS_PERMISO: Record<string, string> = {
     'finiquitos.descargar': 'Ver / generar / descargar el PDF del finiquito',
     'reingresos.decidir': 'Decidir reingresos (viable / no viable)',
     'candidatos.contratar': 'Contratar candidatos',
-    'candidatos.evaluar': 'Evaluar candidatos (retirado: ahora es un permiso por paso)',
+    'candidatos.evaluar':
+        'Evaluar candidatos (retirado: ahora es un permiso por paso)',
     'celebraciones.enviar': 'Enviar felicitaciones',
     'celebraciones.gestionar': 'Gestionar celebraciones',
     'celebraciones.moderar': 'Moderar mensajes de celebraciones',
@@ -279,12 +281,14 @@ const ETIQUETAS_PERMISO: Record<string, string> = {
     'candidatos.aprobar_entrevista': 'Registrar / aprobar la entrevista',
     'candidatos.revisar_psicometricas': 'Revisar psicométricas de candidatos',
     'candidatos.revisar_socioeconomico': 'Revisar socioeconómico de candidatos',
-    'candidatos.revisar_perfil': 'Revisar el perfil del candidato (filtro inicial)',
+    'candidatos.revisar_perfil':
+        'Revisar el perfil del candidato (filtro inicial)',
     'candidatos.registrar_psicometricas': 'Enviar y cargar psicométricas',
     'candidatos.registrar_socioeconomico': 'Cargar estudio socioeconómico',
     'candidatos.validar_referencias': 'Registrar y concluir referencias',
     'candidatos.cerrar_proceso': 'Cerrar el proceso de un candidato',
-    'candidatos.solicitar_intervencion': 'Solicitar intervención sobre un rechazo',
+    'candidatos.solicitar_intervencion':
+        'Solicitar intervención sobre un rechazo',
     'candidatos.intervencion_decidir': 'Decidir intervenciones de candidatos',
     'candidatos.adjuntar': 'Agregar archivos al mini expediente del candidato',
     'documentos_laborales.cancelar': 'Cancelar documentos laborales',

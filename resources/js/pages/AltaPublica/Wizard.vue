@@ -315,9 +315,9 @@ function enviarAlta() {
                 <div class="grid gap-2">
                     <Label>Fotografía para expediente (obligatoria)</Label>
                     <p class="text-sm text-muted-foreground">
-                        Será tu foto de perfil en el sistema. Usa una foto
-                        clara y formal: de frente, con el rostro descubierto y
-                        fondo claro. Se recorta en cuadro al centro.
+                        Será tu foto de perfil en el sistema. Usa una foto clara
+                        y formal: de frente, con el rostro descubierto y fondo
+                        claro. Se recorta en cuadro al centro.
                     </p>
                     <label
                         class="inline-flex w-fit cursor-pointer items-center gap-1.5 rounded-md border px-3 py-2 text-sm"
@@ -345,7 +345,10 @@ function enviarAlta() {
                         <CheckCircle2 class="size-4" />
                         Fotografía para expediente cargada.
                     </p>
-                    <p v-if="formFoto.errors.foto" class="text-sm text-destructive">
+                    <p
+                        v-if="formFoto.errors.foto"
+                        class="text-sm text-destructive"
+                    >
                         {{ formFoto.errors.foto }}
                     </p>
                 </div>

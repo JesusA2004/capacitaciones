@@ -36,6 +36,9 @@ export default defineConfigWithVueTs(
                 },
                 node: true,
             },
+            // `@/routes`, `@/actions` y `@/wayfinder` se generan (no están en git):
+            // sin esto, en CI se clasifican distinto que en local y `import/order` falla.
+            'import/internal-regex': '^@/',
         },
         rules: {
             'vue/multi-word-component-names': 'off',

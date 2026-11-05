@@ -371,11 +371,7 @@ export type CausalRotacionFila = {
 export type SemaforoRotacion = 'verde' | 'ambar' | 'rojo';
 
 export type VistaRotacion =
-    | 'global'
-    | 'corporativo'
-    | 'sucursales'
-    | 'por_sucursal'
-    | 'por_causales';
+    'global' | 'corporativo' | 'sucursales' | 'por_sucursal' | 'por_causales';
 
 export type MetaRotacion = { verde_hasta: number; ambar_hasta: number };
 
