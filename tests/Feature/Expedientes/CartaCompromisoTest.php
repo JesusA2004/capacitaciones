@@ -8,8 +8,10 @@ use App\Models\DocumentType;
 use App\Models\GeneratedDocument;
 use App\Models\User;
 use App\Services\Expedientes\CartaCompromisoService;
+use App\Services\Expedientes\RequisitoDocumentoGeneradoService;
 use App\Services\Incorporacion\IncorporacionInvitacionService;
 use App\Services\Incorporacion\RegistroAppService;
+use App\Services\Incorporacion\SolicitudEmpleo\SolicitudEmpleoRegistroService;
 use App\Services\Pdf\BrowsershotRenderer;
 use App\Services\Pdf\OpcionesPdf;
 use Database\Seeders\RolesYPermisosSeeder;
@@ -518,4 +520,28 @@ test('la carta nombra el documento en singular o los dos documentos en plural', 
     $dos = $servicio->html($servicio->datos($usuario->colaborador, [$acta, $domicilio], 'CC-2026-000002', now()->addDays(7), now()));
     expect($dos)->toContain('los siguientes dos documentos para integrar')
         ->and($dos)->toContain('<strong>«Acta de nacimiento»</strong> y <strong>«Comprobante de domicilio»</strong> dentro del plazo');
+});
+
+test('apk anterior (sin X-People-Solicitud-Empleo): la vista previa descarta los formatos que genera PEOPLE', function () {
+    ['headers' => $headers] = ccpRegistrarPorQr();
+    $generables = array_keys(app(RequisitoDocumentoGeneradoService::class)->tiposGenerables());
+    expect($generables)->toContain('solicitud_empleo');
+    $solicitud = DocumentType::query()->where('clave', 'solicitud_empleo')->first()
+        ?? DocumentType::factory()->create(['clave' => 'solicitud_empleo', 'requerido' => true, 'aplica_alta' => true, 'activo' => true]);
+
+    // La APK anterior manda el formato generado junto con los que sí faltan.
+    test()->withHeaders($headers)->postJson('/api/v1/colaborador/carta-compromiso/vista-previa', [
+        'documentos' => [$this->acta->id, $solicitud->id],
+    ])->assertOk();
+    expect(CartaCompromiso::query()->count())->toBe(0);
+
+    // Solo formatos generados: 422 claro (nada que comprometer).
+    test()->withHeaders($headers)->postJson('/api/v1/colaborador/carta-compromiso/vista-previa', [
+        'documentos' => [$solicitud->id],
+    ])->assertUnprocessable()->assertJsonValidationErrors('documentos');
+
+    // La app nueva (con la cabecera) nunca los ofrece: si llegaran, 422.
+    test()->withHeaders([...$headers, SolicitudEmpleoRegistroService::CABECERA_CLIENTE => '1'])
+        ->postJson('/api/v1/colaborador/carta-compromiso/vista-previa', ['documentos' => [$this->acta->id, $solicitud->id]])
+        ->assertUnprocessable()->assertJsonValidationErrors('documentos');
 });

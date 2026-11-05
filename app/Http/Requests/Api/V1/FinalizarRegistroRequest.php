@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Http\Requests\Api\V1\Concerns\DescartaFormatosGeneradosDeApkAnterior;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -11,6 +12,8 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class FinalizarRegistroRequest extends FormRequest
 {
+    use DescartaFormatosGeneradosDeApkAnterior;
+
     public function authorize(): bool
     {
         return $this->user()?->colaborador !== null;
@@ -42,12 +45,15 @@ class FinalizarRegistroRequest extends FormRequest
     }
 
     /**
+     * Sin los formatos que genera PEOPLE cuando los marca la APK anterior
+     * (DescartaFormatosGeneradosDeApkAnterior).
+     *
      * @return list<int>
      */
     public function documentosSinTener(): array
     {
         $ids = $this->validated('documentos_sin_tener');
 
-        return is_array($ids) ? array_values(array_map('intval', $ids)) : [];
+        return $this->sinFormatosGeneradosDeApkAnterior(is_array($ids) ? array_values(array_map('intval', $ids)) : []);
     }
 }

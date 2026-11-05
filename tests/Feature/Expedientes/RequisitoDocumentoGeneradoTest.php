@@ -16,6 +16,7 @@ use App\Services\Expedientes\RequisitoDocumentoGeneradoService;
 use App\Services\Incorporacion\IncorporacionInvitacionService;
 use App\Services\Incorporacion\IncorporacionService;
 use App\Services\Incorporacion\RegistroAppService;
+use App\Services\Incorporacion\SolicitudEmpleo\SolicitudEmpleoRegistroService;
 use Database\Seeders\DocumentTypeSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Notification;
@@ -191,7 +192,10 @@ test('registro en la app: se presenta como «Se genera con tus datos» y no se p
         'name' => 'Ana', 'apellidos' => 'Torres',
         'password' => 'Capacitacion2026!', 'password_confirmation' => 'Capacitacion2026!',
     ])->assertCreated()->json('token');
-    $headers = ['Authorization' => 'Bearer '.$token, RegistroAppService::CABECERA_CLIENTE => '1'];
+    // App que implementa la Solicitud de empleo (no ofrece «No tengo» en los
+    // formatos generados). La APK anterior, sin esta cabecera, sí los marca:
+    // esas marcas se descartan (RegistroAppApiTest «apk anterior…»).
+    $headers = ['Authorization' => 'Bearer '.$token, RegistroAppService::CABECERA_CLIENTE => '1', SolicitudEmpleoRegistroService::CABECERA_CLIENTE => '1'];
 
     $registro = $this->withHeaders($headers)->getJson('/api/v1/colaborador/registro')->assertOk();
     $fila = collect($registro->json('data.documentos.lista'))->firstWhere('tipo', 'solicitud_empleo');

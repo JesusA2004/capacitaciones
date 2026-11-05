@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Api\V1;
 
+use App\Http\Requests\Api\V1\Concerns\DescartaFormatosGeneradosDeApkAnterior;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Vista previa de la carta compromiso antes de cerrar el registro: los
@@ -11,6 +13,8 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class VistaPreviaCartaCompromisoRequest extends FormRequest
 {
+    use DescartaFormatosGeneradosDeApkAnterior;
+
     public function authorize(): bool
     {
         return $this->user()?->colaborador !== null;
@@ -44,12 +48,25 @@ class VistaPreviaCartaCompromisoRequest extends FormRequest
     }
 
     /**
+     * Sin los formatos que genera PEOPLE cuando los marca la APK anterior
+     * (DescartaFormatosGeneradosDeApkAnterior).
+     *
      * @return list<int>
+     *
+     * @throws ValidationException Si solo marcó formatos que genera PEOPLE.
      */
     public function documentos(): array
     {
         $ids = $this->validated('documentos');
+        $ids = is_array($ids) ? array_values(array_map('intval', $ids)) : [];
+        $filtrados = $this->sinFormatosGeneradosDeApkAnterior($ids);
 
-        return is_array($ids) ? array_values(array_map('intval', $ids)) : [];
+        if ($ids !== [] && $filtrados === []) {
+            throw ValidationException::withMessages([
+                'documentos' => 'La Solicitud de empleo y el Estudio socioeconómico los genera PEOPLE con tus datos: no van en la carta compromiso.',
+            ]);
+        }
+
+        return $filtrados;
     }
 }

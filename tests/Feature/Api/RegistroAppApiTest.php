@@ -1,11 +1,15 @@
 <?php
 
+use App\Enums\EstadoDocumento;
 use App\Models\Colaborador;
 use App\Models\ColaboradorDatosMedicos;
 use App\Models\DocumentType;
+use App\Models\EmployeeDocument;
 use App\Models\User;
+use App\Services\Expedientes\RequisitoDocumentoGeneradoService;
 use App\Services\Incorporacion\IncorporacionInvitacionService;
 use App\Services\Incorporacion\RegistroAppService;
+use Database\Seeders\DocumentTypeSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -225,4 +229,97 @@ test('no se puede finalizar sin datos ni documentos; completo, entra a la app', 
     // Cerrado el registro, cualquier cambio es por corrección.
     test()->withHeaders($headers)->postJson('/api/v1/colaborador/registro/datos', ['datos' => ['profesion' => 'Otra']])
         ->assertUnprocessable();
+});
+
+/*
+ * Compatibilidad con la APK instalada (1.3.0, builds 20–22): manda
+ * X-People-Registro y X-People-Documentos pero NO X-People-Solicitud-Empleo,
+ * no tiene el paso «foto» y su paso de documentos obliga a resolver cada
+ * requerido con estado «pendiente» — incluidos los que genera PEOPLE
+ * (Solicitud de empleo / Estudio socioeconómico, sin botón de subir): la
+ * única salida que les da es «No tengo este documento».
+ */
+
+/** @return array{colaborador: Colaborador, headers: array<string, string>} */
+function raRegistroApkAnterior(): array
+{
+    ['colaborador' => $colaborador, 'token' => $token] = raRegistrarPorQr();
+    $headers = [
+        'Authorization' => 'Bearer '.$token,
+        RegistroAppService::CABECERA_CLIENTE => '1',
+        'X-People-Documentos' => '1',
+        'Accept' => 'application/json',
+    ];
+
+    $datos = array_filter(raDatosCompletos(), fn (string $campo): bool => blank($colaborador->getAttribute($campo)), ARRAY_FILTER_USE_KEY);
+    test()->withHeaders($headers)->postJson('/api/v1/colaborador/registro/datos', ['datos' => $datos])->assertOk();
+
+    return ['colaborador' => $colaborador, 'headers' => $headers];
+}
+
+/**
+ * Ids que la APK anterior marca «No tengo»: todo requerido con estado
+ * faltante en `documentos.lista` (su `documentosPorSubir`, sin filtrar los
+ * generados por el sistema).
+ *
+ * @param  array<string, string>  $headers
+ * @return list<int>
+ */
+function raMarcadosPorApkAnterior(array $headers): array
+{
+    $lista = test()->withHeaders($headers)->getJson('/api/v1/colaborador/registro')->assertOk()->json('data.documentos.lista');
+
+    return collect($lista)
+        ->filter(fn (array $d): bool => (bool) $d['obligatorio'] && in_array($d['estado'], ['pendiente', 'rechazado', 'requiere_correccion', 'vencido', 'cambio_autorizado'], true))
+        ->pluck('id')->map(fn ($id): int => (int) $id)->values()->all();
+}
+
+test('apk anterior con la foto apagada: marcar los documentos que genera PEOPLE no atora el cierre', function () {
+    config(['incorporacion.registro_app.foto_obligatoria' => false]);
+    $this->seed(DocumentTypeSeeder::class);
+    ['colaborador' => $colaborador, 'headers' => $headers] = raRegistroApkAnterior();
+
+    $generables = DocumentType::query()->whereIn('clave', array_keys(app(RequisitoDocumentoGeneradoService::class)->tiposGenerables()))->pluck('id')->all();
+    expect($generables)->not->toBeEmpty();
+
+    // Sube todo lo que sí sube la persona (incluidas las fotografías infantiles:
+    // con la foto apagada y sin foto, ese tipo se pide como siempre).
+    foreach (DocumentType::query()->where('requerido', true)->where('activo', true)->whereNotIn('id', $generables)->get() as $tipo) {
+        EmployeeDocument::factory()->create([
+            'colaborador_id' => $colaborador->id,
+            'user_id' => User::factory()->create()->id,
+            'document_type_id' => $tipo->id,
+            'status' => EstadoDocumento::Aprobado->value,
+        ]);
+    }
+
+    $marcados = raMarcadosPorApkAnterior($headers);
+    // La APK anterior solo puede «resolver» los generados marcándolos.
+    expect($marcados)->not->toBeEmpty()
+        ->and(array_diff($marcados, $generables))->toBe([]);
+
+    test()->withHeaders($headers)->getJson('/api/v1/colaborador/registro')
+        ->assertJsonPath('data.foto.obligatoria', false)
+        ->assertJsonPath('data.solicitud_empleo.exigida', false)
+        ->assertJsonPath('data.puede_finalizar', true);
+
+    test()->withHeaders($headers)->postJson('/api/v1/colaborador/registro/finalizar', ['documentos_sin_tener' => $marcados])
+        ->assertOk()
+        ->assertJsonPath('data.registro_completo', true)
+        // Nunca entran a una carta compromiso: no son documentos que suba la persona.
+        ->assertJsonPath('data.carta_compromiso', null);
+});
+
+test('apk anterior con la foto obligatoria: el cierre responde 422 errors.foto (esa versión no tiene cómo subirla)', function () {
+    config(['incorporacion.registro_app.foto_obligatoria' => true]);
+    ['headers' => $headers] = raRegistroApkAnterior();
+    $tipo = DocumentType::factory()->create(['requerido' => true, 'aplica_alta' => true, 'activo' => true]);
+
+    test()->withHeaders($headers)->getJson('/api/v1/colaborador/registro')
+        ->assertJsonPath('data.foto.obligatoria', true)
+        ->assertJsonPath('data.puede_finalizar', false);
+
+    test()->withHeaders($headers)->postJson('/api/v1/colaborador/registro/finalizar', ['documentos_sin_tener' => [$tipo->id]])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['foto' => 'Agrega tu fotografía para expediente.']);
 });
