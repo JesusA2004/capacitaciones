@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Link, useForm } from '@inertiajs/vue3';
+import { getLocalTimeZone, today } from '@internationalized/date';
 import {
     AlertTriangle,
     CheckCircle2,
@@ -288,6 +289,10 @@ function valoresIniciales() {
 
 type Valores = ReturnType<typeof valoresIniciales>;
 type CampoForm = keyof Valores;
+
+// Fecha de nacimiento: el Select de año va de 1940 a hoy y no se puede
+// elegir un día futuro.
+const HOY = today(getLocalTimeZone()).toString();
 
 const form = useForm({ ...valoresIniciales(), motivo: '' });
 const editando = ref(false);
@@ -647,6 +652,8 @@ const errores = computed(() => form.errors as Partial<Record<string, string>>);
                             v-if="c.tipo === 'fecha'"
                             :id="`dp_${c.campo}`"
                             v-model="form[c.campo]"
+                            :anio-desde="1940"
+                            :max-value="HOY"
                         />
                         <SelectSimple
                             v-else-if="c.tipo === 'genero'"

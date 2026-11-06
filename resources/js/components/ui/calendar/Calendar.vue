@@ -26,7 +26,11 @@ const delegatedProps = reactiveOmit(props, "class", "layout", "placeholder")
 
 const placeholder = useVModel(props, "placeholder", emits, {
   passive: true,
-  defaultValue: props.defaultPlaceholder ?? today(getLocalTimeZone()),
+  // Abre en el mes de la fecha ya elegida (p. ej. una de nacimiento de
+  // 1988), no en el mes de hoy.
+  defaultValue: props.defaultPlaceholder
+    ?? (Array.isArray(props.modelValue) ? props.modelValue[0] : props.modelValue)
+    ?? today(getLocalTimeZone()),
 }) as Ref<DateValue>
 
 const formatter = useDateFormatter(props.locale ?? "es-MX")
@@ -89,7 +93,12 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
     :class="cn('p-3', props.class)"
   >
     <CalendarHeader class="pt-0">
-      <nav class="flex items-center gap-1 absolute top-0 inset-x-0 justify-between">
+      <!--
+        La barra de flechas es absoluta y ocupa todo el ancho del encabezado:
+        sin pointer-events-none tapaba los Select de mes/año (solo dejaba ir
+        atrás/adelante o elegir día). Solo las flechas reciben clics.
+      -->
+      <nav class="pointer-events-none flex items-center gap-1 absolute top-0 inset-x-0 justify-between [&>*]:pointer-events-auto">
         <CalendarPrevButton>
           <slot name="calendar-prev-icon" />
         </CalendarPrevButton>

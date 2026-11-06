@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import type { CalendarDate, DateValue } from '@internationalized/date';
+import type { DateValue } from '@internationalized/date';
 import {
+    CalendarDate,
     DateFormatter,
     getLocalTimeZone,
     parseDate,
+    today,
 } from '@internationalized/date';
 import { Calendar as CalendarIcon } from '@lucide/vue';
 import { computed } from 'vue';
@@ -31,6 +33,13 @@ const props = withDefaults(
         placeholder?: string;
         minValue?: string;
         maxValue?: string;
+        /**
+         * Rango del Select de año (solo la lista; no limita los días). Útil
+         * para fechas de nacimiento: `anio-desde="1940"`. Sin él, el
+         * calendario usa su rango por defecto (min/max o ±100 años).
+         */
+        anioDesde?: number;
+        anioHasta?: number;
     }>(),
     {
         placeholder: 'Selecciona una fecha',
@@ -60,6 +69,30 @@ function aFechaCalendario(
 const valorCalendario = computed(() => aFechaCalendario(props.modelValue));
 const minCalendario = computed(() => aFechaCalendario(props.minValue));
 const maxCalendario = computed(() => aFechaCalendario(props.maxValue));
+
+// Lista explícita de años para el Select. Siempre incluye el año del valor
+// actual aunque quede fuera del rango (p. ej. un nacimiento de 1935), para
+// que el Select nunca aparezca vacío.
+const rangoAnios = computed<DateValue[] | undefined>(() => {
+    if (props.anioDesde === undefined && props.anioHasta === undefined) {
+        return undefined;
+    }
+
+    const anioActual = today(getLocalTimeZone()).year;
+    const anioValor = valorCalendario.value?.year;
+    let desde = props.anioDesde ?? anioActual - 100;
+    let hasta = props.anioHasta ?? anioActual + 10;
+
+    if (anioValor !== undefined) {
+        desde = Math.min(desde, anioValor);
+        hasta = Math.max(hasta, anioValor);
+    }
+
+    return Array.from(
+        { length: hasta - desde + 1 },
+        (_, i) => new CalendarDate(desde + i, 1, 1),
+    );
+});
 
 const textoVisible = computed(() =>
     valorCalendario.value
@@ -96,6 +129,7 @@ function alSeleccionar(fecha: DateValue | undefined) {
                 :model-value="valorCalendario"
                 :min-value="minCalendario"
                 :max-value="maxCalendario"
+                :year-range="rangoAnios"
                 layout="month-and-year"
                 @update:model-value="alSeleccionar"
             />

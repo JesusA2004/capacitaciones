@@ -255,6 +255,8 @@ function enviarAlta() {
                         <DatePicker
                             id="fecha_nacimiento"
                             v-model="formDatos.fecha_nacimiento"
+                            :anio-desde="1940"
+                            :anio-hasta="new Date().getFullYear()"
                         />
                     </div>
                     <div class="grid gap-2">
