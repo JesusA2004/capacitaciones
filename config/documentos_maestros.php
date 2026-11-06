@@ -487,7 +487,9 @@ return [
         'dpi' => 40,
         'umbral_identidad' => 0.985,
         'umbral_bandas' => 0.97,
-        'umbral_overlay' => 0.985,
+        // Configurable por servidor: versiones de poppler distintas rasterizan
+        // el mismo PDF con ligeras diferencias de antialias/capas.
+        'umbral_overlay' => (float) env('DOCUMENTOS_QA_UMBRAL_OVERLAY', 0.985),
         'reflow_minimo' => 0.35,
         'pdftoppm' => env('DOCUMENTOS_QA_PDFTOPPM_PATH'),
         'script_windows' => resource_path('scripts/pdf-a-png-windows.ps1'),
