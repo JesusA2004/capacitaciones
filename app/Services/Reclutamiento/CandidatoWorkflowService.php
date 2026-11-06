@@ -601,6 +601,13 @@ class CandidatoWorkflowService
     {
         return $this->paso($candidato, $actor, EstadoCandidato::RechazadoRh, function (Candidato $c) use ($actor, $nota): void {
             $this->transicionar($c, EstadoCandidato::AutorizadoRh, $actor, $nota, retroceso: true);
+
+            // La contratación exige la autorización final registrada en la
+            // cadena de aprobaciones, no solo el estado del candidato.
+            $this->aprobaciones->autorizarPorIntervencion($c, ProcesoAprobacion::SeleccionCandidato, $actor, $nota, [
+                'candidato' => $c,
+                'solicitante' => $actor,
+            ]);
         });
     }
 
@@ -647,6 +654,7 @@ class CandidatoWorkflowService
     public function regresarARechazoRh(Candidato $candidato, User $actor, string $motivo): void
     {
         $this->transicionar($candidato, EstadoCandidato::RechazadoRh, $actor, sprintf('Intervención reabierta: %s', $motivo), retroceso: true);
+        $this->aprobaciones->revocarAutorizacionPorIntervencion($candidato, ProcesoAprobacion::SeleccionCandidato, $actor, $motivo);
     }
 
     public function actualizarPendientes(Candidato $candidato, User $actor): void

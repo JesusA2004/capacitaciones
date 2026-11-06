@@ -4,7 +4,9 @@ use App\Enums\EstadoCandidato;
 use App\Enums\EstadoIntervencionCandidato;
 use App\Enums\EstadoVacante;
 use App\Enums\GrupoPuestoIndicador;
+use App\Enums\ProcesoAprobacion;
 use App\Enums\RutaIntervencionCandidato;
+use App\Models\Aprobacion;
 use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\HeadcountTarget;
@@ -14,10 +16,13 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Models\Vacante;
 use App\Notifications\Mobile\PendienteRhNotification;
+use App\Services\CicloLaboral\AprobacionService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
+use App\Services\Reclutamiento\ContratacionCandidatoService;
 use App\Services\Reclutamiento\IntervencionCandidatoService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\ValidationException;
 
 beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
@@ -271,4 +276,70 @@ test('la intervención aprobada queda inmutable: no se puede decidir dos veces',
         ->assertSessionHasErrors('estado');
 
     expect($candidato->fresh()->estado)->toBe(EstadoCandidato::AutorizadoRh);
+});
+
+test('la intervención aprobada registra la autorización final y RH ya puede generar el QR de contratación', function () {
+    $candidato = icCandidatoRechazadoPorRh($this);
+    $director = icDireccionComercial();
+    $director->givePermissionTo('candidatos.intervencion_decidir');
+
+    app(IntervencionCandidatoService::class)->solicitar($candidato, $this->gerente, 'Reconsiderar, buen candidato.');
+    $intervencion = IntervencionCandidato::where('candidato_id', $candidato->id)->firstOrFail();
+    app(IntervencionCandidatoService::class)->decidir($intervencion, $director, true, 'Autorizo la excepción.');
+
+    $aprobaciones = app(AprobacionService::class);
+    $candidato->refresh();
+
+    expect($aprobaciones->estaAutorizadoPorRh($candidato, ProcesoAprobacion::SeleccionCandidato))->toBeTrue()
+        ->and($aprobaciones->resumen($candidato, ProcesoAprobacion::SeleccionCandidato)['autorizado_rh'])->toBeTrue()
+        ->and($aprobaciones->pendiente($candidato, ProcesoAprobacion::SeleccionCandidato))->toBeNull();
+
+    $resultado = app(ContratacionCandidatoService::class)->iniciarContratacion($candidato, ['sueldo_mensual' => 9000, 'fecha_ingreso' => now()->toDateString()], $this->rh);
+
+    expect($resultado['token'])->not->toBeEmpty()
+        ->and($candidato->fresh()->estado)->toBe(EstadoCandidato::EnContratacion);
+});
+
+test('reabrir una intervención aprobada revoca la autorización final que había dado', function () {
+    $candidato = icCandidatoRechazadoPorRh($this);
+    $director = icDireccionComercial();
+    $director->givePermissionTo('candidatos.intervencion_decidir');
+
+    app(IntervencionCandidatoService::class)->solicitar($candidato, $this->gerente, 'Reconsiderar.');
+    $intervencion = IntervencionCandidato::where('candidato_id', $candidato->id)->firstOrFail();
+    app(IntervencionCandidatoService::class)->decidir($intervencion, $director, true, null);
+
+    app(IntervencionCandidatoService::class)->reabrir($intervencion->fresh(), $director, 'Faltó revisar documentos.');
+
+    $candidato->refresh();
+
+    expect($candidato->estado)->toBe(EstadoCandidato::RechazadoRh)
+        ->and(app(AprobacionService::class)->estaAutorizadoPorRh($candidato, ProcesoAprobacion::SeleccionCandidato))->toBeFalse();
+
+    expect(fn () => app(ContratacionCandidatoService::class)->iniciarContratacion($candidato, ['sueldo_mensual' => 9000, 'fecha_ingreso' => now()->toDateString()], $this->rh))
+        ->toThrow(ValidationException::class);
+});
+
+test('la migración registra la autorización faltante de intervenciones aprobadas antes de la corrección', function () {
+    $candidato = icCandidatoRechazadoPorRh($this);
+    $director = icDireccionComercial();
+
+    // Estado que dejaba el código anterior: intervención aprobada y candidato
+    // «Autorizado por RH», pero sin la autorización final registrada.
+    IntervencionCandidato::query()->create([
+        'candidato_id' => $candidato->id, 'ruta' => 'direccion_comercial', 'gerente_solicitante_id' => $this->gerente->id,
+        'motivo_solicitud' => 'Reconsiderar.', 'solicitada_en' => now(), 'estado' => EstadoIntervencionCandidato::Aprobada,
+        'aprobador_id' => $director->id, 'comentario_decision' => 'Sí', 'decidida_en' => now(),
+    ]);
+    $candidato->forceFill(['estado' => EstadoCandidato::AutorizadoRh])->saveQuietly();
+
+    $aprobaciones = app(AprobacionService::class);
+    expect($aprobaciones->estaAutorizadoPorRh($candidato, ProcesoAprobacion::SeleccionCandidato))->toBeFalse();
+
+    $migracion = require database_path('migrations/2026_11_13_500300_registra_autorizacion_de_intervenciones_aprobadas.php');
+    $migracion->up();
+    $migracion->up(); // idempotente
+
+    expect($aprobaciones->estaAutorizadoPorRh($candidato, ProcesoAprobacion::SeleccionCandidato))->toBeTrue()
+        ->and(Aprobacion::query()->where('candidato_id', $candidato->id)->where('decision', AprobacionService::DECISION_INTERVENCION)->count())->toBe(1);
 });

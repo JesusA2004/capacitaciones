@@ -41,6 +41,9 @@ use Illuminate\Validation\ValidationException;
  */
 class AprobacionService
 {
+    /** Marca de la etapa RH aprobada por una intervención (no por RH). */
+    public const DECISION_INTERVENCION = 'intervencion';
+
     public function __construct(
         private readonly OrganizacionJerarquiaService $jerarquia,
         private readonly AuditoriaService $auditoria,
@@ -144,6 +147,70 @@ class AprobacionService
 
             return $pendiente;
         });
+    }
+
+    /**
+     * Autorización final otorgada por una intervención aprobada (Regional o
+     * Dirección Comercial revierten un rechazo de RH). Abre una ronda nueva
+     * —la del rechazo queda intacta en el historial— con la preautorización
+     * "no aplica" y la etapa RH aprobada por quien decidió la intervención,
+     * marcada con la decisión «intervencion». Sin esto el candidato quedaba
+     * «Autorizado por RH» pero la contratación lo bloqueaba por no tener la
+     * autorización final registrada.
+     *
+     * La autoridad del actor ya la validó IntervencionCandidatoService.
+     *
+     * @param  array{candidato?: Candidato|null, colaborador?: Colaborador|null, solicitante?: User|null}  $contexto
+     */
+    public function autorizarPorIntervencion(Model $aprobable, ProcesoAprobacion $proceso, User $actor, string $comentario, array $contexto = []): Aprobacion
+    {
+        return DB::transaction(function () use ($aprobable, $proceso, $actor, $comentario, $contexto): Aprobacion {
+            $this->cancelarPendientes($aprobable, $proceso, $actor, 'Sustituida por la autorización por intervención.');
+
+            $ronda = $this->rondaActual($aprobable, $proceso) + 1;
+            $base = $this->base($aprobable, $proceso, $ronda, $contexto);
+
+            $this->crear([
+                ...$base,
+                'etapa' => EtapaAprobacion::Preautorizacion,
+                'capacidad_requerida' => OrganizacionJerarquiaService::PERMISO_PREAUTORIZAR,
+                'estado' => EstadoAprobacion::Omitido,
+                'comentario' => 'No aplica: la contratación se autorizó por intervención sobre el rechazo de RH.',
+                'decidido_en' => now(),
+            ]);
+
+            $rh = $this->crear([
+                ...$base,
+                'etapa' => EtapaAprobacion::AutorizacionRh,
+                'capacidad_requerida' => OrganizacionJerarquiaService::PERMISO_AUTORIZAR_RH,
+                'estado' => EstadoAprobacion::Pendiente,
+            ]);
+
+            $this->decidir($rh, $actor, EstadoAprobacion::Aprobado, $comentario, self::DECISION_INTERVENCION);
+            $this->auditar('aprobacion_autorizada_intervencion', $rh, $actor);
+
+            return $rh;
+        });
+    }
+
+    /**
+     * Deshace la autorización que dio una intervención (la intervención se
+     * reabrió): la etapa RH aprobada por intervención queda cancelada, así que
+     * el candidato ya no puede contratarse hasta una nueva decisión.
+     */
+    public function revocarAutorizacionPorIntervencion(Model $aprobable, ProcesoAprobacion $proceso, User $actor, string $motivo): void
+    {
+        $this->query($aprobable, $proceso)
+            ->where('etapa', EtapaAprobacion::AutorizacionRh->value)
+            ->where('estado', EstadoAprobacion::Aprobado->value)
+            ->where('decision', self::DECISION_INTERVENCION)
+            ->update([
+                'estado' => EstadoAprobacion::Cancelado->value,
+                'comentario' => sprintf('Intervención reabierta: %s', $motivo),
+                'decidido_por_user_id' => $actor->id,
+                'decidido_en' => now(),
+                'updated_at' => now(),
+            ]);
     }
 
     /**

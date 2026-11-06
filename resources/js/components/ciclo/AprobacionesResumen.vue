@@ -109,7 +109,15 @@ function color(item: AprobacionItem | null): string {
             </div>
 
             <p
-                v-if="aprobaciones.ronda > 1"
+                v-if="aprobaciones.autorizacion_rh?.decision === 'intervencion'"
+                class="text-xs text-[var(--mrl-texto-suave)]"
+            >
+                Ronda {{ aprobaciones.ronda }}: autorizada por intervención
+                sobre el rechazo de RH; las rondas anteriores se conservan en la
+                línea de tiempo.
+            </p>
+            <p
+                v-else-if="aprobaciones.ronda > 1"
                 class="text-xs text-[var(--mrl-texto-suave)]"
             >
                 Ronda {{ aprobaciones.ronda }}: las rondas anteriores se
