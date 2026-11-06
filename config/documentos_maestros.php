@@ -650,15 +650,46 @@ return [
     ],
 
     /*
-    | Fallback a la variante GENERAL (sin puesto/grupo) por tipo de
-    | documento: solo para los grupos listados ("*" = cualquier puesto). Sin
-    | entrada = nunca se usa la general ("formato no cargado").
+    | Variante GENERAL preferida por tipo de documento: para los grupos
+    | listados ("*" = cualquier puesto) la general va ANTES que la variante
+    | del grupo más cercano (fallback_cercano). Sin entrada = la general solo
+    | como último recurso. Ver App\Services\DocumentosMaestros\
+    | ResolvedorMaestroService.
     */
     'fallback_general' => [
-        // RH: el convenio de confidencialidad es para TODOS los puestos; los
-        // que no tienen variante propia (Regional, Sistemas, Dirección…) firman
-        // el general.
-        'contrato_confidencialidad' => ['*'],
+        // RH: el convenio de confidencialidad es para TODOS los puestos; el
+        // Gerente regional (sin variante propia) firma el general. Los puestos
+        // sin grupo documental (Sistemas, Dirección…) no tienen equivalente y
+        // también terminan en el general.
+        'contrato_confidencialidad' => ['regional'],
+    ],
+
+    /*
+    | Formato del puesto MÁS CERCANO cuando no existe uno para el grupo exacto
+    | (decisión del negocio 2026-11-06: «si no hay contrato de Subgerente, usa
+    | el de Gerente; si no hay ninguno, el general»). El documento siempre se
+    | llena con el puesto y la sucursal de la PERSONA (los de su vacante), no
+    | con los del formato prestado, y la pantalla muestra cuál se usó
+    | («Usa el de Gerente de sucursal»).
+    |
+    |   habilitado     false = nunca se presta la variante de otro grupo.
+    |   equivalencias  grupo => grupos cercanos en orden de preferencia. Un
+    |                  grupo sin lista (Gestor) nunca toma el formato de otro.
+    |   general        true = sin propio ni cercano, se usa el general (si
+    |                  existe) antes de responder «formato no cargado».
+    */
+    'fallback_cercano' => [
+        'habilitado' => (bool) env('DOCUMENTOS_FALLBACK_CERCANO', true),
+        'general' => true,
+        'equivalencias' => [
+            'subgerente' => ['gerente'],
+            'gerente' => ['subgerente'],
+            'regional' => ['gerente', 'subgerente'],
+            'administrativo_confianza' => ['administrativo_no_confianza'],
+            'administrativo_no_confianza' => ['administrativo_confianza'],
+            'gestor' => [],
+            'coordinadora' => [],
+        ],
     ],
 
     /*

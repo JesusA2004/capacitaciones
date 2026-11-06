@@ -93,6 +93,10 @@ const celda: Record<
         etiqueta: 'Formato general validado',
         clase: 'text-[var(--mrl-verde)]',
     },
+    cercano: {
+        etiqueta: 'Usa el formato de un puesto cercano',
+        clase: 'text-[var(--mrl-verde)]',
+    },
     sin_validar: {
         etiqueta: 'Formato cargado sin diseño validado',
         clase: 'text-warning',
@@ -350,7 +354,10 @@ function guardar() {
                                                     p.celdas[c.clave]
                                                         ?.estado === 'ok' ||
                                                     p.celdas[c.clave]
-                                                        ?.estado === 'general'
+                                                        ?.estado ===
+                                                        'general' ||
+                                                    p.celdas[c.clave]
+                                                        ?.estado === 'cercano'
                                                 "
                                                 class="size-4"
                                             />
@@ -386,6 +393,14 @@ function guardar() {
                                                 class="ml-0.5 text-[10px]"
                                                 >general</span
                                             >
+                                            <span
+                                                v-else-if="
+                                                    p.celdas[c.clave]
+                                                        ?.estado === 'cercano'
+                                                "
+                                                class="ml-0.5 text-[10px]"
+                                                >prestado</span
+                                            >
                                         </span>
                                     </TooltipTrigger>
                                     <TooltipContent>
@@ -409,6 +424,12 @@ function guardar() {
                                                 p.celdas[c.clave]?.master
                                                     ?.version
                                             }}
+                                        </p>
+                                        <p
+                                            v-if="p.celdas[c.clave]?.respaldo"
+                                            class="max-w-64 text-xs opacity-80"
+                                        >
+                                            {{ p.celdas[c.clave]?.respaldo }}
                                         </p>
                                         <p
                                             v-if="

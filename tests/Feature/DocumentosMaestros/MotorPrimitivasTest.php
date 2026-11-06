@@ -169,8 +169,8 @@ test('resolución del master: puesto+empresa > puesto > grupo+empresa > grupo > 
     expect(app(ResolvedorMaestroService::class)->buscar('contrato_prueba', $colaborador)?->familia)->toBe('general');
 
     $crear('gerente', ['grupos_puesto' => ['gerente']]);
-    // Con variantes por grupo y sin fallback configurado, la general ya no aplica a un Gestor; la de Gerente nunca.
-    expect(app(ResolvedorMaestroService::class)->buscar('contrato_prueba', $colaborador->refresh()))->toBeNull();
+    // Un Gestor no tiene grupo cercano: nunca toma la de Gerente; sin propia, la general como último recurso.
+    expect(app(ResolvedorMaestroService::class)->buscar('contrato_prueba', $colaborador->refresh())?->familia)->toBe('general');
 
     $crear('grupo', ['grupos_puesto' => ['gestor']]);
     $crear('grupo_otra_empresa', ['grupos_puesto' => ['gestor'], 'empresa_id' => $otraEmpresa->id]);

@@ -179,12 +179,15 @@ class CoberturaDocumentalService
                 $master === null => 'falta',
                 ! $master->disenoValidado() => 'sin_validar',
                 $nivel === 'general' => 'general',
+                $nivel === 'cercano' => 'cercano',
                 default => 'ok',
             };
 
             $celdas[$clave] = [
                 'estado' => $estado,
                 'nivel' => $nivel,
+                // «No hay formato propio de Subgerente: usa el de Gerente…».
+                'respaldo' => $master !== null ? $this->resolvedor->respaldoDe($master, $puesto->id, $grupo, $puesto->nombre) : null,
                 'master' => $master !== null ? ['id' => $master->id, 'familia' => $master->familia, 'nombre' => $master->nombre, 'version' => $master->version] : null,
             ];
 

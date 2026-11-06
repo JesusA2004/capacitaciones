@@ -189,8 +189,8 @@ test('datos faltantes: 422 DATOS_FALTANTES y se completan en la ficha sin volver
         ->and($colaborador->nacionalidad)->toBe('Mexicana');
 });
 
-test('formato faltante: 422 DOCUMENT_TEMPLATE_MISSING, nunca otro formato en silencio', function () {
-    DocumentTemplate::query()->where('familia', 'contrato_capacitacion.subgerente')->update(['activo' => false]);
+test('formato faltante: 422 DOCUMENT_TEMPLATE_MISSING sin propio, cercano (Gerente) ni general', function () {
+    DocumentTemplate::query()->whereIn('familia', ['contrato_capacitacion.subgerente', 'contrato_capacitacion.gerente'])->update(['activo' => false]);
     $colaborador = dmColaborador('subgerente', $this->estructura);
     $contrato = dmContrato($colaborador);
 

@@ -101,6 +101,8 @@ export type ItemDocumentoProceso = {
         motor: string;
         heredada?: boolean;
         etiqueta?: string;
+        /** No hay formato propio del puesto: cuál se usa en su lugar. */
+        respaldo?: string | null;
         diseno_validado?: boolean;
     } | null;
     modulo?: string;
@@ -406,8 +408,11 @@ export type ColaboradorBusqueda = {
 // ───────── Cobertura documental por puesto ─────────
 
 export type CeldaCobertura = {
-    estado: 'ok' | 'general' | 'sin_validar' | 'falta' | 'no_aplica';
-    nivel: 'puesto' | 'grupo' | 'general' | null;
+    estado:
+        'ok' | 'general' | 'cercano' | 'sin_validar' | 'falta' | 'no_aplica';
+    nivel: 'puesto' | 'grupo' | 'cercano' | 'general' | null;
+    /** Formato prestado de otro puesto o el general («usa el de Gerente…»). */
+    respaldo?: string | null;
     master: {
         id: number;
         familia: string | null;

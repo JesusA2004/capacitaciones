@@ -329,6 +329,13 @@ function varianteSeccion(a: AccionDocumento) {
                                 >
                             </span>
                             <span
+                                v-if="item.master?.respaldo"
+                                class="inline-flex items-center gap-1 rounded-full bg-warning/10 px-2 py-0.5 text-xs text-warning"
+                                :title="item.master.respaldo"
+                            >
+                                {{ item.master.respaldo }}
+                            </span>
+                            <span
                                 v-for="r in requisitos(item)"
                                 :key="r"
                                 class="inline-flex items-center gap-1 rounded-full bg-card px-2 py-0.5 text-xs text-muted-foreground"

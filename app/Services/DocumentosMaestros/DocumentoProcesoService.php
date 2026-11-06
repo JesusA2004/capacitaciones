@@ -1542,6 +1542,9 @@ class DocumentoProcesoService
                 'heredada' => $master->estado_master === null,
                 // "Gestor v2", "General v1": qué formato oficial se usará.
                 'etiqueta' => sprintf('%s v%d', $this->etiquetaAplica($master), $master->version),
+                // Formato prestado de otro puesto o el general (no hay uno
+                // propio): «No hay formato propio de Subgerente: usa el de…».
+                'respaldo' => $master->estado_master !== null ? $this->resolvedor->respaldoPara($master, $colaborador) : null,
                 'diseno_validado' => $master->estado_master === null || $master->disenoValidado(),
             ] : null,
             'requiere' => [
