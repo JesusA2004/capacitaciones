@@ -3,6 +3,7 @@
 namespace App\Services\Colaboradores;
 
 use App\Enums\EstadoRepublica;
+use App\Support\DatoMarcador;
 use Closure;
 use Illuminate\Database\Eloquent\Model;
 
@@ -120,7 +121,8 @@ class DomicilioService
     {
         $texto = trim((string) preg_replace('/\s+/', ' ', (string) (is_scalar($valor) ? $valor : '')));
 
-        if ($texto === '') {
+        // «REGISTRADO», «S/D»… no es un domicilio: se guarda vacío.
+        if ($texto === '' || (in_array($campo, ['domicilio', 'domicilio_calle', 'domicilio_colonia'], true) && DatoMarcador::es($texto))) {
             return null;
         }
 

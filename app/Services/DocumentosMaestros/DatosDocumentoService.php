@@ -18,6 +18,7 @@ use App\Services\Compensacion\CompensacionService;
 use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Formatos\Variables\NumeroALetras;
 use App\Services\Incorporacion\SolicitudEmpleo\DatosSolicitudEmpleoService;
+use App\Support\DatoMarcador;
 use App\Support\FechaMexico;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -294,8 +295,8 @@ class DatosDocumentoService
             // Solo el correo PERSONAL capturado (el de la cuenta de acceso
             // puede ser corporativo o un usuario técnico).
             'correo' => trim((string) $c->correo_personal),
-            'domicilio' => (string) $c->domicilio,
-            'domicilio_mayusculas' => $this->mayus((string) $c->domicilio),
+            'domicilio' => DatoMarcador::limpiar($c->domicilio),
+            'domicilio_mayusculas' => $this->mayus(DatoMarcador::limpiar($c->domicilio)),
             'domicilio_colonia' => trim((string) $c->domicilio_colonia),
             'domicilio_municipio' => trim((string) $c->domicilio_municipio),
             'domicilio_estado' => trim((string) $c->domicilio_estado),
@@ -1032,7 +1033,7 @@ class DatosDocumentoService
      */
     private function domicilioCompleto(Colaborador $c): string
     {
-        $calle = trim((string) $c->domicilio);
+        $calle = DatoMarcador::limpiar($c->domicilio);
 
         if ($calle === '') {
             return '';
@@ -1068,11 +1069,11 @@ class DatosDocumentoService
      */
     private function domicilioCalle(Colaborador $c): string
     {
-        if (trim((string) $c->domicilio_calle) !== '') {
+        if (DatoMarcador::limpiar($c->domicilio_calle) !== '') {
             return app(DomicilioService::class)->calleYNumero(app(DomicilioService::class)->valores($c));
         }
 
-        $calle = trim((string) $c->domicilio);
+        $calle = DatoMarcador::limpiar($c->domicilio);
         $normalizar = fn (string $t): string => trim((string) preg_replace('/\s+/', ' ', (string) preg_replace('/^(colonia|col\.|col(?=\s)|c\.?\s*p\.?(?=[\s\d])|c[oó]digo postal)\s*/iu', '', mb_strtolower(trim($t)))), " .\t");
         $municipio = $normalizar((string) $c->domicilio_municipio);
         $estado = $normalizar((string) $c->domicilio_estado);

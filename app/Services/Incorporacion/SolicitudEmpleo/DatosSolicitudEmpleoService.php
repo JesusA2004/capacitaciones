@@ -10,6 +10,7 @@ use App\Enums\ParentescoDependiente;
 use App\Enums\TenenciaVivienda;
 use App\Enums\TipoSanguineo;
 use App\Models\Colaborador;
+use App\Support\DatoMarcador;
 use Carbon\CarbonImmutable;
 
 /**
@@ -240,11 +241,13 @@ class DatosSolicitudEmpleoService
         [$d['ese_domicilio_1'], $d['ese_domicilio_2']] = $this->domicilioEnDosRenglones($colaborador);
         $anios = $v['tiempo_residencia_anios'];
         $d['ese_residencia_anios'] = is_int($anios) ? ($anios >= 1 ? (string) $anios : '<1') : '';
-        // El teléfono que PEOPLE registra es el celular de la persona.
+        // El teléfono que PEOPLE registra es el celular de la persona; el
+        // alterno (recados) va en «Otros».
         $d['marca_tel_casa'] = '';
         $d['marca_tel_oficina'] = '';
         $d['marca_tel_celular'] = $marca(trim((string) $colaborador->telefono) !== '');
-        $d['ese_tel_otro'] = '';
+        $alterno = trim((string) $v['telefono_alterno']);
+        $d['ese_tel_otro'] = $alterno !== '' ? sprintf('Alterno: %s', $alterno) : $txt('telefono_alterno');
         $tipoId = $v['identificacion_tipo'];
         $d['marca_id_ine'] = $marca($tipoId === 'ine');
         $d['marca_id_licencia'] = $marca($tipoId === 'licencia');
@@ -489,18 +492,22 @@ class DatosSolicitudEmpleoService
      */
     private function domicilioEnDosRenglones(Colaborador $c): array
     {
-        $calle = trim((string) $c->domicilio_calle);
+        // Un marcador de relleno («REGISTRADO», «S/D»…) nunca se imprime:
+        // sin calle real el renglón queda vacío y el motor la pide.
+        $calle = DatoMarcador::limpiar($c->domicilio_calle);
+        $colonia = trim((string) $c->domicilio_colonia);
+        $cp = trim((string) $c->domicilio_cp);
+        $renglon2 = implode(', ', array_filter([$colonia !== '' ? sprintf('Col. %s', $colonia) : '', $cp !== '' ? sprintf('C.P. %s', $cp) : '']));
 
         if ($calle === '') {
-            return [trim((string) $c->domicilio), ''];
+            $legado = DatoMarcador::limpiar($c->domicilio);
+
+            return $legado !== '' ? [$legado, ''] : ['', ''];
         }
 
         $exterior = trim((string) $c->domicilio_numero_exterior);
         $interior = trim((string) $c->domicilio_numero_interior);
         $renglon1 = trim(sprintf('%s %s%s', $calle, $exterior !== '' ? $exterior : 'S/N', $interior !== '' ? sprintf(', int. %s', $interior) : ''));
-        $colonia = trim((string) $c->domicilio_colonia);
-        $cp = trim((string) $c->domicilio_cp);
-        $renglon2 = implode(', ', array_filter([$colonia !== '' ? sprintf('Col. %s', $colonia) : '', $cp !== '' ? sprintf('C.P. %s', $cp) : '']));
 
         return [$renglon1, $renglon2];
     }

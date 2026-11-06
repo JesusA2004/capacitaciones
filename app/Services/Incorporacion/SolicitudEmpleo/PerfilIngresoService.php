@@ -17,6 +17,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Expedientes\ActualizacionDatosService;
+use App\Support\DatoMarcador;
 use BackedEnum;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
@@ -95,6 +96,11 @@ class PerfilIngresoService
                 'economica' => $economica[$clave] ?? null,
                 default => null,
             };
+
+            // «REGISTRADO», «S/D»… en el domicilio no es un dato: cuenta como faltante.
+            if ($campo['almacen'] === 'base' && str_starts_with($clave, 'domicilio') && is_string($crudo) && DatoMarcador::es($crudo)) {
+                $crudo = null;
+            }
 
             $valores[$clave] = $this->normalizarLectura($crudo, $campo['tipo']);
         }

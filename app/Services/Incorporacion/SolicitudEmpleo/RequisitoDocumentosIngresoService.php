@@ -3,6 +3,7 @@
 namespace App\Services\Incorporacion\SolicitudEmpleo;
 
 use App\Enums\EstadoAltaColaborador;
+use App\Enums\EstadoUsuario;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\GeneratedDocument;
@@ -67,11 +68,13 @@ class RequisitoDocumentosIngresoService
 
     /**
      * ¿Se muestra la sección «Solicitud de empleo y estudio socioeconómico»
-     * en la ficha? Durante la contratación, o si ya se generó alguno.
+     * en la ficha? Durante la contratación, para todo colaborador activo
+     * (el personal que ya laboraba antes de estas pantallas nunca la capturó
+     * en la app: RH la completa en la web), o si ya se generó alguno.
      */
     public function aplicaSeccion(Colaborador $colaborador): bool
     {
-        if ($colaborador->estado_alta?->enContratacion() ?? false) {
+        if (($colaborador->estado_alta?->enContratacion() ?? false) || $colaborador->estatus === EstadoUsuario::Activo) {
             return true;
         }
 

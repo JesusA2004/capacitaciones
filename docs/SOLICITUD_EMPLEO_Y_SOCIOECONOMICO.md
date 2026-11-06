@@ -24,7 +24,7 @@ los encuentra por SHA-256 (`php artisan people:importar-formatos-juridicos`).
 | Regla «antes del contrato» | `…\RequisitoDocumentosIngresoService` (la consultan `DocumentoProcesoService` y `ContratoLaboralService`) |
 | Bloque del registro en la app | `…\SolicitudEmpleoRegistroService` (en `RegistroAppService::estado()/finalizar()`) |
 | Coordenadas (mm, medidas con `pdftotext -bbox` + detección de cajas) | `config/documentos_maestros.php` (`$solicitudEmpleoCampos`, `$estudioCampos`) |
-| Web RH | Ciclo laboral del colaborador → tarjeta «Solicitud de empleo y estudio socioeconómico» + «Documentos» (vista previa / generar) |
+| Web RH | Ciclo laboral del colaborador → tarjeta «Solicitud de empleo y estudio socioeconómico» + «Documentos» (vista previa / generar). Aparece durante la contratación y para **todo colaborador activo** (el personal anterior a estas pantallas nunca la capturó en la app: RH la completa aquí) |
 
 ## Modelo de datos (sin duplicar)
 
@@ -261,3 +261,18 @@ Permiso: `documentos_laborales.generar` + alcance organizacional sobre la person
   puestos hasta recibir variantes.
 - Mínimo de referencias personales: 2 (el formato trae 4 renglones).
 - Croquis: se dibuja a mano (Solicitud: 6 recuadros; Estudio: cuadrícula).
+
+## Notas de impresión (2026-11-06)
+
+- Un domicilio con texto de relleno («REGISTRADO», «S/D», «N/A», «PENDIENTE»,
+  «---»…; `App\Support\DatoMarcador`) nunca se imprime: cuenta como faltante
+  y el motor pide la calle. `DomicilioService` ya no lo guarda.
+- Teléfono del Estudio: celular → casilla «Celular»; el teléfono alterno se
+  imprime en «Otros» («Alterno: …»).
+- Unión libre: el formato no trae casilla; se escribe «Unión libre» en «Otro».
+- Los «?» que `pdftotext` muestra arriba de la hoja 3 del Estudio vienen del
+  PDF original (capa de texto del logotipo con fuente Symbol); no se ven ni se
+  imprimen.
+- Los `max` del catálogo están ajustados al ancho de cada caja del formato
+  (prueba con textos al máximo: 0 desbordes en ambos), así ningún dato
+  capturado bloquea la generación por no caber.
