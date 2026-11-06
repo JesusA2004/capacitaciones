@@ -2,6 +2,7 @@
 
 namespace App\Services\Onboarding;
 
+use App\Enums\EstadoAvanceOnboarding;
 use App\Enums\EstadoEvaluacionInduccion;
 use App\Enums\EstadoOnboarding;
 use App\Enums\NivelEvaluacionInduccion;
@@ -101,6 +102,20 @@ class EvaluacionInduccionService
 
         if ($existente !== null) {
             return $existente;
+        }
+
+        // Ya aprobó la inducción en otro proceso (p. ej. una reinducción
+        // antes de firmar contratos y luego se abrió su ingreso): no se le
+        // pide de nuevo; este ingreso la toma por aprobada y avanza.
+        $previa = $this->acceso->evaluacionDe($proceso);
+
+        if ($previa !== null && $previa->clave === $clave && $previa->estado === EstadoEvaluacionInduccion::Aprobada) {
+            if ($avances->contains(fn (OnboardingAvance $a) => $a->estado !== EstadoAvanceOnboarding::Aprobado)) {
+                DB::transaction(fn () => $this->onboarding->aprobarAvancesFormal($proceso, $clave));
+                $this->onboarding->sincronizarBandeja($proceso->refresh());
+            }
+
+            return $previa;
         }
 
         // Presentación O video: quien ya vio uno de los dos (aunque no haya

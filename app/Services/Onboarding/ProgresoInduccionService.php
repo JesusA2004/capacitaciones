@@ -81,7 +81,7 @@ class ProgresoInduccionService
         $contenidoVisto = $avance?->contenido_visto_en !== null;
 
         $evaluacion = $proceso !== null
-            ? EvaluacionInduccion::query()->where('onboarding_proceso_id', $proceso->id)->latest('id')->first()
+            ? $this->acceso->evaluacionDe($proceso)
             : null;
 
         $material = $this->datosMaterial($avance, $incluye['material']);

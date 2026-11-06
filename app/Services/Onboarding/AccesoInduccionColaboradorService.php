@@ -126,10 +126,7 @@ class AccesoInduccionColaboradorService
             return AccesoInduccionColaborador::SinAsignar;
         }
 
-        $evaluacion = EvaluacionInduccion::query()
-            ->where('onboarding_proceso_id', $avance->onboarding_proceso_id)
-            ->latest('id')
-            ->first();
+        $evaluacion = $this->evaluacionDe($avance->proceso);
 
         return match (true) {
             $evaluacion === null => AccesoInduccionColaborador::Disponible,
@@ -137,6 +134,32 @@ class AccesoInduccionColaboradorService
             $evaluacion->estado->permitePresentar() => AccesoInduccionColaborador::EvaluacionPendiente,
             default => AccesoInduccionColaborador::EnRevision,
         };
+    }
+
+    /**
+     * La evaluación de inducción que vale para este proceso: la suya o, si
+     * no tiene y NO es una reinducción explícita, la que el colaborador ya
+     * APROBÓ en otro proceso (p. ej. aprobó una reinducción antes de firmar
+     * contratos y después se abrió su onboarding de ingreso). Así el módulo
+     * de inducción, el tablero de candidatos y Mi espacio dicen lo mismo y
+     * una asignación nueva no la «resetea» a 0 %.
+     */
+    public function evaluacionDe(OnboardingProceso $proceso): ?EvaluacionInduccion
+    {
+        $propia = EvaluacionInduccion::query()
+            ->where('onboarding_proceso_id', $proceso->id)
+            ->latest('id')
+            ->first();
+
+        if ($propia !== null || $proceso->esReinduccion()) {
+            return $propia;
+        }
+
+        return EvaluacionInduccion::query()
+            ->where('colaborador_id', $proceso->colaborador_id)
+            ->where('estado', EstadoEvaluacionInduccion::Aprobada->value)
+            ->latest('id')
+            ->first();
     }
 
     /**

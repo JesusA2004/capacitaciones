@@ -7,7 +7,6 @@ use App\Enums\EstadoEvaluacionInduccion;
 use App\Enums\EstadoOnboarding;
 use App\Enums\ModoDestinatariosOnboarding;
 use App\Models\Colaborador;
-use App\Models\EvaluacionInduccion;
 use App\Models\InduccionAsignacion;
 use App\Models\OnboardingAvance;
 use App\Models\OnboardingProceso;
@@ -270,7 +269,9 @@ class AsignacionInduccionService
         $proceso = $this->acceso->procesoInduccion($colaborador);
         $avance = $proceso !== null ? $this->acceso->avanceDeProceso($proceso) : null;
         $abierto = $proceso !== null && ! in_array($proceso->estado, [EstadoOnboarding::Completado, EstadoOnboarding::Cancelado], true);
-        $evaluacion = $proceso !== null ? EvaluacionInduccion::query()->where('onboarding_proceso_id', $proceso->id)->latest('id')->first() : null;
+        // La de este proceso o la que ya aprobó en otro (ingreso abierto
+        // después de aprobar una reinducción): nunca se le reasigna en 0 %.
+        $evaluacion = $proceso !== null ? $this->acceso->evaluacionDe($proceso) : null;
 
         if ($colaborador->user === null) {
             return 'No tiene cuenta para verla en Mi espacio o la app.';
