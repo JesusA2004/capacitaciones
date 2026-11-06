@@ -44,9 +44,12 @@ class ImportadorFormatosJuridicosService
     ) {}
 
     /**
+     * @param  list<string>|null  $soloFamilias  Limita la importación (y el reporte de
+     *                                           «sin versión activa») a estas familias;
+     *                                           null = todas las del registro.
      * @return array{archivos: list<array<string, mixed>>, versiones: list<array<string, mixed>>, anomalias: list<string>}
      */
-    public function importarCarpeta(string $carpeta, ?User $actor = null, bool $simular = false): array
+    public function importarCarpeta(string $carpeta, ?User $actor = null, bool $simular = false, ?array $soloFamilias = null): array
     {
         if (! is_dir($carpeta)) {
             throw ValidationException::withMessages(['carpeta' => "No existe la carpeta de formatos: {$carpeta}"]);
@@ -64,7 +67,7 @@ class ImportadorFormatosJuridicosService
             $nombre = basename($ruta);
             $extension = strtolower(pathinfo($ruta, PATHINFO_EXTENSION));
             $hash = (string) hash_file('sha256', $ruta);
-            $familias = $this->catalogo->todasPorHash($hash);
+            $familias = $this->fuentesDe($hash, $soloFamilias);
             $duplicado = isset($porHash[$hash]);
             $porHash[$hash][] = $nombre;
 
@@ -82,6 +85,8 @@ class ImportadorFormatosJuridicosService
 
             if (! in_array($extension, ['docx', 'pdf'], true)) {
                 $anomalias[] = "{$nombre}: tipo de archivo no soportado ({$extension}); solo DOCX o PDF.";
+            } elseif ($familias === [] && $soloFamilias !== null) {
+                $anomalias[] = "{$nombre}: no es el original de ninguna de las familias pedidas (".implode(', ', $soloFamilias).'); se omite.';
             } elseif ($familias === []) {
                 $anomalias[] = "{$nombre}: fuente desconocida (SHA-256 {$hash} no está en config/documentos_maestros.php). No se asigna por parecido de nombre: agrega la familia/versión al registro.";
             }
@@ -95,7 +100,7 @@ class ImportadorFormatosJuridicosService
             $ruta = rtrim($carpeta, '/\\').DIRECTORY_SEPARATOR.$nombres[0];
             $contenido = (string) file_get_contents($ruta);
 
-            foreach ($this->catalogo->todasPorHash($hash) as $fuente) {
+            foreach ($this->fuentesDe($hash, $soloFamilias) as $fuente) {
                 if ($simular) {
                     $versiones[] = ['familia' => $fuente['familia'], 'version' => $fuente['version'], 'accion' => 'simulado'];
 
@@ -136,6 +141,10 @@ class ImportadorFormatosJuridicosService
         // Familias sin ninguna versión activa tras la importación.
         if (! $simular) {
             foreach ($this->catalogo->definiciones() as $familia => $definicion) {
+                if ($soloFamilias !== null && ! in_array((string) $familia, $soloFamilias, true)) {
+                    continue;
+                }
+
                 if (($definicion['operativo'] ?? true) && ! DocumentTemplate::query()->where('familia', $familia)->where('activo', true)->exists()) {
                     $anomalias[] = sprintf('%s: ninguna versión activa (falta el archivo original o tiene pendientes).', $familia);
                 }
@@ -143,6 +152,22 @@ class ImportadorFormatosJuridicosService
         }
 
         return ['archivos' => $archivos, 'versiones' => $versiones, 'anomalias' => array_values(array_unique($anomalias))];
+    }
+
+    /**
+     * Familias/versiones del registro cuyo original tiene este SHA-256
+     * (opcionalmente solo las pedidas).
+     *
+     * @param  list<string>|null  $soloFamilias
+     * @return list<array{familia: string, version: int, activa: bool, bloqueada: bool, nota: string|null}>
+     */
+    private function fuentesDe(string $hash, ?array $soloFamilias): array
+    {
+        $fuentes = $this->catalogo->todasPorHash($hash);
+
+        return $soloFamilias === null
+            ? $fuentes
+            : array_values(array_filter($fuentes, fn (array $f): bool => in_array($f['familia'], $soloFamilias, true)));
     }
 
     /**
