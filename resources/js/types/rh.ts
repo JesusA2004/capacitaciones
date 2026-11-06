@@ -248,6 +248,8 @@ export type DocumentoExpedienteItem = {
          * recomendación). `puede_subir`: su par hoy puede recibir el archivo.
          */
         par?: { id: number; nombre: string; puede_subir: boolean } | null;
+        /** Identificación oficial: acepta un reverso opcional (se une en un PDF en el servidor). */
+        admite_reverso?: boolean;
     };
     documento: DocumentoExpedienteInfo | null;
 };

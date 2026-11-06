@@ -12,8 +12,10 @@ use App\Models\AltaDigitalDocumento;
 use App\Models\DocumentType;
 use App\Services\AltaDigital\AltaDigitalStorageService;
 use App\Services\Colaboradores\FotoColaboradorService;
+use App\Services\Expedientes\DocumentoDosCarasService;
 use App\Support\TipoContenidoSeguro;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -24,6 +26,7 @@ class AltaPublicaController extends Controller
     public function __construct(
         private readonly AltaDigitalStorageService $storage,
         private readonly FotoColaboradorService $fotos,
+        private readonly DocumentoDosCarasService $dosCaras,
     ) {}
 
     public function show(AltaDigital $alta): Response
@@ -92,12 +95,22 @@ class AltaPublicaController extends Controller
 
     public function subirDocumento(SubirDocumentoRequest $request, AltaDigital $alta): RedirectResponse
     {
-        $archivo = $request->file('archivo');
-        $nombreInterno = $this->storage->nombreInterno($archivo->getClientOriginalName());
-        $ruta = $this->storage->ruta($alta->id, 'documentos', $nombreInterno);
-        $this->storage->guardar($archivo, $ruta);
+        $tipo = DocumentType::query()->where('id', $request->integer('document_type_id'))->firstOrFail();
 
-        $documentoExistente = $alta->documentos()->where('document_type_id', $request->validated('document_type_id'))->first();
+        // Identificación oficial: frente + reverso opcional se unen en un
+        // solo PDF (misma regla que el expediente y la app).
+        try {
+            $guardado = $this->dosCaras->conArchivoFinal($tipo, $request->file('archivo'), $request->file('archivo_reverso'), function (UploadedFile $final) use ($alta): array {
+                $ruta = $this->storage->ruta($alta->id, 'documentos', $this->storage->nombreInterno($final->getClientOriginalName()));
+                $this->storage->guardar($final, $ruta);
+
+                return ['path' => $ruta, 'original_name' => $final->getClientOriginalName(), 'mime' => TipoContenidoSeguro::deArchivo($final), 'size' => $final->getSize()];
+            });
+        } catch (RuntimeException $e) {
+            throw ValidationException::withMessages(['archivo' => $e->getMessage()]);
+        }
+
+        $documentoExistente = $alta->documentos()->where('document_type_id', $tipo->id)->first();
 
         if ($documentoExistente) {
             $this->storage->eliminar($documentoExistente->path);
@@ -106,12 +119,9 @@ class AltaPublicaController extends Controller
 
         AltaDigitalDocumento::create([
             'alta_digital_id' => $alta->id,
-            'document_type_id' => $request->validated('document_type_id'),
+            'document_type_id' => $tipo->id,
             'disk' => config('altas.disk'),
-            'path' => $ruta,
-            'original_name' => $archivo->getClientOriginalName(),
-            'mime' => TipoContenidoSeguro::deArchivo($archivo),
-            'size' => $archivo->getSize(),
+            ...$guardado,
         ]);
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Documento cargado.']);

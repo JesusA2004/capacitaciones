@@ -44,6 +44,7 @@ class DocumentoParService
     public function __construct(
         private readonly DocumentoStorageService $storage,
         private readonly ExpedienteService $expediente,
+        private readonly DocumentoDosCarasService $dosCaras,
     ) {}
 
     /** El tipo par de `$tipo` (activo), o null si no tiene. */
@@ -114,19 +115,22 @@ class DocumentoParService
      * Sube `$archivo` como nueva versión de `$tipo` y, si `$incluyePar`,
      * también de su par. El par se valida ANTES de guardar nada.
      *
+     * `$reverso`: segundo archivo opcional de un documento de dos caras
+     * (INE). Si llega, frente y reverso se unen en un solo PDF
+     * (DocumentoDosCarasService) y ese PDF es la versión que se sube.
+     *
      * @return array{documento: EmployeeDocument, par: EmployeeDocument|null}
      *
-     * @throws RuntimeException si se pidió el par y no puede recibirlo
+     * @throws RuntimeException si se pidió el par y no puede recibirlo, o no se pudieron unir frente y reverso
      */
-    public function subir(Colaborador $colaborador, DocumentType $tipo, UploadedFile $archivo, int $subidoPorId, bool $incluyePar): array
+    public function subir(Colaborador $colaborador, DocumentType $tipo, UploadedFile $archivo, int $subidoPorId, bool $incluyePar, ?UploadedFile $reverso = null): array
     {
         $par = $incluyePar ? $this->validarPar($colaborador, $tipo) : null;
-        $documento = $this->storage->subirVersion($colaborador, $tipo, $archivo, $subidoPorId);
 
-        return [
-            'documento' => $documento,
-            'par' => $par !== null ? $this->subirAlPar($colaborador, $tipo, $par, $archivo, $subidoPorId) : null,
-        ];
+        return $this->dosCaras->conArchivoFinal($tipo, $archivo, $reverso, fn (UploadedFile $final): array => [
+            'documento' => $this->storage->subirVersion($colaborador, $tipo, $final, $subidoPorId),
+            'par' => $par !== null ? $this->subirAlPar($colaborador, $tipo, $par, $final, $subidoPorId) : null,
+        ]);
     }
 
     /**

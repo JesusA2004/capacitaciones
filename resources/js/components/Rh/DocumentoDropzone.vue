@@ -17,6 +17,12 @@ const props = defineProps<{
      * recomendación). Solo se ofrece si hoy puede recibirlo.
      */
     par?: { id: number; nombre: string } | null;
+    /**
+     * Identificación oficial: además del archivo principal (frente, o un PDF
+     * con las dos caras) acepta un reverso OPCIONAL; el servidor une ambos
+     * en un solo PDF que RH revisa como siempre.
+     */
+    admiteReverso?: boolean;
 }>();
 
 const { mostrarExito, mostrarError } = useAlertas();
@@ -28,6 +34,43 @@ const progreso = ref(0);
 const archivoPendiente = ref<File | null>(null);
 const previewUrl = ref<string | null>(null);
 const incluyePar = ref(false);
+const reversoEl = ref<HTMLInputElement | null>(null);
+const reverso = ref<File | null>(null);
+const reversoUrl = ref<string | null>(null);
+const reversoEsImagen = computed(
+    () => reverso.value?.type.startsWith('image/') ?? false,
+);
+
+function quitarReverso() {
+    if (reversoUrl.value) {
+        URL.revokeObjectURL(reversoUrl.value);
+    }
+
+    reversoUrl.value = null;
+    reverso.value = null;
+
+    if (reversoEl.value) {
+        reversoEl.value.value = '';
+    }
+}
+
+function reversoSeleccionado(evento: Event) {
+    const archivo = (evento.target as HTMLInputElement).files?.[0];
+
+    if (!archivo) {
+        return;
+    }
+
+    quitarReverso();
+    reverso.value = archivo;
+
+    if (
+        archivo.type.startsWith('image/') ||
+        archivo.type === 'application/pdf'
+    ) {
+        reversoUrl.value = URL.createObjectURL(archivo);
+    }
+}
 
 const esImagenPendiente = computed(
     () => archivoPendiente.value?.type.startsWith('image/') ?? false,
@@ -47,6 +90,7 @@ function limpiarPreview() {
 
     previewUrl.value = null;
     archivoPendiente.value = null;
+    quitarReverso();
 }
 
 onBeforeUnmount(limpiarPreview);
@@ -104,6 +148,9 @@ function confirmarSubida() {
             document_type_id: props.tipoId,
             archivo,
             incluye_par: props.par && incluyePar.value ? 1 : 0,
+            ...(props.admiteReverso && reverso.value
+                ? { archivo_reverso: reverso.value }
+                : {}),
         },
         {
             forceFormData: true,
@@ -189,6 +236,60 @@ function confirmarSubida() {
                     <FileText class="size-10" />
                     <span class="text-xs">Sin vista previa disponible</span>
                 </div>
+            </div>
+
+            <div
+                v-if="admiteReverso"
+                class="flex flex-col gap-2 rounded-lg bg-crema p-2 text-xs"
+            >
+                <input
+                    ref="reversoEl"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    class="hidden"
+                    @change="reversoSeleccionado"
+                />
+                <p class="font-medium">Reverso (opcional)</p>
+                <p class="text-muted-foreground">
+                    Si el archivo de arriba es solo el frente, agrega el reverso
+                    (PDF o foto). Se unen en un solo PDF.
+                </p>
+                <div
+                    v-if="reverso"
+                    class="relative overflow-hidden rounded-lg border border-border/60 bg-background"
+                >
+                    <button
+                        type="button"
+                        class="absolute top-2 right-2 z-10 rounded-md bg-background/90 p-1.5 text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground"
+                        title="Quitar reverso"
+                        @click="quitarReverso"
+                    >
+                        <X class="size-4" />
+                    </button>
+                    <img
+                        v-if="reversoEsImagen && reversoUrl"
+                        :src="reversoUrl"
+                        alt=""
+                        class="max-h-[300px] w-full object-contain"
+                    />
+                    <iframe
+                        v-else-if="reversoUrl"
+                        :src="reversoUrl"
+                        title="Vista previa del reverso"
+                        class="h-[300px] w-full"
+                    />
+                    <p class="truncate p-2 font-medium">{{ reverso.name }}</p>
+                </div>
+                <Button
+                    v-else
+                    size="sm"
+                    variant="outline"
+                    class="w-full"
+                    @click="reversoEl?.click()"
+                >
+                    <FileUp class="size-3.5" />
+                    Agregar reverso
+                </Button>
             </div>
 
             <div class="flex items-center gap-2">

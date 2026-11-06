@@ -431,6 +431,7 @@ function abrirPreview(item: DocumentoExpedienteItem) {
                         :colaborador-id="colaboradorId"
                         :tipo-id="item.tipo.id"
                         :par="item.tipo.par?.puede_subir ? item.tipo.par : null"
+                        :admite-reverso="item.tipo.admite_reverso ?? false"
                         :etiqueta="
                             item.documento ? 'Subir nueva versión' : 'Subir'
                         "

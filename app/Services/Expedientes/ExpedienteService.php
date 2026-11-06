@@ -269,6 +269,8 @@ class ExpedienteService
                 'observaciones' => $documento?->comments,
                 // Cumplido porque PEOPLE ya lo generó (sin escaneo subido).
                 'cumplido_por_generado' => $generado,
+                // Acepta reverso opcional como segundo archivo (INE).
+                'admite_reverso' => DocumentoDosCarasService::admiteReverso($tipo),
             ];
         }
 

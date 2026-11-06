@@ -27,6 +27,15 @@ class SubirDocumentoRequest extends FormRequest
                 'max:'.(config('altas.max_upload_mb') * 1024),
                 'mimes:'.implode(',', config('altas.extensiones_documentos')),
             ],
+            // Reverso opcional de la identificación oficial (INE): PDF o foto.
+            // Si llega, el servidor lo une con `archivo` en un solo PDF
+            // (DocumentoDosCarasService). Sin él, todo funciona como siempre.
+            'archivo_reverso' => [
+                'nullable',
+                'file',
+                'max:'.(config('altas.max_upload_mb') * 1024),
+                'mimes:'.implode(',', config('altas.extensiones_documentos')),
+            ],
         ];
     }
 }

@@ -44,7 +44,7 @@ class EmployeeDocumentController extends Controller
             ->exists();
 
         try {
-            ['documento' => $documento, 'par' => $par] = $this->pares->subir($colaborador, $tipo, $request->file('archivo'), $request->user()->id, $request->boolean('incluye_par'));
+            ['documento' => $documento, 'par' => $par] = $this->pares->subir($colaborador, $tipo, $request->file('archivo'), $request->user()->id, $request->boolean('incluye_par'), $request->file('archivo_reverso'));
         } catch (RuntimeException $e) {
             throw ValidationException::withMessages(['archivo' => $e->getMessage()]);
         }

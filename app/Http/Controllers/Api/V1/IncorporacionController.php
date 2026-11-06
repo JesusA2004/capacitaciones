@@ -44,7 +44,7 @@ class IncorporacionController extends Controller
         $usuario = $request->user();
 
         try {
-            $this->incorporacion->subirDocumento($this->colaboradorDe($request), $documentoRequerido, $request->file('archivo'), $usuario->id, $request->boolean('incluye_par'));
+            $this->incorporacion->subirDocumento($this->colaboradorDe($request), $documentoRequerido, $request->file('archivo'), $usuario->id, $request->boolean('incluye_par'), $request->file('archivo_reverso'));
         } catch (RuntimeException $e) {
             throw ValidationException::withMessages(['archivo' => $e->getMessage()]);
         }

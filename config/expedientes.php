@@ -49,6 +49,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Documentos de dos caras (frente y reverso)
+    |--------------------------------------------------------------------------
+    |
+    | La identificación oficial (INE) puede subirse en UN archivo (un PDF con
+    | las dos caras, o solo el frente) o en DOS (frente y reverso, cada uno
+    | PDF o foto). El reverso es opcional. Si llegan los dos, el servidor los
+    | une en un solo PDF (frente primero) y ese PDF es el documento que RH
+    | revisa, ve en la vista previa y se guarda en el NAS — ningún flujo
+    | posterior tiene que saber que vino en dos partes
+    | (App\Services\Expedientes\DocumentoDosCarasService). Claves de tipo.
+    |
+    */
+    'dos_caras' => ['ine'],
+
+    /*
+    |--------------------------------------------------------------------------
     | Carta compromiso de documentos pendientes
     |--------------------------------------------------------------------------
     |

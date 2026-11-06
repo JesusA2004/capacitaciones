@@ -14,6 +14,7 @@ use App\Notifications\Mobile\RhDocumentoPendienteNotification;
 use App\Notifications\Mobile\RhIncorporacionCompletaNotification;
 use App\Services\Colaboradores\AltaColaboradorService;
 use App\Services\Expedientes\CartaCompromisoService;
+use App\Services\Expedientes\DocumentoDosCarasService;
 use App\Services\Expedientes\DocumentoParService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Expedientes\ProgresoExpediente;
@@ -200,6 +201,10 @@ class IncorporacionService
             // de recomendación): la app ofrece «este archivo trae también…»
             // solo si `par.puede_subir`. Null si el tipo no tiene par.
             'par' => $this->pares->resumenPar($tipo, $vigentes),
+            // Identificación oficial: además del archivo principal acepta un
+            // segundo archivo opcional (`archivo_reverso`), PDF o foto; el
+            // servidor los une en un solo PDF (DocumentoDosCarasService).
+            'admite_reverso' => DocumentoDosCarasService::admiteReverso($tipo),
             // {estado: escaneo|generado|por_generar, cumplido, titulo, mensaje,
             // captura: registro|rh, documento_generado_id} o null.
             'generado_por_sistema' => $generadoPorSistema,
@@ -294,8 +299,11 @@ class IncorporacionService
      * `$incluyePar`: el archivo trae también el documento par (las dos
      * cartas de recomendación juntas); se registra en ambos y RH revisa
      * cada uno por separado (DocumentoParService).
+     *
+     * `$reverso`: reverso opcional de un documento de dos caras (INE); se
+     * une con el frente en un solo PDF (DocumentoDosCarasService).
      */
-    public function subirDocumento(Colaborador $colaborador, DocumentType $tipo, UploadedFile $archivo, int $subidoPorId, bool $incluyePar = false): EmployeeDocument
+    public function subirDocumento(Colaborador $colaborador, DocumentType $tipo, UploadedFile $archivo, int $subidoPorId, bool $incluyePar = false, ?UploadedFile $reverso = null): EmployeeDocument
     {
         $vigente = $this->documentoVigente($colaborador, $tipo);
 
@@ -303,7 +311,7 @@ class IncorporacionService
             throw new RuntimeException('Este documento ya fue subido y esta en revision o aprobado. Solicita un cambio si necesitas modificarlo.');
         }
 
-        ['documento' => $documento, 'par' => $par] = $this->pares->subir($colaborador, $tipo, $archivo, $subidoPorId, $incluyePar);
+        ['documento' => $documento, 'par' => $par] = $this->pares->subir($colaborador, $tipo, $archivo, $subidoPorId, $incluyePar, $reverso);
 
         // Carta compromiso: si ya subió todo lo comprometido queda cumplida y
         // el bloqueo de la app se levanta solo. Resuelta al vuelo (evita un

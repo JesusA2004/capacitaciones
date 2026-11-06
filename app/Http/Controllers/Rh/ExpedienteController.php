@@ -44,6 +44,7 @@ use App\Services\Expedientes\ContratosPendientesExpedienteService;
 use App\Services\Expedientes\CorreccionesService;
 use App\Services\Expedientes\DatosExpedienteService;
 use App\Services\Expedientes\DatosFaltantesService;
+use App\Services\Expedientes\DocumentoDosCarasService;
 use App\Services\Expedientes\DocumentoParService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteCentroService;
@@ -1077,7 +1078,7 @@ class ExpedienteController extends Controller
                 $decidible = $documento !== null && $documento->status->admiteDecisionDeRh();
 
                 return [
-                    'tipo' => ['id' => $tipo->id, 'nombre' => $tipo->nombre, 'clave' => $tipo->clave, 'requerido' => $tipo->requerido, 'opcional' => ! $tipo->requerido && $tipo->checklist_opcional, 'par' => $this->pares->resumenPar($tipo, $vigentes)],
+                    'tipo' => ['id' => $tipo->id, 'nombre' => $tipo->nombre, 'clave' => $tipo->clave, 'requerido' => $tipo->requerido, 'opcional' => ! $tipo->requerido && $tipo->checklist_opcional, 'par' => $this->pares->resumenPar($tipo, $vigentes), 'admite_reverso' => DocumentoDosCarasService::admiteReverso($tipo)],
                     'documento' => $documento ? [
                         'id' => $documento->id,
                         'status' => $documento->status->value,

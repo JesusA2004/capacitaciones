@@ -52,7 +52,7 @@ class DocumentosPendientesService
     /**
      * Documentos exigibles que la persona todavía no sube (sin los que genera PEOPLE).
      *
-     * @return list<array{document_type_id: int, clave: string, nombre: string, descripcion: string|null, estado: string, estado_etiqueta: string}>
+     * @return list<array{document_type_id: int, clave: string, nombre: string, descripcion: string|null, estado: string, estado_etiqueta: string, admite_reverso: bool}>
      */
     public function pendientes(Colaborador $colaborador): array
     {
@@ -77,6 +77,8 @@ class DocumentosPendientesService
                 'descripcion' => $tipo->descripcion,
                 'estado' => $estado->value,
                 'estado_etiqueta' => $estado->etiqueta(),
+                // Identificación oficial: reverso opcional como segundo archivo.
+                'admite_reverso' => DocumentoDosCarasService::admiteReverso($tipo),
             ];
         }
 
