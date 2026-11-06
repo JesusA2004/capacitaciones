@@ -107,7 +107,7 @@ class MaterializadorCorteService
                     $conteo['nuevos'] += count($lote);
                 }
 
-                $justificacion = sprintf('Automático: el evento de origen se canceló o ya no corresponde a %s (detectado el %s).', $periodo->etiqueta(), Carbon::now('America/Mexico_City')->format('d/m/Y'));
+                $justificacion = sprintf('Automático: ya no se espera en %s — el evento de origen se canceló, cambió de mes o el documento dejó de pedirse en recepción (detectado el %s).', $periodo->etiqueta(), Carbon::now('America/Mexico_City')->format('d/m/Y'));
 
                 foreach ($existentes as $clave => $renglon) {
                     if (! isset($esperados[$clave]) && $renglon->estado === EstadoRecepcionDocumento::Pendiente) {

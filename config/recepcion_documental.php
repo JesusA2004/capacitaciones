@@ -63,6 +63,19 @@ return [
         'recibo_nomina' => 'Recibo de nómina firmado',
     ],
 
+    /*
+    | BAJAS: en recepción solo se esperan los originales que de verdad viajan
+    | por paquetería al cerrar una baja: la carta de renuncia firmada (solo en
+    | renuncia voluntaria) y el finiquito firmado. Se toman del catálogo
+    | «Documentos requeridos de la baja» por su documento_sistema; el resto
+    | del catálogo (entrevista de salida, acta con testigos, aviso de
+    | rescisión, evidencias de la causal…) sigue pidiéndose en el expediente
+    | de la baja, pero ya no en Recepción documental.
+    */
+    'bajas' => [
+        'documentos_sistema' => ['carta_renuncia', 'finiquito'],
+    ],
+
     // Modalidad del paquete de alta cuando el colaborador todavía no tiene
     // contrato inicial registrado (la que usa la empresa hoy).
     'modalidad_alta_por_defecto' => 'capacitacion_inicial',

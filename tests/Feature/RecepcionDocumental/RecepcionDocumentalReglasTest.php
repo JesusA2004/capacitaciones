@@ -13,7 +13,6 @@ use App\Enums\TipoSolicitudInterna;
 use App\Models\Baja;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
-use App\Models\DocumentoRequeridoBaja;
 use App\Models\GeneratedDocument;
 use App\Models\Prestamo;
 use App\Models\Puesto;
@@ -147,7 +146,7 @@ test('el contrato indeterminado aparece en el mes en que se generó y no en el m
         ->and(rdRenglones($agosto, ReglaRecepcionDocumental::Altas)->pluck('tipo_documento'))->not->toContain('contrato_indeterminado');
 });
 
-test('una baja por renuncia espera la carta, la entrevista y el finiquito; si se cancela pasan solos a «No aplica»', function () {
+test('una baja por renuncia espera solo la carta de renuncia y el finiquito firmados; si se cancela pasan solos a «No aplica»', function () {
     app(CatalogoBajasService::class)->sembrar();
     $colaborador = rdAlta($this, '2025-01-10');
     $baja = Baja::query()->create([
@@ -159,10 +158,11 @@ test('una baja por renuncia espera la carta, la entrevista y el finiquito; si se
 
     $corte = rdGenerar('2026-11');
     $bajas = rdRenglones($corte, ReglaRecepcionDocumental::Bajas);
-    $requeridos = DocumentoRequeridoBaja::query()->where('activo', true)->where('forma_salida', 'RV')->count();
+    $requeridos = 2;
 
     expect($bajas)->toHaveCount($requeridos)
-        ->and($bajas->pluck('tipo_documento')->all())->toContain('baja.RV.carta_renuncia', 'baja.RV.finiquito')
+        ->and($bajas->pluck('tipo_documento')->sort()->values()->all())->toBe(['baja.RV.carta_renuncia', 'baja.RV.finiquito'])
+        ->and($bajas->pluck('tipo_documento')->all())->not->toContain('baja.RV.entrevista_salida')
         ->and($bajas->firstWhere('tipo_documento', 'baja.RV.carta_renuncia')->generated_document_id)->toBe($carta->id)
         ->and($bajas->first()->origen_type)->toBe($baja->getMorphClass());
 

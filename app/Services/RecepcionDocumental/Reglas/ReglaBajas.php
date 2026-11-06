@@ -17,11 +17,14 @@ use Illuminate\Support\Collection;
 
 /**
  * BAJAS: por cada baja cuya fecha_baja (DATE, la fecha legal de la baja)
- * cae en el mes, los originales del catálogo «Documentos requeridos de la
- * baja» de su forma de salida + los adicionales de su causal (el mismo
- * criterio de CatalogoBajasService::documentosRequeridos que usa el
- * expediente de baja): carta de renuncia, finiquito firmado, aviso de
- * terminación, acta, evidencias…
+ * cae en el mes, SOLO los originales que RH recibe en paquetería: la carta
+ * de renuncia firmada (renuncia voluntaria) y el finiquito firmado. Salen
+ * del catálogo «Documentos requeridos de la baja» de su forma de salida,
+ * filtrado por documento_sistema (config recepcion_documental.bajas.documentos_sistema).
+ * Lo demás del catálogo (entrevista de salida, acta con testigos, aviso de
+ * rescisión, evidencias de la causal) sigue en el expediente de la baja,
+ * pero no se espera aquí: sus renglones pendientes de cortes abiertos pasan
+ * solos a «No aplica» y los ya recibidos se conservan tal cual.
  *
  * Por qué fecha_baja y no la fecha de cada documento: el paquete de salida
  * de una persona viaja junto y se concilia una sola vez; usar la fecha de
@@ -55,8 +58,15 @@ class ReglaBajas implements ReglaRecepcion
             return [];
         }
 
+        $sistema = self::documentosEsperados();
+
+        if ($sistema === []) {
+            return [];
+        }
+
         $requeridos = DocumentoRequeridoBaja::query()
             ->where('activo', true)
+            ->whereIn('documento_sistema', $sistema)
             ->orderByRaw('case when causal_rotacion_id is null then 0 else 1 end')
             ->orderBy('orden')
             ->get();
@@ -107,6 +117,17 @@ class ReglaBajas implements ReglaRecepcion
     }
 
     /**
+     * documento_sistema que Recepción documental espera de una baja
+     * (por defecto carta_renuncia y finiquito).
+     *
+     * @return list<string>
+     */
+    public static function documentosEsperados(): array
+    {
+        return array_values(array_filter((array) config('recepcion_documental.bajas.documentos_sistema', ['carta_renuncia', 'finiquito']), fn (mixed $v): bool => is_string($v) && $v !== ''));
+    }
+
+    /**
      * Documento generado vigente más reciente de cada colaborador por clave
      * (carta de renuncia, aviso de terminación…): «colaborador|clave» => id.
      *
@@ -123,7 +144,7 @@ class ReglaBajas implements ReglaRecepcion
 
         GeneratedDocument::query()
             ->whereIn('colaborador_id', $colaboradores)
-            ->whereIn('clave_plantilla', ['carta_renuncia', 'aviso_terminacion', 'evaluacion_capacitacion'])
+            ->whereIn('clave_plantilla', array_values(array_diff(self::documentosEsperados(), ['finiquito'])))
             ->where(fn (Builder $q) => $q->whereNull('estado_flujo')->orWhere('estado_flujo', '!=', EstadoFlujoDocumento::Cancelado->value))
             ->orderByDesc('id')
             ->get(['id', 'colaborador_id', 'clave_plantilla'])
