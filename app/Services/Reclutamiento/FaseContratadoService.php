@@ -116,7 +116,8 @@ class FaseContratadoService
         $contratados = [];
 
         foreach ($candidatos as $candidato) {
-            if ($candidato->estado === EstadoCandidato::Contratado) {
+            if ($candidato->estado === EstadoCandidato::Contratado
+                || ($candidato->estado === EstadoCandidato::EnContratacion && $candidato->colaborador_id !== null)) {
                 $contratados[] = $candidato;
             }
         }
@@ -124,8 +125,20 @@ class FaseContratadoService
         $fases = $this->paraColaboradores(array_map(fn (Candidato $c): ?int => $c->colaborador_id, $contratados));
 
         foreach ($contratados as $candidato) {
-            $candidato->faseContratadoPrecargada = $fases[(int) $candidato->colaborador_id] ?? self::INDUCCION;
+            $fase = $fases[(int) $candidato->colaborador_id] ?? self::INDUCCION;
+            $candidato->faseContratadoPrecargada = $candidato->estado === EstadoCandidato::Contratado ? $fase : self::faseEnContratacion($fase);
         }
+    }
+
+    /**
+     * Candidato todavía «en contratación» (p. ej. contratos sin firmar) cuyo
+     * colaborador YA avanzó en la inducción —RH le asignó una reinducción y la
+     * contestó o aprobó—: el tablero muestra ese avance real en vez de dejarlo
+     * en «Contratación». Sin hechos de inducción sigue en «Contratación».
+     */
+    public static function faseEnContratacion(string $fase): string
+    {
+        return $fase === self::INDUCCION ? 'contratacion' : $fase;
     }
 
     public function paraColaborador(?int $colaboradorId): string

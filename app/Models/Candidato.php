@@ -203,6 +203,13 @@ class Candidato extends Model
                 ??= app(FaseContratadoService::class)->paraColaborador($this->colaborador_id);
         }
 
+        // En contratación pero su colaborador ya contestó / aprobó la
+        // inducción: la columna sigue los hechos reales, no se queda atrás.
+        if ($estado === EstadoCandidato::EnContratacion && $this->colaborador_id !== null) {
+            return $this->faseContratadoPrecargada
+                ??= FaseContratadoService::faseEnContratacion(app(FaseContratadoService::class)->paraColaborador($this->colaborador_id));
+        }
+
         return $estado?->faseCanonica() ?? '';
     }
 
@@ -212,7 +219,7 @@ class Candidato extends Model
      */
     public function etiquetaEstado(): string
     {
-        return $this->estado === EstadoCandidato::Contratado
+        return $this->estado === EstadoCandidato::Contratado || $this->fase !== $this->estado->faseCanonica()
             ? (EstadoCandidato::fases()[$this->fase] ?? $this->estado->etiqueta())
             : $this->estado->etiqueta();
     }

@@ -119,7 +119,8 @@ class CicloLaboralService
         foreach (EstadoCandidato::FASES_CONTRATADO as $fase) {
             $definicion[$fase] = [EstadoCandidato::fases()[$fase], 11, 11];
         }
-        $faseContratado = $estado === EstadoCandidato::Contratado ? $c->fase : null;
+        // También «en contratación» con la inducción ya contestada / aprobada.
+        $faseContratado = in_array($c->fase, EstadoCandidato::FASES_CONTRATADO, true) ? $c->fase : null;
         $indiceContratado = $faseContratado !== null ? array_search($faseContratado, EstadoCandidato::FASES_CONTRATADO, true) : false;
         $pasoActual = $estado->esSalida() ? null : $estado->paso();
         $pasos = [];
