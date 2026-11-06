@@ -251,6 +251,10 @@ class ProgresoInduccionService
         $videoVisto = $esVideo && $material['completado'];
         $presentacionVista = $presentacion['incluida'] && $presentacion['completada'];
         $cumplido = $contenidoVisto || $presentacionVista || $videoVisto;
+        // Con la evaluación ya habilitada (o contestada / aprobada) el
+        // contenido quedó cubierto: presentación y video se marcan completos.
+        $enEvaluacion = $estadoEval !== null;
+        $cubierto = $presentacionVista ? 'Cubierto con la presentación' : ($videoVisto ? 'Cubierto con el video' : 'Cubierto: ya pasó a la evaluación');
         $alternativaVideo = $esVideo ? ' · o ve el video completo' : '';
         $alternativaHojas = $presentacion['incluida'] ? ' o termina la presentación' : '';
 
@@ -261,11 +265,12 @@ class ProgresoInduccionService
                 'detalle' => match (true) {
                     ! $presentacion['incluida'] => 'No asignada',
                     $presentacion['completada'] => 'Todas las hojas vistas',
+                    $enEvaluacion => $cubierto,
                     $videoVisto => 'Opcional: ya viste el video',
                     default => sprintf('%d de %d hojas%s', $presentacion['paginas_vistas'], $presentacion['total_paginas'], $alternativaVideo),
                 },
-                'hecho' => $presentacionVista,
-                'omitido' => ! $presentacion['incluida'] || (! $presentacionVista && $videoVisto),
+                'hecho' => $presentacionVista || ($presentacion['incluida'] && $enEvaluacion),
+                'omitido' => ! $presentacion['incluida'] || (! $presentacionVista && ! $enEvaluacion && $videoVisto),
             ],
             [
                 'clave' => 'material',
@@ -274,6 +279,7 @@ class ProgresoInduccionService
                     $material === null => 'Sin material cargado',
                     ! $material['incluido'] => 'No asignado',
                     $videoVisto => 'Video completo',
+                    $esVideo && $enEvaluacion => $cubierto,
                     $esVideo && $cumplido => 'Opcional: ya viste la presentación',
                     ! $esVideo && ($material['completado'] || $contenidoVisto) => 'Escuchado',
                     $esVideo && ! $material['disponible'] => 'El video se está preparando',
@@ -281,8 +287,8 @@ class ProgresoInduccionService
                     $esVideo => sprintf('Velo completo%s para desbloquear tu evaluación', $alternativaHojas),
                     default => 'Narración que acompaña las hojas',
                 },
-                'hecho' => $esVideo ? $videoVisto : $materialIncluido && ($material['completado'] || $contenidoVisto),
-                'omitido' => ! $materialIncluido || ($esVideo && ! $videoVisto && $cumplido),
+                'hecho' => $esVideo ? $videoVisto || $enEvaluacion : $materialIncluido && ($material['completado'] || $contenidoVisto || $enEvaluacion),
+                'omitido' => ! $materialIncluido || ($esVideo && ! $videoVisto && ! $enEvaluacion && $cumplido),
             ],
             [
                 'clave' => 'evaluacion',

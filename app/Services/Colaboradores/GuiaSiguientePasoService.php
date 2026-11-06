@@ -256,7 +256,7 @@ class GuiaSiguientePasoService
             $pasos[] = match (true) {
                 // Sin PDF legible no hay hojas que pedir (como antes).
                 $hojasListas || (! $cumplido && $faltantes === []) => $this->paso('induccion_paginas', 'induccion', 'Documento de la inducción', 'Viste todas las páginas.', self::HECHO),
-                $cumplido => $this->paso('induccion_paginas', 'induccion', 'Documento de la inducción', 'Opcional: ya viste el video de la inducción.', self::HECHO),
+                $cumplido => $this->paso('induccion_paginas', 'induccion', 'Documento de la inducción', $videoVisto ? 'Opcional: ya viste el video de la inducción.' : 'Cubierto: ya pasaste a la evaluación.', self::HECHO),
                 default => $this->paso(
                     'induccion_paginas',
                     'induccion',
@@ -274,7 +274,7 @@ class GuiaSiguientePasoService
 
             $pasos[] = match (true) {
                 $videoVisto => $this->paso('induccion_video', 'induccion', 'Video de la inducción', 'Viste el video completo.', self::HECHO),
-                $cumplido => $this->paso('induccion_video', 'induccion', 'Video de la inducción', 'Opcional: ya viste el documento de la inducción.', self::HECHO),
+                $cumplido => $this->paso('induccion_video', 'induccion', 'Video de la inducción', $hojasListas ? 'Opcional: ya viste el documento de la inducción.' : 'Cubierto: ya pasaste a la evaluación.', self::HECHO),
                 ! (bool) ($material['disponible'] ?? false) => $this->paso('induccion_video', 'induccion', 'Video de la inducción', 'El video se está preparando. Te avisaremos cuando esté listo.', self::ESPERA),
                 default => $this->paso(
                     'induccion_video',
