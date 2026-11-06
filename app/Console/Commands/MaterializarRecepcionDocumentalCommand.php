@@ -54,13 +54,14 @@ class MaterializarRecepcionDocumentalCommand extends Command
             }
 
             $this->info(sprintf(
-                '%s (%s): %d nuevo(s), %d ligado(s) a su versión digital, %d a «No aplica», %d reactivado(s). Estado: %s.',
+                '%s (%s): %d nuevo(s), %d ligado(s) a su versión digital, %d a «No aplica», %d reactivado(s), %d con cantidad actualizada. Estado: %s.',
                 $p->clave(),
                 $p->etiqueta(),
                 $conteo['nuevos'],
                 $conteo['ligados'],
                 $conteo['no_aplica'],
                 $conteo['reactivados'],
+                $conteo['actualizados'],
                 $corte->estado->etiqueta(),
             ));
         }

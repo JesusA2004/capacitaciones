@@ -309,7 +309,9 @@ const grupos = computed<Grupo[]>(() => {
             evento = {
                 clave,
                 titulo: [
-                    fila.colaborador.nombre ?? 'Sin persona',
+                    fila.regla === 'listas_asistencia'
+                        ? 'Lotes semanales de la sucursal'
+                        : (fila.colaborador.nombre ?? 'Sin persona'),
                     fila.colaborador.numero_empleado
                         ? `No. ${fila.colaborador.numero_empleado}`
                         : null,
@@ -317,7 +319,10 @@ const grupos = computed<Grupo[]>(() => {
                 ]
                     .filter(Boolean)
                     .join(' · '),
-                descripcion: esNomina ? null : fila.evento_descripcion,
+                descripcion:
+                    esNomina || fila.regla === 'listas_asistencia'
+                        ? null
+                        : fila.evento_descripcion,
                 filas: [],
             };
             bloque.eventos.push(evento);
@@ -946,6 +951,28 @@ const etiquetasFiltroRecibido = [
                                         class="text-xs text-muted-foreground"
                                         >× {{ fila.cantidad_esperada }}</span
                                     >
+                                    <details
+                                        v-if="fila.integrantes?.length"
+                                        class="text-xs text-muted-foreground"
+                                    >
+                                        <summary class="cursor-pointer">
+                                            {{ fila.evento_descripcion }} — ver
+                                            nombres
+                                        </summary>
+                                        <ul class="mt-1 list-disc pl-5">
+                                            <li
+                                                v-for="p in fila.integrantes"
+                                                :key="p.id"
+                                            >
+                                                {{ p.nombre
+                                                }}{{
+                                                    p.numero_empleado
+                                                        ? ` (No. ${p.numero_empleado})`
+                                                        : ''
+                                                }}
+                                            </li>
+                                        </ul>
+                                    </details>
                                     <span
                                         v-if="
                                             fila.observaciones ||

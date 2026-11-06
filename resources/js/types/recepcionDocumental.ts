@@ -65,6 +65,14 @@ export type RenglonRecepcion = {
     evento_descripcion: string | null;
     cantidad_esperada: number;
     cantidad_recibida: number;
+    /** Lote de listas de asistencia: activos de la sucursal en esa semana. */
+    integrantes?:
+        | {
+              id: number;
+              nombre: string;
+              numero_empleado: string | null;
+          }[]
+        | null;
     estado: EstadoRecepcionDocumento;
     estado_etiqueta: string;
     justificacion: string | null;

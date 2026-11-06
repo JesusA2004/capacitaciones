@@ -60,7 +60,7 @@ Métricas (por alcance del usuario): Esperados (excluye «No aplica»), Recibido
 | Recibo de nómina firmado | Recibo **emitido** real (`recibos_nomina.estado = emitido`) | Mes de `fecha_pago` (configurable a `periodo_fin`) | 1 por recibo emitido; borradores no cuentan, cancelados pasan a «No aplica». Nunca se suponen 4 semanas ni 2 quincenas |
 | INFONAVIT | — | — | **Registrada y apagada** (pendiente de definir por RH) |
 | Pensión alimenticia | — | — | **Registrada y apagada** (pendiente de definir por RH) |
-| Listas de asistencia | — | — | **Registrada y apagada** (pendiente de definir por RH) |
+| Lote de lista de asistencias firmadas | Semana lunes–domingo (la de la nómina semanal) × sucursal (`sucursal_principal_id`, sin corporativo salvo `RECEPCION_DOC_LISTAS_CORPORATIVO=true`) | Mes del **domingo** de la semana; solo semanas ya empezadas (CDMX) | 1 lote por sucursal y semana; cantidad = colaboradores **activos** esa semana (estatus `activo` como la nómina; ingreso ≤ domingo; con baja, solo si `fecha_baja` ≥ lunes; en incorporación no cuenta). Mientras está pendiente, cada cálculo diario actualiza la cantidad; el renglón muestra los nombres |
 
 Decisión de bajas: se usa `fecha_baja` (fecha legal) y no la fecha de cada documento porque el paquete de salida viaja junto; usar la firma de cada pieza lo repartiría entre meses.
 
@@ -91,7 +91,7 @@ La app no calcula reglas, métricas ni estados.
 
 1. **INFONAVIT**: qué documento se firma (aviso de retención, alta/modificación de crédito), con qué evento del sistema se detecta y si es uno por crédito o por movimiento. No hay modelo ni evento en el sistema.
 2. **Pensión alimenticia**: qué documento (oficio, constancia de descuento), en qué evento y si se espera por resolución o por cada recibo.
-3. **Listas de asistencia**: cuál se recibe en original (diaria/semanal/quincenal), por sucursal o por persona y desde qué registro se calcula.
+3. ~~Listas de asistencia~~: definido 2026-11-06 — lote semanal por sucursal con los activos (ver tabla).
 4. **No competencia por puesto**: el negocio pidió 3 originales por alta para todos, pero el paquete configurado (`documentos_maestros.paquetes.alta`) solo incluye «No competencia» para Gestor y Gerente (y no hay plantilla para otros grupos). El módulo sigue la configuración; si RH decide que todos la firman, se agrega la clave al paquete de cada grupo (y Jurídico entrega el formato) y la regla lo tomará sola.
 5. **Registros viejos** con `generated_documents.requiere_envio_corporativo = 0`: no se usan como criterio; las reglas se basan en el evento y el paquete, no en esa bandera.
 6. Documentos generados con envío a corporativo que no son de alta/baja/préstamo (actas administrativas, permiso extraordinario con goce): no tienen regla todavía; agregar una regla si RH los concilia en este control.

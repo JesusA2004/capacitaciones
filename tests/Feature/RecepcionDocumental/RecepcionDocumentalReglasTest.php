@@ -276,11 +276,11 @@ test('un corte cerrado no se recalcula y su snapshot no cambia si cambian nombre
         ->and($renglones->pluck('sucursal_nombre')->unique()->all())->toBe(['Toluca Centro']);
 });
 
-test('INFONAVIT, pensión y listas de asistencia están registradas pero no generan nada', function () {
+test('INFONAVIT y pensión están registradas pero no generan nada', function () {
     rdAlta($this, '2026-11-05');
     $corte = rdGenerar('2026-11');
 
-    expect(RecepcionDocumentalRenglon::query()->where('corte_id', $corte->id)->whereIn('regla', ['infonavit', 'pension', 'listas_asistencia'])->count())->toBe(0);
+    expect(RecepcionDocumentalRenglon::query()->where('corte_id', $corte->id)->whereIn('regla', ['infonavit', 'pension'])->count())->toBe(0);
 });
 
 test('el estado del corte se calcula: abierto en el mes, con pendientes al terminar y completo al recibir todo', function () {

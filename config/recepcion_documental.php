@@ -21,7 +21,8 @@ use App\Services\RecepcionDocumental\Reglas\ReglaVacaciones;
 | reales del sistema (alta, baja, recibo emitido…). Una regla apagada no
 | genera ni toca renglones.
 |
-| INFONAVIT, pensión alimenticia y listas de asistencia están REGISTRADAS
+| Listas de asistencia: un lote semanal por sucursal (ReglaListasAsistencia).
+| INFONAVIT y pensión alimenticia están REGISTRADAS
 | pero APAGADAS a propósito: no hay en el sistema evidencia de qué
 | documento se firma, en qué evento ni con qué granularidad. RH debe
 | definir la regla (y, si aplica, la plantilla) antes de encenderlas.
@@ -37,10 +38,10 @@ return [
         'vacaciones' => ['clase' => ReglaVacaciones::class, 'activa' => (bool) env('RECEPCION_DOC_VACACIONES', true)],
         'prestamos' => ['clase' => ReglaPrestamos::class, 'activa' => (bool) env('RECEPCION_DOC_PRESTAMOS', true)],
         'recibos_nomina' => ['clase' => ReglaRecibosNomina::class, 'activa' => (bool) env('RECEPCION_DOC_NOMINA', true)],
+        'listas_asistencia' => ['clase' => ReglaListasAsistencia::class, 'activa' => (bool) env('RECEPCION_DOC_LISTAS_ASISTENCIA', true)],
         // Pendientes de definir por RH: no generan nada aunque se enciendan.
         'infonavit' => ['clase' => ReglaInfonavit::class, 'activa' => false],
         'pension' => ['clase' => ReglaPension::class, 'activa' => false],
-        'listas_asistencia' => ['clase' => ReglaListasAsistencia::class, 'activa' => false],
     ],
 
     /*
@@ -74,6 +75,15 @@ return [
     */
     'bajas' => [
         'documentos_sistema' => ['carta_renuncia', 'finiquito'],
+    ],
+
+    /*
+    | Listas de asistencia: lote semanal (lunes–domingo) por sucursal con los
+    | colaboradores activos de esa semana. El corporativo (nómina quincenal)
+    | no lleva lista semanal salvo que se encienda aquí.
+    */
+    'listas_asistencia' => [
+        'incluir_corporativo' => (bool) env('RECEPCION_DOC_LISTAS_CORPORATIVO', false),
     ],
 
     // Modalidad del paquete de alta cuando el colaborador todavía no tiene

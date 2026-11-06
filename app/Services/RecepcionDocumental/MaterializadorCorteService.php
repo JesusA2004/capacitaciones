@@ -19,7 +19,9 @@ use Illuminate\Validation\ValidationException;
  *
  *  - Evento nuevo → renglón nuevo «Pendiente» con su snapshot.
  *  - Renglón existente → nunca se borra ni se cambia su snapshot; solo se
- *    liga a la versión digital vigente si cambió.
+ *    liga a la versión digital vigente si cambió y, mientras siga
+ *    PENDIENTE, se actualiza su cantidad esperada (lote semanal de listas
+ *    de asistencia: altas y bajas de la semana).
  *  - Renglón PENDIENTE cuyo evento ya no devuelve la regla (cancelado o
  *    movido de mes) → «No aplica» con justificación automática.
  *  - Renglón que el sistema puso en «No aplica» y cuyo evento vuelve a
@@ -35,7 +37,7 @@ class MaterializadorCorteService
     ) {}
 
     /**
-     * @return array{nuevos: int, ligados: int, no_aplica: int, reactivados: int}
+     * @return array{nuevos: int, ligados: int, no_aplica: int, reactivados: int, actualizados: int}
      */
     public function materializar(RecepcionDocumentalCorte $corte, ?User $actor = null): array
     {
@@ -64,7 +66,7 @@ class MaterializadorCorteService
                 throw ValidationException::withMessages(['corte' => 'El corte se cerró mientras se calculaba: no se recalcula.']);
             }
 
-            $conteo = ['nuevos' => 0, 'ligados' => 0, 'no_aplica' => 0, 'reactivados' => 0];
+            $conteo = ['nuevos' => 0, 'ligados' => 0, 'no_aplica' => 0, 'reactivados' => 0, 'actualizados' => 0];
             $ahora = Carbon::now();
 
             foreach ($porRegla as $regla => $esperados) {
@@ -95,6 +97,13 @@ class MaterializadorCorteService
                     if ($renglon->estado === EstadoRecepcionDocumento::NoAplica && $renglon->no_aplica_automatico) {
                         $cambios += ['estado' => EstadoRecepcionDocumento::Pendiente, 'justificacion' => null, 'no_aplica_automatico' => false];
                         $conteo['reactivados']++;
+                    }
+
+                    $cantidad = max(1, $esperado->cantidad);
+
+                    if ($renglon->cantidad_esperada !== $cantidad && ($renglon->estado === EstadoRecepcionDocumento::Pendiente || isset($cambios['estado']))) {
+                        $cambios += ['cantidad_esperada' => $cantidad, 'evento_descripcion' => mb_substr($esperado->descripcion, 0, 255)];
+                        $conteo['actualizados']++;
                     }
 
                     if ($cambios !== []) {

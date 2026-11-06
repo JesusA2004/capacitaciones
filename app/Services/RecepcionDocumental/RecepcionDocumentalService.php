@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Expedientes\DocumentoStorageService;
+use App\Services\RecepcionDocumental\Reglas\ReglaListasAsistencia;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
@@ -60,7 +61,11 @@ class RecepcionDocumentalService
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly DocumentoStorageService $almacen,
         private readonly CatalogoReglasRecepcion $catalogo,
+        private readonly ReglaListasAsistencia $listas,
     ) {}
+
+    /** @var array<string, list<array{id: int, nombre: string, numero_empleado: string|null}>> */
+    private array $integrantesMemo = [];
 
     // ───────────────────────── Cortes ─────────────────────────
 
@@ -84,7 +89,7 @@ class RecepcionDocumentalService
      * se recalcula: con $omitirCerrado (comando programado) se devuelve tal
      * cual; si no, responde 422.
      *
-     * @return array{corte: RecepcionDocumentalCorte, conteo: array{nuevos: int, ligados: int, no_aplica: int, reactivados: int}|null}
+     * @return array{corte: RecepcionDocumentalCorte, conteo: array{nuevos: int, ligados: int, no_aplica: int, reactivados: int, actualizados: int}|null}
      */
     public function generar(PeriodoRecepcion $periodo, ?User $actor, bool $omitirCerrado = false): array
     {
@@ -327,6 +332,7 @@ class RecepcionDocumentalService
             'evento_descripcion' => $r->evento_descripcion,
             'cantidad_esperada' => $r->cantidad_esperada,
             'cantidad_recibida' => $r->cantidad_recibida,
+            'integrantes' => $this->integrantesDe($r),
             'estado' => $r->estado->value,
             'estado_etiqueta' => $r->estado->etiqueta(),
             'justificacion' => $r->justificacion,
@@ -344,6 +350,23 @@ class RecepcionDocumentalService
             ] : null,
             'actualizado_en' => $r->updated_at?->toIso8601String(),
         ];
+    }
+
+    /**
+     * Lote de listas de asistencia: los nombres de los activos de esa
+     * sucursal y semana (mismo criterio que la cantidad). Otras reglas: null.
+     *
+     * @return list<array{id: int, nombre: string, numero_empleado: string|null}>|null
+     */
+    private function integrantesDe(RecepcionDocumentalRenglon $r): ?array
+    {
+        if ($r->regla !== ReglaRecepcionDocumental::ListasAsistencia || $r->sucursal_id === null) {
+            return null;
+        }
+
+        $clave = sprintf('%d|%s', $r->sucursal_id, $r->tipo_documento);
+
+        return $this->integrantesMemo[$clave] ??= $this->listas->integrantes($r->sucursal_id, $r->tipo_documento);
     }
 
     /** Renglón del corte dentro del alcance (404 si no lo ve). */

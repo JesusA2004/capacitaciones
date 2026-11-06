@@ -169,8 +169,12 @@ class RecepcionDocumentalPdfService
 
                 $bloques[$bloque]['etiqueta'] ??= mb_strtoupper($r->regla->etiqueta());
                 $bloques[$bloque]['orden'] ??= $r->regla->orden();
+                if ($r->regla === ReglaRecepcionDocumental::ListasAsistencia) {
+                    $bloques[$bloque]['eventos'][$evento]['titulo'] ??= 'Lotes semanales de la sucursal';
+                }
+
                 $bloques[$bloque]['eventos'][$evento]['titulo'] ??= trim(sprintf('%s%s%s', $r->colaborador_nombre ?? 'Sin persona', $r->numero_empleado !== null ? sprintf(' (No. %s)', $r->numero_empleado) : '', $r->puesto_nombre !== null ? sprintf(' · %s', $r->puesto_nombre) : ''));
-                $bloques[$bloque]['eventos'][$evento]['descripcion'] ??= $r->regla === ReglaRecepcionDocumental::RecibosNomina ? null : $r->evento_descripcion;
+                $bloques[$bloque]['eventos'][$evento]['descripcion'] ??= in_array($r->regla, [ReglaRecepcionDocumental::RecibosNomina, ReglaRecepcionDocumental::ListasAsistencia], true) ? null : $r->evento_descripcion;
                 $bloques[$bloque]['eventos'][$evento]['documentos'][] = [
                     'etiqueta' => $r->regla === ReglaRecepcionDocumental::RecibosNomina ? (string) $r->evento_descripcion : $r->tipo_etiqueta,
                     'cantidad' => $r->cantidad_esperada,

@@ -5,8 +5,8 @@ namespace App\Enums;
 /**
  * Regla (evento de origen) que genera lo esperado en Recepción documental
  * RH. Cada caso tiene su clase en App\Services\RecepcionDocumental\Reglas y
- * su activación en config/recepcion_documental.php. INFONAVIT, pensión y
- * listas de asistencia están registradas pero APAGADAS: no hay evidencia en
+ * su activación en config/recepcion_documental.php. INFONAVIT y pensión
+ * están registradas pero APAGADAS: no hay evidencia en
  * el sistema de qué documento, cuándo ni cuántos (RH debe definirlas).
  */
 enum ReglaRecepcionDocumental: string
@@ -66,7 +66,8 @@ enum ReglaRecepcionDocumental: string
             self::Vacaciones => sprintf('No se aprobaron vacaciones durante %s.', $periodo),
             self::Prestamos => sprintf('No se autorizaron préstamos durante %s.', $periodo),
             self::RecibosNomina => sprintf('No se emitieron recibos de nómina con pago en %s.', $periodo),
-            self::Infonavit, self::Pension, self::ListasAsistencia => sprintf('Regla pendiente de definir por RH: no genera esperados en %s.', $periodo),
+            self::ListasAsistencia => sprintf('No hubo colaboradores activos en sucursales durante las semanas de %s.', $periodo),
+            self::Infonavit, self::Pension => sprintf('Regla pendiente de definir por RH: no genera esperados en %s.', $periodo),
         };
     }
 }
