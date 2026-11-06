@@ -16,6 +16,7 @@ import {
     Search,
     Stethoscope,
     Type,
+    Upload,
     UserRoundSearch,
     Users,
 } from '@lucide/vue';
@@ -259,6 +260,49 @@ async function revisarFuentes() {
     }
 }
 
+// ───────── Subir el original de un formato que aún no lo tiene ─────────
+// Usa la misma ruta que «Cargar nueva versión» del detalle
+// (documentos_maestros.cargar, revalidado en el backend): el original queda
+// como versión 1 de ESA familia, con su mapa de espacios, y abre el editor.
+const subirAbierto = ref(false);
+const subirFila = ref<MasterAdminFila | null>(null);
+const archivosOriginal = ref<File[]>([]);
+const subiendoOriginal = ref(false);
+
+const extensionOriginal = computed(() =>
+    subirFila.value?.motor === 'pdf_overlay' ? '.pdf' : '.docx',
+);
+
+function abrirSubirOriginal(f: MasterAdminFila) {
+    subirFila.value = f;
+    archivosOriginal.value = [];
+    subirAbierto.value = true;
+}
+
+async function subirOriginal() {
+    const archivo = archivosOriginal.value[0];
+    const fila = subirFila.value;
+
+    if (!archivo || !fila) {
+        return;
+    }
+
+    subiendoOriginal.value = true;
+
+    try {
+        const r = await api.cargarVersion(fila.familia, archivo);
+        toast.success(r.message);
+        subirAbierto.value = false;
+        router.visit(editorRuta.url(r.data.id));
+    } catch (e) {
+        toast.error(
+            e instanceof Error ? e.message : 'No se pudo subir el original.',
+        );
+    } finally {
+        subiendoOriginal.value = false;
+    }
+}
+
 // ───────── Nuevo formato (no-code) ─────────
 const nuevoAbierto = ref(false);
 const archivos = ref<File[]>([]);
@@ -495,6 +539,17 @@ async function crearFormato() {
                         ></span
                     >
                 </p>
+                <div
+                    v-if="!f.master_id && f.operativo && puede.cargar"
+                    class="mt-auto"
+                >
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        @click="abrirSubirOriginal(f)"
+                        ><Upload class="size-4" /> Subir original</Button
+                    >
+                </div>
                 <div v-if="f.master_id" class="mt-auto flex items-center gap-2">
                     <Button size="sm" as="a" :href="editorRuta.url(f.master_id)"
                         ><PencilRuler class="size-4" /> Editar</Button
@@ -602,6 +657,51 @@ async function crearFormato() {
             </div>
         </SheetContent>
     </Sheet>
+
+    <!-- Subir el original de un formato sin documento -->
+    <Dialog
+        :open="subirAbierto"
+        @update:open="(v: boolean) => !subiendoOriginal && (subirAbierto = v)"
+    >
+        <DialogContent class="sm:max-w-lg">
+            <DialogHeader>
+                <DialogTitle>Subir original</DialogTitle>
+                <DialogDescription
+                    >{{ subirFila?.nombre }} · {{ subirFila?.aplica_a }}. Sube
+                    el documento oficial; PEOPLE coloca los espacios ya
+                    definidos y abre el editor para revisarlo, probarlo y
+                    activarlo.</DialogDescription
+                >
+            </DialogHeader>
+            <PeopleFileDropzone
+                v-model="archivosOriginal"
+                :accept="extensionOriginal"
+                :max-size-mb="20"
+                :loading="subiendoOriginal"
+                label="Arrastra aquí el documento original"
+                :hint="`${extensionOriginal === '.pdf' ? 'PDF' : 'Word (.docx)'} · Máx. 20 MB`"
+                @error="(m: string) => toast.error(m)"
+            />
+            <DialogFooter>
+                <Button
+                    variant="outline"
+                    :disabled="subiendoOriginal"
+                    @click="subirAbierto = false"
+                    >Cancelar</Button
+                >
+                <Button
+                    :disabled="subiendoOriginal || !archivosOriginal.length"
+                    @click="subirOriginal"
+                >
+                    <Loader2
+                        v-if="subiendoOriginal"
+                        class="size-4 animate-spin"
+                    />
+                    {{ subiendoOriginal ? 'Analizando…' : 'Subir y revisar' }}
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 
     <!-- Nuevo formato -->
     <Dialog
