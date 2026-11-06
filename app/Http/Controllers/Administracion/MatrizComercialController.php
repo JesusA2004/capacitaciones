@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Colaborador;
 use App\Models\NodoComercial;
 use App\Models\Puesto;
+use App\Services\AlcanceOrganizacionalService;
 use App\Services\MatrizComercial\MatrizComercialService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,14 +30,21 @@ class MatrizComercialController extends Controller
     {
         $this->authorize('viewAny', Puesto::class);
 
+        $puedeEditar = $this->puedeEditarMatriz($request);
+
         return Inertia::render('Administracion/MatrizComercial/Index', [
             'arbol' => $this->matriz->arbol(),
             'resumen' => $this->matriz->resumen(),
-            'puedeEditar' => $this->puedeEditarMatriz($request),
-            'gestoresDisponibles' => Colaborador::query()
-                ->where('estatus', EstadoUsuario::Activo)
-                ->orderBy('name')
-                ->get(['id', 'name', 'apellidos']),
+            'puedeEditar' => $puedeEditar,
+            // El selector de responsables (toda la plantilla de su alcance)
+            // solo viaja a quien edita la matriz: un gerente que solo la
+            // consulta no recibe la lista de personas de otras sucursales.
+            'gestoresDisponibles' => $puedeEditar
+                ? app(AlcanceOrganizacionalService::class)->limitarColaboradoresPorAlcance(Colaborador::query(), $request->user())
+                    ->where('estatus', EstadoUsuario::Activo)
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'apellidos'])
+                : [],
         ]);
     }
 

@@ -80,6 +80,18 @@ class FormatoOficialController extends Controller
 
         if ($generacion->colaborador !== null) {
             abort_unless($this->alcance->puedeVerExpediente($usuario, $generacion->colaborador), 404);
+
+            return;
         }
+
+        // Formato de un candidato: el alcance del candidato (su sucursal).
+        if ($generacion->candidato !== null) {
+            abort_unless($usuario->can('view', $generacion->candidato), 404);
+
+            return;
+        }
+
+        // Sin persona ligada: solo con alcance global.
+        abort_unless($this->alcance->tieneAlcanceGlobal($usuario), 404);
     }
 }

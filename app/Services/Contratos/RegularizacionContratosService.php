@@ -867,6 +867,11 @@ class RegularizacionContratosService
             throw new AuthorizationException('No tienes permiso para ver contratos.');
         }
 
+        // La vista previa del contrato es parte de generarlo (contratos.generar).
+        if (! $this->puedeGenerar($actor)) {
+            throw new AuthorizationException('No tienes permiso para generar contratos.');
+        }
+
         $this->exigirAlcance($actor, $colaborador);
         $plan = $this->plan($colaborador, $hoy);
 

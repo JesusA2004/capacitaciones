@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Organigrama\MiniOrganigramaService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 
@@ -132,6 +133,15 @@ class JerarquiaPuestoService
     public function arbol(Request $request): Collection
     {
         $raizPuestoId = $request->integer('raiz_puesto_id');
+        $usuario = $request->user();
+        $alcance = app(AlcanceOrganizacionalService::class);
+
+        // Candidatos, ocupantes y vacantes: solo los del alcance de quien mira
+        // (un gerente de sucursal, los de su sucursal). Sin usuario (mini-
+        // organigrama institucional) no se listan candidatos.
+        $candidatos = fn (Builder $query): Builder => $usuario instanceof User
+            ? $alcance->limitarPorSucursal($query, $usuario, 'sucursal_id', 'candidatos')
+            : $query->whereRaw('1 = 0');
 
         $puestos = Puesto::query()
             ->with([
@@ -140,12 +150,16 @@ class JerarquiaPuestoService
                 'puestoCrecimiento:id,nombre',
                 'respaldos:id,nombre',
                 'puestosQuePuedeCubrir:id,nombre',
-                'candidatos:id,puesto_objetivo_id,nombre,apellidos,estado',
+                'candidatos' => fn ($query) => $candidatos($query->select(['id', 'puesto_objetivo_id', 'nombre', 'apellidos', 'estado'])->getQuery()),
             ])
             ->withCount([
-                'colaboradores as colaboradores_count' => fn ($query) => $query->where('estatus', 'activo'),
-                'candidatos',
-                'vacantes as vacantes_abiertas_count' => fn ($query) => $query->whereNotIn('estado', ['cubierta', 'cancelada']),
+                'colaboradores as colaboradores_count' => fn ($query) => $usuario instanceof User
+                    ? $alcance->limitarColaboradoresPorAlcance($query->where('estatus', 'activo'), $usuario)
+                    : $query->where('estatus', 'activo'),
+                'candidatos' => $candidatos,
+                'vacantes as vacantes_abiertas_count' => fn (Builder $query): Builder => $usuario instanceof User
+                    ? $alcance->limitarPorSucursal($query->whereNotIn('estado', ['cubierta', 'cancelada']), $usuario, 'sucursal_id', 'vacantes')
+                    : $query->whereNotIn('estado', ['cubierta', 'cancelada']),
             ])
             // Mini-organigrama (raiz_puesto_id): la rama ESTRUCTURAL completa
             // del área, sin importar si hoy tiene colaboradores en una

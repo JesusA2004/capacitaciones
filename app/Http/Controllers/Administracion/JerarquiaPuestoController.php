@@ -3,20 +3,24 @@
 namespace App\Http\Controllers\Administracion;
 
 use App\Enums\MotivoCobertura;
+use App\Enums\TipoMovimientoLaboral;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Administracion\ActualizarJerarquiaPuestoRequest;
 use App\Models\CoberturaPuesto;
+use App\Models\Colaborador;
 use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\MovimientoLaboral;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Services\Administracion\JerarquiaPuestoService;
+use App\Services\AlcanceOrganizacionalService;
 use App\Services\Organigrama\ClasificacionRegionService;
 use App\Services\Organigrama\LaminasOrganigramaService;
 use App\Services\Organigrama\MiniOrganigramaService;
 use App\Services\Organigrama\OrganigramaPersonasService;
 use App\Services\Organigrama\ResponsableAprobacionService;
+use App\Services\Salarios\AccesoSueldoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -129,9 +133,11 @@ class JerarquiaPuestoController extends Controller
      * (activity log), movimientos laborales hacia/desde este puesto, y
      * vacantes que ha generado.
      */
-    public function historial(Puesto $puesto): JsonResponse
+    public function historial(Request $request, Puesto $puesto): JsonResponse
     {
         $this->authorize('view', $puesto);
+        $usuario = $request->user();
+        $alcance = app(AlcanceOrganizacionalService::class);
 
         $cambiosJerarquia = Activity::query()
             ->where('subject_type', Puesto::class)
@@ -151,6 +157,10 @@ class JerarquiaPuestoController extends Controller
         // huecos según el tipo de movimiento (ver docs/MOVIMIENTOS_LABORALES.md).
         $movimientos = MovimientoLaboral::query()
             ->where(fn ($query) => $query->where('puesto_anterior_id', $puesto->id)->orWhere('puesto_nuevo_id', $puesto->id))
+            // Solo movimientos de personas de su alcance (expedientes) y,
+            // sin acceso a sueldos, sin cambios de sueldo.
+            ->whereIn('colaborador_id', $alcance->limitarExpedientesPorAlcance(Colaborador::withTrashed(), $usuario)->select('colaboradores.id'))
+            ->when(! app(AccesoSueldoService::class)->puedeVer($usuario), fn ($query) => $query->where('tipo_movimiento', '!=', TipoMovimientoLaboral::CambioSueldo->value))
             ->with([
                 'colaborador:id,name,apellidos',
                 'puestoAnterior:id,nombre', 'puestoNuevo:id,nombre',
@@ -166,7 +176,7 @@ class JerarquiaPuestoController extends Controller
             ->limit(20)
             ->get();
 
-        $vacantes = $puesto->vacantes()
+        $vacantes = $alcance->limitarPorSucursal($puesto->vacantes()->getQuery(), $usuario, 'sucursal_id', 'vacantes')
             ->with(['empresa:id,nombre', 'sucursal:id,nombre'])
             ->orderByDesc('fecha_apertura')
             ->limit(20)

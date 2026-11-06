@@ -532,7 +532,12 @@ class SolicitudesService
         if ($nivel === AlcanceDatos::Sucursal || $nivel === AlcanceDatos::Region) {
             $sucursales = $this->alcanceModulo->sucursalesPara($revisor, $nivel)->all();
 
-            return $query->where(fn (Builder $q) => $q->whereIn('sucursal_id', $sucursales)->orWhere('user_id', $revisor->id));
+            // Baja de colaborador: cuenta la sucursal de quien SE VA (la de
+            // quien la registró puede ser otra), igual que el detalle.
+            return $query->where(fn (Builder $q) => $q
+                ->where(fn (Builder $s) => $s->whereNull('objetivo_colaborador_id')->whereIn('sucursal_id', $sucursales))
+                ->orWhereHas('objetivoColaborador', fn (Builder $c) => $c->whereIn('sucursal_principal_id', $sucursales))
+                ->orWhere('user_id', $revisor->id));
         }
 
         if ($nivel === AlcanceDatos::Equipo) {

@@ -147,6 +147,8 @@ class DocumentoProcesoService
     {
         $contrato->loadMissing('colaborador.puesto');
         $colaborador = $contrato->colaborador;
+        // Abrir el paquete por id (web y API) exige alcance, como las demás secciones.
+        $this->exigirVer($viewer, $colaborador);
         $estado = $this->expediente->estadoDocumental($colaborador);
         $bloqueo = $estado['completo']
             ? app(RequisitoDocumentosIngresoService::class)->bloqueoContrato($contrato)
@@ -413,6 +415,7 @@ class DocumentoProcesoService
     public function seccionRenovacion(ContratoLaboral $contrato, User $viewer): array
     {
         $contrato->loadMissing('colaborador');
+        $this->exigirVer($viewer, $contrato->colaborador);
         $items = [];
 
         foreach ($this->clavesPaquete('renovacion', null, $contrato->colaborador) as $clave) {

@@ -68,7 +68,11 @@ class SolicitudInternaPolicy
             return true;
         }
 
-        if ($usuario->can('solicitudes.ver') && $this->alcanceModulo->alcanzaColaborador($usuario, $solicitud->personaSolicitante(), 'solicitudes')) {
+        // Baja de colaborador: el alcance es el de quien SE VA, no el de
+        // quien la registró (un jefe de otra sucursal puede registrarla).
+        $persona = $solicitud->colaboradorDeBaja() ?? $solicitud->personaSolicitante();
+
+        if ($usuario->can('solicitudes.ver') && $this->alcanceModulo->alcanzaColaborador($usuario, $persona, 'solicitudes')) {
             return true;
         }
 
@@ -216,6 +220,12 @@ class SolicitudInternaPolicy
 
     private function alcanzaAutor(User $usuario, SolicitudInterna $solicitud): bool
     {
+        $deBaja = $solicitud->colaboradorDeBaja();
+
+        if ($deBaja !== null) {
+            return $this->alcance->alcanzaColaborador($usuario, $deBaja);
+        }
+
         $autor = $solicitud->usuario;
 
         return $autor !== null && $this->alcance->puedeVerUsuario($usuario, $autor);
