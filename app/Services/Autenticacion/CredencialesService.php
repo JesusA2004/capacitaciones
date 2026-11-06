@@ -2,8 +2,10 @@
 
 namespace App\Services\Autenticacion;
 
+use App\Enums\EstadoInvitacionIncorporacion;
 use App\Enums\EstadoUsuario;
 use App\Models\Colaborador;
+use App\Models\IncorporacionInvitacion;
 use App\Models\User;
 use App\Notifications\CredencialesActualizadasNotification;
 use App\Services\Administracion\GeneradorPasswordService;
@@ -122,6 +124,7 @@ class CredencialesService
                 $existente->forceFill(['password' => Hash::make($contrasena), 'debe_cambiar_contrasena' => true])->save();
             });
             $this->auditoria->registrar('credenciales_generadas', $existente, $actor, ['colaborador_id' => $colaborador->id, 'usuario' => $existente->username, 'cuenta_nueva' => false]);
+            $this->reemplazarQrDeRegistro($colaborador, $actor);
             $this->avisarAlTitular($existente, $actor);
 
             return ['usuario' => $existente->username, 'contrasena' => $contrasena, 'cuenta_nueva' => false, 'correo' => $existente->email];
@@ -148,8 +151,31 @@ class CredencialesService
         );
         $colaborador->setRelation('user', $cuenta);
         $this->auditoria->registrar('credenciales_generadas', $cuenta, $actor, ['colaborador_id' => $colaborador->id, 'usuario' => $cuenta->username, 'cuenta_nueva' => true]);
+        $this->reemplazarQrDeRegistro($colaborador, $actor);
 
         return ['usuario' => $cuenta->username, 'contrasena' => $contrasena, 'cuenta_nueva' => true, 'correo' => $cuenta->email];
+    }
+
+    /**
+     * Alta que RH dio y avanzó en la web SIN el QR de registro: al generarle
+     * credenciales, la invitación QR que siguiera activa se revoca (una sola
+     * vía de acceso). Como la cuenta no nace del QR, la app no le exige el
+     * registro completo (RegistroAppService::aplica()): entra, cambia su
+     * contraseña y completa sus datos faltantes con «Tu siguiente paso».
+     */
+    private function reemplazarQrDeRegistro(Colaborador $colaborador, User $actor): void
+    {
+        $invitaciones = IncorporacionInvitacion::query()
+            ->where(fn ($q) => $q->where('colaborador_id', $colaborador->id)
+                ->when($colaborador->candidato_id !== null, fn ($q) => $q->orWhere('candidato_id', $colaborador->candidato_id)))
+            ->where('estado', EstadoInvitacionIncorporacion::Activo->value)
+            ->whereNull('used_at')
+            ->get();
+
+        foreach ($invitaciones as $invitacion) {
+            $invitacion->update(['estado' => EstadoInvitacionIncorporacion::Revocado->value, 'revoked_at' => now()]);
+            $this->auditoria->registrar('invitacion_qr_reemplazada_por_credenciales', $invitacion, $actor, ['colaborador_id' => $colaborador->id, 'invitacion_id' => $invitacion->id]);
+        }
     }
 
     /**

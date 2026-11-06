@@ -311,6 +311,12 @@ export type CandidatoFicha = {
         expira_en: string;
         usada_en: string | null;
     } | null;
+    /** «Generar credenciales (sin QR)»: solo si quien mira puede generarlas. */
+    credenciales?: {
+        colaborador_id: number;
+        colaborador_nombre: string;
+        tiene_cuenta: boolean;
+    } | null;
     /** Excepción jerárquica sobre un rechazo de RH (CLAUDE.md §10-12), historial completo. */
     intervenciones: {
         id: number;

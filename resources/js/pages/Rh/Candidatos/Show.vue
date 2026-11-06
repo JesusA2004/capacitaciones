@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     ArrowRight,
     Brain,
     FileText,
     FolderOpen,
     Home,
+    KeyRound,
     Paperclip,
     Pencil,
     QrCode,
@@ -39,6 +40,7 @@ import type { ResumenAvisoSistemas } from '@/components/Rh/AvisoAltaSistemas.vue
 import CandidatoExpedientePanel from '@/components/Rh/CandidatoExpedientePanel.vue';
 import CandidatoFormDialog from '@/components/Rh/CandidatoFormDialog.vue';
 import CandidatoPerfilPuesto from '@/components/Rh/CandidatoPerfilPuesto.vue';
+import GenerarCredencialesDialog from '@/components/Rh/GenerarCredencialesDialog.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -115,6 +117,9 @@ const props = defineProps<{
     /** Correo «Alta para asignar usuarios» a Sistemas (null = no aplica / sin permiso). */
     avisoSistemas?: ResumenAvisoSistemas | null;
 }>();
+
+// «Generar credenciales (sin QR)» (altas dadas en la web sin el registro por QR).
+const dialogoCredenciales = ref(false);
 
 /** El paso del proceso ya es esta ficha: no se ofrece un enlace a sí misma. */
 const procesoEsEstaFicha = computed(
@@ -1056,24 +1061,69 @@ function fecha(valor: string | null): string {
                 </section>
 
                 <section
-                    v-if="candidato.invitacion"
+                    v-if="candidato.invitacion || candidato.credenciales"
                     class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5 text-sm"
                 >
                     <h2 class="mb-2 text-sm font-semibold">
                         QR de contratación
                     </h2>
-                    <p>
+                    <p v-if="candidato.invitacion">
                         Estado:
                         <strong>{{
                             candidato.invitacion.estado_etiqueta
                         }}</strong>
                         · vence {{ fecha(candidato.invitacion.expira_en) }}
                     </p>
-                    <Button as-child size="sm" variant="outline" class="mt-3">
-                        <Link :href="verInvitacion.url(candidato.invitacion.id)"
-                            ><QrCode class="size-4" /> Ver / regenerar QR</Link
+                    <div class="mt-3 flex flex-wrap gap-2">
+                        <Button
+                            v-if="candidato.invitacion"
+                            as-child
+                            size="sm"
+                            variant="outline"
                         >
-                    </Button>
+                            <Link
+                                :href="
+                                    verInvitacion.url(candidato.invitacion.id)
+                                "
+                                ><QrCode class="size-4" /> Ver / regenerar
+                                QR</Link
+                            >
+                        </Button>
+                        <Button
+                            v-if="candidato.credenciales"
+                            size="sm"
+                            variant="outline"
+                            @click="dialogoCredenciales = true"
+                        >
+                            <KeyRound class="size-4" />
+                            {{
+                                candidato.credenciales.tiene_cuenta
+                                    ? 'Nueva contraseña temporal'
+                                    : 'Generar credenciales (sin QR)'
+                            }}
+                        </Button>
+                    </div>
+                    <p
+                        v-if="
+                            candidato.credenciales &&
+                            !candidato.credenciales.tiene_cuenta
+                        "
+                        class="mt-2 text-xs text-muted-foreground"
+                    >
+                        Si ya diste el alta en la web sin el QR: genera su
+                        usuario y contraseña temporal. El QR pendiente se revoca
+                        y la persona completa sus datos faltantes en la app.
+                    </p>
+                    <GenerarCredencialesDialog
+                        v-if="candidato.credenciales"
+                        v-model:open="dialogoCredenciales"
+                        :colaborador-id="candidato.credenciales.colaborador_id"
+                        :colaborador-nombre="
+                            candidato.credenciales.colaborador_nombre
+                        "
+                        :tiene-cuenta="candidato.credenciales.tiene_cuenta"
+                        @generadas="router.reload({ only: ['candidato'] })"
+                    />
                 </section>
             </div>
 

@@ -16,6 +16,7 @@ use App\Models\IncorporacionInvitacion;
 use App\Models\IntervencionCandidato;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Autenticacion\CredencialesService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -313,6 +314,9 @@ class CandidatoPresenter
                 'expira_en' => $invitacion->expires_at->toIso8601String(),
                 'usada_en' => $invitacion->used_at?->toIso8601String(),
             ] : null,
+            // «Generar credenciales (sin QR)»: altas que RH dio y avanzó en la
+            // web sin el registro por QR. Misma regla que el endpoint.
+            'credenciales' => $this->credenciales($candidato, $viewer),
             // Excepción jerárquica sobre un rechazo de RH (CLAUDE.md §10-12):
             // nunca otra fase del kanban, siempre auditable.
             'intervenciones' => $candidato->intervenciones->map(fn (IntervencionCandidato $i) => [
@@ -431,5 +435,19 @@ class CandidatoPresenter
             'video' => $video instanceof CandidatoEvidencia ? $this->expediente->evidencia($video) : null,
             'tiene_cv' => $candidato->tiene_cv,
         ];
+    }
+
+    /**
+     * @return array{colaborador_id: int, colaborador_nombre: string, tiene_cuenta: bool}|null
+     */
+    private function credenciales(Candidato $candidato, ?User $viewer): ?array
+    {
+        $colaborador = $candidato->colaborador_id !== null ? Colaborador::query()->with('user')->find($candidato->colaborador_id) : null;
+
+        if ($viewer === null || $colaborador === null || ! app(CredencialesService::class)->puedeGenerar($viewer, $colaborador)) {
+            return null;
+        }
+
+        return ['colaborador_id' => $colaborador->id, 'colaborador_nombre' => $colaborador->nombreCompleto(), 'tiene_cuenta' => $colaborador->user !== null];
     }
 }

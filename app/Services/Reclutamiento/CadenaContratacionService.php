@@ -186,13 +186,14 @@ class CadenaContratacionService
             return $this->fila('contrato_generado', 'Contrato generado', $documentos ?? 'Pendiente de firma', 'oro', $colaborador->id, $expedienteUrl, $expedienteEtiqueta, $ciclo, 'Ver contratación');
         }
 
-        $qrPendiente = ! $conAlta && ($invitacion === null || ($invitacion->estado !== EstadoInvitacionIncorporacion::Usado && $invitacion->used_at === null));
+        // Con cuenta ya creada (RH le generó credenciales sin QR) ya no espera el QR.
+        $qrPendiente = ! $conAlta && $colaborador->user === null && ($invitacion === null || ($invitacion->estado !== EstadoInvitacionIncorporacion::Usado && $invitacion->used_at === null));
 
         if ($qrPendiente) {
             return $this->fila('en_contratacion', 'En contratación', 'Esperando registro por QR', 'alerta', $colaborador->id, $expedienteUrl, $expedienteEtiqueta, route('rh.candidatos.show', $candidato->id), 'Ver QR de registro');
         }
 
-        return $this->fila('expediente', $documentos ?? 'En contratación', $documentos !== null ? 'Documentos aprobados' : 'Registro por QR completado', 'alerta', $colaborador->id, $expedienteUrl, $expedienteEtiqueta, $ciclo, 'Ver contratación');
+        return $this->fila('expediente', $documentos ?? 'En contratación', $documentos !== null ? 'Documentos aprobados' : ($invitacion?->used_at !== null ? 'Registro por QR completado' : 'Cuenta creada por RH'), 'alerta', $colaborador->id, $expedienteUrl, $expedienteEtiqueta, $ciclo, 'Ver contratación');
     }
 
     /**
