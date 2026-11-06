@@ -50,10 +50,12 @@ class MiProcesoController extends Controller
         $datos = $this->ciclo->misPendientes($colaborador, $usuario);
         // El proceso que lleva su inducción (ingreso o reinducción asignada).
         $proceso = $this->accesoInduccion->procesoInduccion($colaborador) ?? $this->onboarding->procesoActual($colaborador);
+        // Primero se habilita (presentación O video ya vistos marcan el
+        // contenido) para que el resumen salga con el estado real.
+        $evaluacionInduccion = $proceso !== null ? $this->evaluacionInduccion->habilitarPara($proceso) : null;
         $datos['induccionContenido'] = $proceso !== null ? $this->evaluacionInduccion->resumenContenido($proceso) : null;
         // Contenido institucional por ver nunca deja decir "estás al día".
         $datos['todo_listo'] = $datos['todo_listo'] && ($datos['induccionContenido'] === null || $datos['induccionContenido']['completado']);
-        $evaluacionInduccion = $proceso !== null ? $this->evaluacionInduccion->habilitarPara($proceso) : null;
         $datos['evaluacionInduccion'] = null;
 
         if ($evaluacionInduccion !== null) {
@@ -122,7 +124,7 @@ class MiProcesoController extends Controller
             // Nuevo flujo: la inducción se ve sola (hojas + material) antes de
             // la evaluación. El avance titular es el que lleva el progreso.
             'avanceId' => $avance?->id,
-            // + video_bloqueado / paginas_faltantes: presentación completa → video.
+            // + video_bloqueado / paginas_faltantes (siempre sin bloqueo: presentación O video).
             'material' => $avance !== null ? [...$this->materialInduccion->datosParaColaborador($avance), ...$this->induccionPdf->bloqueoVideo($avance)] : null,
             'videoCompletado' => $avance !== null && $this->videoInduccion->videoCompletado($avance),
             // Pasos (Presentación → Video → Evaluación → Resultado) y qué le

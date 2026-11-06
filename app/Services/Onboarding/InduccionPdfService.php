@@ -6,7 +6,6 @@ use App\Exceptions\ArchivoGeneradoNoDisponibleException;
 use App\Models\OnboardingAvance;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use setasign\Fpdi\Fpdi;
@@ -20,11 +19,12 @@ use Throwable;
  * página realmente mostrada. El colaborador lo ve mientras su inducción está
  * asignada y por ver (AccesoInduccionColaboradorService).
  *
- * «Terminé la inducción» (terminar()) es la ÚNICA fuente del gate que marca
- * contenido_visto_en: exige que se recorrieran TODAS las hojas y, si el
- * material activo del módulo es un VIDEO, que el video se haya visto completo
- * (ReproduccionVideoInduccionService). La evaluación formal se habilita cuando
- * ese gate queda cumplido (EvaluacionInduccionService::habilitarPara()).
+ * La inducción se cumple con UNO de los materiales asignados: TODAS las hojas
+ * de la presentación O el video completo (ReproduccionVideoInduccionService),
+ * nunca los dos — ver materialVisto(). «Terminé la inducción» (terminar()) y
+ * marcarVistoSiCumple() marcan contenido_visto_en; la evaluación formal se
+ * habilita cuando ese gate queda cumplido
+ * (EvaluacionInduccionService::habilitarPara()).
  */
 class InduccionPdfService
 {
@@ -161,72 +161,80 @@ class InduccionPdfService
     }
 
     /**
-     * ORDEN OBLIGATORIO de la inducción: presentación completa → video →
-     * «Terminé». Páginas de la presentación que aún faltan para poder abrir
-     * el VIDEO (vacío = el video se puede ver). Nunca se bloquea
-     * retroactivamente: si ya empezó o terminó el video, si ya marcó la
-     * inducción como vista, si la presentación no se le asignó o si el PDF
-     * no se pudo leer, no hay bloqueo.
-     *
-     * @return list<int>
-     */
-    public function paginasFaltantesParaVideo(OnboardingAvance $avance): array
-    {
-        if ($avance->contenido_visto_en !== null
-            || ! $this->acceso->contenidoAsignado($avance)['presentacion']
-            || $this->video->videoIniciado($avance)
-            || $this->video->videoCompletado($avance)) {
-            return [];
-        }
-
-        $total = $this->totalPaginas();
-
-        if ($total < 1) {
-            return [];
-        }
-
-        $vistas = array_map('intval', (array) (((array) ($avance->progreso_contenido ?? []))['paginas_vistas'] ?? []));
-
-        return array_values(array_diff(range(1, $total), $vistas));
-    }
-
-    /**
-     * Datos aditivos para el material del colaborador (web y app):
-     * `video_bloqueado`, `paginas_faltantes` y el mensaje para la persona.
+     * Datos aditivos para el material del colaborador (web y app). El video
+     * ya NO espera a la presentación (basta con una de las dos): se conservan
+     * las llaves, siempre «sin bloqueo», porque la app instalada las lee.
      *
      * @return array{video_bloqueado: bool, paginas_faltantes: list<int>, video_bloqueado_mensaje: string|null}
      */
     public function bloqueoVideo(OnboardingAvance $avance): array
     {
-        $faltantes = $this->paginasFaltantesParaVideo($avance);
+        return ['video_bloqueado' => false, 'paginas_faltantes' => [], 'video_bloqueado_mensaje' => null];
+    }
 
-        return [
-            'video_bloqueado' => $faltantes !== [],
-            'paginas_faltantes' => $faltantes,
-            'video_bloqueado_mensaje' => $faltantes !== [] ? $this->mensajePresentacionIncompleta($faltantes) : null,
-        ];
+    /** Recorrió TODAS las hojas del PDF oficial (sin PDF legible no cuenta). */
+    public function presentacionCompleta(OnboardingAvance $avance): bool
+    {
+        $total = $this->totalPaginas();
+
+        return $total > 0 && count(array_intersect($this->paginasVistas($avance), range(1, $total))) >= $total;
     }
 
     /**
-     * 423 «presentacion_incompleta» al intentar abrir el video (iniciar o
-     * manifiesto) antes de terminar la presentación. Mismo gate web y API.
+     * Regla de la inducción: basta con UNO de los materiales asignados —la
+     * presentación completa O el video completo—, nunca los dos. El audio es
+     * narración: ni cuenta ni bloquea.
      *
-     * @throws HttpResponseException
+     * @return array{presentacion: bool, video: bool, presentacion_vista: bool, video_visto: bool}
      */
-    public function exigirPresentacionParaVideo(OnboardingAvance $avance): void
+    public function materialesRequeridos(OnboardingAvance $avance): array
     {
-        $faltantes = $this->paginasFaltantesParaVideo($avance);
+        $asignado = $this->acceso->contenidoAsignado($avance);
+        $material = $asignado['material'] ? $this->materiales->materialActivoDeAvance($avance) : null;
+        $video = $material !== null && $material->tipo->bloqueaEvaluacion();
 
-        if ($faltantes === []) {
-            return;
+        return [
+            'presentacion' => $asignado['presentacion'],
+            'video' => $video,
+            'presentacion_vista' => $asignado['presentacion'] && $this->presentacionCompleta($avance),
+            'video_visto' => $video && $this->video->videoCompletado($avance),
+        ];
+    }
+
+    /** Ya vio la presentación completa O el video completo (de lo asignado). */
+    public function materialVisto(OnboardingAvance $avance): bool
+    {
+        $requeridos = $this->materialesRequeridos($avance);
+
+        return $requeridos['presentacion_vista'] || $requeridos['video_visto'];
+    }
+
+    /**
+     * Da por terminada la inducción (contenido_visto_en) en cuanto ya vio la
+     * presentación O el video, aunque no haya presionado «Terminé»: así nadie
+     * se queda detenido porque después se cargó un video (tampoco en la app
+     * instalada, que aún pide el video para ofrecer «Terminé»). Idempotente;
+     * true si la marcó ahora.
+     */
+    public function marcarVistoSiCumple(OnboardingAvance $avance): bool
+    {
+        if ($avance->contenido_visto_en !== null
+            || $this->acceso->asignacionRetirada($avance)
+            || ! $this->materialVisto($avance)) {
+            return false;
         }
 
-        throw new HttpResponseException(response()->json([
-            'message' => $this->mensajePresentacionIncompleta($faltantes),
-            'code' => 'presentacion_incompleta',
-            'codigo' => 'presentacion_incompleta',
-            'paginas_faltantes' => $faltantes,
-        ], 423));
+        $avance->update(['contenido_visto_en' => now()]);
+
+        return true;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function paginasVistas(OnboardingAvance $avance): array
+    {
+        return array_values(array_unique(array_map('intval', (array) (((array) ($avance->progreso_contenido ?? []))['paginas_vistas'] ?? []))));
     }
 
     /**
@@ -246,10 +254,12 @@ class InduccionPdfService
     }
 
     /**
-     * «Terminé la inducción»: solo si el colaborador recorrió TODAS las
-     * páginas Y —cuando el material activo del módulo es un VIDEO— vio ese
-     * video completo. Marca el contenido visto (única fuente del gate que
-     * habilita la evaluación formal).
+     * «Terminé la inducción»: basta con haber visto UNO de los materiales
+     * asignados —todas las hojas de la presentación O el video completo—,
+     * nunca los dos. Lo que no se le asignó no se le exige
+     * (AsignacionInduccionService); si no se le asignó nada que contar (p. ej.
+     * solo la narración de audio), puede terminar. Marca el contenido visto
+     * (gate que habilita la evaluación formal).
      *
      * @throws AuthorizationException
      * @throws ValidationException
@@ -257,27 +267,11 @@ class InduccionPdfService
     public function terminar(OnboardingAvance $avance, User $usuario): OnboardingAvance
     {
         $this->exigirTitular($avance, $usuario);
-        $total = $this->totalPaginas();
-        $vistas = count((array) (((array) ($avance->progreso_contenido ?? []))['paginas_vistas'] ?? []));
-        // RH puede asignar solo la presentación o solo el material: lo que no
-        // se le asignó no se le exige (AsignacionInduccionService).
-        $asignado = $this->acceso->contenidoAsignado($avance);
+        $requeridos = $this->materialesRequeridos($avance);
+        $algoQueVer = $requeridos['presentacion'] || $requeridos['video'];
 
-        if ($asignado['presentacion'] && ($total < 1 || $vistas < $total)) {
-            $faltantes = $total < 1 ? [] : array_values(array_diff(range(1, $total), array_map('intval', (array) (((array) ($avance->progreso_contenido ?? []))['paginas_vistas'] ?? []))));
-
-            throw ValidationException::withMessages(['induccion' => $faltantes === []
-                ? sprintf('Te faltan %d página(s) por revisar antes de terminar.', max(1, $total - $vistas))
-                : str_replace('Primero termina la presentación', 'Antes de terminar revisa la presentación', $this->mensajePresentacionIncompleta($faltantes))]);
-        }
-
-        // El video de explicación (si el material activo es video y se le
-        // asignó) es obligatorio: la evaluación queda bloqueada hasta verlo
-        // completo.
-        $material = $asignado['material'] ? $this->materiales->materialActivoDeAvance($avance) : null;
-
-        if ($material !== null && $material->tipo->bloqueaEvaluacion() && ! $this->video->videoCompletado($avance)) {
-            throw ValidationException::withMessages(['induccion' => 'Primero ve completo el video de la inducción antes de terminar.']);
+        if ($algoQueVer && ! $requeridos['presentacion_vista'] && ! $requeridos['video_visto']) {
+            throw ValidationException::withMessages(['induccion' => $this->mensajeFaltaMaterial($avance, $requeridos)]);
         }
 
         if ($avance->contenido_visto_en === null) {
@@ -285,6 +279,27 @@ class InduccionPdfService
         }
 
         return $avance->refresh();
+    }
+
+    /**
+     * «Antes de terminar ve el video completo o termina la presentación: te
+     * falta la página 30.» — dice qué le falta según lo que se le asignó.
+     *
+     * @param  array{presentacion: bool, video: bool, presentacion_vista: bool, video_visto: bool}  $requeridos
+     */
+    private function mensajeFaltaMaterial(OnboardingAvance $avance, array $requeridos): string
+    {
+        if (! $requeridos['presentacion']) {
+            return 'Antes de terminar ve completo el video de la inducción.';
+        }
+
+        $total = $this->totalPaginas();
+        $faltantes = $total < 1 ? [] : array_values(array_diff(range(1, $total), $this->paginasVistas($avance)));
+        $prefijo = $requeridos['video'] ? 'Antes de terminar ve el video completo o termina la presentación' : 'Antes de terminar revisa la presentación';
+
+        return $faltantes === []
+            ? $prefijo.'.'
+            : str_replace('Primero termina la presentación', $prefijo, $this->mensajePresentacionIncompleta($faltantes));
     }
 
     /**

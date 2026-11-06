@@ -134,7 +134,7 @@ const bloqueado = computed(() =>
                             props.material === null
                                 ? 'No hay video ni audio cargado. Súbelo en «Material de explicación».'
                                 : props.material === 'video'
-                                  ? 'Obligatorio: lo ve completo, sin adelantar, para desbloquear la evaluación.'
+                                  ? 'Lo ve completo, sin adelantar. Basta con el video o la presentación para desbloquear la evaluación.'
                                   : 'Narración que acompaña las hojas (no bloquea la evaluación).'
                         }}</span>
                     </span>

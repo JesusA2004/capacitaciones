@@ -699,7 +699,7 @@ export type MaterialInduccion = {
     tipo: 'audio' | 'video' | null;
     audio_url: string | null;
     video_disponible: boolean;
-    /** Orden obligatorio: el video se abre al terminar la presentación (InduccionPdfService::bloqueoVideo). */
+    /** Siempre false/vacío: el video ya no espera a la presentación (InduccionPdfService::bloqueoVideo). */
     video_bloqueado?: boolean;
     paginas_faltantes?: number[];
     video_bloqueado_mensaje?: string | null;

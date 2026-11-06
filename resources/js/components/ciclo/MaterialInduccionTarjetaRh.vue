@@ -204,8 +204,9 @@ function reprocesar() {
         </div>
 
         <p class="text-sm text-muted-foreground">
-            Un video es obligatorio (sin adelantar) y desbloquea la evaluación;
-            un audio acompaña las hojas. Solo uno activo a la vez.
+            Un video (sin adelantar) desbloquea la evaluación igual que la
+            presentación: basta con ver una de las dos; un audio acompaña las
+            hojas. Solo uno activo a la vez.
         </p>
 
         <p

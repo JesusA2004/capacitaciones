@@ -14,10 +14,10 @@ use App\Support\FechaMexico;
 
 /**
  * «Mi inducción»: el avance de la Inducción Mr. Lana en pasos —
- * Presentación → Video (o audio) → Evaluación → Resultado — en UN solo DTO
- * que usan Mi espacio (Portal/Index, Portal/MiProceso), la app (campo
- * aditivo `miInduccion`), la lista de asignaciones de RH y «Ver como
- * colaborador». Así lo que RH ve en la vista previa es exactamente lo que ve
+ * Presentación O Video (basta con uno de los dos; el audio solo acompaña) →
+ * Evaluación → Resultado — en UN solo DTO que usan Mi espacio
+ * (Portal/Index, Portal/MiProceso), la app (campo aditivo `miInduccion`),
+ * la lista de asignaciones de RH y «Ver como colaborador». Así lo que RH ve en la vista previa es exactamente lo que ve
  * la persona. Solo lectura: nunca registra avance.
  */
 class ProgresoInduccionService
@@ -79,14 +79,18 @@ class ProgresoInduccionService
         $total = $this->pdf->totalPaginas();
         $vistas = count((array) ($progreso['paginas_vistas'] ?? []));
         $contenidoVisto = $avance?->contenido_visto_en !== null;
-        $presentacionCompleta = $contenidoVisto || ($total > 0 && $vistas >= $total);
 
         $evaluacion = $proceso !== null
             ? EvaluacionInduccion::query()->where('onboarding_proceso_id', $proceso->id)->latest('id')->first()
             : null;
 
         $material = $this->datosMaterial($avance, $incluye['material']);
-        $estadoRh = $this->estadoRh($avance, $retirada, $evaluacion, $vistas, $contenidoVisto, $material);
+        // Presentación O video: si la terminó con el video, la presentación
+        // no se da por vista (queda opcional en los pasos).
+        $videoVisto = $material !== null && $material['incluido'] && $material['tipo'] === 'video' && $material['completado'];
+        $hojasCompletas = $total > 0 && $vistas >= $total;
+        $presentacionCompleta = $hojasCompletas || ($contenidoVisto && ! $videoVisto);
+        $estadoRh = $this->estadoRh($avance, $retirada, $evaluacion, $vistas, $contenidoVisto || ($incluye['presentacion'] && $hojasCompletas), $material);
 
         $datos = $this->conPasos([
             ...$resumen,
@@ -122,7 +126,7 @@ class ProgresoInduccionService
     /**
      * @param  array{incluido: bool, tipo: string, tipo_etiqueta: string, obligatorio: bool, completado: bool, disponible: bool, porcentaje: int, iniciado: bool}|null  $material
      */
-    private function estadoRh(?OnboardingAvance $avance, bool $retirada, ?EvaluacionInduccion $evaluacion, int $vistas, bool $contenidoVisto, ?array $material): EstadoAsignacionInduccion
+    private function estadoRh(?OnboardingAvance $avance, bool $retirada, ?EvaluacionInduccion $evaluacion, int $vistas, bool $contenidoCumplido, ?array $material): EstadoAsignacionInduccion
     {
         if ($avance === null) {
             return EstadoAsignacionInduccion::SinAsignar;
@@ -137,7 +141,8 @@ class ProgresoInduccionService
             $evaluacion?->estado === EstadoEvaluacionInduccion::PendienteCalificacionRh => EstadoAsignacionInduccion::EnRevision,
             $evaluacion?->estado === EstadoEvaluacionInduccion::RequiereReforzamiento => EstadoAsignacionInduccion::Reforzamiento,
             $evaluacion !== null => EstadoAsignacionInduccion::EvaluacionPendiente,
-            $contenidoVisto || ($material !== null && $material['incluido'] && $material['completado']) => EstadoAsignacionInduccion::MaterialVisto,
+            // Ya vio la presentación O el video (o terminó): solo le falta la evaluación.
+            $contenidoCumplido || ($material !== null && $material['incluido'] && $material['completado']) => EstadoAsignacionInduccion::MaterialVisto,
             // Empezó si vio hojas O reprodujo parte del video/audio (una
             // reinducción de solo video no tiene hojas que contar).
             $vistas > 0 || ($material !== null && $material['incluido'] && $material['iniciado']) => EstadoAsignacionInduccion::Viendo,
@@ -170,7 +175,9 @@ class ProgresoInduccionService
             'incluido' => $incluido,
             'tipo' => $material->tipo->value,
             'tipo_etiqueta' => $esVideo ? 'Video' : 'Audio',
-            'obligatorio' => $incluido && $esVideo,
+            // Ya nunca es obligatorio: basta con la presentación O el video
+            // (InduccionPdfService::materialVisto()). Se conserva la llave.
+            'obligatorio' => false,
             'completado' => $completado,
             // Video: listo para reproducirse por HLS (no solo «disponible»).
             'disponible' => $esVideo ? $this->materiales->videoListo($material->recurso) : ($material->recurso?->estaDisponible() ?? false),
@@ -238,16 +245,27 @@ class ProgresoInduccionService
 
         $presentada = $estadoEval !== null && ! $estadoEval->permitePresentar();
         $materialIncluido = $material !== null && $material['incluido'];
+        // Presentación O video (nunca los dos): con uno visto, el otro queda
+        // opcional («omitido») y no detiene la evaluación.
+        $esVideo = $materialIncluido && $material['tipo'] === 'video';
+        $videoVisto = $esVideo && $material['completado'];
+        $presentacionVista = $presentacion['incluida'] && $presentacion['completada'];
+        $cumplido = $contenidoVisto || $presentacionVista || $videoVisto;
+        $alternativaVideo = $esVideo ? ' · o ve el video completo' : '';
+        $alternativaHojas = $presentacion['incluida'] ? ' o termina la presentación' : '';
 
         $pasos = [
             [
                 'clave' => 'presentacion',
                 'titulo' => 'Presentación',
-                'detalle' => ! $presentacion['incluida']
-                    ? 'No asignada'
-                    : ($presentacion['completada'] ? 'Todas las hojas vistas' : sprintf('%d de %d hojas', $presentacion['paginas_vistas'], $presentacion['total_paginas'])),
-                'hecho' => $presentacion['completada'] || $contenidoVisto,
-                'omitido' => ! $presentacion['incluida'],
+                'detalle' => match (true) {
+                    ! $presentacion['incluida'] => 'No asignada',
+                    $presentacion['completada'] => 'Todas las hojas vistas',
+                    $videoVisto => 'Opcional: ya viste el video',
+                    default => sprintf('%d de %d hojas%s', $presentacion['paginas_vistas'], $presentacion['total_paginas'], $alternativaVideo),
+                },
+                'hecho' => $presentacionVista,
+                'omitido' => ! $presentacion['incluida'] || (! $presentacionVista && $videoVisto),
             ],
             [
                 'clave' => 'material',
@@ -255,14 +273,16 @@ class ProgresoInduccionService
                 'detalle' => match (true) {
                     $material === null => 'Sin material cargado',
                     ! $material['incluido'] => 'No asignado',
-                    $material['completado'] || $contenidoVisto => $material['tipo'] === 'video' ? 'Video completo' : 'Escuchado',
-                    $material['tipo'] === 'video' && ! $material['disponible'] => 'El video se está preparando',
-                    $material['tipo'] === 'video' && $material['porcentaje'] > 0 => sprintf('%d %% visto · velo completo para desbloquear tu evaluación', $material['porcentaje']),
-                    $material['tipo'] === 'video' => 'Velo completo para desbloquear tu evaluación',
+                    $videoVisto => 'Video completo',
+                    $esVideo && $cumplido => 'Opcional: ya viste la presentación',
+                    ! $esVideo && ($material['completado'] || $contenidoVisto) => 'Escuchado',
+                    $esVideo && ! $material['disponible'] => 'El video se está preparando',
+                    $esVideo && $material['porcentaje'] > 0 => sprintf('%d %% visto · velo completo%s para desbloquear tu evaluación', $material['porcentaje'], $alternativaHojas),
+                    $esVideo => sprintf('Velo completo%s para desbloquear tu evaluación', $alternativaHojas),
                     default => 'Narración que acompaña las hojas',
                 },
-                'hecho' => $materialIncluido && ($material['completado'] || $contenidoVisto),
-                'omitido' => ! $materialIncluido,
+                'hecho' => $esVideo ? $videoVisto : $materialIncluido && ($material['completado'] || $contenidoVisto),
+                'omitido' => ! $materialIncluido || ($esVideo && ! $videoVisto && $cumplido),
             ],
             [
                 'clave' => 'evaluacion',

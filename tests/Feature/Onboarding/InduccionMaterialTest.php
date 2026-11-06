@@ -10,7 +10,6 @@ use App\Models\ContratoLaboral;
 use App\Models\EvaluacionInduccion;
 use App\Models\InduccionMaterialExplicacion;
 use App\Models\IntervaloVideoInduccion;
-use App\Models\OnboardingAvance;
 use App\Models\OnboardingModulo;
 use App\Models\RecursoMultimedia;
 use App\Models\User;
@@ -28,8 +27,9 @@ use Illuminate\Validation\ValidationException;
 
 /*
 | Nuevo flujo de inducción: material de explicación (audio XOR video) entre
-| las hojas y la evaluación. El VIDEO bloquea la evaluación con anti-adelanto
-| respaldado por el servidor; el AUDIO es narración que no bloquea.
+| las hojas y la evaluación. El VIDEO (anti-adelanto respaldado por el
+| servidor) es alternativa a las hojas: basta con la presentación O el video;
+| el AUDIO es narración que no bloquea.
 */
 
 beforeEach(function () {
@@ -66,69 +66,32 @@ beforeEach(function () {
     $this->avance = $this->proceso->avances()->firstOrFail();
 });
 
-/** Marca todas las hojas de la presentación como vistas (requisito para abrir el video). */
-function imPresentacionCompleta(OnboardingAvance $avance): void
-{
-    $total = app(InduccionPdfService::class)->totalPaginas();
-    $avance->update(['progreso_contenido' => [...(array) ($avance->progreso_contenido ?? []), 'paginas_vistas' => $total > 0 ? range(1, $total) : []]]);
-}
-
-test('orden obligatorio: el video no abre (web ni API) hasta terminar la presentación y dice qué página falta', function () {
+test('presentación O video: el video abre (web y API) sin terminar la presentación', function () {
     $total = $this->pdf->totalPaginas();
     expect($total)->toBeGreaterThan(1);
+    imHlsLargo();
     $this->materiales->activar($this->modulo, imVideo($this, 100), $this->rh);
 
-    // Todas menos la última.
-    $this->avance->update(['progreso_contenido' => ['paginas_vistas' => range(1, $total - 1)]]);
+    // Solo una hoja vista: el video ya no espera a la presentación.
+    $this->avance->update(['progreso_contenido' => ['paginas_vistas' => [1]]]);
 
     $this->actingAs($this->usuario)
         ->postJson(route('portal.induccion.video.iniciar', $this->avance))
-        ->assertStatus(423)
-        ->assertJsonPath('code', 'presentacion_incompleta')
-        ->assertJsonPath('paginas_faltantes', [$total])
-        ->assertJsonPath('message', sprintf('Primero termina la presentación: te falta la página %d.', $total));
-
-    // El manifiesto firmado tampoco se sirve.
+        ->assertOk();
     $this->actingAs($this->usuario)
         ->get(URL::temporarySignedRoute('portal.induccion.video.manifiesto-maestro', now()->addMinutes(5), ['avance' => $this->avance]))
-        ->assertStatus(423);
+        ->assertOk();
 
-    $this->actingAs($this->usuario, 'sanctum')
-        ->postJson('/api/v1/colaborador/induccion/video/'.$this->avance->id.'/iniciar')
-        ->assertStatus(423)
-        ->assertJsonPath('code', 'presentacion_incompleta');
-    $this->actingAs($this->usuario, 'sanctum')
-        ->getJson('/api/v1/colaborador/induccion/material/'.$this->avance->id)
-        ->assertOk()
-        ->assertJsonPath('data.video_bloqueado', true)
-        ->assertJsonPath('data.paginas_faltantes', [$total]);
-
-    // Presentación completa: abre.
-    imPresentacionCompleta($this->avance->refresh());
     $this->actingAs($this->usuario, 'sanctum')
         ->postJson('/api/v1/colaborador/induccion/video/'.$this->avance->id.'/iniciar')
         ->assertOk();
+    // La app instalada lee estas llaves: siempre «sin bloqueo».
     $this->actingAs($this->usuario, 'sanctum')
         ->getJson('/api/v1/colaborador/induccion/material/'.$this->avance->id)
         ->assertOk()
         ->assertJsonPath('data.video_bloqueado', false)
-        ->assertJsonPath('data.paginas_faltantes', []);
-});
-
-test('orden obligatorio: quien ya empezó el video no se bloquea retroactivamente', function () {
-    $this->materiales->activar($this->modulo, imVideo($this, 100), $this->rh);
-    imPresentacionCompleta($this->avance);
-    $this->video->iniciarSesion($this->usuario, $this->avance->refresh());
-    $this->travel(5)->seconds(); // el servidor solo acredita el tiempo real transcurrido
-    $this->video->registrarHeartbeat($this->usuario, $this->avance->refresh(), 5);
-
-    // Datos previos a la regla (solo una hoja vista): sigue pudiendo ver el video.
-    $avance = $this->avance->refresh();
-    $avance->update(['progreso_contenido' => [...(array) $avance->progreso_contenido, 'paginas_vistas' => [1]]]);
-
-    expect($this->video->videoIniciado($avance->refresh()))->toBeTrue()
-        ->and($this->pdf->paginasFaltantesParaVideo($avance->refresh()))->toBe([]);
-    $this->actingAs($this->usuario)->postJson(route('portal.induccion.video.iniciar', $this->avance))->assertOk();
+        ->assertJsonPath('data.paginas_faltantes', [])
+        ->assertJsonPath('data.video_bloqueado_mensaje', null);
 });
 
 /** Recurso de video listo para reproducir. */
@@ -174,19 +137,30 @@ test('subir material: uno activo a la vez (XOR audio/video) y valida el tipo del
     expect(fn () => $this->materiales->activar($this->modulo, imVideo($this), $this->usuario))->toThrow(AuthorizationException::class);
 });
 
-test('material video: terminar (y habilitar evaluación) solo tras ver el video completo', function () {
+test('material video: con todas las hojas basta para terminar (el video no es obligatorio)', function () {
     $this->materiales->activar($this->modulo, imVideo($this, 10), $this->rh);
+
+    // Ni hojas ni video: no puede terminar y le dice que basta con uno.
+    expect(fn () => $this->pdf->terminar($this->avance->refresh(), $this->usuario))
+        ->toThrow(ValidationException::class, 'Antes de terminar ve el video completo o termina la presentación');
 
     foreach (range(1, $this->pdf->totalPaginas()) as $p) {
         $this->pdf->registrarPagina($this->avance->refresh(), $this->usuario, $p);
     }
 
-    // Todas las hojas vistas, pero el video aún no: terminar falla.
-    expect(fn () => $this->pdf->terminar($this->avance->refresh(), $this->usuario))->toThrow(ValidationException::class);
-    expect($this->avance->refresh()->contenido_visto_en)->toBeNull()
+    // Todas las hojas vistas y el video sin ver: ya puede terminar.
+    $this->pdf->terminar($this->avance->refresh(), $this->usuario);
+    expect($this->avance->refresh()->contenido_visto_en)->not->toBeNull()
         ->and($this->video->videoCompletado($this->avance->refresh()))->toBeFalse();
 
-    // Ver el video completo (incremental, respetando el límite de avance).
+    $evaluacion = app(EvaluacionInduccionService::class)->habilitarPara($this->proceso->refresh());
+    expect($evaluacion)->not->toBeNull()
+        ->and(EvaluacionInduccion::query()->where('colaborador_id', $this->colaborador->id)->exists())->toBeTrue();
+});
+
+test('material video: sin ver las hojas, el video completo basta para terminar', function () {
+    $this->materiales->activar($this->modulo, imVideo($this, 10), $this->rh);
+
     $this->video->iniciarSesion($this->usuario, $this->avance->refresh());
     foreach ([5, 10] as $pos) {
         $this->travel(5)->seconds(); // el servidor solo acredita el tiempo real transcurrido
@@ -196,11 +170,8 @@ test('material video: terminar (y habilitar evaluación) solo tras ver el video 
     expect($this->video->videoCompletado($this->avance->refresh()))->toBeTrue();
 
     $this->pdf->terminar($this->avance->refresh(), $this->usuario);
-    expect($this->avance->refresh()->contenido_visto_en)->not->toBeNull();
-
-    $evaluacion = app(EvaluacionInduccionService::class)->habilitarPara($this->proceso->refresh());
-    expect($evaluacion)->not->toBeNull()
-        ->and(EvaluacionInduccion::query()->where('colaborador_id', $this->colaborador->id)->exists())->toBeTrue();
+    expect($this->avance->refresh()->contenido_visto_en)->not->toBeNull()
+        ->and(app(EvaluacionInduccionService::class)->habilitarPara($this->proceso->refresh()))->not->toBeNull();
 });
 
 test('material audio: basta con ver las hojas para terminar (no bloquea)', function () {
@@ -242,15 +213,8 @@ test('refresh: la 2a reproducción retoma en el máximo alcanzado (no reinicia n
         ->and($this->video->videoCompletado($this->avance->refresh()))->toBeFalse();
 });
 
-test('endpoints HTTP: iniciar/heartbeat del video respetan el gate y el anti-seek', function () {
+test('endpoints HTTP: iniciar/heartbeat del video respetan el anti-seek', function () {
     $this->materiales->activar($this->modulo, imVideo($this, 100), $this->rh);
-
-    // Orden obligatorio: sin terminar la presentación el video no abre (423).
-    $this->actingAs($this->usuario)
-        ->postJson(route('portal.induccion.video.iniciar', $this->avance))
-        ->assertStatus(423)
-        ->assertJsonPath('code', 'presentacion_incompleta');
-    imPresentacionCompleta($this->avance);
 
     $iniciar = $this->actingAs($this->usuario)
         ->postJson(route('portal.induccion.video.iniciar', $this->avance))
@@ -409,18 +373,17 @@ test('heartbeat: la tolerancia acepta la posición pero solo acredita el tiempo 
         ->and(IntervaloVideoInduccion::query()->where('onboarding_avance_id', $this->avance->id)->count())->toBe(1);
 });
 
-test('heartbeat HTTP sin terminar la presentación responde 423 y no abre el video', function () {
+test('heartbeat HTTP sin terminar la presentación se acepta (el video no espera a las hojas)', function () {
     $this->materiales->activar($this->modulo, imVideo($this, 100), $this->rh);
 
     $this->actingAs($this->usuario)
-        ->postJson(route('portal.induccion.video.heartbeat', $this->avance), ['posicion_segundos' => 5])
-        ->assertStatus(423)
-        ->assertJsonPath('code', 'presentacion_incompleta');
-
-    expect($this->video->videoIniciado($this->avance->refresh()))->toBeFalse();
-
-    // Tras el intento, «iniciar» sigue bloqueado.
-    $this->actingAs($this->usuario)
         ->postJson(route('portal.induccion.video.iniciar', $this->avance))
-        ->assertStatus(423);
+        ->assertOk();
+    $this->travel(5)->seconds();
+    $this->actingAs($this->usuario)
+        ->postJson(route('portal.induccion.video.heartbeat', $this->avance), ['posicion_segundos' => 5])
+        ->assertOk()
+        ->assertJsonPath('permitido', true);
+
+    expect($this->video->videoIniciado($this->avance->refresh()))->toBeTrue();
 });

@@ -10,9 +10,10 @@ namespace App\Enums;
  *
  *  - Audio: narración continua que acompaña las hojas (no bloquea la
  *    evaluación, solo la enriquece).
- *  - Video: obligatorio tras las hojas, con anti-adelanto respaldado por el
- *    servidor; BLOQUEA la evaluación hasta verse completo
- *    (App\Services\Onboarding\ReproduccionVideoInduccionService).
+ *  - Video: alternativa a las hojas, con anti-adelanto respaldado por el
+ *    servidor; verlo completo cuenta igual que terminar la presentación
+ *    (basta con una de las dos — InduccionPdfService::materialVisto(),
+ *    App\Services\Onboarding\ReproduccionVideoInduccionService).
  */
 enum TipoMaterialInduccion: string
 {
@@ -48,7 +49,7 @@ enum TipoMaterialInduccion: string
         };
     }
 
-    /** El video bloquea la evaluación hasta verse completo; el audio no. */
+    /** El video cuenta como material visto (presentación O video); el audio no. */
     public function bloqueaEvaluacion(): bool
     {
         return $this === self::Video;

@@ -49,9 +49,11 @@ class MiProcesoController extends Controller
         // El proceso que lleva su inducción (ingreso o reinducción asignada
         // por RH) — misma forma de respuesta de siempre.
         $proceso = $this->accesoInduccion->procesoInduccion($colaborador) ?? $this->onboarding->procesoActual($colaborador);
+        // Primero se habilita (presentación O video ya vistos marcan el
+        // contenido) para que el resumen salga con el estado real.
+        $evaluacionInduccion = $proceso !== null ? $this->evaluacionInduccion->habilitarPara($proceso) : null;
         $datos['induccionContenido'] = $proceso !== null ? $this->evaluacionInduccion->resumenContenido($proceso) : null;
         $datos['todo_listo'] = $datos['todo_listo'] && ($datos['induccionContenido'] === null || $datos['induccionContenido']['completado']);
-        $evaluacionInduccion = $proceso !== null ? $this->evaluacionInduccion->habilitarPara($proceso) : null;
         $datos['evaluacionInduccion'] = null;
 
         if ($evaluacionInduccion !== null) {
@@ -214,8 +216,6 @@ class MiProcesoController extends Controller
         $this->autorizarInduccion($usuario, $avance);
         $recurso = $this->videoInduccion->recurso($avance);
         abort_unless($this->materialInduccion->videoListo($recurso), 422, 'El video de la inducción se está preparando. Vuelve a intentarlo en unos minutos.');
-        // Orden obligatorio: presentación completa → video (423 «presentacion_incompleta»).
-        $this->induccionPdf->exigirPresentacionParaVideo($avance);
 
         return response()->json(['data' => $this->videoInduccion->iniciarSesion($usuario, $avance)]);
     }
@@ -224,9 +224,6 @@ class MiProcesoController extends Controller
     {
         $usuario = $request->user();
         $this->autorizarInduccion($usuario, $avance);
-        // Mismo orden que «iniciar»: sin esto, un heartbeat directo marcaba el
-        // video como iniciado y saltaba el bloqueo de la presentación.
-        $this->induccionPdf->exigirPresentacionParaVideo($avance);
         $datos = $request->validate(['posicion_segundos' => ['required', 'integer', 'min:0']]);
 
         return response()->json(['data' => $this->videoInduccion->registrarHeartbeat($usuario, $avance, (int) $datos['posicion_segundos'])]);

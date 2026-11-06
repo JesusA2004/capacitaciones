@@ -26,7 +26,7 @@ use App\Services\Onboarding\ProgresoInduccionService;
  *   1. Completar información (datos personales)
  *   2. Fotografía para expediente
  *   3. Documentos requeridos, uno por uno (rechazados primero)
- *   4. Inducción: páginas del documento → video → «Terminé» → evaluación
+ *   4. Inducción: documento O video (basta uno) → «Terminé» → evaluación
  *   5. Firmas y lecturas pendientes (documentos laborales, descriptivo)
  *
  * Cada paso trae su estado (hecho | en_revision | pendiente | rechazado |
@@ -217,7 +217,7 @@ class GuiaSiguientePasoService
     }
 
     /**
-     * Inducción Mr. Lana: páginas del documento → video → «Terminé» →
+     * Inducción Mr. Lana: documento O video (basta con uno) → «Terminé» →
      * evaluación (con la misma verdad de ProgresoInduccionService).
      *
      * @param  array<string, mixed>  $resumen
@@ -241,51 +241,48 @@ class GuiaSiguientePasoService
         $material = is_array($resumen['material'] ?? null) ? $resumen['material'] : null;
         $evaluacion = is_array($resumen['evaluacion'] ?? null) ? $resumen['evaluacion'] : null;
 
-        $paginasListas = true;
-        $faltantes = [];
+        // Presentación O video (nunca los dos): con uno visto, el otro queda
+        // como opcional y la evaluación se desbloquea.
+        $conHojas = (bool) ($presentacion['incluida'] ?? false);
+        $conVideo = $material !== null && (bool) ($material['incluido'] ?? false) && ($material['tipo'] ?? null) === 'video';
+        $hojasListas = $conHojas && (bool) ($presentacion['completada'] ?? false);
+        $videoVisto = $conVideo && (bool) ($material['completado'] ?? false);
+        $cumplido = $contenidoVisto || $hojasListas || $videoVisto || (! $conHojas && ! $conVideo);
 
-        if ((bool) ($presentacion['incluida'] ?? false)) {
+        if ($conHojas) {
             $total = (int) ($presentacion['total_paginas'] ?? 0);
-            $faltantes = $contenidoVisto || (bool) ($presentacion['completada'] ?? false) ? [] : $this->paginasFaltantes($colaborador, $total);
-            $paginasListas = $faltantes === [];
+            $faltantes = $hojasListas || $cumplido ? [] : $this->paginasFaltantes($colaborador, $total);
 
-            $pasos[] = $paginasListas
-                ? $this->paso('induccion_paginas', 'induccion', 'Documento de la inducción', 'Viste todas las páginas.', self::HECHO)
-                : $this->paso(
+            $pasos[] = match (true) {
+                // Sin PDF legible no hay hojas que pedir (como antes).
+                $hojasListas || (! $cumplido && $faltantes === []) => $this->paso('induccion_paginas', 'induccion', 'Documento de la inducción', 'Viste todas las páginas.', self::HECHO),
+                $cumplido => $this->paso('induccion_paginas', 'induccion', 'Documento de la inducción', 'Opcional: ya viste el video de la inducción.', self::HECHO),
+                default => $this->paso(
                     'induccion_paginas',
                     'induccion',
                     'Documento de la inducción',
-                    sprintf('Llevas %d de %d páginas.', (int) ($presentacion['paginas_vistas'] ?? 0), $total),
+                    sprintf('Llevas %d de %d páginas.%s', (int) ($presentacion['paginas_vistas'] ?? 0), $total, $conVideo ? ' O, si prefieres, ve el video completo.' : ''),
                     self::PENDIENTE,
                     detalle: [$this->textoPaginas($faltantes)],
                     accion: $this->accion(sprintf('Ir a la página %d', $faltantes[0]), 'induccion-documento', ['pagina' => $faltantes[0]]),
-                );
+                ),
+            };
         }
 
-        $videoListo = true;
-
-        if ($material !== null && (bool) ($material['incluido'] ?? false) && ($material['tipo'] ?? null) === 'video') {
-            $completo = $contenidoVisto || (bool) ($material['completado'] ?? false);
+        if ($conVideo) {
             $porcentaje = (int) ($material['porcentaje'] ?? 0);
-            $videoListo = $completo;
 
             $pasos[] = match (true) {
-                $completo => $this->paso('induccion_video', 'induccion', 'Video de la inducción', 'Viste el video completo.', self::HECHO),
-                // Orden obligatorio (InduccionPdfService::paginasFaltantesParaVideo):
-                // presentación completa → video; nunca retroactivo si ya lo empezó.
-                ! $paginasListas && ! (bool) ($material['iniciado'] ?? false) => $this->paso(
-                    'induccion_video',
-                    'induccion',
-                    'Video de la inducción',
-                    sprintf('Disponible al terminar la presentación (%s).', lcfirst(rtrim($this->textoPaginas($faltantes), '.'))),
-                    self::ESPERA,
-                ),
+                $videoVisto => $this->paso('induccion_video', 'induccion', 'Video de la inducción', 'Viste el video completo.', self::HECHO),
+                $cumplido => $this->paso('induccion_video', 'induccion', 'Video de la inducción', 'Opcional: ya viste el documento de la inducción.', self::HECHO),
                 ! (bool) ($material['disponible'] ?? false) => $this->paso('induccion_video', 'induccion', 'Video de la inducción', 'El video se está preparando. Te avisaremos cuando esté listo.', self::ESPERA),
                 default => $this->paso(
                     'induccion_video',
                     'induccion',
                     'Video de la inducción',
-                    $porcentaje > 0 ? sprintf('Llevas %d %% del video. Retomas donde te quedaste.', $porcentaje) : 'Velo completo para desbloquear tu evaluación.',
+                    $porcentaje > 0
+                        ? sprintf('Llevas %d %% del video. Retomas donde te quedaste.', $porcentaje)
+                        : ($conHojas ? 'Velo completo (o termina el documento) para desbloquear tu evaluación.' : 'Velo completo para desbloquear tu evaluación.'),
                     self::PENDIENTE,
                     accion: $this->accion($porcentaje > 0 ? 'Continuar el video' : 'Ver el video', 'induccion-video'),
                 ),
@@ -293,9 +290,9 @@ class GuiaSiguientePasoService
         }
 
         if ($evaluacion === null && ! $contenidoVisto) {
-            $pasos[] = $paginasListas && $videoListo
-                ? $this->paso('induccion_terminar', 'induccion', 'Termina tu inducción', 'Ya viste todo. Confirma que terminaste para desbloquear tu evaluación.', self::PENDIENTE, accion: $this->accion('Terminé la inducción', 'induccion'))
-                : $this->paso('induccion_evaluacion', 'induccion', 'Evaluación de inducción', 'Se desbloquea al terminar el documento y el video.', self::ESPERA);
+            $pasos[] = $cumplido
+                ? $this->paso('induccion_terminar', 'induccion', 'Termina tu inducción', 'Ya viste tu inducción. Confirma que terminaste para desbloquear tu evaluación.', self::PENDIENTE, accion: $this->accion('Terminé la inducción', 'induccion'))
+                : $this->paso('induccion_evaluacion', 'induccion', 'Evaluación de inducción', $conHojas && $conVideo ? 'Se desbloquea al terminar el documento o el video.' : ($conVideo ? 'Se desbloquea al ver el video.' : 'Se desbloquea al terminar el documento.'), self::ESPERA);
 
             return $pasos;
         }

@@ -45,7 +45,8 @@ import type {
  *  - «Mi espacio» (colaborador): la ve por su cuenta mientras la tiene
  *    asignada (VisorInduccionColaborador). Si el material es VIDEO, su
  *    evaluación se desbloquea al verlo completo (anti-adelanto del
- *    servidor); si es AUDIO, es narración que no bloquea nada.
+ *    servidor) O al terminar la presentación: basta con una de las dos.
+ *    Si es AUDIO, es narración que no bloquea nada.
  */
 const props = defineProps<{
     colaboradorBuscado?: string | null;
@@ -167,7 +168,7 @@ const repasando = ref(false);
                 <li
                     class="flex items-center gap-2 rounded-2xl bg-card/80 px-3 py-2"
                 >
-                    <VideoIcon class="size-4 text-primary" /> 2 · Ve el video
+                    <VideoIcon class="size-4 text-primary" /> 2 · O ve el video
                 </li>
                 <li
                     class="flex items-center gap-2 rounded-2xl bg-card/80 px-3 py-2"
@@ -281,7 +282,7 @@ const repasando = ref(false);
                                 3 · Evaluación FO-RH-EI
                             </h3>
                             <p class="text-xs text-muted-foreground">
-                                Se desbloquea al terminar 1 y 2
+                                Se desbloquea al terminar 1 o 2
                             </p>
                         </div>
                     </div>

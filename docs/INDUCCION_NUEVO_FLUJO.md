@@ -9,8 +9,8 @@ La inducción es **autoservicio**: la persona la ve por su cuenta en «Mi espaci
 Pasos (DTO único `App\Services\Onboarding\ProgresoInduccionService::resumen()`, el mismo en Mi inicio, Mis pendientes, la app —campo aditivo `miInduccion` de `GET /api/v1/colaborador/mi-proceso`— y «Ver como colaborador»):
 
 1. **Presentación** — hojas del PDF oficial (`config/induccion.php`), avance por hoja mostrada (`InduccionPdfService::registrarPagina`).
-2. **Video o audio** — material de explicación vigente (`MaterialInduccionService`). El video es obligatorio y con anti-adelanto; el audio no bloquea.
-3. **Evaluación** — FO-RH-EI; se desbloquea con «Terminé la inducción» (`InduccionPdfService::terminar`, única fuente del gate) y `EvaluacionInduccionService::habilitarPara`.
+2. **Video o audio** — material de explicación vigente (`MaterialInduccionService`). El video tiene anti-adelanto y es **alternativa** a la presentación: basta con ver la presentación completa **o** el video completo, nunca los dos (`InduccionPdfService::materialVisto()`). El video ya no espera a la presentación. El audio no bloquea.
+3. **Evaluación** — FO-RH-EI; se desbloquea con «Terminé la inducción» (`InduccionPdfService::terminar`) o, sin presionarlo, en cuanto ya vio la presentación o el video (`InduccionPdfService::marcarVistoSiCumple`, desde `EvaluacionInduccionService::habilitarPara`). Así quien vio solo la presentación antes de cargarse el video no se queda detenido.
 4. **Resultado** — RH califica los casos prácticos; ≥ mínimo aprueba.
 
 `AccesoInduccionColaboradorService::estado()` sigue siendo la verdad del acceso (`sin_asignar`, `disponible`, `evaluacion_pendiente`, `en_revision`, `completada`).
@@ -25,7 +25,7 @@ Desde **Inducción institucional** (`induccion.presentacion`) y **Calificaciones
 - **Persona con onboarding de ingreso abierto**: se reasigna sobre ese mismo proceso. Solo cambia qué debe ver, la fecha límite y el mensaje.
 - **Persona sin onboarding de ingreso abierto** (personal activo o cuyo onboarding ya cerró): se abre una **reinducción** — `onboarding_procesos.tipo = 'reinduccion'` (`App\Enums\TipoProcesoOnboarding`), sin contrato, sin ocupar `colaborador_abierto_id` y solo con el módulo formal (`OnboardingService::iniciarReinduccion`). Al aprobarla, `OnboardingService::completar()` la cierra **sin** `AltaColaboradorService::recalcularEstado()` ni `activar()`, sin activos ni responsivas. `OnboardingService::procesoActual()` solo ve procesos de **ingreso**, así que la reinducción no altera el ciclo laboral, la contratación ni el expediente; la inducción de Mi espacio la resuelve `AccesoInduccionColaboradorService::procesoInduccion()`.
 - Quien ya aprobó se omite salvo que RH marque **Reinducción**.
-- `induccion_asignaciones`: qué asignó RH (`incluye_presentacion`, `incluye_material`, `fecha_limite`, `mensaje`), con `vigente = true` para la activa y `NULL` para las retiradas/reemplazadas (historial). Sin filas, el avance conserva la asignación automática del ingreso (todo). `InduccionPdfService::terminar()` solo exige lo asignado.
+- `induccion_asignaciones`: qué asignó RH (`incluye_presentacion`, `incluye_material`, `fecha_limite`, `mensaje`), con `vigente = true` para la activa y `NULL` para las retiradas/reemplazadas (historial). Sin filas, el avance conserva la asignación automática del ingreso (todo). `InduccionPdfService::terminar()` solo cuenta lo asignado (presentación o video).
 - **Retirar**: mientras no haya contestado la evaluación. En ingreso deja «Sin asignar» (sin borrar avance); en reinducción cancela el proceso.
 - Aviso a la persona por `NotificacionEventosService::crearPendiente()` (web + app, evento `induccion_asignada`, tipo `onboarding_habilitado`), después del commit; un fallo al avisar nunca deshace la asignación.
 

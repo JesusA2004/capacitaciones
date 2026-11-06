@@ -67,10 +67,11 @@ class EvaluacionInduccionService
      * Idempotente: crea (o devuelve) la evaluación formal del proceso cuando
      * todos los avances institucionales obligatorios de esa clave ya tienen
      * su contenido visto. En el nuevo flujo eso ocurre cuando el colaborador
-     * TERMINA la inducción por su cuenta (hojas del PDF + video completo si el
-     * material es video — InduccionPdfService::terminar(), única fuente del
-     * gate). null si el proceso no tiene ningún módulo institucional con
-     * evaluación formal configurada, o si falta contenido por ver.
+     * ve UNO de los materiales asignados —todas las hojas del PDF O el video
+     * completo, nunca los dos— (InduccionPdfService::terminar() o, sin
+     * «Terminé», InduccionPdfService::marcarVistoSiCumple() aquí mismo). null
+     * si el proceso no tiene ningún módulo institucional con evaluación formal
+     * configurada, o si falta contenido por ver.
      */
     public function habilitarPara(OnboardingProceso $proceso): ?EvaluacionInduccion
     {
@@ -100,6 +101,13 @@ class EvaluacionInduccionService
 
         if ($existente !== null) {
             return $existente;
+        }
+
+        // Presentación O video: quien ya vio uno de los dos (aunque no haya
+        // presionado «Terminé», o se le haya cargado el video después) queda
+        // con el contenido visto y su evaluación se habilita.
+        if (! in_array($proceso->estado, [EstadoOnboarding::Completado, EstadoOnboarding::Cancelado], true)) {
+            $avances->each(fn (OnboardingAvance $a) => $this->pdf->marcarVistoSiCumple($a));
         }
 
         $obligatorios = $avances->filter(fn (OnboardingAvance $a) => $a->modulo->obligatorio);

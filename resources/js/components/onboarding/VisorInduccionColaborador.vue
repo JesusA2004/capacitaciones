@@ -19,7 +19,7 @@ import type { MaterialInduccion, MiInduccion } from '@/types';
 
 /**
  * Lo que el colaborador ve al entrar a su inducción: las hojas del PDF
- * oficial, el material de explicación (video obligatorio o audio) y
+ * oficial, el material de explicación (video o audio; basta con la presentación O el video) y
  * «Terminé la inducción» → evaluación. Solo lo que RH le asignó
  * (presentación y/o material). La MISMA vista en Mi espacio y en «Ver como
  * colaborador» de RH: con `vistaPrevia` no se reporta ninguna página, el
@@ -67,58 +67,42 @@ const porcentajeHojas = computed(() =>
         : 0,
 );
 const vistas = new Set<number>();
-// Orden obligatorio (backend): presentación completa → video. Las páginas
-// que el servidor reportó faltantes se van quitando al mostrarlas aquí.
-const faltantesVideo = ref<number[]>([
-    ...(props.material?.paginas_faltantes ?? []),
-]);
-const videoBloqueado = computed(
+
+// Presentación O video (backend: InduccionPdfService::materialVisto()):
+// basta con uno de los dos; el video ya no espera a la presentación.
+const conVideo = computed(() => materialAsignado.value && esVideo.value);
+const hojasCompletas = computed(
     () =>
-        !props.vistaPrevia &&
-        props.material?.video_bloqueado === true &&
-        faltantesVideo.value.length > 0,
+        incluyePresentacion.value &&
+        (props.induccion.presentacion.completada ||
+            (total.value > 0 && paginasVistas.value >= total.value)),
 );
-const textoBloqueoVideo = computed(() => {
-    const faltan = faltantesVideo.value;
-
-    if (faltan.length === 1) {
-        return `Disponible al terminar la presentación (te falta la página ${faltan[0]}).`;
-    }
-
-    return `Disponible al terminar la presentación (te faltan ${faltan.length} páginas; empieza en la ${faltan[0]}).`;
-});
-const visorPdf = ref<{ ir: (numero: number) => void } | null>(null);
-
-function irAPaginaFaltante() {
-    const primera = faltantesVideo.value[0];
-
-    if (primera !== undefined) {
-        visorPdf.value?.ir(primera);
-    }
-}
-
-const faltaVideo = computed(
-    () => materialAsignado.value && esVideo.value && !videoListo.value,
+// Con video asignado, «Terminé» espera a que vea el video O todas las hojas.
+// Sin video, el servidor valida las hojas al terminar (como siempre).
+const faltaMaterial = computed(
+    () =>
+        conVideo.value &&
+        !videoListo.value &&
+        !hojasCompletas.value &&
+        !props.induccion.contenido_visto,
 );
-// «ver todas las hojas y ver el video completo» — sin espacios sueltos.
+// «ver todas las hojas o ver el video completo» — sin espacios sueltos.
 const requisitos = computed(() =>
     [
         incluyePresentacion.value ? 'ver todas las hojas' : null,
-        materialAsignado.value && esVideo.value
-            ? 'ver el video completo'
-            : null,
+        conVideo.value ? 'ver el video completo' : null,
     ]
         .filter((r): r is string => r !== null)
-        .join(' y '),
+        .join(' o '),
 );
-const puedeTerminar = computed(() => !props.vistaPrevia && !faltaVideo.value);
+const puedeTerminar = computed(
+    () => !props.vistaPrevia && !faltaMaterial.value,
+);
 
 function registrarPagina(numero: number) {
     if (props.vistaPrevia || !props.rutas) {
         return;
     }
-
-    faltantesVideo.value = faltantesVideo.value.filter((p) => p !== numero);
 
     if (!vistas.has(numero)) {
         vistas.add(numero);
@@ -205,7 +189,6 @@ function terminar() {
                     class="flex h-[clamp(22rem,calc(56.25vw+8rem),80vh)] flex-col md:h-[clamp(24rem,calc(56.25vw-2rem),80vh)] xl:h-[clamp(28rem,calc(56.25vw-16rem),80vh)]"
                 >
                     <VisorPdf
-                        ref="visorPdf"
                         :url="pdf.url"
                         :titulo="pdf.titulo"
                         @pagina="registrarPagina"
@@ -236,9 +219,11 @@ function terminar() {
                         </h2>
                         <p class="text-xs text-muted-foreground">
                             {{
-                                esVideo
-                                    ? 'Velo completo para desbloquear tu evaluación. No se puede adelantar.'
-                                    : 'Escúchala mientras revisas las hojas.'
+                                !esVideo
+                                    ? 'Escúchala mientras revisas las hojas.'
+                                    : incluyePresentacion
+                                      ? 'Basta con ver la presentación o este video completo para desbloquear tu evaluación. No se puede adelantar.'
+                                      : 'Velo completo para desbloquear tu evaluación. No se puede adelantar.'
                             }}
                         </p>
                     </div>
@@ -268,22 +253,6 @@ function terminar() {
                             )
                         "
                     />
-                    <div
-                        v-else-if="esVideo && videoBloqueado"
-                        class="flex flex-col gap-3 rounded-2xl bg-crema p-4 sm:flex-row sm:items-center"
-                    >
-                        <Lock class="size-5 shrink-0 text-bronce" />
-                        <p class="flex-1 text-sm">{{ textoBloqueoVideo }}</p>
-                        <button
-                            v-if="incluyePresentacion"
-                            type="button"
-                            class="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transicion-ui hover:bg-primary/90"
-                            @click="irAPaginaFaltante"
-                        >
-                            Ir a la página {{ faltantesVideo[0] }}
-                            <ArrowRight class="size-4" />
-                        </button>
-                    </div>
                     <ReproductorVideoInduccion
                         v-else-if="
                             esVideo && material.video_disponible && rutas
@@ -315,11 +284,15 @@ function terminar() {
                     >
                 </p>
                 <p
-                    v-if="faltaVideo && !vistaPrevia"
+                    v-if="faltaMaterial && !vistaPrevia"
                     class="flex items-center gap-2 rounded-xl bg-warning-soft px-3 py-2 text-xs text-warning"
                 >
-                    <Lock class="size-3.5 shrink-0" /> Te falta ver el video
-                    completo.
+                    <Lock class="size-3.5 shrink-0" />
+                    {{
+                        incluyePresentacion
+                            ? 'Te falta terminar la presentación o ver el video completo.'
+                            : 'Te falta ver el video completo.'
+                    }}
                 </p>
                 <p
                     v-if="vistaPrevia"

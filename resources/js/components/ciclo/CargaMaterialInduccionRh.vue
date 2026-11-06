@@ -61,8 +61,9 @@ const OPCIONES: {
 }[] = [
     {
         valor: 'video',
-        titulo: 'Video obligatorio',
-        detalle: 'Se ve completo, sin adelantar, y desbloquea la evaluación.',
+        titulo: 'Video',
+        detalle:
+            'Se ve completo, sin adelantar. Verlo o ver la presentación desbloquea la evaluación.',
         icono: VideoIcon,
     },
     {

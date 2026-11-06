@@ -55,8 +55,6 @@ class InduccionReproduccionController extends Controller
         $usuario = $request->user();
         $this->autorizar($usuario, $avance);
         $this->exigirVideo($avance);
-        // Orden obligatorio: presentación completa → video (423 «presentacion_incompleta»).
-        $this->induccionPdf->exigirPresentacionParaVideo($avance);
 
         return response()->json($this->reproduccion->iniciarSesion($usuario, $avance));
     }
@@ -66,9 +64,6 @@ class InduccionReproduccionController extends Controller
         $usuario = $request->user();
         $this->autorizar($usuario, $avance);
         $this->exigirVideo($avance);
-        // Mismo orden que «iniciar»: sin esto, un heartbeat directo marcaba el
-        // video como iniciado y saltaba el bloqueo de la presentación.
-        $this->induccionPdf->exigirPresentacionParaVideo($avance);
 
         $datos = $request->validate([
             'posicion_segundos' => ['required', 'integer', 'min:0'],
@@ -108,7 +103,6 @@ class InduccionReproduccionController extends Controller
     public function manifiestoMaestro(Request $request, OnboardingAvance $avance): Response
     {
         $this->autorizar($request->user(), $avance);
-        $this->induccionPdf->exigirPresentacionParaVideo($avance);
         $manifiesto = $this->rutaManifiesto($avance);
 
         $contenido = $this->manifiestos->reescribirMaestro(
