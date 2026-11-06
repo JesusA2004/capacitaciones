@@ -50,7 +50,9 @@ class AltaPublicaController extends Controller
                 ->where('aplica_alta', true)
                 ->where('activo', true)
                 ->orderBy('nombre')
-                ->get(['id', 'nombre', 'clave', 'requerido']),
+                ->get(['id', 'nombre', 'clave', 'requerido'])
+                // Identificación oficial: reverso opcional como segundo archivo.
+                ->map(fn (DocumentType $tipo): array => [...$tipo->only(['id', 'nombre', 'clave', 'requerido']), 'admite_reverso' => DocumentoDosCarasService::admiteReverso($tipo)]),
             'soloLectura' => ! $alta->estado->permiteCaptura(),
         ]);
     }

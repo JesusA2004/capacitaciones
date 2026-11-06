@@ -74,7 +74,26 @@ const documentosSubidos = ref(
 const formDocumento = useForm({
     document_type_id: 0,
     archivo: null as File | null,
+    archivo_reverso: null as File | null,
 });
+
+function enviarDocumento(
+    tipoId: number,
+    archivo: File,
+    reverso: File | null = null,
+) {
+    formDocumento.document_type_id = tipoId;
+    formDocumento.archivo = archivo;
+    formDocumento.archivo_reverso = reverso;
+    formDocumento.post(rutas.documentos.url(props.alta.token), {
+        preserveScroll: true,
+        forceFormData: true,
+        onSuccess: () => {
+            documentosSubidos.value.add(tipoId);
+            delete dosCaras.value[tipoId];
+        },
+    });
+}
 
 function subirDocumento(event: Event, tipoId: number) {
     const input = event.target as HTMLInputElement;
@@ -84,13 +103,29 @@ function subirDocumento(event: Event, tipoId: number) {
         return;
     }
 
-    formDocumento.document_type_id = tipoId;
-    formDocumento.archivo = archivo;
-    formDocumento.post(rutas.documentos.url(props.alta.token), {
-        preserveScroll: true,
-        forceFormData: true,
-        onSuccess: () => documentosSubidos.value.add(tipoId),
-    });
+    enviarDocumento(tipoId, archivo);
+}
+
+/**
+ * Identificación oficial: frente (o un PDF con las dos caras) y reverso
+ * opcional; se eligen antes de subir y el servidor los une en un PDF.
+ */
+const dosCaras = ref<
+    Record<number, { frente: File | null; reverso: File | null }>
+>({});
+
+function elegirCara(event: Event, tipoId: number, cara: 'frente' | 'reverso') {
+    const archivo = (event.target as HTMLInputElement).files?.[0] ?? null;
+    const actual = dosCaras.value[tipoId] ?? { frente: null, reverso: null };
+    dosCaras.value[tipoId] = { ...actual, [cara]: archivo };
+}
+
+function subirDosCaras(tipoId: number) {
+    const caras = dosCaras.value[tipoId];
+
+    if (caras?.frente) {
+        enviarDocumento(tipoId, caras.frente, caras.reverso);
+    }
 }
 
 const canvasRef = ref<HTMLCanvasElement | null>(null);
@@ -424,6 +459,53 @@ function enviarAlta() {
                     >
                         <CheckCircle2 class="size-4" /> Cargado
                     </span>
+                    <div
+                        v-else-if="tipo.admite_reverso"
+                        class="flex flex-wrap items-center justify-end gap-2"
+                    >
+                        <label
+                            class="inline-flex max-w-48 cursor-pointer items-center gap-1.5 truncate rounded-md border px-3 py-1.5"
+                        >
+                            <Upload class="size-4 shrink-0" />
+                            <span class="truncate">{{
+                                dosCaras[tipo.id]?.frente?.name ?? 'Frente'
+                            }}</span>
+                            <input
+                                type="file"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                class="hidden"
+                                @change="
+                                    (e) => elegirCara(e, tipo.id, 'frente')
+                                "
+                            />
+                        </label>
+                        <label
+                            class="inline-flex max-w-48 cursor-pointer items-center gap-1.5 truncate rounded-md border border-dashed px-3 py-1.5"
+                        >
+                            <Upload class="size-4 shrink-0" />
+                            <span class="truncate">{{
+                                dosCaras[tipo.id]?.reverso?.name ??
+                                'Reverso (opcional)'
+                            }}</span>
+                            <input
+                                type="file"
+                                accept=".pdf,.jpg,.jpeg,.png"
+                                class="hidden"
+                                @change="
+                                    (e) => elegirCara(e, tipo.id, 'reverso')
+                                "
+                            />
+                        </label>
+                        <Button
+                            size="sm"
+                            :disabled="
+                                !dosCaras[tipo.id]?.frente ||
+                                formDocumento.processing
+                            "
+                            @click="subirDosCaras(tipo.id)"
+                            >Subir</Button
+                        >
+                    </div>
                     <label
                         v-else
                         class="inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5"

@@ -66,4 +66,6 @@ export type DocumentoRequeridoAlta = {
     nombre: string;
     clave: string;
     requerido: boolean;
+    /** Identificación oficial: acepta reverso opcional (se une en un PDF en el servidor). */
+    admite_reverso?: boolean;
 };
