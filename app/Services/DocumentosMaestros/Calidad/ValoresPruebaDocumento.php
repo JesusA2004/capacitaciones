@@ -88,6 +88,12 @@ class ValoresPruebaDocumento
 
     private function porNombre(string $campo): string
     {
+        $incorporacion = $this->incorporacion($campo);
+
+        if ($incorporacion !== null) {
+            return $incorporacion;
+        }
+
         return match (true) {
             str_starts_with($campo, 'marca_'), str_starts_with($campo, 'criterio_'), str_starts_with($campo, 'resultado_') => '☒',
             $campo === 'nombre' => 'José Francisco de Jesús',
@@ -143,6 +149,38 @@ class ValoresPruebaDocumento
             str_contains($campo, 'anio') => '2026',
             str_contains($campo, 'identificacion') => 'INE',
             default => 'Dato de prueba largo para validar el formato',
+        };
+    }
+
+    /**
+     * Solicitud de empleo (sol_*) y Estudio socioeconómico (ese_*): datos
+     * largos con la MISMA forma que les da DatosSolicitudEmpleoService
+     * (día «30», importes «12,500.00», «1,250 m²», conteos, apellidos
+     * compuestos). Sin esto caían en el texto genérico de 45 caracteres y
+     * la prueba reportaba desbordes que ningún dato real puede producir
+     * (p. ej. un día del mes de 25 mm).
+     */
+    private function incorporacion(string $campo): ?string
+    {
+        if (! str_starts_with($campo, 'sol_') && ! str_starts_with($campo, 'ese_')) {
+            return null;
+        }
+
+        return match (true) {
+            str_ends_with($campo, '_fecha_dia') => '30',
+            str_ends_with($campo, '_fecha_mes') => 'septiembre',
+            str_ends_with($campo, '_fecha_anio') => '2026',
+            str_ends_with($campo, '_paterno'), str_ends_with($campo, '_materno') => 'Fernández de la Torre',
+            $campo === 'ese_egreso_otros_concepto' => 'Colegiaturas',
+            str_starts_with($campo, 'ese_egreso_') => '12,500.00',
+            $campo === 'ese_inm_valor' => '1,250,000.00',
+            $campo === 'ese_inm_metros' => '1,250 m²',
+            in_array($campo, ['ese_cuartos', 'ese_banos', 'ese_personas_habitan'], true) => '12',
+            $campo === 'ese_patio' => 'Sí',
+            $campo === 'ese_civil_otro' => 'Unión libre',
+            $campo === 'ese_sm_especifique' => 'Ninguno',
+            $campo === 'sol_creditos_donde' => 'Coppel y Elektra',
+            default => null,
         };
     }
 }
