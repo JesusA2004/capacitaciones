@@ -88,7 +88,7 @@ class AgendaEventoService
 
         $cvBandeja = is_string($cvBandeja) && trim($cvBandeja) !== '' && ! $cv instanceof UploadedFile ? trim($cvBandeja) : null;
 
-        if ($cvBandeja !== null && ! $actor->can('viewAny', Candidato::class)) {
+        if ($cvBandeja !== null && ! $this->bandejaCv->puedeConsultar($actor)) {
             throw ValidationException::withMessages(['cv_bandeja' => 'Tu cuenta no consulta la bandeja de CVs: adjunta el archivo.']);
         }
 

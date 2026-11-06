@@ -13,6 +13,7 @@ use App\Policies\Concerns\ConSuperAdminOperativo;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Documentos\Versiones\Fuentes\FuenteResponsiva;
 use App\Services\Onboarding\EvaluacionInduccionPdfService;
+use App\Services\Permisos\PermisoAccionService;
 use Illuminate\Auth\Access\Response;
 
 /**
@@ -48,7 +49,7 @@ class GeneratedDocumentPolicy
 
         // Contratos: permiso propio (contratos.ver_documento) — el gerente
         // consulta los demás documentos laborales de su gente, pero no ve ni
-        // descarga contratos. RH lo conserva con el general de generar.
+        // descarga contratos. RH lo tiene por su base (hereda de generar).
         if ($this->esContrato($documento)) {
             return self::puedeVerContratos($usuario) && $this->enAlcance($usuario, $documento);
         }
@@ -119,16 +120,33 @@ class GeneratedDocumentPolicy
             || $documento->documentable_type === (new ContratoLaboral)->getMorphClass();
     }
 
-    /** Ver contratos de otras personas (PDF generado / vista previa). */
+    /**
+     * Ver contratos de otras personas (PDF generado / vista previa). Manda
+     * SOLO la acción del módulo «Contratos» (configurable en «Roles y
+     * permisos»); documentos_laborales.generar ya no la abre por sí solo —
+     * únicamente mientras la acción no exista en la base (herencia,
+     * PermisoAccionService).
+     */
     public static function puedeVerContratos(User $usuario): bool
     {
-        return $usuario->can('contratos.ver_documento') || $usuario->can('documentos_laborales.generar');
+        return app(PermisoAccionService::class)->puede($usuario, 'contratos.ver_documento');
     }
 
-    /** Descargar contratos de otras personas (archivo PDF / Word). */
+    /** Descargar contratos de otras personas (archivo PDF / Word). Misma regla. */
     public static function puedeDescargarContratos(User $usuario): bool
     {
-        return $usuario->can('contratos.descargar') || $usuario->can('documentos_laborales.generar');
+        return app(PermisoAccionService::class)->puede($usuario, 'contratos.descargar');
+    }
+
+    /**
+     * Generar (o regenerar) contratos: individual, «Generar todos», paquete de
+     * contratación/renovación y nueva versión. Solo contratos.generar (por
+     * defecto, RH): quitarlo en «Roles y permisos» quita el botón y el
+     * backend lo rechaza, aunque el rol conserve documentos_laborales.generar.
+     */
+    public static function puedeGenerarContratos(User $usuario): bool
+    {
+        return app(PermisoAccionService::class)->puede($usuario, 'contratos.generar');
     }
 
     /**
@@ -216,7 +234,10 @@ class GeneratedDocumentPolicy
 
         $firmado = $documento->estado_flujo?->firmaFisicaRegistrada() ?? false;
 
-        return $usuario->can('documentos_laborales.generar')
+        // Un contrato se regenera con la acción de Contratos, no con la general.
+        $genera = self::esContrato($documento) ? self::puedeGenerarContratos($usuario) : $usuario->can('documentos_laborales.generar');
+
+        return $genera
             && (! $firmado || $usuario->can('documentos_laborales.revisar_firmado'))
             && ! $this->esPropio($usuario, $documento)
             && $this->enAlcance($usuario, $documento);

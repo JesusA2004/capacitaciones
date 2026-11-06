@@ -198,7 +198,8 @@ class AlcanceModuloService
 
         // Gerente y Subgerente Regional son plazas de empresa: su «región» son
         // todas las sucursales operativas, no las de la zona donde están registrados.
-        if ($nivel === AlcanceDatos::Region && $this->autoridad->tieneAlcanceDeEmpresa($usuario)) {
+        // (Una sola Gerencia Regional para toda la empresa: el rol regional basta.)
+        if ($nivel === AlcanceDatos::Region && ($this->autoridad->tieneAlcanceDeEmpresa($usuario) || $this->organizacional->esRegionalDeEmpresa($usuario))) {
             return Sucursal::query()->where('es_corporativo', false)->pluck('id')->map(fn ($id): int => (int) $id)->merge($propias)->unique()->values();
         }
 

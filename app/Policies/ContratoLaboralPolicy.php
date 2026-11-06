@@ -24,8 +24,10 @@ class ContratoLaboralPolicy
 
     public function generarDocumento(User $usuario, ContratoLaboral $contrato): bool
     {
-        return ($usuario->can('documentos_laborales.generar') || $usuario->can('contratos.generar'))
+        // Solo la acción de Contratos (RH por defecto); el general de
+        // documentos laborales ya no genera contratos (GeneratedDocumentPolicy).
+        return GeneratedDocumentPolicy::puedeGenerarContratos($usuario)
             && $usuario->colaborador_id !== $contrato->colaborador_id
-            && $this->alcance->alcanzaColaborador($usuario, $contrato->colaborador);
+            && $this->alcance->alcanzaColaboradorEnModulo($usuario, $contrato->colaborador, 'contratos');
     }
 }

@@ -7,6 +7,7 @@ use App\Enums\ModoCorreccion;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\User;
+use App\Policies\GeneratedDocumentPolicy;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Salarios\AccesoSueldoService;
@@ -55,7 +56,7 @@ class ContratacionDominio extends DominioBase
         $colaborador = $this->colaboradorDe($sujeto);
 
         return $colaborador !== null && ! $this->esPropio($actor, $colaborador)
-            && $actor->can('contratos.generar') && $this->alcance->alcanzaColaboradorEnModulo($actor, $colaborador, 'contratos');
+            && GeneratedDocumentPolicy::puedeGenerarContratos($actor) && $this->alcance->alcanzaColaboradorEnModulo($actor, $colaborador, 'contratos');
     }
 
     protected function esVisible(Model $sujeto, string $campo, User $actor): bool

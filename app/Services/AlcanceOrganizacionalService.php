@@ -67,6 +67,24 @@ class AlcanceOrganizacionalService
     }
 
     /**
+     * Gerente o Subgerente Regional: una sola Gerencia Regional (con su
+     * Subgerente de apoyo) responde por TODAS las sucursales operativas
+     * (docs/ORGANIGRAMA.md, 2026-11-01); ya no hay regionales por región.
+     * Basta el rol con el que operan esas plazas (organigrama.rol_regional)
+     * o ser titular/cobertura de una plaza regional con rol de gerencia.
+     */
+    public function esRegionalDeEmpresa(User $usuario): bool
+    {
+        $rolRegional = (string) config('organigrama.rol_regional', 'gerente_regional');
+
+        if ($rolRegional !== '' && $usuario->hasRole($rolRegional)) {
+            return true;
+        }
+
+        return $this->tieneAlcanceDeSucursal($usuario) && $this->autoridad->tieneAlcanceDeEmpresa($usuario);
+    }
+
+    /**
      * @return Collection<int, int>
      */
     public function sucursalesVisiblesIds(User $usuario): Collection
@@ -89,7 +107,7 @@ class AlcanceOrganizacionalService
 
         // Gerente y Subgerente Regional: plazas de empresa, responden por todas
         // las sucursales operativas aunque estén registrados en una sola.
-        if ($this->tieneAlcanceDeSucursal($usuario) && $this->autoridad->tieneAlcanceDeEmpresa($usuario)) {
+        if ($this->esRegionalDeEmpresa($usuario)) {
             return Sucursal::query()->where('es_corporativo', false)->pluck('id')->merge($propias)->unique()->values();
         }
 

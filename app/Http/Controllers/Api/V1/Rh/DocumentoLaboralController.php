@@ -62,16 +62,18 @@ class DocumentoLaboralController extends Controller
 
     public function store(GenerarDocumentoLaboralRequest $request, Colaborador $colaborador): JsonResponse
     {
-        $this->authorize('generarDocumento', $colaborador);
-
         $contratoId = $request->validated('contrato_id');
         $motivo = $request->validated('motivo');
         $rectificar = $request->boolean('rectificar');
 
         if ($contratoId !== null) {
             $contrato = ContratoLaboral::query()->where('id', $contratoId)->where('colaborador_id', $colaborador->id)->firstOrFail();
+            // Documento de un CONTRATO: la acción del módulo «Contratos»
+            // (contratos.generar), no el general de documentos laborales.
+            $this->authorize('generarDocumento', $contrato);
             $documento = $this->contratos->generarDocumento($contrato, (string) $request->validated('clave'), $request->user(), $motivo, $rectificar);
         } else {
+            $this->authorize('generarDocumento', $colaborador);
             $plantilla = $request->validated('plantilla_id') !== null
                 ? DocumentTemplate::query()->findOrFail((int) $request->validated('plantilla_id'))
                 : (string) $request->validated('clave');

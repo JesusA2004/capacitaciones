@@ -43,7 +43,10 @@ class ContratosController extends Controller
 
         $filtros = $request->only(['busqueda', 'sucursal_id', 'puesto_id', 'estado']);
         $listado = $this->regularizacion->listar($usuario, $filtros);
-        $lote = $this->lotes->ultimo();
+        // El lote de «Generar todos» trae resultados de toda la empresa (lo
+        // corre RH): solo lo ve quien puede generar, nunca un gerente.
+        $puedeGenerar = $this->regularizacion->puedeGenerar($usuario);
+        $lote = $puedeGenerar ? $this->lotes->ultimo() : null;
 
         return Inertia::render('Rh/Contratos/Index', [
             'filas' => $listado['filas'],
@@ -55,7 +58,7 @@ class ContratosController extends Controller
             ],
             'filtros' => $filtros,
             'lote' => $lote !== null ? $this->lotes->aArray($lote) : null,
-            'puedeGenerar' => $this->regularizacion->puedeGenerar($usuario),
+            'puedeGenerar' => $puedeGenerar,
             'puedeCompletar' => $usuario->can('expedientes.editar') || $usuario->can('colaboradores.alta'),
         ]);
     }
@@ -82,7 +85,7 @@ class ContratosController extends Controller
 
     public function lote(Request $request, LoteGeneracionContratos $lote): JsonResponse
     {
-        abort_unless($this->regularizacion->puedeVer($request->user()), 403);
+        abort_unless($this->regularizacion->puedeGenerar($request->user()), 403);
 
         return response()->json(['data' => $this->lotes->aArray($lote->loadMissing('usuario:id,name,apellidos'))]);
     }

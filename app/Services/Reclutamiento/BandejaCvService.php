@@ -4,6 +4,7 @@ namespace App\Services\Reclutamiento;
 
 use App\Models\Candidato;
 use App\Models\User;
+use App\Services\Permisos\PermisoAccionService;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Carbon;
@@ -30,6 +31,17 @@ use Throwable;
 class BandejaCvService
 {
     public function __construct(private readonly ExpedienteCandidatoService $expediente) {}
+
+    /**
+     * La bandeja es una carpeta compartida SIN sucursal (CVs de cualquier
+     * plaza, todavía sin candidato): la consulta solo Reclutamiento/RH —
+     * quien registra candidatos o adjunta archivos—, nunca un gerente con
+     * solo «Ver candidatos» de su sucursal.
+     */
+    public function puedeConsultar(User $usuario): bool
+    {
+        return $usuario->can('candidatos.crear') || app(PermisoAccionService::class)->puede($usuario, 'candidatos.adjuntar');
+    }
 
     /**
      * Archivos listos para asignar, del más reciente al más antiguo. Omite

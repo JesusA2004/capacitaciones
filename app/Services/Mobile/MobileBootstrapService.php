@@ -209,7 +209,7 @@ class MobileBootstrapService
                 // Contratos: ver/descargar/generar el contrato vs. solo subir el firmado.
                 'ver_contratos' => GeneratedDocumentPolicy::puedeVerContratos($usuario),
                 'descargar_contratos' => GeneratedDocumentPolicy::puedeDescargarContratos($usuario),
-                'generar_contratos' => $usuario->can('documentos_laborales.generar') || $usuario->can('contratos.generar'),
+                'generar_contratos' => GeneratedDocumentPolicy::puedeGenerarContratos($usuario),
                 'subir_contrato_firmado' => $usuario->can('contratos.subir_firmado') || ($usuario->can('documentos.subir') && $usuario->can('contratos.ver')),
                 'descargar_documentos_expediente' => $usuario->can('documentos.descargar'),
                 'preautorizar' => $usuario->can(OrganizacionJerarquiaService::PERMISO_PREAUTORIZAR),

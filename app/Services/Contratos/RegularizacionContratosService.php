@@ -88,9 +88,10 @@ class RegularizacionContratosService
 
     public function puedeGenerar(User $usuario): bool
     {
-        // General de RH (todos los documentos laborales) o la acción
-        // específica del módulo «Contratos».
-        return $usuario->can(ContratoLaboralService::PERMISO_GENERAR) || $usuario->can('contratos.generar');
+        // Solo la acción del módulo «Contratos» (configurable en «Roles y
+        // permisos»): quitarla quita «Generar» y «Generar todos» aunque el rol
+        // conserve documentos_laborales.generar.
+        return GeneratedDocumentPolicy::puedeGenerarContratos($usuario);
     }
 
     /**

@@ -965,7 +965,7 @@ return [
         'contratos.ver' => 'Entra a Contratos, Personas en contratación y Contratos de ingreso: lista y estado, sin abrir el contrato.',
         'contratos.ver_documento' => 'Abre el PDF del contrato generado de otra persona en el visor.',
         'contratos.descargar' => 'Descarga el contrato de otra persona (PDF adjunto o Word editable).',
-        'contratos.generar' => 'Genera los contratos que le corresponden (individual o «Generar todos») y ve su vista previa.',
+        'contratos.generar' => 'Genera los contratos que le corresponden (individual, «Generar todos», «Generar paquete de contratación» y regenerar) y ve su vista previa. Por defecto solo RH. Sin esta acción no genera contratos aunque tenga «Generar» en Contratos y documentos.',
         'contratos.subir_firmado' => 'Sube el contrato ya firmado de su gente (queda en revisión de RH). El de un Gerente de Sucursal solo lo sube su Gerente Regional.',
         'cartas_compromiso.ver' => 'Entra a Cartas compromiso: lista, estado (vigente, por vencer, vencida, cumplida) y firma de las cartas de su gente.',
         'cartas_compromiso.generar' => 'Genera la carta compromiso de una persona de nuevo ingreso (máximo de documentos y plazo de la configuración), con vista previa antes de generarla.',

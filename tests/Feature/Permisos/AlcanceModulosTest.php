@@ -121,8 +121,8 @@ test('EQUIPO: el jefe directo ve el expediente de su subordinado, no el de otro 
     $this->actingAs($jefe)->get(route('rh.expedientes.show', $ajeno))->assertForbidden();
 });
 
-test('SUCURSAL y REGIÓN: el regional ve las sucursales de su región (matriz comercial); el gerente solo la suya', function () {
-    [$a, $b, $c] = Sucursal::factory()->count(3)->create();
+test('SUCURSAL y REGIÓN: el Gerente Regional ve todas las sucursales operativas; otro rol con alcance región, solo su región (matriz comercial); el gerente solo la suya', function () {
+    [$a, $b, $c] = Sucursal::factory()->count(3)->create(['es_corporativo' => false]);
     $region = NodoComercial::query()->create(['tipo' => TipoNodoComercial::Region->value, 'nombre' => 'Región Centro', 'activa' => true]);
     NodoComercial::query()->create(['tipo' => TipoNodoComercial::Zona->value, 'nombre' => 'Zona A', 'parent_id' => $region->id, 'sucursal_id' => $a->id, 'activa' => true]);
     NodoComercial::query()->create(['tipo' => TipoNodoComercial::Zona->value, 'nombre' => 'Zona B', 'parent_id' => $region->id, 'sucursal_id' => $b->id, 'activa' => true]);
@@ -134,9 +134,18 @@ test('SUCURSAL y REGIÓN: el regional ve las sucursales de su región (matriz co
     $enB = Colaborador::factory()->create(['sucursal_principal_id' => $b->id]);
     $enC = Colaborador::factory()->create(['sucursal_principal_id' => $c->id]);
 
+    // Rol personalizado con alcance «región»: la región de la matriz comercial.
+    amRolPersonalizado('zona_personalizada', ['expedientes.ver', 'expedientes.ver_region']);
+    $deZona = amUsuarioConRol('zona_personalizada', ['sucursal_principal_id' => $a->id]);
+
+    // Una sola Gerencia Regional para toda la empresa (docs/ORGANIGRAMA.md):
+    // con el rol regional ve todas las sucursales operativas, aunque su
+    // puesto todavía no sea «Gerente Regional».
     expect($servicio->nivel($regional, 'expedientes'))->toBe(AlcanceDatos::Region)
         ->and($servicio->alcanzaColaborador($regional, $enB, 'expedientes'))->toBeTrue()
-        ->and($servicio->alcanzaColaborador($regional, $enC, 'expedientes'))->toBeFalse()
+        ->and($servicio->alcanzaColaborador($regional, $enC, 'expedientes'))->toBeTrue()
+        ->and($servicio->alcanzaColaborador($deZona, $enB, 'expedientes'))->toBeTrue()
+        ->and($servicio->alcanzaColaborador($deZona, $enC, 'expedientes'))->toBeFalse()
         ->and($servicio->nivel($gerente, 'expedientes'))->toBe(AlcanceDatos::Sucursal)
         ->and($servicio->alcanzaColaborador($gerente, $enB, 'expedientes'))->toBeFalse();
 });

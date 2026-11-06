@@ -15,6 +15,7 @@ use App\Models\Puesto;
 use App\Services\Flujos\ConstructorEnlaces;
 use App\Services\Reclutamiento\AgendaConsultaService;
 use App\Services\Reclutamiento\AgendaEventoService;
+use App\Services\Reclutamiento\BandejaCvService;
 use App\Services\Reclutamiento\CvStorageService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -68,7 +69,7 @@ class AgendaController extends Controller
                 'agendar' => $usuario->can('agenda.agendar'),
                 'alta_candidato' => $usuario->can('agenda.alta_candidato'),
                 'exportar' => $usuario->can('agenda.exportar'),
-                'bandeja_cv' => $usuario->can('viewAny', Candidato::class),
+                'bandeja_cv' => app(BandejaCvService::class)->puedeConsultar($usuario),
             ],
             'cvConfig' => [
                 'max_mb' => (int) config('reclutamiento.max_upload_mb'),

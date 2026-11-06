@@ -30,6 +30,7 @@ use App\Models\SolicitudInterna;
 use App\Models\Sucursal;
 use App\Models\TareaRh;
 use App\Models\User;
+use App\Policies\GeneratedDocumentPolicy;
 use App\Services\Actas\ActaPdfService;
 use App\Services\Actas\ActaService;
 use App\Services\AlcanceOrganizacionalService;
@@ -2331,13 +2332,15 @@ class DocumentoProcesoService
     /**
      * Permiso para generar una clave (config documentos_maestros.
      * permisos_generacion). Los documentos de un CONTRATO laboral (paquete de
-     * alta o renovación) también los genera quien tiene contratos.generar —
-     * acción específica que no abre el resto de los documentos laborales.
+     * alta o renovación) los genera SOLO quien tiene contratos.generar —
+     * acción específica del módulo «Contratos», que no abre el resto de los
+     * documentos laborales y que documentos_laborales.generar ya no suple:
+     * quitarla en «Roles y permisos» quita «Generar paquete de contratación».
      */
     public function puedeGenerar(User $usuario, string $clave, ?Model $registro = null): bool
     {
-        if ($registro instanceof ContratoLaboral && $usuario->can('contratos.generar')) {
-            return true;
+        if ($registro instanceof ContratoLaboral) {
+            return GeneratedDocumentPolicy::puedeGenerarContratos($usuario);
         }
 
         $reglas = (array) config('documentos_maestros.permisos_generacion', []);

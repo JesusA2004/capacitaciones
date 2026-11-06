@@ -315,16 +315,16 @@ class CandidatoController extends Controller
      * Archivos de la bandeja de CVs (descargas de WhatsApp Web sincronizadas
      * al NAS) listos para asignar a un candidato.
      */
-    public function bandejaCv(): JsonResponse
+    public function bandejaCv(Request $request): JsonResponse
     {
-        $this->authorize('viewAny', Candidato::class);
+        abort_unless($this->bandejaCv->puedeConsultar($request->user()), 403, 'Tu cuenta no consulta la bandeja de CVs.');
 
         return response()->json(['data' => $this->bandejaCv->listar()]);
     }
 
     public function verBandejaCv(Request $request): StreamedResponse
     {
-        $this->authorize('viewAny', Candidato::class);
+        abort_unless($this->bandejaCv->puedeConsultar($request->user()), 403, 'Tu cuenta no consulta la bandeja de CVs.');
 
         return $this->bandejaCv->respuesta((string) $request->query('archivo', ''));
     }
