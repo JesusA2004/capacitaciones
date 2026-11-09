@@ -1,9 +1,15 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
-import { ChevronsDownUp, ChevronsUpDown } from '@lucide/vue';
+import {
+    ChevronRight,
+    ChevronsDownUp,
+    ChevronsUpDown,
+    Move,
+} from '@lucide/vue';
 import { computed, inject, ref, watch } from 'vue';
 import DialogoCoberturaOrganigrama from '@/components/Organigrama/DialogoCoberturaOrganigrama.vue';
 import DialogoMovimientoOrganigrama from '@/components/Organigrama/DialogoMovimientoOrganigrama.vue';
+import DialogoUbicarPuesto from '@/components/Organigrama/DialogoUbicarPuesto.vue';
 import FilaListaOrganigrama from '@/components/Organigrama/FilaListaOrganigrama.vue';
 import LienzoOrganigrama from '@/components/Organigrama/LienzoOrganigrama.vue';
 import PanelNodoOrganigrama from '@/components/Organigrama/PanelNodoOrganigrama.vue';
@@ -32,6 +38,8 @@ const props = defineProps<{
     /** Subir / bajar / mover y Q1 / Q3 (organigrama.mover_personas). */
     puedeMover?: boolean;
     candidatos: { value: string; label: string }[];
+    /** «Ubicar / mover puesto» (PuestoPolicy::editarJerarquia). */
+    puedeUbicar?: boolean;
 }>();
 
 const cubrirPermitido = computed(() => props.puedeCubrir ?? props.puedeEditar);
@@ -247,6 +255,16 @@ const dialogoMovimiento = ref(false);
 const nodoAMover = ref<NodoOrganigramaPersona | null>(null);
 const accionMovimiento = ref<AccionMovimientoOrganigrama>('subir');
 
+// --- Ubicar / mover el PUESTO de la tarjeta (no a la persona) ---
+const dialogoUbicar = ref(false);
+const puestoAUbicar = ref<{ id: number; nombre: string } | null>(null);
+
+function ubicarPuesto(nodo: NodoOrganigramaPersona): void {
+    puestoAUbicar.value = { id: nodo.puesto.id, nombre: nodo.puesto.nombre };
+    panelAbierto.value = false;
+    dialogoUbicar.value = true;
+}
+
 function moverNodo(
     nodo: NodoOrganigramaPersona,
     accion: AccionMovimientoOrganigrama,
@@ -327,13 +345,40 @@ function moverNodo(
         @cubrir="cubrir"
         @quitar-cobertura="quitarCobertura"
         @mover="moverNodo"
-    />
+    >
+        <template #acciones-extra="{ nodo: actual }">
+            <button
+                v-if="puedeUbicar && actual"
+                type="button"
+                class="flex tarjeta-interactiva items-center gap-3 rounded-2xl border border-border bg-card p-4 text-left transition-colors hover:border-primary/40 hover:bg-menta"
+                @click="ubicarPuesto(actual)"
+            >
+                <span
+                    class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-crema text-bronce"
+                >
+                    <Move class="size-5" />
+                </span>
+                <span class="min-w-0 flex-1">
+                    <span class="block text-sm font-semibold"
+                        >Ubicar / mover puesto</span
+                    >
+                    <span class="block text-xs text-muted-foreground"
+                        >Cambia debajo de quién va «{{ actual.puesto.nombre }}»
+                        y su departamento (todas sus plazas).</span
+                    >
+                </span>
+                <ChevronRight class="size-4 text-muted-foreground" />
+            </button>
+        </template>
+    </PanelNodoOrganigrama>
 
     <DialogoCoberturaOrganigrama
         v-model:open="dialogoCobertura"
         :nodo="nodoACubrir"
         :candidatos="candidatos"
     />
+
+    <DialogoUbicarPuesto v-model:open="dialogoUbicar" :puesto="puestoAUbicar" />
 
     <DialogoMovimientoOrganigrama
         v-model:open="dialogoMovimiento"

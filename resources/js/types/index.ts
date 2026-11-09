@@ -28,6 +28,7 @@ export * from './divisionHistorico';
 export * from './editorDocumentos';
 export * from './formatos-oficiales';
 export * from './formulariosEvaluacion';
+export * from './headcount';
 export * from './matrizComercial';
 export * from './organigrama';
 export * from './micapacitacion';

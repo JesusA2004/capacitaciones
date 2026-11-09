@@ -507,7 +507,7 @@ class SincronizadorOrganigramaService
 
     private function reportarFueraDeEstructura(): void
     {
-        foreach (Puesto::query()->whereIn('nombre', self::FUERA_DE_ESTRUCTURA)->where('activo', true)->withCount(['colaboradores' => fn ($q) => $q->where('estatus', EstadoUsuario::Activo->value)])->get() as $puesto) {
+        foreach (Puesto::query()->whereIn('nombre', self::FUERA_DE_ESTRUCTURA)->where('activo', true)->withCount(['colaboradores' => fn ($q) => $q->whereIn('estatus', EstadoUsuario::valoresVigentes())])->get() as $puesto) {
             $this->reporte['fuera_de_estructura'][] = sprintf('«%s» (%d ocupante(s)) — se conserva sin cambios', $puesto->nombre, $puesto->colaboradores_count);
         }
     }
@@ -635,7 +635,7 @@ class SincronizadorOrganigramaService
     private function detectarConflictos(): void
     {
         $idsPorNombre = Puesto::query()->pluck('id', 'nombre');
-        $activos = fn (string $puesto) => Colaborador::query()->where('estatus', EstadoUsuario::Activo->value)->where('puesto_id', $idsPorNombre[$this->nombreEnBase($puesto)] ?? 0);
+        $activos = fn (string $puesto) => Colaborador::query()->whereIn('estatus', EstadoUsuario::valoresVigentes())->where('puesto_id', $idsPorNombre[$this->nombreEnBase($puesto)] ?? 0);
         $corporativo = Sucursal::query()->where('clave', self::CLAVE_CORPORATIVO)->value('id');
 
         foreach (['Gerente de Sucursal', 'Subgerente'] as $unoPorSucursal) {

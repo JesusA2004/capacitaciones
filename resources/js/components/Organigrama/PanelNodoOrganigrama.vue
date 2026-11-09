@@ -7,6 +7,7 @@ import {
     FileUser,
     MapPin,
     MoveRight,
+    Repeat2,
     Shuffle,
     UserCheck,
     UserRoundX,
@@ -100,9 +101,9 @@ const acciones = computed<AccionGrande[]>(() => {
         return [
             {
                 clave: 'cubrir',
-                etiqueta: 'Cubre temporalmente este puesto',
+                etiqueta: 'Asignar a otra persona en este puesto',
                 detalle:
-                    'Elige a alguien que la cubra sin dejar su puesto. Sin fechas.',
+                    'Ocupa ambos puestos (sin vacante) o cubre mientras se contrata (con vacante). Sin fechas.',
                 icono: Shuffle,
                 alPulsar: () => emit('cubrir', nodo),
             },
@@ -151,6 +152,14 @@ const acciones = computed<AccionGrande[]>(() => {
             detalle: 'Mismo puesto, bajo otro jefe o plaza.',
             icono: MoveRight,
             alPulsar: () => emit('mover', nodo, 'mover'),
+        },
+        {
+            clave: 'traspaso',
+            etiqueta: 'Cambiar de puesto (traspaso)',
+            detalle:
+                'A cualquier puesto y sucursal (p. ej. a Auditoría). Una o varias personas.',
+            icono: Repeat2,
+            alPulsar: () => emit('mover', nodo, 'traspaso'),
         },
     ];
 });
@@ -269,7 +278,10 @@ function fecha(iso: string | null | undefined): string {
                     </section>
 
                     <!-- Acciones grandes -->
-                    <section v-if="acciones.length" class="flex flex-col gap-2">
+                    <section
+                        v-if="acciones.length || $slots['acciones-extra']"
+                        class="flex flex-col gap-2"
+                    >
                         <h3
                             class="text-xs font-semibold tracking-wide text-muted-foreground uppercase"
                         >
@@ -311,6 +323,8 @@ function fecha(iso: string | null | undefined): string {
                                 class="size-4 text-muted-foreground"
                             />
                         </button>
+                        <!-- Gancho para acciones de otros módulos (p. ej. «Ubicar / mover puesto»). -->
+                        <slot name="acciones-extra" :nodo="nodo" />
                     </section>
 
                     <!-- A quién reporta -->

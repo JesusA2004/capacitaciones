@@ -70,17 +70,32 @@ Una tarjeta por persona o plaza (foto/iniciales, nombre, puesto, sucursal, chip 
 
 | Tarjeta | Acciones |
 |---|---|
-| Persona | Subir de puesto · Bajar de puesto · Mover bajo… · (Gerente de Sucursal) Q1 / Q3 / Por clasificar |
+| Persona | Subir de puesto · Bajar de puesto · Mover bajo… · Cambiar de puesto (traspaso) · (Gerente de Sucursal) Q1 / Q3 / Por clasificar |
 | Plaza vacante | Cubre temporalmente este puesto |
 | Plaza cubierta | Quitar cobertura (un clic) |
 
 **Subir / Bajar / Mover bajo…** (`MovimientoOrganigramaService`) nunca escriben el jefe: cambian la PLAZA (puesto, sucursal y, si aplica, lado Q1/Q3) por la misma puerta que «Datos laborales» (`DatosExpedienteService::actualizarLaborales` → movimiento laboral + `JefeDirectoService::sincronizar`). Antes de aplicar se muestra «Vas a mover a X de Y a Z» con el jefe actual → jefe nuevo, calculado sin guardar (`OrganigramaPersonasService::jefesDerivados($simulacion)`), y avisos de headcount. «Mover bajo…» ofrece las plazas del puesto superior (personas, vacantes o coberturas) en otras sucursales/lados; el Corporativo nunca es destino de un puesto de sucursal. Arrastrar y soltar no se implementó a propósito: el menú por nodo con confirmación es más estable y auditable.
 
+**Cambiar de puesto (traspaso)** (`TraspasoPuestoService`, rutas `administracion.jerarquia-puestos.traspaso.*`, mismo permiso `ColaboradorPolicy::moverEnOrganigrama` por persona): pasa a una o **varias** personas a **cualquier** puesto activo — p. ej. Gestores de Cuernavaca a Auditora (Contraloría). Diálogo `DialogoTraspasoPuesto.vue` con buscadores de lista completa al enfocar (personas por nombre, número, puesto, sucursal o área; puesto por nombre o área). Reglas de destino de `MovimientoOrganigramaService::destino(…, corporativoFijo: true)`: un puesto corporativo queda **siempre** en Corporativo; un puesto de sucursal **nunca** en Corporativo (sin sucursal elegida, cada quien conserva la suya). La vista previa (sin guardar) muestra por persona puesto/sucursal/área de → a, tipo de movimiento (promoción o cambio de puesto, por nivel), jefe actual → jefe nuevo (simulando a todas a la vez) y «Dejará libre la ruta X»; en conjunto, el efecto en headcount con `HeadcountService::plantillaDePar` (solo lectura, con la pareja de plazas compartidas Gestor Volante ↔ Gestor): «Se abrirá 1 vacante de Gestor Volante en Cuernavaca», «Ocupará 1 plaza autorizada de Auditora en Corporativo» o «Quedará fuera de plantilla (no hay plaza autorizada…)». Al aplicar: rutas de cobro cerradas (`MatrizComercialService::cerrarAsignacionesDe`, la ruta queda «sin cubrir» en Matriz comercial; entrar a Gestor nunca asigna ruta), plaza por `aplicarDestino` (la misma puerta de Datos laborales) con motivo «Traspaso de puesto» y el comentario opcional en observaciones, bitácora `traspaso_puesto`. La vacante del origen la abre `ColaboradorPlantillaObserver` y el traspaso la marca con motivo «Reemplazo». **No es baja ni alta**: no crea filas en `bajas`, no registra movimientos alta/baja ni toca la fecha de ingreso, así que no cuenta en rotación, ingresos ni egresos. No existe equivalente en la API móvil (las acciones del organigrama son solo web).
+
 **Acomodo** (`resources/js/lib/organigramaLayout.ts`, probado en `tests/js/organigrama-layout.test.mjs`): cada nivel en su fila, ramas acercadas por contornos (una rama chica queda junto a la grande, el padre centrado sobre su primer y último hijo), hojas de un mismo jefe apiladas en columna y conectores ortogonales en SVG. Sustituye al árbol de flexbox anidado, donde cada rama se alineaba por su cuenta.
+
+### Ocupación = vigentes (2026-11-09)
+
+Toda vista de ocupación (árbol por personas, láminas, Por puestos, perfil de puesto, detalle de sucursal, sincronizador) cuenta a los **vigentes** (`EstadoUsuario::valoresVigentes()`: activo + en incorporación), igual que el headcount. Quien firmó contrato y está en Inducción, Evaluación o Capacitación inicial ya trabaja y ocupa su plaza.
+
+- **Chip de incorporación** (pastel `bg-info-soft`): la fase real del tablero de candidatos (Contratación, Inducción, Evaluación de inducción…; `FaseContratadoService` vía el candidato con `candidatos.colaborador_id`) o «En incorporación» si no viene de un candidato. `App\Services\Organigrama\IncorporacionOrganigramaService`.
+- **«Por ingresar: <nombre>»**: plaza VACANTE con un candidato ya **autorizado por RH** (estado `autorizado_rh`, fase 6 «Contratación») ligado a una vacante de ese puesto (y sucursal, si es de sucursal) que todavía no tiene colaborador (`ContratacionCandidatoService` lo crea al iniciar la contratación). «Autorización de RH» pendiente no cuenta: aún puede rechazarse. En headcount la plaza sigue vacante.
+- **Láminas:** una caja cuyo patrón coincide con un puesto activo del catálogo y sin nadie vigente dice «Vacante» (como RH → Vacantes); una caja cuyo patrón no coincide con **ningún** puesto (p. ej. «Gerente de Auditoría», «Auditores de Sucursales» si no existen) dice «Puesto no registrado» (`registrado = false`), con la sugerencia de registrarlo en Puestos.
+
+### Puestos sin ubicar y «Ubicar / mover puesto» (2026-11-09)
+
+- **Bandeja «Puestos sin ubicar en el organigrama»** (General, ambas vistas; `PuestosSinUbicarService`): puestos activos a los que no se llega desde Dirección General caminando por puestos activos — sin «reporta a», superior inactivo/eliminado o rama suelta/ciclo (`App\Enums\MotivoPuestoSinUbicar`) — con su departamento y ocupantes.
+- **«Ubicar / mover puesto»** (`UbicacionPuestoService`, `UbicacionPuestoController`; desde la bandeja, el panel de «Por puestos» y el panel de una tarjeta del árbol): 1) «¿Debajo de quién va?», buscador con todos los puestos activos, su área y quién los ocupa (excepto el propio puesto y los que le reportan); 2) departamento propuesto del superior, editable; 3) vista previa sin guardar (reporta a y departamento antes → después, personas del puesto y cambios de jefe directo calculados con `jefesDerivados` y el «reporta a» simulado en memoria); 4) aplicar en `DB::transaction`, bitácora `puesto_reubicado` + activity log de `Puesto`, y `JefeDirectoService::sincronizar` al momento. Rechaza ciclos (debajo de sí mismo o de un subordinado). Permiso: `PuestoPolicy::editarJerarquia` (organigrama.editar o puestos.editar). Rutas `administracion.jerarquia-puestos.ubicacion.{opciones,vista-previa,aplicar}`. No cambia personas ni expedientes.
 
 ### Vacantes y coberturas en el árbol
 
-- Un puesto sin titular **se muestra como VACANTE**, nunca se oculta (incluye puestos corporativos y regionales sin nadie).
+- Un puesto sin titular **se muestra como VACANTE**, nunca se oculta (incluye puestos corporativos y regionales sin nadie). Un puesto «de región» sin región ligada ya no se omite (se pinta como plaza corporativa) y ninguna tarjeta queda colgando de sí misma: si el cambio al puesto regional de la región regresa a un puesto ya recorrido se corta, y una red final (`romperCiclos`) deja como raíz cualquier ciclo restante. Antes, un puesto regional que la matriz comercial aún ligaba a una región (datos heredados de Q1/Q3) se resolvía como su propio superior y no se dibujaba.
 - Una cobertura no cambia el puesto titular de quien cubre ni suma headcount: si el gerente de Córdoba cubre Cuernavaca, Cuernavaca sigue con su plaza de gerente **vacante** (headcount) y se ve «cubierto temporalmente» (organigrama).
 - **«Cubre temporalmente este puesto»** (botón en la plaza vacante): solo se elige a la persona (buscador con la lista completa desde el inicio). **Sin fechas ni motivo**: empieza hoy y queda como «Puesto vacante»; se quita con un clic. Auditable: `registrada_por`/`finalizada_por`, `activity_log` (`cobertura_asignada`/`cobertura_finalizada`) y un movimiento «Cobertura temporal» en el expediente de quien cubre (se cierra al quitarla). También aplica a plazas corporativas (sin sucursal ni región).
 - **Regla de jefe directo con cobertura:** mientras la plaza no tenga titular, quienes le reportan a esa plaza tienen como jefe directo a **quien la cubre**. Si quien cubre es uno de esos subordinados (p. ej. el subgerente cubre la gerencia de su sucursal), su propio jefe se resuelve subiendo a la siguiente persona de la cadena. En cuanto la plaza tiene titular, la cobertura deja de usarse para el jefe (el titular manda). Al quitarla, el jefe vuelve a subir por la cadena hasta la primera persona.
@@ -94,11 +109,28 @@ El jefe directo **no se captura en ningún lado** (se retiró la pantalla Config
 - Red de seguridad diaria y para bases existentes: `php artisan organigrama:sincronizar-jefes` (programado 05:30).
 - «¿Por qué su jefe es X?»: `php artisan organigrama:explicar-jefe EMP-0131` (o el id) muestra la cadena nivel por nivel (titular, cobertura, VACANTE o regional de respaldo, y quién tiene ese puesto pero no cuenta por su estatus) y avisa si `jefe_id` está desactualizado. Solo lectura.
 
+### Subgerentes = apoyo (regla de la dueña del negocio, 2026-11-09)
+
+El **Subgerente de Sucursal** y el **Subgerente Regional** son puestos de APOYO (`config/organigrama.php` → `puestos_apoyo`, sin acentos ni mayúsculas): nunca son jefe directo mientras su superior tenga titular o cobertura. Sustituye la derivación anterior Gestor → Subgerente.
+
+| Persona | Jefe directo, en orden |
+|---|---|
+| Gestor, Gestor Volante, Gestor grupal | Gerente de Sucursal → Subgerente de Sucursal → Gerente Regional → Subgerente Regional → regional de respaldo / «sin jefe asignable» |
+| Subgerente de Sucursal | Gerente de Sucursal → Gerente Regional → Subgerente Regional → respaldo |
+| Gerente de Sucursal | Gerente Regional → Subgerente Regional → respaldo |
+| Subgerente Regional | Gerente Regional |
+
+Cómo se calcula (`OrganigramaPersonasService::cadenaDeJefe`, la usan `jefesDerivados`, `explicarJefe` y por lo tanto `JefeDirectoService` y las aprobaciones que leen el jefe organizacional): se sube por la cadena del árbol; un apoyo con persona se **omite** si su plaza superior está ocupada («Subgerente: apoyo, se omite porque hay Gerente de Sucursal» en `organigrama:explicar-jefe`); en una plaza **vacante**, el apoyo que cuelga de ella la **suple** («apoyo: suple la plaza vacante»). Nunca un apoyo del mismo puesto que quien pregunta (un subgerente no es jefe de otro subgerente). Nunca Dirección Comercial para personal de sucursal (regla de abajo).
+
+**Árbol:** se conserva la posición estructural (el Subgerente sigue entre el Gerente y sus gestores) con un chip «Apoyo» en la tarjeta; el «Reporta a» del panel sigue la regla nueva (`jefeVisible` en `resources/js/lib/organigramaEditable.ts`). El motor de aprobaciones ya pedía primero la gerencia de la sucursal y después el jefe organizacional, así que sigue la misma regla.
+
+**Al desplegar:** la migración `2026_11_09_120000_subgerentes_son_apoyo_recalcula_jefes` corre `organigrama:sincronizar-jefes` (cada cambio en la bitácora). La red diaria de las 05:30 lo repite.
+
 ### Personal de sucursal: nunca Dirección Comercial (regla del dueño, 2026-10-21)
 
 Para cualquier puesto **de sucursal** (Gestor, Gestor Volante, Subgerente, Gerente de Sucursal, Coordinadora de Sucursal…) el jefe — y por lo tanto el «Responsable de aprobaciones» — es, en este orden:
 
-1. quien ocupa (o cubre temporalmente) el puesto superior en **su** sucursal (Gestor → Subgerente → Gerente de Sucursal; el catálogo dice Gestor → Subgerente y se respeta);
+1. quien ocupa (o cubre temporalmente) el puesto superior en **su** sucursal, aplicando la regla de **apoyo** (abajo): Gestor → Gerente de Sucursal; con la gerencia vacante, el Subgerente;
 2. el Gerente Regional (titular o cobertura; también responde el Subgerente Regional en aprobaciones);
 3. la **regional de respaldo** (`App\Services\Organigrama\RegionalRespaldoService`, `config/organigrama.php` → `regional_respaldo`): la persona fijada en `ORGANIGRAMA_REGIONAL_RESPALDO` (id o número de empleado) o, si no hay, el primer titular vigente (por id) de un puesto regional — los ligados a una región de la matriz más «Gerente Regional Q1/Q3», «Gerente regional», «Regional de Operaciones» — y después quien cubra una plaza regional. Con una sola regional en la empresa siempre es ella;
 4. si no existe **ningún** regional: `jefe_id` = null, «SIN JEFE ASIGNABLE» en `explicar-jefe` y en `sincronizar-jefes`, y un pendiente «Sin jefe asignable en el organigrama» en la bandeja de RH (`organigrama.editar`, se cierra solo al resolverse).

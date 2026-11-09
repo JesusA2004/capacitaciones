@@ -27,7 +27,7 @@ class SucursalDetalleService
     {
         $gerente = Colaborador::query()
             ->where('sucursal_principal_id', $sucursal->id)
-            ->where('estatus', EstadoUsuario::Activo->value)
+            ->whereIn('estatus', EstadoUsuario::valoresVigentes())
             ->whereHas('puesto', fn ($q) => $q->where('nombre', self::PUESTO_GERENTE))
             ->orderBy('fecha_ingreso')
             ->first();
@@ -45,7 +45,8 @@ class SucursalDetalleService
     }
 
     /**
-     * Colaboradores activos por departamento (para la gráfica de dona).
+     * Colaboradores vigentes (activos + en incorporación, como el headcount)
+     * por departamento (para la gráfica de dona).
      *
      * @return list<array{etiqueta: string, valor: int}>
      */
@@ -55,7 +56,7 @@ class SucursalDetalleService
 
         $colaboradores = Colaborador::query()
             ->where('sucursal_principal_id', $sucursal->id)
-            ->where('estatus', EstadoUsuario::Activo->value)
+            ->whereIn('estatus', EstadoUsuario::valoresVigentes())
             ->with('departamento:id,nombre')
             ->get(['id', 'departamento_id']);
 

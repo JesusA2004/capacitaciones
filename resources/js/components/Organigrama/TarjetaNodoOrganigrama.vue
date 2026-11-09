@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MapPin, Shuffle, UserCheck, UserRound } from '@lucide/vue';
+import { MapPin, Shuffle, UserCheck, UserPlus, UserRound } from '@lucide/vue';
 import { computed } from 'vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import { ESTILO_SIN_TIPO, ESTILO_TIPO_PUESTO } from '@/lib/organigrama';
@@ -9,7 +9,10 @@ import type { NodoOrganigramaPersona, RegionOrganigrama } from '@/types';
 /**
  * Tarjeta de un nodo del organigrama editable: persona (foto/iniciales,
  * nombre, puesto, sucursal, chip Q1/Q3), plaza VACANTE (punteada) o plaza
- * vacante que alguien «Cubre temporalmente». Tamaño fijo: lo acomoda
+ * vacante que alguien «Cubre temporalmente». Chips: «Inducción» / «En
+ * incorporación» (ya ocupa la plaza), «Por ingresar: X» (candidato autorizado
+ * por RH sin colaborador) y «Apoyo» (Subgerente: no es jefe directo mientras
+ * su superior esté). Tamaño fijo: lo acomoda
  * lib/organigramaLayout (así todo queda alineado por nivel).
  */
 const props = defineProps<{
@@ -38,10 +41,26 @@ const esRaiz = computed(
     () => props.raiz && !esVacante.value && !esCobertura.value,
 );
 const lugar = computed(() => lugarDeNodo(props.nodo));
+const porIngresar = computed(() =>
+    esVacante.value && props.nodo.por_ingresar?.length
+        ? props.nodo.por_ingresar.map((c) => c.nombre).join(', ')
+        : null,
+);
+/** Plaza de empresa que la persona también ocupa (sin vacante) o cobertura temporal. */
+const ocupaPlaza = computed(
+    () => esCobertura.value && props.nodo.cobertura?.ocupa_plaza === true,
+);
+const etiquetaCobertura = computed(() =>
+    ocupaPlaza.value ? 'También ocupa este puesto' : 'Cubre temporalmente',
+);
 const titulo = computed(() =>
-    esVacante.value || esCobertura.value
-        ? 'Vacante'
-        : (props.nodo.persona?.nombre ?? 'Vacante'),
+    porIngresar.value
+        ? 'Por ingresar'
+        : ocupaPlaza.value
+          ? (props.nodo.persona?.nombre ?? 'Vacante')
+          : esVacante.value || esCobertura.value
+            ? 'Vacante'
+            : (props.nodo.persona?.nombre ?? 'Vacante'),
 );
 </script>
 
@@ -105,9 +124,21 @@ const titulo = computed(() =>
                     v-if="esCobertura && nodo.persona"
                     class="truncate text-[11px] font-medium text-primary"
                 >
-                    Cubre temporalmente: {{ nodo.persona.nombre }}
+                    {{ etiquetaCobertura }}: {{ nodo.persona.nombre }}
+                </p>
+                <p
+                    v-if="porIngresar"
+                    class="truncate text-[11px] font-medium text-info"
+                >
+                    {{ porIngresar }}
                 </p>
             </div>
+            <span
+                v-if="nodo.incorporacion && !esCobertura"
+                class="shrink-0 rounded-full border border-info/30 bg-info-soft px-1.5 py-0.5 text-[10px] font-semibold text-info"
+                :title="`En incorporación: ${nodo.incorporacion}`"
+                >{{ nodo.incorporacion }}</span
+            >
         </div>
 
         <!-- Completa -->
@@ -162,9 +193,21 @@ const titulo = computed(() =>
             >
                 <Shuffle class="size-3.5 shrink-0" />
                 <span class="truncate"
-                    >Cubre temporalmente:
+                    >{{ etiquetaCobertura }}:
                     <strong class="font-semibold">{{
                         nodo.persona.nombre
+                    }}</strong></span
+                >
+            </div>
+
+            <div
+                v-if="porIngresar"
+                class="flex min-w-0 items-center gap-1.5 rounded-lg border border-dashed border-info/40 bg-info-soft px-2 py-1 text-[11px] text-info"
+            >
+                <UserPlus class="size-3.5 shrink-0" />
+                <span class="truncate"
+                    ><strong class="font-semibold">{{
+                        porIngresar
                     }}</strong></span
                 >
             </div>
@@ -184,6 +227,20 @@ const titulo = computed(() =>
                 </span>
 
                 <span class="ml-auto flex shrink-0 items-center gap-1">
+                    <span
+                        v-if="nodo.incorporacion && !esCobertura"
+                        class="inline-flex max-w-28 items-center rounded-full border border-info/30 bg-info-soft px-1.5 py-0.5 text-[10px] font-semibold text-info"
+                        :title="`En incorporación: ${nodo.incorporacion}`"
+                        ><span class="truncate">{{
+                            nodo.incorporacion
+                        }}</span></span
+                    >
+                    <span
+                        v-if="nodo.apoyo && !esVacante"
+                        class="inline-flex items-center rounded-full border border-dashed border-oro/60 bg-crema px-1.5 py-0.5 text-[10px] font-semibold text-bronce"
+                        title="Puesto de apoyo: no es jefe directo mientras su superior tenga titular o cobertura"
+                        >Apoyo</span
+                    >
                     <!-- Responsable de aprobación explícito (≠ reporte
                          organizacional): «aprueba sus solicitudes». -->
                     <span

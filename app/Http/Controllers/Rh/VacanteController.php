@@ -110,11 +110,12 @@ class VacanteController extends Controller
     {
         $filas = $this->vacantes->filas($this->vacantes->consulta($request->user(), $this->filtros($request))->get());
 
-        $columnas = ['Puesto', 'Sucursal', 'Estado', 'Plazas por cubrir', 'Abierta desde', 'Días abierta', 'Candidatos activos', 'Plantilla autorizada', 'Plantilla actual', 'Origen'];
+        $columnas = ['Puesto', 'Área / departamento', 'Ubicación', 'Estado', 'Plazas por cubrir', 'Abierta desde', 'Días abierta', 'Candidatos activos', 'Plantilla autorizada', 'Plantilla actual', 'Origen'];
 
         $tabla = array_map(fn (array $f) => [
-            $f['puesto'],
-            $f['sucursal'],
+            $f['puesto_nota'] !== null ? sprintf('%s (%s)', $f['puesto'], $f['puesto_nota']) : $f['puesto'],
+            $f['departamento'] ?? 'Sin área',
+            $f['sucursal'] ?? 'Sin sucursal',
             $f['estado_etiqueta'],
             $f['plazas_disponibles'],
             $f['fecha_apertura'],

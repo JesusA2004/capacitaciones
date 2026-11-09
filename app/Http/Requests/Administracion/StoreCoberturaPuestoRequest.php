@@ -36,6 +36,10 @@ class StoreCoberturaPuestoRequest extends FormRequest
             'motivo' => ['nullable', Rule::enum(MotivoCobertura::class)],
             'nota' => ['nullable', 'string', 'max:500'],
             'fecha_inicio' => ['nullable', 'date'],
+            // Decisión de RH en cada caso: true = «Ocupa ambos puestos (sin
+            // vacante)»; false = «Cubre mientras se contrata (con vacante)».
+            // Sin dato: puesto de empresa ocupa, de sucursal no.
+            'ocupa_plaza' => ['nullable', 'boolean'],
         ];
     }
 

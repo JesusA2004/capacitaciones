@@ -63,6 +63,7 @@ class ExplicarJefeDirectoCommand extends Command
                     'persona' => $paso['persona'],
                     'cobertura' => sprintf('%s (cubre temporalmente)', $paso['persona']),
                     'respaldo' => sprintf('%s (regional de respaldo)', $paso['persona']),
+                    'apoyo' => sprintf('%s (apoyo: suple la plaza vacante)', $paso['persona']),
                     default => 'VACANTE',
                 },
                 implode(' · ', array_filter([

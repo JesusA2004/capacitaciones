@@ -11,6 +11,8 @@ use App\Models\Departamento;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Headcount\PlantillaPuestoService;
+use App\Services\Organigrama\PuestosSinUbicarService;
 use App\Services\Puestos\EliminacionPuestoService;
 use App\Services\Puestos\FichaPuestoService;
 use App\Services\Puestos\MovimientoPuestoService;
@@ -35,6 +37,8 @@ class PuestoController extends Controller
         private readonly PosicionSalarialService $posiciones,
         private readonly AuditoriaService $auditoria,
         private readonly EliminacionPuestoService $eliminacion,
+        private readonly PlantillaPuestoService $plantilla,
+        private readonly PuestosSinUbicarService $sinUbicar,
     ) {}
 
     public function index(Request $request): Response
@@ -57,8 +61,13 @@ class PuestoController extends Controller
             ->orderByDesc('activo')
             ->orderBy('nombre')
             ->paginate(Paginacion::porPagina())
-            ->withQueryString()
-            ->through(function (Puesto $puesto) use ($tabulador, $verSalarios): array {
+            ->withQueryString();
+
+        // Plazas autorizadas / vacantes de los puestos de esta página (Headcount).
+        $plazas = $this->plantilla->resumenPorPuestos($puestos->getCollection()->pluck('id')->map(fn ($id) => (int) $id));
+
+        $puestos = $puestos
+            ->through(function (Puesto $puesto) use ($tabulador, $verSalarios, $plazas): array {
                 /** @var array<string, mixed>|null $renglon */
                 $renglon = $tabulador->get($puesto->id);
 
@@ -71,6 +80,7 @@ class PuestoController extends Controller
                     'activo' => $puesto->activo,
                     'colaboradores_count' => (int) $puesto->getAttribute('colaboradores_count'),
                     'meses_periodo_prueba' => $puesto->meses_periodo_prueba,
+                    'plazas' => $plazas[$puesto->id] ?? ['autorizadas' => 0, 'ocupadas' => 0, 'vacantes' => 0],
                     'tabulador' => $verSalarios && $renglon !== null && $renglon['version'] !== null ? [
                         'minimo' => $renglon['minimo'],
                         'medio' => $renglon['medio'],
@@ -139,7 +149,17 @@ class PuestoController extends Controller
             'versiones' => $verSalarios ? $this->ficha->versiones($puesto) : [],
             'sucursales' => Sucursal::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
             'departamentosDisponibles' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
+            // «Plantilla autorizada» por ubicación (Corporativo incluido); se
+            // captura con PlantillaPuestoController (solo headcount.editar).
+            'plantilla' => $this->plantilla->dePuesto($puesto),
+            // Si el puesto no cuelga de Dirección General, la ficha pide
+            // ubicarlo («¿debajo de quién va?») para que sus plazas y
+            // vacantes salgan en el organigrama.
+            'sinUbicar' => collect($this->sinUbicar->listar())->firstWhere('id', $puesto->id),
+            'abrirUbicacion' => $request->boolean('ubicar'),
             'puede' => [
+                'ubicar' => $usuario->can('editarJerarquia', $puesto),
+                'editar_plantilla' => $usuario->can('headcount.editar'),
                 'editar' => $usuario->can('update', $puesto),
                 'eliminar' => $usuario->can('delete', $puesto),
                 'mover' => $puedeMover,
@@ -180,8 +200,10 @@ class PuestoController extends Controller
     {
         $puesto = Puesto::create($request->validated());
 
-        return to_route('administracion.puestos.show', $puesto)
-            ->with('toast', ['type' => 'success', 'message' => 'Puesto creado. Ahora captura su tabulador y asigna a sus personas.']);
+        // Un puesto nuevo aún no tiene lugar en el árbol: la ficha abre de
+        // inmediato «¿Debajo de quién va?» (UbicacionPuestoService).
+        return to_route('administracion.puestos.show', ['puesto' => $puesto, 'ubicar' => 1])
+            ->with('toast', ['type' => 'success', 'message' => 'Puesto creado. Indica debajo de quién va en el organigrama y después captura sus plazas.']);
     }
 
     public function update(UpdatePuestoRequest $request, Puesto $puesto): RedirectResponse

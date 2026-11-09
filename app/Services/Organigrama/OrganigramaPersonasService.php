@@ -53,9 +53,13 @@ use Illuminate\Support\Collection;
  *     region: Referencia|null,
  *     persona: array{id: int, nombre: string, foto_url: string|null, numero_empleado: string|null, expediente_url: string, sucursal: string|null}|null,
  *     rutas: list<array{nombre: string, tipo: string}>,
- *     cobertura: array{id: int, motivo: string, motivo_etiqueta: string, desde: string, nota: string|null, titular_de?: string|null, registrada_por?: string|null, registrada_en?: string|null}|null,
- *     clasificacion?: Clasificacion|null
+ *     cobertura: array{id: int, motivo: string, motivo_etiqueta: string, desde: string, nota: string|null, titular_de?: string|null, registrada_por?: string|null, registrada_en?: string|null, ocupa_plaza?: bool}|null,
+ *     clasificacion?: Clasificacion|null,
+ *     apoyo?: bool,
+ *     incorporacion?: string|null,
+ *     por_ingresar?: list<array{id: int, nombre: string}>
  * }
+ * @phpstan-type PasoCadena array{clave: string, nota: string|null, sustituto?: bool}
  * @phpstan-type Clasificacion array{estado: 'clasificado'|'por_clasificar', region: Referencia|null, sugerida: Referencia|null, clasificada_por: string|null, clasificada_en: string|null}
  * @phpstan-type Simulacion array<int, array{puesto_id: int, sucursal_principal_id: int|null, region_id?: int|null}>
  * @phpstan-type Ambito array{tipo: 'sucursal'|'region'|'corporativo', sucursal: int|null, region: int|null}
@@ -113,6 +117,9 @@ class OrganigramaPersonasService
     /** @var array<string, NodoOrganigrama> */
     private array $nodos = [];
 
+    /** @var array<string, list<string>> plaza superior => nodos de apoyo con persona que cuelgan de ella */
+    private array $apoyosPorPadre = [];
+
     /**
      * Lado Q1/Q3 que RH clasificó por colaborador (clasificaciones_region):
      * colaborador_id => región. Solo cuenta para puestos clasificables
@@ -156,6 +163,7 @@ class OrganigramaPersonasService
         private readonly CoberturaPuestoService $coberturasService,
         private readonly MiniOrganigramaService $miniOrganigrama,
         private readonly RegionalRespaldoService $regionalRespaldo,
+        private readonly IncorporacionOrganigramaService $incorporacion,
     ) {}
 
     /**
@@ -169,8 +177,10 @@ class OrganigramaPersonasService
         $sucursalesVisibles = $this->sucursalesVisibles($usuario, $request);
         $raizPuestoId = $request->integer('raiz_puesto_id');
 
+        // Vigentes (activos + en incorporación), igual que el headcount: quien
+        // ya firmó contrato ocupa su plaza aunque siga en Inducción.
         $consulta = Colaborador::query()
-            ->where('estatus', 'activo')
+            ->whereIn('estatus', EstadoUsuario::valoresVigentes())
             ->whereNotNull('puesto_id')
             ->with('sucursalPrincipal:id,nombre')
             ->when($request->integer('empresa_id'), fn ($query, int $id) => $query->whereHas('sucursalPrincipal', fn ($s) => $s->where('empresa_id', $id)))
@@ -181,9 +191,10 @@ class OrganigramaPersonasService
             ->orderBy('apellidos');
 
         $colaboradores = $this->alcance->limitarColaboradoresPorAlcance($consulta, $usuario)
-            ->get(['id', 'name', 'apellidos', 'numero_empleado', 'foto_path', 'puesto_id', 'sucursal_principal_id', 'jefe_id']);
+            ->get(['id', 'name', 'apellidos', 'numero_empleado', 'foto_path', 'puesto_id', 'sucursal_principal_id', 'jefe_id', 'estatus']);
 
         $this->construirNodos($colaboradores, $sucursalesVisibles);
+        $this->anotarIncorporacion($colaboradores);
 
         // Sin filtro de sucursal/empresa, la estructura corporativa y
         // regional se ve completa: un puesto sin nadie aparece VACANTE (un
@@ -193,11 +204,94 @@ class OrganigramaPersonasService
             $this->agregarPuestosVacantes();
         }
 
+        $this->anotarPorIngresar();
+        $this->romperCiclos();
+
         if ($raizPuestoId !== 0) {
             return $this->recortarPorRaiz($raizPuestoId);
         }
 
         return array_values($this->nodos);
+    }
+
+    /**
+     * Chip de la tarjeta de quien está «en incorporación» (su fase del
+     * tablero de candidatos, p. ej. «Inducción»).
+     *
+     * @param  Collection<int, Colaborador>  $colaboradores
+     */
+    private function anotarIncorporacion(Collection $colaboradores): void
+    {
+        foreach ($this->incorporacion->fasesDe($colaboradores) as $id => $etiqueta) {
+            if (isset($this->nodos['p'.$id])) {
+                $this->nodos['p'.$id]['incorporacion'] = $etiqueta;
+            }
+        }
+    }
+
+    /**
+     * Plaza VACANTE con un candidato ya autorizado por RH y sin colaborador
+     * todavía: «Por ingresar: <nombre>». Un puesto de sucursal se empareja
+     * por (puesto, sucursal); uno corporativo o regional, solo por puesto.
+     */
+    private function anotarPorIngresar(): void
+    {
+        $porPlaza = [];
+
+        foreach ($this->incorporacion->porIngresar() as $candidato) {
+            $puesto = $this->puestos->get($candidato['puesto_id']);
+
+            if ($puesto === null) {
+                continue;
+            }
+
+            $llave = $this->esDeSucursal($puesto) ? sprintf('%d|%s', $puesto->id, $candidato['sucursal_id'] ?? '-') : sprintf('%d|-', $puesto->id);
+            $porPlaza[$llave][] = ['id' => $candidato['candidato_id'], 'nombre' => $candidato['nombre']];
+        }
+
+        if ($porPlaza === []) {
+            return;
+        }
+
+        foreach ($this->nodos as $clave => $nodo) {
+            if ($nodo['tipo'] === 'persona') {
+                continue;
+            }
+
+            $llave = sprintf('%d|%s', $nodo['puesto']['id'], $nodo['de_sucursal'] ? ($nodo['sucursal']['id'] ?? '-') : '-');
+
+            if (isset($porPlaza[$llave])) {
+                $this->nodos[$clave]['por_ingresar'] = $porPlaza[$llave];
+            }
+        }
+    }
+
+    /**
+     * Red de seguridad del dibujo: un nodo cuyo «padre» lo lleva de vuelta a
+     * sí mismo (p. ej. un puesto regional que la matriz comercial todavía
+     * liga a una región y se resuelve como su propio superior) nunca sería
+     * alcanzable desde una raíz y el frontend no lo pintaría. Se corta el
+     * ciclo dejándolo como raíz: se ve, aunque sea suelto.
+     */
+    private function romperCiclos(): void
+    {
+        foreach (array_keys($this->nodos) as $clave) {
+            $visitados = [$clave => true];
+            $actual = $this->nodos[$clave]['padre'];
+
+            while ($actual !== null && isset($this->nodos[$actual])) {
+                if (isset($visitados[$actual])) {
+                    // `$actual` está dentro del ciclo: se corta ahí (quien
+                    // cuelga de él lo sigue teniendo como superior).
+                    $this->nodos[$actual]['padre'] = null;
+
+                    break;
+                }
+
+                $visitados[$actual] = true;
+                $actual = $this->nodos[$actual]['padre'];
+            }
+        }
     }
 
     /**
@@ -242,13 +336,16 @@ class OrganigramaPersonasService
      *
      * `$simulacion` (vista previa de «Vas a mover a X…»): aplica en memoria,
      * sin guardar nada, otro puesto/sucursal/región a esas personas.
+     * `$superiores` (vista previa de «Ubicar / mover puesto»): otro «reporta
+     * a» para esos puestos, también solo en memoria.
      *
      * @param  Simulacion  $simulacion
+     * @param  array<int, int|null>  $superiores  puesto_id => nuevo puesto_superior_id
      * @return array<int, int|null> colaborador_id => jefe colaborador_id
      */
-    public function jefesDerivados(array $simulacion = []): array
+    public function jefesDerivados(array $simulacion = [], array $superiores = []): array
     {
-        $colaboradores = $this->construirEstructuraCompleta($simulacion);
+        $colaboradores = $this->construirEstructuraCompleta($simulacion, $superiores);
 
         $jefes = [];
         $this->sinJefeAsignable = [];
@@ -293,7 +390,7 @@ class OrganigramaPersonasService
             return ['jefe_id' => null, 'descartado' => null, 'respaldo' => false, 'sin_jefe_asignable' => false];
         }
 
-        $clave = $this->claveDePersonaArriba($nodo['padre'], $colaboradorId);
+        $clave = $this->cadenaDeJefe($nodo['padre'], $colaboradorId, $nodo['puesto']['id'])['jefe'];
         $arriba = $clave !== null ? $this->nodos[$clave] : null;
 
         if (! $nodo['de_sucursal'] || ($arriba !== null && ! isset($this->puestosTope()[$arriba['puesto']['id']]))) {
@@ -380,30 +477,20 @@ class OrganigramaPersonasService
 
         $resolucion = $this->resolverJefe($colaboradorId);
         $pasos = [];
-        $visitados = [];
-        $clave = $nodo['padre'];
 
-        while ($clave !== null && ! isset($visitados[$clave]) && isset($this->nodos[$clave])) {
-            $visitados[$clave] = true;
+        foreach ($this->cadenaDeJefe($nodo['padre'], $colaboradorId, $nodo['puesto']['id'])['pasos'] as $paso) {
+            $clave = $paso['clave'];
             $actual = $this->nodos[$clave];
-            $personaId = $actual['persona']['id'] ?? null;
-            $esJefe = $personaId !== null && $personaId !== $colaboradorId;
 
             $pasos[] = [
-                'tipo' => $actual['tipo'],
+                'tipo' => ($paso['sustituto'] ?? false) ? 'apoyo' : $actual['tipo'],
                 'puesto' => $actual['puesto']['nombre'],
                 'ambito' => $actual['region']['nombre'] ?? ($actual['de_sucursal'] ? $actual['sucursal']['nombre'] ?? null : null) ?? 'Corporativo',
-                'persona_id' => $personaId,
+                'persona_id' => $actual['persona']['id'] ?? null,
                 'persona' => $actual['persona']['nombre'] ?? null,
                 'no_vigentes' => $actual['tipo'] === 'vacante' ? $this->ocupantesNoVigentes($actual) : [],
-                'nota' => $clave === $resolucion['descartado'] ? 'No aplica: el personal de sucursal nunca reporta a Dirección Comercial' : null,
+                'nota' => $clave === $resolucion['descartado'] ? 'No aplica: el personal de sucursal nunca reporta a Dirección Comercial' : $paso['nota'],
             ];
-
-            if ($esJefe) {
-                break;
-            }
-
-            $clave = $actual['padre'];
         }
 
         if ($resolucion['respaldo'] && $resolucion['jefe_id'] !== null) {
@@ -513,11 +600,17 @@ class OrganigramaPersonasService
 
     /**
      * @param  Simulacion  $simulacion
+     * @param  array<int, int|null>  $superiores
      * @return Collection<int, Colaborador>
      */
-    private function construirEstructuraCompleta(array $simulacion): Collection
+    private function construirEstructuraCompleta(array $simulacion, array $superiores = []): Collection
     {
         $this->prepararCatalogos();
+
+        foreach ($superiores as $puestoId => $superiorId) {
+            // Solo en memoria: nunca se guarda (vista previa).
+            $this->puestos->get($puestoId)?->setAttribute('puesto_superior_id', $superiorId);
+        }
 
         $colaboradores = Colaborador::query()
             ->whereIn('estatus', EstadoUsuario::valoresVigentes())
@@ -551,29 +644,6 @@ class OrganigramaPersonasService
         $this->construirNodos($colaboradores, $sucursales);
 
         return $colaboradores;
-    }
-
-    /**
-     * Clave del nodo de la primera persona real (titular o quien cubre)
-     * subiendo desde `$clave`.
-     */
-    private function claveDePersonaArriba(?string $clave, int $excluirId): ?string
-    {
-        $visitados = [];
-
-        while ($clave !== null && ! isset($visitados[$clave]) && isset($this->nodos[$clave])) {
-            $visitados[$clave] = true;
-            $nodo = $this->nodos[$clave];
-            $personaId = $nodo['persona']['id'] ?? null;
-
-            if ($personaId !== null && $personaId !== $excluirId) {
-                return $clave;
-            }
-
-            $clave = $nodo['padre'];
-        }
-
-        return null;
     }
 
     /** Catálogos para las consultas sueltas (una sola carga por instancia). */
@@ -730,6 +800,96 @@ class OrganigramaPersonasService
 
         $this->agregarSucursalesSinPersonal($sucursalesVisibles);
         $this->agregarCoberturasRestantes();
+        $this->anotarApoyo();
+    }
+
+    /**
+     * Marca los nodos de puestos de APOYO (config organigrama.puestos_apoyo)
+     * y arma, por plaza superior, la lista de apoyos con persona que pueden
+     * suplirla cuando está vacante.
+     */
+    private function anotarApoyo(): void
+    {
+        $this->apoyosPorPadre = [];
+
+        foreach ($this->nodos as $clave => $nodo) {
+            $puesto = $this->puestos->get($nodo['puesto']['id']);
+            $esApoyo = $puesto !== null && $this->esApoyo($puesto);
+            $this->nodos[$clave]['apoyo'] = $esApoyo;
+
+            if ($esApoyo && $nodo['persona'] !== null && $nodo['padre'] !== null) {
+                $this->apoyosPorPadre[$nodo['padre']][] = $clave;
+            }
+        }
+    }
+
+    private function esApoyo(Puesto $puesto): bool
+    {
+        /** @var list<string> $apoyo */
+        $apoyo = (array) config('organigrama.puestos_apoyo', []);
+
+        return $this->nombreEnLista($puesto->nombre, $apoyo);
+    }
+
+    /**
+     * Cadena del jefe directo desde `$clave` hacia arriba (regla de apoyo,
+     * 2026-11-09):
+     *  - la primera persona (titular o cobertura) que no sea quien pregunta;
+     *  - salvo que sea un APOYO (Subgerente, Subgerente Regional) cuya plaza
+     *    superior está ocupada: se omite y se sigue subiendo;
+     *  - en una plaza VACANTE, si de ella cuelga un apoyo con persona, ese
+     *    apoyo la suple (gerencia vacante → Subgerente; Gerencia Regional
+     *    vacante → Subgerente Regional). Nunca un apoyo del mismo puesto que
+     *    quien pregunta (`$puestoPropio`): un subgerente no es jefe de otro.
+     *
+     * @return array{jefe: string|null, pasos: list<PasoCadena>}
+     */
+    private function cadenaDeJefe(?string $clave, int $excluirId, ?int $puestoPropio = null): array
+    {
+        $pasos = [];
+        $visitados = [];
+
+        while ($clave !== null && ! isset($visitados[$clave]) && isset($this->nodos[$clave])) {
+            $visitados[$clave] = true;
+            $nodo = $this->nodos[$clave];
+            $personaId = $nodo['persona']['id'] ?? null;
+
+            if ($personaId !== null && $personaId !== $excluirId) {
+                $superior = $nodo['padre'] !== null ? ($this->nodos[$nodo['padre']] ?? null) : null;
+                $personaSuperior = $superior['persona']['id'] ?? null;
+
+                if (($nodo['apoyo'] ?? false) && $superior !== null && $personaSuperior !== null && $personaSuperior !== $excluirId) {
+                    $pasos[] = ['clave' => $clave, 'nota' => sprintf('%s: apoyo, se omite porque hay %s', $nodo['puesto']['nombre'], $superior['puesto']['nombre'])];
+                    $clave = $nodo['padre'];
+
+                    continue;
+                }
+
+                $pasos[] = ['clave' => $clave, 'nota' => null];
+
+                return ['jefe' => $clave, 'pasos' => $pasos];
+            }
+
+            $pasos[] = ['clave' => $clave, 'nota' => null];
+
+            if ($personaId === null) {
+                foreach ($this->apoyosPorPadre[$clave] ?? [] as $apoyo) {
+                    $idApoyo = $this->nodos[$apoyo]['persona']['id'] ?? null;
+
+                    // Nunca un par: un subgerente no suple la gerencia
+                    // vacante para otro subgerente (mismo puesto, ambos apoyo).
+                    if ($idApoyo !== null && $idApoyo !== $excluirId && $this->nodos[$apoyo]['puesto']['id'] !== $puestoPropio) {
+                        $pasos[] = ['clave' => $apoyo, 'nota' => sprintf('%s: apoyo, suple a %s (vacante)', $this->nodos[$apoyo]['puesto']['nombre'], $nodo['puesto']['nombre']), 'sustituto' => true];
+
+                        return ['jefe' => $apoyo, 'pasos' => $pasos];
+                    }
+                }
+            }
+
+            $clave = $nodo['padre'];
+        }
+
+        return ['jefe' => null, 'pasos' => $pasos];
     }
 
     /**
@@ -751,13 +911,10 @@ class OrganigramaPersonasService
                 continue;
             }
 
+            // Un puesto «de región» sin región propia ligada se pinta como
+            // plaza corporativa (antes se omitía y la plaza desaparecía del
+            // árbol General).
             $region = $this->regionDePuesto[$puesto->id] ?? null;
-
-            // Genérico de región sin región propia ligada (puesto anterior):
-            // no hay en qué región pintarlo.
-            if ($region === null && $this->esDeRegion($puesto)) {
-                continue;
-            }
 
             // resolverPadre() crea la tarjeta VACANTE (o la de quien lo
             // cubre) del propio puesto y la cuelga de su superior.
@@ -777,7 +934,7 @@ class OrganigramaPersonasService
     {
         $fotosVisibles = $this->fotosVisiblesPara($usuario);
         $consulta = Colaborador::query()
-            ->where('estatus', 'activo')
+            ->whereIn('estatus', EstadoUsuario::valoresVigentes())
             ->whereNotNull('puesto_id')
             ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre'])
             ->orderBy('name')
@@ -816,6 +973,14 @@ class OrganigramaPersonasService
 
         // Quien reporta a "un gerente regional" reporta al de SU región.
         $puestoId = $this->puestoRegionalPara($puestoId, $regionId ?? ($this->regionDe($sucursalId)['id'] ?? null));
+
+        // El cambio al puesto regional de la región puede regresar a un
+        // puesto ya recorrido (p. ej. un puesto que la matriz aún liga a una
+        // región y que se resolvería como su propio superior): sin esto la
+        // tarjeta quedaba colgando de sí misma y no se dibujaba.
+        if (in_array($puestoId, $visitados, true)) {
+            return null;
+        }
 
         $puesto = $this->puestos->get($puestoId);
 
@@ -907,6 +1072,9 @@ class OrganigramaPersonasService
                 // Auditable: quién la marcó y cuándo.
                 'registrada_por' => $cobertura->registradaPor?->name,
                 'registrada_en' => $cobertura->created_at?->toIso8601String(),
+                // true = también ocupa este puesto (plaza de empresa, sin
+                // vacante); false = lo cubre mientras se contrata.
+                'ocupa_plaza' => (bool) $cobertura->ocupa_plaza,
             ],
             'clasificacion' => null,
         ];

@@ -30,6 +30,20 @@ return [
     'puestos_regionales' => ['Gerente Regional', 'Subgerente Regional'],
 
     /*
+    | Puestos de APOYO (regla de la dueña del negocio, 2026-11-09): el
+    | Subgerente de Sucursal y el Subgerente Regional apoyan a su superior;
+    | nunca son jefe directo mientras ese superior tenga titular o cobertura.
+    | Al derivar el jefe (OrganigramaPersonasService::jefesDerivados):
+    |  - un apoyo en la cadena se OMITE si su propia plaza superior está
+    |    ocupada (Gestor → Gerente de Sucursal, no Subgerente);
+    |  - si esa plaza superior está vacante, el apoyo la suple (Gestor con la
+    |    gerencia vacante → Subgerente; Gerente de Sucursal con la Gerencia
+    |    Regional vacante → Subgerente Regional).
+    | Se comparan sin acentos ni mayúsculas, como el resto de este archivo.
+    */
+    'puestos_apoyo' => ['Subgerente', 'Subgerente de Sucursal', 'Subgerente Regional'],
+
+    /*
     | Línea comercial, de mayor a menor (App\Services\Organigrama\AutoridadJerarquicaService).
     | Se modifica o reabre lo hecho por un puesto inferior; nunca lo de uno igual o
     | superior. Q1/Q3 siguen aquí solo mientras alguien ocupe esos puestos anteriores.

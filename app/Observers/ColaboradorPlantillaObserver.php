@@ -2,7 +2,9 @@
 
 namespace App\Observers;
 
+use App\Models\CoberturaPuesto;
 use App\Models\Colaborador;
+use App\Services\Headcount\PuestosPlantillaService;
 use App\Services\Vacantes\VacanteAutoGenerationService;
 use Illuminate\Support\Facades\DB;
 
@@ -22,7 +24,10 @@ class ColaboradorPlantillaObserver
 {
     private const CAMPOS = ['estatus', 'puesto_id', 'sucursal_principal_id'];
 
-    public function __construct(private readonly VacanteAutoGenerationService $vacantes) {}
+    public function __construct(
+        private readonly VacanteAutoGenerationService $vacantes,
+        private readonly PuestosPlantillaService $puestos,
+    ) {}
 
     public function saved(Colaborador $colaborador): void
     {
@@ -40,6 +45,19 @@ class ColaboradorPlantillaObserver
             // getPrevious(): valores antes de ESTE guardado (par de origen).
             $antes = $colaborador->getPrevious();
             $pares[] = [$antes['sucursal_principal_id'] ?? $colaborador->sucursal_principal_id, $antes['puesto_id'] ?? $colaborador->puesto_id];
+        }
+
+        // Si «ocupa ambos puestos», su baja o reactivación también mueve la
+        // segunda plaza que ocupa por cobertura.
+        if ($colaborador->wasChanged('estatus')) {
+            CoberturaPuesto::query()
+                ->where('colaborador_id', $colaborador->id)
+                ->where('activa', true)
+                ->where('ocupa_plaza', true)
+                ->get(['puesto_id', 'sucursal_id'])
+                ->each(function (CoberturaPuesto $cobertura) use (&$pares): void {
+                    $pares[] = [$this->puestos->sucursalDeCobertura($cobertura->puesto_id, $cobertura->sucursal_id), $cobertura->puesto_id];
+                });
         }
 
         $this->sincronizar($pares);

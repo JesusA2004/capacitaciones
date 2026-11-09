@@ -48,7 +48,8 @@ test('el jefe directo sale del organigrama: superior de su sucursal y, si está 
         ->and($gerenteNorte->fresh()->jefe_id)->toBe($dir->id)
         ->and($gerenteSur->fresh()->jefe_id)->toBe($dir->id)
         ->and($subNorte->fresh()->jefe_id)->toBe($gerenteNorte->id)
-        ->and($gestorNorte->fresh()->jefe_id)->toBe($subNorte->id)
+        // El subgerente es apoyo (organigrama.puestos_apoyo): con gerente, el gestor le reporta al gerente.
+        ->and($gestorNorte->fresh()->jefe_id)->toBe($gerenteNorte->id)
         ->and($gestorSur->fresh()->jefe_id)->toBe($gerenteSur->id)
         ->and($resultado['sin_jefe'])->toBe(1);
 
@@ -65,7 +66,7 @@ test('al cambiar a alguien de puesto desde su expediente, su jefe se recalcula s
     $subNorte = personaJefe('Sub Norte', $this->subgerente, $this->norte);
     $persona = personaJefe('Promovida', $this->gestor, $this->norte);
     app(JefeDirectoService::class)->sincronizar();
-    expect($persona->fresh()->jefe_id)->toBe($subNorte->id);
+    expect($persona->fresh()->jefe_id)->toBe($gerenteNorte->id);
 
     // Sube a subgerente: ahora reporta al gerente.
     $this->actingAs($rh)

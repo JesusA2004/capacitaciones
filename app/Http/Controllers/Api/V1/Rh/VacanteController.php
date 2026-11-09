@@ -29,26 +29,30 @@ class VacanteController extends Controller
         $query = $this->vacantes->consulta($usuario, [
             'estado' => $request->string('estado')->toString() ?: null,
             'sucursal_id' => $request->integer('sucursal_id') ?: null,
+            'departamento_id' => $request->integer('departamento_id') ?: null,
             'busqueda' => $request->string('busqueda')->toString() ?: null,
         ]);
 
         $vacantes = $query->reorder()->orderByDesc('fecha_apertura')->paginate((int) $request->integer('per_page', 15))->withQueryString();
-        // Plazas de una automática = faltante real en vivo (misma regla que la web).
-        $plazas = $this->vacantes->plazasReales(new EloquentCollection($vacantes->items()));
+        // Mismas filas que la web: plazas de una automática = faltante real en
+        // vivo, puesto como «Gestor fijo» / «Gestor volante» y su área.
+        $filas = collect($this->vacantes->filas(new EloquentCollection($vacantes->items())))->keyBy('id');
 
         return response()->json([
             'data' => collect($vacantes->items())->map(fn (Vacante $v) => [
                 'id' => $v->id,
-                'puesto' => $v->puesto?->nombre,
-                'departamento' => $v->departamento?->nombre,
+                'puesto' => $filas[$v->id]['puesto'] ?? $v->puesto?->nombre,
+                'puesto_nota' => $filas[$v->id]['puesto_nota'] ?? null,
+                'departamento' => $filas[$v->id]['departamento'] ?? $v->departamento?->nombre,
                 'sucursal' => $v->sucursal?->nombre,
+                'es_corporativo' => (bool) ($filas[$v->id]['es_corporativo'] ?? false),
                 'motivo' => $v->motivo->etiqueta(),
                 'estado' => $v->estado->value,
                 'estado_etiqueta' => $v->estado->etiqueta(),
                 'fecha_apertura' => $v->fecha_apertura->toDateString(),
                 'plazas_requeridas' => $v->plazas_requeridas,
                 'plazas_cubiertas' => $v->plazas_cubiertas,
-                'plazas_disponibles' => $plazas[$v->id] ?? $v->plazas_disponibles,
+                'plazas_disponibles' => $filas[$v->id]['plazas_disponibles'] ?? $v->plazas_disponibles,
                 'generada_automaticamente' => $v->generada_automaticamente,
                 'candidatos_count' => $v->candidatos_count,
             ])->values(),

@@ -78,7 +78,7 @@ test('un gestor de una sucursal con gerente (sin subgerente) reporta a SU gerent
     expect($resumen['jefe_organizacional']['id'] ?? null)->toBe($gerenteSlp->id);
 });
 
-test('con subgerente en la sucursal, el gestor reporta al subgerente y este al gerente', function () {
+test('con subgerente en la sucursal, el gestor reporta al gerente (el subgerente es apoyo) y el subgerente también', function () {
     personaSucursal('Regional Uno', $this->regionalQ1, $this->cuernavaca);
     $gerenteSlp = personaSucursal('Gerente SLP', $this->gerente, $this->slp);
     $subSlp = personaSucursal('Sub SLP', $this->subgerente, $this->slp);
@@ -86,7 +86,7 @@ test('con subgerente en la sucursal, el gestor reporta al subgerente y este al g
 
     app(JefeDirectoService::class)->sincronizar();
 
-    expect($gestor->fresh()->jefe_id)->toBe($subSlp->id)
+    expect($gestor->fresh()->jefe_id)->toBe($gerenteSlp->id)
         ->and($subSlp->fresh()->jefe_id)->toBe($gerenteSlp->id);
 });
 

@@ -128,7 +128,9 @@ export function contarRama(
 
 /**
  * Persona a la que reporta (primer titular o quien cubre, subiendo por la
- * cadena) — mismo criterio que OrganigramaPersonasService::personaArriba().
+ * cadena; un apoyo se omite si su superior está ocupado y suple a su
+ * superior vacante) — mismo criterio que
+ * OrganigramaPersonasService::cadenaDeJefe(). Solo para mostrar.
  */
 export function jefeVisible(
     nodo: NodoOrganigramaPersona,
@@ -136,12 +138,37 @@ export function jefeVisible(
 ): NodoOrganigramaPersona | null {
     let actual = nodo.padre ? porClave.get(nodo.padre) : undefined;
     const vistos = new Set<string>();
+    const propio = nodo.persona?.id;
+    const conPersona = (n: NodoOrganigramaPersona | undefined): boolean =>
+        Boolean(n?.persona && n.persona.id !== propio);
 
     while (actual && !vistos.has(actual.clave)) {
         vistos.add(actual.clave);
 
-        if (actual.persona && actual.persona.id !== nodo.persona?.id) {
-            return actual;
+        if (conPersona(actual)) {
+            // Apoyo (Subgerente, Subgerente Regional) con su superior
+            // ocupado: no es jefe directo, se sigue subiendo.
+            const superior = actual.padre
+                ? porClave.get(actual.padre)
+                : undefined;
+
+            if (!actual.apoyo || !conPersona(superior)) {
+                return actual;
+            }
+        } else if (!actual.persona) {
+            // Plaza vacante: la suple su apoyo, si tiene persona.
+            const clave = actual.clave;
+            const suplente = [...porClave.values()].find(
+                (n) =>
+                    n.padre === clave &&
+                    n.apoyo &&
+                    n.puesto.id !== nodo.puesto.id &&
+                    conPersona(n),
+            );
+
+            if (suplente) {
+                return suplente;
+            }
         }
 
         actual = actual.padre ? porClave.get(actual.padre) : undefined;

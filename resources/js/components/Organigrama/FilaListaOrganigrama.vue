@@ -88,7 +88,13 @@ const esPlaza = computed(() => props.nodo.tipo !== 'persona');
                 </span>
                 <span class="min-w-0 flex-1">
                     <span class="block truncate text-sm font-semibold">
-                        {{ esPlaza ? 'Vacante' : nodo.persona?.nombre }}
+                        {{
+                            nodo.tipo === 'vacante' && nodo.por_ingresar?.length
+                                ? 'Por ingresar'
+                                : esPlaza
+                                  ? 'Vacante'
+                                  : nodo.persona?.nombre
+                        }}
                     </span>
                     <span class="block truncate text-xs text-muted-foreground">
                         {{ nodo.puesto.nombre
@@ -97,14 +103,37 @@ const esPlaza = computed(() => props.nodo.tipo !== 'persona');
                         >
                     </span>
                     <span
+                        v-if="
+                            nodo.tipo === 'vacante' && nodo.por_ingresar?.length
+                        "
+                        class="block truncate text-xs font-medium text-info"
+                    >
+                        {{ nodo.por_ingresar.map((c) => c.nombre).join(', ') }}
+                    </span>
+                    <span
                         v-if="nodo.tipo === 'cobertura' && nodo.persona"
                         class="flex items-center gap-1 truncate text-xs font-medium text-primary"
                     >
-                        <Shuffle class="size-3" /> Cubre temporalmente:
+                        <Shuffle class="size-3" />
+                        {{
+                            nodo.cobertura?.ocupa_plaza
+                                ? 'También ocupa este puesto'
+                                : 'Cubre temporalmente'
+                        }}:
                         {{ nodo.persona.nombre }}
                     </span>
                 </span>
                 <span class="flex shrink-0 flex-col items-end gap-1">
+                    <span
+                        v-if="nodo.incorporacion && nodo.tipo === 'persona'"
+                        class="max-w-24 truncate rounded-full border border-info/30 bg-info-soft px-1.5 py-0.5 text-[10px] font-semibold text-info"
+                        >{{ nodo.incorporacion }}</span
+                    >
+                    <span
+                        v-if="nodo.apoyo && nodo.tipo !== 'vacante'"
+                        class="rounded-full border border-dashed border-oro/60 bg-crema px-1.5 py-0.5 text-[10px] font-semibold text-bronce"
+                        >Apoyo</span
+                    >
                     <span
                         v-if="propios.length"
                         class="text-[10px] text-muted-foreground tabular-nums"

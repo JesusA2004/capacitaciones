@@ -4,6 +4,7 @@ namespace App\Services\Vacantes;
 
 use App\Enums\EstadoCandidato;
 use App\Enums\EstadoVacante;
+use App\Models\Puesto;
 use App\Models\User;
 use App\Models\Vacante;
 use App\Services\AlcanceOrganizacionalService;
@@ -44,7 +45,7 @@ class VacantesListadoService
         $consulta = Vacante::query()
             // Con eliminados: el historial de una vacante cuyo puesto salió del
             // catálogo conserva su nombre, nunca «Puesto sin definir».
-            ->with(['sucursal:id,nombre', 'departamento:id,nombre', 'puesto' => fn ($q) => $q->withTrashed()->select(['id', 'nombre', 'deleted_at'])])
+            ->with(['sucursal:id,nombre,es_corporativo', 'departamento:id,nombre', 'puesto' => fn ($q) => $q->withTrashed()->select(['id', 'nombre', 'departamento_id', 'deleted_at'])->with('departamento:id,nombre')])
             ->withCount([
                 'candidatos',
                 'candidatos as candidatos_activos_count' => fn (Builder $q) => $q->whereIn('estado', $this->estadosCandidatoActivos()),
@@ -62,7 +63,13 @@ class VacantesListadoService
             )
             ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, int|string $id) => $q->where('sucursal_id', (int) $id))
             ->when($filtros['puesto_id'] ?? null, fn (Builder $q, int|string $id) => $q->where('puesto_id', (int) $id))
-            ->when($filtros['departamento_id'] ?? null, fn (Builder $q, int|string $id) => $q->where('departamento_id', (int) $id))
+            // Área / departamento: el de la vacante o, si no lo trae (las
+            // automáticas casi nunca), el del puesto (Auditora → Contraloría).
+            ->when($filtros['departamento_id'] ?? null, fn (Builder $q, int|string $id) => $q->where(fn (Builder $s) => $s
+                ->where('departamento_id', (int) $id)
+                ->orWhere(fn (Builder $sinArea) => $sinArea
+                    ->whereNull('departamento_id')
+                    ->whereIn('puesto_id', Puesto::withTrashed()->where('departamento_id', (int) $id)->select('id')))))
             ->when($filtros['empresa_id'] ?? null, fn (Builder $q, int|string $id) => $q->where('empresa_id', (int) $id))
             ->when($busqueda !== '', fn (Builder $q) => $q->where(fn (Builder $s) => $s
                 ->whereHas('puesto', fn (Builder $p) => $p->where('nombre', 'like', "%{$busqueda}%"))
@@ -102,7 +109,7 @@ class VacantesListadoService
      * qué sucursales. Sin costos: el costo vive en Campañas.
      *
      * @param  list<array<string, mixed>>  $filas
-     * @return array{vacantes: int, plazas: int, sucursales: int, por_puesto: list<array{puesto_id: int|null, puesto: string, plazas: int, sucursales: list<array{sucursal_id: int|null, sucursal: string, plazas: int}>}>}
+     * @return array{vacantes: int, plazas: int, sucursales: int, por_puesto: list<array{puesto_id: int|null, puesto: string, nota: string|null, area: string|null, plazas: int, sucursales: list<array{sucursal_id: int|null, sucursal: string, es_corporativo: bool, plazas: int}>}>}
      */
     public function resumen(array $filas): array
     {
@@ -119,6 +126,8 @@ class VacantesListadoService
             $porPuesto[$clavePuesto] ??= [
                 'puesto_id' => $puestoId,
                 'puesto' => is_string($fila['puesto'] ?? null) ? $fila['puesto'] : 'Puesto sin definir',
+                'nota' => is_string($fila['puesto_nota'] ?? null) ? $fila['puesto_nota'] : null,
+                'area' => is_string($fila['departamento'] ?? null) ? $fila['departamento'] : null,
                 'plazas' => 0,
                 'sucursales' => [],
             ];
@@ -126,6 +135,7 @@ class VacantesListadoService
             $porPuesto[$clavePuesto]['sucursales'][$claveSucursal] ??= [
                 'sucursal_id' => $sucursalId,
                 'sucursal' => is_string($fila['sucursal'] ?? null) ? $fila['sucursal'] : 'Sin sucursal',
+                'es_corporativo' => ($fila['es_corporativo'] ?? false) === true,
                 'plazas' => 0,
             ];
             $porPuesto[$clavePuesto]['sucursales'][$claveSucursal]['plazas'] += $plazas;
@@ -191,7 +201,7 @@ class VacantesListadoService
      * plantilla autorizada (sin plantilla, lo capturado).
      *
      * @param  Collection<string, int>  $autorizadas
-     * @param  Collection<non-falsy-string, int>  $actuales
+     * @param  Collection<string, int>  $actuales
      */
     private function plazasDe(Vacante $vacante, Collection $autorizadas, Collection $actuales): int
     {
@@ -220,7 +230,7 @@ class VacantesListadoService
      *
      * @param  EloquentCollection<int, Vacante>  $vacantes
      * @param  Collection<string, int>  $autorizadas
-     * @param  Collection<non-falsy-string, int>  $actuales
+     * @param  Collection<string, int>  $actuales
      * @return array<int, int> vacante_id => plazas (sin doble conteo por par)
      */
     private function plazasSinDuplicar(EloquentCollection $vacantes, Collection $autorizadas, Collection $actuales): array
@@ -343,7 +353,7 @@ class VacantesListadoService
 
     /**
      * @param  Collection<string, int>  $autorizadas
-     * @param  Collection<non-falsy-string, int>  $actuales
+     * @param  Collection<string, int>  $actuales
      * @return array<string, mixed>
      */
     private function fila(Vacante $vacante, Collection $autorizadas, Collection $actuales, int $plazas): array
@@ -357,15 +367,24 @@ class VacantesListadoService
         // (faltante real; una manual nunca más que eso) y, cuando coexisten
         // varias vacantes del mismo par, sin doble conteo del faltante (P2-9).
 
+        $etiqueta = $this->puestos->etiquetaVacante($vacante->puesto?->nombre);
+        $area = $vacante->departamento ?? $vacante->puesto?->departamento;
+
         return [
             'id' => $vacante->id,
             'puesto_id' => $vacante->puesto_id,
+            // «Gestor fijo» / «Gestor volante» (config/headcount.php); los demás, su nombre.
             'puesto' => $vacante->puesto !== null && $vacante->puesto->trashed()
                 ? sprintf('%s (puesto eliminado)', $vacante->puesto->nombre)
-                : $vacante->puesto?->nombre,
+                : $etiqueta,
+            'puesto_catalogo' => $vacante->puesto?->nombre,
+            'puesto_nota' => $this->puestos->notaVacante($vacante->puesto?->nombre),
             'sucursal_id' => $vacante->sucursal_id,
             'sucursal' => $vacante->sucursal?->nombre,
-            'departamento' => $vacante->departamento?->nombre,
+            'es_corporativo' => (bool) ($vacante->sucursal->es_corporativo ?? false),
+            // Área / departamento: el de la vacante o el de su puesto.
+            'departamento_id' => $area?->id,
+            'departamento' => $area?->nombre,
             'estado' => $vacante->estado->value,
             'estado_etiqueta' => $vacante->estado->etiqueta(),
             'motivo' => $vacante->motivo->etiqueta(),

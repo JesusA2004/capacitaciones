@@ -21,6 +21,8 @@ use Illuminate\Validation\ValidationException;
  * laborales» del expediente (DatosExpedienteService::actualizarLaborales →
  * snapshot → update → JefeDirectoService::sincronizar → movimientos
  * laborales). El jefe nuevo sale del organigrama, como siempre.
+ * El «Cambiar de puesto (traspaso)» (TraspasoPuestoService) reutiliza
+ * destino() y aplicarDestino().
  *
  * @phpstan-type Destino array{puesto_id: int, sucursal_id: int|null, region_id: int|null, departamento_id: int|null}
  * @phpstan-type OpcionPuesto array{id: int, nombre: string, ambito: string, clasificable: bool}
@@ -170,33 +172,7 @@ class MovimientoOrganigramaService
             default => 'se mueve',
         }, $de, $a);
 
-        DB::transaction(function () use ($colaborador, $destino, $actor, $motivo, $regionAntes): void {
-            // Lado Q1/Q3: solo existe para puestos clasificables; si deja de
-            // serlo, la clasificación anterior se retira (no queda colgando).
-            if ($destino['region_id'] !== $regionAntes) {
-                if ($destino['region_id'] === null) {
-                    ClasificacionRegion::query()->where('colaborador_id', $colaborador->id)->delete();
-                } else {
-                    ClasificacionRegion::query()->updateOrCreate(
-                        ['colaborador_id' => $colaborador->id],
-                        ['region_id' => $destino['region_id'], 'clasificada_por' => $actor->id],
-                    );
-                }
-            }
-
-            $cambios = [
-                'puesto_id' => $destino['puesto_id'],
-                'sucursal_principal_id' => $destino['sucursal_id'],
-                'motivo' => $motivo,
-            ];
-
-            if ($destino['departamento_id'] !== null) {
-                $cambios['departamento_id'] = $destino['departamento_id'];
-            }
-
-            // Misma puerta que «Datos laborales»: movimiento + jefe derivado.
-            $this->datosLaborales->actualizarLaborales($colaborador, $cambios, $actor, 'organigrama');
-        });
+        DB::transaction(fn () => $this->aplicarDestino($colaborador, $destino, $actor, $motivo, $regionAntes));
 
         activity('organigrama')
             ->performedOn($colaborador)
@@ -206,10 +182,72 @@ class MovimientoOrganigramaService
     }
 
     /**
+     * Núcleo compartido por Subir/Bajar/Mover bajo… y el Traspaso de puesto
+     * (TraspasoPuestoService): lado Q1/Q3 → plaza por la misma puerta que
+     * «Datos laborales» (movimiento laboral + jefe derivado). Debe llamarse
+     * dentro de una transacción.
+     *
+     * @param  Destino  $destino
+     */
+    public function aplicarDestino(Colaborador $colaborador, array $destino, User $actor, string $motivo, ?int $regionAntes): void
+    {
+        // Lado Q1/Q3: solo existe para puestos clasificables; si deja de
+        // serlo, la clasificación anterior se retira (no queda colgando).
+        if ($destino['region_id'] !== $regionAntes) {
+            if ($destino['region_id'] === null) {
+                ClasificacionRegion::query()->where('colaborador_id', $colaborador->id)->delete();
+            } else {
+                ClasificacionRegion::query()->updateOrCreate(
+                    ['colaborador_id' => $colaborador->id],
+                    ['region_id' => $destino['region_id'], 'clasificada_por' => $actor->id],
+                );
+            }
+        }
+
+        $cambios = [
+            'puesto_id' => $destino['puesto_id'],
+            'sucursal_principal_id' => $destino['sucursal_id'],
+            'motivo' => $motivo,
+        ];
+
+        if ($destino['departamento_id'] !== null) {
+            $cambios['departamento_id'] = $destino['departamento_id'];
+        }
+
+        // Misma puerta que «Datos laborales»: movimiento + jefe derivado.
+        $this->datosLaborales->actualizarLaborales($colaborador, $cambios, $actor, 'organigrama');
+    }
+
+    /**
+     * Destino validado de una persona. Con `$corporativoFijo` (Traspaso de
+     * puesto) un puesto corporativo queda SIEMPRE en el Corporativo (su
+     * plaza vive ahí); un puesto de sucursal nunca acepta el Corporativo.
+     *
      * @param  array{puesto_id: int, sucursal_id?: int|null, region_id?: int|null}  $datos
      * @return Destino
      */
-    private function normalizar(Colaborador $colaborador, array $datos): array
+    public function destino(Colaborador $colaborador, array $datos, bool $corporativoFijo = false): array
+    {
+        return $this->normalizar($colaborador, $datos, $corporativoFijo);
+    }
+
+    /**
+     * Corporativo activo de la empresa de esa sucursal (o el primero).
+     */
+    public function sucursalCorporativa(?int $sucursalId): ?int
+    {
+        $empresaId = $sucursalId !== null ? Sucursal::query()->whereKey($sucursalId)->value('empresa_id') : null;
+        $corporativas = Sucursal::query()->where('es_corporativo', true)->where('activo', true)->orderBy('id')->get(['id', 'empresa_id']);
+        $propia = $corporativas->first(fn (Sucursal $s): bool => $empresaId !== null && (int) $s->empresa_id === (int) $empresaId);
+
+        return ($propia ?? $corporativas->first())?->id;
+    }
+
+    /**
+     * @param  array{puesto_id: int, sucursal_id?: int|null, region_id?: int|null}  $datos
+     * @return Destino
+     */
+    private function normalizar(Colaborador $colaborador, array $datos, bool $corporativoFijo = false): array
     {
         $puesto = Puesto::query()->whereKey($datos['puesto_id'])->where('activo', true)->first(['id', 'nombre', 'departamento_id']);
 
@@ -220,6 +258,10 @@ class MovimientoOrganigramaService
         $ambito = $this->organigrama->ambitoDePuesto($puesto->id);
         $sucursalId = $datos['sucursal_id'] ?? null;
         $sucursalId = $sucursalId ?? $colaborador->sucursal_principal_id;
+
+        if ($corporativoFijo && $ambito === 'corporativo') {
+            $sucursalId = $this->sucursalCorporativa($colaborador->sucursal_principal_id) ?? $sucursalId;
+        }
 
         if ($ambito === 'sucursal') {
             $sucursal = $sucursalId !== null ? Sucursal::query()->whereKey($sucursalId)->first(['id', 'es_corporativo', 'activo']) : null;
@@ -250,7 +292,7 @@ class MovimientoOrganigramaService
     /**
      * @param  Destino  $destino
      */
-    private function sinCambios(Colaborador $colaborador, array $destino): bool
+    public function sinCambios(Colaborador $colaborador, array $destino): bool
     {
         return $colaborador->puesto_id === $destino['puesto_id']
             && $colaborador->sucursal_principal_id === $destino['sucursal_id']
@@ -336,7 +378,7 @@ class MovimientoOrganigramaService
             ->map(fn ($id): int => (int) $id)->unique()->all());
     }
 
-    private function regionClasificada(Colaborador $colaborador): ?int
+    public function regionClasificada(Colaborador $colaborador): ?int
     {
         $id = ClasificacionRegion::query()->where('colaborador_id', $colaborador->id)->value('region_id');
 
@@ -356,7 +398,7 @@ class MovimientoOrganigramaService
         ];
     }
 
-    private function describir(?int $puestoId, ?int $sucursalId, ?int $regionId): string
+    public function describir(?int $puestoId, ?int $sucursalId, ?int $regionId): string
     {
         $puesto = $puestoId !== null ? Puesto::query()->whereKey($puestoId)->value('nombre') : null;
         $partes = [is_string($puesto) ? $puesto : 'sin puesto'];

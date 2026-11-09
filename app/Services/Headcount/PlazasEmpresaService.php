@@ -15,9 +15,11 @@ use Illuminate\Support\Facades\DB;
 
 /**
  * Regla general: un puesto corporativo o regional activo, sin titular ni
- * cobertura vigente en toda la empresa, no se queda sin vacante. Se le autoriza
- * 1 plaza en Corporativo y se abre su vacante automática. Nunca pisa una plaza
- * ya capturada y un puesto con titular no recibe plaza (no hay nada que cubrir).
+ * cobertura «Ocupa ambos puestos» en toda la empresa, no se queda sin
+ * vacante. Se le autoriza 1 plaza en Corporativo y se abre su vacante
+ * automática. SOLO cuando el puesto no tiene ningún renglón de plaza: nunca
+ * pisa lo que RH autorizó a mano (p. ej. Auditora: 4 plazas, o 0) y un
+ * puesto con titular no recibe plaza (no hay nada que cubrir).
  *
  * Los puestos de sucursal sin plaza NO se inventan (no se puede adivinar la
  * sucursal): solo se listan para que RH los capture.
@@ -52,7 +54,9 @@ class PlazasEmpresaService
                 continue;
             }
 
-            if ($titulares > 0 || CoberturaPuesto::query()->where('puesto_id', $puesto->id)->where('activa', true)->exists()) {
+            // Una cobertura «Ocupa ambos puestos» atiende la plaza; «Cubre mientras se
+            // contrata» no: el puesto recibe su plaza y su vacante.
+            if ($titulares > 0 || CoberturaPuesto::query()->where('puesto_id', $puesto->id)->where('activa', true)->where('ocupa_plaza', true)->exists()) {
                 continue;
             }
 

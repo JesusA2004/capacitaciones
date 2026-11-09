@@ -23,7 +23,7 @@ import type { Component } from 'vue';
 import { computed, ref } from 'vue';
 import OrganigramaPersonasLamina from '@/components/Administracion/OrganigramaPersonasLamina.vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
-import type { CajaLamina, LaminasOrganigrama } from '@/types';
+import type { EstadoCajaLamina, LaminasOrganigrama } from '@/types';
 
 /**
  * Organigrama como las láminas del PDF oficial de Inducción (cap. 4):
@@ -58,10 +58,23 @@ function icono(nombre: string | null): Component {
     return (nombre && ICONOS[nombre]) || UserRound;
 }
 
-function cuantas(caja: CajaLamina): string {
+/**
+ * Resumen de una caja: personas, «Por ingresar: X» (candidato autorizado por
+ * RH, sin colaborador), «Puesto no registrado» (ningún puesto del catálogo
+ * coincide) o «Vacante» (el puesto existe y nadie lo ocupa: RH → Vacantes).
+ */
+function cuantas(caja: EstadoCajaLamina & { personas: unknown[] }): string {
     const n = caja.personas.length;
 
-    return n === 0 ? 'Vacante' : n === 1 ? '1 persona' : `${n} personas`;
+    if (n === 0) {
+        if (caja.por_ingresar?.length) {
+            return `Por ingresar: ${caja.por_ingresar.join(', ')}`;
+        }
+
+        return caja.registrado === false ? 'Puesto no registrado' : 'Vacante';
+    }
+
+    return n === 1 ? '1 persona' : `${n} personas`;
 }
 
 const sucursalId = ref<number | null>(
@@ -132,7 +145,7 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                         "
                         class="font-serif text-lg leading-tight"
                     >
-                        Vacante
+                        {{ cuantas(laminas.corporativo.direccion_general) }}
                     </p>
                     <p
                         class="mt-0.5 flex items-center gap-1 text-xs text-[var(--mrl-dorado)]"
@@ -184,7 +197,12 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                         />
                     </p>
                     <p v-else class="mt-1 text-xs text-muted-foreground italic">
-                        Sin asignar
+                        {{
+                            area.registrado === false ||
+                            area.por_ingresar?.length
+                                ? cuantas(area)
+                                : 'Sin asignar'
+                        }}
                     </p>
                 </article>
             </div>
@@ -225,6 +243,7 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                         <p class="text-xs text-[var(--mrl-petroleo)]">
                             <OrganigramaPersonasLamina
                                 :personas="laminas.comercial.apoyo[0].personas"
+                                :estado="laminas.comercial.apoyo[0]"
                             />
                         </p>
                     </div>
@@ -244,6 +263,7 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                     <p class="text-sm text-[var(--mrl-dorado)]">
                         <OrganigramaPersonasLamina
                             :personas="laminas.comercial.director.personas"
+                            :estado="laminas.comercial.director"
                         />
                     </p>
                 </div>
@@ -261,6 +281,7 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                         <p class="text-xs text-[var(--mrl-petroleo)]">
                             <OrganigramaPersonasLamina
                                 :personas="laminas.comercial.apoyo[1].personas"
+                                :estado="laminas.comercial.apoyo[1]"
                             />
                         </p>
                     </div>
@@ -307,7 +328,7 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                             />
                         </p>
                         <p v-else class="mt-1 text-xs text-white/70 italic">
-                            Vacante
+                            {{ cuantas(col) }}
                         </p>
                     </div>
 
@@ -450,6 +471,10 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                     <p class="mt-0.5 text-sm font-semibold">
                         <OrganigramaPersonasLamina
                             :personas="sucursal.gerente"
+                            :estado="{
+                                registrado: puestosSucursal.gerente.registrado,
+                                por_ingresar: sucursal.por_ingresar?.gerente,
+                            }"
                         />
                     </p>
                     <ul
@@ -494,6 +519,13 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                             >
                                 <OrganigramaPersonasLamina
                                     :personas="sucursal.subgerente"
+                                    :estado="{
+                                        registrado:
+                                            puestosSucursal.subgerente
+                                                .registrado,
+                                        por_ingresar:
+                                            sucursal.por_ingresar?.subgerente,
+                                    }"
                                 />
                             </p>
                             <ul
@@ -576,6 +608,13 @@ const puestosSucursal = computed(() => props.laminas.sucursal.puestos);
                             >
                                 <OrganigramaPersonasLamina
                                     :personas="sucursal.coordinacion"
+                                    :estado="{
+                                        registrado:
+                                            puestosSucursal.coordinacion
+                                                .registrado,
+                                        por_ingresar:
+                                            sucursal.por_ingresar?.coordinacion,
+                                    }"
                                 />
                             </p>
                             <ul

@@ -19,6 +19,7 @@ use App\Services\Organigrama\ClasificacionRegionService;
 use App\Services\Organigrama\LaminasOrganigramaService;
 use App\Services\Organigrama\MiniOrganigramaService;
 use App\Services\Organigrama\OrganigramaPersonasService;
+use App\Services\Organigrama\PuestosSinUbicarService;
 use App\Services\Organigrama\ResponsableAprobacionService;
 use App\Services\Salarios\AccesoSueldoService;
 use Illuminate\Http\JsonResponse;
@@ -81,6 +82,9 @@ class JerarquiaPuestoController extends Controller
             'secciones' => $this->secciones(),
             // Láminas como el PDF de Inducción (hojas 17-19) con las personas reales.
             'laminas' => $this->laminas->laminas($usuario),
+            // Puestos activos que no cuelgan de Dirección General (sin «reporta
+            // a», superior inactivo o rama suelta): bandeja para ubicarlos.
+            'puestosSinUbicar' => app(PuestosSinUbicarService::class)->listar(),
             'filtros' => $request->only($this->jerarquia->filtrosAceptados()),
             'opciones' => [
                 'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),

@@ -134,6 +134,7 @@ const columnas = computed<ColumnaDataTable[]>(() => [
         clase: 'min-w-48 whitespace-normal',
     },
     { clave: 'colaboradores_count', etiqueta: 'Personas' },
+    { clave: 'plazas', etiqueta: 'Plazas autorizadas' },
     ...(props.puede.ver_salarios
         ? [
               {
@@ -365,6 +366,34 @@ const pct = (valor: number | null): string =>
                         {{ fila.colaboradores_count }}
                     </span>
                 </template>
+                <template #celda-plazas="{ fila }">
+                    <span
+                        v-if="fila.plazas && fila.plazas.autorizadas > 0"
+                        class="inline-flex flex-wrap items-center gap-1.5 text-xs tabular-nums"
+                        :title="`${fila.plazas.ocupadas} de ${fila.plazas.autorizadas} plazas ocupadas`"
+                    >
+                        <span class="font-semibold"
+                            >{{ fila.plazas.ocupadas }} /
+                            {{ fila.plazas.autorizadas }}</span
+                        >
+                        <span
+                            class="rounded-full px-2 py-0.5 font-medium"
+                            :class="
+                                fila.plazas.vacantes > 0
+                                    ? 'bg-warning-soft text-warning'
+                                    : 'bg-success-soft text-success'
+                            "
+                            >{{
+                                fila.plazas.vacantes > 0
+                                    ? `${fila.plazas.vacantes} ${fila.plazas.vacantes === 1 ? 'vacante' : 'vacantes'}`
+                                    : 'Completa'
+                            }}</span
+                        >
+                    </span>
+                    <span v-else class="text-xs text-muted-foreground"
+                        >Sin plazas</span
+                    >
+                </template>
                 <template #celda-tabulador="{ fila }">
                     <span
                         v-if="fila.tabulador"
@@ -445,6 +474,18 @@ const pct = (valor: number | null): string =>
                                 fila.colaboradores_count === 1
                                     ? 'persona'
                                     : 'personas'
+                            }}
+                        </span>
+                        <span
+                            v-if="fila.plazas && fila.plazas.autorizadas > 0"
+                            class="tabular-nums"
+                        >
+                            {{ fila.plazas.autorizadas }} plazas ·
+                            {{ fila.plazas.vacantes }}
+                            {{
+                                fila.plazas.vacantes === 1
+                                    ? 'vacante'
+                                    : 'vacantes'
                             }}
                         </span>
                         <span v-if="puede.ver_salarios" class="tabular-nums">

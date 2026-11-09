@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { Briefcase, FilterX, MapPin, UserSearch } from '@lucide/vue';
+import {
+    Briefcase,
+    Building2,
+    FilterX,
+    Layers,
+    MapPin,
+    UserSearch,
+} from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
@@ -126,6 +133,43 @@ function filtrarPor(puestoId: number | null, sucursalId: number | null = null) {
     navegar();
 }
 
+// Áreas / departamentos con vacantes en lo que se está viendo (Contraloría,
+// Sistemas, Ventas…): un clic filtra la lista por esa área.
+const areas = computed(() => {
+    const conteo = new Map<
+        number,
+        { id: number; nombre: string; plazas: number }
+    >();
+
+    for (const v of props.vacantes) {
+        if (v.departamento_id === null || v.departamento === null) {
+            continue;
+        }
+
+        const actual = conteo.get(v.departamento_id) ?? {
+            id: v.departamento_id,
+            nombre: v.departamento,
+            plazas: 0,
+        };
+        actual.plazas += v.plazas_disponibles;
+        conteo.set(v.departamento_id, actual);
+    }
+
+    return [...conteo.values()].sort((a, b) => b.plazas - a.plazas);
+});
+
+function filtrarPorArea(departamentoId: number | null) {
+    borrador.value = {
+        ...borrador.value,
+        departamento_id:
+            departamentoId === null ||
+            borrador.value.departamento_id === String(departamentoId)
+                ? ''
+                : String(departamentoId),
+    };
+    navegar();
+}
+
 function plazas(n: number): string {
     return n === 1 ? '1 plaza' : `${n} plazas`;
 }
@@ -182,7 +226,8 @@ const TONO_ESTADO: Record<string, string> = {
                         : 'plazas por cubrir'
                 }}
                 en {{ resumen.sucursales }}
-                {{ resumen.sucursales === 1 ? 'sucursal' : 'sucursales' }}
+                {{ resumen.sucursales === 1 ? 'ubicación' : 'ubicaciones' }}
+                (sucursales y Corporativo)
             </p>
             <ul class="mt-3 divide-y">
                 <li
@@ -192,24 +237,46 @@ const TONO_ESTADO: Record<string, string> = {
                 >
                     <button
                         type="button"
-                        class="flex shrink-0 items-baseline gap-2 text-left hover:underline sm:w-64"
+                        class="flex shrink-0 flex-col items-start text-left sm:w-72"
                         :title="`Ver solo ${p.puesto}`"
                         @click="filtrarPor(p.puesto_id)"
                     >
-                        <span class="font-semibold tabular-nums">{{
-                            p.plazas
-                        }}</span>
-                        <span class="font-medium">{{ p.puesto }}</span>
+                        <span class="flex items-baseline gap-2 hover:underline">
+                            <span class="font-semibold tabular-nums">{{
+                                p.plazas
+                            }}</span>
+                            <span class="font-medium">{{ p.puesto }}</span>
+                            <span
+                                v-if="p.area"
+                                class="text-xs text-muted-foreground"
+                                >· {{ p.area }}</span
+                            >
+                        </span>
+                        <span
+                            v-if="p.nota"
+                            class="text-xs text-muted-foreground"
+                            >{{ p.nota }}</span
+                        >
                     </button>
                     <div class="flex flex-wrap gap-1.5">
                         <button
                             v-for="s in p.sucursales"
                             :key="s.sucursal_id ?? 0"
                             type="button"
-                            class="rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+                            class="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+                            :class="
+                                s.es_corporativo
+                                    ? 'border-transparent bg-crema text-foreground'
+                                    : ''
+                            "
                             :title="`${p.puesto} en ${s.sucursal}: ${plazas(s.plazas)}`"
                             @click="filtrarPor(p.puesto_id, s.sucursal_id)"
                         >
+                            <Building2
+                                v-if="s.es_corporativo"
+                                class="size-3"
+                                aria-hidden="true"
+                            />
                             {{ s.sucursal }}
                             <span class="font-semibold tabular-nums">{{
                                 s.plazas
@@ -282,7 +349,7 @@ const TONO_ESTADO: Record<string, string> = {
                     />
                 </div>
                 <div class="grid gap-1.5">
-                    <Label for="f-departamento">Departamento</Label>
+                    <Label for="f-departamento">Área / departamento</Label>
                     <SelectSimple
                         id="f-departamento"
                         v-model="borrador.departamento_id"
@@ -307,6 +374,43 @@ const TONO_ESTADO: Record<string, string> = {
             >
                 <FilterX class="size-4" />
             </Button>
+        </div>
+
+        <!-- Áreas con vacantes: Contraloría, Sistemas, Ventas… (clic = filtrar). -->
+        <div
+            v-if="areas.length > 1 || filtros.departamento_id"
+            class="flex flex-wrap items-center gap-1.5"
+            aria-label="Filtrar por área"
+        >
+            <span
+                class="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground"
+            >
+                <Layers class="size-3.5" aria-hidden="true" /> Área:
+            </span>
+            <button
+                v-for="a in areas"
+                :key="a.id"
+                type="button"
+                class="tarjeta-interactiva rounded-full border bg-card px-2.5 py-0.5 text-xs"
+                :class="
+                    filtros.departamento_id === String(a.id)
+                        ? 'border-transparent bg-salvia font-semibold'
+                        : 'text-muted-foreground'
+                "
+                :aria-pressed="filtros.departamento_id === String(a.id)"
+                @click="filtrarPorArea(a.id)"
+            >
+                {{ a.nombre }}
+                <span class="font-semibold tabular-nums">{{ a.plazas }}</span>
+            </button>
+            <button
+                v-if="filtros.departamento_id"
+                type="button"
+                class="rounded-full px-2 py-0.5 text-xs text-muted-foreground underline-offset-2 hover:underline"
+                @click="filtrarPorArea(null)"
+            >
+                Todas las áreas
+            </button>
         </div>
 
         <CrudEmptyState
@@ -352,24 +456,41 @@ const TONO_ESTADO: Record<string, string> = {
                         >
                     </p>
                     <p
+                        v-if="vacante.puesto_nota"
+                        class="mt-0.5 text-xs text-muted-foreground"
+                    >
+                        {{ vacante.puesto_nota }}
+                    </p>
+                    <p
                         class="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-sm text-muted-foreground"
                     >
-                        <MapPin class="size-3.5 shrink-0" />
-                        <Link
-                            v-if="
-                                vacante.sucursal_id &&
-                                tienePermiso('sucursales.administrar')
-                            "
-                            :href="showSucursal.url(vacante.sucursal_id)"
-                            class="hover:text-foreground hover:underline"
-                            >{{ vacante.sucursal }}</Link
+                        <span
+                            v-if="vacante.es_corporativo"
+                            class="inline-flex items-center gap-1 rounded-full bg-crema px-2 py-0.5 text-xs font-medium text-foreground"
                         >
-                        <span v-else>{{
-                            vacante.sucursal ?? 'Sin sucursal'
-                        }}</span>
+                            <Building2 class="size-3" aria-hidden="true" />
+                            Corporativo
+                        </span>
+                        <MapPin v-else class="size-3.5 shrink-0" />
+                        <template v-if="!vacante.es_corporativo">
+                            <Link
+                                v-if="
+                                    vacante.sucursal_id &&
+                                    tienePermiso('sucursales.administrar')
+                                "
+                                :href="showSucursal.url(vacante.sucursal_id)"
+                                class="hover:text-foreground hover:underline"
+                                >{{ vacante.sucursal }}</Link
+                            >
+                            <span v-else>{{
+                                vacante.sucursal ?? 'Sin sucursal'
+                            }}</span>
+                        </template>
                         <template v-if="vacante.departamento"
                             ><span aria-hidden="true">·</span
-                            >{{ vacante.departamento }}</template
+                            ><span class="font-medium text-foreground/80">{{
+                                vacante.departamento
+                            }}</span></template
                         >
                     </p>
                 </div>

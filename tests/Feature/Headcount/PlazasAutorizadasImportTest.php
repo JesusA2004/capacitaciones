@@ -109,11 +109,17 @@ test('sucursal o puesto inexistente y número inválido se reportan y bloquean',
         ->and(HeadcountTarget::query()->value('plantilla_autorizada'))->toBe(4);
 });
 
-test('un par duplicado marca ambas filas, también por puesto equivalente', function () {
-    $importacion = plazasAnalizar($this, plazasArchivo([['Tula', 'Gestor', 3], ['Tula', 'Gestor Volante', 1]]));
+test('un par duplicado marca ambas filas', function () {
+    $importacion = plazasAnalizar($this, plazasArchivo([['Tula', 'Gestor', 3], ['Tula', 'Gestor', 1]]));
 
     expect($importacion->filas_error)->toBe(2)
         ->and(collect($importacion->detalle)->pluck('errores')->flatten()->first())->toContain('Duplicado');
+});
+
+test('Gestor y Gestor Volante son plazas distintas: no se marcan como duplicado', function () {
+    $importacion = plazasAnalizar($this, plazasArchivo([['Tula', 'Gestor', 3], ['Tula', 'Gestor Volante', 1]]));
+
+    expect($importacion->filas_error)->toBe(0);
 });
 
 test('faltan columnas: se rechaza sin guardar la importación', function () {

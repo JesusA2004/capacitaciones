@@ -258,6 +258,32 @@ class MovimientoLaboralService
         });
     }
 
+    /**
+     * Último id de movimiento registrado: marca de agua para anotar después
+     * solo los movimientos que generó una acción (anotarObservaciones()).
+     */
+    public function ultimoId(): int
+    {
+        return (int) MovimientoLaboral::withTrashed()->max('id');
+    }
+
+    /**
+     * Agrega el comentario de RH (observaciones) a los movimientos que una
+     * acción acaba de registrar con ese motivo (p. ej. «Traspaso de puesto»):
+     * los registra DatosExpedienteService::actualizarLaborales(), que solo
+     * recibe el motivo. Nunca toca movimientos anteriores ni los que ya
+     * traen observaciones (el de sueldo).
+     */
+    public function anotarObservaciones(Colaborador $colaborador, int $desdeId, string $motivo, string $observaciones): int
+    {
+        return MovimientoLaboral::query()
+            ->where('colaborador_id', $colaborador->id)
+            ->where('id', '>', $desdeId)
+            ->where('motivo', $motivo)
+            ->whereNull('observaciones')
+            ->update(['observaciones' => $observaciones]);
+    }
+
     public function registrarCoberturaTemporal(
         Colaborador $colaborador,
         Puesto $puesto,

@@ -49,8 +49,7 @@ class VacanteAutoGenerationService
      */
     public function sincronizar(int $sucursalId, int $puestoId): array
     {
-        // Una baja/alta de un Gestor volante mueve la vacante de Gestor:
-        // es la misma plaza (config/headcount.php).
+        // Puesto equivalente → su puesto de plantilla (config/headcount.php).
         $puestoId = $this->puestos->canonico($puestoId);
         $sucursalId = $this->puestos->sucursalDePlaza($puestoId, $sucursalId);
 
@@ -153,7 +152,10 @@ class VacanteAutoGenerationService
     /**
      * Igual que sincronizar(), pero un fallo nunca deshace la acción que lo
      * provocó (alta, baja, edición de expediente): se registra en el log y
-     * `people:sincronizar-vacantes` lo corrige después.
+     * `people:sincronizar-vacantes` lo corrige después. También sincroniza el
+     * puesto que comparte plazas con éste (Gestor volante ↔ Gestor): un
+     * volante sin plaza propia ocupa una de Gestor, así que mover a uno
+     * mueve la vacante del otro.
      */
     public function sincronizarSinFallar(?int $sucursalId, ?int $puestoId): void
     {
@@ -161,10 +163,12 @@ class VacanteAutoGenerationService
             return;
         }
 
-        try {
-            $this->sincronizar($sucursalId, $puestoId);
-        } catch (Throwable $e) {
-            Log::warning('Vacantes: no se pudo sincronizar la vacante automática.', ['sucursal_id' => $sucursalId, 'puesto_id' => $puestoId, 'error' => $e->getMessage()]);
+        foreach ($this->puestos->compartidos($puestoId) as $relacionado) {
+            try {
+                $this->sincronizar($sucursalId, $relacionado);
+            } catch (Throwable $e) {
+                Log::warning('Vacantes: no se pudo sincronizar la vacante automática.', ['sucursal_id' => $sucursalId, 'puesto_id' => $relacionado, 'error' => $e->getMessage()]);
+            }
         }
     }
 

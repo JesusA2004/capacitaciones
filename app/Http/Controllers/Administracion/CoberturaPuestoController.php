@@ -19,12 +19,15 @@ class CoberturaPuestoController extends Controller
 
     public function store(StoreCoberturaPuestoRequest $request): RedirectResponse
     {
-        /** @var array{colaborador_id: int, puesto_id: int, sucursal_id?: int|null, region_id?: int|null, motivo?: string|null, nota?: string|null, fecha_inicio?: string|null} $datos */
+        /** @var array{colaborador_id: int, puesto_id: int, sucursal_id?: int|null, region_id?: int|null, motivo?: string|null, nota?: string|null, fecha_inicio?: string|null, ocupa_plaza?: bool|null} $datos */
         $datos = $request->validated();
+        $datos['ocupa_plaza'] = $request->filled('ocupa_plaza') ? $request->boolean('ocupa_plaza') : null;
 
-        $this->coberturas->asignar($datos, $request->user());
+        $cobertura = $this->coberturas->asignar($datos, $request->user());
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Listo: ya se ve en el organigrama quién cubre temporalmente este puesto.']);
+        return back()->with('toast', ['type' => 'success', 'message' => $cobertura->ocupa_plaza
+            ? 'Listo: ocupa ambos puestos. La plaza cuenta como ocupada y no queda vacante.'
+            : 'Listo: cubre mientras se contrata. La plaza sigue como vacante en headcount.']);
     }
 
     public function finalizar(Request $request, CoberturaPuesto $cobertura): RedirectResponse

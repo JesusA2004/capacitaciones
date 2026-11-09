@@ -31,12 +31,35 @@ Sin argumento, usa la ruta por defecto: `claude/headcount/HEADCOUNT GENERAL MR L
 Headcount cuenta **posiciones autorizadas**, no personas actuales. Por sucursal, típicamente: Gerente de Sucursal 1, Subgerente 1, Gestor N, Gestor Volante 1 si corresponde, Coordinadora de Sucursal 1.
 
 - **Autorizado** = suma de plazas (`headcount_targets`).
-- **Ocupado** = personas **titulares** (colaboradores activos con ese puesto en esa sucursal).
+- **Ocupado** = personas **vigentes** (activo / en incorporación) **titulares** de ese puesto en esa sucursal + coberturas «Ocupa ambos puestos» de esa plaza (ver abajo). Única fuente: `HeadcountService::plantillaActualPorSucursalPuesto()`.
 - **Vacante** = autorizado − ocupado (por par sucursal/puesto, nunca negativo).
 - **Fuera de plantilla** = persona real sin plaza autorizada asociada (se reporta aparte).
-- **Cobertura temporal** (`coberturas_puesto`) **no** aumenta el autorizado ni cuenta como ocupado: si el gerente de Córdoba cubre Cuernavaca, Cuernavaca sigue con su plaza de gerente vacante y Córdoba sigue con 1 ocupado (no son 2 empleados ni 2 puestos).
-- **Gestor Volante** sí cuenta dentro de la plantilla (equivale a la plaza de Gestor para plantilla/vacantes, `config/headcount.php`) aunque no tenga ruta fija.
 - **Una ruta no crea headcount**: las plazas de Gestor vienen de la plantilla autorizada; la ruta es una asignación de la matriz comercial (ver `docs/MATRIZ_COMERCIAL.md`).
+
+### Una persona en dos puestos (2026-11-09)
+
+`coberturas_puesto.ocupa_plaza` guarda la decisión de RH **en cada caso** (diálogo del organigrama, dos opciones):
+
+| Opción | `ocupa_plaza` | Headcount | Organigrama |
+|---|---|---|---|
+| **Ocupa ambos puestos (sin vacante)** — p. ej. un Gerente de Sucursal que también es Gerente de Auditoría | `true` | La segunda plaza cuenta como **ocupada**; no hay vacante. | «También ocupa» |
+| **Cubre mientras se contrata (con vacante)** — p. ej. el gerente de Córdoba atiende Cuernavaca mientras se contrata | `false` | No aumenta el autorizado ni cuenta como ocupada: la plaza sigue vacante (comportamiento de siempre). | «Cubre temporalmente» |
+
+- Sin elegir (API o llamadas viejas), un puesto **de empresa** ocupa la plaza (`true`) y uno **de sucursal** no (`false`): es lo que pasaba antes de poder elegir. La migración `2026_11_14_100000_agrega_ocupa_plaza_a_coberturas_puesto` marca `true` las coberturas vigentes de puestos de empresa para que nada cambie al desplegar.
+- Una cobertura «ocupa ambos» cuenta en la plaza que cubre: la sucursal cubierta o, para un puesto de empresa sin sucursal (corporativo / región), donde vive su plaza (Corporativo).
+- Asignarla o quitarla resincroniza la vacante automática del par (`CoberturaPuestoService`); la baja o reactivación de esa persona también (`ColaboradorPlantillaObserver`). Auditoría: `activity_log` (`cobertura_asignada` con `ocupa_plaza` y modalidad; `cobertura_finalizada`) y movimiento «Cobertura temporal» en el expediente.
+- Las reglas de jefe directo con cobertura no cambian (`docs/ORGANIGRAMA.md`).
+- `poblacion()` reporta estas plazas en `segundas_plazas`: la persona es **una** vigente y ocupa dos plazas.
+
+### Gestor fijo y Gestor volante (2026-11-09)
+
+Antes el Gestor Volante era «la misma plaza que Gestor» (`puestos_equivalentes`). Ahora cada uno tiene **plazas propias** y sus propias vacantes:
+
+- En Vacantes (web, API, resumen, Excel y PDF) el puesto Gestor se llama **«Gestor fijo»** (tiene ruta; la ruta se define en Matriz comercial) y Gestor Volante **«Gestor volante»** (sin ruta fija). `config/headcount.php` → `etiquetas_vacante` / `notas_vacante`. El catálogo de puestos no cambia.
+- **Compatibilidad** (`config/headcount.php` → `plazas_compartidas`, `HeadcountService::repartirPlazasCompartidas()`): cada persona ocupa primero una plaza de su puesto; si ya no hay libre, ocupa una plaza **libre** del otro puesto de la pareja en la misma sucursal (un volante sin plaza de volante ocupa una de Gestor, y al revés). Así el total ocupado de Gestor + Volante es exactamente el de antes: nada que estaba ocupado pasa a vacante ni a «fuera de plantilla» por separar las plazas. Lo que todavía sobra se queda en su puesto (excedente o fuera de plantilla).
+- Un alta, baja o cambio de un volante resincroniza las vacantes de **ambos** puestos de la pareja (`VacanteAutoGenerationService::sincronizarSinFallar()`), igual que capturar plazas de cualquiera de los dos.
+- **«¿Esta sucursal tendrá volantes?»** (Administración → Sucursales: acción en la tarjeta y botón en el detalle; solo `headcount.editar`): Sí/No + cuántos + motivo → fija la plantilla autorizada de Gestor Volante en esa sucursal (0 si no) con `PlantillaAutorizadaService` (misma bitácora) y abre o cierra sus vacantes «Gestor volante» (`VolantesSucursalService`). El detalle de sucursal muestra gestores fijos vs. volantes (autorizadas, ocupadas, vacantes y personas con cada puesto).
+- **Dato del negocio (2026-11-09)**: solo Orizaba y Córdoba tendrán 1 volante cada una; las demás, 0. **No hay seeder ni comando para esto** a propósito: `PlantillaAutorizadaSeeder` solo crea pares que faltan (nunca pisa lo capturado) y casi todas las sucursales ya traen un renglón de Gestor Volante del Excel (Cuernavaca 4, varias con 1). RH lo fija con el botón en cada sucursal, con su motivo, y queda en la bitácora. Mientras tanto, el reparto de plazas compartidas evita vacantes falsas: una plaza de volante sin volante solo es vacante si los gestores fijos no la están ocupando.
 
 Observaciones del Excel real (28-08-2026), reportadas sin corregir: San Juan del Río no autoriza gerente ni subgerente; Tenango del Valle no autoriza gerente ni trae renglón de Gestor; Atlixco no autoriza coordinadora. Ninguna sucursal autoriza más de 1 gerente o 1 subgerente.
 
@@ -57,7 +80,9 @@ Tablero, Directorio, Reportes (`plantilla_conciliacion`) y la conciliación de p
 | Sin ubicación | Vigentes sin sucursal o sin puesto. Toda la empresa los cuenta en `sucursales` para no perderlos. |
 | Cobertura | Ocupadas ÷ autorizadas × 100; 0 si no hay plazas autorizadas. |
 
-Invariantes: vigentes = ocupadas + excedentes + fuera de plantilla + sin ubicación; autorizadas = ocupadas + vacantes; total = corporativo + sucursales.
+| Segundas plazas | Plazas ocupadas por coberturas «Ocupa ambos puestos» (la persona ya cuenta como vigente en su propio puesto). |
+
+Invariantes: vigentes + segundas plazas = ocupadas + excedentes + fuera de plantilla + sin ubicación; autorizadas = ocupadas + vacantes; total = corporativo + sucursales. Las vacantes nunca se capturan a mano para cuadrar una cifra ni se duplican (a lo más una automática abierta por par); nunca se borran: se cancelan con motivo.
 
 Por eso «Autorizadas − Activos» solo equivale a Vacantes cuando no hay excedentes, personas fuera de plantilla ni personas en incorporación. Nadie se oculta para cuadrar la cifra.
 
@@ -78,7 +103,7 @@ Configuración → Importar datos → **Plazas autorizadas** (solo `headcount.im
 ### Dónde se ve
 
 - **Inicio operativo (Tablero de RH)** → bloque «Plantilla»: plantilla activa (plazas ocupadas por colaboradores vigentes), capacidad autorizada y vacantes reales, todo de `HeadcountService::totalesGenerales()` + `VacantesListadoService` (mismo camino que RH → Vacantes). Nunca cuenta expedientes/carpetas del NAS: una baja (`inactivo`/`suspendido`) no ocupa plaza aunque su expediente siga ahí; «en incorporación» sí ocupa plaza. `DashboardHeadcountTest` verifica que Inicio, tablero, Sucursales y Vacantes den las mismas cifras.
-- **Organización > Sucursales > detalle**: el headcount de esa sucursal — plantilla autorizada vs. ocupada por puesto (barras), dona de cobertura, personas por departamento, domicilio/teléfono y su **Gerente de Sucursal** (no existe otra figura de "responsable").
+- **Organización > Sucursales > detalle**: el headcount de esa sucursal — plantilla autorizada vs. ocupada por puesto (barras), gestores fijos vs. volantes con el botón «¿Esta sucursal tendrá volantes?», dona de cobertura, personas por departamento, domicilio/teléfono y su **Gerente de Sucursal** (no existe otra figura de "responsable").
 - **RH > Vacantes**: la lista de vacantes reales (ver abajo), no la tabla de plantilla por sucursal.
 
 ## Corporativo
@@ -87,7 +112,9 @@ Configuración → Importar datos → **Plazas autorizadas** (solo `headcount.im
 
 ## Vacantes automáticas
 
-**Puestos de empresa** (corporativos y regionales): se ocupan a nivel empresa. Un puesto activo sin titular ni cobertura vigente recibe 1 plaza en Corporativo y su vacante automática (`PlazasEmpresaService`; corre al desplegar, con `people:sincronizar-organigrama` y a diario con `people:sincronizar-vacantes`). Un titular registrado en otra sucursal cuenta en la plaza, así que no abre vacante falsa, y una cobertura vigente de estos puestos también evita la vacante (excepción a la regla de abajo, que sigue valiendo para puestos de sucursal). `Dirección General` queda fuera (`headcount.puestos_sin_plaza_automatica`). Los puestos de sucursal sin plaza no se inventan: el comando los lista.
+**Puestos de empresa** (corporativos y regionales): se ocupan a nivel empresa. Un puesto activo **sin ningún renglón de plaza**, sin titular ni cobertura «Ocupa ambos puestos», recibe 1 plaza en Corporativo y su vacante automática (`PlazasEmpresaService`; corre al desplegar, con `people:sincronizar-organigrama` y a diario con `people:sincronizar-vacantes`). **Nunca pisa lo que RH autorizó** (ni un 0 ni un 4): solo crea la plaza automática cuando el puesto no tiene ninguna. Un titular registrado en otra sucursal cuenta en la plaza, así que no abre vacante falsa. Una cobertura cuenta como ocupada solo si RH eligió «Ocupa ambos puestos» (ver «Una persona en dos puestos»). `Dirección General` queda fuera (`headcount.puestos_sin_plaza_automatica`). Los puestos de sucursal sin plaza no se inventan: el comando los lista.
+
+**Plazas autorizadas de cualquier puesto** (2026-11-09): Puestos y salarios → ficha del puesto → tarjeta **«Plantilla autorizada»** lista sus plazas por ubicación (Corporativo primero, luego sucursales) con ocupadas y vacantes, y RH (`headcount.editar`) edita o autoriza en otra ubicación con motivo obligatorio (`PUT administracion/puestos/{puesto}/plantilla`, `PlantillaPuestoController` → `PlantillaAutorizadaService`, misma bitácora que el detalle de sucursal; `PlantillaPuestoService` arma la tarjeta). Caso real: «Auditora · Contraloría · 1 persona» nunca tenía vacantes porque solo recibía la plaza automática; con 4 plazas en Corporativo se abren 3 vacantes. El catálogo muestra la columna «Plazas autorizadas» (ocupadas / autorizadas · vacantes).
 
 **Regla única** (`HeadcountService::plantillaDePar()`):
 
@@ -95,7 +122,7 @@ Configuración → Importar datos → **Plazas autorizadas** (solo `headcount.im
 faltantes = max(plantilla autorizada − ocupados reales, 0)
 ```
 
-Ocupados reales = colaboradores vigentes (activo / en incorporación) titulares de ese puesto en esa sucursal (el Gestor volante cuenta como Gestor). `App\Services\Vacantes\VacanteAutoGenerationService::sincronizar($sucursalId, $puestoId)` abre, ajusta o cierra la vacante marcada `generada_automaticamente = true` con esa cifra — nunca duplica (a lo más una automática abierta por par sucursal+puesto; si quedaran dos, se cancela la más nueva) ni toca vacantes creadas a mano por RH. Se llama automáticamente:
+Ocupados reales = colaboradores vigentes (activo / en incorporación) titulares de ese puesto en esa sucursal, más coberturas «Ocupa ambos puestos» y el reparto de plazas compartidas Gestor volante ↔ Gestor. `App\Services\Vacantes\VacanteAutoGenerationService::sincronizar($sucursalId, $puestoId)` abre, ajusta o cierra la vacante marcada `generada_automaticamente = true` con esa cifra — nunca duplica (a lo más una automática abierta por par sucursal+puesto; si quedaran dos, se cancela la más nueva) ni toca vacantes creadas a mano por RH. Se llama automáticamente:
 
 - **Cualquier** alta, baja, reactivación, cambio de puesto o de sucursal de un colaborador, venga de donde venga (alta digital, baja, movimiento laboral, edición de expediente, **migración inicial**, API): `App\Observers\ColaboradorPlantillaObserver` sincroniza el par de origen y el de destino al confirmar la transacción. Antes solo lo hacían algunos flujos y quedaban vacantes «1 plaza por cubrir» con la plaza ya ocupada (caso real: Coordinadora de Sucursal en Cuernavaca, «1 de 1 autorizadas ocupadas»).
 - Al capturar plantilla en el detalle de sucursal.
@@ -138,6 +165,8 @@ Crear un puesto o cambiar sus plazas: el organigrama lo lee en vivo; capturar pl
 Arriba, **totales concretos** de lo que se está viendo (sin tarjetas de KPIs ni costos): cuántas plazas faltan de cada puesto —gerentes, gestores, etc.— y en qué sucursales (`VacantesListadoService::resumen()`); un clic en el puesto o en la sucursal filtra la lista. El costo **no** vive en Vacantes: el costo por colaborador contratado está en Campañas.
 
 Debajo, una fila por **vacante real**: qué puesto falta, en qué sucursal, cuántas plazas, desde cuándo (días abierta), cuántos candidatos lleva y la plantilla de ese par como contexto («4 de 5 ocupadas · 1 vacante en plantilla»). Por defecto solo activas (sin cubiertas ni canceladas). La regla (alcance, filtros, KPIs) vive en `App\Services\Vacantes\VacantesListadoService`, compartido por la web (`Rh\VacanteController`) y la API móvil (`Api\V1\Rh\VacanteController`; ahora también devuelve solo activas si no se pide `estado`).
+
+Incluye **todas las ubicaciones**: las vacantes del Corporativo (Auditoría, Contraloría, Sistemas…) se listan igual que las de sucursal, marcadas «Corporativo»; el alcance por módulo nunca oculta `sucursal_id` de Corporativo ni nulo a quien tiene alcance «Todos». Cada vacante muestra su **área / departamento** (el de la vacante o, si no lo trae —las automáticas casi nunca—, el de su puesto), hay chips de área para filtrar con un clic y el filtro «Área / departamento» usa la misma regla. El puesto Gestor se ve como «Gestor fijo» (con la aclaración «la ruta se define en Matriz comercial») y Gestor Volante como «Gestor volante», también en la API (`puesto`, `puesto_nota`, `departamento`, `es_corporativo`; acepta `departamento_id`) y en Excel/PDF (columnas «Área / departamento» y «Ubicación»).
 
 ## Matriz comercial vs. headcount
 

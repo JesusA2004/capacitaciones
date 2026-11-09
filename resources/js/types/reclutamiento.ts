@@ -20,9 +20,17 @@ export type OpcionEnum = {
 export type VacanteItem = {
     id: number;
     puesto_id: number | null;
+    /** Como se muestra en Vacantes: «Gestor fijo», «Gestor volante» o el nombre del puesto. */
     puesto: string | null;
+    /** Nombre en el catálogo de puestos. */
+    puesto_catalogo: string | null;
+    /** Aclaración (p. ej. «la ruta se define en Matriz comercial»). */
+    puesto_nota: string | null;
     sucursal_id: number | null;
     sucursal: string | null;
+    es_corporativo: boolean;
+    /** Área / departamento: el de la vacante o el de su puesto. */
+    departamento_id: number | null;
     departamento: string | null;
     estado: string;
     estado_etiqueta: string;
@@ -47,10 +55,13 @@ export type VacantesResumen = {
     por_puesto: {
         puesto_id: number | null;
         puesto: string;
+        nota: string | null;
+        area: string | null;
         plazas: number;
         sucursales: {
             sucursal_id: number | null;
             sucursal: string;
+            es_corporativo: boolean;
             plazas: number;
         }[];
     }[];

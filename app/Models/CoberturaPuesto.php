@@ -23,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon $fecha_inicio
  * @property Carbon|null $fecha_fin
  * @property bool $activa
+ * @property bool $ocupa_plaza true = «Ocupa ambos puestos (sin vacante)»; false = «Cubre mientras se contrata (con vacante)»
  * @property int|null $registrada_por
  * @property int|null $finalizada_por
  * @property Carbon|null $created_at
@@ -44,6 +45,7 @@ class CoberturaPuesto extends Model
         'fecha_inicio',
         'fecha_fin',
         'activa',
+        'ocupa_plaza',
         'registrada_por',
         'finalizada_por',
     ];
@@ -55,6 +57,7 @@ class CoberturaPuesto extends Model
             'fecha_inicio' => 'date',
             'fecha_fin' => 'date',
             'activa' => 'boolean',
+            'ocupa_plaza' => 'boolean',
         ];
     }
 

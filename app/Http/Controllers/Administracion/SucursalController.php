@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Administracion;
 use App\Enums\EstadoUsuario;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Administracion\ActualizarPlantillaAutorizadaRequest;
+use App\Http\Requests\Administracion\ConfigurarVolantesSucursalRequest;
 use App\Http\Requests\Administracion\StoreSucursalRequest;
 use App\Http\Requests\Administracion\UpdateSucursalRequest;
 use App\Models\Empresa;
@@ -13,6 +14,7 @@ use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Headcount\HeadcountService;
 use App\Services\Headcount\PlantillaAutorizadaService;
+use App\Services\Headcount\VolantesSucursalService;
 use App\Services\Sucursales\SucursalDetalleService;
 use App\Support\Consultas\EstadisticasActivoInactivo;
 use App\Support\Paginacion;
@@ -27,6 +29,7 @@ class SucursalController extends Controller
         private readonly HeadcountService $headcount,
         private readonly SucursalDetalleService $detalle,
         private readonly PlantillaAutorizadaService $plantilla,
+        private readonly VolantesSucursalService $volantes,
     ) {}
 
     public function index(Request $request): Response
@@ -51,10 +54,13 @@ class SucursalController extends Controller
 
         // Solo las sucursales de esta página, no la plantilla global.
         $plantillaPorSucursal = $this->headcount->resumenPorSucursal($sucursales->getCollection()->pluck('id'))->keyBy('sucursal_id');
-        $sucursales->getCollection()->transform(function (Sucursal $sucursal) use ($plantillaPorSucursal) {
+        $volantes = $this->volantes->autorizadasPorSucursal(array_values($sucursales->getCollection()->pluck('id')->map(fn ($id) => (int) $id)->all()));
+        $sucursales->getCollection()->transform(function (Sucursal $sucursal) use ($plantillaPorSucursal, $volantes) {
             $fila = $plantillaPorSucursal->get($sucursal->id);
             $sucursal->setAttribute('plantilla_permitida', (int) ($fila['plantilla_autorizada'] ?? 0));
             $sucursal->setAttribute('plantilla_vacantes', (int) ($fila['vacantes'] ?? 0));
+            // Plazas de Gestor volante autorizadas (null = nunca se ha definido).
+            $sucursal->setAttribute('volantes_autorizados', $volantes[$sucursal->id] ?? null);
 
             return $sucursal;
         });
@@ -66,6 +72,8 @@ class SucursalController extends Controller
                 'crear' => $request->user()->can('create', Sucursal::class),
                 'editar' => $request->user()->can('sucursales.administrar') && $request->user()->can('sucursales.editar'),
                 'eliminar' => $request->user()->can('sucursales.administrar') && $request->user()->can('sucursales.eliminar'),
+                // «¿Esta sucursal tendrá volantes?»: plantilla autorizada, solo RH.
+                'editar_plantilla' => $request->user()->can('headcount.editar'),
             ],
             'filtros' => $request->only('busqueda', 'empresa_id'),
             // Solo lo usa el diálogo de alta/edición: se pide con una recarga
@@ -110,7 +118,9 @@ class SucursalController extends Controller
             // hay otra figura de "responsable".
             'gerente' => $this->detalle->gerente($sucursal),
             'porDepartamento' => $this->detalle->porDepartamento($sucursal),
-            'departamentos' => $sucursal->colaboradores()->where('estatus', 'activo')->whereNotNull('departamento_id')->distinct('departamento_id')->count('departamento_id'),
+            'departamentos' => $sucursal->colaboradores()->whereIn('estatus', EstadoUsuario::valoresVigentes())->whereNotNull('departamento_id')->distinct('departamento_id')->count('departamento_id'),
+            // Gestores fijos (con ruta, Matriz comercial) vs. volantes.
+            'gestores' => $this->volantes->resumen($sucursal),
             // Solo RH captura plantilla; el histórico (quién, cuándo, antes,
             // después, motivo) lo ve cualquiera que pueda ver la sucursal.
             'puedeEditarPlantilla' => $request->user()->can('editarPlantilla', $sucursal),
@@ -134,6 +144,22 @@ class SucursalController extends Controller
         );
 
         return back()->with('toast', ['type' => 'success', 'message' => sprintf('Plantilla autorizada de %s actualizada.', $puesto->nombre)]);
+    }
+
+    /**
+     * «¿Esta sucursal tendrá volantes?» Sí/No + cuántos: fija las plazas de
+     * Gestor volante (0 = no tendrá) y abre/cierra sus vacantes «Gestor
+     * volante». Regla en VolantesSucursalService (solo RH).
+     */
+    public function configurarVolantes(ConfigurarVolantesSucursalRequest $request, Sucursal $sucursal): RedirectResponse
+    {
+        $cantidad = $request->cantidad();
+
+        $this->volantes->configurar($sucursal, $cantidad, $request->string('motivo')->toString(), $request->user());
+
+        return back()->with('toast', ['type' => 'success', 'message' => $cantidad > 0
+            ? sprintf('%s tendrá %d %s. Las vacantes «Gestor volante» se ajustaron solas.', $sucursal->nombre, $cantidad, $cantidad === 1 ? 'volante' : 'volantes')
+            : sprintf('%s no tendrá volantes: sus plazas de Gestor volante quedan en 0.', $sucursal->nombre)]);
     }
 
     public function store(StoreSucursalRequest $request): RedirectResponse

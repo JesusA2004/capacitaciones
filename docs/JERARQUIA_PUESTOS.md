@@ -87,7 +87,7 @@ Para el organigrama **por personas**, los puestos "de sucursal" son
 
 ## Autoridad en la línea comercial
 
-Regla confirmada por la dueña del negocio (2026-11-01): **todo se puede reabrir o modificar, pero solo por alguien de rango superior, a uno o más niveles arriba de quien lo decidió; el mismo puesto o uno inferior, nunca.** El orden vive en `config/organigrama.php` → `linea_comercial`: Gerente Regional > Subgerente Regional > Gerente de Sucursal > Subgerente de Sucursal > Gestores. El reporte directo no es lo mismo: el Gerente de Sucursal reporta al Gerente Regional, aunque el Subgerente Regional también tiene autoridad sobre él.
+Regla confirmada por la dueña del negocio (2026-11-01): **todo se puede reabrir o modificar, pero solo por alguien de rango superior, a uno o más niveles arriba de quien lo decidió; el mismo puesto o uno inferior, nunca.** El orden vive en `config/organigrama.php` → `linea_comercial`: Gerente Regional > Subgerente Regional > Gerente de Sucursal > Subgerente de Sucursal > Gestores. El reporte directo no es lo mismo: el Gerente de Sucursal reporta al Gerente Regional, aunque el Subgerente Regional también tiene autoridad sobre él. El **jefe directo** tampoco: el Subgerente de Sucursal y el Subgerente Regional son apoyo (`organigrama.puestos_apoyo`) y solo son jefe directo cuando su superior está vacante — los gestores reportan al Gerente de Sucursal (ver «Subgerentes = apoyo» en `docs/ORGANIGRAMA.md`).
 
 Única fuente: `App\Services\Organigrama\AutoridadJerarquicaService`.
 

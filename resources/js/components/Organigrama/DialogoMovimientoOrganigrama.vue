@@ -11,6 +11,7 @@ import {
 import { computed, ref, watch } from 'vue';
 import type { Component } from 'vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
+import DialogoTraspasoPuesto from '@/components/Organigrama/DialogoTraspasoPuesto.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -150,8 +151,10 @@ function elegirAccion(valor: AccionMovimientoOrganigrama): void {
             : null;
 }
 
+const esTraspaso = computed(() => props.accionInicial === 'traspaso');
+
 watch(abierto, (valor) => {
-    if (valor) {
+    if (valor && !esTraspaso.value) {
         void cargar();
     }
 });
@@ -250,7 +253,12 @@ function confirmar(): void {
 </script>
 
 <template>
-    <Dialog v-model:open="abierto">
+    <DialogoTraspasoPuesto
+        v-if="esTraspaso"
+        v-model:open="abierto"
+        :nodo="nodo"
+    />
+    <Dialog v-else v-model:open="abierto">
         <DialogContent class="max-h-[92vh] overflow-y-auto sm:max-w-xl">
             <DialogHeader>
                 <DialogTitle>Mover en el organigrama</DialogTitle>

@@ -9,8 +9,10 @@ use App\Services\Headcount\HeadcountService;
 use App\Services\Vacantes\VacanteAutoGenerationService;
 
 /*
- * RH contrata "un gestor": entra como volante y después toma ruta. Para
- * plantilla y vacantes es la misma plaza (config/headcount.php).
+ * Desde 2026-11-09 Gestor (fijo, con ruta) y Gestor Volante tienen plazas y
+ * vacantes PROPIAS, pero se prestan lugar (config headcount.plazas_compartidas):
+ * quien no tiene plaza libre de su puesto ocupa una libre del otro. El
+ * total ocupado de la pareja es el mismo que cuando eran una sola plaza.
  */
 beforeEach(function () {
     $this->sucursal = Sucursal::factory()->create();
@@ -20,50 +22,44 @@ beforeEach(function () {
     HeadcountTarget::factory()->create(['sucursal_id' => $this->sucursal->id, 'puesto_id' => $this->volante->id, 'plantilla_autorizada' => 1]);
 });
 
-test('gestores y volantes forman una sola plaza en plantilla y vacantes', function () {
+test('gestores y volantes tienen plazas propias en plantilla y vacantes', function () {
     Colaborador::factory()->count(2)->create(['sucursal_principal_id' => $this->sucursal->id, 'puesto_id' => $this->gestor->id]);
     Colaborador::factory()->create(['sucursal_principal_id' => $this->sucursal->id, 'puesto_id' => $this->volante->id]);
 
     $headcount = app(HeadcountService::class);
-    $resumen = $headcount->resumenPorPuesto($this->sucursal->id);
+    $resumen = collect($headcount->resumenPorPuesto($this->sucursal->id))->keyBy('puesto');
 
-    expect($resumen)->toHaveCount(1)
-        ->and($resumen[0]['puesto'])->toBe('Gestor')
-        ->and($resumen[0]['plantilla_autorizada'])->toBe(5)
-        ->and($resumen[0]['plantilla_actual'])->toBe(3)
-        ->and($resumen[0]['faltante'])->toBe(2)
+    expect($resumen)->toHaveCount(2)
+        ->and($resumen['Gestor']['plantilla_autorizada'])->toBe(4)
+        ->and($resumen['Gestor']['plantilla_actual'])->toBe(2)
+        ->and($resumen['Gestor']['faltante'])->toBe(2)
+        ->and($resumen['Gestor Volante']['plantilla_autorizada'])->toBe(1)
+        ->and($resumen['Gestor Volante']['plantilla_actual'])->toBe(1)
         ->and($headcount->vacantesDerivadas($this->sucursal->id, $this->gestor->id))->toBe(2)
         ->and($headcount->vacantesDerivadas($this->sucursal->id, $this->volante->id))->toBe(0);
 
     $cobertura = $headcount->coberturaDetallada(collect([$this->sucursal->id]));
-    expect($cobertura['filas'])->toHaveCount(1)
+    expect($cobertura['filas'])->toHaveCount(2)
         ->and($cobertura['totales']['vacantes'])->toBe(2);
 });
 
-test('solo se abre una vacante automática de Gestor aunque se sincronice desde el volante', function () {
+test('se abre una vacante automática por puesto: Gestor fijo y Gestor volante', function () {
     $servicio = app(VacanteAutoGenerationService::class);
     $servicio->sincronizar($this->sucursal->id, $this->volante->id);
     $servicio->sincronizarTodo();
 
-    $vacantes = Vacante::query()->where('sucursal_id', $this->sucursal->id)->where('generada_automaticamente', true)->get();
+    $vacantes = Vacante::query()->where('sucursal_id', $this->sucursal->id)->where('generada_automaticamente', true)->get()->keyBy('puesto_id');
 
-    expect($vacantes)->toHaveCount(1)
-        ->and($vacantes[0]->puesto_id)->toBe($this->gestor->id)
-        ->and($vacantes[0]->plazas_requeridas)->toBe(5);
+    expect($vacantes)->toHaveCount(2)
+        ->and($vacantes[$this->gestor->id]->plazas_requeridas)->toBe(4)
+        ->and($vacantes[$this->volante->id]->plazas_requeridas)->toBe(1);
 });
 
-test('una vacante automática vieja de volante se convierte en la de gestor, sin duplicar', function () {
-    Vacante::factory()->create([
-        'sucursal_id' => $this->sucursal->id,
-        'puesto_id' => $this->volante->id,
-        'generada_automaticamente' => true,
-        'estado' => 'abierta',
-    ]);
+test('un volante sin plaza de volante libre ocupa una plaza de Gestor', function () {
+    Colaborador::factory()->count(2)->create(['sucursal_principal_id' => $this->sucursal->id, 'puesto_id' => $this->volante->id]);
 
-    app(VacanteAutoGenerationService::class)->sincronizarTodo();
+    $headcount = app(HeadcountService::class);
 
-    $abiertas = Vacante::query()->where('sucursal_id', $this->sucursal->id)->where('estado', 'abierta')->get();
-
-    expect($abiertas)->toHaveCount(1)
-        ->and($abiertas[0]->puesto_id)->toBe($this->gestor->id);
+    expect($headcount->plantillaDePar($this->sucursal->id, $this->volante->id))->toBe(['autorizada' => 1, 'ocupada' => 1, 'faltantes' => 0])
+        ->and($headcount->plantillaDePar($this->sucursal->id, $this->gestor->id))->toBe(['autorizada' => 4, 'ocupada' => 1, 'faltantes' => 3]);
 });

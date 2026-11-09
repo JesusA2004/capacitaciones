@@ -2,6 +2,7 @@
 
 namespace App\Services\Puestos;
 
+use App\Enums\EstadoUsuario;
 use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\PerfilPuesto;
@@ -42,7 +43,7 @@ class PerfilPuestoService
         $puestos = Puesto::query()
             ->where('activo', true)
             ->with(['perfil', 'departamento:id,nombre', 'puestoSuperior:id,nombre'])
-            ->withCount(['colaboradores as ocupantes' => fn ($q) => $q->where('estatus', 'activo')])
+            ->withCount(['colaboradores as ocupantes' => fn ($q) => $q->whereIn('estatus', EstadoUsuario::valoresVigentes())])
             ->orderByRaw('COALESCE(nivel_jerarquico, 99)')
             ->orderBy('nombre')
             ->get();
@@ -73,7 +74,7 @@ class PerfilPuestoService
                 'departamento' => $puesto->departamento->nombre ?? null,
                 'reporta_a' => $puesto->puestoSuperior->nombre ?? null,
                 'supervisa' => array_values($puesto->subordinadosDirectos->where('activo', true)->pluck('nombre')->all()),
-                'ocupantes' => Colaborador::query()->where('puesto_id', $puesto->id)->where('estatus', 'activo')->count(),
+                'ocupantes' => Colaborador::query()->where('puesto_id', $puesto->id)->whereIn('estatus', EstadoUsuario::valoresVigentes())->count(),
             ],
             'perfil' => $perfil !== null ? $this->datos($perfil) : $this->borrador($puesto),
             'es_borrador' => $perfil === null,

@@ -2,6 +2,7 @@
 
 namespace App\Services\Administracion;
 
+use App\Enums\EstadoUsuario;
 use App\Models\Colaborador;
 use App\Models\Puesto;
 use App\Models\User;
@@ -43,7 +44,7 @@ class JerarquiaPuestoService
     {
         $consulta = Colaborador::query()
             ->whereIn('puesto_id', $puestos->pluck('id'))
-            ->where('estatus', 'activo')
+            ->whereIn('estatus', EstadoUsuario::valoresVigentes())
             ->when($request->integer('sucursal_id'), fn ($query, int $id) => $query->where('sucursal_principal_id', $id))
             ->when($request->integer('empresa_id'), fn ($query, int $id) => $query->whereHas('sucursalPrincipal', fn ($s) => $s->where('empresa_id', $id)))
             ->orderByRaw('foto_path is null')
@@ -105,7 +106,7 @@ class JerarquiaPuestoService
 
         $porPuesto = Colaborador::query()
             ->whereIn('puesto_id', $puestos->pluck('id'))
-            ->where('estatus', 'activo')
+            ->whereIn('estatus', EstadoUsuario::valoresVigentes())
             ->with('sucursalPrincipal:id,nombre')
             ->orderBy('name')
             ->orderBy('apellidos')
@@ -154,8 +155,8 @@ class JerarquiaPuestoService
             ])
             ->withCount([
                 'colaboradores as colaboradores_count' => fn ($query) => $usuario instanceof User
-                    ? $alcance->limitarColaboradoresPorAlcance($query->where('estatus', 'activo'), $usuario)
-                    : $query->where('estatus', 'activo'),
+                    ? $alcance->limitarColaboradoresPorAlcance($query->whereIn('estatus', EstadoUsuario::valoresVigentes()), $usuario)
+                    : $query->whereIn('estatus', EstadoUsuario::valoresVigentes()),
                 'candidatos' => $candidatos,
                 'vacantes as vacantes_abiertas_count' => fn (Builder $query): Builder => $usuario instanceof User
                     ? $alcance->limitarPorSucursal($query->whereNotIn('estado', ['cubierta', 'cancelada']), $usuario, 'sucursal_id', 'vacantes')
@@ -183,7 +184,7 @@ class JerarquiaPuestoService
             // que nadie desaparezca del organigrama sin haberse reasignado.
             ->where(fn ($query) => $query
                 ->where('activo', true)
-                ->orWhereHas('colaboradores', fn ($sub) => $sub->where('estatus', 'activo')))
+                ->orWhereHas('colaboradores', fn ($sub) => $sub->whereIn('estatus', EstadoUsuario::valoresVigentes())))
             ->when($request->integer('departamento_id'), fn ($query, int $id) => $query->where('departamento_id', $id))
             ->when($request->string('tipo_puesto')->toString(), fn ($query, string $tipo) => $query->where('tipo_puesto', $tipo))
             ->orderBy('nivel_jerarquico')

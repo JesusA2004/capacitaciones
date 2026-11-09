@@ -39,6 +39,8 @@ export type SucursalItem = {
     colaboradores_count: number;
     plantilla_permitida?: number;
     plantilla_vacantes?: number;
+    /** Plazas de Gestor volante autorizadas (null = nunca se han definido). */
+    volantes_autorizados?: number | null;
 };
 
 export type UsuarioItem = {
@@ -127,6 +129,8 @@ export type PuestoItem = {
     colaboradores_count: number;
     /** Duración del periodo de prueba (capacitación inicial), en meses. */
     meses_periodo_prueba: number | null;
+    /** Plazas autorizadas / ocupadas / vacantes en todas sus ubicaciones (Headcount). */
+    plazas?: { autorizadas: number; ocupadas: number; vacantes: number };
     /** Rango vigente del tabulador; solo con salarios.ver (null si no hay). */
     tabulador?: {
         minimo: number;
@@ -279,6 +283,8 @@ export type NodoOrganigramaPersona = {
         /** Auditable: quién marcó la cobertura y cuándo. */
         registrada_por?: string | null;
         registrada_en?: string | null;
+        /** true = «También ocupa este puesto»; false = «Cubre temporalmente». */
+        ocupa_plaza?: boolean;
     } | null;
     /** Solo Gerente de Sucursal: lado Q1/Q3 (o «Por clasificar»). */
     clasificacion?: ClasificacionRegionNodo | null;
@@ -291,6 +297,57 @@ export type NodoOrganigramaPersona = {
         nombre: string;
         origen: 'persona' | 'puesto';
     } | null;
+    /**
+     * Puesto de APOYO (Subgerente, Subgerente Regional): no es jefe directo
+     * mientras su superior tenga titular o cobertura (config organigrama.puestos_apoyo).
+     */
+    apoyo?: boolean;
+    /** Ya trabaja pero sigue «en incorporación»: su fase (p. ej. «Inducción»). */
+    incorporacion?: string | null;
+    /** Plaza vacante con candidato(s) ya autorizados por RH, sin colaborador. */
+    por_ingresar?: { id: number; nombre: string }[];
+};
+
+/** Puesto activo que no cuelga de Dirección General (PuestosSinUbicarService). */
+export type PuestoSinUbicar = {
+    id: number;
+    nombre: string;
+    departamento: string | null;
+    superior: string | null;
+    motivo: 'sin_superior' | 'superior_inactivo' | 'rama_suelta';
+    motivo_etiqueta: string;
+    ocupantes: string[];
+    total_ocupantes: number;
+};
+
+/** «Ubicar / mover puesto»: opciones (UbicacionPuestoService::opciones). */
+export type OpcionesUbicacionPuesto = {
+    superiores: {
+        value: string;
+        label: string;
+        departamento_id: number | null;
+        departamento: string | null;
+        ocupantes: string[];
+    }[];
+    departamentos: { value: string; label: string }[];
+    actual: { superior_id: number | null; departamento_id: number | null };
+};
+
+/** «Ubicar / mover puesto»: vista previa sin guardar. */
+export type VistaPreviaUbicacionPuesto = {
+    puesto: string;
+    superior_antes: string | null;
+    superior_despues: string;
+    departamento_antes: string | null;
+    departamento_despues: string | null;
+    personas: string[];
+    cambios_jefe: {
+        colaborador: string;
+        puesto: string;
+        antes: string | null;
+        despues: string | null;
+    }[];
+    sin_cambios: boolean;
 };
 
 /** Datos para asignar/terminar coberturas desde el organigrama. */
@@ -319,6 +376,16 @@ export type PersonaLamina = {
     sucursal: string | null;
     /** URL segura (o null: sin foto o sin acceso a ese expediente). */
     foto_url: string | null;
+    /** En incorporación: su fase (p. ej. «Inducción»). */
+    incorporacion?: string | null;
+};
+
+/** Estado de una caja de lámina sin personas. */
+export type EstadoCajaLamina = {
+    /** false = ningún puesto del catálogo coincide: «Puesto no registrado». */
+    registrado?: boolean;
+    /** Candidatos autorizados por RH que aún no tienen colaborador. */
+    por_ingresar?: string[];
 };
 
 /** Nodo del organigrama General (composición de las láminas). */
@@ -333,7 +400,7 @@ export type NodoGeneral = {
     hijos: NodoGeneral[];
 };
 
-export type CajaLamina = {
+export type CajaLamina = EstadoCajaLamina & {
     titulo: string;
     icono: string | null;
     destacado: boolean;
@@ -343,13 +410,16 @@ export type CajaLamina = {
 /** Láminas como el PDF de Inducción (hojas 17 · 18 · 19). */
 export type LaminasOrganigrama = {
     corporativo: {
-        direccion_general: { titulo: string; personas: PersonaLamina[] };
-        areas: {
+        direccion_general: EstadoCajaLamina & {
+            titulo: string;
+            personas: PersonaLamina[];
+        };
+        areas: (EstadoCajaLamina & {
             sigla: string;
             titulo: string;
             icono: string;
             personas: PersonaLamina[];
-        }[];
+        })[];
         nota: string | null;
     };
     comercial: {
@@ -364,11 +434,17 @@ export type LaminasOrganigrama = {
     sucursal: {
         puestos: Record<
             'gerente' | 'subgerente' | 'coordinacion' | 'gestores',
-            { titulo: string; funciones: string[] }
+            { titulo: string; funciones: string[]; registrado?: boolean }
         >;
         sucursales: ({
             id: number;
             nombre: string;
+            por_ingresar?: Partial<
+                Record<
+                    'gerente' | 'subgerente' | 'coordinacion' | 'gestores',
+                    string[]
+                >
+            >;
         } & Record<
             'gerente' | 'subgerente' | 'coordinacion' | 'gestores',
             PersonaLamina[]

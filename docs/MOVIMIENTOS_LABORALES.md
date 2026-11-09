@@ -62,10 +62,16 @@ o `VacacionesService`). Métodos:
 | Dar de baja a un colaborador | `UsuarioController::destroy()` | `baja`, con motivo y checkbox opcional "crear vacante de reemplazo" |
 | Cubrir vacante con colaborador interno | `VacanteController::cubrir()` (modo `colaborador_interno`) | `promocion`/`cambio_puesto`, enlazado a `vacante_id`; la vacante pasa a `Cubierta` |
 | Cubrir vacante con cobertura temporal | `VacanteController::cubrir()` (modo `cobertura_temporal`) | `cobertura_temporal`, la vacante sigue abierta |
+| Subir / Bajar / Mover bajo… en el organigrama | `MovimientoOrganigramaService::aplicar()` → `DatosExpedienteService::actualizarLaborales()` | `promocion`/`cambio_puesto`/`cambio_sucursal`/`cambio_jefe`…, motivo «Organigrama: …» |
+| Cambiar de puesto (traspaso), una o varias personas | `TraspasoPuestoService::aplicar()` → misma puerta (`MovimientoOrganigramaService::aplicarDestino`) | `promocion` o `cambio_puesto` (por nivel jerárquico) + `cambio_sucursal`/`cambio_departamento`/`cambio_jefe` si aplican, motivo «Traspaso de puesto», comentario de RH en `observaciones` (`MovimientoLaboralService::anotarObservaciones`) |
 
 **No automático a propósito:** editar un colaborador nunca crea una vacante por sí
 solo — requiere el checkbox explícito "crear vacante de reemplazo", para no generar
 vacantes fantasma en ediciones menores (corregir un teléfono, por ejemplo).
+
+### Traspaso de puesto: no es baja ni alta
+
+Un traspaso (p. ej. Gestor Volante de Cuernavaca → Auditora en Corporativo) es un movimiento interno: **no** crea filas en `bajas` ni movimientos `alta`/`baja`/`reingreso`, no cambia `estatus` ni `fecha_ingreso`, y por eso no cuenta en rotación (`RotacionMotorService` solo lee `bajas`, `bajas_historicas` y `rotacion_periodos`), ni en ingresos/altas (`IndicadoresRhService`, `ReportesNominalesService`: tipo `alta` o fecha de ingreso). Si deja de ser gestor o cambia de sucursal, sus rutas se cierran en la matriz comercial. La vacante que deja la abre `ColaboradorPlantillaObserver` (motivo «Reemplazo»). Ver `docs/ORGANIGRAMA.md` y `tests/Feature/Organigrama/TraspasoPuestoTest.php`.
 
 ## Dónde se ve
 

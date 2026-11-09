@@ -39,11 +39,11 @@ test('vacantes: totales concretos por puesto y en qué sucursales, sin costos', 
         ->and($props['vacantes'][0])->not->toHaveKey('sueldo_mensual')
         ->and($resumen['plazas'])->toBe(5)
         ->and($resumen['sucursales'])->toBe(2)
-        ->and($resumen['por_puesto'][0]['puesto'])->toBe('Gestor')
+        ->and($resumen['por_puesto'][0]['puesto'])->toBe('Gestor fijo')
         ->and($resumen['por_puesto'][0]['plazas'])->toBe(4)
         ->and($resumen['por_puesto'][0]['sucursales'])->toBe([
-            ['sucursal_id' => $cuernavaca->id, 'sucursal' => 'Cuernavaca', 'plazas' => 3],
-            ['sucursal_id' => $cordoba->id, 'sucursal' => 'Córdoba', 'plazas' => 1],
+            ['sucursal_id' => $cuernavaca->id, 'sucursal' => 'Cuernavaca', 'es_corporativo' => false, 'plazas' => 3],
+            ['sucursal_id' => $cordoba->id, 'sucursal' => 'Córdoba', 'es_corporativo' => false, 'plazas' => 1],
         ])
         ->and($resumen['por_puesto'][1]['puesto'])->toBe('Gerente de Sucursal')
         ->and($resumen['por_puesto'][1]['plazas'])->toBe(1);

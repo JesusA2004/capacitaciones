@@ -12,12 +12,14 @@ use App\Http\Controllers\Administracion\JerarquiaPuestoController;
 use App\Http\Controllers\Administracion\MatrizComercialController;
 use App\Http\Controllers\Administracion\NotificacionSistemaController;
 use App\Http\Controllers\Administracion\OrganigramaAccionesController;
+use App\Http\Controllers\Administracion\PlantillaPuestoController;
 use App\Http\Controllers\Administracion\PlazasAutorizadasController;
 use App\Http\Controllers\Administracion\PuestoController;
 use App\Http\Controllers\Administracion\ResponsableAprobacionController;
 use App\Http\Controllers\Administracion\RolController;
 use App\Http\Controllers\Administracion\RolNotificacionesController;
 use App\Http\Controllers\Administracion\SucursalController;
+use App\Http\Controllers\Administracion\UbicacionPuestoController;
 use App\Http\Controllers\Administracion\UsuarioController;
 use Illuminate\Support\Facades\Route;
 
@@ -109,6 +111,8 @@ Route::middleware(['auth', 'verified'])
             Route::post('/', [SucursalController::class, 'store'])->name('store');
             Route::put('{sucursal}', [SucursalController::class, 'update'])->name('update');
             Route::put('{sucursal}/plantilla/{puesto}', [SucursalController::class, 'actualizarPlantilla'])->name('plantilla.update');
+            // «¿Esta sucursal tendrá volantes?» (plazas de Gestor volante, solo RH).
+            Route::put('{sucursal}/volantes', [SucursalController::class, 'configurarVolantes'])->name('volantes.update');
             Route::delete('{sucursal}', [SucursalController::class, 'destroy'])->name('destroy');
         });
 
@@ -131,12 +135,19 @@ Route::middleware(['auth', 'verified'])
             Route::get('{puesto}', [PuestoController::class, 'show'])->name('show');
             Route::post('{puesto}/mover-colaboradores', [PuestoController::class, 'moverColaboradores'])->name('mover-colaboradores');
             Route::put('{puesto}', [PuestoController::class, 'update'])->name('update');
+            // «Plantilla autorizada» del puesto por ubicación (Corporativo incluido), solo RH.
+            Route::put('{puesto}/plantilla', [PlantillaPuestoController::class, 'update'])->name('plantilla.update');
             Route::delete('{puesto}', [PuestoController::class, 'destroy'])->name('destroy');
         });
 
         Route::prefix('jerarquia-puestos')->name('jerarquia-puestos.')->group(function () {
             Route::get('/', [JerarquiaPuestoController::class, 'index'])->name('index');
             Route::get('{puesto}/historial', [JerarquiaPuestoController::class, 'historial'])->name('historial');
+            // «Ubicar / mover puesto»: a quién reporta y departamento
+            // (UbicacionPuestoService; vista previa sin guardar).
+            Route::get('{puesto}/ubicacion/opciones', [UbicacionPuestoController::class, 'opciones'])->name('ubicacion.opciones');
+            Route::post('{puesto}/ubicacion/vista-previa', [UbicacionPuestoController::class, 'vistaPrevia'])->name('ubicacion.vista-previa');
+            Route::post('{puesto}/ubicacion', [UbicacionPuestoController::class, 'ubicar'])->name('ubicacion.aplicar');
             Route::put('{puesto}', [JerarquiaPuestoController::class, 'actualizar'])->name('actualizar');
             // Coberturas temporales (alguien actúa en el puesto de otra
             // sucursal/región sin dejar el suyo).
@@ -147,6 +158,11 @@ Route::middleware(['auth', 'verified'])
             Route::get('personas/{colaborador}/opciones', [OrganigramaAccionesController::class, 'opciones'])->name('personas.opciones');
             Route::post('personas/{colaborador}/vista-previa', [OrganigramaAccionesController::class, 'vistaPrevia'])->name('personas.vista-previa');
             Route::post('personas/{colaborador}/mover', [OrganigramaAccionesController::class, 'mover'])->name('personas.mover');
+            // «Cambiar de puesto (traspaso)»: una o varias personas a
+            // cualquier puesto activo (TraspasoPuestoService).
+            Route::get('traspaso/opciones', [OrganigramaAccionesController::class, 'opcionesTraspaso'])->name('traspaso.opciones');
+            Route::post('traspaso/vista-previa', [OrganigramaAccionesController::class, 'vistaPreviaTraspaso'])->name('traspaso.vista-previa');
+            Route::post('traspaso', [OrganigramaAccionesController::class, 'traspasar'])->name('traspaso.aplicar');
         });
 
         // Matriz comercial / territorial: vista B del Organigrama, árbol

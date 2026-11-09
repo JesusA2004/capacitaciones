@@ -42,24 +42,38 @@ del tablero.
 
 ## Cubrir una vacante
 
-`POST rh/vacantes/{vacante}/cubrir` (`VacanteController::cubrir()`, autorizado con la
-misma habilidad que cambiar estado: `VacantePolicy::cambiarEstado`). Icono "Cubrir"
-(✓) en cada tarjeta del tablero, o desde el panel de Jerarquía de puestos. Tres modos
-(`CubrirVacanteRequest`, campo `modo`):
+Vacantes es **informativo** (derivado de la plantilla, `docs/HEADCOUNT_Y_VACANTES.md`):
+`routes/rh.php` solo expone `index`, `exportarExcel` y `exportarPdf`; el antiguo
+`POST rh/vacantes/{vacante}/cubrir` (`VacanteController::cubrir()`) ya no existe. Una
+vacante se cierra sola cuando su plaza queda ocupada:
 
-- **`colaborador_interno`**: requiere `user_id`. Mueve el `puesto_id` (y
-  departamento/sucursal) del colaborador al de la vacante, marca la vacante
-  `Cubierta`, y registra un movimiento laboral (`promocion` o `cambio_puesto` según
-  niveles jerárquicos) enlazado a la vacante vía `MovimientoLaboralService::
-  registrarCambioPuesto()`. Ver `docs/MOVIMIENTOS_LABORALES.md`.
-- **`cobertura_temporal`**: requiere `user_id` y `fecha_inicio` (opcional
-  `fecha_fin`). Registra un movimiento `cobertura_temporal` sin tocar el `puesto_id`
-  definitivo del colaborador; la vacante permanece abierta.
-- **`candidato_externo`**: no muta nada en este endpoint — es una confirmación de
-  intención. El flujo real es el existente: se crea/continúa el Alta Digital del
-  candidato enlazada a `vacante_id`; al aprobarse, `ConversionColaboradorService`
-  marca la vacante `Cubierta` y registra el movimiento `alta` (ya enlazado a la
-  vacante desde antes de este cambio).
+- **Contratación**: Alta Digital del candidato enlazada a `vacante_id`; al aprobarse,
+  `ConversionColaboradorService` marca la vacante `Cubierta` y registra el movimiento
+  `alta`.
+- **Movimiento interno**: cambio de puesto/sucursal del colaborador (expediente,
+  movimiento laboral, organigrama); `ColaboradorPlantillaObserver` resincroniza el par
+  de origen y el de destino.
+- **Una persona en dos puestos** (organigrama → `CoberturaPuestoService`, campo
+  `ocupa_plaza`): «**Ocupa ambos puestos (sin vacante)**» cuenta la plaza como
+  ocupada y cierra la vacante; «**Cubre mientras se contrata (con vacante)**» la deja
+  abierta. Al quitar la cobertura se reabre. Es la única forma de registrar una
+  cobertura (`POST administracion/jerarquia-puestos/coberturas`).
+- **Ajuste de plantilla**: bajar las plazas autorizadas (detalle de sucursal, ficha del
+  puesto o «¿Esta sucursal tendrá volantes?») cierra o reduce la vacante con su motivo.
+
+Una vacante nunca se borra ni se duplica: se cancela con motivo y hay a lo más una
+automática abierta por par (sucursal, puesto).
+
+## Cómo se muestra
+
+- **Puesto**: Gestor se ve como «Gestor fijo» (con la aclaración «la ruta se define en
+  Matriz comercial») y Gestor Volante como «Gestor volante» (`config/headcount.php` →
+  `etiquetas_vacante`, `notas_vacante`), en la web, la API, el resumen y Excel/PDF.
+  Son plazas y vacantes **separadas**.
+- **Ubicación**: sucursal o Corporativo (marcado «Corporativo»).
+- **Área / departamento**: el de la vacante o, si no lo trae, el de su puesto
+  (Auditora → Contraloría). Se filtra con los chips de área o con el filtro
+  «Área / departamento» (`departamento_id`, también en la API).
 
 ## Alcance y permisos
 

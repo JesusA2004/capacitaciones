@@ -5,19 +5,50 @@
 | Headcount y vacantes
 |--------------------------------------------------------------------------
 |
-| Puestos que para PLANTILLA y VACANTES cuentan como otro puesto. RH
-| contrata "un gestor": entra como volante y después toma su ruta, pero es
-| la misma plaza — no se abren ni se muestran vacantes separadas de
-| volante (docs/HEADCOUNT_Y_VACANTES.md). El organigrama sí los distingue
-| (el gestor tiene ruta, el volante no).
-|
-| Nombres exactos de App\Models\Puesto (PuestoJerarquiaSeeder).
+| Ver docs/HEADCOUNT_Y_VACANTES.md. Nombres exactos de App\Models\Puesto
+| (PuestoJerarquiaSeeder).
 |
 */
 
 return [
-    'puestos_equivalentes' => [
+    /*
+    | Puestos que para PLANTILLA y VACANTES cuentan como otro puesto (misma
+    | plaza, sin vacantes propias). Vacío desde 2026-11-09: el Gestor
+    | volante dejó de ser «la misma plaza que Gestor» y tiene sus propias
+    | plazas y vacantes (ver plazas_compartidas).
+    */
+    'puestos_equivalentes' => [],
+
+    /*
+    | Puestos con plazas PROPIAS que se prestan lugar entre sí: cada persona
+    | ocupa primero una plaza de su puesto y, si ya no hay libre, una plaza
+    | libre del otro puesto de la pareja en la misma sucursal. Así un volante
+    | sin plaza de volante ocupa una plaza de Gestor (y al revés) y nada que
+    | ya estaba ocupado pasa a vacante o a «fuera de plantilla» por haber
+    | separado las plazas (App\Services\Headcount\PuestosPlantillaService).
+    */
+    'plazas_compartidas' => [
         'Gestor Volante' => 'Gestor',
+    ],
+
+    /*
+    | Puesto cuyas plazas captura el botón «¿Esta sucursal tendrá volantes?»
+    | (Administración → Sucursales).
+    */
+    'puesto_volante' => 'Gestor Volante',
+
+    /*
+    | Cómo se nombra el puesto en Vacantes (web, API, resumen, Excel y PDF) y
+    | la aclaración que lo acompaña. El catálogo de puestos no cambia.
+    */
+    'etiquetas_vacante' => [
+        'Gestor' => 'Gestor fijo',
+        'Gestor Volante' => 'Gestor volante',
+    ],
+
+    'notas_vacante' => [
+        'Gestor' => 'Con ruta asignada: la ruta se define en Matriz comercial.',
+        'Gestor Volante' => 'Sin ruta fija: cubre faltas y apoya la operación de la sucursal.',
     ],
 
     /*

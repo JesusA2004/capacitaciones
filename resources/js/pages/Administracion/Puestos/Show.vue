@@ -12,6 +12,7 @@ import {
     History,
     Loader2,
     Minus,
+    Network,
     Pencil,
     Search,
     Shuffle,
@@ -33,6 +34,8 @@ import {
 import EmptyState from '@/components/Common/EmptyState.vue';
 import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
 import BarraTabulador from '@/components/puestos/BarraTabulador.vue';
+import DialogoUbicarPuesto from '@/components/Organigrama/DialogoUbicarPuesto.vue';
+import PlantillaAutorizadaPuesto from '@/components/puestos/PlantillaAutorizadaPuesto.vue';
 import PuestoDatosFormulario from '@/components/puestos/PuestoDatosFormulario.vue';
 import TabuladorEditor from '@/components/puestos/TabuladorEditor.vue';
 import { Button } from '@/components/ui/button';
@@ -53,7 +56,9 @@ import type {
     DestinoPuesto,
     OpcionSimple,
     PersonaPuesto,
+    PlantillaPuesto,
     PuestoDetalle,
+    PuestoSinUbicar,
     RangoTabulador,
     RangoTabuladorVigente,
     ResultadoMovimientoPuesto,
@@ -77,7 +82,15 @@ const props = defineProps<{
     rango: RangoTabuladorVigente | null;
     versiones: VersionTabulador[];
     departamentosDisponibles: OpcionSimple[];
+    /** Plazas autorizadas por ubicación (Headcount). */
+    plantilla: PlantillaPuesto;
+    /** Presente solo si el puesto no cuelga de Dirección General. */
+    sinUbicar: PuestoSinUbicar | null;
+    /** Recién creado: abre «¿Debajo de quién va?» al entrar. */
+    abrirUbicacion: boolean;
     puede: {
+        ubicar: boolean;
+        editar_plantilla: boolean;
         editar: boolean;
         eliminar: boolean;
         mover: boolean;
@@ -98,6 +111,12 @@ defineOptions({
 });
 
 const numero = new Intl.NumberFormat('es-MX');
+
+// Recién creado (o llegado con ?ubicar=1) y todavía fuera del árbol: se
+// pregunta de inmediato debajo de quién va.
+const ubicacionAbierta = ref(
+    props.abrirUbicacion && props.sinUbicar !== null && props.puede.ubicar,
+);
 const { confirmarEliminacion, mostrarError } = useAlertas();
 
 function personasTexto(n: number): string {
@@ -593,6 +612,44 @@ async function eliminar(): Promise<void> {
                 </div>
             </div>
         </header>
+
+        <!-- Puesto fuera del árbol: sus plazas y vacantes no se ven en el organigrama hasta ubicarlo. -->
+        <section
+            v-if="sinUbicar"
+            class="flex flex-col gap-3 rounded-2xl border border-warning/30 bg-warning-soft p-4 sm:flex-row sm:items-center"
+        >
+            <span
+                class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-card text-warning"
+            >
+                <Network class="size-5" />
+            </span>
+            <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold">
+                    Este puesto aún no está en el organigrama
+                </p>
+                <p class="text-xs text-muted-foreground">
+                    {{ sinUbicar.motivo_etiqueta }}. Indica debajo de quién va
+                    para que sus personas, plazas y vacantes aparezcan en el
+                    árbol y se calcule el jefe directo.
+                </p>
+            </div>
+            <Button v-if="puede.ubicar" @click="ubicacionAbierta = true">
+                <Network class="size-4" /> ¿Debajo de quién va?
+            </Button>
+        </section>
+        <DialogoUbicarPuesto
+            v-if="puede.ubicar"
+            v-model:open="ubicacionAbierta"
+            :puesto="{ id: puesto.id, nombre: puesto.nombre }"
+        />
+
+        <!-- Plazas autorizadas por ubicación (Corporativo incluido) -->
+        <PlantillaAutorizadaPuesto
+            :puesto-id="puesto.id"
+            :puesto-nombre="puesto.nombre"
+            :plantilla="plantilla"
+            :puede-editar="puede.editar_plantilla"
+        />
 
         <SelectorVista
             v-model="seccion"

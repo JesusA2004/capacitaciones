@@ -92,8 +92,10 @@ test('autorizado 1, ocupado 0: 1 vacante; autorizado 3, ocupado 2: 1 vacante', f
     expect(vfAbierta($this->cuernavaca, $this->coordinadora)?->plazas_disponibles)->toBe(1)
         ->and(vfAbierta($this->cuernavaca, $gestor)?->plazas_disponibles)->toBe(1);
 
-    $filas = collect(app(VacantesListadoService::class)->filas(app(VacantesListadoService::class)->consulta(clUsuario('rh_admin'))->get()))->keyBy('puesto');
-    expect($filas['Gestor']['plantilla_actual'])->toBe(2)
+    $filas = collect(app(VacantesListadoService::class)->filas(app(VacantesListadoService::class)->consulta(clUsuario('rh_admin'))->get()))->keyBy('puesto_catalogo');
+    // En Vacantes el puesto Gestor se muestra como «Gestor fijo» (config/headcount.php).
+    expect($filas['Gestor']['puesto'])->toBe('Gestor fijo')
+        ->and($filas['Gestor']['plantilla_actual'])->toBe(2)
         ->and($filas['Gestor']['plantilla_autorizada'])->toBe(3)
         ->and($filas['Gestor']['plazas_disponibles'])->toBe(1)
         ->and($filas['Gestor']['faltantes_reales'])->toBe(1);

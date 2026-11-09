@@ -11,8 +11,6 @@ use App\Services\Vacantes\VacanteAutoGenerationService;
 use App\Support\FechaMexico;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Throwable;
 
 /**
  * Captura de la plantilla autorizada por (sucursal, puesto) — solo RH
@@ -21,9 +19,14 @@ use Throwable;
  * antes, después, motivo) y resincroniza la vacante automática del par.
  *
  * Se captura sobre el PUESTO DE PLANTILLA (PuestosPlantillaService): si
- * había plazas registradas en un puesto equivalente (Gestor volante → Gestor)
- * se integran al de plantilla para que el total sea exactamente el
- * capturado.
+ * había plazas registradas en un puesto equivalente (config
+ * headcount.puestos_equivalentes) se integran al de plantilla para que el
+ * total sea exactamente el capturado. Gestor volante y Gestor tienen plazas
+ * PROPIAS (plazas_compartidas): capturar uno nunca toca las del otro.
+ *
+ * Sirve para cualquier ubicación, Corporativo incluido: Administración →
+ * Sucursales (detalle), Puestos y salarios → ficha del puesto («Plantilla
+ * autorizada») y «¿Esta sucursal tendrá volantes?».
  */
 class PlantillaAutorizadaService
 {
@@ -83,12 +86,9 @@ class PlantillaAutorizadaService
 
         // La vacante automática se ajusta al nuevo número; si falla, la
         // plantilla ya quedó guardada (headcount:importar / la siguiente
-        // alta o baja vuelven a sincronizar).
-        try {
-            $this->vacantes->sincronizar($sucursal->id, $puestoId);
-        } catch (Throwable $e) {
-            Log::warning('PlantillaAutorizadaService: no se pudo sincronizar la vacante automática.', ['sucursal_id' => $sucursal->id, 'puesto_id' => $puestoId, 'error' => $e->getMessage()]);
-        }
+        // alta o baja vuelven a sincronizar). Incluye el puesto que comparte
+        // plazas (Gestor volante ↔ Gestor).
+        $this->vacantes->sincronizarSinFallar($sucursal->id, $puestoId);
 
         return $target;
     }

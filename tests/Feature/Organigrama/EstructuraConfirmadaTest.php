@@ -126,10 +126,13 @@ test('Gestor Volante cuenta en la plantilla autorizada sin tener ruta', function
     HeadcountTarget::factory()->create(['sucursal_id' => $sucursal->id, 'puesto_id' => $volante->id, 'plantilla_autorizada' => 1]);
     Colaborador::factory()->create(['sucursal_principal_id' => $sucursal->id, 'puesto_id' => $volante->id]);
 
-    $fila = collect(app(HeadcountService::class)->resumenPorPuesto($sucursal->id))->firstWhere('puesto', 'Gestor');
+    // Plazas propias desde 2026-11-09 (docs/HEADCOUNT_Y_VACANTES.md → Gestor fijo y Gestor volante).
+    $resumen = collect(app(HeadcountService::class)->resumenPorPuesto($sucursal->id))->keyBy('puesto');
 
-    expect($fila['plantilla_autorizada'])->toBe(4)
-        ->and($fila['plantilla_actual'])->toBe(1);
+    expect($resumen['Gestor Volante']['plantilla_autorizada'])->toBe(1)
+        ->and($resumen['Gestor Volante']['plantilla_actual'])->toBe(1)
+        ->and($resumen['Gestor']['plantilla_autorizada'])->toBe(3)
+        ->and($resumen['Gestor']['plantilla_actual'])->toBe(0);
 });
 
 test('la cobertura de un gerente de sucursal no cambia su puesto titular ni duplica headcount', function () {

@@ -2,6 +2,7 @@
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import {
     ArrowLeft,
+    Bike,
     Building,
     History,
     MapPin,
@@ -10,6 +11,7 @@ import {
     Plus,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import DialogoVolantesSucursal from '@/components/Administracion/DialogoVolantesSucursal.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import DashboardChartCard from '@/components/Dashboard/DashboardChartCard.vue';
@@ -29,6 +31,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useInitials } from '@/composables/useInitials';
 import { usePermisos } from '@/composables/usePermisos';
+import { fuentePlantillaEtiqueta } from '@/lib/fuentesPlantilla';
 import { dashboard } from '@/routes';
 import { index as indexDepartamentos } from '@/routes/administracion/departamentos';
 import { index } from '@/routes/administracion/sucursales';
@@ -62,6 +65,7 @@ const props = defineProps<{
         codigo_postal: string | null;
         telefono: string | null;
         activo: boolean;
+        es_corporativo?: boolean;
         empresa: { id: number; nombre: string } | null;
     };
     gerente: {
@@ -80,6 +84,24 @@ const props = defineProps<{
         fuera_de_plantilla: number;
     };
     departamentos: number;
+    /** Gestores fijos (con ruta) vs. volantes de la sucursal. */
+    gestores?: {
+        disponible: boolean;
+        fijos: {
+            puesto_id: number | null;
+            autorizadas: number;
+            ocupadas: number;
+            vacantes: number;
+            personas: number;
+        };
+        volantes: {
+            puesto_id: number | null;
+            autorizadas: number;
+            ocupadas: number;
+            vacantes: number;
+            personas: number;
+        };
+    };
     puedeEditarPlantilla: boolean;
     puestosCapturables?: { id: number; nombre: string }[];
     historialPlantilla: {
@@ -197,9 +219,43 @@ function guardarPlantilla() {
     );
 }
 
-function fuenteEtiqueta(fuente: string): string {
-    return fuente === 'captura' ? 'Captura de RH' : 'Excel de headcount';
-}
+const fuenteEtiqueta = fuentePlantillaEtiqueta;
+
+// «¿Esta sucursal tendrá volantes?» (solo RH).
+const volantesAbierto = ref(false);
+
+type ParGestores = {
+    puesto_id: number | null;
+    autorizadas: number;
+    ocupadas: number;
+    vacantes: number;
+    personas: number;
+};
+
+const tarjetasGestores = computed(() => {
+    const g = props.gestores;
+
+    if (!g?.disponible) {
+        return [];
+    }
+
+    return [
+        {
+            clave: 'fijos',
+            titulo: 'Gestores fijos',
+            detalle:
+                'Con ruta asignada: la ruta se define en Matriz comercial.',
+            par: g.fijos,
+        },
+        {
+            clave: 'volantes',
+            titulo: 'Gestores volantes',
+            detalle:
+                'Sin ruta fija: cubren faltas y apoyan la operación. Si no hay plaza de volante libre, ocupan una de Gestor fijo.',
+            par: g.volantes,
+        },
+    ] as { clave: string; titulo: string; detalle: string; par: ParGestores }[];
+});
 
 const formatoFecha = new Intl.DateTimeFormat('es-MX', {
     dateStyle: 'medium',
@@ -323,6 +379,86 @@ function porcentaje(fila: PlantillaPorPuesto): number {
                 </dd>
             </div>
         </dl>
+
+        <!-- Gestores fijos (con ruta) vs. volantes: plazas propias que se
+             prestan lugar (docs/HEADCOUNT_Y_VACANTES.md). -->
+        <section
+            v-if="tarjetasGestores.length > 0 && !sucursal.es_corporativo"
+            class="rounded-xl border bg-card p-4"
+            aria-labelledby="gestores-sucursal"
+        >
+            <header class="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <h2
+                        id="gestores-sucursal"
+                        class="flex items-center gap-2 text-sm font-semibold"
+                    >
+                        <Bike class="size-4 text-muted-foreground" />
+                        Gestores de la sucursal
+                    </h2>
+                    <p class="text-xs text-muted-foreground">
+                        {{
+                            gestores?.volantes.autorizadas
+                                ? `${gestores.volantes.autorizadas} ${gestores.volantes.autorizadas === 1 ? 'volante autorizado' : 'volantes autorizados'}`
+                                : 'Esta sucursal no tiene volantes autorizados'
+                        }}
+                    </p>
+                </div>
+                <Button
+                    v-if="puedeEditarPlantilla"
+                    size="sm"
+                    variant="outline"
+                    @click="volantesAbierto = true"
+                >
+                    <Bike class="size-4" /> ¿Esta sucursal tendrá volantes?
+                </Button>
+            </header>
+            <div class="mt-3 grid gap-2 sm:grid-cols-2">
+                <div
+                    v-for="t in tarjetasGestores"
+                    :key="t.clave"
+                    class="rounded-xl p-3"
+                    :class="t.clave === 'fijos' ? 'bg-menta/70' : 'bg-crema/60'"
+                >
+                    <p class="text-sm font-semibold">{{ t.titulo }}</p>
+                    <p class="text-xs text-muted-foreground">{{ t.detalle }}</p>
+                    <dl class="mt-2 grid grid-cols-3 gap-2 text-center">
+                        <div>
+                            <dt class="text-[11px] text-muted-foreground">
+                                Autorizadas
+                            </dt>
+                            <dd class="text-lg font-semibold tabular-nums">
+                                {{ t.par.autorizadas }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-[11px] text-muted-foreground">
+                                Ocupadas
+                            </dt>
+                            <dd class="text-lg font-semibold tabular-nums">
+                                {{ t.par.ocupadas }}
+                            </dd>
+                        </div>
+                        <div>
+                            <dt class="text-[11px] text-muted-foreground">
+                                Vacantes
+                            </dt>
+                            <dd
+                                class="text-lg font-semibold tabular-nums"
+                                :class="t.par.vacantes > 0 && 'text-warning'"
+                            >
+                                {{ t.par.vacantes }}
+                            </dd>
+                        </div>
+                    </dl>
+                    <p class="mt-1 text-xs text-muted-foreground">
+                        {{ t.par.personas }}
+                        {{ t.par.personas === 1 ? 'persona' : 'personas' }}
+                        con este puesto
+                    </p>
+                </div>
+            </div>
+        </section>
 
         <div
             class="grid items-start gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]"
@@ -620,4 +756,10 @@ function porcentaje(fila: PlantillaPorPuesto): number {
             </form>
         </DialogContent>
     </Dialog>
+
+    <DialogoVolantesSucursal
+        v-model:open="volantesAbierto"
+        :sucursal="sucursal"
+        :actuales="gestores?.volantes.autorizadas ?? null"
+    />
 </template>

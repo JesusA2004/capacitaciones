@@ -4,17 +4,28 @@ namespace App\Services\Headcount;
 
 use App\Models\HeadcountTarget;
 use App\Models\Puesto;
+use App\Models\Sucursal;
 use Illuminate\Support\Collection;
 
 /**
- * Traduce un puesto a su "puesto de plantilla" (config/headcount.php →
- * puestos_equivalentes): Gestor volante cuenta como Gestor para plantilla
- * autorizada, plantilla actual y vacantes. Única fuente de esa regla.
+ * Reglas de "qué puesto es qué plaza" para plantilla y vacantes
+ * (config/headcount.php). Única fuente de:
+ *  - puestos_equivalentes: un puesto que cuenta como otro (misma plaza);
+ *  - plazas_compartidas: dos puestos con plazas propias que se prestan
+ *    lugar (Gestor volante ↔ Gestor), ver HeadcountService;
+ *  - la etiqueta de un puesto en Vacantes («Gestor fijo», «Gestor volante»);
+ *  - dónde vive la plaza de un puesto de empresa.
  */
 class PuestosPlantillaService
 {
     /** @var array<int, int>|null puesto_id equivalente → puesto_id de plantilla */
     private ?array $mapa = null;
+
+    /** @var array<int, int>|null puesto_id → puesto_id con el que comparte plazas (ambos sentidos) */
+    private ?array $compartidas = null;
+
+    /** @var list<array{0: int, 1: int}>|null parejas [puesto A, puesto B] */
+    private ?array $parejas = null;
 
     /** @var array<int, bool> */
     private array $deEmpresa = [];
@@ -24,6 +35,8 @@ class PuestosPlantillaService
 
     /** @var array<int, Collection<int, int>>|null */
     private ?array $plazasPorPuesto = null;
+
+    private int|false|null $corporativoId = null;
 
     public function canonico(int $puestoId): int
     {
@@ -52,6 +65,72 @@ class PuestosPlantillaService
         }
 
         return $ids;
+    }
+
+    /**
+     * El puesto (de plantilla) y el que comparte plazas con él: un cambio en
+     * cualquiera de los dos mueve las vacantes de ambos.
+     *
+     * @return list<int>
+     */
+    public function compartidos(int $puestoId): array
+    {
+        $canonico = $this->canonico($puestoId);
+        $otro = $this->compartidasMapa()[$canonico] ?? null;
+
+        return $otro === null ? [$canonico] : [$canonico, $otro];
+    }
+
+    /**
+     * Parejas de puestos que se prestan plazas: [A, B] (A = el de la clave en
+     * config, p. ej. Gestor Volante; B = Gestor).
+     *
+     * @return list<array{0: int, 1: int}>
+     */
+    public function parejasCompartidas(): array
+    {
+        $this->compartidasMapa();
+
+        return $this->parejas ?? [];
+    }
+
+    /**
+     * Nombre con el que se muestra el puesto en Vacantes (web, API, resumen,
+     * Excel y PDF): «Gestor fijo», «Gestor volante»; los demás, su nombre.
+     */
+    public function etiquetaVacante(?string $nombre): ?string
+    {
+        if ($nombre === null) {
+            return null;
+        }
+
+        $etiqueta = config(sprintf('headcount.etiquetas_vacante.%s', $nombre));
+
+        return is_string($etiqueta) && $etiqueta !== '' ? $etiqueta : $nombre;
+    }
+
+    /**
+     * Aclaración del puesto en Vacantes (p. ej. «la ruta se define en Matriz comercial»).
+     */
+    public function notaVacante(?string $nombre): ?string
+    {
+        if ($nombre === null) {
+            return null;
+        }
+
+        $nota = config(sprintf('headcount.notas_vacante.%s', $nombre));
+
+        return is_string($nota) && $nota !== '' ? $nota : null;
+    }
+
+    /**
+     * Puesto cuyas plazas captura «¿Esta sucursal tendrá volantes?».
+     */
+    public function puestoVolante(): ?Puesto
+    {
+        $nombre = config('headcount.puesto_volante');
+
+        return is_string($nombre) ? Puesto::query()->where('nombre', $nombre)->first() : null;
     }
 
     /**
@@ -92,13 +171,51 @@ class PuestosPlantillaService
             return $sucursalId;
         }
 
+        $plazas = $this->plazasDe($puestoId);
+
+        return $plazas->isEmpty() || $plazas->contains($sucursalId) ? $sucursalId : (int) $plazas->first();
+    }
+
+    /**
+     * Sucursal de la plaza que ocupa una cobertura: la cubierta o, para un
+     * puesto de empresa cubierto sin sucursal (corporativo o región), donde
+     * vive su plaza (Corporativo si aún no tiene). Null = no hay a dónde contarla.
+     */
+    public function sucursalDeCobertura(int $puestoId, ?int $sucursalId): ?int
+    {
+        if ($sucursalId !== null) {
+            return $this->sucursalDePlaza($puestoId, $sucursalId);
+        }
+
+        if (! $this->esDeEmpresa($puestoId)) {
+            return null;
+        }
+
+        $plazas = $this->plazasDe($puestoId);
+
+        if ($plazas->isNotEmpty()) {
+            return (int) $plazas->first();
+        }
+
+        if ($this->corporativoId === null) {
+            $id = Sucursal::query()->where('es_corporativo', true)->orderBy('id')->value('id');
+            $this->corporativoId = $id !== null ? (int) $id : false;
+        }
+
+        return $this->corporativoId === false ? null : $this->corporativoId;
+    }
+
+    /**
+     * @return Collection<int, int>
+     */
+    private function plazasDe(int $puestoId): Collection
+    {
         $this->plazasPorPuesto ??= HeadcountTarget::query()->where('plantilla_autorizada', '>', 0)->orderBy('id')->get(['puesto_id', 'sucursal_id'])
             ->groupBy('puesto_id')
             ->map(fn (Collection $filas) => $filas->map(fn (HeadcountTarget $fila): int => (int) $fila->sucursal_id)->values())
             ->all();
-        $plazas = $this->plazasPorPuesto[$puestoId] ?? collect();
 
-        return $plazas->isEmpty() || $plazas->contains($sucursalId) ? $sucursalId : (int) $plazas->first();
+        return $this->plazasPorPuesto[$puestoId] ?? collect();
     }
 
     /**
@@ -110,29 +227,82 @@ class PuestosPlantillaService
             return $this->mapa;
         }
 
-        $config = [];
-
-        foreach ((array) config('headcount.puestos_equivalentes', []) as $origen => $destino) {
-            if (is_string($origen) && is_string($destino)) {
-                $config[$origen] = $destino;
-            }
-        }
-
-        $ids = Puesto::query()->whereIn('nombre', [...array_keys($config), ...array_values($config)])->pluck('id', 'nombre');
         $this->mapa = [];
 
-        foreach ($config as $origen => $destino) {
-            if (isset($ids[$origen], $ids[$destino])) {
-                $this->mapa[(int) $ids[$origen]] = (int) $ids[$destino];
-            }
+        foreach ($this->parejasPorNombre('headcount.puestos_equivalentes') as [$origen, $destino]) {
+            $this->mapa[$origen] = $destino;
         }
 
         return $this->mapa;
     }
 
+    /**
+     * @return array<int, int>
+     */
+    private function compartidasMapa(): array
+    {
+        if ($this->compartidas !== null) {
+            return $this->compartidas;
+        }
+
+        $this->compartidas = [];
+        $this->parejas = [];
+
+        foreach ($this->parejasPorNombre('headcount.plazas_compartidas') as [$a, $b]) {
+            $a = $this->canonico($a);
+            $b = $this->canonico($b);
+
+            if ($a === $b || isset($this->compartidas[$a]) || isset($this->compartidas[$b])) {
+                continue;
+            }
+
+            $this->compartidas[$a] = $b;
+            $this->compartidas[$b] = $a;
+            $this->parejas[] = [$a, $b];
+        }
+
+        return $this->compartidas;
+    }
+
+    /**
+     * Pares nombre => nombre de config traducidos a ids (los que no existen en el catálogo se omiten).
+     *
+     * @return list<array{0: int, 1: int}>
+     */
+    private function parejasPorNombre(string $clave): array
+    {
+        $config = [];
+
+        foreach ((array) config($clave, []) as $origen => $destino) {
+            if (is_string($origen) && is_string($destino)) {
+                $config[$origen] = $destino;
+            }
+        }
+
+        if ($config === []) {
+            return [];
+        }
+
+        $ids = Puesto::query()->whereIn('nombre', [...array_keys($config), ...array_values($config)])->pluck('id', 'nombre');
+        $parejas = [];
+
+        foreach ($config as $origen => $destino) {
+            if (isset($ids[$origen], $ids[$destino])) {
+                $parejas[] = [(int) $ids[$origen], (int) $ids[$destino]];
+            }
+        }
+
+        return $parejas;
+    }
+
     public function olvidar(): void
     {
         $this->mapa = null;
+        $this->compartidas = null;
+        $this->parejas = null;
         $this->deEmpresa = [];
+        $this->catalogoPuestos = null;
+        $this->plazasPorPuesto = null;
+        $this->corporativoId = null;
     }
 }

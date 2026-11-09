@@ -4,6 +4,7 @@ import {
     GitBranch,
     History,
     MapPin,
+    Move,
     Network,
     Pencil,
     Search,
@@ -22,6 +23,8 @@ import OrganigramaPersonasLista from '@/components/Administracion/OrganigramaPer
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
+import BandejaPuestosSinUbicar from '@/components/Organigrama/BandejaPuestosSinUbicar.vue';
+import DialogoUbicarPuesto from '@/components/Organigrama/DialogoUbicarPuesto.vue';
 import OrganigramaEditable from '@/components/Organigrama/OrganigramaEditable.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -85,6 +88,7 @@ import type {
     PuestoJerarquiaFiltros,
     PuestoJerarquiaItem,
     PuestoJerarquiaOpciones,
+    PuestoSinUbicar,
     RegionOrganigrama,
     SeccionOrganigrama,
 } from '@/types';
@@ -100,6 +104,8 @@ const props = defineProps<{
     secciones: SeccionOrganigrama[];
     laminas: LaminasOrganigrama;
     regiones: RegionOrganigrama[];
+    /** Puestos activos que no cuelgan de Dirección General (bandeja). */
+    puestosSinUbicar?: PuestoSinUbicar[];
     /** Cada acción del organigrama con su permiso (el backend lo revalida). */
     permisosOrganigrama?: {
         cubrir: boolean;
@@ -411,6 +417,21 @@ async function quitarRelacion(puesto: PuestoJerarquiaItem) {
     });
 }
 
+// «Ubicar / mover puesto» (UbicacionPuestoService): desde la bandeja de
+// puestos sin ubicar y desde el panel de un puesto en «Por puestos».
+const dialogoUbicarAbierto = ref(false);
+const puestoAUbicar = ref<{ id: number; nombre: string } | null>(null);
+
+function abrirUbicar(puesto: { id: number; nombre: string }): void {
+    if (!puedeEditarJerarquia.value) {
+        return;
+    }
+
+    puestoAUbicar.value = { id: puesto.id, nombre: puesto.nombre };
+    panelAbierto.value = false;
+    dialogoUbicarAbierto.value = true;
+}
+
 const historial = ref<PuestoHistorialResponse | null>(null);
 const historialCargando = ref(false);
 
@@ -651,6 +672,15 @@ watch(
             </button>
         </div>
 
+        <!-- Puestos del catálogo que el árbol General no puede dibujar en su
+             lugar: RH los coloca con «Ubicar / mover puesto». -->
+        <BandejaPuestosSinUbicar
+            v-if="seccionActiva?.valor === 'general'"
+            :puestos="puestosSinUbicar ?? []"
+            :puede-ubicar="puedeEditarJerarquia"
+            @ubicar="abrirUbicar"
+        />
+
         <CrudEmptyState
             v-if="!puestos.length"
             :icono="GitBranch"
@@ -691,6 +721,7 @@ watch(
                     permisosOrganigrama?.mover ?? coberturas.puedeEditar
                 "
                 :candidatos="coberturas.colaboradores"
+                :puede-ubicar="puedeEditarJerarquia"
             />
         </div>
 
@@ -842,15 +873,21 @@ watch(
             </SheetHeader>
 
             <div class="flex flex-col gap-4 px-4 pb-4">
-                <Button
-                    v-if="puedeEditarJerarquia"
-                    class="w-fit"
-                    size="sm"
-                    @click="abrirEdicion()"
-                >
-                    <Pencil class="size-4" />
-                    Editar jerarquía
-                </Button>
+                <div v-if="puedeEditarJerarquia" class="flex flex-wrap gap-2">
+                    <Button class="w-fit" size="sm" @click="abrirEdicion()">
+                        <Pencil class="size-4" />
+                        Editar jerarquía
+                    </Button>
+                    <Button
+                        class="w-fit"
+                        size="sm"
+                        variant="outline"
+                        @click="abrirUbicar(puestoSeleccionado)"
+                    >
+                        <Move class="size-4" />
+                        Ubicar / mover puesto
+                    </Button>
+                </div>
 
                 <Tabs v-model="tabActiva">
                     <TabsList class="w-full">
@@ -1212,6 +1249,11 @@ watch(
         :puesto="puestoSeleccionado"
         :todos-los-puestos="puestos"
         :key="puestoSeleccionado.id"
+    />
+
+    <DialogoUbicarPuesto
+        v-model:open="dialogoUbicarAbierto"
+        :puesto="puestoAUbicar"
     />
 
     <AgregarSubordinadoDialog

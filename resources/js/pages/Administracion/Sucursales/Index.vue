@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, router } from '@inertiajs/vue3';
 import {
+    Bike,
     Building,
     Building2,
     CheckCircle2,
@@ -12,6 +13,7 @@ import {
     XCircle,
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
+import DialogoVolantesSucursal from '@/components/Administracion/DialogoVolantesSucursal.vue';
 import SucursalFormDialog from '@/components/Administracion/SucursalFormDialog.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
@@ -40,7 +42,12 @@ import type {
 
 const props = defineProps<{
     /** Acciones del catálogo por permiso (el backend lo revalida). */
-    puede?: { crear: boolean; editar: boolean; eliminar: boolean };
+    puede?: {
+        crear: boolean;
+        editar: boolean;
+        eliminar: boolean;
+        editar_plantilla?: boolean;
+    };
     sucursales: RespuestaPaginada<SucursalItem>;
     filtros: { busqueda?: string; empresa_id?: string };
     /** Prop opcional: solo llega al abrir el diálogo (recarga parcial). */
@@ -129,6 +136,15 @@ function abrirCrear() {
 function abrirEditar(sucursal: SucursalItem) {
     sucursalSeleccionada.value = sucursal;
     dialogAbierto.value = true;
+}
+
+// «¿Esta sucursal tendrá volantes?» (solo RH: headcount.editar).
+const volantesAbierto = ref(false);
+const sucursalVolantes = ref<SucursalItem | null>(null);
+
+function abrirVolantes(sucursal: SucursalItem) {
+    sucursalVolantes.value = sucursal;
+    volantesAbierto.value = true;
 }
 
 async function eliminar(sucursal: SucursalItem) {
@@ -299,6 +315,13 @@ async function eliminar(sucursal: SucursalItem) {
                                             >Editar</DropdownMenuItem
                                         >
                                         <DropdownMenuItem
+                                            v-if="puede?.editar_plantilla"
+                                            @select="abrirVolantes(sucursal)"
+                                        >
+                                            <Bike class="size-4" />
+                                            ¿Esta sucursal tendrá volantes?
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
                                             v-if="puede?.eliminar ?? true"
                                             variant="destructive"
                                             @select="eliminar(sucursal)"
@@ -350,6 +373,17 @@ async function eliminar(sucursal: SucursalItem) {
                                 <User class="size-3.5 shrink-0" />
                                 <span class="truncate">{{
                                     sucursal.responsable.name
+                                }}</span>
+                            </span>
+                            <span
+                                v-if="sucursal.volantes_autorizados != null"
+                                class="inline-flex items-center gap-1.5"
+                            >
+                                <Bike class="size-3.5 shrink-0" />
+                                <span>{{
+                                    sucursal.volantes_autorizados === 0
+                                        ? 'Sin volantes'
+                                        : `${sucursal.volantes_autorizados} ${sucursal.volantes_autorizados === 1 ? 'volante autorizado' : 'volantes autorizados'}`
                                 }}</span>
                             </span>
                         </div>
@@ -423,5 +457,11 @@ async function eliminar(sucursal: SucursalItem) {
         :responsables-disponibles="responsablesDisponibles ?? []"
         :empresas-disponibles="empresasDisponibles"
         :key="sucursalSeleccionada?.id ?? 'nueva'"
+    />
+
+    <DialogoVolantesSucursal
+        v-model:open="volantesAbierto"
+        :sucursal="sucursalVolantes"
+        :actuales="sucursalVolantes?.volantes_autorizados ?? null"
     />
 </template>

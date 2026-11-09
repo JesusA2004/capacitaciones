@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
-import { Shuffle } from '@lucide/vue';
+import { Hourglass, Layers, Shuffle } from '@lucide/vue';
 import { computed, watch } from 'vue';
 import BuscadorPersonaOrganigrama from '@/components/Organigrama/BuscadorPersonaOrganigrama.vue';
 import { Button } from '@/components/ui/button';
@@ -18,8 +18,13 @@ import { store as storeCobertura } from '@/routes/administracion/jerarquia-puest
 import type { NodoOrganigramaPersona } from '@/types';
 
 /**
- * «Cubre temporalmente este puesto»: solo se elige a la persona — sin
- * fechas ni motivo (CoberturaPuestoService usa «Puesto vacante» y hoy).
+ * Una persona en dos puestos: se elige a la persona (sin fechas ni motivo:
+ * CoberturaPuestoService usa «Puesto vacante» y hoy) y RH decide qué pasa
+ * con la plaza (`ocupa_plaza`):
+ *  - «Ocupa ambos puestos (sin vacante)»: la plaza cuenta como ocupada.
+ *  - «Cubre mientras se contrata (con vacante)»: la plaza sigue vacante.
+ * Por omisión, un puesto de empresa (sin sucursal) ocupa la plaza y uno de
+ * sucursal la cubre mientras se contrata.
  */
 const props = defineProps<{
     nodo: NodoOrganigramaPersona | null;
@@ -33,6 +38,7 @@ const form = useForm({
     puesto_id: 0,
     sucursal_id: null as number | null,
     region_id: null as number | null,
+    ocupa_plaza: false,
 });
 
 watch(
@@ -44,11 +50,31 @@ watch(
             form.puesto_id = nodo.puesto.id;
             form.sucursal_id = nodo.sucursal?.id ?? null;
             form.region_id = nodo.sucursal ? null : (nodo.region?.id ?? null);
+            form.ocupa_plaza = !nodo.sucursal;
         }
     },
 );
 
 const lugar = computed(() => (props.nodo ? lugarDeNodo(props.nodo) : null));
+
+const modalidades = [
+    {
+        valor: true,
+        titulo: 'Ocupa ambos puestos',
+        etiqueta: 'Sin vacante',
+        detalle:
+            'Tiene los dos puestos de forma permanente (p. ej. un Gerente de Sucursal que también es Gerente de Auditoría). La plaza cuenta como ocupada y no se abre vacante.',
+        icono: Layers,
+    },
+    {
+        valor: false,
+        titulo: 'Cubre mientras se contrata',
+        etiqueta: 'Con vacante',
+        detalle:
+            'Lo atiende de forma temporal. La plaza sigue vacante en headcount y en RH → Vacantes hasta contratar a alguien.',
+        icono: Hourglass,
+    },
+] as const;
 
 function guardar(): void {
     form.transform((datos) => ({
@@ -74,16 +100,15 @@ function guardar(): void {
                     >
                         <Shuffle class="size-4" />
                     </span>
-                    Cubre temporalmente este puesto
+                    Asignar a otra persona en este puesto
                 </DialogTitle>
                 <DialogDescription v-if="nodo">
                     <strong class="text-foreground">{{
                         nodo.puesto.nombre
                     }}</strong>
-                    <template v-if="lugar"> · {{ lugar }}</template> está
-                    vacante. Elige quién lo cubre: conserva su propio puesto, la
-                    plaza sigue contando como vacante en headcount y, mientras
-                    dure, a esa persona le reportan los subordinados de esta
+                    <template v-if="lugar"> · {{ lugar }}</template> no tiene
+                    titular. Elige a la persona: conserva su propio puesto y,
+                    mientras dure, a ella le reportan los subordinados de esta
                     plaza.
                 </DialogDescription>
             </DialogHeader>
@@ -92,18 +117,62 @@ function guardar(): void {
                 v-model="form.colaborador_id"
                 :items="candidatos"
             />
+
+            <fieldset class="grid gap-2">
+                <legend class="mb-1 text-sm font-medium">
+                    ¿Qué pasa con la plaza?
+                </legend>
+                <div class="grid gap-2 sm:grid-cols-2" role="radiogroup">
+                    <button
+                        v-for="m in modalidades"
+                        :key="String(m.valor)"
+                        type="button"
+                        role="radio"
+                        :aria-checked="form.ocupa_plaza === m.valor"
+                        class="flex tarjeta-interactiva flex-col items-start gap-1 rounded-2xl border bg-card p-3 text-left"
+                        :class="
+                            form.ocupa_plaza === m.valor
+                                ? 'border-transparent bg-salvia ring-2 ring-primary/40'
+                                : ''
+                        "
+                        @click="form.ocupa_plaza = m.valor"
+                    >
+                        <span
+                            class="flex items-center gap-1.5 text-sm font-semibold"
+                        >
+                            <component :is="m.icono" class="size-4" />
+                            {{ m.titulo }}
+                        </span>
+                        <span
+                            class="rounded-full px-2 py-0.5 text-[11px] font-medium"
+                            :class="
+                                m.valor
+                                    ? 'bg-success-soft text-success'
+                                    : 'bg-warning-soft text-warning'
+                            "
+                            >{{ m.etiqueta }}</span
+                        >
+                        <span class="text-xs text-muted-foreground">{{
+                            m.detalle
+                        }}</span>
+                    </button>
+                </div>
+            </fieldset>
+
             <p
                 v-if="
                     form.errors.colaborador_id ||
                     form.errors.sucursal_id ||
-                    form.errors.region_id
+                    form.errors.region_id ||
+                    form.errors.ocupa_plaza
                 "
                 class="text-sm text-destructive"
             >
                 {{
                     form.errors.colaborador_id ??
                     form.errors.sucursal_id ??
-                    form.errors.region_id
+                    form.errors.region_id ??
+                    form.errors.ocupa_plaza
                 }}
             </p>
 
@@ -120,7 +189,11 @@ function guardar(): void {
                     @click="guardar"
                 >
                     <Spinner v-if="form.processing" />
-                    Marcar «Cubre temporalmente»
+                    {{
+                        form.ocupa_plaza
+                            ? 'Guardar: ocupa ambos puestos'
+                            : 'Guardar: cubre mientras se contrata'
+                    }}
                 </Button>
             </DialogFooter>
         </DialogContent>

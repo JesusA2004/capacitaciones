@@ -13,7 +13,9 @@ use App\Models\NodoComercial;
 use App\Models\Puesto;
 use App\Models\User;
 use App\Services\Headcount\PlazasEmpresaService;
+use App\Services\Headcount\PuestosPlantillaService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
+use App\Services\Vacantes\VacanteAutoGenerationService;
 use App\Support\FechaMexico;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -25,16 +27,27 @@ use Illuminate\Validation\ValidationException;
  * región SIN dejar el suyo (el gerente de Córdoba cubre Cuernavaca; la
  * gerente regional de Q1 cubre también Q3). Nunca toca
  * `colaboradores.puesto_id` — el organigrama lo muestra en ambos lugares.
+ *
+ * RH decide en cada caso qué pasa con la plaza (`ocupa_plaza`):
+ *  - true  «Ocupa ambos puestos (sin vacante)»: la segunda plaza cuenta como
+ *    ocupada en headcount y no abre vacante (organigrama: «También ocupa»);
+ *  - false «Cubre mientras se contrata (con vacante)»: la plaza sigue vacante
+ *    (organigrama: «Cubre temporalmente»).
+ * Sin elegir, un puesto de empresa (corporativo/regional) ocupa la plaza y
+ * uno de sucursal no (lo que pasaba antes de poder elegir). Al asignar o
+ * quitar, la vacante automática del par se resincroniza.
  */
 class CoberturaPuestoService
 {
     public function __construct(
         private readonly MovimientoLaboralService $movimientos,
         private readonly PlazasEmpresaService $plazas,
+        private readonly PuestosPlantillaService $puestosPlantilla,
+        private readonly VacanteAutoGenerationService $vacantes,
     ) {}
 
     /**
-     * @param  array{colaborador_id: int, puesto_id: int, sucursal_id?: int|null, region_id?: int|null, motivo?: string|null, nota?: string|null, fecha_inicio?: string|null}  $datos
+     * @param  array{colaborador_id: int, puesto_id: int, sucursal_id?: int|null, region_id?: int|null, motivo?: string|null, nota?: string|null, fecha_inicio?: string|null, ocupa_plaza?: bool|null}  $datos
      */
     public function asignar(array $datos, User $actor): CoberturaPuesto
     {
@@ -94,6 +107,7 @@ class CoberturaPuestoService
                 'nota' => $datos['nota'] ?? null,
                 'fecha_inicio' => $datos['fecha_inicio'] ?? FechaMexico::hoy(),
                 'activa' => true,
+                'ocupa_plaza' => $datos['ocupa_plaza'] ?? $this->puestosPlantilla->esDeEmpresa($datos['puesto_id']),
                 'registrada_por' => $actor->id,
             ]);
 
@@ -111,12 +125,27 @@ class CoberturaPuestoService
         activity('organigrama')
             ->performedOn($cobertura)
             ->causedBy($actor)
-            ->withProperties(['colaborador_id' => $colaborador->id, 'puesto_id' => $datos['puesto_id'], 'sucursal_id' => $sucursalId, 'region_id' => $regionId])
+            ->withProperties([
+                'colaborador_id' => $colaborador->id, 'puesto_id' => $datos['puesto_id'], 'sucursal_id' => $sucursalId, 'region_id' => $regionId,
+                'ocupa_plaza' => $cobertura->ocupa_plaza,
+                'modalidad' => $cobertura->ocupa_plaza ? 'Ocupa ambos puestos (sin vacante)' : 'Cubre mientras se contrata (con vacante)',
+            ])
             ->log('cobertura_asignada');
 
-        $this->plazas->resincronizar($datos['puesto_id']);
+        $this->resincronizarPlaza($cobertura);
 
         return $cobertura;
+    }
+
+    /**
+     * Abre o cierra la vacante automática de la plaza cubierta: la de la
+     * sucursal (y su puesto compartido) y, para un puesto de empresa, donde
+     * viva su plaza. Nunca deshace la cobertura si falla (sincronizarSinFallar).
+     */
+    private function resincronizarPlaza(CoberturaPuesto $cobertura): void
+    {
+        $this->vacantes->sincronizarSinFallar($this->puestosPlantilla->sucursalDeCobertura($cobertura->puesto_id, $cobertura->sucursal_id), $cobertura->puesto_id);
+        $this->plazas->resincronizar($cobertura->puesto_id);
     }
 
     public function finalizar(CoberturaPuesto $cobertura, User $actor): CoberturaPuesto
@@ -146,7 +175,7 @@ class CoberturaPuestoService
             ->causedBy($actor)
             ->log('cobertura_finalizada');
 
-        $this->plazas->resincronizar($cobertura->puesto_id);
+        $this->resincronizarPlaza($cobertura);
 
         return $cobertura;
     }
