@@ -3,6 +3,7 @@
 namespace App\Services\Colaboradores;
 
 use App\Models\Colaborador;
+use App\Services\Notificaciones\AvisoAltaSistemasService;
 use App\Services\Tareas\NotificadorRhService;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -15,7 +16,10 @@ use Throwable;
  */
 class AvisoAltaBajaService
 {
-    public function __construct(private readonly NotificadorRhService $notificador) {}
+    public function __construct(
+        private readonly NotificadorRhService $notificador,
+        private readonly AvisoAltaSistemasService $altaSistemas,
+    ) {}
 
     public function alta(Colaborador $colaborador): void
     {
@@ -24,6 +28,11 @@ class AvisoAltaBajaService
             $colaborador->nombreCompleto(),
             $this->detalle($colaborador),
         ));
+
+        // Red de seguridad de «Pendientes de alta en sistemas»: un alta que
+        // no pasó por «Iniciar contratación» (alta digital, alta directa)
+        // también queda pendiente para Sistemas. Si ya tiene su aviso, nada.
+        $this->altaSistemas->asegurar($colaborador);
     }
 
     /**

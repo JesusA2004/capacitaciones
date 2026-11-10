@@ -35,6 +35,7 @@ El orden es exactamente el ciclo de vida laboral + transversales:
 | | | Candidatos | `candidatos.ver` | `rh.candidatos.index` |
 | | | Invitaciones QR | `rh.incorporacion.invitaciones.ver` | `rh.incorporacion.invitaciones.index` |
 | 2 | **Contratación y expediente** | Personas en contratación | `contratos.ver` | `rh.contratacion.index` |
+| | | Pendientes de alta en sistemas (Sistemas marca a quién ya dio usuarios; RH consulta; contador solo para quien atiende — `docs/SISTEMAS_PENDIENTES_ALTA.md`) | `sistemas.altas.ver` (marcar: `sistemas.altas.atender`) | `sistemas.pendientes-alta.index` |
 | | | Validación de documentos | `documentos.revisar` | `rh.validacion-documentos.index` |
 | | | Contratos de ingreso | `contratos.ver` | `rh.contratos-ingreso.index` |
 | | | Contratos (toda la plantilla activa por fecha de ingreso; «Generar todos») | `contratos.ver` (generar: `documentos_laborales.generar`) | `rh.contratos.index` |

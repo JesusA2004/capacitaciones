@@ -35,6 +35,7 @@ function sbOperativo(): array
         'Agenda de entrevistas' => [['agenda.ver'], 'agenda.index'],
         'Invitaciones QR' => [['rh.incorporacion.invitaciones.ver'], 'rh.incorporacion.invitaciones.index'],
         'Personas en contratación' => [['contratos.ver'], 'rh.contratacion.index'],
+        'Pendientes de alta en sistemas' => [['sistemas.altas.ver'], 'sistemas.pendientes-alta.index'],
         'Validación de documentos' => [['documentos.revisar'], 'rh.validacion-documentos.index'],
         'Contratos de ingreso' => [['contratos.ver'], 'rh.contratos-ingreso.index'],
         'Contratos' => [['contratos.ver'], 'rh.contratos.index'],

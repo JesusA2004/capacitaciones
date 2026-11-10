@@ -58,6 +58,7 @@ const ESPERADO = [
         'Contratación y expediente',
         [
             'Personas en contratación',
+            'Pendientes de alta en sistemas',
             'Validación de documentos',
             'Contratos de ingreso',
             'Contratos',

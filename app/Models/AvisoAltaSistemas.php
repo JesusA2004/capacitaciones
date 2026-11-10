@@ -22,8 +22,13 @@ use Illuminate\Support\Carbon;
  * @property string|null $ultimo_error
  * @property string|null $destinatarios
  * @property int|null $solicitado_por
+ * @property Carbon|null $atendido_en Sistemas ya dio de alta a la persona en las demás plataformas.
+ * @property int|null $atendido_por
+ * @property string|null $notas_atencion
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
+ * @property-read Colaborador|null $colaborador
+ * @property-read User|null $atendidoPor
  */
 class AvisoAltaSistemas extends Model
 {
@@ -32,6 +37,7 @@ class AvisoAltaSistemas extends Model
     protected $fillable = [
         'colaborador_id', 'origen_tipo', 'origen_id', 'estado', 'intentos',
         'enviado_en', 'ultimo_error', 'destinatarios', 'solicitado_por',
+        'atendido_en', 'atendido_por', 'notas_atencion',
     ];
 
     protected $attributes = [
@@ -46,6 +52,7 @@ class AvisoAltaSistemas extends Model
             'estado' => EstadoAvisoAltaSistemas::class,
             'intentos' => 'integer',
             'enviado_en' => 'datetime',
+            'atendido_en' => 'datetime',
         ];
     }
 
@@ -54,6 +61,19 @@ class AvisoAltaSistemas extends Model
      */
     public function colaborador(): BelongsTo
     {
-        return $this->belongsTo(Colaborador::class);
+        return $this->belongsTo(Colaborador::class)->withTrashed();
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function atendidoPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'atendido_por');
+    }
+
+    public function atendido(): bool
+    {
+        return $this->atendido_en !== null;
     }
 }

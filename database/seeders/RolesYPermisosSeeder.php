@@ -510,6 +510,8 @@ class RolesYPermisosSeeder extends Seeder
         // no configura empresas.eliminar/roles.administrar/configuracion
         // (reservado a super_admin).
         'rh_admin' => [
+            // Consulta la bandeja «Pendientes de alta en sistemas» (la atiende Sistemas).
+            'sistemas.altas.ver',
             'salarios.ver', 'salarios.editar', 'salarios.exportar', 'salarios.ver_en_expediente',
             // Alcance amplio: elige de qué sucursales no recibir avisos.
             'notificaciones.silenciar_sucursales',
@@ -600,6 +602,8 @@ class RolesYPermisosSeeder extends Seeder
         // Apoyo operativo de RH: puede capturar/revisar pero no aprobar
         // decisiones finales (documentos, altas, vacaciones, solicitudes).
         'rh_auxiliar' => [
+            // Consulta la bandeja «Pendientes de alta en sistemas» (la atiende Sistemas).
+            'sistemas.altas.ver',
             // Captura y consulta el sueldo del expediente; el módulo de salarios no.
             'salarios.ver_en_expediente',
             // Alcance amplio: elige de qué sucursales no recibir avisos.
@@ -1051,6 +1055,10 @@ class RolesYPermisosSeeder extends Seeder
             'rh.documentos.ver', 'rh.documentos.detalle', 'rh.incorporaciones.ver', 'rh.incorporaciones.detalle',
             'rh.colaboradores.ver', 'rh.colaboradores.detalle', 'rh.cumpleanos.ver', 'rh.cumpleanos.calendario',
             'avisos.ver',
+            // Bandeja «Pendientes de alta en sistemas» (docs/SISTEMAS_PENDIENTES_ALTA.md):
+            // quién entró a contratación y necesita sus usuarios; Sistemas lo
+            // marca como dado de alta y puede reenviar el correo.
+            'sistemas.altas.ver', 'sistemas.altas.atender',
         ],
     ];
 

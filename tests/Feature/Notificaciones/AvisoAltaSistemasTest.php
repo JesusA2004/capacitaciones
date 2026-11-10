@@ -9,6 +9,7 @@ use App\Mail\AltaColaboradorSistemasMail;
 use App\Models\AvisoAltaSistemas;
 use App\Models\Candidato;
 use App\Models\Colaborador;
+use App\Models\NotificacionEntrega;
 use App\Models\Vacante;
 use App\Services\Notificaciones\AvisoAltaSistemasService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
@@ -117,21 +118,23 @@ test('el correo llega a para/cc configurados con los datos principales del colab
     expect($mail->hasTo('sistemas@mr-lana.com'))->toBeTrue()
         ->and($mail->hasCc('jesus.arizmendi@mr-lana.com'))->toBeTrue()
         ->and($mail->hasCc('otro@mr-lana.com'))->toBeTrue()
-        ->and($mail->envelope()->subject)->toBe(sprintf('Alta para asignar usuarios: %s — Gestor de cobranza, Cuernavaca', $colaborador->nombreCompleto()))
-        ->and($mail->laborales['Número de empleado'])->toBe($colaborador->numero_empleado)
-        ->and($mail->laborales['Sucursal'])->toBe('Cuernavaca')
-        ->and($mail->laborales['Puesto'])->toBe('Gestor de cobranza')
-        ->and($mail->personales['Nombre completo'])->toBe($colaborador->nombreCompleto())
-        ->and($mail->personales['Teléfono'])->toBe('5512345678')
-        ->and($mail->personales['Correo personal'])->toBe('ana.lopez@example.test')
+        ->and($mail->envelope()->subject)->toBe(sprintf('Alta en sistemas: %s — Gestor de cobranza, Cuernavaca', $colaborador->nombreCompleto()))
+        ->and($mail->dato('Número de empleado'))->toBe($colaborador->numero_empleado)
+        ->and($mail->dato('Sucursal'))->toBe('Cuernavaca')
+        ->and($mail->dato('Puesto'))->toBe('Gestor de cobranza')
+        ->and($mail->dato('Nombre completo'))->toBe($colaborador->nombreCompleto())
+        ->and($mail->dato('Teléfono'))->toBe('5512345678')
+        ->and($mail->dato('Correo personal'))->toBe('ana.lopez@example.test')
         ->and($mail->urlExpediente)->toBe(route('rh.expedientes.show', $colaborador->id))
         ->and($mail->attachments)->toBe([])
-        ->and($mail->laborales['Jefe directo (organigrama)'])->toContain($colaborador->jefe !== null ? $colaborador->jefe->nombreCompleto() : 'Sin capturar');
+        ->and($mail->dato('Jefe directo'))->toContain($colaborador->jefe !== null ? $colaborador->jefe->nombreCompleto() : 'Sin capturar');
 
     $aviso = AvisoAltaSistemas::query()->where('colaborador_id', $colaborador->id)->firstOrFail();
     expect($aviso->estado)->toBe(EstadoAvisoAltaSistemas::Enviado)
         ->and($aviso->enviado_en)->not->toBeNull()
-        ->and(Activity::query()->where('event', 'aviso_sistemas_alta_enviado')->where('subject_id', $colaborador->id)->exists())->toBeTrue();
+        ->and(Activity::query()->where('event', 'aviso_sistemas_alta_enviado')->where('subject_id', $colaborador->id)->exists())->toBeTrue()
+        // «Abrir y copiar datos» lleva al detalle de ESTE aviso.
+        ->and($mail->urlDetalle)->toBe(route('sistemas.pendientes-alta.show', $aviso->id));
 });
 
 test('los datos que faltan se muestran como «Sin capturar» y el correo se renderiza', function () {
@@ -141,14 +144,14 @@ test('los datos que faltan se muestran como «Sin capturar» y el correo se rend
 
     $mail = app(AvisoAltaSistemasService::class)->mailable($colaborador->refresh(), OrigenAvisoAltaSistemas::Candidato);
 
-    expect($mail->personales['CURP'])->toBe('Sin capturar')
-        ->and($mail->personales['RFC'])->toBe('Sin capturar')
-        ->and($mail->personales['NSS'])->toBe('Sin capturar')
-        ->and($mail->personales['Fecha de nacimiento (edad)'])->toBe('Sin capturar');
+    expect($mail->dato('CURP'))->toBe('Sin capturar')
+        ->and($mail->dato('RFC'))->toBe('Sin capturar')
+        ->and($mail->dato('NSS'))->toBe('Sin capturar')
+        ->and($mail->dato('Fecha de nacimiento'))->toBe('Sin capturar');
 
     $mail->assertSeeInHtml('Sin capturar')
-        ->assertSeeInHtml('Datos personales')
-        ->assertSeeInHtml('Datos laborales')
+        ->assertSeeInHtml('Persona')
+        ->assertSeeInHtml('Para copiar y pegar')
         ->assertSeeInHtml('Ver expediente en PEOPLE');
 });
 
@@ -167,15 +170,77 @@ test('repetir la contratación o reintentar el job no duplica el correo', functi
     expect(AvisoAltaSistemas::query()->count())->toBe(1);
 });
 
-test('con el aviso desactivado no se manda nada', function () {
+test('con el correo desactivado no se manda nada, pero el pendiente para Sistemas sí queda', function () {
     Mail::fake();
+    Queue::fake();
     config(['notificaciones.sistemas.activo' => false]);
 
     $colaborador = aasContratar($this, aasCandidatoAutorizado($this));
 
     Mail::assertNothingSent();
-    expect(AvisoAltaSistemas::query()->count())->toBe(0)
+    Queue::assertNotPushed(EnviarAvisoAltaSistemasJob::class);
+
+    $aviso = AvisoAltaSistemas::query()->where('colaborador_id', $colaborador->id)->firstOrFail();
+    expect(AvisoAltaSistemas::query()->count())->toBe(1)
+        ->and($aviso->estado)->toBe(EstadoAvisoAltaSistemas::SinEnviar)
+        ->and($aviso->atendido_en)->toBeNull()
         ->and($colaborador->candidatoOrigen?->estado)->toBe(EstadoCandidato::EnContratacion);
+});
+
+test('el correo trae fecha de nacimiento doble, género, ingreso y CURP/RFC en mayúsculas', function () {
+    Mail::fake();
+    $colaborador = aasContratar($this, aasCandidatoAutorizado($this));
+    $colaborador->update([
+        'fecha_nacimiento' => '1990-08-15',
+        'genero' => 'femenino',
+        'curp' => 'lopa900815mmsrrn09',
+        'rfc' => 'lopa900815ab1',
+        'nss' => '12345678901',
+        'fecha_ingreso' => '2026-11-03',
+    ]);
+
+    $mail = app(AvisoAltaSistemasService::class)->mailable($colaborador->refresh(), OrigenAvisoAltaSistemas::Candidato);
+
+    expect($mail->dato('Fecha de nacimiento'))->toBe('15 de agosto de 1990 · 15/08/1990')
+        ->and($mail->dato('Género'))->toBe('Femenino')
+        ->and($mail->dato('CURP'))->toBe('LOPA900815MMSRRN09')
+        ->and($mail->dato('RFC'))->toBe('LOPA900815AB1')
+        ->and($mail->dato('NSS'))->toBe('12345678901')
+        ->and($mail->dato('Fecha de ingreso'))->toBe('3 de noviembre de 2026 · 03/11/2026')
+        ->and($mail->fechaIngresoLarga)->toBe('3 de noviembre de 2026')
+        ->and($mail->fechaIngresoCorta)->toBe('03/11/2026')
+        ->and($mail->tipoIngreso)->toBe('Nuevo ingreso')
+        ->and($mail->urlDetalle)->toBe(route('sistemas.pendientes-alta.index'))
+        ->and($mail->logoUrl)->toEndWith('/branding/MrLanaPeople_horizontal_color.png')
+        ->and($mail->urlBandeja)->toBe(route('sistemas.pendientes-alta.index'));
+
+    $mail->assertSeeInHtml('Ver mis pendientes de alta')
+        ->assertSeeInHtml('Abrir y copiar datos')
+        ->assertSeeInHtml('NUEVO INGRESO')
+        ->assertSeeInHtml('3 de noviembre de 2026')
+        ->assertSeeInHtml('15 de agosto de 1990')
+        ->assertSeeInText('CURP: LOPA900815MMSRRN09')
+        ->assertSeeInText('Mis pendientes de alta:');
+});
+
+test('al crear el pendiente se avisa en la plataforma a quien atiende Sistemas (una sola vez)', function () {
+    Mail::fake();
+    $sistemas = clUsuario('sistemas');
+    $candidato = aasCandidatoAutorizado($this);
+
+    $colaborador = aasContratar($this, $candidato);
+    app(AvisoAltaSistemasService::class)->programar($colaborador, OrigenAvisoAltaSistemas::Candidato, $candidato->id, $this->rh);
+
+    $aviso = AvisoAltaSistemas::query()->where('colaborador_id', $colaborador->id)->firstOrFail();
+
+    expect(NotificacionEntrega::query()
+        ->where('user_id', $sistemas->id)
+        ->where('evento', AvisoAltaSistemasService::EVENTO_PENDIENTE)
+        ->where('related_type', 'AvisoAltaSistemas')
+        ->where('related_id', $aviso->id)
+        ->count())->toBe(1)
+        // RH no la atiende: no le llega este aviso.
+        ->and(NotificacionEntrega::query()->where('user_id', $this->rh->id)->where('evento', AvisoAltaSistemasService::EVENTO_PENDIENTE)->exists())->toBeFalse();
 });
 
 test('si el correo falla la contratación NO se revierte y queda warning + auditoría del fallo', function () {

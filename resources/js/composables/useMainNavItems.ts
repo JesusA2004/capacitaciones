@@ -27,6 +27,7 @@ import {
     LayoutGrid,
     ListTree,
     Megaphone,
+    MonitorCheck,
     Network,
     Package,
     PackageCheck,
@@ -122,6 +123,7 @@ import { index as indexMisReportes } from '@/routes/rh/reportes/mis-reportes';
 import { index as indexRhSolicitudes } from '@/routes/rh/solicitudes';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
 import { index as indexValidacionDocumentos } from '@/routes/rh/validacion-documentos';
+import { index as indexPendientesAltaSistemas } from '@/routes/sistemas/pendientes-alta';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type { NavItem } from '@/types';
 
@@ -166,6 +168,13 @@ export function useMainNavItems() {
     const capacitacionActiva = computed(() => features.value.capacitacion);
     const aprobacionesPendientes = computed(() => {
         const total = Number(page.props.aprobacionesPendientes ?? 0);
+
+        return total > 99 ? '99+' : total > 0 ? String(total) : '';
+    });
+    // Personas por dar de alta en los demás sistemas (solo quien las
+    // atiende: el backend manda 0 a los demás).
+    const altasSistemasPendientes = computed(() => {
+        const total = Number(page.props.altasSistemasPendientes ?? 0);
 
         return total > 99 ? '99+' : total > 0 ? String(total) : '';
     });
@@ -347,6 +356,14 @@ export function useMainNavItems() {
                         title: 'Personas en contratación',
                         href: indexContratacion(),
                         icon: UserPlus,
+                    },
+                    // Sistemas da usuarios en las demás plataformas a quien
+                    // entró a contratación (RH consulta).
+                    tienePermiso('sistemas.altas.ver') && {
+                        title: 'Pendientes de alta en sistemas',
+                        href: indexPendientesAltaSistemas(),
+                        icon: MonitorCheck,
+                        badge: altasSistemasPendientes.value || undefined,
                     },
                     tienePermiso('documentos.revisar') && {
                         title: 'Validación de documentos',

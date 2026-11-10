@@ -150,6 +150,8 @@ const SIDEBAR_SIN_GUIA = [
     // Pantallas de Etapa 1 que aún no tienen módulo de guía propio.
     // Recepción documental RH: documentada en docs/RECEPCION_DOCUMENTAL_RH.md.
     'Recepción documental',
+    // Bandeja de Sistemas: documentada en docs/SISTEMAS_PENDIENTES_ALTA.md.
+    'Pendientes de alta en sistemas',
     'Agenda de entrevistas',
     'Mi agenda',
     'Mi bandeja de bajas',

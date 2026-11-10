@@ -399,6 +399,16 @@ return [
             'alcances' => [],
             'acciones' => ['altas.crear' => 'Crear', 'altas.enviar' => 'Enviar', 'altas.revisar' => 'Revisar', 'altas.aprobar' => 'Aprobar', 'altas.cancelar' => 'Cancelar'],
         ],
+        // Bandeja de Sistemas: dar usuarios en las demás plataformas a quien
+        // entró a contratación (docs/SISTEMAS_PENDIENTES_ALTA.md).
+        'sistemas_altas' => [
+            'etiqueta' => 'Pendientes de alta en sistemas',
+            'grupo' => 'People',
+            'etapa' => 'contratacion',
+            'acceso' => 'sistemas.altas.ver',
+            'alcances' => [],
+            'acciones' => ['sistemas.altas.atender' => 'Marcar como dado de alta y reenviar el correo'],
+        ],
         'invitaciones_qr' => [
             'etiqueta' => 'Invitaciones QR',
             'grupo' => 'Reclutamiento',
@@ -951,6 +961,8 @@ return [
     ],
 
     'descripciones' => [
+        'sistemas.altas.ver' => 'Ver la bandeja «Pendientes de alta en sistemas»: quién entró a contratación, sus datos básicos y si Sistemas ya le dio sus usuarios.',
+        'sistemas.altas.atender' => 'Marcar a una persona como dada de alta en los demás sistemas (con notas) y reenviar el correo de alta a Sistemas. Recibe el aviso de cada alta nueva.',
         'notificaciones.silenciar_sucursales' => 'En Configuración → Avisos por sucursal, la persona elige sucursales de las que no quiere avisos (campana y push). Lo suyo, lo de su equipo directo y sus confirmaciones le siguen llegando; lo pendiente sigue en «Mis pendientes».',
         'directorio.ver_todos' => 'En el directorio ve al personal de toda la empresa.',
         'directorio.ver_region' => 'En el directorio ve al personal de las sucursales de su región (matriz comercial).',

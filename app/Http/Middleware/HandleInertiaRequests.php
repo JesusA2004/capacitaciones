@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\User;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Navigation\NavigationService;
+use App\Services\Sistemas\PendientesAltaSistemasService;
 use App\Services\Solicitudes\AprobacionOrganizacionalService;
 use App\Services\WebPush\ClavesVapidService;
 use App\Services\WebPush\WebPushNotifier;
@@ -111,6 +112,9 @@ class HandleInertiaRequests extends Middleware
             // que esta cuenta puede aprobar AHORA. Perezoso (las recargas
             // parciales que no lo piden no lo calculan) y en caché breve.
             'aprobacionesPendientes' => fn (): int => $user === null ? 0 : $this->aprobacionesPendientes($user),
+            // Badge de «Pendientes de alta en sistemas»: solo para quien las
+            // atiende (sistemas.altas.atender). Perezoso; nunca tumba la página.
+            'altasSistemasPendientes' => fn (): int => $user === null ? 0 : app(PendientesAltaSistemasService::class)->contarPendientes($user),
         ];
     }
 

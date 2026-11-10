@@ -8,6 +8,7 @@ use App\Enums\EstadoEvaluacionPrueba;
 use App\Enums\EstadoSolicitudInterna;
 use App\Enums\EstadoSolicitudVacaciones;
 use App\Enums\TipoTarea;
+use App\Models\AvisoAltaSistemas;
 use App\Models\Baja;
 use App\Models\BirthdayGreeting;
 use App\Models\Candidato;
@@ -120,6 +121,9 @@ class DestinoNotificacionService
                 $relacionado === 'AcuseDescriptivoPuesto' => self::destino(route('portal.descriptivo-puesto', [], false)),
                 // Intervención: se decide en la ficha del candidato, no en una bandeja de RH.
                 $relacionado === 'IntervencionCandidato' => $this->intervencion($id, $usuario),
+                // Alta pendiente en sistemas: a la bandeja de Sistemas (atendida
+                // en cuanto alguien lo marca como dado de alta).
+                $relacionado === 'AvisoAltaSistemas' => $this->altaSistemas($id, $usuario),
                 // Sobre uno mismo (onboarding, inducción…): su portal, nunca la
                 // ficha administrativa de RH.
                 $relacionado !== null && is_numeric($datos['colaborador_id'] ?? null) && (int) $datos['colaborador_id'] === $usuario->colaborador_id => self::destino(route('portal.index', [], false)),
@@ -592,6 +596,26 @@ class DestinoNotificacionService
                     ? 'Este documento sigue pendiente de tu firma.'
                     : sprintf('Este documento sigue en proceso: está «%s».', $estado->etiqueta())),
         );
+    }
+
+    /**
+     * @return Destino
+     */
+    private function altaSistemas(?int $id, User $usuario): array
+    {
+        $aviso = $id !== null ? AvisoAltaSistemas::query()->where('id', $id)->first() : null;
+
+        if ($aviso === null) {
+            return self::inexistente(null, 'Este pendiente de alta ya no existe.');
+        }
+
+        $url = $usuario->can('viewAny', AvisoAltaSistemas::class)
+            ? route('sistemas.pendientes-alta.index', ['filtro' => $aviso->atendido_en !== null ? 'atendidos' : 'pendientes'], false)
+            : null;
+
+        return $aviso->atendido_en !== null
+            ? self::destino($url, true, 'atendido', 'Esta persona ya quedó dada de alta en sistemas.')
+            : self::destino($url, false, 'pendiente');
     }
 
     /**

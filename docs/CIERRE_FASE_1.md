@@ -8,6 +8,7 @@ Ronda de auditoría funcional, técnica, visual y de flujos sobre web (este repo
 - `docs/SOLICITUDES_UNIFICADAS.md` — autoservicio de solicitudes para cualquier rol.
 - `docs/FEATURE_FLAGS.md` — banderas nuevas (bloqueo por expediente incompleto).
 - `docs/DEPLOY.md` — correo a Sistemas al entrar a Contratación.
+- `docs/SISTEMAS_PENDIENTES_ALTA.md` — bandeja «Pendientes de alta en sistemas», correo con todos los datos básicos y checklist de producción.
 
 ## Video de inducción (app)
 
@@ -54,6 +55,27 @@ Se contrastó cada fila P1 de arriba con código y prueba Pest: las 12 están re
 | P2 | Alta pública sin límite de peticiones | `throttle:60,1` | — |
 | App | «Regenerar» un documento del proceso mandaba `regenerar` sin `motivo` (422) | Pide el motivo (mín. 5) | jest |
 | App | «Solicitar corrección» desde Perfil quedaba bloqueado con expediente incompleto (el backend sí lo permite) | Los tipos exentos del backend pasan el candado | jest |
+
+## Alta en sistemas: correo + bandeja de pendientes (2026-11-10)
+
+Pedido: «en cuanto un candidato pase a contratación o adelante, que Sistemas lo dé de alta en los demás sistemas, me llegue toda la información básica a mi correo y Sistemas vea sus pendientes». Detalle en `docs/SISTEMAS_PENDIENTES_ALTA.md`.
+
+- **Correo** rediseñado (HTML en línea para Outlook/Gmail + texto plano): nombre, CURP, RFC, NSS, nacimiento «15 de agosto de 1990 · 15/08/1990», edad, género, teléfono, correos, nº de empleado, puesto, departamento, sucursal, empresa, jefe directo, ingreso (formato doble), tipo de contratación y usuario de PEOPLE; lo vacío dice «Sin capturar» y se cuenta. Botón a la bandeja.
+- **Bandeja** `Sistemas → Pendientes de alta en sistemas` (menú 2 · Contratación, con contador): pendientes/atendidos, días pendiente, estado del correo, copiar datos, reenviar, «Marcar como dado de alta» con notas (quién y cuándo), deshacer.
+- **Aviso en la campana/push** a quien tiene `sistemas.altas.atender` (evento `sistemas_alta_pendiente`, editable en Roles y permisos → Notificaciones).
+- **Cualquier camino**: iniciar contratación, reingreso, alta digital/directa (red de seguridad al activar) y `sistemas:avisos-alta-pendientes` para quien ya estaba adelante (sin correo salvo `--enviar`; corre diario con `--dias=14`). El pendiente se crea aunque el correo esté apagado.
+
+### Qué falta para que funcione en producción
+
+1. SMTP real en el `.env` (`MAIL_MAILER=smtp`, `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_ENCRYPTION`); en local es `MAIL_MAILER=log`.
+2. `MAIL_FROM_ADDRESS`/`MAIL_FROM_NAME` con un buzón autorizado por el SMTP (SPF/DKIM del dominio).
+3. `SISTEMAS_ALTA_CORREO_ACTIVO=true`, `SISTEMAS_ALTA_CORREO_PARA` (buzón de Sistemas) y `SISTEMAS_ALTA_CORREO_CC` (tu correo).
+4. Worker de cola corriendo en el servidor/NAS (`QUEUE_CONNECTION=database` → `queue:work notificaciones --queue=notifications` y el worker general); sin él, correo y avisos se quedan en `jobs`.
+5. Scheduler (`schedule:run` cada minuto) para la regularización diaria y el reconciliador de avisos.
+6. Deploy: `migrate --force`, `people:sincronizar-permisos`, `config:cache`, `queue:restart`, `npm run build`.
+7. Cuentas con rol `sistemas` creadas (reciben campana y contador).
+8. Una vez: `php artisan sistemas:avisos-alta-pendientes --dry-run` y luego `--dias=60` (sin `--enviar`).
+9. `APP_URL` con el dominio público (ligas del correo) y prueba con `sistemas:reenviar-aviso-alta {nº empleado}`.
 
 ## Pendientes
 

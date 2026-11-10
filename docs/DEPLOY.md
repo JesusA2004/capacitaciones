@@ -254,7 +254,13 @@ corriendo**; sin worker queda en `jobs` y sale al levantarlo.
   3 veces, queda «No se pudo enviar» en la ficha del candidato, en
   `storage/logs` (warning) y en la auditoría (`aviso_sistemas_alta_fallido`).
 - Reenvío: botón «Reenviar a Sistemas» en la ficha del candidato (permiso
-  `candidatos.contratar`) o `php artisan sistemas:reenviar-aviso-alta {número de empleado|id}`.
+  `candidatos.contratar`), en la bandeja de Sistemas (`sistemas.altas.atender`)
+  o `php artisan sistemas:reenviar-aviso-alta {número de empleado|id}`.
+- Bandeja «Pendientes de alta en sistemas», aviso en la campana, regularización
+  (`sistemas:avisos-alta-pendientes`) y checklist completo de producción:
+  `docs/SISTEMAS_PENDIENTES_ALTA.md`. Después del deploy, una vez:
+  `php artisan sistemas:avisos-alta-pendientes --dry-run` y luego `--dias=60`
+  (sin `--enviar`, para no mandar correos viejos en masa).
 
 ## Scheduler (cron)
 

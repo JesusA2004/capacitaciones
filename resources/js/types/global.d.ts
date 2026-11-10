@@ -44,6 +44,9 @@ declare module '@inertiajs/core' {
             // (AprobacionOrganizacionalService::conteoPendientes): badge de
             // «Pendientes» en el sidebar.
             aprobacionesPendientes?: number;
+            // Personas por dar de alta en los demás sistemas (solo para
+            // sistemas.altas.atender): badge de «Pendientes de alta».
+            altasSistemasPendientes?: number;
             [key: string]: unknown;
         };
     }

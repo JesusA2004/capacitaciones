@@ -125,3 +125,13 @@ Schedule::command('recepcion-documental:materializar --anterior')
     ->when(fn (): bool => (bool) config('recepcion_documental.programacion.activa', true))
     ->withoutOverlapping()
     ->onOneServer();
+
+// Pendientes de alta en sistemas (docs/SISTEMAS_PENDIENTES_ALTA.md): red de
+// seguridad diaria para quien llegó a contratación (o más adelante) por un
+// camino que no creó su pendiente (p. ej. registro con QR sin candidato).
+// Idempotente, sin correo ni campana: la bandeja ya los cuenta.
+Schedule::command('sistemas:avisos-alta-pendientes --dias=14')
+    ->dailyAt('06:45')
+    ->timezone('America/Mexico_City')
+    ->withoutOverlapping()
+    ->onOneServer();

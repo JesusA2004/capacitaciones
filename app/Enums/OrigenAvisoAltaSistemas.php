@@ -14,7 +14,11 @@ enum OrigenAvisoAltaSistemas: string
     /** Reingreso autorizado por RH (origen_id = reingreso). */
     case Reingreso = 'reingreso';
 
-    /** Reenvío manual de un colaborador sin aviso previo (origen_id = colaborador). */
+    /**
+     * Colaborador sin aviso previo (origen_id = colaborador): reenvío manual,
+     * alta activada sin pasar por «Iniciar contratación» (alta digital, alta
+     * directa de RH) o regularización con sistemas:avisos-alta-pendientes.
+     */
     case Colaborador = 'colaborador';
 
     public function etiqueta(): string
@@ -22,7 +26,7 @@ enum OrigenAvisoAltaSistemas: string
         return match ($this) {
             self::Candidato => 'Candidato nuevo',
             self::Reingreso => 'Reingreso',
-            self::Colaborador => 'Reenvío manual',
+            self::Colaborador => 'Alta de colaborador',
         };
     }
 }

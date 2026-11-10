@@ -20,6 +20,7 @@ use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
+use App\Services\Notificaciones\AvisoAltaSistemasService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Organigrama\JefeDirectoService;
 use App\Services\Reclutamiento\ContratacionCandidatoService;
@@ -212,6 +213,13 @@ class AltaColaboradorService
             } catch (Throwable $e) {
                 Log::warning('AltaColaboradorService: no se pudo enviar el correo de acceso.', ['colaborador_id' => $colaborador->id, 'error' => $e->getMessage()]);
             }
+        }
+
+        // Alta directa (sin candidato): Sistemas recibe su pendiente de alta
+        // desde ya. Con candidato lo programa ContratacionCandidatoService
+        // (origen «candidato»), así que aquí no se duplica. Nunca lanza.
+        if ($colaborador->candidato_id === null) {
+            app(AvisoAltaSistemasService::class)->asegurar($colaborador, $actor);
         }
 
         $this->recalcularEstado($colaborador, $actor);

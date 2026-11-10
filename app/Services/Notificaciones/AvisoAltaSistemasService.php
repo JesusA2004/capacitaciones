@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Reclutamiento\ContratacionCandidatoService;
+use App\Support\FechaTexto;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -22,50 +23,72 @@ use Throwable;
 
 /**
  * Correo «Alta para asignar usuarios» a Sistemas (config/notificaciones.php →
- * sistemas). Se programa cuando una persona entra a la fase 6 «Contratación»
- * del tablero de candidatos — el momento en que RH inicia su contratación y
- * se crea su Colaborador (ContratacionCandidatoService::iniciarContratacion)
- * — y cuando RH autoriza un reingreso (ReingresoService::decidir).
+ * sistemas) + pendiente en la bandeja «Pendientes de alta en sistemas»
+ * (App\Services\Sistemas\PendientesAltaSistemasService). Se programa cuando
+ * una persona entra a la fase 6 «Contratación» del tablero de candidatos
+ * (ContratacionCandidatoService::iniciarContratacion), cuando RH autoriza un
+ * reingreso (ReingresoService::decidir) y, como red de seguridad, cuando se
+ * activa un alta que no pasó por contratación (asegurar(), desde
+ * AvisoAltaBajaService::alta) o con `sistemas:avisos-alta-pendientes`.
  *
  * Reglas:
  *  - una sola vez por contratación: la fila de avisos_alta_sistemas
  *    (origen_tipo + origen_id únicos) es la marca persistente; un reintento
  *    de la cola o repetir la acción nunca lo duplica;
+ *  - el pendiente se crea SIEMPRE (aunque el correo esté desactivado): la
+ *    bandeja y el aviso en la plataforma no dependen del SMTP;
  *  - se encola DESPUÉS del commit (EnviarAvisoAltaSistemasJob::afterCommit);
- *  - un fallo al encolar o al enviar NUNCA revierte la contratación:
+ *  - un fallo al encolar, enviar o notificar NUNCA revierte la contratación:
  *    try/catch + Log::warning + auditoría del fallo;
- *  - RH (candidatos.contratar) puede reenviarlo a mano (reenviar()).
+ *  - RH (candidatos.contratar) o Sistemas (sistemas.altas.atender) pueden
+ *    reenviarlo a mano.
  */
 class AvisoAltaSistemasService
 {
     public const PERMISO_REENVIAR = ContratacionCandidatoService::PERMISO_CONTRATAR;
 
-    private const SIN_CAPTURAR = 'Sin capturar';
+    public const PERMISO_VER_BANDEJA = 'sistemas.altas.ver';
+
+    public const PERMISO_ATENDER = 'sistemas.altas.atender';
+
+    public const EVENTO_PENDIENTE = 'sistemas_alta_pendiente';
+
+    public const SIN_CAPTURAR = 'Sin capturar';
 
     public function __construct(
         private readonly AuditoriaService $auditoria,
         private readonly AlcanceOrganizacionalService $alcance,
     ) {}
 
+    /** El CORREO está encendido y tiene a quién mandarse. */
     public function activo(): bool
     {
         return (bool) config('notificaciones.sistemas.activo') && $this->para() !== [];
     }
 
     /**
-     * Programa el aviso de una contratación. Nunca lanza: lo llaman flujos
-     * que ya confirmaron su acción principal.
+     * Crea el pendiente de una contratación, encola su correo (si está
+     * activo y $enviarCorreo) y avisa a Sistemas en la plataforma. Nunca
+     * lanza: lo llaman flujos que ya confirmaron su acción principal.
      */
-    public function programar(Colaborador $colaborador, OrigenAvisoAltaSistemas $origen, int $origenId, ?User $actor = null): ?AvisoAltaSistemas
-    {
-        if (! $this->activo()) {
-            return null;
-        }
-
+    public function programar(
+        Colaborador $colaborador,
+        OrigenAvisoAltaSistemas $origen,
+        int $origenId,
+        ?User $actor = null,
+        bool $enviarCorreo = true,
+        bool $notificar = true,
+    ): ?AvisoAltaSistemas {
         try {
+            $mandar = $enviarCorreo && $this->activo();
+
             $aviso = AvisoAltaSistemas::query()->firstOrCreate(
                 ['origen_tipo' => $origen->value, 'origen_id' => $origenId],
-                ['colaborador_id' => $colaborador->id, 'estado' => EstadoAvisoAltaSistemas::Pendiente, 'solicitado_por' => $actor?->id],
+                [
+                    'colaborador_id' => $colaborador->id,
+                    'estado' => $mandar ? EstadoAvisoAltaSistemas::Pendiente : EstadoAvisoAltaSistemas::SinEnviar,
+                    'solicitado_por' => $actor?->id,
+                ],
             );
 
             // Ya existía: esta contratación ya tiene su aviso (enviado o en
@@ -74,7 +97,13 @@ class AvisoAltaSistemasService
                 return $aviso;
             }
 
-            EnviarAvisoAltaSistemasJob::dispatch($aviso->id);
+            if ($mandar) {
+                EnviarAvisoAltaSistemasJob::dispatch($aviso->id);
+            }
+
+            if ($notificar) {
+                $this->notificarPendiente($aviso, $colaborador);
+            }
 
             return $aviso;
         } catch (Throwable $e) {
@@ -90,9 +119,31 @@ class AvisoAltaSistemasService
     }
 
     /**
+     * Red de seguridad: si el colaborador nunca tuvo aviso (alta digital,
+     * alta directa de RH, contratado antes de existir el aviso), crea uno de
+     * origen «colaborador». Si ya tiene uno, no hace nada. Nunca lanza.
+     */
+    public function asegurar(Colaborador $colaborador, ?User $actor = null, bool $enviarCorreo = true, bool $notificar = true): ?AvisoAltaSistemas
+    {
+        try {
+            $existente = $this->ultimoDe($colaborador);
+
+            if ($existente !== null) {
+                return $existente;
+            }
+        } catch (Throwable $e) {
+            Log::warning('AvisoAltaSistemasService: no se pudo revisar el aviso previo.', ['colaborador_id' => $colaborador->id, 'error' => $e->getMessage()]);
+
+            return null;
+        }
+
+        return $this->programar($colaborador, OrigenAvisoAltaSistemas::Colaborador, $colaborador->id, $actor, $enviarCorreo, $notificar);
+    }
+
+    /**
      * Manda el correo de un aviso. Idempotente: si ya se envió (enviado_en
      * con valor) no hace nada — un reintento de la cola nunca duplica. El
-     * reenvío manual limpia enviado_en antes de encolar (reencolar()).
+     * reenvío manual limpia enviado_en antes de encolar (reencolarAviso()).
      * Nunca lanza; devuelve false solo si el envío falló (para reintentar).
      */
     public function enviar(int $avisoId, ?int $actorId = null): bool
@@ -115,7 +166,7 @@ class AvisoAltaSistemasService
                 throw new RuntimeException('El colaborador del aviso ya no existe.');
             }
 
-            Mail::to($para)->cc($cc)->send($this->mailable($colaborador, $aviso->origen_tipo));
+            Mail::to($para)->cc($cc)->send($this->mailable($colaborador, $aviso->origen_tipo, $aviso));
 
             $aviso->update([
                 'estado' => EstadoAvisoAltaSistemas::Enviado,
@@ -163,23 +214,48 @@ class AvisoAltaSistemasService
     }
 
     /**
-     * Reenvío manual (RH / super_admin): vuelve a encolar el último aviso del
-     * colaborador; si nunca tuvo uno (contratado antes de existir este
-     * aviso), crea uno de origen manual.
+     * Reenvío manual desde la ficha del candidato (RH / super_admin): vuelve
+     * a encolar el último aviso del colaborador; si nunca tuvo uno
+     * (contratado antes de existir este aviso), crea uno de origen manual.
      */
     public function reenviar(Colaborador $colaborador, User $actor): AvisoAltaSistemas
     {
-        if (! $actor->can(self::PERMISO_REENVIAR) || ! $this->alcance->alcanzaColaborador($actor, $colaborador)) {
+        if (! $this->puedeReenviar($actor, $colaborador)) {
             throw new AuthorizationException('No tienes permiso para reenviar el aviso de alta a Sistemas.');
         }
 
-        if (! $this->activo()) {
-            throw ValidationException::withMessages([
-                'aviso_sistemas' => 'El aviso de alta a Sistemas está desactivado (SISTEMAS_ALTA_CORREO_ACTIVO / SISTEMAS_ALTA_CORREO_PARA en el .env).',
-            ]);
-        }
+        $this->exigirActivo();
 
         return $this->reencolar($colaborador, $actor);
+    }
+
+    /**
+     * Reenvío de un aviso concreto desde la bandeja de Sistemas.
+     */
+    public function reenviarAviso(AvisoAltaSistemas $aviso, User $actor): AvisoAltaSistemas
+    {
+        $colaborador = Colaborador::withTrashed()->where('id', $aviso->colaborador_id)->first();
+
+        if ($colaborador === null || ! $this->puedeReenviar($actor, $colaborador)) {
+            throw new AuthorizationException('No tienes permiso para reenviar el aviso de alta a Sistemas.');
+        }
+
+        $this->exigirActivo();
+
+        return $this->reencolarAviso($aviso, $colaborador, $actor);
+    }
+
+    /**
+     * RH con candidatos.contratar (dentro de su alcance) o Sistemas con
+     * sistemas.altas.atender (da de alta a toda la organización).
+     */
+    public function puedeReenviar(User $actor, Colaborador $colaborador): bool
+    {
+        if ($actor->can(self::PERMISO_ATENDER)) {
+            return true;
+        }
+
+        return $actor->can(self::PERMISO_REENVIAR) && $this->alcance->alcanzaColaborador($actor, $colaborador);
     }
 
     /**
@@ -193,18 +269,11 @@ class AvisoAltaSistemasService
             ['colaborador_id' => $colaborador->id, 'estado' => EstadoAvisoAltaSistemas::Pendiente, 'solicitado_por' => $actor?->id],
         );
 
-        $this->auditoria->registrar('aviso_sistemas_alta_reenvio_solicitado', $colaborador, $actor, [
-            'aviso_id' => $aviso->id,
-            'enviado_antes_en' => $aviso->enviado_en?->toIso8601String(),
-        ]);
+        if ($aviso->wasRecentlyCreated) {
+            $this->notificarPendiente($aviso, $colaborador);
+        }
 
-        // Limpiar la marca es lo que habilita el reenvío; sus reintentos de
-        // cola vuelven a ser idempotentes en cuanto se envía.
-        $aviso->update(['estado' => EstadoAvisoAltaSistemas::Pendiente, 'enviado_en' => null, 'solicitado_por' => $actor?->id]);
-
-        EnviarAvisoAltaSistemasJob::dispatch($aviso->id, $actor?->id);
-
-        return $aviso->refresh();
+        return $this->reencolarAviso($aviso, $colaborador, $actor);
     }
 
     public function ultimoDe(Colaborador $colaborador): ?AvisoAltaSistemas
@@ -213,66 +282,113 @@ class AvisoAltaSistemasService
     }
 
     /**
-     * Resumen para la ficha (estado del último aviso y si se puede reenviar).
+     * Resumen para la ficha (estado del correo, si Sistemas ya lo atendió y
+     * si se puede reenviar).
      *
-     * @return array{estado: string|null, estado_etiqueta: string|null, enviado_en: string|null, ultimo_error: string|null, puede_reenviar: bool}
+     * @return array{estado: string|null, estado_etiqueta: string|null, enviado_en: string|null, ultimo_error: string|null, puede_reenviar: bool, correo_activo: bool, atendido: bool, atendido_en: string|null, atendido_en_texto: string|null, atendido_por: string|null, notas_atencion: string|null, url_bandeja: string|null}
      */
     public function resumen(Colaborador $colaborador, User $viewer): array
     {
         $aviso = $this->ultimoDe($colaborador);
+        $aviso?->loadMissing('atendidoPor:id,name');
 
         return [
             'estado' => $aviso?->estado->value,
             'estado_etiqueta' => $aviso?->estado->etiqueta(),
             'enviado_en' => $aviso?->enviado_en?->toIso8601String(),
             'ultimo_error' => $aviso !== null && $aviso->estado === EstadoAvisoAltaSistemas::Fallido ? 'No se pudo enviar el correo.' : null,
-            'puede_reenviar' => $this->activo() && $viewer->can(self::PERMISO_REENVIAR),
+            'puede_reenviar' => $this->activo() && $this->puedeReenviar($viewer, $colaborador),
+            'correo_activo' => $this->activo(),
+            'atendido' => $aviso?->atendido_en !== null,
+            'atendido_en' => $aviso?->atendido_en?->toIso8601String(),
+            'atendido_en_texto' => FechaTexto::doble($aviso?->atendido_en),
+            'atendido_por' => $aviso?->atendidoPor?->name,
+            'notas_atencion' => $aviso?->notas_atencion,
+            'url_bandeja' => $viewer->can(self::PERMISO_VER_BANDEJA) ? route('sistemas.pendientes-alta.index', [], false) : null,
         ];
     }
 
-    public function mailable(Colaborador $colaborador, OrigenAvisoAltaSistemas $origen): AltaColaboradorSistemasMail
+    /**
+     * Datos básicos para dar de alta a la persona en otros sistemas, con
+     * «Sin capturar» en lo que falte. Fuente única del correo y de la bandeja
+     * (botón «Copiar datos»), agrupada en tres tarjetas: Persona, Contacto y
+     * Puesto.
+     *
+     * @return array{persona: array{titulo: string, datos: array<string, string>}, contacto: array{titulo: string, datos: array<string, string>}, puesto: array{titulo: string, datos: array<string, string>}}
+     */
+    public function datosBasicos(Colaborador $colaborador): array
     {
         $colaborador->loadMissing([
             'puesto:id,nombre', 'departamento:id,nombre', 'sucursalPrincipal.empresa',
             'jefe.puesto:id,nombre', 'user', 'candidatoOrigen',
         ]);
 
-        $fechaNacimiento = $colaborador->fecha_nacimiento;
-        $edad = $fechaNacimiento !== null ? sprintf('%s (%d años)', $fechaNacimiento->format('d/m/Y'), (int) $fechaNacimiento->diffInYears(now())) : null;
         $empresa = $colaborador->sucursalPrincipal?->empresa;
         $jefe = $colaborador->jefe;
         $usuario = $colaborador->user;
 
-        $personales = [
-            'Nombre completo' => $colaborador->nombreCompleto(),
-            'Fecha de nacimiento (edad)' => $edad,
-            'Teléfono' => $colaborador->telefono,
-            'Correo personal' => $colaborador->correo_personal ?? $colaborador->candidatoOrigen?->correo,
-            'CURP' => $colaborador->curp,
-            'RFC' => $colaborador->rfc,
-            'NSS' => $colaborador->nss,
+        return [
+            'persona' => ['titulo' => 'Persona', 'datos' => $this->rellenar([
+                'Nombre completo' => $colaborador->nombreCompleto(),
+                'CURP' => $colaborador->curp !== null ? mb_strtoupper($colaborador->curp) : null,
+                'RFC' => $colaborador->rfc !== null ? mb_strtoupper($colaborador->rfc) : null,
+                'NSS' => $colaborador->nss,
+                'Fecha de nacimiento' => FechaTexto::doble($colaborador->fecha_nacimiento),
+                'Género' => $colaborador->genero?->etiqueta(),
+            ])],
+            'contacto' => ['titulo' => 'Contacto', 'datos' => $this->rellenar([
+                'Teléfono' => $colaborador->telefono,
+                'Correo personal' => $colaborador->correo_personal ?? $colaborador->candidatoOrigen?->correo,
+                'Correo corporativo' => $colaborador->correo_corporativo,
+            ])],
+            'puesto' => ['titulo' => 'Puesto', 'datos' => $this->rellenar([
+                'Sucursal' => $colaborador->sucursalPrincipal?->nombre,
+                'Puesto' => $colaborador->puesto?->nombre,
+                'Departamento' => $colaborador->departamento?->nombre,
+                'Jefe directo' => $jefe !== null ? trim(sprintf('%s %s', $jefe->nombreCompleto(), $jefe->puesto !== null ? sprintf('(%s)', $jefe->puesto->nombre) : '')) : null,
+                'Fecha de ingreso' => FechaTexto::doble($colaborador->fecha_ingreso),
+                'Número de empleado' => $colaborador->numero_empleado,
+                'Empresa (razón social)' => $empresa !== null ? ($empresa->razon_social ?? $empresa->nombre) : null,
+                'Tipo de contratación' => $colaborador->tipo_contratacion?->etiqueta(),
+                'Usuario de PEOPLE' => $usuario !== null ? $usuario->username : 'Aún sin cuenta (la crea al registrarse con su QR)',
+            ])],
         ];
+    }
 
-        $laborales = [
-            'Número de empleado' => $colaborador->numero_empleado,
-            'Puesto' => $colaborador->puesto?->nombre,
-            'Departamento' => $colaborador->departamento?->nombre,
-            'Sucursal' => $colaborador->sucursalPrincipal?->nombre,
-            'Empresa (razón social)' => $empresa !== null ? ($empresa->razon_social ?? $empresa->nombre) : null,
-            'Jefe directo (organigrama)' => $jefe !== null ? trim(sprintf('%s %s', $jefe->nombreCompleto(), $jefe->puesto !== null ? sprintf('(%s)', $jefe->puesto->nombre) : '')) : null,
-            'Fecha de ingreso' => $colaborador->fecha_ingreso?->format('d/m/Y'),
-            'Tipo de contratación' => $colaborador->tipo_contratacion?->etiqueta(),
-            'Usuario de PEOPLE' => $usuario !== null ? $usuario->username : 'Aún sin cuenta (la crea al registrarse con su QR)',
-        ];
+    /**
+     * Todos los datos en una sola lista etiqueta => valor (copiar y pegar).
+     *
+     * @param  array<string, array{titulo: string, datos: array<string, string>}>  $secciones
+     * @return array<string, string>
+     */
+    public static function aplanar(array $secciones): array
+    {
+        $plano = [];
+
+        foreach ($secciones as $seccion) {
+            $plano = [...$plano, ...$seccion['datos']];
+        }
+
+        return $plano;
+    }
+
+    public function mailable(Colaborador $colaborador, OrigenAvisoAltaSistemas $origen, ?AvisoAltaSistemas $aviso = null): AltaColaboradorSistemasMail
+    {
+        $secciones = $this->datosBasicos($colaborador);
+        $ingreso = $colaborador->fecha_ingreso;
 
         return new AltaColaboradorSistemasMail(
             nombreCompleto: $colaborador->nombreCompleto(),
-            puesto: $colaborador->puesto !== null ? $colaborador->puesto->nombre : self::SIN_CAPTURAR,
-            sucursal: $colaborador->sucursalPrincipal !== null ? $colaborador->sucursalPrincipal->nombre : self::SIN_CAPTURAR,
-            origen: mb_strtolower($origen->etiqueta()),
-            personales: $this->rellenar($personales),
-            laborales: $this->rellenar($laborales),
+            puesto: $secciones['puesto']['datos']['Puesto'],
+            sucursal: $secciones['puesto']['datos']['Sucursal'],
+            tipoIngreso: $origen === OrigenAvisoAltaSistemas::Reingreso ? 'Reingreso' : 'Nuevo ingreso',
+            secciones: $secciones,
             urlExpediente: route('rh.expedientes.show', $colaborador->id),
+            urlDetalle: $aviso !== null ? route('sistemas.pendientes-alta.show', $aviso->id) : route('sistemas.pendientes-alta.index'),
+            urlBandeja: route('sistemas.pendientes-alta.index'),
+            fechaIngresoLarga: $ingreso !== null ? FechaTexto::larga($ingreso) : self::SIN_CAPTURAR,
+            fechaIngresoCorta: $ingreso !== null ? $ingreso->format('d/m/Y') : self::SIN_CAPTURAR,
+            logoUrl: sprintf('%s/branding/MrLanaPeople_horizontal_color.png', rtrim((string) config('app.url'), '/')),
         );
     }
 
@@ -290,6 +406,67 @@ class AvisoAltaSistemasService
     public function cc(): array
     {
         return $this->direcciones(config('notificaciones.sistemas.cc'));
+    }
+
+    private function exigirActivo(): void
+    {
+        if (! $this->activo()) {
+            throw ValidationException::withMessages([
+                'aviso_sistemas' => 'El aviso de alta a Sistemas está desactivado (SISTEMAS_ALTA_CORREO_ACTIVO / SISTEMAS_ALTA_CORREO_PARA en el .env).',
+            ]);
+        }
+    }
+
+    private function reencolarAviso(AvisoAltaSistemas $aviso, Colaborador $colaborador, ?User $actor): AvisoAltaSistemas
+    {
+        $this->auditoria->registrar('aviso_sistemas_alta_reenvio_solicitado', $colaborador, $actor, [
+            'aviso_id' => $aviso->id,
+            'enviado_antes_en' => $aviso->enviado_en?->toIso8601String(),
+        ]);
+
+        // Limpiar la marca es lo que habilita el reenvío; sus reintentos de
+        // cola vuelven a ser idempotentes en cuanto se envía.
+        $aviso->update(['estado' => EstadoAvisoAltaSistemas::Pendiente, 'enviado_en' => null, 'solicitado_por' => $actor?->id]);
+
+        EnviarAvisoAltaSistemasJob::dispatch($aviso->id, $actor?->id);
+
+        return $aviso->refresh();
+    }
+
+    /**
+     * Aviso en la plataforma (campana, tiempo real y push) a quien da de alta
+     * en sistemas, por la capa única de avisos. Nunca lanza.
+     */
+    private function notificarPendiente(AvisoAltaSistemas $aviso, Colaborador $colaborador): void
+    {
+        try {
+            $colaborador->loadMissing(['puesto:id,nombre', 'sucursalPrincipal:id,nombre']);
+            $partes = array_filter([$colaborador->puesto?->nombre, $colaborador->sucursalPrincipal?->nombre]);
+
+            $destinatarios = User::permission(self::PERMISO_ATENDER)
+                ->whereNull('acceso_bloqueado_en')
+                ->get();
+
+            app(NotificacionEventosService::class)->crearPendiente($destinatarios, new Aviso(
+                evento: self::EVENTO_PENDIENTE,
+                tipo: 'sistemas_alta',
+                titulo: sprintf('Alta pendiente en sistemas: %s', $colaborador->nombreCompleto()),
+                mensaje: sprintf(
+                    '%s%s entró a contratación. Dale de alta en las demás plataformas y márcalo como atendido.',
+                    $colaborador->nombreCompleto(),
+                    $partes !== [] ? sprintf(' (%s)', implode(', ', $partes)) : '',
+                ),
+                recurso: $aviso,
+                accion: 'dar_de_alta',
+                pushTitulo: 'Alta pendiente en sistemas',
+            ));
+        } catch (Throwable $e) {
+            Log::warning('AvisoAltaSistemasService: no se pudo avisar a Sistemas en la plataforma.', [
+                'aviso_id' => $aviso->id,
+                'colaborador_id' => $colaborador->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

@@ -146,3 +146,4 @@ require __DIR__.'/agenda.php';
 require __DIR__.'/notificaciones.php';
 require __DIR__.'/avisos.php';
 require __DIR__.'/recepcion-documental.php';
+require __DIR__.'/sistemas.php';

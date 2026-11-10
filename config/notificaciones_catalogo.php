@@ -248,6 +248,15 @@ return [
             'audiencia' => 'operativa',
             'defecto' => [...$rh, 'sistemas', ...$gerencia],
         ],
+        // Entró a contratación: Sistemas le da sus usuarios en las demás
+        // plataformas (bandeja «Pendientes de alta en sistemas»).
+        'sistemas_alta_pendiente' => [
+            'etiqueta' => 'Alta pendiente en sistemas: dar usuarios en las demás plataformas',
+            'push_titulo' => 'Alta pendiente en sistemas',
+            'modulo' => 'contratacion',
+            'audiencia' => 'operativa',
+            'defecto' => ['sistemas'],
+        ],
         'alta_activada' => [
             'etiqueta' => 'Bienvenida: tu cuenta quedó activa',
             'push_titulo' => '¡Bienvenido a MR. LANA!',
