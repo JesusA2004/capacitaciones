@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Http\Middleware\AutenticarClienteIntegracion;
+use App\Models\Baja;
 use App\Models\ClienteIntegracion;
 use App\Models\CoberturaPuesto;
 use App\Models\Colaborador;
@@ -11,6 +12,7 @@ use App\Models\GeneratedDocument;
 use App\Models\NodoComercial;
 use App\Models\Puesto;
 use App\Models\User;
+use App\Observers\BajaPlantillaObserver;
 use App\Observers\CicloLaboralDocumentoObserver;
 use App\Observers\ColaboradorPlantillaObserver;
 use App\Policies\RolPolicy;
@@ -120,6 +122,9 @@ class AppServiceProvider extends ServiceProvider
         // Vacantes automáticas = autorizada − ocupada: cualquier alta, baja,
         // cambio de puesto o de sucursal resincroniza origen y destino.
         Colaborador::observe(ColaboradorPlantillaObserver::class);
+        // Una baja registrada deja de contar desde su último día (aunque el
+        // finiquito siga pendiente) y una cancelada vuelve a contar.
+        Baja::observe(BajaPlantillaObserver::class);
 
         // Jefe directo = organigrama (JefeDirectoService): cualquier cambio
         // que mueva a alguien en el árbol lo recalcula al terminar la

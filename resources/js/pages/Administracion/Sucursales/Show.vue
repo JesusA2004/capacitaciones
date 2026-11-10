@@ -82,6 +82,9 @@ const props = defineProps<{
         vacantes: number;
         cobertura: number;
         fuera_de_plantilla: number;
+        activos: number;
+        en_incorporacion: number;
+        bajas_en_tramite: number;
     };
     departamentos: number;
     /** Gestores fijos (con ruta) vs. volantes de la sucursal. */
@@ -583,18 +586,39 @@ function porcentaje(fila: PlantillaPorPuesto): number {
                     </li>
                 </ul>
                 <p
+                    class="border-t px-4 py-2.5 text-xs text-muted-foreground tabular-nums"
+                >
+                    {{ totales.plantilla_autorizada }} autorizadas =
+                    {{ totales.plantilla_actual }} ocupadas +
+                    {{ totales.vacantes }} vacantes ·
+                    {{ totales.activos }} laborando<template
+                        v-if="totales.en_incorporacion > 0"
+                    >
+                        + {{ totales.en_incorporacion }} en incorporación
+                        (ocupan plaza)</template
+                    ><template v-if="totales.bajas_en_tramite > 0">
+                        · {{ totales.bajas_en_tramite }}
+                        {{
+                            totales.bajas_en_tramite === 1
+                                ? 'baja en trámite ya no cuenta'
+                                : 'bajas en trámite ya no cuentan'
+                        }}</template
+                    >
+                </p>
+                <p
                     v-if="totales.fuera_de_plantilla > 0"
                     class="border-t px-4 py-2.5 text-xs text-muted-foreground"
                 >
                     {{ totales.fuera_de_plantilla }}
                     {{
                         totales.fuera_de_plantilla === 1
-                            ? 'persona está'
-                            : 'personas están'
+                            ? 'persona no ocupa'
+                            : 'personas no ocupan'
                     }}
-                    en puestos sin plantilla autorizada en esta sucursal (no
-                    cuentan en la cobertura). Revisa su sucursal en el
-                    expediente.
+                    plaza autorizada en esta sucursal (puesto sin plazas aquí,
+                    más personas que plazas o sin puesto): no cuentan en la
+                    cobertura. El detalle nominal está en el Inicio, «¿Por qué
+                    no cuadra?».
                 </p>
             </section>
 

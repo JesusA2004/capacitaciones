@@ -39,7 +39,8 @@ class SucursalController extends Controller
         $sucursales = Sucursal::query()
             // Personas vigentes (activo / en incorporación): mismo criterio
             // que la plantilla ocupada de HeadcountService.
-            ->withCount(['colaboradores' => fn ($q) => $q->whereIn('estatus', EstadoUsuario::valoresVigentes())])
+            // y sin bajas registradas cuyo último día ya pasó (finiquito pendiente).
+            ->withCount(['colaboradores' => fn ($q) => $q->whereIn('estatus', EstadoUsuario::valoresVigentes())->whereNotIn('id', $this->headcount->bajasAplicadas(true)->select('colaborador_id'))])
             ->with(['responsable:id,name,apellidos', 'empresa:id,nombre'])
             ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
                 $query->where(function ($sub) use ($busqueda) {
@@ -95,19 +96,21 @@ class SucursalController extends Controller
         $sucursal->load('empresa:id,nombre');
 
         $plantillaPorPuesto = $this->headcount->resumenPorPuesto($sucursal->id);
-        // Mismo criterio que HeadcountService::resumenPorSucursal(): por
-        // puesto, "ocupada" nunca pasa de lo autorizado.
-        $autorizada = (int) $plantillaPorPuesto->sum('plantilla_autorizada');
-        $ocupada = (int) $plantillaPorPuesto->sum(fn (array $f) => min($f['plantilla_actual'], $f['plantilla_autorizada']));
+        // La MISMA fila que la lista «Plantilla por sucursal» del tablero
+        // (HeadcountService::poblacionPorSucursal): mismas cifras siempre.
+        $fila = $this->headcount->poblacionPorSucursal(collect([$sucursal->id]))[0] ?? null;
         $totales = [
-            'plantilla_autorizada' => $autorizada,
-            'plantilla_actual' => $ocupada,
-            'vacantes' => (int) $plantillaPorPuesto->sum('faltante'),
-            'cobertura' => $autorizada > 0 ? round(($ocupada / $autorizada) * 100, 1) : 0.0,
-            // Personas en puestos SIN plantilla autorizada en esta sucursal:
-            // se reportan (auditable) para que RH las reubique o capture la
-            // plantilla, no se cuentan como cobertura.
-            'fuera_de_plantilla' => (int) $plantillaPorPuesto->filter(fn (array $f) => $f['plantilla_autorizada'] === 0)->sum('plantilla_actual'),
+            'plantilla_autorizada' => $fila['autorizadas'] ?? 0,
+            'plantilla_actual' => $fila['ocupadas'] ?? 0,
+            'vacantes' => $fila['vacantes'] ?? 0,
+            'cobertura' => $fila['cobertura'] ?? 0.0,
+            // Personas vigentes que NO ocupan plaza autorizada (puesto sin
+            // plazas aquí, excedentes o sin puesto): se reportan (auditable)
+            // para que RH las reubique o capture la plantilla.
+            'fuera_de_plantilla' => $fila !== null ? $fila['fuera_de_plantilla'] + $fila['excedentes'] + $fila['sin_ubicacion'] : 0,
+            'activos' => $fila['activos'] ?? 0,
+            'en_incorporacion' => $fila['en_incorporacion'] ?? 0,
+            'bajas_en_tramite' => $fila['bajas_en_tramite'] ?? 0,
         ];
 
         return Inertia::render('Administracion/Sucursales/Show', [

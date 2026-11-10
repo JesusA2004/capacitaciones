@@ -7,6 +7,8 @@ import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Button } from '@/components/ui/button';
 import { index as pendientesIndex } from '@/routes/rh/pendientes';
 import type {
+    DiferenciaPlantilla,
+    FilaPlantillaSucursal,
     InicioOperativoDatos,
     SemaforoRotacion,
     TableroRhDatos,
@@ -186,8 +188,57 @@ const ubicaciones = computed(() =>
     [
         { etiqueta: 'Corporativo', datos: poblacion.value.corporativo },
         { etiqueta: 'Sucursales', datos: poblacion.value.sucursales },
-    ].filter((u) => u.datos.autorizadas > 0 || u.datos.activos > 0),
+    ].filter((u) => u.datos.autorizadas > 0 || u.datos.vigentes > 0),
 );
+
+// --- Cuadre: personas activas vs. plazas ocupadas (nada se esconde) ---
+const verDiferencias = ref(false);
+const partesNoOcupan = computed(() =>
+    [
+        {
+            etiqueta: 'fuera de plantilla',
+            valor: poblacion.value.total.fuera_de_plantilla,
+        },
+        { etiqueta: 'excedentes', valor: poblacion.value.total.excedentes },
+        {
+            etiqueta: 'sin sucursal o puesto',
+            valor: poblacion.value.total.sin_ubicacion,
+        },
+    ].filter((p) => p.valor > 0),
+);
+const personasDescuadran = computed(
+    () =>
+        poblacion.value.total.vigentes !== poblacion.value.total.ocupadas ||
+        poblacion.value.total.segundas_plazas > 0 ||
+        partesNoOcupan.value.length > 0,
+);
+const diferenciasPorMotivo = computed(() => {
+    const grupos = new Map<
+        string,
+        {
+            motivo: string;
+            etiqueta: string;
+            descuadra: boolean;
+            total: number;
+            items: DiferenciaPlantilla[];
+        }
+    >();
+
+    for (const d of props.tablero.cuadre.diferencias) {
+        const g = grupos.get(d.motivo) ?? {
+            motivo: d.motivo,
+            etiqueta: d.motivo_etiqueta,
+            descuadra: d.descuadra,
+            total: 0,
+            items: [],
+        };
+        g.total += d.cantidad;
+        g.items.push(d);
+        grupos.set(d.motivo, g);
+    }
+
+    return [...grupos.values()];
+});
 
 // --- Embudo: personas que alcanzaron cada fase y su paso desde la anterior ---
 const embudo = computed(() => {
@@ -224,12 +275,22 @@ const sinTiempos = computed(() => tiempos.value.every((t) => t.dias === null));
 // --- Plantilla por sucursal: misma escala (100 % = su autorizada) ---
 const orden = ref<'cobertura' | 'vacantes' | 'nombre'>('cobertura');
 const sucursalesCobertura = computed(() => {
+    // Solo se omiten filas con TODO en cero: la suma de la lista es el total.
     const filas = props.tablero.headcount_by_branch.filter(
-        (f) => f.plantilla_autorizada > 0 || f.plantilla_actual > 0,
+        (f) =>
+            f.autorizadas > 0 ||
+            f.vigentes > 0 ||
+            f.segundas_plazas > 0 ||
+            f.bajas_en_tramite > 0 ||
+            f.bajas_programadas > 0,
     );
 
     return [...filas].sort((a, b) => {
-        // Corporativo siempre al final, sea cual sea el orden.
+        // «Sin sucursal asignada» y Corporativo siempre al final.
+        if ((a.sucursal_id === null) !== (b.sucursal_id === null)) {
+            return a.sucursal_id === null ? 1 : -1;
+        }
+
         if (a.es_corporativo !== b.es_corporativo) {
             return a.es_corporativo ? 1 : -1;
         }
@@ -243,6 +304,29 @@ const sucursalesCobertura = computed(() => {
             : a.cumplimiento - b.cumplimiento;
     });
 });
+
+function detalleFila(f: FilaPlantillaSucursal): string {
+    const partes = [
+        `${f.sucursal}: ${f.ocupadas} de ${f.autorizadas} plazas ocupadas · ${f.vacantes} vacantes`,
+        `${f.activos} laborando + ${f.en_incorporacion} en incorporación`,
+    ];
+
+    if (f.fuera_de_plantilla + f.excedentes + f.sin_ubicacion > 0) {
+        partes.push(
+            `${f.fuera_de_plantilla + f.excedentes + f.sin_ubicacion} sin plaza autorizada`,
+        );
+    }
+
+    if (f.segundas_plazas > 0) {
+        partes.push(`${f.segundas_plazas} en segunda plaza`);
+    }
+
+    if (f.bajas_en_tramite > 0) {
+        partes.push(`${f.bajas_en_tramite} bajas en trámite (ya no cuentan)`);
+    }
+
+    return partes.join(' · ');
+}
 </script>
 
 <template>
@@ -428,16 +512,22 @@ const sucursalesCobertura = computed(() => {
                             />
                             <dt>Activa</dt>
                             <dd>
-                                {{ numero.format(poblacion.total.activos) }}
+                                {{ numero.format(poblacion.total.vigentes) }}
                             </dd>
                             <p>
-                                Corporativo
-                                {{ poblacion.corporativo.activos }} · Sucursales
-                                {{ poblacion.sucursales.activos
-                                }}<template v-if="tablero.en_incorporacion > 0">
-                                    · {{ tablero.en_incorporacion }} en
+                                {{ poblacion.total.activos }} laborando<template
+                                    v-if="poblacion.total.en_incorporacion > 0"
+                                >
+                                    +
+                                    {{ poblacion.total.en_incorporacion }} en
                                     incorporación</template
                                 >
+                            </p>
+                            <p>
+                                Corporativo
+                                {{ poblacion.corporativo.vigentes }} ·
+                                Sucursales
+                                {{ poblacion.sucursales.vigentes }}
                             </p>
                         </div>
                         <div class="dato">
@@ -494,6 +584,69 @@ const sucursalesCobertura = computed(() => {
                             </p>
                         </div>
                     </dl>
+                    <!-- Cuadre visible: nada se esconde para que la cifra cierre. -->
+                    <div
+                        class="mt-3 flex flex-col gap-1 border-t pt-2 text-[11px] text-muted-foreground tabular-nums"
+                        aria-label="Cuadre de plantilla"
+                    >
+                        <p>
+                            <span class="font-semibold text-foreground"
+                                >{{
+                                    numero.format(poblacion.total.autorizadas)
+                                }}
+                                autorizadas</span
+                            >
+                            =
+                            {{ numero.format(poblacion.total.ocupadas) }}
+                            ocupadas +
+                            {{ numero.format(poblacion.total.vacantes) }}
+                            vacantes
+                        </p>
+                        <p v-if="personasDescuadran">
+                            {{ numero.format(poblacion.total.vigentes) }}
+                            activas<template
+                                v-if="poblacion.total.segundas_plazas > 0"
+                            >
+                                + {{ poblacion.total.segundas_plazas }} en
+                                segunda plaza</template
+                            >
+                            =
+                            {{ numero.format(poblacion.total.ocupadas) }}
+                            ocupan plaza<template
+                                v-for="p in partesNoOcupan"
+                                :key="p.etiqueta"
+                            >
+                                + {{ p.valor }} {{ p.etiqueta }}</template
+                            >
+                        </p>
+                        <p v-if="poblacion.total.bajas_en_tramite > 0">
+                            {{ poblacion.total.bajas_en_tramite }}
+                            {{
+                                poblacion.total.bajas_en_tramite === 1
+                                    ? 'baja en trámite (último día pasado) ya no cuenta'
+                                    : 'bajas en trámite (último día pasado) ya no cuentan'
+                            }}, aunque su finiquito siga pendiente
+                        </p>
+                        <p
+                            v-if="tablero.cuadre.problemas.length"
+                            class="font-semibold text-destructive"
+                        >
+                            No cuadra: {{ tablero.cuadre.problemas.join(' ') }}
+                        </p>
+                        <button
+                            v-if="tablero.cuadre.diferencias.length"
+                            type="button"
+                            class="self-start font-semibold text-primary underline-offset-2 hover:underline"
+                            :aria-expanded="verDiferencias"
+                            @click="verDiferencias = !verDiferencias"
+                        >
+                            {{
+                                verDiferencias
+                                    ? 'Ocultar el detalle'
+                                    : '¿Quiénes explican la diferencia?'
+                            }}
+                        </button>
+                    </div>
                 </article>
 
                 <article class="bloque border-t-bronce">
@@ -757,6 +910,80 @@ const sucursalesCobertura = computed(() => {
                     </dl>
                 </article>
             </div>
+
+            <!-- Desglose nominal del cuadre (CuadrePlantillaService): quién y por qué. -->
+            <article
+                v-if="verDiferencias && tablero.cuadre.diferencias.length"
+                class="grafica"
+                aria-label="Quiénes explican la diferencia de plantilla"
+            >
+                <h2 class="grafica-titulo">¿Quiénes explican la diferencia?</h2>
+                <p class="grafica-nota">
+                    Personas activas ≠ plazas ocupadas por quienes no ocupan
+                    plaza autorizada o ocupan dos; «en incorporación» sí ocupa
+                    plaza; una baja en trámite ya no cuenta desde su último día.
+                </p>
+                <div class="mt-3 grid gap-3 lg:grid-cols-2">
+                    <section
+                        v-for="g in diferenciasPorMotivo"
+                        :key="g.motivo"
+                        class="rounded-lg border p-3"
+                    >
+                        <h3
+                            class="flex items-center justify-between gap-2 text-xs font-semibold"
+                            :class="
+                                g.descuadra ? 'text-bronce' : 'text-primary'
+                            "
+                        >
+                            {{ g.etiqueta }}
+                            <span class="tabular-nums">{{ g.total }}</span>
+                        </h3>
+                        <ul class="mt-2 flex flex-col gap-2">
+                            <li
+                                v-for="(d, i) in g.items"
+                                :key="`${g.motivo}-${i}`"
+                                class="text-xs"
+                            >
+                                <p class="font-medium">
+                                    {{ d.sucursal
+                                    }}<template v-if="d.puesto">
+                                        · {{ d.puesto }}</template
+                                    >
+                                </p>
+                                <p class="text-[11px] text-muted-foreground">
+                                    {{ d.detalle }}
+                                </p>
+                                <ul class="mt-1 flex flex-col gap-0.5">
+                                    <li
+                                        v-for="p in d.personas"
+                                        :key="p.id"
+                                        class="text-[11px] tabular-nums"
+                                    >
+                                        {{ p.nombre }}
+                                        <span class="text-muted-foreground"
+                                            >·
+                                            {{ p.numero_empleado ?? 's/n' }} ·
+                                            {{ p.estatus
+                                            }}<template
+                                                v-if="
+                                                    p.sucursal_registrada &&
+                                                    p.sucursal_registrada !==
+                                                        d.sucursal
+                                                "
+                                            >
+                                                · registrada en
+                                                {{
+                                                    p.sucursal_registrada
+                                                }}</template
+                                            ></span
+                                        >
+                                    </li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </section>
+                </div>
+            </article>
 
             <div
                 class="grid gap-3 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]"
@@ -1062,8 +1289,8 @@ const sucursalesCobertura = computed(() => {
                                 Plantilla por sucursal
                             </h2>
                             <p class="grafica-nota">
-                                Activos / autorizada · misma escala para todas ·
-                                clic para filtrar el tablero
+                                Ocupadas / autorizadas · misma escala para todas
+                                · clic para filtrar el tablero
                             </p>
                         </div>
                         <div
@@ -1106,17 +1333,22 @@ const sucursalesCobertura = computed(() => {
                     >
                         <li
                             v-for="f in sucursalesCobertura"
-                            :key="f.sucursal_id"
+                            :key="f.sucursal_id ?? 'sin-sucursal'"
                         >
                             <button
                                 type="button"
                                 class="grid w-full grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)_2.75rem_3rem] items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-muted/60"
-                                :class="
+                                :class="[
                                     f.es_corporativo &&
-                                    'bg-crema/60 font-semibold'
+                                        'bg-crema/60 font-semibold',
+                                    f.sucursal_id === null &&
+                                        'cursor-default bg-warning-soft',
+                                ]"
+                                :title="detalleFila(f)"
+                                @click="
+                                    f.sucursal_id !== null &&
+                                    (sucursal = String(f.sucursal_id))
                                 "
-                                :title="`${f.sucursal}: ${f.plantilla_actual} de ${f.plantilla_autorizada} plazas ocupadas · ${f.vacantes} vacantes`"
-                                @click="sucursal = String(f.sucursal_id)"
                             >
                                 <span class="truncate">{{ f.sucursal }}</span>
                                 <span
@@ -1160,6 +1392,36 @@ const sucursalesCobertura = computed(() => {
                             </button>
                         </li>
                     </ul>
+                    <!-- Pie: suma de TODAS las filas = tarjetas de arriba. -->
+                    <p
+                        v-if="sucursalesCobertura.length"
+                        class="mt-2 flex flex-wrap justify-between gap-2 border-t px-1.5 pt-2 text-xs font-semibold tabular-nums"
+                    >
+                        <span>Total</span>
+                        <span
+                            >{{ poblacion.total.ocupadas }} /
+                            {{ poblacion.total.autorizadas }} ocupadas ·
+                            {{ poblacion.total.vacantes }} vacantes ·
+                            {{ poblacion.total.activos }} laborando +
+                            {{ poblacion.total.en_incorporacion }} en
+                            incorporación<template
+                                v-if="
+                                    poblacion.total.fuera_de_plantilla +
+                                        poblacion.total.excedentes +
+                                        poblacion.total.sin_ubicacion >
+                                    0
+                                "
+                            >
+                                ·
+                                {{
+                                    poblacion.total.fuera_de_plantilla +
+                                    poblacion.total.excedentes +
+                                    poblacion.total.sin_ubicacion
+                                }}
+                                sin plaza autorizada</template
+                            ></span
+                        >
+                    </p>
                 </article>
 
                 <!-- Tiempo por nivel -->

@@ -80,4 +80,18 @@ enum EstatusBaja: string
     {
         return array_values(array_map(fn (self $e): string => $e->value, array_filter(self::cases(), fn (self $e): bool => $e->esAbierta())));
     }
+
+    /**
+     * Baja REGISTRADA (aplicada de inmediato) que aún no se cierra: En
+     * trámite y el histórico «En revisión Jurídico». Para la plantilla, la
+     * persona es baja desde su último día aunque el finiquito siga pendiente
+     * (HeadcountService). Borrador y Rechazada (flujo anterior) nunca se
+     * aplicaron; Cancelada («No procede») devuelve a la persona a la plantilla.
+     *
+     * @return list<string>
+     */
+    public static function valoresAplicadasSinCerrar(): array
+    {
+        return [self::EnRevisionRh->value, self::EnRevisionJuridico->value];
+    }
 }

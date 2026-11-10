@@ -19,6 +19,7 @@ use App\Services\Bajas\TableroRotacionService;
 use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Contratos\RegularizacionContratosService;
 use App\Services\Expedientes\DatosFaltantesService;
+use App\Services\Headcount\CuadrePlantillaService;
 use App\Services\Headcount\HeadcountService;
 use App\Services\Reclutamiento\CostoReclutamientoService;
 use App\Services\Vacantes\VacantesListadoService;
@@ -51,6 +52,9 @@ use Illuminate\Support\Collection;
  *  - embudo = personas que ALCANZARON cada etapa (etapa_maxima, autoridad de
  *    CandidatoWorkflowService), no su estado actual: un contratado cuenta
  *    también en entrevista, psicométricas...
+ *
+ * @phpstan-import-type FilaPoblacion from HeadcountService
+ * @phpstan-import-type SegmentoPoblacion from HeadcountService
  */
 class TableroRhService
 {
@@ -64,6 +68,7 @@ class TableroRhService
         private readonly CostoReclutamientoService $costoReclutamiento,
         private readonly ContratoLaboralService $contratos,
         private readonly DatosFaltantesService $datosFaltantes,
+        private readonly CuadrePlantillaService $cuadre,
     ) {}
 
     /**
@@ -102,18 +107,27 @@ class TableroRhService
         // resolvió por alcance; la misma serie alimenta el KPI y la tendencia.
         $serieRotacion = $this->rotacion->serieParaTablero($sucursales, $fin, $meses);
 
-        // Corporativo se distingue para mostrarlo siempre al final de la lista.
-        $corporativas = Sucursal::query()->whereIn('id', $sucursales)->where('es_corporativo', true)->pluck('id')->map(fn ($id) => (int) $id);
+        // UNA sola llamada alimenta tarjetas, gráfica de cobertura, lista por
+        // sucursal y el desglose de diferencias (CuadrePlantillaService sobre
+        // HeadcountService): Σ filas = total, siempre. Con alcance global sin
+        // filtro entra también «Sin sucursal asignada».
+        $cuadre = $this->cuadre->cuadre($todas ? null : $sucursales);
 
         return [
-            'summary' => $this->resumen($usuario, $sucursales, $todas, $inicio, $fin, $this->rotacionDelMes($serieRotacion, $fin)),
+            'summary' => $this->resumen($usuario, $sucursales, $todas, $inicio, $fin, $this->rotacionDelMes($serieRotacion, $fin), $cuadre),
             // El periodo del tablero (6, 12 o 24 meses) acota embudo y tiempos.
             'recruitment_funnel' => $this->embudo($sucursales, $todas, $fin->subMonthsNoOverflow($meses - 1)->startOfMonth(), $fin),
             'time_to_hire_by_level' => $this->tiempoPorNivel($sucursales, $todas, $fin, $meses),
             'turnover_monthly' => $this->turnoverMensual($serieRotacion, $meses),
-            'headcount_by_branch' => $this->headcount->resumenPorSucursal($sucursales)
-                ->map(fn (array $fila): array => [...$fila, 'es_corporativo' => $corporativas->contains($fila['sucursal_id'])])
-                ->values()->all(),
+            // Mismas filas que el total (nombres de siempre + todas las cifras
+            // del cuadre); ninguna se recorta: la UI solo omite filas en cero.
+            'headcount_by_branch' => array_map(fn (array $fila): array => [
+                ...$fila,
+                'plantilla_autorizada' => $fila['autorizadas'],
+                'plantilla_actual' => $fila['ocupadas'],
+                'cumplimiento' => $fila['cobertura'],
+            ], $cuadre['filas']),
+            'cuadre' => ['problemas' => $cuadre['problemas'], 'diferencias' => $cuadre['diferencias']],
             'filters' => [
                 'mes' => $mes->format('Y-m'),
                 'periodo_etiqueta' => ucfirst($mes->settings(['locale' => 'es'])->translatedFormat('F Y')),
@@ -126,7 +140,7 @@ class TableroRhService
                     ->map(fn (Empresa $e) => ['id' => $e->id, 'nombre' => $e->nombre])->values()->all(),
             ],
             'enlaces' => $this->enlaces($usuario, $sucursalFiltro),
-            'en_incorporacion' => $this->colaboradores($sucursales)->where('estatus', EstadoUsuario::EnIncorporacion->value)->count(),
+            'en_incorporacion' => $cuadre['total']['en_incorporacion'],
             'generated_at' => now()->toIso8601String(),
         ];
     }
@@ -189,7 +203,9 @@ class TableroRhService
     {
         $global = $this->alcance->tieneAlcanceGlobal($usuario);
         $sucursales = $this->alcance->sucursalesVisiblesIds($usuario);
-        $headcount = $this->headcount->totalesGenerales($sucursales);
+        // Mismo alcance que el tablero (global = toda la empresa, incluida
+        // «Sin sucursal asignada»), así Inicio y tablero dan la misma cifra.
+        $headcount = $this->headcount->totalesGenerales($global ? null : $sucursales);
 
         return [
             'vacantes' => (int) array_sum(array_column($this->filasVacantes($usuario, $sucursales, $global), 'plazas_disponibles')),
@@ -216,14 +232,15 @@ class TableroRhService
     /**
      * @param  Collection<int, int>  $sucursales
      * @param  array{porcentaje: float|null, bajas: int, plantilla_promedio: float|null, semaforo: string|null}  $rotacionMes
+     * @param  array{filas: list<FilaPoblacion>, total: SegmentoPoblacion, corporativo: SegmentoPoblacion, sucursales: SegmentoPoblacion, problemas: list<string>, diferencias: list<array<string, mixed>>}  $cuadre
      * @return array<string, mixed>
      */
-    private function resumen(User $usuario, Collection $sucursales, bool $todas, CarbonImmutable $inicio, CarbonImmutable $fin, array $rotacionMes): array
+    private function resumen(User $usuario, Collection $sucursales, bool $todas, CarbonImmutable $inicio, CarbonImmutable $fin, array $rotacionMes, array $cuadre): array
     {
-        // Plantilla y cobertura salen de la fuente canónica (HeadcountService):
-        // el número grande = plazas autorizadas ocupadas, igual que la tabla
-        // headcount_by_branch; así la tarjeta ya no se contradice consigo misma.
-        $cobertura = $this->headcount->totalesGenerales($sucursales);
+        // Plantilla y cobertura salen del cuadre (HeadcountService, fuente
+        // única): el número grande = plazas autorizadas ocupadas, la suma
+        // exacta de las filas de headcount_by_branch.
+        $total = $cuadre['total'];
 
         // Vacantes = plazas por cubrir de RH → Vacantes (misma consulta y
         // regla que esa pantalla), acotadas a las sucursales del tablero.
@@ -263,15 +280,15 @@ class TableroRhService
 
         return [
             'plantilla_activa' => [
-                'valor' => $cobertura['plantilla_actual'],
-                'autorizada' => $cobertura['plantilla_autorizada'],
-                'porcentaje' => $cobertura['cumplimiento'],
-                'vacantes' => $cobertura['vacantes'],
-                'personas_activas' => $cobertura['personas_activas'],
-                'fuera_de_plantilla' => $cobertura['fuera_de_plantilla'],
+                'valor' => $total['ocupadas'],
+                'autorizada' => $total['autorizadas'],
+                'porcentaje' => $total['cobertura'],
+                'vacantes' => $total['vacantes'],
+                'personas_activas' => $total['vigentes'],
+                'fuera_de_plantilla' => $total['fuera_de_plantilla'] + $total['excedentes'] + $total['sin_ubicacion'],
                 // Fuente única: Personas activas y desglose Corporativo/Sucursales
                 // iguales a los del Directorio y Reportes.
-                'poblacion' => $this->headcount->poblacion($todas ? null : $sucursales),
+                'poblacion' => ['total' => $cuadre['total'], 'corporativo' => $cuadre['corporativo'], 'sucursales' => $cuadre['sucursales']],
             ],
             'vacantes_abiertas' => ['valor' => $vacantesSucursales + $vacantesCorporativo, 'sucursales' => $vacantesSucursales, 'corporativo' => $vacantesCorporativo],
             'rotacion_mes' => ['porcentaje' => $rotacionMes['porcentaje'], 'bajas' => $rotacionMes['bajas'], 'plantilla_promedio' => $rotacionMes['plantilla_promedio'], 'semaforo' => $rotacionMes['semaforo']],

@@ -57,7 +57,10 @@ test('el inicio toma plantilla, capacidad y vacantes del headcount y excluye baj
         ->and($plantilla['ocupada'])->toBe(3)
         ->and($plantilla['vacantes'])->toBe(2)
         ->and($plantilla['cumplimiento'])->toBe(60.0)
-        ->and($plantilla['fuera_de_plantilla'])->toBe(1)
+        // No ocupan plaza autorizada: la persona fuera de plantilla de la
+        // sucursal + quien no tiene sucursal (se muestra, nunca se esconde).
+        ->and($plantilla['fuera_de_plantilla'])->toBe(1 + app(HeadcountService::class)->poblacion()['total']['sin_ubicacion'])
+        ->and(app(HeadcountService::class)->poblacion(collect([$this->sucursal->id]))['total']['fuera_de_plantilla'])->toBe(1)
         ->and($inicio['indicadores']['vacantes'])->toBe(2);
 
     // Las bajas del NAS siguen existiendo como expediente, pero no cuentan.
@@ -89,7 +92,9 @@ test('dashboard, headcount, sucursales y vacantes dan exactamente los mismos nú
         ->and($sucursal['plantilla_autorizada'])->toBe($canon['plantilla_autorizada'])
         ->and($sucursal['plantilla_actual'])->toBe($canon['plantilla_actual'])
         ->and($sucursal['vacantes'])->toBe($canon['vacantes'])
-        ->and($sucursal['fuera_de_plantilla'])->toBe($canon['fuera_de_plantilla']);
+        // «No ocupan plaza» de la sucursal = su propia fila (el total de la
+        // empresa suma además a quien no tiene sucursal asignada).
+        ->and($sucursal['fuera_de_plantilla'])->toBe(app(HeadcountService::class)->totalesGenerales(collect([$this->sucursal->id]))['fuera_de_plantilla']);
 });
 
 test('una baja libera la plaza en el dashboard al momento', function () {

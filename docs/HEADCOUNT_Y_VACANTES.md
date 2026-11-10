@@ -81,10 +81,32 @@ Tablero, Directorio, Reportes (`plantilla_conciliacion`) y la conciliación de p
 | Cobertura | Ocupadas ÷ autorizadas × 100; 0 si no hay plazas autorizadas. |
 
 | Segundas plazas | Plazas ocupadas por coberturas «Ocupa ambos puestos» (la persona ya cuenta como vigente en su propio puesto). |
+| Bajas en trámite | Bajas registradas sin cerrar con último día ya llegado: **no cuentan** en ninguna otra cifra (finiquito pendiente o no). |
+| Bajas programadas | Bajas registradas con último día futuro: siguen contando como vigentes hasta ese día. |
 
 Invariantes: vigentes + segundas plazas = ocupadas + excedentes + fuera de plantilla + sin ubicación; autorizadas = ocupadas + vacantes; total = corporativo + sucursales. Las vacantes nunca se capturan a mano para cuadrar una cifra ni se duplican (a lo más una automática abierta por par); nunca se borran: se cancelan con motivo.
 
 Por eso «Autorizadas − Activos» solo equivale a Vacantes cuando no hay excedentes, personas fuera de plantilla ni personas en incorporación. Nadie se oculta para cuadrar la cifra.
+
+### Cuadre de plantilla (2026-11-10)
+
+Caso real (Inicio de RH en producción): Autorizada 153, Activa 130, Vacantes 15 → 153 − 15 = 138 ≠ 130. La diferencia de 8 era exactamente «8 en incorporación»: la tarjeta Activa mostraba solo estatus `activo`, mientras Ocupadas/Vacantes/Cobertura (y la lista por sucursal, 110 + 28 = 138 ocupadas) cuentan a los vigentes. Regla decidida:
+
+- **Ocupa plaza** = `HeadcountService::consultaOcupantes()`: vigentes (activo / en incorporación) **sin** una baja registrada (En trámite) cuyo último día ya llegó. Única regla; la usan ocupación, vacantes automáticas, tarjetas, lista por sucursal, detalle de sucursal y el comando.
+- **En incorporación ocupa plaza**: la tarjeta **Activa** muestra vigentes («130 laborando + 8 en incorporación»), así Activa + Vacantes = Autorizada cuando no hay fuera de plantilla, excedentes ni segundas plazas.
+- **Baja**: es baja desde su último día (`bajas.fecha_baja ≤ hoy`, estatus `en_revision_rh`) aunque el finiquito siga pendiente y el estatus laboral siga `activo` hasta `ejecutarBaja()`. Último día futuro = «baja programada»: sigue contando. Baja «No procede» (cancelada) vuelve a contar sola. `BajaPlantillaObserver` resincroniza la vacante al registrar/cancelar/cerrar/cambiar la fecha; `people:sincronizar-vacantes` (diario) cubre la llegada del último día.
+- **Filas por sucursal** = `HeadcountService::poblacionPorSucursal()`: cada persona cuenta en la sucursal de su plaza; con alcance de toda la empresa hay una fila **«Sin sucursal asignada»**. Σ filas = total en cada cifra (`sumarFilas()`), y tarjetas, gráfica, lista (con fila de total al pie) y Organización → Sucursales → detalle leen esas mismas filas.
+- **Cuadre visible** en el bloque Plantilla del Inicio: «153 autorizadas = 138 ocupadas + 15 vacantes», la línea personas vs. plazas cuando difieren (fuera de plantilla, excedentes, sin sucursal/puesto, segundas plazas), las bajas en trámite que ya no cuentan, y «¿Quiénes explican la diferencia?» con la lista nominal (`CuadrePlantillaService::diferencias()`, motivos en `App\Enums\MotivoDiferenciaPlantilla`). Si una invariante se rompiera, se muestra «No cuadra: …» en rojo.
+
+Diagnóstico de solo lectura (producción incluida, no escribe nada):
+
+```bash
+php artisan headcount:diagnosticar-cuadre                       # toda la empresa
+php artisan headcount:diagnosticar-cuadre --sucursal=Cuernavaca # una sucursal (nombre, clave o id)
+php artisan headcount:diagnosticar-cuadre --sin-nombres         # solo cifras
+```
+
+Imprime por sucursal autorizadas, ocupadas, vacantes, activos, en incorporación, vigentes, fuera de plantilla, excedentes, sin ubicación, segundas plazas, bajas en trámite y programadas, subtotales Corporativo/Sucursales y TOTAL con «¿Cuadra?», verifica Σ filas = total y lista a cada persona que explica una diferencia (nombre, nº de empleado, estatus, puesto, sucursal registrada, motivo). Sale con código ≠ 0 si algo no cuadra.
 
 ### Conciliar plazas desde Excel
 

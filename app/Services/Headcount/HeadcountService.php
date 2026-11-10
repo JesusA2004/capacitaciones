@@ -3,11 +3,15 @@
 namespace App\Services\Headcount;
 
 use App\Enums\EstadoUsuario;
+use App\Enums\EstatusBaja;
+use App\Models\Baja;
 use App\Models\CoberturaPuesto;
 use App\Models\Colaborador;
 use App\Models\HeadcountTarget;
 use App\Models\Puesto;
 use App\Models\Sucursal;
+use App\Support\FechaMexico;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 /**
@@ -21,17 +25,63 @@ use Illuminate\Support\Collection;
  *
  * Todo se agrupa por PUESTO DE PLANTILLA (PuestosPlantillaService). Quién
  * ocupa una plaza (plantillaActualPorSucursalPuesto(), única fuente):
- *  - colaboradores vigentes (activo / en incorporación) titulares;
+ *  - colaboradores vigentes (activo / en incorporación) titulares, SIN baja
+ *    registrada cuyo último día ya llegó (consultaOcupantes(): «cuando
+ *    alguien es baja, es baja», aunque su finiquito siga pendiente; si la baja
+ *    se cancela vuelve a contar);
  *  - coberturas vigentes «Ocupa ambos puestos» (ocupa_plaza = true): la
  *    segunda plaza cuenta como ocupada; «Cubre mientras se contrata» no;
  *  - plazas compartidas (Gestor volante ↔ Gestor): cada quien ocupa primero
  *    una plaza de su puesto y, si no hay libre, una libre del otro.
  *
- * @phpstan-type SegmentoPoblacion array{autorizadas: int, ocupadas: int, vacantes: int, excedentes: int, fuera_de_plantilla: int, sin_ubicacion: int, activos: int, en_incorporacion: int, vigentes: int, segundas_plazas: int, cobertura: float}
+ * @phpstan-type SegmentoSinCobertura array{autorizadas: int, ocupadas: int, vacantes: int, excedentes: int, fuera_de_plantilla: int, sin_ubicacion: int, activos: int, en_incorporacion: int, vigentes: int, segundas_plazas: int, bajas_en_tramite: int, bajas_programadas: int}
+ * @phpstan-type SegmentoPoblacion array{autorizadas: int, ocupadas: int, vacantes: int, excedentes: int, fuera_de_plantilla: int, sin_ubicacion: int, activos: int, en_incorporacion: int, vigentes: int, segundas_plazas: int, bajas_en_tramite: int, bajas_programadas: int, cobertura: float}
+ * @phpstan-type FilaPoblacion array{sucursal_id: int|null, sucursal: string, es_corporativo: bool, autorizadas: int, ocupadas: int, vacantes: int, excedentes: int, fuera_de_plantilla: int, sin_ubicacion: int, activos: int, en_incorporacion: int, vigentes: int, segundas_plazas: int, bajas_en_tramite: int, bajas_programadas: int, cobertura: float}
  */
 class HeadcountService
 {
+    /** Fila de las personas sin sucursal (solo con alcance de toda la empresa). */
+    public const SIN_SUCURSAL = 0;
+
+    public const ETIQUETA_SIN_SUCURSAL = 'Sin sucursal asignada';
+
+    /** Todas las cifras de un segmento en cero (misma forma en filas, segmentos y total). */
+    private const SEGMENTO_VACIO = ['autorizadas' => 0, 'ocupadas' => 0, 'vacantes' => 0, 'excedentes' => 0, 'fuera_de_plantilla' => 0, 'sin_ubicacion' => 0, 'activos' => 0, 'en_incorporacion' => 0, 'vigentes' => 0, 'segundas_plazas' => 0, 'bajas_en_tramite' => 0, 'bajas_programadas' => 0];
+
     public function __construct(private readonly PuestosPlantillaService $puestos) {}
+
+    /**
+     * Colaboradores que OCUPAN plaza: vigentes (activo / en incorporación)
+     * sin una baja registrada (En trámite) cuyo último día ya llegó. La baja
+     * es inmediata (docs/BAJAS_Y_CAUSALES.md): el estatus laboral cambia a
+     * inactivo hasta que se entrega el finiquito, pero para la plantilla la
+     * persona ya es baja desde su último día. Una baja «No procede» (cancelada)
+     * ya no la excluye: vuelve a contar sola. Única regla de quién ocupa plaza.
+     *
+     * @return Builder<Colaborador>
+     */
+    public function consultaOcupantes(): Builder
+    {
+        return Colaborador::query()
+            ->whereIn('estatus', EstadoUsuario::valoresVigentes())
+            ->whereNotIn('id', $this->bajasAplicadas(true)->select('colaborador_id'));
+    }
+
+    /**
+     * Bajas registradas sin cerrar de personas aún vigentes en su estatus:
+     * con $yaEfectivas, las de último día ya llegado (no cuentan en la
+     * plantilla); sin él, las de último día futuro (siguen contando).
+     *
+     * @return Builder<Baja>
+     */
+    public function bajasAplicadas(bool $yaEfectivas): Builder
+    {
+        return Baja::query()
+            ->whereIn('estatus', EstatusBaja::valoresAplicadasSinCerrar())
+            ->whereNotNull('colaborador_id')
+            ->whereNotNull('fecha_baja')
+            ->whereDate('fecha_baja', $yaEfectivas ? '<=' : '>', FechaMexico::hoy());
+    }
 
     /**
      * Plantilla actual por (sucursal_id, puesto_id): quién ocupa cada plaza
@@ -49,8 +99,7 @@ class HeadcountService
 
         // Sin filtrar por sucursal en la consulta: el titular de un puesto de
         // empresa cuenta donde vive su plaza, no donde está registrado.
-        $titulares = Colaborador::query()
-            ->whereIn('estatus', EstadoUsuario::valoresVigentes())
+        $titulares = $this->consultaOcupantes()
             ->whereNotNull('puesto_id')
             ->whereNotNull('sucursal_principal_id')
             ->selectRaw('sucursal_principal_id, puesto_id, count(*) as total')
@@ -87,7 +136,7 @@ class HeadcountService
         $coberturas = CoberturaPuesto::query()
             ->where('activa', true)
             ->where('ocupa_plaza', true)
-            ->whereHas('colaborador', fn ($q) => $q->whereIn('estatus', EstadoUsuario::valoresVigentes()))
+            ->whereIn('colaborador_id', $this->consultaOcupantes()->select('id'))
             ->get(['puesto_id', 'sucursal_id']);
 
         foreach ($coberturas as $cobertura) {
@@ -175,8 +224,7 @@ class HeadcountService
      */
     public function plantillaActualPorSucursal(?Collection $sucursalesIds = null): Collection
     {
-        return Colaborador::query()
-            ->whereIn('estatus', EstadoUsuario::valoresVigentes())
+        return $this->consultaOcupantes()
             ->whereNotNull('sucursal_principal_id')
             ->when($sucursalesIds !== null, fn ($q) => $q->whereIn('sucursal_principal_id', $sucursalesIds))
             ->selectRaw('sucursal_principal_id, count(*) as total')
@@ -186,63 +234,29 @@ class HeadcountService
     }
 
     /**
-     * Resumen por sucursal: autorizada (suma de HeadcountTarget), actual
-     * (colaboradores activos), vacantes (derivada), cumplimiento %.
+     * Resumen por sucursal: autorizada, ocupada (plazas autorizadas con
+     * alguien), vacantes y cumplimiento %. Son las mismas filas de
+     * poblacionPorSucursal() (misma fórmula, misma atribución), sin la fila
+     * «Sin sucursal asignada». Una sucursal con gente pero sin plantilla
+     * autorizada sigue en la lista (con 0 autorizada) para que se note.
      *
      * @param  Collection<int, int>|null  $sucursalesIds  null = todas
      * @return Collection<int, array{sucursal_id: int, sucursal: string, plantilla_autorizada: int, plantilla_actual: int, vacantes: int, cumplimiento: float}>
      */
     public function resumenPorSucursal(?Collection $sucursalesIds = null): Collection
     {
-        // Se calcula POR PAR (sucursal, puesto) y luego se suma: "ocupada" =
-        // plazas autorizadas que sí tienen a alguien (nunca más que la
-        // autorizada), así el cumplimiento no pasa de 100% porque haya
-        // personas en puestos sin plantilla autorizada en esa sucursal (p.
-        // ej. puestos del Corporativo mal asignados) ni un puesto "tapa" la
-        // vacante de otro.
-        $autorizadaPorPar = HeadcountTarget::query()
-            ->whereHas('puesto')
-            ->when($sucursalesIds !== null, fn ($q) => $q->whereIn('sucursal_id', $sucursalesIds))
-            ->get(['sucursal_id', 'puesto_id', 'plantilla_autorizada'])
-            ->groupBy(fn (HeadcountTarget $t) => sprintf('%d:%d', $t->sucursal_id, $this->puestos->canonico($t->puesto_id)))
-            ->map(fn (Collection $lista) => (int) $lista->sum('plantilla_autorizada'));
-
-        $actualPorPar = $this->plantillaActualPorSucursalPuesto($sucursalesIds);
-        $actualPorSucursal = $this->plantillaActualPorSucursal($sucursalesIds);
-
-        /** @var array<int, array{autorizada: int, ocupada: int, vacantes: int}> $acumulado */
-        $acumulado = [];
-
-        foreach ($autorizadaPorPar as $clave => $autorizada) {
-            $sucursalId = (int) explode(':', (string) $clave)[0];
-            $actual = (int) ($actualPorPar[$clave] ?? 0);
-            $fila = $acumulado[$sucursalId] ?? ['autorizada' => 0, 'ocupada' => 0, 'vacantes' => 0];
-
-            $acumulado[$sucursalId] = [
-                'autorizada' => $fila['autorizada'] + $autorizada,
-                'ocupada' => $fila['ocupada'] + min($actual, $autorizada),
-                'vacantes' => $fila['vacantes'] + max($autorizada - $actual, 0),
-            ];
-        }
-
-        // Sucursales con gente pero sin plantilla autorizada siguen en la
-        // lista (con 0 autorizada) para que se note que falta capturarla.
-        foreach ($actualPorSucursal->keys() as $sucursalId) {
-            $acumulado[(int) $sucursalId] ??= ['autorizada' => 0, 'ocupada' => 0, 'vacantes' => 0];
-        }
-
-        $nombresSucursal = Sucursal::query()
-            ->whereIn('id', array_keys($acumulado))
-            ->pluck('nombre', 'id');
-
-        return collect($acumulado)->map(fn (array $fila, int $sucursalId) => [
-            'sucursal_id' => $sucursalId,
-            'sucursal' => (string) ($nombresSucursal[$sucursalId] ?? '—'),
-            'plantilla_autorizada' => $fila['autorizada'],
-            'plantilla_actual' => $fila['ocupada'],
-            'vacantes' => $fila['vacantes'],
-            'cumplimiento' => $fila['autorizada'] > 0 ? round(($fila['ocupada'] / $fila['autorizada']) * 100, 1) : 0.0,
-        ])->sortBy('sucursal')->values();
+        return collect($this->poblacionPorSucursal($sucursalesIds))
+            ->filter(fn (array $fila): bool => $fila['sucursal_id'] !== null && ($fila['autorizadas'] > 0 || $fila['vigentes'] > 0 || $fila['segundas_plazas'] > 0))
+            ->map(fn (array $fila): array => [
+                'sucursal_id' => (int) $fila['sucursal_id'],
+                'sucursal' => $fila['sucursal'],
+                'plantilla_autorizada' => $fila['autorizadas'],
+                'plantilla_actual' => $fila['ocupadas'],
+                'vacantes' => $fila['vacantes'],
+                'cumplimiento' => $fila['cobertura'],
+            ])
+            ->sortBy('sucursal')
+            ->values();
     }
 
     /**
@@ -284,36 +298,34 @@ class HeadcountService
 
     /**
      * Totales de headcount de un alcance — la cifra que muestran el Inicio
-     * operativo, el tablero de RH y (por sucursal) Organización → Sucursales:
+     * operativo, el tablero de RH y (por sucursal) Organización → Sucursales.
+     * Es poblacion()['total'] con los nombres de siempre:
      *  - plantilla_autorizada: plazas autorizadas (capacidad);
-     *  - plantilla_actual: plazas autorizadas OCUPADAS por colaboradores
-     *    vigentes (por par sucursal-puesto, nunca más que lo autorizado);
+     *  - plantilla_actual: plazas autorizadas OCUPADAS (por par
+     *    sucursal-puesto, nunca más que lo autorizado);
      *  - vacantes: autorizada − ocupada;
-     *  - personas_activas: colaboradores vigentes (activo / en incorporación)
-     *    con sucursal en el alcance — una baja nunca cuenta, aunque su
-     *    expediente siga en el NAS;
-     *  - fuera_de_plantilla: personas vigentes que no ocupan una plaza
-     *    autorizada (puesto sin plantilla en su sucursal, o excedente).
+     *  - personas_activas: personas vigentes que cuentan en la plantilla
+     *    (consultaOcupantes()) — una baja nunca cuenta, aunque su expediente
+     *    siga en el NAS o su finiquito siga pendiente;
+     *  - fuera_de_plantilla: personas vigentes que NO ocupan una plaza
+     *    autorizada (fuera de plantilla + excedentes + sin sucursal/puesto).
      *
      * @param  Collection<int, int>|null  $sucursalesIds
      * @return array{plantilla_autorizada: int, plantilla_actual: int, vacantes: int, cumplimiento: float, sucursales_bajo_cobertura: int, personas_activas: int, fuera_de_plantilla: int}
      */
     public function totalesGenerales(?Collection $sucursalesIds = null): array
     {
-        $porSucursal = $this->resumenPorSucursal($sucursalesIds);
-
-        $autorizada = (int) $porSucursal->sum('plantilla_autorizada');
-        $actual = (int) $porSucursal->sum('plantilla_actual');
-        $personas = (int) $this->plantillaActualPorSucursal($sucursalesIds)->sum();
+        $filas = $this->poblacionPorSucursal($sucursalesIds);
+        $total = $this->sumarFilas($filas)['total'];
 
         return [
-            'plantilla_autorizada' => $autorizada,
-            'plantilla_actual' => $actual,
-            'vacantes' => max($autorizada - $actual, 0),
-            'cumplimiento' => $autorizada > 0 ? round(($actual / $autorizada) * 100, 1) : 0.0,
-            'sucursales_bajo_cobertura' => $porSucursal->filter(fn (array $fila) => $fila['vacantes'] > 0)->count(),
-            'personas_activas' => $personas,
-            'fuera_de_plantilla' => max($personas - $actual, 0),
+            'plantilla_autorizada' => $total['autorizadas'],
+            'plantilla_actual' => $total['ocupadas'],
+            'vacantes' => $total['vacantes'],
+            'cumplimiento' => $total['cobertura'],
+            'sucursales_bajo_cobertura' => count(array_filter($filas, fn (array $fila): bool => $fila['sucursal_id'] !== null && $fila['vacantes'] > 0)),
+            'personas_activas' => $total['vigentes'],
+            'fuera_de_plantilla' => $total['fuera_de_plantilla'] + $total['excedentes'] + $total['sin_ubicacion'],
         ];
     }
 
@@ -321,25 +333,30 @@ class HeadcountService
      * FUENTE ÚNICA de las cifras de plantilla (Tablero, Directorio, Reportes y
      * conciliación de plazas). Definiciones en docs/HEADCOUNT_Y_VACANTES.md:
      *  - autorizadas: plazas de headcount_targets;
-     *  - ocupadas: por par (sucursal, puesto), min(personas vigentes, autorizadas);
-     *  - vacantes: por par, max(autorizadas − personas vigentes, 0);
-     *  - excedentes: vigentes por encima de las plazas de un par que sí tiene plazas;
-     *  - fuera_de_plantilla: vigentes en un par sin ninguna plaza autorizada;
-     *  - sin_ubicacion: vigentes sin sucursal o sin puesto (datos por capturar);
-     *  - activos: estatus activo; en_incorporacion: vigentes por otra condición.
+     *  - ocupadas: por par (sucursal, puesto), min(personas que ocupan, autorizadas);
+     *  - vacantes: por par, max(autorizadas − personas que ocupan, 0);
+     *  - excedentes: personas por encima de las plazas de un par que sí tiene plazas;
+     *  - fuera_de_plantilla: personas en un par sin ninguna plaza autorizada;
+     *  - sin_ubicacion: personas sin sucursal o sin puesto (datos por capturar);
+     *  - activos: estatus activo; en_incorporacion: contratados aún sin activar
+     *    (ocupan plaza); vigentes = activos + en_incorporacion;
+     *  - bajas_en_tramite: bajas registradas con último día ya llegado y sin
+     *    cerrar (finiquito pendiente): YA NO cuentan en ninguna otra cifra;
+     *  - bajas_programadas: bajas registradas con último día futuro: aún
+     *    laboran y siguen contando en vigentes.
      *
-     * Siempre se cumple: vigentes = activos + en_incorporacion
-     * y vigentes + segundas_plazas = ocupadas + excedentes + fuera_de_plantilla
-     * + sin_ubicacion (segundas_plazas: coberturas «Ocupa ambos puestos»), y
-     * total = corporativo + sucursales. Con $sucursalesIds null (toda la empresa)
-     * quien no tiene sucursal cuenta en «sucursales» para no perderlo.
+     * Siempre se cumple, en cada sucursal, en corporativo/sucursales y en el
+     * total: autorizadas = ocupadas + vacantes; vigentes + segundas_plazas =
+     * ocupadas + excedentes + fuera_de_plantilla + sin_ubicacion. Y el total es
+     * la suma exacta de las filas de poblacionPorSucursal() (Corporativo +
+     * cada sucursal + «Sin sucursal asignada», que cuenta en «sucursales»).
      *
      * @param  Collection<int, int>|null  $sucursalesIds  null = toda la empresa
      * @return array{total: SegmentoPoblacion, corporativo: SegmentoPoblacion, sucursales: SegmentoPoblacion}
      */
     public function poblacion(?Collection $sucursalesIds = null): array
     {
-        return $this->conciliar($this->plantillaAutorizadaPorSucursalPuesto($sucursalesIds), $sucursalesIds);
+        return $this->sumarFilas($this->poblacionPorSucursal($sucursalesIds));
     }
 
     /**
@@ -352,56 +369,169 @@ class HeadcountService
      */
     public function conciliar(Collection $autorizadas, ?Collection $sucursalesIds = null): array
     {
-        $vacio = ['autorizadas' => 0, 'ocupadas' => 0, 'vacantes' => 0, 'excedentes' => 0, 'fuera_de_plantilla' => 0, 'sin_ubicacion' => 0, 'activos' => 0, 'en_incorporacion' => 0, 'vigentes' => 0, 'segundas_plazas' => 0];
-        $segmentos = ['corporativo' => $vacio, 'sucursales' => $vacio];
+        return $this->sumarFilas($this->filasConciliacion($autorizadas, $sucursalesIds));
+    }
 
-        $corporativas = Sucursal::query()->where('es_corporativo', true)->pluck('id')->map(fn ($id) => (int) $id);
-        $segmentoDe = fn (?int $sucursalId): string => $sucursalId !== null && $corporativas->contains($sucursalId) ? 'corporativo' : 'sucursales';
+    /**
+     * Una fila por ubicación (Corporativo, cada sucursal y, con alcance de
+     * toda la empresa, «Sin sucursal asignada» con sucursal_id null) con
+     * TODAS las cifras de poblacion(). Cada persona cuenta en la sucursal de
+     * su plaza (un puesto de empresa registrado en una sucursal cuenta donde
+     * vive su plaza, igual que la ocupación), así cada fila cuadra sola y la
+     * suma de filas es el total. Orden: sucursales por nombre, Corporativo y
+     * «Sin sucursal asignada» al final.
+     *
+     * @param  Collection<int, int>|null  $sucursalesIds  null = toda la empresa
+     * @return list<FilaPoblacion>
+     */
+    public function poblacionPorSucursal(?Collection $sucursalesIds = null): array
+    {
+        return $this->filasConciliacion($this->plantillaAutorizadaPorSucursalPuesto($sucursalesIds), $sucursalesIds);
+    }
 
-        $personas = $this->plantillaActualPorSucursalPuesto($sucursalesIds);
+    /**
+     * Sucursal en la que cuenta una persona: la de su plaza (con puesto y
+     * sucursal), su sucursal (sin puesto) o SIN_SUCURSAL.
+     */
+    public function sucursalDeConteo(?int $puestoId, ?int $sucursalId): int
+    {
+        if ($sucursalId === null) {
+            return self::SIN_SUCURSAL;
+        }
+
+        return $puestoId === null ? $sucursalId : $this->puestos->sucursalDePlaza($this->puestos->canonico($puestoId), $sucursalId);
+    }
+
+    /**
+     * @param  Collection<string, int>  $autorizadas
+     * @param  Collection<int, int>|null  $sucursalesIds
+     * @return list<FilaPoblacion>
+     */
+    private function filasConciliacion(Collection $autorizadas, ?Collection $sucursalesIds): array
+    {
+        $vacio = self::SEGMENTO_VACIO;
+        $enAlcance = fn (int $sucursalId): bool => $sucursalesIds === null || ($sucursalId !== self::SIN_SUCURSAL && $sucursalesIds->contains($sucursalId));
+
+        /** @var array<int, SegmentoSinCobertura> $filas */
+        $filas = [];
 
         // Una persona que «ocupa ambos puestos» cuenta una vez como vigente y
         // dos veces en plazas: se reporta aparte para que la suma cuadre.
         foreach ($this->segundasPlazasPorSucursalPuesto() as $clave => $total) {
             $sucursalId = (int) explode(':', $clave)[0];
 
-            if ($sucursalesIds === null || $sucursalesIds->contains($sucursalId)) {
-                $segmentos[$segmentoDe($sucursalId)]['segundas_plazas'] += $total;
+            if ($enAlcance($sucursalId)) {
+                $filas[$sucursalId] ??= $vacio;
+                $filas[$sucursalId]['segundas_plazas'] += $total;
             }
         }
+
+        $personas = $this->plantillaActualPorSucursalPuesto($sucursalesIds);
 
         foreach ($autorizadas->keys()->merge($personas->keys())->unique() as $clave) {
-            $segmento = $segmentoDe((int) explode(':', (string) $clave)[0]);
+            $sucursalId = (int) explode(':', (string) $clave)[0];
             $plazas = (int) ($autorizadas[$clave] ?? 0);
-            $vigentes = (int) ($personas[$clave] ?? 0);
+            $ocupan = (int) ($personas[$clave] ?? 0);
 
-            $segmentos[$segmento]['autorizadas'] += $plazas;
-            $segmentos[$segmento]['ocupadas'] += min($vigentes, $plazas);
-            $segmentos[$segmento]['vacantes'] += max($plazas - $vigentes, 0);
-            $segmentos[$segmento][$plazas > 0 ? 'excedentes' : 'fuera_de_plantilla'] += max($vigentes - $plazas, 0);
+            $filas[$sucursalId] ??= $vacio;
+            $filas[$sucursalId]['autorizadas'] += $plazas;
+            $filas[$sucursalId]['ocupadas'] += min($ocupan, $plazas);
+            $filas[$sucursalId]['vacantes'] += max($plazas - $ocupan, 0);
+            $filas[$sucursalId][$plazas > 0 ? 'excedentes' : 'fuera_de_plantilla'] += max($ocupan - $plazas, 0);
         }
 
-        $colaboradores = Colaborador::query()
-            ->whereIn('estatus', EstadoUsuario::valoresVigentes())
-            ->when($sucursalesIds !== null, fn ($q) => $q->whereIn('sucursal_principal_id', $sucursalesIds))
-            ->toBase()
-            ->get(['estatus', 'sucursal_principal_id', 'puesto_id']);
+        $colaboradores = $this->consultaOcupantes()->toBase()->get(['estatus', 'sucursal_principal_id', 'puesto_id']);
 
         foreach ($colaboradores as $colaborador) {
-            $sucursalId = $colaborador->sucursal_principal_id !== null ? (int) $colaborador->sucursal_principal_id : null;
-            $segmento = $segmentoDe($sucursalId);
+            $puestoId = $colaborador->puesto_id !== null ? (int) $colaborador->puesto_id : null;
+            $registrada = $colaborador->sucursal_principal_id !== null ? (int) $colaborador->sucursal_principal_id : null;
+            $sucursalId = $this->sucursalDeConteo($puestoId, $registrada);
 
-            $segmentos[$segmento]['vigentes']++;
-            $segmentos[$segmento][$colaborador->estatus === EstadoUsuario::Activo->value ? 'activos' : 'en_incorporacion']++;
+            // Su sucursal de registro sigue en la lista (en ceros si su plaza
+            // vive en otra): así se nota que ahí hay gente sin plazas propias.
+            if ($registrada !== null && $enAlcance($registrada)) {
+                $filas[$registrada] ??= $vacio;
+            }
 
-            if ($sucursalId === null || $colaborador->puesto_id === null) {
-                $segmentos[$segmento]['sin_ubicacion']++;
+            if (! $enAlcance($sucursalId)) {
+                continue;
+            }
+
+            $filas[$sucursalId] ??= $vacio;
+            $filas[$sucursalId]['vigentes']++;
+            $filas[$sucursalId][$colaborador->estatus === EstadoUsuario::Activo->value ? 'activos' : 'en_incorporacion']++;
+
+            if ($registrada === null || $puestoId === null) {
+                $filas[$sucursalId]['sin_ubicacion']++;
             }
         }
 
-        $total = $vacio;
-        foreach ($vacio as $campo => $cero) {
-            $total[$campo] = $cero + $segmentos['corporativo'][$campo] + $segmentos['sucursales'][$campo];
+        foreach (['bajas_en_tramite' => true, 'bajas_programadas' => false] as $campo => $yaEfectivas) {
+            foreach ($this->colaboradoresConBaja($yaEfectivas) as $colaborador) {
+                $sucursalId = $this->sucursalDeConteo($colaborador->puesto_id, $colaborador->sucursal_principal_id);
+
+                if ($enAlcance($sucursalId)) {
+                    $filas[$sucursalId] ??= $vacio;
+                    $filas[$sucursalId][$campo]++;
+                }
+            }
+        }
+
+        $sucursales = Sucursal::query()->whereIn('id', array_keys($filas))->get(['id', 'nombre', 'es_corporativo'])->keyBy('id');
+        $resultado = [];
+
+        foreach ($filas as $sucursalId => $fila) {
+            $sucursal = $sucursales->get($sucursalId);
+            $resultado[] = [
+                'sucursal_id' => $sucursalId === self::SIN_SUCURSAL ? null : $sucursalId,
+                'sucursal' => $sucursalId === self::SIN_SUCURSAL ? self::ETIQUETA_SIN_SUCURSAL : ($sucursal !== null ? (string) $sucursal->nombre : sprintf('Sucursal #%d', $sucursalId)),
+                'es_corporativo' => $sucursal !== null && (bool) $sucursal->es_corporativo,
+                ...$this->conCobertura($fila),
+            ];
+        }
+
+        usort($resultado, fn (array $a, array $b): int => [$a['sucursal_id'] === null, $a['es_corporativo'], $a['sucursal']] <=> [$b['sucursal_id'] === null, $b['es_corporativo'], $b['sucursal']]);
+
+        return $resultado;
+    }
+
+    /**
+     * Colaboradores aún vigentes en su estatus con una baja registrada sin
+     * cerrar: con $yaEfectivas, su último día ya llegó (no cuentan); sin él,
+     * su último día es futuro (siguen contando).
+     *
+     * @return Collection<int, Colaborador>
+     */
+    public function colaboradoresConBaja(bool $yaEfectivas): Collection
+    {
+        return Colaborador::query()
+            ->whereIn('estatus', EstadoUsuario::valoresVigentes())
+            ->whereIn('id', $this->bajasAplicadas($yaEfectivas)->select('colaborador_id'))
+            ->get();
+    }
+
+    /**
+     * Suma de filas: corporativo = filas corporativas; sucursales = el resto
+     * (incluida «Sin sucursal asignada»); total = corporativo + sucursales.
+     *
+     * @param  list<FilaPoblacion>  $filas
+     * @return array{total: SegmentoPoblacion, corporativo: SegmentoPoblacion, sucursales: SegmentoPoblacion}
+     */
+    public function sumarFilas(array $filas): array
+    {
+        $segmentos = ['corporativo' => self::SEGMENTO_VACIO, 'sucursales' => self::SEGMENTO_VACIO];
+
+        foreach ($filas as $fila) {
+            $segmento = $fila['es_corporativo'] ? 'corporativo' : 'sucursales';
+
+            foreach (array_keys(self::SEGMENTO_VACIO) as $campo) {
+                $segmentos[$segmento][$campo] += $fila[$campo];
+            }
+        }
+
+        $total = self::SEGMENTO_VACIO;
+        foreach (array_keys(self::SEGMENTO_VACIO) as $campo) {
+            $total[$campo] = $segmentos['corporativo'][$campo] + $segmentos['sucursales'][$campo];
         }
 
         return [
@@ -414,7 +544,7 @@ class HeadcountService
     /**
      * Cobertura = ocupadas / autorizadas × 100; sin plazas autorizadas es 0, nunca división entre cero.
      *
-     * @param  array{autorizadas: int, ocupadas: int, vacantes: int, excedentes: int, fuera_de_plantilla: int, sin_ubicacion: int, activos: int, en_incorporacion: int, vigentes: int, segundas_plazas: int}  $segmento
+     * @param  SegmentoSinCobertura  $segmento
      * @return SegmentoPoblacion
      */
     private function conCobertura(array $segmento): array

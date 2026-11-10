@@ -470,7 +470,53 @@ export type SegmentoPoblacion = {
     activos: number;
     en_incorporacion: number;
     vigentes: number;
+    /** Coberturas «Ocupa ambos puestos»: una persona, dos plazas. */
+    segundas_plazas: number;
+    /** Bajas registradas con último día pasado, sin cerrar: ya no cuentan. */
+    bajas_en_tramite: number;
+    /** Bajas registradas con último día futuro: aún laboran y cuentan. */
+    bajas_programadas: number;
     cobertura: number;
+};
+
+/** Una fila de HeadcountService::poblacionPorSucursal(); sucursal_id null = «Sin sucursal asignada». */
+export type FilaPlantillaSucursal = SegmentoPoblacion & {
+    sucursal_id: number | null;
+    sucursal: string;
+    es_corporativo: boolean;
+    plantilla_autorizada: number;
+    plantilla_actual: number;
+    cumplimiento: number;
+};
+
+export type MotivoDiferenciaPlantilla =
+    | 'en_incorporacion'
+    | 'fuera_de_plantilla'
+    | 'excedente'
+    | 'sin_ubicacion'
+    | 'segunda_plaza'
+    | 'baja_en_tramite'
+    | 'baja_programada';
+
+/** CuadrePlantillaService::diferencias(): quién explica cada diferencia. */
+export type DiferenciaPlantilla = {
+    motivo: MotivoDiferenciaPlantilla;
+    motivo_etiqueta: string;
+    /** true = hace que personas activas ≠ plazas ocupadas. */
+    descuadra: boolean;
+    sucursal_id: number | null;
+    sucursal: string;
+    puesto: string | null;
+    cantidad: number;
+    detalle: string;
+    personas: {
+        id: number;
+        nombre: string;
+        numero_empleado: string | null;
+        estatus: string;
+        puesto: string | null;
+        sucursal_registrada: string | null;
+    }[];
 };
 
 export type TableroRhDatos = {
@@ -544,15 +590,13 @@ export type TableroRhDatos = {
         meta: { verde_hasta: number; ambar_hasta: number } | null;
         semaforo: SemaforoRotacion | null;
     }[];
-    headcount_by_branch: {
-        sucursal_id: number;
-        sucursal: string;
-        es_corporativo: boolean;
-        plantilla_autorizada: number;
-        plantilla_actual: number;
-        vacantes: number;
-        cumplimiento: number;
-    }[];
+    /** Σ filas = summary.plantilla_activa.poblacion.total, en cada cifra. */
+    headcount_by_branch: FilaPlantillaSucursal[];
+    cuadre: {
+        /** Invariantes rotas (vacío = todo cuadra). */
+        problemas: string[];
+        diferencias: DiferenciaPlantilla[];
+    };
     filters: {
         mes: string;
         periodo_etiqueta: string;
