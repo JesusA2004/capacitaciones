@@ -318,7 +318,11 @@ function detalleFila(f: FilaPlantillaSucursal): string {
     }
 
     if (f.segundas_plazas > 0) {
-        partes.push(`${f.segundas_plazas} en segunda plaza`);
+        partes.push(
+            f.segundas_plazas === 1
+                ? '1 plaza cubierta por doble puesto'
+                : `${f.segundas_plazas} plazas cubiertas por doble puesto`,
+        );
     }
 
     if (f.bajas_en_tramite > 0) {
@@ -607,12 +611,17 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                             activas<template
                                 v-if="poblacion.total.segundas_plazas > 0"
                             >
-                                + {{ poblacion.total.segundas_plazas }} en
-                                segunda plaza</template
+                                +
+                                {{
+                                    poblacion.total.segundas_plazas === 1
+                                        ? '1 plaza cubierta'
+                                        : `${poblacion.total.segundas_plazas} plazas cubiertas`
+                                }}
+                                por doble puesto</template
                             >
                             =
                             {{ numero.format(poblacion.total.ocupadas) }}
-                            ocupan plaza<template
+                            plazas ocupadas<template
                                 v-for="p in partesNoOcupan"
                                 :key="p.etiqueta"
                             >

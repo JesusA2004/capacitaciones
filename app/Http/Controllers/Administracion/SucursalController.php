@@ -60,6 +60,8 @@ class SucursalController extends Controller
             $fila = $plantillaPorSucursal->get($sucursal->id);
             $sucursal->setAttribute('plantilla_permitida', (int) ($fila['plantilla_autorizada'] ?? 0));
             $sucursal->setAttribute('plantilla_vacantes', (int) ($fila['vacantes'] ?? 0));
+            // Plazas de esta sucursal cubiertas por alguien de otra plaza («Ocupa ambos puestos»).
+            $sucursal->setAttribute('plantilla_doble_puesto', (int) ($fila['segundas_plazas'] ?? 0));
             // Plazas de Gestor volante autorizadas (null = nunca se ha definido).
             $sucursal->setAttribute('volantes_autorizados', $volantes[$sucursal->id] ?? null);
 

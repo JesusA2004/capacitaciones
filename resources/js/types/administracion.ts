@@ -39,6 +39,7 @@ export type SucursalItem = {
     colaboradores_count: number;
     plantilla_permitida?: number;
     plantilla_vacantes?: number;
+    plantilla_doble_puesto?: number;
     /** Plazas de Gestor volante autorizadas (null = nunca se han definido). */
     volantes_autorizados?: number | null;
 };

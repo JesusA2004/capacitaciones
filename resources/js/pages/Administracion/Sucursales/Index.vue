@@ -430,6 +430,18 @@ async function eliminar(sucursal: SucursalItem) {
                                 </p>
                             </div>
                         </div>
+                        <p
+                            v-if="(sucursal.plantilla_doble_puesto ?? 0) > 0"
+                            class="rounded-lg bg-salvia/60 px-2 py-1 text-center text-[11px] font-medium text-foreground"
+                        >
+                            +
+                            {{
+                                sucursal.plantilla_doble_puesto === 1
+                                    ? '1 plaza cubierta'
+                                    : `${sucursal.plantilla_doble_puesto} plazas cubiertas`
+                            }}
+                            por doble puesto
+                        </p>
                         <div
                             v-if="(sucursal.plantilla_permitida ?? 0) > 0"
                             class="h-1.5 overflow-hidden rounded-full bg-muted"

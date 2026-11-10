@@ -38,7 +38,7 @@ enum MotivoDiferenciaPlantilla: string
             self::FueraDePlantilla => 'Fuera de plantilla (sin plaza autorizada)',
             self::Excedente => 'Excedente (más personas que plazas)',
             self::SinUbicacion => 'Sin sucursal o sin puesto',
-            self::SegundaPlaza => 'Ocupa una segunda plaza',
+            self::SegundaPlaza => 'Plaza cubierta por doble puesto',
             self::BajaEnTramite => 'Baja en trámite (ya no cuenta)',
             self::BajaProgramada => 'Baja programada (aún labora)',
         };

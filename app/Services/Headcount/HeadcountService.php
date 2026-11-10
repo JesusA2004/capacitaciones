@@ -241,7 +241,7 @@ class HeadcountService
      * autorizada sigue en la lista (con 0 autorizada) para que se note.
      *
      * @param  Collection<int, int>|null  $sucursalesIds  null = todas
-     * @return Collection<int, array{sucursal_id: int, sucursal: string, plantilla_autorizada: int, plantilla_actual: int, vacantes: int, cumplimiento: float}>
+     * @return Collection<int, array{sucursal_id: int, sucursal: string, plantilla_autorizada: int, plantilla_actual: int, vacantes: int, segundas_plazas: int, cumplimiento: float}>
      */
     public function resumenPorSucursal(?Collection $sucursalesIds = null): Collection
     {
@@ -253,6 +253,7 @@ class HeadcountService
                 'plantilla_autorizada' => $fila['autorizadas'],
                 'plantilla_actual' => $fila['ocupadas'],
                 'vacantes' => $fila['vacantes'],
+                'segundas_plazas' => $fila['segundas_plazas'],
                 'cumplimiento' => $fila['cobertura'],
             ])
             ->sortBy('sucursal')
