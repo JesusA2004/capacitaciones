@@ -483,7 +483,10 @@ function etiquetaRevisionPsicometrica(item: Psicometrica): string {
                                     aria-hidden="true"
                                 />
                                 <span class="break-words"
-                                    >{{ item.contacto
+                                    ><span class="font-medium text-foreground"
+                                        >Dio la referencia:</span
+                                    >
+                                    {{ item.contacto
                                     }}<template v-if="item.relacion_puesto">
                                         ({{ item.relacion_puesto }})</template
                                     ></span
@@ -498,8 +501,36 @@ function etiquetaRevisionPsicometrica(item: Psicometrica): string {
                                     class="size-3.5"
                                     aria-hidden="true"
                                 />
-                                Validó {{ item.validada_por ?? '—' }} el
-                                {{ formatearFecha(item.fecha_validacion) }}
+                                <span class="break-words"
+                                    ><span class="font-medium text-foreground"
+                                        >Validó en PEOPLE:</span
+                                    >
+                                    {{ item.validada_por ?? '—'
+                                    }}<template
+                                        v-if="
+                                            (
+                                                item as {
+                                                    validada_por_puesto?:
+                                                        string | null;
+                                                }
+                                            ).validada_por_puesto
+                                        "
+                                    >
+                                        ·
+                                        {{
+                                            (
+                                                item as {
+                                                    validada_por_puesto?:
+                                                        string | null;
+                                                }
+                                            ).validada_por_puesto
+                                        }}</template
+                                    >
+                                    ·
+                                    {{
+                                        formatearFecha(item.fecha_validacion)
+                                    }}</span
+                                >
                             </li>
                         </ul>
                         <TextoLargo

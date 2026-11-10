@@ -191,7 +191,8 @@ class CandidatoPresenter
             'gerenteInvolucrado:id,name,apellidos,colaborador_id',
             'entrevistas.entrevistador:id,name,apellidos,colaborador_id',
             'psicometricas.evidencias', 'socioeconomicos.evidencias', 'socioeconomicos.visitador:id,name,apellidos,colaborador_id',
-            'referencias.validadaPor:id,name,apellidos,colaborador_id', 'referencias.evidencias', 'evidencias',
+            'referencias.validadaPor:id,name,apellidos,colaborador_id', 'referencias.validadaPor.colaborador.puesto', 'referencias.validadaPor.roles',
+            'referencias.evidencias', 'evidencias',
             'intervenciones.gerenteSolicitante:id,name,apellidos',
             'intervenciones.rechazoRhPor:id,name,apellidos',
             'intervenciones.aprobador:id,name,apellidos',
@@ -305,6 +306,9 @@ class CandidatoPresenter
                 'observaciones' => $r->observaciones,
                 'fecha_validacion' => $r->fecha_validacion->toDateString(),
                 'validada_por' => $r->validadaPor?->nombreCompleto(),
+                // Puesto real de quien registró la validación en PEOPLE (no
+                // el del contacto que dio la referencia).
+                'validada_por_puesto' => $this->puestoDeUsuario($r->validadaPor),
                 'evidencias' => $r->evidencias->map(fn (CandidatoEvidencia $e) => $this->evidencia($e, $candidato, $viewer))->values()->all(),
             ])->values()->all(),
             'invitacion' => $invitacion !== null ? [
@@ -449,5 +453,29 @@ class CandidatoPresenter
         }
 
         return ['colaborador_id' => $colaborador->id, 'colaborador_nombre' => $colaborador->nombreCompleto(), 'tiene_cuenta' => $colaborador->user !== null];
+    }
+
+    /**
+     * Puesto de un usuario para mostrarlo junto a su nombre: el de su
+     * expediente; si no tiene colaborador (cuenta de sistema), su rol.
+     */
+    private function puestoDeUsuario(?User $usuario): ?string
+    {
+        if ($usuario === null) {
+            return null;
+        }
+
+        $colaborador = $usuario->colaborador;
+        $puesto = $colaborador instanceof Colaborador ? $colaborador->puesto?->nombre : null;
+
+        if (is_string($puesto) && $puesto !== '') {
+            return $puesto;
+        }
+
+        $rol = $usuario->getRoleNames()->first();
+
+        return is_string($rol) && $rol !== ''
+            ? str_replace('Rh ', 'RH ', ucfirst(str_replace('_', ' ', $rol)))
+            : null;
     }
 }
