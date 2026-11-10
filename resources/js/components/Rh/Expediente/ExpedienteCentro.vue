@@ -71,7 +71,7 @@ const contratacion = props.centro.contratacion;
                 </span>
                 <div class="min-w-0">
                     <p class="text-xs text-muted-foreground">Puesto</p>
-                    <p class="truncate text-sm font-semibold">
+                    <p class="text-sm font-semibold break-words">
                         {{ centro.organizacion.puesto ?? 'Sin puesto' }}
                     </p>
                 </div>
@@ -84,7 +84,7 @@ const contratacion = props.centro.contratacion;
                 </span>
                 <div class="min-w-0">
                     <p class="text-xs text-muted-foreground">Departamento</p>
-                    <p class="truncate text-sm font-semibold">
+                    <p class="text-sm font-semibold break-words">
                         {{ centro.organizacion.departamento ?? '—' }}
                     </p>
                 </div>
@@ -97,12 +97,12 @@ const contratacion = props.centro.contratacion;
                 </span>
                 <div class="min-w-0">
                     <p class="text-xs text-muted-foreground">Sucursal</p>
-                    <p class="truncate text-sm font-semibold">
+                    <p class="text-sm font-semibold break-words">
                         {{ centro.organizacion.sucursal ?? '—' }}
                     </p>
                     <p
                         v-if="centro.organizacion.empresa"
-                        class="flex items-center gap-1 truncate text-xs text-muted-foreground"
+                        class="flex items-center gap-1 text-xs break-words text-muted-foreground"
                     >
                         <Building2 class="size-3" />
                         {{ centro.organizacion.empresa }}
@@ -122,7 +122,7 @@ const contratacion = props.centro.contratacion;
                     <p class="text-xs text-muted-foreground">
                         Jefe organizacional
                     </p>
-                    <p class="truncate text-sm font-semibold">
+                    <p class="text-sm font-semibold break-words">
                         {{
                             centro.organizacion.jefe_organizacional?.nombre ??
                             'Sin asignar'
@@ -130,7 +130,7 @@ const contratacion = props.centro.contratacion;
                     </p>
                     <p
                         v-if="centro.organizacion.jefe_organizacional?.puesto"
-                        class="truncate text-xs text-muted-foreground"
+                        class="text-xs break-words text-muted-foreground"
                     >
                         {{ centro.organizacion.jefe_organizacional.puesto }}
                     </p>

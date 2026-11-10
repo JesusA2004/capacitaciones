@@ -17,6 +17,7 @@ use App\Http\Controllers\Rh\DivisionExpedienteHistoricoController;
 use App\Http\Controllers\Rh\DocumentExtraccionController;
 use App\Http\Controllers\Rh\EmployeeDocumentController;
 use App\Http\Controllers\Rh\ExpedienteController;
+use App\Http\Controllers\Rh\FichaAltaRapidaController;
 use App\Http\Controllers\Rh\FiniquitoController;
 use App\Http\Controllers\Rh\FormatoOficialController;
 use App\Http\Controllers\Rh\ImportacionTrabajadoresController;
@@ -164,6 +165,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('recibos/{recibo}/emitir', [NominaController::class, 'emitirUno'])->name('recibos.emitir');
             Route::get('recibos/{recibo}/pdf', [NominaController::class, 'pdf'])->name('recibos.pdf');
             Route::post('recibos/{recibo}/reparar-pdf', [NominaController::class, 'repararPdf'])->name('recibos.reparar-pdf');
+        });
+
+        // «Datos para dar de alta»: ficha corta en JSON que se pide al pasar
+        // el mouse por una tarjeta de Expedientes o del tablero de
+        // Candidatos (FichaAltaRapidaService). Mismo acceso que abrir el
+        // expediente / el candidato.
+        Route::prefix('fichas-alta')->name('fichas-alta.')->middleware('throttle:120,1')->group(function () {
+            Route::get('colaboradores/{colaborador}', [FichaAltaRapidaController::class, 'colaborador'])->name('colaborador')->withTrashed();
+            Route::get('candidatos/{candidato}', [FichaAltaRapidaController::class, 'candidato'])->name('candidato');
         });
 
         Route::prefix('expedientes')->name('expedientes.')->group(function () {

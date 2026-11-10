@@ -13,6 +13,21 @@ const MESES_CORTOS = [
     'dic',
 ];
 
+const MESES_LARGOS = [
+    'enero',
+    'febrero',
+    'marzo',
+    'abril',
+    'mayo',
+    'junio',
+    'julio',
+    'agosto',
+    'septiembre',
+    'octubre',
+    'noviembre',
+    'diciembre',
+];
+
 type PartesFecha = { anio: number; mes: number; dia: number };
 
 /**
@@ -49,6 +64,58 @@ export function formatearFecha(valor: string | null | undefined): string {
     }
 
     return `${partes.dia} ${MESES_CORTOS[partes.mes - 1]} ${partes.anio}`;
+}
+
+/** "29 de septiembre de 2026" — mes completo en español, sin abreviar. */
+export function formatearFechaLarga(valor: string | null | undefined): string {
+    if (!valor) {
+        return '—';
+    }
+
+    const partes = partesFecha(valor);
+
+    if (!partes) {
+        return valor;
+    }
+
+    return `${partes.dia} de ${MESES_LARGOS[partes.mes - 1]} de ${partes.anio}`;
+}
+
+/** "29/09/2026" — formato numérico dd/mm/aaaa (el que piden otros sistemas). */
+export function formatearFechaNumerica(
+    valor: string | null | undefined,
+): string {
+    if (!valor) {
+        return '—';
+    }
+
+    const partes = partesFecha(valor);
+
+    if (!partes) {
+        return valor;
+    }
+
+    const dia = String(partes.dia).padStart(2, '0');
+    const mes = String(partes.mes).padStart(2, '0');
+
+    return `${dia}/${mes}/${partes.anio}`;
+}
+
+/**
+ * "29 de septiembre de 2026 · 29/09/2026" — las dos formas juntas, para
+ * fechas clave del expediente (nacimiento, ingreso) que RH lee y además
+ * captura en otros sistemas. No reemplaza a formatearFecha (listas).
+ */
+export function formatearFechaDoble(valor: string | null | undefined): string {
+    if (!valor) {
+        return '—';
+    }
+
+    if (!partesFecha(valor)) {
+        return valor;
+    }
+
+    return `${formatearFechaLarga(valor)} · ${formatearFechaNumerica(valor)}`;
 }
 
 /**

@@ -10,6 +10,7 @@ import {
     UserCog,
 } from '@lucide/vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
+import DatosAltaHoverCard from '@/components/Rh/DatosAltaHoverCard.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { show } from '@/routes/rh/expedientes';
@@ -21,147 +22,158 @@ defineProps<{
 </script>
 
 <template>
-    <Link :href="show(colaborador.id)" class="group relative block pt-3">
-        <!-- Hojas apiladas detrás de la carpeta: da la sensación de que
+    <!-- Pasar el mouse (o tocar el gafete) muestra los datos para dar de
+         alta sin abrir el expediente. -->
+    <DatosAltaHoverCard
+        :id="colaborador.id"
+        tipo="colaborador"
+        :nombre="colaborador.nombre_completo"
+        clase-boton="absolute top-[3.75rem] right-4"
+    >
+        <Link :href="show(colaborador.id)" class="group relative block pt-3">
+            <!-- Hojas apiladas detrás de la carpeta: da la sensación de que
              adentro hay documentos, como en un explorador de archivos. -->
-        <span
-            class="absolute inset-x-3 top-4 h-full rounded-2xl bg-border/40 transition-transform duration-200 group-hover:translate-y-0.5"
-            aria-hidden="true"
-        />
-        <span
-            class="absolute inset-x-1.5 top-2 h-full rounded-2xl bg-border/60 transition-transform duration-200 group-hover:translate-y-0.5"
-            aria-hidden="true"
-        />
-
-        <!-- Pestaña de la carpeta (como un ícono de carpeta de Windows/Linux) -->
-        <span
-            class="absolute top-0 left-5 h-3 w-16 rounded-t-lg bg-[var(--brand-primary)]/25 transition-colors duration-200 group-hover:bg-[var(--brand-primary)]/40"
-            aria-hidden="true"
-        />
-
-        <!-- Cuerpo de la carpeta -->
-        <div
-            class="relative flex flex-col gap-3 rounded-tr-2xl rounded-b-2xl border border-[var(--brand-primary)]/15 bg-gradient-to-b from-[var(--brand-primary)]/[0.06] to-card p-4 pt-7 shadow-sm transicion-ui group-hover:border-[var(--brand-primary)]/40 group-hover:shadow-xl"
-        >
-            <!-- Foto del colaborador: "clipeada" en la esquina de la carpeta,
-                 como una foto sujeta con un clip a un folder físico. -->
-            <Avatar
-                class="absolute -top-4 right-4 size-14 rotate-3 rounded-xl border-4 border-card shadow-md ring-1 ring-border/60 transition-transform duration-200 group-hover:scale-105 group-hover:rotate-0"
-            >
-                <AvatarImage
-                    v-if="colaborador.foto_url"
-                    :src="colaborador.foto_url"
-                    alt=""
-                    class="object-cover"
-                />
-                <AvatarFallback class="rounded-xl bg-primary/10 text-primary">
-                    <User class="size-5" />
-                </AvatarFallback>
-            </Avatar>
-
-            <div class="flex items-start gap-2 pr-12">
-                <div class="min-w-0 flex-1">
-                    <p class="truncate text-sm font-semibold">
-                        {{ colaborador.nombre_completo }}
-                    </p>
-                    <p class="truncate text-xs text-muted-foreground">
-                        {{
-                            colaborador.numero_empleado ??
-                            'Sin número de empleado'
-                        }}
-                    </p>
-                </div>
-            </div>
-
-            <EstadoBadge
-                :estado="colaborador.estatus"
-                :etiqueta="colaborador.deleted_at ? 'Baja' : undefined"
-                class="w-fit"
+            <span
+                class="absolute inset-x-3 top-4 h-full rounded-2xl bg-border/40 transition-transform duration-200 group-hover:translate-y-0.5"
+                aria-hidden="true"
+            />
+            <span
+                class="absolute inset-x-1.5 top-2 h-full rounded-2xl bg-border/60 transition-transform duration-200 group-hover:translate-y-0.5"
+                aria-hidden="true"
             />
 
-            <div class="flex flex-col gap-1 text-xs text-muted-foreground">
-                <span
-                    v-if="colaborador.puesto"
-                    class="flex items-center gap-1.5"
-                >
-                    <Briefcase class="size-3.5 shrink-0" />
-                    {{ colaborador.puesto.nombre }}
-                </span>
-                <span
-                    v-if="colaborador.sucursal"
-                    class="flex items-center gap-1.5"
-                >
-                    <MapPinned class="size-3.5 shrink-0" />
-                    {{ colaborador.sucursal.nombre }}
-                </span>
-                <span
-                    v-if="colaborador.empresa"
-                    class="flex items-center gap-1.5"
-                >
-                    <Building2 class="size-3.5 shrink-0" />
-                    {{ colaborador.empresa.nombre }}
-                </span>
-            </div>
+            <!-- Pestaña de la carpeta (como un ícono de carpeta de Windows/Linux) -->
+            <span
+                class="absolute top-0 left-5 h-3 w-16 rounded-t-lg bg-[var(--brand-primary)]/25 transition-colors duration-200 group-hover:bg-[var(--brand-primary)]/40"
+                aria-hidden="true"
+            />
 
-            <div class="mt-auto flex flex-col gap-1.5">
-                <div class="flex items-center justify-between text-xs">
-                    <span class="text-muted-foreground">Expediente</span>
-                    <span class="font-semibold tabular-nums"
-                        >{{ colaborador.expediente_porcentaje }}%</span
+            <!-- Cuerpo de la carpeta -->
+            <div
+                class="relative flex flex-col gap-3 rounded-tr-2xl rounded-b-2xl border border-[var(--brand-primary)]/15 bg-gradient-to-b from-[var(--brand-primary)]/[0.06] to-card p-4 pt-7 shadow-sm transicion-ui group-hover:border-[var(--brand-primary)]/40 group-hover:shadow-xl"
+            >
+                <!-- Foto del colaborador: "clipeada" en la esquina de la carpeta,
+                 como una foto sujeta con un clip a un folder físico. -->
+                <Avatar
+                    class="absolute -top-4 right-4 size-14 rotate-3 rounded-xl border-4 border-card shadow-md ring-1 ring-border/60 transition-transform duration-200 group-hover:scale-105 group-hover:rotate-0"
+                >
+                    <AvatarImage
+                        v-if="colaborador.foto_url"
+                        :src="colaborador.foto_url"
+                        alt=""
+                        class="object-cover"
+                    />
+                    <AvatarFallback
+                        class="rounded-xl bg-primary/10 text-primary"
                     >
+                        <User class="size-5" />
+                    </AvatarFallback>
+                </Avatar>
+
+                <div class="flex items-start gap-2 pr-12">
+                    <div class="min-w-0 flex-1">
+                        <p class="truncate text-sm font-semibold">
+                            {{ colaborador.nombre_completo }}
+                        </p>
+                        <p class="truncate text-xs text-muted-foreground">
+                            {{
+                                colaborador.numero_empleado ??
+                                'Sin número de empleado'
+                            }}
+                        </p>
+                    </div>
                 </div>
-                <Progress
-                    :model-value="colaborador.expediente_porcentaje"
-                    class="h-1.5"
+
+                <EstadoBadge
+                    :estado="colaborador.estatus"
+                    :etiqueta="colaborador.deleted_at ? 'Baja' : undefined"
+                    class="w-fit"
                 />
-                <span
-                    v-if="colaborador.documentos_pendientes > 0"
-                    class="flex items-center gap-1.5 text-xs text-warning"
-                >
-                    <FileWarning class="size-3.5 shrink-0" />
-                    {{ colaborador.documentos_pendientes }} documento(s)
-                    pendiente(s)
-                </span>
-                <!-- Su parte ya está completa: faltan los contratos, que
+
+                <div class="flex flex-col gap-1 text-xs text-muted-foreground">
+                    <span
+                        v-if="colaborador.puesto"
+                        class="flex items-center gap-1.5"
+                    >
+                        <Briefcase class="size-3.5 shrink-0" />
+                        {{ colaborador.puesto.nombre }}
+                    </span>
+                    <span
+                        v-if="colaborador.sucursal"
+                        class="flex items-center gap-1.5"
+                    >
+                        <MapPinned class="size-3.5 shrink-0" />
+                        {{ colaborador.sucursal.nombre }}
+                    </span>
+                    <span
+                        v-if="colaborador.empresa"
+                        class="flex items-center gap-1.5"
+                    >
+                        <Building2 class="size-3.5 shrink-0" />
+                        {{ colaborador.empresa.nombre }}
+                    </span>
+                </div>
+
+                <div class="mt-auto flex flex-col gap-1.5">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-muted-foreground">Expediente</span>
+                        <span class="font-semibold tabular-nums"
+                            >{{ colaborador.expediente_porcentaje }}%</span
+                        >
+                    </div>
+                    <Progress
+                        :model-value="colaborador.expediente_porcentaje"
+                        class="h-1.5"
+                    />
+                    <span
+                        v-if="colaborador.documentos_pendientes > 0"
+                        class="flex items-center gap-1.5 text-xs text-warning"
+                    >
+                        <FileWarning class="size-3.5 shrink-0" />
+                        {{ colaborador.documentos_pendientes }} documento(s)
+                        pendiente(s)
+                    </span>
+                    <!-- Su parte ya está completa: faltan los contratos, que
                      genera RH (aviso informativo, no un pendiente suyo). -->
-                <span
-                    v-else-if="colaborador.contratos_pendientes"
-                    class="inline-flex w-fit items-center gap-1.5 rounded-full bg-info-soft px-2 py-0.5 text-xs font-medium text-info"
-                    title="El colaborador ya completó sus documentos; los contratos los genera RH."
-                    data-contratos-pendientes
-                >
-                    <FileSignature class="size-3.5 shrink-0" />
-                    {{ colaborador.contratos_pendientes.etiqueta }}
-                </span>
-                <span
-                    v-if="colaborador.imss_alta"
-                    class="inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium"
-                    :class="
-                        colaborador.imss_alta === 'registrada'
-                            ? 'bg-success-soft text-success'
-                            : 'bg-warning-soft text-warning'
-                    "
-                    :title="
-                        colaborador.imss_alta === 'registrada'
-                            ? 'Acuse de alta IMSS registrado'
-                            : 'Falta subir el acuse de alta IMSS'
-                    "
-                >
-                    IMSS
-                    {{
-                        colaborador.imss_alta === 'registrada'
-                            ? 'registrado'
-                            : 'pendiente'
-                    }}
-                </span>
-                <span
-                    v-if="colaborador.datos_incompletos"
-                    class="flex items-center gap-1.5 text-xs text-destructive"
-                >
-                    <UserCog class="size-3.5 shrink-0" />
-                    Faltan datos para generar documentos
-                </span>
+                    <span
+                        v-else-if="colaborador.contratos_pendientes"
+                        class="inline-flex w-fit items-center gap-1.5 rounded-full bg-info-soft px-2 py-0.5 text-xs font-medium text-info"
+                        title="El colaborador ya completó sus documentos; los contratos los genera RH."
+                        data-contratos-pendientes
+                    >
+                        <FileSignature class="size-3.5 shrink-0" />
+                        {{ colaborador.contratos_pendientes.etiqueta }}
+                    </span>
+                    <span
+                        v-if="colaborador.imss_alta"
+                        class="inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium"
+                        :class="
+                            colaborador.imss_alta === 'registrada'
+                                ? 'bg-success-soft text-success'
+                                : 'bg-warning-soft text-warning'
+                        "
+                        :title="
+                            colaborador.imss_alta === 'registrada'
+                                ? 'Acuse de alta IMSS registrado'
+                                : 'Falta subir el acuse de alta IMSS'
+                        "
+                    >
+                        IMSS
+                        {{
+                            colaborador.imss_alta === 'registrada'
+                                ? 'registrado'
+                                : 'pendiente'
+                        }}
+                    </span>
+                    <span
+                        v-if="colaborador.datos_incompletos"
+                        class="flex items-center gap-1.5 text-xs text-destructive"
+                    >
+                        <UserCog class="size-3.5 shrink-0" />
+                        Faltan datos para generar documentos
+                    </span>
+                </div>
             </div>
-        </div>
-    </Link>
+        </Link>
+    </DatosAltaHoverCard>
 </template>

@@ -28,7 +28,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
-import { formatearFecha } from '@/lib/fechas';
+import { formatearFechaDoble } from '@/lib/fechas';
 import { update as actualizarDatosPersonales } from '@/routes/rh/expedientes/datos-personales';
 import type { ExpedienteColaborador } from '@/types';
 
@@ -402,7 +402,7 @@ function valorLegible(campo: CampoForm): string | null {
     switch (campo) {
         case 'fecha_nacimiento':
             return c.fecha_nacimiento
-                ? formatearFecha(c.fecha_nacimiento)
+                ? formatearFechaDoble(c.fecha_nacimiento)
                 : null;
         case 'genero':
             return c.genero_etiqueta ?? null;

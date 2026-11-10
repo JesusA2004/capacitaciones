@@ -27,6 +27,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
+import { formatearFechaDoble, formatearFechaLarga } from '@/lib/fechas';
 import { store as subirAltaImss } from '@/routes/rh/expedientes/alta-imss';
 import { update as actualizarDatosLaborales } from '@/routes/rh/expedientes/datos-laborales';
 import type { ExpedienteColaborador } from '@/types';
@@ -433,7 +434,13 @@ function sueldoFormateado(valor: string | null): string {
                             :icono="CalendarDays"
                             etiqueta="Fecha de ingreso"
                         >
-                            {{ colaborador.fecha_ingreso ?? '—' }}
+                            <span class="break-words whitespace-normal">
+                                {{
+                                    formatearFechaDoble(
+                                        colaborador.fecha_ingreso,
+                                    )
+                                }}
+                            </span>
                         </CampoInfo>
                         <CampoInfo etiqueta="Estado laboral">
                             <EstadoBadge :estado="colaborador.estatus" />
@@ -448,7 +455,13 @@ function sueldoFormateado(valor: string | null): string {
                             :icono="CalendarClock"
                             etiqueta="Fecha alta IMSS"
                         >
-                            {{ colaborador.fecha_alta_imss ?? '—' }}
+                            <span class="break-words whitespace-normal">
+                                {{
+                                    formatearFechaDoble(
+                                        colaborador.fecha_alta_imss,
+                                    )
+                                }}
+                            </span>
                         </CampoInfo>
                         <CampoInfo
                             v-if="colaborador.imss_alta"
@@ -516,9 +529,19 @@ function sueldoFormateado(valor: string | null): string {
                                     colaborador.periodo_prueba_fin
                                 "
                             >
-                                {{ colaborador.periodo_prueba_inicio }}
-                                —
-                                {{ colaborador.periodo_prueba_fin }}
+                                <span class="break-words whitespace-normal">
+                                    {{
+                                        formatearFechaLarga(
+                                            colaborador.periodo_prueba_inicio,
+                                        )
+                                    }}
+                                    —
+                                    {{
+                                        formatearFechaLarga(
+                                            colaborador.periodo_prueba_fin,
+                                        )
+                                    }}
+                                </span>
                                 <span
                                     v-if="colaborador.en_periodo_prueba"
                                     class="text-warning"
