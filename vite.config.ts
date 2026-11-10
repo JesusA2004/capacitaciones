@@ -8,7 +8,28 @@ import { defineConfig } from 'vite';
 
 export default defineConfig({
     build: {
+        // Los chunks grandes son librerías que solo se descargan en la
+        // pantalla que las usa (ApexCharts, hls.js, pdf.js) y el núcleo de
+        // la app (~920 kB, ~196 kB gzip). El aviso por defecto (500 kB) no
+        // aporta nada aquí; sí debe avisar si algo rebasa 1 MB.
+        chunkSizeWarningLimit: 1000,
         rolldownOptions: {
+            // Informe de cuánto tarda cada plugin: es informativo y depende
+            // de la máquina; no es un problema del build.
+            checks: { pluginTimings: false },
+            // reka-ui trae su propia copia de @vueuse/core con comentarios
+            // /* #__PURE__ */ mal colocados: es de un tercero y no afecta el
+            // resultado. Solo se calla ese aviso y solo en node_modules.
+            onLog(level, log, handler) {
+                if (
+                    log.code === 'INVALID_ANNOTATION' &&
+                    (log.id ?? log.message ?? '').includes('node_modules')
+                ) {
+                    return;
+                }
+
+                handler(level, log);
+            },
             output: {
                 // El worker de pdf.js viene como .mjs y muchos Nginx lo
                 // sirven como application/octet-stream: el navegador lo
