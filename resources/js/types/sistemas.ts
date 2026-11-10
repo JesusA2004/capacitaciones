@@ -4,7 +4,7 @@
 export type FiltroPendientesAlta = 'pendientes' | 'atendidos' | 'todos';
 
 export type EstadoCorreoAltaSistemas =
-    'pendiente' | 'enviado' | 'fallido' | 'sin_enviar';
+    'pendiente' | 'enviado' | 'fallido' | 'sin_enviar' | 'esperando_datos';
 
 export type DatoAltaSistemas = {
     etiqueta: string;

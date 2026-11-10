@@ -19,7 +19,13 @@ import { formatearFecha } from '@/lib/fechas';
 import { reenviar } from '@/routes/rh/candidatos/aviso-sistemas';
 
 export type ResumenAvisoSistemas = {
-    estado: 'pendiente' | 'enviado' | 'fallido' | 'sin_enviar' | null;
+    estado:
+        | 'pendiente'
+        | 'enviado'
+        | 'fallido'
+        | 'sin_enviar'
+        | 'esperando_datos'
+        | null;
     estado_etiqueta: string | null;
     enviado_en: string | null;
     ultimo_error: string | null;
@@ -78,6 +84,13 @@ const correo = computed<Estado>(() => {
                 texto: 'Correo en cola',
                 detalle: 'Sale en unos minutos',
                 clases: 'bg-warning-soft text-warning',
+            };
+        case 'esperando_datos':
+            return {
+                icono: Hourglass,
+                texto: 'En espera de sus datos',
+                detalle: 'Sale cuando capture sus datos en la app',
+                clases: 'bg-crema text-bronce',
             };
         case 'sin_enviar':
             return {

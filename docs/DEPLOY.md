@@ -216,15 +216,17 @@ Diagnóstico sin secretos: `php artisan people:diagnostico-notificaciones`.
 En cada deploy, después de `migrate --force`: `php artisan people:sincronizar-permisos`
 y `php artisan queue:restart` (los workers recargan el código nuevo).
 
-## Correo a Sistemas al entrar a Contratación
+## Correo a Sistemas del alta de un nuevo ingreso
 
 Cuando RH inicia la contratación de un candidato (fase 6 «Contratación» del
-tablero: se crea su colaborador y su QR de registro) o autoriza un reingreso,
-PEOPLE manda **un** correo «Alta para asignar usuarios: {Nombre} — {Puesto},
-{Sucursal}» con los datos personales y laborales principales y la liga al
-expediente, para que Sistemas le dé sus usuarios en las demás plataformas
-(`App\Services\Notificaciones\AvisoAltaSistemasService`). Lo que aún no está
-capturado aparece como «Sin capturar»; no lleva adjuntos.
+tablero: se crea su colaborador y su QR de registro) se registra su pendiente
+de alta, pero el correo **no sale ahí** (llegaría vacío): PEOPLE manda **un**
+correo «Alta en sistemas: {Nombre} — {Puesto}, {Sucursal}» **cuando el nuevo
+ingreso ya capturó sus datos en la app**, con sus datos personales y laborales
+y la liga al expediente, para que Sistemas le dé sus usuarios en las demás
+plataformas (`App\Services\Notificaciones\AvisoAltaSistemasService`; detalle
+en `docs/SISTEMAS_PENDIENTES_ALTA.md` § Cuándo sale el correo). Un reingreso
+autorizado lo manda de inmediato. No lleva adjuntos.
 
 `.env` de producción (además del SMTP real):
 

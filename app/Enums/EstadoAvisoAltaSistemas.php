@@ -21,9 +21,18 @@ enum EstadoAvisoAltaSistemas: string
      */
     case SinEnviar = 'sin_enviar';
 
+    /**
+     * Candidato recién pasado a Contratación: apenas se le generó su QR y aún
+     * no captura sus datos en la app. El correo NO sale (llegaría vacío); se
+     * libera solo, una vez, cuando sus datos imprescindibles quedan completos
+     * (AvisoAltaSistemasService::liberarSiDatosCompletos).
+     */
+    case EsperandoDatos = 'esperando_datos';
+
     public function etiqueta(): string
     {
         return match ($this) {
+            self::EsperandoDatos => 'En espera de sus datos',
             self::Pendiente => 'En cola',
             self::Enviado => 'Enviado',
             self::Fallido => 'No se pudo enviar',

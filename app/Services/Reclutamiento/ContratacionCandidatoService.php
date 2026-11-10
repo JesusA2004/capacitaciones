@@ -145,9 +145,11 @@ class ContratacionCandidatoService
             'invitacion_id' => $invitacion->id,
         ]);
 
-        // Fase 6 «Contratación»: Sistemas recibe sus datos para asignarle
-        // usuarios en las demás plataformas (una vez, después del commit;
-        // un fallo nunca revierte la contratación).
+        // Fase 6 «Contratación»: aquí solo se REGISTRA el pendiente de alta
+        // para Sistemas. Su correo no sale todavía (apenas se generó el QR y
+        // llegaría vacío): sale una sola vez cuando el nuevo ingreso captura
+        // sus datos en la app (AvisoAltaSistemasService::liberarSiDatosCompletos).
+        // Un fallo nunca revierte la contratación.
         app(AvisoAltaSistemasService::class)->programar($colaborador, OrigenAvisoAltaSistemas::Candidato, $candidato->id, $actor);
 
         return ['colaborador' => $colaborador, 'invitacion' => $invitacion, 'token' => $token];

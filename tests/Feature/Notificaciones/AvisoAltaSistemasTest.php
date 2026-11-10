@@ -11,6 +11,7 @@ use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\NotificacionEntrega;
 use App\Models\Vacante;
+use App\Services\Incorporacion\RegistroAppService;
 use App\Services\Notificaciones\AvisoAltaSistemasService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Reclutamiento\ContratacionCandidatoService;
@@ -23,8 +24,9 @@ use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
 
 /*
-| Correo «Alta para asignar usuarios» a Sistemas al entrar a la fase 6
-| «Contratación» (docs/DEPLOY.md § Correo a Sistemas al entrar a Contratación).
+| Correo «Alta para asignar usuarios» a Sistemas: el pendiente se registra al
+| entrar a la fase 6 «Contratación», pero el correo sale cuando el nuevo
+| ingreso ya capturó sus datos (docs/SISTEMAS_PENDIENTES_ALTA.md).
 */
 
 beforeEach(function () {
@@ -86,16 +88,98 @@ function aasCandidatoAutorizado(object $t): Candidato
     return $c->refresh();
 }
 
-function aasContratar(object $t, Candidato $c): Colaborador
+/** Datos que el nuevo ingreso captura en la app (los imprescindibles del correo). */
+function aasDatosPersonales(): array
 {
-    return app(ContratacionCandidatoService::class)->iniciarContratacion($c, [
+    return [
+        'curp' => 'LOPA900815MMSRRN09',
+        'rfc' => 'LOPA900815AB1',
+        'nss' => '12345678901',
+        'fecha_nacimiento' => '1990-08-15',
+        'genero' => 'femenino',
+    ];
+}
+
+/**
+ * Inicia la contratación (pendiente «en espera de sus datos», sin correo) y,
+ * salvo que se pida lo contrario, deja capturados los datos del colaborador:
+ * eso es lo que libera el correo a Sistemas.
+ */
+function aasContratar(object $t, Candidato $c, bool $conDatos = true): Colaborador
+{
+    $colaborador = app(ContratacionCandidatoService::class)->iniciarContratacion($c, [
         'sueldo_mensual' => 9500,
         'fecha_ingreso' => now()->toDateString(),
         'jefe_id' => $t->gerente->colaborador_id,
     ], $t->rh)['colaborador']->refresh();
+
+    if ($conDatos) {
+        $colaborador->update(aasDatosPersonales());
+    }
+
+    return $colaborador->refresh();
 }
 
-test('al entrar a contratación se encola UN aviso a Sistemas en la cola de avisos', function () {
+test('en contratación no sale el correo; sale una sola vez, con datos, cuando el nuevo ingreso los captura en la app', function () {
+    Mail::fake();
+    $sistemas = clUsuario('sistemas');
+    $candidato = aasCandidatoAutorizado($this);
+
+    // Fase 6 «Contratación»: se genera el QR; el pendiente queda en espera.
+    $resultado = app(ContratacionCandidatoService::class)->iniciarContratacion($candidato, [
+        'sueldo_mensual' => 9500,
+        'fecha_ingreso' => now()->toDateString(),
+        'jefe_id' => $this->gerente->colaborador_id,
+    ], $this->rh);
+    $colaborador = $resultado['colaborador'];
+
+    Mail::assertNothingSent();
+    $aviso = AvisoAltaSistemas::query()->where('colaborador_id', $colaborador->id)->firstOrFail();
+    expect($aviso->estado)->toBe(EstadoAvisoAltaSistemas::EsperandoDatos)
+        ->and(NotificacionEntrega::query()->where('user_id', $sistemas->id)->where('evento', AvisoAltaSistemasService::EVENTO_PENDIENTE)->exists())->toBeFalse();
+
+    // Un reintento de la cola tampoco lo manda vacío.
+    (new EnviarAvisoAltaSistemasJob($aviso->id))->handle(app(AvisoAltaSistemasService::class));
+    Mail::assertNothingSent();
+
+    // El nuevo ingreso crea su cuenta con el QR y captura sus datos en la app.
+    $token = (string) $this->postJson("/api/v1/incorporacion/invitaciones/{$resultado['token']}/registrar", [
+        'name' => 'Ana',
+        'apellidos' => 'López Prueba',
+        'password' => 'Capacitacion2026!',
+        'password_confirmation' => 'Capacitacion2026!',
+    ])->assertCreated()->json('token');
+    $headers = ['Authorization' => 'Bearer '.$token, RegistroAppService::CABECERA_CLIENTE => '1'];
+
+    Mail::assertNothingSent();
+
+    $this->postJson('/api/v1/colaborador/registro/datos', ['datos' => aasDatosPersonales()], $headers)->assertOk();
+
+    Mail::assertSent(AltaColaboradorSistemasMail::class, 1);
+    $mail = Mail::sent(AltaColaboradorSistemasMail::class)->first();
+
+    expect($mail->dato('CURP'))->toBe('LOPA900815MMSRRN09')
+        ->and($mail->dato('RFC'))->toBe('LOPA900815AB1')
+        ->and($mail->dato('NSS'))->toBe('12345678901')
+        ->and($mail->dato('Fecha de nacimiento'))->toBe('15 de agosto de 1990 · 15/08/1990')
+        ->and($mail->dato('Género'))->toBe('Femenino')
+        ->and($mail->dato('Teléfono'))->toBe('5512345678')
+        ->and($mail->dato('Correo personal'))->toBe('ana.lopez@example.test')
+        ->and($mail->dato('Puesto'))->toBe('Gestor de cobranza')
+        ->and($mail->dato('Sucursal'))->toBe('Cuernavaca')
+        ->and($aviso->refresh()->estado)->toBe(EstadoAvisoAltaSistemas::Enviado)
+        ->and(NotificacionEntrega::query()->where('user_id', $sistemas->id)->where('evento', AvisoAltaSistemasService::EVENTO_PENDIENTE)->count())->toBe(1);
+
+    // Reintento de la app y una edición posterior: no se reenvía.
+    $this->postJson('/api/v1/colaborador/registro/datos', ['datos' => aasDatosPersonales()], $headers)->assertOk();
+    $colaborador->refresh()->update(['telefono' => '5598765432']);
+
+    Mail::assertSent(AltaColaboradorSistemasMail::class, 1);
+    expect(AvisoAltaSistemas::query()->count())->toBe(1)
+        ->and(NotificacionEntrega::query()->where('user_id', $sistemas->id)->where('evento', AvisoAltaSistemasService::EVENTO_PENDIENTE)->count())->toBe(1);
+});
+
+test('al quedar sus datos completos se encola UN aviso a Sistemas en la cola de avisos', function () {
     Queue::fake();
     $candidato = aasCandidatoAutorizado($this);
 

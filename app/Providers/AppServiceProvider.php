@@ -22,6 +22,7 @@ use App\Services\Expedientes\DivisionHistorico\Ocr\MotorOcr;
 use App\Services\Expedientes\DivisionHistorico\Ocr\SinMotorOcr;
 use App\Services\Expedientes\DivisionHistorico\Ocr\TesseractMotorOcr;
 use App\Services\Navigation\NavigationService;
+use App\Services\Notificaciones\AvisoAltaSistemasService;
 use App\Services\Notificaciones\MonitorNotificacionesService;
 use App\Services\Organigrama\JefeDirectoService;
 use Carbon\CarbonImmutable;
@@ -134,6 +135,15 @@ class AppServiceProvider extends ServiceProvider
             // no mueve ningún jefe.
             if (($c->wasRecentlyCreated && $c->puesto_id !== null) || $c->wasChanged(['puesto_id', 'sucursal_principal_id', 'estatus'])) {
                 app(JefeDirectoService::class)->programar();
+            }
+        });
+        // Correo «Alta en sistemas»: sale cuando el nuevo ingreso ya tiene sus
+        // datos (no al entrar a Contratación). Cualquier camino que los
+        // complete —registro en la app, captura de RH, corrección aprobada—
+        // pasa por aquí; el service decide y lo manda una sola vez.
+        Colaborador::saved(function (Colaborador $c): void {
+            if ($c->wasChanged(AvisoAltaSistemasService::DATOS_IMPRESCINDIBLES)) {
+                app(AvisoAltaSistemasService::class)->liberarSiDatosCompletos($c);
             }
         });
         Puesto::saved(function (Puesto $p): void {

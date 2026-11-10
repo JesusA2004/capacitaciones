@@ -163,6 +163,7 @@ const ESTADO_CORREO: Record<
     pendiente: { icono: Hourglass, clases: 'bg-warning-soft text-warning' },
     fallido: { icono: MailWarning, clases: 'bg-danger-soft text-destructive' },
     sin_enviar: { icono: MailX, clases: 'bg-crema text-bronce' },
+    esperando_datos: { icono: Hourglass, clases: 'bg-crema text-bronce' },
 };
 
 function clasesDias(fila: PendienteAltaSistemas): string {

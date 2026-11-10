@@ -24,12 +24,16 @@ use Throwable;
 /**
  * Correo «Alta para asignar usuarios» a Sistemas (config/notificaciones.php →
  * sistemas) + pendiente en la bandeja «Pendientes de alta en sistemas»
- * (App\Services\Sistemas\PendientesAltaSistemasService). Se programa cuando
- * una persona entra a la fase 6 «Contratación» del tablero de candidatos
- * (ContratacionCandidatoService::iniciarContratacion), cuando RH autoriza un
- * reingreso (ReingresoService::decidir) y, como red de seguridad, cuando se
- * activa un alta que no pasó por contratación (asegurar(), desde
- * AvisoAltaBajaService::alta) o con `sistemas:avisos-alta-pendientes`.
+ * (App\Services\Sistemas\PendientesAltaSistemasService). El pendiente se
+ * registra cuando una persona entra a la fase 6 «Contratación» del tablero
+ * de candidatos (ContratacionCandidatoService::iniciarContratacion), pero su
+ * correo y su aviso en la campana NO salen ahí (apenas tiene su QR y llegarían
+ * vacíos): quedan «en espera de sus datos» y se liberan solos cuando el nuevo
+ * ingreso los captura en la app (liberarSiDatosCompletos()). También se
+ * programa cuando RH autoriza un reingreso (ReingresoService::decidir) y,
+ * como red de seguridad, cuando se activa un alta que no pasó por
+ * contratación (asegurar(), desde AvisoAltaBajaService::alta) o con
+ * `sistemas:avisos-alta-pendientes`.
  *
  * Reglas:
  *  - una sola vez por contratación: la fila de avisos_alta_sistemas
@@ -54,6 +58,14 @@ class AvisoAltaSistemasService
     public const EVENTO_PENDIENTE = 'sistemas_alta_pendiente';
 
     public const SIN_CAPTURAR = 'Sin capturar';
+
+    /**
+     * Columnas de colaboradores sin las que el correo no sale solo (ver
+     * datosCompletos()). Son también las que disparan la revisión al guardarse.
+     *
+     * @var list<string>
+     */
+    public const DATOS_IMPRESCINDIBLES = ['curp', 'rfc', 'nss', 'fecha_nacimiento', 'genero', 'telefono', 'correo_personal'];
 
     public function __construct(
         private readonly AuditoriaService $auditoria,
@@ -82,18 +94,29 @@ class AvisoAltaSistemasService
         try {
             $mandar = $enviarCorreo && $this->activo();
 
+            // Candidato que entra a Contratación: apenas tiene su QR y sus
+            // datos están vacíos. El aviso se queda «en espera de sus datos»
+            // y sale solo cuando los captura (liberarSiDatosCompletos()).
+            $esperar = $enviarCorreo
+                && $origen === OrigenAvisoAltaSistemas::Candidato
+                && ! $this->datosCompletos($colaborador);
+
             $aviso = AvisoAltaSistemas::query()->firstOrCreate(
                 ['origen_tipo' => $origen->value, 'origen_id' => $origenId],
                 [
                     'colaborador_id' => $colaborador->id,
-                    'estado' => $mandar ? EstadoAvisoAltaSistemas::Pendiente : EstadoAvisoAltaSistemas::SinEnviar,
+                    'estado' => match (true) {
+                        $esperar => EstadoAvisoAltaSistemas::EsperandoDatos,
+                        $mandar => EstadoAvisoAltaSistemas::Pendiente,
+                        default => EstadoAvisoAltaSistemas::SinEnviar,
+                    },
                     'solicitado_por' => $actor?->id,
                 ],
             );
 
-            // Ya existía: esta contratación ya tiene su aviso (enviado o en
-            // cola). Repetir la acción no lo vuelve a mandar.
-            if (! $aviso->wasRecentlyCreated) {
+            // Ya existía: esta contratación ya tiene su aviso (enviado, en
+            // cola o en espera). Repetir la acción no lo vuelve a mandar.
+            if (! $aviso->wasRecentlyCreated || $esperar) {
                 return $aviso;
             }
 
@@ -115,6 +138,86 @@ class AvisoAltaSistemasService
             ]);
 
             return null;
+        }
+    }
+
+    /**
+     * ¿Ya están los datos sin los que el correo llegaría vacío? Son los que
+     * imprime el correo y captura la propia persona al registrarse en la app
+     * (o RH en la web): CURP, RFC, NSS, nacimiento, género, teléfono y correo
+     * personal (vale el del candidato), además de puesto y sucursal. Un campo
+     * que el negocio liberó del registro
+     * (config incorporacion.registro_app.campos_opcionales) no detiene el aviso.
+     */
+    public function datosCompletos(Colaborador $colaborador): bool
+    {
+        if ($colaborador->puesto_id === null || $colaborador->sucursal_principal_id === null) {
+            return false;
+        }
+
+        $opcionales = (array) config('incorporacion.registro_app.campos_opcionales', []);
+
+        foreach (array_diff(self::DATOS_IMPRESCINDIBLES, $opcionales) as $campo) {
+            $valor = $colaborador->getAttribute($campo);
+
+            if ($campo === 'correo_personal' && blank($valor)) {
+                $valor = $colaborador->candidatoOrigen?->correo;
+            }
+
+            if (blank($valor)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Libera el aviso que quedó «en espera de sus datos» en cuanto el
+     * colaborador tiene completos sus datos imprescindibles: encola el correo
+     * (si está activo) y avisa a Sistemas en la plataforma. Punto ÚNICO para
+     * cualquier camino que complete los datos (registro en la app por la API,
+     * captura de RH en la web, corrección aprobada): lo llama el evento
+     * `saved` de Colaborador (AppServiceProvider).
+     *
+     * Una sola vez: el cambio de estado es condicional (solo desde
+     * `esperando_datos`), así que reintentos de la app, peticiones simultáneas
+     * o ediciones posteriores no lo repiten. Nunca lanza.
+     */
+    public function liberarSiDatosCompletos(Colaborador $colaborador, ?User $actor = null): void
+    {
+        try {
+            $aviso = AvisoAltaSistemas::query()
+                ->where('colaborador_id', $colaborador->id)
+                ->where('estado', EstadoAvisoAltaSistemas::EsperandoDatos->value)
+                ->latest('id')
+                ->first();
+
+            if ($aviso === null || ! $this->datosCompletos($colaborador)) {
+                return;
+            }
+
+            $mandar = $this->activo();
+
+            $tomados = AvisoAltaSistemas::query()
+                ->where('id', $aviso->id)
+                ->where('estado', EstadoAvisoAltaSistemas::EsperandoDatos->value)
+                ->update(['estado' => ($mandar ? EstadoAvisoAltaSistemas::Pendiente : EstadoAvisoAltaSistemas::SinEnviar)->value]);
+
+            if ($tomados === 0) {
+                return;
+            }
+
+            if ($mandar) {
+                EnviarAvisoAltaSistemasJob::dispatch($aviso->id, $actor?->id);
+            }
+
+            $this->notificarPendiente($aviso, $colaborador);
+        } catch (Throwable $e) {
+            Log::warning('AvisoAltaSistemasService: no se pudo liberar el aviso de alta a Sistemas.', [
+                'colaborador_id' => $colaborador->id,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 
@@ -150,7 +253,9 @@ class AvisoAltaSistemasService
     {
         $aviso = AvisoAltaSistemas::query()->where('id', $avisoId)->first();
 
-        if ($aviso === null || ! $this->activo() || $aviso->enviado_en !== null) {
+        // «En espera de sus datos» nunca se manda: saldría vacío. Lo libera
+        // liberarSiDatosCompletos() o un reenvío manual (que lo pasa a cola).
+        if ($aviso === null || ! $this->activo() || $aviso->enviado_en !== null || $aviso->estado === EstadoAvisoAltaSistemas::EsperandoDatos) {
             return true;
         }
 
@@ -452,7 +557,7 @@ class AvisoAltaSistemasService
                 tipo: 'sistemas_alta',
                 titulo: sprintf('Alta pendiente en sistemas: %s', $colaborador->nombreCompleto()),
                 mensaje: sprintf(
-                    '%s%s entró a contratación. Dale de alta en las demás plataformas y márcalo como atendido.',
+                    '%s%s ya está listo para su alta. Dale de alta en las demás plataformas y márcalo como atendido.',
                     $colaborador->nombreCompleto(),
                     $partes !== [] ? sprintf(' (%s)', implode(', ', $partes)) : '',
                 ),
