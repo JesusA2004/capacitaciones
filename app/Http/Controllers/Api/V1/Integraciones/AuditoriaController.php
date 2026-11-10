@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1\Integraciones;
 
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\AutenticarClienteIntegracion;
+use App\Http\Resources\Api\V1\Integraciones\CatalogoAuditoriaResource;
 use App\Http\Resources\Api\V1\Integraciones\ColaboradorActaAuditoriaResource;
 use App\Http\Resources\Api\V1\Integraciones\ColaboradorAuditoriaResource;
 use App\Http\Resources\Api\V1\Integraciones\SucursalActaAuditoriaResource;
@@ -29,6 +30,14 @@ class AuditoriaController extends Controller
 
     public const CONTRATO_ACTA = 'people-auditoria/2';
 
+    /**
+     * Aditivo y a petición del cliente (`?contrato=3`): departamento del
+     * puesto en cada colaborador, catálogos de puestos y departamentos, y la
+     * identificación oficial en el acta. Sin el parámetro todo responde
+     * exactamente como en los contratos 1 y 2.
+     */
+    public const CONTRATO_3 = 'people-auditoria/3';
+
     private const FORMATO_FECHA = '/^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:?\d{2})?)?$/';
 
     public function __construct(
@@ -44,6 +53,8 @@ class AuditoriaController extends Controller
             'contrato' => self::CONTRATO,
             // Aditivo: un cliente v1 lo ignora; uno v2 sabe que existe el acta.
             'contratos' => [self::CONTRATO, self::CONTRATO_ACTA],
+            // Clave nueva (las anteriores no cambian): contratos a petición con `?contrato=N`.
+            'extensiones' => [self::CONTRATO_3],
             'generado_en' => now()->toIso8601String(),
             'capacidades' => ['colaboradores', 'delta_updated_since', 'sucursales'],
             'empresas' => $this->servicio->empresas($cliente),
@@ -53,6 +64,7 @@ class AuditoriaController extends Controller
     public function colaboradores(Request $request): JsonResponse
     {
         $cliente = AutenticarClienteIntegracion::cliente($request);
+        $this->contrato($request);
         $errores = [];
 
         $empresaId = $this->entero($request->query('empresa_id'), 'empresa_id', 1, PHP_INT_MAX, $errores);
@@ -95,6 +107,7 @@ class AuditoriaController extends Controller
     public function colaborador(Request $request, string $colaborador): JsonResponse
     {
         $cliente = AutenticarClienteIntegracion::cliente($request);
+        $this->contrato($request);
         $fila = preg_match('/^\d{1,18}$/', $colaborador) === 1 ? $this->servicio->uno($cliente, (int) $colaborador) : null;
 
         if ($fila === null) {
@@ -120,6 +133,34 @@ class AuditoriaController extends Controller
 
         return response()->json([
             'data' => SucursalAuditoriaResource::collection($this->servicio->sucursales($cliente, $empresaId))->resolve($request),
+        ]);
+    }
+
+    /**
+     * Catálogo de puestos con su departamento (contrato «people-auditoria/3»).
+     */
+    public function puestos(Request $request): JsonResponse
+    {
+        AutenticarClienteIntegracion::cliente($request);
+
+        return response()->json([
+            'contrato' => self::CONTRATO_3,
+            'generado_en' => now()->toIso8601String(),
+            'data' => CatalogoAuditoriaResource::collection($this->servicio->puestos())->resolve($request),
+        ]);
+    }
+
+    /**
+     * Catálogo de departamentos (contrato «people-auditoria/3»).
+     */
+    public function departamentos(Request $request): JsonResponse
+    {
+        AutenticarClienteIntegracion::cliente($request);
+
+        return response()->json([
+            'contrato' => self::CONTRATO_3,
+            'generado_en' => now()->toIso8601String(),
+            'data' => CatalogoAuditoriaResource::collection($this->servicio->departamentos())->resolve($request),
         ]);
     }
 
@@ -152,17 +193,31 @@ class AuditoriaController extends Controller
             return $this->error('El colaborador no existe o no está disponible para este cliente.', 'no_encontrado', 404);
         }
 
-        return $this->respuestaActa((new ColaboradorActaAuditoriaResource($fila))->resolve($request));
+        $v3 = $this->contrato($request) === 3;
+
+        return $this->respuestaActa((new ColaboradorActaAuditoriaResource($fila))->resolve($request), $v3 ? self::CONTRATO_3 : self::CONTRATO_ACTA);
     }
 
     /**
      * @param  array<string, mixed>  $datos
      */
-    private function respuestaActa(array $datos): JsonResponse
+    private function respuestaActa(array $datos, string $contrato = self::CONTRATO_ACTA): JsonResponse
     {
         // Datos personales: ningún intermediario los guarda.
-        return response()->json(['contrato' => self::CONTRATO_ACTA, 'generado_en' => now()->toIso8601String(), 'data' => $datos])
+        return response()->json(['contrato' => $contrato, 'generado_en' => now()->toIso8601String(), 'data' => $datos])
             ->header('Cache-Control', 'no-store, private');
+    }
+
+    /**
+     * Contrato pedido por el cliente: 3 sólo con `contrato=3`; cualquier otro
+     * valor (o ninguno) deja las respuestas de los contratos 1 y 2 intactas.
+     */
+    private function contrato(Request $request): int
+    {
+        $pedido = $request->query('contrato') === '3' ? 3 : 1;
+        $request->attributes->set('contrato_auditoria', $pedido);
+
+        return $pedido;
     }
 
     /**

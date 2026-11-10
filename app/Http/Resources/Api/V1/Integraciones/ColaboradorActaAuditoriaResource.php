@@ -26,14 +26,22 @@ class ColaboradorActaAuditoriaResource extends JsonResource
     public const IDENTIFICACION = ['clave_elector_registrada'];
 
     /**
+     * Contrato «people-auditoria/3»: además, qué identificación oficial
+     * presentó la persona y quién la expide. `clave_elector` (el número) sólo
+     * trae valor si People tiene encendido `integraciones.auditoria.enviar_clave_elector`.
+     */
+    public const IDENTIFICACION_V3 = ['clave_elector_registrada', 'tipo', 'tipo_etiqueta', 'institucion', 'clave_elector'];
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
     {
+        $v3 = $request->attributes->get('contrato_auditoria') === 3;
         $datos = ListaBlancaAuditoria::filtrar($this->resource, self::CAMPOS);
         $datos['sucursal'] = is_array($datos['sucursal'] ?? null) ? ListaBlancaAuditoria::filtrar($datos['sucursal'], ['id', 'clave', 'nombre']) : null;
         $datos['domicilio'] = ListaBlancaAuditoria::filtrar($datos['domicilio'] ?? [], self::DOMICILIO);
-        $datos['identificacion'] = ListaBlancaAuditoria::filtrar($datos['identificacion'] ?? [], self::IDENTIFICACION);
+        $datos['identificacion'] = ListaBlancaAuditoria::filtrar($datos['identificacion'] ?? [], $v3 ? self::IDENTIFICACION_V3 : self::IDENTIFICACION);
         $datos['gerente'] = ListaBlancaAuditoria::persona($datos['gerente'] ?? null);
 
         return $datos;

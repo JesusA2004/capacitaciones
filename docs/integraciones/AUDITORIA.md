@@ -68,3 +68,19 @@ Los datos sirven únicamente para imprimir el acta de constancia de auditoría (
 ## Deprecación futura del v1
 
 El v1 sigue siendo el contrato de la proyección del personal. Si algún día se sustituye, se anunciará en `contratos` del catálogo y se mantendrá servido hasta que Auditoría deje de llamarlo.
+
+## Contrato 3 — catálogos e identificación (aditivo, a petición)
+
+Los contratos 1 y 2 responden igual que antes. El catálogo lo anuncia en la clave nueva `extensiones: ["people-auditoria/3"]` y el cliente lo pide con `?contrato=3`.
+
+| Ruta | Qué añade |
+|---|---|
+| `GET …/colaboradores?contrato=3`, `…/colaboradores/{id}?contrato=3` | `departamento: {id, nombre}` (el del puesto). La marca de cambio ya incluye el departamento |
+| `GET …/puestos` | `{id, nombre, departamento{id,nombre}, activo, updated_at}`; inactivos y borrados con `activo=false` |
+| `GET …/departamentos` | `{id, nombre, activo, updated_at}` |
+| `GET …/colaboradores/{id}/acta?contrato=3` | `identificacion: {clave_elector_registrada, tipo, tipo_etiqueta, institucion, clave_elector}` |
+
+- `tipo`/`institucion` salen del perfil de ingreso (estudio socioeconómico); sin perfil y con clave de elector capturada, `ine`. El folio de otra identificación **nunca** sale.
+- `clave_elector` (el número) sólo trae valor con `INTEGRACION_AUDITORIA_ENVIAR_CLAVE_ELECTOR=true` (apagado por omisión).
+- People no tiene «áreas»: sólo departamentos.
+- Pruebas: `tests/Feature/Integraciones/AuditoriaContrato3ApiTest.php`. Sin migraciones.

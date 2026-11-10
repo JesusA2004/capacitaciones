@@ -3,8 +3,10 @@
 namespace App\Services\Integraciones\Auditoria;
 
 use App\Enums\EstadoUsuario;
+use App\Enums\TipoIdentificacion;
 use App\Models\ClienteIntegracion;
 use App\Models\Colaborador;
+use App\Models\ColaboradorPerfilIngreso;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Support\NombrePersona;
@@ -104,12 +106,36 @@ class ContextoActaAuditoriaService
                 // Texto legado sólo cuando no hay calle capturada (no se parte).
                 'texto' => $estructurado ? null : $this->texto($c->domicilio),
             ],
-            // Sólo si People tiene una clave de elector capturada; el número
-            // nunca sale y no se afirma vigencia ni tipo de documento.
-            'identificacion' => ['clave_elector_registrada' => $this->texto($c->clave_elector) !== null],
+            // v2: sólo si People tiene una clave de elector capturada (el
+            // recurso del v2 descarta lo demás). v3: además el tipo de
+            // identificación del estudio socioeconómico y, únicamente con la
+            // bandera del propietario encendida, el número de la clave.
+            'identificacion' => $this->identificacion($c),
             'gerente_estado' => $c->gerente_id === null ? 'sin_asignar' : ($gerente === null ? 'fuera_de_alcance' : 'asignado'),
             'gerente' => $gerente,
             'updated_at' => $c->updated_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Identificación oficial: la clave de elector de `colaboradores` y el tipo
+     * que la persona declaró en su perfil de ingreso (estudio socioeconómico).
+     * El folio de otra identificación (`identificacion_folio`) nunca sale.
+     *
+     * @return array<string, mixed>
+     */
+    private function identificacion(Colaborador $c): array
+    {
+        $clave = $this->texto($c->clave_elector);
+        $perfil = ColaboradorPerfilIngreso::query()->where('colaborador_id', $c->id)->first(['id', 'colaborador_id', 'identificacion_tipo', 'identificacion_otro', 'identificacion_institucion']);
+        $tipo = $perfil->identificacion_tipo ?? ($clave !== null ? TipoIdentificacion::Ine : null);
+
+        return [
+            'clave_elector_registrada' => $clave !== null,
+            'tipo' => $tipo?->value,
+            'tipo_etiqueta' => $tipo === TipoIdentificacion::Otro ? ($this->texto($perfil?->identificacion_otro) ?? $tipo->etiqueta()) : $tipo?->etiqueta(),
+            'institucion' => $tipo === TipoIdentificacion::Ine ? 'Instituto Nacional Electoral' : $this->texto($perfil?->identificacion_institucion),
+            'clave_elector' => config('integraciones.auditoria.enviar_clave_elector') === true ? $clave : null,
         ];
     }
 

@@ -4,7 +4,9 @@ namespace App\Services\Integraciones\Auditoria;
 
 use App\Enums\EstadoUsuario;
 use App\Models\ClienteIntegracion;
+use App\Models\Departamento;
 use App\Models\Empresa;
+use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Support\NombrePersona;
 use Carbon\CarbonImmutable;
@@ -34,8 +36,14 @@ use stdClass;
  * avanza en baja, soft-delete, restore, reingreso y cambio de sucursal o
  * puesto, porque todos escriben por Eloquent sobre colaboradores), de su
  * sucursal principal, de la empresa de ésta y de su puesto (renombres o
- * cambio de empresa de la sucursal). Se calcula en la consulta, así que
- * ninguna ruta de escritura puede olvidarse de «tocar» al colaborador.
+ * cambio de empresa de la sucursal) y del departamento de ese puesto. Se
+ * calcula en la consulta, así que ninguna ruta de escritura puede olvidarse de
+ * «tocar» al colaborador.
+ *
+ * Contrato «people-auditoria/3» (aditivo; lo pide el cliente con `contrato=3`):
+ * el colaborador lleva además `departamento` (el de su puesto) y existen los
+ * catálogos de puestos y departamentos, para que Auditoría refleje renombres
+ * y bajas de catálogo aunque la persona no cambie.
  */
 class ColaboradoresAuditoriaService
 {
@@ -45,7 +53,7 @@ class ColaboradoresAuditoriaService
 
     private const MINIMO = '1970-01-01 00:00:00';
 
-    private const TERMINOS_EFECTIVOS = "(COALESCE(c.updated_at, c.created_at, '1970-01-01 00:00:00'), COALESCE(s.updated_at, '1970-01-01 00:00:00'), COALESCE(e.updated_at, '1970-01-01 00:00:00'), COALESCE(p.updated_at, '1970-01-01 00:00:00'))";
+    private const TERMINOS_EFECTIVOS = "(COALESCE(c.updated_at, c.created_at, '1970-01-01 00:00:00'), COALESCE(s.updated_at, '1970-01-01 00:00:00'), COALESCE(e.updated_at, '1970-01-01 00:00:00'), COALESCE(p.updated_at, '1970-01-01 00:00:00'), COALESCE(d.updated_at, '1970-01-01 00:00:00'))";
 
     /**
      * @return array{filas: list<array<string, mixed>>, siguiente: array{u: string, i: int}|null}
@@ -142,6 +150,49 @@ class ColaboradoresAuditoriaService
             ->all());
     }
 
+    /**
+     * Catálogo de puestos (contrato 3). En People los puestos y departamentos
+     * son globales (sin empresa): se entregan todos, también los inactivos o
+     * con borrado lógico (activo=false), para que Auditoría los refleje.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function puestos(): array
+    {
+        $departamentos = Departamento::withTrashed()->pluck('nombre', 'id');
+
+        return array_values(Puesto::withTrashed()
+            ->orderBy('id')
+            ->get(['id', 'nombre', 'departamento_id', 'activo', 'updated_at', 'deleted_at'])
+            ->map(fn (Puesto $p) => [
+                'id' => $p->id,
+                'nombre' => $p->nombre,
+                'departamento' => $p->departamento_id !== null && $departamentos->has($p->departamento_id)
+                    ? ['id' => $p->departamento_id, 'nombre' => (string) $departamentos->get($p->departamento_id)]
+                    : null,
+                'activo' => $p->activo && ! $p->trashed(),
+                'updated_at' => $p->updated_at?->toIso8601String(),
+            ])
+            ->all());
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function departamentos(): array
+    {
+        return array_values(Departamento::withTrashed()
+            ->orderBy('id')
+            ->get(['id', 'nombre', 'activo', 'updated_at', 'deleted_at'])
+            ->map(fn (Departamento $d) => [
+                'id' => $d->id,
+                'nombre' => $d->nombre,
+                'activo' => $d->activo && ! $d->trashed(),
+                'updated_at' => $d->updated_at?->toIso8601String(),
+            ])
+            ->all());
+    }
+
     public function empresaVisible(ClienteIntegracion $cliente, int $empresaId): bool
     {
         return $cliente->puedeVerEmpresa($empresaId) && Empresa::query()->whereKey($empresaId)->exists();
@@ -155,6 +206,7 @@ class ColaboradoresAuditoriaService
             ->leftJoin('sucursales as s', 's.id', '=', 'c.sucursal_principal_id')
             ->leftJoin('empresas as e', 'e.id', '=', 's.empresa_id')
             ->leftJoin('puestos as p', 'p.id', '=', 'c.puesto_id')
+            ->leftJoin('departamentos as d', 'd.id', '=', 'p.departamento_id')
             ->when($permitidas !== null, fn (Builder $q) => $q->whereIn('s.empresa_id', $permitidas ?? []))
             ->select([
                 'c.id', 'c.numero_empleado', 'c.clave_legacy', 'c.name', 'c.apellidos', 'c.estatus',
@@ -162,6 +214,7 @@ class ColaboradoresAuditoriaService
                 's.id as sucursal_id', 's.clave as sucursal_clave', 's.nombre as sucursal_nombre',
                 'e.id as empresa_id', 'e.nombre as empresa_nombre',
                 'p.id as puesto_id', 'p.nombre as puesto_nombre',
+                'd.id as departamento_id', 'd.nombre as departamento_nombre',
             ])
             ->selectRaw($this->expresionEfectiva().' as cambio_efectivo');
     }
@@ -203,6 +256,8 @@ class ColaboradoresAuditoriaService
             'empresa' => $f->empresa_id !== null ? ['id' => (int) $f->empresa_id, 'nombre' => $this->texto($f->empresa_nombre) ?? ''] : null,
             'sucursal' => $f->sucursal_id !== null ? ['id' => (int) $f->sucursal_id, 'clave' => $this->texto($f->sucursal_clave), 'nombre' => $this->texto($f->sucursal_nombre) ?? ''] : null,
             'puesto' => $f->puesto_id !== null ? ['id' => (int) $f->puesto_id, 'nombre' => $this->texto($f->puesto_nombre) ?? ''] : null,
+            // Sólo sale en el contrato 3 (el recurso del v1 no lo lista).
+            'departamento' => $f->departamento_id !== null ? ['id' => (int) $f->departamento_id, 'nombre' => $this->texto($f->departamento_nombre) ?? ''] : null,
             'estatus' => $estatus,
             'activo' => ! $eliminado && in_array($estatus, EstadoUsuario::valoresVigentes(), true),
             'fecha_alta' => $this->fecha($f->fecha_ingreso),

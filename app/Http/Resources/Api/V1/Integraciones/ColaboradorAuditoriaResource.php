@@ -21,6 +21,12 @@ class ColaboradorAuditoriaResource extends JsonResource
         'nombre_completo', 'empresa', 'sucursal', 'puesto', 'estatus', 'activo', 'fecha_alta', 'fecha_baja', 'updated_at',
     ];
 
+    /** Contrato «people-auditoria/3»: lo mismo más el departamento del puesto. */
+    public const CAMPOS_V3 = [
+        'id', 'numero_empleado', 'clave_noi', 'nombres', 'apellido_paterno', 'apellido_materno', 'apellidos',
+        'nombre_completo', 'empresa', 'sucursal', 'puesto', 'departamento', 'estatus', 'activo', 'fecha_alta', 'fecha_baja', 'updated_at',
+    ];
+
     /**
      * @return array<string, mixed>
      */
@@ -28,7 +34,7 @@ class ColaboradorAuditoriaResource extends JsonResource
     {
         $datos = [];
 
-        foreach (self::CAMPOS as $campo) {
+        foreach ($request->attributes->get('contrato_auditoria') === 3 ? self::CAMPOS_V3 : self::CAMPOS as $campo) {
             $datos[$campo] = $this->resource[$campo] ?? null;
         }
 

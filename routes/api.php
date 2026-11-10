@@ -140,6 +140,9 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             // «people-auditoria/2»: sólo el contexto del acta (docs/integraciones/AUDITORIA.md).
             Route::get('colaboradores/{colaborador}/acta', [IntegracionAuditoriaController::class, 'colaboradorActa'])->name('colaboradores.acta');
             Route::get('sucursales/{sucursal}/acta', [IntegracionAuditoriaController::class, 'sucursalActa'])->name('sucursales.acta');
+            // «people-auditoria/3»: catálogos para reflejar renombres y bajas de puestos y departamentos.
+            Route::get('puestos', [IntegracionAuditoriaController::class, 'puestos'])->name('puestos.index');
+            Route::get('departamentos', [IntegracionAuditoriaController::class, 'departamentos'])->name('departamentos.index');
         });
 
     // contrasena.temporal: con contraseña temporal solo responden logout, me
