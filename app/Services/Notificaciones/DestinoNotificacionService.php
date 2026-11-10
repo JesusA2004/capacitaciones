@@ -63,18 +63,31 @@ class DestinoNotificacionService
         $relacionado = $this->texto($datos['related_type'] ?? null);
         $id = is_numeric($datos['resource_id'] ?? null) ? (int) $datos['resource_id'] : null;
         $urlGuardada = $this->texto($datos['url'] ?? null);
+        // Persona de la que habla el aviso (no necesariamente quien lo recibe).
+        $colaboradorId = match (true) {
+            is_numeric($datos['colaborador_id'] ?? null) => (int) $datos['colaborador_id'],
+            $relacionado === 'Colaborador' => $id,
+            default => null,
+        };
 
         try {
             $destino = match (true) {
                 in_array($tipo, ['rh_solicitud', 'visto_bueno_pendiente', 'solicitud'], true) => $this->solicitud($id, $usuario),
                 $tipo === 'rh_vacaciones' => $this->vacacionRh($id),
                 $tipo === 'vacaciones' => $this->vacacionPropia($id),
-                $tipo === 'rh_documento' => $this->documentoRh($id),
+                $tipo === 'rh_documento' => $this->documentoRh($id, $usuario),
                 $tipo === 'documento' => $this->documentoPropio($id),
+                // Carta compromiso y demás avisos de la capa de eventos traen a
+                // la PERSONA (related_type Colaborador); el aviso histórico de
+                // incorporación completa trae el id de su cuenta.
+                $tipo === 'rh_incorporacion' && $relacionado === 'Colaborador' && $colaboradorId !== null => $this->expedienteDePersona($colaboradorId, $usuario, 'documentos'),
                 $tipo === 'rh_incorporacion' => $this->incorporacionRh($id),
                 $relacionado === 'Celebracion' || in_array($tipo, ['cumpleanos', 'cumpleanos_muro', 'aniversario_laboral', 'cumpleanos_general', 'aniversario_general', 'celebracion_mensaje'], true) => $this->celebracion($id, $usuario),
                 in_array($tipo, ['incorporacion', 'alta_activada'], true) => self::destino(route('portal.index', [], false)),
-                $tipo === 'expediente_incompleto' => self::destino(route('mi-expediente', ['tab' => 'documentos'], false)),
+                // Expediente incompleto: el dueño va a «Mi expediente»; RH, su
+                // jefe o quien lo tenga en su checklist, al expediente de ESA
+                // persona (nunca al propio).
+                $tipo === 'expediente_incompleto' => $this->expedienteDePersona($colaboradorId, $usuario, 'documentos'),
                 $tipo === 'rh_cumpleanos' => self::destino(route('rh.cumpleanos.index', [], false)),
                 $relacionado === 'EvaluacionPeriodoPrueba' => $this->evaluacion($id, $tipo),
                 $relacionado === 'ContratoLaboral' => $this->contrato($id),
@@ -96,7 +109,7 @@ class DestinoNotificacionService
                 // related_type aunque el `type` sea nuevo.
                 $relacionado === 'SolicitudInterna' => $this->solicitud($id, $usuario),
                 $relacionado === 'SolicitudVacaciones' => $this->vacacionRh($id),
-                $relacionado === 'EmployeeDocument' => $this->documentoRh($id),
+                $relacionado === 'EmployeeDocument' => $this->documentoRh($id, $usuario),
                 $relacionado === 'Candidato' && $id !== null => $this->candidato($id, $usuario),
                 // Baja: a su expediente de baja, si la puede ver (Contraloría, Jurídico, RH).
                 $relacionado === 'Baja' => $this->baja($id, $usuario),
@@ -108,8 +121,9 @@ class DestinoNotificacionService
                 $relacionado === 'CambioFotoPerfil' => self::destino(route('rh.cambios-foto.index', [], false)),
                 // Ya cumple la antigüedad: directo a pedir el préstamo.
                 $tipo === 'prestamo_disponible' => self::destino(route('solicitudes.index', ['nueva' => 'prestamo'], false)),
-                // Datos faltantes: a sus datos personales para solicitar la corrección.
-                $tipo === 'datos_faltantes' => self::destino(route('mi-expediente', ['tab' => 'personales'], false)),
+                // Datos faltantes: el dueño, a sus datos personales para solicitar
+                // la corrección; quien da seguimiento, a los datos de esa persona.
+                $tipo === 'datos_faltantes' => $this->expedienteDePersona($colaboradorId, $usuario, 'personales'),
                 // Evaluación de inducción: RH va directo a revisarla/calificarla;
                 // el colaborador, a contestar la suya.
                 $relacionado === 'EvaluacionInduccionIntento' && $id !== null && $usuario->can('onboarding.gestionar') => self::destino(route('rh.onboarding.induccion.mostrar', $id, false)),
@@ -165,6 +179,27 @@ class DestinoNotificacionService
         }
 
         return self::destino(route('rh.expedientes.show', ['colaborador' => $colaboradorId, 'tab' => $pestana], false));
+    }
+
+    /**
+     * Aviso sobre el expediente de una persona: su dueño va a «Mi expediente»;
+     * cualquier otro destinatario, al expediente de ESA persona si lo puede
+     * ver (alcance real del backend). Sin persona en el aviso (payload
+     * antiguo) solo puede tratarse del propio.
+     *
+     * @return Destino
+     */
+    private function expedienteDePersona(?int $colaboradorId, User $usuario, string $pestana): array
+    {
+        if ($colaboradorId === null || $colaboradorId === $usuario->colaborador_id) {
+            return self::destino(route('mi-expediente', ['tab' => $pestana], false));
+        }
+
+        $colaborador = Colaborador::withTrashed()->where('id', $colaboradorId)->first();
+
+        return $colaborador !== null && $this->alcance->puedeVerExpediente($usuario, $colaborador)
+            ? self::destino(route('rh.expedientes.show', ['colaborador' => $colaboradorId, 'tab' => $pestana], false))
+            : self::destino(null);
     }
 
     /**
@@ -306,9 +341,15 @@ class DestinoNotificacionService
     /**
      * @return Destino
      */
-    private function documentoRh(?int $id): array
+    private function documentoRh(?int $id, User $usuario): array
     {
         $documento = $id !== null ? EmployeeDocument::query()->with('tipo:id,nombre')->where('id', $id)->first() : null;
+
+        // Su propio documento (p. ej. «Documento rechazado»): a «Mi
+        // expediente», no a la vista operativa de RH.
+        if ($documento !== null && $documento->colaborador_id !== null && $documento->colaborador_id === $usuario->colaborador_id) {
+            return $this->documentoPropio($id);
+        }
 
         if ($documento === null || $documento->colaborador_id === null) {
             return self::inexistente(route('rh.expedientes.index', [], false), 'Este documento ya no existe.');
