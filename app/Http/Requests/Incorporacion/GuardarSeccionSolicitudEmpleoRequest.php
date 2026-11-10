@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Incorporacion;
 
 use App\Services\Incorporacion\SolicitudEmpleo\CatalogoSolicitudEmpleo;
+use App\Services\Incorporacion\SolicitudEmpleo\FechaEmisionIngresoService;
 use App\Support\FechaMexico;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -33,9 +34,14 @@ class GuardarSeccionSolicitudEmpleoRequest extends FormRequest
     public function rules(): array
     {
         $reglas = [
-            'datos' => ['present', 'array'],
+            // Con solo `fechas_emision` (RH elige la fecha de emisión) los datos pueden omitirse.
+            'datos' => $this->has('fechas_emision') ? ['sometimes', 'array'] : ['present', 'array'],
             'no_aplica' => ['nullable', 'array'],
             'no_aplica.*' => ['string', 'max:60'],
+            // Opcional (RH, web y API v1): fecha de emisión por documento; null = la del día en que se genere.
+            // El rango lo valida FechaEmisionIngresoService (misma regla para web y app).
+            'fechas_emision' => ['sometimes', 'array:'.implode(',', array_keys(FechaEmisionIngresoService::COLUMNAS))],
+            'fechas_emision.*' => ['nullable', 'date_format:Y-m-d'],
         ];
 
         foreach (CatalogoSolicitudEmpleo::camposDeSeccion($this->seccion()) as $clave => $campo) {
@@ -105,6 +111,8 @@ class GuardarSeccionSolicitudEmpleoRequest extends FormRequest
     {
         return [
             'datos.present' => 'Envía los datos de la sección (puede ir vacío).',
+            'fechas_emision.array' => 'La fecha de emisión solo aplica a la Solicitud de Empleo y al Estudio Socioeconómico.',
+            'fechas_emision.*.date_format' => 'Elige una fecha de emisión válida (AAAA-MM-DD).',
             '*.in' => 'Elige una opción válida en :attribute.',
             'datos.*.*.date_format' => 'Escribe :attribute con el formato AAAA-MM (mes y año).',
             'datos.*.max' => 'Escribe como máximo :max caracteres en :attribute.',
@@ -121,6 +129,35 @@ class GuardarSeccionSolicitudEmpleoRequest extends FormRequest
         $datos = $this->validated('datos');
 
         return is_array($datos) ? $datos : [];
+    }
+
+    /**
+     * ¿Trae algo de la sección (datos no vacíos o «No aplica»)? Sin esto y con
+     * `fechas_emision`, solo se guardan las fechas (no se marca la sección).
+     */
+    public function traeSeccion(): bool
+    {
+        return $this->datos() !== [] || $this->has('no_aplica') || ! $this->has('fechas_emision');
+    }
+
+    /**
+     * Fechas de emisión recibidas (clave => Y-m-d|null), o null si no llegan.
+     *
+     * @return array<string, string|null>|null
+     */
+    public function fechasEmision(): ?array
+    {
+        if (! $this->has('fechas_emision')) {
+            return null;
+        }
+
+        $fechas = [];
+
+        foreach ((array) $this->validated('fechas_emision') as $clave => $valor) {
+            $fechas[(string) $clave] = is_string($valor) && $valor !== '' ? $valor : null;
+        }
+
+        return $fechas;
     }
 
     /**

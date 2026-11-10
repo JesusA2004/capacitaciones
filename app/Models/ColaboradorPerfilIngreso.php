@@ -82,6 +82,8 @@ use Illuminate\Support\Carbon;
  * @property string|null $como_te_describen
  * @property list<string>|null $no_aplica
  * @property array<string, mixed>|null $secciones Bitácora por sección (guardada_en, origen, por) y `_campos_rh`.
+ * @property Carbon|null $fecha_emision_solicitud Fecha de emisión que RH eligió para la Solicitud de empleo (null = el día en que se genera).
+ * @property Carbon|null $fecha_emision_estudio Fecha de emisión que RH eligió para el Estudio socioeconómico (null = el día en que se genera).
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  */
@@ -122,6 +124,8 @@ class ColaboradorPerfilIngreso extends Model
             'familiares_empresa' => 'boolean',
             'no_aplica' => 'array',
             'secciones' => 'array',
+            'fecha_emision_solicitud' => 'date',
+            'fecha_emision_estudio' => 'date',
         ];
     }
 

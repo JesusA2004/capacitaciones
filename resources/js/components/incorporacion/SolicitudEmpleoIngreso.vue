@@ -1,13 +1,18 @@
 <script setup lang="ts">
 import {
+    CalendarDays,
     CheckCircle2,
     ChevronDown,
     ClipboardList,
+    Info,
     Plus,
+    RotateCcw,
     Trash2,
+    TriangleAlert,
 } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
 import Casilla from '@/components/Common/Casilla.vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,6 +28,7 @@ import {
 import type {
     CampoListaSolicitud,
     CampoSolicitud,
+    EmisionDocumentoIngreso,
     EstadoSolicitudEmpleo,
     SeccionSolicitud,
     ValorSolicitud,
@@ -57,6 +63,66 @@ const opcionesSiNo = [
 const documentos = computed(() =>
     Object.values(estado.value?.completitud.documentos ?? {}),
 );
+
+// «Fecha de emisión» de cada documento (la elige RH; se imprime en todas
+// las fechas del PDF). Se guarda al elegirla; la generación (en
+// «Documentos») ya la usa.
+const emision = computed<EmisionDocumentoIngreso[]>(
+    () => estado.value?.emision ?? [],
+);
+const guardandoFecha = ref<string | null>(null);
+const formatoLargo = new Intl.DateTimeFormat('es-MX', {
+    dateStyle: 'long',
+    timeZone: 'UTC',
+});
+
+function fechaLegible(iso: string | null): string {
+    return iso ? formatoLargo.format(new Date(`${iso}T00:00:00Z`)) : '';
+}
+
+async function guardarFecha(
+    doc: EmisionDocumentoIngreso,
+    fecha: string | null,
+): Promise<void> {
+    if ((fecha ?? '') === '' && !doc.elegida) {
+        return;
+    }
+
+    if (fecha === doc.fecha && doc.elegida) {
+        return;
+    }
+
+    guardandoFecha.value = doc.clave;
+
+    try {
+        const respuesta = await enviarJson<{
+            data: EstadoSolicitudEmpleo;
+            message: string;
+        }>(
+            'POST',
+            rutaGuardar.url({
+                colaborador: props.colaboradorId,
+                seccion: estado.value?.secciones[0]?.clave ?? 'personal',
+            }),
+            { fechas_emision: { [doc.clave]: fecha || null } },
+        );
+
+        // Solo la fecha: los borradores de las secciones no se pierden.
+        if (estado.value) {
+            estado.value = { ...estado.value, emision: respuesta.data.emision };
+        }
+
+        emit('actualizado');
+    } catch (e) {
+        await mostrarError(
+            e instanceof Error
+                ? e.message
+                : 'No se pudo guardar la fecha de emisión.',
+        );
+    } finally {
+        guardandoFecha.value = null;
+    }
+}
 
 async function cargar(): Promise<void> {
     cargando.value = true;
@@ -272,6 +338,84 @@ onMounted(cargar);
                     <span>{{ doc.mensaje }}</span>
                 </li>
             </ul>
+
+            <div
+                v-if="emision.length"
+                class="mb-4 rounded-xl border border-[var(--mrl-borde)] bg-[var(--mrl-fondo)] p-3"
+            >
+                <p class="flex items-center gap-2 text-sm font-semibold">
+                    <CalendarDays class="size-4 text-[var(--mrl-navy)]" />
+                    Fecha de emisión
+                </p>
+                <p class="mb-3 text-xs text-[var(--mrl-texto-suave)]">
+                    Es la fecha que se imprime en el documento (encabezado,
+                    lugar y fecha, y la edad a esa fecha). Si lo llenas antes de
+                    contratar, elige la fecha con la que debe salir. Sin elegir,
+                    sale con la fecha del día en que se genere.
+                </p>
+                <div class="grid gap-3 sm:grid-cols-2">
+                    <div
+                        v-for="doc in emision"
+                        :key="doc.clave"
+                        class="flex min-w-0 flex-col gap-1.5"
+                    >
+                        <Label :for="`emision-${doc.clave}`">{{
+                            doc.nombre
+                        }}</Label>
+                        <DatePicker
+                            :id="`emision-${doc.clave}`"
+                            :model-value="doc.fecha"
+                            :min-value="doc.minimo"
+                            :max-value="doc.maximo"
+                            :disabled="guardandoFecha === doc.clave"
+                            atajos
+                            dia-semana
+                            @update:model-value="(v) => guardarFecha(doc, v)"
+                        />
+                        <p
+                            class="flex flex-wrap items-center gap-x-2 text-xs text-[var(--mrl-texto-suave)]"
+                        >
+                            <span>{{
+                                guardandoFecha === doc.clave
+                                    ? 'Guardando…'
+                                    : doc.elegida
+                                      ? 'Fecha elegida por RH.'
+                                      : 'Hoy (sin elegir).'
+                            }}</span>
+                            <span v-if="doc.fecha_ingreso"
+                                >Ingreso:
+                                {{ fechaLegible(doc.fecha_ingreso) }}.</span
+                            >
+                            <button
+                                v-if="doc.elegida"
+                                type="button"
+                                class="inline-flex items-center gap-1 font-medium text-[var(--mrl-navy)] underline-offset-2 hover:underline"
+                                :disabled="guardandoFecha === doc.clave"
+                                @click="guardarFecha(doc, null)"
+                            >
+                                <RotateCcw class="size-3" /> Usar la del día en
+                                que se genere
+                            </button>
+                        </p>
+                        <p
+                            v-if="doc.aviso"
+                            class="flex items-start gap-1.5 rounded-lg bg-warning-soft px-2 py-1.5 text-xs"
+                        >
+                            <TriangleAlert class="mt-0.5 size-3.5 shrink-0" />
+                            {{ doc.aviso }}
+                        </p>
+                        <p
+                            v-if="doc.desactualizado"
+                            class="flex items-start gap-1.5 rounded-lg bg-info-soft px-2 py-1.5 text-xs"
+                        >
+                            <Info class="mt-0.5 size-3.5 shrink-0" />
+                            Ya se generó con fecha
+                            {{ fechaLegible(doc.generado_con) }}. Para que salga
+                            con la nueva, regenéralo en «Documentos».
+                        </p>
+                    </div>
+                </div>
+            </div>
 
             <div class="flex flex-col gap-2">
                 <article

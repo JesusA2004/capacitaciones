@@ -83,7 +83,31 @@ export type DocumentoCompletitudSolicitud = {
     mensaje: string;
 };
 
+/**
+ * «Fecha de emisión» que RH elige para la Solicitud de empleo y para el
+ * Estudio socioeconómico (independientes). Fechas en AAAA-MM-DD.
+ */
+export type EmisionDocumentoIngreso = {
+    clave: 'solicitud_empleo' | 'estudio_socioeconomico';
+    nombre: string;
+    /** La que se imprimirá: la elegida o la de hoy. */
+    fecha: string;
+    /** false = sin elegir: sale con la fecha del día en que se genere. */
+    elegida: boolean;
+    minimo: string;
+    maximo: string;
+    fecha_ingreso: string | null;
+    /** Aviso no bloqueante (p. ej. emisión posterior al ingreso). */
+    aviso: string | null;
+    /** Fecha con la que se imprimió el documento vigente ya generado. */
+    generado_con: string | null;
+    /** Ya generado con otra fecha: la nueva sale al regenerarlo. */
+    desactualizado: boolean;
+};
+
 export type EstadoSolicitudEmpleo = {
+    /** Solo en las respuestas de RH (web y API v1). */
+    emision?: EmisionDocumentoIngreso[];
     secciones: SeccionSolicitud[];
     completitud: {
         completo: boolean;

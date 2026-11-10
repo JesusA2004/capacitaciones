@@ -250,6 +250,61 @@ socioeconómico. Falta: Datos personales: …; Vivienda: …."]`.
 
 Permiso: `documentos_laborales.generar` + alcance organizacional sobre la persona.
 
+## Fecha de emisión (RH la elige)
+
+RH suele llenar ambos formatos **antes de contratar** (incluso un día
+antes), así que elige con qué fecha sale cada uno — **independientes**:
+`colaborador_perfiles_ingreso.fecha_emision_solicitud` y
+`fecha_emision_estudio` (migración 2026_11_14_300000). Sin elegir (null), el
+documento sale con la fecha del día en que se genera, como antes.
+
+- **Dónde se imprime**: en TODAS las fechas del documento. Solicitud:
+  día/mes/año del encabezado (`sol_fecha_*`), «Fecha:» de la hoja 4
+  (`fecha_documento_larga`), edad de la persona y de sus dependientes a esa
+  fecha. Estudio: «Fecha: dd / mes / aaaa» de la hoja 3 (`ese_fecha_*`) y
+  edades. Mecanismo: `DocumentoProcesoService::extraPorClave()` pasa
+  `fecha_documento` al `ContextoDocumento` (vista previa, generar,
+  regenerar y campos editables usan la misma).
+- **Reglas** (`App\Services\Incorporacion\SolicitudEmpleo\FechaEmisionIngresoService`,
+  calendario de Ciudad de México; misma regla web y API):
+  - no anterior a **hoy − 1 año** (`MESES_PASADO = 12`);
+  - no posterior a **hoy + 30 días** (`DIAS_FUTURO = 30`), o a la **fecha de
+    ingreso** si es más lejana;
+  - posterior a la fecha de ingreso: **se permite con aviso** («… quedaría
+    fechada el …, después de la fecha de ingreso (…). Normalmente se llena
+    antes de contratar.»);
+  - una fecha inválida rechaza toda la petición (no se guarda ninguna).
+- **Ya generado**: el PDF conserva su fecha (snapshot). Si RH cambia la fecha
+  después, `desactualizado = true` y la UI pide regenerarlo (con motivo) en
+  «Documentos».
+- Auditoría: `solicitud_empleo_fecha_emision`.
+
+API (web JSON = API v1, mismo controlador): campo **opcional**
+`fechas_emision` en `POST colaboradores/{colaborador}/solicitud-empleo/{seccion}`.
+Con solo ese campo (sin `datos` ni `no_aplica`) guarda únicamente las fechas
+y no toca la bitácora de la sección; un cliente anterior que no lo envía
+sigue igual (`datos` obligatorio).
+
+```json
+{ "fechas_emision": { "solicitud_empleo": "2026-11-08", "estudio_socioeconomico": null } }
+```
+
+(`null` = volver a «la fecha del día en que se genere»). 422:
+`errors["fechas_emision.solicitud_empleo"] = ["La fecha de emisión de Solicitud de Empleo no puede ser anterior al 10 de noviembre de 2025 (máximo un año atrás)."]`.
+
+`GET …/solicitud-empleo` (y la respuesta del POST) agregan `data.emision`:
+
+```json
+[{ "clave": "solicitud_empleo", "nombre": "Solicitud de Empleo", "fecha": "2026-11-08", "elegida": true,
+   "minimo": "2025-11-10", "maximo": "2026-12-10", "fecha_ingreso": "2026-11-12", "aviso": null,
+   "generado_con": "2026-11-10", "desactualizado": true }]
+```
+
+Web: tarjeta «Solicitud de empleo y estudio socioeconómico» del Ciclo
+laboral → bloque «Fecha de emisión» con un calendario por documento
+(`DatePicker` con atajos Ayer/Hoy/Mañana, se guarda al elegir). La
+generación desde «Documentos» (Ciclo o Expediente) usa la fecha guardada.
+
 ## Pendientes para confirmar con RH
 
 - «No. de folio» de la identificación: hoy se captura aparte (no se toma la

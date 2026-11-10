@@ -28,7 +28,7 @@ class DatosSolicitudEmpleoService
 {
     public const NO_APLICA = 'No aplica';
 
-    private const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    public const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
     /**
      * Campo del formato → dato del catálogo (o lista) del que depende: para
@@ -62,6 +62,28 @@ class DatosSolicitudEmpleoService
     private const EGRESOS = ['alimentacion', 'renta', 'agua', 'luz', 'telefono', 'servicios_medicos', 'vestido', 'diversion', 'predial', 'hipoteca', 'transporte', 'gasolina', 'gas', 'otros'];
 
     public function __construct(private readonly PerfilIngresoService $perfil) {}
+
+    /**
+     * Fecha (Y-m-d) con la que se imprimió un documento ya generado, leída
+     * de su payload (sol_fecha_* / ese_fecha_*); null si no se puede leer.
+     *
+     * @param  array<string, string>  $payload
+     */
+    public static function fechaDelPayload(string $clave, array $payload): ?string
+    {
+        $prefijo = $clave === CatalogoSolicitudEmpleo::ESTUDIO ? 'ese_fecha_' : 'sol_fecha_';
+        $dia = (int) ($payload[$prefijo.'dia'] ?? 0);
+        $anio = (int) ($payload[$prefijo.'anio'] ?? 0);
+        $mesTexto = mb_strtolower(trim($payload[$prefijo.'mes'] ?? ''));
+        $indice = array_search($mesTexto, self::MESES, true);
+        $mes = $indice !== false ? $indice + 1 : (int) $mesTexto;
+
+        if (! checkdate($mes, $dia, $anio)) {
+            return null;
+        }
+
+        return sprintf('%04d-%02d-%02d', $anio, $mes, $dia);
+    }
 
     /**
      * ¿El campo del formato pertenece a la Solicitud / Estudio socioeconómico?

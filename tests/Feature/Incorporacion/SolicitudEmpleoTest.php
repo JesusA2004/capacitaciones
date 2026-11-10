@@ -4,6 +4,7 @@ use App\Enums\EstadoAltaColaborador;
 use App\Enums\TipoContratacion;
 use App\Models\Colaborador;
 use App\Models\ColaboradorDatosMedicos;
+use App\Models\ColaboradorPerfilIngreso;
 use App\Models\ContratoLaboral;
 use App\Models\DocumentTemplate;
 use App\Models\DocumentType;
@@ -18,6 +19,7 @@ use App\Services\Incorporacion\SolicitudEmpleo\FaltanDatosIngresoException;
 use App\Services\Incorporacion\SolicitudEmpleo\PerfilIngresoService;
 use App\Services\Incorporacion\SolicitudEmpleo\RequisitoDocumentosIngresoService;
 use App\Services\Incorporacion\SolicitudEmpleo\SolicitudEmpleoRegistroService;
+use Carbon\CarbonImmutable;
 use Database\Seeders\DocumentTypeSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\DB;
@@ -490,4 +492,143 @@ test('la generación de un documento incompleto desde el servicio lanza la excep
             ->and($e->etiquetas)->toContain('Tipo sanguíneo', 'Dependientes económicos (agrega al menos uno o marca «No tengo dependientes económicos»)')
             ->and($e->mensaje)->toStartWith('Faltan ');
     }
+});
+
+// ───────────────────────── Fecha de emisión (RH la elige) ─────────────────────────
+
+test('fecha de emisión: sin elegir sale la de hoy; RH elige una por documento y se imprime en todas sus fechas', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-10 12:00', 'America/Mexico_City'));
+    seImportarMasters();
+    // Cumple 31 el 9 de noviembre de 2026: la edad sale a la fecha del documento.
+    $persona = sePersona($this->estructura, ['fecha_nacimiento' => '1995-11-09']);
+    seCompletar($persona, $this->rh);
+    $this->actingAs($this->rh);
+    $procesos = app(DocumentoProcesoService::class);
+
+    // Default: hoy, sin fecha elegida.
+    $emision = collect($this->getJson("/rh/colaboradores/{$persona->id}/solicitud-empleo")->assertOk()->json('data.emision'))->keyBy('clave');
+    expect($emision['solicitud_empleo']['fecha'])->toBe('2026-11-10')
+        ->and($emision['solicitud_empleo']['elegida'])->toBeFalse()
+        ->and($emision['estudio_socioeconomico']['minimo'])->toBe('2025-11-10')
+        ->and($emision['estudio_socioeconomico']['maximo'])->toBe('2026-12-10');
+
+    $hoy = $procesos->camposDelDocumento('incorporacion', $persona, 'solicitud_empleo', $this->rh);
+    expect([$hoy['sol_fecha_dia'], $hoy['sol_fecha_mes'], $hoy['sol_fecha_anio']])->toBe(['10', '11', '2026'])
+        ->and($hoy['edad_numero'])->toBe('31');
+
+    $bitacora = ColaboradorPerfilIngreso::query()->where('colaborador_id', $persona->id)->sole()->secciones;
+
+    // Solo fechas (sin datos): se guardan sin tocar la bitácora de ninguna sección.
+    $this->postJson("/rh/colaboradores/{$persona->id}/solicitud-empleo/personal", ['fechas_emision' => ['solicitud_empleo' => '2026-11-08', 'estudio_socioeconomico' => '2026-11-05']])
+        ->assertOk()
+        ->assertJsonPath('message', 'Fecha de emisión guardada.')
+        ->assertJsonPath('data.emision.0.fecha', '2026-11-08')
+        ->assertJsonPath('data.emision.0.elegida', true)
+        ->assertJsonPath('data.emision.1.fecha', '2026-11-05');
+
+    $perfil = ColaboradorPerfilIngreso::query()->where('colaborador_id', $persona->id)->sole();
+    expect($perfil->fecha_emision_solicitud?->toDateString())->toBe('2026-11-08')
+        ->and($perfil->fecha_emision_estudio?->toDateString())->toBe('2026-11-05')
+        ->and($perfil->secciones)->toBe($bitacora);
+
+    // La Solicitud: encabezado, «fecha_documento_larga» (hoja 4) y edad a esa fecha.
+    $solicitud = $procesos->camposDelDocumento('incorporacion', $persona, 'solicitud_empleo', $this->rh);
+    expect([$solicitud['sol_fecha_dia'], $solicitud['sol_fecha_mes'], $solicitud['sol_fecha_anio']])->toBe(['08', '11', '2026'])
+        ->and($solicitud['fecha_documento_larga'])->toBe('8 de noviembre de 2026')
+        ->and($solicitud['edad_numero'])->toBe('30');
+
+    // El Estudio, con la suya (independiente).
+    $estudio = $procesos->camposDelDocumento('incorporacion', $persona, 'estudio_socioeconomico', $this->rh);
+    expect([$estudio['ese_fecha_dia'], $estudio['ese_fecha_mes'], $estudio['ese_fecha_anio']])->toBe(['05', 'noviembre', '2026'])
+        ->and($estudio['edad_numero'])->toBe('30');
+
+    // Generado: el snapshot conserva la fecha elegida; cambiarla después lo marca para regenerar.
+    Sanctum::actingAs($this->rh);
+    $this->postJson("/api/v1/rh/documentos-proceso/colaborador/{$persona->id}/generar", ['clave' => 'solicitud_empleo', 'proceso' => 'incorporacion'])->assertCreated();
+    $generado = GeneratedDocument::query()->where('clave_plantilla', 'solicitud_empleo')->sole();
+    seGuardarMuestra($generado, 'sol-fecha-emision');
+    $this->postJson("/api/v1/rh/documentos-proceso/colaborador/{$persona->id}/generar", ['clave' => 'estudio_socioeconomico', 'proceso' => 'incorporacion'])->assertCreated();
+    $generadoEstudio = GeneratedDocument::query()->where('clave_plantilla', 'estudio_socioeconomico')->sole();
+    seGuardarMuestra($generadoEstudio, 'ese-fecha-emision');
+    expect($generado->payload['sol_fecha_dia'])->toBe('08')
+        ->and($generado->payload['fecha_documento_larga'])->toBe('8 de noviembre de 2026')
+        ->and($generadoEstudio->payload['ese_fecha_dia'])->toBe('05')
+        ->and($generadoEstudio->payload['ese_fecha_mes'])->toBe('noviembre');
+
+    $this->postJson("/rh/colaboradores/{$persona->id}/solicitud-empleo/personal", ['fechas_emision' => ['solicitud_empleo' => '2026-11-09']])
+        ->assertOk()
+        ->assertJsonPath('data.emision.0.generado_con', '2026-11-08')
+        ->assertJsonPath('data.emision.0.desactualizado', true)
+        // Solo cambian las claves que llegan.
+        ->assertJsonPath('data.emision.1.fecha', '2026-11-05');
+
+    // null = volver a «la fecha del día en que se genere».
+    $this->postJson("/rh/colaboradores/{$persona->id}/solicitud-empleo/personal", ['fechas_emision' => ['estudio_socioeconomico' => null]])
+        ->assertOk()
+        ->assertJsonPath('data.emision.1.fecha', '2026-11-10')
+        ->assertJsonPath('data.emision.1.elegida', false);
+});
+
+test('fecha de emisión: validación en español (máx. un año atrás, hasta 30 días adelante o la fecha de ingreso) y aviso tras el ingreso', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-10 12:00', 'America/Mexico_City'));
+    $persona = sePersona($this->estructura, ['fecha_ingreso' => '2026-11-12']);
+    $this->actingAs($this->rh);
+    $url = "/rh/colaboradores/{$persona->id}/solicitud-empleo/personal";
+
+    $this->postJson($url, ['fechas_emision' => ['solicitud_empleo' => '2025-11-09']])
+        ->assertUnprocessable()
+        ->assertJsonPath('errors', ['fechas_emision.solicitud_empleo' => ['La fecha de emisión de Solicitud de Empleo no puede ser anterior al 10 de noviembre de 2025 (máximo un año atrás).']]);
+
+    $this->postJson($url, ['fechas_emision' => ['estudio_socioeconomico' => '2026-12-11']])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['fechas_emision.estudio_socioeconomico' => 'La fecha de emisión de Estudio Socioeconómico no puede ser posterior al 10 de diciembre de 2026.']);
+
+    $this->postJson($url, ['fechas_emision' => ['solicitud_empleo' => '10/11/2026']])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['fechas_emision.solicitud_empleo' => 'Elige una fecha de emisión válida (AAAA-MM-DD).']);
+
+    $this->postJson($url, ['fechas_emision' => ['contrato' => '2026-11-10']])->assertUnprocessable()->assertJsonValidationErrors('fechas_emision');
+
+    // Una inválida: no se guarda ninguna.
+    $this->postJson($url, ['fechas_emision' => ['solicitud_empleo' => '2026-11-09', 'estudio_socioeconomico' => '2027-05-01']])->assertUnprocessable();
+    expect(ColaboradorPerfilIngreso::query()->where('colaborador_id', $persona->id)->value('fecha_emision_solicitud'))->toBeNull();
+
+    // Posterior al ingreso: se permite, con aviso.
+    $this->postJson($url, ['fechas_emision' => ['solicitud_empleo' => '2026-11-13']])
+        ->assertOk()
+        ->assertJsonPath('data.emision.0.fecha_ingreso', '2026-11-12')
+        ->assertJsonPath('data.emision.0.aviso', 'La Solicitud de Empleo quedaría fechada el 13 de noviembre de 2026, después de la fecha de ingreso (12 de noviembre de 2026). Normalmente se llena antes de contratar.')
+        ->assertJsonPath('data.emision.1.aviso', null);
+
+    // Ingreso lejano: el máximo se extiende hasta esa fecha.
+    $persona->update(['fecha_ingreso' => '2027-01-15']);
+    $this->postJson($url, ['fechas_emision' => ['estudio_socioeconomico' => '2027-01-15']])
+        ->assertOk()
+        ->assertJsonPath('data.emision.1.maximo', '2027-01-15');
+});
+
+test('fecha de emisión: la API v1 de RH es compatible (campo opcional) y aplica las mismas reglas', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-10 12:00', 'America/Mexico_City'));
+    $persona = sePersona($this->estructura);
+    Sanctum::actingAs($this->rh);
+    $url = "/api/v1/rh/colaboradores/{$persona->id}/solicitud-empleo/personal";
+
+    // Cliente anterior: solo datos de la sección, igual que siempre.
+    $this->postJson($url, ['datos' => ['estado_salud' => 'bueno']])
+        ->assertOk()
+        ->assertJsonPath('message', 'Datos guardados.')
+        ->assertJsonPath('data.emision.0.elegida', false);
+
+    // Sin `datos` ni fechas sigue siendo 422 (contrato anterior).
+    $this->postJson($url, [])->assertUnprocessable()->assertJsonValidationErrors('datos');
+
+    // Datos y fecha en la misma petición.
+    $this->postJson($url, ['datos' => ['numero_hijos' => 1], 'fechas_emision' => ['estudio_socioeconomico' => '2026-11-09']])
+        ->assertOk()
+        ->assertJsonPath('message', 'Datos guardados.')
+        ->assertJsonPath('data.emision.1.fecha', '2026-11-09');
+
+    $this->postJson($url, ['fechas_emision' => ['estudio_socioeconomico' => '2024-01-01']])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('fechas_emision.estudio_socioeconomico');
 });

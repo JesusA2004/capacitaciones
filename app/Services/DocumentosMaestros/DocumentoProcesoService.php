@@ -45,6 +45,7 @@ use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\Expedientes\DatosExpedienteService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Expedientes\ProgresoExpediente;
+use App\Services\Incorporacion\SolicitudEmpleo\FechaEmisionIngresoService;
 use App\Services\Incorporacion\SolicitudEmpleo\PerfilIngresoService;
 use App\Services\Incorporacion\SolicitudEmpleo\RequisitoDocumentosIngresoService;
 use App\Services\Nomina\PrestamoAutorizacionService;
@@ -2127,6 +2128,14 @@ class DocumentoProcesoService
         // (monto, plazo, pago…). Los masters los toman de DatosDocumentoService.
         if ($registro instanceof Prestamo) {
             return app(PrestamoAutorizacionService::class)->variablesDocumento($registro);
+        }
+
+        // Solicitud de empleo / Estudio socioeconómico: la «Fecha de emisión»
+        // que RH eligió (sin elegir, la del día en que se genera).
+        if ($registro instanceof Colaborador && FechaEmisionIngresoService::aplica($clave)) {
+            $fecha = app(FechaEmisionIngresoService::class)->elegida($registro, $clave);
+
+            return $fecha !== null ? ['fecha_documento' => $fecha->toDateString()] : [];
         }
 
         return [];
