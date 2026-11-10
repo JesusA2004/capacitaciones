@@ -195,7 +195,7 @@ const errorArchivos = computed(
 
 <template>
     <section
-        class="@container flex flex-col gap-4 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 shadow-sm sm:p-5"
+        class="@container flex flex-col gap-4 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 shadow-sm transicion-ui hover:shadow-md sm:p-5"
         aria-label="Expediente del candidato"
     >
         <header class="flex items-center gap-3">
@@ -206,7 +206,7 @@ const errorArchivos = computed(
                 <FolderOpen class="size-5" />
             </span>
             <div class="flex min-w-0 flex-1 items-center gap-1.5">
-                <h2 class="truncate text-base font-semibold">
+                <h2 class="text-base font-semibold break-words">
                     Expediente del candidato
                 </h2>
                 <AyudaBoton
@@ -262,7 +262,7 @@ const errorArchivos = computed(
                         <FileText class="size-5" />
                     </span>
                     <span class="min-w-0 flex-1">
-                        <span class="block truncate text-sm font-medium">{{
+                        <span class="block text-sm font-medium wrap-anywhere">{{
                             expediente.cv.nombre
                         }}</span>
                         <span class="block text-xs text-muted-foreground">{{
@@ -372,7 +372,7 @@ const errorArchivos = computed(
             <div
                 v-for="grupo in grupos"
                 :key="grupo.clave"
-                class="flex min-w-0 flex-col gap-2 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-fondo)] p-3"
+                class="flex min-w-0 flex-col gap-2 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-fondo)] p-3 transicion-ui hover:border-oro/40"
             >
                 <div class="flex items-center gap-2.5">
                     <span
@@ -421,7 +421,7 @@ const errorArchivos = computed(
                             </span>
                             <span class="min-w-0 flex-1">
                                 <span
-                                    class="block truncate text-xs font-medium"
+                                    class="block text-xs font-medium wrap-anywhere"
                                     >{{ ev.nombre }}</span
                                 >
                                 <span

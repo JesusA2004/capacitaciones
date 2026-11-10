@@ -23,34 +23,36 @@ const abierto = ref(true);
 
 <template>
     <section
-        class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
+        class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 shadow-sm transicion-ui hover:shadow-md sm:p-5"
         aria-label="Perfil del puesto"
     >
         <button
             type="button"
-            class="flex w-full items-center gap-3 text-left"
+            class="group flex w-full items-center gap-3 rounded-xl text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             :aria-expanded="abierto"
             @click="abierto = !abierto"
         >
             <span
-                class="flex size-8 items-center justify-center rounded-xl bg-[var(--mrl-petroleo)] text-[var(--mrl-dorado)]"
+                class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[var(--mrl-petroleo)] text-[var(--mrl-dorado)] transicion-ui group-hover:scale-105"
             >
-                <UserSearch class="size-4" />
+                <UserSearch class="size-5" />
             </span>
             <span class="min-w-0">
                 <span
                     class="block text-[11px] tracking-[0.14em] text-muted-foreground uppercase"
                     >Perfil buscado</span
                 >
-                <span class="block font-semibold">{{ perfil.puesto }}</span>
+                <span class="block font-semibold break-words">{{
+                    perfil.puesto
+                }}</span>
             </span>
             <ChevronDown
-                class="ml-auto size-4 text-muted-foreground transition-transform"
+                class="ml-auto size-4 shrink-0 text-muted-foreground transicion-ui"
                 :class="abierto ? 'rotate-180' : ''"
             />
         </button>
 
-        <div v-if="abierto" class="mt-4 flex flex-col gap-4">
+        <div v-if="abierto" class="mt-4 flex entrada-suave flex-col gap-4">
             <p v-if="!perfil.perfil" class="text-sm text-muted-foreground">
                 Este puesto aún no tiene perfil.
             </p>

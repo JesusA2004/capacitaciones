@@ -1,19 +1,6 @@
 <script setup lang="ts">
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import {
-    ArrowRight,
-    Brain,
-    FileText,
-    FolderOpen,
-    Home,
-    KeyRound,
-    Paperclip,
-    Pencil,
-    QrCode,
-    ShieldAlert,
-    UserRound,
-    Video,
-} from '@lucide/vue';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ArrowRight, FileText, FolderOpen, Route, UserX } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
 import {
     decidir,
@@ -27,7 +14,6 @@ import Casilla from '@/components/Common/Casilla.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import DateTimePicker from '@/components/Common/DateTimePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
-import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import SiguientePasoPanel from '@/components/flujos/SiguientePaso.vue';
 import InputError from '@/components/InputError.vue';
 import BotonReabrir from '@/components/people/BotonReabrir.vue';
@@ -35,13 +21,15 @@ import type { ReaperturaDisponible } from '@/components/people/BotonReabrir.vue'
 import ChipEstado from '@/components/people/ChipEstado.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
-import AvisoAltaSistemas from '@/components/Rh/AvisoAltaSistemas.vue';
 import type { ResumenAvisoSistemas } from '@/components/Rh/AvisoAltaSistemas.vue';
+import CandidatoAltaAccesos from '@/components/Rh/Candidato/CandidatoAltaAccesos.vue';
+import CandidatoDatos from '@/components/Rh/Candidato/CandidatoDatos.vue';
+import CandidatoEvaluaciones from '@/components/Rh/Candidato/CandidatoEvaluaciones.vue';
+import CandidatoHero from '@/components/Rh/Candidato/CandidatoHero.vue';
+import CandidatoIntervenciones from '@/components/Rh/Candidato/CandidatoIntervenciones.vue';
 import CandidatoExpedientePanel from '@/components/Rh/CandidatoExpedientePanel.vue';
 import CandidatoFormDialog from '@/components/Rh/CandidatoFormDialog.vue';
 import CandidatoPerfilPuesto from '@/components/Rh/CandidatoPerfilPuesto.vue';
-import GenerarCredencialesDialog from '@/components/Rh/GenerarCredencialesDialog.vue';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -59,7 +47,6 @@ import {
     archivosDelExpediente,
     claveEvidencia,
 } from '@/lib/archivosCandidato';
-import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import { show as candidatoShow } from '@/routes/rh/candidatos';
 import {
@@ -76,7 +63,6 @@ import {
 import psicometricas from '@/routes/rh/candidatos/psicometricas';
 import referencias from '@/routes/rh/candidatos/referencias';
 import socioeconomicoRutas from '@/routes/rh/candidatos/socioeconomico';
-import { show as verInvitacion } from '@/routes/rh/incorporacion/invitaciones';
 import type {
     AccionCiclo,
     AntecedenteBaja,
@@ -118,9 +104,6 @@ const props = defineProps<{
     avisoSistemas?: ResumenAvisoSistemas | null;
 }>();
 
-// «Generar credenciales (sin QR)» (altas dadas en la web sin el registro por QR).
-const dialogoCredenciales = ref(false);
-
 /** El paso del proceso ya es esta ficha: no se ofrece un enlace a sí misma. */
 const procesoEsEstaFicha = computed(
     () =>
@@ -147,14 +130,6 @@ defineOptions({
 const editar = ref(false);
 const accionActiva = ref<AccionCiclo | null>(null);
 const evidenciaActiva = ref<EvidenciaCandidato | null>(null);
-
-const inicialesCandidato = computed(() => {
-    const partes = props.candidato.nombre_completo.split(/\s+/).filter(Boolean);
-
-    return (
-        (partes[0]?.[0] ?? '') + (partes[1]?.[0] ?? partes[0]?.[1] ?? '')
-    ).toUpperCase();
-});
 
 // El formulario de edición del candidato espera la forma del listado.
 const candidatoFormulario = computed(
@@ -506,84 +481,68 @@ const esDecisionViable = computed(() =>
         'concluir_referencias',
     ].includes(accionActiva.value?.clave ?? ''),
 );
-
-function fecha(valor: string | null): string {
-    return valor
-        ? new Date(valor).toLocaleString('es-MX', {
-              dateStyle: 'medium',
-              timeStyle: 'short',
-          })
-        : '—';
-}
 </script>
 
 <template>
     <Head :title="candidato.nombre_completo" />
 
     <div class="pagina-ancha flex flex-col gap-5">
-        <CrudPageHeader
-            detalle
-            :titulo="candidato.nombre_completo"
-            :descripcion="`${candidato.puesto ?? 'Sin puesto objetivo'} · ${candidato.sucursal ?? 'Sin sucursal'}`"
-            :icono="UserRound"
-        >
-            <template #icono>
-                <!-- Foto oficial del expediente si ya hay colaborador
-                     vinculado; si no (o si falla), iniciales. -->
-                <Avatar class="size-11 shrink-0 rounded-2xl shadow-sm">
-                    <AvatarImage
-                        v-if="candidato.foto_url"
-                        :src="candidato.foto_url"
-                        :alt="`Fotografía de ${candidato.nombre_completo}`"
-                        class="object-cover"
-                    />
-                    <AvatarFallback
-                        class="rounded-2xl bg-primary/10 text-sm font-semibold text-primary"
-                        >{{ inicialesCandidato }}</AvatarFallback
-                    >
-                </Avatar>
-            </template>
-            <Button variant="secondary" @click="editar = true">
-                <Pencil class="size-4" />
-                Editar datos
-            </Button>
-        </CrudPageHeader>
+        <CandidatoHero
+            :candidato="candidato"
+            :ciclo="ciclo"
+            @editar="editar = true"
+            @ver-cv="cvAbierto = true"
+            @ver="(ev) => (evidenciaActiva = ev)"
+        />
 
         <!-- RN-09: baja previa no recontratable (módulo de Bajas). -->
-        <p
+        <div
             v-if="antecedenteBaja"
             role="alert"
             :class="[
-                'rounded-2xl px-4 py-3 text-sm',
+                'flex aparece-escalonado items-start gap-3 rounded-2xl px-4 py-3 text-sm',
                 antecedenteBaja.recontratable === 'no'
                     ? 'bg-danger-soft text-destructive'
                     : 'bg-warning-soft text-warning',
             ]"
+            style="--i: 1"
         >
-            <strong
-                >Baja previa «{{ antecedenteBaja.recontratable_etiqueta }}»
-                recontratable:</strong
-            >
-            {{ antecedenteBaja.nombre }} · {{ antecedenteBaja.folio }} · baja
-            {{ antecedenteBaja.fecha_baja ?? '—' }}
-            <template v-if="antecedenteBaja.sucursal">
-                · {{ antecedenteBaja.sucursal }}</template
-            ><template v-if="antecedenteBaja.causal">
-                · {{ antecedenteBaja.causal }}</template
-            >
-            (coincide por {{ antecedenteBaja.coincidencia }}). Consulta con RH
-            antes de continuar.
-        </p>
+            <UserX class="mt-0.5 size-5 shrink-0" aria-hidden="true" />
+            <div class="min-w-0 break-words">
+                <p class="font-semibold">
+                    Baja previa «{{ antecedenteBaja.recontratable_etiqueta }}»
+                    recontratable
+                </p>
+                <p class="text-foreground">
+                    {{ antecedenteBaja.nombre }} · {{ antecedenteBaja.folio }} ·
+                    baja {{ antecedenteBaja.fecha_baja ?? '—' }}
+                    <template v-if="antecedenteBaja.sucursal">
+                        · {{ antecedenteBaja.sucursal }}</template
+                    ><template v-if="antecedenteBaja.causal">
+                        · {{ antecedenteBaja.causal }}</template
+                    >
+                    (coincide por {{ antecedenteBaja.coincidencia }}). Consulta
+                    con RH antes de continuar.
+                </p>
+            </div>
+        </div>
 
         <!-- Seleccionado → contratación → expediente: el candidato no
              desaparece al avanzar y lleva directo al proceso. -->
         <section
             v-if="cadenaContratacion"
-            class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-crema/60 p-4 sm:flex-row sm:items-center sm:justify-between"
+            class="flex aparece-escalonado flex-col gap-3 rounded-2xl border border-border/60 bg-crema/60 p-4 sm:flex-row sm:items-center sm:justify-between"
+            style="--i: 1"
             aria-label="Estado de contratación"
             data-cadena-contratacion
         >
             <div class="flex min-w-0 flex-wrap items-center gap-2">
+                <span
+                    class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--mrl-superficie)] text-bronce"
+                    aria-hidden="true"
+                >
+                    <Route class="size-4" />
+                </span>
                 <ChipEstado
                     :etiqueta="cadenaContratacion.etiqueta"
                     :tono="cadenaContratacion.tono"
@@ -591,7 +550,7 @@ function fecha(valor: string | null): string {
                 />
                 <span
                     v-if="cadenaContratacion.detalle"
-                    class="text-sm text-muted-foreground"
+                    class="text-sm break-words text-muted-foreground"
                     >{{ cadenaContratacion.detalle }}</span
                 >
             </div>
@@ -623,514 +582,101 @@ function fecha(valor: string | null): string {
             </div>
         </section>
 
-        <!-- Resumen ejecutivo: quién, a qué puesto, en qué etapa, quién sigue -->
-        <section
-            class="grid gap-4 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5 lg:grid-cols-[1fr_auto]"
-            aria-label="Resumen del candidato"
+        <div
+            class="min-w-0 aparece-escalonado rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-3 shadow-sm sm:p-4"
+            style="--i: 2"
         >
-            <dl
-                class="grid gap-x-6 gap-y-3 text-base sm:grid-cols-2 xl:grid-cols-3"
-            >
-                <div>
-                    <dt class="text-xs text-muted-foreground">Puesto</dt>
-                    <dd class="font-semibold">{{ candidato.puesto ?? '—' }}</dd>
-                </div>
-                <div>
-                    <dt class="text-xs text-muted-foreground">Sucursal</dt>
-                    <dd class="font-semibold">
-                        {{ candidato.sucursal ?? '—' }}
-                    </dd>
-                </div>
-                <div>
-                    <dt class="text-xs text-muted-foreground">Etapa</dt>
-                    <dd>
-                        <span
-                            class="inline-flex rounded-full bg-salvia px-2.5 py-0.5 text-sm font-medium text-[var(--mrl-petroleo)]"
-                            >{{ candidato.estado_etiqueta }}</span
-                        >
-                    </dd>
-                </div>
-                <div>
-                    <dt class="text-xs text-muted-foreground">Responsable</dt>
-                    <dd class="font-semibold">
-                        {{
-                            ciclo.responsable_actual.nombre ??
-                            ciclo.responsable_actual.rol
-                        }}
-                        <span
-                            v-if="ciclo.responsable_actual.nombre"
-                            class="block text-xs font-normal text-muted-foreground"
-                            >{{ ciclo.responsable_actual.rol }}</span
-                        >
-                    </dd>
-                </div>
-            </dl>
-
-            <div
-                class="flex flex-wrap content-start gap-2 lg:max-w-xs lg:justify-end"
-                aria-label="Documentos clave"
-            >
-                <Button
-                    v-if="accesos?.psicometrico"
-                    size="sm"
-                    variant="outline"
-                    @click="evidenciaActiva = accesos.psicometrico"
-                >
-                    <Brain class="size-4" /> Ver psicométrico
-                </Button>
-                <Button
-                    v-if="accesos?.socioeconomico"
-                    size="sm"
-                    variant="outline"
-                    @click="evidenciaActiva = accesos.socioeconomico"
-                >
-                    <Home class="size-4" /> Ver socioeconómico
-                </Button>
-                <Button
-                    v-if="accesos?.video"
-                    size="sm"
-                    variant="outline"
-                    @click="evidenciaActiva = accesos.video"
-                >
-                    <Video class="size-4" /> Ver video
-                </Button>
-                <Button
-                    v-if="candidato.tiene_cv"
-                    size="sm"
-                    variant="outline"
-                    @click="cvAbierto = true"
-                >
-                    <FileText class="size-4" /> Ver CV
-                </Button>
-            </div>
-        </section>
-
-        <CicloStepper data-tour="candidato-pasos" :pasos="ciclo.pasos" />
+            <CicloStepper data-tour="candidato-pasos" :pasos="ciclo.pasos" />
+        </div>
 
         <div class="grid gap-5 lg:grid-cols-3">
-            <div class="flex flex-col gap-5 lg:col-span-2">
-                <SiguientePasoPanel
-                    data-tour="candidato-estado"
-                    :paso="siguientePaso"
-                    @dialogo="abrirPorClave"
-                >
-                    <div data-tour="candidato-acciones">
-                        <AccionesCiclo
-                            :acciones="accionesRestantes"
-                            :sin-principal="!!siguientePaso.accion"
-                            @accion="abrir"
-                        />
-                    </div>
-                    <BotonReabrir :reaperturas="reaperturas" />
-                    <AvisoAltaSistemas
-                        v-if="avisoSistemas"
-                        class="mt-3"
-                        :candidato-id="candidato.id"
-                        :aviso="avisoSistemas"
-                    />
-                </SiguientePasoPanel>
+            <div class="flex min-w-0 flex-col gap-5 lg:col-span-2">
+                <div class="aparece-escalonado" style="--i: 3">
+                    <SiguientePasoPanel
+                        data-tour="candidato-estado"
+                        :paso="siguientePaso"
+                        @dialogo="abrirPorClave"
+                    >
+                        <div data-tour="candidato-acciones">
+                            <AccionesCiclo
+                                :acciones="accionesRestantes"
+                                :sin-principal="!!siguientePaso.accion"
+                                @accion="abrir"
+                            />
+                        </div>
+                        <BotonReabrir :reaperturas="reaperturas" />
+                    </SiguientePasoPanel>
+                </div>
 
-                <section
-                    class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
-                >
-                    <h2 class="mb-3 text-sm font-semibold">
-                        Datos del candidato
-                    </h2>
-                    <dl class="grid gap-3 text-sm sm:grid-cols-2">
-                        <div>
-                            <dt class="text-muted-foreground">Teléfono</dt>
-                            <dd>{{ candidato.telefono ?? '—' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-muted-foreground">Correo</dt>
-                            <dd>{{ candidato.correo ?? '—' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-muted-foreground">Fuente</dt>
-                            <dd>{{ candidato.fuente_etiqueta ?? '—' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-muted-foreground">Campaña</dt>
-                            <dd>{{ candidato.campana ?? '—' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-muted-foreground">Reclutamiento</dt>
-                            <dd>{{ candidato.responsable_rh ?? '—' }}</dd>
-                        </div>
-                        <div>
-                            <dt class="text-muted-foreground">Gerente</dt>
-                            <dd>{{ candidato.gerente ?? '—' }}</dd>
-                        </div>
-                        <div
-                            v-if="candidato.motivo_rechazo"
-                            class="sm:col-span-2"
-                        >
-                            <dt class="text-muted-foreground">
-                                ¿Por qué ya no continuó?
-                            </dt>
-                            <dd>
-                                {{ candidato.motivo_rechazo }}
-                                <span
-                                    v-if="candidato.motivo_salida"
-                                    class="block text-xs text-muted-foreground"
-                                    >{{ candidato.motivo_salida }}</span
-                                >
-                            </dd>
-                        </div>
-                        <div
-                            v-if="candidato.respuestas_filtro.length"
-                            class="sm:col-span-2"
-                        >
-                            <dt class="text-muted-foreground">
-                                Requisitos del puesto
-                            </dt>
-                            <dd class="mt-1 flex flex-col gap-1">
-                                <span
-                                    v-for="(
-                                        r, i
-                                    ) in candidato.respuestas_filtro"
-                                    :key="i"
-                                    class="flex items-center justify-between gap-3 rounded-md px-2 py-1"
-                                    :class="
-                                        r.cumple
-                                            ? 'bg-success-soft'
-                                            : 'bg-danger-soft'
-                                    "
-                                >
-                                    <span>{{ r.pregunta }}</span>
-                                    <span class="font-medium">{{
-                                        r.respuesta ? 'Sí' : 'No'
-                                    }}</span>
-                                </span>
-                            </dd>
-                        </div>
-                    </dl>
-                </section>
-
-                <CandidatoPerfilPuesto
-                    v-if="perfilPuesto"
-                    :perfil="perfilPuesto"
-                />
-
-                <CandidatoExpedientePanel
-                    :candidato-id="candidato.id"
-                    :expediente="candidato.expediente"
-                    :puede-adjuntar="puedeAdjuntar"
-                    :limites="limitesArchivos"
-                    :socioeconomico-registrado="
-                        candidato.socioeconomicos.length > 0
+                <!-- Alta en sistemas: aviso a Sistemas + QR + credenciales. -->
+                <CandidatoAltaAccesos
+                    v-if="
+                        avisoSistemas ||
+                        candidato.invitacion ||
+                        candidato.credenciales
                     "
-                    :hay-referencias="candidato.referencias.length > 0"
-                    @ver="(ev) => (evidenciaActiva = ev)"
-                    @ver-cv="cvAbierto = true"
+                    :candidato="candidato"
+                    :aviso-sistemas="avisoSistemas"
+                    :indice="4"
                 />
 
-                <section
+                <CandidatoDatos :candidato="candidato" :indice="4" />
+
+                <CandidatoIntervenciones
+                    v-if="candidato.intervenciones.length"
+                    :intervenciones="candidato.intervenciones"
+                    :intervencion-pendiente-id="intervencionPendienteId"
+                    :indice="5"
+                    @decidir="abrirDecision"
+                />
+
+                <div
+                    v-if="perfilPuesto"
+                    class="aparece-escalonado"
+                    style="--i: 5"
+                >
+                    <CandidatoPerfilPuesto :perfil="perfilPuesto" />
+                </div>
+
+                <div class="aparece-escalonado" style="--i: 6">
+                    <CandidatoExpedientePanel
+                        :candidato-id="candidato.id"
+                        :expediente="candidato.expediente"
+                        :puede-adjuntar="puedeAdjuntar"
+                        :limites="limitesArchivos"
+                        :socioeconomico-registrado="
+                            candidato.socioeconomicos.length > 0
+                        "
+                        :hay-referencias="candidato.referencias.length > 0"
+                        @ver="(ev) => (evidenciaActiva = ev)"
+                        @ver-cv="cvAbierto = true"
+                    />
+                </div>
+
+                <CandidatoEvaluaciones
                     v-if="
                         candidato.entrevistas.length ||
                         candidato.psicometricas.length ||
                         candidato.socioeconomicos.length ||
                         candidato.referencias.length
                     "
-                    class="flex flex-col gap-4 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
-                    aria-label="Evaluaciones del reclutamiento"
-                >
-                    <h2 class="text-sm font-semibold">
-                        Evaluaciones registradas
-                    </h2>
-
-                    <article
-                        v-for="item in candidato.entrevistas"
-                        :key="`e${item.id}`"
-                        class="rounded-xl bg-[var(--mrl-fondo)] p-3 text-sm"
-                    >
-                        <p class="font-medium">
-                            Entrevista · {{ item.resultado_etiqueta }}
-                        </p>
-                        <p class="text-xs text-muted-foreground">
-                            {{ fecha(item.realizada_en) }} ·
-                            {{ item.entrevistador ?? '—' }}
-                        </p>
-                        <p v-if="item.observaciones" class="mt-1">
-                            {{ item.observaciones }}
-                        </p>
-                    </article>
-
-                    <article
-                        v-for="item in candidato.psicometricas"
-                        :key="`p${item.id}`"
-                        class="rounded-xl bg-[var(--mrl-fondo)] p-3 text-sm"
-                    >
-                        <p class="font-medium">
-                            Psicométricas<template
-                                v-if="item.revision_resultado"
-                            >
-                                · revisión:
-                                {{
-                                    item.revision_resultado === 'viable'
-                                        ? 'en perfil'
-                                        : 'fuera de perfil'
-                                }}</template
-                            >
-                        </p>
-                        <p
-                            v-if="item.link"
-                            class="text-xs text-muted-foreground"
-                        >
-                            Link enviado {{ fecha(item.enviada_en) }}
-                        </p>
-                        <p v-if="item.resumen_resultados" class="mt-1">
-                            {{ item.resumen_resultados }}
-                        </p>
-                        <div
-                            v-if="item.evidencias.length"
-                            class="mt-2 flex flex-wrap gap-2"
-                        >
-                            <Button
-                                v-for="ev in item.evidencias"
-                                :key="ev.id"
-                                size="sm"
-                                variant="outline"
-                                @click="evidenciaActiva = ev"
-                            >
-                                <Brain class="size-4" /> Psicométrico ·
-                                {{ ev.nombre }}
-                            </Button>
-                        </div>
-                    </article>
-
-                    <article
-                        v-for="item in candidato.socioeconomicos"
-                        :key="`s${item.id}`"
-                        class="rounded-xl bg-[var(--mrl-fondo)] p-3 text-sm"
-                    >
-                        <p class="font-medium">
-                            Estudio socioeconómico ·
-                            {{ item.resultado_etiqueta }}
-                        </p>
-                        <p class="text-xs text-muted-foreground">
-                            {{ formatearFecha(item.fecha_visita) }} ·
-                            {{ item.visitador ?? '—' }} · {{ item.direccion }}
-                        </p>
-                        <ul class="mt-1 flex flex-wrap gap-x-4 text-xs">
-                            <li
-                                v-for="criterio in item.criterios"
-                                :key="criterio.clave"
-                            >
-                                {{ criterio.etiqueta }}:
-                                <strong>{{ criterio.valor }}</strong>
-                            </li>
-                        </ul>
-                        <p v-if="item.riesgos" class="mt-1">
-                            Riesgos: {{ item.riesgos }}
-                        </p>
-                        <p v-if="item.observaciones" class="mt-1">
-                            {{ item.observaciones }}
-                        </p>
-                        <div
-                            v-if="item.evidencias.length"
-                            class="mt-2 flex flex-wrap gap-2"
-                        >
-                            <Button
-                                v-for="ev in item.evidencias"
-                                :key="ev.id"
-                                size="sm"
-                                variant="outline"
-                                @click="evidenciaActiva = ev"
-                            >
-                                <component
-                                    :is="ev.tipo === 'video' ? Video : Home"
-                                    class="size-4"
-                                />
-                                Socioeconómico · {{ ev.nombre }}
-                            </Button>
-                        </div>
-                    </article>
-
-                    <article
-                        v-for="item in candidato.referencias"
-                        :key="`r${item.id}`"
-                        class="rounded-xl bg-[var(--mrl-fondo)] p-3 text-sm"
-                    >
-                        <p class="font-medium">
-                            Referencia · {{ item.empresa }} ·
-                            {{ item.resultado_etiqueta }}
-                        </p>
-                        <p class="text-xs text-muted-foreground">
-                            {{ item.contacto
-                            }}<template v-if="item.relacion_puesto">
-                                ({{ item.relacion_puesto }})</template
-                            >
-                            · {{ item.telefono ?? 'sin teléfono' }} · validó
-                            {{ item.validada_por ?? '—' }} el
-                            {{ formatearFecha(item.fecha_validacion) }}
-                        </p>
-                        <p v-if="item.observaciones" class="mt-1">
-                            {{ item.observaciones }}
-                        </p>
-                        <div
-                            v-if="item.evidencias.length"
-                            class="mt-2 flex flex-wrap gap-2"
-                        >
-                            <Button
-                                v-for="ev in item.evidencias"
-                                :key="ev.id"
-                                size="sm"
-                                variant="outline"
-                                @click="evidenciaActiva = ev"
-                            >
-                                <Paperclip class="size-4" /> Soporte ·
-                                {{ ev.nombre }}
-                            </Button>
-                        </div>
-                    </article>
-                </section>
-
-                <section
-                    v-if="candidato.intervenciones.length"
-                    class="rounded-2xl border border-warning/40 bg-warning/5 p-5 text-sm"
-                    aria-label="Intervención sobre el rechazo de RH"
-                >
-                    <h2
-                        class="mb-3 flex items-center gap-2 text-sm font-semibold text-warning"
-                    >
-                        <ShieldAlert class="size-4" /> Intervención sobre el
-                        rechazo de RH
-                    </h2>
-
-                    <article
-                        v-for="item in candidato.intervenciones"
-                        :key="item.id"
-                        class="mb-3 rounded-xl bg-[var(--mrl-fondo)] p-3 last:mb-0"
-                    >
-                        <p>
-                            <strong>RH rechazó</strong>
-                            <template v-if="item.rechazo_rh_por">
-                                · {{ item.rechazo_rh_por }}</template
-                            >
-                            <template v-if="item.rechazo_rh_en">
-                                · {{ fecha(item.rechazo_rh_en) }}</template
-                            >
-                        </p>
-                        <p
-                            v-if="item.rechazo_rh_motivo"
-                            class="text-muted-foreground"
-                        >
-                            {{ item.rechazo_rh_motivo }}
-                        </p>
-
-                        <p class="mt-2">
-                            <strong>Intervención solicitada por</strong>
-                            {{ item.gerente_solicitante ?? '—' }} ·
-                            {{ fecha(item.solicitada_en) }} ·
-                            {{ item.ruta_etiqueta }}
-                        </p>
-                        <p class="text-muted-foreground">
-                            {{ item.motivo_solicitud }}
-                        </p>
-
-                        <p class="mt-2">
-                            <strong>{{ item.estado_etiqueta }}</strong>
-                            <template v-if="item.aprobador">
-                                · {{ item.aprobador }} ·
-                                {{ fecha(item.decidida_en) }}</template
-                            >
-                        </p>
-                        <p
-                            v-if="item.comentario_decision"
-                            class="text-muted-foreground"
-                        >
-                            {{ item.comentario_decision }}
-                        </p>
-
-                        <div
-                            v-if="intervencionPendienteId === item.id"
-                            class="mt-3 flex gap-2"
-                        >
-                            <Button size="sm" @click="abrirDecision(true)"
-                                >Aprobar intervención</Button
-                            >
-                            <Button
-                                size="sm"
-                                variant="destructive"
-                                @click="abrirDecision(false)"
-                                >Confirmar rechazo</Button
-                            >
-                        </div>
-                    </article>
-                </section>
-
-                <section
-                    v-if="candidato.invitacion || candidato.credenciales"
-                    class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5 text-sm"
-                >
-                    <h2 class="mb-2 text-sm font-semibold">
-                        QR de contratación
-                    </h2>
-                    <p v-if="candidato.invitacion">
-                        Estado:
-                        <strong>{{
-                            candidato.invitacion.estado_etiqueta
-                        }}</strong>
-                        · vence {{ fecha(candidato.invitacion.expira_en) }}
-                    </p>
-                    <div class="mt-3 flex flex-wrap gap-2">
-                        <Button
-                            v-if="candidato.invitacion"
-                            as-child
-                            size="sm"
-                            variant="outline"
-                        >
-                            <Link
-                                :href="
-                                    verInvitacion.url(candidato.invitacion.id)
-                                "
-                                ><QrCode class="size-4" /> Ver / regenerar
-                                QR</Link
-                            >
-                        </Button>
-                        <Button
-                            v-if="candidato.credenciales"
-                            size="sm"
-                            variant="outline"
-                            @click="dialogoCredenciales = true"
-                        >
-                            <KeyRound class="size-4" />
-                            {{
-                                candidato.credenciales.tiene_cuenta
-                                    ? 'Nueva contraseña temporal'
-                                    : 'Generar credenciales (sin QR)'
-                            }}
-                        </Button>
-                    </div>
-                    <p
-                        v-if="
-                            candidato.credenciales &&
-                            !candidato.credenciales.tiene_cuenta
-                        "
-                        class="mt-2 text-xs text-muted-foreground"
-                    >
-                        Si ya diste el alta en la web sin el QR: genera su
-                        usuario y contraseña temporal. El QR pendiente se revoca
-                        y la persona completa sus datos faltantes en la app.
-                    </p>
-                    <GenerarCredencialesDialog
-                        v-if="candidato.credenciales"
-                        v-model:open="dialogoCredenciales"
-                        :colaborador-id="candidato.credenciales.colaborador_id"
-                        :colaborador-nombre="
-                            candidato.credenciales.colaborador_nombre
-                        "
-                        :tiene-cuenta="candidato.credenciales.tiene_cuenta"
-                        @generadas="router.reload({ only: ['candidato'] })"
-                    />
-                </section>
+                    :candidato="candidato"
+                    :indice="6"
+                    @ver="(ev) => (evidenciaActiva = ev)"
+                />
             </div>
 
-            <div class="flex flex-col gap-5">
-                <AprobacionesResumen :aprobaciones="ciclo.aprobaciones" />
-                <CicloTimeline :items="ciclo.timeline" />
-            </div>
+            <aside
+                class="flex min-w-0 flex-col gap-5"
+                aria-label="Aprobaciones e historial"
+            >
+                <div class="aparece-escalonado" style="--i: 3">
+                    <AprobacionesResumen :aprobaciones="ciclo.aprobaciones" />
+                </div>
+                <div class="aparece-escalonado" style="--i: 4">
+                    <CicloTimeline :items="ciclo.timeline" />
+                </div>
+            </aside>
         </div>
     </div>
 
