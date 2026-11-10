@@ -41,16 +41,18 @@ async function copiar(): Promise<void> {
 
 <template>
     <div
-        class="group flex min-w-0 items-start gap-3 rounded-xl border border-transparent bg-[var(--mrl-fondo)] px-3 py-2.5 transicion-ui hover:border-[var(--mrl-borde)] hover:bg-crema/40"
+        class="group flex min-w-0 items-center gap-2.5 rounded-xl px-2 py-1.5 transicion-ui hover:bg-crema/50"
     >
         <span
-            class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--mrl-superficie)] text-bronce shadow-xs transicion-ui group-hover:scale-105"
+            class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-crema/70 text-bronce transicion-ui group-hover:scale-105"
             aria-hidden="true"
         >
             <component :is="icono" class="size-4" />
         </span>
         <div class="min-w-0 flex-1">
-            <dt class="text-xs text-muted-foreground">{{ etiqueta }}</dt>
+            <dt class="text-[11px] leading-tight text-muted-foreground">
+                {{ etiqueta }}
+            </dt>
             <dd class="text-sm leading-snug font-medium break-words">
                 <slot>
                     <span

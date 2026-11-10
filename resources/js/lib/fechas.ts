@@ -170,8 +170,9 @@ export function formatearFechaHora(valor: string | null | undefined): string {
         return valor;
     }
 
+    // Día sin cero a la izquierda, igual que formatearFecha («5 oct 2026»).
     return fecha.toLocaleString('es-MX', {
-        day: '2-digit',
+        day: 'numeric',
         month: 'short',
         year: 'numeric',
         hour: 'numeric',

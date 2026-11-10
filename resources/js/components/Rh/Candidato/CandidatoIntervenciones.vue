@@ -61,6 +61,8 @@ const emit = defineEmits<{ decidir: [aprueba: boolean] }>();
                     <TextoLargo
                         v-if="item.rechazo_rh_motivo"
                         class="mt-1.5"
+                        etiqueta="Motivo del rechazo"
+                        :autor="item.rechazo_rh_por"
                         :texto="item.rechazo_rh_motivo"
                     />
                 </li>
@@ -77,7 +79,12 @@ const emit = defineEmits<{ decidir: [aprueba: boolean] }>();
                         {{ formatearFechaHora(item.solicitada_en) }} ·
                         {{ item.ruta_etiqueta }}
                     </p>
-                    <TextoLargo class="mt-1.5" :texto="item.motivo_solicitud" />
+                    <TextoLargo
+                        class="mt-1.5"
+                        etiqueta="Motivo de la solicitud"
+                        :autor="item.gerente_solicitante"
+                        :texto="item.motivo_solicitud"
+                    />
                 </li>
                 <li class="relative">
                     <span
@@ -96,6 +103,8 @@ const emit = defineEmits<{ decidir: [aprueba: boolean] }>();
                     <TextoLargo
                         v-if="item.comentario_decision"
                         class="mt-1.5"
+                        etiqueta="Comentario de la decisión"
+                        :autor="item.aprobador"
                         :texto="item.comentario_decision"
                     />
                 </li>

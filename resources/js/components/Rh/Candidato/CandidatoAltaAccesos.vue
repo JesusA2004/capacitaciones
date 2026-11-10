@@ -42,8 +42,9 @@ const dialogoCredenciales = ref(false);
         titulo="Alta en sistemas y accesos"
         :icono="ServerCog"
         tono="oro"
-        descripcion="Aviso a Sistemas, QR de contratación y usuario de la app."
         :indice="indice"
+        plegable
+        resumen="Aviso a Sistemas, QR de contratación y usuario de la app."
     >
         <div class="grid gap-3 lg:grid-cols-2">
             <div

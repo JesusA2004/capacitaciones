@@ -200,6 +200,11 @@ class CandidatoPresenter
         ]);
 
         $invitacion = IncorporacionInvitacion::query()->where('candidato_id', $candidato->id)->latest('id')->first();
+        // Quién escribió las observaciones de cada revisión (aditivo).
+        $revisores = $this->nombresDeUsuarios([
+            ...$candidato->psicometricas->pluck('revisada_por')->all(),
+            ...$candidato->socioeconomicos->pluck('revisado_por')->all(),
+        ]);
 
         return [
             'id' => $candidato->id,
@@ -277,6 +282,7 @@ class CandidatoPresenter
                 'revision_resultado' => $p->revision_resultado?->value,
                 'revision_observaciones' => $p->revision_observaciones,
                 'revisada_en' => $p->revisada_en?->toIso8601String(),
+                'revisada_por' => $revisores[(int) $p->revisada_por] ?? null,
                 'evidencias' => $p->evidencias->map(fn (CandidatoEvidencia $e) => $this->evidencia($e, $candidato, $viewer))->values()->all(),
             ])->values()->all(),
             'socioeconomicos' => $candidato->socioeconomicos->map(fn (CandidatoSocioeconomico $s) => [
@@ -293,6 +299,7 @@ class CandidatoPresenter
                 'resultado_etiqueta' => $s->resultado?->etiqueta() ?? 'Pendiente de revisión',
                 'revisado_en' => $s->revisado_en?->toIso8601String(),
                 'revision_observaciones' => $s->revision_observaciones,
+                'revisado_por' => $revisores[(int) $s->revisado_por] ?? null,
                 'evidencias' => $s->evidencias->map(fn (CandidatoEvidencia $e) => $this->evidencia($e, $candidato, $viewer))->values()->all(),
             ])->values()->all(),
             'referencias' => $candidato->referencias->map(fn (CandidatoReferencia $r) => [
@@ -343,6 +350,35 @@ class CandidatoPresenter
     }
 
     /**
+     * Nombre completo de cada usuario, por id (una sola consulta).
+     *
+     * @param  array<array-key, mixed>  $ids
+     * @return array<int, string>
+     */
+    private function nombresDeUsuarios(array $ids): array
+    {
+        $limpios = [];
+
+        foreach ($ids as $id) {
+            if (is_numeric($id)) {
+                $limpios[(int) $id] = (int) $id;
+            }
+        }
+
+        $nombres = [];
+
+        if ($limpios === []) {
+            return $nombres;
+        }
+
+        foreach (User::query()->whereIn('id', array_values($limpios))->with('colaborador')->get() as $usuario) {
+            $nombres[(int) $usuario->id] = $usuario->nombreCompleto();
+        }
+
+        return $nombres;
+    }
+
+    /**
      * Criterios del estudio socioeconómico listos para mostrar: el tiempo en
      * la vivienda junta años y meses («3 años 4 meses»); una clave fuera del
      * catálogo se muestra tal cual (nunca se oculta).
@@ -376,6 +412,9 @@ class CandidatoPresenter
                 'clave' => $clave,
                 'etiqueta' => $etiquetas[$clave] ?? ucfirst(str_replace('_', ' ', $clave)),
                 'valor' => match (true) {
+                    // Los criterios de sí/no llegan como «1»/«0» cuando el
+                    // estudio se cargó con archivos (multipart): nunca «1».
+                    array_key_exists($clave, $etiquetas) => filter_var($valor, FILTER_VALIDATE_BOOLEAN) ? 'Sí' : 'No',
                     $valor === true => 'Sí',
                     $valor === false => 'No',
                     is_scalar($valor) => (string) $valor,

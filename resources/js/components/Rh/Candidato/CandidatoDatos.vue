@@ -5,7 +5,9 @@ import {
     Building2,
     CalendarCheck,
     CalendarX,
+    ChevronDown,
     CircleCheck,
+    CircleDashed,
     CircleX,
     ClipboardCheck,
     Hexagon,
@@ -17,10 +19,10 @@ import {
     Target,
     UserRoundCheck,
     UserRoundSearch,
-    UsersRound,
     XCircle,
 } from '@lucide/vue';
-import { computed } from 'vue';
+import type { Component } from 'vue';
+import { computed, ref } from 'vue';
 import DatoFicha from '@/components/Rh/Candidato/DatoFicha.vue';
 import SeccionFicha from '@/components/Rh/Candidato/SeccionFicha.vue';
 import TextoLargo from '@/components/Rh/Candidato/TextoLargo.vue';
@@ -28,34 +30,116 @@ import { formatearFecha } from '@/lib/fechas';
 import type { CandidatoFicha } from '@/types';
 
 /**
- * Datos del candidato agrupados por tema (contacto, vacante, reclutamiento)
- * y los requisitos indispensables que contestó al registrarse.
+ * Datos del candidato en una rejilla pareja (contacto, vacante,
+ * reclutamiento): solo se pintan los que tienen valor; los vacíos se juntan
+ * en un renglón «Sin registrar: …». Los requisitos del puesto van con barra
+ * de avance y se despliegan a petición (los que no cumple siempre se ven).
  */
 const props = withDefaults(
     defineProps<{ candidato: CandidatoFicha; indice?: number }>(),
     { indice: 0 },
 );
 
-const telefonoHref = computed(() =>
-    props.candidato.telefono
-        ? `tel:${props.candidato.telefono.replace(/[^\d+]/g, '')}`
-        : null,
+type Dato = {
+    icono: Component;
+    etiqueta: string;
+    valor: string | null;
+    href?: string | null;
+    copiable?: boolean;
+    /** Si está vacío no se anuncia como faltante (dato que no siempre aplica). */
+    opcional?: boolean;
+};
+
+const datos = computed<Dato[]>(() => {
+    const c = props.candidato;
+
+    return [
+        {
+            icono: Phone,
+            etiqueta: 'Teléfono',
+            valor: c.telefono,
+            href: c.telefono
+                ? `tel:${c.telefono.replace(/[^\d+]/g, '')}`
+                : null,
+            copiable: true,
+        },
+        {
+            icono: Mail,
+            etiqueta: 'Correo',
+            valor: c.correo,
+            href: c.correo ? `mailto:${c.correo}` : null,
+            copiable: true,
+        },
+        { icono: BriefcaseBusiness, etiqueta: 'Puesto', valor: c.puesto },
+        { icono: MapPin, etiqueta: 'Sucursal', valor: c.sucursal },
+        {
+            icono: Building2,
+            etiqueta: 'Empresa',
+            valor: c.empresa,
+            opcional: true,
+        },
+        {
+            icono: Hexagon,
+            etiqueta: 'Departamento',
+            valor: c.departamento,
+            opcional: true,
+        },
+        {
+            icono: BadgeCheck,
+            etiqueta: 'Vacante',
+            valor: c.vacante_id
+                ? 'Ligado a una vacante abierta'
+                : c.espontaneo
+                  ? 'Sin vacante ligada (registro espontáneo)'
+                  : null,
+            opcional: true,
+        },
+        { icono: Megaphone, etiqueta: 'Fuente', valor: c.fuente_etiqueta },
+        { icono: Target, etiqueta: 'Campaña', valor: c.campana },
+        {
+            icono: UserRoundSearch,
+            etiqueta: 'Reclutador',
+            valor: c.responsable_rh,
+        },
+        { icono: UserRoundCheck, etiqueta: 'Gerente', valor: c.gerente },
+        {
+            icono: CalendarCheck,
+            etiqueta: 'Contratado',
+            valor: c.contratado_en ? formatearFecha(c.contratado_en) : null,
+            opcional: true,
+        },
+    ];
+});
+
+function tieneValor(dato: Dato): boolean {
+    return !!dato.valor && dato.valor.trim() !== '';
+}
+
+const conValor = computed(() => datos.value.filter(tieneValor));
+const sinRegistrar = computed(() =>
+    datos.value
+        .filter((d) => !tieneValor(d) && !d.opcional)
+        .map((d) => d.etiqueta.toLowerCase()),
 );
 
-const correoHref = computed(() =>
-    props.candidato.correo ? `mailto:${props.candidato.correo}` : null,
+/** Lo esencial en una línea, para cuando la sección está plegada (móvil). */
+const resumen = computed(() =>
+    [props.candidato.telefono, props.candidato.correo]
+        .filter((t): t is string => !!t)
+        .join(' · '),
 );
 
-const requisitosCumplidos = computed(
-    () => props.candidato.respuestas_filtro.filter((r) => r.cumple).length,
+const requisitos = computed(() => props.candidato.respuestas_filtro);
+const cumplidos = computed(
+    () => requisitos.value.filter((r) => r.cumple).length,
 );
-
-const vacante = computed(() =>
-    props.candidato.vacante_id
-        ? 'Ligado a una vacante abierta'
-        : props.candidato.espontaneo
-          ? 'Sin vacante ligada todavía (registro espontáneo)'
-          : null,
+const cumpleTodo = computed(() => cumplidos.value === requisitos.value.length);
+const verRequisitos = ref(false);
+/** Plegado: solo los que NO cumple; desplegado: todos. */
+const requisitosVisibles = computed(() =>
+    verRequisitos.value
+        ? requisitos.value
+        : requisitos.value.filter((r) => !r.cumple),
 );
 </script>
 
@@ -63,8 +147,9 @@ const vacante = computed(() =>
     <SeccionFicha
         titulo="Datos del candidato"
         :icono="IdCard"
-        descripcion="Cómo contactarlo, a qué vacante aspira y quién lleva su proceso."
         :indice="indice"
+        plegable
+        :resumen="resumen"
     >
         <!-- Ya no continuó: lo primero que hay que ver. -->
         <div
@@ -97,106 +182,28 @@ const vacante = computed(() =>
             </div>
         </div>
 
-        <div class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
-            <div class="flex min-w-0 flex-col gap-2">
-                <h3
-                    class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                >
-                    <Phone class="size-3.5" aria-hidden="true" /> Contacto
-                </h3>
-                <dl class="grid gap-2">
-                    <DatoFicha
-                        :icono="Phone"
-                        etiqueta="Teléfono"
-                        :valor="candidato.telefono"
-                        :href="telefonoHref"
-                        copiable
-                    />
-                    <DatoFicha
-                        :icono="Mail"
-                        etiqueta="Correo"
-                        :valor="candidato.correo"
-                        :href="correoHref"
-                        copiable
-                    />
-                </dl>
-            </div>
+        <dl class="grid gap-x-3 gap-y-0.5 sm:grid-cols-2 2xl:grid-cols-3">
+            <DatoFicha
+                v-for="dato in conValor"
+                :key="dato.etiqueta"
+                :icono="dato.icono"
+                :etiqueta="dato.etiqueta"
+                :valor="dato.valor"
+                :href="dato.href"
+                :copiable="dato.copiable"
+            />
+        </dl>
 
-            <div class="flex min-w-0 flex-col gap-2">
-                <h3
-                    class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                >
-                    <Target class="size-3.5" aria-hidden="true" /> Vacante
-                </h3>
-                <dl class="grid gap-2">
-                    <DatoFicha
-                        :icono="BriefcaseBusiness"
-                        etiqueta="Puesto"
-                        :valor="candidato.puesto"
-                    />
-                    <DatoFicha
-                        :icono="MapPin"
-                        etiqueta="Sucursal"
-                        :valor="candidato.sucursal"
-                    />
-                    <DatoFicha
-                        v-if="candidato.empresa"
-                        :icono="Building2"
-                        etiqueta="Empresa"
-                        :valor="candidato.empresa"
-                    />
-                    <DatoFicha
-                        v-if="candidato.departamento"
-                        :icono="Hexagon"
-                        etiqueta="Departamento"
-                        :valor="candidato.departamento"
-                    />
-                    <DatoFicha
-                        v-if="vacante"
-                        :icono="BadgeCheck"
-                        etiqueta="Vacante"
-                        :valor="vacante"
-                    />
-                </dl>
-            </div>
-
-            <div class="flex min-w-0 flex-col gap-2">
-                <h3
-                    class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-                >
-                    <UsersRound class="size-3.5" aria-hidden="true" />
-                    Reclutamiento
-                </h3>
-                <dl class="grid gap-2">
-                    <DatoFicha
-                        :icono="Megaphone"
-                        etiqueta="Fuente"
-                        :valor="candidato.fuente_etiqueta"
-                    />
-                    <DatoFicha
-                        :icono="Target"
-                        etiqueta="Campaña"
-                        :valor="candidato.campana"
-                    />
-                    <DatoFicha
-                        :icono="UserRoundSearch"
-                        etiqueta="Reclutamiento"
-                        :valor="candidato.responsable_rh"
-                    />
-                    <DatoFicha
-                        :icono="UserRoundCheck"
-                        etiqueta="Gerente"
-                        :valor="candidato.gerente"
-                    />
-                    <DatoFicha
-                        v-if="candidato.contratado_en"
-                        :icono="CalendarCheck"
-                        etiqueta="Contratado"
-                        :valor="formatearFecha(candidato.contratado_en)"
-                    />
-                </dl>
-            </div>
-        </div>
+        <p
+            v-if="sinRegistrar.length"
+            class="flex items-start gap-1.5 text-xs text-muted-foreground"
+            data-sin-registrar
+        >
+            <CircleDashed class="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+            <span class="min-w-0 break-words"
+                >Sin registrar: {{ sinRegistrar.join(', ') }}</span
+            >
+        </p>
 
         <TextoLargo
             v-if="candidato.observaciones"
@@ -205,31 +212,68 @@ const vacante = computed(() =>
         />
 
         <div
-            v-if="candidato.respuestas_filtro.length"
-            class="flex flex-col gap-2"
+            v-if="requisitos.length"
+            class="flex flex-col gap-2 rounded-xl bg-[var(--mrl-fondo)] p-3"
+            data-requisitos
         >
-            <h3
-                class="flex flex-wrap items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase"
-            >
-                <ClipboardCheck class="size-3.5" aria-hidden="true" />
-                Requisitos del puesto
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <h3
+                    class="flex items-center gap-1.5 text-sm font-semibold"
+                    id="requisitos-puesto"
+                >
+                    <ClipboardCheck
+                        class="size-4 text-bronce"
+                        aria-hidden="true"
+                    />
+                    Requisitos del puesto
+                </h3>
+                <div
+                    class="h-2 min-w-24 flex-1 overflow-hidden rounded-full bg-[var(--mrl-superficie)]"
+                    role="progressbar"
+                    aria-labelledby="requisitos-puesto"
+                    :aria-valuenow="cumplidos"
+                    aria-valuemin="0"
+                    :aria-valuemax="requisitos.length"
+                >
+                    <div
+                        class="h-full rounded-full transicion-ui"
+                        :class="cumpleTodo ? 'bg-success' : 'bg-warning'"
+                        :style="{
+                            width: `${(cumplidos / requisitos.length) * 100}%`,
+                        }"
+                    />
+                </div>
                 <span
-                    class="rounded-full px-2 py-0.5 text-[11px] font-semibold tracking-normal normal-case"
+                    class="rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums"
                     :class="
-                        requisitosCumplidos ===
-                        candidato.respuestas_filtro.length
+                        cumpleTodo
                             ? 'bg-success-soft text-success'
                             : 'bg-warning-soft text-warning'
                     "
-                    >Cumple {{ requisitosCumplidos }} de
-                    {{ candidato.respuestas_filtro.length }}</span
+                    >Cumple {{ cumplidos }} de {{ requisitos.length }}</span
                 >
-            </h3>
-            <ul class="grid gap-2 md:grid-cols-2">
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-1 rounded-md text-xs font-semibold text-[var(--mrl-petroleo)] hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    :aria-expanded="verRequisitos"
+                    @click="verRequisitos = !verRequisitos"
+                >
+                    {{ verRequisitos ? 'Ocultar' : 'Ver detalle' }}
+                    <ChevronDown
+                        class="size-3.5 transicion-ui"
+                        :class="verRequisitos ? 'rotate-180' : ''"
+                        aria-hidden="true"
+                    />
+                </button>
+            </div>
+            <ul
+                v-if="requisitosVisibles.length"
+                class="grid gap-1.5 md:grid-cols-2"
+            >
                 <li
-                    v-for="(r, i) in candidato.respuestas_filtro"
+                    v-for="(r, i) in requisitosVisibles"
                     :key="i"
-                    class="flex items-start gap-2.5 rounded-xl px-3 py-2 text-sm transicion-ui hover:-translate-y-0.5"
+                    class="flex entrada-suave items-start gap-2 rounded-lg px-2.5 py-1.5 text-sm"
                     :class="r.cumple ? 'bg-success-soft' : 'bg-danger-soft'"
                 >
                     <component

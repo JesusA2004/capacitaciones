@@ -1,6 +1,17 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ArrowRight, FileText, FolderOpen, Route, UserX } from '@lucide/vue';
+import {
+    ArrowRight,
+    ClipboardList,
+    FileText,
+    FolderOpen,
+    History,
+    LayoutDashboard,
+    Route,
+    UserSearch,
+    UserX,
+} from '@lucide/vue';
+import type { Component } from 'vue';
 import { computed, onMounted, ref } from 'vue';
 import {
     decidir,
@@ -9,7 +20,6 @@ import {
 import AccionesCiclo from '@/components/ciclo/AccionesCiclo.vue';
 import AprobacionesResumen from '@/components/ciclo/AprobacionesResumen.vue';
 import CicloStepper from '@/components/ciclo/CicloStepper.vue';
-import CicloTimeline from '@/components/ciclo/CicloTimeline.vue';
 import Casilla from '@/components/Common/Casilla.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import DateTimePicker from '@/components/Common/DateTimePicker.vue';
@@ -23,14 +33,17 @@ import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import type { ResumenAvisoSistemas } from '@/components/Rh/AvisoAltaSistemas.vue';
 import CandidatoAltaAccesos from '@/components/Rh/Candidato/CandidatoAltaAccesos.vue';
+import CandidatoAtajos from '@/components/Rh/Candidato/CandidatoAtajos.vue';
 import CandidatoDatos from '@/components/Rh/Candidato/CandidatoDatos.vue';
 import CandidatoEvaluaciones from '@/components/Rh/Candidato/CandidatoEvaluaciones.vue';
 import CandidatoHero from '@/components/Rh/Candidato/CandidatoHero.vue';
+import CandidatoHistorial from '@/components/Rh/Candidato/CandidatoHistorial.vue';
 import CandidatoIntervenciones from '@/components/Rh/Candidato/CandidatoIntervenciones.vue';
 import CandidatoExpedientePanel from '@/components/Rh/CandidatoExpedientePanel.vue';
 import CandidatoFormDialog from '@/components/Rh/CandidatoFormDialog.vue';
 import CandidatoPerfilPuesto from '@/components/Rh/CandidatoPerfilPuesto.vue';
 import { Button } from '@/components/ui/button';
+import CambioSuave from '@/components/ui/CambioSuave.vue';
 import {
     Dialog,
     DialogContent,
@@ -125,6 +138,129 @@ defineOptions({
             { title: pageProps.candidato.nombre_completo, href: '' },
         ],
     }),
+});
+
+/**
+ * Pestañas de la ficha: lo de todos los días en «Resumen» y cada tema
+ * pesado en la suya, para no hacer una sola fila larga. La activa se recuerda
+ * en la URL (`?pestana=`, se puede compartir) y en este navegador.
+ */
+type Pestana =
+    'resumen' | 'evaluaciones' | 'expediente' | 'perfil' | 'historial';
+
+const CLAVE_PESTANA = 'people:ficha-candidato:pestana';
+const pestana = ref<Pestana>('resumen');
+
+const totalEvaluaciones = computed(
+    () =>
+        props.candidato.entrevistas.length +
+        props.candidato.psicometricas.length +
+        props.candidato.socioeconomicos.length +
+        props.candidato.referencias.length,
+);
+
+const pestanas = computed(() =>
+    (
+        [
+            {
+                clave: 'resumen',
+                etiqueta: 'Resumen',
+                icono: LayoutDashboard,
+                total: null,
+            },
+            {
+                clave: 'evaluaciones',
+                etiqueta: 'Evaluaciones',
+                icono: ClipboardList,
+                total: totalEvaluaciones.value,
+            },
+            {
+                clave: 'expediente',
+                etiqueta: 'Expediente y archivos',
+                icono: FolderOpen,
+                total: props.candidato.expediente.total,
+            },
+            {
+                clave: 'perfil',
+                etiqueta: 'Perfil del puesto',
+                icono: UserSearch,
+                total: null,
+            },
+            {
+                clave: 'historial',
+                etiqueta: 'Historial',
+                icono: History,
+                total: props.ciclo.timeline.length,
+            },
+        ] satisfies {
+            clave: Pestana;
+            etiqueta: string;
+            icono: Component;
+            total: number | null;
+        }[]
+    ).filter((p) => p.clave !== 'perfil' || !!props.perfilPuesto),
+);
+
+function esPestana(valor: string | null): valor is Pestana {
+    return pestanas.value.some((p) => p.clave === valor);
+}
+
+function irA(clave: Pestana, enfocar = false): void {
+    pestana.value = clave;
+
+    const url = new URL(window.location.href);
+
+    if (clave === 'resumen') {
+        url.searchParams.delete('pestana');
+    } else {
+        url.searchParams.set('pestana', clave);
+    }
+
+    // Mismo estado de Inertia: solo cambia la dirección visible.
+    window.history.replaceState(window.history.state, '', url);
+
+    try {
+        window.localStorage.setItem(CLAVE_PESTANA, clave);
+    } catch {
+        // Navegación privada o almacenamiento bloqueado: la URL basta.
+    }
+
+    if (enfocar) {
+        document
+            .getElementById('ficha-pestanas')
+            ?.scrollIntoView({ block: 'start', behavior: 'auto' });
+    }
+}
+
+/** Flechas ← → entre pestañas (patrón de tablist). */
+function moverPestana(evento: KeyboardEvent): void {
+    const claves = pestanas.value.map((p) => p.clave);
+    const paso = evento.key === 'ArrowRight' ? 1 : -1;
+    const siguiente =
+        claves[
+            (claves.indexOf(pestana.value) + paso + claves.length) %
+                claves.length
+        ];
+
+    irA(siguiente);
+    document.getElementById(`pestana-${siguiente}`)?.focus();
+}
+
+onMounted(() => {
+    const deUrl = new URLSearchParams(window.location.search).get('pestana');
+    let guardada: string | null = null;
+
+    try {
+        guardada = window.localStorage.getItem(CLAVE_PESTANA);
+    } catch {
+        guardada = null;
+    }
+
+    if (esPestana(deUrl)) {
+        pestana.value = deUrl;
+    } else if (esPestana(guardada)) {
+        pestana.value = guardada;
+    }
 });
 
 const editar = ref(false);
@@ -589,95 +725,201 @@ const esDecisionViable = computed(() =>
             <CicloStepper data-tour="candidato-pasos" :pasos="ciclo.pasos" />
         </div>
 
+        <!-- Lo que sigue y quién ya aprobó: visible sin desplazarse. -->
         <div class="grid gap-5 lg:grid-cols-3">
-            <div class="flex min-w-0 flex-col gap-5 lg:col-span-2">
-                <div class="aparece-escalonado" style="--i: 3">
-                    <SiguientePasoPanel
-                        data-tour="candidato-estado"
-                        :paso="siguientePaso"
-                        @dialogo="abrirPorClave"
-                    >
-                        <div data-tour="candidato-acciones">
-                            <AccionesCiclo
-                                :acciones="accionesRestantes"
-                                :sin-principal="!!siguientePaso.accion"
-                                @accion="abrir"
-                            />
-                        </div>
-                        <BotonReabrir :reaperturas="reaperturas" />
-                    </SiguientePasoPanel>
-                </div>
+            <div
+                class="min-w-0 aparece-escalonado lg:col-span-2 [&>section]:h-full"
+                style="--i: 3"
+            >
+                <SiguientePasoPanel
+                    data-tour="candidato-estado"
+                    :paso="siguientePaso"
+                    @dialogo="abrirPorClave"
+                >
+                    <div data-tour="candidato-acciones">
+                        <AccionesCiclo
+                            :acciones="accionesRestantes"
+                            :sin-principal="!!siguientePaso.accion"
+                            @accion="abrir"
+                        />
+                    </div>
+                    <BotonReabrir :reaperturas="reaperturas" />
+                </SiguientePasoPanel>
+            </div>
+            <!-- En pantallas angostas las aprobaciones bajan al Resumen,
+                 para que las pestañas queden cerca del siguiente paso. -->
+            <div
+                class="hidden min-w-0 aparece-escalonado lg:block [&>section]:h-full"
+                style="--i: 3"
+            >
+                <AprobacionesResumen :aprobaciones="ciclo.aprobaciones" />
+            </div>
+        </div>
 
-                <!-- Alta en sistemas: aviso a Sistemas + QR + credenciales. -->
-                <CandidatoAltaAccesos
-                    v-if="
-                        avisoSistemas ||
-                        candidato.invitacion ||
-                        candidato.credenciales
+        <!-- Pestañas: cada tema en su lugar en vez de una fila larga. -->
+        <div
+            id="ficha-pestanas"
+            class="-mx-1 flex scroll-mt-20 gap-1.5 overflow-x-auto px-1 py-1"
+            role="tablist"
+            aria-label="Secciones de la ficha"
+            @keydown.left.prevent="moverPestana"
+            @keydown.right.prevent="moverPestana"
+        >
+            <button
+                v-for="p in pestanas"
+                :id="`pestana-${p.clave}`"
+                :key="p.clave"
+                type="button"
+                role="tab"
+                :aria-selected="pestana === p.clave"
+                :aria-controls="`panel-${p.clave}`"
+                :tabindex="pestana === p.clave ? 0 : -1"
+                class="inline-flex shrink-0 items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transicion-ui focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                :class="
+                    pestana === p.clave
+                        ? 'border-primary/30 bg-[var(--mrl-petroleo)] text-[var(--mrl-superficie)] shadow-sm'
+                        : 'border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] text-muted-foreground hover:-translate-y-0.5 hover:bg-crema/60 hover:text-foreground'
+                "
+                @click="irA(p.clave)"
+            >
+                <component :is="p.icono" class="size-4" aria-hidden="true" />
+                {{ p.etiqueta }}
+                <span
+                    v-if="p.total !== null"
+                    class="rounded-full px-1.5 text-xs tabular-nums"
+                    :class="
+                        pestana === p.clave
+                            ? 'bg-[var(--mrl-superficie)]/20'
+                            : 'bg-crema text-bronce'
                     "
-                    :candidato="candidato"
-                    :aviso-sistemas="avisoSistemas"
-                    :indice="4"
-                />
+                    >{{ p.total }}</span
+                >
+            </button>
+        </div>
 
-                <CandidatoDatos :candidato="candidato" :indice="4" />
-
+        <CambioSuave>
+            <!-- Resumen -->
+            <div
+                v-if="pestana === 'resumen'"
+                id="panel-resumen"
+                key="resumen"
+                role="tabpanel"
+                aria-labelledby="pestana-resumen"
+                class="flex min-w-0 flex-col gap-5"
+            >
                 <CandidatoIntervenciones
                     v-if="candidato.intervenciones.length"
                     :intervenciones="candidato.intervenciones"
                     :intervencion-pendiente-id="intervencionPendienteId"
-                    :indice="5"
+                    :indice="1"
                     @decidir="abrirDecision"
                 />
 
-                <div
-                    v-if="perfilPuesto"
-                    class="aparece-escalonado"
-                    style="--i: 5"
-                >
-                    <CandidatoPerfilPuesto :perfil="perfilPuesto" />
-                </div>
+                <CandidatoAtajos
+                    :candidato="candidato"
+                    :perfil-puesto="perfilPuesto"
+                    @ir="(clave) => irA(clave, true)"
+                />
 
-                <div class="aparece-escalonado" style="--i: 6">
-                    <CandidatoExpedientePanel
-                        :candidato-id="candidato.id"
-                        :expediente="candidato.expediente"
-                        :puede-adjuntar="puedeAdjuntar"
-                        :limites="limitesArchivos"
-                        :socioeconomico-registrado="
-                            candidato.socioeconomicos.length > 0
-                        "
-                        :hay-referencias="candidato.referencias.length > 0"
-                        @ver="(ev) => (evidenciaActiva = ev)"
-                        @ver-cv="cvAbierto = true"
+                <div class="grid items-start gap-5 xl:grid-cols-3">
+                    <div class="flex min-w-0 flex-col gap-5 xl:col-span-2">
+                        <CandidatoDatos :candidato="candidato" :indice="2" />
+
+                        <!-- Alta en sistemas: aviso a Sistemas + QR + credenciales. -->
+                        <CandidatoAltaAccesos
+                            v-if="
+                                avisoSistemas ||
+                                candidato.invitacion ||
+                                candidato.credenciales
+                            "
+                            :candidato="candidato"
+                            :aviso-sistemas="avisoSistemas"
+                            :indice="3"
+                        />
+                    </div>
+                    <CandidatoHistorial
+                        :items="ciclo.timeline"
+                        modo="resumen"
+                        :indice="3"
+                        @ver-todo="irA('historial', true)"
                     />
                 </div>
 
+                <div class="lg:hidden">
+                    <AprobacionesResumen :aprobaciones="ciclo.aprobaciones" />
+                </div>
+            </div>
+
+            <!-- Evaluaciones -->
+            <div
+                v-else-if="pestana === 'evaluaciones'"
+                id="panel-evaluaciones"
+                key="evaluaciones"
+                role="tabpanel"
+                aria-labelledby="pestana-evaluaciones"
+                class="min-w-0"
+            >
                 <CandidatoEvaluaciones
-                    v-if="
-                        candidato.entrevistas.length ||
-                        candidato.psicometricas.length ||
-                        candidato.socioeconomicos.length ||
-                        candidato.referencias.length
-                    "
+                    v-if="totalEvaluaciones"
                     :candidato="candidato"
-                    :indice="6"
                     @ver="(ev) => (evidenciaActiva = ev)"
+                />
+                <p
+                    v-else
+                    class="flex items-center gap-2 rounded-2xl border border-dashed border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5 text-sm text-muted-foreground"
+                >
+                    <ClipboardList class="size-5" aria-hidden="true" />
+                    Aún no hay evaluaciones registradas.
+                </p>
+            </div>
+
+            <!-- Expediente y archivos -->
+            <div
+                v-else-if="pestana === 'expediente'"
+                id="panel-expediente"
+                key="expediente"
+                role="tabpanel"
+                aria-labelledby="pestana-expediente"
+                class="min-w-0"
+            >
+                <CandidatoExpedientePanel
+                    :candidato-id="candidato.id"
+                    :expediente="candidato.expediente"
+                    :puede-adjuntar="puedeAdjuntar"
+                    :limites="limitesArchivos"
+                    :socioeconomico-registrado="
+                        candidato.socioeconomicos.length > 0
+                    "
+                    :hay-referencias="candidato.referencias.length > 0"
+                    @ver="(ev) => (evidenciaActiva = ev)"
+                    @ver-cv="cvAbierto = true"
                 />
             </div>
 
-            <aside
-                class="flex min-w-0 flex-col gap-5"
-                aria-label="Aprobaciones e historial"
+            <!-- Perfil del puesto -->
+            <div
+                v-else-if="pestana === 'perfil' && perfilPuesto"
+                id="panel-perfil"
+                key="perfil"
+                role="tabpanel"
+                aria-labelledby="pestana-perfil"
+                class="min-w-0"
             >
-                <div class="aparece-escalonado" style="--i: 3">
-                    <AprobacionesResumen :aprobaciones="ciclo.aprobaciones" />
-                </div>
-                <div class="aparece-escalonado" style="--i: 4">
-                    <CicloTimeline :items="ciclo.timeline" />
-                </div>
-            </aside>
-        </div>
+                <CandidatoPerfilPuesto :perfil="perfilPuesto" />
+            </div>
+
+            <!-- Historial completo -->
+            <div
+                v-else
+                id="panel-historial"
+                key="historial"
+                role="tabpanel"
+                aria-labelledby="pestana-historial"
+                class="min-w-0"
+            >
+                <CandidatoHistorial :items="ciclo.timeline" modo="completo" />
+            </div>
+        </CambioSuave>
     </div>
 
     <Dialog

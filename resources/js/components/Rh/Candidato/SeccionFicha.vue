@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { ChevronDown } from '@lucide/vue';
 import type { Component } from 'vue';
+import { onMounted, ref, useId } from 'vue';
 import { TONO_SUAVE } from '@/lib/tonos';
 import type { Tono } from '@/lib/tonos';
 
@@ -8,8 +10,13 @@ import type { Tono } from '@/lib/tonos';
  * título y una línea que explica qué hay dentro. Entra escalonado según
  * `indice` (la regla global de reduced-motion la apaga) y se eleva un poco
  * al pasar el mouse para que se sienta vivo, sin mover el layout.
+ *
+ * Con `plegable` el encabezado abre y cierra el contenido (acordeón): en
+ * escritorio empieza abierto y en móvil cerrado, mostrando `resumen` en una
+ * línea. El contenido plegado sigue montado (no se pierden diálogos ni
+ * formularios a medias).
  */
-withDefaults(
+const props = withDefaults(
     defineProps<{
         titulo: string;
         icono: Component;
@@ -19,6 +26,11 @@ withDefaults(
         /** Número que acompaña al título (archivos, evaluaciones…). */
         contador?: number | null;
         etiquetaAria?: string | null;
+        plegable?: boolean;
+        /** Línea que se ve cuando está plegada. */
+        resumen?: string | null;
+        /** En móvil también empieza abierta. */
+        abiertaEnMovil?: boolean;
     }>(),
     {
         descripcion: null,
@@ -26,8 +38,24 @@ withDefaults(
         indice: 0,
         contador: null,
         etiquetaAria: null,
+        plegable: false,
+        resumen: null,
+        abiertaEnMovil: false,
     },
 );
+
+const abierta = ref(true);
+const idContenido = useId();
+
+onMounted(() => {
+    if (
+        props.plegable &&
+        !props.abiertaEnMovil &&
+        window.matchMedia('(max-width: 639px)').matches
+    ) {
+        abierta.value = false;
+    }
+});
 </script>
 
 <template>
@@ -56,7 +84,13 @@ withDefaults(
                     >
                 </h2>
                 <p
-                    v-if="descripcion"
+                    v-if="plegable && !abierta && resumen"
+                    class="mt-0.5 text-xs leading-snug break-words text-muted-foreground"
+                >
+                    {{ resumen }}
+                </p>
+                <p
+                    v-else-if="descripcion"
                     class="mt-0.5 text-xs leading-snug break-words text-muted-foreground"
                 >
                     {{ descripcion }}
@@ -68,7 +102,28 @@ withDefaults(
             >
                 <slot name="acciones" />
             </div>
+            <button
+                v-if="plegable"
+                type="button"
+                class="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg px-2 text-xs font-semibold text-[var(--mrl-petroleo)] transicion-ui hover:bg-crema/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                :aria-expanded="abierta"
+                :aria-controls="idContenido"
+                @click="abierta = !abierta"
+            >
+                {{ abierta ? 'Ocultar' : 'Ver detalle' }}
+                <ChevronDown
+                    class="size-4 transicion-ui"
+                    :class="abierta ? 'rotate-180' : ''"
+                    aria-hidden="true"
+                />
+            </button>
         </header>
-        <slot />
+        <div
+            v-show="abierta"
+            :id="idContenido"
+            class="flex min-w-0 flex-col gap-4"
+        >
+            <slot />
+        </div>
     </section>
 </template>

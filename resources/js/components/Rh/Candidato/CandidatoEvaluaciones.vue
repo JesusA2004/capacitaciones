@@ -3,9 +3,12 @@ import {
     Brain,
     Building2,
     CalendarDays,
+    CircleCheck,
+    CircleX,
     ClipboardList,
     Eye,
     Home,
+    Hourglass,
     LayoutList,
     Link2,
     MapPin,
@@ -115,6 +118,40 @@ function tonoViable(resultado: string | null): Tono {
 }
 
 type Psicometrica = CandidatoFicha['psicometricas'][number];
+type Socioeconomico = CandidatoFicha['socioeconomicos'][number];
+type Referencia = CandidatoFicha['referencias'][number];
+
+/**
+ * Campos que el backend ya manda (CandidatoPresenter) y aún no están en el
+ * tipo compartido: se leen aquí, en un solo lugar.
+ */
+function puestoDeQuienValido(item: Referencia): string | null {
+    return (
+        (item as Referencia & { validada_por_puesto?: string | null })
+            .validada_por_puesto ?? null
+    );
+}
+
+/** Quién revisó (y escribió las observaciones de la revisión). */
+function revisor(item: Psicometrica | Socioeconomico): string | null {
+    const extra = item as {
+        revisada_por?: string | null;
+        revisado_por?: string | null;
+    };
+
+    return extra.revisada_por ?? extra.revisado_por ?? null;
+}
+
+/** «Sí»/«No» (o un «1»/«0» de estudios anteriores) → booleano; otro valor → null. */
+function siNo(valor: string): boolean | null {
+    const limpio = valor.trim().toLowerCase();
+
+    if (['sí', 'si', '1', 'true'].includes(limpio)) {
+        return true;
+    }
+
+    return ['no', '0', 'false'].includes(limpio) ? false : null;
+}
 
 /** Sin revisión aún: «esperando resultados» si no ha llegado nada todavía. */
 function etiquetaRevisionPsicometrica(item: Psicometrica): string {
@@ -138,7 +175,6 @@ function etiquetaRevisionPsicometrica(item: Psicometrica): string {
         titulo="Evaluaciones registradas"
         :icono="ClipboardList"
         tono="info"
-        descripcion="Entrevistas, pruebas, visita domiciliaria y referencias, con su resultado y archivos."
         :contador="totalEvaluaciones"
         :indice="indice"
         etiqueta-aria="Evaluaciones del reclutamiento"
@@ -173,7 +209,7 @@ function etiquetaRevisionPsicometrica(item: Psicometrica): string {
         </div>
 
         <CambioSuave>
-            <div :key="pestana" class="grid gap-3 2xl:grid-cols-2">
+            <div :key="pestana" class="grid items-start gap-3 xl:grid-cols-2">
                 <!-- Entrevistas -->
                 <template v-if="ve('entrevistas')">
                     <article
@@ -217,6 +253,8 @@ function etiquetaRevisionPsicometrica(item: Psicometrica): string {
                         </ul>
                         <TextoLargo
                             v-if="item.observaciones"
+                            etiqueta="Observaciones de la entrevista"
+                            :autor="item.entrevistador"
                             :texto="item.observaciones"
                         />
                     </article>
@@ -291,6 +329,7 @@ function etiquetaRevisionPsicometrica(item: Psicometrica): string {
                         <TextoLargo
                             v-if="item.revision_observaciones"
                             etiqueta="Observaciones de la revisión"
+                            :autor="revisor(item)"
                             :texto="item.revision_observaciones"
                         />
                         <div
@@ -385,18 +424,48 @@ function etiquetaRevisionPsicometrica(item: Psicometrica): string {
                         </p>
                         <ul
                             v-if="item.criterios.length"
-                            class="grid gap-1.5 sm:grid-cols-2"
+                            class="flex flex-wrap gap-1.5"
+                            aria-label="Criterios de la visita"
                         >
                             <li
                                 v-for="criterio in item.criterios"
                                 :key="criterio.clave"
-                                class="flex min-w-0 items-center justify-between gap-2 rounded-lg bg-[var(--mrl-superficie)] px-2.5 py-1.5 text-xs"
+                                class="inline-flex max-w-full items-center gap-1.5 rounded-full px-2.5 py-1 text-xs"
+                                :class="
+                                    siNo(criterio.valor) === null
+                                        ? 'bg-[var(--mrl-superficie)]'
+                                        : siNo(criterio.valor)
+                                          ? 'bg-success-soft'
+                                          : 'bg-danger-soft'
+                                "
                             >
+                                <component
+                                    :is="
+                                        siNo(criterio.valor) === null
+                                            ? Hourglass
+                                            : siNo(criterio.valor)
+                                              ? CircleCheck
+                                              : CircleX
+                                    "
+                                    class="size-3.5 shrink-0"
+                                    :class="
+                                        siNo(criterio.valor) === null
+                                            ? 'text-bronce'
+                                            : siNo(criterio.valor)
+                                              ? 'text-success'
+                                              : 'text-destructive'
+                                    "
+                                    aria-hidden="true"
+                                />
                                 <span class="min-w-0 break-words">{{
                                     criterio.etiqueta
                                 }}</span>
                                 <strong class="shrink-0">{{
-                                    criterio.valor
+                                    siNo(criterio.valor) === null
+                                        ? criterio.valor
+                                        : siNo(criterio.valor)
+                                          ? 'Sí'
+                                          : 'No'
                                 }}</strong>
                             </li>
                         </ul>
@@ -409,17 +478,21 @@ function etiquetaRevisionPsicometrica(item: Psicometrica): string {
                                 aria-hidden="true"
                             />
                             <p class="min-w-0 break-words whitespace-pre-line">
-                                <strong>Riesgos:</strong> {{ item.riesgos }}
+                                <strong>Riesgos anotados:</strong> «{{
+                                    item.riesgos
+                                }}»
                             </p>
                         </div>
                         <TextoLargo
                             v-if="item.observaciones"
-                            etiqueta="Observaciones"
+                            etiqueta="Observaciones de la visita"
+                            :autor="item.visitador"
                             :texto="item.observaciones"
                         />
                         <TextoLargo
                             v-if="item.revision_observaciones"
                             etiqueta="Observaciones de la revisión"
+                            :autor="revisor(item)"
                             :texto="item.revision_observaciones"
                         />
                         <div
@@ -474,67 +547,78 @@ function etiquetaRevisionPsicometrica(item: Psicometrica): string {
                                 >{{ item.resultado_etiqueta }}</span
                             >
                         </header>
-                        <ul
-                            class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"
-                        >
-                            <li class="inline-flex items-center gap-1">
+                        <dl class="grid gap-1.5 text-xs sm:grid-cols-2">
+                            <div
+                                class="flex min-w-0 items-start gap-2 rounded-lg bg-[var(--mrl-superficie)] px-2.5 py-1.5"
+                            >
                                 <UserRound
-                                    class="size-3.5"
+                                    class="mt-0.5 size-3.5 shrink-0 text-bronce"
                                     aria-hidden="true"
                                 />
-                                <span class="break-words"
-                                    ><span class="font-medium text-foreground"
-                                        >Dio la referencia:</span
+                                <div class="min-w-0">
+                                    <dt class="text-muted-foreground">
+                                        Dio la referencia
+                                    </dt>
+                                    <dd class="font-medium break-words">
+                                        {{ item.contacto
+                                        }}<template v-if="item.relacion_puesto">
+                                            ·
+                                            {{ item.relacion_puesto }}</template
+                                        >
+                                    </dd>
+                                    <dd
+                                        class="inline-flex items-center gap-1 text-muted-foreground"
                                     >
-                                    {{ item.contacto
-                                    }}<template v-if="item.relacion_puesto">
-                                        ({{ item.relacion_puesto }})</template
-                                    ></span
-                                >
-                            </li>
-                            <li class="inline-flex items-center gap-1">
-                                <Phone class="size-3.5" aria-hidden="true" />
-                                {{ item.telefono ?? 'Sin teléfono' }}
-                            </li>
-                            <li class="inline-flex items-center gap-1">
+                                        <Phone
+                                            class="size-3"
+                                            aria-hidden="true"
+                                        />
+                                        {{ item.telefono ?? 'Sin teléfono' }}
+                                    </dd>
+                                </div>
+                            </div>
+                            <div
+                                class="flex min-w-0 items-start gap-2 rounded-lg bg-[var(--mrl-superficie)] px-2.5 py-1.5"
+                            >
                                 <Building2
-                                    class="size-3.5"
+                                    class="mt-0.5 size-3.5 shrink-0 text-bronce"
                                     aria-hidden="true"
                                 />
-                                <span class="break-words"
-                                    ><span class="font-medium text-foreground"
-                                        >Validó en PEOPLE:</span
+                                <div class="min-w-0">
+                                    <dt class="text-muted-foreground">
+                                        Validó en PEOPLE
+                                    </dt>
+                                    <dd class="font-medium break-words">
+                                        {{ item.validada_por ?? '—'
+                                        }}<template
+                                            v-if="puestoDeQuienValido(item)"
+                                        >
+                                            ·
+                                            {{
+                                                puestoDeQuienValido(item)
+                                            }}</template
+                                        >
+                                    </dd>
+                                    <dd
+                                        class="inline-flex items-center gap-1 text-muted-foreground"
                                     >
-                                    {{ item.validada_por ?? '—'
-                                    }}<template
-                                        v-if="
-                                            (
-                                                item as {
-                                                    validada_por_puesto?:
-                                                        string | null;
-                                                }
-                                            ).validada_por_puesto
-                                        "
-                                    >
-                                        ·
+                                        <CalendarDays
+                                            class="size-3"
+                                            aria-hidden="true"
+                                        />
                                         {{
-                                            (
-                                                item as {
-                                                    validada_por_puesto?:
-                                                        string | null;
-                                                }
-                                            ).validada_por_puesto
-                                        }}</template
-                                    >
-                                    ·
-                                    {{
-                                        formatearFecha(item.fecha_validacion)
-                                    }}</span
-                                >
-                            </li>
-                        </ul>
+                                            formatearFecha(
+                                                item.fecha_validacion,
+                                            )
+                                        }}
+                                    </dd>
+                                </div>
+                            </div>
+                        </dl>
                         <TextoLargo
                             v-if="item.observaciones"
+                            etiqueta="Observaciones"
+                            :autor="item.validada_por"
                             :texto="item.observaciones"
                         />
                         <div
