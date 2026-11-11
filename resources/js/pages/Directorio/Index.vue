@@ -18,7 +18,6 @@ import {
     Users,
     X,
 } from '@lucide/vue';
-import { useMediaQuery } from '@vueuse/core';
 import type { Component } from 'vue';
 import { computed, ref, watch } from 'vue';
 import AyudaBoton from '@/components/Common/AyudaBoton.vue';
@@ -27,7 +26,6 @@ import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import EdicionFilaDirectorio from '@/components/Directorio/EdicionFilaDirectorio.vue';
 import type { OpcionesEdicionDirectorio } from '@/components/Directorio/EdicionFilaDirectorio.vue';
-import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -301,9 +299,6 @@ const grupos = computed<Grupo[]>(() => {
         );
 });
 
-/** En móvil las tres tarjetas van sin ícono para que la etiqueta quepa. */
-const conIconos = useMediaQuery('(min-width: 640px)');
-
 /** Persona que se está editando (diálogo; pantalla completa en móvil). */
 const editando = computed(
     () => lista.value.find((c) => c.id === editandoId.value) ?? null,
@@ -410,65 +405,23 @@ function detalle(c: ColaboradorDirectorio): string {
     <Head title="Directorio" />
 
     <div class="pagina-ancha flex flex-col gap-5">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <CrudPageHeader titulo="Directorio" :icono="Contact" />
-            <div v-if="puedeExportar" class="ml-auto flex gap-2">
-                <Button variant="outline" size="sm" as-child>
-                    <a :href="excel(consultaExportacion).url">
-                        <Download class="size-4" /> Excel
-                    </a>
-                </Button>
-                <Button variant="outline" size="sm" as-child>
-                    <a :href="pdf(consultaExportacion).url">
-                        <Download class="size-4" /> PDF
-                    </a>
-                </Button>
-            </div>
-        </div>
-
-        <!-- Conteos -->
-        <section
-            class="grid gap-2.5 sm:gap-3"
-            :class="
-                veTodosLosContactos
-                    ? 'grid-cols-2 sm:grid-cols-4'
-                    : 'grid-cols-3'
-            "
-            aria-label="Resumen del directorio"
+        <!-- Exportar sube a la barra superior, junto al breadcrumb: sin renglón vacío. -->
+        <CrudPageHeader
+            v-if="puedeExportar"
+            titulo="Directorio"
+            :icono="Contact"
         >
-            <TarjetaMetrica
-                etiqueta="Personas activas"
-                :valor="totales.personas"
-                :icono="conIconos ? Users : null"
-                tono="primario"
-                detalle="Total de la plantilla activa"
-            />
-            <TarjetaMetrica
-                etiqueta="Corporativo"
-                :valor="totales.corporativo"
-                :icono="conIconos ? Building2 : null"
-                tono="oro"
-                detalle="Personas en Corporativo"
-            />
-            <TarjetaMetrica
-                etiqueta="Sucursales"
-                :valor="totales.sucursales"
-                :icono="conIconos ? Store : null"
-                tono="info"
-                detalle="Personas en sucursales"
-            />
-            <TarjetaMetrica
-                v-if="veTodosLosContactos"
-                etiqueta="Datos por completar"
-                :valor="totales.porCompletar"
-                :icono="conIconos ? MailX : null"
-                tono="alerta"
-                detalle="Aparecen con aviso, no se ocultan"
-                clicable
-                :activa="soloPorCompletar"
-                @click="soloPorCompletar = !soloPorCompletar"
-            />
-        </section>
+            <Button variant="outline" size="sm" as-child>
+                <a :href="excel(consultaExportacion).url">
+                    <Download class="size-4" /> Excel
+                </a>
+            </Button>
+            <Button variant="outline" size="sm" as-child>
+                <a :href="pdf(consultaExportacion).url">
+                    <Download class="size-4" /> PDF
+                </a>
+            </Button>
+        </CrudPageHeader>
 
         <!-- Organizar + buscar -->
         <section
@@ -536,9 +489,53 @@ function detalle(c: ColaboradorDirectorio): string {
                 class="h-11"
                 @click="soloPorCompletar = !soloPorCompletar"
             >
-                Solo datos por completar
+                <MailX class="size-4" />
+                Datos por completar
+                <span
+                    class="rounded-full px-2 py-0.5 text-xs font-bold tabular-nums"
+                    :class="
+                        soloPorCompletar
+                            ? 'bg-white/25'
+                            : 'bg-warning-soft text-warning'
+                    "
+                    >{{ totales.porCompletar }}</span
+                >
             </Button>
         </section>
+
+        <!-- Resumen en un renglón: cuánta gente hay y dónde está -->
+        <p
+            class="-mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-sm text-muted-foreground"
+            aria-label="Resumen del directorio"
+        >
+            <span class="inline-flex items-center gap-1.5">
+                <Users class="size-4" />
+                <strong
+                    class="font-semibold text-[var(--mrl-texto)] tabular-nums"
+                    >{{ filtrados.length }}</strong
+                >
+                <template v-if="filtrados.length !== totales.personas">
+                    de {{ totales.personas }}
+                </template>
+                {{ totales.personas === 1 ? 'persona' : 'personas' }}
+            </span>
+            <span class="inline-flex items-center gap-1.5">
+                <Building2 class="size-4" />
+                <strong
+                    class="font-semibold text-[var(--mrl-texto)] tabular-nums"
+                    >{{ totales.corporativo }}</strong
+                >
+                en Corporativo
+            </span>
+            <span class="inline-flex items-center gap-1.5">
+                <Store class="size-4" />
+                <strong
+                    class="font-semibold text-[var(--mrl-texto)] tabular-nums"
+                    >{{ totales.sucursales }}</strong
+                >
+                en sucursales
+            </span>
+        </p>
 
         <EmptyState
             v-if="grupos.length === 0"
@@ -591,144 +588,151 @@ function detalle(c: ColaboradorDirectorio): string {
                     <li
                         v-for="c in personasVisibles(grupo)"
                         :key="c.id"
-                        class="flex items-center gap-3 px-4 py-3"
+                        class="flex flex-col gap-2 px-4 py-3"
                     >
-                        <ColaboradorAvatar
-                            :nombre="c.nombre"
-                            :foto-url="c.foto_url"
-                            tamano="lg"
-                        />
-                        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
-                            <p
-                                class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm font-semibold text-[var(--mrl-texto)]"
-                            >
-                                <span class="min-w-0 truncate">{{
-                                    c.nombre
-                                }}</span>
+                        <div class="flex items-center gap-3">
+                            <ColaboradorAvatar
+                                :nombre="c.nombre"
+                                :foto-url="c.foto_url"
+                                tamano="lg"
+                            />
+                            <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+                                <p
+                                    class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm font-semibold text-[var(--mrl-texto)]"
+                                >
+                                    <span class="min-w-0 truncate">{{
+                                        c.nombre
+                                    }}</span>
+                                    <span
+                                        v-if="c.es_mi_jefe"
+                                        class="rounded-full bg-salvia px-2 py-0.5 text-[11px] font-medium text-primary"
+                                        >Tu jefe</span
+                                    >
+                                </p>
+                                <p
+                                    class="truncate text-xs text-muted-foreground"
+                                >
+                                    {{ detalle(c) }}
+                                </p>
                                 <span
-                                    v-if="c.es_mi_jefe"
-                                    class="rounded-full bg-salvia px-2 py-0.5 text-[11px] font-medium text-primary"
-                                    >Tu jefe</span
+                                    v-if="c.datos_por_completar === true"
+                                    class="mt-0.5 inline-flex w-fit items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning"
                                 >
-                            </p>
-                            <p class="truncate text-xs text-muted-foreground">
-                                {{ detalle(c) }}
-                            </p>
-                            <span
-                                v-if="c.datos_por_completar === true"
-                                class="mt-0.5 inline-flex w-fit items-center gap-1 rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium text-warning"
-                            >
-                                <MailX class="size-3" />
-                                Datos por completar · {{ faltantes(c) }}
-                            </span>
-                            <Link
-                                v-if="c.expediente_url"
-                                :href="c.expediente_url"
-                                class="mt-0.5 w-fit text-xs font-medium text-primary hover:underline"
-                                >Abrir expediente</Link
-                            >
-                            <dl
-                                v-if="contactos(c).length > 0"
-                                class="mt-1 flex flex-col gap-0.5"
-                            >
-                                <div
-                                    v-for="dato in contactos(c)"
-                                    :key="dato.clave"
-                                    class="flex min-w-0 items-center gap-1.5 text-xs"
-                                    :data-contacto="dato.clave"
+                                    <MailX class="size-3" />
+                                    Datos por completar · {{ faltantes(c) }}
+                                </span>
+                                <Link
+                                    v-if="c.expediente_url"
+                                    :href="c.expediente_url"
+                                    class="mt-0.5 w-fit text-xs font-medium text-primary hover:underline"
+                                    >Abrir expediente</Link
                                 >
-                                    <dt
-                                        class="w-[5.25rem] shrink-0 text-muted-foreground"
-                                    >
-                                        {{ dato.etiqueta }}:
-                                    </dt>
-                                    <dd
-                                        class="min-w-0 flex-1 truncate font-medium text-[var(--mrl-texto)]"
-                                        :class="
-                                            dato.clave === 'telefono'
-                                                ? 'tabular-nums'
-                                                : ''
-                                        "
-                                        :title="dato.valor"
-                                    >
-                                        {{ dato.valor }}
-                                    </dd>
-                                    <button
-                                        type="button"
-                                        class="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-[var(--mrl-fondo)] hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                                        :aria-label="
-                                            copiado === `${c.id}:${dato.clave}`
-                                                ? 'Copiado'
-                                                : `Copiar ${dato.nombre} de ${c.nombre}`
-                                        "
-                                        :title="
-                                            copiado === `${c.id}:${dato.clave}`
-                                                ? 'Copiado'
-                                                : 'Copiar'
-                                        "
-                                        @click="copiar(c.id, dato)"
-                                    >
-                                        <Check
-                                            v-if="
-                                                copiado ===
-                                                `${c.id}:${dato.clave}`
-                                            "
-                                            class="size-3.5 text-success"
-                                        />
-                                        <Copy v-else class="size-3.5" />
-                                    </button>
-                                </div>
-                            </dl>
+                            </div>
+
+                            <div class="flex shrink-0 items-center gap-1.5">
+                                <a
+                                    v-if="
+                                        c.correo_corporativo ||
+                                        c.correo_personal
+                                    "
+                                    :href="`mailto:${c.correo_corporativo || c.correo_personal}`"
+                                    class="flex size-10 items-center justify-center rounded-xl bg-info-soft text-info transition-colors hover:bg-info-soft/70"
+                                    :aria-label="`Escribir a ${c.nombre}`"
+                                    :title="
+                                        c.correo_corporativo ||
+                                        c.correo_personal ||
+                                        undefined
+                                    "
+                                >
+                                    <Mail class="size-5" />
+                                </a>
+                                <a
+                                    v-if="c.telefono"
+                                    :href="`tel:${c.telefono}`"
+                                    class="flex size-10 items-center justify-center rounded-xl bg-success-soft text-success transition-colors hover:bg-success-soft/70"
+                                    :aria-label="`Llamar a ${c.nombre}`"
+                                    :title="c.telefono"
+                                >
+                                    <Phone class="size-5" />
+                                </a>
+                                <span
+                                    v-if="
+                                        !c.correo_corporativo &&
+                                        !c.correo_personal &&
+                                        !c.telefono &&
+                                        c.contacto_visible !== false &&
+                                        c.datos_por_completar !== true
+                                    "
+                                    class="flex size-10 items-center justify-center rounded-xl bg-muted/70 text-muted-foreground/70"
+                                    title="Sin datos de contacto"
+                                    aria-label="Sin datos de contacto"
+                                    role="img"
+                                    ><MailX class="size-4"
+                                /></span>
+                                <button
+                                    v-if="puedeEditar(c)"
+                                    type="button"
+                                    class="flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-[var(--mrl-fondo)] hover:text-[var(--mrl-texto)]"
+                                    :aria-label="`Editar a ${c.nombre}`"
+                                    title="Editar"
+                                    @click="editandoId = c.id"
+                                >
+                                    <Pencil class="size-4" />
+                                </button>
+                            </div>
                         </div>
 
-                        <div class="flex shrink-0 items-center gap-1.5">
-                            <a
-                                v-if="c.correo_corporativo || c.correo_personal"
-                                :href="`mailto:${c.correo_corporativo || c.correo_personal}`"
-                                class="flex size-10 items-center justify-center rounded-xl bg-info-soft text-info transition-colors hover:bg-info-soft/70"
-                                :aria-label="`Escribir a ${c.nombre}`"
-                                :title="
-                                    c.correo_corporativo ||
-                                    c.correo_personal ||
-                                    undefined
-                                "
+                        <!-- Contacto: una sola rejilla, así etiquetas, datos y
+                             botones de copiar quedan en la misma línea vertical. -->
+                        <dl
+                            v-if="contactos(c).length > 0"
+                            class="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 rounded-xl bg-crema/40 py-1 pr-1 pl-3 text-xs"
+                        >
+                            <div
+                                v-for="dato in contactos(c)"
+                                :key="dato.clave"
+                                class="contents"
+                                :data-contacto="dato.clave"
                             >
-                                <Mail class="size-5" />
-                            </a>
-                            <a
-                                v-if="c.telefono"
-                                :href="`tel:${c.telefono}`"
-                                class="flex size-10 items-center justify-center rounded-xl bg-success-soft text-success transition-colors hover:bg-success-soft/70"
-                                :aria-label="`Llamar a ${c.nombre}`"
-                                :title="c.telefono"
-                            >
-                                <Phone class="size-5" />
-                            </a>
-                            <span
-                                v-if="
-                                    !c.correo_corporativo &&
-                                    !c.correo_personal &&
-                                    !c.telefono &&
-                                    c.contacto_visible !== false &&
-                                    c.datos_por_completar !== true
-                                "
-                                class="flex size-10 items-center justify-center rounded-xl bg-muted/70 text-muted-foreground/70"
-                                title="Sin datos de contacto"
-                                aria-label="Sin datos de contacto"
-                                role="img"
-                                ><MailX class="size-4"
-                            /></span>
-                            <button
-                                v-if="puedeEditar(c)"
-                                type="button"
-                                class="flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-[var(--mrl-fondo)] hover:text-[var(--mrl-texto)]"
-                                :aria-label="`Editar a ${c.nombre}`"
-                                title="Editar"
-                                @click="editandoId = c.id"
-                            >
-                                <Pencil class="size-4" />
-                            </button>
-                        </div>
+                                <dt class="text-muted-foreground">
+                                    {{ dato.etiqueta }}:
+                                </dt>
+                                <dd
+                                    class="min-w-0 truncate font-medium text-[var(--mrl-texto)]"
+                                    :class="
+                                        dato.clave === 'telefono'
+                                            ? 'tabular-nums'
+                                            : ''
+                                    "
+                                    :title="dato.valor"
+                                >
+                                    {{ dato.valor }}
+                                </dd>
+                                <button
+                                    type="button"
+                                    class="flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-[var(--mrl-superficie)] hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                    :aria-label="
+                                        copiado === `${c.id}:${dato.clave}`
+                                            ? 'Copiado'
+                                            : `Copiar ${dato.nombre} de ${c.nombre}`
+                                    "
+                                    :title="
+                                        copiado === `${c.id}:${dato.clave}`
+                                            ? 'Copiado'
+                                            : 'Copiar'
+                                    "
+                                    @click="copiar(c.id, dato)"
+                                >
+                                    <Check
+                                        v-if="
+                                            copiado === `${c.id}:${dato.clave}`
+                                        "
+                                        class="size-3.5 text-success"
+                                    />
+                                    <Copy v-else class="size-3.5" />
+                                </button>
+                            </div>
+                        </dl>
                     </li>
                 </ul>
                 <button
