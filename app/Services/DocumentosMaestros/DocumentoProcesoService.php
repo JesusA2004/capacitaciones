@@ -595,15 +595,20 @@ class DocumentoProcesoService
         $this->exigirVer($viewer, $colaborador);
         $requisito = app(RequisitoDocumentosIngresoService::class);
         $completitud = app(PerfilIngresoService::class)->completitud($colaborador);
+        $emision = array_column(app(FechaEmisionIngresoService::class)->estado($colaborador), null, 'clave');
         $items = [];
 
         foreach ($requisito->claves() as $clave) {
             $documento = $completitud['documentos'][$clave] ?? null;
-            $items[] = $this->item($clave, $colaborador, $colaborador, $viewer, 'incorporacion', [
-                'motivo' => $documento === null || $documento['completo']
-                    ? 'Datos completos: revisa la vista previa y genéralo para imprimir y firmar.'
-                    : $documento['mensaje'],
-            ]);
+            $items[] = [
+                ...$this->item($clave, $colaborador, $colaborador, $viewer, 'incorporacion', [
+                    'motivo' => $documento === null || $documento['completo']
+                        ? 'Datos completos: revisa la vista previa y genéralo para imprimir y firmar.'
+                        : $documento['mensaje'],
+                ]),
+                // «Generar» pregunta con qué fecha sale el documento.
+                'emision' => $emision[$clave] ?? null,
+            ];
         }
 
         return [
@@ -810,7 +815,7 @@ class DocumentoProcesoService
      * @param  array<string, string>  $manuales  Datos del acto (testigos…). Solo campos de captura manual; lo demás se corrige con $correcciones.
      * @param  array<string, mixed>|null  $correcciones  Lista blanca de FuenteMaestro. Null conserva las de la versión vigente.
      */
-    public function generar(string $proceso, Model $registro, string $clave, User $actor, array $completar = [], array $manuales = [], bool $regenerar = false, bool $revision = false, ?string $motivoRevision = null, ?array $correcciones = null, ?AlEmitirDocumento $alEmitir = null): GeneratedDocument
+    public function generar(string $proceso, Model $registro, string $clave, User $actor, array $completar = [], array $manuales = [], bool $regenerar = false, bool $revision = false, ?string $motivoRevision = null, ?array $correcciones = null, ?AlEmitirDocumento $alEmitir = null, ?string $fechaEmision = null): GeneratedDocument
     {
         $registro = $this->registroDelDocumento($registro, $clave);
 
@@ -888,6 +893,13 @@ class DocumentoProcesoService
         // Después de rechazar «ya generado»: una petición rechazada no escribe en el expediente.
         if ($completar !== []) {
             $this->completarDatos($colaborador, $completar, $actor);
+        }
+
+        // Solicitud de empleo / Estudio socioeconómico: la «Fecha de emisión»
+        // elegida al generar queda guardada (la lee extraPorClave) y es la
+        // que se imprime; las siguientes versiones parten de la misma.
+        if ($fechaEmision !== null && $registro instanceof Colaborador && FechaEmisionIngresoService::aplica($clave)) {
+            app(FechaEmisionIngresoService::class)->guardar($registro, [$clave => $fechaEmision], $actor);
         }
 
         $this->exigirFechaIngreso($registro, $colaborador);
@@ -1118,7 +1130,7 @@ class DocumentoProcesoService
      * @param  array<string, string>  $correcciones  Ya filtradas por la lista blanca de FuenteMaestro.
      * @return array{pdf: string, nombre: string, faltantes: int}
      */
-    public function vistaPrevia(string $proceso, Model $registro, string $clave, User $actor, array $manuales = [], array $completar = [], bool $marcarPendientes = false, array $correcciones = []): array
+    public function vistaPrevia(string $proceso, Model $registro, string $clave, User $actor, array $manuales = [], array $completar = [], bool $marcarPendientes = false, array $correcciones = [], ?string $fechaEmision = null): array
     {
         $registro = $this->registroDelDocumento($registro, $clave);
 
@@ -1146,6 +1158,12 @@ class DocumentoProcesoService
         $this->exigirManualesPermitidos($clave, $registro, $colaborador, $proceso, $manuales, $actor);
         $extra = $this->datosExtra($clave, $registro, $manuales, $correcciones);
         $nombre = $this->titulo($master, $colaborador);
+
+        // «Fecha de emisión» que RH está por elegir: se ve en la vista previa
+        // sin guardarla (se guarda al generar).
+        if ($fechaEmision !== null && $registro instanceof Colaborador && FechaEmisionIngresoService::aplica($clave)) {
+            $extra['fecha_documento'] = app(FechaEmisionIngresoService::class)->validada($registro, $clave, $fechaEmision)->toDateString();
+        }
 
         // Plantilla heredada (clave sin documento maestro): motor anterior.
         if ($master->estado_master === null) {

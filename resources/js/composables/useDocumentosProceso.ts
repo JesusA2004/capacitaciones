@@ -115,6 +115,8 @@ export function useDocumentosProceso() {
                 motivo?: string;
                 completar?: Record<string, string>;
                 manuales?: Record<string, string>;
+                /** Solicitud de empleo / Estudio socioeconómico (AAAA-MM-DD). */
+                fecha_emision?: string;
             },
         ) =>
             solicitar<{
@@ -161,12 +163,17 @@ export function useDocumentosProceso() {
                 proceso?: string;
                 completar?: Record<string, string>;
                 manuales?: Record<string, string>;
+                fecha_emision?: string;
             },
         ) => {
             const consulta = new URLSearchParams({ clave: parametros.clave });
 
             if (parametros.proceso) {
                 consulta.set('proceso', parametros.proceso);
+            }
+
+            if (parametros.fecha_emision) {
+                consulta.set('fecha_emision', parametros.fecha_emision);
             }
 
             for (const [grupo, valores] of [

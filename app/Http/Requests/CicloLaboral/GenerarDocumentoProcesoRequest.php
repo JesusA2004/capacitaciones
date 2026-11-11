@@ -39,7 +39,17 @@ class GenerarDocumentoProcesoRequest extends FormRequest
             'completar.*' => ['nullable', 'string', 'max:191'],
             'manuales' => ['nullable', 'array', 'max:20'],
             'manuales.*' => ['nullable', 'string', 'max:191'],
+            // Solicitud de empleo / Estudio socioeconómico: fecha con la que
+            // sale el documento (el rango lo valida FechaEmisionIngresoService).
+            'fecha_emision' => ['nullable', 'date_format:Y-m-d'],
         ];
+    }
+
+    public function fechaEmision(): ?string
+    {
+        $fecha = $this->validated('fecha_emision');
+
+        return is_string($fecha) && $fecha !== '' ? $fecha : null;
     }
 
     /**
@@ -51,6 +61,7 @@ class GenerarDocumentoProcesoRequest extends FormRequest
             'motivo.required_if' => 'Escribe el motivo de la nueva versión: queda en la auditoría.',
             'motivo.min' => sprintf('El motivo debe tener al menos %d caracteres.', DocumentoProcesoService::MINIMO_MOTIVO_REGENERAR),
             'motivo.max' => 'El motivo no puede pasar de 500 caracteres.',
+            'fecha_emision.date_format' => 'Elige una fecha de emisión válida.',
         ];
     }
 

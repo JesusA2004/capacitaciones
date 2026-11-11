@@ -38,6 +38,9 @@ class VistaPreviaDocumentoRequest extends FormRequest
             'completar.*' => ['nullable', 'string', 'max:191'],
             'manuales' => ['nullable', 'array', 'max:20'],
             'manuales.*' => ['nullable', 'string', 'max:191'],
+            // Solicitud de empleo / Estudio socioeconómico: fecha con la que
+            // saldría (solo en memoria; se guarda al generar).
+            'fecha_emision' => ['nullable', 'date_format:Y-m-d'],
             'tipo_baja' => ['nullable', Rule::enum(TipoBaja::class)],
             'causal_rotacion_id' => ['nullable', 'integer'],
             'fecha_efectiva' => ['nullable', 'date'],
@@ -70,6 +73,13 @@ class VistaPreviaDocumentoRequest extends FormRequest
     public function manuales(): array
     {
         return array_map('strval', array_filter((array) $this->validated('manuales', []), fn (mixed $v): bool => $v !== null && $v !== ''));
+    }
+
+    public function fechaEmision(): ?string
+    {
+        $fecha = $this->validated('fecha_emision');
+
+        return is_string($fecha) && $fecha !== '' ? $fecha : null;
     }
 
     /**

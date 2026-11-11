@@ -1,3 +1,5 @@
+import type { EmisionDocumentoIngreso } from './solicitudEmpleo';
+
 /**
  * "Documentos del proceso" (motor documental). El backend
  * (DocumentoProcesoService) decide qué documento toca, su estado, la
@@ -116,6 +118,11 @@ export type ItemDocumentoProceso = {
         envio_corporativo: boolean;
     };
     documento: DocumentoGeneradoResumen | null;
+    /**
+     * Solicitud de empleo / Estudio socioeconómico: «Generar» pregunta con
+     * qué fecha sale el documento (la elegida o la de hoy, y su rango).
+     */
+    emision?: EmisionDocumentoIngreso | null;
     linea_tiempo?: PasoLineaTiempo[];
     siguiente_accion?: AccionDocumento | null;
     historial: {

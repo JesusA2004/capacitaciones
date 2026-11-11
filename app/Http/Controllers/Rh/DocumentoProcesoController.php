@@ -102,6 +102,7 @@ class DocumentoProcesoController extends Controller
             (bool) $request->validated('regenerar', false),
             (bool) $request->validated('revision', false),
             $request->validated('motivo') !== null ? (string) $request->validated('motivo') : null,
+            fechaEmision: $request->fechaEmision(),
         );
 
         return response()->json([
@@ -142,6 +143,7 @@ class DocumentoProcesoController extends Controller
             $request->user(),
             $request->manuales(),
             $request->completar(),
+            fechaEmision: $request->fechaEmision(),
         ));
     }
 

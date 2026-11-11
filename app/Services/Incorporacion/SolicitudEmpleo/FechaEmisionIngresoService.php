@@ -189,6 +189,37 @@ class FechaEmisionIngresoService
         });
     }
 
+    /**
+     * Fecha que llega junto con «Generar»/«Vista previa» del documento: mismas
+     * reglas que guardar(), sin escribir nada (la vista previa no guarda).
+     *
+     * @throws ValidationException
+     */
+    public function validada(Colaborador $colaborador, string $clave, string $valor): CarbonImmutable
+    {
+        $nombre = CatalogoSolicitudEmpleo::DOCUMENTOS[$clave] ?? $clave;
+        $limites = $this->limites($colaborador);
+        $fecha = $this->leer($valor);
+
+        if (! self::aplica($clave)) {
+            throw ValidationException::withMessages(['fecha_emision' => 'Solo la Solicitud de Empleo y el Estudio Socioeconómico tienen fecha de emisión.']);
+        }
+
+        if ($fecha === null) {
+            throw ValidationException::withMessages(['fecha_emision' => sprintf('Elige una fecha de emisión válida para %s.', $nombre)]);
+        }
+
+        if ($fecha->lessThan($limites['minimo'])) {
+            throw ValidationException::withMessages(['fecha_emision' => sprintf('La fecha de emisión de %s no puede ser anterior al %s (máximo un año atrás).', $nombre, $this->larga($limites['minimo']))]);
+        }
+
+        if ($fecha->greaterThan($limites['maximo'])) {
+            throw ValidationException::withMessages(['fecha_emision' => sprintf('La fecha de emisión de %s no puede ser posterior al %s.', $nombre, $this->larga($limites['maximo']))]);
+        }
+
+        return $fecha;
+    }
+
     public function fechaIngreso(Colaborador $colaborador): ?CarbonImmutable
     {
         return $colaborador->fecha_ingreso !== null ? CarbonImmutable::parse($colaborador->fecha_ingreso->format('Y-m-d'), FechaMexico::ZONA) : null;

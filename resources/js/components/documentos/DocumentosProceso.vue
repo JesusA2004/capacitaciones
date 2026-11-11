@@ -2,6 +2,7 @@
 import { Link } from '@inertiajs/vue3';
 import {
     AlertTriangle,
+    CalendarDays,
     FileWarning,
     Loader2,
     ServerCrash,
@@ -273,6 +274,8 @@ type Pendiente = {
     regenerar: boolean;
     /** Regenerar (nueva versión): motivo obligatorio, queda en la auditoría. */
     motivo?: string;
+    /** Solicitud de empleo / Estudio socioeconómico: fecha con la que sale. */
+    fechaEmision?: string;
 };
 const faltantes = ref<DatoFaltante[]>([]);
 const pendiente = ref<Pendiente | null>(null);
@@ -331,11 +334,15 @@ async function ejecutarGeneracion(
                       completar: datosColaborador,
                       manuales,
                       ...(p.motivo ? { motivo: p.motivo } : {}),
+                      ...(p.fechaEmision
+                          ? { fecha_emision: p.fechaEmision }
+                          : {}),
                   });
         reemplazar(respuesta.data);
         pendiente.value = null;
         faltantes.value = [];
         regeneracion.value = null;
+        emisionPendiente.value = null;
 
         if ('creado' in respuesta && respuesta.creado === false) {
             toast.info(
@@ -355,6 +362,7 @@ async function ejecutarGeneracion(
             // El modal de datos faltantes toma el relevo (conserva el motivo
             // de la regeneración en `pendiente`).
             regeneracion.value = null;
+            emisionPendiente.value = null;
             pendiente.value = p;
             faltantes.value = e.faltantes;
             nombreDocumentoFaltantes.value =
@@ -409,6 +417,7 @@ function verPrevias(
     items: ItemDocumentoProceso[],
     completar: Record<string, string> = {},
     origen: string = items.length === 1 ? items[0].clave : 'paquete',
+    fechaEmision?: string,
 ) {
     const { manuales, datosColaborador } = separarCapturados(completar);
     origenPrevia.value = { seccion, clave: origen };
@@ -425,10 +434,46 @@ function verPrevias(
                     proceso: seccion.proceso,
                     completar: datosColaborador,
                     manuales,
+                    ...(fechaEmision && item.emision
+                        ? { fecha_emision: fechaEmision }
+                        : {}),
                 },
             ),
         })),
     );
+}
+
+// ───────── Fecha de emisión (Solicitud de empleo / Estudio socioeconómico) ─────────
+// «Generar» pregunta con qué fecha sale el documento: la elegida aquí es la
+// que se imprime (y queda guardada para las siguientes versiones).
+const emisionPendiente = ref<{
+    seccion: Seccion;
+    item: ItemDocumentoProceso;
+    fecha: string;
+} | null>(null);
+
+const formatoFechaLarga = new Intl.DateTimeFormat('es-MX', {
+    dateStyle: 'long',
+    timeZone: 'UTC',
+});
+
+function fechaLegible(iso: string): string {
+    return formatoFechaLarga.format(new Date(`${iso}T00:00:00Z`));
+}
+
+function confirmarEmision() {
+    const e = emisionPendiente.value;
+
+    if (!e || !e.fecha) {
+        return;
+    }
+
+    void ejecutarGeneracion({
+        seccion: e.seccion,
+        clave: e.item.clave,
+        regenerar: false,
+        fechaEmision: e.fecha,
+    });
 }
 
 /** «Previsualizar» del modal de datos faltantes: con lo capturado, sin guardarlo. */
@@ -443,7 +488,7 @@ function previsualizarCapturados() {
         p.clave === null
             ? porGenerar(p.seccion)
             : p.seccion.documentos.filter((d) => d.clave === p.clave);
-    verPrevias(p.seccion, items, capturados(), 'faltantes');
+    verPrevias(p.seccion, items, capturados(), 'faltantes', p.fechaEmision);
 }
 
 // ───────── Regenerar: nueva versión con los datos actuales ─────────
@@ -454,6 +499,8 @@ const regeneracion = ref<{
     seccion: Seccion;
     item: ItemDocumentoProceso;
     motivo: string;
+    /** Solo Solicitud de empleo / Estudio socioeconómico. */
+    fechaEmision: string;
 } | null>(null);
 
 const avisoRegeneracion = computed(() => {
@@ -483,6 +530,9 @@ function confirmarRegeneracion() {
         clave: regeneracion.value.item.clave,
         regenerar: true,
         motivo: regeneracion.value.motivo.trim(),
+        ...(regeneracion.value.item.emision && regeneracion.value.fechaEmision
+            ? { fechaEmision: regeneracion.value.fechaEmision }
+            : {}),
     });
 }
 
@@ -541,6 +591,12 @@ async function alAccionar(
         return;
     }
 
+    if (accion.clave === 'generar' && item.emision) {
+        emisionPendiente.value = { seccion, item, fecha: item.emision.fecha };
+
+        return;
+    }
+
     if (accion.clave === 'generar') {
         await ejecutarGeneracion({
             seccion,
@@ -553,7 +609,12 @@ async function alAccionar(
 
     // «nueva_revision»: clave anterior (versiones viejas de la app/caché).
     if (accion.clave === 'regenerar' || accion.clave === 'nueva_revision') {
-        regeneracion.value = { seccion, item, motivo: '' };
+        regeneracion.value = {
+            seccion,
+            item,
+            motivo: '',
+            fechaEmision: item.emision?.fecha ?? '',
+        };
 
         return;
     }
@@ -945,6 +1006,93 @@ async function confirmarBaja() {
         </DialogContent>
     </Dialog>
 
+    <!-- Fecha de emisión: se pregunta antes de generar -->
+    <Dialog
+        :open="emisionPendiente !== null"
+        @update:open="
+            (v: boolean) => !v && ocupado === null && (emisionPendiente = null)
+        "
+    >
+        <DialogContent class="sm:max-w-md">
+            <DialogHeader class="min-w-0">
+                <DialogTitle
+                    class="flex items-start gap-2 text-left leading-snug break-words"
+                >
+                    <CalendarDays class="mt-0.5 size-5 shrink-0" />
+                    ¿Con qué fecha sale
+                    {{ emisionPendiente?.item.nombre }}?
+                </DialogTitle>
+                <DialogDescription>
+                    Es la fecha que se imprime en el documento (encabezado,
+                    lugar y fecha, y la edad a esa fecha). Si se llenó antes de
+                    contratar, elige ese día.
+                </DialogDescription>
+            </DialogHeader>
+            <div
+                v-if="emisionPendiente?.item.emision"
+                class="flex min-w-0 flex-col gap-1.5"
+            >
+                <Label for="fecha-emision-generar">Fecha de emisión</Label>
+                <DatePicker
+                    id="fecha-emision-generar"
+                    v-model="emisionPendiente.fecha"
+                    :min-value="emisionPendiente.item.emision.minimo"
+                    :max-value="emisionPendiente.item.emision.maximo"
+                    :disabled="ocupado !== null"
+                    atajos
+                    dia-semana
+                />
+                <p
+                    v-if="emisionPendiente.item.emision.fecha_ingreso"
+                    class="text-xs text-[var(--mrl-texto-suave)]"
+                >
+                    Fecha de ingreso:
+                    {{
+                        fechaLegible(
+                            emisionPendiente.item.emision.fecha_ingreso,
+                        )
+                    }}.
+                </p>
+            </div>
+            <DialogFooter class="flex-wrap gap-2">
+                <Button
+                    variant="outline"
+                    :disabled="ocupado !== null"
+                    @click="emisionPendiente = null"
+                    >Cancelar</Button
+                >
+                <BotonVistaPrevia
+                    texto="Vista previa con esta fecha"
+                    :cargando="visor.cargando.value"
+                    :deshabilitado="
+                        ocupado !== null || !emisionPendiente?.fecha
+                    "
+                    @click="
+                        emisionPendiente &&
+                        verPrevias(
+                            emisionPendiente.seccion,
+                            [emisionPendiente.item],
+                            {},
+                            'emision',
+                            emisionPendiente.fecha,
+                        )
+                    "
+                />
+                <Button
+                    data-accion="confirmar-fecha-emision"
+                    :disabled="ocupado !== null || !emisionPendiente?.fecha"
+                    @click="confirmarEmision"
+                >
+                    <Loader2
+                        v-if="ocupado !== null"
+                        class="size-4 animate-spin"
+                    />
+                    Generar con esta fecha
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
     <!-- Vista previa (uno o la galería del paquete) -->
     <DocumentPreviewDialog
         :open="visor.abierto.value"
@@ -1012,6 +1160,24 @@ async function confirmarBaja() {
                     auditoría.
                 </p>
             </div>
+            <div
+                v-if="regeneracion?.item.emision"
+                class="flex min-w-0 flex-col gap-1"
+            >
+                <Label for="fecha-emision-regeneracion">Fecha de emisión</Label>
+                <DatePicker
+                    id="fecha-emision-regeneracion"
+                    v-model="regeneracion.fechaEmision"
+                    :min-value="regeneracion.item.emision.minimo"
+                    :max-value="regeneracion.item.emision.maximo"
+                    :disabled="ocupado !== null"
+                    atajos
+                    dia-semana
+                />
+                <p class="text-xs text-[var(--mrl-texto-suave)]">
+                    Es la fecha que se imprime en la nueva versión.
+                </p>
+            </div>
             <DialogFooter class="flex-wrap gap-2">
                 <Button
                     variant="outline"
@@ -1025,7 +1191,13 @@ async function confirmarBaja() {
                     :deshabilitado="ocupado !== null"
                     @click="
                         regeneracion &&
-                        verPrevias(regeneracion.seccion, [regeneracion.item])
+                        verPrevias(
+                            regeneracion.seccion,
+                            [regeneracion.item],
+                            {},
+                            regeneracion.item.clave,
+                            regeneracion.fechaEmision || undefined,
+                        )
                     "
                 />
                 <Button

@@ -569,6 +569,46 @@ test('fecha de emisión: sin elegir sale la de hoy; RH elige una por documento y
         ->assertJsonPath('data.emision.1.elegida', false);
 });
 
+test('fecha de emisión al generar: «Documentos» la pregunta, la elegida es la que se imprime y queda guardada; la vista previa no la guarda', function () {
+    $this->travelTo(CarbonImmutable::parse('2026-11-10 12:00', 'America/Mexico_City'));
+    seImportarMasters();
+    $persona = sePersona($this->estructura);
+    seCompletar($persona, $this->rh);
+    $this->actingAs($this->rh);
+    $generar = "/rh/documentos-proceso/colaborador/{$persona->id}/generar";
+
+    // La tarjeta del documento trae la fecha por defecto y el rango del calendario.
+    $seccion = collect($this->getJson("/rh/documentos-proceso/colaborador/{$persona->id}")->assertOk()->json('data'))->firstWhere('proceso', 'incorporacion');
+    $items = collect($seccion['documentos'] ?? [])->keyBy('clave');
+    expect($items['solicitud_empleo']['emision'])->toMatchArray(['fecha' => '2026-11-10', 'elegida' => false, 'minimo' => '2025-11-10', 'maximo' => '2026-12-10']);
+
+    // Vista previa con una fecha: se ve, pero no se guarda.
+    $this->get("/rh/documentos-proceso/colaborador/{$persona->id}/vista-previa?clave=solicitud_empleo&proceso=incorporacion&fecha_emision=2026-11-03")
+        ->assertOk()->assertHeader('Content-Type', 'application/pdf');
+    expect(ColaboradorPerfilIngreso::query()->where('colaborador_id', $persona->id)->sole()->fecha_emision_solicitud)->toBeNull();
+
+    // Fuera de rango: no genera nada.
+    $this->postJson($generar, ['clave' => 'solicitud_empleo', 'proceso' => 'incorporacion', 'fecha_emision' => '2024-01-01'])->assertUnprocessable();
+    $this->get("/rh/documentos-proceso/colaborador/{$persona->id}/vista-previa?clave=solicitud_empleo&proceso=incorporacion&fecha_emision=2024-01-01", ['Accept' => 'application/json'])->assertUnprocessable();
+    expect(GeneratedDocument::query()->where('clave_plantilla', 'solicitud_empleo')->exists())->toBeFalse();
+
+    // Generar con la fecha elegida: es la que sale en el PDF y queda guardada.
+    $this->postJson($generar, ['clave' => 'solicitud_empleo', 'proceso' => 'incorporacion', 'fecha_emision' => '2026-11-04'])
+        ->assertCreated();
+    $generado = GeneratedDocument::query()->where('clave_plantilla', 'solicitud_empleo')->sole();
+    expect([$generado->payload['sol_fecha_dia'], $generado->payload['sol_fecha_mes'], $generado->payload['sol_fecha_anio']])->toBe(['04', '11', '2026'])
+        ->and($generado->payload['fecha_documento_larga'])->toBe('4 de noviembre de 2026')
+        ->and(ColaboradorPerfilIngreso::query()->where('colaborador_id', $persona->id)->sole()->fecha_emision_solicitud?->toDateString())->toBe('2026-11-04')
+        // El Estudio es independiente: sigue sin fecha elegida.
+        ->and(ColaboradorPerfilIngreso::query()->where('colaborador_id', $persona->id)->sole()->fecha_emision_estudio)->toBeNull();
+
+    // Regenerar con otra fecha: nueva versión con esa fecha.
+    $this->postJson($generar, ['clave' => 'solicitud_empleo', 'proceso' => 'incorporacion', 'regenerar' => true, 'motivo' => 'Se firmó otro día', 'fecha_emision' => '2026-11-06'])
+        ->assertCreated()->assertJsonPath('creado', true);
+    $vigente = app(DocumentoProcesoService::class)->documentoVigente($persona, 'solicitud_empleo');
+    expect($vigente?->payload['sol_fecha_dia'])->toBe('06');
+});
+
 test('fecha de emisión: validación en español (máx. un año atrás, hasta 30 días adelante o la fecha de ingreso) y aviso tras el ingreso', function () {
     $this->travelTo(CarbonImmutable::parse('2026-11-10 12:00', 'America/Mexico_City'));
     $persona = sePersona($this->estructura, ['fecha_ingreso' => '2026-11-12']);
