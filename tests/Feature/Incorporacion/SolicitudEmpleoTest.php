@@ -607,6 +607,13 @@ test('fecha de emisión al generar: «Documentos» la pregunta, la elegida es la
         ->assertCreated()->assertJsonPath('creado', true);
     $vigente = app(DocumentoProcesoService::class)->documentoVigente($persona, 'solicitud_empleo');
     expect($vigente?->payload['sol_fecha_dia'])->toBe('06');
+
+    // El Estudio socioeconómico pide su fecha igual, con su propio calendario.
+    expect($items['estudio_socioeconomico']['emision'])->toMatchArray(['fecha' => '2026-11-10', 'elegida' => false, 'minimo' => '2025-11-10', 'maximo' => '2026-12-10']);
+    $this->postJson($generar, ['clave' => 'estudio_socioeconomico', 'proceso' => 'incorporacion', 'fecha_emision' => '2026-11-02'])->assertCreated();
+    $estudio = GeneratedDocument::query()->where('clave_plantilla', 'estudio_socioeconomico')->sole();
+    expect([$estudio->payload['ese_fecha_dia'], $estudio->payload['ese_fecha_mes'], $estudio->payload['ese_fecha_anio']])->toBe(['02', 'noviembre', '2026'])
+        ->and(ColaboradorPerfilIngreso::query()->where('colaborador_id', $persona->id)->sole()->fecha_emision_estudio?->toDateString())->toBe('2026-11-02');
 });
 
 test('fecha de emisión: validación en español (máx. un año atrás, hasta 30 días adelante o la fecha de ingreso) y aviso tras el ingreso', function () {
