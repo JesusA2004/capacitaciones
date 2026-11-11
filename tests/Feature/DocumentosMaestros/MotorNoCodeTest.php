@@ -362,7 +362,7 @@ test('nueva versión con layout distinto: el mapa copiado vuelve a «por confirm
         ->and(collect(app(ImportadorFormatosJuridicosService::class)->bloqueosActivacion($v2))->pluck('clave')->all())->toContain('por_confirmar');
 });
 
-test('dato largo que no cabe en su caja BLOQUEA la generación (nunca se encima ni se corta)', function () {
+test('dato largo que no cabe en su caja NO bloquea la generación: se acomoda dentro de la caja y el documento se emite', function () {
     app()->instance(ValidacionVisualMaestroService::class, new ValidacionVisualDePrueba);
 
     $id = $this->actingAs($this->rh)->post('/rh/documentos-maestros/nuevo', [
@@ -380,9 +380,9 @@ test('dato largo que no cabe en su caja BLOQUEA la generación (nunca se encima 
     $this->actingAs($this->rh)->postJson("/rh/documentos-maestros/{$id}/activar")->assertOk();
 
     $this->actingAs($this->rh)->postJson("/rh/documentos-proceso/colaborador/{$this->colaborador->id}/generar", ['clave' => $master->clave, 'proceso' => 'expediente'])
-        ->assertUnprocessable()->assertJsonPath('code', 'DOCUMENT_FIELD_OVERFLOW');
+        ->assertCreated();
 
-    expect(GeneratedDocument::query()->where('master_familia', $master->familia)->exists())->toBeFalse();
+    expect(GeneratedDocument::query()->where('master_familia', $master->familia)->exists())->toBeTrue();
 });
 
 test('editor: una versión activa o con documentos emitidos no se edita (se crea versión nueva)', function () {

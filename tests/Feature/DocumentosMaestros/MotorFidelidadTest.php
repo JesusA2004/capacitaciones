@@ -314,7 +314,7 @@ test('permiso: PDF original como fondo (mismo tamaño y número de páginas), da
         ->and(array_keys($documento->payload))->not->toContain('firma_colaborador');
 });
 
-test('permiso: el formato no se genera antes de que la solicitud esté aprobada; un motivo que no cabe bloquea con DOCUMENT_FIELD_OVERFLOW', function () {
+test('permiso: el formato no se genera antes de que la solicitud esté aprobada; un motivo que no cabe se acomoda en su caja y SÍ se emite', function () {
     mfImportar(['formato_permiso.general']);
     $colaborador = mfColaborador('gestor');
     $solicitud = SolicitudInterna::factory()->create([
@@ -326,7 +326,7 @@ test('permiso: el formato no se genera antes de que la solicitud esté aprobada;
 
     $solicitud->update(['estado' => 'aprobada']);
     $this->postJson("/api/v1/rh/documentos-proceso/solicitud/{$solicitud->id}/generar", ['clave' => 'formato_permiso'])
-        ->assertUnprocessable()->assertJsonPath('code', 'DOCUMENT_FIELD_OVERFLOW');
+        ->assertCreated();
 });
 
 test('activación segura: no con QA pendiente o fallido, no bloqueado, no sin conversor; excepción solo super_admin con motivo (auditada)', function () {

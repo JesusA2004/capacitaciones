@@ -754,8 +754,8 @@ class MotorDocumentalService
      *  - la versión debe tener el diseño validado (QA visual o excepción);
      *  - Word solo con conversor FIEL (Word nativo; LibreOffice solo si esa
      *    versión se validó con LibreOffice) — nunca PhpWord/DomPDF;
-     *  - ningún dato puede desbordarse: un campo que no cabe en su caja
-     *    (overlay) o un Word que cambia de número de páginas → 422.
+     *  - un Word que cambia de número de páginas → 422; en un PDF (overlay)
+     *    el dato largo se acomoda dentro de su caja y el documento se emite.
      * Sin $definitivo (vista previa de QA) se usa lo que haya y se reporta.
      *
      * @param  array<string, string>  $valores
@@ -800,8 +800,15 @@ class MotorDocumentalService
                 );
                 $desbordes = $this->etiquetarDesbordes($render['desbordes'], $mapping);
 
+                // El overlay ya acomodó cada dato DENTRO de su caja (renglones
+                // o letra condensada): el documento se emite. Lo que quedó
+                // muy apretado se registra para ampliar la caja del formato.
                 if ($definitivo && $desbordes !== []) {
-                    throw CampoDocumentoDesbordadoException::para($master->nombre, $desbordes);
+                    Log::warning('MotorDocumentalService: datos muy apretados en su caja (el documento se emitió).', [
+                        'master_id' => $master->id,
+                        'familia' => $master->familia,
+                        'campos' => array_map(fn (array $d): string => sprintf('%s: %s', $d['etiqueta'], $d['razon']), $desbordes),
+                    ]);
                 }
 
                 // El PDF original de Jurídico es el fondo vectorial intacto.

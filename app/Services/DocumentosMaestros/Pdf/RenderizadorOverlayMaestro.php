@@ -16,10 +16,12 @@ use setasign\Fpdi\Fpdi;
  *    puede contener contrato + pagaré + carta).
  *  - `copias_offset_y`: formatos con varias copias en la misma hoja (el
  *    permiso MR. LANA trae dos): cada campo se repite desplazado.
- *  - Texto: se reduce hasta `tamano_minimo` (6 pt por defecto) antes de
- *    salirse de su caja; `multilinea` hace wrap dentro del alto de la caja.
- *    Si aun así no cabe, es un DESBORDE: se reporta (vista previa) o se
- *    bloquea la emisión (documento definitivo) — nunca texto encimado.
+ *  - Texto: SIEMPRE se dibuja dentro de su caja — se reduce hasta
+ *    `tamano_minimo` (6 pt por defecto), luego se parte en los renglones
+ *    que quepan en el alto de la caja y, al final, se condensa a lo ancho.
+ *    Nunca texto encimado ni fuera de la caja, y nunca se bloquea la
+ *    emisión: si hubo que condensarlo demasiado queda como DESBORDE en el
+ *    reporte (prueba de diseño del master y log).
  *  - Casillas (`tipo` => 'check' o campos marca_*): una X vectorial dentro
  *    de un cuadrado centrado en la caja; jamás sale de ella, a cualquier
  *    resolución de impresión.
@@ -33,6 +35,15 @@ class RenderizadorOverlayMaestro
     private const PT_A_MM = 25.4 / 72;
 
     private const FUENTE_MINIMA = 6.0;
+
+    /** Interlineado (× tamaño de letra) al partir en renglones un campo de un renglón. */
+    private const INTERLINEADO_AJUSTE = 1.15;
+
+    /** Debajo de este ancho de letra el dato ya no se lee cómodo: se reporta. */
+    private const CONDENSADO_LEGIBLE = 0.6;
+
+    /** Un párrafo nunca se condensa más que esto; lo que sobre se recorta. */
+    private const CONDENSADO_MINIMO = 0.3;
 
     /**
      * @param  list<array<string, mixed>>  $campos
@@ -66,7 +77,7 @@ class RenderizadorOverlayMaestro
         file_put_contents($temporal, $pdfOriginal);
 
         try {
-            $pdf = new Fpdi;
+            $pdf = new FpdiAjustable;
             $pdf->SetAutoPageBreak(false);
             $pdf->SetMargins(0, 0, 0);
             $pdf->SetCreator('MR. LANA People');
@@ -180,7 +191,7 @@ class RenderizadorOverlayMaestro
      *
      * @param  array<string, mixed>  $campo
      */
-    private function dibujar(Fpdi $pdf, array $campo, string $valor): ?string
+    private function dibujar(FpdiAjustable $pdf, array $campo, string $valor): ?string
     {
         $x = (float) $campo['x'];
         $y = (float) $campo['y'];
@@ -210,32 +221,23 @@ class RenderizadorOverlayMaestro
 
         $pdf->SetTextColor(15, 15, 15);
 
-        if (($campo['multilinea'] ?? false) === true) {
-            $proporcion = isset($campo['interlineado']) ? (float) $campo['interlineado'] / ($tamano * self::PT_A_MM) : 1.25;
-            $cabe = false;
+        return ($campo['multilinea'] ?? false) === true
+            ? $this->parrafo($pdf, $campo, $texto, $x, $y, $ancho, $alto, $tamano, $minimo, $estilo, $alineacion)
+            : $this->renglon($pdf, $texto, $x, $y, $ancho, $alto, $tamano, $minimo, $estilo, $alineacion);
+    }
 
-            while (true) {
-                $pdf->SetFont('Helvetica', $estilo, $tamano);
-                $interlineado = $tamano * self::PT_A_MM * $proporcion;
-                $cabe = $this->contarLineas($pdf, $texto, $ancho) * $interlineado <= $alto + $interlineado * 0.35;
-
-                if ($cabe || $tamano - 0.5 < $minimo) {
-                    break;
-                }
-
-                $tamano -= 0.5;
-            }
-
-            if (! $cabe) {
-                return sprintf('No cabe en %d renglón(es) ni a %.1f pt.', max(1, (int) floor(($alto + $interlineado * 0.35) / $interlineado)), $minimo);
-            }
-
-            $pdf->SetXY($x, $y);
-            $pdf->MultiCell($ancho, $interlineado, $texto, 0, $alineacion);
-
-            return null;
-        }
-
+    /**
+     * Campo de un renglón. El dato SIEMPRE se dibuja dentro de su caja:
+     *  1. en un renglón, reduciendo la letra hasta el mínimo del campo;
+     *  2. si no cabe, en varios renglones (los que quepan en el alto de la
+     *     caja) con la letra más grande posible;
+     *  3. si tampoco, en un renglón con la letra condensada a lo ancho.
+     * Solo se reporta como desborde cuando hubo que condensar tanto que ya
+     * no es cómodo de leer (la emisión no se bloquea: queda en el reporte).
+     */
+    private function renglon(FpdiAjustable $pdf, string $texto, float $x, float $y, float $ancho, float $alto, float $tamano, float $minimo, string $estilo, string $alineacion): ?string
+    {
+        $original = $tamano;
         $pdf->SetFont('Helvetica', $estilo, $tamano);
 
         while ($pdf->GetStringWidth($texto) > $ancho && $tamano - 0.5 >= $minimo) {
@@ -243,21 +245,114 @@ class RenderizadorOverlayMaestro
             $pdf->SetFont('Helvetica', $estilo, $tamano);
         }
 
-        if ($pdf->GetStringWidth($texto) > $ancho) {
-            return sprintf('Mide %.0f mm y la caja %.0f mm (aun a %.1f pt).', $pdf->GetStringWidth($texto), $ancho, $minimo);
+        if ($pdf->GetStringWidth($texto) <= $ancho) {
+            $pdf->SetXY($x, $y);
+            $pdf->Cell($ancho, $alto, $texto, 0, 0, $alineacion);
+
+            return null;
         }
 
-        $pdf->SetXY($x, $y);
-        $pdf->Cell($ancho, $alto, $texto, 0, 0, $alineacion);
+        for ($prueba = $original; $prueba >= $minimo; $prueba -= 0.5) {
+            $pdf->SetFont('Helvetica', $estilo, $prueba);
+            $interlineado = $prueba * self::PT_A_MM * self::INTERLINEADO_AJUSTE;
+            $lineas = $this->contarLineas($pdf, $texto, $ancho);
 
-        return null;
+            if ($lineas * $interlineado <= $alto + 0.3 && ! $this->hayPalabraMasAncha($pdf, $texto, $ancho - 2)) {
+                $pdf->SetXY($x, $y + ($alto - $lineas * $interlineado) / 2);
+                $pdf->MultiCell($ancho, $interlineado, $texto, 0, $alineacion);
+
+                return null;
+            }
+        }
+
+        $pdf->SetFont('Helvetica', $estilo, $minimo);
+        $medida = $pdf->GetStringWidth($texto);
+        $escala = max(0.05, ($ancho - 1.0) / $medida);
+        $pdf->escalaHorizontal($escala * 100);
+        $pdf->SetXY($x, $y);
+        $pdf->Cell($ancho, $alto, $texto, 0, 0, 'L');
+        $pdf->escalaHorizontal(100);
+
+        return $escala < self::CONDENSADO_LEGIBLE
+            ? sprintf('Mide %.0f mm y la caja %.0f mm (aun a %.1f pt): se imprimió muy condensado.', $medida, $ancho, $minimo)
+            : null;
+    }
+
+    /**
+     * Campo de varios renglones. Igual que el renglón: siempre se dibuja
+     * dentro de su caja — letra más chica hasta el mínimo y, si aun así no
+     * cabe, condensada a lo ancho. Lo que ni así cabe se recorta al borde de
+     * la caja (nunca encima del formato) y se reporta.
+     *
+     * @param  array<string, mixed>  $campo
+     */
+    private function parrafo(FpdiAjustable $pdf, array $campo, string $texto, float $x, float $y, float $ancho, float $alto, float $tamano, float $minimo, string $estilo, string $alineacion): ?string
+    {
+        $proporcion = isset($campo['interlineado']) ? (float) $campo['interlineado'] / ($tamano * self::PT_A_MM) : 1.25;
+
+        while (true) {
+            $pdf->SetFont('Helvetica', $estilo, $tamano);
+            $interlineado = $tamano * self::PT_A_MM * $proporcion;
+            $cabe = $this->contarLineas($pdf, $texto, $ancho) * $interlineado <= $alto + $interlineado * 0.35;
+
+            if ($cabe || $tamano - 0.5 < $minimo) {
+                break;
+            }
+
+            $tamano -= 0.5;
+        }
+
+        if ($cabe) {
+            $pdf->SetXY($x, $y);
+            $pdf->MultiCell($ancho, $interlineado, $texto, 0, $alineacion);
+
+            return null;
+        }
+
+        $escala = 1.0;
+
+        do {
+            $escala -= 0.05;
+            // Con la letra al N % de ancho caben 1/N más caracteres por renglón.
+            $anchoVirtual = ($ancho - 2) / $escala + 2;
+            $cabe = $this->contarLineas($pdf, $texto, $anchoVirtual) * $interlineado <= $alto + $interlineado * 0.35;
+        } while (! $cabe && $escala - 0.05 >= self::CONDENSADO_MINIMO);
+
+        $renglones = max(1, (int) floor(($alto + $interlineado * 0.35) / $interlineado));
+
+        // El recorte termina en renglón completo: nunca media letra cortada.
+        $pdf->recortar($x, $y - 0.5, $ancho, $renglones * $interlineado + 0.5);
+        $pdf->escalaHorizontal($escala * 100);
+        $pdf->SetXY($x, $y);
+        $pdf->MultiCell($anchoVirtual, $interlineado, $texto, 0, 'L');
+        $pdf->escalaHorizontal(100);
+        $pdf->finRecorte();
+
+        if ($cabe && $escala >= self::CONDENSADO_LEGIBLE) {
+            return null;
+        }
+
+        return $cabe
+            ? sprintf('No cabe en %d renglón(es) a %.1f pt: se imprimió muy condensado.', $renglones, $minimo)
+            : sprintf('No cabe en %d renglón(es) ni a %.1f pt: se imprimió hasta donde alcanza la caja.', $renglones, $minimo);
+    }
+
+    private function hayPalabraMasAncha(FpdiAjustable $pdf, string $texto, float $ancho): bool
+    {
+        foreach (preg_split('/\s+/', $texto) ?: [] as $palabra) {
+            if ($pdf->GetStringWidth($palabra) > $ancho) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
      * X vectorial centrada en la caja: el lado es el 70 % del lado menor
      * (máx. 4 mm), así nunca toca ni rebasa el borde del recuadro.
      */
-    private function casilla(Fpdi $pdf, float $x, float $y, float $ancho, float $alto, string $valor): void
+    private function casilla(FpdiAjustable $pdf, float $x, float $y, float $ancho, float $alto, string $valor): void
     {
         $valor = trim($valor);
 
@@ -274,7 +369,7 @@ class RenderizadorOverlayMaestro
         $pdf->Line($cx - $lado / 2, $cy + $lado / 2, $cx + $lado / 2, $cy - $lado / 2);
     }
 
-    private function contarLineas(Fpdi $pdf, string $texto, float $ancho): int
+    private function contarLineas(FpdiAjustable $pdf, string $texto, float $ancho): int
     {
         $lineas = 0;
 

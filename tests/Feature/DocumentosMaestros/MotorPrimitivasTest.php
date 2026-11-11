@@ -154,6 +154,27 @@ test('overlay: la casilla es una X dentro de su caja y un dato que no cabe se re
         ->and(app(RenderizadorOverlayMaestro::class)->renderizarConReporte($original, $campos, ['marca_faltar' => 'X', 'nombre' => 'ANA', 'motivo' => 'Cita'])['desbordes'])->toBe([]);
 });
 
+test('overlay: un dato de un renglón que no cabe ni a la letra mínima se parte en renglones dentro de su caja (no es desborde y sí se imprime)', function () {
+    $pdf = new Fpdi;
+    $pdf->AddPage('P', [215.9, 279.4]);
+    $original = (string) $pdf->Output('S');
+    // La caja real de «¿Dónde (créditos o financiera)?» de la Solicitud de empleo.
+    $campos = [['campo' => 'sol_creditos_donde', 'pagina' => 1, 'x' => 177.0, 'y' => 144.9, 'ancho' => 30.5, 'alto' => 6.4, 'tamano' => 8.5, 'tamano_minimo' => 5]];
+    $render = fn (string $valor): array => app(RenderizadorOverlayMaestro::class)->renderizarConReporte($original, $campos, ['sol_creditos_donde' => $valor]);
+
+    $largo = $render('Banco Compartamos y Financiera Inde');
+    $vacio = $render('');
+
+    expect(mb_strlen('Banco Compartamos y Financiera Inde'))->toBe(35)
+        ->and($largo['desbordes'])->toBe([])
+        ->and(strlen($largo['pdf']))->toBeGreaterThan(strlen($vacio['pdf']));
+
+    // Sin espacios no se puede partir: se condensa a lo ancho y también sale.
+    $corrido = $render(str_repeat('W', 35));
+
+    expect(strlen($corrido['pdf']))->toBeGreaterThan(strlen($vacio['pdf']));
+});
+
 test('resolución del master: puesto+empresa > puesto > grupo+empresa > grupo > general; nunca el de Gerente para un Gestor', function () {
     $empresa = Empresa::factory()->create();
     $otraEmpresa = Empresa::factory()->create();
