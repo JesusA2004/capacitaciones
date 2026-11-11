@@ -30,7 +30,8 @@ export type FilaEditableDirectorio = {
     sucursal_id: number | null;
     departamento_id: number | null;
     correo_corporativo: string | null;
-    telefono_corporativo: string | null;
+    correo_personal?: string | null;
+    telefono?: string | null;
 };
 
 const props = defineProps<{
@@ -48,7 +49,8 @@ const SIN_VALOR = '';
 
 const form = reactive({
     correo_corporativo: props.fila.correo_corporativo ?? '',
-    telefono_corporativo: props.fila.telefono_corporativo ?? '',
+    correo_personal: props.fila.correo_personal ?? '',
+    telefono: props.fila.telefono ?? '',
     puesto_id: props.fila.puesto_id ? String(props.fila.puesto_id) : SIN_VALOR,
     sucursal_principal_id: props.fila.sucursal_id
         ? String(props.fila.sucursal_id)
@@ -82,7 +84,8 @@ async function guardar() {
             credentials: 'same-origin',
             body: JSON.stringify({
                 correo_corporativo: form.correo_corporativo.trim() || null,
-                telefono_corporativo: form.telefono_corporativo.trim() || null,
+                correo_personal: form.correo_personal.trim() || null,
+                telefono: form.telefono.trim() || null,
                 puesto_id: id(form.puesto_id),
                 sucursal_principal_id: id(form.sucursal_principal_id),
                 departamento_id: id(form.departamento_id),
@@ -149,8 +152,26 @@ async function guardar() {
                 <InputError :message="errores.correo_corporativo" />
             </div>
             <div class="grid gap-1.5">
+                <Label :for="`dir-correo-personal-${fila.id}`"
+                    >Correo personal</Label
+                >
+                <div class="relative">
+                    <Mail
+                        class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                    />
+                    <Input
+                        :id="`dir-correo-personal-${fila.id}`"
+                        v-model="form.correo_personal"
+                        type="email"
+                        autocomplete="off"
+                        class="h-11 pl-9"
+                    />
+                </div>
+                <InputError :message="errores.correo_personal" />
+            </div>
+            <div class="grid gap-1.5">
                 <Label :for="`dir-telefono-${fila.id}`"
-                    >Teléfono corporativo</Label
+                    >Teléfono (personal)</Label
                 >
                 <div class="relative">
                     <Phone
@@ -158,13 +179,13 @@ async function guardar() {
                     />
                     <Input
                         :id="`dir-telefono-${fila.id}`"
-                        v-model="form.telefono_corporativo"
+                        v-model="form.telefono"
                         type="tel"
                         autocomplete="off"
                         class="h-11 pl-9"
                     />
                 </div>
-                <InputError :message="errores.telefono_corporativo" />
+                <InputError :message="errores.telefono" />
             </div>
             <div class="grid gap-1.5">
                 <Label>Puesto</Label>

@@ -17,9 +17,16 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 /**
  * Directorio de la empresa: nombre, puesto, sucursal, departamento y
- * contacto CORPORATIVO (correo/teléfono — solo lo tienen puestos
- * administrativos/gerenciales, y nunca se inventa uno para quien no lo tiene
- * capturado).
+ * contacto.
+ *
+ * Regla vigente (RH, 2026-11-11 — sustituye lo de abajo donde se contradiga):
+ *  - Contacto = TELÉFONO PERSONAL (la empresa no asigna líneas), CORREO
+ *    PERSONAL y CORREO CORPORATIVO. Los gestores no tienen correo corporativo.
+ *  - Entra quien tiene `directorio.ver` o es de Corporativo (puedeEntrar);
+ *    los gestores (rol colaborador) no lo tienen por defecto.
+ *  - Gerente, subgerente y coordinadora de sucursal ven solo su círculo: su
+ *    sucursal SIN gestores + Gerente y Subgerente Regional + su jefe directo,
+ *    con contacto. De Subgerente Regional para arriba ven a toda la empresa.
  *
  * Contacto (cierre 2026-10-15, misma regla web y API, decidida aquí y
  * nunca en Vue): nombre, puesto, área y sucursal los ve todo colaborador;
@@ -78,15 +85,16 @@ class DirectorioColaboradoresService
                 $fila['puesto'],
                 $fila['sucursal'],
                 $fila['departamento'],
+                $fila['telefono'],
+                $fila['correo_personal'],
                 $fila['correo_corporativo'],
-                $fila['telefono_corporativo'],
                 $fila['datos_por_completar'] === null ? null : ($fila['datos_por_completar'] ? 'Datos por completar' : 'Completo'),
             ];
         }
 
         return [
             'titulo' => 'Directorio de colaboradores',
-            'columnas' => ['Nombre', 'Número de empleado', 'Puesto', 'Sucursal', 'Departamento', 'Correo corporativo', 'Teléfono corporativo', 'Datos'],
+            'columnas' => ['Nombre', 'Número de empleado', 'Puesto', 'Sucursal', 'Departamento', 'Teléfono', 'Correo personal', 'Correo corporativo', 'Datos'],
             'filas' => $filas,
         ];
     }
@@ -112,9 +120,15 @@ class DirectorioColaboradoresService
             ->when($filtros['sucursal_id'], fn (Builder $q, int $v) => $q->where('sucursal_principal_id', $v))
             ->when($filtros['departamento_id'], fn (Builder $q, int $v) => $q->where('departamento_id', $v))
             ->when($filtros['solo_con_correo'] && $veTodos, fn (Builder $q) => $q->whereNotNull('correo_corporativo')->where('correo_corporativo', '!=', ''))
+            // Misma regla que tieneDatosPorCompletar().
             ->when($filtros['solo_por_completar'] && $veTodos, fn (Builder $q) => $q->where(fn (Builder $o) => $o
-                ->whereNull('correo_corporativo')->orWhere('correo_corporativo', '')
-                ->orWhereNull('telefono_corporativo')->orWhere('telefono_corporativo', '')
+                ->where(fn (Builder $t) => $t
+                    ->where(fn (Builder $a) => $a->whereNull('telefono')->orWhere('telefono', ''))
+                    ->where(fn (Builder $b) => $b->whereNull('telefono_corporativo')->orWhere('telefono_corporativo', '')))
+                ->orWhereNull('correo_personal')->orWhere('correo_personal', '')
+                ->orWhere(fn (Builder $c) => $c
+                    ->where(fn (Builder $v) => $v->whereNull('correo_corporativo')->orWhere('correo_corporativo', ''))
+                    ->whereDoesntHave('puesto', fn (Builder $p) => $p->whereIn('grupo_documental', (array) config('directorio.grupos_sin_correo_corporativo', []))))
                 ->orWhereNull('puesto_id')->orWhereNull('sucursal_principal_id')))
             ->orderBy('name')
             ->orderBy('apellidos');
@@ -232,13 +246,29 @@ class DirectorioColaboradoresService
         $excluir = array_values(array_filter((array) config('directorio.excluir_grupos', []), 'is_string'));
         $sucursales = $this->sucursalesVisibles($viewer);
         $propio = $viewer?->colaborador;
+        $circulo = $viewer !== null && $sucursales !== null && $this->veSoloSuCirculo($viewer);
+        $fuera = array_values(array_filter((array) config('directorio.grupos_fuera_del_circulo', []), 'is_string'));
+        $regionales = array_values(array_filter((array) config('directorio.puestos_regionales', []), 'is_string'));
 
         return Colaborador::query()
             ->when($sucursales !== null, fn (Builder $q) => $q->where(fn (Builder $a) => $a
-                ->whereIn('sucursal_principal_id', $sucursales === [] ? [0] : $sucursales)
+                ->where(fn (Builder $s) => $s
+                    ->whereIn('sucursal_principal_id', $sucursales === [] ? [0] : $sucursales)
+                    // Círculo de sucursal: su gente sin los gestores.
+                    ->when($circulo && $fuera !== [], fn (Builder $g) => $g->where(fn (Builder $p) => $p
+                        ->whereNull('puesto_id')
+                        ->orWhereHas('puesto', fn (Builder $x) => $x->where(fn (Builder $y) => $y->whereNull('grupo_documental')->orWhereNotIn('grupo_documental', $fuera))))))
                 ->orWhere('id', $propio->id ?? 0)
-                ->orWhere('id', $propio->jefe_id ?? 0)))
-            ->select(['id', 'name', 'apellidos', 'numero_empleado', 'puesto_id', 'sucursal_principal_id', 'departamento_id', 'correo_corporativo', 'telefono_corporativo', 'foto_path', 'jefe_id', 'gerente_id'])
+                ->orWhere('id', $propio->jefe_id ?? 0)
+                // …más la gerencia regional (Gerente y Subgerente Regional).
+                ->when($circulo && $regionales !== [], fn (Builder $r) => $r->orWhereHas('puesto', function (Builder $p) use ($regionales): void {
+                    $p->where(function (Builder $n) use ($regionales): void {
+                        foreach ($regionales as $patron) {
+                            $n->orWhere('nombre', 'like', $patron);
+                        }
+                    });
+                }))))
+            ->select(['id', 'name', 'apellidos', 'numero_empleado', 'puesto_id', 'sucursal_principal_id', 'departamento_id', 'correo_corporativo', 'correo_personal', 'telefono', 'telefono_corporativo', 'foto_path', 'jefe_id', 'gerente_id'])
             ->where('estatus', EstadoUsuario::Activo->value)
             ->when($excluir !== [], fn (Builder $q) => $q->where(fn (Builder $sub) => $sub
                 ->whereNull('puesto_id')
@@ -249,7 +279,7 @@ class DirectorioColaboradoresService
                             $n->where('nombre', 'not like', $patron);
                         }
                     }))))
-            ->with(['puesto:id,nombre,nivel_jerarquico,departamento_id', 'puesto.departamento:id,nombre', 'sucursalPrincipal:id,nombre,es_corporativo', 'departamento:id,nombre']);
+            ->with(['puesto:id,nombre,nivel_jerarquico,departamento_id,grupo_documental', 'puesto.departamento:id,nombre', 'sucursalPrincipal:id,nombre,es_corporativo', 'departamento:id,nombre']);
     }
 
     /**
@@ -301,12 +331,14 @@ class DirectorioColaboradoresService
      * contactos (RH); para los demás va null, igual que el filtro
      * «solo con correo», para no permitir inferir quién tiene contacto.
      *
-     * @return array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, departamento: string|null, correo_corporativo: string|null, telefono_corporativo: string|null, contacto_visible: bool, datos_por_completar: bool|null, es_mi_jefe: bool}
+     * @return array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, departamento: string|null, correo_corporativo: string|null, correo_personal: string|null, telefono: string|null, telefono_corporativo: string|null, lleva_correo_corporativo: bool, contacto_visible: bool, datos_por_completar: bool|null, es_mi_jefe: bool}
      */
     public function aArray(Colaborador $colaborador, ?User $viewer = null): array
     {
         $visible = $viewer !== null && $this->puedeVerContacto($viewer, $colaborador);
         $veTodos = $viewer !== null && $this->veTodosLosContactos($viewer);
+        $telefono = $this->telefonoDe($colaborador);
+        $llevaCorporativo = $this->llevaCorreoCorporativo($colaborador);
 
         return [
             'id' => $colaborador->id,
@@ -315,21 +347,68 @@ class DirectorioColaboradoresService
             'puesto' => $colaborador->puesto?->nombre,
             'sucursal' => $colaborador->sucursalPrincipal?->nombre,
             'departamento' => $colaborador->departamento?->nombre,
-            'correo_corporativo' => $visible ? $colaborador->correo_corporativo : null,
-            'telefono_corporativo' => $visible ? $colaborador->telefono_corporativo : null,
+            // Los gestores no tienen correo corporativo: nunca se muestra uno.
+            'correo_corporativo' => $visible && $llevaCorporativo ? $colaborador->correo_corporativo : null,
+            'correo_personal' => $visible ? $colaborador->correo_personal : null,
+            // El teléfono es el de la persona (la empresa no asigna líneas).
+            'telefono' => $visible ? $telefono : null,
+            // Compatibilidad con la app ya instalada: mismo teléfono.
+            'telefono_corporativo' => $visible ? $telefono : null,
+            'lleva_correo_corporativo' => $llevaCorporativo,
             'contacto_visible' => $visible,
             'datos_por_completar' => $veTodos ? $this->tieneDatosPorCompletar($colaborador) : null,
             'es_mi_jefe' => $viewer?->colaborador !== null && $viewer->colaborador->jefe_id === $colaborador->id,
         ];
     }
 
-    /** Misma regla que el filtro «solo_por_completar» de filtrada(). */
+    /** Teléfono de la persona; el «corporativo» capturado antes solo como respaldo. */
+    private function telefonoDe(Colaborador $colaborador): ?string
+    {
+        foreach ([$colaborador->telefono, $colaborador->telefono_corporativo] as $telefono) {
+            if (is_string($telefono) && trim($telefono) !== '') {
+                return $telefono;
+            }
+        }
+
+        return null;
+    }
+
+    /** Los gestores no tienen correo corporativo (config/directorio.php). */
+    private function llevaCorreoCorporativo(Colaborador $colaborador): bool
+    {
+        return ! in_array($colaborador->puesto?->grupo_documental, (array) config('directorio.grupos_sin_correo_corporativo', []), true);
+    }
+
+    /**
+     * Le falta teléfono, correo personal, puesto o sucursal — o el correo
+     * corporativo, si su puesto lo lleva (un gestor nunca).
+     */
     private function tieneDatosPorCompletar(Colaborador $colaborador): bool
     {
-        return in_array($colaborador->correo_corporativo, [null, ''], true)
-            || in_array($colaborador->telefono_corporativo, [null, ''], true)
+        return $this->telefonoDe($colaborador) === null
+            || in_array($colaborador->correo_personal, [null, ''], true)
+            || ($this->llevaCorreoCorporativo($colaborador) && in_array($colaborador->correo_corporativo, [null, ''], true))
             || $colaborador->puesto_id === null
             || $colaborador->sucursal_principal_id === null;
+    }
+
+    /**
+     * Entra al Directorio quien tiene `directorio.ver` (Roles y permisos) o
+     * es personal de Corporativo. Misma regla en web, API y menú.
+     */
+    public function puedeEntrar(User $viewer): bool
+    {
+        return $viewer->can('directorio.ver') || $this->esCorporativo($viewer);
+    }
+
+    /**
+     * Círculo de sucursal: quien no ve región ni toda la empresa (gerente,
+     * subgerente, coordinadora) ve a su sucursal sin gestores + la gerencia
+     * regional + su jefe directo.
+     */
+    private function veSoloSuCirculo(User $viewer): bool
+    {
+        return ! in_array($this->alcanceModulo->nivel($viewer, 'directorio'), [AlcanceDatos::Todos, AlcanceDatos::Region], true);
     }
 
     /** Contactos de TODO el directorio: permiso explícito o personal corporativo. */
@@ -353,9 +432,15 @@ class DirectorioColaboradoresService
             return true;
         }
 
+        // Círculo de sucursal: lo que lista ES su círculo de contacto (su
+        // gerencia, su coordinadora y la gerencia regional).
+        if ($this->veSoloSuCirculo($viewer)) {
+            return true;
+        }
+
         $propio = $viewer->colaborador;
 
-        // Operativo: su propio contacto y el de su jefe directo, nada más.
+        // Alcance de región sin permiso de contactos: el suyo y el de su jefe.
         return $propio !== null && ($propio->id === $colaborador->id || $propio->jefe_id === $colaborador->id);
     }
 

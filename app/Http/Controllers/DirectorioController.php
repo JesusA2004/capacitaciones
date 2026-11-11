@@ -38,6 +38,7 @@ class DirectorioController extends Controller
     public function index(Request $request): Response
     {
         $usuario = $request->user();
+        abort_unless($this->directorio->puedeEntrar($usuario), 403, 'No tienes acceso al Directorio.');
         $colaboradores = $this->directorio->todos($usuario);
 
         // Lista completa: la búsqueda y las vistas Por puesto / Por área /
@@ -61,7 +62,7 @@ class DirectorioController extends Controller
 
     public function exportarExcel(Request $request): BinaryFileResponse
     {
-        abort_unless($request->user()->can('reportes_rh.exportar'), 403);
+        abort_unless($request->user()->can('reportes_rh.exportar') && $this->directorio->puedeEntrar($request->user()), 403);
 
         $tabla = $this->directorio->tablaExportable($request->only(self::FILTROS_EXPORTACION), $request->user());
 
@@ -73,7 +74,7 @@ class DirectorioController extends Controller
 
     public function exportarPdf(Request $request): HttpResponse
     {
-        abort_unless($request->user()->can('reportes_rh.exportar'), 403);
+        abort_unless($request->user()->can('reportes_rh.exportar') && $this->directorio->puedeEntrar($request->user()), 403);
 
         $tabla = $this->directorio->tablaExportable($request->only(self::FILTROS_EXPORTACION), $request->user());
 

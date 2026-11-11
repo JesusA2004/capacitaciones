@@ -51,8 +51,12 @@ type ColaboradorDirectorio = {
     area: string;
     departamento: string | null;
     departamento_id: number | null;
+    /** Los gestores no tienen correo corporativo (lleva_correo_corporativo = false). */
     correo_corporativo: string | null;
-    telefono_corporativo: string | null;
+    correo_personal: string | null;
+    /** Teléfono de la persona: la empresa no asigna líneas. */
+    telefono: string | null;
+    lleva_correo_corporativo?: boolean;
     /** El backend solo manda el contacto a quien puede verlo. */
     contacto_visible?: boolean;
     /** Le falta correo, teléfono, puesto o sucursal. Solo llega a RH (ve todos); si no, null. */
@@ -177,8 +181,11 @@ const consultaExportacion = computed(() => ({
 /** Etiqueta de lo que falta, como en la propuesta («Sin correo», etc.). */
 function faltantes(c: ColaboradorDirectorio): string {
     const lista = [
-        !c.correo_corporativo && 'correo',
-        !c.telefono_corporativo && 'teléfono',
+        !c.telefono && 'teléfono',
+        !c.correo_personal && 'correo personal',
+        c.lleva_correo_corporativo !== false &&
+            !c.correo_corporativo &&
+            'correo corporativo',
         !c.puesto_id && 'puesto',
         !c.sucursal_id && 'sucursal',
     ].filter(Boolean);
@@ -431,8 +438,8 @@ function detalle(c: ColaboradorDirectorio): string {
                     titulo="Directorio"
                     :texto="
                         veTodosLosContactos === false
-                            ? 'Nombre, puesto, área y sucursal de la empresa. Ves el correo y teléfono corporativos de tu jefe directo.'
-                            : 'Correo y teléfono corporativos del personal de corporativo y de las sucursales. Toca el ícono de correo o teléfono para escribir o llamar.'
+                            ? 'Tu círculo de contacto: la gerencia y la coordinación de tu sucursal y la gerencia regional, con su teléfono y sus correos (personal y corporativo).'
+                            : 'Teléfono, correo personal y correo corporativo del personal de corporativo y de las sucursales (los gestores no tienen correo corporativo). Toca el ícono de correo o teléfono para escribir o llamar.'
                     "
                 />
             </div>
@@ -557,49 +564,78 @@ function detalle(c: ColaboradorDirectorio): string {
                                 >Abrir expediente</Link
                             >
                             <a
-                                v-if="c.correo_corporativo"
-                                :href="`mailto:${c.correo_corporativo}`"
-                                class="truncate text-xs text-primary hover:underline"
-                                :title="c.correo_corporativo"
-                                >{{ c.correo_corporativo }}</a
-                            >
-                            <a
-                                v-if="c.telefono_corporativo"
-                                :href="`tel:${c.telefono_corporativo}`"
+                                v-if="c.telefono"
+                                :href="`tel:${c.telefono}`"
                                 class="truncate text-xs text-[var(--mrl-texto)] tabular-nums hover:underline"
-                                >{{ c.telefono_corporativo }}</a
+                                data-contacto="telefono"
+                                >{{ c.telefono }}</a
                             >
+                            <p
+                                v-if="c.correo_corporativo"
+                                class="flex min-w-0 items-baseline gap-1 text-xs"
+                                data-contacto="correo-corporativo"
+                            >
+                                <span class="shrink-0 text-muted-foreground"
+                                    >Corporativo:</span
+                                >
+                                <a
+                                    :href="`mailto:${c.correo_corporativo}`"
+                                    class="min-w-0 truncate text-primary hover:underline"
+                                    :title="c.correo_corporativo"
+                                    >{{ c.correo_corporativo }}</a
+                                >
+                            </p>
+                            <p
+                                v-if="c.correo_personal"
+                                class="flex min-w-0 items-baseline gap-1 text-xs"
+                                data-contacto="correo-personal"
+                            >
+                                <span class="shrink-0 text-muted-foreground"
+                                    >Personal:</span
+                                >
+                                <a
+                                    :href="`mailto:${c.correo_personal}`"
+                                    class="min-w-0 truncate text-primary hover:underline"
+                                    :title="c.correo_personal"
+                                    >{{ c.correo_personal }}</a
+                                >
+                            </p>
                         </div>
 
                         <div class="flex shrink-0 items-center gap-1.5">
                             <a
-                                v-if="c.correo_corporativo"
-                                :href="`mailto:${c.correo_corporativo}`"
+                                v-if="c.correo_corporativo || c.correo_personal"
+                                :href="`mailto:${c.correo_corporativo || c.correo_personal}`"
                                 class="flex size-10 items-center justify-center rounded-xl bg-info-soft text-info transition-colors hover:bg-info-soft/70"
                                 :aria-label="`Escribir a ${c.nombre}`"
-                                :title="c.correo_corporativo"
+                                :title="
+                                    c.correo_corporativo ||
+                                    c.correo_personal ||
+                                    undefined
+                                "
                             >
                                 <Mail class="size-5" />
                             </a>
                             <a
-                                v-if="c.telefono_corporativo"
-                                :href="`tel:${c.telefono_corporativo}`"
+                                v-if="c.telefono"
+                                :href="`tel:${c.telefono}`"
                                 class="flex size-10 items-center justify-center rounded-xl bg-success-soft text-success transition-colors hover:bg-success-soft/70"
                                 :aria-label="`Llamar a ${c.nombre}`"
-                                :title="c.telefono_corporativo"
+                                :title="c.telefono"
                             >
                                 <Phone class="size-5" />
                             </a>
                             <span
                                 v-if="
                                     !c.correo_corporativo &&
-                                    !c.telefono_corporativo &&
+                                    !c.correo_personal &&
+                                    !c.telefono &&
                                     c.contacto_visible !== false &&
                                     c.datos_por_completar !== true
                                 "
                                 class="flex size-10 items-center justify-center rounded-xl bg-muted/70 text-muted-foreground/70"
-                                title="Sin contacto corporativo"
-                                aria-label="Sin contacto corporativo"
+                                title="Sin datos de contacto"
+                                aria-label="Sin datos de contacto"
                                 role="img"
                                 ><MailX class="size-4"
                             /></span>
@@ -649,7 +685,7 @@ function detalle(c: ColaboradorDirectorio): string {
                     <span class="min-w-0 truncate">{{ editando?.nombre }}</span>
                 </DialogTitle>
                 <DialogDescription>
-                    Contacto corporativo, puesto, sucursal y departamento.
+                    Teléfono, correos, puesto, sucursal y departamento.
                 </DialogDescription>
             </DialogHeader>
             <EdicionFilaDirectorio

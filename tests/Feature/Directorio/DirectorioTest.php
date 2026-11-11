@@ -29,7 +29,7 @@ beforeEach(function () {
 });
 
 test('el directorio muestra a TODA la plantilla activa, incluidos gestores', function () {
-    Colaborador::factory()->create(['name' => 'María', 'apellidos' => 'López', 'puesto_id' => $this->gerente->id, 'sucursal_principal_id' => $this->tula->id, 'estatus' => 'activo', 'correo_corporativo' => 'maria.lopez@mrlana.test', 'telefono_corporativo' => '5550003333']);
+    Colaborador::factory()->create(['name' => 'María', 'apellidos' => 'López', 'puesto_id' => $this->gerente->id, 'sucursal_principal_id' => $this->tula->id, 'estatus' => 'activo', 'correo_corporativo' => 'maria.lopez@mrlana.test', 'correo_personal' => 'maria@correo.test', 'telefono' => '5550003333']);
     Colaborador::factory()->create(['name' => 'Pedro', 'apellidos' => 'Ramírez', 'puesto_id' => $this->gestor->id, 'sucursal_principal_id' => $this->tula->id, 'estatus' => 'activo', 'correo_corporativo' => null, 'telefono_corporativo' => null]);
     Colaborador::factory()->create(['name' => 'Ana', 'apellidos' => 'Martínez', 'puesto_id' => $this->responsableSistemas->id, 'sucursal_principal_id' => $this->corporativo->id, 'estatus' => 'activo']);
 
@@ -72,31 +72,68 @@ test('Corporativo + Sucursales es igual al total de personas activas', function 
         });
 });
 
-test('la API móvil también lista a los gestores de la sucursal', function () {
-    Colaborador::factory()->create(['name' => 'Pedro', 'apellidos' => 'Ramírez', 'puesto_id' => $this->gestor->id, 'estatus' => 'activo', 'sucursal_principal_id' => $this->tula->id]);
-    Colaborador::factory()->create(['name' => 'María', 'apellidos' => 'López', 'puesto_id' => $this->gerente->id, 'estatus' => 'activo', 'sucursal_principal_id' => $this->tula->id]);
-    $usuario = clUsuario('colaborador', ['sucursal_principal_id' => $this->tula->id]);
+test('el gerente de sucursal ve su círculo: subgerente, coordinadora y gerencia regional, nunca a los gestores (web y API)', function () {
+    $subgerente = Puesto::factory()->create(['nombre' => 'Subgerente', 'grupo_documental' => 'subgerente', 'activo' => true]);
+    $coordinadora = Puesto::factory()->create(['nombre' => 'Coordinadora de Sucursal', 'grupo_documental' => 'coordinadora', 'activo' => true]);
+    $gerenteRegional = Puesto::factory()->create(['nombre' => 'Gerente Regional', 'grupo_documental' => 'regional', 'activo' => true]);
+    $subgerenteRegional = Puesto::factory()->create(['nombre' => 'Subgerente Regional', 'activo' => true]);
+    $otra = Sucursal::factory()->create(['nombre' => 'Cuernavaca', 'activo' => true, 'es_corporativo' => false]);
+    $persona = fn (string $nombre, Puesto $puesto, Sucursal $sucursal, array $extra = []): Colaborador => Colaborador::factory()->create(['name' => $nombre, 'apellidos' => 'Prueba', 'puesto_id' => $puesto->id, 'sucursal_principal_id' => $sucursal->id, 'estatus' => 'activo', ...$extra]);
 
-    $nombres = collect($this->actingAs($usuario, 'sanctum')->getJson('/api/v1/directorio?per_page=50')->assertOk()->json('data'))->pluck('nombre');
+    $persona('Pedro', $this->gestor, $this->tula);
+    $persona('Sara', $subgerente, $this->tula, ['correo_personal' => 'sara@correo.test', 'telefono' => '5551112222', 'correo_corporativo' => 'sara@mrlana.test']);
+    $persona('Coni', $coordinadora, $this->tula);
+    // La gerencia regional está registrada en otra sucursal: igual aparece.
+    $persona('Regina', $gerenteRegional, $otra);
+    $persona('Rubén', $subgerenteRegional, $otra);
+    // Gente de otra sucursal y de Corporativo: fuera de su círculo.
+    $persona('Gema', $this->gerente, $otra);
+    $persona('Ana', $this->responsableSistemas, $this->corporativo);
 
-    expect($nombres)->toContain('María López')->toContain('Pedro Ramírez');
+    $gerente = clUsuario('gerente_sucursal', ['name' => 'Gerardo', 'apellidos' => 'Prueba', 'puesto_id' => $this->gerente->id, 'sucursal_principal_id' => $this->tula->id, 'estatus' => 'activo']);
+
+    $web = collect($this->actingAs($gerente)->get(route('directorio.index'))->assertOk()->viewData('page')['props']['colaboradores'])->keyBy('nombre');
+
+    expect($web->keys()->all())->toEqualCanonicalizing(['Gerardo Prueba', 'Sara Prueba', 'Coni Prueba', 'Regina Prueba', 'Rubén Prueba'])
+        // Con su contacto: teléfono y correo personales y correo corporativo.
+        ->and($web['Sara Prueba']['telefono'])->toBe('5551112222')
+        ->and($web['Sara Prueba']['correo_personal'])->toBe('sara@correo.test')
+        ->and($web['Sara Prueba']['correo_corporativo'])->toBe('sara@mrlana.test');
+
+    $api = collect($this->actingAs($gerente, 'sanctum')->getJson('/api/v1/directorio?per_page=50')->assertOk()->json('data'))->pluck('nombre');
+
+    expect($api->all())->toEqualCanonicalizing(['Gerardo Prueba', 'Sara Prueba', 'Coni Prueba', 'Regina Prueba', 'Rubén Prueba']);
+});
+
+test('de Subgerente Regional para arriba ven a toda la empresa, gestores incluidos, con contacto', function () {
+    Colaborador::factory()->create(['name' => 'Pedro', 'apellidos' => 'Ramírez', 'puesto_id' => $this->gestor->id, 'estatus' => 'activo', 'sucursal_principal_id' => $this->tula->id, 'correo_personal' => 'pedro@correo.test', 'telefono' => '5553334444']);
+    Colaborador::factory()->create(['name' => 'Ana', 'apellidos' => 'Martínez', 'puesto_id' => $this->responsableSistemas->id, 'sucursal_principal_id' => $this->corporativo->id, 'estatus' => 'activo']);
+    $otra = Sucursal::factory()->create(['nombre' => 'Cuernavaca', 'activo' => true, 'es_corporativo' => false]);
+    $regional = clUsuario('gerente_regional', ['sucursal_principal_id' => $otra->id, 'estatus' => 'activo']);
+
+    $filas = collect($this->actingAs($regional, 'sanctum')->getJson('/api/v1/directorio?per_page=50')->assertOk()->json('data'))->keyBy('nombre');
+
+    expect($filas->keys())->toContain('Pedro Ramírez', 'Ana Martínez')
+        ->and($filas['Pedro Ramírez']['telefono'])->toBe('5553334444')
+        ->and($filas['Pedro Ramírez']['correo_personal'])->toBe('pedro@correo.test')
+        ->and($filas['Pedro Ramírez']['correo_corporativo'])->toBeNull();
 });
 
 test('la bandera datos_por_completar solo se expone a quien ve todos los contactos', function () {
-    Colaborador::factory()->create(['name' => 'Pedro', 'apellidos' => 'Ramírez', 'puesto_id' => $this->gestor->id, 'estatus' => 'activo', 'sucursal_principal_id' => $this->tula->id, 'correo_corporativo' => null, 'telefono_corporativo' => null]);
-    $usuario = clUsuario('colaborador', ['sucursal_principal_id' => $this->tula->id]);
+    Colaborador::factory()->create(['name' => 'María', 'apellidos' => 'López', 'puesto_id' => $this->gerente->id, 'estatus' => 'activo', 'sucursal_principal_id' => $this->tula->id, 'correo_corporativo' => null, 'telefono_corporativo' => null]);
+    $usuario = clUsuario('coordinadora', ['sucursal_principal_id' => $this->tula->id]);
 
     $fila = collect($this->actingAs($usuario, 'sanctum')->getJson('/api/v1/directorio?per_page=50')->assertOk()->json('data'))
-        ->firstWhere('nombre', 'Pedro Ramírez');
+        ->firstWhere('nombre', 'María López');
 
-    // El operativo no distingue quién tiene contacto: la bandera va nula.
+    // Quien solo ve su círculo no recibe la bandera de RH.
     expect($fila['datos_por_completar'])->toBeNull();
 });
 
 test('un colaborador sin correo corporativo aparece en el directorio sin correo inventado', function () {
     $colaborador = Colaborador::factory()->create(['estatus' => 'activo', 'puesto_id' => $this->gerente->id, 'correo_corporativo' => null, 'sucursal_principal_id' => $this->tula->id]);
 
-    $this->actingAs(clUsuario('colaborador', ['sucursal_principal_id' => $this->tula->id]))->get(route('directorio.index'))
+    $this->actingAs(clUsuario('coordinadora', ['sucursal_principal_id' => $this->tula->id]))->get(route('directorio.index'))
         ->assertInertia(fn ($page) => $page->where(
             'colaboradores',
             fn ($data) => collect($data)->firstWhere('id', $colaborador->id)['correo_corporativo'] === null,

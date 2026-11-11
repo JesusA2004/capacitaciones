@@ -64,7 +64,7 @@ test('RH ve la foto oficial de quien la tiene e iniciales de quien no', function
 
 test('un colaborador ve a sus compañeros en el directorio pero sin la foto de su expediente', function () {
     $companera = dfPersona($this->tula, $this->gerente, 'María', true);
-    $operativo = clUsuario('colaborador', ['sucursal_principal_id' => $this->tula->id]);
+    $operativo = clUsuario('coordinadora', ['sucursal_principal_id' => $this->tula->id]);
 
     $filas = dfFilas($this, $operativo);
 

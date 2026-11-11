@@ -96,7 +96,16 @@ test('un colaborador que tambien tiene permisos de rh recibe ambas experiencias'
         ->and($respuesta->json('capabilities.rh'))->toBeTrue();
 });
 
-test('bootstrap: recibos de nómina sin autoservicio por defecto y directorio disponible', function () {
+test('bootstrap: una coordinadora sí tiene el Directorio en la app', function () {
+    $coordinadora = clUsuario('coordinadora');
+
+    $this->withHeaders(['Authorization' => 'Bearer '.$coordinadora->createToken('test')->plainTextToken])
+        ->getJson('/api/v1/mobile/bootstrap')
+        ->assertOk()
+        ->assertJsonPath('features.directorio', true);
+});
+
+test('bootstrap: recibos de nómina sin autoservicio por defecto y directorio solo para quien tiene acceso (un gestor no)', function () {
     $usuario = User::factory()->for(Colaborador::factory())->create();
     $usuario->assignRole('colaborador');
 
@@ -104,7 +113,8 @@ test('bootstrap: recibos de nómina sin autoservicio por defecto y directorio di
         ->getJson('/api/v1/mobile/bootstrap')
         ->assertOk()
         ->assertJsonPath('features.recibos', false)
-        ->assertJsonPath('features.directorio', true);
+        // Rol colaborador (gestores): sin acceso al Directorio.
+        ->assertJsonPath('features.directorio', false);
 
     $this->app['auth']->forgetGuards();
     $this->withHeaders(['Authorization' => 'Bearer '.$usuario->createToken('test2')->plainTextToken])

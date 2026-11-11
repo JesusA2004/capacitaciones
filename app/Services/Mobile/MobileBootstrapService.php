@@ -9,6 +9,7 @@ use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Configuracion\ConfiguracionSistemaService;
+use App\Services\Directorio\DirectorioColaboradoresService;
 use App\Services\Expedientes\CorreccionesService;
 use App\Services\Expedientes\ExpedienteIncompletoService;
 use App\Services\Expedientes\ExpedienteService;
@@ -250,8 +251,9 @@ class MobileBootstrapService
             // recibos" cuando llega false (utils/modules.ts), incluso en
             // versiones ya instaladas.
             'recibos' => (bool) config('features.recibos_colaborador'),
-            // Directorio de contacto corporativo (global, solo autenticado).
-            'directorio' => true,
+            // Directorio: quien tiene `directorio.ver` o es de Corporativo
+            // (los gestores no). La app oculta el módulo cuando llega false.
+            'directorio' => app(DirectorioColaboradoresService::class)->puedeEntrar($usuario),
         ];
     }
 

@@ -58,7 +58,8 @@ beforeEach(function () {
 });
 
 test('el personal de sucursal solo ve a su sucursal y a su jefe directo en el directorio (web y API)', function () {
-    $usuario = clUsuario('colaborador', ['estatus' => 'activo', 'sucursal_principal_id' => $this->tula->id, 'jefe_id' => $this->jefeEnCuernavaca->id]);
+    // (Los gestores —rol colaborador— ya no entran al directorio.)
+    $usuario = clUsuario('coordinadora', ['estatus' => 'activo', 'sucursal_principal_id' => $this->tula->id, 'jefe_id' => $this->jefeEnCuernavaca->id]);
 
     $nombres = ($this->ver)($usuario);
     expect($nombres)->toContain('Toño Prueba', 'Jefa Prueba')
@@ -71,12 +72,13 @@ test('el personal de sucursal solo ve a su sucursal y a su jefe directo en el di
     expect($sucursales->all())->toBe(['Tula']);
 });
 
-test('el gerente ve su sucursal, el regional su región y RH / Corporativo toda la empresa', function () {
+test('el gerente ve su sucursal y de la gerencia regional para arriba, RH y Corporativo ven toda la empresa', function () {
     $gerente = clUsuario('gerente_sucursal', ['estatus' => 'activo', 'sucursal_principal_id' => $this->tula->id]);
     expect(($this->ver)($gerente))->toContain('Toño Prueba')->not->toContain('Hugo Prueba', 'Carla Prueba');
 
+    // De Subgerente Regional para arriba: toda la empresa (RH, 2026-11-11).
     $regional = clUsuario('gerente_regional', ['estatus' => 'activo', 'sucursal_principal_id' => $this->tula->id]);
-    expect(($this->ver)($regional))->toContain('Toño Prueba', 'Hugo Prueba')->not->toContain('Carla Prueba');
+    expect(($this->ver)($regional))->toContain('Toño Prueba', 'Hugo Prueba', 'Carla Prueba', 'Corina Prueba');
 
     $rh = clUsuario('rh_admin', ['estatus' => 'activo', 'sucursal_principal_id' => $this->tula->id]);
     expect(($this->ver)($rh))->toContain('Toño Prueba', 'Hugo Prueba', 'Carla Prueba', 'Corina Prueba');

@@ -334,10 +334,10 @@ return [
             'etiqueta' => 'Directorio',
             'grupo' => 'Permanencia',
             'etapa' => 'permanencia',
-            'descripcion' => 'Todo el personal entra al directorio. El alcance decide A QUIÉNES ve: «Propios» = solo su sucursal (y su jefe directo); Sucursal = sus sucursales asignadas; Región = las de su región (matriz comercial); Todos = toda la empresa. El personal de Corporativo siempre ve a toda la empresa.',
-            'acceso' => null,
+            'descripcion' => 'El acceso decide QUIÉN entra al directorio (los gestores no; el personal de Corporativo entra siempre). El alcance decide A QUIÉNES ve: «Propios» y Sucursal = su círculo (su sucursal sin gestores, la gerencia regional y su jefe directo); Región = las sucursales de su región; Todos = toda la empresa. Se muestra teléfono y correo personales y correo corporativo (los gestores no tienen corporativo).',
+            'acceso' => 'directorio.ver',
             'alcances' => ['todos' => 'directorio.ver_todos', 'region' => 'directorio.ver_region', 'sucursal' => 'directorio.ver_sucursal'],
-            'acciones' => ['directorio.contactos.ver_todos' => 'Ver correo y teléfono de todos (dentro de su alcance)', 'directorio.editar' => 'Edición rápida de filas'],
+            'acciones' => ['directorio.contactos.ver_todos' => 'Ver teléfono y correos de todos (dentro de su alcance)', 'directorio.editar' => 'Edición rápida de filas'],
         ],
         'campanas' => [
             'etiqueta' => 'Campañas de reclutamiento',
@@ -776,6 +776,12 @@ return [
         // 2026-10-15).
     ],
 
+    // Excepciones por módulo al alcance por defecto del rol. Directorio: de
+    // Subgerente Regional para arriba ven a toda la empresa (RH, 2026-11-11).
+    'alcance_por_modulo' => [
+        'directorio' => ['gerente_regional' => 'todos'],
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Pantalla «Roles y permisos»: etapas, herencia y descripciones
@@ -1085,7 +1091,8 @@ return [
         'dashboard.global.ver' => 'Entra al modo operativo con el tablero de toda la empresa.',
         'dashboard.sucursal.ver' => 'Entra al modo operativo con el tablero de sus sucursales.',
         // Directorio
-        'directorio.contactos.ver_todos' => 'Sin esto solo ve el contacto de su jefe directo; nombre, puesto y sucursal los ve todo el personal.',
+        'directorio.ver' => 'Entra al Directorio. Sin esto el módulo no aparece en su menú (los gestores no lo tienen). El personal de Corporativo entra siempre.',
+        'directorio.contactos.ver_todos' => 'Ve teléfono y correos de todas las personas de su alcance. En su círculo de sucursal el contacto siempre se ve.',
         'directorio.editar' => 'Corrige contacto corporativo, puesto, sucursal y departamento desde el directorio (nunca su propia fila).',
         // Vacantes
         'vacantes.ver' => 'Entra a Vacantes (derivadas de la plantilla autorizada).',

@@ -1177,22 +1177,22 @@ class RolesYPermisosSeeder extends Seeder
      */
     private static function alcancesPara(string $rol, array $permisosDelRol): array
     {
-        $nivel = config("permisos_modulos.alcance_por_rol.{$rol}");
-
-        if (! is_string($nivel)) {
-            return [];
-        }
-
+        $nivelDelRol = config("permisos_modulos.alcance_por_rol.{$rol}");
         $orden = ['todos', 'region', 'sucursal', 'equipo'];
-        $desde = array_search($nivel, $orden, true);
         $resultado = [];
 
         foreach ((array) config('permisos_modulos.modulos', []) as $clave => $modulo) {
-            // Un módulo sin permiso de acceso (p. ej. Directorio: lo usa todo
-            // el personal) recibe igual el alcance por defecto del rol.
-            if ($clave === 'notificaciones' || ! is_array($modulo) || (($modulo['acceso'] ?? null) !== null && ! in_array($modulo['acceso'], $permisosDelRol, true))) {
+            // Excepción del módulo para este rol (alcance_por_modulo) o, sin
+            // ella, el alcance por defecto del rol.
+            $nivel = config("permisos_modulos.alcance_por_modulo.{$clave}.{$rol}") ?? $nivelDelRol;
+
+            // Un módulo sin permiso de acceso recibe igual el alcance por
+            // defecto del rol.
+            if (! is_string($nivel) || $clave === 'notificaciones' || ! is_array($modulo) || (($modulo['acceso'] ?? null) !== null && ! in_array($modulo['acceso'], $permisosDelRol, true))) {
                 continue;
             }
+
+            $desde = array_search($nivel, $orden, true);
 
             // El nivel del rol, o el más cercano por debajo que el módulo
             // tenga (vacantes/candidatos no tienen "equipo").
@@ -1250,6 +1250,12 @@ class RolesYPermisosSeeder extends Seeder
             // Todo rol que usa la campana conserva "ver mis notificaciones".
             if (in_array('notificaciones.leer_todas', $permisos, true)) {
                 $permisos[] = 'notificaciones.ver_propias';
+            }
+
+            // Directorio: entra todo rol menos los de config/directorio.php →
+            // roles_sin_acceso (gestores = rol colaborador).
+            if (! in_array($rol, (array) config('directorio.roles_sin_acceso', []), true)) {
+                $permisos[] = 'directorio.ver';
             }
 
             if (in_array($rol, self::ROLES_VEN_TODAS_LAS_NOTIFICACIONES, true)) {

@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\User;
 use App\Services\Colaboradores\FotoColaboradorService;
+use App\Services\Directorio\DirectorioColaboradoresService;
 use App\Services\Navigation\NavigationService;
 use App\Services\Sistemas\PendientesAltaSistemasService;
 use App\Services\Solicitudes\AprobacionOrganizacionalService;
@@ -98,6 +99,9 @@ class HandleInertiaRequests extends Middleware
                 'evaluacion_desempeno' => (bool) config('features.evaluacion_desempeno'),
                 'nine_box' => (bool) config('features.nine_box'),
                 'certificacion' => (bool) config('features.certificacion'),
+                // Directorio: quien tiene `directorio.ver` o es de Corporativo
+                // (misma regla que la ruta; los gestores no lo ven).
+                'directorio' => $user !== null && app(DirectorioColaboradoresService::class)->puedeEntrar($user),
             ],
             // Notificaciones de escritorio (Web Push): la clave pública VAPID
             // con que el navegador se suscribe (resources/js/composables/useWebPush.ts).

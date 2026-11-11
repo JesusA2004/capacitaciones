@@ -7,7 +7,9 @@ use Database\Seeders\RolesYPermisosSeeder;
 use Laravel\Sanctum\Sanctum;
 
 /*
-| Directorio (cierre 2026-10-15): nombre, puesto, área y sucursal para
+| Directorio (regla 2026-11-11): entra quien tiene directorio.ver o es de
+| Corporativo; el contacto es teléfono y correo personales + correo
+| corporativo. Histórico (2026-10-15): nombre, puesto, área y sucursal para
 | todos; correo/teléfono corporativos solo con permiso
 | directorio.contactos.ver_todos o siendo personal corporativo. Un
 | colaborador operativo solo ve el contacto de su jefe directo. Web y API
@@ -20,12 +22,12 @@ beforeEach(function () {
     $this->sucursal = Sucursal::factory()->create(['es_corporativo' => false]);
     $this->corporativo = Sucursal::factory()->create(['es_corporativo' => true]);
 
-    $this->jefe = Colaborador::factory()->create(['sucursal_principal_id' => $this->sucursal->id, 'correo_corporativo' => 'jefe@mrlana.test', 'telefono_corporativo' => '5551110000']);
-    $this->otro = Colaborador::factory()->create(['sucursal_principal_id' => $this->sucursal->id, 'correo_corporativo' => 'otro@mrlana.test', 'telefono_corporativo' => '5552220000']);
+    $this->jefe = Colaborador::factory()->create(['sucursal_principal_id' => $this->sucursal->id, 'correo_corporativo' => 'jefe@mrlana.test', 'telefono' => '5551110000']);
+    $this->otro = Colaborador::factory()->create(['sucursal_principal_id' => $this->sucursal->id, 'correo_corporativo' => 'otro@mrlana.test', 'correo_personal' => 'otro.personal@correo.test', 'telefono' => '5552220000']);
 
     $persona = Colaborador::factory()->create(['sucursal_principal_id' => $this->sucursal->id, 'jefe_id' => $this->jefe->id]);
     $this->operativo = User::factory()->create(['colaborador_id' => $persona->id]);
-    $this->operativo->assignRole('colaborador');
+    $this->operativo->assignRole('coordinadora');
 });
 
 function dpBuscar(array $lista, int $id): array
@@ -33,21 +35,23 @@ function dpBuscar(array $lista, int $id): array
     return collect($lista)->firstWhere('id', $id);
 }
 
-test('un colaborador operativo solo recibe el contacto de su jefe directo (web y API)', function () {
+test('el personal de sucursal con acceso recibe el contacto de su círculo: teléfono y correos (web y API)', function () {
     $web = $this->actingAs($this->operativo)->get(route('directorio.index'))->assertOk()->viewData('page')['props']['colaboradores'];
 
     expect(dpBuscar($web, $this->jefe->id)['correo_corporativo'])->toBe('jefe@mrlana.test')
         ->and(dpBuscar($web, $this->jefe->id)['es_mi_jefe'])->toBeTrue()
-        ->and(dpBuscar($web, $this->otro->id)['correo_corporativo'])->toBeNull()
-        ->and(dpBuscar($web, $this->otro->id)['telefono_corporativo'])->toBeNull()
+        ->and(dpBuscar($web, $this->otro->id)['correo_corporativo'])->toBe('otro@mrlana.test')
+        ->and(dpBuscar($web, $this->otro->id)['correo_personal'])->toBe('otro.personal@correo.test')
+        ->and(dpBuscar($web, $this->otro->id)['telefono'])->toBe('5552220000')
         ->and(dpBuscar($web, $this->otro->id)['nombre'])->toBe($this->otro->nombreCompleto());
 
     Sanctum::actingAs($this->operativo);
     $api = $this->getJson('/api/v1/directorio?per_page=50')->assertOk()->json('data');
 
-    expect(dpBuscar($api, $this->jefe->id)['telefono_corporativo'])->toBe('5551110000')
-        ->and(dpBuscar($api, $this->otro->id)['correo_corporativo'])->toBeNull()
-        ->and(dpBuscar($api, $this->otro->id)['nombre'])->toBe($this->otro->nombreCompleto());
+    // `telefono_corporativo` se conserva para la app ya instalada: mismo teléfono.
+    expect(dpBuscar($api, $this->jefe->id)['telefono'])->toBe('5551110000')
+        ->and(dpBuscar($api, $this->jefe->id)['telefono_corporativo'])->toBe('5551110000')
+        ->and(dpBuscar($api, $this->otro->id)['correo_personal'])->toBe('otro.personal@correo.test');
 });
 
 test('personal corporativo ve todos los contactos', function () {

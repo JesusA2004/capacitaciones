@@ -23,6 +23,8 @@ class DirectorioController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        abort_unless($this->directorio->puedeEntrar($request->user()), 403, 'No tienes acceso al Directorio.');
+
         $filtros = $request->only(['busqueda', 'puesto_id', 'sucursal_id', 'departamento_id', 'solo_con_correo', 'solo_por_completar']);
         // El servicio ignora ambos filtros "solo" si este usuario no ve todos los contactos.
         $paginador = $this->directorio->buscar($filtros, $request->integer('per_page', 30), $request->user());
@@ -45,6 +47,8 @@ class DirectorioController extends Controller
 
     public function opciones(Request $request): JsonResponse
     {
+        abort_unless($this->directorio->puedeEntrar($request->user()), 403, 'No tienes acceso al Directorio.');
+
         // Filtro de sucursales acotado al alcance del directorio de quien pide.
         return response()->json(['data' => $this->directorio->opciones($request->user())]);
     }

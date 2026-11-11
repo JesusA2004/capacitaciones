@@ -28,6 +28,8 @@ declare module '@inertiajs/core' {
                 evaluacion_desempeno: boolean;
                 nine_box: boolean;
                 certificacion: boolean;
+                /** Entra al Directorio (`directorio.ver` o personal de Corporativo). */
+                directorio: boolean;
             };
             // Modo de navegación (App\Services\Navigation\NavigationService):
             // separa la experiencia personal ("colaborador") de la operativa

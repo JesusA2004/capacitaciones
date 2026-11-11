@@ -235,7 +235,11 @@ export function useMainNavItems() {
                 href: indexMuroFelicitaciones(),
                 icon: PartyPopper,
             },
-            { title: 'Directorio', href: indexDirectorio(), icon: Contact },
+            features.value.directorio && {
+                title: 'Directorio',
+                href: indexDirectorio(),
+                icon: Contact,
+            },
             // Subgerente: consulta las citas de su sucursal sin pasar a modo operativo.
             tienePermiso('agenda.ver') &&
                 !tieneAmbosModos.value && {
@@ -278,7 +282,11 @@ export function useMainNavItems() {
                           href: dashboard(),
                           icon: LayoutGrid,
                       },
-                { title: 'Directorio', href: indexDirectorio(), icon: Contact },
+                features.value.directorio && {
+                    title: 'Directorio',
+                    href: indexDirectorio(),
+                    icon: Contact,
+                },
                 algunPermiso(
                     'ciclo.preautorizar',
                     'ciclo.autorizar_rh',

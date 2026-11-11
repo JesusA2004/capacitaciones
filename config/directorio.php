@@ -28,6 +28,31 @@ return [
     'excluir_puestos' => [],
 
     /*
+    |--------------------------------------------------------------------------
+    | Acceso, círculo de sucursal y contacto (decisión de RH, 2026-11-11)
+    |--------------------------------------------------------------------------
+    |
+    | - Acceso: entra quien tiene `directorio.ver` (Roles y permisos) o es
+    |   personal de Corporativo. `roles_sin_acceso` son los roles que NO lo
+    |   reciben por defecto (gestores = rol colaborador); se cambia desde la
+    |   pantalla de roles, no aquí.
+    | - Círculo de sucursal: quien no ve región ni toda la empresa (gerente,
+    |   subgerente, coordinadora) ve a la gente de su sucursal SIN los
+    |   gestores (`grupos_fuera_del_circulo`), más la gerencia regional
+    |   (`puestos_regionales`) y su jefe directo.
+    | - Contacto: teléfono y correo PERSONALES y correo corporativo. Los
+    |   gestores no tienen correo corporativo (`grupos_sin_correo_corporativo`):
+    |   nunca se les marca como dato faltante.
+    */
+    'roles_sin_acceso' => ['colaborador'],
+
+    'grupos_fuera_del_circulo' => ['gestor'],
+
+    'puestos_regionales' => ['Gerente Regional%', 'Subgerente Regional%'],
+
+    'grupos_sin_correo_corporativo' => ['gestor'],
+
+    /*
     | Vista «Por área»: en Corporativo el área es el departamento del puesto
     | (con estos alias); en sucursal, el puesto en plural.
     */

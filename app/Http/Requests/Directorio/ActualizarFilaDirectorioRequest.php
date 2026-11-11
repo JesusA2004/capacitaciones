@@ -46,6 +46,8 @@ class ActualizarFilaDirectorioRequest extends FormRequest
         return [
             'correo_corporativo' => 'correo corporativo',
             'telefono_corporativo' => 'teléfono corporativo',
+            'correo_personal' => 'correo personal',
+            'telefono' => 'teléfono',
             'sucursal_principal_id' => 'sucursal',
             'departamento_id' => 'departamento',
             'puesto_id' => 'puesto',

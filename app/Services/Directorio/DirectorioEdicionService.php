@@ -25,7 +25,7 @@ use Illuminate\Support\Facades\DB;
 class DirectorioEdicionService
 {
     /** Campos de contacto que el directorio edita (pestaña «Datos personales»). */
-    public const CAMPOS_CONTACTO = ['correo_corporativo', 'telefono_corporativo'];
+    public const CAMPOS_CONTACTO = ['correo_corporativo', 'correo_personal', 'telefono', 'telefono_corporativo'];
 
     /** Campos laborales que el directorio edita (pestaña «Datos laborales»), sin sueldo. */
     public const CAMPOS_LABORALES = ['sucursal_principal_id', 'departamento_id', 'puesto_id', 'motivo'];
