@@ -325,41 +325,46 @@ type DatoContacto = {
     etiqueta: string;
     /** Nombre completo del dato, para lectores de pantalla. */
     nombre: string;
-    valor: string;
+    /** null = la persona no lo tiene capturado («Falta dato»). */
+    valor: string | null;
 };
 
-/** Contacto con su etiqueta literal; solo lo que la persona tiene capturado. */
+/**
+ * Contacto con su etiqueta literal. Siempre salen los tres renglones para
+ * que se vea qué le falta a cada quien; el correo corporativo se omite en
+ * quien no lo lleva (gestores). Si el backend no mandó el contacto
+ * (contacto_visible = false) solo sale lo que llegó: ahí un vacío no
+ * significa que falte.
+ */
 function contactos(c: ColaboradorDirectorio): DatoContacto[] {
-    const datos: DatoContacto[] = [];
-
-    if (c.telefono) {
-        datos.push({
+    const datos: DatoContacto[] = [
+        {
             clave: 'telefono',
             etiqueta: 'Teléfono',
             nombre: 'el teléfono',
-            valor: c.telefono,
-        });
-    }
+            valor: c.telefono || null,
+        },
+    ];
 
-    if (c.correo_corporativo) {
+    if (c.lleva_correo_corporativo !== false) {
         datos.push({
             clave: 'correo-corporativo',
             etiqueta: 'Correo corp.',
             nombre: 'el correo corporativo',
-            valor: c.correo_corporativo,
+            valor: c.correo_corporativo || null,
         });
     }
 
-    if (c.correo_personal) {
-        datos.push({
-            clave: 'correo-personal',
-            etiqueta: 'Correo pers.',
-            nombre: 'el correo personal',
-            valor: c.correo_personal,
-        });
-    }
+    datos.push({
+        clave: 'correo-personal',
+        etiqueta: 'Correo pers.',
+        nombre: 'el correo personal',
+        valor: c.correo_personal || null,
+    });
 
-    return datos;
+    return c.contacto_visible === false
+        ? datos.filter((d) => d.valor !== null)
+        : datos;
 }
 
 /** `${id}:${clave}` del dato recién copiado (muestra la palomita un momento). */
@@ -367,6 +372,10 @@ const copiado = ref<string | null>(null);
 
 async function copiar(id: number, dato: DatoContacto): Promise<void> {
     const marca = `${id}:${dato.clave}`;
+
+    if (dato.valor === null) {
+        return;
+    }
 
     try {
         await navigator.clipboard.writeText(dato.valor);
@@ -698,6 +707,14 @@ function detalle(c: ColaboradorDirectorio): string {
                                     {{ dato.etiqueta }}:
                                 </dt>
                                 <dd
+                                    v-if="dato.valor === null"
+                                    class="col-span-2 flex h-7 items-center font-medium text-warning italic"
+                                    data-falta-dato
+                                >
+                                    Falta dato
+                                </dd>
+                                <dd
+                                    v-else
                                     class="min-w-0 truncate font-medium text-[var(--mrl-texto)]"
                                     :class="
                                         dato.clave === 'telefono'
@@ -709,6 +726,7 @@ function detalle(c: ColaboradorDirectorio): string {
                                     {{ dato.valor }}
                                 </dd>
                                 <button
+                                    v-if="dato.valor !== null"
                                     type="button"
                                     class="flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-[var(--mrl-superficie)] hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                     :aria-label="
