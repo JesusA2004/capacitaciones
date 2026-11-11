@@ -3,7 +3,9 @@ import { Head, Link } from '@inertiajs/vue3';
 import {
     Briefcase,
     Building2,
+    Check,
     Contact,
+    Copy,
     Download,
     Layers,
     Mail,
@@ -323,6 +325,68 @@ const totales = computed(() => {
     };
 });
 
+type DatoContacto = {
+    clave: 'telefono' | 'correo-corporativo' | 'correo-personal';
+    etiqueta: string;
+    /** Nombre completo del dato, para lectores de pantalla. */
+    nombre: string;
+    valor: string;
+};
+
+/** Contacto con su etiqueta literal; solo lo que la persona tiene capturado. */
+function contactos(c: ColaboradorDirectorio): DatoContacto[] {
+    const datos: DatoContacto[] = [];
+
+    if (c.telefono) {
+        datos.push({
+            clave: 'telefono',
+            etiqueta: 'Teléfono',
+            nombre: 'el teléfono',
+            valor: c.telefono,
+        });
+    }
+
+    if (c.correo_corporativo) {
+        datos.push({
+            clave: 'correo-corporativo',
+            etiqueta: 'Correo corp.',
+            nombre: 'el correo corporativo',
+            valor: c.correo_corporativo,
+        });
+    }
+
+    if (c.correo_personal) {
+        datos.push({
+            clave: 'correo-personal',
+            etiqueta: 'Correo pers.',
+            nombre: 'el correo personal',
+            valor: c.correo_personal,
+        });
+    }
+
+    return datos;
+}
+
+/** `${id}:${clave}` del dato recién copiado (muestra la palomita un momento). */
+const copiado = ref<string | null>(null);
+
+async function copiar(id: number, dato: DatoContacto): Promise<void> {
+    const marca = `${id}:${dato.clave}`;
+
+    try {
+        await navigator.clipboard.writeText(dato.valor);
+        copiado.value = marca;
+        window.setTimeout(() => {
+            if (copiado.value === marca) {
+                copiado.value = null;
+            }
+        }, 1600);
+    } catch {
+        // Sin permiso de portapapeles: el dato sigue a la vista para copiarlo a mano.
+        copiado.value = null;
+    }
+}
+
 function puedeEditar(c: ColaboradorDirectorio): boolean {
     return Boolean(props.edicion) && editables.value.has(c.id);
 }
@@ -439,7 +503,7 @@ function detalle(c: ColaboradorDirectorio): string {
                     :texto="
                         veTodosLosContactos === false
                             ? 'Tu círculo de contacto: la gerencia y la coordinación de tu sucursal y la gerencia regional, con su teléfono y sus correos (personal y corporativo).'
-                            : 'Teléfono, correo personal y correo corporativo del personal de corporativo y de las sucursales (los gestores no tienen correo corporativo). Toca el ícono de correo o teléfono para escribir o llamar.'
+                            : 'Teléfono, correo personal y correo corporativo del personal de corporativo y de las sucursales (los gestores no tienen correo corporativo). Copia cualquier dato con el botón de copiar, o toca el ícono de correo o teléfono para escribir o llamar.'
                     "
                 />
             </div>
@@ -563,43 +627,58 @@ function detalle(c: ColaboradorDirectorio): string {
                                 class="mt-0.5 w-fit text-xs font-medium text-primary hover:underline"
                                 >Abrir expediente</Link
                             >
-                            <a
-                                v-if="c.telefono"
-                                :href="`tel:${c.telefono}`"
-                                class="truncate text-xs text-[var(--mrl-texto)] tabular-nums hover:underline"
-                                data-contacto="telefono"
-                                >{{ c.telefono }}</a
+                            <dl
+                                v-if="contactos(c).length > 0"
+                                class="mt-1 flex flex-col gap-0.5"
                             >
-                            <p
-                                v-if="c.correo_corporativo"
-                                class="flex min-w-0 items-baseline gap-1 text-xs"
-                                data-contacto="correo-corporativo"
-                            >
-                                <span class="shrink-0 text-muted-foreground"
-                                    >Corporativo:</span
+                                <div
+                                    v-for="dato in contactos(c)"
+                                    :key="dato.clave"
+                                    class="flex min-w-0 items-center gap-1.5 text-xs"
+                                    :data-contacto="dato.clave"
                                 >
-                                <a
-                                    :href="`mailto:${c.correo_corporativo}`"
-                                    class="min-w-0 truncate text-primary hover:underline"
-                                    :title="c.correo_corporativo"
-                                    >{{ c.correo_corporativo }}</a
-                                >
-                            </p>
-                            <p
-                                v-if="c.correo_personal"
-                                class="flex min-w-0 items-baseline gap-1 text-xs"
-                                data-contacto="correo-personal"
-                            >
-                                <span class="shrink-0 text-muted-foreground"
-                                    >Personal:</span
-                                >
-                                <a
-                                    :href="`mailto:${c.correo_personal}`"
-                                    class="min-w-0 truncate text-primary hover:underline"
-                                    :title="c.correo_personal"
-                                    >{{ c.correo_personal }}</a
-                                >
-                            </p>
+                                    <dt
+                                        class="w-[5.25rem] shrink-0 text-muted-foreground"
+                                    >
+                                        {{ dato.etiqueta }}:
+                                    </dt>
+                                    <dd
+                                        class="min-w-0 flex-1 truncate font-medium text-[var(--mrl-texto)]"
+                                        :class="
+                                            dato.clave === 'telefono'
+                                                ? 'tabular-nums'
+                                                : ''
+                                        "
+                                        :title="dato.valor"
+                                    >
+                                        {{ dato.valor }}
+                                    </dd>
+                                    <button
+                                        type="button"
+                                        class="flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-[var(--mrl-fondo)] hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                        :aria-label="
+                                            copiado === `${c.id}:${dato.clave}`
+                                                ? 'Copiado'
+                                                : `Copiar ${dato.nombre} de ${c.nombre}`
+                                        "
+                                        :title="
+                                            copiado === `${c.id}:${dato.clave}`
+                                                ? 'Copiado'
+                                                : 'Copiar'
+                                        "
+                                        @click="copiar(c.id, dato)"
+                                    >
+                                        <Check
+                                            v-if="
+                                                copiado ===
+                                                `${c.id}:${dato.clave}`
+                                            "
+                                            class="size-3.5 text-success"
+                                        />
+                                        <Copy v-else class="size-3.5" />
+                                    </button>
+                                </div>
+                            </dl>
                         </div>
 
                         <div class="flex shrink-0 items-center gap-1.5">

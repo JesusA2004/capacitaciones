@@ -81,6 +81,21 @@ test('rh_admin y colaborador sin directorio.editar reciben 403', function (strin
     expect($this->persona->refresh()->telefono_corporativo)->toBe('7770000000');
 })->with(['rh_admin', 'colaborador']);
 
+test('un rol al que se le activa directorio.editar en Roles y permisos ya puede editar', function () {
+    $rh = clUsuario('rh_admin', ['estatus' => 'activo']);
+    $rh->givePermissionTo('directorio.editar');
+
+    $this->actingAs($rh)
+        ->patchJson(route('directorio.actualizar', $this->persona), [
+            'telefono' => '7775556666',
+            'correo_personal' => 'lucia.personal@correo.test',
+        ])
+        ->assertOk();
+
+    expect($this->persona->refresh()->telefono)->toBe('7775556666')
+        ->and($this->persona->correo_personal)->toBe('lucia.personal@correo.test');
+});
+
 test('datos inválidos responden 422 con las reglas del expediente', function () {
     $this->actingAs(clUsuario('super_admin', ['estatus' => 'activo']))
         ->patchJson(route('directorio.actualizar', $this->persona), [

@@ -337,7 +337,7 @@ return [
             'descripcion' => 'El acceso decide QUIÉN entra al directorio (los gestores no; el personal de Corporativo entra siempre). El alcance decide A QUIÉNES ve: «Propios» y Sucursal = su círculo (su sucursal sin gestores, la gerencia regional y su jefe directo); Región = las sucursales de su región; Todos = toda la empresa. Se muestra teléfono y correo personales y correo corporativo (los gestores no tienen corporativo).',
             'acceso' => 'directorio.ver',
             'alcances' => ['todos' => 'directorio.ver_todos', 'region' => 'directorio.ver_region', 'sucursal' => 'directorio.ver_sucursal'],
-            'acciones' => ['directorio.contactos.ver_todos' => 'Ver teléfono y correos de todos (dentro de su alcance)', 'directorio.editar' => 'Edición rápida de filas'],
+            'acciones' => ['directorio.contactos.ver_todos' => 'Ver teléfono y correos de todos (dentro de su alcance)', 'directorio.editar' => 'Editar teléfono, correos, puesto y sucursal'],
         ],
         'campanas' => [
             'etiqueta' => 'Campañas de reclutamiento',
@@ -1093,7 +1093,7 @@ return [
         // Directorio
         'directorio.ver' => 'Entra al Directorio. Sin esto el módulo no aparece en su menú (los gestores no lo tienen). El personal de Corporativo entra siempre.',
         'directorio.contactos.ver_todos' => 'Ve teléfono y correos de todas las personas de su alcance. En su círculo de sucursal el contacto siempre se ve.',
-        'directorio.editar' => 'Corrige contacto corporativo, puesto, sucursal y departamento desde el directorio (nunca su propia fila).',
+        'directorio.editar' => 'Corrige teléfono, correo personal, correo corporativo, puesto, sucursal y departamento desde el directorio (nunca su propia fila, y solo de las personas cuyo expediente alcanza). Sin esto solo puede copiar los datos, escribir o llamar.',
         // Vacantes
         'vacantes.ver' => 'Entra a Vacantes (derivadas de la plantilla autorizada).',
         'vacantes.exportar' => 'Descarga el listado de vacantes en Excel o PDF.',
