@@ -431,6 +431,7 @@ return [
                 'solicitudes.crear' => 'Crear', 'solicitudes.revisar' => 'Marcar en revisión', 'solicitudes.requerir_correccion' => 'Pedir corrección',
                 'solicitudes.aprobar' => 'Aprobar', 'solicitudes.rechazar' => 'Rechazar',
                 'solicitudes.descargar_formato' => 'Descargar formato de permiso (PDF)', 'solicitudes.exportar' => 'Exportar bandeja (Excel / PDF)',
+                'solicitudes.eliminar' => 'Eliminar (pruebas o errores, sin avisar al colaborador)',
             ],
         ],
         'vacaciones' => [
@@ -1151,6 +1152,7 @@ return [
         'solicitudes.rechazar' => 'Rechaza la solicitud con un motivo.',
         'solicitudes.descargar_formato' => 'Descarga el formato oficial de permiso de una solicitud ajena ya autorizada (el dueño siempre descarga el suyo).',
         'solicitudes.exportar' => 'Exporta la bandeja filtrada a Excel o PDF.',
+        'solicitudes.eliminar' => 'Elimina una solicitud de su alcance registrada por error o como prueba, de cualquier tipo y estado, sin avisar al colaborador. Devuelve los días de vacaciones; no borra bajas con cierre laboral ni préstamos ya entregados.',
         'incapacidades.ver' => 'Entra a Incapacidades (información médica).',
         'incapacidades.registrar' => 'Captura incapacidades y carga certificados, ST-7, ST-2 y ST-3.',
         'incapacidades.corregir' => 'Corrige o cancela una incapacidad, siempre con motivo y bitácora.',

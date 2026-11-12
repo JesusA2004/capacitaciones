@@ -29,6 +29,7 @@ import {
     PenLine,
     ShieldAlert,
     ShieldCheck,
+    Trash2,
     UserMinus,
     UserPen,
     Wallet,
@@ -44,6 +45,7 @@ import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
+import EliminarSolicitudDialog from '@/components/Solicitudes/EliminarSolicitudDialog.vue';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -62,6 +64,7 @@ import { useFiltros } from '@/composables/useFiltros';
 import { useKanbanTransition } from '@/composables/useKanbanTransition';
 import { formatearPeriodo } from '@/lib/fechas';
 import { opcionesDe } from '@/lib/opcionesSelect';
+import { dashboard } from '@/routes';
 import { index as indexIncapacidades } from '@/routes/rh/incapacidades';
 import {
     actualizarEstado,
@@ -98,12 +101,12 @@ const props = defineProps<{
     puedeVerIncapacidades: boolean;
 }>();
 
-// Permanencia › Solicitudes (Propuesta de mejoras etapa 1, pantalla 3): el
+// Inicio › Solicitudes (Propuesta de mejoras etapa 1, pantalla 3): el
 // tablero es la pantalla del módulo; el tipo se acota con su filtro.
 defineOptions({
     layout: {
         breadcrumbs: [
-            { title: 'Permanencia', href: '' },
+            { title: 'Inicio', href: dashboard.url() },
             { title: 'Solicitudes', href: index.url() },
         ],
     },
@@ -402,6 +405,15 @@ function esUrgente(solicitud: SolicitudInternaItem): boolean {
         (Date.now() - new Date(solicitud.created_at).getTime()) / 86_400_000;
 
     return dias > 5;
+}
+
+// --- Eliminar (solicitudes.eliminar): solo las tarjetas que el backend marca ---
+const dialogEliminarAbierto = ref(false);
+const solicitudPorEliminar = ref<{ id: number; folio: string } | null>(null);
+
+function abrirEliminar(solicitud: SolicitudInternaItem) {
+    solicitudPorEliminar.value = { id: solicitud.id, folio: solicitud.folio };
+    dialogEliminarAbierto.value = true;
 }
 
 // --- Drag and drop: confirmación + comentario obligatorio en rechazo/corrección ---
@@ -909,6 +921,16 @@ function confirmarMovimiento() {
                                 }}</span>
                             </span>
                             <div class="flex shrink-0 items-center gap-0.5">
+                                <button
+                                    v-if="solicitud.acciones?.eliminar"
+                                    type="button"
+                                    class="flex size-6 items-center justify-center rounded-md text-white/90 transition-colors hover:bg-white/20 hover:text-white"
+                                    title="Eliminar (prueba o error, sin avisar al colaborador)"
+                                    :aria-label="`Eliminar la solicitud ${solicitud.folio}`"
+                                    @click="abrirEliminar(solicitud)"
+                                >
+                                    <Trash2 class="size-3.5" />
+                                </button>
                                 <Link
                                     :href="show.url(solicitud.id)"
                                     class="flex size-6 items-center justify-center rounded-md text-white/90 transition-colors hover:bg-white/20 hover:text-white"
@@ -1078,6 +1100,12 @@ function confirmarMovimiento() {
             </div>
         </div>
     </div>
+
+    <!-- Eliminar una solicitud de prueba o capturada por error (sin aviso). -->
+    <EliminarSolicitudDialog
+        v-model:open="dialogEliminarAbierto"
+        :solicitud="solicitudPorEliminar"
+    />
 
     <!-- Dialog: confirmar movimiento del tablero -->
     <Dialog

@@ -184,6 +184,26 @@ class SolicitudInternaPolicy
     }
 
     /**
+     * Eliminar una solicitud registrada por error o como prueba (cualquier
+     * tipo y estado, sin avisar al colaborador): acción propia
+     * (`solicitudes.eliminar`), dentro del alcance del módulo. Sí aplica a
+     * la solicitud propia: quien limpia pruebas suele haberlas creado. Lo
+     * que no se puede deshacer lo bloquea EliminacionSolicitudService.
+     */
+    public function eliminar(User $usuario, SolicitudInterna $solicitud): bool
+    {
+        if (! $usuario->can('solicitudes.eliminar')) {
+            return false;
+        }
+
+        if ($solicitud->esDe($usuario)) {
+            return true;
+        }
+
+        return $this->alcanceModulo->alcanzaColaborador($usuario, $solicitud->colaboradorDeBaja() ?? $solicitud->personaSolicitante(), 'solicitudes');
+    }
+
+    /**
      * Crear una solicitud de baja de colaborador: permiso dedicado, no
      * `solicitudes.crear` genérico ni el autoservicio de create(): pedir la
      * baja de alguien de su equipo es una acción operativa. (Aprobarla ya no es una acción de la bandeja: la baja

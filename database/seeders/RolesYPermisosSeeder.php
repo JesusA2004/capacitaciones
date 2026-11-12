@@ -528,6 +528,9 @@ class RolesYPermisosSeeder extends Seeder
             'altas.ver', 'altas.crear', 'altas.enviar', 'altas.revisar', 'altas.aprobar', 'altas.cancelar',
             'vacaciones.ver', 'vacaciones.solicitar', 'vacaciones.aprobar', 'vacaciones.rechazar', 'vacaciones.ajustar', 'vacaciones.reportes',
             'solicitudes.ver', 'solicitudes.crear', 'solicitudes.revisar', 'solicitudes.aprobar', 'solicitudes.rechazar',
+            // Borrar solicitudes de prueba o capturadas por error, sin avisar
+            // al colaborador (solo RH Admin y super_admin).
+            'solicitudes.eliminar',
             'reportes_rh.ver', 'reportes_rh.exportar', 'reportes_rh.globales', 'reportes_rh.sucursal', 'reportes_rh.mis_reportes', 'reportes_rh.datos_sensibles',
             'rotacion.ver',
             'auditoria.ver',

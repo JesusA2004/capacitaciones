@@ -27,10 +27,12 @@ use App\Services\Formatos\OfficialFormatCatalogoService;
 use App\Services\Reaperturas\ReaperturaService;
 use App\Services\Solicitudes\AprobacionJerarquicaService;
 use App\Services\Solicitudes\AprobacionOrganizacionalService;
+use App\Services\Solicitudes\EliminacionSolicitudService;
 use App\Services\Solicitudes\SolicitudesService;
 use App\Services\Solicitudes\SolicitudFormatoOficialService;
 use App\Services\Solicitudes\VistoBuenoService;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -53,6 +55,7 @@ class SolicitudController extends Controller
         private readonly AprobacionJerarquicaService $aprobaciones,
         private readonly VistoBuenoService $vistoBueno,
         private readonly AprobacionOrganizacionalService $motor,
+        private readonly EliminacionSolicitudService $eliminacion,
     ) {}
 
     public function index(Request $request): Response
@@ -67,11 +70,15 @@ class SolicitudController extends Controller
         // Miniatura del solicitante en cada tarjeta. `foto_path` (ruta del
         // NAS) se oculta: al frontend solo llega la URL protegida.
         $usuario = $request->user();
+        $tienePermisoEliminar = $usuario->can(EliminacionSolicitudService::PERMISO);
 
-        $tablero['items']->each(function (SolicitudInterna $solicitud) use ($usuario): void {
+        $tablero['items']->each(function (SolicitudInterna $solicitud) use ($usuario, $tienePermisoEliminar): void {
             // Qué puede hacer ESTA cuenta con cada tarjeta (misma policy que
             // valida el PATCH): sin permiso no se arrastra ni se ofrece la acción.
-            $solicitud->setAttribute('acciones', $this->solicitudes->accionesBandeja($usuario, $solicitud));
+            $solicitud->setAttribute('acciones', [
+                ...$this->solicitudes->accionesBandeja($usuario, $solicitud),
+                'eliminar' => $tienePermisoEliminar && $usuario->can('eliminar', $solicitud),
+            ]);
 
             $colaborador = $solicitud->colaborador ?? $solicitud->usuario?->colaborador;
             $solicitud->setAttribute('foto_url', $colaborador !== null ? $this->fotos->url($colaborador) : null);
@@ -200,11 +207,11 @@ class SolicitudController extends Controller
         $this->authorize('view', $solicitud);
 
         $solicitud->load([
-            'colaborador:id,name,apellidos,puesto_id,sucursal_principal_id',
+            'colaborador:id,name,apellidos,puesto_id,sucursal_principal_id,foto_path,jefe_id,gerente_id',
             'colaborador.puesto:id,nombre',
             'colaborador.sucursalPrincipal:id,nombre',
             'usuario:id,name,apellidos,colaborador_id',
-            'usuario.colaborador:id,name,apellidos,puesto_id,sucursal_principal_id',
+            'usuario.colaborador:id,name,apellidos,puesto_id,sucursal_principal_id,foto_path,jefe_id,gerente_id',
             'usuario.colaborador.puesto:id,nombre',
             'usuario.colaborador.sucursalPrincipal:id,nombre',
             'objetivoColaborador:id,name,apellidos',
@@ -234,6 +241,8 @@ class SolicitudController extends Controller
         $acciones = $this->solicitudes->accionesBandeja($request->user(), $solicitud);
         $esBaja = $solicitud->tipo === TipoSolicitudInterna::BajaColaborador;
         $colaboradorSolicitud = $solicitud->colaborador ?? $solicitud->usuario?->colaborador;
+        // Foto de quien solicita en el encabezado (URL protegida, solo dentro del alcance).
+        $solicitud->setAttribute('foto_url', $colaboradorSolicitud !== null ? $this->fotos->urlPara($colaboradorSolicitud, $request->user()) : null);
 
         return Inertia::render('Rh/Solicitudes/Show', [
             'solicitud' => $solicitud,
@@ -250,6 +259,9 @@ class SolicitudController extends Controller
             // se ve deshabilitado con este motivo humano.
             'motivoAprobarEnEspera' => $esBaja ? null : $acciones['motivo_bloqueo'],
             'puedeRechazar' => $acciones['rechazar'],
+            // Borrar una solicitud de prueba o capturada por error (sin aviso
+            // al colaborador): el diálogo consulta qué pasará antes de confirmar.
+            'puedeEliminar' => $request->user()->can('eliminar', $solicitud),
             // Préstamo: no se aprueba con el botón genérico; RH lo autoriza
             // con monto, plazo y datos del contrato (PrestamoPolicy).
             'puedeAutorizarPrestamo' => $solicitud->tipo === TipoSolicitudInterna::PrestamoInterno
@@ -416,6 +428,39 @@ class SolicitudController extends Controller
         $this->solicitudes->rechazar($solicitud, $request->user(), $request->validated('motivo_rechazo'));
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Solicitud rechazada.']);
+    }
+
+    /**
+     * Qué pasará al eliminar la solicitud (se revierte, se conserva o la
+     * bloquea): lo consulta el diálogo de confirmación. No cambia nada.
+     */
+    public function revisarEliminacion(SolicitudInterna $solicitud): JsonResponse
+    {
+        $this->authorize('eliminar', $solicitud);
+
+        return response()->json(['data' => $this->eliminacion->revisar($solicitud)]);
+    }
+
+    /**
+     * Elimina una solicitud de prueba o capturada por error, de cualquier
+     * tipo y estado, SIN avisar al colaborador (EliminacionSolicitudService).
+     */
+    public function destroy(Request $request, SolicitudInterna $solicitud): RedirectResponse
+    {
+        $this->authorize('eliminar', $solicitud);
+
+        $datos = $request->validate([
+            'motivo' => ['nullable', 'string', 'max:500'],
+            'desde_detalle' => ['nullable', 'boolean'],
+        ], [], ['motivo' => 'motivo']);
+
+        $revision = $this->eliminacion->eliminar($solicitud, $request->user(), $datos['motivo'] ?? null);
+        $toast = ['type' => 'success', 'message' => sprintf('Solicitud %s eliminada. No se avisó al colaborador.', $revision['folio'])];
+
+        // Desde el detalle ya no hay nada que mostrar: vuelve al tablero.
+        return (bool) ($datos['desde_detalle'] ?? false)
+            ? redirect()->route('rh.solicitudes.index')->with('toast', $toast)
+            : back()->with('toast', $toast);
     }
 
     /**

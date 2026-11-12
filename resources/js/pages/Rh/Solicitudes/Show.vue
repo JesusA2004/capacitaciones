@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ClipboardList, Eye, FileSearch, Lock } from '@lucide/vue';
+import { ClipboardList, Eye, FileSearch, Lock, Trash2 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DocumentosProceso from '@/components/documentos/DocumentosProceso.vue';
@@ -14,6 +15,7 @@ import FiniquitoPanel from '@/components/Rh/FiniquitoPanel.vue';
 import AutorizarPrestamoDialog from '@/components/Solicitudes/AutorizarPrestamoDialog.vue';
 import type { NivelVistoBueno } from '@/components/Solicitudes/CadenaAutorizacion.vue';
 import ComparativoDatos from '@/components/Solicitudes/ComparativoDatos.vue';
+import EliminarSolicitudDialog from '@/components/Solicitudes/EliminarSolicitudDialog.vue';
 import FlujoAprobacion from '@/components/Solicitudes/FlujoAprobacion.vue';
 import PermisoAutorizacionCard from '@/components/Solicitudes/PermisoAutorizacionCard.vue';
 import { Button } from '@/components/ui/button';
@@ -81,6 +83,8 @@ const props = defineProps<{
     /** Con permiso de aprobar, pero faltan vistos buenos (texto humano). */
     motivoAprobarEnEspera: string | null;
     puedeRechazar: boolean;
+    /** Borrar una solicitud de prueba o capturada por error (sin aviso). */
+    puedeEliminar: boolean;
     /** Préstamo: solo RH lo autoriza (monto, plazo y datos del contrato). */
     puedeAutorizarPrestamo: boolean;
     vistasPrevias: {
@@ -152,6 +156,7 @@ const tieneAcciones = computed(
 // diálogo «Autorizar préstamo» (el gerente/regional solo dan visto bueno).
 const esPrestamo = computed(() => props.solicitud.tipo === 'prestamo');
 const autorizandoPrestamo = ref(false);
+const eliminando = ref(false);
 
 const archivosEvidencia = ref<File[]>([]);
 const formEvidencia = useForm({ archivo: null as File | null });
@@ -250,6 +255,12 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
             :descripcion="`${solicitud.colaborador?.name ?? solicitud.usuario?.name ?? ''} ${solicitud.colaborador?.apellidos ?? solicitud.usuario?.apellidos ?? ''}`"
             :icono="ClipboardList"
         >
+            <template #icono>
+                <ColaboradorAvatar
+                    :nombre="`${solicitud.colaborador?.name ?? solicitud.usuario?.name ?? ''} ${solicitud.colaborador?.apellidos ?? solicitud.usuario?.apellidos ?? ''}`"
+                    :foto-url="solicitud.foto_url"
+                />
+            </template>
             <EstadoBadge :estado="solicitud.estado" />
         </CrudPageHeader>
 
@@ -702,9 +713,28 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                         {{ solicitud.motivo_rechazo }}
                     </p>
                 </div>
+
+                <!-- Solicitud de prueba o capturada por error: se elimina sin
+                     avisar al colaborador (solicitudes.eliminar). -->
+                <Button
+                    v-if="puedeEliminar"
+                    variant="ghost"
+                    class="justify-start text-destructive hover:bg-danger-soft hover:text-destructive"
+                    @click="eliminando = true"
+                >
+                    <Trash2 class="size-4" />
+                    Eliminar solicitud
+                </Button>
             </div>
         </div>
     </div>
+
+    <EliminarSolicitudDialog
+        v-if="puedeEliminar"
+        v-model:open="eliminando"
+        :solicitud="{ id: solicitud.id, folio: solicitud.folio }"
+        desde-detalle
+    />
 
     <AutorizarPrestamoDialog
         v-if="esPrestamo && puedeAutorizarPrestamo"

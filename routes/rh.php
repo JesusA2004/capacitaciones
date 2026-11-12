@@ -460,6 +460,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // contrato de crédito (mismo servicio que la API móvil).
             Route::post('{solicitud}/prestamo/autorizar', [PrestamoAutorizacionController::class, 'autorizar'])->name('prestamo.autorizar');
             Route::patch('{solicitud}/estado', [SolicitudController::class, 'actualizarEstado'])->name('actualizar-estado');
+            // Eliminar solicitudes de prueba o capturadas por error
+            // (solicitudes.eliminar): sin aviso al colaborador.
+            Route::get('{solicitud}/eliminacion', [SolicitudController::class, 'revisarEliminacion'])->name('eliminacion');
+            Route::delete('{solicitud}', [SolicitudController::class, 'destroy'])->name('destroy');
 
             Route::prefix('{solicitud}/finiquito')->name('finiquito.')->group(function () {
                 Route::post('calcular', [FiniquitoController::class, 'calcular'])->name('calcular');

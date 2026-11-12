@@ -4,7 +4,7 @@ Un solo módulo (`App\Models\SolicitudInterna`, tabla `solicitudes_internas`) pa
 
 ## Tablero de RH (Propuesta de mejoras etapa 1, pantalla 3)
 
-`Permanencia › Solicitudes` (`/rh/solicitudes`) abre **directo el tablero** con «Todos los tipos» — ya no hay pantalla intermedia por tipo. Indicadores y columnas: Recibidas · En revisión · Requiere corrección · Aprobadas · No aprobadas. Cada tarjeta lleva arriba una banda con el color fijo de su tipo (tokens `--tipo-solicitud-*` de `resources/css/app.css`) y la leyenda de colores va arriba del tablero; vacaciones y permisos por días muestran su periodo («3 días · 10 – 12 nov 2026»).
+`Inicio › Solicitudes` (`/rh/solicitudes`; antes dentro de «Permanencia») abre **directo el tablero** con «Todos los tipos» — ya no hay pantalla intermedia por tipo. Indicadores y columnas: Recibidas · En revisión · Requiere corrección · Aprobadas · No aprobadas. Cada tarjeta lleva arriba una banda con el color fijo de su tipo (tokens `--tipo-solicitud-*` de `resources/css/app.css`) y la leyenda de colores va arriba del tablero; vacaciones y permisos por días muestran su periodo («3 días · 10 – 12 nov 2026»).
 
 **Incapacidad salió de Solicitudes**: se registra en su propio módulo (Permanencia › Incapacidades). `SolicitudesService::tiposParaFiltro()` nunca la ofrece y `queryRevision()` (tablero web, exportaciones y bandeja de la API móvil) la excluye de «Todos los tipos»; los registros históricos `tipo = incapacidad` se conservan y solo se listan pidiendo `?tipo=incapacidad` de forma explícita (o abriendo su folio).
 
@@ -39,6 +39,16 @@ Cada solicitud guarda `colaborador_id` (la persona dueña de la solicitud, fuent
 ## Revisión y aprobación
 
 Bandeja de RH/gerencia en `Rh\SolicitudController` (ruta `rh.solicitudes.*`), acotada por `AlcanceOrganizacionalService`. Transiciones: enviada → en revisión → aprobada/rechazada/requiere corrección → cerrada; el colaborador puede cancelar mientras no sea una transición final.
+
+## Eliminar solicitudes de prueba o capturadas por error (2026-11-12)
+
+`AppServicesSolicitudesEliminacionSolicitudService` (permiso **`solicitudes.eliminar`**, por defecto `super_admin` y `rh_admin`; `SolicitudInternaPolicy::eliminar`: con el permiso y dentro del alcance del módulo, también sobre la propia). Web: botón de bote en cada tarjeta del tablero y «Eliminar solicitud» en el detalle (`GET rh/solicitudes/{id}/eliminacion` arma la confirmación, `DELETE rh/solicitudes/{id}` la ejecuta).
+
+- **Cualquier tipo y estado, sin avisar a nadie**: ni al colaborador ni a los aprobadores. Cierra los pendientes de la bandeja (`TareaService::resolverTodas`) y borra de la campana los avisos que apuntaban a la solicitud (sin enlaces muertos).
+- **Borrado lógico** (`SoftDeletes`): la fila y su historial se conservan (acción `eliminada` con el motivo) y la bitácora registra `solicitud_eliminada` (quién, cuándo, folio, tipo, estado, qué se revirtió/conservó). Nunca borra personas ni expedientes.
+- **Se revierte**: saldo de vacaciones (se calcula en vivo: los días vuelven solos y los días elegidos quedan libres), recibos de nómina de un permiso aprobado (`IncidenciasNominaService::sincronizarRecibos`; un recibo emitido queda con rectificación pendiente), préstamo autorizado **sin entregar** (se cancela) y documentos generados **sin firmar** (se cancelan en el flujo documental).
+- **Se conserva y se avisa en la confirmación**: datos ya aplicados al expediente por una actualización de datos aprobada, documentos archivados o firmados, formatos oficiales generados y adjuntos.
+- **Bloquea** (mensaje claro, no se toca nada): baja con cierre laboral o ya aplicada (se gestiona en «Bajas»), finiquito ligado, préstamo entregado o con movimientos.
 
 ## Baja de colaborador: qué pasa al aprobar
 

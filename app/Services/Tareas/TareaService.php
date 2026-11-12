@@ -133,6 +133,31 @@ class TareaService
     }
 
     /**
+     * Resuelve TODAS las tareas abiertas sobre ese objeto, del tipo que sean
+     * (p. ej. al eliminar una solicitud de prueba: nadie debe quedarse con
+     * un pendiente que ya no abre nada).
+     */
+    public function resolverTodas(Model $relacionado, ?User $actor = null): int
+    {
+        try {
+            return TareaRh::query()
+                ->whereNull('resuelta_en')
+                ->where('relacionado_type', $relacionado->getMorphClass())
+                ->where('relacionado_id', $relacionado->getKey())
+                ->update([
+                    'resuelta_en' => now(),
+                    'resuelta_por' => $actor?->id,
+                    'clave_abierta' => null,
+                    'updated_at' => now(),
+                ]);
+        } catch (Throwable $e) {
+            Log::warning('TareaService: no se pudieron resolver las tareas del objeto.', ['error' => $e->getMessage()]);
+
+            return 0;
+        }
+    }
+
+    /**
      * Resuelve UNA tarea concreta cuando el sistema detecta que ya no aplica
      * (p. ej. el documento que faltaba ya se generó). Sin actor = sistema.
      */

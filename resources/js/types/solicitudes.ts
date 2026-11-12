@@ -97,6 +97,12 @@ export type DatoPersonalCaptura = {
     opciones?: { value: string; label: string }[];
     actual: string | null;
     actual_legible: string | null;
+    /** Lo piden los contratos (los demás son opcionales). */
+    obligatorio?: boolean;
+    /** Valor que ya envió y Recursos Humanos aún revisa (no se pide otra vez). */
+    en_revision?: string | null;
+    /** Solicitud en la que viaja ese dato. */
+    solicitud_id?: number | null;
 };
 
 /** Resumen del permiso (formato oficial liberado solo tras RH). */
@@ -360,6 +366,24 @@ export type AccionesBandejaSolicitud = {
     aprobar: boolean;
     rechazar: boolean;
     motivo_bloqueo: string | null;
+    /** Puede eliminarla (solicitudes.eliminar): solo lo manda el tablero. */
+    eliminar?: boolean;
+};
+
+/**
+ * Qué pasará al eliminar una solicitud (EliminacionSolicitudService::revisar):
+ * lo que se deshace, lo que se conserva y, si no se puede, por qué.
+ */
+export type RevisionEliminacionSolicitud = {
+    id: number;
+    folio: string;
+    tipo: string;
+    estado: string;
+    persona: string | null;
+    puede: boolean;
+    bloqueos: string[];
+    revierte: string[];
+    conserva: string[];
 };
 
 /** Fila resumida para la tab "Solicitudes" del expediente (Rh\ExpedienteController). */
