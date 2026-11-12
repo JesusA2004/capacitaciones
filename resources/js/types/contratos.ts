@@ -133,6 +133,21 @@ export type PersonaPeriodoPrueba = PersonaPeriodoBase & {
     fin_contrato: string | null;
     puede_asignar: boolean;
     motivo_no_asignable: string | null;
+    /** Por qué aún no se puede asignar (ElegibilidadEvaluacionPeriodoPruebaService). */
+    motivo_codigo:
+        | 'no_labora'
+        | 'ya_asignada'
+        | 'induccion'
+        | 'sin_contrato'
+        | 'fecha'
+        | null;
+    /** Texto corto del motivo: «Aún en inducción», «Se asigna a partir del …». */
+    motivo_corto: string | null;
+    /** Primer día en que ya se puede asignar (15 días hábiles antes del fin). */
+    asignable_desde: string | null;
+    /** Fase real en su recorrido (sin contar esta evaluación). */
+    fase: string;
+    fase_etiqueta: string;
     evaluacion: {
         id: number;
         estado: string;

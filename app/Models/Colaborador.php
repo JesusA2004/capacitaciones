@@ -72,6 +72,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property int|null $alta_imss_subido_por
  * @property Carbon|null $periodo_prueba_inicio
  * @property Carbon|null $periodo_prueba_fin
+ * @property Carbon|null $contrato_indeterminado_fisico_desde Su contrato indeterminado existe en papel (plantilla histórica): rige desde esta fecha. Nunca un documento generado.
  * @property Carbon|null $fecha_nacimiento
  * @property string|null $curp
  * @property string|null $rfc
@@ -126,7 +127,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'tipo_contratacion', 'estado_alta', 'candidato_id', 'alta_registrada_por', 'activado_en',
     'fecha_baja', 'expediente_cerrado_en', 'expediente_cerrado_por',
     'fecha_ingreso', 'estatus', 'estatus_imss', 'fecha_alta_imss',
-    'periodo_prueba_inicio', 'periodo_prueba_fin',
+    'periodo_prueba_inicio', 'periodo_prueba_fin', 'contrato_indeterminado_fisico_desde',
     'fecha_nacimiento', 'curp', 'rfc', 'nss', 'domicilio',
     'correo_personal', 'correo_corporativo', 'contacto_emergencia_nombre', 'contacto_emergencia_telefono',
     'contacto_emergencia_parentesco', 'contacto_emergencia_direccion', 'clave_legacy', 'importado_de', 'estatus_origen',
@@ -176,6 +177,7 @@ class Colaborador extends Model
             'alta_imss_subido_en' => 'datetime',
             'periodo_prueba_inicio' => 'date',
             'periodo_prueba_fin' => 'date',
+            'contrato_indeterminado_fisico_desde' => 'date',
             'fecha_nacimiento' => 'date',
             'aviso_privacidad_aceptado' => 'boolean',
             'aviso_privacidad_aceptado_en' => 'datetime',

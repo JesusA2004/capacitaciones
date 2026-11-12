@@ -26,6 +26,7 @@ use Illuminate\Support\Carbon;
  * @property int|null $vacante_id
  * @property-read Vacante|null $vacante Nula en candidatos espontáneos (vacante_id nulo).
  * @property bool $espontaneo
+ * @property bool $historico Plantilla histórica: no viene de un reclutamiento en PEOPLE (people:ubicar-historico-en-fases); no cuenta en indicadores.
  * @property int|null $campana_reclutamiento_id
  * @property string $nombre
  * @property string|null $apellidos
@@ -88,6 +89,7 @@ class Candidato extends Model
         'puesto_objetivo_id',
         'vacante_id',
         'espontaneo',
+        'historico',
         'campana_reclutamiento_id',
         'nombre',
         'apellidos',
@@ -123,6 +125,7 @@ class Candidato extends Model
         return [
             'estado' => EstadoCandidato::class,
             'espontaneo' => 'boolean',
+            'historico' => 'boolean',
             'fecha_entrevista' => 'datetime',
             'contratado_en' => 'datetime',
             'cv_size' => 'integer',

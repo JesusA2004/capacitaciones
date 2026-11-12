@@ -7,6 +7,7 @@ use App\Enums\EstadoEvaluacionInduccion;
 use App\Enums\EstadoFlujoDocumento;
 use App\Enums\EstadoSesionInduccion;
 use App\Models\Candidato;
+use App\Models\Colaborador;
 use App\Models\EvaluacionInduccion;
 use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\GeneratedDocument;
@@ -24,13 +25,30 @@ use Illuminate\Database\Eloquent\Builder;
  *                                    aprueba la evaluación FO-RH-EI.
  *  3. Capacitación inicial ........ aprobó la evaluación de inducción.
  *  4. Evaluación de cap. inicial .. ya tiene asignada su evaluación de
- *                                    capacitación inicial (FO-RH-EPP-001).
+ *                                    capacitación inicial (FO-RH-EPP-001) Y
+ *                                    ya había alcanzado «Capacitación inicial».
  *  5. Contrato indeterminado ...... su contrato indeterminado YA SE GENERÓ
- *                                    (y no está cancelado).
+ *                                    (y no está cancelado), o existe en papel
+ *                                    y así quedó registrado (plantilla
+ *                                    histórica: contrato_indeterminado_fisico_desde).
  *
- * Se toma el hito MÁS AVANZADO que exista: si alguien tiene contrato
- * indeterminado generado está ahí aunque falte un registro anterior
- * (expedientes históricos). Consultas fijas por lote: sin N+1 en el tablero.
+ * NADIE SE SALTA FASES por un registro fuera de orden (2026-11-12): una
+ * evaluación de periodo de prueba asignada a quien todavía no aprueba su
+ * inducción NO lo mueve a la columna 4 — sigue donde dicen sus hechos de
+ * inducción (y la evaluación sobrante se retira con
+ * `people:reparar-evaluaciones-periodo-prueba`).
+ *
+ * La inducción solo se le exige a quien entró por el flujo de PEOPLE (tiene
+ * candidato de reclutamiento o algún registro de inducción). La plantilla
+ * histórica —sin candidato de reclutamiento ni registros de inducción— tomó
+ * su inducción antes del sistema: para ella la evaluación de periodo de
+ * prueba cuenta por sí sola.
+ *
+ * El contrato indeterminado (generado o en papel) es el hito final y gana
+ * siempre, aunque falte un registro anterior (expedientes históricos).
+ * Consultas fijas por lote: sin N+1 en el tablero.
+ *
+ * @phpstan-type Hechos array{fase: string, fase_sin_evaluacion: string, exige_induccion: bool, tiene_evaluacion_periodo_prueba: bool, contrato_indeterminado: string|null}
  */
 class FaseContratadoService
 {
@@ -44,11 +62,37 @@ class FaseContratadoService
 
     public const CONTRATO_INDETERMINADO = 'contrato_indeterminado';
 
+    /** Contrato indeterminado generado en PEOPLE (documento no cancelado). */
+    public const CONTRATO_GENERADO = 'generado';
+
+    /** Contrato indeterminado en papel, registrado como hecho histórico. */
+    public const CONTRATO_FISICO = 'fisico';
+
     /**
      * @param  iterable<int|null>  $idsColaborador
      * @return array<int, string> fase por colaborador_id (los ids nulos se ignoran)
      */
     public function paraColaboradores(iterable $idsColaborador): array
+    {
+        $fases = [];
+
+        foreach ($this->hechosParaColaboradores($idsColaborador) as $id => $hechos) {
+            $fases[$id] = $hechos['fase'];
+        }
+
+        return $fases;
+    }
+
+    /**
+     * Fase y los hechos que la deciden, por colaborador. `fase_sin_evaluacion`
+     * es la fase SIN contar la evaluación de periodo de prueba: con ella se
+     * decide si esa evaluación se puede asignar (única fuente:
+     * ElegibilidadEvaluacionPeriodoPruebaService).
+     *
+     * @param  iterable<int|null>  $idsColaborador
+     * @return array<int, Hechos>
+     */
+    public function hechosParaColaboradores(iterable $idsColaborador): array
     {
         $ids = [];
 
@@ -64,11 +108,18 @@ class FaseContratadoService
 
         $ids = array_values($ids);
 
-        $conIndeterminado = $this->conjunto(GeneratedDocument::query()
+        $conIndeterminadoGenerado = $this->conjunto(GeneratedDocument::query()
             ->whereIn('colaborador_id', $ids)
             ->where('clave_plantilla', 'contrato_indeterminado')
             ->where(fn (Builder $q) => $q->whereNull('estado_flujo')->orWhere('estado_flujo', '!=', EstadoFlujoDocumento::Cancelado->value))
             ->pluck('colaborador_id'));
+
+        $colaboradores = Colaborador::withTrashed()
+            ->whereIn('id', $ids)
+            ->get(['id', 'candidato_id', 'contrato_indeterminado_fisico_desde']);
+        $conIndeterminadoFisico = $this->conjunto($colaboradores
+            ->filter(fn (Colaborador $c): bool => $c->contrato_indeterminado_fisico_desde !== null)
+            ->pluck('id'));
 
         $conEvaluacionCapacitacion = $this->conjunto(EvaluacionPeriodoPrueba::query()
             ->whereIn('colaborador_id', $ids)
@@ -81,28 +132,76 @@ class FaseContratadoService
             ->filter(fn (EvaluacionInduccion $e): bool => $e->estado === EstadoEvaluacionInduccion::Aprobada)
             ->pluck('colaborador_id'));
 
+        $sesiones = SesionInduccionColaborador::query()
+            ->whereIn('colaborador_id', $ids)
+            ->with('sesion:id,estado')
+            ->get(['id', 'colaborador_id', 'sesion_induccion_id']);
+
         // Presentada = asistió a una sesión que RH marcó como presentada, o
         // ya tiene su evaluación de inducción abierta (solo se abre al
         // presentarla).
-        $induccionPresentada = $this->conjunto(SesionInduccionColaborador::query()
-            ->whereIn('colaborador_id', $ids)
-            ->whereHas('sesion', fn (Builder $q) => $q->where('estado', EstadoSesionInduccion::Presentada->value))
+        $induccionPresentada = $this->conjunto($sesiones
+            ->filter(fn (SesionInduccionColaborador $s): bool => $s->sesion->estado === EstadoSesionInduccion::Presentada)
             ->pluck('colaborador_id')
             ->concat($evaluacionesInduccion->pluck('colaborador_id')));
 
-        $fases = [];
+        // Entró por el flujo de PEOPLE: candidato de reclutamiento (no el
+        // registro histórico) o cualquier registro de inducción.
+        $porReclutamiento = $this->conjunto(Candidato::withTrashed()
+            ->whereIn('colaborador_id', $ids)
+            ->where('historico', false)
+            ->pluck('colaborador_id')
+            ->concat($colaboradores->filter(fn (Colaborador $c): bool => $c->candidato_id !== null)->pluck('id'))
+            ->concat($sesiones->pluck('colaborador_id'))
+            ->concat($evaluacionesInduccion->pluck('colaborador_id')));
+
+        $hechos = [];
 
         foreach ($ids as $id) {
-            $fases[$id] = match (true) {
-                isset($conIndeterminado[$id]) => self::CONTRATO_INDETERMINADO,
-                isset($conEvaluacionCapacitacion[$id]) => self::EVALUACION_CAPACITACION_INICIAL,
+            $sinEvaluacion = match (true) {
                 isset($induccionAprobada[$id]) => self::CAPACITACION_INICIAL,
                 isset($induccionPresentada[$id]) => self::EVALUACION_INDUCCION,
                 default => self::INDUCCION,
             };
+            $exigeInduccion = isset($porReclutamiento[$id]);
+            $contrato = match (true) {
+                isset($conIndeterminadoGenerado[$id]) => self::CONTRATO_GENERADO,
+                isset($conIndeterminadoFisico[$id]) => self::CONTRATO_FISICO,
+                default => null,
+            };
+            // La evaluación de periodo de prueba solo cuenta si ya alcanzó
+            // «Capacitación inicial» (o es plantilla histórica).
+            $evaluacionCuenta = isset($conEvaluacionCapacitacion[$id])
+                && (! $exigeInduccion || $sinEvaluacion === self::CAPACITACION_INICIAL);
+
+            $hechos[$id] = [
+                'fase' => match (true) {
+                    $contrato !== null => self::CONTRATO_INDETERMINADO,
+                    $evaluacionCuenta => self::EVALUACION_CAPACITACION_INICIAL,
+                    default => $sinEvaluacion,
+                },
+                'fase_sin_evaluacion' => $sinEvaluacion,
+                'exige_induccion' => $exigeInduccion,
+                'tiene_evaluacion_periodo_prueba' => isset($conEvaluacionCapacitacion[$id]),
+                'contrato_indeterminado' => $contrato,
+            ];
         }
 
-        return $fases;
+        return $hechos;
+    }
+
+    /**
+     * @return Hechos
+     */
+    public function hechosDeColaborador(int $colaboradorId): array
+    {
+        return $this->hechosParaColaboradores([$colaboradorId])[$colaboradorId] ?? [
+            'fase' => self::INDUCCION,
+            'fase_sin_evaluacion' => self::INDUCCION,
+            'exige_induccion' => false,
+            'tiene_evaluacion_periodo_prueba' => false,
+            'contrato_indeterminado' => null,
+        ];
     }
 
     /**
@@ -122,10 +221,10 @@ class FaseContratadoService
             }
         }
 
-        $fases = $this->paraColaboradores(array_map(fn (Candidato $c): ?int => $c->colaborador_id, $contratados));
+        $hechos = $this->hechosParaColaboradores(array_map(fn (Candidato $c): ?int => $c->colaborador_id, $contratados));
 
         foreach ($contratados as $candidato) {
-            $fase = $fases[(int) $candidato->colaborador_id] ?? self::INDUCCION;
+            $fase = $hechos[(int) $candidato->colaborador_id]['fase'] ?? self::INDUCCION;
             $candidato->faseContratadoPrecargada = $candidato->estado === EstadoCandidato::Contratado ? $fase : self::faseEnContratacion($fase);
         }
     }

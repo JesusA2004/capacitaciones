@@ -152,11 +152,45 @@ por `colaboradores.activado_en`):
 | Inducción | Contratado y RH todavía no le presenta la inducción. |
 | Evaluación de inducción | Asistió a una sesión de inducción que RH marcó **presentada** (`sesion_induccion_colaboradores` + `sesiones_induccion.estado = presentada`) o ya tiene su evaluación de inducción abierta, y esa evaluación (FO-RH-EI, `evaluaciones_induccion`) **no** está aprobada (incluye «requiere reforzamiento»). Una sesión en curso no cuenta. |
 | Capacitación inicial | Su evaluación de inducción está **aprobada**. |
-| Evaluación de capacitación inicial | Ya tiene asignada su evaluación de capacitación inicial (FO-RH-EPP-001, `evaluaciones_periodo_prueba`), en cualquier estado. |
-| Contrato indeterminado | Su contrato indeterminado **ya se generó** (`generated_documents.clave_plantilla = contrato_indeterminado`, `estado_flujo` distinto de `cancelado`). |
+| Evaluación de capacitación inicial | Ya tiene asignada su evaluación de capacitación inicial (FO-RH-EPP-001, `evaluaciones_periodo_prueba`), en cualquier estado, **y ya había alcanzado «Capacitación inicial»** (inducción aprobada). |
+| Contrato indeterminado | Su contrato indeterminado **ya se generó** (`generated_documents.clave_plantilla = contrato_indeterminado`, `estado_flujo` distinto de `cancelado`) **o existe en papel y así quedó registrado** (`colaboradores.contrato_indeterminado_fisico_desde`, plantilla histórica). |
 
-Siempre gana el hito **más avanzado** que exista (un expediente histórico con contrato
-indeterminado generado está en esa columna aunque no tenga registros de inducción).
+**Nadie se salta fases por un registro fuera de orden (2026-11-12).** Una evaluación de
+periodo de prueba asignada a quien todavía no aprueba su inducción **no** lo mueve a
+«Evaluación de capacitación inicial»: sigue en la columna que marcan sus hechos de
+inducción. El contrato indeterminado (generado o en papel) es el hito final y gana
+siempre (un expediente histórico con contrato indeterminado está en esa columna aunque
+no tenga registros de inducción).
+
+**A quién se le exige la inducción.** A quien entró por el flujo de PEOPLE: tiene un
+candidato de reclutamiento (`candidatos.historico = false`, o `colaboradores.candidato_id`)
+o algún registro de inducción (sesión o evaluación). La **plantilla histórica** (sin
+candidato de reclutamiento ni registros de inducción) tomó su inducción antes del
+sistema: para ella la evaluación de periodo de prueba cuenta por sí sola.
+
+**Cuándo se puede asignar la evaluación de periodo de prueba** (única fuente:
+`App\Services\Contratos\ElegibilidadEvaluacionPeriodoPruebaService`; la usan el tablero
+«Evaluaciones de periodo de prueba», «Asignar evaluación» individual y en lote, el ciclo
+laboral y el scheduler `contratos:revisar-vencimientos`): sigue laborando, no la tiene
+ya, **ya alcanzó «Capacitación inicial»**, tiene contrato vigente con fecha de término y
+**ya llegó su fecha** — faltan `contratos.dias_aviso_vencimiento` días hábiles o menos
+(15) para que termine su periodo (fecha de ingreso + duración del puesto − 1 día). Quien
+no cumple aparece en «Próximas / por asignar» con el motivo («Aún en inducción», «Se
+asigna a partir del …») y sin botón.
+
+**Comandos de regularización** (simulan por omisión; `--aplicar` escribe):
+
+- `php artisan people:reparar-evaluaciones-periodo-prueba` — retira las evaluaciones de
+  periodo de prueba asignadas a quien no cumplía la regla (solo las **no contestadas**;
+  las contestadas se listan para revisión manual). No avisa a nadie.
+- `php artisan people:ubicar-historico-en-fases` — ubica a la plantilla histórica (con
+  fecha de ingreso) en el recorrido: crea su candidato **histórico** (`historico = true`,
+  fechado en su ingreso, sin QR ni avisos, sin duplicar) y, si su periodo de prueba ya
+  terminó, registra el hecho «contrato indeterminado en papel». Nunca fabrica un
+  documento generado ni decide por `activado_en`. Los candidatos históricos no cuentan
+  en los indicadores de reclutamiento.
+
+Siempre gana el hito **más avanzado** que sea válido.
 Activar al colaborador (`activado_en`) **no** mueve de columna: alguien activado sin
 contrato indeterminado generado sigue en la columna que marquen sus hechos. El chip de
 la tarjeta/ficha (`CadenaContratacionService`), el paso a paso de la ficha

@@ -75,17 +75,30 @@ class CadenaContratacionService
         /** @var Collection<int, Colaborador> $colaboradores */
         $colaboradores = Colaborador::withTrashed()
             ->whereIn('id', $idsColaborador)
-            ->get(['id', 'name', 'apellidos', 'estatus', 'activado_en', 'sucursal_principal_id', 'departamento_id', 'puesto_id', 'jefe_id', 'gerente_id', 'deleted_at'])
+            ->get(['id', 'name', 'apellidos', 'estatus', 'activado_en', 'sucursal_principal_id', 'departamento_id', 'puesto_id', 'jefe_id', 'gerente_id', 'contrato_indeterminado_fisico_desde', 'deleted_at'])
             ->keyBy('id');
         $resumenes = $idsColaborador->isEmpty() ? [] : $this->expedientes->resumenesCompletitud($idsColaborador);
-        $conContrato = $idsColaborador->isEmpty() ? [] : GeneratedDocument::query()
-            ->whereIn('colaborador_id', $idsColaborador)
-            ->whereIn('clave_plantilla', self::CLAVES_CONTRATO)
-            ->where(fn (Builder $q) => $q->whereNull('estado_flujo')->orWhere('estado_flujo', '!=', EstadoFlujoDocumento::Cancelado->value))
-            ->pluck('colaborador_id')
-            ->map(fn ($id): int => (int) $id)
-            ->flip()
-            ->all();
+        $conContrato = [];
+        // Con el contrato indeterminado GENERADO en PEOPLE (el que solo existe
+        // en papel —plantilla histórica— se dice distinto en el chip).
+        $conIndeterminadoGenerado = [];
+
+        if ($idsColaborador->isNotEmpty()) {
+            $generados = GeneratedDocument::query()
+                ->whereIn('colaborador_id', $idsColaborador)
+                ->whereIn('clave_plantilla', self::CLAVES_CONTRATO)
+                ->where(fn (Builder $q) => $q->whereNull('estado_flujo')->orWhere('estado_flujo', '!=', EstadoFlujoDocumento::Cancelado->value))
+                ->get(['colaborador_id', 'clave_plantilla']);
+
+            foreach ($generados as $generado) {
+                $conContrato[(int) $generado->colaborador_id] = true;
+
+                if ($generado->clave_plantilla === 'contrato_indeterminado') {
+                    $conIndeterminadoGenerado[(int) $generado->colaborador_id] = true;
+                }
+            }
+        }
+
         $invitaciones = IncorporacionInvitacion::query()
             ->whereIn('candidato_id', $relevantes->pluck('id'))
             ->orderBy('id')
@@ -105,6 +118,7 @@ class CadenaContratacionService
                 $invitaciones->get($candidato->id),
                 isset($conAlta[$candidato->id]),
                 $viewer,
+                $colaborador !== null && isset($conIndeterminadoGenerado[$colaborador->id]),
             );
         }
 
@@ -145,7 +159,7 @@ class CadenaContratacionService
      * @param  array{porcentaje: float, requeridos_total: int, requeridos_aprobados: int, pendientes: int, rechazados: int}|null  $resumen
      * @return Estado
      */
-    private function estado(Candidato $candidato, ?Colaborador $colaborador, ?array $resumen, bool $conContrato, ?IncorporacionInvitacion $invitacion, bool $conAlta, User $viewer): array
+    private function estado(Candidato $candidato, ?Colaborador $colaborador, ?array $resumen, bool $conContrato, ?IncorporacionInvitacion $invitacion, bool $conAlta, User $viewer, bool $indeterminadoGenerado = false): array
     {
         // La ficha lee ?accion= y abre el diálogo solo si la acción está permitida.
         $fichaCandidato = route('rh.candidatos.show', ['candidato' => $candidato->id, 'accion' => 'iniciar_contratacion']);
@@ -172,7 +186,13 @@ class CadenaContratacionService
             // nunca dice «Contrato indeterminado» si ese contrato no se generó.
             $fase = $candidato->fase;
             [$detalle, $tono] = match ($fase) {
-                FaseContratadoService::CONTRATO_INDETERMINADO => ['Contrato indeterminado generado', 'exito'],
+                FaseContratadoService::CONTRATO_INDETERMINADO => [
+                    // En papel (plantilla histórica): nunca se dice «generado».
+                    ! $indeterminadoGenerado && $colaborador->contrato_indeterminado_fisico_desde !== null
+                        ? sprintf('Contrato indeterminado en papel (histórico) · desde %s', $colaborador->contrato_indeterminado_fisico_desde->format('d/m/Y'))
+                        : 'Contrato indeterminado generado',
+                    'exito',
+                ],
                 FaseContratadoService::EVALUACION_CAPACITACION_INICIAL => ['Evaluación de capacitación inicial en curso', 'oro'],
                 FaseContratadoService::CAPACITACION_INICIAL => ['Inducción aprobada · en capacitación inicial', 'primario'],
                 FaseContratadoService::EVALUACION_INDUCCION => ['Inducción presentada · falta aprobar su evaluación', 'alerta'],

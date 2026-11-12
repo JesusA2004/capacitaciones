@@ -76,6 +76,8 @@ const props = defineProps<{
     pestana: PestanaEvaluacionesPrueba;
     evaluaciones: RespuestaPaginada<FilaEvaluacionPrueba> | null;
     porAsignar: RespuestaPaginada<PersonaPeriodoPrueba> | null;
+    /** TODOS los que ya se pueden asignar (no solo la página visible). */
+    asignables: PersonaPeriodoPrueba[];
     sinDuracion: PersonaPeriodoBase[];
     diasAlerta: number;
     conteos: ConteosEvaluacionesPrueba;
@@ -84,6 +86,7 @@ const props = defineProps<{
         busqueda: string;
         sucursal_id: number | null;
         solo_alerta: boolean;
+        solo_asignables: boolean;
         subfiltro: string;
     };
     puedeAutorizar: boolean;
@@ -117,6 +120,7 @@ function ir(cambios: {
     tab?: PestanaEvaluacionesPrueba;
     subfiltro?: string;
     solo_alerta?: boolean;
+    solo_asignables?: boolean;
 }) {
     const tab = cambios.tab ?? props.pestana;
     const mismaPestana = tab === props.pestana;
@@ -145,6 +149,14 @@ function ir(cambios: {
         consulta.solo_alerta = 1;
     }
 
+    const soloAsignables =
+        cambios.solo_asignables ??
+        (mismaPestana ? props.filtros.solo_asignables : false);
+
+    if (soloAsignables && !soloAlerta) {
+        consulta.solo_asignables = 1;
+    }
+
     seleccion.value = [];
     router.get(
         index.url(),
@@ -166,7 +178,7 @@ function buscar(valor: string) {
 function limpiar() {
     busqueda.value = '';
     sucursal.value = null;
-    ir({ subfiltro: '', solo_alerta: false });
+    ir({ subfiltro: '', solo_alerta: false, solo_asignables: false });
 }
 
 type DefPestana = {
@@ -264,6 +276,12 @@ const chips = computed<Chip[]>(() => {
             conteo: props.conteos.por_asignar_alerta,
             icono: AlertTriangle,
         },
+        {
+            valor: 'asignables',
+            etiqueta: 'Ya se pueden asignar',
+            conteo: props.conteos.asignables,
+            icono: Send,
+        },
     ];
 });
 
@@ -271,13 +289,18 @@ const chipActivo = computed(() =>
     props.pestana === 'proximas'
         ? props.filtros.solo_alerta
             ? 'alerta'
-            : ''
+            : props.filtros.solo_asignables
+              ? 'asignables'
+              : ''
         : props.filtros.subfiltro,
 );
 
 function elegirChip(valor: string) {
     if (props.pestana === 'proximas') {
-        ir({ solo_alerta: valor === 'alerta' });
+        ir({
+            solo_alerta: valor === 'alerta',
+            solo_asignables: valor === 'asignables',
+        });
 
         return;
     }
@@ -423,14 +446,23 @@ const seleccion = ref<number[]>([]);
 const confirmarAsignar = ref<PersonaPeriodoPrueba[]>([]);
 const asignando = ref(false);
 
-const asignablesPagina = computed(
-    () => props.porAsignar?.data.filter((f) => f.puede_asignar) ?? [],
+/** El backend acepta hasta 100 por envío (rh.evaluaciones.asignar). */
+const MAXIMO_POR_LOTE = 100;
+
+// Todos los que YA se pueden asignar según el backend (inducción aprobada,
+// contrato vigente y fecha alcanzada), de todas las páginas: es exactamente
+// la lista que se muestra antes de confirmar.
+const asignablesTodos = computed(() =>
+    props.asignables.filter((f) => f.puede_asignar),
+);
+const asignablesLote = computed(() =>
+    asignablesTodos.value.slice(0, MAXIMO_POR_LOTE),
 );
 
 const todosSeleccionados = computed(
     () =>
-        asignablesPagina.value.length > 0 &&
-        asignablesPagina.value.every((f) => seleccion.value.includes(f.id)),
+        asignablesLote.value.length > 0 &&
+        asignablesLote.value.every((f) => seleccion.value.includes(f.id)),
 );
 
 function alternar(id: number, marcado: boolean) {
@@ -440,7 +472,7 @@ function alternar(id: number, marcado: boolean) {
 }
 
 function alternarTodos(marcado: boolean) {
-    seleccion.value = marcado ? asignablesPagina.value.map((f) => f.id) : [];
+    seleccion.value = marcado ? asignablesLote.value.map((f) => f.id) : [];
 }
 
 function pedirAsignar(filas: PersonaPeriodoPrueba[]) {
@@ -449,10 +481,13 @@ function pedirAsignar(filas: PersonaPeriodoPrueba[]) {
 
 function asignarSeleccionadas() {
     pedirAsignar(
-        (props.porAsignar?.data ?? []).filter((f) =>
-            seleccion.value.includes(f.id),
-        ),
+        asignablesTodos.value.filter((f) => seleccion.value.includes(f.id)),
     );
+}
+
+function quitarDeConfirmacion(id: number) {
+    confirmarAsignar.value = confirmarAsignar.value.filter((f) => f.id !== id);
+    seleccion.value = seleccion.value.filter((s) => s !== id);
 }
 
 function confirmar() {
@@ -499,7 +534,7 @@ function verPdf(e: FilaEvaluacionPrueba) {
 
 const ayuda = computed(
     () =>
-        `Próximas: quién está por terminar su periodo de prueba (fecha de ingreso + duración del puesto) y aún no tiene evaluación. Se abre sola 15 días hábiles antes de que venza su contrato; con «Asignar evaluación» RH la abre antes y se le avisa a su jefe directo del organigrama. Entra en alerta cuando faltan ${props.diasAlerta} días naturales o menos. En proceso: esperando al jefe o por decidir RH. Evaluadas: ver respuestas e imprimir el FO-RH-EPP-001 para firma.`,
+        `Próximas: quién sigue en su periodo de prueba (fecha de ingreso + duración del puesto) y aún no tiene evaluación. La evaluación solo se asigna a quien ya aprobó su inducción (está en capacitación inicial) y cuando faltan 15 días hábiles o menos para que termine su periodo: ahí se abre sola, o RH la abre con «Asignar evaluación», y se le avisa a su jefe directo del organigrama. Quien todavía no cumple aparece con el motivo y sin botón. Entra en alerta cuando faltan ${props.diasAlerta} días naturales o menos. En proceso: esperando al jefe o por decidir RH. Evaluadas: ver respuestas e imprimir el FO-RH-EPP-001 para firma.`,
 );
 </script>
 
@@ -688,29 +723,64 @@ const ayuda = computed(
         <!-- ═════════ Próximas / por asignar ═════════ -->
         <template v-if="pestana === 'proximas' && porAsignar">
             <div
-                v-if="puedeAsignar && asignablesPagina.length"
+                v-if="puedeAsignar && asignablesTodos.length"
                 class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-crema/50 p-3 sm:flex-row sm:items-center sm:justify-between"
             >
-                <label class="flex items-center gap-2 text-sm font-medium">
-                    <Checkbox
-                        :model-value="todosSeleccionados"
-                        aria-label="Seleccionar todos los que se pueden asignar"
-                        @update:model-value="(v) => alternarTodos(!!v)"
-                    />
-                    Seleccionar los que ya se pueden asignar ({{
-                        asignablesPagina.length
-                    }})
-                </label>
+                <div class="flex min-w-0 flex-col gap-1">
+                    <label class="flex items-center gap-2 text-sm font-medium">
+                        <Checkbox
+                            :model-value="todosSeleccionados"
+                            aria-label="Seleccionar todos los que ya se pueden asignar"
+                            @update:model-value="(v) => alternarTodos(!!v)"
+                        />
+                        Seleccionar los que ya se pueden asignar ({{
+                            asignablesLote.length
+                        }})
+                    </label>
+                    <p class="text-xs text-muted-foreground">
+                        Solo quien ya aprobó su inducción y está por terminar su
+                        periodo de prueba:
+                        {{
+                            asignablesLote
+                                .slice(0, 3)
+                                .map((f) => f.nombre)
+                                .join(', ')
+                        }}{{
+                            asignablesLote.length > 3
+                                ? ` y ${asignablesLote.length - 3} más`
+                                : ''
+                        }}. Antes de asignar verás la lista completa.
+                    </p>
+                    <p
+                        v-if="asignablesTodos.length > asignablesLote.length"
+                        class="text-xs text-warning"
+                    >
+                        Se asignan de {{ MAXIMO_POR_LOTE }} en
+                        {{ MAXIMO_POR_LOTE }}: quedarán
+                        {{ asignablesTodos.length - asignablesLote.length }}
+                        para la siguiente vuelta.
+                    </p>
+                </div>
                 <Button
-                    class="h-11 sm:h-10"
+                    class="h-11 shrink-0 sm:h-10"
                     :disabled="seleccion.length === 0"
                     @click="asignarSeleccionadas"
                 >
                     <Send class="size-4" />
-                    Asignar evaluación
+                    Revisar y asignar
                     {{ seleccion.length ? `(${seleccion.length})` : '' }}
                 </Button>
             </div>
+            <p
+                v-else-if="puedeAsignar && conteos.por_asignar > 0"
+                class="flex items-start gap-2 rounded-2xl border border-border/60 bg-crema/50 p-3 text-sm text-muted-foreground"
+            >
+                <CalendarClock class="mt-0.5 size-4 shrink-0" />
+                Todavía no hay a quién asignarle la evaluación: se asigna a
+                quien ya aprobó su inducción y está a 15 días hábiles o menos de
+                terminar su periodo de prueba. En cada persona se indica qué le
+                falta.
+            </p>
 
             <EmptyState
                 v-if="!porAsignar.data.length"
@@ -842,17 +912,41 @@ const ayuda = computed(
                             </span>
                         </p>
 
-                        <p
+                        <div
                             v-if="
                                 !fila.puede_asignar && fila.motivo_no_asignable
                             "
-                            class="flex items-start gap-2 rounded-xl bg-warning-soft px-3 py-2 text-xs text-warning"
+                            class="flex items-start gap-2 rounded-xl px-3 py-2 text-xs"
+                            :class="
+                                fila.motivo_codigo === 'fecha'
+                                    ? 'bg-info-soft text-info'
+                                    : 'bg-warning-soft text-warning'
+                            "
                         >
-                            <AlertTriangle class="mt-0.5 size-3.5 shrink-0" />
-                            <span
-                                >Aún no se puede asignar:
-                                {{ fila.motivo_no_asignable }}</span
-                            >
+                            <component
+                                :is="
+                                    fila.motivo_codigo === 'fecha'
+                                        ? CalendarClock
+                                        : AlertTriangle
+                                "
+                                class="mt-0.5 size-3.5 shrink-0"
+                            />
+                            <span class="min-w-0">
+                                <strong class="block text-sm">{{
+                                    fila.motivo_corto ??
+                                    'Aún no se puede asignar'
+                                }}</strong>
+                                No se puede asignar todavía:
+                                {{ fila.motivo_no_asignable }}
+                            </span>
+                        </div>
+                        <p
+                            v-else-if="fila.puede_asignar"
+                            class="flex items-center gap-2 rounded-xl bg-success-soft px-3 py-2 text-xs font-medium text-success"
+                        >
+                            <CheckCircle2 class="size-3.5 shrink-0" />
+                            Ya se puede asignar: aprobó su inducción y está por
+                            terminar su periodo.
                         </p>
                     </div>
 
@@ -870,14 +964,9 @@ const ayuda = computed(
                             </Link>
                         </Button>
                         <Button
-                            v-if="puedeAsignar"
+                            v-if="puedeAsignar && fila.puede_asignar"
                             class="h-11 flex-1 sm:h-10"
-                            :disabled="!fila.puede_asignar"
-                            :title="
-                                fila.puede_asignar
-                                    ? 'Crear la evaluación ahora y avisar a su jefe'
-                                    : (fila.motivo_no_asignable ?? '')
-                            "
+                            title="Crear la evaluación ahora y avisar a su jefe"
                             @click="pedirAsignar([fila])"
                         >
                             <Send class="size-4" />
@@ -1221,27 +1310,57 @@ const ayuda = computed(
                     }}
                 </DialogTitle>
                 <DialogDescription>
-                    Se crea la evaluación de periodo de prueba (FO-RH-EPP-001)
-                    ahora mismo y se le avisa a su jefe directo del organigrama
-                    para que la conteste.
+                    {{
+                        confirmarAsignar.length === 1
+                            ? 'Se le crea'
+                            : `A estas ${confirmarAsignar.length} personas se les crea`
+                    }}
+                    la evaluación de periodo de prueba (FO-RH-EPP-001) ahora
+                    mismo y se le avisa a su jefe directo del organigrama para
+                    que la conteste. Revisa la lista: puedes quitar a quien no
+                    corresponda.
                 </DialogDescription>
             </DialogHeader>
-            <ul
-                class="flex max-h-72 flex-col divide-y divide-border/60 overflow-y-auto rounded-xl border border-border/60"
+            <ol
+                class="flex max-h-80 flex-col divide-y divide-border/60 overflow-y-auto rounded-xl border border-border/60"
+                aria-label="Personas a las que se les asignará la evaluación"
             >
                 <li
-                    v-for="fila in confirmarAsignar"
+                    v-for="(fila, indice) in confirmarAsignar"
                     :key="fila.id"
-                    class="flex items-center gap-3 p-3"
+                    class="flex items-start gap-3 p-3"
                 >
+                    <span
+                        class="mt-2 w-5 shrink-0 text-right text-xs text-muted-foreground tabular-nums"
+                        >{{ indice + 1 }}.</span
+                    >
                     <ColaboradorAvatar
                         :nombre="fila.nombre"
                         :foto-url="fila.foto_url"
                         tamano="md"
                     />
                     <div class="min-w-0 flex-1">
-                        <p class="truncate text-sm font-medium">
+                        <p class="truncate text-sm font-semibold">
                             {{ fila.nombre }}
+                        </p>
+                        <p class="truncate text-xs text-muted-foreground">
+                            {{ fila.puesto ?? 'Sin puesto' }} ·
+                            {{ fila.sucursal ?? 'Sin sucursal' }}
+                        </p>
+                        <p class="text-xs">
+                            <span class="text-muted-foreground"
+                                >Su periodo termina el</span
+                            >
+                            <strong class="tabular-nums">
+                                {{ fecha(fila.fin_periodo) }}</strong
+                            >
+                            <span
+                                class="ml-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums"
+                                :class="
+                                    CHIP_DIAS[urgencia(fila.dias_restantes)]
+                                "
+                                >{{ textoDias(fila.dias_restantes) }}</span
+                            >
                         </p>
                         <p class="truncate text-xs text-muted-foreground">
                             Evaluará:
@@ -1251,13 +1370,19 @@ const ayuda = computed(
                             }}
                         </p>
                     </div>
-                    <span
-                        class="shrink-0 rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums"
-                        :class="CHIP_DIAS[urgencia(fila.dias_restantes)]"
-                        >{{ textoDias(fila.dias_restantes) }}</span
+                    <Button
+                        v-if="confirmarAsignar.length > 1"
+                        variant="ghost"
+                        size="sm"
+                        class="shrink-0"
+                        :disabled="asignando"
+                        :aria-label="`Quitar a ${fila.nombre} de la lista`"
+                        @click="quitarDeConfirmacion(fila.id)"
                     >
+                        Quitar
+                    </Button>
                 </li>
-            </ul>
+            </ol>
             <DialogFooter class="gap-2">
                 <Button
                     variant="outline"

@@ -122,6 +122,7 @@ test('con evaluación de capacitación inicial asignada está en Evaluación de 
 
 test('solo el contrato indeterminado generado (no cancelado) lo lleva a Contrato indeterminado', function () {
     $cancelado = ftContratado(['activado_en' => now()]);
+    ftEvaluacionInduccion($cancelado, EstadoEvaluacionInduccion::Aprobada);
     ftEvaluacionCapacitacion($cancelado);
     ftContratoIndeterminado($cancelado, EstadoFlujoDocumento::Cancelado);
     expect($cancelado->fresh()->fase)->toBe('evaluacion_capacitacion_inicial');
@@ -131,6 +132,36 @@ test('solo el contrato indeterminado generado (no cancelado) lo lleva a Contrato
     ftContratoIndeterminado($generado);
     expect($generado->fresh()->fase)->toBe('contrato_indeterminado')
         ->and($generado->fresh()->etiquetaEstado())->toBe('Contrato indeterminado');
+});
+
+test('una evaluación de periodo de prueba fuera de orden no salta fases: sin inducción aprobada sigue donde dicen sus hechos', function () {
+    // Producción 2026-11-12: se le asignó la evaluación a quien seguía en Inducción.
+    $enInduccion = ftContratado();
+    ftEvaluacionCapacitacion($enInduccion);
+    expect($enInduccion->fresh()->fase)->toBe('induccion');
+
+    $presentada = ftContratado();
+    ftSesion($presentada, EstadoSesionInduccion::Presentada);
+    ftEvaluacionCapacitacion($presentada);
+    expect($presentada->fresh()->fase)->toBe('evaluacion_induccion');
+
+    // Al aprobar su inducción, la evaluación ya asignada sí cuenta.
+    ftEvaluacionInduccion($presentada, EstadoEvaluacionInduccion::Aprobada);
+    expect($presentada->fresh()->fase)->toBe('evaluacion_capacitacion_inicial');
+});
+
+test('plantilla histórica: el contrato indeterminado en papel la ubica en Contrato indeterminado y su evaluación de periodo de prueba cuenta sin inducción', function () {
+    $conContratoFisico = Colaborador::factory()->create(['contrato_indeterminado_fisico_desde' => now()->subYear()->toDateString()]);
+    $historico = Candidato::factory()->create(['estado' => EstadoCandidato::Contratado, 'historico' => true, 'colaborador_id' => $conContratoFisico->id]);
+    expect($historico->fresh()->fase)->toBe('contrato_indeterminado');
+
+    // Aún en su periodo: sin candidato de reclutamiento ni registros de inducción.
+    $enPeriodo = Colaborador::factory()->create();
+    $candidato = Candidato::factory()->create(['estado' => EstadoCandidato::Contratado, 'historico' => true, 'colaborador_id' => $enPeriodo->id]);
+    expect($candidato->fresh()->fase)->toBe('induccion');
+
+    ftEvaluacionCapacitacion($candidato);
+    expect($candidato->fresh()->fase)->toBe('evaluacion_capacitacion_inicial');
 });
 
 test('gana el hito más avanzado: contrato indeterminado generado sin registros de inducción (expediente histórico)', function () {

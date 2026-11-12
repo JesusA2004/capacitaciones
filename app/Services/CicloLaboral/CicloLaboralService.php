@@ -36,6 +36,7 @@ use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Contratos\EvaluacionPeriodoPruebaService;
 use App\Services\Contratos\SolicitudExcepcionPeriodoPruebaService;
+use App\Services\Contratos\VencimientoContratosService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Flujos\ConstructorEnlaces;
@@ -475,7 +476,14 @@ class CicloLaboralService
         // evaluación, RH con alcance la abre AHORA sin esperar al scheduler.
         // La contesta el jefe/gerente; si se aprueba, se habilita el contrato
         // indeterminado. Mismo backend que el tablero (asignarAhora → asignar).
-        if ($evaluacion === null && $viewer !== null
+        // Solo se ofrece a quien ya alcanzó «Capacitación inicial» y ya llegó
+        // su fecha (ElegibilidadEvaluacionPeriodoPruebaService, la misma regla
+        // que valida el backend al asignar); si no, se dice por qué.
+        $motivoNoAsignable = $evaluacion === null
+            ? app(VencimientoContratosService::class)->motivoNoAsignable($colaborador, app(VencimientoContratosService::class)->contratoEvaluable($colaborador))
+            : null;
+
+        if ($evaluacion === null && $motivoNoAsignable === null && $viewer !== null
             && Gate::forUser($viewer)->allows('asignar', [EvaluacionPeriodoPrueba::class, $colaborador])) {
             $acciones[] = ['clave' => 'asignar_evaluacion', 'etiqueta' => 'Asignar evaluación de periodo de prueba', 'tipo' => 'primaria'];
         }
@@ -498,7 +506,9 @@ class CicloLaboralService
             'estado' => $estado,
             'responsable' => $responsable,
             'siguiente' => match ($estado['clave']) {
-                'activo' => ['clave' => 'esperar_evaluacion', 'etiqueta' => sprintf('La evaluación se habilita %d días antes del vencimiento (faltan %d días)', (int) config('contratos.dias_aviso_vencimiento', 15), $dias)],
+                'activo' => ['clave' => 'esperar_evaluacion', 'etiqueta' => $motivoNoAsignable !== null
+                    ? sprintf('Su evaluación de periodo de prueba aún no se asigna: %s', $motivoNoAsignable)
+                    : sprintf('La evaluación se habilita %d días hábiles antes del vencimiento (faltan %d días)', (int) config('contratos.dias_aviso_vencimiento', 15), $dias)],
                 'evaluacion_pendiente', 'evaluacion_devuelta' => ['clave' => 'capturar_evaluacion', 'etiqueta' => 'El jefe evalúa y recomienda'],
                 'autorizacion_rh_pendiente' => ['clave' => 'autorizar_evaluacion', 'etiqueta' => 'RH autoriza la decisión final'],
                 default => null,

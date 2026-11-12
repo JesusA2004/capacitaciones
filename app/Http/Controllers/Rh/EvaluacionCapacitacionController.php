@@ -28,8 +28,9 @@ use Inertia\Response;
  * «Evaluaciones de periodo de prueba» (FO-RH-EPP-001): UN solo tablero con
  * tres pestañas —
  *  - Próximas / por asignar: quien sigue en periodo de prueba sin evaluación
- *    (PeriodosPruebaService) y «Asignar evaluación» antes de que el
- *    scheduler la abra sola (VencimientoContratosService::asignarAhora);
+ *    (PeriodosPruebaService) y «Asignar evaluación» (VencimientoContratosService::
+ *    asignarAhora) solo para quien ya alcanzó «Capacitación inicial» y ya
+ *    llegó su fecha (ElegibilidadEvaluacionPeriodoPruebaService);
  *  - En proceso: esperando al jefe (pendiente/devuelta) o por decidir RH
  *    (capturada);
  *  - Evaluadas: con respuestas, «Ver respuestas» y PDF para firma.
@@ -62,6 +63,7 @@ class EvaluacionCapacitacionController extends Controller
             'busqueda' => trim($request->string('busqueda')->toString()),
             'sucursal_id' => $request->integer('sucursal_id') ?: null,
             'solo_alerta' => $request->boolean('solo_alerta'),
+            'solo_asignables' => $request->boolean('solo_asignables'),
             'subfiltro' => $subfiltro,
         ];
 
@@ -83,6 +85,9 @@ class EvaluacionCapacitacionController extends Controller
             'pestana' => $pestana,
             'evaluaciones' => $evaluaciones,
             'porAsignar' => $pestana === self::PESTANA_PROXIMAS ? $proximas['filas'] : null,
+            // Exactamente a quién asigna «Seleccionar los que ya se pueden
+            // asignar» (todas las páginas), para listarlos antes de confirmar.
+            'asignables' => $pestana === self::PESTANA_PROXIMAS && $puedeAsignar ? $proximas['lista_asignables'] : [],
             'sinDuracion' => $proximas['sin_duracion'],
             'diasAlerta' => $proximas['dias_alerta'],
             'conteos' => [
@@ -101,6 +106,7 @@ class EvaluacionCapacitacionController extends Controller
                 'busqueda' => $filtros['busqueda'],
                 'sucursal_id' => $filtros['sucursal_id'],
                 'solo_alerta' => $filtros['solo_alerta'],
+                'solo_asignables' => $filtros['solo_asignables'],
                 'subfiltro' => $subfiltro,
             ],
             'puedeAutorizar' => $usuario->can('evaluaciones.autorizar'),

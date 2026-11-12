@@ -12,6 +12,7 @@ use App\Models\Puesto;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\FotoColaboradorService;
+use App\Services\Reclutamiento\FaseContratadoService;
 use App\Support\FechaMexico;
 use App\Support\Paginacion;
 use Carbon\CarbonImmutable;
@@ -36,15 +37,19 @@ use Illuminate\Support\Collection;
  *  - alerta: vence dentro de contratos.regularizacion.dias_alerta_periodo_prueba
  *    días NATURALES (15). El aviso automático que abre la evaluación
  *    (VencimientoContratosService) sigue en días HÁBILES; no se toca.
- *  - «Asignar evaluación» solo procede con contrato vigente con fecha de
- *    término (VencimientoContratosService::motivoNoAsignable dice por qué no).
+ *  - «Asignar evaluación» solo procede para quien cumple
+ *    ElegibilidadEvaluacionPeriodoPruebaService (única fuente): ya alcanzó
+ *    «Capacitación inicial» (inducción aprobada), tiene contrato vigente con
+ *    fecha de término y ya llegó su fecha (15 días hábiles antes de que
+ *    termine su periodo). Quien no cumple aparece con el motivo y sin botón.
  */
 class PeriodosPruebaService
 {
     public function __construct(
         private readonly ContratoLaboralService $contratos,
         private readonly AlcanceOrganizacionalService $alcance,
-        private readonly VencimientoContratosService $vencimientos,
+        private readonly ElegibilidadEvaluacionPeriodoPruebaService $elegibilidad,
+        private readonly FaseContratadoService $fases,
         private readonly FotoColaboradorService $fotos,
     ) {}
 
@@ -84,20 +89,30 @@ class PeriodosPruebaService
      * todavía NO tiene evaluación, ordenado por fecha de fin (los más
      * urgentes primero), con si ya se le puede asignar y, si no, por qué.
      *
-     * @param  array<string, mixed>  $filtros  busqueda, sucursal_id, solo_alerta
-     * @return array{filas: LengthAwarePaginator<int, non-empty-array<string, mixed>>, total: int, en_alerta: int, asignables: int, sin_duracion: list<array<string, mixed>>, dias_alerta: int}
+     * `lista_asignables` trae a TODOS los que ya se pueden asignar (no solo
+     * la página visible): es exactamente a quién asigna «Seleccionar los que
+     * ya se pueden asignar», para listarlos antes de confirmar.
+     *
+     * @param  array<string, mixed>  $filtros  busqueda, sucursal_id, solo_alerta, solo_asignables
+     * @return array{filas: LengthAwarePaginator<int, non-empty-array<string, mixed>>, total: int, en_alerta: int, asignables: int, lista_asignables: list<non-empty-array<string, mixed>>, sin_duracion: list<array<string, mixed>>, dias_alerta: int}
      */
     public function porAsignar(User $usuario, array $filtros = [], ?CarbonInterface $hoy = null): array
     {
         $calculo = $this->calcular($usuario, $filtros, $hoy);
         $sinEvaluacion = $calculo['filas']->whereNull('evaluacion')->values();
-        $visibles = filter_var($filtros['solo_alerta'] ?? false, FILTER_VALIDATE_BOOLEAN) ? $sinEvaluacion->where('alerta', true)->values() : $sinEvaluacion;
+        $asignables = $sinEvaluacion->where('puede_asignar', true)->values();
+        $visibles = match (true) {
+            filter_var($filtros['solo_asignables'] ?? false, FILTER_VALIDATE_BOOLEAN) => $asignables,
+            filter_var($filtros['solo_alerta'] ?? false, FILTER_VALIDATE_BOOLEAN) => $sinEvaluacion->where('alerta', true)->values(),
+            default => $sinEvaluacion,
+        };
 
         return [
             'filas' => $this->paginar($visibles),
             'total' => $sinEvaluacion->count(),
             'en_alerta' => $sinEvaluacion->where('alerta', true)->count(),
-            'asignables' => $sinEvaluacion->where('puede_asignar', true)->count(),
+            'asignables' => $asignables->count(),
+            'lista_asignables' => array_values($asignables->all()),
             'sin_duracion' => $calculo['sin_duracion'],
             'dias_alerta' => $calculo['dias_alerta'],
         ];
@@ -132,6 +147,8 @@ class PeriodosPruebaService
             ->get()
             ->unique('colaborador_id')
             ->keyBy('colaborador_id');
+        // Hechos de inducción / fase de todos en una sola pasada (sin N+1).
+        $hechos = $this->fases->hechosParaColaboradores($colaboradores->pluck('id')->all());
 
         $filas = [];
         $sinDuracion = [];
@@ -169,7 +186,10 @@ class PeriodosPruebaService
             }
 
             $evaluacion = $evaluaciones->get($colaborador->id);
-            $motivo = $this->vencimientos->motivoNoAsignable($colaborador, $evaluable, $evaluacion instanceof EvaluacionPeriodoPrueba);
+            // Única fuente de «¿ya se puede asignar?»: inducción aprobada
+            // (capacitación inicial) + contrato vigente + ya llegó su fecha.
+            $elegibilidad = $this->elegibilidad->evaluar($colaborador, $evaluable, $evaluacion instanceof EvaluacionPeriodoPrueba, $hoy, $hechos[$colaborador->id] ?? null);
+            $motivo = $elegibilidad['motivo'];
             $filas[] = [
                 ...$this->base($colaborador, $usuario),
                 'fin_periodo' => $fin->toDateString(),
@@ -183,6 +203,13 @@ class PeriodosPruebaService
                 'fin_contrato' => $evaluable?->fecha_fin?->toDateString(),
                 'puede_asignar' => $motivo === null,
                 'motivo_no_asignable' => $motivo,
+                // Por qué no (induccion, fecha, sin_contrato…) y su texto corto
+                // para el aviso de la tarjeta; desde cuándo se podrá asignar.
+                'motivo_codigo' => $elegibilidad['codigo'],
+                'motivo_corto' => $elegibilidad['motivo_corto'],
+                'asignable_desde' => $elegibilidad['asignable_desde'],
+                'fase' => $elegibilidad['fase'],
+                'fase_etiqueta' => $elegibilidad['fase_etiqueta'],
                 'evaluacion' => $evaluacion instanceof EvaluacionPeriodoPrueba ? [
                     'id' => $evaluacion->id,
                     'estado' => $evaluacion->estado->value,

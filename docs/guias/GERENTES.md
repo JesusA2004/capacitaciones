@@ -467,7 +467,7 @@ Evalúa el jefe inmediato (normalmente el gerente de la sucursal); autoriza RH.
 
 #### Pasos
 
-1. **PEOPLE la abre sola** _(Automático)_ — Cada mañana revisa los vencimientos. 15 días hábiles antes del fin crea la evaluación y avisa al jefe directo. RH también puede adelantarla desde la pestaña «Próximas / por asignar» con «Asignar evaluación».
+1. **PEOPLE la abre sola** _(Automático)_ — Cada mañana revisa los vencimientos. 15 días hábiles antes del fin crea la evaluación y avisa al jefe directo, siempre que la persona ya haya aprobado su inducción (esté en capacitación inicial). Desde ese mismo momento RH también puede abrirla en la pestaña «Próximas / por asignar» con «Asignar evaluación»; quien aún no cumple aparece ahí con el motivo («Aún en inducción», «Se asigna a partir del …») y sin botón.
 2. **El jefe evalúa** _(Gerente · Web y app)_ — Evaluaciones de periodo de prueba → pestaña «En proceso» → «Contestar evaluación». Califica los 9 criterios del FO-RH-EPP-001 (4 Muy bueno a 1 Deficiente), responde las 5 preguntas filtro y escribe tus comentarios; PEOPLE calcula si se renueva.
 3. **RH decide** _(RH)_ — Pestaña «En proceso» → chip «Por decidir RH» → «Revisar y decidir»: confirma renovar o no renovar. Si decide distinto a lo que recomendó el jefe, el comentario es obligatorio. También puede devolverla para corrección.
 4. **Ver respuestas e imprimir para firma** _(RH)_ — Pestaña «Evaluadas» → «Ver respuestas» (calificación de cada criterio, preguntas filtro, total y resultado) → «Imprimir PDF para firma»: primero se ve la vista previa; firman el jefe inmediato, la Gerencia de RH y el colaborador.

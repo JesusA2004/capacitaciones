@@ -188,7 +188,7 @@ export const ARTICULOS_DESARROLLO: ArticuloGuia[] = [
             {
                 titulo: 'PEOPLE la abre sola',
                 detalle:
-                    'Cada mañana revisa los vencimientos. 15 días hábiles antes del fin crea la evaluación y avisa al jefe directo. RH también puede adelantarla desde la pestaña «Próximas / por asignar» con «Asignar evaluación».',
+                    'Cada mañana revisa los vencimientos. 15 días hábiles antes del fin crea la evaluación y avisa al jefe directo, siempre que la persona ya haya aprobado su inducción (esté en capacitación inicial). Desde ese mismo momento RH también puede abrirla en la pestaña «Próximas / por asignar» con «Asignar evaluación»; quien aún no cumple aparece ahí con el motivo («Aún en inducción», «Se asigna a partir del …») y sin botón.',
                 canal: 'automatico',
             },
             {

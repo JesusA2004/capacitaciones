@@ -38,6 +38,11 @@ use Throwable;
  *    sucursal, su regional y la Gerencia de RH),
  *  - marca aviso_vencimiento_en para no volver a notificar.
  *
+ * La evaluación solo se abre (sola o con «Asignar evaluación») a quien cumple
+ * ElegibilidadEvaluacionPeriodoPruebaService: ya alcanzó «Capacitación
+ * inicial» y ya llegó su fecha. Quien aún no cumple se reintenta en cada
+ * corrida, sin marcar el aviso.
+ *
  * Idempotente: puede correr varias veces al día o en paralelo sin duplicar
  * evaluaciones, tareas ni notificaciones (bloqueo de fila + marca de aviso).
  */
@@ -52,6 +57,7 @@ class VencimientoContratosService
         private readonly NotificadorRhService $notificador,
         private readonly AuditoriaService $auditoria,
         private readonly CalendarioLaboralService $calendario,
+        private readonly ElegibilidadEvaluacionPeriodoPruebaService $elegibilidad,
     ) {}
 
     /**
@@ -198,23 +204,14 @@ class VencimientoContratosService
 
     /**
      * Por qué todavía no se puede asignar la evaluación (null = sí se puede).
-     * Texto en español para mostrarlo tal cual en el tablero.
+     * Texto en español para mostrarlo tal cual en el tablero. La regla vive
+     * en ElegibilidadEvaluacionPeriodoPruebaService (única fuente): sigue
+     * laborando, ya alcanzó «Capacitación inicial», tiene contrato vigente
+     * con término y ya llegó su fecha.
      */
     public function motivoNoAsignable(Colaborador $colaborador, ?ContratoLaboral $contrato, bool $yaTieneEvaluacion = false): ?string
     {
-        if (! $this->sigueLaborando($colaborador)) {
-            return 'ya no labora en la empresa.';
-        }
-
-        if ($contrato === null) {
-            return 'aún no tiene un contrato vigente con fecha de término en el sistema. Genera su contrato de capacitación inicial (Contratos) y vuelve a intentarlo.';
-        }
-
-        if ($yaTieneEvaluacion) {
-            return 'su evaluación ya está asignada.';
-        }
-
-        return null;
+        return $this->elegibilidad->evaluar($colaborador, $contrato, $yaTieneEvaluacion)['motivo'];
     }
 
     /**
@@ -240,7 +237,11 @@ class VencimientoContratosService
             $contrato->loadMissing('colaborador');
             $colaborador = $contrato->colaborador;
 
-            if (! $this->sigueLaborando($colaborador)) {
+            // Misma regla para el scheduler y para «Asignar evaluación»: sin
+            // inducción aprobada o antes de su fecha NO se abre (y no se marca
+            // el aviso: se abrirá sola en cuanto cumpla). Así un registro
+            // fuera de orden nunca adelanta a nadie de fase.
+            if (! $this->elegibilidad->evaluar($colaborador, $contrato)['puede']) {
                 return null;
             }
 
@@ -264,18 +265,6 @@ class VencimientoContratosService
 
             return $evaluacion;
         });
-    }
-
-    /**
-     * Misma regla que la consulta de revisar(), repetida tras el bloqueo por
-     * si la baja ocurrió entre la consulta y el procesamiento. Un colaborador
-     * en incorporación (activado_en null) SÍ sigue: su contrato corre igual.
-     */
-    private function sigueLaborando(Colaborador $colaborador): bool
-    {
-        return ! $colaborador->trashed()
-            && $colaborador->estatus !== EstadoUsuario::Inactivo
-            && $colaborador->estado_alta !== EstadoAltaColaborador::Baja;
     }
 
     private function avisar(EvaluacionPeriodoPrueba $evaluacion): void
