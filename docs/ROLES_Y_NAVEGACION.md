@@ -24,12 +24,13 @@ Sin cookie y con ambos modos disponibles, el sistema prioriza **operativo** por 
 
 La navegación vive en **una sola fuente declarativa**: `resources/js/composables/useMainNavItems.ts` (`NavGroup[]`), consumida por `AppSidebar.vue` (sidebar completo) y `MobileBottomNav.vue` (barra inferior móvil). Nunca se duplica en otro componente. Cada grupo declara `id`, `numero` (etapa 1–7; los transversales no lo llevan), `titulo`, `icono` e `items`, y cada acceso se muestra **solo si el usuario tiene el permiso real que exige su controlador**.
 
-El orden es exactamente el ciclo de vida laboral + transversales:
+El orden es exactamente el ciclo de vida laboral + transversales. **«Inicio» va siempre desplegado** (`NavGroup.fijo`, 2026-11-12): los demás grupos arrancan plegados salvo el de la pantalla actual, y por eso «Solicitudes» —que vivía dentro de «5 Permanencia»— no se encontraba; ahora está en «Inicio», a la vista. Es la bandeja operativa; «Mis solicitudes» (las propias) sigue solo en Mi espacio.
 
 | # | Grupo | Accesos | Permiso de cada acceso | Ruta |
 |---|---|---|---|---|
 | — | **Inicio** | Tablero de RH | abierto (contenido por `dashboard.*.ver`) | `dashboard` |
 | | | Pendientes | `ciclo.*`/`evaluaciones.*`/`onboarding.entregar_activos`/`cierres.*`/`expedientes.revisar`/`solicitudes.*`/`nomina.recibos.crear` | `rh.pendientes.index` |
+| | | Solicitudes (bandeja de RH/gerencia; eliminar pruebas: `solicitudes.eliminar`) | `solicitudes.revisar`/`aprobar`/`rh.solicitudes.ver` | `rh.solicitudes.index` |
 | 1 | **Reclutamiento y selección** | Vacantes | `vacantes.ver` | `rh.vacantes.index` |
 | | | Campañas | `reclutamiento.campanas.ver` | `rh.campanas.index` |
 | | | Candidatos | `candidatos.ver` | `rh.candidatos.index` |
@@ -45,7 +46,6 @@ El orden es exactamente el ciclo de vida laboral + transversales:
 | | | Activos y responsivas | `responsivas.ver` | `rh.activos-responsivas.index` |
 | 4 | **Cierre del periodo de prueba** | Evaluaciones de periodo de prueba (UN solo acceso, pestañas «Próximas / por asignar», «En proceso» con chip «Por decidir RH» y «Evaluadas») | `evaluaciones.*` | `rh.evaluaciones.index` |
 | 5 | **Permanencia** | Colaboradores | `expedientes.ver_todos`/`ver_region`/`ver_sucursal`/`ver_equipo` | `rh.expedientes.index` |
-| | | Solicitudes | `solicitudes.revisar`/`aprobar` | `rh.solicitudes.index` |
 | | | Actas administrativas | `actas.ver` | `rh.actas.index` |
 | | | Recibo simple de pago | `nomina.recibos.ver` | `rh.nomina.lotes.index` |
 | | | Importar salarios y vacaciones · solo super_admin | `colaboradores.importar_salarios_vacaciones` | `rh.importaciones.index` |

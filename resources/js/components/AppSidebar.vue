@@ -83,7 +83,8 @@ const { navGroups, tieneAmbosModos, esColaborador, cambiarModo } =
                  (useMainNavItems): Inicio · 1 Reclutamiento · 2 Contratación ·
                  3 Onboarding · 4 Cierre del periodo de prueba · 5 Permanencia ·
                  6 Desarrollo · 7 Cierres laborales · Organización · Reportes ·
-                 Configuración. -->
+                 Configuración. «Inicio» (tablero, pendientes y Solicitudes) va
+                 siempre desplegado: `grupo.fijo`. -->
             <NavMain
                 v-for="grupo in navGroups"
                 :key="grupo.id"
@@ -92,7 +93,7 @@ const { navGroups, tieneAmbosModos, esColaborador, cambiarModo } =
                 :titulo="grupo.titulo"
                 :numero="grupo.numero"
                 :icono="grupo.icono"
-                :fijo="navGroups.length === 1"
+                :fijo="grupo.fijo || navGroups.length === 1"
             />
         </SidebarContent>
 

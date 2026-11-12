@@ -281,7 +281,7 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
             {
                 titulo: 'Abre el tablero',
                 detalle:
-                    'Permanencia → Solicitudes: un solo tablero con «Todos los tipos»; cada tarjeta lleva arriba una banda con el color y el nombre de su tipo (permiso, vacaciones, préstamo…). Acota con los filtros de tipo y sucursal. Las incapacidades se registran en su propio módulo.',
+                    'Inicio → Solicitudes: un solo tablero con «Todos los tipos»; cada tarjeta lleva arriba una banda con el color y el nombre de su tipo (permiso, vacaciones, préstamo…). Acota con los filtros de tipo y sucursal. Las incapacidades se registran en su propio módulo.',
                 canal: 'web',
             },
             {

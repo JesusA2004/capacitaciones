@@ -142,6 +142,11 @@ export type NavGroup = {
     numero?: number;
     titulo: string;
     icono?: LucideIcon;
+    /**
+     * Grupo siempre desplegado (sin plegado): sus accesos nunca quedan
+     * escondidos detrás de un encabezado cerrado. Hoy solo «Inicio».
+     */
+    fijo?: boolean;
     items: NavItem[];
 };
 
@@ -283,47 +288,75 @@ export function useMainNavItems() {
         });
 
         const grupos: NavGroup[] = [
-            grupo({ id: 'inicio', titulo: 'Inicio', icono: LayoutGrid }, [
-                // Sin tablero (Jurídico, Contraloría) el inicio es su bandeja de bajas.
-                algunPermiso('dashboard.global.ver', 'dashboard.sucursal.ver')
-                    ? {
-                          title: 'Tablero de RH',
-                          href: dashboard(),
-                          icon: LayoutGrid,
-                      }
-                    : {
-                          title: 'Mi bandeja de bajas',
-                          href: dashboard(),
-                          icon: LayoutGrid,
-                      },
-                features.value.directorio && {
-                    title: 'Directorio',
-                    href: indexDirectorio(),
-                    icon: Contact,
+            // «Inicio» va SIEMPRE desplegado (fijo): lo de todos los días
+            // —tablero, pendientes y solicitudes— se ve sin abrir ningún grupo.
+            grupo(
+                {
+                    id: 'inicio',
+                    titulo: 'Inicio',
+                    icono: LayoutGrid,
+                    fijo: true,
                 },
-                algunPermiso(
-                    'ciclo.preautorizar',
-                    'ciclo.autorizar_rh',
-                    'evaluaciones.capturar',
-                    'evaluaciones.autorizar',
-                    'onboarding.entregar_activos',
-                    'cierres.solicitar',
-                    'cierres.gestionar',
-                    'expedientes.revisar',
-                    'solicitudes.revisar',
-                    'solicitudes.aprobar',
-                    'nomina.recibos.crear',
-                    'candidatos.intervencion_decidir',
-                    'candidatos.aprobar_entrevista',
-                ) && {
-                    title: 'Pendientes',
-                    href: indexPendientes(),
-                    icon: Inbox,
-                    // Mismo conteo único que la app: solo lo que puedes
-                    // aprobar ahora (nunca lo bloqueado por un paso anterior).
-                    badge: aprobacionesPendientes.value || undefined,
-                },
-            ]),
+                [
+                    // Sin tablero (Jurídico, Contraloría) el inicio es su bandeja de bajas.
+                    algunPermiso(
+                        'dashboard.global.ver',
+                        'dashboard.sucursal.ver',
+                    )
+                        ? {
+                              title: 'Tablero de RH',
+                              href: dashboard(),
+                              icon: LayoutGrid,
+                          }
+                        : {
+                              title: 'Mi bandeja de bajas',
+                              href: dashboard(),
+                              icon: LayoutGrid,
+                          },
+                    features.value.directorio && {
+                        title: 'Directorio',
+                        href: indexDirectorio(),
+                        icon: Contact,
+                    },
+                    algunPermiso(
+                        'ciclo.preautorizar',
+                        'ciclo.autorizar_rh',
+                        'evaluaciones.capturar',
+                        'evaluaciones.autorizar',
+                        'onboarding.entregar_activos',
+                        'cierres.solicitar',
+                        'cierres.gestionar',
+                        'expedientes.revisar',
+                        'solicitudes.revisar',
+                        'solicitudes.aprobar',
+                        'nomina.recibos.crear',
+                        'candidatos.intervencion_decidir',
+                        'candidatos.aprobar_entrevista',
+                    ) && {
+                        title: 'Pendientes',
+                        href: indexPendientes(),
+                        icon: Inbox,
+                        // Mismo conteo único que la app: solo lo que puedes
+                        // aprobar ahora (nunca lo bloqueado por un paso anterior).
+                        badge: aprobacionesPendientes.value || undefined,
+                    },
+                    // Bandeja de solicitudes de RH/gerencia (≠ «Mis solicitudes»
+                    // de Mi espacio, que son las propias). Vivía dentro de
+                    // «5 Permanencia», plegado por defecto, y no se encontraba:
+                    // ahora está a la vista. Consulta incluida (Sistemas,
+                    // Auditoría, Dirección Comercial): la misma regla de
+                    // SolicitudInternaPolicy::viewAny.
+                    algunPermiso(
+                        'solicitudes.revisar',
+                        'solicitudes.aprobar',
+                        'rh.solicitudes.ver',
+                    ) && {
+                        title: 'Solicitudes',
+                        href: indexRhSolicitudes(),
+                        icon: ClipboardList,
+                    },
+                ],
+            ),
 
             grupo(
                 {
@@ -499,17 +532,8 @@ export function useMainNavItems() {
                         href: indexExpedientes(),
                         icon: Users,
                     },
-                    // Consulta incluida (Sistemas, Auditoría, Dirección Comercial):
-                    // la misma regla de SolicitudInternaPolicy::viewAny.
-                    algunPermiso(
-                        'solicitudes.revisar',
-                        'solicitudes.aprobar',
-                        'rh.solicitudes.ver',
-                    ) && {
-                        title: 'Solicitudes',
-                        href: indexRhSolicitudes(),
-                        icon: ClipboardList,
-                    },
+                    // «Solicitudes» (bandeja de RH) está en «Inicio», siempre
+                    // a la vista: una sola entrada, no se repite aquí.
                     tienePermiso('incapacidades.ver') && {
                         title: 'Incapacidades',
                         href: indexIncapacidades(),
