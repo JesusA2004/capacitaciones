@@ -7,6 +7,7 @@ import {
     ChevronRight,
     ClipboardList,
     Clock,
+    FileSignature,
     FolderOpen,
     ListChecks,
     UserCog,
@@ -27,6 +28,7 @@ import {
     notificaciones as indexNotificaciones,
     perfil as rutaMiPerfil,
 } from '@/routes/portal';
+import { index as misDocumentosLaborales } from '@/routes/portal/documentos-laborales';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type {
     MiInduccion,
@@ -98,6 +100,14 @@ const accesos = computed(() => [
               },
           ]
         : []),
+    // Documentos laborales propios: consulta, descarga y firma digital.
+    {
+        href: misDocumentosLaborales().url,
+        icono: FileSignature,
+        color: 'bg-[var(--mrl-primary)]/10 text-[var(--mrl-primary)] group-hover:bg-[var(--mrl-primary)] group-hover:text-white',
+        titulo: 'Mis documentos laborales',
+        descripcion: 'Contratos y documentos por firmar',
+    },
     {
         href: indexSolicitudes().url,
         icono: CalendarDays,

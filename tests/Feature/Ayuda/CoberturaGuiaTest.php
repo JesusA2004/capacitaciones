@@ -128,6 +128,9 @@ const SIDEBAR_SIN_GUIA = [
     // Bandejas propias de notificaciones (marcar leída / ir al registro).
     'Mis notificaciones',
     'Notificaciones del sistema',
+    // Autoservicio documental (lo mismo que la app): aún sin módulo de guía.
+    'Mis documentos laborales',
+    'Mis contratos',
     // Formulario de un solo paso para enviar un aviso (artículo «avisos» de la Guía).
     'Enviar notificación',
     // Importaciones / cargas masivas: solo super_admin; carga puntual de un

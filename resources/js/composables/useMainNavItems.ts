@@ -75,10 +75,12 @@ import { index as indexCursos } from '@/routes/cursos';
 import { index as indexDirectorio } from '@/routes/directorio';
 import { presentacion as presentacionInduccion } from '@/routes/induccion';
 import {
+    contratos as misContratos,
     index as indexPortal,
     notificaciones as indexNotificacionesPortal,
     recibos as misRecibosNomina,
 } from '@/routes/portal';
+import { index as misDocumentosLaborales } from '@/routes/portal/documentos-laborales';
 import { ver as verInduccion } from '@/routes/portal/induccion';
 import { index as indexReportes } from '@/routes/reportes';
 import { index as indexRotacion } from '@/routes/reportes/rotacion';
@@ -196,6 +198,18 @@ export function useMainNavItems() {
                 title: 'Mi expediente',
                 href: miExpediente(),
                 icon: FolderOpen,
+            },
+            // Documentos laborales (consulta y firma digital) y contratos:
+            // siempre los propios (MisDocumentosLaboralesController).
+            tieneColaboradorVinculado.value && {
+                title: 'Mis documentos laborales',
+                href: misDocumentosLaborales(),
+                icon: FileSignature,
+            },
+            tieneColaboradorVinculado.value && {
+                title: 'Mis contratos',
+                href: misContratos(),
+                icon: ScrollText,
             },
             // Autoservicio propio: cualquiera con colaborador vinculado en Mi
             // espacio, sin importar su rol operativo (SolicitudInternaPolicy::create).
