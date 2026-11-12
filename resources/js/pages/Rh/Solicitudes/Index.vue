@@ -57,6 +57,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { useAlertas } from '@/composables/useAlertas';
@@ -761,7 +762,7 @@ function confirmarMovimiento() {
                     />
                 </div>
 
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid gap-2 sm:grid-cols-2">
                     <div class="grid gap-2">
                         <Label>Registrada desde</Label>
                         <DatePicker v-model="filtros.fecha_inicio" />
@@ -797,7 +798,7 @@ function confirmarMovimiento() {
              Requiere corrección · Aprobadas · No aprobadas. -->
         <div
             data-tour="solicitudes-indicadores"
-            class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
+            class="grid entrada-escalonada grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
         >
             <div
                 v-for="columna in COLUMNAS"
@@ -810,7 +811,9 @@ function confirmarMovimiento() {
                     {{ columna.titulo }}
                 </p>
                 <p class="text-2xl font-bold tabular-nums">
-                    {{ columnas[columna.estado]?.length ?? 0 }}
+                    <NumeroAnimado
+                        :valor="columnas[columna.estado]?.length ?? 0"
+                    />
                 </p>
             </div>
         </div>
@@ -837,7 +840,11 @@ function confirmarMovimiento() {
                         : {}
                 "
                 class="ml-auto rounded-full bg-muted px-2.5 py-0.5 text-xs text-muted-foreground"
-                :class="puedeVerIncapacidades ? 'hover:underline' : ''"
+                :class="
+                    puedeVerIncapacidades
+                        ? 'transition-colors hover:bg-crema hover:text-foreground'
+                        : ''
+                "
             >
                 Incapacidad: se gestiona en su propio módulo
                 <template v-if="puedeVerIncapacidades">→</template>
@@ -924,7 +931,7 @@ function confirmarMovimiento() {
                                 <button
                                     v-if="solicitud.acciones?.eliminar"
                                     type="button"
-                                    class="flex size-6 items-center justify-center rounded-md text-white/90 transition-colors hover:bg-white/20 hover:text-white"
+                                    class="flex size-7 presionable items-center justify-center rounded-md text-white/90 transition-colors hover:bg-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
                                     title="Eliminar (prueba o error, sin avisar al colaborador)"
                                     :aria-label="`Eliminar la solicitud ${solicitud.folio}`"
                                     @click="abrirEliminar(solicitud)"
@@ -933,14 +940,15 @@ function confirmarMovimiento() {
                                 </button>
                                 <Link
                                     :href="show.url(solicitud.id)"
-                                    class="flex size-6 items-center justify-center rounded-md text-white/90 transition-colors hover:bg-white/20 hover:text-white"
+                                    class="flex size-7 presionable items-center justify-center rounded-md text-white/90 transition-colors hover:bg-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
                                     title="Abrir detalle"
+                                    :aria-label="`Abrir el detalle de la solicitud ${solicitud.folio}`"
                                 >
                                     <ArrowUpRight class="size-4" />
                                 </Link>
                                 <span
                                     v-if="puedeArrastrar(solicitud)"
-                                    class="kanban-drag-handle flex size-6 cursor-grab items-center justify-center rounded-md text-white/90 hover:bg-white/20 hover:text-white active:cursor-grabbing"
+                                    class="kanban-drag-handle flex size-7 cursor-grab items-center justify-center rounded-md text-white/90 hover:bg-white/20 hover:text-white active:cursor-grabbing"
                                     title="Arrastrar para mover"
                                 >
                                     <GripVertical class="size-4" />

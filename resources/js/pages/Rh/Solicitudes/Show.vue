@@ -410,7 +410,9 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                     </div>
                     <div>
                         <p class="text-sm text-muted-foreground">Motivo</p>
-                        <p class="text-sm">{{ solicitud.motivo }}</p>
+                        <p class="text-sm break-words whitespace-pre-line">
+                            {{ solicitud.motivo }}
+                        </p>
                     </div>
                     <div v-if="solicitud.observaciones">
                         <p class="text-sm text-muted-foreground">
@@ -439,15 +441,17 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                     </h3>
                     <ul
                         v-if="solicitud.documentos?.length"
-                        class="mb-3 flex flex-col gap-2"
+                        class="mb-3 flex entrada-escalonada flex-col gap-2"
                     >
                         <li
                             v-for="doc in solicitud.documentos"
                             :key="doc.id"
                             class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 p-3 text-sm"
                         >
-                            <div>
-                                <p>{{ doc.original_name }}</p>
+                            <div class="min-w-0">
+                                <p class="break-words">
+                                    {{ doc.original_name }}
+                                </p>
                                 <p
                                     v-if="doc.subido_por"
                                     class="text-xs text-muted-foreground"
@@ -495,7 +499,7 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                 <div class="rounded-2xl border border-border/60 bg-card p-5">
                     <h3 class="mb-3 text-sm font-semibold">Historial</h3>
                     <ol
-                        class="relative flex flex-col gap-4 border-s border-border/60 ps-4"
+                        class="relative flex entrada-escalonada flex-col gap-4 border-s border-border/60 ps-4"
                     >
                         <li
                             v-for="evento in solicitud.historial"
