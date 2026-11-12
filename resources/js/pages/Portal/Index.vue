@@ -293,7 +293,7 @@ const enlace =
         <!-- Accesos rápidos -->
         <div
             data-tour="portal-accesos"
-            class="grid grid-cols-2 gap-3 lg:grid-cols-4"
+            class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
         >
             <Link
                 v-for="acceso in accesos"
