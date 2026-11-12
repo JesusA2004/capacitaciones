@@ -7,6 +7,8 @@ import {
     Lock,
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -18,10 +20,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    NativeSelect,
-    NativeSelectOption,
-} from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { ErrorCorreccion, pedirCorreccion } from '@/lib/correcciones';
@@ -100,6 +98,25 @@ const tipoInput = computed(() => {
             return 'text';
     }
 });
+
+const opcionesCampo = computed(() =>
+    (descripcion.value?.campos ?? []).map((c) => ({
+        value: c.campo,
+        label: c.editable ? c.etiqueta : `${c.etiqueta} (bloqueado)`,
+    })),
+);
+
+// El select del portal no admite una opción con valor vacío: si el catálogo
+// trae una, se ofrece como la opción «vacía» y se sigue enviando ''.
+const opcionesValor = computed(() =>
+    (campo.value?.opciones ?? [])
+        .filter((o) => o.valor !== '')
+        .map((o) => ({ value: o.valor, label: o.etiqueta })),
+);
+
+const opcionVaciaValor = computed(
+    () => campo.value?.opciones.find((o) => o.valor === '')?.etiqueta,
+);
 
 const ETIQUETA_ACCION: Record<AfectadoCorreccion['accion'], string> = {
     se_actualiza: 'Se actualiza',
@@ -335,21 +352,13 @@ function cerrar(): void {
             >
                 <div class="grid gap-1.5">
                     <Label for="correccion-campo">Dato a corregir</Label>
-                    <NativeSelect
+                    <SelectSimple
                         id="correccion-campo"
                         :model-value="campoElegido"
+                        :opciones="opcionesCampo"
                         class="w-full"
-                        @update:model-value="elegirCampo(String($event))"
-                    >
-                        <NativeSelectOption
-                            v-for="c in descripcion.campos"
-                            :key="c.campo"
-                            :value="c.campo"
-                        >
-                            {{ c.etiqueta
-                            }}{{ c.editable ? '' : ' (bloqueado)' }}
-                        </NativeSelectOption>
-                    </NativeSelect>
+                        @update:model-value="elegirCampo(String($event ?? ''))"
+                    />
                 </div>
 
                 <template v-if="campo">
@@ -389,19 +398,17 @@ function cerrar(): void {
                             <Label for="correccion-tipo"
                                 >¿Qué es este cambio?</Label
                             >
-                            <NativeSelect
+                            <SelectSimple
                                 id="correccion-tipo"
                                 v-model="tipo"
+                                :opciones="
+                                    descripcion.tipos_cambio.map((t) => ({
+                                        value: t.valor,
+                                        label: t.etiqueta,
+                                    }))
+                                "
                                 class="w-full"
-                            >
-                                <NativeSelectOption
-                                    v-for="t in descripcion.tipos_cambio"
-                                    :key="t.valor"
-                                    :value="t.valor"
-                                >
-                                    {{ t.etiqueta }}
-                                </NativeSelectOption>
-                            </NativeSelect>
+                            />
                             <p class="text-xs text-muted-foreground">
                                 {{
                                     descripcion.tipos_cambio.find(
@@ -418,29 +425,30 @@ function cerrar(): void {
                             <Label for="correccion-vigencia"
                                 >Aplica desde</Label
                             >
-                            <Input
+                            <DatePicker
                                 id="correccion-vigencia"
                                 v-model="vigenteDesde"
-                                type="date"
+                                limpiable
                             />
                         </div>
 
                         <div class="grid gap-1.5">
                             <Label for="correccion-valor">Dato nuevo</Label>
-                            <NativeSelect
+                            <SelectSimple
                                 v-if="campo.tipo === 'seleccion'"
                                 id="correccion-valor"
                                 v-model="valorNuevo"
+                                :opciones="opcionesValor"
+                                :opcion-vacia="opcionVaciaValor"
                                 class="w-full"
-                            >
-                                <NativeSelectOption
-                                    v-for="o in campo.opciones"
-                                    :key="o.valor"
-                                    :value="o.valor"
-                                >
-                                    {{ o.etiqueta }}
-                                </NativeSelectOption>
-                            </NativeSelect>
+                            />
+                            <DatePicker
+                                v-else-if="campo.tipo === 'fecha'"
+                                id="correccion-valor"
+                                v-model="valorNuevo"
+                                :anio-desde="1940"
+                                limpiable
+                            />
                             <Textarea
                                 v-else-if="campo.tipo === 'area'"
                                 id="correccion-valor"
