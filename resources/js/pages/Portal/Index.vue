@@ -3,21 +3,25 @@ import { Head, Link } from '@inertiajs/vue3';
 import {
     ArrowRight,
     Bell,
+    BellOff,
     CalendarDays,
     ChevronRight,
     ClipboardList,
     Clock,
     FileSignature,
     FolderOpen,
+    Inbox,
     ListChecks,
     UserCog,
     UserRound,
 } from '@lucide/vue';
 import { computed } from 'vue';
 import CelebracionesHoyCard from '@/components/Celebraciones/CelebracionesHoyCard.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import MiInduccionTarjeta from '@/components/onboarding/MiInduccionTarjeta.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
 import { Progress } from '@/components/ui/progress';
 import VacacionesAntiguedad from '@/components/Vacaciones/VacacionesAntiguedad.vue';
 import { useNotificaciones } from '@/composables/useNotificaciones';
@@ -66,6 +70,17 @@ function abrir(notificacion: NotificacionPortalItem): void {
 function iniciales(nombre: string, apellidos: string | null): string {
     return `${nombre.charAt(0)}${apellidos?.charAt(0) ?? ''}`.toUpperCase();
 }
+
+// Saludo según la hora del navegador de quien entra.
+const saludo = computed(() => {
+    const hora = new Date().getHours();
+
+    if (hora < 12) {
+        return '¡Buenos días!';
+    }
+
+    return hora < 19 ? '¡Buenas tardes!' : '¡Buenas noches!';
+});
 
 const porHacer = computed(
     () => props.pendientes?.pendientes.filter((p) => p.tipo === 'accion') ?? [],
@@ -127,13 +142,13 @@ const accesos = computed(() => [
 const tarjeta =
     'rounded-3xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-5 shadow-sm transicion-ui hover:shadow-md';
 const enlace =
-    'flex items-center rounded-md text-xs font-medium text-[var(--mrl-primary)] transicion-ui hover:translate-x-0.5 hover:underline focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:outline-none';
+    'flex min-h-9 items-center gap-0.5 rounded-md text-xs font-medium text-[var(--mrl-primary)] transition-colors hover:text-[var(--mrl-navy)] focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:outline-none';
 </script>
 
 <template>
     <Head title="Mi portal" />
 
-    <div class="pagina-ancha flex flex-col gap-6">
+    <div class="pagina-ancha flex entrada-escalonada flex-col gap-6">
         <!-- Encabezado: foto (precargada del expediente) + saludo -->
         <div
             data-tour="portal-encabezado"
@@ -164,10 +179,12 @@ const enlace =
                     </AvatarFallback>
                 </Avatar>
                 <div class="min-w-0 flex-1">
-                    <p class="text-sm text-bronce">¡Hola!</p>
-                    <p class="text-2xl font-semibold sm:text-3xl">
+                    <p class="text-sm text-bronce">{{ saludo }}</p>
+                    <h1
+                        class="text-2xl font-semibold text-balance break-words sm:text-3xl"
+                    >
                         {{ perfil.nombre_completo }}
-                    </p>
+                    </h1>
                     <p class="mt-1 text-sm text-muted-foreground sm:text-base">
                         {{ perfil.puesto ?? 'Sin puesto asignado' }} ·
                         {{ perfil.sucursal ?? 'Sin sucursal' }}
@@ -175,21 +192,25 @@ const enlace =
                     <div
                         class="mt-3 inline-flex items-center gap-1.5 rounded-full bg-card/80 px-3 py-1 text-xs font-medium text-primary ring-1 ring-border/60"
                     >
-                        <UserRound class="size-3.5" />
+                        <UserRound class="size-3.5" aria-hidden="true" />
                         {{ perfil.numero_empleado ?? 'Sin número de empleado' }}
                     </div>
                 </div>
                 <Link
                     :href="indexNotificaciones()"
-                    class="flex size-12 shrink-0 items-center justify-center rounded-full bg-card text-primary shadow-sm ring-1 ring-border/60 transicion-ui hover:scale-105 hover:ring-oro/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none max-sm:absolute max-sm:top-0 max-sm:right-0 sm:relative"
+                    class="flex size-12 shrink-0 items-center justify-center rounded-full bg-card text-primary shadow-sm ring-1 ring-border/60 transicion-ui hover:scale-105 hover:ring-oro/60 active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none max-sm:absolute max-sm:top-0 max-sm:right-0 sm:relative"
                     :aria-label="`Notificaciones (${notificaciones.no_leidas} sin leer)`"
                 >
-                    <Bell class="size-5" />
+                    <Bell class="size-5" aria-hidden="true" />
                     <span
                         v-if="notificaciones.no_leidas > 0"
-                        class="absolute -top-1 -right-1 flex size-5 items-center justify-center rounded-full bg-[var(--mrl-danger)] text-[10px] font-bold text-white"
+                        class="absolute -top-1 -right-1 flex h-5 min-w-5 aparece-zoom items-center px-1 justify-center rounded-full bg-[var(--mrl-danger)] text-[10px] font-bold text-white"
                     >
-                        {{ notificaciones.no_leidas }}
+                        {{
+                            notificaciones.no_leidas > 99
+                                ? '99+'
+                                : notificaciones.no_leidas
+                        }}
                     </span>
                 </Link>
             </div>
@@ -202,20 +223,23 @@ const enlace =
             "
             class="flex flex-col gap-2 rounded-2xl border border-oro/40 bg-warning-soft/50 p-4"
         >
-            <p class="flex items-center gap-2 text-sm font-medium text-warning">
-                <UserCog class="size-4 shrink-0" />
-                Te faltan
-                {{ perfil.completitud_datos.faltantes.length }}
-                dato{{
-                    perfil.completitud_datos.faltantes.length === 1 ? '' : 's'
-                }}
-                para que podamos generarte tus documentos de contratación.
+            <p class="flex items-start gap-2 text-sm font-medium text-warning">
+                <UserCog class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                <span>
+                    {{
+                        perfil.completitud_datos.faltantes.length === 1
+                            ? 'Te falta 1 dato'
+                            : `Te faltan ${perfil.completitud_datos.faltantes.length} datos`
+                    }}
+                    para que podamos generarte tus documentos de contratación.
+                </span>
             </p>
             <Link
                 :href="urlCompletarDatos"
-                class="self-start text-sm font-semibold text-warning underline underline-offset-2"
+                class="group flex min-h-9 items-center gap-1 self-start rounded-md text-sm font-semibold text-warning focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
-                Completar información
+                <span class="enlace-animado">Completar información</span>
+                <ArrowRight class="size-4 icono-avanza" aria-hidden="true" />
             </Link>
         </section>
 
@@ -233,15 +257,20 @@ const enlace =
                     que necesitas hacer
                 </h2>
                 <Link :href="miProceso()" :class="enlace"
-                    >Ver mis pendientes <ChevronRight class="size-3.5"
+                    >Ver mis pendientes
+                    <ChevronRight
+                        class="size-3.5 icono-avanza"
+                        aria-hidden="true"
                 /></Link>
             </div>
-            <div class="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+            <div
+                class="grid entrada-escalonada gap-3 md:grid-cols-2 2xl:grid-cols-3"
+            >
                 <Link
                     v-for="p in porHacer"
                     :key="p.clave"
                     :href="miProceso()"
-                    class="group flex items-center gap-4 rounded-2xl border border-[var(--mrl-primary)]/20 bg-[var(--mrl-surface)] p-4 transicion-ui hover:-translate-y-0.5 hover:border-[var(--mrl-primary)] hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:outline-none"
+                    class="group flex tarjeta-interactiva items-center gap-4 rounded-2xl border border-[var(--mrl-primary)]/20 bg-[var(--mrl-surface)] p-4"
                 >
                     <div class="min-w-0 flex-1">
                         <p class="font-semibold text-[var(--mrl-texto)]">
@@ -254,9 +283,9 @@ const enlace =
                         </p>
                     </div>
                     <span
-                        class="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--mrl-primary)] text-white transition-transform group-hover:translate-x-1"
+                        class="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--mrl-primary)] icono-avanza text-white"
                     >
-                        <ArrowRight class="size-4" />
+                        <ArrowRight class="size-4" aria-hidden="true" />
                     </span>
                 </Link>
                 <div
@@ -293,19 +322,23 @@ const enlace =
         <!-- Accesos rápidos -->
         <div
             data-tour="portal-accesos"
-            class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
+            class="grid entrada-escalonada grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
         >
             <Link
                 v-for="acceso in accesos"
                 :key="acceso.titulo"
                 :href="acceso.href"
-                class="group flex min-h-24 flex-col items-start gap-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-4 shadow-sm transicion-ui hover:-translate-y-0.5 hover:border-[var(--mrl-primary)]/40 hover:shadow-lg focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:outline-none sm:min-h-0 sm:flex-row sm:items-center sm:gap-4"
+                class="group flex min-h-24 tarjeta-interactiva flex-col items-start gap-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-surface)] p-4 shadow-sm sm:min-h-0 sm:flex-row sm:items-center sm:gap-4"
             >
                 <span
                     class="flex size-11 shrink-0 items-center justify-center rounded-xl transition-colors duration-200"
                     :class="acceso.color"
                 >
-                    <component :is="acceso.icono" class="size-5" />
+                    <component
+                        :is="acceso.icono"
+                        class="size-5"
+                        aria-hidden="true"
+                    />
                 </span>
                 <span class="min-w-0 flex-1">
                     <span
@@ -318,7 +351,8 @@ const enlace =
                     >
                 </span>
                 <ChevronRight
-                    class="hidden size-4 shrink-0 text-[var(--mrl-texto-suave)] opacity-0 transicion-ui group-hover:translate-x-0.5 group-hover:opacity-100 sm:block"
+                    class="hidden size-4 shrink-0 icono-avanza text-[var(--mrl-texto-suave)]/60 sm:block"
+                    aria-hidden="true"
                 />
             </Link>
         </div>
@@ -333,7 +367,10 @@ const enlace =
                 <div class="flex items-center justify-between">
                     <h2 class="text-sm font-semibold">Vacaciones</h2>
                     <Link :href="indexSolicitudes()" :class="enlace"
-                        >Ver detalle <ChevronRight class="size-3.5"
+                        >Ver detalle
+                        <ChevronRight
+                            class="size-3.5 icono-avanza"
+                            aria-hidden="true"
                     /></Link>
                 </div>
 
@@ -355,7 +392,7 @@ const enlace =
                         class="rounded-xl p-2 transition-colors hover:bg-[var(--mrl-fondo)]"
                     >
                         <p class="text-2xl font-bold tabular-nums">
-                            {{ vacaciones.dias_generados }}
+                            <NumeroAnimado :valor="vacaciones.dias_generados" />
                         </p>
                         <p class="text-xs text-[var(--mrl-texto-suave)]">
                             Corresponden
@@ -365,7 +402,9 @@ const enlace =
                         class="rounded-xl p-2 transition-colors hover:bg-[var(--mrl-fondo)]"
                     >
                         <p class="text-2xl font-bold tabular-nums">
-                            {{ vacaciones.dias_usados_total }}
+                            <NumeroAnimado
+                                :valor="vacaciones.dias_usados_total"
+                            />
                         </p>
                         <p class="text-xs text-[var(--mrl-texto-suave)]">
                             Usados
@@ -382,7 +421,9 @@ const enlace =
                         class="rounded-xl p-2 transition-colors hover:bg-[var(--mrl-fondo)]"
                     >
                         <p class="text-2xl font-bold tabular-nums">
-                            {{ vacaciones.dias_en_solicitud }}
+                            <NumeroAnimado
+                                :valor="vacaciones.dias_en_solicitud"
+                            />
                         </p>
                         <p class="text-xs text-[var(--mrl-texto-suave)]">
                             En solicitud
@@ -394,7 +435,9 @@ const enlace =
                         <p
                             class="text-2xl font-bold text-[var(--mrl-primary)] tabular-nums"
                         >
-                            {{ vacaciones.dias_disponibles }}
+                            <NumeroAnimado
+                                :valor="vacaciones.dias_disponibles"
+                            />
                         </p>
                         <p class="text-xs text-[var(--mrl-texto-suave)]">
                             Disponibles
@@ -413,28 +456,33 @@ const enlace =
                 <div class="flex items-center justify-between">
                     <h2 class="text-sm font-semibold">Solicitudes recientes</h2>
                     <Link :href="indexSolicitudes()" :class="enlace"
-                        >Ver todas <ChevronRight class="size-3.5"
+                        >Ver todas
+                        <ChevronRight
+                            class="size-3.5 icono-avanza"
+                            aria-hidden="true"
                     /></Link>
                 </div>
 
-                <div
+                <EmptyState
                     v-if="!solicitudes_recientes.length"
-                    class="flex flex-1 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--mrl-borde)] p-6 text-center text-sm text-[var(--mrl-texto-suave)]"
+                    :icono="Inbox"
+                    titulo="Todavía no tienes solicitudes"
+                    descripcion="Vacaciones, permisos, constancias y más: todo se pide desde aquí."
+                    class="flex-1 rounded-xl border border-dashed border-[var(--mrl-borde)] !py-6"
                 >
-                    Todavía no tienes solicitudes.
                     <Link
                         :href="indexSolicitudes()"
-                        class="font-medium text-[var(--mrl-primary)] hover:underline"
+                        class="enlace-animado text-sm font-medium text-[var(--mrl-primary)]"
                         >Hacer una solicitud</Link
                     >
-                </div>
+                </EmptyState>
 
-                <div v-else class="flex flex-col gap-1">
+                <div v-else class="flex entrada-escalonada flex-col gap-1">
                     <Link
                         v-for="solicitud in solicitudes_recientes.slice(0, 4)"
                         :key="solicitud.id"
                         :href="indexSolicitudes()"
-                        class="group flex items-center justify-between gap-2 rounded-xl border border-transparent p-3 text-sm transicion-ui hover:border-[var(--mrl-borde)] hover:bg-[var(--mrl-fondo)]"
+                        class="group flex fila-interactiva items-center justify-between gap-2 rounded-xl p-3 text-sm"
                     >
                         <div class="min-w-0">
                             <p
@@ -461,18 +509,22 @@ const enlace =
                 <div class="flex items-center justify-between">
                     <h2 class="text-sm font-semibold">Notificaciones</h2>
                     <Link :href="indexNotificaciones()" :class="enlace"
-                        >Ver todas <ChevronRight class="size-3.5"
+                        >Ver todas
+                        <ChevronRight
+                            class="size-3.5 icono-avanza"
+                            aria-hidden="true"
                     /></Link>
                 </div>
 
-                <div
+                <EmptyState
                     v-if="!notificaciones.recientes.length"
-                    class="flex flex-1 items-center justify-center rounded-xl border border-dashed border-[var(--mrl-borde)] p-6 text-center text-sm text-[var(--mrl-texto-suave)]"
-                >
-                    Sin notificaciones por ahora.
-                </div>
+                    :icono="BellOff"
+                    titulo="Sin notificaciones por ahora"
+                    descripcion="Aquí verás los avisos de tus solicitudes y documentos."
+                    class="flex-1 rounded-xl border border-dashed border-[var(--mrl-borde)] !py-6"
+                />
 
-                <div v-else class="flex flex-col gap-1">
+                <div v-else class="flex entrada-escalonada flex-col gap-1">
                     <button
                         v-for="notificacion in notificaciones.recientes.slice(
                             0,
@@ -480,7 +532,7 @@ const enlace =
                         )"
                         :key="notificacion.id"
                         type="button"
-                        class="flex w-full items-start gap-2 rounded-xl p-2.5 text-left text-sm transition-colors duration-150 hover:bg-[var(--mrl-fondo)] focus-visible:ring-2 focus-visible:ring-[var(--mrl-primary)] focus-visible:outline-none"
+                        class="flex w-full fila-interactiva items-start gap-2 rounded-xl p-2.5 text-left text-sm"
                         :class="
                             !notificacion.leida
                                 ? 'bg-[var(--mrl-primary)]/5'
