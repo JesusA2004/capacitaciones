@@ -27,7 +27,7 @@ import {
     Truck,
     Users,
 } from '@lucide/vue';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import type { Component } from 'vue';
 import { toast } from 'vue-sonner';
 import AyudaBoton from '@/components/Common/AyudaBoton.vue';
@@ -63,7 +63,7 @@ import type {
  * ('paquete' o la clave del documento) para que solo ese botón muestre el
  * spinner; `previaOcupada` deshabilita las demás mientras tanto.
  */
-withDefaults(
+const props = withDefaults(
     defineProps<{
         seccion: SeccionDocumentosProceso;
         ocupado: string | null;
@@ -77,6 +77,43 @@ const emit = defineEmits<{
     accion: [item: ItemDocumentoProceso, accion: AccionDocumento];
     accionSeccion: [accion: AccionDocumento];
 }>();
+
+/**
+ * Expediente incompleto: el motivo va UNA vez arriba (banner compacto con
+ * «aprobados/requeridos») y las tarjetas solo dicen «En espera». Los números
+ * salen del mismo texto del backend; si no vienen, se muestra el texto tal cual.
+ */
+const expedientePendiente = computed<{
+    aprobados: number;
+    requeridos: number;
+} | null>(() => {
+    if (props.seccion.expediente_completo !== false || !props.seccion.bloqueo) {
+        return null;
+    }
+
+    const m = /(\d+) de (\d+) documentos obligatorios/.exec(
+        props.seccion.bloqueo,
+    );
+
+    return m ? { aprobados: Number(m[1]), requeridos: Number(m[2]) } : null;
+});
+
+/** El aviso de la tarjeta que ya está en el banner de la sección no se repite. */
+function bloqueoPropio(item: ItemDocumentoProceso): string | null {
+    if (!item.bloqueo) {
+        return null;
+    }
+
+    if (
+        item.bloqueo === props.seccion.bloqueo ||
+        (props.seccion.expediente_completo === false &&
+            item.bloqueo.startsWith('El expediente aún no está completo'))
+    ) {
+        return null;
+    }
+
+    return item.bloqueo;
+}
 
 const historialAbierto = ref<string | null>(null);
 const itemEditando = ref<ItemDocumentoProceso | null>(null);
@@ -264,8 +301,44 @@ function varianteSeccion(a: AccionDocumento) {
             </div>
         </header>
 
+        <div
+            v-if="expedientePendiente"
+            class="flex flex-col gap-2 rounded-xl bg-warning-soft/70 px-3 py-2.5 text-sm sm:flex-row sm:items-center sm:gap-3"
+            data-aviso="expediente-incompleto"
+        >
+            <p class="flex min-w-0 flex-1 items-center gap-2">
+                <Lock class="size-4 shrink-0 text-warning" />
+                <span>
+                    Se habilita al aprobar los
+                    {{ expedientePendiente.requeridos }} documentos obligatorios
+                    del expediente
+                </span>
+            </p>
+            <div class="flex items-center gap-2 sm:w-40 sm:shrink-0">
+                <span
+                    class="h-1.5 flex-1 overflow-hidden rounded-full bg-card"
+                    role="progressbar"
+                    :aria-valuenow="expedientePendiente.aprobados"
+                    aria-valuemin="0"
+                    :aria-valuemax="expedientePendiente.requeridos"
+                    aria-label="Documentos obligatorios aprobados"
+                >
+                    <span
+                        class="block h-full rounded-full bg-warning"
+                        :style="{
+                            width: `${expedientePendiente.requeridos ? Math.round((expedientePendiente.aprobados * 100) / expedientePendiente.requeridos) : 0}%`,
+                        }"
+                    />
+                </span>
+                <strong class="text-xs tabular-nums"
+                    >{{ expedientePendiente.aprobados }}/{{
+                        expedientePendiente.requeridos
+                    }}</strong
+                >
+            </div>
+        </div>
         <p
-            v-if="seccion.bloqueo"
+            v-else-if="seccion.bloqueo"
             class="flex items-start gap-2 rounded-xl bg-warning-soft/70 p-3 text-sm"
         >
             <AlertTriangle class="mt-0.5 size-4 shrink-0 text-warning" />
@@ -457,13 +530,13 @@ function varianteSeccion(a: AccionDocumento) {
                     </Button>
                 </div>
                 <p
-                    v-else-if="item.bloqueo"
+                    v-else-if="bloqueoPropio(item)"
                     class="flex items-start gap-2 text-xs text-muted-foreground"
                 >
                     <AlertTriangle
                         class="mt-0.5 size-3.5 shrink-0 text-warning"
                     />
-                    {{ item.bloqueo }}
+                    {{ bloqueoPropio(item) }}
                 </p>
                 <div
                     v-if="item.desactualizado && puedeEditarDatos(item)"
