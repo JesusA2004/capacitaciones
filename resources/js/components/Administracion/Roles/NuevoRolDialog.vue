@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
 import RolController from '@/actions/App/Http/Controllers/Administracion/RolController';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,10 +14,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-    NativeSelect,
-    NativeSelectOption,
-} from '@/components/ui/native-select';
 import { Spinner } from '@/components/ui/spinner';
 import type { RolItem } from '@/types/roles';
 
@@ -82,24 +79,18 @@ function enviar() {
 
                 <div class="grid gap-2">
                     <Label for="base_rol_nuevo">Partir de</Label>
-                    <NativeSelect
+                    <SelectSimple
                         id="base_rol_nuevo"
                         v-model="form.base"
                         class="w-full"
-                    >
-                        <NativeSelectOption value=""
-                            >Sin permisos (vacío)</NativeSelectOption
-                        >
-                        <NativeSelectOption
-                            v-for="rol in roles"
-                            :key="rol.id"
-                            :value="String(rol.id)"
-                            >{{ rol.nombre }} ({{
-                                rol.permisos.length
-                            }}
-                            permisos)</NativeSelectOption
-                        >
-                    </NativeSelect>
+                        :opciones="
+                            roles.map((rol) => ({
+                                value: String(rol.id),
+                                label: `${rol.nombre} (${rol.permisos.length} permisos)`,
+                            }))
+                        "
+                        opcion-vacia="Sin permisos (vacío)"
+                    />
                     <InputError :message="form.errors.permisos" />
                 </div>
 

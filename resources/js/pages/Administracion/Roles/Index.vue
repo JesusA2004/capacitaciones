@@ -22,15 +22,13 @@ import ModuloPermisosCard from '@/components/Administracion/Roles/ModuloPermisos
 import NuevoRolDialog from '@/components/Administracion/Roles/NuevoRolDialog.vue';
 import PermisoSwitch from '@/components/Administracion/Roles/PermisoSwitch.vue';
 import ResumenRol from '@/components/Administracion/Roles/ResumenRol.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudStats from '@/components/DataTable/CrudStats.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-    NativeSelect,
-    NativeSelectOption,
-} from '@/components/ui/native-select';
 import { useAlertas } from '@/composables/useAlertas';
 import { etiquetaModulo, etiquetaPermiso } from '@/lib/permisos';
 import {
@@ -474,6 +472,25 @@ const modulosActivos = computed(
             .filter((m) => moduloActivo(m, borrador.value)).length,
 );
 
+// ------------------------------------------------- opciones de los selects
+const opcionesRolMovil = computed(() =>
+    rolesFiltrados.value.map((r) => ({
+        value: String(r.id),
+        label: `${r.nombre} · ${r.usuarios_count} usuario(s)`,
+    })),
+);
+
+const opcionesOtrosRoles = computed(() =>
+    props.roles
+        .filter((r) => r.id !== rol.value?.id)
+        .map((r) => ({ value: String(r.id), label: r.nombre })),
+);
+
+function alCambiarComparacion(valor: string) {
+    compararId.value = valor ? Number(valor) : null;
+    soloDiferencias.value = false;
+}
+
 // ---------------------------------------------------------------- diálogos
 const dialogNuevo = ref(false);
 const dialogClonar = ref(false);
@@ -534,20 +551,16 @@ const dialogClonar = ref(false);
                     />
                 </div>
 
-                <NativeSelect
+                <SelectSimple
                     class="w-full lg:hidden"
                     :model-value="rolId === null ? '' : String(rolId)"
+                    :opciones="opcionesRolMovil"
+                    placeholder="Elige un rol…"
                     aria-label="Rol a editar"
-                    @update:model-value="seleccionar(Number($event))"
-                >
-                    <NativeSelectOption
-                        v-for="r in rolesFiltrados"
-                        :key="r.id"
-                        :value="String(r.id)"
-                        >{{ r.nombre }} ·
-                        {{ r.usuarios_count }} usuario(s)</NativeSelectOption
-                    >
-                </NativeSelect>
+                    @update:model-value="
+                        (valor) => valor !== '' && seleccionar(Number(valor))
+                    "
+                />
 
                 <ul
                     class="hidden flex-col gap-1 overflow-y-auto rounded-2xl border border-border/60 bg-card p-2 shadow-sm lg:flex"
@@ -556,7 +569,8 @@ const dialogClonar = ref(false);
                     <li v-for="r in rolesFiltrados" :key="r.id">
                         <button
                             type="button"
-                            class="flex w-full flex-col gap-0.5 rounded-xl px-3 py-2 text-left transition-colors"
+                            class="flex w-full presionable flex-col gap-0.5 rounded-xl px-3 py-2 text-left transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                            :aria-current="r.id === rolId ? 'true' : undefined"
                             :class="
                                 r.id === rolId
                                     ? 'bg-salvia text-foreground'
@@ -678,37 +692,25 @@ const dialogClonar = ref(false);
                     <div
                         class="grid gap-3 border-t border-border/60 pt-3 md:grid-cols-2"
                     >
-                        <label class="flex flex-col gap-1.5 text-sm">
+                        <div class="flex flex-col gap-1.5 text-sm">
                             <span
                                 class="inline-flex items-center gap-1.5 font-medium"
                                 ><GitCompareArrows class="size-4" /> Comparar
                                 con</span
                             >
-                            <NativeSelect
+                            <SelectSimple
                                 class="w-full"
                                 :model-value="
                                     compararId === null
                                         ? ''
                                         : String(compararId)
                                 "
-                                @update:model-value="
-                                    compararId = $event ? Number($event) : null;
-                                    soloDiferencias = false;
-                                "
-                            >
-                                <NativeSelectOption value=""
-                                    >Sin comparar</NativeSelectOption
-                                >
-                                <NativeSelectOption
-                                    v-for="r in roles.filter(
-                                        (x) => x.id !== rol?.id,
-                                    )"
-                                    :key="r.id"
-                                    :value="String(r.id)"
-                                    >{{ r.nombre }}</NativeSelectOption
-                                >
-                            </NativeSelect>
-                        </label>
+                                :opciones="opcionesOtrosRoles"
+                                opcion-vacia="Sin comparar"
+                                aria-label="Rol con el que se compara"
+                                @update:model-value="alCambiarComparacion"
+                            />
+                        </div>
                         <div
                             v-if="!soloLectura"
                             class="flex flex-col gap-1.5 text-sm"
@@ -719,23 +721,13 @@ const dialogClonar = ref(false);
                                 de</span
                             >
                             <div class="flex gap-2">
-                                <NativeSelect
+                                <SelectSimple
                                     v-model="copiarDesdeId"
                                     class="min-w-0 flex-1"
+                                    :opciones="opcionesOtrosRoles"
+                                    placeholder="Elige un rol…"
                                     aria-label="Rol del que se copian los permisos"
-                                >
-                                    <NativeSelectOption value=""
-                                        >Elige un rol…</NativeSelectOption
-                                    >
-                                    <NativeSelectOption
-                                        v-for="r in roles.filter(
-                                            (x) => x.id !== rol?.id,
-                                        )"
-                                        :key="r.id"
-                                        :value="String(r.id)"
-                                        >{{ r.nombre }}</NativeSelectOption
-                                    >
-                                </NativeSelect>
+                                />
                                 <Button
                                     variant="outline"
                                     :disabled="copiarDesdeId === ''"
@@ -830,12 +822,12 @@ const dialogClonar = ref(false);
 
                 <!-- Matriz -->
                 <template v-else>
-                    <p
+                    <EmptyState
                         v-if="sinResultados"
-                        class="rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground"
-                    >
-                        Ningún permiso coincide con la búsqueda o los filtros.
-                    </p>
+                        :icono="Search"
+                        titulo="Ningún permiso coincide"
+                        descripcion="Prueba con otra palabra o quita los filtros."
+                    />
 
                     <section
                         v-for="etapa in etapasVisibles"
@@ -844,7 +836,7 @@ const dialogClonar = ref(false);
                     >
                         <button
                             type="button"
-                            class="flex items-center gap-3 text-left"
+                            class="flex presionable items-center gap-3 rounded-xl text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                             :aria-expanded="!plegadas.has(etapa.clave)"
                             @click="alternarEtapa(etapa.clave)"
                         >
@@ -878,7 +870,7 @@ const dialogClonar = ref(false);
 
                         <div
                             v-if="!plegadas.has(etapa.clave)"
-                            class="grid gap-3 xl:grid-cols-2"
+                            class="grid entrada-escalonada gap-3 xl:grid-cols-2"
                         >
                             <ModuloPermisosCard
                                 v-for="modulo in etapa.modulos"
@@ -1005,7 +997,7 @@ const dialogClonar = ref(false);
                 <span class="text-destructive">−{{ quitados.length }}</span>
                 permisos
             </span>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" @click="descartar">
                     <RotateCcw class="size-4" />
                     Descartar

@@ -2,12 +2,9 @@
 import { CheckCheck, Eraser, Info, KeyRound, Lock } from '@lucide/vue';
 import { computed } from 'vue';
 import PermisoSwitch from '@/components/Administracion/Roles/PermisoSwitch.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-    NativeSelect,
-    NativeSelectOption,
-} from '@/components/ui/native-select';
 import {
     Tooltip,
     TooltipContent,
@@ -58,6 +55,10 @@ const niveles = computed(() =>
     (['propios', 'equipo', 'sucursal', 'region', 'todos'] as const).filter(
         (n) => n === 'propios' || props.modulo.alcances[n] !== undefined,
     ),
+);
+
+const opcionesNivel = computed(() =>
+    niveles.value.map((n) => ({ value: n, label: ETIQUETA_NIVEL[n] })),
 );
 
 const acciones = computed(() => accionesVisibles(props.modulo, props.filtro));
@@ -144,19 +145,15 @@ const accesoDifiere = computed(() =>
             class="flex flex-wrap items-center gap-2 rounded-xl bg-crema/40 px-3 py-2"
         >
             <span class="text-sm text-muted-foreground">Alcance de datos</span>
-            <NativeSelect
+            <SelectSimple
                 :model-value="nivel"
+                :opciones="opcionesNivel"
                 :disabled="soloLectura || !tieneAcceso"
                 class="w-40"
+                size="sm"
                 :aria-label="`Alcance de datos en ${modulo.etiqueta}`"
-                @update:model-value="
-                    emit('nivel', $event as NivelAlcance | 'propios')
-                "
-            >
-                <NativeSelectOption v-for="n in niveles" :key="n" :value="n">{{
-                    ETIQUETA_NIVEL[n]
-                }}</NativeSelectOption>
-            </NativeSelect>
+                @update:model-value="emit('nivel', $event)"
+            />
             <span class="text-xs text-muted-foreground"
                 >Qué registros ve. Ver todo no permite aprobar todo.</span
             >
@@ -207,7 +204,7 @@ const accesoDifiere = computed(() =>
                     <TooltipTrigger as-child>
                         <button
                             type="button"
-                            class="shrink-0 rounded-full p-0.5 text-muted-foreground hover:text-foreground"
+                            class="shrink-0 presionable rounded-full p-1.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                             :aria-label="`Qué permite: ${accion.etiqueta}`"
                         >
                             <Info class="size-3.5" />
@@ -238,7 +235,7 @@ const accesoDifiere = computed(() =>
             <span v-if="soloLectura" class="inline-flex items-center gap-1"
                 ><Lock class="size-3" /> Solo lectura</span
             >
-            <div v-else class="flex gap-1">
+            <div v-else class="flex flex-wrap gap-1">
                 <Button
                     v-if="!completo"
                     variant="ghost"
