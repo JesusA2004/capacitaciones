@@ -368,13 +368,13 @@ function fecha(iso: string | null): string {
                             :href="
                                 mostrarIntento(fila.intento_por_calificar_id)
                             "
-                            class="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                            class="enlace-animado text-sm font-medium text-primary"
                             >Revisar y calificar</Link
                         >
                         <Link
                             v-else-if="fila.ultimo_intento_id"
                             :href="mostrarIntento(fila.ultimo_intento_id)"
-                            class="text-sm text-muted-foreground underline-offset-4 hover:underline"
+                            class="enlace-animado text-sm text-muted-foreground"
                             >Ver evaluación</Link
                         >
                         <!-- Aprobada: «Enviar descriptivo de puesto» y su acuse -->

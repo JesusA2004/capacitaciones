@@ -779,7 +779,10 @@ const etiquetaFecha: Record<string, string> = {
                     <p class="text-sm text-muted-foreground">
                         {{ excepcionPendiente.motivo }}
                     </p>
-                    <div v-if="puede_resolver_excepcion" class="flex gap-2">
+                    <div
+                        v-if="puede_resolver_excepcion"
+                        class="flex flex-wrap gap-2"
+                    >
                         <Button type="button" @click="resolverExcepcion(true)"
                             >Aprobar excepción</Button
                         >
@@ -946,7 +949,7 @@ const etiquetaFecha: Record<string, string> = {
                             <a
                                 :href="documentosLaborales.descargar.url(d.id)"
                                 target="_blank"
-                                class="font-medium hover:underline"
+                                class="enlace-animado font-medium"
                                 >{{ d.titulo ?? d.clave }}</a
                             >
                             <span
@@ -1616,14 +1619,18 @@ const etiquetaFecha: Record<string, string> = {
                 </div>
                 <div class="grid gap-1.5">
                     <Label>Documento soporte (opcional)</Label>
-                    <input
-                        type="file"
-                        class="text-sm"
-                        @change="
-                            (e: Event) =>
-                                (excepcionForm.documento_soporte =
-                                    (e.target as HTMLInputElement).files?.[0] ??
-                                    null)
+                    <PeopleFileDropzone
+                        :model-value="
+                            excepcionForm.documento_soporte
+                                ? [excepcionForm.documento_soporte]
+                                : []
+                        "
+                        accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                        :max-size-mb="10"
+                        label="Arrastra el documento soporte aquí"
+                        @update:model-value="
+                            (f) =>
+                                (excepcionForm.documento_soporte = f[0] ?? null)
                         "
                     />
                     <InputError
