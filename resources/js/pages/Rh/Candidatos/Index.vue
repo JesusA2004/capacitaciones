@@ -81,6 +81,8 @@ const props = defineProps<{
         busqueda?: string;
         fecha_inicio?: string;
         fecha_fin?: string;
+        /** '' = todos · 'ocultar' = sin plantilla histórica · 'solo' = solo histórica. */
+        historicos?: string;
         mes?: string;
     };
     opciones: OpcionesReclutamiento;
@@ -207,6 +209,7 @@ const { filtros, aplicar, aplicarConDebounce, limpiar } = useFiltros(
         busqueda: props.filtros.busqueda ?? '',
         fecha_inicio: props.filtros.fecha_inicio ?? '',
         fecha_fin: props.filtros.fecha_fin ?? '',
+        historicos: props.filtros.historicos ?? '',
         mes: props.filtros.mes ?? opcionesMes.value[0].value,
     },
 );
@@ -318,6 +321,10 @@ const fasesSalida = computed(() =>
 const maxEnFase = computed(() =>
     Math.max(1, ...fasesRecorrido.value.map((c) => c.candidatos.length)),
 );
+
+// En «Tablero» cada columna dibuja como máximo estas tarjetas; el resto se
+// consulta paginado en «Por fase» (cientos en «Contrato indeterminado»).
+const MAXIMO_TARJETAS_COLUMNA = 40;
 
 // Vista: «Por fase» (tarjetas de una fase) o «Tablero» (todas las columnas).
 const vista = ref<'fase' | 'tablero'>('fase');
@@ -594,7 +601,7 @@ function confirmarSalida() {
 
             <CrudFilterSheet
                 titulo="Más filtros"
-                descripcion="Departamento, vacante, responsable y fecha de registro."
+                descripcion="Departamento, vacante, responsable, plantilla histórica y fecha de registro."
                 :contador-activos="
                     [
                         filtros.departamento_id,
@@ -602,6 +609,7 @@ function confirmarSalida() {
                         filtros.responsable_rh_id,
                         filtros.fecha_inicio,
                         filtros.fecha_fin,
+                        filtros.historicos,
                     ].filter(Boolean).length
                 "
                 :open="filtroSheetAbierto"
@@ -641,6 +649,32 @@ function confirmarSalida() {
                             (v) => (filtros.responsable_rh_id = String(v ?? ''))
                         "
                     />
+                </div>
+
+                <div class="grid gap-2">
+                    <Label>Plantilla histórica</Label>
+                    <SelectSimple
+                        :model-value="filtros.historicos"
+                        :opciones="[
+                            {
+                                value: 'ocultar',
+                                label: 'Solo procesos de reclutamiento',
+                            },
+                            {
+                                value: 'solo',
+                                label: 'Solo plantilla histórica',
+                            },
+                        ]"
+                        placeholder="Todos"
+                        opcion-vacia="Todos (reclutamiento e histórico)"
+                        @update:model-value="
+                            (v) => (filtros.historicos = String(v ?? ''))
+                        "
+                    />
+                    <p class="text-xs text-muted-foreground">
+                        Histórico: quien ya laboraba antes de PEOPLE. Aparece en
+                        su fase con la fecha de su ingreso.
+                    </p>
                 </div>
 
                 <div class="grid grid-cols-2 gap-2">
@@ -999,7 +1033,10 @@ function confirmarSalida() {
 
                 <div class="flex flex-col gap-2 p-3">
                     <div
-                        v-for="candidato in columna.candidatos"
+                        v-for="candidato in columna.candidatos.slice(
+                            0,
+                            MAXIMO_TARJETAS_COLUMNA,
+                        )"
                         :key="candidato.id"
                         draggable="true"
                         :data-tour-href="show.url(candidato.id)"
@@ -1013,6 +1050,21 @@ function confirmarSalida() {
                             :fuentes="opciones.fuentes"
                         />
                     </div>
+
+                    <!-- Columnas muy largas (p. ej. plantilla histórica en
+                         «Contrato indeterminado»): el resto se ve paginado
+                         en la vista «Por fase». -->
+                    <Button
+                        v-if="
+                            columna.candidatos.length > MAXIMO_TARJETAS_COLUMNA
+                        "
+                        variant="outline"
+                        size="sm"
+                        class="w-full"
+                        @click="elegirFase(columna.value)"
+                    >
+                        Ver los {{ columna.candidatos.length }} de esta fase
+                    </Button>
 
                     <p
                         v-if="!columna.candidatos.length"

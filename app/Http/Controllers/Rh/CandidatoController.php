@@ -76,7 +76,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class CandidatoController extends Controller
 {
-    private const FILTROS = ['empresa_id', 'sucursal_id', 'departamento_id', 'puesto_objetivo_id', 'vacante_id', 'responsable_rh_id', 'fuente', 'busqueda', 'fecha_inicio', 'fecha_fin', 'mes'];
+    private const FILTROS = ['empresa_id', 'sucursal_id', 'departamento_id', 'puesto_objetivo_id', 'vacante_id', 'responsable_rh_id', 'fuente', 'busqueda', 'fecha_inicio', 'fecha_fin', 'historicos', 'mes'];
 
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
@@ -149,7 +149,8 @@ class CandidatoController extends Controller
         [$inicioPeriodo, $finPeriodo] = $this->rangoMes($request->string('mes')->toString());
 
         $base = fn () => $this->aprobadorEntrevista
-            ->limitarCandidatos($this->alcance->limitarPorSucursal(Candidato::query(), $usuario, 'sucursal_id', 'candidatos'), $usuario)
+            // La plantilla histórica no es reclutamiento: nunca cuenta en estos indicadores.
+            ->limitarCandidatos($this->alcance->limitarPorSucursal(Candidato::query()->where('historico', false), $usuario, 'sucursal_id', 'candidatos'), $usuario)
             ->when($request->integer('empresa_id'), fn ($q, $v) => $q->where('empresa_id', $v))
             ->when($request->integer('sucursal_id'), fn ($q, $v) => $q->where('sucursal_id', $v))
             ->when($request->integer('departamento_id'), fn ($q, $v) => $q->where('departamento_id', $v))

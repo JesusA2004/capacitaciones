@@ -106,6 +106,8 @@ export type CandidatoItem = {
     campana_reclutamiento_id?: number | null;
     /** Sin vacante ligada todavía: pipeline general, no puede avanzar a contratación (CLAUDE.md §3). */
     espontaneo: boolean;
+    /** Plantilla histórica (ya laboraba antes de PEOPLE): no viene de reclutamiento. */
+    historico?: boolean;
     responsable_rh: {
         id: number;
         name: string;

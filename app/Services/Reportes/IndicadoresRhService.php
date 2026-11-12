@@ -160,7 +160,9 @@ class IndicadoresRhService
      */
     private function candidatos(?Collection $sucursales, ?int $empresaId): Builder
     {
+        // Sin la plantilla histórica (candidatos.historico): no es reclutamiento.
         return Candidato::query()
+            ->where('historico', false)
             ->when($sucursales !== null, fn (Builder $q) => $q->whereIn('sucursal_id', $sucursales))
             ->when($empresaId !== null, fn (Builder $q) => $q->where('empresa_id', $empresaId));
     }

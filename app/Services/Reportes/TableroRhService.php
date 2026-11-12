@@ -462,7 +462,8 @@ class TableroRhService
      */
     private function candidatos(Collection $sucursales, bool $todas): Builder
     {
-        return Candidato::query()->where(fn (Builder $q) => $todas
+        // Sin la plantilla histórica (candidatos.historico): no es reclutamiento.
+        return Candidato::query()->where('historico', false)->where(fn (Builder $q) => $todas
             ? $q->whereIn('sucursal_id', $sucursales)->orWhereNull('sucursal_id')
             : $q->whereIn('sucursal_id', $sucursales));
     }

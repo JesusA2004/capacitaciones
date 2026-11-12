@@ -215,6 +215,13 @@ const socioeconomico = computed(
                         <Sparkles class="size-3 shrink-0" />
                         Candidato espontáneo · sin vacante
                     </span>
+                    <span
+                        v-if="candidato.historico"
+                        class="text-[10px] font-medium text-bronce"
+                        title="Ya laboraba antes de PEOPLE: no viene de un proceso de reclutamiento del sistema."
+                    >
+                        Plantilla histórica
+                    </span>
                 </div>
 
                 <Badge

@@ -112,7 +112,7 @@ class CandidatoPresenter
      * Candidatos visibles para el usuario (alcance por sucursal) con los
      * filtros de la bandeja. Misma consulta para web, exportaciones y API.
      *
-     * @param  array<string, mixed>  $filtros  empresa_id, sucursal_id, departamento_id, puesto_objetivo_id, vacante_id, responsable_rh_id, fuente, estado, fecha_inicio, fecha_fin, busqueda
+     * @param  array<string, mixed>  $filtros  empresa_id, sucursal_id, departamento_id, puesto_objetivo_id, vacante_id, responsable_rh_id, fuente, estado, fecha_inicio, fecha_fin, busqueda, historicos (ocultar|solo)
      * @return Builder<Candidato>
      */
     public function consulta(User $usuario, array $filtros = []): Builder
@@ -151,6 +151,10 @@ class CandidatoPresenter
             ->when($texto('estado'), fn ($query, string $valor) => $query->where('estado', $valor))
             ->when($texto('fecha_inicio'), fn ($query, string $valor) => $query->whereDate('created_at', '>=', $valor))
             ->when($texto('fecha_fin'), fn ($query, string $valor) => $query->whereDate('created_at', '<=', $valor))
+            // Plantilla histórica (people:ubicar-historico-en-fases): por
+            // omisión se ve junto con los procesos de reclutamiento.
+            ->when($texto('historicos') === 'ocultar', fn ($query) => $query->where('historico', false))
+            ->when($texto('historicos') === 'solo', fn ($query) => $query->where('historico', true))
             ->when($texto('busqueda'), function ($query, string $busqueda) {
                 $query->where(function ($sub) use ($busqueda): void {
                     $sub->where('nombre', 'like', "%{$busqueda}%")

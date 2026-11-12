@@ -482,7 +482,8 @@ class ReportesRhService
      */
     private function candidatosVisibles(User $usuario, array $filtros): Builder
     {
-        return $this->alcance->limitarPorSucursal(Candidato::query(), $usuario)
+        // Sin la plantilla histórica (candidatos.historico): no es reclutamiento.
+        return $this->alcance->limitarPorSucursal(Candidato::query()->where('historico', false), $usuario)
             ->when($filtros['empresa_id'] ?? null, fn (Builder $q, $v) => $q->where('empresa_id', $v))
             ->when($filtros['sucursal_id'] ?? null, fn (Builder $q, $v) => $q->where('sucursal_id', $v))
             ->when($filtros['puesto_id'] ?? null, fn (Builder $q, $v) => $q->where('puesto_objetivo_id', $v))
