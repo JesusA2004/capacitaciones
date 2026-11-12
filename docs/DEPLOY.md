@@ -80,7 +80,7 @@ APP_ENV=production
 APP_DEBUG=false          # NUNCA true: la pantalla de excepción expone trazas, SQL, rutas, headers y cookies
 FORMATOS_LIBREOFFICE_PATH=/usr/bin/soffice   # Word → PDF fiel (sin esto, PDF aproximado)
 SALARIO_MINIMO_DIARIO=278.80   # verificar el monto vigente publicado por CONASAMI antes de copiar este valor — sin esta variable, RH nunca recibe un sueldo por defecto (config/nomina.php), nunca se inventa un monto
-QUEUE_CONNECTION=database   # o redis; nunca sync en producción
+QUEUE_CONNECTION=database   # nunca sync; con redis los workers de deploy/supervisor (tabla jobs) no tomarían los avisos ni el video
 ```
 
 `SALARIO_MINIMO_DIARIO` es el monto DIARIO oficial (zona general, https://www.gob.mx/conasami) — cámbialo cada vez que CONASAMI publique uno nuevo (normalmente el 1° de enero). Sin esta variable, guardar «Datos laborales» de un colaborador sin sueldo capturado deja el sueldo en blanco con un aviso claro (`type: warning`), nunca asigna un monto adivinado ni sobrescribe un sueldo que ya existía.

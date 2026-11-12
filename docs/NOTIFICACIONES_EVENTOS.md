@@ -82,7 +82,15 @@ La ocurrencia distingue transiciones legítimas repetidas (deriva del texto, el
 transición = una notificación; un reintento del worker reintenta el job ya
 encolado (no vuelve a crear la notificación).
 
+Un aviso que RH puede repetir con el mismo texto el mismo día («Pedir información
+al colaborador») lleva su propia ocurrencia por pedido: sin ella el segundo pedido
+se tomaba por duplicado y no salía.
+
 ## Entrega garantizada
+
+- `QUEUE_CONNECTION` debe ser `database`: los workers de `deploy/supervisor/`
+  consumen la tabla `jobs`. Con `redis` los avisos se encolan donde nadie los toma
+  (el diagnóstico lo marca como error).
 
 - Colas: `notifications` (dedicada, worker `people-notifications`) separada de
   `default` (PDF, extracción, video — worker `people-worker`).
@@ -102,6 +110,7 @@ encolado (no vuelve a crear la notificación).
 | Solicitud creada (permiso, préstamo, constancia, cambio de datos, baja…) | Colaborador / gerente / RH | "Solicitud enviada" · "Préstamo solicitado" · "Cambio de datos enviado" · "Baja solicitada" | Ruteo `solicitud_creada` (RH/aprobador, sin el solicitante) | — | `SolicitudInterna` · `rh_solicitud` |
 | Visto bueno (gerente → regional) | Sistema | — | Aprobador del nivel (`solicitud_visto_bueno`) | — | `SolicitudInterna` |
 | Solicitud revisada/aprobada/rechazada/corrección | Aprobador | — | Siguiente nivel si aplica | Solicitante (`solicitud`) | `SolicitudInterna` · `solicitud` |
+| Solicitud cancelada por quien la pidió | Colaborador | — | — | Quienes ya tenían el aviso de revisarla o darle visto bueno (`solicitud_cancelada`): «… canceló su solicitud. Ya no tienes que revisarla.» Nunca amplía destinatarios | `SolicitudInterna` · `solicitud_visto_bueno` (la app abre Aprobaciones) |
 | Corrección de datos solicitada (`actualizacion_datos`, bancaria, reposición; incluye datos médicos) | Colaborador | "Cambio de datos enviado" | «Corrección de datos por revisar»: qué datos, **nunca valores** (médicos = «Datos médicos (confidencial)»); ruteo `solicitud_creada` + pendiente `correccion_por_revisar` | — | `SolicitudInterna` · `rh_solicitud` |
 | RH pide más información de una corrección | RH | — | Colaborador: pendiente `correccion_por_responder` | Colaborador: «Recursos Humanos necesita más información» + comentario de RH | `SolicitudInterna` · `solicitud` |
 | El colaborador responde la corrección | Colaborador | "Respuesta enviada" | Responsables (`solicitud_creada`) + quien pidió la información: «Corrección respondida por revisar» (aviso nuevo, ocurrencia por respuesta) | — | `SolicitudInterna` · `rh_solicitud` |
@@ -178,6 +187,7 @@ retirado las tareas y avisos abiertos:
 ```bash
 php artisan people:diagnostico-notificaciones   # colas, Reverb, Expo, fallas (sin secretos)
 php artisan people:probar-notificacion --user=ID # aviso de PRUEBA por los 3 canales
+php artisan people:probar-push ID_o_correo       # entrega a UNA persona: respuesta de Expo, del navegador y del worker
 php artisan notificaciones:reconciliar           # red de seguridad (también corre cada minuto)
 ```
 

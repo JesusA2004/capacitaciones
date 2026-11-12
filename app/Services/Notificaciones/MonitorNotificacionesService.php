@@ -4,6 +4,8 @@ namespace App\Services\Notificaciones;
 
 use App\Models\MobileDevice;
 use App\Models\NotificacionEntrega;
+use App\Models\WebPushSuscripcion;
+use App\Services\WebPush\ClavesVapidService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -21,6 +23,10 @@ class MonitorNotificacionesService
     public const ULTIMO_PUSH = 'push';
 
     public const ULTIMO_FALLO_PUSH = 'fallo_push';
+
+    public const ULTIMO_PUSH_WEB = 'push_web';
+
+    public const ULTIMO_FALLO_PUSH_WEB = 'fallo_push_web';
 
     public const ULTIMO_BROADCAST = 'broadcast';
 
@@ -53,9 +59,10 @@ class MonitorNotificacionesService
 
     /**
      * @return array{
-     *     config: array{queue: string, broadcast: string, expo: bool, reverb_configurado: bool, vite_reverb: bool, after_commit: bool, cola_notificaciones: string},
+     *     config: array{queue: string, queue_driver: string, broadcast: string, expo: bool, web_push: bool, vapid: bool, reverb_configurado: bool, vite_reverb: bool, after_commit: bool, cola_notificaciones: string},
      *     colas: array{general: int, notificaciones: int, general_atorada: bool, notificaciones_atorada: bool, failed: int, failed_notificaciones: int},
      *     dispositivos_activos: int,
+     *     suscripciones_web: int,
      *     entregas_24h: int,
      *     ultimos: array<string, string|null>,
      *     tarjetas: list<array{clave: string, titulo: string, estado: string, detalle: string}>
@@ -79,15 +86,18 @@ class MonitorNotificacionesService
 
         $ultimos = [];
 
-        foreach ([self::ULTIMA_NOTIFICACION, self::ULTIMO_BROADCAST, self::ULTIMO_PUSH, self::ULTIMO_FALLO_PUSH, self::ULTIMA_RECONCILIACION] as $evento) {
+        foreach ([self::ULTIMA_NOTIFICACION, self::ULTIMO_BROADCAST, self::ULTIMO_PUSH, self::ULTIMO_FALLO_PUSH, self::ULTIMO_PUSH_WEB, self::ULTIMO_FALLO_PUSH_WEB, self::ULTIMA_RECONCILIACION] as $evento) {
             $ultimos[$evento] = $this->ultimo($evento)?->toIso8601String();
         }
 
         $estado = [
             'config' => [
                 'queue' => $conexion,
+                'queue_driver' => (string) config(sprintf('queue.connections.%s.driver', $conexion), $conexion),
                 'broadcast' => $broadcast,
                 'expo' => $expo,
+                'web_push' => (bool) config('webpush.enabled'),
+                'vapid' => $this->contar(fn (): int => app(ClavesVapidService::class)->clavePublica() !== null ? 1 : 0) === 1,
                 'reverb_configurado' => $reverbConfigurado,
                 // El build de Vite ya trae VITE_REVERB_ENABLED horneado; aquí
                 // solo se informa lo que dice el .env del servidor.
@@ -104,6 +114,7 @@ class MonitorNotificacionesService
                 'failed_notificaciones' => $failedAvisos,
             ],
             'dispositivos_activos' => $this->contar(fn () => MobileDevice::query()->activos()->count()),
+            'suscripciones_web' => $this->contar(fn () => WebPushSuscripcion::query()->count()),
             'entregas_24h' => $this->contar(fn () => NotificacionEntrega::query()->where('created_at', '>=', now()->subDay())->count()),
             'ultimos' => $ultimos,
         ];
@@ -122,8 +133,29 @@ class MonitorNotificacionesService
         $colas = $estado['colas'];
         $config = $estado['config'];
         $sync = $config['queue'] === 'sync';
+        // Los workers de deploy/supervisor consumen la tabla `jobs`
+        // (conexiones `database` y `notificaciones`). Con otro driver
+        // (redis…) los avisos se encolan donde ningún worker los toma.
+        $sinWorker = ! $sync && $config['queue_driver'] !== 'database';
+        $webPushListo = $config['web_push'] && $config['vapid'];
 
         return [
+            ...($sinWorker ? [[
+                'clave' => 'conexion_cola',
+                'titulo' => 'Conexión de cola',
+                'estado' => 'error',
+                'detalle' => sprintf('QUEUE_CONNECTION=%s: los avisos se encolan ahí, pero people-notifications y people-worker consumen la tabla jobs (database). Usa QUEUE_CONNECTION=database o ajusta los workers.', $config['queue']),
+            ]] : []),
+            [
+                'clave' => 'web_push',
+                'titulo' => 'Web Push (navegador)',
+                'estado' => ! $webPushListo ? 'alerta' : ($this->falloReciente(self::ULTIMO_FALLO_PUSH_WEB) ? 'error' : 'ok'),
+                'detalle' => match (true) {
+                    ! $config['web_push'] => 'WEBPUSH_ENABLED=false: el navegador solo avisa con PEOPLE abierto.',
+                    ! $config['vapid'] => 'Sin llaves VAPID (ni en .env ni en storage/app/private/webpush/vapid.json): nadie puede suscribirse.',
+                    default => sprintf('%d navegador(es) suscrito(s).%s', $estado['suscripciones_web'], $this->falloReciente(self::ULTIMO_FALLO_PUSH_WEB) ? ' Hubo un web push rechazado en las últimas 24 h (ver log «Web push»).' : ''),
+                },
+            ],
             [
                 'clave' => 'cola_general',
                 'titulo' => 'Cola general',
@@ -163,7 +195,12 @@ class MonitorNotificacionesService
 
     private function falloPushReciente(): bool
     {
-        $ultimo = $this->ultimo(self::ULTIMO_FALLO_PUSH);
+        return $this->falloReciente(self::ULTIMO_FALLO_PUSH);
+    }
+
+    private function falloReciente(string $evento): bool
+    {
+        $ultimo = $this->ultimo($evento);
 
         return $ultimo !== null && $ultimo->gt(now()->subDay());
     }
@@ -178,7 +215,9 @@ class MonitorNotificacionesService
                 return ['total' => 0, 'atorada' => false];
             }
 
-            $base = DB::table('jobs')->where('queue', $cola);
+            // Solo lo que ya debería haber salido: las verificaciones de recibo
+            // (VerificarReciboExpoJob) se programan a futuro y no son atraso.
+            $base = DB::table('jobs')->where('queue', $cola)->where('available_at', '<=', now()->getTimestamp());
             $total = (clone $base)->count();
             $limite = now()->subMinutes(self::MINUTOS_COLA_ATORADA)->getTimestamp();
             $atorada = (clone $base)->whereNull('reserved_at')->where('available_at', '<=', $limite)->exists();

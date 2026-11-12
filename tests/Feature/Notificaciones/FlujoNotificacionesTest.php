@@ -272,3 +272,58 @@ test('diagnóstico y prueba manual de notificaciones: sin secretos y por los can
     expect($usuario->notifications()->count())->toBe(1)
         ->and(NotificacionEntrega::query()->where('user_id', $usuario->id)->where('categoria', CategoriaNotificacion::Prueba->value)->count())->toBe(1);
 });
+
+test('el solicitante cancela su solicitud → quien ya tenía el aviso de revisarla se entera, una sola vez y solo él', function () {
+    $colaborador = fnUsuario('colaborador');
+    $rh = fnUsuario('rh_admin');
+    $ajeno = fnUsuario('colaborador');
+
+    Sanctum::actingAs($colaborador);
+    $id = $this->postJson('/api/v1/solicitudes', ['tipo' => 'prestamo', 'monto_solicitado' => 5000, 'motivo' => 'Reparación del auto'])->assertCreated()->json('id');
+    $solicitud = SolicitudInterna::query()->findOrFail($id);
+
+    app(SolicitudesService::class)->cancelar($solicitud, $colaborador);
+
+    $cancelada = fn (User $usuario): int => $usuario->notifications()->get()->filter(fn ($n) => ($n->data['evento'] ?? null) === 'solicitud_cancelada')->count();
+
+    expect($cancelada($rh))->toBe(1)
+        ->and($cancelada($colaborador))->toBe(0)
+        ->and($cancelada($ajeno))->toBe(0)
+        ->and($rh->notifications()->get()->firstWhere('data.evento', 'solicitud_cancelada')->data['related_id'])->toBe($solicitud->id);
+});
+
+test('el recibo de Expo con DeviceNotRegistered revoca el dispositivo aunque el ticket haya salido ok', function () {
+    config(['expo.enabled' => true]);
+    $dispositivo = MobileDevice::factory()->create(['push_token' => 'ExponentPushToken[desinstalada]']);
+    Http::fake([
+        '*/getReceipts' => Http::response(['data' => ['ticket-1' => ['status' => 'error', 'message' => 'not registered', 'details' => ['error' => 'DeviceNotRegistered']]]]),
+        '*' => Http::response(['data' => ['status' => 'ok', 'id' => 'ticket-1']]),
+    ]);
+
+    $envio = app(ExpoPushService::class)->enviarDetallado('ExponentPushToken[desinstalada]', 'Hola', 'Prueba', ['type' => 'solicitud', 'categoria' => 'resultado']);
+
+    expect($envio['resultado'])->toBe(ExpoPushService::RESULTADO_ENVIADO)
+        ->and($envio['ticket_id'])->toBe('ticket-1')
+        ->and($dispositivo->fresh()->revoked_at)->toBeNull();
+    // Un resultado de trámite sale con prioridad alta (no espera a que el teléfono despierte).
+    Http::assertSent(fn ($request) => ($request['priority'] ?? null) === 'high');
+
+    $recibo = app(ExpoPushService::class)->recibo('ExponentPushToken[desinstalada]', 'ticket-1');
+
+    expect($recibo['estado'])->toBe('error')
+        ->and($recibo['error'])->toBe('DeviceNotRegistered')
+        ->and($dispositivo->fresh()->revoked_at)->not->toBeNull();
+});
+
+test('people:probar-push: cuenta dispositivos y navegadores sin enviar nada ni mostrar tokens', function () {
+    Http::fake();
+    $usuario = fnUsuario('colaborador');
+    fnDispositivo($usuario, 'ExponentPushToken[NO-MOSTRAR-COMPLETO-1234567890]');
+
+    $this->artisan('people:probar-push', ['usuario' => (string) $usuario->id, '--sin-enviar' => true])
+        ->expectsOutputToContain('1 teléfono(s) activo(s)')
+        ->expectsOutputToContain('0 navegador(es) suscrito(s)')
+        ->doesntExpectOutputToContain('NO-MOSTRAR-COMPLETO-1234567890');
+
+    Http::assertNothingSent();
+});

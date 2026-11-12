@@ -20,7 +20,33 @@ const permiso = ref<NotificationPermission | 'no-soportado'>('default');
 const suscrito = ref(false);
 // «Desactivar» en esta pestaña: el permiso del navegador sigue concedido,
 // pero la suscripción se quitó a petición del usuario.
-const desactivado = ref(false);
+// Se recuerda en este navegador: sin eso, al recargar la página
+// `sincronizar` volvía a suscribirlo aunque la persona lo hubiera apagado.
+const CLAVE_DESACTIVADO = 'people:web-push-desactivado';
+
+function leerDesactivado(): boolean {
+    try {
+        return window.localStorage.getItem(CLAVE_DESACTIVADO) === '1';
+    } catch {
+        return false;
+    }
+}
+
+function recordarDesactivado(valor: boolean): void {
+    desactivado.value = valor;
+
+    try {
+        if (valor) {
+            window.localStorage.setItem(CLAVE_DESACTIVADO, '1');
+        } else {
+            window.localStorage.removeItem(CLAVE_DESACTIVADO);
+        }
+    } catch {
+        // Sin almacenamiento (modo privado): vale solo para esta pestaña.
+    }
+}
+
+const desactivado = ref(typeof window !== 'undefined' && leerDesactivado());
 const procesando = ref(false);
 let registroSw: Promise<ServiceWorkerRegistration | null> | null = null;
 
@@ -194,7 +220,7 @@ export function useWebPush() {
                 return false;
             }
 
-            desactivado.value = false;
+            recordarDesactivado(false);
 
             if (modoLocal.value) {
                 return true;
@@ -224,7 +250,7 @@ export function useWebPush() {
         }
 
         suscrito.value = false;
-        desactivado.value = true;
+        recordarDesactivado(true);
     }
 
     async function probar(): Promise<void> {

@@ -35,6 +35,7 @@ class DiagnosticoNotificacionesCommand extends Command
             ['Reverb configurado (llaves presentes)', $si($config['reverb_configurado'])],
             ['VITE_REVERB_ENABLED (.env del servidor)', $si($config['vite_reverb'])],
             ['Expo push habilitado', $si($config['expo'])],
+            ['Web Push habilitado / llaves VAPID', sprintf('%s / %s', $si($config['web_push']), $si($config['vapid']))],
         ]);
 
         $this->info('Colas y entrega');
@@ -48,12 +49,18 @@ class DiagnosticoNotificacionesCommand extends Command
             ['Último broadcast', $estado['ultimos'][MonitorNotificacionesService::ULTIMO_BROADCAST] ?? '—'],
             ['Último push aceptado por Expo', $estado['ultimos'][MonitorNotificacionesService::ULTIMO_PUSH] ?? '—'],
             ['Último push fallido', $estado['ultimos'][MonitorNotificacionesService::ULTIMO_FALLO_PUSH] ?? '—'],
+            ['Navegadores suscritos (Web Push)', (string) $estado['suscripciones_web']],
+            ['Último web push aceptado', $estado['ultimos'][MonitorNotificacionesService::ULTIMO_PUSH_WEB] ?? '—'],
+            ['Último web push rechazado', $estado['ultimos'][MonitorNotificacionesService::ULTIMO_FALLO_PUSH_WEB] ?? '—'],
             ['Última reconciliación', $estado['ultimos'][MonitorNotificacionesService::ULTIMA_RECONCILIACION] ?? '—'],
         ]);
 
         foreach ($estado['tarjetas'] as $tarjeta) {
             $this->line(sprintf('[%s] %s — %s', mb_strtoupper($tarjeta['estado']), $tarjeta['titulo'], $tarjeta['detalle']));
         }
+
+        $this->newLine();
+        $this->line('Para probar la entrega real a una persona: php artisan people:probar-push {id o correo}');
 
         return self::SUCCESS;
     }

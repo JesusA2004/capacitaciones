@@ -38,6 +38,39 @@ DELETE /api/v1/dispositivos/push-token   { token }
 
 **Nunca puede tumbar la acción principal**: cada servicio de negocio (`SolicitudesService`, `VacacionesService`, `IncorporacionService`) envuelve la notificación+push en un `notificarSinFallar()` que atrapa cualquier excepción y solo la registra en el log (`Log::warning`). El evento principal (aprobar/rechazar/crear) ya quedó persistido en base de datos antes de llamar aquí.
 
+### Recibos de entrega (¿de verdad llegó al teléfono?)
+
+El ticket `ok` de Expo solo significa que **Expo aceptó** el mensaje. Si FCM/APNs
+lo entregó se sabe hasta el **recibo**: ahí aparecen las credenciales malas del
+proyecto EAS (`InvalidCredentials`, `MismatchSenderId`) y los tokens muertos
+(`DeviceNotRegistered`) que el ticket no ve. `SendExpoPushJob` programa un
+`App\Jobs\VerificarReciboExpoJob` a los `EXPO_PUSH_RECIBOS_ESPERA` segundos (900):
+revoca el dispositivo desinstalado y deja en el log (`Expo push: el proveedor
+(FCM/APNs) rechazo el mensaje`) y en el diagnóstico cualquier otro rechazo.
+`EXPO_PUSH_RECIBOS=false` lo apaga.
+
+### Prioridad
+
+Toda tarea (`categoria: pendiente`) y todo resultado de un trámite (`resultado`:
+solicitud aprobada/rechazada, visto bueno dado…) sale con `priority: high`. En
+Android la prioridad `default` es normal y se retrasa con el teléfono en reposo.
+Las confirmaciones a quien hizo la acción y las celebraciones siguen en `default`.
+El canal (`acciones`/`default`) sigue dependiendo del tipo.
+
+### Probar la entrega a una persona (correr en el servidor)
+
+```bash
+php artisan people:probar-push 15                 # por ID
+php artisan people:probar-push ana@mr-lana.com    # por correo
+php artisan people:probar-push 15 --sin-enviar    # solo cuenta y revisa configuración
+```
+
+Imprime, por canal: teléfonos registrados y **qué respondió Expo** (ticket y recibo
+de FCM/APNs), navegadores suscritos y **qué respondió su servicio push**, y si el
+worker de la cola procesó el aviso de la campana. Al final lista lo que hay que
+revisar (cola en otra conexión, worker detenido, sin dispositivos, llaves VAPID que
+no coinciden, credenciales EAS). Nunca imprime tokens ni llaves completos.
+
 ### Payload exacto
 
 ```json

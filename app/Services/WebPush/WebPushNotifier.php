@@ -6,6 +6,8 @@ use App\Jobs\SendWebPushJob;
 use App\Models\User;
 use App\Models\WebPushSuscripcion;
 use Illuminate\Support\Str;
+use Minishlink\WebPush\Subscription;
+use Minishlink\WebPush\WebPush;
 
 /**
  * Equivalente web de App\Services\MobilePush\PushNotifier: encola un
@@ -46,6 +48,46 @@ class WebPushNotifier
         }
 
         return $ids->count();
+    }
+
+    /**
+     * Envía AHORA (sin cola) un aviso a un navegador y devuelve lo que
+     * respondió su servicio push (FCM de Chrome/Edge, Mozilla, Apple). Lo
+     * usan App\Jobs\SendWebPushJob y `people:probar-push`. No borra ni
+     * modifica la suscripción: eso lo decide quien llama.
+     *
+     * @param  array<string, mixed>  $payload  Ver payload().
+     * @return array{exito: bool, vencida: bool, estado: int|null, motivo: string}
+     */
+    public function enviarAhora(WebPushSuscripcion $suscripcion, array $payload): array
+    {
+        $vapid = $this->claves->vapid();
+
+        if ($vapid === null) {
+            return ['exito' => false, 'vencida' => false, 'estado' => null, 'motivo' => 'Sin llaves VAPID en el servidor.'];
+        }
+
+        $webPush = new WebPush(['VAPID' => $vapid], [
+            'TTL' => (int) config('webpush.ttl'),
+            'urgency' => 'high',
+        ]);
+
+        $reporte = $webPush->sendOneNotification(
+            Subscription::create([
+                'endpoint' => $suscripcion->endpoint,
+                'publicKey' => $suscripcion->clave_publica,
+                'authToken' => $suscripcion->token_autenticacion,
+                'contentEncoding' => $suscripcion->codificacion,
+            ]),
+            (string) json_encode($payload),
+        );
+
+        return [
+            'exito' => $reporte->isSuccess(),
+            'vencida' => $reporte->isSubscriptionExpired(),
+            'estado' => $reporte->getResponse()?->getStatusCode(),
+            'motivo' => $reporte->getReason(),
+        ];
     }
 
     /**
