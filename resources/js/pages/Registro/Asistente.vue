@@ -9,7 +9,6 @@ import {
     ClipboardList,
     Clock,
     FileText,
-    FileUp,
     HeartPulse,
     Home,
     Lock,
@@ -26,7 +25,9 @@ import DatePicker from '@/components/Common/DatePicker.vue';
 import FotoPerfilCaptura from '@/components/Common/FotoPerfilCaptura.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import InputError from '@/components/InputError.vue';
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Toaster } from '@/components/ui/sonner';
@@ -400,19 +401,27 @@ function alternarSinTener(d: DocumentoRegistro): void {
     sinTener.value = [...sinTener.value, d.id];
 }
 
-function alElegirReverso(d: DocumentoRegistro, evento: Event): void {
-    const archivo = (evento.target as HTMLInputElement).files?.[0] ?? null;
-    reversos.value = { ...reversos.value, [d.id]: archivo };
+/** Formatos y peso que acepta el servidor (config/expedientes.php). */
+const FORMATOS_DOCUMENTO = '.pdf,.jpg,.jpeg,.png';
+const PESO_MAXIMO_MB = 20;
+
+function archivosReverso(d: DocumentoRegistro): File[] {
+    const reverso = reversos.value[d.id];
+
+    return reverso ? [reverso] : [];
+}
+
+function alElegirReverso(d: DocumentoRegistro, archivos: File[]): void {
+    reversos.value = { ...reversos.value, [d.id]: archivos[0] ?? null };
 }
 
 async function alElegirArchivo(
     d: DocumentoRegistro,
-    evento: Event,
+    archivos: File[],
 ): Promise<void> {
-    const input = evento.target as HTMLInputElement;
-    const archivo = input.files?.[0];
+    const archivo = archivos[0];
 
-    if (!archivo) {
+    if (!archivo || subiendo.value !== null) {
         return;
     }
 
@@ -470,7 +479,6 @@ async function alElegirArchivo(
         };
     } finally {
         subiendo.value = null;
-        input.value = '';
     }
 }
 
@@ -1021,7 +1029,7 @@ const claseInactivo =
                                     class="h-2 flex-1 overflow-hidden rounded-full bg-crema"
                                 >
                                     <div
-                                        class="h-full rounded-full bg-[var(--mrl-petroleo)]"
+                                        class="h-full crece-barra rounded-full bg-[var(--mrl-petroleo)]"
                                         :style="{
                                             width: `${estado.solicitud_empleo.porcentaje}%`,
                                         }"
@@ -1033,7 +1041,9 @@ const claseInactivo =
                                     }}%</span
                                 >
                             </div>
-                            <ul class="grid gap-2 sm:grid-cols-2">
+                            <ul
+                                class="grid entrada-escalonada gap-2 sm:grid-cols-2"
+                            >
                                 <li
                                     v-for="s in estado.solicitud_empleo
                                         .secciones"
@@ -1126,56 +1136,61 @@ const claseInactivo =
                                 "
                                 class="mt-3 grid gap-3"
                             >
-                                <label
+                                <div
                                     v-if="d.admite_reverso"
-                                    class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground"
+                                    class="grid gap-1.5"
                                 >
-                                    Reverso (opcional, antes de subir el
-                                    frente):
-                                    <input
-                                        type="file"
-                                        accept="application/pdf,image/*"
-                                        class="max-w-full text-xs"
-                                        @change="alElegirReverso(d, $event)"
+                                    <p
+                                        class="text-xs font-medium text-muted-foreground"
+                                    >
+                                        Reverso (opcional): elígelo antes de
+                                        subir el frente
+                                    </p>
+                                    <PeopleFileDropzone
+                                        :model-value="archivosReverso(d)"
+                                        :accept="FORMATOS_DOCUMENTO"
+                                        :max-size-mb="PESO_MAXIMO_MB"
+                                        :disabled="subiendo !== null"
+                                        label="Arrastra aquí el reverso"
+                                        @update:model-value="
+                                            (archivos) =>
+                                                alElegirReverso(d, archivos)
+                                        "
                                     />
-                                </label>
+                                </div>
                                 <label
                                     v-if="d.par?.puede_subir"
-                                    class="flex items-center gap-2 text-sm"
+                                    class="flex min-h-10 items-center gap-2.5 text-sm"
                                 >
-                                    <input
-                                        v-model="conPar[d.id]"
-                                        type="checkbox"
-                                        class="size-4 accent-[var(--mrl-petroleo)]"
+                                    <Checkbox
+                                        :model-value="conPar[d.id] ?? false"
+                                        @update:model-value="
+                                            (v) => (conPar[d.id] = v === true)
+                                        "
                                     />
                                     Este archivo trae también «{{
                                         d.par.nombre
                                     }}»
                                 </label>
+                                <PeopleFileDropzone
+                                    :model-value="[]"
+                                    :accept="FORMATOS_DOCUMENTO"
+                                    :max-size-mb="PESO_MAXIMO_MB"
+                                    :loading="subiendo === d.id"
+                                    :disabled="subiendo !== null"
+                                    :label="
+                                        subiendo === d.id
+                                            ? 'Subiendo tu archivo…'
+                                            : d.estado === 'pendiente'
+                                              ? 'Arrastra aquí tu archivo'
+                                              : 'Arrastra aquí el archivo corregido'
+                                    "
+                                    @update:model-value="
+                                        (archivos) =>
+                                            alElegirArchivo(d, archivos)
+                                    "
+                                />
                                 <div class="flex flex-wrap gap-2">
-                                    <Button
-                                        as-child
-                                        :disabled="subiendo !== null"
-                                    >
-                                        <label class="cursor-pointer">
-                                            <Spinner v-if="subiendo === d.id" />
-                                            <FileUp v-else class="size-4" />
-                                            {{
-                                                d.estado === 'pendiente'
-                                                    ? 'Subir'
-                                                    : 'Subir de nuevo'
-                                            }}
-                                            <input
-                                                type="file"
-                                                class="sr-only"
-                                                accept="application/pdf,image/*"
-                                                :disabled="subiendo !== null"
-                                                @change="
-                                                    alElegirArchivo(d, $event)
-                                                "
-                                            />
-                                        </label>
-                                    </Button>
                                     <button
                                         type="button"
                                         :class="[
@@ -1229,7 +1244,7 @@ const claseInactivo =
                         v-else-if="paso.clave === 'revision'"
                         class="grid gap-3"
                     >
-                        <ul class="grid gap-2">
+                        <ul class="grid entrada-escalonada gap-2">
                             <li v-for="r in resumen" :key="r.clave">
                                 <button
                                     type="button"
