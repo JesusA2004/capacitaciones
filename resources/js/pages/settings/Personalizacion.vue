@@ -66,7 +66,8 @@ function alternarAnimaciones(valor: boolean) {
                     v-for="tema in TEMAS_COLOR"
                     :key="tema.id"
                     type="button"
-                    class="group flex flex-col items-center gap-1.5"
+                    class="group flex presionable flex-col items-center gap-1.5 rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    :aria-pressed="preferencias.tema_color === tema.id"
                     @click="elegirTema(tema.id)"
                 >
                     <span
@@ -82,7 +83,7 @@ function alternarAnimaciones(valor: boolean) {
                     >
                         <Check
                             v-if="preferencias.tema_color === tema.id"
-                            class="size-5 text-white drop-shadow"
+                            class="size-5 aparece-zoom text-white drop-shadow"
                         />
                     </span>
                     <span class="text-xs text-muted-foreground">{{
@@ -120,6 +121,8 @@ function alternarAnimaciones(valor: boolean) {
                                 : 'ring-transparent'
                         "
                         :style="{ backgroundColor: color.hex }"
+                        :aria-label="`Color de avatar ${color.id}`"
+                        :aria-pressed="preferencias.avatar_color === color.hex"
                         @click="elegirAvatarColor(color.hex)"
                     />
                 </div>

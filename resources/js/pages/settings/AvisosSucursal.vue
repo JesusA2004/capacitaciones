@@ -83,7 +83,7 @@ function guardar() {
                     aria-label="Buscar sucursal"
                 />
             </div>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
                 <Button
                     type="button"
                     variant="outline"
@@ -106,7 +106,7 @@ function guardar() {
         >
             <li v-for="sucursal in visibles" :key="sucursal.id">
                 <label
-                    class="flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/60"
+                    class="flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/60"
                 >
                     <Casilla v-model="form.sucursales" :value="sucursal.id" />
                     <span class="min-w-0 flex-1 truncate">{{
@@ -119,7 +119,7 @@ function guardar() {
                     >
                     <BellOff
                         v-if="form.sucursales.includes(sucursal.id)"
-                        class="size-4 text-muted-foreground"
+                        class="size-4 aparece-zoom text-muted-foreground"
                         aria-label="Silenciada"
                     />
                 </label>

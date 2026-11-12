@@ -173,7 +173,7 @@ function enviar(url: string, datos: Record<string, string> = {}): void {
         </div>
 
         <!-- Datos por tarjeta -->
-        <div class="grid gap-4 lg:grid-cols-3">
+        <div class="grid entrada-escalonada gap-4 lg:grid-cols-3">
             <section
                 v-for="seccion in p.secciones"
                 :key="seccion.clave"

@@ -43,6 +43,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ListaAnimada from '@/components/ui/ListaAnimada.vue';
+import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
 import SelectorVista from '@/components/ui/SelectorVista.vue';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
@@ -306,12 +307,14 @@ const vacio = computed(() => {
         />
 
         <!-- Indicadores (clic = filtra) -->
-        <div class="grid gap-3 sm:grid-cols-3">
+        <div class="grid entrada-escalonada gap-3 sm:grid-cols-3">
             <button
                 v-for="(ind, i) in indicadores"
                 :key="i"
                 type="button"
                 class="flex tarjeta-interactiva items-center gap-3 rounded-2xl border bg-card p-4 text-left shadow-xs"
+                :class="filtro === ind.clave ? 'border-oro/60 bg-crema/40' : ''"
+                :aria-pressed="filtro === ind.clave"
                 @click="filtro = ind.clave"
             >
                 <span
@@ -325,7 +328,7 @@ const vacio = computed(() => {
                     <span
                         class="text-2xl leading-none font-semibold tabular-nums"
                     >
-                        {{ ind.valor }}
+                        <NumeroAnimado :valor="ind.valor" />
                     </span>
                     <span class="text-sm text-muted-foreground">
                         {{ ind.texto }}
