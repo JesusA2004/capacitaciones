@@ -102,6 +102,12 @@ return [
             'modulo' => 'solicitudes',
             'audiencia' => 'personal',
         ],
+        'solicitud_cancelada' => [
+            'etiqueta' => 'Cancelaron una solicitud que tenías por revisar',
+            'push_titulo' => 'Solicitud cancelada',
+            'modulo' => 'solicitudes',
+            'audiencia' => 'asignada',
+        ],
         'solicitud_reabierta' => [
             'etiqueta' => 'Tu solicitud se reabrió',
             'modulo' => 'solicitudes',

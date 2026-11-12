@@ -116,6 +116,42 @@ class NotificacionEventosService
     }
 
     /**
+     * El recurso ya no necesita a nadie (p. ej. el solicitante canceló su
+     * solicitud): avisa a quienes esta capa les había dejado una TAREA sobre
+     * él, para que no la busquen ni la sigan viendo como pendiente. Solo a
+     * ellos: nunca amplía destinatarios. Nunca lanza.
+     *
+     * @param  list<int>  $excluir  Cuentas que no se avisan (quien hizo la acción).
+     * @return Collection<int, User> a quiénes se les entregó
+     */
+    public function avisarPendienteRetirado(Aviso $aviso, array $excluir = []): Collection
+    {
+        if ($aviso->recurso === null) {
+            return collect();
+        }
+
+        try {
+            $ids = NotificacionEntrega::query()
+                ->where('categoria', CategoriaNotificacion::Pendiente->value)
+                ->where('related_type', class_basename($aviso->recurso))
+                ->where('related_id', $aviso->recurso->getKey())
+                ->whereNotIn('user_id', $excluir)
+                ->distinct()
+                ->pluck('user_id');
+
+            return User::query()
+                ->whereIn('id', $ids)
+                ->get()
+                ->filter(fn (User $usuario): bool => $this->entregar($usuario, CategoriaNotificacion::Resultado, $aviso))
+                ->values();
+        } catch (Throwable $e) {
+            Log::warning('NotificacionEventosService: no se pudo avisar el retiro del pendiente.', ['evento' => $aviso->evento, 'error' => $e->getMessage()]);
+
+            return collect();
+        }
+    }
+
+    /**
      * Confirmación para quien hizo la acción + tarea para quien la resuelve,
      * como un solo flujo. Si el actor está entre los responsables recibe UN
      * aviso combinado ("… registrada y pendiente de tu resolución").

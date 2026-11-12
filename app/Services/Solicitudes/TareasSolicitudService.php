@@ -9,6 +9,8 @@ use App\Enums\TipoTarea;
 use App\Models\SolicitudAprobacion;
 use App\Models\SolicitudInterna;
 use App\Models\User;
+use App\Services\Notificaciones\Aviso;
+use App\Services\Notificaciones\NotificacionEventosService;
 use App\Services\Tareas\NotificadorRhService;
 use App\Services\Tareas\TareaService;
 
@@ -26,6 +28,7 @@ class TareasSolicitudService
         private readonly NotificadorRhService $notificador,
         private readonly AprobacionJerarquicaService $aprobaciones,
         private readonly AprobacionOrganizacionalService $motor,
+        private readonly NotificacionEventosService $eventos,
     ) {}
 
     /**
@@ -196,6 +199,24 @@ class TareasSolicitudService
 
     public function alCambiarEstado(SolicitudInterna $solicitud, User $actor): void
     {
+        // Cancelada por quien la pidió: quienes ya tenían el aviso de
+        // revisarla o darle visto bueno se enteran (web y app) y dejan de
+        // buscarla. La baja se gestiona en el Cierre laboral, no aquí.
+        if ($solicitud->estado === EstadoSolicitudInterna::Cancelada && $solicitud->tipo !== TipoSolicitudInterna::BajaColaborador) {
+            $this->eventos->avisarPendienteRetirado(new Aviso(
+                'solicitud_cancelada',
+                // Mismo `type` del visto bueno: la app abre la bandeja de
+                // aprobaciones, que sí tiene quien la revisaba.
+                'solicitud_visto_bueno',
+                'Solicitud cancelada',
+                sprintf('%s canceló su solicitud %s (%s). Ya no tienes que revisarla.', $solicitud->personaSolicitante()?->nombreCompleto() ?? $actor->nombreCompleto(), $solicitud->folio, mb_strtolower($solicitud->tipo->etiqueta())),
+                $solicitud,
+                'ver_solicitud',
+                'baja',
+                ['estado' => $solicitud->estado->value],
+            ), [$actor->id]);
+        }
+
         $tipo = $this->tipoTarea($solicitud);
 
         if ($tipo === null) {
