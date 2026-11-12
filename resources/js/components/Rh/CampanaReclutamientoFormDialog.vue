@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { router, useForm } from '@inertiajs/vue3';
-import { FileText, ImageIcon, Paperclip, Trash2 } from '@lucide/vue';
+import { FileText, ImageIcon, Trash2 } from '@lucide/vue';
 import { computed } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import InputError from '@/components/InputError.vue';
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -77,16 +78,6 @@ const form = useForm<{
 const vacanteElegida = computed(() =>
     props.opciones.vacantes.find((v) => String(v.id) === form.vacante_id),
 );
-
-function alElegirArchivos(evento: Event) {
-    const entrada = evento.target as HTMLInputElement;
-    form.adjuntos = [...form.adjuntos, ...Array.from(entrada.files ?? [])];
-    entrada.value = '';
-}
-
-function quitarArchivo(indice: number) {
-    form.adjuntos = form.adjuntos.filter((_, i) => i !== indice);
-}
 
 function eliminarAdjunto(id: number) {
     if (!props.campana) {
@@ -356,51 +347,29 @@ function enviar() {
                                 <a
                                     :href="adjunto.url"
                                     target="_blank"
-                                    class="max-w-40 truncate hover:underline"
+                                    rel="noopener"
+                                    class="max-w-40 truncate enlace-animado"
                                     >{{ adjunto.nombre }}</a
                                 >
                                 <button
                                     type="button"
-                                    class="text-destructive"
-                                    aria-label="Eliminar archivo"
+                                    class="-my-1 -mr-1.5 grid size-8 presionable place-items-center rounded-md text-destructive hover:bg-danger-soft focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                    :aria-label="`Eliminar ${adjunto.nombre}`"
                                     @click="eliminarAdjunto(adjunto.id)"
                                 >
                                     <Trash2 class="size-3.5" />
                                 </button>
                             </span>
                         </div>
-                        <label
-                            class="flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-border p-4 text-sm text-muted-foreground hover:bg-muted/40"
-                        >
-                            <Paperclip class="size-4" /> Agregar archivos
-                            <input
-                                type="file"
-                                class="sr-only"
-                                multiple
-                                accept=".pdf,image/jpeg,image/png,image/webp"
-                                @change="alElegirArchivos"
-                            />
-                        </label>
-                        <div
-                            v-if="form.adjuntos.length"
-                            class="flex flex-wrap gap-2"
-                        >
-                            <span
-                                v-for="(archivo, i) in form.adjuntos"
-                                :key="`${archivo.name}-${i}`"
-                                class="inline-flex items-center gap-1.5 rounded-lg bg-muted px-2 py-1 text-xs"
-                            >
-                                {{ archivo.name }}
-                                <button
-                                    type="button"
-                                    aria-label="Quitar"
-                                    @click="quitarArchivo(i)"
-                                >
-                                    <Trash2 class="size-3.5" />
-                                </button>
-                            </span>
-                        </div>
-                        <InputError :message="form.errors.adjuntos" />
+                        <PeopleFileDropzone
+                            v-model="form.adjuntos"
+                            multiple
+                            accept=".pdf,.jpg,.jpeg,.png,.webp"
+                            :max-size-mb="20"
+                            :disabled="form.processing"
+                            label="Arrastra aquí el arte o los documentos"
+                            :error="form.errors.adjuntos"
+                        />
                     </div>
                 </section>
 

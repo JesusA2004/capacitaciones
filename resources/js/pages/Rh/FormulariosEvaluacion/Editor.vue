@@ -7,7 +7,6 @@ import {
     CloudOff,
     Eye,
     History,
-    ImagePlus,
     ListChecks,
     LoaderCircle,
     Monitor,
@@ -26,6 +25,7 @@ import EditorPeriodoPrueba from '@/components/formularios-evaluacion/editor/Edit
 import EncabezadoFormulario from '@/components/formularios-evaluacion/EncabezadoFormulario.vue';
 import FormularioInduccion from '@/components/formularios-evaluacion/FormularioInduccion.vue';
 import FormularioPeriodoPrueba from '@/components/formularios-evaluacion/FormularioPeriodoPrueba.vue';
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -328,14 +328,13 @@ function descartarBorrador(): void {
     });
 }
 
-const archivoBanner = ref<HTMLInputElement | null>(null);
 const subiendoBanner = ref(false);
 const errorBanner = ref<string | null>(null);
 
-function subirBanner(evento: Event): void {
-    const archivo = (evento.target as HTMLInputElement).files?.[0];
+function subirBanner(archivos: File[]): void {
+    const archivo = archivos[0];
 
-    if (!archivo) {
+    if (!archivo || subiendoBanner.value) {
         return;
     }
 
@@ -351,13 +350,7 @@ function subirBanner(evento: Event): void {
             only: ['formulario'],
             onError: (e) =>
                 (errorBanner.value = e.banner ?? 'No se pudo subir la imagen.'),
-            onFinish: () => {
-                subiendoBanner.value = false;
-
-                if (archivoBanner.value) {
-                    archivoBanner.value.value = '';
-                }
-            },
+            onFinish: () => (subiendoBanner.value = false),
         },
     );
 }
@@ -479,7 +472,7 @@ const campoTitulo =
                     class="hidden h-2 w-28 overflow-hidden rounded-full bg-muted sm:block"
                 >
                     <span
-                        class="block h-full rounded-full bg-[var(--acento)]"
+                        class="block h-full crece-barra rounded-full bg-[var(--acento)]"
                         :style="{ width: `${porcentajeMinimo}%` }"
                     />
                 </span>
@@ -502,7 +495,7 @@ const campoTitulo =
                 type="button"
                 :class="
                     cn(
-                        'flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors',
+                        'flex min-h-10 shrink-0 presionable items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
                         pestana === p.clave
                             ? 'bg-[var(--acento)] text-[var(--acento-texto)] shadow-sm'
                             : 'text-muted-foreground hover:bg-muted/50',
@@ -727,44 +720,32 @@ const campoTitulo =
                         JPG, PNG o WEBP de hasta 4 MB. Se recomienda horizontal
                         (por ejemplo 1600 × 400).
                     </p>
-                    <div class="flex flex-wrap gap-2">
-                        <input
-                            ref="archivoBanner"
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp"
-                            class="hidden"
-                            @change="subirBanner"
-                        />
-                        <Button
-                            type="button"
-                            variant="outline"
-                            :disabled="!editable || subiendoBanner"
-                            @click="archivoBanner?.click()"
-                        >
-                            <LoaderCircle
-                                v-if="subiendoBanner"
-                                class="size-4 animate-spin"
-                            />
-                            <ImagePlus v-else class="size-4" />
-                            {{
-                                diseno.banner_url
-                                    ? 'Cambiar imagen'
-                                    : 'Subir imagen'
-                            }}
-                        </Button>
-                        <Button
-                            v-if="diseno.banner_url"
-                            type="button"
-                            variant="ghost"
-                            :disabled="!editable"
-                            @click="quitarBanner"
-                        >
-                            Quitar
-                        </Button>
-                    </div>
-                    <p v-if="errorBanner" class="text-sm text-destructive">
-                        {{ errorBanner }}
-                    </p>
+                    <PeopleFileDropzone
+                        :model-value="[]"
+                        accept=".jpg,.jpeg,.png,.webp"
+                        :max-size-mb="4"
+                        :disabled="!editable"
+                        :loading="subiendoBanner"
+                        :error="errorBanner"
+                        :label="
+                            subiendoBanner
+                                ? 'Subiendo la imagen…'
+                                : diseno.banner_url
+                                  ? 'Arrastra aquí otra imagen para cambiarla'
+                                  : 'Arrastra aquí la imagen'
+                        "
+                        @update:model-value="subirBanner"
+                    />
+                    <Button
+                        v-if="diseno.banner_url"
+                        type="button"
+                        variant="ghost"
+                        class="w-fit text-destructive hover:text-destructive"
+                        :disabled="!editable || subiendoBanner"
+                        @click="quitarBanner"
+                    >
+                        <Trash2 class="size-4" /> Quitar imagen
+                    </Button>
                 </div>
             </section>
             <div class="flex flex-col gap-2">
@@ -872,7 +853,7 @@ const campoTitulo =
         </div>
 
         <!-- VERSIONES -->
-        <section v-else class="flex flex-col gap-3">
+        <section v-else class="flex entrada-escalonada flex-col gap-3">
             <article
                 v-for="v in historial"
                 :key="v.id"
