@@ -74,6 +74,7 @@ function arrastrar(evento: DragEvent, variable: VariableEditor) {
                 v-model="busqueda"
                 type="search"
                 placeholder="Buscar dato…"
+                aria-label="Buscar dato"
                 class="h-9 pl-8"
             />
         </div>
@@ -85,10 +86,17 @@ function arrastrar(evento: DragEvent, variable: VariableEditor) {
             }}
         </p>
         <div class="flex min-h-0 flex-col gap-1 overflow-y-auto pr-1">
+            <p
+                v-if="filtrados.length === 0"
+                class="px-2 py-6 text-center text-sm text-muted-foreground"
+                role="status"
+            >
+                Ningún dato coincide con «{{ busqueda }}».
+            </p>
             <section v-for="grupo in filtrados" :key="grupo.clave">
                 <button
                     type="button"
-                    class="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase hover:bg-muted"
+                    class="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs font-semibold tracking-wide text-muted-foreground uppercase transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     :aria-expanded="
                         abiertos.has(grupo.clave) || busqueda !== ''
                     "
@@ -113,7 +121,7 @@ function arrastrar(evento: DragEvent, variable: VariableEditor) {
                             type="button"
                             :draggable="habilitado"
                             :disabled="!habilitado"
-                            class="flex w-full items-center gap-1.5 rounded-md border border-transparent px-2 py-1.5 text-left text-sm hover:border-border hover:bg-crema/60 disabled:opacity-60"
+                            class="flex w-full items-center gap-1.5 rounded-md border border-transparent px-2 py-1.5 text-left text-sm transition-colors hover:border-border hover:bg-crema/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-60"
                             :title="
                                 v.ejemplo ? `Ejemplo: ${v.ejemplo}` : undefined
                             "

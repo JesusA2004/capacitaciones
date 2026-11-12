@@ -195,7 +195,7 @@ function idOpcion(i: number): string {
             </div>
             <button
                 type="button"
-                class="rounded-md p-1 text-[var(--mrl-texto-suave)] hover:bg-muted"
+                class="presionable rounded-md p-1.5 text-[var(--mrl-texto-suave)] transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 aria-label="Cambiar colaborador"
                 @click="limpiar"
             >

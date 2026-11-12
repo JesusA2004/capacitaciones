@@ -373,8 +373,11 @@ async function quitarPersonalizacion() {
                         />
                     </div>
                     <div class="grid gap-1.5">
-                        <Label>Opacidad: {{ opacidad }}%</Label>
+                        <Label for="diseno-opacidad"
+                            >Opacidad: {{ opacidad }}%</Label
+                        >
                         <input
+                            id="diseno-opacidad"
                             v-model.number="opacidad"
                             type="range"
                             min="0"

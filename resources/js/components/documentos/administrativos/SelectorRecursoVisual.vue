@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { router } from '@inertiajs/vue3';
 import { Image as ImageIcon, Library, Upload, X } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, ref, useId } from 'vue';
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +11,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from '@/components/ui/popover';
+import { Spinner } from '@/components/ui/spinner';
 import { store as subirRecurso } from '@/routes/rh/documentos-maestros/fondos';
 import type { RecursoDocumento } from '@/types';
 
@@ -47,14 +49,19 @@ function quitar() {
     modelo.value = null;
 }
 
-function onArchivo(evento: Event) {
-    const input = evento.target as HTMLInputElement;
-    archivoNuevo.value = input.files?.[0] ?? null;
+const idNombre = `recurso-nombre-${useId()}`;
 
-    if (archivoNuevo.value && !nombreNuevo.value) {
-        nombreNuevo.value = archivoNuevo.value.name.replace(/\.[^.]+$/, '');
-    }
-}
+/** La zona de arrastre trabaja con una lista; aquí se sube un solo archivo. */
+const archivosElegidos = computed<File[]>({
+    get: () => (archivoNuevo.value ? [archivoNuevo.value] : []),
+    set: (archivos) => {
+        archivoNuevo.value = archivos[0] ?? null;
+
+        if (archivoNuevo.value && !nombreNuevo.value) {
+            nombreNuevo.value = archivoNuevo.value.name.replace(/\.[^.]+$/, '');
+        }
+    },
+});
 
 function subir() {
     if (!archivoNuevo.value || !nombreNuevo.value.trim()) {
@@ -92,7 +99,7 @@ function subir() {
 
         <div
             v-if="actual"
-            class="flex items-center gap-3 rounded-xl border bg-muted/30 p-2"
+            class="flex aparece-zoom items-center gap-3 rounded-xl border bg-muted/30 p-2"
         >
             <img
                 :src="actual.url"
@@ -106,7 +113,7 @@ function subir() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                aria-label="Quitar"
+                :aria-label="`Quitar ${actual.nombre}`"
                 @click="quitar"
             >
                 <X class="size-4" />
@@ -121,13 +128,26 @@ function subir() {
                         Elegir de la biblioteca
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent class="w-80 p-3" align="start">
-                    <p
+                <PopoverContent
+                    class="w-80 max-w-[calc(100vw-2rem)] p-3"
+                    align="start"
+                >
+                    <div
                         v-if="recursos.length === 0"
-                        class="p-2 text-sm text-muted-foreground"
+                        class="flex flex-col items-center gap-1.5 px-2 py-5 text-center"
                     >
-                        Todavía no hay recursos de este tipo en la biblioteca.
-                    </p>
+                        <span
+                            class="flex size-10 items-center justify-center rounded-2xl bg-crema text-bronce"
+                            aria-hidden="true"
+                        >
+                            <ImageIcon class="size-5" />
+                        </span>
+                        <p class="text-sm font-medium">Biblioteca vacía</p>
+                        <p class="text-xs text-muted-foreground">
+                            Todavía no hay recursos de este tipo. Usa «Subir
+                            nuevo» para agregar el primero.
+                        </p>
+                    </div>
                     <div
                         v-else
                         class="grid max-h-80 grid-cols-3 gap-2 overflow-y-auto"
@@ -136,7 +156,7 @@ function subir() {
                             v-for="recurso in recursos"
                             :key="recurso.id"
                             type="button"
-                            class="flex flex-col items-center gap-1 rounded-lg border p-1.5 text-center transition-colors hover:border-primary/50 hover:bg-muted/50"
+                            class="flex presionable flex-col items-center gap-1 rounded-lg border p-1.5 text-center transition-colors hover:border-primary/50 hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                             @click="elegir(recurso.id)"
                         >
                             <img
@@ -160,19 +180,27 @@ function subir() {
                         Subir nuevo
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent class="w-72 p-3" align="start">
+                <PopoverContent
+                    class="w-80 max-w-[calc(100vw-2rem)] p-3"
+                    align="start"
+                >
                     <div class="grid gap-3">
                         <div class="grid gap-1.5">
-                            <Label>Nombre</Label>
-                            <Input v-model="nombreNuevo" maxlength="150" />
+                            <Label :for="idNombre">Nombre</Label>
+                            <Input
+                                :id="idNombre"
+                                v-model="nombreNuevo"
+                                maxlength="150"
+                            />
                         </div>
                         <div class="grid gap-1.5">
-                            <Label>Archivo (PNG/JPG/WEBP)</Label>
-                            <input
-                                type="file"
-                                accept="image/png,image/jpeg,image/webp"
-                                class="text-sm"
-                                @change="onArchivo"
+                            <Label>Archivo</Label>
+                            <PeopleFileDropzone
+                                v-model="archivosElegidos"
+                                accept=".png,.jpg,.jpeg,.webp"
+                                :max-size-mb="20"
+                                label="Arrastra la imagen aquí"
+                                :loading="subiendo"
                             />
                         </div>
                         <Button
@@ -183,7 +211,8 @@ function subir() {
                             "
                             @click="subir"
                         >
-                            <ImageIcon class="size-4" />
+                            <Spinner v-if="subiendo" />
+                            <ImageIcon v-else class="size-4" />
                             {{
                                 subiendo
                                     ? 'Subiendo…'

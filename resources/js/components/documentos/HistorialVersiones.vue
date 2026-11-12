@@ -71,7 +71,7 @@ watch(() => props.recargar, cargar);
         >
             Aún no hay versiones generadas.
         </p>
-        <ul v-else class="flex flex-col gap-1.5">
+        <ul v-else class="flex entrada-escalonada flex-col gap-1.5">
             <li
                 v-for="v in versiones"
                 :key="v.id"
@@ -117,7 +117,7 @@ watch(() => props.recargar, cargar);
                 <a
                     v-if="v.puede_descargar && v.archivo_disponible"
                     :href="descargar.url(v.id, { query: { descargar: 1 } })"
-                    class="inline-flex items-center gap-1 font-medium hover:underline"
+                    class="inline-flex items-center gap-1 enlace-animado font-medium"
                 >
                     <Download class="size-3.5" />Descargar
                 </a>

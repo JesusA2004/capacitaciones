@@ -263,7 +263,7 @@ function varianteSeccion(a: AccionDocumento) {
                             !seccion.colaborador.grupo_documental
                         "
                         :href="seccion.cobertura_url"
-                        class="text-xs font-medium text-primary underline"
+                        class="enlace-animado text-xs font-medium text-primary"
                     >
                         Ver cobertura documental
                     </Link>

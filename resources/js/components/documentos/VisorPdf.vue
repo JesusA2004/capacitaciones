@@ -19,6 +19,7 @@ import {
     watch,
 } from 'vue';
 import { Button } from '@/components/ui/button';
+import { Spinner } from '@/components/ui/spinner';
 import { abrirPdf, renderizarEnLienzo } from '@/lib/pdf';
 
 /**
@@ -207,7 +208,9 @@ defineExpose({ ir, total, actual });
                     <template v-if="total">
                         Página {{ actual }} de {{ total }}
                     </template>
-                    <template v-else>Cargando…</template>
+                    <span v-else class="inline-flex items-center gap-1.5"
+                        ><Spinner class="size-3" />Cargando documento…</span
+                    >
                 </p>
             </div>
             <div class="flex items-center gap-0.5">
