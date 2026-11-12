@@ -109,10 +109,11 @@ class NotificadorRhService
      *
      * @param  iterable<User|null>  $usuarios
      * @param  array<string, string>  $ruteo
+     * @param  string|null  $ocurrencia  Para un aviso que se puede repetir con el mismo texto el mismo día (RH vuelve a pedir lo mismo): sin ella la idempotencia lo toma por duplicado y no sale.
      */
-    public function notificar(iterable $usuarios, string $tipo, string $titulo, string $mensaje, ?Model $relacionado = null, ?string $accion = null, string $prioridad = 'media', array $ruteo = []): void
+    public function notificar(iterable $usuarios, string $tipo, string $titulo, string $mensaje, ?Model $relacionado = null, ?string $accion = null, string $prioridad = 'media', array $ruteo = [], ?string $ocurrencia = null): void
     {
-        $aviso = new Aviso($tipo, $tipo, $titulo, $mensaje, $relacionado, $accion, $prioridad, $ruteo);
+        $aviso = new Aviso($tipo, $tipo, $titulo, $mensaje, $relacionado, $accion, $prioridad, $ruteo, $ocurrencia);
         $categoria = $this->categoria($accion);
 
         foreach ($usuarios as $usuario) {
