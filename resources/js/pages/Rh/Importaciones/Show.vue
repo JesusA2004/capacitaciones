@@ -2,13 +2,16 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import { FileSpreadsheet } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
 import CrearColaboradorImportacionDialog from '@/components/Rh/CrearColaboradorImportacionDialog.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
 import { useAlertas } from '@/composables/useAlertas';
 import { formatearFecha } from '@/lib/fechas';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { dashboard } from '@/routes';
 import {
     index as indexImportaciones,
@@ -235,7 +238,10 @@ function asignarElegido(fila: number) {
             </Button>
         </CrudPageHeader>
 
-        <section class="grid gap-3 sm:grid-cols-6">
+        <section
+            class="grid entrada-escalonada grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6"
+            aria-label="Filtrar filas por estado"
+        >
             <button
                 v-for="(valor, clave) in {
                     todas: importacion.total_filas,
@@ -249,15 +255,18 @@ function asignarElegido(fila: number) {
                 }"
                 :key="clave"
                 type="button"
-                class="rounded-2xl border p-3 text-left"
+                class="tarjeta-interactiva rounded-2xl border p-3 text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 :class="
                     filtro === clave
                         ? 'border-[var(--mrl-primary)] bg-[var(--mrl-primary)]/10'
                         : 'border-[var(--mrl-borde)] bg-[var(--mrl-superficie)]'
                 "
+                :aria-pressed="filtro === clave"
                 @click="filtro = clave as typeof filtro"
             >
-                <p class="text-2xl font-semibold tabular-nums">{{ valor }}</p>
+                <p class="text-2xl font-semibold tabular-nums">
+                    <NumeroAnimado :valor="valor" />
+                </p>
                 <p class="text-xs text-muted-foreground">
                     {{
                         clave === 'todas'
@@ -271,9 +280,20 @@ function asignarElegido(fila: number) {
         </section>
 
         <section
-            class="overflow-x-auto rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)]"
+            v-if="filasFiltradas.length === 0"
+            class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)]"
         >
-            <table class="w-full text-left text-sm">
+            <EmptyState
+                :icono="FileSpreadsheet"
+                titulo="Sin filas en esta vista"
+                descripcion="Ninguna fila del archivo está en este estado. Elige otro indicador para ver las demás."
+            />
+        </section>
+        <section
+            v-else
+            class="tabla-scroll rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)]"
+        >
+            <table v-tabla-tarjetas class="w-full text-left text-sm">
                 <thead class="text-xs text-muted-foreground">
                     <tr>
                         <th class="p-3">Fila</th>
@@ -285,7 +305,9 @@ function asignarElegido(fila: number) {
                         <th class="p-3">Vacaciones</th>
                         <th class="p-3">Estado</th>
                         <th class="p-3">Motivo</th>
-                        <th class="p-3" />
+                        <th class="p-3">
+                            <span class="sr-only">Acciones</span>
+                        </th>
                     </tr>
                 </thead>
                 <tbody>
@@ -296,62 +318,68 @@ function asignarElegido(fila: number) {
                             <td class="p-3 tabular-nums">{{ f.fila }}</td>
                             <td class="p-3">{{ f.nombre_excel }}</td>
                             <td class="p-3">
-                                {{ f.nombre_sistema ?? '—' }}
-                                <Badge
-                                    v-if="f.match_tipo === 'manual'"
-                                    variant="outline"
-                                    class="ml-1"
-                                    >Manual</Badge
-                                >
-                                <Badge
-                                    v-if="f.match_tipo === 'creado'"
-                                    variant="outline"
-                                    class="ml-1"
-                                    >Creado</Badge
-                                >
-                                <p
-                                    v-if="
-                                        f.match_tipo === 'manual' ||
-                                        f.match_tipo === 'creado'
-                                    "
-                                    class="mt-1 text-xs text-muted-foreground"
-                                >
-                                    <template v-if="f.match_actor_nombre">
-                                        {{
+                                <div class="min-w-0">
+                                    {{ f.nombre_sistema ?? '—' }}
+                                    <Badge
+                                        v-if="f.match_tipo === 'manual'"
+                                        variant="outline"
+                                        class="ml-1"
+                                        >Manual</Badge
+                                    >
+                                    <Badge
+                                        v-if="f.match_tipo === 'creado'"
+                                        variant="outline"
+                                        class="ml-1"
+                                        >Creado</Badge
+                                    >
+                                    <p
+                                        v-if="
+                                            f.match_tipo === 'manual' ||
                                             f.match_tipo === 'creado'
-                                                ? 'Creado'
-                                                : 'Asignado'
-                                        }}
-                                        por {{ f.match_actor_nombre
-                                        }}{{
-                                            f.match_en
-                                                ? ` · ${formatearFecha(f.match_en)}`
-                                                : ''
-                                        }}
-                                    </template>
-                                    <template v-if="f.confirmado_por_nombre">
-                                        <br />
-                                        <span class="text-success"
-                                            >Confirmado por
-                                            {{ f.confirmado_por_nombre }}</span
+                                        "
+                                        class="mt-1 text-xs text-muted-foreground"
+                                    >
+                                        <template v-if="f.match_actor_nombre">
+                                            {{
+                                                f.match_tipo === 'creado'
+                                                    ? 'Creado'
+                                                    : 'Asignado'
+                                            }}
+                                            por {{ f.match_actor_nombre
+                                            }}{{
+                                                f.match_en
+                                                    ? ` · ${formatearFecha(f.match_en)}`
+                                                    : ''
+                                            }}
+                                        </template>
+                                        <template
+                                            v-if="f.confirmado_por_nombre"
                                         >
-                                    </template>
-                                </p>
-                                <p
-                                    v-if="f.analisis_correccion?.aplica"
-                                    class="mt-1 text-xs"
-                                    :class="
-                                        f.analisis_correccion.bloqueado
-                                            ? 'text-destructive'
-                                            : 'text-muted-foreground'
-                                    "
-                                >
-                                    {{
-                                        f.analisis_correccion.bloqueado
-                                            ? f.analisis_correccion.motivo
-                                            : 'Sin cambios posteriores: una corrección aquí sería segura.'
-                                    }}
-                                </p>
+                                            <br />
+                                            <span class="text-success"
+                                                >Confirmado por
+                                                {{
+                                                    f.confirmado_por_nombre
+                                                }}</span
+                                            >
+                                        </template>
+                                    </p>
+                                    <p
+                                        v-if="f.analisis_correccion?.aplica"
+                                        class="mt-1 text-xs"
+                                        :class="
+                                            f.analisis_correccion.bloqueado
+                                                ? 'text-destructive'
+                                                : 'text-muted-foreground'
+                                        "
+                                    >
+                                        {{
+                                            f.analisis_correccion.bloqueado
+                                                ? f.analisis_correccion.motivo
+                                                : 'Sin cambios posteriores: una corrección aquí sería segura.'
+                                        }}
+                                    </p>
+                                </div>
                             </td>
                             <td class="p-3">
                                 {{
@@ -375,40 +403,43 @@ function asignarElegido(fila: number) {
                                 <span v-else>—</span>
                             </td>
                             <td class="p-3">
-                                <span
-                                    v-if="f.fecha_ingreso_pendiente"
-                                    class="text-xs font-medium text-amber-700"
-                                >
-                                    Fecha de ingreso pendiente de validación.
-                                </span>
-                                <template
-                                    v-else-if="f.antiguedad_anios !== null"
-                                >
-                                    {{ f.antiguedad_anios }} año(s)
+                                <div class="min-w-0">
                                     <span
-                                        v-if="f.fecha_ingreso_people"
-                                        class="block text-xs text-[var(--mrl-texto-suave)]"
+                                        v-if="f.fecha_ingreso_pendiente"
+                                        class="text-xs font-medium text-warning"
                                     >
-                                        Ingreso:
+                                        Fecha de ingreso pendiente de
+                                        validación.
+                                    </span>
+                                    <template
+                                        v-else-if="f.antiguedad_anios !== null"
+                                    >
+                                        {{ f.antiguedad_anios }} año(s)
+                                        <span
+                                            v-if="f.fecha_ingreso_people"
+                                            class="block text-xs text-[var(--mrl-texto-suave)]"
+                                        >
+                                            Ingreso:
+                                            {{
+                                                formatearFecha(
+                                                    f.fecha_ingreso_people,
+                                                )
+                                            }}
+                                        </span>
+                                    </template>
+                                    <span
+                                        v-if="f.fecha_ingreso_reportada_archivo"
+                                        class="block text-xs text-[var(--mrl-texto-suave)]"
+                                        title="Referencia no confiable: nunca se aplica al expediente."
+                                    >
+                                        Fecha reportada en archivo:
                                         {{
                                             formatearFecha(
-                                                f.fecha_ingreso_people,
+                                                f.fecha_ingreso_reportada_archivo,
                                             )
                                         }}
                                     </span>
-                                </template>
-                                <span
-                                    v-if="f.fecha_ingreso_reportada_archivo"
-                                    class="block text-xs text-[var(--mrl-texto-suave)]"
-                                    title="Referencia no confiable: nunca se aplica al expediente."
-                                >
-                                    Fecha reportada en archivo:
-                                    {{
-                                        formatearFecha(
-                                            f.fecha_ingreso_reportada_archivo,
-                                        )
-                                    }}
-                                </span>
+                                </div>
                             </td>
                             <td class="p-3">
                                 <span
@@ -436,7 +467,7 @@ function asignarElegido(fila: number) {
                                         'bg-destructive/10 text-destructive':
                                             f.estado === 'no_encontrado' ||
                                             f.estado === 'error',
-                                        'bg-[var(--mrl-gold)]/10 text-[var(--mrl-gold-oscuro)]':
+                                        'bg-warning-soft text-warning':
                                             f.estado === 'revision',
                                         'bg-[var(--mrl-fondo)] text-[var(--mrl-texto-suave)]':
                                             f.estado === 'sin_cambios',
@@ -490,7 +521,7 @@ function asignarElegido(fila: number) {
                             class="border-t border-[var(--mrl-borde)] bg-[var(--mrl-fondo)]"
                         >
                             <td colspan="10" class="p-4">
-                                <div class="flex flex-col gap-4">
+                                <div class="flex entrada-suave flex-col gap-4">
                                     <div
                                         v-if="f.sugerencias.length > 0"
                                         class="flex flex-col gap-1.5"
@@ -528,8 +559,8 @@ function asignarElegido(fila: number) {
                                         >
                                             Seleccionar colaborador manualmente
                                         </p>
-                                        <div class="flex gap-2">
-                                            <div class="flex-1">
+                                        <div class="flex flex-wrap gap-2">
+                                            <div class="min-w-48 flex-1">
                                                 <BuscadorColaborador
                                                     v-model="
                                                         colaboradorElegido[

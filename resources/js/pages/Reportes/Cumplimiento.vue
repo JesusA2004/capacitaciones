@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
+import { ClipboardCheck } from '@lucide/vue';
 import { computed } from 'vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
+import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import DataTable from '@/components/DataTable/DataTable.vue';
 import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
-import Heading from '@/components/Heading.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useFiltros } from '@/composables/useFiltros';
@@ -102,20 +103,19 @@ const opcionesGrafica = computed(() => {
     <Head title="Reporte de cumplimiento" />
 
     <div class="pagina-ancha flex flex-col gap-6">
-        <div class="flex items-center justify-between">
-            <Heading
-                title="Reporte de cumplimiento"
-                description="Progreso de capacitación por colaborador"
+        <CrudPageHeader
+            titulo="Reporte de cumplimiento"
+            descripcion="Progreso de capacitación por colaborador"
+            :icono="ClipboardCheck"
+        >
+            <CrudExportButtons
+                v-if="puedeExportar"
+                :url-excel="urlExportar(exportar)"
+                :url-pdf="urlExportar(exportarPdf)"
             />
-            <div v-if="puedeExportar" class="flex items-center gap-2">
-                <CrudExportButtons
-                    :url-excel="urlExportar(exportar)"
-                    :url-pdf="urlExportar(exportarPdf)"
-                />
-            </div>
-        </div>
+        </CrudPageHeader>
 
-        <div class="flex flex-wrap items-end gap-3">
+        <div class="grid items-end gap-3 sm:flex sm:flex-wrap">
             <div class="grid gap-2">
                 <label class="text-xs text-muted-foreground">Sucursal</label>
                 <SelectSimple
@@ -129,7 +129,7 @@ const opcionesGrafica = computed(() => {
                     placeholder="Todas"
                     opcion-vacia="Todas"
                     placeholder-busqueda="Buscar sucursal…"
-                    class="w-48"
+                    class="w-full sm:w-48"
                     @update:model-value="
                         (v) => {
                             filtros.sucursal_id = String(v ?? '');
@@ -154,7 +154,7 @@ const opcionesGrafica = computed(() => {
                     placeholder="Todos"
                     opcion-vacia="Todos"
                     placeholder-busqueda="Buscar departamento…"
-                    class="w-48"
+                    class="w-full sm:w-48"
                     @update:model-value="
                         (v) => {
                             filtros.departamento_id = String(v ?? '');
@@ -177,7 +177,7 @@ const opcionesGrafica = computed(() => {
                     placeholder="Todos"
                     opcion-vacia="Todos"
                     placeholder-busqueda="Buscar curso…"
-                    class="w-56"
+                    class="w-full sm:w-56"
                     @update:model-value="
                         (v) => {
                             filtros.curso_id = String(v ?? '');
@@ -187,7 +187,12 @@ const opcionesGrafica = computed(() => {
                 />
             </div>
 
-            <Button variant="ghost" size="sm" @click="limpiar">
+            <Button
+                variant="ghost"
+                size="sm"
+                class="justify-self-start"
+                @click="limpiar"
+            >
                 Limpiar filtros
             </Button>
         </div>

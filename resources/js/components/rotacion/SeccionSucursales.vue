@@ -180,7 +180,7 @@ function textoIndice(s: SucursalRotacionFila): string {
                         <tr
                             v-for="(s, i) in ordenadas"
                             :key="s.sucursal_id"
-                            class="fila group cursor-pointer border-b border-border/40 transition-colors hover:bg-crema/40"
+                            class="fila group fila-interactiva border-b border-border/40"
                             tabindex="0"
                             :aria-label="`${s.sucursal}: ${s.bajas} bajas. Ver bajas de la sucursal`"
                             @click="abrir(s)"

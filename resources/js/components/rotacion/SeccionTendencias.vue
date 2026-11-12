@@ -526,8 +526,11 @@ const verTabla = ref(false);
                         <tr
                             v-for="m in meses"
                             :key="m.periodo"
-                            class="cursor-pointer border-t border-border/50 hover:bg-crema/40"
+                            class="fila-interactiva border-t border-border/50"
+                            tabindex="0"
+                            :aria-label="`Ver el detalle de ${etiquetaMes(m.periodo)}`"
                             @click="abrir(m)"
+                            @keydown.enter.prevent="abrir(m)"
                         >
                             <td class="px-2 py-1.5 font-medium">
                                 {{ etiquetaMes(m.periodo) }}

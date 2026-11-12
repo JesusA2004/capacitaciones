@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { FileSpreadsheet, FileUp, Trash2 } from '@lucide/vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import InputError from '@/components/InputError.vue';
@@ -9,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { useAlertas } from '@/composables/useAlertas';
 import { formatearFecha } from '@/lib/fechas';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { dashboard } from '@/routes';
 import rutasImportaciones, {
     destroy as quitarImportacion,
@@ -132,8 +134,14 @@ function analizar() {
         >
             <h2 class="text-sm font-semibold">Importaciones anteriores</h2>
 
-            <div class="overflow-x-auto">
-                <table class="w-full text-left text-sm">
+            <EmptyState
+                v-if="importaciones.data.length === 0"
+                :icono="FileSpreadsheet"
+                titulo="Todavía no hay importaciones"
+                descripcion="Cuando subas el reporte oficial aparecerá aquí con su estado y el detalle de lo que cambió."
+            />
+            <div v-else class="tabla-scroll">
+                <table v-tabla-tarjetas class="w-full text-left text-sm">
                     <thead class="text-xs text-muted-foreground">
                         <tr>
                             <th class="py-2 pr-3">Archivo</th>
@@ -144,16 +152,20 @@ function analizar() {
                             <th class="py-2 pr-3">No encontradas</th>
                             <th class="py-2 pr-3">Subido por</th>
                             <th class="py-2 pr-3">Fecha</th>
-                            <th class="py-2"></th>
+                            <th class="py-2">
+                                <span class="sr-only">Acciones</span>
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
                         <tr
                             v-for="i in importaciones.data"
                             :key="i.id"
-                            class="border-t border-[var(--mrl-borde)]"
+                            class="border-t border-[var(--mrl-borde)] transition-colors hover:bg-crema/40"
                         >
-                            <td class="py-2 pr-3">{{ i.nombre_archivo }}</td>
+                            <td class="py-2 pr-3 font-medium break-all">
+                                {{ i.nombre_archivo }}
+                            </td>
                             <td class="py-2 pr-3">
                                 <span
                                     class="rounded-full px-2 py-0.5 text-xs"
@@ -169,10 +181,16 @@ function analizar() {
                                     }}</span
                                 >
                             </td>
-                            <td class="py-2 pr-3">{{ i.total_filas }}</td>
-                            <td class="py-2 pr-3">{{ i.filas_aplicadas }}</td>
-                            <td class="py-2 pr-3">{{ i.filas_revision }}</td>
-                            <td class="py-2 pr-3">
+                            <td class="py-2 pr-3 tabular-nums">
+                                {{ i.total_filas }}
+                            </td>
+                            <td class="py-2 pr-3 tabular-nums">
+                                {{ i.filas_aplicadas }}
+                            </td>
+                            <td class="py-2 pr-3 tabular-nums">
+                                {{ i.filas_revision }}
+                            </td>
+                            <td class="py-2 pr-3 tabular-nums">
                                 {{ i.filas_no_encontradas }}
                             </td>
                             <td class="py-2 pr-3">{{ i.subido_por ?? '—' }}</td>
@@ -180,7 +198,7 @@ function analizar() {
                                 {{ formatearFecha(i.creado_en) }}
                             </td>
                             <td class="py-2 text-right">
-                                <div class="flex justify-end gap-2">
+                                <div class="flex flex-wrap justify-end gap-2">
                                     <Button variant="outline" size="sm" as-child
                                         ><Link
                                             :href="mostrarImportacion.url(i.id)"
@@ -199,14 +217,6 @@ function analizar() {
                                         <Trash2 class="size-4" /> Quitar
                                     </Button>
                                 </div>
-                            </td>
-                        </tr>
-                        <tr v-if="importaciones.data.length === 0">
-                            <td
-                                colspan="9"
-                                class="py-6 text-center text-sm text-muted-foreground"
-                            >
-                                Todavía no se ha subido ningún archivo.
                             </td>
                         </tr>
                     </tbody>

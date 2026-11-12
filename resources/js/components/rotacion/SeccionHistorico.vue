@@ -391,7 +391,7 @@ const hayDesglose = computed(
                 </button>
                 <button
                     type="button"
-                    class="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                    class="enlace-animado text-xs text-muted-foreground hover:text-foreground"
                     @click="quitarTodo"
                 >
                     Quitar todo

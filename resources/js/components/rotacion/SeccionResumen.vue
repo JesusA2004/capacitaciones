@@ -844,7 +844,7 @@ function abrirCausal(clave: string): void {
                         puede.ver_personas && r.sin_clasificar.por_revisar > 0
                     "
                     type="button"
-                    class="cursor-pointer font-medium text-primary underline-offset-2 hover:underline"
+                    class="cursor-pointer enlace-animado font-medium text-primary"
                     @click="nav.verHistorico({ rapido: 'pendientes' })"
                 >
                     Revisar

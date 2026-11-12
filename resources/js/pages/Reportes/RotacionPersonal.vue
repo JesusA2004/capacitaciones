@@ -10,6 +10,7 @@ import {
     XCircle,
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import MonthPicker from '@/components/Common/MonthPicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -17,6 +18,7 @@ import InputError from '@/components/InputError.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
 import SelectorVista from '@/components/ui/SelectorVista.vue';
 import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { useAlertas } from '@/composables/useAlertas';
@@ -352,33 +354,35 @@ const NOMBRE_MES = [
             <!-- Indicadores -->
             <section
                 data-tour="rotacion-indicadores"
-                class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
+                class="grid entrada-escalonada grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5"
             >
                 <div class="rounded-2xl border border-border bg-card p-4">
                     <p class="text-xs text-muted-foreground">Altas</p>
-                    <p class="text-2xl font-semibold">
-                        {{ tablero.totales.altas }}
+                    <p class="text-2xl font-semibold tabular-nums">
+                        <NumeroAnimado :valor="tablero.totales.altas" />
                     </p>
                 </div>
                 <div class="rounded-2xl border border-border bg-card p-4">
                     <p class="text-xs text-muted-foreground">Bajas</p>
-                    <p class="text-2xl font-semibold">
-                        {{ tablero.totales.bajas }}
+                    <p class="text-2xl font-semibold tabular-nums">
+                        <NumeroAnimado :valor="tablero.totales.bajas" />
                     </p>
                 </div>
                 <div class="rounded-2xl border border-border bg-card p-4">
                     <p class="text-xs text-muted-foreground">
                         Plantilla al cierre
                     </p>
-                    <p class="text-2xl font-semibold">
-                        {{ tablero.totales.plantilla_final ?? '—' }}
+                    <p class="text-2xl font-semibold tabular-nums">
+                        <NumeroAnimado
+                            :valor="tablero.totales.plantilla_final ?? '—'"
+                        />
                     </p>
                 </div>
                 <div class="rounded-2xl border border-border bg-salvia p-4">
                     <p class="text-xs text-muted-foreground">
                         Promedio mensual
                     </p>
-                    <p class="text-2xl font-semibold">
+                    <p class="text-2xl font-semibold tabular-nums">
                         {{ porcentaje(tablero.totales.promedio_mensual) }}
                     </p>
                 </div>
@@ -391,7 +395,7 @@ const NOMBRE_MES = [
                         }}
                         meses)
                     </p>
-                    <p class="text-2xl font-semibold">
+                    <p class="text-2xl font-semibold tabular-nums">
                         {{ porcentaje(tablero.totales.rotacion_acumulada) }}
                     </p>
                 </div>
@@ -405,15 +409,16 @@ const NOMBRE_MES = [
                 <h2 class="mb-2 text-sm font-semibold">
                     Índice de rotación por mes
                 </h2>
-                <p
+                <EmptyState
                     v-if="mesesConDatos.length === 0"
-                    class="flex h-[280px] items-center justify-center text-center text-sm text-muted-foreground"
-                >
-                    Todavía no hay rotación cargada para este periodo.
-                    <template v-if="puedeCargar">
-                        Sube el Excel de RH más abajo.</template
-                    >
-                </p>
+                    :icono="TrendingDown"
+                    titulo="Sin rotación cargada"
+                    :descripcion="
+                        puedeCargar
+                            ? 'Todavía no hay rotación cargada para este periodo. Sube el Excel de RH en «Cargar Excel».'
+                            : 'Todavía no hay rotación cargada para este periodo.'
+                    "
+                />
                 <VueApexCharts
                     v-else
                     type="line"
@@ -538,7 +543,8 @@ const NOMBRE_MES = [
                                 <td class="py-2 pr-3">
                                     <button
                                         type="button"
-                                        class="text-left underline-offset-2 hover:underline"
+                                        class="enlace-animado text-left font-medium"
+                                        :aria-label="`Ver solo ${s.sucursal}`"
                                         @click="
                                             sucursal = String(s.sucursal_id)
                                         "
@@ -612,7 +618,7 @@ const NOMBRE_MES = [
             <!-- Vista previa / resultado de una carga -->
             <section
                 v-if="cargaSeleccionada"
-                class="flex flex-col gap-4 rounded-2xl border border-border bg-card p-5"
+                class="flex entrada-suave flex-col gap-4 rounded-2xl border border-border bg-card p-5"
             >
                 <div
                     class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
@@ -682,33 +688,43 @@ const NOMBRE_MES = [
                     </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <div
+                    class="grid entrada-escalonada grid-cols-2 gap-3 md:grid-cols-4"
+                >
                     <div class="rounded-xl bg-crema p-3">
                         <p class="text-xs text-muted-foreground">
                             Meses por sucursal
                         </p>
-                        <p class="text-xl font-semibold">
-                            {{ cargaSeleccionada.periodos_detectados }}
+                        <p class="text-xl font-semibold tabular-nums">
+                            <NumeroAnimado
+                                :valor="cargaSeleccionada.periodos_detectados"
+                            />
                         </p>
                     </div>
                     <div class="rounded-xl bg-success-soft p-3">
                         <p class="text-xs text-muted-foreground">Nuevos</p>
-                        <p class="text-xl font-semibold">
-                            {{ cargaSeleccionada.periodos_nuevos }}
+                        <p class="text-xl font-semibold tabular-nums">
+                            <NumeroAnimado
+                                :valor="cargaSeleccionada.periodos_nuevos"
+                            />
                         </p>
                     </div>
                     <div class="rounded-xl bg-warning-soft p-3">
                         <p class="text-xs text-muted-foreground">
                             Reemplazan lo cargado
                         </p>
-                        <p class="text-xl font-semibold">
-                            {{ cargaSeleccionada.periodos_reemplazados }}
+                        <p class="text-xl font-semibold tabular-nums">
+                            <NumeroAnimado
+                                :valor="cargaSeleccionada.periodos_reemplazados"
+                            />
                         </p>
                     </div>
                     <div class="rounded-xl bg-salvia p-3">
                         <p class="text-xs text-muted-foreground">Sin cambios</p>
-                        <p class="text-xl font-semibold">
-                            {{ cargaSeleccionada.periodos_sin_cambios }}
+                        <p class="text-xl font-semibold tabular-nums">
+                            <NumeroAnimado
+                                :valor="cargaSeleccionada.periodos_sin_cambios"
+                            />
                         </p>
                     </div>
                 </div>
@@ -739,10 +755,11 @@ const NOMBRE_MES = [
                         </h3>
                         <button
                             type="button"
-                            class="rounded-full border border-border px-2.5 py-0.5 text-xs"
+                            class="min-h-8 presionable rounded-full border border-border px-3 py-1 text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                             :class="
                                 filtroHallazgos === 'todos' ? 'bg-crema' : ''
                             "
+                            :aria-pressed="filtroHallazgos === 'todos'"
                             @click="filtroHallazgos = 'todos'"
                         >
                             Todos
@@ -751,8 +768,9 @@ const NOMBRE_MES = [
                             v-for="n in NIVELES"
                             :key="n.valor"
                             type="button"
-                            class="rounded-full border border-border px-2.5 py-0.5 text-xs"
+                            class="min-h-8 presionable rounded-full border border-border px-3 py-1 text-xs focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                             :class="filtroHallazgos === n.valor ? n.clase : ''"
+                            :aria-pressed="filtroHallazgos === n.valor"
                             @click="filtroHallazgos = n.valor"
                         >
                             {{ n.titulo }} ({{
@@ -928,7 +946,13 @@ const NOMBRE_MES = [
                 <h2 class="flex items-center gap-2 text-sm font-semibold">
                     <FileSpreadsheet class="size-4" /> Cargas anteriores
                 </h2>
-                <div class="tabla-scroll">
+                <EmptyState
+                    v-if="cargas.length === 0"
+                    :icono="FileSpreadsheet"
+                    titulo="Todavía no hay cargas"
+                    descripcion="Cuando subas el Excel de rotación aparecerá aquí con su estado y lo que cambió."
+                />
+                <div v-else class="tabla-scroll">
                     <table v-tabla-tarjetas class="w-full text-left text-sm">
                         <thead class="text-xs text-muted-foreground">
                             <tr>
@@ -942,7 +966,9 @@ const NOMBRE_MES = [
                                 <th class="py-2 pr-3 text-right">Hallazgos</th>
                                 <th class="py-2 pr-3">Subido por</th>
                                 <th class="py-2 pr-3">Fecha</th>
-                                <th class="py-2"></th>
+                                <th class="py-2">
+                                    <span class="sr-only">Acciones</span>
+                                </th>
                             </tr>
                         </thead>
                         <tbody>
@@ -989,14 +1015,6 @@ const NOMBRE_MES = [
                                             >Ver detalle</Link
                                         ></Button
                                     >
-                                </td>
-                            </tr>
-                            <tr v-if="cargas.length === 0">
-                                <td
-                                    colspan="9"
-                                    class="py-6 text-center text-sm text-muted-foreground"
-                                >
-                                    Todavía no se ha subido ningún archivo.
                                 </td>
                             </tr>
                         </tbody>
