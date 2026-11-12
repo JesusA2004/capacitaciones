@@ -518,7 +518,7 @@ function eliminarConcepto(id: number) {
                                 >
                                     <button
                                         type="button"
-                                        class="text-xs font-medium text-primary hover:underline"
+                                        class="enlace-animado text-xs font-medium text-primary"
                                         @click="abrirAjuste(fila)"
                                     >
                                         Ajustar
@@ -571,6 +571,7 @@ function eliminarConcepto(id: number) {
                                         type="button"
                                         size="icon"
                                         variant="ghost"
+                                        aria-label="Cancelar edición"
                                         @click="editandoConceptoId = null"
                                         ><X class="size-4"
                                     /></Button>

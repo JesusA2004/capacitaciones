@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useAlertas } from '@/composables/useAlertas';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { dashboard } from '@/routes';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
 import {
@@ -562,7 +563,7 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                 Base Semana 41 <span class="text-destructive">*</span>
             </p>
             <label
-                class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-center transition"
+                class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-center transition focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/40"
                 :class="
                     arrastrando
                         ? 'border-primary bg-primary/5'
@@ -586,7 +587,7 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                 <input
                     type="file"
                     accept=".xlsx,.xls"
-                    class="hidden"
+                    class="sr-only"
                     @change="
                         (e: Event) =>
                             elegir((e.target as HTMLInputElement).files?.[0])
@@ -602,7 +603,7 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                 >
             </p>
             <label
-                class="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-border p-4 text-sm transition hover:border-primary/50"
+                class="flex cursor-pointer items-center gap-3 rounded-xl border-2 border-dashed border-border p-4 text-sm transition focus-within:border-primary focus-within:ring-2 focus-within:ring-ring/40 hover:border-primary/50"
             >
                 <FileSpreadsheet
                     class="size-5 shrink-0 text-muted-foreground"
@@ -615,7 +616,7 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                 <input
                     type="file"
                     accept=".xlsx,.xls"
-                    class="hidden"
+                    class="sr-only"
                     @change="
                         (e: Event) =>
                             elegirRoster(
@@ -1028,7 +1029,7 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                     </p>
                 </div>
                 <div class="overflow-x-auto">
-                    <table class="w-full text-sm">
+                    <table v-tabla-tarjetas class="w-full text-sm">
                         <thead
                             class="bg-muted/40 text-left text-xs text-muted-foreground uppercase"
                         >
@@ -1233,7 +1234,7 @@ function colorMatch(t: Fila['nas']['tipo']): string {
                     </Button>
                 </div>
                 <div class="max-h-[32rem] overflow-auto">
-                    <table class="w-full text-sm">
+                    <table v-tabla-tarjetas class="w-full text-sm">
                         <thead
                             class="sticky top-0 bg-muted text-left text-xs text-muted-foreground uppercase"
                         >

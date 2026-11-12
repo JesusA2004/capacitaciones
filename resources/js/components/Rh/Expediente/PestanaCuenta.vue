@@ -306,7 +306,7 @@ function guardarCuenta() {
                     desde aquí. Usa
                     <Link
                         :href="editSeguridad.url()"
-                        class="font-medium text-primary underline underline-offset-2"
+                        class="enlace-animado font-medium text-primary"
                         >Configuración → Seguridad</Link
                     >.
                 </p>

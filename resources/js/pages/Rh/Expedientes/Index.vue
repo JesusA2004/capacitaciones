@@ -329,7 +329,7 @@ const sucursalActiva = computed(() =>
         <div
             v-else
             data-tour="expedientes-tarjetas"
-            class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            class="grid entrada-escalonada grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
         >
             <ColaboradorCarpetaCard
                 v-for="colaborador in colaboradores.data"

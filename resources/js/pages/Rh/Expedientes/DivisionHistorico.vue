@@ -21,6 +21,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ComboboxBuscable } from '@/components/ui/combobox-buscable';
 import { useAlertas } from '@/composables/useAlertas';
 import { opcionesDocumentoChecklist } from '@/lib/opcionesDocumentoChecklist';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { dashboard } from '@/routes';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
 import { aplicar } from '@/routes/rh/expedientes/division-historico/datos';
@@ -513,8 +514,8 @@ async function aplicarDato(
                             <h4 class="text-sm font-semibold">
                                 Documentos encontrados
                             </h4>
-                            <div class="overflow-x-auto rounded-xl border">
-                                <table class="w-full text-sm">
+                            <div class="overflow-x-auto rounded-xl sm:border">
+                                <table v-tabla-tarjetas class="w-full text-sm">
                                     <thead class="bg-muted/40 text-left">
                                         <tr>
                                             <th class="p-2">Páginas</th>
@@ -679,9 +680,9 @@ async function aplicarDato(
                             </p>
                             <div
                                 v-else
-                                class="overflow-x-auto rounded-xl border"
+                                class="overflow-x-auto rounded-xl sm:border"
                             >
-                                <table class="w-full text-sm">
+                                <table v-tabla-tarjetas class="w-full text-sm">
                                     <thead class="bg-muted/40 text-left">
                                         <tr>
                                             <th class="p-2">Dato</th>

@@ -2,6 +2,7 @@
 import { useForm } from '@inertiajs/vue3';
 import { Wallet } from '@lucide/vue';
 import { ref } from 'vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import ConfirmarEntregaPrestamoDialog from '@/components/Rh/ConfirmarEntregaPrestamoDialog.vue';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { useAlertas } from '@/composables/useAlertas';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { store as registrarMovimientoPrestamo } from '@/routes/rh/expedientes/prestamos/movimientos';
 import type { PrestamoItem, PrestamoMovimientoTipo } from '@/types';
 
@@ -78,9 +80,12 @@ function registrarPago(prestamoId: number) {
             </CardTitle>
         </CardHeader>
         <CardContent class="flex flex-col gap-4">
-            <p v-if="!prestamos.length" class="text-sm text-muted-foreground">
-                Sin préstamos registrados.
-            </p>
+            <EmptyState
+                v-if="!prestamos.length"
+                :icono="Wallet"
+                titulo="Sin préstamos registrados"
+                descripcion="Cuando se autorice un préstamo a este colaborador, aquí verás su saldo y sus movimientos."
+            />
             <div
                 v-for="prestamo in prestamos"
                 :key="prestamo.id"
@@ -121,7 +126,11 @@ function registrarPago(prestamoId: number) {
                     </div>
                 </div>
 
-                <Table v-if="prestamo.movimientos.length" class="mt-3">
+                <Table
+                    v-if="prestamo.movimientos.length"
+                    v-tabla-tarjetas
+                    class="mt-3"
+                >
                     <TableHeader>
                         <TableRow>
                             <TableHead>Fecha</TableHead>

@@ -489,14 +489,14 @@ function sueldoFormateado(valor: string | null): string {
                                     :href="colaborador.imss_alta_archivo.url"
                                     target="_blank"
                                     rel="noopener"
-                                    class="text-xs underline"
+                                    class="enlace-animado text-xs"
                                     >{{
                                         colaborador.imss_alta_archivo.nombre
                                     }}</a
                                 >
                                 <label
                                     v-if="colaborador.puede_subir_imss"
-                                    class="inline-flex cursor-pointer items-center gap-1 text-xs font-medium text-primary underline"
+                                    class="inline-flex cursor-pointer items-center gap-1 rounded-sm enlace-animado text-xs font-medium text-primary focus-within:ring-2 focus-within:ring-ring/40"
                                 >
                                     <Spinner
                                         v-if="subiendoImss"

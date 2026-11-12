@@ -3,6 +3,7 @@ import { useForm } from '@inertiajs/vue3';
 import { FileSearch, Plus, Receipt, X } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import InputError from '@/components/InputError.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
 import { Button } from '@/components/ui/button';
@@ -262,7 +263,7 @@ function descargarReciboUrl(reciboId: number): string {
                     v-if="recibo.tiene_pdf"
                     :href="descargarReciboUrl(recibo.id)"
                     target="_blank"
-                    class="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                    class="inline-flex items-center gap-1.5 enlace-animado text-sm font-medium text-primary"
                 >
                     <Receipt class="size-3.5" />
                     Descargar
@@ -287,12 +288,12 @@ function descargarReciboUrl(reciboId: number): string {
                     </Button>
                 </div>
             </div>
-            <p
+            <EmptyState
                 v-if="!recibosNomina?.length"
-                class="text-sm text-muted-foreground"
-            >
-                Sin recibos generados.
-            </p>
+                :icono="Receipt"
+                titulo="Sin recibos generados"
+                descripcion="Los recibos de nómina de este colaborador aparecerán aquí."
+            />
         </CardContent>
     </Card>
     <Dialog v-model:open="dialogoReciboAbierto">
@@ -371,6 +372,7 @@ function descargarReciboUrl(reciboId: number): string {
                             type="button"
                             variant="ghost"
                             size="icon"
+                            aria-label="Quitar percepción"
                             @click="formRecibo.percepciones.splice(indice, 1)"
                         >
                             <X class="size-4" />
@@ -417,6 +419,7 @@ function descargarReciboUrl(reciboId: number): string {
                             type="button"
                             variant="ghost"
                             size="icon"
+                            aria-label="Quitar deducción"
                             @click="formRecibo.deducciones.splice(indice, 1)"
                         >
                             <X class="size-4" />

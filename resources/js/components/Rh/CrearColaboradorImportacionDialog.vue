@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useForm } from '@inertiajs/vue3';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -143,10 +144,10 @@ function enviar() {
                     <Label for="fecha_ingreso"
                         >Fecha de ingreso validada (opcional)</Label
                     >
-                    <Input
+                    <DatePicker
                         id="fecha_ingreso"
                         v-model="form.fecha_ingreso"
-                        type="date"
+                        limpiable
                     />
                     <InputError :message="form.errors.fecha_ingreso" />
                 </div>
