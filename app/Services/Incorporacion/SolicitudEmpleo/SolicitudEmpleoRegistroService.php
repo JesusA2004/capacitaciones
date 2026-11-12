@@ -3,6 +3,8 @@
 namespace App\Services\Incorporacion\SolicitudEmpleo;
 
 use App\Models\Colaborador;
+use App\Models\User;
+use App\Services\Incorporacion\RegistroAppService;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -21,7 +23,62 @@ class SolicitudEmpleoRegistroService
 {
     public const CABECERA_CLIENTE = 'X-People-Solicitud-Empleo';
 
-    public function __construct(private readonly PerfilIngresoService $perfil) {}
+    public function __construct(
+        private readonly PerfilIngresoService $perfil,
+        private readonly RegistroAppService $registro,
+    ) {}
+
+    /**
+     * Modo de captura de la PROPIA persona (web y app, mismo criterio):
+     * durante su registro captura y ajusta todo; después solo llena lo que
+     * sigue vacío (lo ya capturado se corrige por solicitud de corrección).
+     */
+    public function modoPropio(User $usuario): string
+    {
+        return $this->registro->aplica($usuario) ? PerfilIngresoService::ORIGEN_APP : PerfilIngresoService::ORIGEN_COMPLETAR;
+    }
+
+    /**
+     * Estado por sección para la propia persona (GET web y API).
+     *
+     * @return array<string, mixed>
+     */
+    public function estadoPropio(User $usuario, Colaborador $colaborador): array
+    {
+        $modo = $this->modoPropio($usuario);
+
+        return [
+            'registro_abierto' => $modo === PerfilIngresoService::ORIGEN_APP,
+            'exigida' => $this->exigidaEnRegistro(),
+            'modo' => $modo,
+            ...$this->perfil->estado($colaborador, $modo),
+        ];
+    }
+
+    /**
+     * Guarda una sección de la propia persona con el modo que le toca.
+     *
+     * @param  array<string, mixed>  $datos
+     * @param  list<string>|null  $noAplica
+     */
+    public function guardarPropio(User $usuario, Colaborador $colaborador, string $seccion, array $datos, ?array $noAplica): void
+    {
+        $this->perfil->guardarSeccion($colaborador, $seccion, $datos, $noAplica, $usuario, $this->modoPropio($usuario));
+    }
+
+    /**
+     * ¿A la persona le falta algo que ELLA puede llenar? (pendiente del portal).
+     */
+    public function tienePendientePropio(Colaborador $colaborador): bool
+    {
+        foreach ($this->perfil->completitud($colaborador)['faltantes'] as $faltante) {
+            if ($faltante['origen'] === 'solicitud') {
+                return true;
+            }
+        }
+
+        return false;
+    }
 
     public function exigidaEnRegistro(): bool
     {

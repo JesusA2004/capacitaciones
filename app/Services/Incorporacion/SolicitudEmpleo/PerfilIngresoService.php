@@ -50,6 +50,13 @@ class PerfilIngresoService
 
     public const ORIGEN_RH = 'rh';
 
+    /**
+     * La propia persona DESPUÉS de su registro (web o app): solo llena lo que
+     * sigue vacío — lo ya capturado se corrige por solicitud de corrección.
+     * En la bitácora de la sección cuenta como captura de la persona (app).
+     */
+    public const ORIGEN_COMPLETAR = 'completar';
+
     /** Llave interna de `secciones` con los campos que capturó RH (la persona ya no los cambia). */
     private const CAMPOS_RH = '_campos_rh';
 
@@ -420,7 +427,7 @@ class PerfilIngresoService
             foreach (CatalogoSolicitudEmpleo::camposDeSeccion($seccion) as $clave => $campo) {
                 $valor = $valores[$clave];
                 $bloqueado = ! $editable || $campo['almacen'] === 'base'
-                    || ($modo === self::ORIGEN_RH && (! $this->vacio($campo, $valor) || in_array($clave, $noAplica, true)))
+                    || ($this->soloCompletaVacios($modo) && (! $this->vacio($campo, $valor) || in_array($clave, $noAplica, true)))
                     || ($modo === self::ORIGEN_APP && in_array($clave, $camposRh, true));
 
                 $campos[] = [
@@ -468,7 +475,7 @@ class PerfilIngresoService
                         'max' => isset($c['max']) ? (int) $c['max'] : null,
                     ], array_keys($lista['campos']), array_values($lista['campos'])),
                     'filas' => $actual['filas'],
-                    'bloqueada' => ! $editable || ($modo === self::ORIGEN_RH && ($actual['filas'] !== [] || $actual['vacia'])),
+                    'bloqueada' => ! $editable || ($this->soloCompletaVacios($modo) && ($actual['filas'] !== [] || $actual['vacia'])),
                 ];
             }
 
@@ -570,7 +577,7 @@ class PerfilIngresoService
             }
 
             // RH completa: solo lo vacío. La persona: nada de lo que capturó RH.
-            if (($origen === self::ORIGEN_RH && ! $this->vacio($campo, $valores[$clave])) || ($origen === self::ORIGEN_APP && in_array($clave, $camposRh, true))) {
+            if (($this->soloCompletaVacios($origen) && ! $this->vacio($campo, $valores[$clave])) || ($origen === self::ORIGEN_APP && in_array($clave, $camposRh, true))) {
                 $bloqueados[] = $campo['etiqueta'];
 
                 continue;
@@ -592,7 +599,7 @@ class PerfilIngresoService
             $quitar = array_diff(array_intersect($vigentesNoAplica, $permitidos), $noAplica);
             $agregar = array_diff($noAplica, $vigentesNoAplica);
 
-            if ($origen === self::ORIGEN_RH && $quitar !== []) {
+            if ($this->soloCompletaVacios($origen) && $quitar !== []) {
                 $bloqueados = [...$bloqueados, ...array_map(fn (string $c): string => CatalogoSolicitudEmpleo::campo($c)['etiqueta'], $quitar)];
                 $quitar = [];
             }
@@ -613,7 +620,7 @@ class PerfilIngresoService
             $actual = $listas[$lista['clave']];
 
             if (array_key_exists($lista['clave'], $datos) || ($lista['bandera_vacia'] !== null && array_key_exists($lista['bandera_vacia'], $datos))) {
-                if ($origen === self::ORIGEN_RH && ($actual['filas'] !== [] || $actual['vacia'])) {
+                if ($this->soloCompletaVacios($origen) && ($actual['filas'] !== [] || $actual['vacia'])) {
                     $bloqueados[] = $lista['etiqueta'];
                 } else {
                     $filasNuevas = array_key_exists($lista['clave'], $datos) ? $this->normalizarFilas($lista, $datos[$lista['clave']]) : $actual['filas'];
@@ -631,9 +638,11 @@ class PerfilIngresoService
         }
 
         if ($bloqueados !== []) {
-            throw ValidationException::withMessages(['datos' => $origen === self::ORIGEN_RH
-                ? sprintf('La persona ya capturó: %s. RH solo completa lo que falta; si algo está mal, se corrige por solicitud de corrección.', implode(', ', $bloqueados))
-                : sprintf('Recursos Humanos ya registró: %s. Si algo está mal, solicita una corrección cuando entres a la app.', implode(', ', $bloqueados))]);
+            throw ValidationException::withMessages(['datos' => match ($origen) {
+                self::ORIGEN_RH => sprintf('La persona ya capturó: %s. RH solo completa lo que falta; si algo está mal, se corrige por solicitud de corrección.', implode(', ', $bloqueados)),
+                self::ORIGEN_COMPLETAR => sprintf('Ya está registrado: %s. Si algo está mal, pide una corrección de datos desde «Mis solicitudes».', implode(', ', $bloqueados)),
+                default => sprintf('Recursos Humanos ya registró: %s. Si algo está mal, solicita una corrección cuando entres a la app.', implode(', ', $bloqueados)),
+            }]);
         }
 
         if ($cambios === [] && $filasNuevas === null && $nuevoNoAplica === $vigentesNoAplica) {
@@ -744,10 +753,19 @@ class PerfilIngresoService
     }
 
     /**
+     * RH y la persona después de su registro solo llenan lo vacío.
+     */
+    private function soloCompletaVacios(string $origen): bool
+    {
+        return $origen === self::ORIGEN_RH || $origen === self::ORIGEN_COMPLETAR;
+    }
+
+    /**
      * @param  list<string>  $camposRh
      */
     private function marcarSeccion(Colaborador $colaborador, string $seccion, User $actor, string $origen, array $camposRh): void
     {
+        $origen = $origen === self::ORIGEN_COMPLETAR ? self::ORIGEN_APP : $origen;
         $perfil = ColaboradorPerfilIngreso::query()->firstOrNew(['colaborador_id' => $colaborador->id]);
         $perfil->colaborador_id = $colaborador->id;
         $secciones = (array) ($perfil->secciones ?? []);

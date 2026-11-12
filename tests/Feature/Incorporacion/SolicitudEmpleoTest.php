@@ -231,13 +231,33 @@ test('app: lee el estado por sección con prellenado y guarda una sección con v
         ->and($persona->refresh()->telefono_alterno)->toBeNull();
 });
 
-test('app: con el registro cerrado ya no se captura (se corrige por solicitud)', function () {
+test('app: con el registro cerrado solo llena lo vacío; lo capturado se corrige por solicitud', function () {
     $persona = sePersona($this->estructura);
     Sanctum::actingAs(clUsuarioDe($persona));
 
-    $this->postJson('/api/v1/colaborador/registro/solicitud/personal', ['datos' => ['numero_hijos' => 1]])
+    $estado = $this->getJson('/api/v1/colaborador/registro/solicitud')->assertOk()->json('data');
+    expect($estado['registro_abierto'])->toBeFalse()->and($estado['modo'])->toBe('completar');
+
+    $this->postJson('/api/v1/colaborador/registro/solicitud/personal', ['datos' => ['numero_hijos' => 1]])->assertOk();
+    expect(collect(collect($this->getJson('/api/v1/colaborador/registro/solicitud')->json('data.secciones'))->firstWhere('clave', 'personal')['campos'])->firstWhere('campo', 'numero_hijos')['bloqueado'])->toBeTrue();
+
+    $this->postJson('/api/v1/colaborador/registro/solicitud/personal', ['datos' => ['numero_hijos' => 3]])
         ->assertUnprocessable()
-        ->assertJsonPath('errors.registro.0', 'Tu registro ya está completo. Si necesitas cambiar un dato, solicita una corrección desde la app.');
+        ->assertJsonPath('errors.datos.0', 'Ya está registrado: Número de hijos. Si algo está mal, pide una corrección de datos desde «Mis solicitudes».');
+});
+
+test('web: el colaborador ve su solicitud y completa lo que falta (mismas reglas que la app)', function () {
+    $persona = sePersona($this->estructura);
+    $usuario = clUsuarioDe($persona);
+
+    $this->actingAs($usuario)->get('/mi-solicitud-empleo')->assertOk()
+        ->assertInertia(fn ($pagina) => $pagina->component('Portal/SolicitudEmpleo')->where('estado.modo', 'completar')->has('estado.secciones'));
+
+    $this->actingAs($usuario)->postJson('/mi-solicitud-empleo/personal', ['datos' => seDatosCompletos()['personal'], 'no_aplica' => ['telefono_alterno']])
+        ->assertOk()
+        ->assertJsonPath('message', 'Sección guardada.');
+
+    expect(collect(app(PerfilIngresoService::class)->completitud($persona->refresh())['secciones'])->firstWhere('clave', 'personal')['completa'])->toBeTrue();
 });
 
 test('registro: a la app que implementa la solicitud, finalizar exige completitud con lo que falta por sección', function () {

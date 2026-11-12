@@ -25,6 +25,8 @@ export type CampoSolicitud = {
     tipo: TipoCampoSolicitud;
     opciones: OpcionSolicitud[];
     valor: ValorSolicitud;
+    /** Texto legible de un dato personal (domicilio, estado civil…). */
+    valor_legible: string | null;
     sugerencia: ValorSolicitud;
     requerido: boolean;
     requerido_si: { campo: string; operador: string; valor: unknown } | null;

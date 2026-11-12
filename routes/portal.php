@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\Colaborador\MiSolicitudEmpleoController;
 use App\Http\Controllers\Colaborador\PortalController;
+use App\Services\Incorporacion\SolicitudEmpleo\CatalogoSolicitudEmpleo;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -13,5 +15,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('mi-portal', [PortalController::class, 'index'])->name('portal.index');
         Route::get('mi-perfil', [PortalController::class, 'perfil'])->name('portal.perfil');
         Route::get('mis-notificaciones', [PortalController::class, 'notificaciones'])->name('portal.notificaciones');
+        // Solicitud de empleo + estudio socioeconómico: lo mismo que pide la app.
+        Route::get('mi-solicitud-empleo', [MiSolicitudEmpleoController::class, 'show'])->name('portal.solicitud-empleo');
+        Route::post('mi-solicitud-empleo/{seccion}', [MiSolicitudEmpleoController::class, 'guardar'])->name('portal.solicitud-empleo.guardar')
+            ->whereIn('seccion', array_keys(CatalogoSolicitudEmpleo::SECCIONES))
+            ->middleware('throttle:60,1');
     });
 });
