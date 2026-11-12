@@ -40,7 +40,7 @@ function etiquetaCorta(titulo: string): string {
             v-for="item in accesosDirectos"
             :key="item.title"
             :href="item.href"
-            class="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[0.7rem] font-medium"
+            class="group flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[0.7rem] font-medium"
             :class="
                 isCurrentUrl(item.href)
                     ? 'text-[var(--brand-primary)]'
@@ -48,7 +48,7 @@ function etiquetaCorta(titulo: string): string {
             "
         >
             <span
-                class="flex size-9 items-center justify-center rounded-full transition-colors"
+                class="flex size-9 items-center justify-center rounded-full transicion-ui group-active:scale-90 motion-reduce:group-active:scale-100"
                 :class="
                     isCurrentUrl(item.href)
                         ? 'bg-[var(--brand-primary)]/10'
@@ -66,10 +66,12 @@ function etiquetaCorta(titulo: string): string {
 
         <button
             type="button"
-            class="flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[0.7rem] font-medium text-muted-foreground"
+            class="group flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 py-1.5 text-[0.7rem] font-medium text-muted-foreground"
             @click="setOpenMobile(true)"
         >
-            <span class="flex size-9 items-center justify-center rounded-full">
+            <span
+                class="flex size-9 items-center justify-center rounded-full transicion-ui group-active:scale-90 motion-reduce:group-active:scale-100"
+            >
                 <Menu class="size-5" />
             </span>
             <span>Menú</span>

@@ -338,6 +338,258 @@
     animation-delay: calc(min(var(--i, 0), 6) * 30ms);
 }
 
+/*
+ * ───────────────────────── SISTEMA DE MOVIMIENTO ─────────────────────────
+ * Tokens (en :root): --mov-rapido 120 ms · --mov-base 180 ms · --mov-lento
+ * 240 ms · --curva-salida (entra/llega) · --curva-entrada (sale/se va).
+ * Solo se anima transform y opacity (más color/sombra en hover): nada mueve
+ * el layout. Todo se apaga con prefers-reduced-motion y con `.sin-animaciones`.
+ *
+ *  Navegación
+ *   · Cambio de pantalla ......... automático (lib/transicionPagina.ts +
+ *                                  ::view-transition y `entrada-pagina`).
+ *   · Barra de progreso .......... automática (#nprogress, degradado de marca).
+ *  Llegada de contenido
+ *   · entrada-suave .............. un bloque que aparece (paso, panel).
+ *   · entrada-escalonada ......... en el CONTENEDOR: sus hijos llegan uno tras
+ *                                  otro (rejillas de tarjetas, listas cortas).
+ *   · aparece-escalonado ......... en cada HIJO con style="--i: n" (indicadores).
+ *   · aparece-zoom ............... insignia, check o tarjeta que «brota».
+ *   · crece-barra ................ barra de avance que crece desde 0 al llegar.
+ *   · <CambioSuave> / <ListaAnimada> ... cambio entre dos contenidos / filas
+ *                                  que entran, salen y se reacomodan.
+ *   · <NumeroAnimado :valor> ..... conteo ascendente en indicadores.
+ *  Interacción
+ *   · tarjeta-interactiva ........ tarjeta clicable (sube 2 px, borde oro).
+ *   · fila-interactiva ........... renglón clicable de lista o tabla.
+ *   · presionable ................ cede al presionar (lo que no es <Button>).
+ *   · icono-avanza ............... flecha que se adelanta al pasar por su
+ *                                  tarjeta, enlace o botón.
+ *   · enlace-animado ............. subrayado que crece desde la izquierda.
+ *   · transicion-ui .............. reemplazo de `transition-all`.
+ *  Espera
+ *   · brillo-carga / <Skeleton> .. esqueleto con brillo.
+ *   · tabla-actualizando ......... automática al filtrar o paginar.
+ *   · [data-accion-en-curso] ..... automática en botones que escriben.
+ * ──────────────────────────────────────────────────────────────────────────
+ */
+
+/*
+ * Cambio de pantalla (View Transitions API). El fundido es simétrico a
+ * propósito: lo que no cambia (menú lateral, barra superior) queda idéntico
+ * pixel a pixel y solo se ve moverse el contenido, que además sube 6 px con
+ * `entrada-pagina`. Los clics pasan a través de la capa de transición: nunca
+ * bloquea la interacción.
+ */
+::view-transition {
+    pointer-events: none;
+}
+
+::view-transition-group(root) {
+    animation-duration: var(--mov-base);
+    animation-timing-function: linear;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+        animation: none !important;
+    }
+}
+
+:root.sin-animaciones::view-transition-group(*),
+:root.sin-animaciones::view-transition-old(*),
+:root.sin-animaciones::view-transition-new(*) {
+    animation: none !important;
+}
+
+/*
+ * Barra de progreso de navegación (Inertia): degradado de marca con punta
+ * redondeada y brillo dorado. El color base llega de app.ts.
+ */
+html #nprogress .bar {
+    height: 3px;
+    border-radius: 0 999px 999px 0;
+    background: linear-gradient(
+        90deg,
+        var(--brand-primary),
+        var(--pastel-esmeralda) 55%,
+        var(--brand-secondary)
+    );
+}
+
+html #nprogress .peg {
+    box-shadow:
+        0 0 10px var(--brand-secondary),
+        0 0 5px var(--brand-secondary);
+}
+
+/*
+ * Hijos que llegan uno tras otro. Va en el CONTENEDOR (rejilla de tarjetas,
+ * lista corta): no hay que numerar nada. 35 ms entre cada uno y tope en el
+ * octavo, para que una lista larga nunca tarde en estar completa.
+ */
+@utility entrada-escalonada {
+    & > * {
+        animation: entrada-suave var(--mov-lento) var(--curva-salida) backwards;
+    }
+
+    & > :nth-child(2) {
+        animation-delay: 35ms;
+    }
+
+    & > :nth-child(3) {
+        animation-delay: 70ms;
+    }
+
+    & > :nth-child(4) {
+        animation-delay: 105ms;
+    }
+
+    & > :nth-child(5) {
+        animation-delay: 140ms;
+    }
+
+    & > :nth-child(6) {
+        animation-delay: 175ms;
+    }
+
+    & > :nth-child(7) {
+        animation-delay: 210ms;
+    }
+
+    & > :nth-child(n + 8) {
+        animation-delay: 245ms;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        & > * {
+            animation: none;
+        }
+    }
+}
+
+/* Insignia, check de éxito o tarjeta que «brota» al aparecer. */
+@keyframes aparece-zoom {
+    from {
+        opacity: 0;
+        transform: scale(0.92);
+    }
+}
+
+@utility aparece-zoom {
+    animation: aparece-zoom var(--mov-lento) var(--curva-salida) backwards;
+
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+    }
+}
+
+/*
+ * Barra de avance que crece desde cero al llegar. Va en el relleno (el que
+ * tiene el ancho final); usa scaleX, así que no recalcula el layout.
+ */
+@keyframes crece-barra {
+    from {
+        transform: scaleX(0);
+    }
+}
+
+@utility crece-barra {
+    transform-origin: left center;
+    animation: crece-barra 500ms var(--curva-salida) backwards;
+
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+    }
+}
+
+/*
+ * Renglón clicable (lista o <tr>): fondo menta y una línea oro a la
+ * izquierda que no ocupa espacio (sombra interior).
+ */
+@utility fila-interactiva {
+    cursor: pointer;
+    transition:
+        background-color var(--mov-rapido) var(--curva-salida),
+        box-shadow var(--mov-rapido) var(--curva-salida);
+
+    &:hover {
+        background-color: color-mix(
+            in oklab,
+            var(--pastel-menta) 70%,
+            transparent
+        );
+        box-shadow: inset 3px 0 0 var(--pastel-oro);
+    }
+
+    &:active {
+        background-color: var(--pastel-salvia);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: -2px;
+    }
+}
+
+/* Cede un poco al presionar: chips, pestañas propias, íconos clicables. */
+@utility presionable {
+    transition: transform var(--mov-rapido) var(--curva-salida);
+
+    &:active {
+        transform: scale(0.97);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        &:active {
+            transform: none;
+        }
+    }
+}
+
+/*
+ * Flecha o chevron que se adelanta 3 px cuando el cursor pasa por su
+ * contenedor: una tarjeta `group`, un enlace o un botón.
+ */
+@utility icono-avanza {
+    transition: transform var(--mov-base) var(--curva-salida);
+
+    .group:hover &,
+    .group:focus-visible &,
+    a:hover > &,
+    button:hover > & {
+        transform: translateX(3px);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .group:hover &,
+        .group:focus-visible &,
+        a:hover > &,
+        button:hover > & {
+            transform: none;
+        }
+    }
+}
+
+/* Enlace de texto: el subrayado crece desde la izquierda al pasar el cursor. */
+@utility enlace-animado {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-repeat: no-repeat;
+    background-position: 0 100%;
+    background-size: 0 1px;
+    text-decoration: none;
+    transition:
+        background-size var(--mov-lento) var(--curva-salida),
+        color var(--mov-rapido) var(--curva-salida);
+
+    &:hover,
+    &:focus-visible {
+        background-size: 100% 1px;
+    }
+}
+
 @utility pagina-ancha {
     width: 100%;
     min-width: 0;
@@ -721,6 +973,56 @@
     border-radius: 0.625rem;
     font-size: 0.875rem;
     font-weight: 500;
+    transition:
+        transform var(--mov-rapido) var(--curva-salida),
+        box-shadow var(--mov-base) var(--curva-salida),
+        filter var(--mov-rapido) var(--curva-salida);
+}
+
+.swal2-popup .swal2-styled:hover {
+    box-shadow: 0 6px 14px -8px rgb(49 91 89 / 0.5);
+    filter: brightness(1.06);
+}
+
+.swal2-popup .swal2-styled:active {
+    transform: scale(0.97);
+}
+
+.swal2-popup .swal2-styled:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    box-shadow: none;
+}
+
+/* Mismo velo y misma entrada/salida que los <Dialog> del portal. */
+.swal2-container.swal2-backdrop-show {
+    background: color-mix(in oklab, var(--foreground) 45%, transparent);
+}
+
+.swal2-popup {
+    box-shadow: 0 24px 48px -24px rgb(49 91 89 / 0.45);
+}
+
+@keyframes dialogo-entra {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+}
+
+@keyframes dialogo-sale {
+    to {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+}
+
+.swal2-popup.swal2-show {
+    animation: dialogo-entra var(--mov-base) var(--curva-salida);
+}
+
+.swal2-popup.swal2-hide {
+    animation: dialogo-sale var(--mov-rapido) var(--curva-entrada) forwards;
 }
 
 /* <ListaAnimada>: filas que entran, salen y se reacomodan. */
@@ -933,6 +1235,13 @@
         outline: 2px solid var(--ring);
         outline-offset: 2px;
         border-radius: 0.375rem;
+    }
+
+    /* Botón sin estilos propios: mismo anillo (los de ui/ traen el suyo y
+       lo reemplazan con sus utilidades). */
+    button:focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
     }
 
     /* Raíz de cada página dentro del contenido: entra con fundido al navegar.

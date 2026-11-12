@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Component } from 'vue';
+import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
 
 /**
  * Tarjeta de KPI reutilizable para encabezados de tablero (Vacantes,
@@ -30,6 +31,8 @@ defineProps<{
                 <component :is="icono" class="size-4" />
             </span>
         </div>
-        <span class="text-2xl font-bold tabular-nums">{{ valor }}</span>
+        <span class="text-2xl font-bold tabular-nums"
+            ><NumeroAnimado :valor="valor"
+        /></span>
     </div>
 </template>

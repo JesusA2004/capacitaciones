@@ -10,6 +10,7 @@ import { initializeActualizacionTablas } from '@/lib/actualizacionTablas';
 import { tituloConPendientes } from '@/lib/avisosNavegador';
 import { initializeErroresGlobales } from '@/lib/erroresGlobales';
 import { initializeFlashToast } from '@/lib/flashToast';
+import { opcionesDeVisita } from '@/lib/transicionPagina';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
@@ -41,10 +42,12 @@ createInertiaApp({
     },
     progress: {
         // Color de marca (token), con retraso corto para no parpadear en
-        // navegaciones rápidas.
+        // navegaciones rápidas. El degradado y el brillo: app.css (#nprogress).
         color: 'var(--brand-primary)',
         delay: 150,
     },
+    // Navegar a otra pantalla funde la que se va con la que llega.
+    defaults: { visitOptions: opcionesDeVisita },
 });
 
 // Solo tema claro: limpia cualquier preferencia oscura guardada...

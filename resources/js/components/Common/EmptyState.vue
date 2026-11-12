@@ -18,10 +18,10 @@ withDefaults(
 
 <template>
     <div
-        class="flex flex-col items-center justify-center gap-2 px-6 py-12 text-center"
+        class="flex entrada-suave flex-col items-center justify-center gap-2 px-6 py-12 text-center"
     >
         <span
-            class="mb-1 flex size-16 items-center justify-center rounded-3xl bg-crema text-bronce"
+            class="mb-1 flex size-16 aparece-zoom items-center justify-center rounded-3xl bg-crema text-bronce"
             aria-hidden="true"
         >
             <component :is="icono" class="size-8" />

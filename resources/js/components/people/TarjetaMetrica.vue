@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Component } from 'vue';
 import { computed } from 'vue';
+import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
 import { TONO_BORDE, TONO_SUAVE, TONO_TEXTO } from '@/lib/tonos';
 import type { Tono } from '@/lib/tonos';
 import { cn } from '@/lib/utils';
@@ -81,8 +82,8 @@ const clases = computed(() =>
                         : TONO_TEXTO[tono],
                 )
             "
-            >{{ valor }}</span
-        >
+            ><NumeroAnimado :valor="valor"
+        /></span>
         <span v-if="detalle" class="text-xs text-muted-foreground">{{
             detalle
         }}</span>
