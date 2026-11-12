@@ -3,9 +3,14 @@
 namespace App\Services\Incorporacion\SolicitudEmpleo;
 
 use App\Models\Colaborador;
+use App\Models\ColaboradorPerfilIngreso;
 use App\Models\User;
 use App\Services\Incorporacion\RegistroAppService;
+use App\Services\Tareas\NotificadorRhService;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * La Solicitud de empleo + Estudio socioeconómico dentro del registro en la
@@ -22,6 +27,9 @@ use Illuminate\Validation\ValidationException;
 class SolicitudEmpleoRegistroService
 {
     public const CABECERA_CLIENTE = 'X-People-Solicitud-Empleo';
+
+    /** Llave interna de `secciones`: cuándo y quién de RH pidió completarla. */
+    private const PEDIDO_RH = '_pedido_rh';
 
     public function __construct(
         private readonly PerfilIngresoService $perfil,
@@ -64,6 +72,73 @@ class SolicitudEmpleoRegistroService
     public function guardarPropio(User $usuario, Colaborador $colaborador, string $seccion, array $datos, ?array $noAplica): void
     {
         $this->perfil->guardarSeccion($colaborador, $seccion, $datos, $noAplica, $usuario, $this->modoPropio($usuario));
+    }
+
+    /**
+     * RH «Pedir información al colaborador»: aviso (campana web + push de la
+     * app) con cuántos datos le faltan y marca para que el pendiente salga en
+     * su portal aunque ya esté activo. Un aviso por hora como máximo.
+     *
+     * @return int Datos que le faltan a la persona.
+     *
+     * @throws ValidationException
+     */
+    public function pedirAlColaborador(Colaborador $colaborador, User $rh): int
+    {
+        $porLlenar = $this->datosPorLlenar($colaborador);
+
+        if ($porLlenar === 0) {
+            throw ValidationException::withMessages(['solicitud' => 'A esta persona no le falta ningún dato que ella pueda llenar.']);
+        }
+
+        $colaborador->loadMissing('user');
+
+        if ($colaborador->user === null) {
+            throw ValidationException::withMessages(['solicitud' => 'La persona todavía no tiene cuenta para recibir el aviso.']);
+        }
+
+        $perfil = ColaboradorPerfilIngreso::query()->firstOrNew(['colaborador_id' => $colaborador->id]);
+        $secciones = (array) ($perfil->secciones ?? []);
+        $ultimo = is_array($secciones[self::PEDIDO_RH] ?? null) ? (string) ($secciones[self::PEDIDO_RH]['en'] ?? '') : '';
+
+        if ($ultimo !== '' && CarbonImmutable::parse($ultimo)->gt(now()->subHour())) {
+            throw ValidationException::withMessages(['solicitud' => 'Ya se le pidió hace menos de una hora.']);
+        }
+
+        $secciones[self::PEDIDO_RH] = ['en' => now()->toIso8601String(), 'por' => $rh->id];
+        $perfil->colaborador_id = $colaborador->id;
+        $perfil->secciones = $secciones;
+        $perfil->save();
+
+        try {
+            app(NotificadorRhService::class)->notificar(
+                [$colaborador->user],
+                'solicitud_empleo_faltante',
+                'Completa tu solicitud de empleo',
+                sprintf('Recursos Humanos te pide completar tu solicitud de empleo y estudio socioeconómico: %s. Entra a Mi portal → Mi solicitud de empleo.', $porLlenar === 1 ? 'falta 1 dato' : sprintf('faltan %d datos', $porLlenar)),
+                $colaborador,
+                'completar_solicitud_empleo',
+                'alta',
+            );
+        } catch (Throwable $e) {
+            Log::warning('No se pudo avisar la solicitud de empleo faltante.', ['colaborador_id' => $colaborador->id, 'error' => $e->getMessage()]);
+        }
+
+        return $porLlenar;
+    }
+
+    /** ¿RH le pidió completar su solicitud? (el pendiente sale aunque ya esté activo). */
+    public function pedidoPorRh(Colaborador $colaborador): bool
+    {
+        $secciones = (array) ($this->perfil->perfil($colaborador)->secciones ?? []);
+
+        return is_array($secciones[self::PEDIDO_RH] ?? null);
+    }
+
+    /** Datos que la persona misma puede llenar (no los personales). */
+    public function datosPorLlenar(Colaborador $colaborador): int
+    {
+        return count(array_filter($this->perfil->completitud($colaborador)['faltantes'], fn (array $f): bool => $f['origen'] === 'solicitud'));
     }
 
     /**

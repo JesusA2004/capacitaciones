@@ -7,6 +7,7 @@ import {
     Lock,
     Plus,
     RotateCcw,
+    Send,
     Smartphone,
     Trash2,
     TriangleAlert,
@@ -25,6 +26,7 @@ import { useAlertas } from '@/composables/useAlertas';
 import { enviarJson, getJson } from '@/lib/http';
 import {
     guardar as rutaGuardar,
+    pedir as rutaPedir,
     show as rutaEstado,
 } from '@/routes/rh/solicitud-empleo';
 import type {
@@ -176,6 +178,28 @@ async function guardarFecha(
         );
     } finally {
         guardandoFecha.value = null;
+    }
+}
+
+// «Pedir información al colaborador»: aviso en su web y en su app.
+const pidiendo = ref(false);
+
+async function pedirAlColaborador(): Promise<void> {
+    pidiendo.value = true;
+
+    try {
+        const respuesta = await enviarJson<{ message: string }>(
+            'POST',
+            rutaPedir.url(props.colaboradorId),
+            {},
+        );
+        await mostrarExito(respuesta.message);
+    } catch (e) {
+        await mostrarError(
+            e instanceof Error ? e.message : 'No se pudo enviar el aviso.',
+        );
+    } finally {
+        pidiendo.value = false;
     }
 }
 
@@ -429,17 +453,26 @@ onMounted(cargar);
         </p>
 
         <template v-else>
-            <p
+            <div
                 v-if="!estado.completitud.completo"
-                class="flex items-start gap-2 rounded-xl bg-info-soft/70 px-3 py-2 text-xs"
+                class="flex flex-wrap items-center gap-3 rounded-xl bg-info-soft/70 px-3 py-2 text-xs"
             >
-                <Smartphone class="mt-0.5 size-3.5 shrink-0" />
-                <span>
+                <Smartphone class="size-3.5 shrink-0" />
+                <span class="min-w-0 flex-1">
                     La persona puede llenarla ella misma en
-                    <strong>Mi portal → Mi solicitud de empleo</strong> (web o
-                    app); no hace falta que RH la capture.
+                    <strong>Mi portal → Mi solicitud de empleo</strong>; no hace
+                    falta que RH la capture.
                 </span>
-            </p>
+                <Button
+                    type="button"
+                    size="sm"
+                    :disabled="pidiendo"
+                    @click="pedirAlColaborador"
+                >
+                    <Send class="size-4" />
+                    {{ pidiendo ? 'Enviando…' : 'Pedir información al colaborador' }}
+                </Button>
+            </div>
 
             <!-- Un renglón por documento: avance + fecha de emisión -->
             <ul class="grid grid-cols-1 gap-2 md:grid-cols-2">

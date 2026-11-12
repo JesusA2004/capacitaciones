@@ -7,6 +7,7 @@ use App\Http\Requests\Incorporacion\GuardarSeccionSolicitudEmpleoRequest;
 use App\Models\Colaborador;
 use App\Services\Incorporacion\SolicitudEmpleo\FechaEmisionIngresoService;
 use App\Services\Incorporacion\SolicitudEmpleo\PerfilIngresoService;
+use App\Services\Incorporacion\SolicitudEmpleo\SolicitudEmpleoRegistroService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -51,6 +52,19 @@ class SolicitudEmpleoIngresoController extends Controller
             'data' => $this->datos($colaborador->refresh()),
             'message' => $request->traeSeccion() ? 'Datos guardados.' : 'Fecha de emisión guardada.',
         ]);
+    }
+
+    /**
+     * «Pedir información al colaborador»: aviso en web y app con lo que le
+     * falta (SolicitudEmpleoRegistroService::pedirAlColaborador).
+     */
+    public function pedir(Request $request, Colaborador $colaborador, SolicitudEmpleoRegistroService $solicitud): JsonResponse
+    {
+        abort_unless($this->perfil->puedeGestionar($request->user(), $colaborador), 403, 'No puedes pedirle datos a esta persona.');
+
+        $faltan = $solicitud->pedirAlColaborador($colaborador, $request->user());
+
+        return response()->json(['message' => sprintf('Se le avisó a %s en la web y en la app: %s.', $colaborador->name, $faltan === 1 ? 'le falta 1 dato' : sprintf('le faltan %d datos', $faltan))]);
     }
 
     /**

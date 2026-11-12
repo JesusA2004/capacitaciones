@@ -376,6 +376,12 @@ return [
             'modulo' => 'contratacion',
             'audiencia' => 'personal',
         ],
+        'solicitud_empleo_faltante' => [
+            'etiqueta' => 'RH te pidió completar tu solicitud de empleo',
+            'push_titulo' => 'Completa tu solicitud de empleo',
+            'modulo' => 'contratacion',
+            'audiencia' => 'personal',
+        ],
         'rh_foto_perfil' => [
             'etiqueta' => 'Cambio de foto de perfil por revisar',
             'modulo' => 'contratacion',

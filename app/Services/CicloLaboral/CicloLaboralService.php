@@ -39,7 +39,7 @@ use App\Services\Contratos\SolicitudExcepcionPeriodoPruebaService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\ExpedienteService;
 use App\Services\Flujos\ConstructorEnlaces;
-use App\Services\Incorporacion\SolicitudEmpleo\PerfilIngresoService;
+use App\Services\Incorporacion\SolicitudEmpleo\SolicitudEmpleoRegistroService;
 use App\Services\Onboarding\OnboardingService;
 use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Reclutamiento\FaseContratadoService;
@@ -857,9 +857,10 @@ class CicloLaboralService
 
         // Solicitud de empleo y estudio socioeconómico: lo que la persona aún
         // puede llenar (web «Mi solicitud de empleo» o app).
-        if ($enIngreso || $colaborador->estatus === EstadoUsuario::EnIncorporacion) {
-            $completitud = app(PerfilIngresoService::class)->completitud($colaborador);
-            $porLlenar = count(array_filter($completitud['faltantes'], fn (array $f): bool => $f['origen'] === 'solicitud'));
+        $solicitudEmpleo = app(SolicitudEmpleoRegistroService::class);
+
+        if ($enIngreso || $colaborador->estatus === EstadoUsuario::EnIncorporacion || $solicitudEmpleo->pedidoPorRh($colaborador)) {
+            $porLlenar = $solicitudEmpleo->datosPorLlenar($colaborador);
 
             if ($porLlenar > 0) {
                 $pendientes[] = [

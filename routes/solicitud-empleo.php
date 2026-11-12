@@ -14,6 +14,9 @@ Route::middleware(['auth', 'verified'])->prefix('rh')->name('rh.')->group(functi
     Route::get('colaboradores/{colaborador}/solicitud-empleo', [SolicitudEmpleoIngresoController::class, 'show'])
         ->name('solicitud-empleo.show')
         ->middleware('throttle:60,1');
+    Route::post('colaboradores/{colaborador}/solicitud-empleo/pedir', [SolicitudEmpleoIngresoController::class, 'pedir'])
+        ->name('solicitud-empleo.pedir')
+        ->middleware('throttle:10,1');
     Route::post('colaboradores/{colaborador}/solicitud-empleo/{seccion}', [SolicitudEmpleoIngresoController::class, 'guardar'])
         ->name('solicitud-empleo.guardar')
         ->whereIn('seccion', array_keys(CatalogoSolicitudEmpleo::SECCIONES))
