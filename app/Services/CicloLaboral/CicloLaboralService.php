@@ -860,13 +860,15 @@ class CicloLaboralService
         $solicitudEmpleo = app(SolicitudEmpleoRegistroService::class);
 
         if ($enIngreso || $colaborador->estatus === EstadoUsuario::EnIncorporacion || $solicitudEmpleo->pedidoPorRh($colaborador)) {
-            $porLlenar = $solicitudEmpleo->datosPorLlenar($colaborador);
+            // Mismo número y misma frase que el encabezado de «Mi solicitud
+            // de empleo» (fuente única: SolicitudEmpleoRegistroService::avancePropio).
+            $avance = $solicitudEmpleo->avancePropio($colaborador);
 
-            if ($porLlenar > 0) {
+            if ($avance['por_llenar'] > 0) {
                 $pendientes[] = [
                     'clave' => 'solicitud_empleo',
                     'titulo' => 'Completa tu solicitud de empleo',
-                    'descripcion' => $porLlenar === 1 ? 'Te falta 1 dato. Toma unos minutos.' : sprintf('Te faltan %d datos. Puedes guardar y seguir después.', $porLlenar),
+                    'descripcion' => sprintf('%s. %s', $avance['frase'], $avance['por_llenar'] === 1 ? 'Toma unos minutos.' : 'Puedes guardar y seguir después.'),
                     'tipo' => 'accion',
                     'accion' => ['etiqueta' => 'Continuar', 'href' => route('portal.solicitud-empleo'), 'app' => 'registro-solicitud'],
                     'detalle' => [],

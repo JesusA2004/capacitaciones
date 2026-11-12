@@ -5,17 +5,20 @@ import {
     ArrowRight,
     Check,
     ChevronDown,
+    Hourglass,
     Lock,
     PartyPopper,
     Plus,
     Trash2,
+    UserRound,
 } from '@lucide/vue';
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import CampoSolicitudControl from '@/components/incorporacion/CampoSolicitudControl.vue';
 import FilaListaSolicitud from '@/components/incorporacion/FilaListaSolicitud.vue';
 import { Button } from '@/components/ui/button';
 import { useAlertas } from '@/composables/useAlertas';
-import { enviarJson } from '@/lib/http';
+import { avisarExito } from '@/lib/flashToast';
+import { enviarJson, ErrorSolicitud } from '@/lib/http';
 import { dashboard } from '@/routes';
 import { show as rutaRegistro } from '@/routes/mi-registro';
 import {
@@ -23,20 +26,29 @@ import {
     solicitudEmpleo as rutaPagina,
 } from '@/routes/portal';
 import { guardar as rutaGuardar } from '@/routes/portal/solicitud-empleo';
-import { index as indexSolicitudes } from '@/routes/solicitudes';
+import {
+    index as indexSolicitudes,
+    show as verSolicitud,
+} from '@/routes/solicitudes';
 import type {
     CampoListaSolicitud,
     CampoSolicitud,
     EstadoMiSolicitudEmpleo,
-    SeccionSolicitud,
+    SeccionMiSolicitud,
     ValorSolicitud,
 } from '@/types';
 
 /**
  * «Mi solicitud de empleo»: lo mismo que pide la app, sección por sección,
- * para quien entra desde la web (iPhone/Mac). Solo muestra lo que falta;
- * lo ya registrado queda guardado y se corrige por solicitud de corrección.
- * Reglas en el backend (SolicitudEmpleoRegistroService).
+ * para quien entra desde la web (iPhone/Mac). TODO se captura aquí mismo:
+ * los datos personales que faltan en el expediente (domicilio, teléfono…)
+ * se piden dentro de su sección y, al guardar, viajan a Recursos Humanos
+ * para revisión — sin mandar a la persona a otra pantalla.
+ *
+ * Nunca se pide dos veces un dato: lo que ya está en el expediente sale
+ * como «Ya registrado» y lo que ya envió, «En revisión por RH». Los números
+ * («te faltan N datos») vienen del backend (`estado.avance`): los mismos de
+ * Mis pendientes. Reglas en SolicitudEmpleoRegistroService.
  */
 const props = defineProps<{ estado: EstadoMiSolicitudEmpleo }>();
 
@@ -58,18 +70,21 @@ const filas = ref<Record<string, ValorSolicitud>[]>([]);
 const listaVacia = ref(false);
 const verRegistrados = ref(false);
 const errorSeccion = ref<string | null>(null);
+/** Error de validación de cada dato (campo → mensaje), junto a su control. */
+const errores = ref<Record<string, string>>({});
 
 const secciones = computed(() => estado.value.secciones);
-const pendientes = computed(() => secciones.value.filter((s) => !s.completa));
-const faltanTotal = computed(
-    () => estado.value.completitud.total - estado.value.completitud.completos,
+const avance = computed(() => estado.value.avance);
+/** Secciones donde a la PERSONA todavía le falta algo. */
+const pendientes = computed(() =>
+    secciones.value.filter((s) => !s.lista_propia),
 );
-const terminado = computed(() => pendientes.value.length === 0);
+const terminado = computed(() => avance.value.listo);
 
 const actual = ref<string>(
     pendientes.value[0]?.clave ?? secciones.value[0]?.clave ?? '',
 );
-const seccion = computed<SeccionSolicitud | undefined>(() =>
+const seccion = computed<SeccionMiSolicitud | undefined>(() =>
     secciones.value.find((s) => s.clave === actual.value),
 );
 const indice = computed(() =>
@@ -89,6 +104,7 @@ function abrir(clave: string): void {
 
     actual.value = clave;
     errorSeccion.value = null;
+    errores.value = {};
     verRegistrados.value = false;
     borrador.value = {};
     noAplica.value = s.campos.filter((c) => c.no_aplica).map((c) => c.campo);
@@ -106,7 +122,10 @@ function abrir(clave: string): void {
 
 abrir(actual.value);
 
-/** Valor vigente para evaluar condiciones (borrador o lo ya guardado). */
+/**
+ * Valor vigente para evaluar condiciones: lo que se está escribiendo, lo ya
+ * guardado o lo que ya envió y RH revisa.
+ */
 function valorDe(clave: string): ValorSolicitud {
     if (clave in borrador.value) {
         return borrador.value[clave] ?? null;
@@ -116,7 +135,7 @@ function valorDe(clave: string): ValorSolicitud {
         const c = s.campos.find((x) => x.campo === clave);
 
         if (c) {
-            return c.valor;
+            return c.valor ?? c.propuesto_valor ?? null;
         }
     }
 
@@ -152,25 +171,63 @@ function condicionCumple(campo: CampoSolicitud): boolean {
     }
 }
 
+function obligatorio(campo: CampoSolicitud): boolean {
+    return campo.requerido && condicionCumple(campo);
+}
+
+/** Todo lo que la persona puede escribir en esta sección. */
 const porLlenar = computed(() =>
     (seccion.value?.campos ?? []).filter(
-        (c) =>
-            !c.bloqueado &&
-            c.origen === 'solicitud' &&
-            (condicionCumple(c) || c.valor !== null),
+        (c) => !c.bloqueado && (condicionCumple(c) || c.valor !== null),
     ),
 );
+
+/**
+ * Dos bloques en la misma pantalla: primero los datos personales que faltan
+ * en el expediente (van a revisión de RH) y luego lo propio de la solicitud.
+ */
+const grupos = computed(() =>
+    [
+        {
+            clave: 'personales',
+            personales: true,
+            campos: porLlenar.value.filter(
+                (c) => c.origen === 'datos_personales',
+            ),
+        },
+        {
+            clave: 'solicitud',
+            personales: false,
+            campos: porLlenar.value.filter((c) => c.origen === 'solicitud'),
+        },
+    ].filter((g) => g.campos.length > 0),
+);
+
+/** Lo que ya envió y Recursos Humanos está revisando. */
+const enRevision = computed(() =>
+    (seccion.value?.campos ?? []).filter((c) => c.en_revision),
+);
+/** Lo que ya está en su expediente o ya capturó (no se vuelve a pedir). */
 const registrados = computed(() =>
-    (seccion.value?.campos ?? []).filter((c) => c.bloqueado),
-);
-/** Datos personales (domicilio, CURP…) que faltan: se piden por solicitud. */
-const faltanPersonales = computed(() =>
     (seccion.value?.campos ?? []).filter(
-        (c) =>
-            c.origen === 'datos_personales' &&
-            c.requerido &&
-            (c.valor === null || c.valor === ''),
+        (c) => c.bloqueado && !c.en_revision && !c.solo_rh,
     ),
+);
+/** Falta, pero no le toca a la persona. */
+const soloRh = computed(() =>
+    (seccion.value?.campos ?? []).filter((c) => c.solo_rh),
+);
+/** RH pidió corregir una solicitud de datos: se responde en su detalle. */
+const porResponder = computed(() => {
+    const ids = enRevision.value
+        .filter((c) => c.requiere_respuesta && c.solicitud_id)
+        .map((c) => c.solicitud_id as number);
+
+    return [...new Set(ids)];
+});
+/** Todo lo que está en revisión, de todas las secciones (pantalla final). */
+const enRevisionTotal = computed(() =>
+    secciones.value.flatMap((s) => s.campos.filter((c) => c.en_revision)),
 );
 
 const listaEditable = computed(
@@ -185,13 +242,12 @@ function vacio(valor: ValorSolicitud): boolean {
     );
 }
 
-/** Lo que falta en pantalla ahora mismo (para el contador del botón). */
+/** Obligatorios sin llenar en pantalla ahora mismo (contador del botón). */
 const faltanAqui = computed(
     () =>
         porLlenar.value.filter(
             (c) =>
-                c.requerido &&
-                condicionCumple(c) &&
+                obligatorio(c) &&
                 !noAplica.value.includes(c.campo) &&
                 vacio(borrador.value[c.campo] ?? null),
         ).length +
@@ -243,6 +299,33 @@ function quitarFila(i: number): void {
     filas.value = filas.value.filter((_, x) => x !== i);
 }
 
+function escribir(campo: string, valor: ValorSolicitud): void {
+    borrador.value[campo] = valor;
+
+    if (errores.value[campo]) {
+        const resto = { ...errores.value };
+        delete resto[campo];
+        errores.value = resto;
+    }
+}
+
+/** `datos.domicilio_cp` → `domicilio_cp` (errores que tienen control propio). */
+function erroresPorCampo(
+    todos: Record<string, string>,
+): Record<string, string> {
+    const propios: Record<string, string> = {};
+
+    for (const [llave, mensaje] of Object.entries(todos)) {
+        const campo = llave.replace(/^datos\./, '');
+
+        if (porLlenar.value.some((c) => c.campo === campo)) {
+            propios[campo] = mensaje;
+        }
+    }
+
+    return propios;
+}
+
 async function guardar(avanzar: boolean): Promise<void> {
     const s = seccion.value;
 
@@ -274,6 +357,7 @@ async function guardar(avanzar: boolean): Promise<void> {
 
     guardando.value = true;
     errorSeccion.value = null;
+    errores.value = {};
 
     try {
         const respuesta = await enviarJson<{
@@ -284,18 +368,31 @@ async function guardar(avanzar: boolean): Promise<void> {
             no_aplica: noAplica.value.filter((c) => permitidos.includes(c)),
         });
         estado.value = respuesta.data;
+        avisarExito(respuesta.message);
 
         const siguiente = avanzar
             ? (respuesta.data.secciones.find(
-                  (x, i) => !x.completa && i > indice.value,
-              ) ?? respuesta.data.secciones.find((x) => !x.completa))
+                  (x, i) => !x.lista_propia && i > indice.value,
+              ) ?? respuesta.data.secciones.find((x) => !x.lista_propia))
             : undefined;
 
         abrir(siguiente?.clave ?? s.clave);
     } catch (e) {
-        errorSeccion.value =
-            e instanceof Error ? e.message : 'No se pudo guardar.';
-        await mostrarError(errorSeccion.value);
+        const mensaje = e instanceof Error ? e.message : 'No se pudo guardar.';
+        errores.value =
+            e instanceof ErrorSolicitud ? erroresPorCampo(e.errores) : {};
+
+        // Con el error pintado junto a su dato basta; si no tiene control
+        // en pantalla (una lista, la sección), se avisa arriba y con el modal.
+        if (Object.keys(errores.value).length) {
+            await nextTick();
+            document
+                .querySelector('[data-input-error]')
+                ?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        } else {
+            errorSeccion.value = mensaje;
+            await mostrarError(mensaje);
+        }
     } finally {
         guardando.value = false;
     }
@@ -303,10 +400,18 @@ async function guardar(avanzar: boolean): Promise<void> {
 
 const anterior = computed(() => secciones.value[indice.value - 1]);
 
+function subtituloPaso(s: SeccionMiSolicitud): string {
+    if (!s.lista_propia) {
+        return `${s.por_llenar.length} por llenar`;
+    }
+
+    return s.en_revision.length ? 'En revisión por RH' : 'Listo';
+}
+
 // Anillo de avance (SVG): circunferencia de r=26.
 const circunferencia = 2 * Math.PI * 26;
 const trazo = computed(
-    () => circunferencia * (1 - estado.value.completitud.porcentaje / 100),
+    () => circunferencia * (1 - avance.value.porcentaje / 100),
 );
 </script>
 
@@ -324,7 +429,7 @@ const trazo = computed(
         </Link>
         <!-- Encabezado con avance -->
         <header
-            class="flex flex-wrap items-center gap-5 rounded-3xl border border-border/60 bg-gradient-to-br from-crema via-card to-salvia p-5 sm:p-7"
+            class="flex flex-wrap items-center gap-4 rounded-3xl border border-border/60 bg-gradient-to-br from-crema via-card to-salvia p-5 sm:gap-5 sm:p-7"
         >
             <div class="relative size-16 shrink-0" aria-hidden="true">
                 <svg viewBox="0 0 64 64" class="size-16 -rotate-90">
@@ -350,28 +455,36 @@ const trazo = computed(
                 </svg>
                 <span
                     class="absolute inset-0 grid place-items-center text-sm font-bold"
-                    >{{ estado.completitud.porcentaje }}%</span
+                    >{{ avance.porcentaje }}%</span
                 >
             </div>
-            <div class="min-w-0 flex-1">
+            <div class="min-w-0 flex-1 basis-56">
                 <h1 class="text-xl font-semibold sm:text-2xl">
                     Mi solicitud de empleo
                 </h1>
-                <p class="text-sm text-muted-foreground">
-                    <template v-if="terminado"
+                <p class="text-sm text-muted-foreground" role="status">
+                    <template v-if="avance.completo"
                         >Completa. Recursos Humanos ya puede generar tus
                         documentos.</template
                     >
-                    <template v-else
-                        >{{
-                            faltanTotal === 1
-                                ? 'Te falta 1 dato'
-                                : `Te faltan ${faltanTotal} datos`
-                        }}
-                        en {{ pendientes.length }}
-                        {{ pendientes.length === 1 ? 'sección' : 'secciones' }}.
-                        Se guarda por sección: puedes seguir después.</template
+                    <template v-else-if="terminado"
+                        >Ya capturaste todo lo que te toca.</template
                     >
+                    <template v-else
+                        >{{ avance.frase }}. Se guarda por sección: puedes
+                        seguir después.</template
+                    >
+                </p>
+                <p
+                    v-if="avance.en_revision > 0"
+                    class="mt-2 inline-flex items-center gap-1.5 rounded-full bg-info-soft px-3 py-1 text-xs font-medium"
+                >
+                    <Hourglass class="size-3.5 shrink-0" />
+                    {{
+                        avance.en_revision === 1
+                            ? '1 dato en revisión por RH'
+                            : `${avance.en_revision} datos en revisión por RH`
+                    }}
                 </p>
             </div>
         </header>
@@ -379,14 +492,43 @@ const trazo = computed(
         <!-- Terminado -->
         <section
             v-if="terminado"
-            class="flex entrada-suave flex-col items-center gap-3 rounded-3xl border border-border/60 bg-success-soft p-8 text-center"
+            class="flex entrada-suave flex-col items-center gap-3 rounded-3xl border border-border/60 bg-success-soft p-6 text-center sm:p-8"
         >
             <PartyPopper class="size-10 text-[var(--mrl-success)]" />
             <h2 class="text-lg font-semibold">¡Listo, gracias!</h2>
             <p class="max-w-md text-sm text-muted-foreground">
-                Tu solicitud de empleo y tu estudio socioeconómico tienen todos
-                sus datos. Si algo está mal, pide una corrección.
+                <template v-if="avance.completo"
+                    >Tu solicitud de empleo y tu estudio socioeconómico tienen
+                    todos sus datos. Si algo está mal, pide una
+                    corrección.</template
+                >
+                <template v-else-if="avance.en_revision > 0"
+                    >Ya no tienes nada que capturar. Recursos Humanos está
+                    revisando los datos personales que enviaste; te avisamos
+                    cuando queden guardados en tu expediente.</template
+                >
+                <template v-else
+                    >Ya no tienes nada que capturar. Lo que falta lo completa
+                    Recursos Humanos.</template
+                >
             </p>
+            <dl
+                v-if="enRevisionTotal.length"
+                class="grid w-full max-w-xl gap-x-5 gap-y-2 rounded-2xl bg-card/70 p-4 text-left sm:grid-cols-2"
+            >
+                <div
+                    v-for="c in enRevisionTotal"
+                    :key="c.campo"
+                    class="min-w-0"
+                >
+                    <dt class="text-xs text-muted-foreground">
+                        {{ c.etiqueta }} · en revisión
+                    </dt>
+                    <dd class="text-sm break-words">
+                        {{ c.propuesto ?? '—' }}
+                    </dd>
+                </div>
+            </dl>
             <div class="flex flex-wrap justify-center gap-2">
                 <Button as-child
                     ><Link
@@ -430,14 +572,14 @@ const trazo = computed(
                     <span
                         class="grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold"
                         :class="
-                            s.completa
+                            s.lista_propia
                                 ? 'bg-[var(--mrl-success)] text-white'
                                 : s.clave === actual
                                   ? 'bg-[var(--mrl-primary)] text-white'
                                   : 'bg-muted text-muted-foreground'
                         "
                     >
-                        <Check v-if="s.completa" class="size-4" />
+                        <Check v-if="s.lista_propia" class="size-4" />
                         <template v-else>{{ i + 1 }}</template>
                     </span>
                     <span class="min-w-0">
@@ -447,11 +589,7 @@ const trazo = computed(
                         >
                         <span
                             class="block text-xs whitespace-nowrap text-muted-foreground"
-                            >{{
-                                s.completa
-                                    ? 'Listo'
-                                    : `${s.faltantes.length} por llenar`
-                            }}</span
+                            >{{ subtituloPaso(s) }}</span
                         >
                     </span>
                 </button>
@@ -461,7 +599,7 @@ const trazo = computed(
             <section
                 v-if="seccion"
                 :key="seccion.clave"
-                class="flex min-w-0 entrada-suave flex-col gap-5 rounded-3xl border border-border/60 bg-card p-5 sm:p-7"
+                class="flex min-w-0 entrada-suave flex-col gap-5 rounded-3xl border border-border/60 bg-card p-4 sm:p-7"
             >
                 <div>
                     <p class="text-xs font-medium text-muted-foreground">
@@ -474,69 +612,138 @@ const trazo = computed(
                     >
                         {{ seccion.descripcion }}
                     </p>
+                    <p
+                        v-if="porLlenar.length || listaEditable"
+                        class="mt-2 text-xs text-muted-foreground"
+                    >
+                        <span class="font-semibold text-[var(--mrl-rojo)]"
+                            >*</span
+                        >
+                        Obligatorio. Lo demás es opcional. Puedes guardar aunque
+                        te falte algo y terminar después.
+                    </p>
                 </div>
 
+                <p
+                    v-if="errorSeccion"
+                    class="rounded-2xl bg-danger-soft px-4 py-3 text-sm"
+                    role="alert"
+                >
+                    {{ errorSeccion }}
+                </p>
+
+                <!-- Datos por llenar: los personales (a revisión de RH) y los de la solicitud -->
                 <div
-                    v-if="porLlenar.length"
-                    class="grid gap-x-5 gap-y-4 md:grid-cols-2"
+                    v-for="grupo in grupos"
+                    :key="grupo.clave"
+                    class="flex flex-col gap-4"
+                    :class="
+                        grupo.personales
+                            ? 'rounded-2xl border border-border/60 bg-salvia/40 p-4'
+                            : ''
+                    "
                 >
                     <div
-                        v-for="campo in porLlenar"
-                        :key="campo.campo"
-                        class="flex min-w-0 flex-col gap-1.5"
-                        :class="{
-                            'md:col-span-2':
-                                campo.tipo === 'texto_largo' ||
-                                campo.tipo === 'multiselect' ||
-                                campo.opciones.length > 4,
-                        }"
+                        v-if="grupo.personales"
+                        class="flex items-start gap-2.5"
                     >
-                        <div class="flex items-baseline justify-between gap-2">
-                            <label
-                                :for="`mse-${campo.campo}`"
-                                class="text-sm font-medium"
-                                >{{ campo.etiqueta
-                                }}<span
-                                    v-if="
-                                        campo.requerido &&
-                                        condicionCumple(campo)
-                                    "
-                                    class="text-[var(--mrl-rojo)]"
-                                    aria-hidden="true"
-                                >
-                                    *</span
-                                ></label
-                            >
-                            <button
-                                v-if="campo.permite_no_aplica"
-                                type="button"
-                                class="shrink-0 rounded-full border px-2 py-0.5 text-xs transicion-ui"
-                                :class="
-                                    noAplica.includes(campo.campo)
-                                        ? 'border-[var(--mrl-primary)] bg-[var(--mrl-primary)] text-white'
-                                        : 'border-border text-muted-foreground hover:border-[var(--mrl-primary)]'
-                                "
-                                :aria-pressed="noAplica.includes(campo.campo)"
-                                @click="alternarNoAplica(campo.campo)"
-                            >
-                                No aplica
-                            </button>
-                        </div>
-                        <CampoSolicitudControl
-                            v-if="!noAplica.includes(campo.campo)"
-                            :id="`mse-${campo.campo}`"
-                            :campo="campo"
-                            :model-value="borrador[campo.campo] ?? null"
-                            @update:model-value="
-                                (v) => (borrador[campo.campo] = v)
-                            "
+                        <UserRound
+                            class="mt-0.5 size-4 shrink-0 text-[var(--mrl-petroleo)]"
                         />
-                        <p
-                            v-if="campo.ayuda"
-                            class="text-xs text-muted-foreground"
+                        <div class="min-w-0">
+                            <h3 class="text-sm font-semibold">
+                                Faltan en tu expediente
+                            </h3>
+                            <p class="text-xs text-muted-foreground">
+                                <template v-if="estado.registro_abierto"
+                                    >Escríbelos aquí: se guardan con esta
+                                    sección.</template
+                                >
+                                <template v-else
+                                    >Escríbelos aquí mismo. Al guardar se envían
+                                    a Recursos Humanos para revisión; no tienes
+                                    que ir a otra pantalla ni capturarlos otra
+                                    vez.</template
+                                >
+                            </p>
+                        </div>
+                    </div>
+                    <div class="grid gap-x-5 gap-y-4 md:grid-cols-2">
+                        <div
+                            v-for="campo in grupo.campos"
+                            :key="campo.campo"
+                            class="flex min-w-0 flex-col gap-1.5"
+                            :class="{
+                                'md:col-span-2':
+                                    campo.tipo === 'texto_largo' ||
+                                    campo.tipo === 'multiselect' ||
+                                    (campo.tipo === 'select' &&
+                                        !grupo.personales &&
+                                        campo.opciones.length > 4),
+                            }"
                         >
-                            {{ campo.ayuda }}
-                        </p>
+                            <div
+                                class="flex items-baseline justify-between gap-2"
+                            >
+                                <label
+                                    :for="`mse-${campo.campo}`"
+                                    class="text-sm font-medium"
+                                    >{{ campo.etiqueta }}
+                                    <span
+                                        v-if="obligatorio(campo)"
+                                        class="text-[var(--mrl-rojo)]"
+                                        title="Obligatorio"
+                                        >*<span class="sr-only">
+                                            (obligatorio)</span
+                                        ></span
+                                    >
+                                    <span
+                                        v-else
+                                        class="text-xs font-normal text-muted-foreground"
+                                        >(opcional)</span
+                                    ></label
+                                >
+                                <button
+                                    v-if="campo.permite_no_aplica"
+                                    type="button"
+                                    class="shrink-0 rounded-full border px-2 py-0.5 text-xs transicion-ui"
+                                    :class="
+                                        noAplica.includes(campo.campo)
+                                            ? 'border-[var(--mrl-primary)] bg-[var(--mrl-primary)] text-white'
+                                            : 'border-border text-muted-foreground hover:border-[var(--mrl-primary)]'
+                                    "
+                                    :aria-pressed="
+                                        noAplica.includes(campo.campo)
+                                    "
+                                    @click="alternarNoAplica(campo.campo)"
+                                >
+                                    No aplica
+                                </button>
+                            </div>
+                            <CampoSolicitudControl
+                                v-if="!noAplica.includes(campo.campo)"
+                                :id="`mse-${campo.campo}`"
+                                :campo="campo"
+                                :model-value="borrador[campo.campo] ?? null"
+                                @update:model-value="
+                                    (v) => escribir(campo.campo, v)
+                                "
+                            />
+                            <p
+                                v-if="errores[campo.campo]"
+                                class="text-xs text-destructive"
+                                data-input-error
+                                role="alert"
+                            >
+                                {{ errores[campo.campo] }}
+                            </p>
+                            <p
+                                v-else-if="campo.ayuda"
+                                class="text-xs text-muted-foreground"
+                            >
+                                {{ campo.ayuda }}
+                            </p>
+                        </div>
                     </div>
                 </div>
 
@@ -544,6 +751,11 @@ const trazo = computed(
                 <div v-if="seccion.lista" class="flex flex-col gap-3">
                     <h3 class="text-sm font-semibold">
                         {{ seccion.lista.etiqueta }}
+                        <span
+                            v-if="listaEditable && seccion.lista.minimo > 0"
+                            class="text-xs font-normal text-muted-foreground"
+                            >(al menos {{ seccion.lista.minimo }})</span
+                        >
                     </h3>
                     <template v-if="listaEditable">
                         <div
@@ -624,23 +836,58 @@ const trazo = computed(
                     </ul>
                 </div>
 
-                <!-- Datos personales faltantes: se piden aparte -->
+                <!-- Lo que ya envió y RH está revisando: no se pide otra vez -->
                 <div
-                    v-if="faltanPersonales.length"
-                    class="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-warning-soft px-4 py-3 text-sm"
+                    v-if="enRevision.length"
+                    class="rounded-2xl bg-info-soft px-4 py-3"
                 >
-                    <span
-                        >Falta en tus datos personales:
-                        <strong>{{
-                            faltanPersonales.map((c) => c.etiqueta).join(', ')
-                        }}</strong></span
+                    <p class="flex items-center gap-2 text-sm font-medium">
+                        <Hourglass class="size-4 shrink-0" />
+                        En revisión por Recursos Humanos ({{
+                            enRevision.length
+                        }})
+                    </p>
+                    <p class="mt-0.5 text-xs text-muted-foreground">
+                        Ya los enviaste: no tienes que capturarlos otra vez.
+                        Quedan en tu expediente cuando RH los apruebe.
+                    </p>
+                    <dl class="mt-3 grid gap-x-5 gap-y-2 sm:grid-cols-2">
+                        <div
+                            v-for="c in enRevision"
+                            :key="c.campo"
+                            class="min-w-0"
+                        >
+                            <dt class="text-xs text-muted-foreground">
+                                {{ c.etiqueta }}
+                            </dt>
+                            <dd class="text-sm break-words">
+                                {{ c.propuesto ?? '—' }}
+                            </dd>
+                        </div>
+                    </dl>
+                    <p
+                        v-for="id in porResponder"
+                        :key="id"
+                        class="mt-3 text-xs"
                     >
-                    <Link
-                        :href="urlCorreccion"
-                        class="font-medium text-[var(--mrl-primary)] underline-offset-2 hover:underline"
-                        >Enviarlos a RH</Link
-                    >
+                        Recursos Humanos te pidió corregir algo de lo que
+                        enviaste.
+                        <Link
+                            :href="verSolicitud.url(id)"
+                            class="font-medium text-[var(--mrl-primary)] underline-offset-2 hover:underline"
+                            >Ver y responder</Link
+                        >
+                    </p>
                 </div>
+
+                <!-- Falta, pero no le toca a la persona -->
+                <p
+                    v-if="soloRh.length"
+                    class="rounded-2xl bg-muted/40 px-4 py-3 text-xs text-muted-foreground"
+                >
+                    Lo completa Recursos Humanos (no tienes que hacer nada):
+                    {{ soloRh.map((c) => c.etiqueta).join(', ') }}.
+                </p>
 
                 <!-- Lo que ya está registrado -->
                 <div v-if="registrados.length" class="rounded-2xl bg-muted/40">
@@ -652,10 +899,11 @@ const trazo = computed(
                     >
                         <span class="flex items-center gap-2">
                             <Lock class="size-4 text-muted-foreground" />
-                            Ya registrado ({{ registrados.length }})
+                            Ya registrado ({{ registrados.length }}): no se
+                            vuelve a pedir
                         </span>
                         <ChevronDown
-                            class="size-4 transition-transform"
+                            class="size-4 shrink-0 transition-transform"
                             :class="{ 'rotate-180': verRegistrados }"
                         />
                     </button>
@@ -691,19 +939,19 @@ const trazo = computed(
                 </div>
 
                 <p
-                    v-if="
-                        !porLlenar.length &&
-                        !listaEditable &&
-                        !faltanPersonales.length
-                    "
+                    v-if="!porLlenar.length && !listaEditable"
                     class="rounded-2xl bg-success-soft px-4 py-3 text-sm"
                 >
-                    Esta sección ya está completa.
+                    {{
+                        seccion.lista_propia
+                            ? 'En esta sección ya no te falta nada.'
+                            : 'Esta sección no tiene datos que puedas capturar.'
+                    }}
                 </p>
 
                 <!-- Navegación -->
                 <div
-                    class="sticky bottom-0 -mx-5 -mb-5 flex flex-wrap items-center justify-between gap-2 rounded-b-3xl border-t border-border/60 bg-card/95 px-5 py-4 backdrop-blur sm:-mx-7 sm:-mb-7 sm:px-7"
+                    class="sticky bottom-0 -mx-4 -mb-4 flex flex-wrap items-center justify-between gap-2 rounded-b-3xl border-t border-border/60 bg-card/95 px-4 py-3 backdrop-blur sm:-mx-7 sm:-mb-7 sm:px-7 sm:py-4"
                 >
                     <Button
                         v-if="anterior"
@@ -712,7 +960,10 @@ const trazo = computed(
                         :disabled="guardando"
                         @click="abrir(anterior.clave)"
                     >
-                        <ArrowLeft class="size-4" /> {{ anterior.titulo }}
+                        <ArrowLeft class="size-4" />
+                        <span class="max-w-28 truncate sm:max-w-none">{{
+                            anterior.titulo
+                        }}</span>
                     </Button>
                     <span v-else />
                     <div class="flex items-center gap-3">
@@ -721,8 +972,8 @@ const trazo = computed(
                             class="hidden text-xs text-muted-foreground sm:inline"
                             >{{
                                 faltanAqui === 1
-                                    ? 'Falta 1 dato aquí'
-                                    : `Faltan ${faltanAqui} datos aquí`
+                                    ? 'Falta 1 obligatorio aquí'
+                                    : `Faltan ${faltanAqui} obligatorios aquí`
                             }}</span
                         >
                         <Button

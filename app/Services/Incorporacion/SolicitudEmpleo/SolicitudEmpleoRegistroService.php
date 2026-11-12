@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\Incorporacion\RegistroAppService;
 use App\Services\Tareas\NotificadorRhService;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -34,6 +35,7 @@ class SolicitudEmpleoRegistroService
     public function __construct(
         private readonly PerfilIngresoService $perfil,
         private readonly RegistroAppService $registro,
+        private readonly DatosPersonalesSolicitudService $personales,
     ) {}
 
     /**
@@ -47,7 +49,11 @@ class SolicitudEmpleoRegistroService
     }
 
     /**
-     * Estado por sección para la propia persona (GET web y API).
+     * Estado por sección para la propia persona (GET web y API). Además de
+     * lo de PerfilIngresoService::estado() trae lo que la persona necesita
+     * ver (DatosPersonalesSolicitudService::decorar): los datos personales
+     * que faltan como campos por llenar en su sección, lo que está «En
+     * revisión por RH» y `avance` (fuente única de «te faltan N datos»).
      *
      * @return array<string, mixed>
      */
@@ -59,19 +65,54 @@ class SolicitudEmpleoRegistroService
             'registro_abierto' => $modo === PerfilIngresoService::ORIGEN_APP,
             'exigida' => $this->exigidaEnRegistro(),
             'modo' => $modo,
-            ...$this->perfil->estado($colaborador, $modo),
+            ...$this->personales->decorar($this->perfil->estado($colaborador, $modo), $colaborador),
         ];
     }
 
     /**
-     * Guarda una sección de la propia persona con el modo que le toca.
+     * Guarda una sección de la propia persona con el modo que le toca. Los
+     * datos personales que capturó ahí mismo (domicilio, teléfono…) se
+     * mandan a Recursos Humanos para revisión (o se guardan directo durante
+     * su registro): todo en la misma pantalla y en el mismo guardado.
      *
      * @param  array<string, mixed>  $datos
      * @param  list<string>|null  $noAplica
+     * @return int Datos personales enviados a revisión (o guardados en el registro).
      */
-    public function guardarPropio(User $usuario, Colaborador $colaborador, string $seccion, array $datos, ?array $noAplica): void
+    public function guardarPropio(User $usuario, Colaborador $colaborador, string $seccion, array $datos, ?array $noAplica): int
     {
-        $this->perfil->guardarSeccion($colaborador, $seccion, $datos, $noAplica, $usuario, $this->modoPropio($usuario));
+        $modo = $this->modoPropio($usuario);
+
+        return DB::transaction(function () use ($usuario, $colaborador, $seccion, $datos, $noAplica, $modo): int {
+            $personales = $this->personales->guardar($usuario, $colaborador, $seccion, $datos, $modo);
+            $this->perfil->guardarSeccion($colaborador, $seccion, $datos, $noAplica, $usuario, $modo);
+
+            return $personales;
+        });
+    }
+
+    /** «Sección guardada…» con lo que pasó con sus datos personales. */
+    public function mensajeGuardado(User $usuario, int $personales): string
+    {
+        if ($personales === 0 || $this->modoPropio($usuario) === PerfilIngresoService::ORIGEN_APP) {
+            return 'Sección guardada.';
+        }
+
+        return sprintf(
+            'Sección guardada. %s a Recursos Humanos para revisión; no tienes que capturarlo otra vez.',
+            $personales === 1 ? 'Enviamos 1 dato personal' : sprintf('Enviamos %d datos personales', $personales),
+        );
+    }
+
+    /**
+     * Avance de la PERSONA (lo que ella puede llenar): mismos números para
+     * Mis pendientes, el encabezado de «Mi solicitud de empleo» y cada paso.
+     *
+     * @return array{por_llenar: int, en_revision: int, secciones_pendientes: int, total: int, porcentaje: int, listo: bool, completo: bool, frase: string}
+     */
+    public function avancePropio(Colaborador $colaborador): array
+    {
+        return $this->personales->avance($colaborador);
     }
 
     /**
@@ -116,6 +157,10 @@ class SolicitudEmpleoRegistroService
                 $colaborador,
                 'completar_solicitud_empleo',
                 'alta',
+                [],
+                // Cada pedido es un aviso nuevo: sin esto, volver a pedir lo
+                // mismo el mismo día no le llegaba (se tomaba por duplicado).
+                sprintf('pedido-%s', now()->format('YmdHi')),
             );
         } catch (Throwable $e) {
             Log::warning('No se pudo avisar la solicitud de empleo faltante.', ['colaborador_id' => $colaborador->id, 'error' => $e->getMessage()]);
@@ -143,10 +188,24 @@ class SolicitudEmpleoRegistroService
         return is_array($secciones[self::PEDIDO_RH] ?? null);
     }
 
-    /** Datos que la persona misma puede llenar (no los personales). */
+    /**
+     * Datos que la persona misma puede llenar en «Mi solicitud de empleo»,
+     * incluidos los personales que faltan en su expediente (se capturan ahí
+     * mismo). Lo que ya envió y RH revisa no cuenta. Es el mismo número del
+     * encabezado y de los pasos de esa pantalla.
+     */
     public function datosPorLlenar(Colaborador $colaborador): int
     {
-        return count(array_filter($this->perfil->completitud($colaborador)['faltantes'], fn (array $f): bool => $f['origen'] === 'solicitud'));
+        return $this->personales->avance($colaborador)['por_llenar'];
+    }
+
+    /**
+     * Lo mismo SIN los datos personales: para «Pedir información al
+     * colaborador», que ya los cuenta en su propio renglón.
+     */
+    public function datosPorLlenarSinPersonales(Colaborador $colaborador): int
+    {
+        return $this->personales->porLlenarSinPersonales($colaborador);
     }
 
     /**
@@ -154,13 +213,7 @@ class SolicitudEmpleoRegistroService
      */
     public function tienePendientePropio(Colaborador $colaborador): bool
     {
-        foreach ($this->perfil->completitud($colaborador)['faltantes'] as $faltante) {
-            if ($faltante['origen'] === 'solicitud') {
-                return true;
-            }
-        }
-
-        return false;
+        return $this->datosPorLlenar($colaborador) > 0;
     }
 
     public function exigidaEnRegistro(): bool

@@ -31,9 +31,9 @@ class SolicitudEmpleoRegistroController extends Controller
         $usuario = $request->user();
         $colaborador = $this->colaboradorDe($request);
 
-        $this->solicitud->guardarPropio($usuario, $colaborador, $seccion, $request->datos(), $request->noAplica());
+        $personales = $this->solicitud->guardarPropio($usuario, $colaborador, $seccion, $request->datos(), $request->noAplica());
 
-        return response()->json(['data' => $this->solicitud->estadoPropio($usuario, $colaborador->refresh()), 'message' => 'Sección guardada.']);
+        return response()->json(['data' => $this->solicitud->estadoPropio($usuario, $colaborador->refresh()), 'message' => $this->solicitud->mensajeGuardado($usuario, $personales)]);
     }
 
     private function colaboradorDe(Request $request): Colaborador

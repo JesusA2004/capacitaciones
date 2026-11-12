@@ -56,7 +56,8 @@ class PedirInformacionService
         ), 'nombre');
         $this->agregar($persona, 'documentos', 'Documentos por subir', array_map('strval', $documentos));
 
-        $porLlenar = $this->solicitud->datosPorLlenar($colaborador);
+        // Sin los datos personales: ya van contados en su propio renglón.
+        $porLlenar = $this->solicitud->datosPorLlenarSinPersonales($colaborador);
 
         if ($porLlenar > 0) {
             $persona[] = ['clave' => 'solicitud_empleo', 'titulo' => 'Solicitud de empleo y estudio socioeconómico', 'cantidad' => $porLlenar, 'detalle' => []];
@@ -132,6 +133,10 @@ class PedirInformacionService
                 $colaborador,
                 'completar_informacion',
                 'alta',
+                [],
+                // Cada pedido es un aviso nuevo: sin esto, volver a pedir lo
+                // mismo el mismo día no le llegaba (se tomaba por duplicado).
+                sprintf('pedido-%s', now()->format('YmdHi')),
             );
         } catch (Throwable $e) {
             Log::warning('No se pudo enviar «Pedir información al colaborador».', ['colaborador_id' => $colaborador->id, 'error' => $e->getMessage()]);

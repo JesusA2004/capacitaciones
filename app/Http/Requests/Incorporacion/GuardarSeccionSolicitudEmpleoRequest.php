@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Incorporacion;
 
 use App\Services\Incorporacion\SolicitudEmpleo\CatalogoSolicitudEmpleo;
+use App\Services\Incorporacion\SolicitudEmpleo\DatosPersonalesSolicitudService;
 use App\Services\Incorporacion\SolicitudEmpleo\FechaEmisionIngresoService;
 use App\Support\FechaMexico;
 use Illuminate\Foundation\Http\FormRequest;
@@ -54,6 +55,14 @@ class GuardarSeccionSolicitudEmpleoRequest extends FormRequest
             if ($campo['tipo'] === 'multiselect') {
                 $reglas["datos.{$clave}.*"] = ['string', Rule::in(CatalogoSolicitudEmpleo::valoresDe($campo['opciones']))];
             }
+        }
+
+        // Datos personales que la persona captura en la misma sección
+        // (domicilio, teléfono…): aquí solo pasan; su formato lo valida
+        // DatosPersonalesSolicitudService con las reglas de la solicitud de
+        // actualización de datos. RH nunca los guarda por aquí.
+        foreach (DatosPersonalesSolicitudService::clavesDeSeccion($this->seccion()) as $clave) {
+            $reglas["datos.{$clave}"] = ['nullable', 'string', 'max:255'];
         }
 
         $lista = CatalogoSolicitudEmpleo::listaDeSeccion($this->seccion());

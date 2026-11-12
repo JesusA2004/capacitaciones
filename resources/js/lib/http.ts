@@ -81,6 +81,8 @@ export class ErrorSolicitud extends Error {
     constructor(
         mensaje: string,
         public readonly estado: number,
+        /** Errores por campo de una validación 422 (primer mensaje de cada uno). */
+        public readonly errores: Record<string, string> = {},
     ) {
         super(mensaje);
     }
@@ -117,6 +119,12 @@ export async function enviarJson<T>(
         throw new ErrorSolicitud(
             primerError ?? datos?.message ?? `Error ${respuesta.status}`,
             respuesta.status,
+            Object.fromEntries(
+                Object.entries(datos?.errors ?? {}).map(([campo, mensajes]) => [
+                    campo,
+                    mensajes[0] ?? '',
+                ]),
+            ),
         );
     }
 

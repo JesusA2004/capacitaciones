@@ -53,6 +53,11 @@ const monto = computed<number | null>(() => {
     return Number.isFinite(n) ? n : null;
 });
 
+/** Teclado del celular (numérico para C.P./teléfono) en datos personales. */
+const teclado = computed(() =>
+    'teclado' in props.campo ? (props.campo.teclado ?? null) : null,
+);
+
 function emitir(valor: ValorSolicitud): void {
     emit('update:modelValue', valor);
 }
@@ -220,7 +225,9 @@ const claseInactivo =
         v-else
         :id="id"
         :model-value="comoTexto"
-        type="text"
+        :type="teclado === 'email' ? 'email' : 'text'"
+        :inputmode="teclado ?? undefined"
+        :autocomplete="teclado ? 'off' : undefined"
         :maxlength="campo.max ?? undefined"
         @update:model-value="alTexto"
     />

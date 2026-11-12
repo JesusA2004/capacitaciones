@@ -38,6 +38,24 @@ export type CampoSolicitud = {
     min: number | null;
     max: number | null;
     ayuda: string | null;
+    /*
+     * Solo en el estado de la PROPIA persona
+     * (DatosPersonalesSolicitudService::decorar).
+     */
+    /** Ya lo envió y Recursos Humanos lo está revisando. */
+    en_revision?: boolean;
+    /** Valor que envió (legible), mientras RH lo revisa. */
+    propuesto?: string | null;
+    /** El mismo valor sin formato (para evaluar condiciones). */
+    propuesto_valor?: string | null;
+    /** Solicitud en la que viaja ese dato. */
+    solicitud_id?: number | null;
+    /** RH le pidió corregir esa solicitud: le toca responder. */
+    requiere_respuesta?: boolean;
+    /** Falta, pero lo completa Recursos Humanos (no se le pide). */
+    solo_rh?: boolean;
+    /** Teclado sugerido en el celular. */
+    teclado?: 'tel' | 'numeric' | 'email' | null;
 };
 
 export type CampoListaSolicitud = {
@@ -75,6 +93,36 @@ export type SeccionSolicitud = {
     origen: 'app' | 'rh' | null;
     campos: CampoSolicitud[];
     lista: ListaSolicitud | null;
+};
+
+/** Sección vista por la propia persona: qué le falta a ELLA. */
+export type SeccionMiSolicitud = SeccionSolicitud & {
+    /** Datos que la persona todavía debe llenar aquí (uno por renglón). */
+    por_llenar: string[];
+    /** Datos personales que ya envió y RH revisa (para ella, ya llenados). */
+    en_revision: string[];
+    /** Lo que falta y completa Recursos Humanos. */
+    de_rh: string[];
+    /** true = a la persona ya no le falta nada en esta sección. */
+    lista_propia: boolean;
+};
+
+/**
+ * Avance de la persona en su solicitud (fuente única: la misma cifra en
+ * «Mis pendientes», el encabezado y cada paso).
+ */
+export type AvanceMiSolicitud = {
+    por_llenar: number;
+    en_revision: number;
+    secciones_pendientes: number;
+    total: number;
+    porcentaje: number;
+    /** A la persona ya no le falta nada (puede haber datos en revisión). */
+    listo: boolean;
+    /** Todo está en el expediente: RH ya puede generar los documentos. */
+    completo: boolean;
+    /** «Te faltan 6 datos en 2 secciones». */
+    frase: string;
 };
 
 export type DocumentoCompletitudSolicitud = {

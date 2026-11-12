@@ -4,6 +4,7 @@ namespace App\Services\Expedientes;
 
 use App\Enums\EstadoCivil;
 use App\Enums\EstadoRepublica;
+use App\Enums\EstadoSolicitudInterna;
 use App\Enums\Genero;
 use App\Enums\TipoSolicitudInterna;
 use App\Models\Colaborador;
@@ -256,11 +257,25 @@ class ActualizacionDatosService
      * Cada dato personal con su valor vigente, para el formulario mixto:
      * vacío → «Completar información»; con valor → «Solicitar cambio».
      *
-     * @return list<array{campo: string, etiqueta: string, tipo: string, opciones?: list<array{value: string, label: string}>, actual: string|null, actual_legible: string|null}>
+     * `obligatorio` distingue lo que piden los contratos de lo opcional;
+     * `en_revision` trae lo que la persona ya envió y RH aún no resuelve.
+     *
+     * @return list<array{campo: string, etiqueta: string, tipo: string, opciones?: list<array{value: string, label: string}>, obligatorio: bool, en_revision: string|null, solicitud_id: int|null, actual: string|null, actual_legible: string|null}>
      */
     public function camposConValor(Colaborador $colaborador): array
     {
-        return array_map(function (array $c) use ($colaborador): array {
+        $abiertos = $this->propuestosAbiertos($colaborador);
+
+        return array_map(function (array $c) use ($colaborador, $abiertos): array {
+            // Lo que ya envió y RH aún revisa: se muestra, no se vuelve a pedir.
+            $abierto = $abiertos[$c['campo']] ?? null;
+            $c = [
+                ...$c,
+                'obligatorio' => array_key_exists($c['campo'], DatosFaltantesService::PERSONALES),
+                'en_revision' => $abierto !== null ? $abierto['legible'] : null,
+                'solicitud_id' => $abierto !== null ? $abierto['solicitud_id'] : null,
+            ];
+
             // Dato médico: solo se dice si ya hay algo registrado, nunca su valor.
             if ($this->esSensible($c['campo'])) {
                 $registrado = $this->valorVigente($colaborador, $c['campo']) !== null;
@@ -272,6 +287,82 @@ class ActualizacionDatosService
 
             return [...$c, 'actual' => $actual, 'actual_legible' => $this->legible($c['campo'], $actual)];
         }, $this->camposCaptura());
+    }
+
+    /**
+     * Lo que la persona YA propuso en una solicitud que Recursos Humanos
+     * todavía no resuelve (enviada, en revisión o con corrección pedida):
+     * campo => valor propuesto. Sirve para no pedir dos veces el mismo dato
+     * y mostrarlo como «En revisión por RH». De un dato médico nunca sale su
+     * valor (solo que está en revisión).
+     *
+     * @return array<string, array{valor: string, legible: string, solicitud_id: int, folio: string, requiere_respuesta: bool}>
+     */
+    public function propuestosAbiertos(Colaborador $colaborador): array
+    {
+        $abiertos = [];
+
+        $solicitudes = SolicitudInterna::query()
+            ->where('colaborador_id', $colaborador->id)
+            ->where('tipo', TipoSolicitudInterna::ActualizacionDatos->value)
+            ->whereIn('estado', [EstadoSolicitudInterna::Enviada->value, EstadoSolicitudInterna::EnRevision->value, EstadoSolicitudInterna::RequiereCorreccion->value])
+            ->orderBy('id')
+            ->get();
+
+        foreach ($solicitudes as $solicitud) {
+            $comun = [
+                'solicitud_id' => (int) $solicitud->id,
+                'folio' => (string) $solicitud->folio,
+                'requiere_respuesta' => $solicitud->estado === EstadoSolicitudInterna::RequiereCorreccion,
+            ];
+
+            foreach ($solicitud->datos_propuestos ?? [] as $campo => $valor) {
+                $abiertos[(string) $campo] = ['valor' => $valor, 'legible' => (string) $this->legible((string) $campo, $valor), ...$comun];
+            }
+
+            foreach (array_keys($solicitud->datos_sensibles_propuestos ?? []) as $campo) {
+                $abiertos[(string) $campo] = ['valor' => self::CONFIDENCIAL, 'legible' => self::CONFIDENCIAL, ...$comun];
+            }
+        }
+
+        return $abiertos;
+    }
+
+    /**
+     * Quita el formato con el que la gente suele escribir (espacios y guiones
+     * en teléfono, NSS y C.P.; CURP/RFC en minúsculas o con espacios) ANTES
+     * de validar: «777 123 45 67» es un teléfono válido, no un error. Solo
+     * limpia separadores; un valor realmente inválido sigue fallando.
+     *
+     * @param  array<array-key, mixed>  $datos
+     * @return array<string, mixed>
+     */
+    public function limpiarCaptura(array $datos): array
+    {
+        $limpios = [];
+
+        foreach ($datos as $campo => $valor) {
+            $campo = (string) $campo;
+
+            if (! is_string($valor)) {
+                $limpios[$campo] = $valor;
+
+                continue;
+            }
+
+            $texto = trim((string) preg_replace('/\s+/u', ' ', $valor));
+            $compacto = (string) preg_replace('/[\s\-.()]/u', '', $texto);
+
+            $limpios[$campo] = match (true) {
+                // «+52 777 123 4567» → 7771234567 (solo si quedan 10 dígitos).
+                in_array($campo, ['telefono', 'contacto_emergencia_telefono'], true) => preg_match('/^\+?52(\d{10})$/', $compacto, $m) === 1 ? $m[1] : $compacto,
+                in_array($campo, ['curp', 'rfc'], true) => mb_strtoupper($compacto),
+                in_array($campo, ['nss', 'domicilio_cp'], true) => $compacto,
+                default => $texto,
+            };
+        }
+
+        return $limpios;
     }
 
     /**

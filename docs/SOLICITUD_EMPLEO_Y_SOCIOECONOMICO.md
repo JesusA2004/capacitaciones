@@ -222,6 +222,34 @@ Errores 422 (mensajes en español):
 - «No aplica» no permitido, lista con «No tengo…» y renglones a la vez, más
   renglones que los del formato.
 
+### Datos personales dentro de la misma pantalla (2026-11-12)
+
+`DatosPersonalesSolicitudService` (web «Mi solicitud de empleo» y esta API,
+mismo servicio). Solo AGREGA llaves; lo anterior no cambia.
+
+- Un dato personal (domicilio, teléfono, CURP…) que falta en el expediente
+  ya no llega bloqueado: llega con `bloqueado: false`, `origen:
+  "datos_personales"`, su `tipo` de control (`texto`, `select` con `opciones`,
+  `fecha`) y `teclado` (`tel` | `numeric` | `email` | null). Con la calle
+  faltante se agregan `domicilio_numero_exterior` (obligatorio) y
+  `domicilio_numero_interior` (opcional). Se mandan en `datos` del mismo
+  `POST …/{seccion}`.
+- Al guardar: en el registro abierto se guardan directo
+  (`RegistroAppService::guardarDatos`); después, viajan a RH como solicitud de
+  «Completar dato faltante» (`actualizacion_datos`) y se aplican al aprobarla.
+  Formato inválido → 422 `errors["datos.domicilio_cp"]`. Antes de validar se
+  quita el formato de captura (teléfono con espacios, CURP en minúsculas).
+- Lo ya enviado llega con `en_revision: true`, `propuesto` (texto legible),
+  `solicitud_id`, `requiere_respuesta` y `bloqueado: true`: no se pide otra vez.
+  `solo_rh: true` = falta pero lo completa RH.
+- Cada sección trae `por_llenar[]`, `en_revision[]`, `de_rh[]` y
+  `lista_propia` (a la persona ya no le falta nada ahí). `data.avance` =
+  `{ por_llenar, en_revision, secciones_pendientes, total, porcentaje, listo,
+  completo, frase }` es la FUENTE ÚNICA de «te faltan N datos»: la usan Mis
+  pendientes, el encabezado y cada paso. `completitud`/`completa`/`faltantes`
+  siguen diciendo lo que falta EN EL EXPEDIENTE para generar los documentos
+  (lo que está en revisión todavía cuenta como faltante ahí).
+
 ### Registro (`GET /api/v1/colaborador/registro`)
 
 Agrega `data.solicitud_empleo`:

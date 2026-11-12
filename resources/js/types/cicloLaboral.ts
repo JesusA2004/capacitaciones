@@ -4,7 +4,11 @@ import type {
     SemaforoRotacion,
 } from './bajas';
 import type { ContenidoPeriodoPrueba } from './formulariosEvaluacion';
-import type { EstadoSolicitudEmpleo } from './solicitudEmpleo';
+import type {
+    AvanceMiSolicitud,
+    EstadoSolicitudEmpleo,
+    SeccionMiSolicitud,
+} from './solicitudEmpleo';
 /**
  * Contrato del DTO de App\Services\CicloLaboral\CicloLaboralService::obtenerEstado()
  * — la misma forma la consumen la web (Inertia) y la app móvil (API v1).
@@ -951,7 +955,12 @@ export type RevisionInduccion = {
 };
 
 /** Solicitud de empleo de la propia persona (web «Mi solicitud de empleo» y app). */
-export type EstadoMiSolicitudEmpleo = EstadoSolicitudEmpleo & {
+export type EstadoMiSolicitudEmpleo = Omit<
+    EstadoSolicitudEmpleo,
+    'secciones'
+> & {
+    secciones: SeccionMiSolicitud[];
+    avance: AvanceMiSolicitud;
     registro_abierto: boolean;
     exigida: boolean;
     /** app = durante su registro (todo editable); completar = solo lo vacío. */
