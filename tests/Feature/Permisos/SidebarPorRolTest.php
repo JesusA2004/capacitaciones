@@ -84,11 +84,16 @@ function sbColaborador(): array
     return [
         'Mi inicio' => [[], 'portal.index'],
         'Mi expediente' => [['expedientes.ver'], 'mi-expediente'],
+        // Siempre los propios: toda cuenta con colaborador vinculado.
+        'Mis documentos laborales' => [[], 'portal.documentos-laborales.index'],
+        'Mis contratos' => [[], 'portal.contratos'],
         'Mis solicitudes' => [['portal.solicitudes.ver', 'solicitudes.crear'], 'solicitudes.index'],
         'Mis notificaciones' => [[], 'portal.notificaciones'],
         'Mi inducción' => [[], 'portal.induccion.ver'],
         'Celebraciones' => [[], 'celebraciones.index'],
-        'Directorio' => [[], 'directorio.index'],
+        // El menú lo muestra con `features.directorio` (directorio.ver o
+        // Corporativo): el rol colaborador (gestores) no tiene el módulo.
+        'Directorio' => [['directorio.ver'], 'directorio.index'],
         'Mi agenda' => [['agenda.ver'], 'agenda.index'],
     ];
 }
