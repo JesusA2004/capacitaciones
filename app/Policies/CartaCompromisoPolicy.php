@@ -44,6 +44,18 @@ class CartaCompromisoPolicy
         return $usuario->can(GestionCartasCompromisoService::PERMISO_SUBIR_FIRMADA)
             && ! $carta->firmada()
             && $carta->estado !== EstadoCartaCompromiso::Sustituida
+            && ! $carta->estado->sinAprobar()
+            && $this->alcanza($usuario, $carta);
+    }
+
+    /**
+     * Aprobación final de RH (o rechazo con motivo) de la carta que pidió la
+     * propia persona. Nunca la propia (alcanza() la excluye).
+     */
+    public function aprobar(User $usuario, CartaCompromiso $carta): bool
+    {
+        return $usuario->can(GestionCartasCompromisoService::PERMISO_APROBAR)
+            && $carta->estado === EstadoCartaCompromiso::PendienteAprobacion
             && $this->alcanza($usuario, $carta);
     }
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Rh;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CartasCompromiso\GenerarCartaCompromisoRequest;
+use App\Http\Requests\CartasCompromiso\RechazarCartaCompromisoRequest;
 use App\Http\Requests\CartasCompromiso\SubirCartaCompromisoFirmadaRequest;
 use App\Models\CartaCompromiso;
 use App\Models\Colaborador;
@@ -50,6 +51,7 @@ class GestionCartasCompromisoController extends Controller
             ],
             'puedeGenerar' => $usuario->can(GestionCartasCompromisoService::PERMISO_GENERAR),
             'puedeDescargar' => $usuario->can(GestionCartasCompromisoService::PERMISO_DESCARGAR),
+            'puedeAprobar' => $usuario->can(GestionCartasCompromisoService::PERMISO_APROBAR),
             'reglas' => $this->reglas(),
         ]);
     }
@@ -128,6 +130,28 @@ class GestionCartasCompromisoController extends Controller
         return Inertia::render('Rh/CartasCompromiso/Show', [
             'carta' => $this->gestion->detalle($carta->refresh(), $request->user()),
         ]);
+    }
+
+    /** Aprobación final de RH: la carta queda vigente y su plazo corre desde hoy. */
+    public function aprobar(Request $request, CartaCompromiso $carta): RedirectResponse
+    {
+        $this->authorize('aprobar', $carta);
+
+        $carta = $this->gestion->aprobar($carta, $request->user());
+
+        return back()->with('toast', [
+            'type' => 'success',
+            'message' => sprintf('Carta %s aprobada: el plazo vence el %s. Imprímela para que la firme y sube el escaneo firmado.', (string) $carta->folio, $carta->fecha_limite->format('d/m/Y')),
+        ]);
+    }
+
+    public function rechazar(RechazarCartaCompromisoRequest $request, CartaCompromiso $carta): RedirectResponse
+    {
+        $this->authorize('aprobar', $carta);
+
+        $carta = $this->gestion->rechazar($carta, $request->user(), $request->motivo());
+
+        return back()->with('toast', ['type' => 'success', 'message' => sprintf('Carta %s rechazada. Se le avisó a la persona con el motivo.', (string) $carta->folio)]);
     }
 
     public function pdf(Request $request, CartaCompromiso $carta): Response

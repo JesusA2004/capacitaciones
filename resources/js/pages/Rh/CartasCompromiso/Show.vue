@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     ArrowLeft,
+    Ban,
+    BadgeCheck,
     CalendarClock,
     CircleCheck,
     CircleDashed,
@@ -26,9 +28,15 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { formatearFecha, formatearFechaHora } from '@/lib/fechas';
 import { dashboard } from '@/routes';
-import { index, subirFirmada } from '@/routes/rh/cartas-compromiso';
+import {
+    aprobar,
+    index,
+    rechazar,
+    subirFirmada,
+} from '@/routes/rh/cartas-compromiso';
 import type { CartaCompromisoDetalle } from '@/types';
 
 const props = defineProps<{ carta: CartaCompromisoDetalle }>();
@@ -44,14 +52,31 @@ defineOptions({
 });
 
 const VARIANTE_ESTADO = {
+    pendiente_aprobacion: 'warning',
+    rechazada: 'secondary',
     vigente: 'info',
     cumplida: 'success',
     vencida: 'destructive',
     sustituida: 'secondary',
 } as const;
 
+/** Solicitud de la persona que RH aún no aprueba (o rechazó): sin plazo ni firma. */
+const sinAprobar = computed(
+    () =>
+        props.carta.estado === 'pendiente_aprobacion' ||
+        props.carta.estado === 'rechazada',
+);
+
 const plazo = computed(() => {
     const c = props.carta;
+
+    if (c.estado === 'pendiente_aprobacion') {
+        return `Si la apruebas hoy, vence el ${formatearFecha(c.fecha_limite)} (${c.dias_plazo} días)`;
+    }
+
+    if (c.estado === 'rechazada') {
+        return 'Rechazada: no da plazo';
+    }
 
     if (c.estado !== 'vigente') {
         return `Fecha límite: ${formatearFecha(c.fecha_limite)}`;
@@ -121,6 +146,55 @@ function enviarFirmada() {
     });
 }
 
+// ───── Aprobación final de RH ─────
+const aprobando = ref(false);
+
+function aprobarCarta() {
+    router.post(
+        aprobar.url(props.carta.id),
+        {},
+        {
+            preserveScroll: true,
+            onStart: () => {
+                aprobando.value = true;
+            },
+            onFinish: () => {
+                aprobando.value = false;
+            },
+        },
+    );
+}
+
+const rechazoAbierto = ref(false);
+const formRechazo = useForm<{ motivo: string }>({ motivo: '' });
+
+function abrirRechazo() {
+    formRechazo.reset();
+    formRechazo.clearErrors();
+    rechazoAbierto.value = true;
+}
+
+function enviarRechazo() {
+    formRechazo.post(rechazar.url(props.carta.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            rechazoAbierto.value = false;
+        },
+    });
+}
+
+const errorRechazo = computed(
+    () =>
+        formRechazo.errors.motivo ??
+        (formRechazo.errors as Record<string, string | undefined>).carta,
+);
+
+const puedeResolver = computed(
+    () =>
+        props.carta.estado === 'pendiente_aprobacion' &&
+        props.carta.puede.aprobar,
+);
+
 const extensionFirmada = computed(() => {
     const mime = props.carta.archivo_firmado?.mime ?? '';
 
@@ -153,7 +227,24 @@ const extensionFirmada = computed(() => {
                 >
                     <Eye class="size-4" /> Ver carta
                 </Button>
-                <Button v-if="carta.puede.subir_firmada" @click="abrirSubir">
+                <Button
+                    v-if="puedeResolver"
+                    :disabled="aprobando"
+                    @click="aprobarCarta"
+                >
+                    <BadgeCheck class="size-4" /> Aprobar carta
+                </Button>
+                <Button
+                    v-if="puedeResolver"
+                    variant="outline"
+                    @click="abrirRechazo"
+                >
+                    <Ban class="size-4" /> Rechazar
+                </Button>
+                <Button
+                    v-if="carta.puede.subir_firmada && !sinAprobar"
+                    @click="abrirSubir"
+                >
                     <Upload class="size-4" /> Subir carta firmada
                 </Button>
                 <Button
@@ -170,9 +261,11 @@ const extensionFirmada = computed(() => {
             <Badge :variant="VARIANTE_ESTADO[carta.estado]">{{
                 carta.estado_etiqueta
             }}</Badge>
-            <Badge :variant="carta.firmada ? 'success' : 'warning'">{{
-                carta.firmada ? 'Firmada' : 'Pendiente de firma'
-            }}</Badge>
+            <Badge
+                v-if="!sinAprobar"
+                :variant="carta.firmada ? 'success' : 'warning'"
+                >{{ carta.firmada ? 'Firmada' : 'Pendiente de firma' }}</Badge
+            >
             <span
                 class="text-sm"
                 :class="
@@ -182,6 +275,33 @@ const extensionFirmada = computed(() => {
                 "
                 >{{ plazo }}</span
             >
+        </div>
+
+        <div
+            v-if="carta.estado === 'pendiente_aprobacion'"
+            class="rounded-2xl border border-[var(--mrl-borde)] bg-warning-soft p-4 text-sm"
+        >
+            <p class="font-semibold text-warning">
+                Pendiente de aprobación de Recursos Humanos
+            </p>
+            <p class="text-muted-foreground">
+                La propia persona pidió esta carta y eligió los documentos.
+                Mientras no se apruebe no le da plazo ni le levanta el bloqueo
+                de la app; al aprobarla, el plazo de
+                {{ carta.dias_plazo }} días empieza a correr ese día y la carta
+                se guarda en su expediente para que la firme.
+            </p>
+        </div>
+        <div
+            v-else-if="carta.estado === 'rechazada'"
+            class="rounded-2xl border border-[var(--mrl-borde)] bg-crema p-4 text-sm"
+        >
+            <p class="font-semibold">
+                Rechazada por {{ carta.rechazada_por ?? 'Recursos Humanos' }}
+            </p>
+            <p class="text-muted-foreground">
+                Motivo: {{ carta.motivo_rechazo ?? '—' }}
+            </p>
         </div>
 
         <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)]">
@@ -232,8 +352,15 @@ const extensionFirmada = computed(() => {
                         <p class="font-semibold">
                             {{ carta.dias_plazo }} días naturales
                         </p>
-                        <p class="text-muted-foreground">
+                        <p v-if="sinAprobar" class="text-muted-foreground">
+                            Corre desde la aprobación de RH.
+                        </p>
+                        <p v-else class="text-muted-foreground">
                             Límite: {{ formatearFecha(carta.fecha_limite) }}
+                            <template v-if="carta.aprobada_por">
+                                · Aprobada por
+                                {{ carta.aprobada_por }}</template
+                            >
                         </p>
                     </div>
                     <div>
@@ -307,7 +434,7 @@ const extensionFirmada = computed(() => {
                         <span
                             class="absolute top-1 -left-[1.6rem] size-3 rounded-full border-2 border-card"
                             :class="
-                                e.clave === 'vencida'
+                                e.clave === 'vencida' || e.clave === 'rechazada'
                                     ? 'bg-destructive'
                                     : e.clave === 'sustituida'
                                       ? 'bg-muted-foreground'
@@ -357,6 +484,51 @@ const extensionFirmada = computed(() => {
         :nombre="`Carta compromiso firmada ${carta.folio ?? ''}.${extensionFirmada}`"
         :mime="carta.archivo_firmado.mime"
     />
+
+    <Dialog v-model:open="rechazoAbierto">
+        <DialogContent class="sm:max-w-lg">
+            <DialogHeader>
+                <DialogTitle>Rechazar carta compromiso</DialogTitle>
+                <DialogDescription>
+                    La carta {{ carta.folio }} no dará plazo a
+                    {{ carta.colaborador?.nombre }}. Se le avisará con este
+                    motivo y podrá subir sus documentos o pedir otra carta.
+                </DialogDescription>
+            </DialogHeader>
+            <form class="flex flex-col gap-4" @submit.prevent="enviarRechazo">
+                <div class="flex flex-col gap-1.5">
+                    <Label for="motivo-rechazo">Motivo</Label>
+                    <Textarea
+                        id="motivo-rechazo"
+                        v-model="formRechazo.motivo"
+                        :rows="3"
+                        maxlength="500"
+                        placeholder="Por ejemplo: el acta ya se puede tramitar en línea; súbela esta semana."
+                    />
+                    <InputError :message="errorRechazo" />
+                </div>
+                <DialogFooter class="gap-2">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        @click="rechazoAbierto = false"
+                    >
+                        Cancelar
+                    </Button>
+                    <Button
+                        type="submit"
+                        variant="destructive"
+                        :disabled="
+                            formRechazo.motivo.trim().length < 5 ||
+                            formRechazo.processing
+                        "
+                    >
+                        <Ban class="size-4" /> Rechazar carta
+                    </Button>
+                </DialogFooter>
+            </form>
+        </DialogContent>
+    </Dialog>
 
     <Dialog v-model:open="subirAbierto">
         <DialogContent class="max-h-[92vh] overflow-y-auto sm:max-w-3xl">

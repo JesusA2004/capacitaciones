@@ -536,6 +536,7 @@ return [
                 'cartas_compromiso.generar' => 'Generar / asignar (con vista previa)',
                 'cartas_compromiso.subir_firmada' => 'Subir carta firmada',
                 'cartas_compromiso.descargar' => 'Ver / imprimir la carta (PDF)',
+                'cartas_compromiso.aprobar' => 'Aprobar / rechazar la carta que pide la persona',
             ],
         ],
         'evaluaciones' => [
@@ -989,6 +990,7 @@ return [
         'cartas_compromiso.generar' => 'Genera la carta compromiso de una persona de nuevo ingreso (máximo de documentos y plazo de la configuración), con vista previa antes de generarla.',
         'cartas_compromiso.subir_firmada' => 'Sube el escaneo de la carta firmada (con huella) por quien entra; queda en su expediente.',
         'cartas_compromiso.descargar' => 'Abre e imprime el PDF de la carta compromiso (solo la carta, no el resto del expediente) para que la firme quien entra.',
+        'cartas_compromiso.aprobar' => 'Aprobación final de RH de la carta compromiso que pidió la propia persona desde «Mi expediente» o la app: al aprobarla empieza a correr el plazo; al rechazarla (con motivo) no da plazo. Por defecto solo RH.',
         'documentos.ver' => 'Ve qué documentos tiene el expediente y su estado.',
         'documentos.descargar' => 'Abre o descarga los archivos del expediente (incluye el acuse IMSS y el expediente completo).',
         'documentos.subir' => 'Sube cualquier documento al expediente (RH; el colaborador, solo al suyo).',

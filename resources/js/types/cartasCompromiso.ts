@@ -3,9 +3,16 @@
  */
 
 export type EstadoCartaCompromiso =
-    'vigente' | 'cumplida' | 'vencida' | 'sustituida';
+    | 'pendiente_aprobacion'
+    | 'rechazada'
+    | 'vigente'
+    | 'cumplida'
+    | 'vencida'
+    | 'sustituida';
 
 export type PestanaCartasCompromiso =
+    | 'por_aprobar'
+    | 'rechazadas'
     | 'pendientes_firma'
     | 'vigentes'
     | 'por_vencer'
@@ -34,6 +41,8 @@ export type CartaCompromisoFila = {
     generada_en: string;
     firmada: boolean;
     firmada_en: string | null;
+    /** La pidió la propia persona (requiere aprobación de RH). */
+    solicitada_por_colaborador: boolean;
     documentos: string[];
     colaborador: PersonaCartaCompromiso | null;
     /** PDF inline (rh.cartas-compromiso.pdf) para el visor centrado. */
@@ -41,7 +50,15 @@ export type CartaCompromisoFila = {
 };
 
 export type EventoCartaCompromiso = {
-    clave: 'generada' | 'firmada' | 'cumplida' | 'vencida' | 'sustituida';
+    clave:
+        | 'solicitada'
+        | 'generada'
+        | 'aprobada'
+        | 'rechazada'
+        | 'firmada'
+        | 'cumplida'
+        | 'vencida'
+        | 'sustituida';
     titulo: string;
     detalle: string;
     fecha: string;
@@ -53,6 +70,11 @@ export type CartaCompromisoDetalle = CartaCompromisoFila & {
     dias_plazo: number;
     generada_por: string | null;
     firma_registrada_por: string | null;
+    aprobada_en: string | null;
+    aprobada_por: string | null;
+    rechazada_en: string | null;
+    rechazada_por: string | null;
+    motivo_rechazo: string | null;
     documentos_detalle: {
         document_type_id: number;
         nombre: string;
@@ -64,10 +86,11 @@ export type CartaCompromisoDetalle = CartaCompromisoFila & {
         mime: string | null;
         url: string;
     } | null;
-    puede: { descargar: boolean; subir_firmada: boolean };
+    puede: { descargar: boolean; subir_firmada: boolean; aprobar: boolean };
 };
 
 export type IndicadoresCartasCompromiso = {
+    por_aprobar: number;
     vigentes: number;
     por_vencer: number;
     vencidas: number;
@@ -103,4 +126,25 @@ export type PreparacionCartaCompromiso = {
         url: string;
         pdf_url: string;
     } | null;
+};
+
+/**
+ * «Mi expediente» → «Pedir carta compromiso»
+ * (SolicitudCartaCompromisoService::estado).
+ */
+export type SolicitudCartaCompromisoEstado = {
+    /** false: no aplica (no es nuevo ingreso, no le falta nada o ya tiene carta abierta). */
+    mostrar: boolean;
+    puede_solicitar: boolean;
+    motivo: string | null;
+    pendientes: {
+        document_type_id: number;
+        nombre: string;
+        descripcion: string | null;
+        estado_etiqueta: string;
+    }[];
+    max_documentos: number;
+    dias_plazo: number;
+    /** Fecha límite si RH la aprobara hoy (el plazo corre desde la aprobación). */
+    fecha_limite: string;
 };

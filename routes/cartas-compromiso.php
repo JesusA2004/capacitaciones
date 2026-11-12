@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Rh\CartaCompromisoController;
 use App\Http\Controllers\Rh\GestionCartasCompromisoController;
+use App\Http\Controllers\Rh\MiCartaCompromisoController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -32,4 +33,19 @@ Route::middleware(['auth', 'verified'])->prefix('rh/cartas-compromiso')->name('r
     Route::get('{carta}/pdf', [GestionCartasCompromisoController::class, 'pdf'])->name('pdf')->whereNumber('carta');
     Route::post('{carta}/firmada', [GestionCartasCompromisoController::class, 'subirFirmada'])->name('subir-firmada')->whereNumber('carta')->middleware('throttle:20,1');
     Route::get('{carta}/firmada', [GestionCartasCompromisoController::class, 'verFirmada'])->name('firmada')->whereNumber('carta');
+    // Aprobación final de RH de la carta que pidió la propia persona
+    // (CartaCompromisoPolicy::aprobar, permiso cartas_compromiso.aprobar).
+    Route::post('{carta}/aprobar', [GestionCartasCompromisoController::class, 'aprobar'])->name('aprobar')->whereNumber('carta')->middleware('throttle:20,1');
+    Route::post('{carta}/rechazar', [GestionCartasCompromisoController::class, 'rechazar'])->name('rechazar')->whereNumber('carta')->middleware('throttle:20,1');
+});
+
+/*
+| «Mi expediente» → «Pedir carta compromiso» (modo colaborador): la propia
+| persona elige sus documentos pendientes, ve la vista previa y la envía;
+| queda pendiente de aprobación de RH. Reglas en
+| SolicitudCartaCompromisoService (mismo que la app).
+*/
+Route::middleware(['auth', 'verified', 'can:modo-colaborador'])->prefix('mi-expediente/carta-compromiso')->name('portal.carta-compromiso.')->group(function () {
+    Route::post('vista-previa', [MiCartaCompromisoController::class, 'vistaPrevia'])->name('vista-previa')->middleware('throttle:20,1');
+    Route::post('/', [MiCartaCompromisoController::class, 'store'])->name('store')->middleware('throttle:10,1');
 });

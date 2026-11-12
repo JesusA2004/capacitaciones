@@ -9,14 +9,20 @@ use App\Models\CartaCompromiso;
 use App\Models\Colaborador;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Auditoria\AuditoriaService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
 use App\Services\Incorporacion\RegistroAppService;
+use App\Services\Notificaciones\Aviso;
+use App\Services\Notificaciones\NotificacionEventosService;
 use App\Support\FechaMexico;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
+use Throwable;
 
 /**
  * Módulo «Cartas compromiso» (grupo 2 · Contratación y expediente): la
@@ -53,8 +59,11 @@ class GestionCartasCompromisoService
 
     public const PERMISO_DESCARGAR = 'cartas_compromiso.descargar';
 
+    /** Aprobar (o rechazar) la carta que pidió la propia persona. */
+    public const PERMISO_APROBAR = 'cartas_compromiso.aprobar';
+
     /** Pestañas de la lista. */
-    public const PESTANAS = ['pendientes_firma', 'vigentes', 'por_vencer', 'vencidas', 'cumplidas', 'firmadas', 'todas', 'sustituidas'];
+    public const PESTANAS = ['por_aprobar', 'pendientes_firma', 'vigentes', 'por_vencer', 'vencidas', 'cumplidas', 'firmadas', 'todas', 'rechazadas', 'sustituidas'];
 
     public function __construct(
         private readonly CartaCompromisoService $cartas,
@@ -63,6 +72,8 @@ class GestionCartasCompromisoService
         private readonly OrganizacionJerarquiaService $jerarquia,
         private readonly RegistroAppService $registro,
         private readonly BuscadorColaboradoresService $buscador,
+        private readonly AuditoriaService $auditoria,
+        private readonly NotificacionEventosService $eventos,
     ) {}
 
     public function diasPorVencer(): int
@@ -218,6 +229,134 @@ class GestionCartasCompromisoService
     }
 
     /**
+     * Aprobación final de RH de la carta que pidió la propia persona: pasa a
+     * `vigente`, el plazo empieza a correr HOY (fecha límite = hoy +
+     * dias_plazo, la de la solicitud era provisional) y desde ese momento
+     * levanta el bloqueo de la app. Después se guarda el PDF en el
+     * expediente y se le avisa a la persona que la firme.
+     *
+     * @throws ValidationException
+     */
+    public function aprobar(CartaCompromiso $carta, User $actor): CartaCompromiso
+    {
+        $carta = DB::transaction(function () use ($carta, $actor): CartaCompromiso {
+            $bloqueada = $this->solicitudPorResolver($carta);
+
+            $bloqueada->update([
+                'estado' => EstadoCartaCompromiso::Vigente,
+                'fecha_limite' => FechaMexico::inicioDeHoy()->addDays($this->cartas->diasPlazo())->toDateString(),
+                'aprobada_en' => now(),
+                'aprobada_por' => $actor->id,
+            ]);
+
+            $this->auditoria->registrar('carta_compromiso_aprobada', $bloqueada, $actor, [
+                'colaborador_id' => $bloqueada->colaborador_id,
+                'folio' => $bloqueada->folio,
+                'fecha_limite' => $bloqueada->fecha_limite->toDateString(),
+            ]);
+
+            return $bloqueada;
+        });
+
+        $colaborador = $carta->colaborador;
+        $usuario = $colaborador?->user;
+
+        // Si esperaba la carta automática, esta la resuelve.
+        if ($usuario !== null && $this->registro->cartaDiferida($usuario)) {
+            $this->registro->resolverCartaDiferida($usuario, $carta);
+        }
+
+        $carta = $this->cartas->completarAprobacion($carta, $actor);
+
+        // Si mientras esperaba ya subió lo comprometido, queda cumplida.
+        if ($colaborador !== null) {
+            $this->cartas->sincronizarSinFallar($colaborador);
+        }
+
+        return $carta->refresh();
+    }
+
+    /**
+     * RH no aprueba la solicitud (con motivo): queda `rechazada` como
+     * historial, no da plazo y la persona puede pedir otra (o subir sus
+     * documentos). Se le avisa con el motivo.
+     *
+     * @throws ValidationException
+     */
+    public function rechazar(CartaCompromiso $carta, User $actor, string $motivo): CartaCompromiso
+    {
+        $motivo = trim($motivo);
+
+        if (mb_strlen($motivo) < 5) {
+            throw ValidationException::withMessages(['motivo' => 'Escribe el motivo del rechazo (al menos 5 caracteres): la persona lo verá.']);
+        }
+
+        $carta = DB::transaction(function () use ($carta, $actor, $motivo): CartaCompromiso {
+            $bloqueada = $this->solicitudPorResolver($carta);
+
+            $bloqueada->update([
+                'estado' => EstadoCartaCompromiso::Rechazada,
+                'rechazada_en' => now(),
+                'rechazada_por' => $actor->id,
+                'motivo_rechazo' => mb_substr($motivo, 0, 500),
+            ]);
+
+            $this->auditoria->registrar('carta_compromiso_rechazada', $bloqueada, $actor, [
+                'colaborador_id' => $bloqueada->colaborador_id,
+                'folio' => $bloqueada->folio,
+            ]);
+
+            return $bloqueada;
+        });
+
+        $this->avisarRechazo($carta);
+
+        return $carta;
+    }
+
+    /**
+     * @throws ValidationException
+     */
+    private function solicitudPorResolver(CartaCompromiso $carta): CartaCompromiso
+    {
+        $bloqueada = CartaCompromiso::query()->whereKey($carta->id)->lockForUpdate()->firstOrFail();
+
+        if ($bloqueada->estado !== EstadoCartaCompromiso::PendienteAprobacion) {
+            throw ValidationException::withMessages(['carta' => sprintf(
+                'Esta carta ya no está pendiente de aprobación (%s).',
+                mb_strtolower($this->cartas->estadoEfectivo($bloqueada)->etiqueta(), 'UTF-8'),
+            )]);
+        }
+
+        return $bloqueada;
+    }
+
+    private function avisarRechazo(CartaCompromiso $carta): void
+    {
+        try {
+            $usuario = $carta->colaborador?->user;
+
+            $this->eventos->avisarResultado($usuario, new Aviso(
+                'carta_compromiso_rechazada',
+                'incorporacion',
+                'RH no aprobó tu carta compromiso',
+                sprintf(
+                    'Recursos Humanos no aprobó tu carta compromiso %s. Motivo: %s. Sube tus documentos pendientes o pide una carta nueva desde «Mi expediente».',
+                    (string) $carta->folio,
+                    (string) $carta->motivo_rechazo,
+                ),
+                $carta,
+                'rechazada',
+                'alta',
+                ['carta_compromiso_id' => $carta->id],
+                sprintf('carta-rechazo-%d', $carta->id),
+            ));
+        } catch (Throwable $e) {
+            Log::warning('CartaCompromiso: no se pudo avisar el rechazo a la persona.', ['carta_id' => $carta->id, 'error' => $e->getMessage()]);
+        }
+    }
+
+    /**
      * Buscador del formulario (sin mínimo de letras: lista completa al
      * enfocar, filtra al escribir; cada palabra en nombre, número, puesto,
      * departamento o sucursal): personas de nuevo ingreso del alcance.
@@ -283,8 +422,10 @@ class GestionCartasCompromisoService
             ));
         }
 
-        // Primero las pendientes de firma, luego por fecha límite.
-        return $query->orderByRaw('firmada_en is not null')
+        // Primero las que esperan aprobación de RH, luego las pendientes de
+        // firma, luego por fecha límite.
+        return $query->orderByRaw('estado = ? desc', [EstadoCartaCompromiso::PendienteAprobacion->value])
+            ->orderByRaw('firmada_en is not null')
             ->orderBy('fecha_limite')
             ->orderByDesc('id')
             ->paginate(Paginacion::porPagina(20, $filtros['per_page'] ?? null));
@@ -293,7 +434,7 @@ class GestionCartasCompromisoService
     /**
      * Indicadores de la cabecera (sobre todo el alcance, no la página).
      *
-     * @return array{vigentes: int, por_vencer: int, vencidas: int, cumplidas: int, firmadas: int, pendientes_firma: int}
+     * @return array{por_aprobar: int, vigentes: int, por_vencer: int, vencidas: int, cumplidas: int, firmadas: int, pendientes_firma: int}
      */
     public function indicadores(User $usuario): array
     {
@@ -305,6 +446,7 @@ class GestionCartasCompromisoService
         };
 
         return [
+            'por_aprobar' => $contar('por_aprobar'),
             'vigentes' => $contar('vigentes'),
             'por_vencer' => $contar('por_vencer'),
             'vencidas' => $contar('vencidas'),
@@ -335,6 +477,7 @@ class GestionCartasCompromisoService
             'generada_en' => $carta->generada_en->toIso8601String(),
             'firmada' => $carta->firmada(),
             'firmada_en' => $carta->firmada_en?->toIso8601String(),
+            'solicitada_por_colaborador' => $carta->solicitada_por_colaborador,
             'documentos' => array_map(fn (array $d): string => (string) $d['nombre'], $carta->documentos),
             'colaborador' => $colaborador !== null ? $this->resumenColaborador($colaborador) : null,
             // «Ver» desde la lista (visor centrado); lo autoriza la Policy (descargar).
@@ -349,19 +492,39 @@ class GestionCartasCompromisoService
      */
     public function detalle(CartaCompromiso $carta, User $usuario): array
     {
-        $carta->loadMissing(['generadaPor', 'firmaRegistradaPor', 'documentoFirmado', 'colaborador' => fn ($q) => $q->withTrashed()]);
+        $carta->loadMissing(['generadaPor', 'firmaRegistradaPor', 'aprobadaPor', 'rechazadaPor', 'documentoFirmado', 'colaborador' => fn ($q) => $q->withTrashed()]);
         $colaborador = $carta->colaborador;
         $pendientes = $colaborador !== null ? $this->pendientes->idsPendientes($colaborador) : [];
         $generadaPorLaPersona = $carta->generada_por !== null && $carta->generada_por === $colaborador?->user?->id;
 
         $eventos = [[
-            'clave' => 'generada',
-            'titulo' => 'Carta generada',
-            'detalle' => $generadaPorLaPersona
-                ? 'La propia persona, al cerrar su registro en la app.'
-                : sprintf('Por %s.', $carta->generadaPor?->nombreCompleto() ?? 'el sistema'),
+            'clave' => $carta->solicitada_por_colaborador ? 'solicitada' : 'generada',
+            'titulo' => $carta->solicitada_por_colaborador ? 'Carta solicitada' : 'Carta generada',
+            'detalle' => match (true) {
+                $carta->solicitada_por_colaborador => 'La propia persona la pidió y eligió los documentos; espera la aprobación de Recursos Humanos.',
+                $generadaPorLaPersona => 'La propia persona, al cerrar su registro en la app.',
+                default => sprintf('Por %s.', $carta->generadaPor?->nombreCompleto() ?? 'el sistema'),
+            },
             'fecha' => $carta->generada_en->toIso8601String(),
         ]];
+
+        if ($carta->aprobada_en !== null) {
+            $eventos[] = [
+                'clave' => 'aprobada',
+                'titulo' => 'Aprobada por RH',
+                'detalle' => sprintf('Por %s. El plazo empezó a correr ese día.', $carta->aprobadaPor?->nombreCompleto() ?? 'Recursos Humanos'),
+                'fecha' => $carta->aprobada_en->toIso8601String(),
+            ];
+        }
+
+        if ($carta->rechazada_en !== null) {
+            $eventos[] = [
+                'clave' => 'rechazada',
+                'titulo' => 'Rechazada por RH',
+                'detalle' => sprintf('Por %s. Motivo: %s', $carta->rechazadaPor?->nombreCompleto() ?? 'Recursos Humanos', (string) $carta->motivo_rechazo),
+                'fecha' => $carta->rechazada_en->toIso8601String(),
+            ];
+        }
 
         if ($carta->firmada_en !== null) {
             $eventos[] = [
@@ -389,8 +552,17 @@ class GestionCartasCompromisoService
             'cumplida_en' => $carta->cumplida_en?->toIso8601String(),
             'vencida_en' => $carta->vencida_en?->toIso8601String(),
             'dias_plazo' => $this->cartas->diasPlazo(),
-            'generada_por' => $generadaPorLaPersona ? 'La propia persona (registro en la app)' : $carta->generadaPor?->nombreCompleto(),
+            'generada_por' => match (true) {
+                $carta->solicitada_por_colaborador => 'La propia persona (solicitud)',
+                $generadaPorLaPersona => 'La propia persona (registro en la app)',
+                default => $carta->generadaPor?->nombreCompleto(),
+            },
             'firma_registrada_por' => $carta->firmaRegistradaPor?->nombreCompleto(),
+            'aprobada_en' => $carta->aprobada_en?->toIso8601String(),
+            'aprobada_por' => $carta->aprobadaPor?->nombreCompleto(),
+            'rechazada_en' => $carta->rechazada_en?->toIso8601String(),
+            'rechazada_por' => $carta->rechazadaPor?->nombreCompleto(),
+            'motivo_rechazo' => $carta->motivo_rechazo,
             'documentos_detalle' => array_map(fn (array $d): array => [
                 'document_type_id' => (int) $d['document_type_id'],
                 'nombre' => (string) $d['nombre'],
@@ -406,6 +578,7 @@ class GestionCartasCompromisoService
             'puede' => [
                 'descargar' => $usuario->can('descargar', $carta),
                 'subir_firmada' => $usuario->can('subirFirmada', $carta),
+                'aprobar' => $usuario->can('aprobar', $carta),
             ],
         ];
     }
@@ -427,7 +600,11 @@ class GestionCartasCompromisoService
         $hoy = FechaMexico::inicioDeHoy()->toDateString();
         $vigente = EstadoCartaCompromiso::Vigente->value;
 
+        $sinFirmaPosible = [EstadoCartaCompromiso::Sustituida->value, EstadoCartaCompromiso::PendienteAprobacion->value, EstadoCartaCompromiso::Rechazada->value];
+
         match ($pestana) {
+            'por_aprobar' => $query->where('estado', EstadoCartaCompromiso::PendienteAprobacion->value),
+            'rechazadas' => $query->where('estado', EstadoCartaCompromiso::Rechazada->value),
             'vigentes' => $query->where('estado', $vigente)->where('fecha_limite', '>=', $hoy),
             'por_vencer' => $query->where('estado', $vigente)->where('fecha_limite', '>=', $hoy)
                 ->where('fecha_limite', '<=', FechaMexico::inicioDeHoy()->addDays($this->diasPorVencer())->toDateString()),
@@ -436,18 +613,21 @@ class GestionCartasCompromisoService
                 ->orWhere(fn (Builder $v) => $v->where('estado', $vigente)->where('fecha_limite', '<', $hoy))),
             'cumplidas' => $query->where('estado', EstadoCartaCompromiso::Cumplida->value),
             'firmadas' => $query->whereNotNull('firmada_en')->where('estado', '!=', EstadoCartaCompromiso::Sustituida->value),
-            'pendientes_firma' => $query->whereNull('firmada_en')->where('estado', '!=', EstadoCartaCompromiso::Sustituida->value),
+            'pendientes_firma' => $query->whereNull('firmada_en')->whereNotIn('estado', $sinFirmaPosible),
             'sustituidas' => $query->where('estado', EstadoCartaCompromiso::Sustituida->value),
             default => $query->where('estado', '!=', EstadoCartaCompromiso::Sustituida->value),
         };
     }
 
-    /** Vigente o vencida (no sustituida ni cumplida). */
-    private function cartaAbierta(Colaborador $colaborador): ?CartaCompromiso
+    /**
+     * Vigente, vencida o pendiente de aprobación (no sustituida, cumplida ni
+     * rechazada): una persona solo puede tener una abierta.
+     */
+    public function cartaAbierta(Colaborador $colaborador): ?CartaCompromiso
     {
         $carta = $this->cartas->ultima($colaborador);
 
-        return $carta !== null && in_array($carta->estado, [EstadoCartaCompromiso::Vigente, EstadoCartaCompromiso::Vencida], true) ? $carta : null;
+        return $carta !== null && in_array($carta->estado, [EstadoCartaCompromiso::Vigente, EstadoCartaCompromiso::Vencida, EstadoCartaCompromiso::PendienteAprobacion], true) ? $carta : null;
     }
 
     private function motivoNoElegible(Colaborador $colaborador, int $pendientes, ?CartaCompromiso $abierta): ?string
@@ -457,6 +637,7 @@ class GestionCartasCompromisoService
         return match (true) {
             $colaborador->user?->hasRole('super_admin') === true => 'Las cuentas de super administrador no reciben carta compromiso.',
             ! $this->esNuevoIngreso($colaborador) => 'Solo el personal de nuevo ingreso (en contratación u onboarding) puede firmar una carta compromiso. El personal que ya laboraba debe subir sus documentos.',
+            $abierta?->estado === EstadoCartaCompromiso::PendienteAprobacion => sprintf('Ya pidió la carta %s y espera la aprobación de Recursos Humanos: apruébala o recházala desde «Cartas compromiso».', (string) $abierta->folio),
             $abierta !== null => sprintf('Ya tiene la carta %s (%s). Una persona solo puede tener una carta abierta: al entregar sus documentos queda cumplida.', (string) $abierta->folio, mb_strtolower($this->cartas->estadoEfectivo($abierta)->etiqueta(), 'UTF-8')),
             $pendientes === 0 => 'No le falta ningún documento obligatorio: no necesita carta compromiso.',
             $pendientes > $maximo => sprintf(

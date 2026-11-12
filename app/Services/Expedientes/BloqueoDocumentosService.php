@@ -12,7 +12,9 @@ use App\Services\Incorporacion\RegistroAppService;
  *
  * - Sin documentos exigibles pendientes (DocumentosPendientesService): no.
  * - Con carta compromiso dentro de plazo (persona de nuevo ingreso): no;
- *   la app muestra el aviso con la fecha límite.
+ *   la app muestra el aviso con la fecha límite. Una carta que la persona
+ *   pidió y RH todavía no aprueba (o rechazó) no cuenta: el plazo y el
+ *   desbloqueo empiezan con la aprobación.
  * - Con la carta vencida: sí («carta_vencida»).
  * - Nuevo ingreso que cerró su registro con más faltantes de los que cubre
  *   una carta (carta diferida): sí («excede_maximo_carta») hasta que le
@@ -95,6 +97,12 @@ class BloqueoDocumentosService
         }
 
         $carta = $this->cartas->ultima($colaborador);
+
+        // Una carta que la persona pidió y RH aún no aprueba (o rechazó) no
+        // da plazo: cuenta como si no tuviera carta.
+        if ($carta !== null && $carta->estado->sinAprobar()) {
+            $carta = null;
+        }
 
         if (! (bool) config('expedientes.bloqueo_documentos_faltantes', true)
             || $usuario->hasRole('super_admin')

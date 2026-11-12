@@ -9,6 +9,7 @@ import {
     FilePenLine,
     FileSignature,
     FileWarning,
+    Hourglass,
     Plus,
 } from '@lucide/vue';
 import { useDebounceFn } from '@vueuse/core';
@@ -46,6 +47,7 @@ const props = defineProps<{
     filtros: { pestana: PestanaCartasCompromiso; busqueda: string };
     puedeGenerar: boolean;
     puedeDescargar: boolean;
+    puedeAprobar: boolean;
     reglas: ReglasCartaCompromiso;
 }>();
 
@@ -59,6 +61,13 @@ defineOptions({
 });
 
 const estadisticas = computed(() => [
+    {
+        etiqueta: 'Por aprobar',
+        valor: props.indicadores.por_aprobar,
+        subvalor: 'Pedidas por la persona',
+        icono: Hourglass,
+        tono: 'warning' as const,
+    },
     {
         etiqueta: 'Vigentes',
         valor: props.indicadores.vigentes,
@@ -98,12 +107,14 @@ const estadisticas = computed(() => [
 
 const PESTANAS: { valor: PestanaCartasCompromiso; etiqueta: string }[] = [
     { valor: 'todas', etiqueta: 'Todas' },
+    { valor: 'por_aprobar', etiqueta: 'Por aprobar' },
     { valor: 'pendientes_firma', etiqueta: 'Pendientes de firma' },
     { valor: 'vigentes', etiqueta: 'Vigentes' },
     { valor: 'por_vencer', etiqueta: 'Por vencer' },
     { valor: 'vencidas', etiqueta: 'Vencidas' },
     { valor: 'cumplidas', etiqueta: 'Cumplidas' },
     { valor: 'firmadas', etiqueta: 'Firmadas' },
+    { valor: 'rechazadas', etiqueta: 'Rechazadas' },
     { valor: 'sustituidas', etiqueta: 'Historial (sustituidas)' },
 ];
 
@@ -130,6 +141,8 @@ function elegirPestana(valor: PestanaCartasCompromiso) {
 }
 
 const VARIANTE_ESTADO = {
+    pendiente_aprobacion: 'warning',
+    rechazada: 'secondary',
     vigente: 'info',
     cumplida: 'success',
     vencida: 'destructive',
@@ -146,6 +159,14 @@ function verCarta(c: CartaCompromisoFila) {
 }
 
 function textoPlazo(c: CartaCompromisoFila): string {
+    if (c.estado === 'pendiente_aprobacion') {
+        return 'El plazo corre al aprobarla';
+    }
+
+    if (c.estado === 'rechazada') {
+        return 'Sin plazo';
+    }
+
     if (c.estado !== 'vigente') {
         return `Límite: ${formatearFecha(c.fecha_limite)}`;
     }
@@ -264,9 +285,24 @@ function textoPlazo(c: CartaCompromisoFila): string {
                         <Badge :variant="VARIANTE_ESTADO[c.estado]">{{
                             c.estado_etiqueta
                         }}</Badge>
-                        <Badge :variant="c.firmada ? 'success' : 'warning'">{{
-                            c.firmada ? 'Firmada' : 'Pendiente de firma'
-                        }}</Badge>
+                        <Badge
+                            v-if="
+                                c.estado !== 'pendiente_aprobacion' &&
+                                c.estado !== 'rechazada'
+                            "
+                            :variant="c.firmada ? 'success' : 'warning'"
+                            >{{
+                                c.firmada ? 'Firmada' : 'Pendiente de firma'
+                            }}</Badge
+                        >
+                        <Badge
+                            v-else-if="
+                                c.estado === 'pendiente_aprobacion' &&
+                                puedeAprobar
+                            "
+                            variant="outline"
+                            >Revisar y aprobar</Badge
+                        >
                         <ChevronRight
                             class="hidden size-4 shrink-0 text-muted-foreground sm:block"
                         />

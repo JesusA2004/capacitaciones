@@ -3,6 +3,7 @@ import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import {
     CheckCircle2,
     Circle,
+    FilePenLine,
     FileSearch,
     FileText,
     FolderOpen,
@@ -41,10 +42,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { usePermisos } from '@/composables/usePermisos';
 import { formatearFecha } from '@/lib/fechas';
 import { vistaPreviaPost } from '@/lib/http';
 import { dashboard } from '@/routes';
 import rutasBajas from '@/routes/rh/bajas';
+import { create as nuevaCartaCompromiso } from '@/routes/rh/cartas-compromiso';
 import cierres from '@/routes/rh/cierres';
 import { activar as activarColaborador } from '@/routes/rh/colaboradores';
 import documentosLaborales from '@/routes/rh/documentos-laborales';
@@ -79,6 +82,8 @@ type DocumentoLaboral = {
     /** Acta, préstamo o responsiva: se regenera en su propio módulo. */
     origen?: { etiqueta: string; url: string } | null;
 };
+
+const { tienePermiso } = usePermisos();
 
 const props = defineProps<{
     siguientePaso: SiguientePaso;
@@ -730,6 +735,21 @@ const etiquetaFecha: Record<string, string> = {
             <Button as-child variant="secondary">
                 <Link :href="verExpediente.url(colaborador.id)"
                     ><FolderOpen class="size-4" /> Expediente</Link
+                >
+            </Button>
+            <!-- Carta compromiso: la pantalla valida si es elegible (nuevo ingreso, máx. de documentos). -->
+            <Button
+                v-if="tienePermiso('cartas_compromiso.generar')"
+                as-child
+                variant="outline"
+            >
+                <Link
+                    :href="
+                        nuevaCartaCompromiso.url({
+                            query: { colaborador: colaborador.id },
+                        })
+                    "
+                    ><FilePenLine class="size-4" /> Carta compromiso</Link
                 >
             </Button>
         </CrudPageHeader>

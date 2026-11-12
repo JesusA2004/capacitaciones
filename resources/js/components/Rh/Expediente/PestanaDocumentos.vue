@@ -33,6 +33,13 @@ const props = defineProps<{
     puedeVerExtraccion: boolean;
 }>();
 
+/** Algún requerido (no opcional) sin archivo: RH puede ofrecer la carta compromiso. */
+const faltanDocumentos = computed(() =>
+    props.documentosRequeridos.some(
+        (d) => d.tipo.requerido && !d.tipo.opcional && d.documento === null,
+    ),
+);
+
 const urlSubidaFoto = computed(() =>
     props.esPropio
         ? subirFotoPropia.url()
@@ -111,7 +118,11 @@ const urlSubidaFoto = computed(() =>
         :estado="esPropio ? colaborador.foto_estado : null"
     />
     <!-- Carta compromiso de documentos pendientes (si la tiene). -->
-    <CartaCompromisoTarjeta />
+    <CartaCompromisoTarjeta
+        :es-propio="esPropio"
+        :colaborador-id="colaborador.id"
+        :faltan-documentos="faltanDocumentos"
+    />
     <ExpedienteDocumentos
         :colaborador-id="colaborador.id"
         :documentos="documentosRequeridos"

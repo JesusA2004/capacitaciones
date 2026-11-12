@@ -57,6 +57,10 @@ class CartaCompromisoFirmaService
                 throw ValidationException::withMessages(['archivo' => 'Esta carta fue sustituida por una nueva: sube la firma de la carta vigente.']);
             }
 
+            if ($bloqueada->estado->sinAprobar()) {
+                throw ValidationException::withMessages(['archivo' => 'Esta carta todavía no está aprobada por Recursos Humanos: apruébala antes de subir su firma.']);
+            }
+
             if ($bloqueada->firmada()) {
                 throw ValidationException::withMessages(['archivo' => 'Esta carta ya tiene su escaneo firmado.']);
             }

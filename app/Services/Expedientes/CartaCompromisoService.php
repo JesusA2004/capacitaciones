@@ -97,7 +97,10 @@ class CartaCompromisoService
             return false;
         }
 
-        return ! CartaCompromiso::query()->where('colaborador_id', $colaborador->id)->exists();
+        return ! CartaCompromiso::query()
+            ->where('colaborador_id', $colaborador->id)
+            ->where('estado', '!=', EstadoCartaCompromiso::Rechazada->value)
+            ->exists();
     }
 
     /** La carta más reciente que no fue sustituida (vigente, cumplida o vencida). */
@@ -138,31 +141,39 @@ class CartaCompromisoService
      * dentro de la transacción de quien llama (p. ej. el cierre del registro);
      * después se llama completarGeneracion() ya fuera de la transacción.
      *
+     * Con $solicitudDelColaborador (la pide la propia persona desde «Mi
+     * expediente» o la app) nace `pendiente_aprobacion`: no sustituye a
+     * nada, no da plazo todavía (la fecha límite es provisional y se
+     * recalcula al aprobarla) y no se guarda su PDF hasta que RH la apruebe.
+     *
      * @param  array<int, int>  $documentTypeIds
      *
      * @throws ValidationException
      */
-    public function crear(Colaborador $colaborador, array $documentTypeIds, User $actor): CartaCompromiso
+    public function crear(Colaborador $colaborador, array $documentTypeIds, User $actor, bool $solicitudDelColaborador = false): CartaCompromiso
     {
         $documentos = $this->snapshotDocumentos($colaborador, $documentTypeIds);
 
-        return DB::transaction(function () use ($colaborador, $documentos, $actor): CartaCompromiso {
-            CartaCompromiso::query()
-                ->where('colaborador_id', $colaborador->id)
-                ->where('estado', EstadoCartaCompromiso::Vigente->value)
-                ->update(['estado' => EstadoCartaCompromiso::Sustituida->value, 'sustituida_en' => now()]);
+        return DB::transaction(function () use ($colaborador, $documentos, $actor, $solicitudDelColaborador): CartaCompromiso {
+            if (! $solicitudDelColaborador) {
+                CartaCompromiso::query()
+                    ->where('colaborador_id', $colaborador->id)
+                    ->where('estado', EstadoCartaCompromiso::Vigente->value)
+                    ->update(['estado' => EstadoCartaCompromiso::Sustituida->value, 'sustituida_en' => now()]);
+            }
 
             $carta = CartaCompromiso::query()->create([
                 'colaborador_id' => $colaborador->id,
-                'estado' => EstadoCartaCompromiso::Vigente,
+                'estado' => $solicitudDelColaborador ? EstadoCartaCompromiso::PendienteAprobacion : EstadoCartaCompromiso::Vigente,
                 'documentos' => $documentos,
                 'fecha_limite' => FechaMexico::inicioDeHoy()->addDays($this->diasPlazo())->toDateString(),
                 'generada_en' => now(),
                 'generada_por' => $actor->id,
+                'solicitada_por_colaborador' => $solicitudDelColaborador,
             ]);
             $carta->update(['folio' => sprintf('CC-%d-%06d', (int) now()->format('Y'), $carta->id)]);
 
-            $this->auditoria->registrar('carta_compromiso_generada', $carta, $actor, [
+            $this->auditoria->registrar($solicitudDelColaborador ? 'carta_compromiso_solicitada' : 'carta_compromiso_generada', $carta, $actor, [
                 'colaborador_id' => $colaborador->id,
                 'folio' => $carta->folio,
                 'documentos' => array_column($documentos, 'clave'),
@@ -184,6 +195,20 @@ class CartaCompromisoService
     {
         $this->asegurarPdf($carta, $actor);
         $this->avisarRh($carta);
+        $this->avisarColaboradorParaFirma($carta, $actor);
+
+        return $carta->refresh();
+    }
+
+    /**
+     * Tras aprobar RH la carta que pidió la propia persona: ya vigente y con
+     * su plazo nuevo, se guarda el PDF en el expediente y se le avisa que
+     * fue aprobada y que debe firmarla. Ninguno de los dos deshace la
+     * aprobación.
+     */
+    public function completarAprobacion(CartaCompromiso $carta, User $actor): CartaCompromiso
+    {
+        $this->asegurarPdf($carta, $actor);
         $this->avisarColaboradorParaFirma($carta, $actor);
 
         return $carta->refresh();
@@ -214,6 +239,12 @@ class CartaCompromisoService
      */
     public function pdf(CartaCompromiso $carta, ?User $actor = null): string
     {
+        // Solicitud sin aprobar: solo se ve como borrador (sin validez) y
+        // nunca se guarda en el expediente.
+        if ($carta->estado->sinAprobar()) {
+            return $this->renderizar($this->datosDeCarta($carta), true);
+        }
+
         if ($carta->path !== null) {
             try {
                 if ($this->storage->existe($carta->path)) {
@@ -248,8 +279,9 @@ class CartaCompromisoService
             return $this->generarDiferida($colaborador);
         }
 
-        // Vigente o vencida: una carta vencida también se cumple al subir lo que faltaba.
-        if ($carta->estado === EstadoCartaCompromiso::Cumplida) {
+        // Vigente, vencida o por aprobar: una carta vencida (o una solicitud
+        // que RH aún no aprueba) también se cumple al subir lo que faltaba.
+        if ($carta->estado === EstadoCartaCompromiso::Cumplida || $carta->estado === EstadoCartaCompromiso::Rechazada) {
             return $carta;
         }
 
@@ -327,7 +359,7 @@ class CartaCompromisoService
      * Contrato de la carta para la app (GET colaborador/carta-compromiso,
      * cierre del registro) y para el expediente en RH.
      *
-     * @return array{id: int, folio: string|null, estado: string, estado_etiqueta: string, fecha_limite: string, dias_restantes: int, documentos: list<array{document_type_id: int, nombre: string}>, generada_en: string|null, puede_descargar?: bool}
+     * @return array{id: int, folio: string|null, estado: string, estado_etiqueta: string, fecha_limite: string, dias_restantes: int, documentos: list<array{document_type_id: int, nombre: string}>, generada_en: string|null, motivo_rechazo: string|null, puede_descargar?: bool}
      */
     public function aArray(CartaCompromiso $carta, ?User $viewer = null): array
     {
@@ -345,6 +377,8 @@ class CartaCompromisoService
                 'nombre' => (string) $d['nombre'],
             ], $carta->documentos),
             'generada_en' => $carta->generada_en->toIso8601String(),
+            // Solo en una solicitud que RH rechazó.
+            'motivo_rechazo' => $carta->estado === EstadoCartaCompromiso::Rechazada ? $carta->motivo_rechazo : null,
         ];
 
         // GET colaborador/carta-compromiso/pdf solo entrega la propia. Sin quien mira, ausente = no.
@@ -482,7 +516,7 @@ class CartaCompromisoService
      */
     private function asegurarPdf(CartaCompromiso $carta, User $actor): ?string
     {
-        if ($carta->path !== null) {
+        if ($carta->path !== null || $carta->estado->sinAprobar()) {
             return null;
         }
 
@@ -574,9 +608,10 @@ class CartaCompromisoService
                 'carta_compromiso_por_firmar',
                 // La app abre su pantalla de incorporación/documentos y la web el portal.
                 'incorporacion',
-                'Firma tu carta compromiso',
+                $carta->solicitada_por_colaborador ? 'RH aprobó tu carta compromiso' : 'Firma tu carta compromiso',
                 sprintf(
-                    'Se generó tu carta compromiso %s: te comprometes a entregar %s a más tardar el %s. Fírmala (con tu huella) con tu gerente o con Recursos Humanos.',
+                    '%s tu carta compromiso %s: te comprometes a entregar %s a más tardar el %s. Fírmala (con tu huella) con tu gerente o con Recursos Humanos.',
+                    $carta->solicitada_por_colaborador ? 'Recursos Humanos aprobó' : 'Se generó',
                     (string) $carta->folio,
                     implode(' y ', array_map(fn (array $d): string => (string) $d['nombre'], $carta->documentos)),
                     $carta->fecha_limite->copy()->settings(['locale' => 'es'])->isoFormat('D [de] MMMM'),

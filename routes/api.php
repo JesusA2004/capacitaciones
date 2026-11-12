@@ -342,6 +342,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('carta-compromiso', [CartaCompromisoController::class, 'show'])->name('carta-compromiso.show');
             Route::get('carta-compromiso/pdf', [CartaCompromisoController::class, 'pdf'])->name('carta-compromiso.pdf');
             Route::post('carta-compromiso/vista-previa', [CartaCompromisoController::class, 'vistaPrevia'])->name('carta-compromiso.vista-previa')->middleware('throttle:20,1');
+            // Pedirla fuera del registro: queda pendiente de aprobación de RH.
+            Route::post('carta-compromiso/solicitar', [CartaCompromisoController::class, 'solicitar'])->name('carta-compromiso.solicitar')->middleware('throttle:10,1');
             Route::get('recibos', [CicloLaboralColaboradorController::class, 'recibos'])->name('recibos.index');
             Route::get('recibos/{recibo}', [CicloLaboralColaboradorController::class, 'recibo'])->name('recibos.show');
             Route::get('recibos/{recibo}/pdf', [CicloLaboralColaboradorController::class, 'reciboPdf'])->name('recibos.pdf');

@@ -27,6 +27,12 @@ use Illuminate\Support\Carbon;
  * @property int|null $firma_registrada_por
  * @property int|null $firmada_document_id Escaneo firmado en el expediente.
  * @property int|null $generada_por
+ * @property bool $solicitada_por_colaborador La pidió la propia persona (requiere aprobación de RH).
+ * @property Carbon|null $aprobada_en
+ * @property int|null $aprobada_por
+ * @property Carbon|null $rechazada_en
+ * @property int|null $rechazada_por
+ * @property string|null $motivo_rechazo
  * @property int|null $generated_document_id
  * @property string|null $disk
  * @property string|null $path
@@ -37,6 +43,8 @@ use Illuminate\Support\Carbon;
  * @property-read EmployeeDocument|null $documentoFirmado
  * @property-read User|null $generadaPor
  * @property-read User|null $firmaRegistradaPor
+ * @property-read User|null $aprobadaPor
+ * @property-read User|null $rechazadaPor
  */
 class CartaCompromiso extends Model
 {
@@ -56,6 +64,12 @@ class CartaCompromiso extends Model
         'firma_registrada_por',
         'firmada_document_id',
         'generada_por',
+        'solicitada_por_colaborador',
+        'aprobada_en',
+        'aprobada_por',
+        'rechazada_en',
+        'rechazada_por',
+        'motivo_rechazo',
         'generated_document_id',
         'disk',
         'path',
@@ -74,6 +88,9 @@ class CartaCompromiso extends Model
             'vencida_en' => 'datetime',
             'sustituida_en' => 'datetime',
             'firmada_en' => 'datetime',
+            'solicitada_por_colaborador' => 'boolean',
+            'aprobada_en' => 'datetime',
+            'rechazada_en' => 'datetime',
         ];
     }
 
@@ -115,6 +132,22 @@ class CartaCompromiso extends Model
     public function firmaRegistradaPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'firma_registrada_por');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function aprobadaPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'aprobada_por');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
+    public function rechazadaPor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'rechazada_por');
     }
 
     /** ¿Ya se subió el escaneo firmado por quien entra? */

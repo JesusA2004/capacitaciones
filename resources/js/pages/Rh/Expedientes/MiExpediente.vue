@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SolicitarCartaCompromiso from '@/components/Rh/Expediente/SolicitarCartaCompromiso.vue';
 import ExpedienteDetalle from '@/components/Rh/ExpedienteDetalle.vue';
 import MisCorrecciones from '@/components/Solicitudes/MisCorrecciones.vue';
 import { dashboard } from '@/routes';
@@ -15,6 +16,7 @@ import type {
     ReciboNominaItem,
     ResumenExpediente,
     SaldoVacaciones,
+    SolicitudCartaCompromisoEstado,
     SolicitudExpedienteItem,
     SolicitudVacacionesItem,
 } from '@/types';
@@ -82,6 +84,8 @@ defineProps<{
     prestamos: PrestamoItem[];
     /** Correcciones propias (datos, documentos, foto) con estado y contador. */
     misCorrecciones?: CorreccionesColaborador;
+    /** «Pedir carta compromiso» (1..máx. documentos pendientes; RH la aprueba). */
+    solicitudCartaCompromiso?: SolicitudCartaCompromisoEstado;
 }>();
 
 defineOptions({
@@ -101,6 +105,13 @@ defineOptions({
         class="pagina-ancha pb-0 sm:pb-0"
     >
         <MisCorrecciones :correcciones="misCorrecciones" :limite="3" />
+    </div>
+    <!-- Me falta algún documento: pedir carta compromiso (RH la aprueba). -->
+    <div
+        v-if="solicitudCartaCompromiso?.mostrar"
+        class="pagina-ancha pb-0 sm:pb-0"
+    >
+        <SolicitarCartaCompromiso :solicitud="solicitudCartaCompromiso" />
     </div>
     <ExpedienteDetalle
         :es-propio="esPropio"

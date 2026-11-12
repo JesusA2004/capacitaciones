@@ -344,6 +344,21 @@ return [
             'modulo' => 'contratacion',
             'audiencia' => 'personal',
         ],
+        // La propia persona pidió su carta (Mi expediente / app): espera la
+        // aprobación de quien tenga cartas_compromiso.aprobar.
+        'carta_compromiso_solicitada' => [
+            'etiqueta' => 'Carta compromiso por aprobar',
+            'modulo' => 'contratacion',
+            'audiencia' => 'operativa',
+            'defecto' => $rh,
+            'obligatorios' => $rh,
+        ],
+        'carta_compromiso_rechazada' => [
+            'etiqueta' => 'RH no aprobó tu carta compromiso',
+            'push_titulo' => 'Tu carta compromiso se actualizó',
+            'modulo' => 'contratacion',
+            'audiencia' => 'personal',
+        ],
         'documento_firma_pendiente' => [
             'etiqueta' => 'Tienes un documento por firmar',
             'modulo' => 'contratacion',

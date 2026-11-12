@@ -52,8 +52,10 @@ use App\Services\Expedientes\ExpedienteService;
 use App\Services\Expedientes\ExpedienteZipService;
 use App\Services\Expedientes\HistorialCambiosDatosService;
 use App\Services\Expedientes\MigracionInicial\ExpedientesInitialMigrationService;
+use App\Services\Expedientes\SolicitudCartaCompromisoService;
 use App\Services\Expedientes\VinculacionSynologyService;
 use App\Services\Flujos\SiguientePasoService;
+use App\Services\Incorporacion\IncorporacionService;
 use App\Services\Nomina\PrestamoService;
 use App\Services\Nomina\ReciboNominaService;
 use App\Services\Onboarding\ChecklistAdministrativoService;
@@ -303,8 +305,15 @@ class ExpedienteController extends Controller
         abort_if($colaborador === null, 403, 'Tu cuenta no tiene un colaborador enlazado.');
 
         // Mis correcciones (datos, documentos, foto) con su estado y contador.
+        // «Pedir carta compromiso» (1..máx. documentos pendientes; RH la aprueba).
+        $solicitudCarta = app(SolicitudCartaCompromisoService::class)->estado($request->user());
+
         return $this->renderExpediente($request, $colaborador, esPropio: true)
-            ->with('misCorrecciones', app(CorreccionesService::class)->deColaborador($request->user()));
+            ->with('misCorrecciones', app(CorreccionesService::class)->deColaborador($request->user()))
+            ->with('solicitudCartaCompromiso', $solicitudCarta)
+            // Subir / solicitar cambio / generado / cubierto por la foto por
+            // tipo: las mismas reglas que la app (IncorporacionService).
+            ->with('misDocumentos', app(IncorporacionService::class)->accionesPropias($colaborador));
     }
 
     private function renderExpediente(Request $request, Colaborador $colaborador, bool $esPropio): Response

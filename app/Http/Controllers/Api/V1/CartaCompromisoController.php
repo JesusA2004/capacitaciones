@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\VistaPreviaCartaCompromisoRequest;
+use App\Http\Requests\CartasCompromiso\GenerarCartaCompromisoRequest;
 use App\Models\Colaborador;
 use App\Services\Expedientes\BloqueoDocumentosService;
 use App\Services\Expedientes\CartaCompromisoService;
+use App\Services\Expedientes\SolicitudCartaCompromisoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -40,6 +42,20 @@ class CartaCompromisoController extends Controller
     public function vistaPrevia(VistaPreviaCartaCompromisoRequest $request): Response
     {
         return $this->respuestaPdf($this->cartas->vistaPrevia($this->colaboradorDe($request), $request->documentos()), 'Vista previa carta compromiso.pdf');
+    }
+
+    /**
+     * La propia persona pide su carta compromiso (fuera del registro): queda
+     * pendiente de aprobación de RH. Mismo servicio que «Mi expediente».
+     */
+    public function solicitar(GenerarCartaCompromisoRequest $request, SolicitudCartaCompromisoService $solicitudes): JsonResponse
+    {
+        $carta = $solicitudes->solicitar($request->user(), $request->documentos());
+
+        return response()->json([
+            'message' => 'Enviaste tu carta compromiso. Recursos Humanos la revisará; al aprobarla empieza a correr tu plazo.',
+            'data' => $this->cartas->aArray($carta, $request->user()),
+        ], 201);
     }
 
     private function respuestaPdf(string $pdf, string $nombre): Response

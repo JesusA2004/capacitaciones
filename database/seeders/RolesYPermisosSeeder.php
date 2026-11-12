@@ -586,7 +586,7 @@ class RolesYPermisosSeeder extends Seeder
             // Responsivas de equipo (docs/responsiva).
             'responsivas.ver', 'responsivas.generar', 'responsivas.cancelar',
             // Cartas compromiso de documentos pendientes (nuevo ingreso).
-            'cartas_compromiso.ver', 'cartas_compromiso.generar', 'cartas_compromiso.subir_firmada', 'cartas_compromiso.descargar',
+            'cartas_compromiso.ver', 'cartas_compromiso.generar', 'cartas_compromiso.subir_firmada', 'cartas_compromiso.descargar', 'cartas_compromiso.aprobar',
             // Recepción documental RH: control mensual de originales firmados.
             'recepcion_documental.ver', 'recepcion_documental.generar', 'recepcion_documental.recibir', 'recepcion_documental.observar',
             'recepcion_documental.cerrar', 'recepcion_documental.reabrir', 'recepcion_documental.descargar_pdf',
@@ -658,7 +658,7 @@ class RolesYPermisosSeeder extends Seeder
             'prestamos.ver', 'actas.ver', 'actas.crear', 'actas.descargar', 'indicadores.ver',
             'incapacidades.ver', 'incapacidades.ver_todos', 'incapacidades.registrar', 'incapacidades.descargar', 'incapacidades.exportar',
             'responsivas.ver', 'responsivas.generar',
-            'cartas_compromiso.ver', 'cartas_compromiso.generar', 'cartas_compromiso.subir_firmada', 'cartas_compromiso.descargar',
+            'cartas_compromiso.ver', 'cartas_compromiso.generar', 'cartas_compromiso.subir_firmada', 'cartas_compromiso.descargar', 'cartas_compromiso.aprobar',
             // Recepción documental RH: recibe, observa, cierra e imprime; reabrir
             // un corte cerrado es decisión de RH Admin.
             'recepcion_documental.ver', 'recepcion_documental.generar', 'recepcion_documental.recibir', 'recepcion_documental.observar',

@@ -94,8 +94,9 @@ class ExpedienteIncompletoService
 
         $carta = $porSubir !== [] ? $this->cartas->ultima($colaborador) : null;
 
-        if ($carta !== null && ! $carta->plazoVencido()) {
-            // La carta compromiso vigente da plazo para entregarlos.
+        if ($carta !== null && ! $carta->estado->sinAprobar() && ! $carta->plazoVencido()) {
+            // La carta compromiso vigente da plazo para entregarlos (una
+            // solicitud que RH aún no aprueba, todavía no).
             $porSubir = [];
         }
 

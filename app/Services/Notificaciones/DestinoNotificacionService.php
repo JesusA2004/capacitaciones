@@ -2,6 +2,7 @@
 
 namespace App\Services\Notificaciones;
 
+use App\Enums\EstadoCartaCompromiso;
 use App\Enums\EstadoContratoLaboral;
 use App\Enums\EstadoDocumento;
 use App\Enums\EstadoEvaluacionPrueba;
@@ -12,6 +13,7 @@ use App\Models\AvisoAltaSistemas;
 use App\Models\Baja;
 use App\Models\BirthdayGreeting;
 use App\Models\Candidato;
+use App\Models\CartaCompromiso;
 use App\Models\CierreLaboral;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
@@ -72,6 +74,7 @@ class DestinoNotificacionService
 
         try {
             $destino = match (true) {
+                $relacionado === 'CartaCompromiso' && $id !== null => $this->cartaCompromiso($id, $usuario),
                 in_array($tipo, ['rh_solicitud', 'visto_bueno_pendiente', 'solicitud'], true) => $this->solicitud($id, $usuario),
                 $tipo === 'rh_vacaciones' => $this->vacacionRh($id),
                 $tipo === 'vacaciones' => $this->vacacionPropia($id),
@@ -467,6 +470,34 @@ class DestinoNotificacionService
                 ? sprintf('La evaluación sigue pendiente («%s»).', $estado->etiqueta())
                 : sprintf('La evaluación ya fue atendida: está «%s».', $estado->etiqueta()),
         );
+    }
+
+    /**
+     * Carta compromiso: la propia persona va a «Mi expediente» (ahí ve su
+     * carta y la pide); quien la gestiona, a su detalle en «Cartas
+     * compromiso» (aprobar, subir la firmada…).
+     *
+     * @return Destino
+     */
+    private function cartaCompromiso(int $id, User $usuario): array
+    {
+        $carta = CartaCompromiso::query()->where('id', $id)->first();
+
+        if ($carta === null) {
+            return self::destino(null);
+        }
+
+        if ($usuario->colaborador_id !== null && $carta->colaborador_id === $usuario->colaborador_id) {
+            return self::destino(route('mi-expediente', ['tab' => 'documentos'], false));
+        }
+
+        if (! $usuario->can('view', $carta)) {
+            return self::destino(null);
+        }
+
+        $porAprobar = $carta->estado === EstadoCartaCompromiso::PendienteAprobacion;
+
+        return self::destino(route('rh.cartas-compromiso.show', $carta, false), ! $porAprobar, $carta->estado->etiqueta());
     }
 
     /**
