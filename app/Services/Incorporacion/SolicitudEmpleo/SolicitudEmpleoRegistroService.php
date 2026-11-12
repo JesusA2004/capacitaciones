@@ -105,10 +105,7 @@ class SolicitudEmpleoRegistroService
             throw ValidationException::withMessages(['solicitud' => 'Ya se le pidió hace menos de una hora.']);
         }
 
-        $secciones[self::PEDIDO_RH] = ['en' => now()->toIso8601String(), 'por' => $rh->id];
-        $perfil->colaborador_id = $colaborador->id;
-        $perfil->secciones = $secciones;
-        $perfil->save();
+        $this->marcarPedido($colaborador, $rh);
 
         try {
             app(NotificadorRhService::class)->notificar(
@@ -125,6 +122,17 @@ class SolicitudEmpleoRegistroService
         }
 
         return $porLlenar;
+    }
+
+    /** Registra que RH le pidió completarla (el pendiente sale en su portal). */
+    public function marcarPedido(Colaborador $colaborador, User $rh): void
+    {
+        $perfil = ColaboradorPerfilIngreso::query()->firstOrNew(['colaborador_id' => $colaborador->id]);
+        $secciones = (array) ($perfil->secciones ?? []);
+        $secciones[self::PEDIDO_RH] = ['en' => now()->toIso8601String(), 'por' => $rh->id];
+        $perfil->colaborador_id = $colaborador->id;
+        $perfil->secciones = $secciones;
+        $perfil->save();
     }
 
     /** ¿RH le pidió completar su solicitud? (el pendiente sale aunque ya esté activo). */

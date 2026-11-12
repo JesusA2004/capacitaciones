@@ -130,6 +130,9 @@ class DestinoNotificacionService
                 // RH pidió completar la solicitud de empleo: el dueño va a llenarla.
                 $tipo === 'solicitud_empleo_faltante' && $colaboradorId !== null && $colaboradorId === $usuario->colaborador_id => self::destino(route('portal.solicitud-empleo', [], false)),
                 $tipo === 'solicitud_empleo_faltante' => $this->expedienteDePersona($colaboradorId, $usuario, 'personales'),
+                // RH pidió TODO lo que falta: el dueño, a su portal («Lo que necesitas hacer»).
+                $tipo === 'informacion_faltante' && $colaboradorId !== null && $colaboradorId === $usuario->colaborador_id => self::destino(route('portal.index', [], false)),
+                $tipo === 'informacion_faltante' => $this->expedienteDePersona($colaboradorId, $usuario, 'personales'),
                 // Evaluación de inducción: RH va directo a revisarla/calificarla;
                 // el colaborador, a contestar la suya.
                 $relacionado === 'EvaluacionInduccionIntento' && $id !== null && $usuario->can('onboarding.gestionar') => self::destino(route('rh.onboarding.induccion.mostrar', $id, false)),

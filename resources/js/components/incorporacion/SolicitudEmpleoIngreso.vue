@@ -7,7 +7,6 @@ import {
     Lock,
     Plus,
     RotateCcw,
-    Send,
     Smartphone,
     Trash2,
     TriangleAlert,
@@ -19,6 +18,7 @@ import Casilla from '@/components/Common/Casilla.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import CampoSolicitudControl from '@/components/incorporacion/CampoSolicitudControl.vue';
 import FilaListaSolicitud from '@/components/incorporacion/FilaListaSolicitud.vue';
+import PedirInformacionBoton from '@/components/Rh/PedirInformacionBoton.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -26,7 +26,6 @@ import { useAlertas } from '@/composables/useAlertas';
 import { enviarJson, getJson } from '@/lib/http';
 import {
     guardar as rutaGuardar,
-    pedir as rutaPedir,
     show as rutaEstado,
 } from '@/routes/rh/solicitud-empleo';
 import type {
@@ -178,28 +177,6 @@ async function guardarFecha(
         );
     } finally {
         guardandoFecha.value = null;
-    }
-}
-
-// «Pedir información al colaborador»: aviso en su web y en su app.
-const pidiendo = ref(false);
-
-async function pedirAlColaborador(): Promise<void> {
-    pidiendo.value = true;
-
-    try {
-        const respuesta = await enviarJson<{ message: string }>(
-            'POST',
-            rutaPedir.url(props.colaboradorId),
-            {},
-        );
-        await mostrarExito(respuesta.message);
-    } catch (e) {
-        await mostrarError(
-            e instanceof Error ? e.message : 'No se pudo enviar el aviso.',
-        );
-    } finally {
-        pidiendo.value = false;
     }
 }
 
@@ -463,15 +440,7 @@ onMounted(cargar);
                     <strong>Mi portal → Mi solicitud de empleo</strong>; no hace
                     falta que RH la capture.
                 </span>
-                <Button
-                    type="button"
-                    size="sm"
-                    :disabled="pidiendo"
-                    @click="pedirAlColaborador"
-                >
-                    <Send class="size-4" />
-                    {{ pidiendo ? 'Enviando…' : 'Pedir información al colaborador' }}
-                </Button>
+                <PedirInformacionBoton :colaborador-id="colaboradorId" />
             </div>
 
             <!-- Un renglón por documento: avance + fecha de emisión -->

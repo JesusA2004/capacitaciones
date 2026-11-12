@@ -42,6 +42,7 @@ import CandidatoIntervenciones from '@/components/Rh/Candidato/CandidatoInterven
 import CandidatoExpedientePanel from '@/components/Rh/CandidatoExpedientePanel.vue';
 import CandidatoFormDialog from '@/components/Rh/CandidatoFormDialog.vue';
 import CandidatoPerfilPuesto from '@/components/Rh/CandidatoPerfilPuesto.vue';
+import PedirInformacionBoton from '@/components/Rh/PedirInformacionBoton.vue';
 import { Button } from '@/components/ui/button';
 import CambioSuave from '@/components/ui/CambioSuave.vue';
 import {
@@ -704,6 +705,11 @@ const esDecisionViable = computed(() =>
                         {{ cadenaContratacion.expediente_etiqueta }}
                     </Link>
                 </Button>
+                <PedirInformacionBoton
+                    v-if="candidato.colaborador_id"
+                    :colaborador-id="candidato.colaborador_id"
+                    variant="outline"
+                />
                 <Button
                     v-if="cadenaContratacion.proceso_url && !procesoEsEstaFicha"
                     size="sm"

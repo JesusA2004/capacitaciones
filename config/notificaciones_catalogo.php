@@ -376,6 +376,12 @@ return [
             'modulo' => 'contratacion',
             'audiencia' => 'personal',
         ],
+        'informacion_faltante' => [
+            'etiqueta' => 'RH te pidió completar tu información',
+            'push_titulo' => 'Completa tu información',
+            'modulo' => 'contratacion',
+            'audiencia' => 'personal',
+        ],
         'solicitud_empleo_faltante' => [
             'etiqueta' => 'RH te pidió completar tu solicitud de empleo',
             'push_titulo' => 'Completa tu solicitud de empleo',

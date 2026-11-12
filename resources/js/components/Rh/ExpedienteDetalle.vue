@@ -52,6 +52,7 @@ import PestanaRecibos from '@/components/Rh/Expediente/PestanaRecibos.vue';
 import PestanaSolicitudes from '@/components/Rh/Expediente/PestanaSolicitudes.vue';
 import PestanaVacaciones from '@/components/Rh/Expediente/PestanaVacaciones.vue';
 import MovimientosLaboralesTimeline from '@/components/Rh/MovimientosLaboralesTimeline.vue';
+import PedirInformacionBoton from '@/components/Rh/PedirInformacionBoton.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -617,6 +618,14 @@ function irACompletarExpediente() {
                     </Button>
                     <!-- Acciones de la página (p. ej. «Generar responsiva»). -->
                     <slot name="acciones-encabezado" />
+                    <PedirInformacionBoton
+                        v-if="
+                            !esPropio &&
+                            puedeAvisarDatosFaltantes &&
+                            colaborador.estatus !== 'inactivo'
+                        "
+                        :colaborador-id="colaborador.id"
+                    />
                     <Button
                         :disabled="accion.ocupado.value"
                         v-if="
