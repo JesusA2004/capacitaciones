@@ -123,7 +123,7 @@ class ActaService
      * («Orizaba» → activos de Orizaba). El cargo sale del puesto, nunca
      * texto libre.
      *
-     * @return list<array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null}>
+     * @return list<array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, foto_url: string|null}>
      */
     public function buscarTestigos(User $usuario, string $termino, ?int $excluirId = null): array
     {
@@ -152,6 +152,8 @@ class ActaService
                 'numero_empleado' => $c->numero_empleado,
                 'puesto' => $c->puesto?->nombre,
                 'sucursal' => $c->sucursalPrincipal?->nombre,
+                // Foto oficial (URL protegida) si quien busca alcanza ese expediente.
+                'foto_url' => $this->fotos->urlPara($c, $usuario),
             ])
             ->values()
             ->all());

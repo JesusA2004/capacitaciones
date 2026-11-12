@@ -44,6 +44,7 @@ export type ImpactoIncapacidad = {
 export type RectificacionNominaItem = {
     id: number;
     colaborador: string;
+    foto_url?: string | null;
     folio: string | null;
     periodo: string;
     dias_antes: string | null;

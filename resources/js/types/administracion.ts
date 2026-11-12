@@ -183,6 +183,8 @@ export type PuestoJerarquiaItem = {
         nombre: string;
         apellidos: string | null;
         estado: string;
+        /** Foto oficial si ya tiene colaborador ligado y está en tu alcance. */
+        foto_url?: string | null;
     }[];
     activo: boolean;
     colaboradores_count: number;

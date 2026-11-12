@@ -58,6 +58,8 @@ export type ReciboLote = {
     colaborador_id: number | null;
     numero_empleado: string | null;
     nombre: string;
+    /** Foto oficial (URL protegida) si está en tu alcance. */
+    foto_url?: string | null;
     sucursal: string | null;
     puesto: string | null;
     total_percepciones: string | null;

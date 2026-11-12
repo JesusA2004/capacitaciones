@@ -504,6 +504,12 @@ function confirmarDescarte() {
                             size="sm"
                         >
                             <Link :href="historial.url(persona.colaborador_id)">
+                                <ColaboradorAvatar
+                                    :nombre="persona.colaborador"
+                                    :foto-url="persona.foto_url"
+                                    tamano="xs"
+                                    class="-ml-1 size-5"
+                                />
                                 {{ persona.colaborador }}
                             </Link>
                         </Button>
@@ -593,7 +599,13 @@ function confirmarDescarte() {
                             :key="fila.id"
                             class="rounded-lg border border-border/60 p-2.5 text-xs"
                         >
-                            <p class="font-semibold">
+                            <p class="flex items-center gap-1.5 font-semibold">
+                                <ColaboradorAvatar
+                                    :nombre="fila.colaborador"
+                                    :foto-url="fila.foto_url"
+                                    tamano="xs"
+                                    class="size-5"
+                                />
                                 {{ fila.colaborador }} · {{ fila.folio }}
                             </p>
                             <p class="text-muted-foreground">

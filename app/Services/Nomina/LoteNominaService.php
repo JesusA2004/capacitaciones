@@ -14,6 +14,7 @@ use App\Models\NominaLote;
 use App\Models\ReciboNomina;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Compensacion\CompensacionService;
 use App\Services\DocumentosAdministrativos\DatosDocumentoAdministrativo;
 use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
@@ -67,6 +68,7 @@ class LoteNominaService
         private readonly CombinadorPdfRecibos $combinador,
         private readonly AlcanceModuloService $alcanceModulo,
         private readonly IncidenciasNominaService $incidencias,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     /**
@@ -537,7 +539,7 @@ class LoteNominaService
     public function recibos(NominaLote $lote, User $usuario, string $filtro = 'todos'): array
     {
         $filas = $this->recibosVisibles($lote, $usuario)
-            ->with(['colaborador' => fn ($q) => $q->withTrashed()->select('id', 'name', 'apellidos', 'numero_empleado', 'sucursal_principal_id', 'puesto_id'), 'colaborador.sucursalPrincipal:id,nombre', 'colaborador.puesto:id,nombre'])
+            ->with(['colaborador' => fn ($q) => $q->withTrashed()->select('id', 'name', 'apellidos', 'numero_empleado', 'sucursal_principal_id', 'puesto_id', 'foto_path', 'jefe_id', 'gerente_id'), 'colaborador.sucursalPrincipal:id,nombre', 'colaborador.puesto:id,nombre'])
             ->orderBy('id')
             ->get()
             ->map(fn (ReciboNomina $r) => [
@@ -546,6 +548,8 @@ class LoteNominaService
                 'colaborador_id' => $r->colaborador_id,
                 'numero_empleado' => $r->colaborador->numero_empleado,
                 'nombre' => $r->colaborador->nombreCompleto(),
+                // Foto oficial (URL protegida) si quien revisa alcanza ese expediente.
+                'foto_url' => $this->fotos->urlPara($r->colaborador, $usuario),
                 'sucursal' => $r->colaborador->sucursalPrincipal?->nombre,
                 'puesto' => $r->colaborador->puesto?->nombre,
                 'total_percepciones' => (string) $r->total_percepciones,

@@ -10,6 +10,7 @@ use App\Models\OnboardingProceso;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -34,6 +35,7 @@ class DestinatariosOnboardingService
 
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     /**
@@ -57,7 +59,7 @@ class DestinatariosOnboardingService
      * enfocar), filtra mientras se escribe por nombre o número de empleado.
      * Primero quienes están en su proceso de ingreso.
      *
-     * @return list<array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, en_ingreso: bool, etapa: string}>
+     * @return list<array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, foto_url: string|null, en_ingreso: bool, etapa: string}>
      */
     public function buscar(User $actor, string $termino): array
     {
@@ -65,7 +67,7 @@ class DestinatariosOnboardingService
 
         // Buscador único: nombre, número, puesto, sucursal o departamento.
         $candidatos = $this->consultaElegibles($actor)
-            ->select(['id', 'name', 'apellidos', 'numero_empleado', 'puesto_id', 'sucursal_principal_id', 'estado_alta'])
+            ->select(['id', 'name', 'apellidos', 'numero_empleado', 'puesto_id', 'sucursal_principal_id', 'estado_alta', 'foto_path', 'jefe_id', 'gerente_id'])
             ->with(['puesto:id,nombre', 'sucursalPrincipal:id,nombre'])
             ->buscar($termino)
             ->orderBy('name')
@@ -83,6 +85,8 @@ class DestinatariosOnboardingService
                 'numero_empleado' => $c->numero_empleado,
                 'puesto' => $c->puesto?->nombre,
                 'sucursal' => $c->sucursalPrincipal?->nombre,
+                // Foto oficial (URL protegida) si quien busca alcanza ese expediente.
+                'foto_url' => $this->fotos->urlPara($c, $actor),
                 'en_ingreso' => in_array($c->id, $enIngreso, true),
                 'etapa' => in_array($c->id, $enIngreso, true) ? 'En proceso de ingreso' : ($c->estado_alta?->etiqueta() ?? 'Activo'),
             ])

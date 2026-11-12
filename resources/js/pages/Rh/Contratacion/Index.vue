@@ -52,6 +52,7 @@ type Persona = {
 type AltaDigital = {
     id: number;
     nombre: string;
+    foto_url: string | null;
     puesto: string | null;
     sucursal: string | null;
     estado: string;
@@ -140,10 +141,15 @@ function fechaCorta(valor: string | null): string {
                     v-for="alta in altasDigitales"
                     :key="alta.id"
                     :href="alta.ver_url"
-                    class="flex tarjeta-interactiva flex-col gap-1 rounded-xl border border-border/60 bg-background p-3"
+                    class="group flex tarjeta-interactiva flex-col gap-1 rounded-xl border border-border/60 bg-background p-3"
                 >
-                    <p class="truncate text-sm font-semibold">
-                        {{ alta.nombre }}
+                    <p class="flex items-center gap-2 text-sm font-semibold">
+                        <ColaboradorAvatar
+                            :nombre="alta.nombre"
+                            :foto-url="alta.foto_url"
+                            tamano="xs"
+                        />
+                        <span class="truncate">{{ alta.nombre }}</span>
                     </p>
                     <p class="truncate text-xs text-muted-foreground">
                         {{ alta.puesto ?? 'Sin puesto' }} ·

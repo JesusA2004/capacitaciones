@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { IdCard, Plus } from '@lucide/vue';
 import { ref } from 'vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
@@ -25,7 +26,13 @@ import {
 import { useFiltros } from '@/composables/useFiltros';
 import { opcionesDe } from '@/lib/opcionesSelect';
 import { dashboard } from '@/routes';
-import { exportarExcel, exportarPdf, index, show } from '@/routes/rh/altas';
+import {
+    exportarExcel,
+    exportarPdf,
+    foto,
+    index,
+    show,
+} from '@/routes/rh/altas';
 import type {
     AltaDigitalItem,
     OpcionesReclutamiento,
@@ -249,10 +256,21 @@ const dialogoAbierto = ref(false);
             </template>
 
             <template #celda-nombre="{ fila }">
-                {{
-                    `${fila.nombre ?? ''} ${fila.apellidos ?? ''}`.trim() ||
-                    'Sin nombre'
-                }}
+                <span class="flex items-center gap-2.5">
+                    <!-- Foto que la persona capturó en su alta (ruta protegida). -->
+                    <ColaboradorAvatar
+                        :nombre="
+                            `${fila.nombre ?? ''} ${fila.apellidos ?? ''}`.trim() ||
+                            'Sin nombre'
+                        "
+                        :foto-url="fila.tiene_foto ? foto.url(fila.id) : null"
+                        tamano="sm"
+                    />
+                    {{
+                        `${fila.nombre ?? ''} ${fila.apellidos ?? ''}`.trim() ||
+                        'Sin nombre'
+                    }}
+                </span>
             </template>
             <template #celda-puesto="{ fila }">
                 {{ fila.puesto?.nombre ?? '—' }}

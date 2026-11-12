@@ -28,6 +28,8 @@ export type PersonaCartaCompromiso = {
     numero_empleado: string | null;
     puesto: string | null;
     sucursal: string | null;
+    /** Foto oficial (URL protegida) si está en tu alcance. */
+    foto_url?: string | null;
 };
 
 export type CartaCompromisoFila = {

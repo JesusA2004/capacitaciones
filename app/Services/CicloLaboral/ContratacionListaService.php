@@ -85,6 +85,8 @@ class ContratacionListaService
             ->map(fn (AltaDigital $alta) => [
                 'id' => $alta->id,
                 'nombre' => trim(sprintf('%s %s', $alta->nombre, $alta->apellidos)),
+                // Foto que la persona capturó en su alta (ruta protegida del alta).
+                'foto_url' => $alta->foto_path !== null ? route('rh.altas.foto', $alta->id, false) : null,
                 'puesto' => $alta->puesto?->nombre,
                 'sucursal' => $alta->sucursal?->nombre,
                 'estado' => $alta->estado->value,

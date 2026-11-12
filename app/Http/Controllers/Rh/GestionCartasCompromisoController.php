@@ -40,7 +40,7 @@ class GestionCartasCompromisoController extends Controller
         $usuario = $request->user();
 
         $listado = $this->gestion->listado($usuario, $request->only(['pestana', 'busqueda', 'per_page']))->withQueryString();
-        $listado->getCollection()->transform(fn (CartaCompromiso $c): array => $this->gestion->presentar($c));
+        $listado->getCollection()->transform(fn (CartaCompromiso $c): array => $this->gestion->presentar($c, $usuario));
 
         return Inertia::render('Rh/CartasCompromiso/Index', [
             'cartas' => $listado,

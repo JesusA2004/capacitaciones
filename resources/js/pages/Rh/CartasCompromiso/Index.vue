@@ -14,6 +14,7 @@ import {
 } from '@lucide/vue';
 import { useDebounceFn } from '@vueuse/core';
 import { computed, ref, watch } from 'vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import CrudStats from '@/components/DataTable/CrudStats.vue';
@@ -252,6 +253,11 @@ function textoPlazo(c: CartaCompromisoFila): string {
                             class="w-full shrink-0 font-mono text-xs text-muted-foreground sm:w-32"
                             >{{ c.folio }}</span
                         >
+                        <ColaboradorAvatar
+                            :nombre="c.colaborador?.nombre ?? 'Sin persona'"
+                            :foto-url="c.colaborador?.foto_url"
+                            tamano="sm"
+                        />
                         <span class="min-w-0 flex-1 basis-56">
                             <span class="block truncate font-medium">{{
                                 c.colaborador?.nombre ?? 'Sin persona'

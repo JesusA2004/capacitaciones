@@ -198,7 +198,7 @@ class IncapacidadConsultaService
     public function rectificacionesPendientes(User $usuario, ?int $colaboradorId = null): array
     {
         $query = NominaRectificacion::query()
-            ->with(['recibo:id,folio,periodo_inicio,periodo_fin,dias_pagados,neto,estado,colaborador_id', 'colaborador:id,name,apellidos'])
+            ->with(['recibo:id,folio,periodo_inicio,periodo_fin,dias_pagados,neto,estado,colaborador_id', 'colaborador:id,name,apellidos,foto_path,sucursal_principal_id,jefe_id,gerente_id'])
             ->where('estado', 'pendiente')
             ->when($colaboradorId !== null, fn (Builder $q) => $q->where('colaborador_id', $colaboradorId))
             ->orderBy('id');
@@ -219,6 +219,7 @@ class IncapacidadConsultaService
                 : null,
             'id' => $r->id,
             'colaborador' => $r->colaborador->nombreCompleto(),
+            'foto_url' => $this->fotos->urlPara($r->colaborador, $usuario),
             'folio' => $r->recibo->folio,
             'periodo' => sprintf('%s al %s', $r->recibo->periodo_inicio->format('d/m/Y'), $r->recibo->periodo_fin->format('d/m/Y')),
             'dias_antes' => $r->dias_pagados_antes,

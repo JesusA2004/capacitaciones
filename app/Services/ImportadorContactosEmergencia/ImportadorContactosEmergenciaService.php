@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Crypt;
@@ -93,6 +94,7 @@ class ImportadorContactosEmergenciaService
     public function __construct(
         private readonly AuditoriaService $auditoria,
         private readonly AlcanceOrganizacionalService $alcance,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     /**
@@ -370,7 +372,7 @@ class ImportadorContactosEmergenciaService
      * «Expedientes»), sin mínimo de letras — con el término vacío devuelve la
      * lista inicial en orden alfabético. Nunca incluye a quien busca.
      *
-     * @return list<array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null}>
+     * @return list<array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, foto_url: string|null}>
      */
     public function buscarColaboradores(User $actor, string $termino): array
     {
@@ -390,6 +392,8 @@ class ImportadorContactosEmergenciaService
                 'numero_empleado' => $c->numero_empleado,
                 'puesto' => $c->puesto?->nombre,
                 'sucursal' => $c->sucursalPrincipal?->nombre,
+                // Foto oficial (URL protegida) si quien busca alcanza ese expediente.
+                'foto_url' => $this->fotos->urlPara($c, $actor),
             ])
             ->all());
     }

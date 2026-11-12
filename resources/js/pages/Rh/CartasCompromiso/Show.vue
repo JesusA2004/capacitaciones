@@ -13,6 +13,7 @@ import {
     Upload,
 } from '@lucide/vue';
 import { computed, onBeforeUnmount, ref } from 'vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
@@ -315,7 +316,14 @@ const extensionFirmada = computed(() => {
                         >
                             Persona
                         </p>
-                        <p class="font-semibold">
+                        <p class="flex items-center gap-2 font-semibold">
+                            <ColaboradorAvatar
+                                :nombre="
+                                    carta.colaborador?.nombre ?? 'Sin persona'
+                                "
+                                :foto-url="carta.colaborador?.foto_url"
+                                tamano="sm"
+                            />
                             {{ carta.colaborador?.nombre }}
                         </p>
                         <p class="text-muted-foreground">

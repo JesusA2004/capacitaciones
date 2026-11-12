@@ -20,6 +20,7 @@ import OrganigramaLaminas from '@/components/Administracion/OrganigramaLaminas.v
 import OrganigramaPersona from '@/components/Administracion/OrganigramaPersona.vue';
 import OrganigramaPersonasArbol from '@/components/Administracion/OrganigramaPersonasArbol.vue';
 import OrganigramaPersonasLista from '@/components/Administracion/OrganigramaPersonasLista.vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
@@ -1083,8 +1084,13 @@ watch(
                                         query: { busqueda: candidato.nombre },
                                     })
                                 "
-                                class="rounded-lg border border-border/60 px-3 py-2 text-sm transition-colors hover:border-primary/40"
+                                class="flex items-center gap-2 rounded-lg border border-border/60 px-3 py-2 text-sm transition-colors hover:border-primary/40"
                             >
+                                <ColaboradorAvatar
+                                    :nombre="`${candidato.nombre} ${candidato.apellidos ?? ''}`"
+                                    :foto-url="candidato.foto_url"
+                                    tamano="xs"
+                                />
                                 {{ candidato.nombre }} {{ candidato.apellidos }}
                                 <span class="text-xs text-muted-foreground"
                                     >· {{ candidato.estado }}</span

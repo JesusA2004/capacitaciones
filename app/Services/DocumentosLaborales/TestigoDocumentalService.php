@@ -6,6 +6,7 @@ use App\Enums\EstadoUsuario;
 use App\Models\Colaborador;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\ValidationException;
 
@@ -22,7 +23,10 @@ use Illuminate\Validation\ValidationException;
  */
 class TestigoDocumentalService
 {
-    public function __construct(private readonly AlcanceOrganizacionalService $alcance) {}
+    public function __construct(
+        private readonly AlcanceOrganizacionalService $alcance,
+        private readonly FotoColaboradorService $fotos,
+    ) {}
 
     /**
      * Candidatos a testigo: colaboradores ACTIVOS dentro del alcance del
@@ -32,7 +36,7 @@ class TestigoDocumentalService
      * busca por nombre, número de empleado, puesto o sucursal.
      *
      * @param  list<int>  $excluir
-     * @return list<array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null}>
+     * @return list<array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, foto_url: string|null}>
      */
     public function buscar(User $actor, ?Colaborador $afectado, string $termino, array $excluir = []): array
     {
@@ -66,6 +70,8 @@ class TestigoDocumentalService
                 'numero_empleado' => $c->numero_empleado,
                 'puesto' => $c->puesto?->nombre,
                 'sucursal' => $c->sucursalPrincipal?->nombre,
+                // Foto oficial (URL protegida) si quien busca alcanza ese expediente.
+                'foto_url' => $this->fotos->urlPara($c, $actor),
             ])
             ->values()
             ->all());

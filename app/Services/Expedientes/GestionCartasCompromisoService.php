@@ -12,6 +12,7 @@ use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\CicloLaboral\OrganizacionJerarquiaService;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Incorporacion\RegistroAppService;
 use App\Services\Notificaciones\Aviso;
 use App\Services\Notificaciones\NotificacionEventosService;
@@ -74,6 +75,7 @@ class GestionCartasCompromisoService
         private readonly BuscadorColaboradoresService $buscador,
         private readonly AuditoriaService $auditoria,
         private readonly NotificacionEventosService $eventos,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     public function diasPorVencer(): int
@@ -361,7 +363,7 @@ class GestionCartasCompromisoService
      * enfocar, filtra al escribir; cada palabra en nombre, número, puesto,
      * departamento o sucursal): personas de nuevo ingreso del alcance.
      *
-     * @return list<array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null}>
+     * @return list<array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, foto_url: string|null}>
      */
     public function buscarColaboradores(User $usuario, string $termino, int $limite = 50): array
     {
@@ -380,7 +382,7 @@ class GestionCartasCompromisoService
 
         return array_values($query->orderBy('name')->orderBy('apellidos')->limit($limite)->get()
             ->filter(fn (Colaborador $c): bool => $this->alcanza($usuario, $c))
-            ->map(fn (Colaborador $c): array => $this->resumenColaborador($c))
+            ->map(fn (Colaborador $c): array => $this->resumenColaborador($c, $usuario))
             ->values()
             ->all());
     }
@@ -461,7 +463,7 @@ class GestionCartasCompromisoService
      *
      * @return array<string, mixed>
      */
-    public function presentar(CartaCompromiso $carta): array
+    public function presentar(CartaCompromiso $carta, ?User $viewer = null): array
     {
         $estado = $this->cartas->estadoEfectivo($carta);
         $colaborador = $carta->colaborador;
@@ -479,7 +481,7 @@ class GestionCartasCompromisoService
             'firmada_en' => $carta->firmada_en?->toIso8601String(),
             'solicitada_por_colaborador' => $carta->solicitada_por_colaborador,
             'documentos' => array_map(fn (array $d): string => (string) $d['nombre'], $carta->documentos),
-            'colaborador' => $colaborador !== null ? $this->resumenColaborador($colaborador) : null,
+            'colaborador' => $colaborador !== null ? $this->resumenColaborador($colaborador, $viewer) : null,
             // «Ver» desde la lista (visor centrado); lo autoriza la Policy (descargar).
             'pdf_url' => route('rh.cartas-compromiso.pdf', $carta, false),
         ];
@@ -548,7 +550,7 @@ class GestionCartasCompromisoService
         usort($eventos, fn (array $a, array $b): int => strcmp($a['fecha'], $b['fecha']));
 
         return [
-            ...$this->presentar($carta),
+            ...$this->presentar($carta, $usuario),
             'cumplida_en' => $carta->cumplida_en?->toIso8601String(),
             'vencida_en' => $carta->vencida_en?->toIso8601String(),
             'dias_plazo' => $this->cartas->diasPlazo(),
@@ -674,9 +676,11 @@ class GestionCartasCompromisoService
     }
 
     /**
-     * @return array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null}
+     * Con $viewer lleva su foto oficial (URL protegida) si la alcanza.
+     *
+     * @return array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, foto_url: string|null}
      */
-    private function resumenColaborador(Colaborador $colaborador): array
+    private function resumenColaborador(Colaborador $colaborador, ?User $viewer = null): array
     {
         return [
             'id' => $colaborador->id,
@@ -684,6 +688,7 @@ class GestionCartasCompromisoService
             'numero_empleado' => $colaborador->numero_empleado,
             'puesto' => $colaborador->puesto?->nombre,
             'sucursal' => $colaborador->sucursalPrincipal?->nombre,
+            'foto_url' => $viewer !== null ? $this->fotos->urlPara($colaborador, $viewer) : null,
         ];
     }
 }

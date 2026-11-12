@@ -18,6 +18,7 @@ import {
     Wallet,
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import InputError from '@/components/InputError.vue';
 import EsqueletoDocumento from '@/components/people/EsqueletoDocumento.vue';
@@ -626,7 +627,12 @@ function guardarEdicion() {
                         @click="elegir(i)"
                     >
                         <div class="flex items-start justify-between gap-2">
-                            <div class="min-w-0">
+                            <ColaboradorAvatar
+                                :nombre="recibo.nombre"
+                                :foto-url="recibo.foto_url"
+                                tamano="sm"
+                            />
+                            <div class="min-w-0 flex-1">
                                 <p class="truncate text-sm font-semibold">
                                     {{ recibo.nombre }}
                                 </p>

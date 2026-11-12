@@ -3,12 +3,14 @@
 namespace App\Services\Administracion;
 
 use App\Enums\EstadoUsuario;
+use App\Models\Candidato;
 use App\Models\Colaborador;
 use App\Models\Puesto;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Organigrama\MiniOrganigramaService;
+use App\Services\Reclutamiento\CandidatoPresenter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
@@ -151,7 +153,7 @@ class JerarquiaPuestoService
                 'puestoCrecimiento:id,nombre',
                 'respaldos:id,nombre',
                 'puestosQuePuedeCubrir:id,nombre',
-                'candidatos' => fn ($query) => $candidatos($query->select(['id', 'puesto_objetivo_id', 'nombre', 'apellidos', 'estado'])->getQuery()),
+                'candidatos' => fn ($query) => $candidatos($query->select(['id', 'puesto_objetivo_id', 'nombre', 'apellidos', 'estado', 'colaborador_id'])->getQuery()),
             ])
             ->withCount([
                 'colaboradores as colaboradores_count' => fn ($query) => $usuario instanceof User
@@ -190,6 +192,14 @@ class JerarquiaPuestoService
             ->orderBy('nivel_jerarquico')
             ->orderBy('nombre')
             ->get();
+
+        // Foto oficial de los candidatos que ya tienen colaborador ligado:
+        // una sola consulta para todo el árbol (CandidatoPresenter).
+        if ($usuario instanceof User) {
+            $relacionados = $puestos->flatMap(fn (Puesto $p) => $p->candidatos);
+            $fotos = app(CandidatoPresenter::class)->fotosOficiales($relacionados, $usuario);
+            $relacionados->each(fn (Candidato $c) => $c->setAttribute('foto_url', $fotos[$c->id] ?? null));
+        }
 
         return $puestos;
     }

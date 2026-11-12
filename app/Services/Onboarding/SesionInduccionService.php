@@ -74,7 +74,7 @@ class SesionInduccionService
      * alcance de quien presenta; primero quienes están en su proceso de
      * ingreso. Sin mínimo de letras (lista completa al enfocar).
      *
-     * @return list<array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, en_ingreso: bool, etapa: string}>
+     * @return list<array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, foto_url: string|null, en_ingreso: bool, etapa: string}>
      */
     public function buscarColaboradores(User $actor, string $termino): array
     {
@@ -108,6 +108,8 @@ class SesionInduccionService
                 'numero_empleado' => $c->numero_empleado,
                 'puesto' => $c->puesto?->nombre,
                 'sucursal' => $c->sucursalPrincipal?->nombre,
+                // Foto oficial (URL protegida) si quien busca alcanza ese expediente.
+                'foto_url' => $this->fotos->urlPara($c, $actor),
                 'en_ingreso' => in_array($c->id, $abiertos, true),
                 'etapa' => in_array($c->id, $abiertos, true) ? 'En proceso de ingreso' : ($c->estado_alta?->etiqueta() ?? 'Activo'),
             ])
