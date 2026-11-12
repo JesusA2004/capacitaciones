@@ -13,6 +13,8 @@ import {
     X,
 } from '@lucide/vue';
 import { computed, reactive, ref, watch } from 'vue';
+import Casilla from '@/components/Common/Casilla.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import SelectorCampoPlantilla from '@/components/documentos/administrativos/SelectorCampoPlantilla.vue';
@@ -248,8 +250,82 @@ const ESTADO_VERSION: Record<string, string> = {
     archivada: 'Archivada',
 };
 
-const claseCampo =
-    'h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none disabled:opacity-60';
+/** Catálogos cerrados del diseño (mismos valores que valida el servidor). */
+const OPCIONES = {
+    tamano: [
+        { value: 'letter', label: 'Carta' },
+        { value: 'a4', label: 'A4' },
+    ],
+    orientacion: [
+        { value: 'portrait', label: 'Vertical' },
+        { value: 'landscape', label: 'Horizontal' },
+    ],
+    posicionLogo: [
+        { value: 'left', label: 'Izquierda' },
+        { value: 'center', label: 'Centro' },
+        { value: 'right', label: 'Derecha' },
+    ],
+    encabezadoTabla: [
+        { value: 'solid', label: 'Relleno' },
+        { value: 'light', label: 'Línea' },
+        { value: 'none', label: 'Sin estilo' },
+    ],
+    posicionFirmas: [
+        { value: 'split', label: 'Repartidas' },
+        { value: 'left', label: 'Izquierda' },
+        { value: 'center', label: 'Centro' },
+        { value: 'right', label: 'Derecha' },
+    ],
+    aplicarFondo: [
+        { value: 'all_pages', label: 'Todas las páginas' },
+        { value: 'first_page', label: 'Solo primera página' },
+    ],
+    ajusteFondo: [
+        { value: 'stretch', label: 'Estirar' },
+        { value: 'contain', label: 'Contener' },
+        { value: 'cover', label: 'Cubrir' },
+    ],
+    posicionFondo: [
+        { value: 'center', label: 'Centro' },
+        { value: 'top', label: 'Arriba' },
+        { value: 'bottom', label: 'Abajo' },
+        { value: 'left', label: 'Izquierda' },
+        { value: 'right', label: 'Derecha' },
+    ],
+    peso: [
+        { value: 300, label: 'Ligero' },
+        { value: 400, label: 'Normal' },
+        { value: 500, label: 'Medio' },
+        { value: 600, label: 'Seminegrita' },
+        { value: 700, label: 'Negrita' },
+    ],
+    alineacion: [
+        { value: 'left', label: 'Izquierda' },
+        { value: 'justify', label: 'Justificado' },
+        { value: 'center', label: 'Centrado' },
+        { value: 'right', label: 'Derecha' },
+    ],
+};
+
+const opcionesMotor = computed(() =>
+    props.motores.map((m) => ({ value: m.valor, label: m.etiqueta })),
+);
+
+const etiquetaMotorPredeterminado = computed(() => {
+    const porDefecto = props.motores.find(
+        (m) => m.valor === props.motorPorDefecto,
+    )?.etiqueta;
+
+    return porDefecto
+        ? `Predeterminado del servidor (${porDefecto})`
+        : 'Predeterminado del servidor';
+});
+
+const claseColor =
+    'h-9 w-full cursor-pointer rounded-md border border-input bg-transparent p-1 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60';
+
+const claseSeccion =
+    'rounded-2xl border bg-card p-4 [&>summary]:cursor-pointer [&>summary]:rounded-md [&>summary]:font-semibold [&>summary]:select-none [&>summary]:focus-visible:ring-2 [&>summary]:focus-visible:ring-ring/50 [&>summary]:focus-visible:outline-none';
 </script>
 
 <template>
@@ -310,7 +386,7 @@ const claseCampo =
             <section
                 class="order-1 flex flex-col gap-3 xl:sticky xl:top-4 xl:order-2 xl:self-start"
             >
-                <div class="flex items-center justify-between gap-2">
+                <div class="flex flex-wrap items-center justify-between gap-2">
                     <h2 class="font-semibold">Vista previa</h2>
                     <Button
                         size="sm"
@@ -323,7 +399,8 @@ const claseCampo =
                 </div>
                 <p
                     v-if="cambiosSinGuardar && borrador"
-                    class="text-xs text-warning"
+                    class="aparece-zoom text-xs text-warning"
+                    role="status"
                 >
                     Hay cambios sin guardar: guarda para verlos en la vista
                     previa.
@@ -354,7 +431,7 @@ const claseCampo =
                     :key="urlPrevia"
                     :src="urlPrevia"
                     title="Vista previa del documento"
-                    class="h-[70vh] w-full rounded-2xl border bg-white xl:h-[78vh]"
+                    class="h-[60dvh] min-h-80 w-full rounded-2xl border bg-white sm:h-[70dvh] xl:h-[78dvh]"
                 />
                 <p class="text-xs text-muted-foreground">
                     PDF real con el mismo motor y diseño que la generación.
@@ -374,30 +451,26 @@ const claseCampo =
                     }}. Crea un borrador para editar.
                 </p>
 
-                <details class="group rounded-2xl border bg-card p-4" open>
-                    <summary class="cursor-pointer font-semibold">
-                        Página
-                    </summary>
+                <details :class="claseSeccion" open>
+                    <summary>Página</summary>
                     <div class="mt-4 grid gap-4 sm:grid-cols-2">
                         <div class="grid gap-1.5">
-                            <Label>Tamaño</Label>
-                            <select
+                            <Label for="diseno-tamano">Tamaño</Label>
+                            <SelectSimple
+                                id="diseno-tamano"
                                 v-model="diseno.page.size"
-                                :class="claseCampo"
-                            >
-                                <option value="letter">Carta</option>
-                                <option value="a4">A4</option>
-                            </select>
+                                :opciones="OPCIONES.tamano"
+                                :disabled="!editable"
+                            />
                         </div>
                         <div class="grid gap-1.5">
-                            <Label>Orientación</Label>
-                            <select
+                            <Label for="diseno-orientacion">Orientación</Label>
+                            <SelectSimple
+                                id="diseno-orientacion"
                                 v-model="diseno.page.orientation"
-                                :class="claseCampo"
-                            >
-                                <option value="portrait">Vertical</option>
-                                <option value="landscape">Horizontal</option>
-                            </select>
+                                :opciones="OPCIONES.orientacion"
+                                :disabled="!editable"
+                            />
                         </div>
                         <div
                             v-for="(etiqueta, lado) in {
@@ -421,17 +494,15 @@ const claseCampo =
                     </div>
                 </details>
 
-                <details class="rounded-2xl border bg-card p-4" open>
-                    <summary class="cursor-pointer font-semibold">
-                        Encabezado
-                    </summary>
+                <details :class="claseSeccion" open>
+                    <summary>Encabezado</summary>
                     <div class="mt-4 grid gap-4 sm:grid-cols-2">
                         <label
                             class="flex items-center gap-2 text-sm sm:col-span-2"
                         >
-                            <input
+                            <Casilla
                                 v-model="diseno.header.show"
-                                type="checkbox"
+                                :disabled="!editable"
                             />
                             Mostrar encabezado
                         </label>
@@ -454,15 +525,13 @@ const claseCampo =
                             />
                         </div>
                         <div class="grid gap-1.5">
-                            <Label>Posición</Label>
-                            <select
+                            <Label for="diseno-logo-posicion">Posición</Label>
+                            <SelectSimple
+                                id="diseno-logo-posicion"
                                 v-model="diseno.header.logo_position"
-                                :class="claseCampo"
-                            >
-                                <option value="left">Izquierda</option>
-                                <option value="center">Centro</option>
-                                <option value="right">Derecha</option>
-                            </select>
+                                :opciones="OPCIONES.posicionLogo"
+                                :disabled="!editable"
+                            />
                         </div>
                         <div class="grid gap-1.5">
                             <Label>Altura del encabezado (mm)</Label>
@@ -483,10 +552,8 @@ const claseCampo =
                     </div>
                 </details>
 
-                <details class="rounded-2xl border bg-card p-4" open>
-                    <summary class="cursor-pointer font-semibold">
-                        Contenido
-                    </summary>
+                <details :class="claseSeccion" open>
+                    <summary>Contenido</summary>
                     <div class="mt-4 grid gap-4">
                         <div class="grid gap-1.5">
                             <div
@@ -573,11 +640,11 @@ const claseCampo =
                                     :key="clave"
                                     class="flex items-center gap-2 text-sm"
                                 >
-                                    <input
+                                    <Casilla
                                         v-model="
                                             diseno.sections.visibles[clave]
                                         "
-                                        type="checkbox"
+                                        :disabled="!editable"
                                     />
                                     {{ etiqueta }}
                                 </label>
@@ -586,10 +653,8 @@ const claseCampo =
                     </div>
                 </details>
 
-                <details class="rounded-2xl border bg-card p-4">
-                    <summary class="cursor-pointer font-semibold">
-                        Tablas
-                    </summary>
+                <details :class="claseSeccion">
+                    <summary>Tablas</summary>
                     <div class="mt-4 grid gap-4 sm:grid-cols-3">
                         <div class="grid gap-1.5">
                             <Label>Tamaño de fuente (pt)</Label>
@@ -622,43 +687,46 @@ const claseCampo =
                             />
                         </div>
                         <div class="grid gap-1.5">
-                            <Label>Color del borde</Label>
+                            <Label for="diseno-tabla-borde"
+                                >Color del borde</Label
+                            >
                             <input
+                                id="diseno-tabla-borde"
                                 v-model="diseno.tables.border_color"
                                 type="color"
-                                class="h-9 w-full cursor-pointer rounded-md border"
+                                :class="claseColor"
                             />
                         </div>
                         <div class="grid gap-1.5">
-                            <Label>Encabezado</Label>
-                            <select
-                                v-model="diseno.tables.header_style"
-                                :class="claseCampo"
+                            <Label for="diseno-tabla-encabezado"
+                                >Encabezado</Label
                             >
-                                <option value="solid">Relleno</option>
-                                <option value="light">Línea</option>
-                                <option value="none">Sin estilo</option>
-                            </select>
+                            <SelectSimple
+                                id="diseno-tabla-encabezado"
+                                v-model="diseno.tables.header_style"
+                                :opciones="OPCIONES.encabezadoTabla"
+                                :disabled="!editable"
+                            />
                         </div>
                         <div class="flex flex-col gap-2 text-sm">
                             <label class="flex items-center gap-2">
-                                <input
+                                <Casilla
                                     v-model="diseno.tables.repeat_header"
-                                    type="checkbox"
+                                    :disabled="!editable"
                                 />
                                 Repetir encabezado en cada página
                             </label>
                             <label class="flex items-center gap-2">
-                                <input
+                                <Casilla
                                     v-model="diseno.tables.avoid_row_break"
-                                    type="checkbox"
+                                    :disabled="!editable"
                                 />
                                 Evitar cortar filas
                             </label>
                             <label class="flex items-center gap-2">
-                                <input
+                                <Casilla
                                     v-model="diseno.tables.zebra"
-                                    type="checkbox"
+                                    :disabled="!editable"
                                 />
                                 Filas alternadas
                             </label>
@@ -666,17 +734,15 @@ const claseCampo =
                     </div>
                 </details>
 
-                <details class="rounded-2xl border bg-card p-4">
-                    <summary class="cursor-pointer font-semibold">
-                        Firmas
-                    </summary>
+                <details :class="claseSeccion">
+                    <summary>Firmas</summary>
                     <div class="mt-4 grid gap-4 sm:grid-cols-3">
                         <label
                             class="flex items-center gap-2 text-sm sm:col-span-3"
                         >
-                            <input
+                            <Casilla
                                 v-model="diseno.signatures.show"
-                                type="checkbox"
+                                :disabled="!editable"
                             />
                             Mostrar firmas
                         </label>
@@ -699,16 +765,13 @@ const claseCampo =
                             />
                         </div>
                         <div class="grid gap-1.5">
-                            <Label>Posición</Label>
-                            <select
+                            <Label for="diseno-firmas-posicion">Posición</Label>
+                            <SelectSimple
+                                id="diseno-firmas-posicion"
                                 v-model="diseno.signatures.position"
-                                :class="claseCampo"
-                            >
-                                <option value="split">Repartidas</option>
-                                <option value="left">Izquierda</option>
-                                <option value="center">Centro</option>
-                                <option value="right">Derecha</option>
-                            </select>
+                                :opciones="OPCIONES.posicionFirmas"
+                                :disabled="!editable"
+                            />
                         </div>
                         <div class="flex flex-col gap-2 sm:col-span-3">
                             <div
@@ -716,12 +779,16 @@ const claseCampo =
                                 :key="i"
                                 class="flex items-center gap-2"
                             >
-                                <Input v-model="bloque.label" maxlength="80" />
+                                <Input
+                                    v-model="bloque.label"
+                                    maxlength="80"
+                                    :aria-label="`Texto de la firma ${i + 1}`"
+                                />
                                 <Button
                                     type="button"
                                     variant="ghost"
                                     size="icon"
-                                    aria-label="Quitar firma"
+                                    :aria-label="`Quitar firma ${i + 1}`"
                                     @click="
                                         diseno.signatures.blocks.splice(i, 1)
                                     "
@@ -744,10 +811,8 @@ const claseCampo =
                     </div>
                 </details>
 
-                <details class="rounded-2xl border bg-card p-4">
-                    <summary class="cursor-pointer font-semibold">
-                        Fondo y marca de agua
-                    </summary>
+                <details :class="claseSeccion">
+                    <summary>Fondo y marca de agua</summary>
                     <div class="mt-4 grid gap-4 sm:grid-cols-3">
                         <div class="sm:col-span-3">
                             <SelectorRecursoVisual
@@ -759,42 +824,31 @@ const claseCampo =
                             />
                         </div>
                         <div class="grid gap-1.5">
-                            <Label>Aplicar en</Label>
-                            <select
+                            <Label for="diseno-fondo-aplicar">Aplicar en</Label>
+                            <SelectSimple
+                                id="diseno-fondo-aplicar"
                                 v-model="diseno.background.apply_to"
-                                :class="claseCampo"
-                            >
-                                <option value="all_pages">
-                                    Todas las páginas
-                                </option>
-                                <option value="first_page">
-                                    Solo primera página
-                                </option>
-                            </select>
+                                :opciones="OPCIONES.aplicarFondo"
+                                :disabled="!editable"
+                            />
                         </div>
                         <div class="grid gap-1.5">
-                            <Label>Ajuste</Label>
-                            <select
+                            <Label for="diseno-fondo-ajuste">Ajuste</Label>
+                            <SelectSimple
+                                id="diseno-fondo-ajuste"
                                 v-model="diseno.background.fit"
-                                :class="claseCampo"
-                            >
-                                <option value="stretch">Estirar</option>
-                                <option value="contain">Contener</option>
-                                <option value="cover">Cubrir</option>
-                            </select>
+                                :opciones="OPCIONES.ajusteFondo"
+                                :disabled="!editable"
+                            />
                         </div>
                         <div class="grid gap-1.5">
-                            <Label>Posición</Label>
-                            <select
+                            <Label for="diseno-fondo-posicion">Posición</Label>
+                            <SelectSimple
+                                id="diseno-fondo-posicion"
                                 v-model="diseno.background.position"
-                                :class="claseCampo"
-                            >
-                                <option value="center">Centro</option>
-                                <option value="top">Arriba</option>
-                                <option value="bottom">Abajo</option>
-                                <option value="left">Izquierda</option>
-                                <option value="right">Derecha</option>
-                            </select>
+                                :opciones="OPCIONES.posicionFondo"
+                                :disabled="!editable"
+                            />
                         </div>
                         <div class="grid gap-1.5">
                             <Label>Opacidad (%)</Label>
@@ -817,20 +871,20 @@ const claseCampo =
                     </div>
                 </details>
 
-                <details class="rounded-2xl border bg-card p-4">
-                    <summary class="cursor-pointer font-semibold">Pie</summary>
+                <details :class="claseSeccion">
+                    <summary>Pie</summary>
                     <div class="mt-4 grid gap-4 sm:grid-cols-3">
                         <label class="flex items-center gap-2 text-sm">
-                            <input
+                            <Casilla
                                 v-model="diseno.footer.show"
-                                type="checkbox"
+                                :disabled="!editable"
                             />
                             Mostrar pie
                         </label>
                         <label class="flex items-center gap-2 text-sm">
-                            <input
+                            <Casilla
                                 v-model="diseno.footer.page_numbers"
-                                type="checkbox"
+                                :disabled="!editable"
                             />
                             Numerar páginas
                         </label>
@@ -861,35 +915,20 @@ const claseCampo =
                     </div>
                 </details>
 
-                <details class="rounded-2xl border bg-card p-4">
-                    <summary class="cursor-pointer font-semibold">
-                        Avanzado
-                    </summary>
+                <details :class="claseSeccion">
+                    <summary>Avanzado</summary>
                     <div class="mt-4 flex flex-col gap-5">
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div class="grid gap-1.5">
                                 <Label for="motor">Motor de PDF</Label>
-                                <select
+                                <SelectSimple
                                     id="motor"
                                     v-model="motor"
-                                    :class="claseCampo"
-                                >
-                                    <option value="">
-                                        Predeterminado del servidor ({{
-                                            motores.find(
-                                                (m) =>
-                                                    m.valor === motorPorDefecto,
-                                            )?.etiqueta
-                                        }})
-                                    </option>
-                                    <option
-                                        v-for="m in motores"
-                                        :key="m.valor"
-                                        :value="m.valor"
-                                    >
-                                        {{ m.etiqueta }}
-                                    </option>
-                                </select>
+                                    :opciones="opcionesMotor"
+                                    :opcion-vacia="etiquetaMotorPredeterminado"
+                                    :buscable="false"
+                                    :disabled="!editable"
+                                />
                             </div>
                             <div class="grid gap-1.5">
                                 <Label for="notas">Notas de la versión</Label>
@@ -943,43 +982,36 @@ const claseCampo =
                                     />
                                 </div>
                                 <div class="grid gap-1.5">
-                                    <Label>Color del texto</Label>
+                                    <Label for="diseno-color-texto"
+                                        >Color del texto</Label
+                                    >
                                     <input
+                                        id="diseno-color-texto"
                                         v-model="diseno.typography.color"
                                         type="color"
-                                        class="h-9 w-full cursor-pointer rounded-md border"
+                                        :class="claseColor"
                                     />
                                 </div>
                                 <div class="grid gap-1.5">
-                                    <Label>Peso</Label>
-                                    <select
-                                        v-model.number="
-                                            diseno.typography.weight
-                                        "
-                                        :class="claseCampo"
-                                    >
-                                        <option :value="300">Ligero</option>
-                                        <option :value="400">Normal</option>
-                                        <option :value="500">Medio</option>
-                                        <option :value="600">
-                                            Seminegrita
-                                        </option>
-                                        <option :value="700">Negrita</option>
-                                    </select>
+                                    <Label for="diseno-peso">Peso</Label>
+                                    <SelectSimple
+                                        id="diseno-peso"
+                                        v-model="diseno.typography.weight"
+                                        :opciones="OPCIONES.peso"
+                                        numerico
+                                        :disabled="!editable"
+                                    />
                                 </div>
                                 <div class="grid gap-1.5">
-                                    <Label>Alineación</Label>
-                                    <select
-                                        v-model="diseno.paragraph.align"
-                                        :class="claseCampo"
+                                    <Label for="diseno-alineacion"
+                                        >Alineación</Label
                                     >
-                                        <option value="left">Izquierda</option>
-                                        <option value="justify">
-                                            Justificado
-                                        </option>
-                                        <option value="center">Centrado</option>
-                                        <option value="right">Derecha</option>
-                                    </select>
+                                    <SelectSimple
+                                        id="diseno-alineacion"
+                                        v-model="diseno.paragraph.align"
+                                        :opciones="OPCIONES.alineacion"
+                                        :disabled="!editable"
+                                    />
                                 </div>
                                 <div
                                     v-for="(etiqueta, campo) in {
@@ -1022,11 +1054,14 @@ const claseCampo =
                                     :key="clave"
                                     class="grid gap-1.5"
                                 >
-                                    <Label>{{ etiqueta }}</Label>
+                                    <Label :for="`diseno-color-${clave}`">{{
+                                        etiqueta
+                                    }}</Label>
                                     <input
+                                        :id="`diseno-color-${clave}`"
                                         v-model="diseno.colors[clave]"
                                         type="color"
-                                        class="h-9 w-full cursor-pointer rounded-md border"
+                                        :class="claseColor"
                                     />
                                 </div>
                             </div>
@@ -1062,19 +1097,22 @@ const claseCampo =
                                     />
                                 </div>
                                 <div class="grid gap-1.5">
-                                    <Label>Color de títulos</Label>
+                                    <Label for="diseno-color-titulos"
+                                        >Color de títulos</Label
+                                    >
                                     <input
+                                        id="diseno-color-titulos"
                                         v-model="diseno.sections.title_color"
                                         type="color"
-                                        class="h-9 w-full cursor-pointer rounded-md border"
+                                        :class="claseColor"
                                     />
                                 </div>
                                 <label
                                     class="flex items-center gap-2 text-sm sm:col-span-3"
                                 >
-                                    <input
+                                    <Casilla
                                         v-model="diseno.sections.divider"
-                                        type="checkbox"
+                                        :disabled="!editable"
                                     />
                                     Línea divisoria en títulos
                                 </label>
@@ -1134,10 +1172,14 @@ const claseCampo =
                 <History class="size-4" />
                 Historial de versiones
             </h2>
-            <p v-if="!historial.length" class="text-sm text-muted-foreground">
-                Aún no hay versiones: se usa el diseño de fábrica.
-            </p>
-            <div v-else class="flex flex-col gap-2">
+            <EmptyState
+                v-if="!historial.length"
+                :icono="History"
+                titulo="Aún no hay versiones"
+                descripcion="Mientras no se active una versión, los documentos se generan con el diseño de fábrica."
+                class="py-8"
+            />
+            <div v-else class="flex entrada-escalonada flex-col gap-2">
                 <div
                     v-for="v in historial"
                     :key="v.id"
@@ -1182,6 +1224,7 @@ const claseCampo =
                                 :href="vistaPreviaVersion(v.id)"
                                 target="_blank"
                                 rel="noopener"
+                                :aria-label="`Ver la versión ${v.version} en una pestaña nueva`"
                                 >Ver</a
                             >
                         </Button>

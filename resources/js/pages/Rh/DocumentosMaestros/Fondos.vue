@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { Head, router, useForm } from '@inertiajs/vue3';
 import { ImagePlus, Images, Power, RefreshCw, Save, Trash2 } from '@lucide/vue';
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import SeccionesDocumentosMaestros from '@/components/documentos/maestros/SeccionesDocumentosMaestros.vue';
 import InputError from '@/components/InputError.vue';
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -18,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Spinner } from '@/components/ui/spinner';
 import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { useAlertas } from '@/composables/useAlertas';
 import { dashboard } from '@/routes';
@@ -82,6 +84,14 @@ const formNuevo = useForm({
     safe_area_right_mm: '' as string | number,
     safe_area_bottom_mm: '' as string | number,
     safe_area_left_mm: '' as string | number,
+});
+
+/** La zona de arrastre trabaja con una lista; el formulario envía un solo archivo. */
+const archivoNuevo = computed<File[]>({
+    get: () => (formNuevo.archivo ? [formNuevo.archivo] : []),
+    set: (archivos) => {
+        formNuevo.archivo = archivos[0] ?? null;
+    },
 });
 
 function subir() {
@@ -227,12 +237,12 @@ async function eliminar(f: FondoDocumento) {
 
         <div
             v-else
-            class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+            class="grid entrada-escalonada gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
         >
             <article
                 v-for="f in fondos"
                 :key="f.id"
-                class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4"
+                class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 transition-shadow hover:shadow-md"
                 :class="{ 'opacity-60': !f.activo }"
             >
                 <div
@@ -297,6 +307,8 @@ async function eliminar(f: FondoDocumento) {
                         v-if="f.puede_eliminar"
                         size="sm"
                         variant="ghost"
+                        class="text-destructive hover:text-destructive"
+                        :aria-label="`Eliminar ${f.nombre}`"
                         @click="eliminar(f)"
                     >
                         <Trash2 class="size-4" />
@@ -327,12 +339,14 @@ async function eliminar(f: FondoDocumento) {
         type="file"
         accept="image/png,image/jpeg,image/webp"
         class="hidden"
+        tabindex="-1"
+        aria-hidden="true"
         @change="alElegirArchivo"
     />
 
     <!-- Nuevo fondo -->
     <Dialog v-model:open="dialogoNuevo">
-        <DialogContent class="sm:max-w-lg">
+        <DialogContent class="max-h-[92dvh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle>Añadir fondo</DialogTitle>
                 <DialogDescription>
@@ -342,8 +356,9 @@ async function eliminar(f: FondoDocumento) {
             </DialogHeader>
             <div class="flex flex-col gap-3">
                 <div class="grid gap-1.5">
-                    <Label>Nombre</Label>
+                    <Label for="fondo-nombre">Nombre</Label>
                     <Input
+                        id="fondo-nombre"
                         v-model="formNuevo.nombre"
                         placeholder="MR LANA — Responsivas"
                     />
@@ -358,16 +373,16 @@ async function eliminar(f: FondoDocumento) {
                     <InputError :message="formNuevo.errors.tipo" />
                 </div>
                 <div class="grid gap-1.5">
-                    <Label>Archivo</Label>
-                    <Input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp"
-                        @change="
-                            (e: Event) =>
-                                (formNuevo.archivo =
-                                    (e.target as HTMLInputElement).files?.[0] ??
-                                    null)
-                        "
+                    <Label for="fondo-archivo">Archivo</Label>
+                    <PeopleFileDropzone
+                        id="fondo-archivo"
+                        v-model="archivoNuevo"
+                        accept=".png,.jpg,.jpeg,.webp"
+                        :max-size-mb="20"
+                        label="Arrastra la imagen aquí"
+                        vista-previa
+                        :loading="formNuevo.processing"
+                        :progreso="formNuevo.progress?.percentage ?? null"
                     />
                     <InputError :message="formNuevo.errors.archivo" />
                 </div>
@@ -394,26 +409,34 @@ async function eliminar(f: FondoDocumento) {
                 >
                     Área segura (mm desde cada orilla)
                 </p>
-                <div class="grid grid-cols-4 gap-2">
+                <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <Input
                         v-model="formNuevo.safe_area_top_mm"
                         type="number"
+                        min="0"
                         placeholder="Arriba"
+                        aria-label="Área segura: arriba (mm)"
                     />
                     <Input
                         v-model="formNuevo.safe_area_right_mm"
                         type="number"
+                        min="0"
                         placeholder="Derecha"
+                        aria-label="Área segura: derecha (mm)"
                     />
                     <Input
                         v-model="formNuevo.safe_area_bottom_mm"
                         type="number"
+                        min="0"
                         placeholder="Abajo"
+                        aria-label="Área segura: abajo (mm)"
                     />
                     <Input
                         v-model="formNuevo.safe_area_left_mm"
                         type="number"
+                        min="0"
                         placeholder="Izquierda"
+                        aria-label="Área segura: izquierda (mm)"
                     />
                 </div>
             </div>
@@ -424,8 +447,10 @@ async function eliminar(f: FondoDocumento) {
                 <Button
                     :disabled="formNuevo.processing || !formNuevo.archivo"
                     @click="subir"
-                    >Subir</Button
                 >
+                    <Spinner v-if="formNuevo.processing" />
+                    Subir
+                </Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
@@ -435,7 +460,7 @@ async function eliminar(f: FondoDocumento) {
         :open="editando !== null"
         @update:open="(v: boolean) => !v && (editando = null)"
     >
-        <DialogContent class="sm:max-w-lg">
+        <DialogContent class="max-h-[92dvh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle>Editar «{{ editando?.nombre }}»</DialogTitle>
                 <DialogDescription>
@@ -445,8 +470,11 @@ async function eliminar(f: FondoDocumento) {
             </DialogHeader>
             <div class="flex flex-col gap-3">
                 <div class="grid gap-1.5">
-                    <Label>Nombre</Label>
-                    <Input v-model="formEditar.nombre" />
+                    <Label for="fondo-editar-nombre">Nombre</Label>
+                    <Input
+                        id="fondo-editar-nombre"
+                        v-model="formEditar.nombre"
+                    />
                     <InputError :message="formEditar.errors.nombre" />
                 </div>
                 <div class="grid grid-cols-2 gap-3">
@@ -472,26 +500,34 @@ async function eliminar(f: FondoDocumento) {
                 >
                     Área segura (mm desde cada orilla)
                 </p>
-                <div class="grid grid-cols-4 gap-2">
+                <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <Input
                         v-model="formEditar.safe_area_top_mm"
                         type="number"
+                        min="0"
                         placeholder="Arriba"
+                        aria-label="Área segura: arriba (mm)"
                     />
                     <Input
                         v-model="formEditar.safe_area_right_mm"
                         type="number"
+                        min="0"
                         placeholder="Derecha"
+                        aria-label="Área segura: derecha (mm)"
                     />
                     <Input
                         v-model="formEditar.safe_area_bottom_mm"
                         type="number"
+                        min="0"
                         placeholder="Abajo"
+                        aria-label="Área segura: abajo (mm)"
                     />
                     <Input
                         v-model="formEditar.safe_area_left_mm"
                         type="number"
+                        min="0"
                         placeholder="Izquierda"
+                        aria-label="Área segura: izquierda (mm)"
                     />
                 </div>
             </div>

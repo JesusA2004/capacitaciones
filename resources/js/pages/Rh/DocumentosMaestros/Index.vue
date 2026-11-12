@@ -22,6 +22,7 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import { toast } from 'vue-sonner';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import DetalleMaestro from '@/components/documentos/maestros/DetalleMaestro.vue';
 import SeccionesDocumentosMaestros from '@/components/documentos/maestros/SeccionesDocumentosMaestros.vue';
@@ -46,6 +47,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ListaAnimada from '@/components/ui/ListaAnimada.vue';
+import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
 import {
     Sheet,
     SheetContent,
@@ -381,29 +383,28 @@ async function crearFormato() {
                 <p class="text-sm text-muted-foreground">
                     <button
                         type="button"
-                        class="hover:text-foreground hover:underline"
+                        class="rounded-sm enlace-animado hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                         @click="filtro = 'listo'"
                     >
-                        <span class="font-medium text-success tabular-nums">{{
-                            salud.formatos.listos
-                        }}</span>
+                        <span class="font-medium text-success tabular-nums"
+                            ><NumeroAnimado :valor="salud.formatos.listos"
+                        /></span>
                         listos
                     </button>
                     <template v-if="requierenAtencion > 0">
                         ·
                         <button
                             type="button"
-                            class="hover:text-foreground hover:underline"
+                            class="rounded-sm enlace-animado hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                             @click="
                                 filtro = salud.formatos.bloqueados
                                     ? 'bloqueado'
                                     : 'revision'
                             "
                         >
-                            <span
-                                class="font-medium text-warning tabular-nums"
-                                >{{ requierenAtencion }}</span
-                            >
+                            <span class="font-medium text-warning tabular-nums"
+                                ><NumeroAnimado :valor="requierenAtencion"
+                            /></span>
                             {{
                                 requierenAtencion === 1
                                     ? 'requiere atención'
@@ -415,7 +416,7 @@ async function crearFormato() {
                         ·
                         <button
                             type="button"
-                            class="text-primary hover:underline"
+                            class="rounded-sm enlace-animado text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                             @click="filtro = 'todos'"
                         >
                             ver todos
@@ -481,16 +482,28 @@ async function crearFormato() {
             />
         </div>
 
-        <p
+        <EmptyState
             v-if="filtradas.length === 0"
-            class="rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground"
-        >
-            {{
+            :icono="busqueda ? Search : FileStack"
+            :titulo="busqueda ? 'Sin coincidencias' : 'Sin formatos'"
+            :descripcion="
                 busqueda
-                    ? 'Ningún formato coincide con tu búsqueda.'
+                    ? 'Ningún formato coincide con tu búsqueda. Prueba con otro nombre.'
                     : 'No hay formatos en este grupo.'
-            }}
-        </p>
+            "
+            class="rounded-2xl border border-dashed bg-card"
+        >
+            <Button
+                v-if="busqueda || filtro !== 'todos'"
+                variant="outline"
+                size="sm"
+                @click="
+                    busqueda = '';
+                    filtro = 'todos';
+                "
+                >Ver todos los formatos</Button
+            >
+        </EmptyState>
 
         <ListaAnimada
             tag="ul"
@@ -663,7 +676,7 @@ async function crearFormato() {
         :open="subirAbierto"
         @update:open="(v: boolean) => !subiendoOriginal && (subirAbierto = v)"
     >
-        <DialogContent class="sm:max-w-lg">
+        <DialogContent class="max-h-[92dvh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle>Subir original</DialogTitle>
                 <DialogDescription
@@ -708,7 +721,7 @@ async function crearFormato() {
         :open="nuevoAbierto"
         @update:open="(v: boolean) => !subiendo && (nuevoAbierto = v)"
     >
-        <DialogContent class="sm:max-w-lg">
+        <DialogContent class="max-h-[92dvh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle>Nuevo formato</DialogTitle>
                 <DialogDescription

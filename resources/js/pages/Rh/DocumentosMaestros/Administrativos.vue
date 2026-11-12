@@ -68,7 +68,7 @@ const ESTADOS: Record<
 
         <SeccionesDocumentosMaestros actual="administrativos" />
 
-        <ul class="grid gap-4 md:grid-cols-2">
+        <ul class="grid entrada-escalonada gap-4 md:grid-cols-2">
             <li
                 v-for="familia in familias"
                 :key="familia.familia"
@@ -95,7 +95,7 @@ const ESTADOS: Record<
                     >
                 </div>
 
-                <dl class="grid grid-cols-3 gap-3 text-sm">
+                <dl class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
                     <div>
                         <dt class="text-xs text-muted-foreground">
                             Versión activa

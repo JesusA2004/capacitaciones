@@ -13,6 +13,7 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import Casilla from '@/components/Common/Casilla.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Badge } from '@/components/ui/badge';
@@ -26,6 +27,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
 import { Textarea } from '@/components/ui/textarea';
 import {
     Tooltip,
@@ -33,6 +35,7 @@ import {
     TooltipProvider,
     TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { dashboard } from '@/routes';
 import {
     cobertura as rutaCobertura,
@@ -187,24 +190,15 @@ function guardar() {
     <div class="pagina-ancha flex flex-col gap-5">
         <CrudPageHeader
             titulo="Cobertura documental por puesto"
+            descripcion="Qué formato oficial usará PEOPLE para cada puesto activo. Resuelve aquí lo que falte antes de que alguien espere su contrato."
             :icono="Users"
         />
-
-        <header class="flex flex-col gap-1">
-            <h1 class="text-xl font-semibold">
-                Cobertura documental por puesto
-            </h1>
-            <p class="text-sm text-[var(--mrl-texto-suave)]">
-                Qué formato oficial usará PEOPLE para cada puesto activo.
-                Resuelve aquí lo que falte antes de que alguien espere su
-                contrato.
-            </p>
-        </header>
 
         <button
             v-if="conProblema > 0"
             type="button"
-            class="flex items-center gap-3 rounded-2xl border border-warning/30 bg-warning-soft/50 p-4 text-left text-warning transition hover:shadow-sm"
+            class="group flex presionable items-center gap-3 rounded-2xl border border-warning/30 bg-warning-soft/50 p-4 text-left text-warning transition-shadow hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            :aria-pressed="soloProblemas"
             @click="soloProblemas = !soloProblemas"
         >
             <AlertTriangle class="size-5 shrink-0" />
@@ -213,9 +207,10 @@ function guardar() {
                 {{ conProblema === 1 ? 'puesto tiene' : 'puestos tienen' }}
                 configuración documental incompleta
             </span>
-            <span class="text-xs underline">{{
-                soloProblemas ? 'Ver todos' : 'Ver solo esos'
-            }}</span>
+            <span
+                class="shrink-0 text-xs font-medium underline-offset-2 group-hover:underline"
+                >{{ soloProblemas ? 'Ver todos' : 'Ver solo esos' }}</span
+            >
         </button>
         <p
             v-else
@@ -225,13 +220,13 @@ function guardar() {
             puestos activos tienen su documentación decidida y cubierta.
         </p>
 
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div class="grid entrada-escalonada grid-cols-2 gap-3 sm:grid-cols-4">
             <div
                 class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-3"
             >
                 <p class="text-xs text-[var(--mrl-texto-suave)]">Completos</p>
                 <p class="text-xl font-semibold tabular-nums">
-                    {{ cobertura.resumen.completos }}
+                    <NumeroAnimado :valor="cobertura.resumen.completos" />
                 </p>
             </div>
             <div
@@ -242,7 +237,7 @@ function guardar() {
                     class="text-xl font-semibold tabular-nums"
                     :class="cobertura.resumen.incompletos ? 'text-warning' : ''"
                 >
-                    {{ cobertura.resumen.incompletos }}
+                    <NumeroAnimado :valor="cobertura.resumen.incompletos" />
                 </p>
             </div>
             <div
@@ -257,7 +252,7 @@ function guardar() {
                         cobertura.resumen.sin_decision ? 'text-destructive' : ''
                     "
                 >
-                    {{ cobertura.resumen.sin_decision }}
+                    <NumeroAnimado :valor="cobertura.resumen.sin_decision" />
                 </p>
             </div>
             <div
@@ -267,16 +262,23 @@ function guardar() {
                     No requieren documentos
                 </p>
                 <p class="text-xl font-semibold tabular-nums">
-                    {{ cobertura.resumen.excluidos }}
+                    <NumeroAnimado :valor="cobertura.resumen.excluidos" />
                 </p>
             </div>
         </div>
 
-        <TooltipProvider :delay-duration="150">
+        <EmptyState
+            v-if="puestos.length === 0"
+            :icono="Users"
+            titulo="Sin puestos que mostrar"
+            descripcion="No hay puestos activos en el catálogo. Cuando exista alguno aparecerá aquí con su cobertura documental."
+            class="rounded-2xl border border-dashed border-[var(--mrl-borde)] bg-[var(--mrl-superficie)]"
+        />
+        <TooltipProvider v-else :delay-duration="150">
             <div
-                class="overflow-x-auto rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)]"
+                class="tabla-scroll rounded-2xl border-[var(--mrl-borde)] sm:border sm:bg-[var(--mrl-superficie)]"
             >
-                <table class="w-full min-w-[900px] text-sm">
+                <table v-tabla-tarjetas class="w-full min-w-[900px] text-sm">
                     <thead
                         class="bg-[var(--mrl-fondo)] text-left text-xs text-[var(--mrl-texto-suave)]"
                     >
@@ -304,10 +306,10 @@ function guardar() {
                         <tr
                             v-for="p in puestos"
                             :key="p.id"
-                            class="border-t border-[var(--mrl-borde)]"
+                            class="border-t border-[var(--mrl-borde)] transition-colors sm:hover:bg-[var(--mrl-fondo)]/60"
                         >
                             <td
-                                class="sticky left-0 z-10 min-w-36 bg-[var(--mrl-superficie)] p-3 font-medium shadow-[1px_0_0_var(--mrl-borde)]"
+                                class="left-0 z-10 p-3 font-medium sm:sticky sm:min-w-36 sm:bg-[var(--mrl-superficie)] sm:shadow-[1px_0_0_var(--mrl-borde)]"
                             >
                                 {{ p.nombre }}
                             </td>
@@ -467,6 +469,7 @@ function guardar() {
                                 <Button
                                     size="sm"
                                     variant="ghost"
+                                    :aria-label="`Decidir la documentación de ${p.nombre}`"
                                     @click="editar(p)"
                                     ><Pencil class="size-4" /> Decidir</Button
                                 >
@@ -488,7 +491,7 @@ function guardar() {
         :open="editando !== null"
         @update:open="(v: boolean) => !v && !guardando && (editando = null)"
     >
-        <DialogContent class="sm:max-w-md">
+        <DialogContent class="max-h-[92dvh] overflow-y-auto sm:max-w-md">
             <DialogHeader>
                 <DialogTitle
                     >Documentación de {{ editando?.nombre }}</DialogTitle
@@ -508,8 +511,9 @@ function guardar() {
                     v-if="!form.no_requiere_documentos_laborales"
                     class="flex flex-col gap-1"
                 >
-                    <Label>Grupo documental</Label>
+                    <Label for="grupo-documental">Grupo documental</Label>
                     <SelectSimple
+                        id="grupo-documental"
                         v-model="form.grupo_documental"
                         :opciones="
                             gruposDocumentales.map((g) => ({

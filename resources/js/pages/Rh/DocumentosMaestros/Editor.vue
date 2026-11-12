@@ -911,7 +911,7 @@ function siguientePorRevisar() {
 
     <TooltipProvider :delay-duration="300">
         <div
-            class="pagina-ancha flex h-[calc(100dvh-5rem)] min-h-[36rem] flex-col gap-3"
+            class="pagina-ancha flex flex-col gap-3 lg:h-[calc(100dvh-5rem)] lg:min-h-[36rem]"
         >
             <!-- Barra superior: lo esencial a la vista, lo demás en «…» -->
             <header
@@ -974,7 +974,7 @@ function siguientePorRevisar() {
                     <button
                         v-if="resumen.atencion"
                         type="button"
-                        class="rounded-full bg-warning-soft px-2 py-0.5 text-warning hover:ring-1 hover:ring-warning"
+                        class="presionable rounded-full bg-warning-soft px-2 py-0.5 text-warning hover:ring-1 hover:ring-warning focus-visible:ring-2 focus-visible:ring-warning focus-visible:outline-none"
                         @click="siguientePorRevisar"
                     >
                         ⚠ {{ resumen.atencion }} por revisar · Revisar
@@ -1203,7 +1203,7 @@ function siguientePorRevisar() {
             </p>
 
             <div
-                class="grid min-h-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[9rem_minmax(0,1fr)_20rem]"
+                class="grid grid-cols-1 gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[9rem_minmax(0,1fr)_20rem]"
             >
                 <!-- Izquierda: páginas / espacios -->
                 <aside
@@ -1223,7 +1223,7 @@ function siguientePorRevisar() {
                                 type="button"
                                 :class="
                                     cn(
-                                        'flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-xs',
+                                        'flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-xs transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none',
                                         seleccion.includes(c.field_key)
                                             ? 'bg-primary/10'
                                             : 'hover:bg-muted',
@@ -1256,7 +1256,7 @@ function siguientePorRevisar() {
 
                 <!-- Centro: documento -->
                 <main
-                    class="min-h-0 overflow-auto rounded-2xl border bg-crema/50"
+                    class="h-[65dvh] min-h-80 overflow-auto rounded-2xl border bg-crema/50 lg:h-auto lg:min-h-0"
                 >
                     <div
                         v-if="esPdf && pdf.cargando.value"
@@ -1268,6 +1268,7 @@ function siguientePorRevisar() {
                     <p
                         v-else-if="esPdf && pdf.fallo.value"
                         class="p-10 text-center text-sm text-danger"
+                        role="alert"
                     >
                         No se pudo mostrar el documento original.
                     </p>
@@ -1306,7 +1307,7 @@ function siguientePorRevisar() {
 
                 <!-- Derecha: espacio / datos / preparación -->
                 <aside
-                    class="flex min-h-0 flex-col rounded-2xl border bg-card p-3"
+                    class="flex flex-col rounded-2xl border bg-card p-3 lg:min-h-0"
                 >
                     <Tabs
                         v-model="pestana"
@@ -1545,7 +1546,7 @@ function siguientePorRevisar() {
                                     >
                                         <button
                                             type="button"
-                                            class="w-full rounded-md bg-warning-soft px-2 py-1 text-left text-xs text-warning hover:ring-1 hover:ring-warning"
+                                            class="w-full presionable rounded-md bg-warning-soft px-2 py-1 text-left text-xs text-warning hover:ring-1 hover:ring-warning focus-visible:ring-2 focus-visible:ring-warning focus-visible:outline-none"
                                             @click="irA(c.field_key)"
                                         >
                                             <span class="font-medium">{{
@@ -1560,7 +1561,7 @@ function siguientePorRevisar() {
                                     :href="largos.url_pdf"
                                     target="_blank"
                                     rel="noopener"
-                                    class="mt-2 inline-block text-xs text-primary underline"
+                                    class="mt-2 inline-block enlace-animado text-xs text-primary"
                                     >Ver PDF de prueba</a
                                 >
                             </div>
@@ -1576,7 +1577,7 @@ function siguientePorRevisar() {
         :open="subirAbierto"
         @update:open="(v: boolean) => !subiendo && (subirAbierto = v)"
     >
-        <DialogContent class="sm:max-w-lg">
+        <DialogContent class="max-h-[92dvh] overflow-y-auto sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle>Subir nueva versión</DialogTitle>
                 <DialogDescription
