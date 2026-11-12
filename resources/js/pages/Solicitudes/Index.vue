@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import {
     ArrowLeft,
     Banknote,
@@ -17,7 +17,7 @@ import {
     Plus,
     Timer,
 } from '@lucide/vue';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
@@ -163,6 +163,57 @@ function abrirNuevaSolicitud() {
     dialogoAbierto.value = true;
 }
 
+/*
+ * Borrador de «Completar o cambiar mis datos». Lo capturado se guarda en el
+ * navegador (sessionStorage) mientras se escribe: si la página se recarga a
+ * medio camino —el celular descarta la pestaña al cambiar de app, o hubo una
+ * actualización del sistema y el navegador recarga completo— el formulario
+ * vuelve con lo escrito y con sus errores, en vez de aparecer vacío como si
+ * nada se hubiera enviado.
+ */
+const page = usePage();
+const CLAVE_BORRADOR = `people:mis-datos:borrador:${page.props.auth.user?.id ?? 0}`;
+const borradorRecuperado = ref(false);
+
+function leerBorrador(): { datos: Record<string, string>; motivo: string } {
+    try {
+        const crudo = window.sessionStorage.getItem(CLAVE_BORRADOR);
+        const borrador = crudo ? JSON.parse(crudo) : null;
+        const datos: Record<string, string> = {};
+
+        for (const c of props.datosPersonales) {
+            const valor = borrador?.datos?.[c.campo];
+
+            // Lo que ya está en revisión no se vuelve a proponer.
+            if (typeof valor === 'string' && valor !== '' && !c.en_revision) {
+                datos[c.campo] = valor;
+            }
+        }
+
+        return {
+            datos,
+            motivo: typeof borrador?.motivo === 'string' ? borrador.motivo : '',
+        };
+    } catch {
+        return { datos: {}, motivo: '' };
+    }
+}
+
+function guardarBorrador(): void {
+    try {
+        if (Object.keys(form.datos).length || form.motivo) {
+            window.sessionStorage.setItem(
+                CLAVE_BORRADOR,
+                JSON.stringify({ datos: form.datos, motivo: form.motivo }),
+            );
+        } else {
+            window.sessionStorage.removeItem(CLAVE_BORRADOR);
+        }
+    } catch {
+        // Sin almacenamiento (modo privado): el formulario funciona igual.
+    }
+}
+
 // ?nueva=<tipo> (p. ej. "Solicitar corrección" desde Mi expediente) abre
 // el formulario de ese tipo directamente.
 onMounted(() => {
@@ -174,6 +225,25 @@ onMounted(() => {
         props.tipos.some((t) => t.clave === nueva)
     ) {
         form.tipo = nueva;
+
+        if (nueva === 'actualizacion_datos') {
+            const borrador = leerBorrador();
+
+            if (Object.keys(borrador.datos).length) {
+                form.datos = borrador.datos;
+                form.motivo = borrador.motivo;
+                borradorRecuperado.value = true;
+            }
+
+            // Tras una recarga completa los errores de validación llegan en
+            // las props de la página, no por el formulario: se pintan igual.
+            const errores = page.props.errors as Record<string, string>;
+
+            if (Object.keys(errores ?? {}).length) {
+                form.setError(errores);
+            }
+        }
+
         pasoFormulario.value = 'detalle';
         dialogoAbierto.value = true;
     }
@@ -194,6 +264,16 @@ const form = useForm({
     hora_entrada: '',
     datos: {} as Record<string, string>,
 });
+
+watch(
+    () => [form.datos, form.motivo, form.tipo],
+    () => {
+        if (form.tipo === 'actualizacion_datos') {
+            guardarBorrador();
+        }
+    },
+    { deep: true },
+);
 
 // Taxonomía definitiva: permisos, vacaciones y préstamos. La baja NO es
 // una solicitud (el jefe directo la inicia desde el colaborador → Cierre
@@ -271,7 +351,14 @@ function enviar() {
         onSuccess: () => {
             dialogoAbierto.value = false;
             pasoFormulario.value = 'tipo';
+            borradorRecuperado.value = false;
             form.reset();
+
+            try {
+                window.sessionStorage.removeItem(CLAVE_BORRADOR);
+            } catch {
+                // Sin almacenamiento: nada que limpiar.
+            }
         },
     });
 }
@@ -493,6 +580,19 @@ function nombreTipo(clave: string): string {
                     {{ form.errors.tipo }}
                 </p>
 
+                <p
+                    v-if="
+                        form.tipo === 'actualizacion_datos' &&
+                        borradorRecuperado
+                    "
+                    class="rounded-lg bg-info-soft px-3 py-2 text-xs"
+                    role="status"
+                >
+                    Recuperamos lo que habías escrito. Todavía
+                    <strong>no se ha enviado</strong>: revísalo y toca «Enviar a
+                    Recursos Humanos».
+                </p>
+
                 <DatosPersonalesFormulario
                     v-if="
                         form.tipo === 'actualizacion_datos' &&
@@ -501,6 +601,7 @@ function nombreTipo(clave: string): string {
                     v-model="form.datos"
                     :campos="datosPersonales"
                     :errores="form.errors"
+                    separar-en-revision
                 />
 
                 <!-- Permiso: solo lo que pide el formato oficial -->
@@ -695,7 +796,11 @@ function nombreTipo(clave: string): string {
                     </p>
                 </div>
 
-                <div class="grid gap-2">
+                <!-- Datos personales: basta el comentario opcional de arriba. -->
+                <div
+                    v-if="form.tipo !== 'actualizacion_datos'"
+                    class="grid gap-2"
+                >
                     <Label for="observaciones">Observaciones (opcional)</Label>
                     <Textarea
                         id="observaciones"
@@ -720,7 +825,11 @@ function nombreTipo(clave: string): string {
                     >
                     <Button type="submit" :disabled="form.processing">
                         <Spinner v-if="form.processing" />
-                        Enviar solicitud
+                        {{
+                            form.tipo === 'actualizacion_datos'
+                                ? 'Enviar a Recursos Humanos'
+                                : 'Enviar solicitud'
+                        }}
                     </Button>
                 </DialogFooter>
             </form>

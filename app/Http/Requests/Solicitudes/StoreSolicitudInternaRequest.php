@@ -46,6 +46,20 @@ class StoreSolicitudInternaRequest extends FormRequest
     }
 
     /**
+     * «Completar o cambiar mis datos»: se quita el formato con el que la
+     * gente escribe (teléfono con espacios, CURP en minúsculas…) antes de
+     * validar, para que un dato correcto nunca regrese como error.
+     */
+    protected function prepareForValidation(): void
+    {
+        $datos = $this->input('datos');
+
+        if (is_array($datos) && $this->input('tipo') === TipoSolicitudInterna::ActualizacionDatos->value) {
+            $this->merge(['datos' => app(ActualizacionDatosService::class)->limpiarCaptura($datos)]);
+        }
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function rules(): array

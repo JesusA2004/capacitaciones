@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Solicitudes;
 
+use App\Enums\TipoSolicitudInterna;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Solicitudes\ResponderCorreccionRequest;
 use App\Http\Requests\Solicitudes\StoreSolicitudInternaRequest;
@@ -59,7 +60,17 @@ class SolicitudInternaController extends Controller
 
     public function store(StoreSolicitudInternaRequest $request): RedirectResponse
     {
-        $this->solicitudes->crear($request->user(), $request->validated());
+        $solicitud = $this->solicitudes->crear($request->user(), $request->validated());
+
+        // Completar / cambiar datos: confirmación explícita y regreso a la
+        // lista SIN «?nueva=…» (con ese parámetro, cualquier recarga volvía a
+        // abrir el formulario vacío y parecía que no se había enviado).
+        if ($solicitud->tipo === TipoSolicitudInterna::ActualizacionDatos) {
+            return to_route('solicitudes.index')->with('toast', [
+                'type' => 'success',
+                'message' => sprintf('Enviado a Recursos Humanos (%s). Está en revisión: lo ves en «Mis correcciones».', $solicitud->folio),
+            ]);
+        }
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Solicitud enviada. Te avisaremos cuando sea revisada.']);
     }
