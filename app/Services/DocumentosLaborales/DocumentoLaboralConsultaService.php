@@ -114,6 +114,27 @@ class DocumentoLaboralConsultaService
      */
     public function delColaborador(Colaborador $colaborador, ?string $estado = null): LengthAwarePaginator
     {
+        return $this->consultaDelColaborador($colaborador, $estado)
+            ->orderByDesc('id')
+            ->paginate(Paginacion::porPagina(20));
+    }
+
+    /**
+     * ¿El documento está en «Mis documentos laborales» de este colaborador?
+     * Misma regla que el listado: suyo, sin borradores ni cancelados y sin lo
+     * que nunca es autoservicio (finiquito, recibos impresos, evaluación
+     * calificada). Lo usa la web para responder 404 a cualquier otro.
+     */
+    public function esVisibleParaTitular(Colaborador $colaborador, GeneratedDocument $documento): bool
+    {
+        return $this->consultaDelColaborador($colaborador)->whereKey($documento->id)->exists();
+    }
+
+    /**
+     * @return Builder<GeneratedDocument>
+     */
+    private function consultaDelColaborador(Colaborador $colaborador, ?string $estado = null): Builder
+    {
         return GeneratedDocument::query()
             ->where('colaborador_id', $colaborador->id)
             ->whereNotNull('estado_flujo')
@@ -135,9 +156,7 @@ class DocumentoLaboralConsultaService
             // respuestas, nunca autoservicio (EvaluacionInduccionPdfService).
             ->where(fn (Builder $s) => $s
                 ->whereNull('clave_plantilla')
-                ->orWhere('clave_plantilla', '!=', EvaluacionInduccionPdfService::CLAVE))
-            ->orderByDesc('id')
-            ->paginate(Paginacion::porPagina(20));
+                ->orWhere('clave_plantilla', '!=', EvaluacionInduccionPdfService::CLAVE));
     }
 
     /**

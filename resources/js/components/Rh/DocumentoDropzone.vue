@@ -23,6 +23,12 @@ const props = defineProps<{
      * en un solo PDF que RH revisa como siempre.
      */
     admiteReverso?: boolean;
+    /**
+     * Destino de la subida. Por omisión, el endpoint de RH; en «Mi
+     * expediente» va a `portal.documentos.subir` (mismas reglas que la app:
+     * guarda de estado y aviso a RH).
+     */
+    urlSubida?: string;
 }>();
 
 const { mostrarExito, mostrarError } = useAlertas();
@@ -143,7 +149,7 @@ function confirmarSubida() {
     progreso.value = 0;
 
     router.post(
-        subirDocumento.url(props.colaboradorId),
+        props.urlSubida ?? subirDocumento.url(props.colaboradorId),
         {
             document_type_id: props.tipoId,
             archivo,
@@ -164,7 +170,10 @@ function confirmarSubida() {
                         ? 'Archivo cargado en las dos cartas. Revisa cada una por separado.'
                         : 'Documento cargado. Queda en revisión.',
                 ),
-            onError: () => mostrarError('No fue posible cargar el documento.'),
+            onError: (errores) =>
+                mostrarError(
+                    errores.archivo ?? 'No fue posible cargar el documento.',
+                ),
             onFinish: () => {
                 subiendo.value = false;
                 progreso.value = 0;

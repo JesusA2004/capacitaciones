@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { router } from '@inertiajs/vue3';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import {
     AlertTriangle,
+    Camera,
     CheckCircle2,
     CircleDashed,
     Clock3,
@@ -14,6 +15,7 @@ import {
 } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
+import ChipEstado from '@/components/people/ChipEstado.vue';
 import DocumentoDropzone from '@/components/Rh/DocumentoDropzone.vue';
 import DocumentoPreviewDialog from '@/components/Rh/DocumentoPreviewDialog.vue';
 import ExtraccionDocumentoDialog from '@/components/Rh/ExtraccionDocumentoDialog.vue';
@@ -23,9 +25,14 @@ import { Button } from '@/components/ui/button';
 import { useAlertas } from '@/composables/useAlertas';
 import { useCelebracion } from '@/composables/useCelebracion';
 import { getJson } from '@/lib/http';
+import { solicitudEmpleo } from '@/routes/portal';
+import {
+    solicitarCambio,
+    subir as subirPropio,
+} from '@/routes/portal/documentos';
 import { aprobar, autorizarCambio } from '@/routes/rh/documentos';
 import { extraccionesPendientes } from '@/routes/rh/expedientes';
-import type { DocumentoExpedienteItem } from '@/types';
+import type { AccionDocumentoPropio, DocumentoExpedienteItem } from '@/types';
 
 const props = defineProps<{
     colaboradorId: number;
@@ -38,7 +45,69 @@ const props = defineProps<{
     puedeIgnorarExtraccion: boolean;
 }>();
 
-const { mostrarExito } = useAlertas();
+const { mostrarExito, mostrarError, confirmarAccion } = useAlertas();
+
+/**
+ * Solo en «Mi expediente» (prop de página `misDocumentos`,
+ * ExpedienteController::miExpediente): qué puede hacer el propio
+ * colaborador con cada tipo, con las reglas de la app
+ * (IncorporacionService::accionesPropias). En el expediente de RH no existe
+ * y todo sigue igual.
+ */
+const page = usePage();
+const propios = computed(
+    () =>
+        (page.props.misDocumentos as
+            Record<number, AccionDocumentoPropio> | undefined) ?? null,
+);
+
+function accionPropia(
+    item: DocumentoExpedienteItem,
+): AccionDocumentoPropio | null {
+    return propios.value?.[item.tipo.id] ?? null;
+}
+
+function puedeSubirItem(item: DocumentoExpedienteItem): boolean {
+    if (!props.puedeSubir) {
+        return false;
+    }
+
+    if (propios.value) {
+        const accion = accionPropia(item);
+
+        return (
+            accion !== null && (accion.puede_subir || accion.puede_reemplazar)
+        );
+    }
+
+    return (
+        !item.documento || ESTADOS_REEMPLAZABLES.includes(item.documento.status)
+    );
+}
+
+async function pedirCambio(item: DocumentoExpedienteItem) {
+    const confirmado = await confirmarAccion(
+        'Solicitar cambio',
+        `RH revisará tu solicitud. Cuando la autorice podrás subir una nueva versión de «${item.tipo.nombre}».`,
+        'Solicitar cambio',
+    );
+
+    if (!confirmado) {
+        return;
+    }
+
+    router.post(
+        solicitarCambio.url(item.tipo.id),
+        {},
+        {
+            preserveScroll: true,
+            onError: (errores) =>
+                mostrarError(
+                    errores.documento ?? 'No fue posible enviar la solicitud.',
+                ),
+        },
+    );
+}
 const { celebrarDesdeEvento } = useCelebracion();
 
 const dialogoAbierto = ref(false);
@@ -93,6 +162,11 @@ const COLUMNAS: {
 ];
 
 function columnaDe(item: DocumentoExpedienteItem): ClaveColumna {
+    // Formato generado por PEOPLE ya listo: cuenta como entregado.
+    if (accionPropia(item)?.generado_por_sistema?.cumplido) {
+        return 'aprobado';
+    }
+
     if (!item.documento) {
         return 'sin_subir';
     }
@@ -294,6 +368,41 @@ function abrirPreview(item: DocumentoExpedienteItem) {
                                     item.documento.version
                                 }}
                             </p>
+                            <ChipEstado
+                                v-else-if="
+                                    accionPropia(item)?.generado_por_sistema
+                                "
+                                class="mt-1"
+                                :tono="
+                                    accionPropia(item)?.generado_por_sistema
+                                        ?.cumplido
+                                        ? 'exito'
+                                        : 'info'
+                                "
+                                :icono="
+                                    accionPropia(item)?.generado_por_sistema
+                                        ?.cumplido
+                                        ? CheckCircle2
+                                        : Clock3
+                                "
+                                :etiqueta="
+                                    accionPropia(item)?.generado_por_sistema
+                                        ?.titulo ?? 'Se genera con tus datos'
+                                "
+                                :titulo="
+                                    accionPropia(item)?.generado_por_sistema
+                                        ?.mensaje ?? null
+                                "
+                            />
+                            <ChipEstado
+                                v-else-if="
+                                    accionPropia(item)?.cubierto_por_foto
+                                "
+                                class="mt-1"
+                                tono="primario"
+                                :icono="Camera"
+                                etiqueta="Se cubre con tu foto de perfil"
+                            />
                             <p
                                 v-else
                                 class="mt-0.5 text-sm text-muted-foreground"
@@ -348,6 +457,31 @@ function abrirPreview(item: DocumentoExpedienteItem) {
                         >
                             <Sparkles class="size-3.5" />
                             Datos detectados
+                        </Button>
+
+                        <Button
+                            v-if="accionPropia(item)?.puede_solicitar_cambio"
+                            size="sm"
+                            variant="outline"
+                            @click="pedirCambio(item)"
+                        >
+                            <RefreshCw class="size-3.5" />
+                            Solicitar cambio
+                        </Button>
+                        <Button
+                            v-if="
+                                accionPropia(item)?.generado_por_sistema &&
+                                !accionPropia(item)?.generado_por_sistema
+                                    ?.cumplido
+                            "
+                            size="sm"
+                            variant="outline"
+                            as-child
+                        >
+                            <Link :href="solicitudEmpleo()">
+                                <FileEdit class="size-3.5" />
+                                Mi solicitud de empleo
+                            </Link>
                         </Button>
 
                         <!--
@@ -421,12 +555,9 @@ function abrirPreview(item: DocumentoExpedienteItem) {
                     </div>
 
                     <DocumentoDropzone
-                        v-if="
-                            puedeSubir &&
-                            (!item.documento ||
-                                ESTADOS_REEMPLAZABLES.includes(
-                                    item.documento.status,
-                                ))
+                        v-if="puedeSubirItem(item)"
+                        :url-subida="
+                            propios ? subirPropio.url(item.tipo.id) : undefined
                         "
                         :colaborador-id="colaboradorId"
                         :tipo-id="item.tipo.id"

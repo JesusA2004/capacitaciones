@@ -165,6 +165,59 @@ class IncorporacionService
     }
 
     /**
+     * Qué puede hacer el PROPIO colaborador con cada tipo documental activo
+     * («Mi expediente» en la web): las mismas reglas que la app recibe en
+     * estadoIncorporacion() (accionesDe), más los marcadores que cambian el
+     * «Subir»: formato generado por PEOPLE (solicitud de empleo, estudio
+     * socioeconómico) y documento cubierto por la foto de perfil (config
+     * incorporacion.registro_app.documento_cubierto_por_foto, misma regla
+     * que RegistroAppService). Indexado por id del tipo.
+     *
+     * @return array<int, array{puede_subir: bool, puede_reemplazar: bool, puede_solicitar_cambio: bool, generado_por_sistema: array<string, mixed>|null, cubierto_por_foto: bool}>
+     */
+    public function accionesPropias(Colaborador $colaborador): array
+    {
+        $vigentes = $this->expediente->documentosVigentes($colaborador);
+        $generados = $this->generados->generadosDe($colaborador);
+        $claveFoto = config('incorporacion.registro_app.documento_cubierto_por_foto');
+        $fotoCubre = (bool) config('incorporacion.registro_app.foto_obligatoria', true) || $colaborador->foto_path !== null;
+        $acciones = [];
+
+        foreach (DocumentType::query()->where('activo', true)->get() as $tipo) {
+            $documento = $vigentes->get($tipo->id);
+            $generado = $this->generados->esGenerable($tipo)
+                ? $this->generados->presentacion($tipo, $documento, $generados, false)
+                : null;
+            $cubiertoPorFoto = is_string($claveFoto) && $claveFoto !== '' && $tipo->clave === $claveFoto && $fotoCubre;
+
+            $acciones[$tipo->id] = [
+                ...$this->accionesDe($documento, $generado !== null || $cubiertoPorFoto),
+                'generado_por_sistema' => $generado,
+                'cubierto_por_foto' => $cubiertoPorFoto,
+            ];
+        }
+
+        return $acciones;
+    }
+
+    /**
+     * Subir / reemplazar / solicitar cambio según el estado del vigente: la
+     * misma regla que validan subirDocumento() y solicitarCambio().
+     *
+     * @return array{puede_subir: bool, puede_reemplazar: bool, puede_solicitar_cambio: bool}
+     */
+    private function accionesDe(?EmployeeDocument $documento, bool $sinSubida): array
+    {
+        $estado = $documento?->status;
+
+        return [
+            'puede_subir' => ! $sinSubida && ($documento === null || in_array($estado, self::ESTADOS_SUBIDA_DIRECTA, true)),
+            'puede_reemplazar' => ! $sinSubida && in_array($estado, self::ESTADOS_REEMPLAZO_AUTORIZADO, true),
+            'puede_solicitar_cambio' => in_array($estado, self::ESTADOS_SOLICITAN_CAMBIO, true),
+        ];
+    }
+
+    /**
      * @param  Collection<int, EmployeeDocument>  $vigentes
      * @param  array<string, int>  $generados  clave del tipo => id del GeneratedDocument vigente
      * @return array<string, mixed>
@@ -192,9 +245,7 @@ class IncorporacionService
             'motivo_rechazo' => $documento !== null && in_array($estadoDocumento, [EstadoDocumento::Rechazado, EstadoDocumento::RequiereCorreccion], true)
                 ? $documento->rejection_reason
                 : null,
-            'puede_subir' => $generadoPorSistema === null && ($documento === null || in_array($estadoDocumento, self::ESTADOS_SUBIDA_DIRECTA, true)),
-            'puede_reemplazar' => $generadoPorSistema === null && in_array($estadoDocumento, self::ESTADOS_REEMPLAZO_AUTORIZADO, true),
-            'puede_solicitar_cambio' => in_array($estadoDocumento, self::ESTADOS_SOLICITAN_CAMBIO, true),
+            ...$this->accionesDe($documento, $generadoPorSistema !== null),
             'fecha_subida' => $documento?->created_at?->toIso8601String(),
             'fecha_revision' => $documento?->reviewed_at?->toIso8601String(),
             // Documento que puede venir en el mismo archivo (las dos cartas
