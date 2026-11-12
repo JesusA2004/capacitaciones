@@ -5,6 +5,7 @@ import { computed, ref, watch } from 'vue';
 import MonthPicker from '@/components/Common/MonthPicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import { Button } from '@/components/ui/button';
+import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
 import { index as pendientesIndex } from '@/routes/rh/pendientes';
 import type {
     DiferenciaPlantilla,
@@ -411,7 +412,7 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                         type="button"
                         role="radio"
                         :aria-checked="meses === n"
-                        class="h-9 rounded-full border px-3 text-xs font-semibold transition-colors"
+                        class="h-9 rounded-full border px-3 text-xs font-semibold transicion-ui active:scale-95"
                         :class="
                             meses === n
                                 ? 'border-primary bg-primary text-primary-foreground'
@@ -433,7 +434,11 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                 </Button>
                 <Button v-if="inicio.pendientes > 0" as-child class="h-9">
                     <Link :href="pendientesIndex.url()">
-                        Ver pendientes <ArrowRight class="size-4" />
+                        Ver pendientes
+                        <ArrowRight
+                            class="size-4 icono-avanza"
+                            aria-hidden="true"
+                        />
                     </Link>
                 </Button>
             </div>
@@ -460,7 +465,8 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                             a.urgente
                                 ? 'bg-danger-soft text-destructive'
                                 : 'bg-warning-soft text-warning',
-                            a.href && 'hover:shadow-sm',
+                            a.href &&
+                                'hover:-translate-y-px hover:shadow-sm active:scale-[0.97]',
                         ]"
                     >
                         <span class="font-bold tabular-nums">{{
@@ -484,7 +490,7 @@ function detalleFila(f: FilaPlantillaSucursal): string {
             <!-- Cuatro bloques: cada indicador aparece una sola vez. -->
             <div
                 data-tour="dashboard-kpis"
-                class="grid gap-3 md:grid-cols-2 xl:grid-cols-4"
+                class="grid entrada-escalonada gap-3 md:grid-cols-2 xl:grid-cols-4"
             >
                 <article class="bloque border-t-primary">
                     <h2 class="bloque-titulo text-primary">Plantilla</h2>
@@ -498,7 +504,9 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                             />
                             <dt>Autorizada</dt>
                             <dd>
-                                {{ numero.format(poblacion.total.autorizadas) }}
+                                <NumeroAnimado
+                                    :valor="poblacion.total.autorizadas"
+                                />
                             </dd>
                             <p>
                                 Corporativo
@@ -516,7 +524,9 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                             />
                             <dt>Activa</dt>
                             <dd>
-                                {{ numero.format(poblacion.total.vigentes) }}
+                                <NumeroAnimado
+                                    :valor="poblacion.total.vigentes"
+                                />
                             </dd>
                             <p>
                                 {{ poblacion.total.activos }} laborando<template
@@ -543,7 +553,9 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                             />
                             <dt>Vacantes</dt>
                             <dd class="text-bronce">
-                                {{ numero.format(poblacion.total.vacantes) }}
+                                <NumeroAnimado
+                                    :valor="poblacion.total.vacantes"
+                                />
                             </dd>
                             <p>
                                 Corporativo
@@ -645,7 +657,7 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                         <button
                             v-if="tablero.cuadre.diferencias.length"
                             type="button"
-                            class="self-start font-semibold text-primary underline-offset-2 hover:underline"
+                            class="self-start enlace-animado py-1 font-semibold text-primary"
                             :aria-expanded="verDiferencias"
                             @click="verDiferencias = !verDiferencias"
                         >
@@ -672,7 +684,9 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                                 aria-label="Ver detalle: Altas del mes"
                             />
                             <dt>Altas del mes</dt>
-                            <dd>{{ numero.format(s.altas_mes.valor) }}</dd>
+                            <dd>
+                                <NumeroAnimado :valor="s.altas_mes.valor" />
+                            </dd>
                             <p>Ingresos registrados</p>
                         </div>
                         <div class="dato">
@@ -683,7 +697,9 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                                 aria-label="Ver detalle: Bajas del mes"
                             />
                             <dt>Bajas del mes</dt>
-                            <dd>{{ numero.format(s.rotacion_mes.bajas) }}</dd>
+                            <dd>
+                                <NumeroAnimado :valor="s.rotacion_mes.bajas" />
+                            </dd>
                             <p>Por fecha de último día</p>
                         </div>
                         <div class="dato">
@@ -756,7 +772,9 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                             />
                             <dt>Candidatos en proceso</dt>
                             <dd>
-                                {{ numero.format(s.reclutamiento.en_proceso) }}
+                                <NumeroAnimado
+                                    :valor="s.reclutamiento.en_proceso"
+                                />
                             </dd>
                             <p>
                                 {{ s.reclutamiento.contratados_mes }}
@@ -861,9 +879,9 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                             />
                             <dt>Contratos por vencer</dt>
                             <dd class="text-bronce">
-                                {{
-                                    numero.format(s.contratos_por_vencer.valor)
-                                }}
+                                <NumeroAnimado
+                                    :valor="s.contratos_por_vencer.valor"
+                                />
                             </dd>
                             <p>
                                 Próximos {{ s.contratos_por_vencer.dias }} días
@@ -1317,7 +1335,7 @@ function detalleFila(f: FilaPlantillaSucursal): string {
                                 type="button"
                                 role="radio"
                                 :aria-checked="orden === o.v"
-                                class="h-7 rounded-full border px-2.5 text-xs font-medium transition-colors"
+                                class="h-8 rounded-full border px-2.5 text-xs font-medium transicion-ui active:scale-95"
                                 :class="
                                     orden === o.v
                                         ? 'border-primary bg-primary text-primary-foreground'
