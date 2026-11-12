@@ -14,11 +14,16 @@ import {
     X,
 } from '@lucide/vue';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import Casilla from '@/components/Common/Casilla.vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PanelColumnasArrastre from '@/components/reportes/PanelColumnasArrastre.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Spinner } from '@/components/ui/spinner';
 import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { useAlertas } from '@/composables/useAlertas';
 import {
@@ -358,6 +363,14 @@ async function descargar(formato: 'excel' | 'pdf') {
     }
 }
 
+/** Cambia un extremo del rango «entre» sin perder el otro. */
+function cambiarValorRango(filtro: FiltroReporte, n: number, valor: string) {
+    const rango = [...((filtro.valor as string[] | null) ?? ['', ''])];
+
+    rango[n] = valor;
+    filtro.valor = rango;
+}
+
 const hexColor = (clave: string) =>
     props.colores.find((c) => c.clave === clave)?.hex;
 </script>
@@ -384,7 +397,7 @@ const hexColor = (clave: string) =>
             aria-label="Reportes guardados"
         >
             <p class="mb-2 text-sm font-semibold">Mis reportes guardados</p>
-            <ul class="flex flex-wrap gap-2">
+            <ul class="flex entrada-escalonada flex-wrap gap-2">
                 <li
                     v-for="g in guardados"
                     :key="g.id"
@@ -395,14 +408,14 @@ const hexColor = (clave: string) =>
                 >
                     <Link
                         :href="index.url({ query: { reporte: g.id } })"
-                        class="font-medium hover:underline"
+                        class="enlace-animado font-medium"
                     >
                         {{ g.nombre }}
                     </Link>
                     <template v-if="puedeExportar">
                         <a
                             :href="ejecutar.url([g.id, 'excel'])"
-                            class="rounded p-1 hover:bg-muted"
+                            class="inline-flex size-8 presionable items-center justify-center rounded-full hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                             :aria-label="`Generar Excel de ${g.nombre}`"
                             title="Generar Excel"
                         >
@@ -410,7 +423,7 @@ const hexColor = (clave: string) =>
                         </a>
                         <a
                             :href="ejecutar.url([g.id, 'pdf'])"
-                            class="rounded p-1 hover:bg-muted"
+                            class="inline-flex size-8 presionable items-center justify-center rounded-full hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                             :aria-label="`Generar PDF de ${g.nombre}`"
                             title="Generar PDF"
                         >
@@ -419,7 +432,7 @@ const hexColor = (clave: string) =>
                     </template>
                     <button
                         type="button"
-                        class="rounded p-1 hover:bg-muted"
+                        class="inline-flex size-8 presionable items-center justify-center rounded-full hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                         :aria-label="`Duplicar ${g.nombre}`"
                         title="Duplicar"
                         @click="router.post(duplicar.url(g.id))"
@@ -428,7 +441,7 @@ const hexColor = (clave: string) =>
                     </button>
                     <button
                         type="button"
-                        class="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        class="inline-flex size-8 presionable items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                         :aria-label="`Eliminar ${g.nombre}`"
                         title="Eliminar"
                         @click="eliminar(g.id, g.nombre)"
@@ -466,7 +479,7 @@ const hexColor = (clave: string) =>
                             type="button"
                             role="radio"
                             :aria-checked="fuente === f.clave"
-                            class="rounded-md px-3 py-1.5 text-sm transition-colors"
+                            class="min-h-9 rounded-md px-3 py-1.5 text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                             :class="
                                 fuente === f.clave
                                     ? 'bg-primary font-medium text-primary-foreground'
@@ -541,42 +554,56 @@ const hexColor = (clave: string) =>
                             v-if="filtro.operador === 'entre'"
                             class="grid grid-cols-2 gap-1"
                         >
-                            <Input
-                                v-for="n in [0, 1]"
-                                :key="n"
-                                :type="
-                                    campoDe(filtro.campo)?.tipo === 'fecha'
-                                        ? 'date'
-                                        : 'number'
-                                "
-                                :model-value="
-                                    (filtro.valor as string[])?.[n] ?? ''
-                                "
-                                :aria-label="n === 0 ? 'Desde' : 'Hasta'"
-                                @update:model-value="
-                                    (v) => {
-                                        const r = [
-                                            ...((filtro.valor as string[]) ?? [
-                                                '',
-                                                '',
-                                            ]),
-                                        ];
-                                        r[n] = String(v);
-                                        filtro.valor = r;
-                                    }
-                                "
-                            />
+                            <template v-for="n in [0, 1]" :key="n">
+                                <DatePicker
+                                    v-if="
+                                        campoDe(filtro.campo)?.tipo === 'fecha'
+                                    "
+                                    :model-value="
+                                        (filtro.valor as string[])?.[n] ?? ''
+                                    "
+                                    :placeholder="n === 0 ? 'Desde' : 'Hasta'"
+                                    limpiable
+                                    @update:model-value="
+                                        (v) => cambiarValorRango(filtro, n, v)
+                                    "
+                                />
+                                <Input
+                                    v-else
+                                    type="number"
+                                    :model-value="
+                                        (filtro.valor as string[])?.[n] ?? ''
+                                    "
+                                    :aria-label="n === 0 ? 'Desde' : 'Hasta'"
+                                    @update:model-value="
+                                        (v) =>
+                                            cambiarValorRango(
+                                                filtro,
+                                                n,
+                                                String(v),
+                                            )
+                                    "
+                                />
+                            </template>
                         </div>
+                        <DatePicker
+                            v-else-if="
+                                !['vacio', 'no_vacio'].includes(
+                                    filtro.operador,
+                                ) && campoDe(filtro.campo)?.tipo === 'fecha'
+                            "
+                            :model-value="(filtro.valor as string) ?? ''"
+                            limpiable
+                            @update:model-value="(v) => (filtro.valor = v)"
+                        />
                         <Input
                             v-else-if="
                                 !['vacio', 'no_vacio'].includes(filtro.operador)
                             "
                             :type="
-                                campoDe(filtro.campo)?.tipo === 'fecha'
-                                    ? 'date'
-                                    : campoDe(filtro.campo)?.tipo === 'texto'
-                                      ? 'text'
-                                      : 'number'
+                                campoDe(filtro.campo)?.tipo === 'texto'
+                                    ? 'text'
+                                    : 'number'
                             "
                             :model-value="(filtro.valor as string) ?? ''"
                             aria-label="Valor del filtro"
@@ -587,7 +614,7 @@ const hexColor = (clave: string) =>
                         <span v-else></span>
                         <button
                             type="button"
-                            class="justify-self-end rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            class="inline-flex size-9 presionable items-center justify-center justify-self-end rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                             aria-label="Quitar filtro"
                             @click="filtros.splice(i, 1)"
                         >
@@ -634,7 +661,7 @@ const hexColor = (clave: string) =>
                         />
                         <button
                             type="button"
-                            class="justify-self-end rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                            class="inline-flex size-9 presionable items-center justify-center justify-self-end rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                             aria-label="Quitar orden"
                             @click="orden.splice(i, 1)"
                         >
@@ -725,28 +752,29 @@ const hexColor = (clave: string) =>
                     </div>
 
                     <div class="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-                        <label class="inline-flex items-center gap-2">
-                            <input
-                                v-model="diseno.encabezado"
-                                type="checkbox"
-                            />
+                        <label
+                            class="inline-flex min-h-9 cursor-pointer items-center gap-2"
+                        >
+                            <Casilla v-model="diseno.encabezado" />
                             Encabezado Mr. Lana
                         </label>
-                        <label class="inline-flex items-center gap-2">
-                            <input
-                                v-model="diseno.mostrar_filtros"
-                                type="checkbox"
-                            />
+                        <label
+                            class="inline-flex min-h-9 cursor-pointer items-center gap-2"
+                        >
+                            <Casilla v-model="diseno.mostrar_filtros" />
                             Mostrar filtros aplicados
                         </label>
-                        <label class="inline-flex items-center gap-2">
-                            <input v-model="diseno.totales" type="checkbox" />
+                        <label
+                            class="inline-flex min-h-9 cursor-pointer items-center gap-2"
+                        >
+                            <Casilla v-model="diseno.totales" />
                             Fila de totales
                         </label>
-                        <label class="inline-flex items-center gap-2">
-                            <input
+                        <label
+                            class="inline-flex min-h-9 cursor-pointer items-center gap-2"
+                        >
+                            <Casilla
                                 v-model="diseno.grafica.activa"
-                                type="checkbox"
                                 data-testid="grafica-activa"
                             />
                             Incluir gráfica
@@ -755,7 +783,7 @@ const hexColor = (clave: string) =>
 
                     <div
                         v-if="diseno.grafica.activa"
-                        class="mt-3 grid gap-3 rounded-lg bg-crema/40 p-3 sm:grid-cols-3"
+                        class="mt-3 grid entrada-suave gap-3 rounded-lg bg-crema/40 p-3 sm:grid-cols-3"
                     >
                         <div class="grid gap-1 text-xs text-muted-foreground">
                             Tipo de gráfica
@@ -803,28 +831,34 @@ const hexColor = (clave: string) =>
                             · {{ vista.total }} resultado(s)
                         </span>
                     </h2>
-                    <div class="flex items-center gap-1">
-                        <div class="flex rounded-lg bg-muted/50 p-0.5 text-xs">
+                    <div class="flex flex-wrap items-center gap-1">
+                        <div
+                            class="flex rounded-lg bg-muted/50 p-0.5 text-xs"
+                            role="group"
+                            aria-label="Tipo de vista previa"
+                        >
                             <button
                                 type="button"
-                                class="rounded-md px-2.5 py-1"
+                                class="min-h-8 rounded-md px-3 py-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                 :class="
                                     pestana === 'tabla'
                                         ? 'bg-card font-medium shadow-sm'
-                                        : ''
+                                        : 'hover:bg-card/60'
                                 "
+                                :aria-pressed="pestana === 'tabla'"
                                 @click="verPestana('tabla')"
                             >
                                 Tabla
                             </button>
                             <button
                                 type="button"
-                                class="rounded-md px-2.5 py-1"
+                                class="min-h-8 rounded-md px-3 py-1 transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                 :class="
                                     pestana === 'pdf'
                                         ? 'bg-card font-medium shadow-sm'
-                                        : ''
+                                        : 'hover:bg-card/60'
                                 "
+                                :aria-pressed="pestana === 'pdf'"
                                 @click="verPestana('pdf')"
                             >
                                 PDF
@@ -851,19 +885,22 @@ const hexColor = (clave: string) =>
                         v-if="pdfUrl"
                         :src="pdfUrl"
                         title="Vista previa del PDF"
-                        class="h-[32rem] w-full rounded-lg border border-border/60"
+                        class="h-[min(32rem,70svh)] w-full entrada-suave rounded-lg border border-border/60"
                     ></iframe>
-                    <p
-                        v-else
-                        class="py-12 text-center text-sm text-muted-foreground"
+                    <div
+                        v-else-if="cargando"
+                        class="flex flex-col items-center gap-2 py-12 text-sm text-muted-foreground"
+                        role="status"
                     >
-                        <Eye class="mx-auto mb-2 size-5" />
-                        {{
-                            cargando
-                                ? 'Generando el PDF…'
-                                : 'Agrega columnas y pulsa Actualizar para ver el PDF.'
-                        }}
-                    </p>
+                        <Spinner class="size-5" />
+                        Generando el PDF…
+                    </div>
+                    <EmptyState
+                        v-else
+                        :icono="Eye"
+                        titulo="Aún no hay vista previa"
+                        descripcion="Agrega columnas y pulsa Actualizar para ver el PDF."
+                    />
                 </template>
 
                 <template v-else>
@@ -874,17 +911,26 @@ const hexColor = (clave: string) =>
                     >
                         {{ aviso }}
                     </div>
-                    <p
-                        v-if="!vista"
-                        class="py-12 text-center text-sm text-muted-foreground"
+                    <div
+                        v-if="!vista && cargando"
+                        class="grid gap-2 py-2"
+                        role="status"
+                        aria-label="Cargando la vista previa"
                     >
-                        <Eye class="mx-auto mb-2 size-5" />
-                        Agrega columnas y pulsa Actualizar para ver el
-                        resultado.
-                    </p>
+                        <Skeleton v-for="n in 6" :key="n" class="h-7 w-full" />
+                    </div>
+                    <EmptyState
+                        v-else-if="!vista"
+                        :icono="Eye"
+                        titulo="Aún no hay vista previa"
+                        descripcion="Agrega columnas y pulsa Actualizar para ver el resultado."
+                    />
                     <div
                         v-else
-                        class="max-h-[28rem] overflow-auto rounded-lg border border-border/60"
+                        class="max-h-[min(28rem,65svh)] entrada-suave overflow-auto rounded-lg border border-border/60"
+                        tabindex="0"
+                        role="region"
+                        aria-label="Resultado de la vista previa"
                     >
                         <table class="w-full text-xs">
                             <thead class="sticky top-0 bg-crema">

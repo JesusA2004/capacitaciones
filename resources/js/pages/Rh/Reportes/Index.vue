@@ -2,6 +2,7 @@
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { BarChart3, Download, FileOutput, Plus, Settings2 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
@@ -268,7 +269,7 @@ const opcionesCatalogo = computed(() =>
                         v-for="opcion in grupo.opciones"
                         :key="opcion.value"
                         type="button"
-                        class="block w-full rounded-lg px-2 py-1.5 text-left text-sm transition-colors"
+                        class="block w-full rounded-lg px-2 py-1.5 text-left text-sm transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                         :class="
                             reporte === opcion.value
                                 ? 'bg-salvia font-medium'
@@ -322,26 +323,40 @@ const opcionesCatalogo = computed(() =>
                     class="grid items-end gap-3 sm:grid-cols-2 xl:grid-cols-4"
                 >
                     <template v-if="opcionActual?.periodo">
-                        <label
+                        <div
                             class="grid min-w-0 gap-2 text-xs text-muted-foreground"
                         >
-                            Desde
-                            <Input
-                                v-model="filtros.fecha_inicio"
-                                type="date"
-                                @change="aplicar()"
+                            <label for="reporte-fecha-inicio">Desde</label>
+                            <DatePicker
+                                id="reporte-fecha-inicio"
+                                :model-value="filtros.fecha_inicio"
+                                :max-value="filtros.fecha_fin || undefined"
+                                limpiable
+                                @update:model-value="
+                                    (v) => {
+                                        filtros.fecha_inicio = v;
+                                        aplicar();
+                                    }
+                                "
                             />
-                        </label>
-                        <label
+                        </div>
+                        <div
                             class="grid min-w-0 gap-2 text-xs text-muted-foreground"
                         >
-                            Hasta
-                            <Input
-                                v-model="filtros.fecha_fin"
-                                type="date"
-                                @change="aplicar()"
+                            <label for="reporte-fecha-fin">Hasta</label>
+                            <DatePicker
+                                id="reporte-fecha-fin"
+                                :model-value="filtros.fecha_fin"
+                                :min-value="filtros.fecha_inicio || undefined"
+                                limpiable
+                                @update:model-value="
+                                    (v) => {
+                                        filtros.fecha_fin = v;
+                                        aplicar();
+                                    }
+                                "
                             />
-                        </label>
+                        </div>
                     </template>
                     <div
                         v-if="opcionActual?.mes"
@@ -485,7 +500,7 @@ const opcionesCatalogo = computed(() =>
 
                 <section
                     v-if="editandoLayout && noi"
-                    class="rounded-2xl border border-border/60 bg-card p-4"
+                    class="entrada-suave rounded-2xl border border-border/60 bg-card p-4"
                     aria-label="Layout de Altas para NOI"
                 >
                     <PanelColumnasArrastre
