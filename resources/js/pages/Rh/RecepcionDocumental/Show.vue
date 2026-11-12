@@ -17,6 +17,8 @@ import {
 import { useDebounceFn } from '@vueuse/core';
 import { computed, reactive, ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
+import EmptyState from '@/components/Common/EmptyState.vue';
+import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import CrudStats from '@/components/DataTable/CrudStats.vue';
@@ -39,10 +41,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-    NativeSelect,
-    NativeSelectOption,
-} from '@/components/ui/native-select';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { parametrosPorPaginaActuales } from '@/composables/usePaginacion';
 import { formatearFecha, formatearFechaHora } from '@/lib/fechas';
@@ -633,8 +632,8 @@ function urlPdf(variante: 'control' | 'estado'): string {
     });
 }
 
-const etiquetasFiltroRecibido = [
-    { value: '', label: 'Recibido y no recibido' },
+// «Recibido y no recibido» es la opción vacía del select.
+const opcionesFiltroRecibido = [
     { value: 'si', label: 'Solo recibidos' },
     { value: 'no', label: 'Solo sin recibir' },
 ];
@@ -721,7 +720,7 @@ const etiquetasFiltroRecibido = [
                     <li v-for="s in sucursalesConPendientes" :key="s.nombre">
                         <button
                             type="button"
-                            class="flex w-full tarjeta-interactiva items-center justify-between rounded-lg px-2 py-1.5 text-left text-sm"
+                            class="flex min-h-9 w-full fila-interactiva items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left text-sm"
                             @click="verSucursal(s.sucursal_id)"
                         >
                             <span class="truncate">{{ s.nombre }}</span>
@@ -751,7 +750,7 @@ const etiquetasFiltroRecibido = [
                     <li v-for="t in agrupaciones.tipos" :key="t.tipo_documento">
                         <button
                             type="button"
-                            class="flex w-full tarjeta-interactiva items-center justify-between rounded-lg px-2 py-1.5 text-left"
+                            class="flex min-h-9 w-full fila-interactiva items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left"
                             @click="f.tipo_documento = t.tipo_documento"
                         >
                             <span class="truncate">{{ t.etiqueta }}</span>
@@ -773,10 +772,10 @@ const etiquetasFiltroRecibido = [
                         <button
                             v-if="r.metricas.renglones > 0"
                             type="button"
-                            class="flex w-full tarjeta-interactiva items-center justify-between rounded-lg px-2 py-1.5 text-left"
+                            class="flex min-h-9 w-full fila-interactiva items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left"
                             @click="f.regla = r.regla"
                         >
-                            <span>{{ r.etiqueta }}</span>
+                            <span class="truncate">{{ r.etiqueta }}</span>
                             <span class="shrink-0 text-xs text-muted-foreground"
                                 >{{ r.metricas.recibidos }}/{{
                                     r.metricas.esperados
@@ -798,78 +797,46 @@ const etiquetasFiltroRecibido = [
         <div
             class="flex flex-col gap-2 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-3 lg:flex-row lg:flex-wrap lg:items-center"
         >
-            <NativeSelect
+            <SelectSimple
                 v-model="f.sucursal_id"
+                :opciones="opciones.sucursales"
+                opcion-vacia="Todas las sucursales"
+                placeholder="Todas las sucursales"
                 class="w-full lg:w-48"
                 aria-label="Sucursal"
-            >
-                <NativeSelectOption value=""
-                    >Todas las sucursales</NativeSelectOption
-                >
-                <NativeSelectOption
-                    v-for="o in opciones.sucursales"
-                    :key="String(o.value)"
-                    :value="String(o.value)"
-                    >{{ o.label }}</NativeSelectOption
-                >
-            </NativeSelect>
-            <NativeSelect
+            />
+            <SelectSimple
                 v-model="f.regla"
+                :opciones="opciones.reglas"
+                opcion-vacia="Todos los eventos"
+                placeholder="Todos los eventos"
                 class="w-full lg:w-44"
                 aria-label="Evento"
-            >
-                <NativeSelectOption value=""
-                    >Todos los eventos</NativeSelectOption
-                >
-                <NativeSelectOption
-                    v-for="o in opciones.reglas"
-                    :key="String(o.value)"
-                    :value="String(o.value)"
-                    >{{ o.label }}</NativeSelectOption
-                >
-            </NativeSelect>
-            <NativeSelect
+            />
+            <SelectSimple
                 v-model="f.tipo_documento"
+                :opciones="opciones.tipos"
+                opcion-vacia="Todos los documentos"
+                placeholder="Todos los documentos"
                 class="w-full lg:w-56"
                 aria-label="Tipo documental"
-            >
-                <NativeSelectOption value=""
-                    >Todos los documentos</NativeSelectOption
-                >
-                <NativeSelectOption
-                    v-for="o in opciones.tipos"
-                    :key="String(o.value)"
-                    :value="String(o.value)"
-                    >{{ o.label }}</NativeSelectOption
-                >
-            </NativeSelect>
-            <NativeSelect
+            />
+            <SelectSimple
                 v-model="f.estado"
+                :opciones="opciones.estados"
+                opcion-vacia="Todos los estados"
+                placeholder="Todos los estados"
                 class="w-full lg:w-48"
                 aria-label="Estado"
-            >
-                <NativeSelectOption value=""
-                    >Todos los estados</NativeSelectOption
-                >
-                <NativeSelectOption
-                    v-for="o in opciones.estados"
-                    :key="String(o.value)"
-                    :value="String(o.value)"
-                    >{{ o.label }}</NativeSelectOption
-                >
-            </NativeSelect>
-            <NativeSelect
+            />
+            <SelectSimple
                 v-model="f.recibido"
+                :opciones="opcionesFiltroRecibido"
+                opcion-vacia="Recibido y no recibido"
+                placeholder="Recibido y no recibido"
                 class="w-full lg:w-48"
                 aria-label="Recibido"
-            >
-                <NativeSelectOption
-                    v-for="o in etiquetasFiltroRecibido"
-                    :key="o.value"
-                    :value="o.value"
-                    >{{ o.label }}</NativeSelectOption
-                >
-            </NativeSelect>
+            />
             <CrudSearchInput
                 v-model="f.colaborador"
                 placeholder="Buscar colaborador o número…"
@@ -955,7 +922,9 @@ const etiquetasFiltroRecibido = [
                                         v-if="fila.integrantes?.length"
                                         class="text-xs text-muted-foreground"
                                     >
-                                        <summary class="cursor-pointer">
+                                        <summary
+                                            class="cursor-pointer rounded-sm transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                        >
                                             {{ fila.evento_descripcion }} — ver
                                             nombres
                                         </summary>
@@ -1012,7 +981,7 @@ const etiquetasFiltroRecibido = [
                                         <Button
                                             variant="ghost"
                                             size="icon"
-                                            class="size-8"
+                                            class="size-10 sm:size-8"
                                             :aria-label="`Más acciones: ${fila.tipo_etiqueta}`"
                                         >
                                             <MoreHorizontal class="size-4" />
@@ -1103,26 +1072,33 @@ const etiquetasFiltroRecibido = [
 
             <div
                 v-if="!filas.length"
-                class="flex flex-col items-center gap-2 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] px-4 py-10 text-center text-sm text-muted-foreground"
+                class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)]"
             >
-                <PackageCheck class="size-8 text-muted-foreground/60" />
-                <template v-if="hayFiltros">
-                    <p>{{ textoVacioFiltrado }}</p>
+                <EmptyState
+                    v-if="hayFiltros"
+                    :icono="PackageCheck"
+                    titulo="Sin originales con estos filtros"
+                    :descripcion="textoVacioFiltrado"
+                >
                     <Button variant="outline" size="sm" @click="limpiarFiltros"
                         >Quitar filtros</Button
                     >
-                </template>
-                <template v-else-if="corte.estado === 'en_preparacion'">
-                    <p>
-                        Este corte todavía no se calcula. Presiona «Actualizar
-                        corte».
-                    </p>
-                </template>
-                <template v-else>
-                    <p v-for="r in reglasSinEventos" :key="r.regla">
-                        {{ r.sin_eventos }}
-                    </p>
-                </template>
+                </EmptyState>
+                <EmptyState
+                    v-else-if="corte.estado === 'en_preparacion'"
+                    :icono="PackageCheck"
+                    titulo="Este corte todavía no se calcula"
+                    descripcion="Presiona «Actualizar corte» para armar la lista de originales esperados."
+                />
+                <EmptyState
+                    v-else
+                    :icono="PackageCheck"
+                    titulo="Sin originales esperados"
+                    :descripcion="
+                        reglasSinEventos.map((r) => r.sin_eventos).join(' ') ||
+                        'Este corte no espera originales.'
+                    "
+                />
             </div>
         </section>
 
@@ -1143,7 +1119,7 @@ const etiquetasFiltroRecibido = [
                             :href="verPdf.url({ corte: corte.id, pdf: p.id })"
                             target="_blank"
                             rel="noopener"
-                            class="text-primary underline-offset-2 hover:underline"
+                            class="enlace-animado text-primary"
                             >{{
                                 p.variante === 'estado'
                                     ? 'Con estado'
@@ -1290,12 +1266,14 @@ const etiquetasFiltroRecibido = [
                     }}
                 </DialogDescription>
             </DialogHeader>
-            <p
+            <div
                 v-if="historialRenglon.cargando"
-                class="text-sm text-muted-foreground"
+                class="space-y-3"
+                role="status"
+                aria-label="Cargando historial"
             >
-                Cargando…
-            </p>
+                <Skeleton v-for="n in 3" :key="n" class="h-9 w-full" />
+            </div>
             <p
                 v-else-if="historialRenglon.error"
                 class="text-sm text-destructive"
@@ -1308,7 +1286,10 @@ const etiquetasFiltroRecibido = [
             >
                 Este original todavía no tiene movimientos.
             </p>
-            <ul v-else class="space-y-2 text-sm">
+            <ul
+                v-else
+                class="max-h-[60vh] entrada-escalonada space-y-2 overflow-y-auto text-sm"
+            >
                 <li v-for="(h, i) in historialRenglon.eventos" :key="i">
                     <span class="font-medium">{{ describirEvento(h) }}</span>
                     <span class="block text-xs text-muted-foreground"

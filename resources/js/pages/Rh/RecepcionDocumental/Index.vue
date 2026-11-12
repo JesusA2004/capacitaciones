@@ -6,11 +6,13 @@ import {
     PackageCheck,
     RefreshCw,
 } from '@lucide/vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
+import MonthPicker from '@/components/Common/MonthPicker.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
 import { dashboard } from '@/routes';
 import { generar, show } from '@/routes/rh/recepcion-documental';
 import type {
@@ -80,10 +82,10 @@ const VARIANTE_ESTADO: Record<
                 <label for="periodo" class="text-sm font-medium"
                     >Mes a conciliar</label
                 >
-                <Input
+                <MonthPicker
                     id="periodo"
                     v-model="form.periodo"
-                    type="month"
+                    aria-label="Mes a conciliar"
                     class="w-full sm:w-52"
                 />
                 <p v-if="form.errors.periodo" class="text-xs text-destructive">
@@ -108,14 +110,16 @@ const VARIANTE_ESTADO: Record<
         >
             <ul
                 v-if="cortes.data.length"
-                class="divide-y divide-[var(--mrl-borde)]"
+                class="entrada-escalonada divide-y divide-[var(--mrl-borde)]"
             >
                 <li v-for="c in cortes.data" :key="c.id">
                     <Link
                         :href="show.url(c.id)"
-                        class="flex tarjeta-interactiva flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3"
+                        class="group flex fila-interactiva flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3"
                     >
-                        <span class="flex min-w-48 flex-1 items-center gap-3">
+                        <span
+                            class="flex min-w-0 flex-1 basis-48 items-center gap-3"
+                        >
                             <CalendarRange
                                 class="size-5 shrink-0 text-muted-foreground"
                             />
@@ -131,32 +135,39 @@ const VARIANTE_ESTADO: Record<
                             </span>
                         </span>
                         <span
-                            class="grid grid-cols-4 gap-4 text-center text-xs"
+                            class="grid w-full grid-cols-4 gap-2 text-center text-xs text-muted-foreground sm:w-auto sm:gap-4"
                         >
                             <span>
-                                <span class="block text-base font-semibold">{{
-                                    c.metricas.esperados
-                                }}</span>
+                                <span
+                                    class="block text-base font-semibold text-foreground tabular-nums"
+                                    ><NumeroAnimado
+                                        :valor="c.metricas.esperados"
+                                /></span>
                                 Esperados
                             </span>
                             <span>
                                 <span
-                                    class="block text-base font-semibold text-success"
-                                    >{{ c.metricas.recibidos }}</span
-                                >
+                                    class="block text-base font-semibold text-success tabular-nums"
+                                    ><NumeroAnimado
+                                        :valor="c.metricas.recibidos"
+                                /></span>
                                 Recibidos
                             </span>
                             <span>
                                 <span
-                                    class="block text-base font-semibold text-warning"
-                                    >{{ c.metricas.pendientes }}</span
-                                >
+                                    class="block text-base font-semibold text-warning tabular-nums"
+                                    ><NumeroAnimado
+                                        :valor="c.metricas.pendientes"
+                                /></span>
                                 Pendientes
                             </span>
                             <span>
-                                <span class="block text-base font-semibold">{{
-                                    `${c.metricas.cumplimiento}%`
-                                }}</span>
+                                <span
+                                    class="block text-base font-semibold text-foreground tabular-nums"
+                                    ><NumeroAnimado
+                                        :valor="c.metricas.cumplimiento"
+                                        sufijo="%"
+                                /></span>
                                 Cumplimiento
                             </span>
                         </span>
@@ -164,22 +175,21 @@ const VARIANTE_ESTADO: Record<
                             c.estado_etiqueta
                         }}</Badge>
                         <ChevronRight
-                            class="hidden size-4 shrink-0 text-muted-foreground sm:block"
+                            class="hidden size-4 shrink-0 icono-avanza text-muted-foreground sm:block"
                         />
                     </Link>
                 </li>
             </ul>
-            <div
+            <EmptyState
                 v-else
-                class="flex flex-col items-center gap-2 px-4 py-12 text-center text-sm text-muted-foreground"
-            >
-                <PackageCheck class="size-8 text-muted-foreground/60" />
-                <p>Todavía no hay cortes de recepción documental.</p>
-                <p v-if="puedeGenerar">
-                    Elige el mes arriba y presiona «Calcular / actualizar
-                    corte».
-                </p>
-            </div>
+                :icono="PackageCheck"
+                titulo="Todavía no hay cortes"
+                :descripcion="
+                    puedeGenerar
+                        ? 'Elige el mes arriba y presiona «Calcular / actualizar corte» para armar el primero.'
+                        : 'Cuando Recursos Humanos calcule el corte de un mes, aparecerá aquí.'
+                "
+            />
         </section>
 
         <PaginacionTabla :datos="cortes" />
