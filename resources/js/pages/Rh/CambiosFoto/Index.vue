@@ -111,7 +111,7 @@ function confirmarRechazo(): void {
 
         <ul
             v-else
-            class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3"
+            class="grid entrada-escalonada gap-4 sm:grid-cols-2 xl:grid-cols-3"
             aria-label="Cambios de foto pendientes"
         >
             <li

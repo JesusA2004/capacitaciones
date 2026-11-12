@@ -33,6 +33,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Textarea } from '@/components/ui/textarea';
 import { formatearFecha } from '@/lib/fechas';
 import { enviarJson } from '@/lib/http';
@@ -237,10 +238,12 @@ const titulos: Record<Accion, string> = {
         <CardContent>
             <div
                 v-if="cargando"
-                class="flex items-center gap-2 py-6 text-sm text-muted-foreground"
+                class="flex flex-col gap-3"
+                role="status"
+                aria-label="Cargando responsivas"
             >
-                <Loader2 class="size-4 animate-spin" />
-                Cargando responsivas…
+                <Skeleton class="h-20 w-full rounded-2xl" />
+                <Skeleton class="h-20 w-full rounded-2xl" />
             </div>
 
             <p
@@ -251,7 +254,7 @@ const titulos: Record<Accion, string> = {
                 para imprimirla y firmarla.
             </p>
 
-            <ul v-else class="flex flex-col gap-3">
+            <ul v-else class="flex entrada-escalonada flex-col gap-3">
                 <li
                     v-for="r in responsivas"
                     :key="r.id"

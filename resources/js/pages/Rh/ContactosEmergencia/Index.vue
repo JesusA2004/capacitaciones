@@ -174,7 +174,7 @@ function analizar() {
                 <div class="rounded-xl bg-[var(--mrl-fondo)]">
                     <button
                         type="button"
-                        class="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-medium"
+                        class="flex min-h-10 w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
                         :aria-expanded="verColumnas"
                         @click="verColumnas = !verColumnas"
                     >
@@ -186,7 +186,7 @@ function analizar() {
                     </button>
                     <ol
                         v-if="verColumnas"
-                        class="flex flex-col gap-1 px-3 pb-3 text-xs"
+                        class="flex entrada-suave flex-col gap-1 px-3 pb-3 text-xs"
                     >
                         <li
                             v-for="(c, n) in columnas"
@@ -220,7 +220,10 @@ function analizar() {
                     descripcion="Cuando subas un Excel aparecerá aquí con su resultado."
                 />
 
-                <ul v-else class="grid grid-cols-1 gap-3 2xl:grid-cols-2">
+                <ul
+                    v-else
+                    class="grid entrada-escalonada grid-cols-1 gap-3 2xl:grid-cols-2"
+                >
                     <li
                         v-for="i in importaciones.data"
                         :key="i.id"

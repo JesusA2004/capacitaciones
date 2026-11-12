@@ -14,6 +14,7 @@ import { ref, watch } from 'vue';
 import { toast } from 'vue-sonner';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
@@ -229,13 +230,16 @@ async function confirmar() {
             </div>
         </div>
 
-        <p
+        <div
             v-if="!responsivas.data.length"
-            class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] px-4 py-8 text-center text-sm text-[var(--mrl-texto-suave)]"
+            class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)]"
         >
-            No hay responsivas registradas en tu alcance con estos filtros.
-            Genéralas desde la ficha del colaborador.
-        </p>
+            <EmptyState
+                :icono="PackageCheck"
+                titulo="Sin responsivas con estos filtros"
+                descripcion="No hay responsivas registradas en tu alcance. Genéralas desde la ficha del colaborador."
+            />
+        </div>
 
         <template v-else>
             <!-- Tabla (pantallas anchas) -->
@@ -383,7 +387,7 @@ async function confirmar() {
             </div>
 
             <!-- Tarjetas (pantallas estrechas): una columna -->
-            <ul class="flex flex-col gap-3 md:hidden">
+            <ul class="flex entrada-escalonada flex-col gap-3 md:hidden">
                 <li
                     v-for="r in responsivas.data"
                     :key="r.id"
