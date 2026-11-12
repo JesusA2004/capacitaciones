@@ -150,6 +150,10 @@ const abierto = computed<boolean>(() =>
     sidebarContraido.value || props.fijo ? true : abiertoGuardado.value,
 );
 
+// Solo cuando el usuario despliega el grupo sus accesos llegan uno tras otro;
+// al cargar la pantalla el menú ya está quieto.
+const abiertoAMano = ref(false);
+
 function alCambiar(valor: boolean): void {
     // En modo iconos el grupo se fuerza abierto: no se persiste nada.
     if (sidebarContraido.value || props.fijo) {
@@ -157,6 +161,7 @@ function alCambiar(valor: boolean): void {
     }
 
     abiertoGuardado.value = valor;
+    abiertoAMano.value = valor;
     guardarPreferencia(valor);
 }
 </script>
@@ -198,24 +203,30 @@ function alCambiar(valor: boolean): void {
                         aria-hidden="true"
                     />
                     <span class="min-w-0 flex-1">{{ titulo }}</span>
-                    <ChevronRight
+                    <!-- El contenedor se adelanta al pasar el cursor; la flecha
+                         de adentro gira al desplegar (no se pisan). -->
+                    <span
                         v-if="!fijo"
-                        class="ml-auto size-3.5 shrink-0 text-bronce/70 transition-transform duration-200 group-data-[state=open]/colapsable:rotate-90"
+                        class="ml-auto flex shrink-0 icono-avanza"
                         aria-hidden="true"
-                    />
+                    >
+                        <ChevronRight
+                            class="size-3.5 text-bronce/70 transition-transform duration-200 group-data-[state=open]/colapsable:rotate-90"
+                        />
+                    </span>
                 </SidebarGroupLabel>
             </CollapsibleTrigger>
 
             <CollapsibleContent
                 class="overflow-hidden data-[state=closed]:animate-colapsable-cerrar data-[state=open]:animate-colapsable-abrir"
             >
-                <SidebarMenu>
+                <SidebarMenu :class="{ 'entrada-escalonada': abiertoAMano }">
                     <SidebarMenuItem v-for="item in items" :key="item.title">
                         <SidebarMenuButton
                             as-child
                             :is-active="accesoActivo(item.href)"
                             :tooltip="item.title"
-                            class="relative h-auto min-h-8 rounded-lg py-1.5 text-[13px] leading-tight text-sidebar-foreground transition-colors before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-transparent hover:bg-salvia/70 hover:text-primary data-[active=true]:bg-verde-suave/80 data-[active=true]:font-semibold data-[active=true]:text-primary data-[active=true]:before:bg-oro [&>span:last-child]:whitespace-normal!"
+                            class="relative h-auto min-h-9 presionable rounded-lg py-1.5 text-[13px] leading-tight text-sidebar-foreground transition-[color,background-color,transform] before:absolute before:inset-y-2 before:left-0 before:w-[3px] before:rounded-full before:bg-transparent hover:bg-salvia/70 hover:text-primary data-[active=true]:bg-verde-suave/80 data-[active=true]:font-semibold data-[active=true]:text-primary group-data-[collapsible=icon]:data-[active=true]:before:bg-oro [&>span:last-child]:whitespace-normal! [&>svg]:transition-transform [&>svg]:duration-200 hover:[&>svg]:scale-110"
                         >
                             <Link :href="item.href">
                                 <component :is="item.icon" />
