@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
 import { Textarea } from '@/components/ui/textarea';
 import { useInitials } from '@/composables/useInitials';
 import { usePermisos } from '@/composables/usePermisos';
@@ -327,7 +328,7 @@ function porcentaje(fila: PlantillaPorPuesto): number {
                         <Phone class="size-4 shrink-0 text-muted-foreground" />
                         <a
                             :href="`tel:${sucursal.telefono.split('/')[0].replace(/\s/g, '')}`"
-                            class="hover:underline"
+                            class="enlace-animado"
                             >{{ sucursal.telefono }}</a
                         >
                     </p>
@@ -365,7 +366,7 @@ function porcentaje(fila: PlantillaPorPuesto): number {
         </header>
 
         <!-- Indicadores compactos (4: nunca queda uno huérfano) -->
-        <dl class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <dl class="grid entrada-escalonada grid-cols-2 gap-2 sm:grid-cols-4">
             <div
                 v-for="item in indicadores"
                 :key="item.etiqueta"
@@ -378,7 +379,7 @@ function porcentaje(fila: PlantillaPorPuesto): number {
                     class="text-xl font-semibold tabular-nums"
                     :class="item.alerta && 'text-[var(--warning)]'"
                 >
-                    {{ item.valor }}
+                    <NumeroAnimado :valor="item.valor" />
                 </dd>
             </div>
         </dl>
@@ -485,7 +486,7 @@ function porcentaje(fila: PlantillaPorPuesto): number {
                                     query: { sucursal_id: sucursal.id },
                                 })
                             "
-                            class="text-xs text-primary hover:underline"
+                            class="enlace-animado text-xs text-primary"
                         >
                             Ver vacantes
                         </Link>
@@ -649,7 +650,7 @@ function porcentaje(fila: PlantillaPorPuesto): number {
                 <Link
                     v-if="tienePermiso('departamentos.administrar')"
                     :href="indexDepartamentos.url()"
-                    class="text-xs font-medium text-primary underline-offset-4 hover:underline sm:col-span-2 lg:col-span-1"
+                    class="justify-self-start enlace-animado text-xs font-medium text-primary sm:col-span-2 lg:col-span-1"
                 >
                     Administrar departamentos o mover personas entre ellos →
                 </Link>

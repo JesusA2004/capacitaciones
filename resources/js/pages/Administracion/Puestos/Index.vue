@@ -223,7 +223,7 @@ const pct = (valor: number | null): string =>
         </CrudPageHeader>
 
         <section
-            class="grid grid-cols-2 gap-3 lg:grid-cols-4"
+            class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-4"
             aria-label="Resumen"
         >
             <TarjetaMetrica

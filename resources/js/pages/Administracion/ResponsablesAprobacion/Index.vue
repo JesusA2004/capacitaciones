@@ -13,6 +13,7 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import BuscadorPersonaOrganigrama from '@/components/Organigrama/BuscadorPersonaOrganigrama.vue';
 import { Button } from '@/components/ui/button';
@@ -281,14 +282,20 @@ const ORIGEN_CLASE: Record<string, string> = {
                     >({{ reglas.length }})</span
                 >
             </h2>
-            <p
+            <div
                 v-if="!reglas.length"
-                class="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground"
+                class="rounded-2xl border border-dashed border-border bg-card"
             >
-                Todavía no hay responsables asignados a mano: todas las
-                aprobaciones siguen la regla del organigrama.
-            </p>
-            <ul v-else class="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                <EmptyState
+                    :icono="UserCheck"
+                    titulo="Nadie asignado a mano"
+                    descripcion="Todavía no hay responsables asignados a mano: todas las aprobaciones siguen la regla del organigrama."
+                />
+            </div>
+            <ul
+                v-else
+                class="grid entrada-escalonada gap-3 md:grid-cols-2 2xl:grid-cols-3"
+            >
                 <li
                     v-for="regla in reglas"
                     :key="regla.id"

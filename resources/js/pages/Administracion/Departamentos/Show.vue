@@ -15,6 +15,7 @@ import {
     X,
 } from '@lucide/vue';
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import ListaAnimada from '@/components/ui/ListaAnimada.vue';
 import { getInitials } from '@/composables/useInitials';
 import { dashboard } from '@/routes';
@@ -547,29 +548,18 @@ const avatarSeleccion = computed(() => seleccionados.value.slice(0, 5));
                 </div>
 
                 <!-- Vacío -->
-                <div
+                <EmptyState
                     v-if="colaboradores.length === 0"
-                    class="flex flex-col items-center gap-2 rounded-2xl bg-crema/30 px-6 py-12 text-center"
-                >
-                    <span
-                        class="grid size-12 place-items-center rounded-full bg-salvia text-primary"
-                    >
-                        <Users class="size-5" />
-                    </span>
-                    <p class="font-medium">
-                        Nadie trabaja hoy en {{ departamento.nombre }}
-                    </p>
-                    <p class="max-w-sm text-sm text-muted-foreground">
-                        Aquí aparecen las personas activas o en incorporación de
-                        este departamento dentro de tu alcance.
-                    </p>
-                </div>
-                <p
+                    :icono="Users"
+                    :titulo="`Nadie trabaja hoy en ${departamento.nombre}`"
+                    descripcion="Aquí aparecen las personas activas o en incorporación de este departamento dentro de tu alcance."
+                />
+                <EmptyState
                     v-else-if="filtrados.length === 0"
-                    class="rounded-2xl bg-crema/30 px-4 py-8 text-center text-sm text-muted-foreground"
-                >
-                    Nadie coincide con «{{ busqueda }}».
-                </p>
+                    :icono="Search"
+                    titulo="Nadie coincide"
+                    :descripcion="`No hay personas que coincidan con «${busqueda}».`"
+                />
 
                 <ListaAnimada
                     v-else
@@ -707,13 +697,12 @@ const avatarSeleccion = computed(() => seleccionados.value.slice(0, 5));
                         </h2>
                     </div>
 
-                    <p
+                    <EmptyState
                         v-if="destinos.length === 0"
-                        class="mt-3 rounded-2xl bg-crema/30 px-4 py-6 text-center text-sm text-muted-foreground"
-                    >
-                        No hay otro departamento activo. Crea uno en
-                        Departamentos.
-                    </p>
+                        :icono="Briefcase"
+                        titulo="No hay otro departamento activo"
+                        descripcion="Crea uno en Departamentos para poder mover personas."
+                    />
 
                     <template v-else>
                         <label

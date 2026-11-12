@@ -15,6 +15,7 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
 import { formatearFecha } from '@/lib/fechas';
 import { dashboard } from '@/routes';
 import { index as configuracionIndex } from '@/routes/administracion/configuracion';
@@ -295,7 +296,7 @@ const error = (clave: string) =>
             tipos de activo se administran en
             <Link
                 :href="configuracionOnboarding().url"
-                class="text-[var(--mrl-primary)] hover:underline"
+                class="enlace-animado text-[var(--mrl-primary)]"
                 >Onboarding</Link
             >.
         </p>
@@ -317,13 +318,15 @@ const error = (clave: string) =>
                 </div>
                 <Link
                     :href="coberturaDocumental.url()"
-                    class="text-sm font-medium text-primary hover:underline"
+                    class="enlace-animado text-sm font-medium text-primary"
                 >
                     Ver cobertura documental por puesto →
                 </Link>
             </div>
 
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div
+                class="grid entrada-escalonada grid-cols-1 gap-3 sm:grid-cols-3"
+            >
                 <div
                     class="flex items-center gap-3 rounded-2xl border border-border/70 bg-card p-4"
                 >
@@ -333,7 +336,9 @@ const error = (clave: string) =>
                     /></span>
                     <div>
                         <p class="text-2xl font-semibold tabular-nums">
-                            {{ resumenDuracion.configurados }}
+                            <NumeroAnimado
+                                :valor="resumenDuracion.configurados"
+                            />
                         </p>
                         <p class="text-xs text-muted-foreground">
                             Puestos configurados
@@ -354,7 +359,9 @@ const error = (clave: string) =>
                     /></span>
                     <div>
                         <p class="text-2xl font-semibold tabular-nums">
-                            {{ resumenDuracion.sinConfigurar }}
+                            <NumeroAnimado
+                                :valor="resumenDuracion.sinConfigurar"
+                            />
                         </p>
                         <p class="text-xs text-muted-foreground">
                             Sin configurar

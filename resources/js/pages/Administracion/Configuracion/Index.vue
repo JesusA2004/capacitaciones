@@ -137,14 +137,14 @@ const sistema = computed(() =>
                     ¿Dudas? Todo se explica en la
                     <Link
                         :href="ayuda.url()"
-                        class="text-primary hover:underline"
+                        class="enlace-animado text-primary"
                         >Guía</Link
                     >.
                 </p>
             </div>
         </header>
 
-        <div class="grid gap-4 lg:grid-cols-2">
+        <div class="grid entrada-escalonada gap-4 lg:grid-cols-2">
             <!-- Empresa -->
             <section
                 v-if="puede.empresas"
@@ -311,11 +311,13 @@ const sistema = computed(() =>
                         </p>
                     </div>
                 </div>
-                <ul class="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                <ul
+                    class="grid entrada-escalonada gap-2 sm:grid-cols-2 xl:grid-cols-3"
+                >
                     <li v-for="s in sistema" :key="s.titulo">
                         <Link
                             :href="s.href"
-                            class="flex tarjeta-interactiva items-center gap-3 rounded-xl border p-3"
+                            class="group flex tarjeta-interactiva items-center gap-3 rounded-xl border p-3"
                         >
                             <span class="min-w-0 flex-1">
                                 <span class="block text-sm font-medium">{{
@@ -327,7 +329,7 @@ const sistema = computed(() =>
                                 >
                             </span>
                             <ChevronRight
-                                class="size-4 shrink-0 text-muted-foreground"
+                                class="size-4 shrink-0 icono-avanza text-muted-foreground"
                             />
                         </Link>
                     </li>

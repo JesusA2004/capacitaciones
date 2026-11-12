@@ -2,6 +2,7 @@
 import { Head, router } from '@inertiajs/vue3';
 import { Bell, BellOff, Check, CheckCheck, ExternalLink } from '@lucide/vue';
 import { computed } from 'vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import { Button } from '@/components/ui/button';
 import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
@@ -164,7 +165,8 @@ function hace(valor: string | null): string {
                     ]"
                     :key="opcion.valor"
                     type="button"
-                    class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                    class="presionable rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    :aria-pressed="filtros.estado === opcion.valor"
                     :class="
                         filtros.estado === opcion.valor
                             ? 'bg-[var(--brand-primary)] text-white'
@@ -187,7 +189,8 @@ function hace(valor: string | null): string {
                     ]"
                     :key="opcion.valor"
                     type="button"
-                    class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+                    class="presionable rounded-md px-3 py-2 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    :aria-pressed="filtros.ver === opcion.valor"
                     :class="
                         filtros.ver === opcion.valor
                             ? 'bg-[var(--brand-primary)] text-white'
@@ -202,20 +205,20 @@ function hace(valor: string | null): string {
 
         <div
             v-if="notificaciones.data.length === 0"
-            class="flex flex-col items-center gap-2 rounded-xl border border-dashed bg-card px-6 py-14 text-center"
+            class="rounded-2xl border border-dashed bg-card"
         >
-            <BellOff class="size-8 text-muted-foreground" />
-            <p class="font-medium">Sin notificaciones</p>
-            <p class="text-sm text-muted-foreground">
-                {{
+            <EmptyState
+                :icono="BellOff"
+                titulo="Sin notificaciones"
+                :descripcion="
                     filtros.estado === 'no_leidas'
                         ? 'No tienes avisos pendientes de leer.'
                         : 'Aquí aparecerán los avisos de tus trámites y pendientes.'
-                }}
-            </p>
+                "
+            />
         </div>
 
-        <ul v-else class="flex flex-col gap-2">
+        <ul v-else class="flex entrada-escalonada flex-col gap-2">
             <li
                 v-for="fila in notificaciones.data"
                 :key="fila.id"

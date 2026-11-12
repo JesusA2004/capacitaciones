@@ -33,8 +33,8 @@ import {
 } from 'vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
-import BarraTabulador from '@/components/puestos/BarraTabulador.vue';
 import DialogoUbicarPuesto from '@/components/Organigrama/DialogoUbicarPuesto.vue';
+import BarraTabulador from '@/components/puestos/BarraTabulador.vue';
 import PlantillaAutorizadaPuesto from '@/components/puestos/PlantillaAutorizadaPuesto.vue';
 import PuestoDatosFormulario from '@/components/puestos/PuestoDatosFormulario.vue';
 import TabuladorEditor from '@/components/puestos/TabuladorEditor.vue';

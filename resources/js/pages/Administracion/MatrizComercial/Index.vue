@@ -10,6 +10,7 @@ import {
     XCircle,
 } from '@lucide/vue';
 import { ref } from 'vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +20,7 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
+import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
 import {
     Tooltip,
     TooltipContent,
@@ -218,26 +220,31 @@ function quitarApoyoOVolante(
             </Tooltip>
         </CrudPageHeader>
 
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div class="grid entrada-escalonada grid-cols-2 gap-3 sm:grid-cols-4">
             <div class="rounded-2xl border border-border/60 bg-card p-4">
-                <p class="text-2xl font-semibold">{{ resumen.activas }}</p>
+                <p class="text-2xl font-semibold tabular-nums">
+                    <NumeroAnimado :valor="resumen.activas" />
+                </p>
                 <p class="text-xs text-muted-foreground">Rutas activas</p>
             </div>
             <div class="rounded-2xl border border-success/30 bg-success/5 p-4">
-                <p class="text-2xl font-semibold text-success">
-                    {{ resumen.cubiertas }}
+                <p class="text-2xl font-semibold text-success tabular-nums">
+                    <NumeroAnimado :valor="resumen.cubiertas" />
                 </p>
                 <p class="text-xs text-muted-foreground">Cubiertas</p>
             </div>
             <div class="rounded-2xl border border-warning/30 bg-warning/5 p-4">
-                <p class="text-2xl font-semibold text-warning">
-                    {{ resumen.sin_cubrir }}
+                <p class="text-2xl font-semibold text-warning tabular-nums">
+                    <NumeroAnimado :valor="resumen.sin_cubrir" />
                 </p>
                 <p class="text-xs text-muted-foreground">Sin cubrir</p>
             </div>
             <div class="rounded-2xl border border-border/60 bg-card p-4">
-                <p class="text-2xl font-semibold">
-                    {{ resumen.porcentaje_cobertura }}%
+                <p class="text-2xl font-semibold tabular-nums">
+                    <NumeroAnimado
+                        :valor="resumen.porcentaje_cobertura"
+                        sufijo="%"
+                    />
                 </p>
                 <p class="text-xs text-muted-foreground">Cobertura</p>
             </div>
@@ -245,15 +252,19 @@ function quitarApoyoOVolante(
 
         <div
             v-if="!arbol"
-            class="rounded-2xl border border-dashed border-border/60 p-8 text-center text-sm text-muted-foreground"
+            class="rounded-2xl border border-dashed border-border/60 bg-card"
         >
-            Todavía no hay matriz comercial cargada. Corre
-            <code class="rounded bg-muted px-1.5 py-0.5"
-                >php artisan db:seed --class=MatrizComercialSeeder</code
-            >.
+            <EmptyState
+                titulo="Todavía no hay matriz comercial"
+                descripcion="Aún no se ha cargado la matriz comercial. Sistemas la carga con el comando de abajo."
+            >
+                <code class="rounded bg-muted px-1.5 py-0.5 text-xs break-all"
+                    >php artisan db:seed --class=MatrizComercialSeeder</code
+                >
+            </EmptyState>
         </div>
 
-        <div v-else class="flex flex-col gap-4">
+        <div v-else class="flex entrada-escalonada flex-col gap-4">
             <div
                 v-for="region in arbol.hijos"
                 :key="region.id"
@@ -261,7 +272,8 @@ function quitarApoyoOVolante(
             >
                 <button
                     type="button"
-                    class="flex w-full items-center justify-between gap-2 rounded-t-2xl p-4 text-left transition-colors hover:bg-accent/50"
+                    class="flex w-full items-center justify-between gap-2 rounded-t-2xl p-4 text-left transition-colors hover:bg-accent/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    :aria-expanded="estaAbierto(region.id)"
                     @click="alternar(region.id)"
                 >
                     <span class="font-semibold">{{ region.nombre }}</span>
@@ -447,7 +459,8 @@ function quitarApoyoOVolante(
                                             type="button"
                                             v-if="puedeEditar"
                                             title="Quitar este apoyo de la ruta"
-                                            class="text-muted-foreground hover:text-destructive"
+                                            aria-label="Quitar este apoyo de la ruta"
+                                            class="presionable rounded-full p-0.5 text-muted-foreground transition-colors hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                             @click="
                                                 quitarApoyoOVolante(
                                                     ruta,
@@ -470,7 +483,8 @@ function quitarApoyoOVolante(
                                             type="button"
                                             v-if="puedeEditar"
                                             title="Quitar este volante de la ruta"
-                                            class="text-muted-foreground hover:text-destructive"
+                                            aria-label="Quitar este volante de la ruta"
+                                            class="presionable rounded-full p-0.5 text-muted-foreground transition-colors hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                             @click="
                                                 quitarApoyoOVolante(
                                                     ruta,
@@ -506,6 +520,7 @@ function quitarApoyoOVolante(
                                         variant="outline"
                                         class="size-8 shrink-0"
                                         title="Agregar como apoyo"
+                                        aria-label="Agregar como apoyo"
                                         @click="
                                             agregarApoyoOVolante(ruta, 'apoyo')
                                         "
@@ -514,16 +529,18 @@ function quitarApoyoOVolante(
                                     </Button>
                                 </div>
 
-                                <div class="flex gap-2 text-xs">
+                                <div
+                                    class="flex flex-wrap gap-x-3 gap-y-1 text-xs"
+                                >
                                     <Link
                                         v-if="ruta.sucursal"
-                                        class="text-muted-foreground underline-offset-2 hover:underline"
+                                        class="enlace-animado text-muted-foreground hover:text-foreground"
                                         :href="`${indexExpedientes.url()}?sucursal_id=${ruta.sucursal.id}`"
                                         >Ver colaboradores</Link
                                     >
                                     <Link
                                         v-if="ruta.sucursal"
-                                        class="text-muted-foreground underline-offset-2 hover:underline"
+                                        class="enlace-animado text-muted-foreground hover:text-foreground"
                                         :href="`${indexVacantes.url()}?sucursal_id=${ruta.sucursal.id}`"
                                         >Ver vacantes</Link
                                     >

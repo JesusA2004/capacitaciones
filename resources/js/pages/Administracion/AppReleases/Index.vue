@@ -10,6 +10,7 @@ import {
 } from '@lucide/vue';
 import { ref } from 'vue';
 import AppReleaseFormDialog from '@/components/Administracion/AppReleaseFormDialog.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,6 +24,7 @@ import {
 } from '@/components/ui/table';
 import { useAccionEnCurso } from '@/composables/useAccionEnCurso';
 import { useAlertas } from '@/composables/useAlertas';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { dashboard } from '@/routes';
 import {
     descargar,
@@ -154,7 +156,7 @@ async function eliminarRelease(release: Release) {
         <!-- Límites reales de subida (PHP-FPM, no CLI): diagnóstico del 413. -->
         <p
             v-if="limitesServidor"
-            class="mt-4 rounded-lg px-3 py-2 text-xs"
+            class="rounded-xl px-3 py-2 text-xs"
             :class="
                 limiteEfectivoMb < maxUploadMb
                     ? 'bg-warning-soft'
@@ -178,12 +180,25 @@ async function eliminarRelease(release: Release) {
 
         <div
             v-if="releases.length === 0"
-            class="mt-6 rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground"
+            class="rounded-2xl border border-dashed border-border/70 bg-card"
         >
-            Todavía no se ha subido ninguna versión del APK.
+            <EmptyState
+                :icono="Smartphone"
+                titulo="Todavía no hay versiones"
+                descripcion="Aún no se ha subido ninguna versión del APK. Cuando subas una aparecerá aquí para publicarla."
+            >
+                <Button v-if="permisos.crear" @click="dialogoAbierto = true">
+                    <Upload class="size-4" /> Subir versión
+                </Button>
+            </EmptyState>
         </div>
 
-        <div v-else data-tour="tabla" class="overflow-x-auto rounded-lg border">
+        <div
+            v-else
+            v-tabla-tarjetas
+            data-tour="tabla"
+            class="tabla-scroll rounded-2xl border border-border/60 bg-card max-sm:border-0 max-sm:bg-transparent"
+        >
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -239,6 +254,7 @@ async function eliminarRelease(release: Release) {
                                 <Badge
                                     v-if="release.is_latest"
                                     variant="secondary"
+                                    class="aparece-zoom"
                                     >Más reciente</Badge
                                 >
                             </div>
@@ -260,7 +276,9 @@ async function eliminarRelease(release: Release) {
                             }}
                         </TableCell>
                         <TableCell class="text-right">
-                            <div class="flex justify-end gap-1">
+                            <div
+                                class="flex flex-wrap items-center justify-end gap-1"
+                            >
                                 <Button
                                     v-if="permisos.descargar"
                                     as-child
@@ -270,6 +288,7 @@ async function eliminarRelease(release: Release) {
                                     <a
                                         :href="descargar.url(release.id)"
                                         title="Descargar APK"
+                                        :aria-label="`Descargar APK de la versión ${release.version}`"
                                     >
                                         <Download class="size-4" />
                                     </a>
@@ -303,6 +322,8 @@ async function eliminarRelease(release: Release) {
                                     v-if="permisos.eliminar"
                                     size="icon"
                                     variant="ghost"
+                                    title="Eliminar versión"
+                                    :aria-label="`Eliminar la versión ${release.version}`"
                                     @click="eliminarRelease(release)"
                                 >
                                     <Trash2 class="size-4 text-destructive" />

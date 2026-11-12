@@ -322,7 +322,7 @@ function abrirExpediente(): void {
         >
             <button
                 type="button"
-                class="text-[11px] font-medium text-warning underline-offset-2 hover:underline"
+                class="enlace-animado text-[11px] font-medium text-warning"
                 @click.stop="acciones.terminarCobertura(nodo)"
             >
                 Terminar cobertura
