@@ -17,6 +17,7 @@ import { computed, ref, watch } from 'vue';
 import PestanasBajasNav from '@/components/bajas/PestanasBajas.vue';
 import TarjetaDocumentosBaja from '@/components/bajas/TarjetaDocumentosBaja.vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
@@ -390,7 +391,7 @@ function neto(fila: FilaCierre): string {
 
         <PestanasBajasNav :pestanas="pestanas" />
 
-        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <div class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-4">
             <TarjetaMetrica
                 etiqueta="En trámite"
                 :valor="resumen.en_tramite"
@@ -487,6 +488,7 @@ function neto(fila: FilaCierre): string {
                     >
                     <SelectSimple
                         v-model="estatusDoc"
+                        aria-label="Estatus"
                         :opciones="opciones_documentos.estatus"
                     />
                 </div>
@@ -496,6 +498,7 @@ function neto(fila: FilaCierre): string {
                     >
                     <SelectSimple
                         v-model="sucursalDoc"
+                        aria-label="Sucursal"
                         :opciones="opciones_documentos.sucursales"
                         numerico
                         opcion-vacia="Todas"
@@ -508,6 +511,7 @@ function neto(fila: FilaCierre): string {
                     >
                     <SelectSimple
                         v-model="formaDoc"
+                        aria-label="Forma de salida"
                         :opciones="opciones_documentos.formas"
                         opcion-vacia="Todas"
                         placeholder="Todas"
@@ -519,6 +523,7 @@ function neto(fila: FilaCierre): string {
                     >
                     <SelectSimple
                         v-model="documentosDoc"
+                        aria-label="Documentos"
                         :opciones="opcionesDocumentos"
                         opcion-vacia="Todos"
                         placeholder="Todos"
@@ -534,16 +539,20 @@ function neto(fila: FilaCierre): string {
                 {{ errorCarga }}
             </p>
 
-            <p
+            <div
                 v-if="!recopilacion.data.length"
-                class="rounded-2xl border border-border/60 bg-card px-4 py-12 text-center text-sm text-muted-foreground"
+                class="rounded-2xl border border-border/60 bg-card shadow-sm"
             >
-                No hay bajas con estos filtros.
-            </p>
+                <EmptyState
+                    :icono="FolderOpen"
+                    titulo="No hay bajas con estos filtros"
+                    descripcion="Cambia el estatus, la sucursal, la forma de salida o el filtro de documentos."
+                />
+            </div>
 
             <div
                 v-else
-                class="grid grid-cols-[repeat(auto-fill,minmax(min(100%,22rem),1fr))] gap-4"
+                class="grid entrada-escalonada grid-cols-[repeat(auto-fill,minmax(min(100%,22rem),1fr))] gap-4"
             >
                 <TarjetaDocumentosBaja
                     v-for="t in recopilacion.data"
@@ -579,11 +588,15 @@ function neto(fila: FilaCierre): string {
         <template v-else-if="seccion === 'cierres' && cierres">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
                 <div class="flex-1">
-                    <Label class="mb-1.5 text-xs text-muted-foreground"
+                    <Label
+                        for="buscar-cierre"
+                        class="mb-1.5 text-xs text-muted-foreground"
                         >Buscar colaborador</Label
                     >
                     <Input
+                        id="buscar-cierre"
                         v-model="termino"
+                        type="search"
                         placeholder="Nombre o número de empleado"
                     />
                 </div>
@@ -593,6 +606,7 @@ function neto(fila: FilaCierre): string {
                     >
                     <SelectSimple
                         v-model="estado"
+                        aria-label="Estado del cierre"
                         :opciones="[
                             { value: 'abiertos', label: 'Solo abiertos' },
                             ...estados.map((e) => ({
@@ -606,12 +620,16 @@ function neto(fila: FilaCierre): string {
                 </div>
             </div>
 
-            <p
+            <div
                 v-if="!cierres.data.length"
-                class="rounded-2xl border border-border/60 bg-card px-4 py-12 text-center text-sm text-muted-foreground"
+                class="rounded-2xl border border-border/60 bg-card shadow-sm"
             >
-                No hay cierres laborales en tu alcance con estos filtros.
-            </p>
+                <EmptyState
+                    :icono="DoorOpen"
+                    titulo="Sin cierres laborales"
+                    descripcion="No hay cierres laborales en tu alcance con estos filtros."
+                />
+            </div>
 
             <template v-else>
                 <div
@@ -727,7 +745,9 @@ function neto(fila: FilaCierre): string {
                                             "
                                         >
                                             {{ c.siguiente_accion }}
-                                            <ArrowRight class="size-3.5" />
+                                            <ArrowRight
+                                                class="size-3.5 icono-avanza"
+                                            />
                                         </Link>
                                     </Button>
                                 </td>
@@ -736,7 +756,9 @@ function neto(fila: FilaCierre): string {
                     </table>
                 </div>
 
-                <ul class="grid gap-3 md:grid-cols-2 xl:hidden">
+                <ul
+                    class="grid entrada-escalonada gap-3 md:grid-cols-2 xl:hidden"
+                >
                     <li
                         v-for="c in cierres.data"
                         :key="c.id"
@@ -790,7 +812,7 @@ function neto(fila: FilaCierre): string {
                                 :href="cicloColaborador.url(c.colaborador.id)"
                             >
                                 {{ c.siguiente_accion }}
-                                <ArrowRight class="size-3.5" />
+                                <ArrowRight class="size-3.5 icono-avanza" />
                             </Link>
                         </Button>
                     </li>

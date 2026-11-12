@@ -12,6 +12,7 @@ import {
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import EditorDocumentoSalida from '@/components/bajas/EditorDocumentoSalida.vue';
+import Casilla from '@/components/Common/Casilla.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import HistorialVersiones from '@/components/documentos/HistorialVersiones.vue';
 import InputError from '@/components/InputError.vue';
@@ -376,7 +377,7 @@ function validarPlazo() {
                 >
                 <label
                     v-if="panel.abierta"
-                    class="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-xl border border-border/60 px-3 text-xs font-medium hover:bg-muted"
+                    class="inline-flex h-8 presionable cursor-pointer items-center gap-1.5 rounded-xl border border-border/60 px-3 text-xs font-medium transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 hover:bg-muted"
                 >
                     <FileUp class="size-3.5" />Agregar evidencia
                     <input
@@ -394,12 +395,9 @@ function validarPlazo() {
             </div>
             <ul v-if="panel.evidencias.length" class="grid gap-1 text-xs">
                 <li v-for="e in panel.evidencias" :key="e.id">
-                    <a
-                        :href="e.url"
-                        target="_blank"
-                        class="underline-offset-2 hover:underline"
-                        >{{ e.nombre_original }}</a
-                    >
+                    <a :href="e.url" target="_blank" class="enlace-animado">{{
+                        e.nombre_original
+                    }}</a>
                     <span class="text-muted-foreground">
                         · {{ formatearFechaHora(e.fecha) }}</span
                     >
@@ -512,13 +510,13 @@ function validarPlazo() {
                         panel.generado.requiere_huella &&
                         !panel.generado.firmado
                     "
-                    class="inline-flex items-center gap-1.5 text-xs"
+                    class="inline-flex cursor-pointer items-center gap-1.5 text-xs"
                 >
-                    <input v-model="huellaRegistrada" type="checkbox" />
+                    <Casilla v-model="huellaRegistrada" />
                     Se recabó la huella
                 </label>
                 <label
-                    class="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl bg-[var(--mrl-dorado)] px-3 text-sm font-medium text-white hover:opacity-90"
+                    class="inline-flex h-9 presionable cursor-pointer items-center gap-1.5 rounded-xl bg-[var(--mrl-dorado)] px-3 text-sm font-medium text-white transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 hover:opacity-90"
                 >
                     <FileUp class="size-4" />Subir firmado
                     <input
@@ -554,7 +552,7 @@ function validarPlazo() {
                 <a
                     :href="f.url"
                     target="_blank"
-                    class="font-medium underline-offset-2 hover:underline"
+                    class="enlace-animado font-medium"
                     >{{ f.nombre_original }}</a
                 >
                 <span class="text-muted-foreground">

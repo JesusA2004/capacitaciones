@@ -193,7 +193,7 @@ async function quitar(archivo: ArchivoBaja) {
                     >
                     <label
                         v-if="puedeAdjuntar && bajaId !== null && e.id !== null"
-                        class="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl border border-[var(--mrl-borde)] bg-background px-3 text-sm font-medium hover:bg-muted"
+                        class="inline-flex h-9 presionable cursor-pointer items-center gap-1.5 rounded-xl border border-[var(--mrl-borde)] bg-background px-3 text-sm font-medium transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 hover:bg-muted"
                     >
                         <Loader2
                             v-if="subiendo === claveEspacio(e)"

@@ -436,7 +436,9 @@ const datos = computed(() => [
                 <section
                     class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
                 >
-                    <div class="mb-3 flex items-center justify-between gap-2">
+                    <div
+                        class="mb-3 flex flex-wrap items-center justify-between gap-2"
+                    >
                         <h3 class="text-base font-semibold">
                             Datos de la baja
                         </h3>
@@ -610,7 +612,13 @@ const datos = computed(() => [
                 >
                     <History class="size-4" />Bitácora
                 </h3>
-                <ol class="grid gap-3">
+                <EmptyState
+                    v-if="!baja.bitacora.length"
+                    :icono="History"
+                    titulo="Sin movimientos todavía"
+                    descripcion="Cada cambio de esta baja quedará registrado aquí."
+                />
+                <ol v-else class="grid entrada-escalonada gap-3">
                     <li
                         v-for="b in baja.bitacora"
                         :key="b.id"
@@ -799,7 +807,7 @@ const datos = computed(() => [
                         />
                     </div>
                 </div>
-                <label class="flex items-start gap-2 text-sm">
+                <label class="flex cursor-pointer items-start gap-2 text-sm">
                     <Casilla v-model="formDatos.es_rotacion" />
                     <span
                         >Cuenta en la rotación (desmárcalo si es un movimiento

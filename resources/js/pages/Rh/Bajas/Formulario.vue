@@ -175,7 +175,8 @@ function registrar() {
                     />
                     <div
                         v-if="persona"
-                        class="flex items-center gap-3 rounded-xl bg-crema/60 p-3"
+                        :key="persona.id"
+                        class="flex entrada-suave items-center gap-3 rounded-xl bg-crema/60 p-3"
                     >
                         <ColaboradorAvatar
                             :nombre="persona.nombre"
@@ -243,7 +244,7 @@ function registrar() {
 
                 <section
                     v-if="documentosCierre.length"
-                    class="grid gap-2 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+                    class="grid entrada-suave gap-2 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
                 >
                     <h3 class="flex items-center gap-2 text-sm font-semibold">
                         <FileCheck2 class="size-4 text-primary" />Para cerrar la

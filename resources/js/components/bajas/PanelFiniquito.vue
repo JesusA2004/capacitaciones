@@ -28,6 +28,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
+import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { formatearFecha, formatearFechaHora } from '@/lib/fechas';
 import { vistaPreviaPost } from '@/lib/http';
@@ -297,9 +299,12 @@ function guardarPago() {
 
             <p class="flex items-center justify-end gap-3 text-sm">
                 <span class="font-medium">Total</span>
-                <span class="text-lg font-bold tabular-nums">{{
-                    moneda(finiquito.monto)
-                }}</span>
+                <span class="text-lg font-bold tabular-nums"
+                    ><NumeroAnimado
+                        :valor="finiquito.monto"
+                        :decimales="2"
+                        prefijo="$"
+                /></span>
             </p>
 
             <div class="flex flex-wrap justify-end gap-2">
@@ -343,7 +348,7 @@ function guardarPago() {
                 </Button>
                 <label
                     v-if="finiquito.puede.subir_firmado"
-                    class="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-xl bg-[var(--mrl-dorado)] px-3 text-sm font-medium text-white hover:opacity-90"
+                    class="inline-flex h-9 presionable cursor-pointer items-center gap-1.5 rounded-xl bg-[var(--mrl-dorado)] px-3 text-sm font-medium text-white transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 hover:opacity-90"
                 >
                     <FileUp class="size-4" />Subir firmado
                     <input
@@ -403,7 +408,7 @@ function guardarPago() {
                 >
                     Sin ajustes: los importes son los calculados.
                 </p>
-                <ol v-else class="grid gap-2">
+                <ol v-else class="grid entrada-escalonada gap-2">
                     <li
                         v-for="(a, i) in finiquito.historial_ajustes"
                         :key="i"
@@ -488,15 +493,17 @@ function guardarPago() {
                     <div
                         v-for="(n, i) in nuevos"
                         :key="i"
-                        class="grid grid-cols-[1fr_8rem_7rem_auto] items-center gap-2"
+                        class="grid entrada-suave grid-cols-[1fr_1fr_auto] items-center gap-2 sm:grid-cols-[1fr_8rem_7rem_auto]"
                     >
                         <Input
                             v-model="n.concepto"
+                            class="col-span-3 sm:col-span-1"
                             placeholder="Concepto"
                             :aria-label="`Nombre del concepto nuevo ${i + 1}`"
                         />
                         <SelectSimple
                             v-model="n.tipo"
+                            :aria-label="`Tipo del concepto nuevo ${i + 1}`"
                             :opciones="[
                                 { value: 'percepcion', label: 'Percepción' },
                                 { value: 'deduccion', label: 'Deducción' },
@@ -594,8 +601,10 @@ function guardarPago() {
                     />
                     <p
                         v-else
-                        class="flex flex-1 items-center justify-center rounded-xl bg-muted text-sm text-muted-foreground"
+                        class="flex flex-1 items-center justify-center gap-2 rounded-xl bg-muted text-sm text-muted-foreground"
+                        :role="cargandoPrevia ? 'status' : undefined"
                     >
+                        <Spinner v-if="cargandoPrevia" />
                         {{
                             cargandoPrevia
                                 ? 'Generando vista previa…'

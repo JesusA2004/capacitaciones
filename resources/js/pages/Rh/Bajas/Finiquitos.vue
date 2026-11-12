@@ -6,6 +6,7 @@ import { computed, ref, watch } from 'vue';
 import PanelFiniquito from '@/components/bajas/PanelFiniquito.vue';
 import PestanasBajas from '@/components/bajas/PestanasBajas.vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
@@ -138,7 +139,7 @@ function etapaAlcanzada(fila: FilaFiniquitoBaja, clave: string): boolean {
     <div class="pagina-ancha flex flex-col gap-5">
         <PestanasBajas :pestanas="pestanas" actual="finiquitos" />
 
-        <div class="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <div class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-5">
             <TarjetaMetrica
                 etiqueta="Calculados"
                 :valor="resumen.calculados"
@@ -206,6 +207,7 @@ function etapaAlcanzada(fila: FilaFiniquitoBaja, clave: string): boolean {
                             label: e.etiqueta,
                         }))
                     "
+                    aria-label="Estatus"
                     opcion-vacia="Todos los estatus"
                     placeholder="Todos los estatus"
                 />
@@ -213,17 +215,18 @@ function etapaAlcanzada(fila: FilaFiniquitoBaja, clave: string): boolean {
                     v-model="sucursal"
                     :opciones="sucursales"
                     numerico
+                    aria-label="Sucursal"
                     opcion-vacia="Todas las sucursales"
                     placeholder="Todas las sucursales"
                 />
             </div>
 
-            <p
+            <EmptyState
                 v-if="!finiquitos.data.length"
-                class="px-4 py-10 text-center text-sm text-muted-foreground"
-            >
-                No hay finiquitos con estos filtros.
-            </p>
+                :icono="Search"
+                titulo="No hay finiquitos con estos filtros"
+                descripcion="Cambia el estatus o la sucursal, o borra lo que escribiste en el buscador."
+            />
 
             <div v-else class="tabla-scroll">
                 <table v-tabla-tarjetas class="w-full text-left text-sm">
@@ -251,7 +254,7 @@ function etapaAlcanzada(fila: FilaFiniquitoBaja, clave: string): boolean {
                             :key="f.id"
                             :class="
                                 cn(
-                                    'border-b border-border/60 last:border-0',
+                                    'border-b border-border/60 transition-colors last:border-0 hover:bg-crema/30',
                                     seleccionado?.id === f.id && 'bg-menta/40',
                                 )
                             "
@@ -324,6 +327,7 @@ function etapaAlcanzada(fila: FilaFiniquitoBaja, clave: string): boolean {
                                 <Button
                                     size="sm"
                                     variant="outline"
+                                    :aria-label="`Editar el finiquito de ${f.colaborador}`"
                                     @click="abrir(f.id)"
                                     ><Pencil class="size-3.5" />Editar</Button
                                 >

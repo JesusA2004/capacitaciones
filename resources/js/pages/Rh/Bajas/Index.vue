@@ -17,6 +17,7 @@ import type { Component } from 'vue';
 import GeneradorDocumentoSalida from '@/components/bajas/GeneradorDocumentoSalida.vue';
 import PestanasBajasNav from '@/components/bajas/PestanasBajas.vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
@@ -261,7 +262,7 @@ function avance(b: FilaBaja): string {
 
         <PestanasBajasNav :pestanas="pestanas" actual="bajas" />
 
-        <div class="grid grid-cols-2 gap-3 lg:grid-cols-5">
+        <div class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-5">
             <TarjetaMetrica
                 v-for="m in metricas"
                 :key="m.campo"
@@ -291,7 +292,7 @@ function avance(b: FilaBaja): string {
             <span class="ml-1 rounded-full bg-muted px-2 py-0.5 font-medium"
                 >No procede</span
             >
-            <span class="ml-auto text-muted-foreground"
+            <span class="text-muted-foreground sm:ml-auto"
                 >Sin autorización de Jurídico</span
             >
         </div>
@@ -307,11 +308,15 @@ function avance(b: FilaBaja): string {
             <div class="flex min-w-0 flex-col gap-3">
                 <div class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                     <div>
-                        <Label class="mb-1.5 text-xs text-muted-foreground"
+                        <Label
+                            for="bajas-buscar"
+                            class="mb-1.5 text-xs text-muted-foreground"
                             >Buscar</Label
                         >
                         <Input
+                            id="bajas-buscar"
                             v-model="termino"
+                            type="search"
                             placeholder="Nombre, número, folio, puesto o sucursal"
                         />
                     </div>
@@ -322,6 +327,7 @@ function avance(b: FilaBaja): string {
                         <SelectSimple
                             v-model="estatusElegido"
                             :opciones="props.estatus"
+                            aria-label="Estatus"
                         />
                     </div>
                     <div>
@@ -332,6 +338,7 @@ function avance(b: FilaBaja): string {
                             v-model="sucursal"
                             :opciones="sucursales"
                             numerico
+                            aria-label="Sucursal"
                             opcion-vacia="Todas"
                             placeholder="Todas"
                         />
@@ -343,18 +350,23 @@ function avance(b: FilaBaja): string {
                         <SelectSimple
                             v-model="forma"
                             :opciones="formas"
+                            aria-label="Forma de salida"
                             opcion-vacia="Todas"
                             placeholder="Todas"
                         />
                     </div>
                 </div>
 
-                <p
+                <div
                     v-if="!props.bajas.data.length"
-                    class="rounded-2xl border border-border/60 bg-card px-4 py-10 text-center text-sm text-muted-foreground"
+                    class="rounded-2xl border border-border/60 bg-card shadow-sm"
                 >
-                    No hay bajas con estos filtros.
-                </p>
+                    <EmptyState
+                        :icono="UserMinus"
+                        titulo="No hay bajas con estos filtros"
+                        descripcion="Prueba con otro estatus, sucursal o forma de salida, o borra lo que escribiste en el buscador."
+                    />
+                </div>
 
                 <template v-else>
                     <div
@@ -412,7 +424,8 @@ function avance(b: FilaBaja): string {
                                     :class="
                                         cn(
                                             'border-b border-border/60 last:border-0',
-                                            puede.gestionar && 'cursor-pointer',
+                                            puede.gestionar &&
+                                                'fila-interactiva',
                                             seleccion?.baja_id === b.id &&
                                                 'bg-crema/50',
                                         )
@@ -427,7 +440,7 @@ function avance(b: FilaBaja): string {
                                             />
                                             <div class="min-w-0">
                                                 <Link
-                                                    class="font-medium hover:underline"
+                                                    class="enlace-animado font-medium"
                                                     :href="
                                                         rutasBajas.show.url(
                                                             b.id,
@@ -562,7 +575,7 @@ function avance(b: FilaBaja): string {
                                                         )
                                                     "
                                                     >Abrir baja<ArrowRight
-                                                        class="size-3.5"
+                                                        class="size-3.5 icono-avanza"
                                                 /></Link>
                                             </Button>
                                         </div>
