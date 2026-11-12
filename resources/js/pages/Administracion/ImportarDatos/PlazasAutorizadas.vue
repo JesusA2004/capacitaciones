@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { Download, LayoutGrid, Upload } from '@lucide/vue';
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { dashboard } from '@/routes';
 import { index as importarDatosIndex } from '@/routes/administracion/importar-datos';
 import {
@@ -75,10 +77,11 @@ defineOptions({
 const formArchivo = useForm<{ archivo: File | null }>({ archivo: null });
 const formAplicar = useForm({ motivo: '' });
 
-function alElegir(evento: Event) {
-    formArchivo.archivo =
-        (evento.target as HTMLInputElement).files?.[0] ?? null;
-}
+const archivosElegidos = ref<File[]>([]);
+
+watch(archivosElegidos, (archivos) => {
+    formArchivo.archivo = archivos[0] ?? null;
+});
 
 function enviarArchivo() {
     formArchivo.post(analizar().url, { forceFormData: true });
@@ -142,7 +145,7 @@ const errorAplicar = computed(
         <CrudPageHeader titulo="Plazas autorizadas" :icono="LayoutGrid" />
 
         <section
-            class="grid grid-cols-2 gap-3 lg:grid-cols-4"
+            class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-4"
             aria-label="Plantilla actual"
         >
             <TarjetaMetrica
@@ -186,29 +189,33 @@ const errorAplicar = computed(
                 modifican.
             </p>
             <form
-                class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-center"
+                class="mt-3 flex flex-col gap-3"
                 @submit.prevent="enviarArchivo"
             >
-                <input
-                    type="file"
+                <PeopleFileDropzone
+                    v-model="archivosElegidos"
                     accept=".xlsx"
-                    aria-label="Archivo de plazas autorizadas"
-                    class="min-w-0 text-sm"
-                    @change="alElegir"
+                    :max-size-mb="10"
+                    label="Arrastra aquí el archivo de plazas autorizadas (.xlsx)"
+                    :loading="formArchivo.processing"
+                    :error="formArchivo.errors.archivo"
                 />
-                <Button
-                    type="submit"
-                    :disabled="!formArchivo.archivo || formArchivo.processing"
-                >
-                    <Upload class="size-4" /> Analizar
-                </Button>
-                <Button variant="outline" as-child>
-                    <a :href="plantilla().url">
-                        <Download class="size-4" /> Descargar formato
-                    </a>
-                </Button>
+                <div class="flex flex-wrap items-center gap-2">
+                    <Button
+                        type="submit"
+                        :disabled="
+                            !formArchivo.archivo || formArchivo.processing
+                        "
+                    >
+                        <Upload class="size-4" /> Analizar
+                    </Button>
+                    <Button variant="outline" as-child>
+                        <a :href="plantilla().url">
+                            <Download class="size-4" /> Descargar formato
+                        </a>
+                    </Button>
+                </div>
             </form>
-            <InputError :message="formArchivo.errors.archivo" class="mt-2" />
         </section>
 
         <section
@@ -233,8 +240,8 @@ const errorAplicar = computed(
                 {{ importacion.filas_error }} con error.
             </p>
 
-            <div class="mt-3 overflow-x-auto">
-                <table class="w-full min-w-[32rem] text-sm">
+            <div class="mt-3 tabla-scroll">
+                <table v-tabla-tarjetas class="w-full min-w-[32rem] text-sm">
                     <thead class="text-left text-xs text-muted-foreground">
                         <tr>
                             <th class="py-1.5 pr-3 font-medium">
@@ -279,8 +286,8 @@ const errorAplicar = computed(
                 </table>
             </div>
 
-            <div class="mt-4 overflow-x-auto">
-                <table class="w-full min-w-[44rem] text-sm">
+            <div class="mt-4 tabla-scroll">
+                <table v-tabla-tarjetas class="w-full min-w-[44rem] text-sm">
                     <thead class="text-left text-xs text-muted-foreground">
                         <tr>
                             <th class="py-1.5 pr-3 font-medium">Fila</th>
@@ -313,25 +320,27 @@ const errorAplicar = computed(
                                 {{ f.ocupadas ?? '—' }}
                             </td>
                             <td class="py-1.5">
-                                <span
-                                    class="rounded-full px-2 py-0.5 text-xs font-medium"
-                                    :class="CLASE_ESTADO[f.estado]"
-                                    >{{ ETIQUETA_ESTADO[f.estado] }}</span
-                                >
-                                <p
-                                    v-for="e in f.errores"
-                                    :key="e"
-                                    class="mt-1 text-xs text-destructive"
-                                >
-                                    {{ e }}
-                                </p>
-                                <p
-                                    v-for="a in f.avisos"
-                                    :key="a"
-                                    class="mt-1 text-xs text-warning"
-                                >
-                                    {{ a }}
-                                </p>
+                                <div class="min-w-0">
+                                    <span
+                                        class="rounded-full px-2 py-0.5 text-xs font-medium"
+                                        :class="CLASE_ESTADO[f.estado]"
+                                        >{{ ETIQUETA_ESTADO[f.estado] }}</span
+                                    >
+                                    <p
+                                        v-for="e in f.errores"
+                                        :key="e"
+                                        class="mt-1 text-xs text-destructive"
+                                    >
+                                        {{ e }}
+                                    </p>
+                                    <p
+                                        v-for="a in f.avisos"
+                                        :key="a"
+                                        class="mt-1 text-xs text-warning"
+                                    >
+                                        {{ a }}
+                                    </p>
+                                </div>
                             </td>
                         </tr>
                     </tbody>
@@ -373,7 +382,7 @@ const errorAplicar = computed(
                 </label>
                 <Textarea id="motivo" v-model="formAplicar.motivo" rows="2" />
                 <InputError :message="formAplicar.errors.motivo" />
-                <div>
+                <div class="flex flex-wrap gap-2">
                     <Button type="submit" :disabled="formAplicar.processing">
                         Confirmar y aplicar
                     </Button>
@@ -406,7 +415,7 @@ const errorAplicar = computed(
                 >
                     <Link
                         :href="index({ query: { importacion: r.id } }).url"
-                        class="min-w-0 truncate text-primary hover:underline"
+                        class="min-w-0 truncate enlace-animado text-primary"
                         >{{ r.nombre_archivo }}</Link
                     >
                     <span class="text-xs text-muted-foreground">

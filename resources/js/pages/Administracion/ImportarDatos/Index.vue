@@ -220,7 +220,7 @@ const tarjetas = computed<Tarjeta[]>(() => {
         <Link
             v-if="puede.carga_inicial"
             :href="cargaInicialIndex().url"
-            class="flex tarjeta-interactiva flex-col gap-4 rounded-2xl border border-primary/40 bg-[var(--mrl-superficie)] p-5 sm:flex-row sm:items-center sm:p-6"
+            class="group flex tarjeta-interactiva flex-col gap-4 rounded-2xl border border-primary/40 bg-[var(--mrl-superficie)] p-5 sm:flex-row sm:items-center sm:p-6"
         >
             <span
                 class="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
@@ -239,7 +239,7 @@ const tarjetas = computed<Tarjeta[]>(() => {
                 class="inline-flex items-center gap-1.5 self-start rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground sm:self-auto"
             >
                 Abrir
-                <ArrowRight class="size-4" />
+                <ArrowRight class="size-4 icono-avanza" />
             </span>
         </Link>
 
@@ -250,12 +250,15 @@ const tarjetas = computed<Tarjeta[]>(() => {
             Actualizaciones posteriores
         </h2>
 
-        <div class="rejilla-auto" style="--rejilla-min: 20rem">
+        <div
+            class="rejilla-auto entrada-escalonada"
+            style="--rejilla-min: 20rem"
+        >
             <article
                 v-for="tarjeta in tarjetas"
                 :key="tarjeta.clave"
                 class="flex flex-col gap-4 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5"
-                :class="tarjeta.href ? 'tarjeta-interactiva' : ''"
+                :class="tarjeta.href ? 'group tarjeta-interactiva' : ''"
             >
                 <div class="flex items-start gap-3">
                     <span
@@ -311,7 +314,7 @@ const tarjetas = computed<Tarjeta[]>(() => {
                     >
                         <Link :href="tarjeta.href">
                             Abrir
-                            <ArrowRight class="size-4" />
+                            <ArrowRight class="size-4 icono-avanza" />
                         </Link>
                     </Button>
                 </div>

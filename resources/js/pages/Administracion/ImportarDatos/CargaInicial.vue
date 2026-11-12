@@ -5,7 +5,6 @@ import {
     CheckCircle2,
     DatabaseZap,
     Download,
-    FileSpreadsheet,
     FolderSearch,
     History,
     Info,
@@ -28,8 +27,11 @@ import Casilla from '@/components/Common/Casilla.vue';
 import MetricCard from '@/components/Common/MetricCard.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import InputError from '@/components/InputError.vue';
+import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
+import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
 import { Progress } from '@/components/ui/progress';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import { dashboard } from '@/routes';
 import { index as importarDatosIndex } from '@/routes/administracion/importar-datos';
 import {
@@ -99,11 +101,11 @@ function fecha(valor: string | null): string {
 
 // --- Paso 1-2: elegir y analizar ------------------------------------------
 const formArchivo = useForm({ archivo: null as File | null });
-const arrastrando = ref(false);
+const archivosElegidos = ref<File[]>([]);
 
-function elegir(archivo: File | undefined | null) {
-    formArchivo.archivo = archivo ?? null;
-}
+watch(archivosElegidos, (archivos) => {
+    formArchivo.archivo = archivos[0] ?? null;
+});
 
 function analizarArchivo() {
     formArchivo.post(analizar.url(), {
@@ -407,7 +409,7 @@ const bloquesResultado = computed<Bloque[]>(() => {
             <li
                 v-for="(p, i) in pasos"
                 :key="p"
-                class="flex items-center gap-2 rounded-full border px-3 py-1"
+                class="flex items-center gap-2 rounded-full border px-3 py-1 transition-colors"
                 :class="
                     i + 1 === pasoActual
                         ? 'border-primary bg-primary/10 font-semibold text-primary'
@@ -438,39 +440,14 @@ const bloquesResultado = computed<Bloque[]>(() => {
                 Al terminar verás la revisión general y los conflictos antes de
                 confirmar.
             </p>
-            <label
-                class="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center transition sm:p-8"
-                :class="
-                    arrastrando
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50'
-                "
-                @dragover.prevent="arrastrando = true"
-                @dragleave.prevent="arrastrando = false"
-                @drop.prevent="
-                    (e: DragEvent) => {
-                        arrastrando = false;
-                        elegir(e.dataTransfer?.files?.[0]);
-                    }
-                "
-            >
-                <FileSpreadsheet class="size-8 text-muted-foreground" />
-                <span class="text-sm font-medium break-all">{{
-                    formArchivo.archivo
-                        ? formArchivo.archivo.name
-                        : 'Arrastra el XLSX aquí o haz clic para elegirlo'
-                }}</span>
-                <input
-                    type="file"
-                    accept=".xlsx"
-                    class="hidden"
-                    @change="
-                        (e: Event) =>
-                            elegir((e.target as HTMLInputElement).files?.[0])
-                    "
-                />
-            </label>
-            <InputError :message="formArchivo.errors.archivo" class="mt-2" />
+            <PeopleFileDropzone
+                v-model="archivosElegidos"
+                accept=".xlsx"
+                :max-size-mb="20"
+                label="Arrastra aquí el XLSX de carga inicial"
+                :loading="formArchivo.processing"
+                :error="formArchivo.errors.archivo"
+            />
             <div class="mt-4 flex flex-wrap items-center gap-3">
                 <Button
                     :disabled="!formArchivo.archivo || formArchivo.processing"
@@ -547,7 +524,7 @@ const bloquesResultado = computed<Bloque[]>(() => {
 
                     <!-- Colaboradores -->
                     <div
-                        class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6"
+                        class="grid entrada-escalonada grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6"
                     >
                         <MetricCard
                             etiqueta="Colaboradores"
@@ -585,7 +562,10 @@ const bloquesResultado = computed<Bloque[]>(() => {
                         />
                     </div>
 
-                    <div class="rejilla-auto" style="--rejilla-min: 18rem">
+                    <div
+                        class="rejilla-auto entrada-escalonada"
+                        style="--rejilla-min: 18rem"
+                    >
                         <!-- Catálogos -->
                         <article
                             class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4"
@@ -959,7 +939,7 @@ const bloquesResultado = computed<Bloque[]>(() => {
 
                     <p
                         v-if="totalConflictos === 0"
-                        class="flex items-center gap-2 rounded-lg bg-success/10 p-3 text-sm text-success"
+                        class="flex aparece-zoom items-center gap-2 rounded-lg bg-success/10 p-3 text-sm text-success"
                     >
                         <CheckCircle2 class="size-4" />
                         Sin conflictos ni pendientes.
@@ -976,9 +956,12 @@ const bloquesResultado = computed<Bloque[]>(() => {
                             }}) — no se aplican
                         </h3>
                         <div
-                            class="overflow-x-auto rounded-xl border border-border/60"
+                            class="tabla-scroll rounded-xl border border-border/60 max-sm:border-0"
                         >
-                            <table class="w-full min-w-[32rem] text-sm">
+                            <table
+                                v-tabla-tarjetas
+                                class="w-full min-w-[32rem] text-sm"
+                            >
                                 <thead
                                     class="bg-muted/40 text-left text-xs text-muted-foreground uppercase"
                                 >
@@ -1031,9 +1014,12 @@ const bloquesResultado = computed<Bloque[]>(() => {
                             }}) — quedan en revisión, no se aplican
                         </h3>
                         <div
-                            class="overflow-x-auto rounded-xl border border-border/60"
+                            class="tabla-scroll rounded-xl border border-border/60 max-sm:border-0"
                         >
-                            <table class="w-full min-w-[32rem] text-sm">
+                            <table
+                                v-tabla-tarjetas
+                                class="w-full min-w-[32rem] text-sm"
+                            >
                                 <thead
                                     class="bg-muted/40 text-left text-xs text-muted-foreground uppercase"
                                 >
@@ -1079,9 +1065,12 @@ const bloquesResultado = computed<Bloque[]>(() => {
                             }})
                         </h3>
                         <div
-                            class="overflow-x-auto rounded-xl border border-border/60"
+                            class="tabla-scroll rounded-xl border border-border/60 max-sm:border-0"
                         >
-                            <table class="w-full min-w-[28rem] text-sm">
+                            <table
+                                v-tabla-tarjetas
+                                class="w-full min-w-[28rem] text-sm"
+                            >
                                 <thead
                                     class="bg-muted/40 text-left text-xs text-muted-foreground uppercase"
                                 >
@@ -1127,9 +1116,12 @@ const bloquesResultado = computed<Bloque[]>(() => {
                             Informativo. Los registros EXCLUIDO no se importan.
                         </p>
                         <div
-                            class="overflow-x-auto rounded-xl border border-border/60"
+                            class="tabla-scroll rounded-xl border border-border/60 max-sm:border-0"
                         >
-                            <table class="w-full min-w-[32rem] text-sm">
+                            <table
+                                v-tabla-tarjetas
+                                class="w-full min-w-[32rem] text-sm"
+                            >
                                 <thead
                                     class="bg-muted/40 text-left text-xs text-muted-foreground uppercase"
                                 >
@@ -1296,7 +1288,7 @@ const bloquesResultado = computed<Bloque[]>(() => {
 
                 <div
                     v-if="bloquesResultado.length"
-                    class="rejilla-auto"
+                    class="rejilla-auto entrada-escalonada"
                     style="--rejilla-min: 16rem"
                 >
                     <article
@@ -1323,7 +1315,7 @@ const bloquesResultado = computed<Bloque[]>(() => {
                                     {{ it.etiqueta }}
                                 </dt>
                                 <dd class="text-lg font-semibold tabular-nums">
-                                    {{ it.valor }}
+                                    <NumeroAnimado :valor="it.valor" />
                                 </dd>
                             </div>
                         </dl>
@@ -1382,7 +1374,10 @@ const bloquesResultado = computed<Bloque[]>(() => {
                 <li v-for="h in historial" :key="h.id">
                     <Link
                         :href="index.url({ query: { corrida: h.id } })"
-                        class="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-2 py-2 hover:bg-muted/40"
+                        class="flex fila-interactiva flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-2 py-2 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                        :aria-current="
+                            corrida?.id === h.id ? 'page' : undefined
+                        "
                         :class="
                             corrida?.id === h.id
                                 ? 'bg-primary/5 font-medium'
