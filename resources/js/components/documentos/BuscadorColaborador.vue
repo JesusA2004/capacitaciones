@@ -263,14 +263,21 @@ function idOpcion(i: number): string {
                 tabindex="-1"
                 :data-indice="i"
                 :aria-selected="i === activo"
-                class="flex w-full flex-col items-start rounded-lg px-3 py-2 text-left"
+                class="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left"
                 :class="i === activo ? 'bg-muted' : 'hover:bg-muted'"
                 @click="elegir(c)"
                 @mousemove="activo = i"
             >
-                <span class="text-sm font-medium">{{ c.nombre }}</span>
-                <span class="text-xs text-[var(--mrl-texto-suave)]">
-                    {{ detalle(c) || 'Sin puesto asignado' }}
+                <ColaboradorAvatar
+                    :nombre="c.nombre"
+                    :foto-url="c.foto_url"
+                    tamano="xs"
+                />
+                <span class="flex min-w-0 flex-col items-start">
+                    <span class="text-sm font-medium">{{ c.nombre }}</span>
+                    <span class="text-xs text-[var(--mrl-texto-suave)]">
+                        {{ detalle(c) || 'Sin puesto asignado' }}
+                    </span>
                 </span>
             </button>
             <p

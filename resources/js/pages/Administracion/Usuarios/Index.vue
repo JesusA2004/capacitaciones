@@ -15,6 +15,7 @@ import { ref, watch } from 'vue';
 import PurgaUsuarioDialog from '@/components/Administracion/PurgaUsuarioDialog.vue';
 import UsuarioFormDialog from '@/components/Administracion/UsuarioFormDialog.vue';
 import UsuarioRolesDialog from '@/components/Administracion/UsuarioRolesDialog.vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import CrudActionMenu from '@/components/DataTable/CrudActionMenu.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudMobileCard from '@/components/DataTable/CrudMobileCard.vue';
@@ -308,10 +309,22 @@ function restablecer(usuario: UsuarioItem) {
             </template>
 
             <template #celda-colaborador="{ fila }">
-                <span class="block">{{ fila.name }} {{ fila.apellidos }}</span>
-                <span class="block text-xs text-muted-foreground xl:hidden">{{
-                    fila.username
-                }}</span>
+                <div class="flex items-center gap-2.5">
+                    <ColaboradorAvatar
+                        :nombre="`${fila.name} ${fila.apellidos ?? ''}`"
+                        :foto-url="fila.foto_url"
+                        tamano="sm"
+                    />
+                    <div class="min-w-0">
+                        <span class="block"
+                            >{{ fila.name }} {{ fila.apellidos }}</span
+                        >
+                        <span
+                            class="block text-xs text-muted-foreground xl:hidden"
+                            >{{ fila.username }}</span
+                        >
+                    </div>
+                </div>
             </template>
             <template #celda-roles_nombres="{ fila }">
                 <div class="flex flex-wrap gap-1">

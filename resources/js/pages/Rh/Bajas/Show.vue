@@ -14,6 +14,7 @@ import DocumentosBaja from '@/components/bajas/DocumentosBaja.vue';
 import GeneradorDocumentoSalida from '@/components/bajas/GeneradorDocumentoSalida.vue';
 import PanelFiniquito from '@/components/bajas/PanelFiniquito.vue';
 import Casilla from '@/components/Common/Casilla.vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -291,6 +292,12 @@ const datos = computed(() => [
             :descripcion="`${baja.sucursal ?? 'Sin sucursal'} · ${baja.puesto ?? 'Sin puesto'}`"
             :icono="UserMinus"
         >
+            <template #icono>
+                <ColaboradorAvatar
+                    :nombre="baja.colaborador"
+                    :foto-url="baja.foto_url"
+                />
+            </template>
             <Button
                 v-if="puede('cerrar')"
                 :variant="

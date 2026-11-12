@@ -13,6 +13,7 @@ use App\Models\NominaRectificacion;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Nomina\IncidenciasNominaService;
 use App\Services\Nomina\NominaQuincenalService;
 use App\Support\FechaMexico;
@@ -31,6 +32,7 @@ class IncapacidadConsultaService
     public function __construct(
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly IncidenciasNominaService $incidencias,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     public function estatus(Incapacidad $incapacidad, ?CarbonImmutable $hoy = null): EstatusIncapacidad
@@ -55,7 +57,7 @@ class IncapacidadConsultaService
      */
     public function visibles(User $usuario): Builder
     {
-        $query = Incapacidad::query()->with(['colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id,foto_path', 'colaborador.puesto:id,nombre', 'sucursal:id,nombre', 'inicial', 'documentos']);
+        $query = Incapacidad::query()->with(['colaborador:id,name,apellidos,numero_empleado,sucursal_principal_id,puesto_id,foto_path,jefe_id,gerente_id', 'colaborador.puesto:id,nombre', 'sucursal:id,nombre', 'inicial', 'documentos']);
         $this->alcance->limitarPorModulo($query, $usuario, 'incapacidades', 'colaborador_id', true);
 
         // Nadie consulta su propia información médica desde el módulo operativo.
@@ -299,6 +301,8 @@ class IncapacidadConsultaService
             'raiz_id' => $i->raizId(),
             'colaborador_id' => $i->colaborador_id,
             'colaborador' => $i->colaborador->nombreCompleto(),
+            // Foto oficial (URL protegida) si quien mira alcanza ese expediente.
+            'foto_url' => $this->fotos->urlPara($i->colaborador, $usuario),
             'sucursal' => $i->sucursal->nombre ?? null,
             'puesto' => $i->colaborador->puesto->nombre ?? null,
             'tipo' => $i->tipo->value,

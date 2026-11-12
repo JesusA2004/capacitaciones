@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\Calidad\DiagnosticoFuentesService;
 use App\Services\DocumentosMaestros\Calidad\ValidacionVisualMaestroService;
@@ -50,6 +51,7 @@ class DocumentosMaestrosAdminService
         private readonly ConversorDocxPdf $conversor,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly LimpiadorMarcasEditoriales $limpiador,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     /**
@@ -514,7 +516,7 @@ class DocumentosMaestrosAdminService
      * Buscador de colaboradores para "Probar con colaborador" (nombre,
      * número de empleado) dentro del alcance de quien prueba.
      *
-     * @return list<array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null}>
+     * @return list<array{id: int, nombre: string, numero_empleado: string|null, puesto: string|null, sucursal: string|null, ciudad: string|null, foto_url: string|null}>
      */
     public function buscarColaboradores(User $usuario, string $termino): array
     {
@@ -538,6 +540,8 @@ class DocumentosMaestrosAdminService
             'sucursal' => $c->sucursalPrincipal?->nombre,
             // Precarga la ciudad del acta (CLAUDE.md §75): editable, no adivinada.
             'ciudad' => $c->sucursalPrincipal?->ciudad,
+            // Foto oficial (URL protegida) si quien busca alcanza ese expediente.
+            'foto_url' => $this->fotos->urlPara($c, $usuario),
         ])->all());
     }
 

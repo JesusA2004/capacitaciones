@@ -243,6 +243,15 @@ class BajaConsultaService
         ];
     }
 
+    /**
+     * Foto oficial de quien se va (URL protegida de sesión), solo si quien
+     * mira alcanza su expediente; si no, la pantalla muestra iniciales.
+     */
+    public function fotoUrl(Baja $baja, User $viewer): ?string
+    {
+        return $baja->colaborador !== null ? $this->fotos->urlPara($baja->colaborador, $viewer) : null;
+    }
+
     private function etiquetaFiniquito(FiniquitoCalculo $finiquito): string
     {
         return match ($finiquito->estado) {

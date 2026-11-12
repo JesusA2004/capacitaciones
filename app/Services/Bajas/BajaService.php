@@ -488,6 +488,8 @@ class BajaService
 
         return [
             ...$this->consulta->fila($baja),
+            // El encabezado del expediente de la baja lleva la foto de la persona.
+            'foto_url' => $this->consulta->fotoUrl($baja, $usuario),
             'colaborador_id' => $baja->colaborador_id,
             'fecha_ingreso' => $baja->fecha_ingreso?->toDateString(),
             'antiguedad_dias' => $baja->antiguedad_dias,

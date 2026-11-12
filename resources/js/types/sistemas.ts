@@ -23,6 +23,8 @@ export type PendienteAltaSistemas = {
     colaborador: {
         id: number;
         nombre: string;
+        /** Foto oficial (URL protegida) si existe y está en tu alcance. */
+        foto_url: string | null;
         numero_empleado: string | null;
         puesto: string | null;
         sucursal: string | null;

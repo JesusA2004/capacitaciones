@@ -16,6 +16,7 @@ use App\Services\Administracion\PurgaPersonaService;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Autenticacion\CredencialesService;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\RolPermisoService;
 use App\Support\Paginacion;
 use Illuminate\Http\JsonResponse;
@@ -49,6 +50,7 @@ class UsuarioController extends Controller
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly AccesoCuentaService $acceso,
         private readonly CredencialesService $credenciales,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     public function index(Request $request): Response
@@ -66,7 +68,7 @@ class UsuarioController extends Controller
         $usuarios = $this->alcance
             ->limitarUsuariosPorAlcance(User::query(), $usuario)
             ->with([
-                'colaborador' => fn ($q) => $q->withTrashed()->select(['id', 'name', 'apellidos', 'estatus', 'numero_empleado', 'deleted_at', 'fecha_baja']),
+                'colaborador' => fn ($q) => $q->withTrashed()->select(['id', 'name', 'apellidos', 'estatus', 'numero_empleado', 'deleted_at', 'fecha_baja', 'foto_path', 'sucursal_principal_id', 'jefe_id', 'gerente_id']),
                 'roles:id,name',
             ])
             ->when($estado === 'activos', fn ($q) => $this->acceso->soloActivas($q))
@@ -95,6 +97,8 @@ class UsuarioController extends Controller
 
         $usuarios->getCollection()->transform(function (User $u) use ($enBaja, $usuario) {
             $u->setAttribute('roles_nombres', $u->roles->pluck('name'));
+            // Foto oficial de su colaborador (URL protegida) si está en el alcance de quien mira.
+            $u->setAttribute('foto_url', $u->colaborador !== null ? $this->fotos->urlPara($u->colaborador, $usuario) : null);
             $u->setAttribute('estado_cuenta', $this->acceso->cuentaActiva($u) ? 'activa' : 'inactiva');
             $u->setAttribute('motivo_inactiva', $this->acceso->motivoInactiva($u));
             $u->setAttribute('estado_colaborador', $this->acceso->estadoColaborador($u, in_array($u->colaborador_id, $enBaja, true)));

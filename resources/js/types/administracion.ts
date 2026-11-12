@@ -55,6 +55,8 @@ export type UsuarioItem = {
     } | null;
     name: string;
     apellidos: string | null;
+    /** Foto oficial de su colaborador (URL protegida) si está en tu alcance. */
+    foto_url?: string | null;
     username: string;
     email: string | null;
     roles_nombres: string[];

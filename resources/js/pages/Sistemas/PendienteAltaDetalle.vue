@@ -99,7 +99,11 @@ function enviar(url: string, datos: Record<string, string> = {}): void {
         <section
             class="flex flex-wrap items-center gap-4 rounded-2xl border bg-card p-4 shadow-xs"
         >
-            <ColaboradorAvatar :nombre="p.colaborador.nombre" tamano="xl" />
+            <ColaboradorAvatar
+                :nombre="p.colaborador.nombre"
+                :foto-url="p.colaborador.foto_url"
+                tamano="xl"
+            />
             <div class="min-w-0 flex-1">
                 <span
                     class="inline-flex items-center gap-1.5 rounded-full bg-crema px-2.5 py-0.5 text-xs font-semibold text-bronce"

@@ -2,6 +2,7 @@
 import { Head, Link, router } from '@inertiajs/vue3';
 import { AlertTriangle, CheckCircle2, HeartPulse, Plus } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
@@ -379,6 +380,12 @@ function confirmarDescarte() {
                                     class="border-t border-border/60 hover:bg-muted/40"
                                 >
                                     <td class="px-2 py-2">
+                                        <ColaboradorAvatar
+                                            :nombre="fila.colaborador"
+                                            :foto-url="fila.foto_url"
+                                            tamano="xs"
+                                            class="float-left mt-0.5 mr-2"
+                                        />
                                         <Link
                                             :href="show.url(fila.id)"
                                             class="font-semibold hover:underline"

@@ -12,6 +12,7 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import EnvioDescriptivoPuestoRh from '@/components/ciclo/EnvioDescriptivoPuestoRh.vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import BuscadorColaborador from '@/components/documentos/BuscadorColaborador.vue';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -321,6 +322,11 @@ function fecha(iso: string | null): string {
                         :key="fila.colaborador.id"
                         class="flex tarjeta-interactiva flex-col gap-2 rounded-2xl border p-3 sm:flex-row sm:flex-wrap sm:items-center"
                     >
+                        <ColaboradorAvatar
+                            :nombre="fila.colaborador.nombre"
+                            :foto-url="fila.colaborador.foto_url"
+                            tamano="sm"
+                        />
                         <div class="min-w-0 flex-1">
                             <p class="truncate text-sm font-medium">
                                 {{ fila.colaborador.nombre }}

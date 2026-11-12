@@ -5,6 +5,8 @@ export type IncapacidadItem = {
     raiz_id: number;
     colaborador_id: number;
     colaborador: string;
+    /** Foto oficial (URL protegida) si está en tu alcance. */
+    foto_url?: string | null;
     sucursal: string | null;
     puesto: string | null;
     tipo: string;

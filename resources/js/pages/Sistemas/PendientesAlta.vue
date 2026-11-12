@@ -389,6 +389,7 @@ const vacio = computed(() => {
                     <div class="flex flex-wrap items-start gap-3">
                         <ColaboradorAvatar
                             :nombre="fila.colaborador.nombre"
+                            :foto-url="fila.colaborador.foto_url"
                             tamano="lg"
                         />
 

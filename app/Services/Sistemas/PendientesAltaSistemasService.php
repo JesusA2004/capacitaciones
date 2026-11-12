@@ -12,6 +12,7 @@ use App\Models\Colaborador;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Notificaciones\AvisoAltaSistemasService;
 use App\Support\FechaTexto;
 use App\Support\Paginacion;
@@ -48,6 +49,7 @@ class PendientesAltaSistemasService
         private readonly AvisoAltaSistemasService $avisos,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly AuditoriaService $auditoria,
+        private readonly FotoColaboradorService $fotos,
     ) {}
 
     /**
@@ -213,6 +215,8 @@ class PendientesAltaSistemasService
         // 1) Candidatos que ya entraron a contratación (o ya están contratados).
         Candidato::query()
             ->whereNotNull('colaborador_id')
+            // La plantilla histórica ya laboraba: nunca genera aviso de alta.
+            ->where('historico', false)
             ->whereIn('estado', [EstadoCandidato::EnContratacion->value, EstadoCandidato::Contratado->value])
             ->whereNotExists(fn ($q) => $q->select(DB::raw(1))->from('avisos_alta_sistemas')
                 ->where('origen_tipo', OrigenAvisoAltaSistemas::Candidato->value)
@@ -314,6 +318,9 @@ class PendientesAltaSistemasService
             'colaborador' => [
                 'id' => $aviso->colaborador_id,
                 'nombre' => $colaborador?->nombreCompleto() ?? 'Colaborador eliminado',
+                // Foto oficial (URL protegida, nunca foto_path) solo si quien
+                // mira alcanza ese expediente; si no, la vista pone iniciales.
+                'foto_url' => $colaborador !== null ? $this->fotos->urlPara($colaborador, $usuario) : null,
                 'numero_empleado' => $colaborador?->numero_empleado,
                 'puesto' => $colaborador?->puesto?->nombre,
                 'sucursal' => $colaborador?->sucursalPrincipal?->nombre,
