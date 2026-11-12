@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { Presentation, RotateCcw, Video, Volume2 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
+import DatePicker from '@/components/Common/DatePicker.vue';
 import AsignarDialog from '@/components/onboarding/AsignarDialog.vue';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -48,7 +48,14 @@ watch(abierto, (v) => {
     }
 });
 
-const hoy = new Date().toISOString().slice(0, 10);
+// Hoy en la hora LOCAL (toISOString da la fecha UTC: después de las 18:00
+// en México ya es «mañana» y no dejaría elegir el día de hoy).
+const ahora = new Date();
+const hoy = [
+    ahora.getFullYear(),
+    String(ahora.getMonth() + 1).padStart(2, '0'),
+    String(ahora.getDate()).padStart(2, '0'),
+].join('-');
 
 const extra = computed(() => ({
     incluye_presentacion: presentacion.value,
@@ -144,11 +151,13 @@ const bloqueado = computed(() =>
             <div class="grid gap-3 sm:grid-cols-2">
                 <div class="flex flex-col gap-1.5">
                     <Label for="asignar-fecha">Fecha límite (opcional)</Label>
-                    <Input
+                    <DatePicker
                         id="asignar-fecha"
                         v-model="fechaLimite"
-                        type="date"
-                        :min="hoy"
+                        :min-value="hoy"
+                        placeholder="Sin fecha límite"
+                        dia-semana
+                        limpiable
                     />
                     <p class="text-xs text-muted-foreground">
                         Se le muestra en su tarjeta «Mi inducción».

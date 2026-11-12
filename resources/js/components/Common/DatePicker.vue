@@ -6,7 +6,7 @@ import {
     parseDate,
     today,
 } from '@internationalized/date';
-import { Calendar as CalendarIcon } from '@lucide/vue';
+import { Calendar as CalendarIcon, X } from '@lucide/vue';
 import { computed, ref, shallowRef, watch } from 'vue';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -33,7 +33,9 @@ import { cn } from '@/lib/utils';
  *
  * Abre con animación, resalta el día de hoy, muestra mes y año con nombre
  * completo en español, se cierra al elegir y, con `atajos`, ofrece
- * «Ayer / Hoy / Mañana» (deshabilitados si quedan fuera de min/max).
+ * «Ayer / Hoy / Mañana» (deshabilitados si quedan fuera de min/max). En una
+ * fecha opcional, `limpiable` agrega «Quitar fecha» (el input nativo dejaba
+ * borrarla; sin esto no habría forma visible de volver a dejarla vacía).
  */
 export type AtajoFecha = 'ayer' | 'hoy' | 'manana';
 
@@ -56,11 +58,14 @@ const props = withDefaults(
         atajos?: boolean | AtajoFecha[];
         /** Texto del botón con el día de la semana («martes, 10 de noviembre de 2026»). */
         diaSemana?: boolean;
+        /** Fecha opcional: muestra «Quitar fecha» cuando ya hay una elegida. */
+        limpiable?: boolean;
     }>(),
     {
         placeholder: 'Selecciona una fecha',
         atajos: false,
         diaSemana: false,
+        limpiable: false,
     },
 );
 
@@ -182,6 +187,37 @@ function alSeleccionar(fecha: DateValue | undefined) {
         abierto.value = false;
     }
 }
+
+/**
+ * Al abrir, el foco va al día elegido (o a hoy, o al primero disponible):
+ * las flechas mueven por el calendario y Enter elige, sin tabular antes por
+ * las flechas de mes y los Select.
+ */
+function enfocarDia(evento: Event) {
+    const contenido = evento.target;
+
+    if (!(contenido instanceof HTMLElement)) {
+        return;
+    }
+
+    const base = '[data-slot="calendar-cell-trigger"]:not([data-outside-view])';
+    const dia =
+        contenido.querySelector<HTMLElement>(`${base}[data-selected]`) ??
+        contenido.querySelector<HTMLElement>(
+            `${base}[data-today]:not([data-disabled])`,
+        ) ??
+        contenido.querySelector<HTMLElement>(`${base}:not([data-disabled])`);
+
+    if (dia) {
+        evento.preventDefault();
+        dia.focus();
+    }
+}
+
+function quitarFecha() {
+    emit('update:modelValue', '');
+    abierto.value = false;
+}
 </script>
 
 <template>
@@ -210,6 +246,7 @@ function alSeleccionar(fecha: DateValue | undefined) {
         <PopoverContent
             class="w-auto overflow-hidden rounded-xl p-0 shadow-lg duration-200"
             align="start"
+            @open-auto-focus="enfocarDia"
         >
             <Calendar
                 v-model:placeholder="vista"
@@ -278,7 +315,7 @@ function alSeleccionar(fecha: DateValue | undefined) {
                 </template>
             </Calendar>
             <div
-                v-if="listaAtajos.length"
+                v-if="listaAtajos.length || (limpiable && valorCalendario)"
                 class="flex items-center gap-1.5 border-t border-[var(--mrl-borde)] bg-[var(--mrl-fondo)] px-3 py-2"
             >
                 <Button
@@ -297,6 +334,17 @@ function alSeleccionar(fecha: DateValue | undefined) {
                     @click="alSeleccionar(atajo.fecha)"
                 >
                     {{ atajo.texto }}
+                </Button>
+                <Button
+                    v-if="limpiable && valorCalendario"
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    class="h-7 flex-1 rounded-full text-xs text-muted-foreground"
+                    @click="quitarFecha"
+                >
+                    <X class="size-3.5" />
+                    Quitar fecha
                 </Button>
             </div>
         </PopoverContent>
