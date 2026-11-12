@@ -25,6 +25,8 @@ createInertiaApp({
             // AppLayout revienta el render para un visitante anonimo.
             case name.startsWith('AltaPublica/'):
             case name.startsWith('Incorporacion/Qr'):
+            // Asistente de registro por QR: pantalla propia, sin menú.
+            case name.startsWith('Registro/'):
             case name.startsWith('App/'):
             // Página de error: puede pintarse sin sesión (404, 500, 503).
             case name === 'Error':

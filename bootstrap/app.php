@@ -6,6 +6,7 @@ use App\Http\Middleware\ExigirCambioContrasena;
 use App\Http\Middleware\ExigirDocumentosPendientes;
 use App\Http\Middleware\ExigirExpedienteCompleto;
 use App\Http\Middleware\ExigirRegistroApp;
+use App\Http\Middleware\ExigirRegistroWeb;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\RevocarTokenCuentaInactiva;
 use App\Support\DiagnosticoAcceso;
@@ -60,6 +61,8 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
             EnsureCuentaActiva::class,
             ExigirCambioContrasena::class,
+            // Registro por QR sin terminar: solo el asistente web (mi-registro).
+            ExigirRegistroWeb::class,
             // Solo los primeros 12 assets: sin límite, Rh/Expedientes/Show
             // mandaba un header Link de ~16 KB y Nginx (fastcgi_buffer_size
             // de 4–8 KB) responde 502 «upstream sent too big header».

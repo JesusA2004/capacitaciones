@@ -17,13 +17,12 @@ import { Button } from '@/components/ui/button';
 import { useAlertas } from '@/composables/useAlertas';
 import { enviarJson } from '@/lib/http';
 import { dashboard } from '@/routes';
+import { show as rutaRegistro } from '@/routes/mi-registro';
 import {
     index as rutaPortal,
     solicitudEmpleo as rutaPagina,
 } from '@/routes/portal';
-import {
-    guardar as rutaGuardar,
-} from '@/routes/portal/solicitud-empleo';
+import { guardar as rutaGuardar } from '@/routes/portal/solicitud-empleo';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type {
     CampoListaSolicitud,
@@ -144,7 +143,10 @@ function condicionCumple(campo: CampoSolicitud): boolean {
         case 'positivo':
             return Number(referencia) > 0;
         case 'contiene':
-            return Array.isArray(referencia) && referencia.includes(si.valor as string);
+            return (
+                Array.isArray(referencia) &&
+                referencia.includes(si.valor as string)
+            );
         default:
             return true;
     }
@@ -200,7 +202,10 @@ const faltanAqui = computed(
             : 0),
 );
 
-function texto(campo: CampoSolicitud | CampoListaSolicitud, v: ValorSolicitud): string {
+function texto(
+    campo: CampoSolicitud | CampoListaSolicitud,
+    v: ValorSolicitud,
+): string {
     if (vacio(v)) {
         return '—';
     }
@@ -309,6 +314,14 @@ const trazo = computed(
     <Head title="Mi solicitud de empleo" />
 
     <div class="pagina-ancha flex flex-col gap-5">
+        <!-- Registro por QR en la web: regresar al asistente. -->
+        <Link
+            v-if="estado.registro_abierto"
+            :href="rutaRegistro()"
+            class="inline-flex items-center gap-1.5 self-start rounded-full bg-salvia px-4 py-2 text-sm font-medium text-[var(--mrl-petroleo)] transicion-ui hover:bg-menta"
+        >
+            <ArrowLeft class="size-4" /> Volver a mi registro
+        </Link>
         <!-- Encabezado con avance -->
         <header
             class="flex flex-wrap items-center gap-5 rounded-3xl border border-border/60 bg-gradient-to-br from-crema via-card to-salvia p-5 sm:p-7"
@@ -356,10 +369,8 @@ const trazo = computed(
                                 : `Te faltan ${faltanTotal} datos`
                         }}
                         en {{ pendientes.length }}
-                        {{
-                            pendientes.length === 1 ? 'sección' : 'secciones'
-                        }}. Se guarda por sección: puedes seguir
-                        después.</template
+                        {{ pendientes.length === 1 ? 'sección' : 'secciones' }}.
+                        Se guarda por sección: puedes seguir después.</template
                     >
                 </p>
             </div>
@@ -368,7 +379,7 @@ const trazo = computed(
         <!-- Terminado -->
         <section
             v-if="terminado"
-            class="entrada-suave flex flex-col items-center gap-3 rounded-3xl border border-border/60 bg-success-soft p-8 text-center"
+            class="flex entrada-suave flex-col items-center gap-3 rounded-3xl border border-border/60 bg-success-soft p-8 text-center"
         >
             <PartyPopper class="size-10 text-[var(--mrl-success)]" />
             <h2 class="text-lg font-semibold">¡Listo, gracias!</h2>
@@ -378,7 +389,18 @@ const trazo = computed(
             </p>
             <div class="flex flex-wrap justify-center gap-2">
                 <Button as-child
-                    ><Link :href="rutaPortal()">Volver a mi portal</Link></Button
+                    ><Link
+                        :href="
+                            estado.registro_abierto
+                                ? rutaRegistro()
+                                : rutaPortal()
+                        "
+                        >{{
+                            estado.registro_abierto
+                                ? 'Volver a mi registro'
+                                : 'Volver a mi portal'
+                        }}</Link
+                    ></Button
                 >
                 <Button as-child variant="outline"
                     ><Link :href="urlCorreccion">Pedir corrección</Link></Button
@@ -390,7 +412,7 @@ const trazo = computed(
             <!-- Pasos -->
             <nav
                 aria-label="Secciones"
-                class="scroll-x-limpio -mx-4 flex gap-2 overflow-x-auto px-4 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0"
+                class="-mx-4 scroll-x-limpio flex gap-2 overflow-x-auto px-4 lg:mx-0 lg:flex-col lg:overflow-visible lg:px-0"
             >
                 <button
                     v-for="(s, i) in secciones"
@@ -419,9 +441,10 @@ const trazo = computed(
                         <template v-else>{{ i + 1 }}</template>
                     </span>
                     <span class="min-w-0">
-                        <span class="block text-sm font-medium whitespace-nowrap">{{
-                            s.titulo
-                        }}</span>
+                        <span
+                            class="block text-sm font-medium whitespace-nowrap"
+                            >{{ s.titulo }}</span
+                        >
                         <span
                             class="block text-xs whitespace-nowrap text-muted-foreground"
                             >{{
@@ -438,7 +461,7 @@ const trazo = computed(
             <section
                 v-if="seccion"
                 :key="seccion.clave"
-                class="entrada-suave flex min-w-0 flex-col gap-5 rounded-3xl border border-border/60 bg-card p-5 sm:p-7"
+                class="flex min-w-0 entrada-suave flex-col gap-5 rounded-3xl border border-border/60 bg-card p-5 sm:p-7"
             >
                 <div>
                     <p class="text-xs font-medium text-muted-foreground">
@@ -474,7 +497,10 @@ const trazo = computed(
                                 class="text-sm font-medium"
                                 >{{ campo.etiqueta
                                 }}<span
-                                    v-if="campo.requerido && condicionCumple(campo)"
+                                    v-if="
+                                        campo.requerido &&
+                                        condicionCumple(campo)
+                                    "
                                     class="text-[var(--mrl-rojo)]"
                                     aria-hidden="true"
                                 >
@@ -501,7 +527,9 @@ const trazo = computed(
                             :id="`mse-${campo.campo}`"
                             :campo="campo"
                             :model-value="borrador[campo.campo] ?? null"
-                            @update:model-value="(v) => (borrador[campo.campo] = v)"
+                            @update:model-value="
+                                (v) => (borrador[campo.campo] = v)
+                            "
                         />
                         <p
                             v-if="campo.ayuda"
@@ -556,7 +584,9 @@ const trazo = computed(
                                 {{ seccion.lista.singular.toLowerCase() }}
                             </Button>
                             <button
-                                v-if="seccion.lista.bandera_vacia && !filas.length"
+                                v-if="
+                                    seccion.lista.bandera_vacia && !filas.length
+                                "
                                 type="button"
                                 class="rounded-full border px-3 py-1.5 text-sm transicion-ui"
                                 :class="
@@ -567,7 +597,10 @@ const trazo = computed(
                                 :aria-pressed="listaVacia"
                                 @click="listaVacia = !listaVacia"
                             >
-                                <Check v-if="listaVacia" class="mr-1 inline size-4" />
+                                <Check
+                                    v-if="listaVacia"
+                                    class="mr-1 inline size-4"
+                                />
                                 {{ seccion.lista.etiqueta_vacia }}
                             </button>
                         </div>
@@ -658,7 +691,11 @@ const trazo = computed(
                 </div>
 
                 <p
-                    v-if="!porLlenar.length && !listaEditable && !faltanPersonales.length"
+                    v-if="
+                        !porLlenar.length &&
+                        !listaEditable &&
+                        !faltanPersonales.length
+                    "
                     class="rounded-2xl bg-success-soft px-4 py-3 text-sm"
                 >
                     Esta sección ya está completa.

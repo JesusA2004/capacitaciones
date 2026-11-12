@@ -224,6 +224,24 @@ class RegistroAppService
     }
 
     /**
+     * El mismo estado() para el asistente WEB (Registro/Asistente, quien no
+     * puede instalar la APK): idéntico, salvo la foto, que se pide con la
+     * sesión web (rh.expedientes.foto) y no con el Bearer de la app.
+     *
+     * @return array<string, mixed>
+     */
+    public function estadoWeb(User $usuario): array
+    {
+        $estado = $this->estado($usuario);
+        $foto = $estado['foto'] ?? null;
+
+        return [...$estado, 'foto' => [
+            ...(is_array($foto) ? $foto : []),
+            'url' => $this->fotos->urlPara($this->colaboradorDe($usuario), $usuario),
+        ]];
+    }
+
+    /**
      * Guarda los datos de un paso del asistente (captura inicial). Solo
      * mientras el registro está abierto.
      *
