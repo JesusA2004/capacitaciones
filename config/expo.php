@@ -19,6 +19,18 @@ return [
     'endpoint' => env('EXPO_PUSH_ENDPOINT', 'https://exp.host/--/api/v2/push/send'),
 
     /*
+    | Recibos de entrega: el ticket "ok" solo dice que Expo acepto el mensaje;
+    | si FCM/APNs lo recibio se sabe hasta el recibo (credenciales del
+    | proyecto EAS, tokens muertos). App\Jobs\VerificarReciboExpoJob lo
+    | consulta a los EXPO_PUSH_RECIBOS_ESPERA segundos de cada envio.
+    */
+    'endpoint_recibos' => env('EXPO_PUSH_RECEIPTS_ENDPOINT', 'https://exp.host/--/api/v2/push/getReceipts'),
+
+    'recibos' => (bool) env('EXPO_PUSH_RECIBOS', true),
+
+    'recibos_espera' => (int) env('EXPO_PUSH_RECIBOS_ESPERA', 900),
+
+    /*
     | Canales Android (los crea la app movil al pedir permiso). "default" ya
     | existe en instalaciones anteriores; "acciones" es el canal de
     | importancia alta para pendientes que piden una accion. Dejar

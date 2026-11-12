@@ -22,6 +22,10 @@ use Illuminate\Support\Facades\Log;
  * - InvalidCredentials: credenciales FCM/APNs del proyecto EAS mal
  *   configuradas → error de configuracion, no del token (no se revoca).
  * - MessageTooBig: payload > 4 KiB → error del emisor (no se reintenta).
+ *
+ * El ticket "ok" solo dice que Expo ACEPTO el mensaje. Si FCM/APNs lo
+ * entrego se sabe hasta el recibo (recibo()): ahi salen las credenciales
+ * malas del proyecto y los tokens muertos que el ticket no ve.
  */
 class ExpoPushService
 {
@@ -48,6 +52,15 @@ class ExpoPushService
         'rh_solicitud', 'rh_vacaciones', 'rh_documento', 'rh_incorporacion',
     ];
 
+    /**
+     * Categorias (App\Enums\CategoriaNotificacion) que se ENTREGAN con
+     * prioridad alta aunque su tipo no este en TIPOS_ACCION: una tarea o el
+     * resultado de un tramite. El canal (como suena) no cambia.
+     *
+     * @var list<string>
+     */
+    private const CATEGORIAS_URGENTES = ['pendiente', 'resultado'];
+
     public function enabled(): bool
     {
         return (bool) config('expo.enabled');
@@ -70,8 +83,21 @@ class ExpoPushService
      */
     public function enviarConResultado(string $token, string $titulo, string $cuerpo, array $data = []): string
     {
+        return $this->enviarDetallado($token, $titulo, $cuerpo, $data)['resultado'];
+    }
+
+    /**
+     * Igual que enviarConResultado(), con lo que respondio Expo: el id del
+     * ticket (para consultar despues su recibo) y el error, si lo hubo. Lo
+     * usan App\Jobs\SendExpoPushJob y `people:probar-push`.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array{resultado: string, ticket_id: string|null, error: string|null, detalle: string|null, estado_http: int|null}
+     */
+    public function enviarDetallado(string $token, string $titulo, string $cuerpo, array $data = []): array
+    {
         if (! $this->enabled()) {
-            return self::RESULTADO_DESHABILITADO;
+            return $this->respuesta(self::RESULTADO_DESHABILITADO, null, null, 'EXPO_PUSH_ENABLED=false');
         }
 
         try {
@@ -80,7 +106,7 @@ class ExpoPushService
             if ($respuesta->status() === 429 || $respuesta->serverError()) {
                 Log::warning('Expo push: servicio no disponible, se reintentara', ['status' => $respuesta->status()]);
 
-                return self::RESULTADO_REINTENTAR;
+                return $this->respuesta(self::RESULTADO_REINTENTAR, null, null, 'Expo no disponible', $respuesta->status());
             }
 
             if ($respuesta->failed()) {
@@ -89,15 +115,91 @@ class ExpoPushService
                     'body' => $respuesta->body(),
                 ]);
 
-                return self::RESULTADO_ERROR;
+                return $this->respuesta(self::RESULTADO_ERROR, null, null, mb_substr($respuesta->body(), 0, 300), $respuesta->status());
             }
 
-            return $this->interpretarTicket($token, $respuesta->json('data'));
+            $ticket = $respuesta->json('data');
+
+            // Un envio a un solo token regresa un solo ticket (objeto); se
+            // acepta tambien la forma de arreglo por si el endpoint la devuelve asi.
+            if (is_array($ticket) && array_is_list($ticket)) {
+                $ticket = $ticket[0] ?? null;
+            }
+
+            $ticket = is_array($ticket) ? $ticket : [];
+            $id = $ticket['id'] ?? null;
+            $error = $ticket['details']['error'] ?? null;
+            $mensaje = $ticket['message'] ?? null;
+
+            return $this->respuesta(
+                $this->interpretarTicket($token, $ticket),
+                is_string($id) && $id !== '' ? $id : null,
+                is_string($error) ? $error : null,
+                is_string($mensaje) ? $mensaje : null,
+                $respuesta->status(),
+            );
         } catch (\Throwable $e) {
             Log::warning('Expo push: excepcion al enviar', ['message' => $e->getMessage()]);
 
-            return self::RESULTADO_REINTENTAR;
+            return $this->respuesta(self::RESULTADO_REINTENTAR, null, null, $e->getMessage());
         }
+    }
+
+    /**
+     * Recibo de entrega de un ticket (POST getReceipts): si FCM/APNs recibio
+     * el mensaje. Aqui aparecen los fallos que el ticket no ve: credenciales
+     * FCM/APNs del proyecto (InvalidCredentials, MismatchSenderId) y tokens
+     * muertos (DeviceNotRegistered → se revoca el dispositivo). Nunca lanza.
+     *
+     * @return array{estado: string, error: string|null, detalle: string|null} estado: ok, error, pendiente (todavia no hay recibo) o desconocido (no se pudo consultar).
+     */
+    public function recibo(string $token, string $ticketId): array
+    {
+        try {
+            $respuesta = Http::timeout(10)->acceptJson()->post((string) config('expo.endpoint_recibos'), ['ids' => [$ticketId]]);
+
+            if ($respuesta->failed()) {
+                return ['estado' => 'desconocido', 'error' => null, 'detalle' => sprintf('HTTP %d al consultar el recibo', $respuesta->status())];
+            }
+
+            $recibos = $respuesta->json('data');
+            $recibo = is_array($recibos) ? ($recibos[$ticketId] ?? null) : null;
+
+            if (! is_array($recibo)) {
+                return ['estado' => 'pendiente', 'error' => null, 'detalle' => null];
+            }
+
+            if (($recibo['status'] ?? null) === 'ok') {
+                return ['estado' => 'ok', 'error' => null, 'detalle' => null];
+            }
+
+            $error = $recibo['details']['error'] ?? null;
+            $error = is_string($error) ? $error : null;
+            $detalle = is_string($recibo['message'] ?? null) ? $recibo['message'] : null;
+
+            if ($error === 'DeviceNotRegistered') {
+                $revocados = MobileDevice::query()->where('push_token', $token)->activos()->update(['revoked_at' => now()]);
+                Log::info('Expo push: recibo con token no registrado, dispositivo revocado', ['revocados' => $revocados]);
+            } else {
+                // Credenciales FCM/APNs, remitente equivocado, mensaje muy
+                // grande: es de configuracion del proyecto, no del telefono.
+                Log::error('Expo push: el proveedor (FCM/APNs) rechazo el mensaje. Revisar credenciales del proyecto EAS.', ['error' => $error, 'message' => $detalle]);
+            }
+
+            return ['estado' => 'error', 'error' => $error, 'detalle' => $detalle];
+        } catch (\Throwable $e) {
+            Log::warning('Expo push: no se pudo consultar el recibo', ['message' => $e->getMessage()]);
+
+            return ['estado' => 'desconocido', 'error' => null, 'detalle' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * @return array{resultado: string, ticket_id: string|null, error: string|null, detalle: string|null, estado_http: int|null}
+     */
+    private function respuesta(string $resultado, ?string $ticketId = null, ?string $error = null, ?string $detalle = null, ?int $estadoHttp = null): array
+    {
+        return ['resultado' => $resultado, 'ticket_id' => $ticketId, 'error' => $error, 'detalle' => $detalle, 'estado_http' => $estadoHttp];
     }
 
     /**
@@ -109,6 +211,10 @@ class ExpoPushService
         $type = is_string($data['type'] ?? null) ? $data['type'] : null;
         $esAccion = in_array($type, self::TIPOS_ACCION, true);
         $canal = $esAccion ? config('expo.canal_acciones') : config('expo.canal_general');
+        // Una tarea o el resultado de un tramite (visto bueno pendiente,
+        // solicitud aprobada) no puede esperar a que el telefono despierte:
+        // en Android la prioridad "default" es normal y se retrasa en reposo.
+        $urgente = $esAccion || in_array($data['categoria'] ?? null, self::CATEGORIAS_URGENTES, true);
 
         return array_filter([
             'to' => $token,
@@ -116,22 +222,17 @@ class ExpoPushService
             'body' => $cuerpo,
             'data' => $data,
             'sound' => 'default',
-            'priority' => $esAccion ? 'high' : 'default',
+            'priority' => $urgente ? 'high' : 'default',
             'channelId' => is_string($canal) && $canal !== '' ? $canal : null,
         ], fn ($valor) => $valor !== null);
     }
 
     /**
-     * Un envio a un solo token regresa un solo ticket (objeto); se acepta
-     * tambien la forma de arreglo por si el endpoint la devuelve asi.
+     * @param  array<mixed>  $ticket  Ticket ya normalizado por enviarDetallado().
      */
-    private function interpretarTicket(string $token, mixed $ticket): string
+    private function interpretarTicket(string $token, array $ticket): string
     {
-        if (is_array($ticket) && array_is_list($ticket)) {
-            $ticket = $ticket[0] ?? null;
-        }
-
-        if (! is_array($ticket) || ($ticket['status'] ?? null) === 'ok') {
+        if ($ticket === [] || ($ticket['status'] ?? null) === 'ok') {
             return self::RESULTADO_ENVIADO;
         }
 

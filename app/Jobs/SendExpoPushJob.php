@@ -52,10 +52,12 @@ class SendExpoPushJob implements ShouldQueue
 
     public function handle(ExpoPushService $expo, MonitorNotificacionesService $monitor): void
     {
-        $resultado = $expo->enviarConResultado($this->token, $this->titulo, $this->cuerpo, $this->data);
+        $respuesta = $expo->enviarDetallado($this->token, $this->titulo, $this->cuerpo, $this->data);
+        $resultado = $respuesta['resultado'];
 
         if ($resultado === ExpoPushService::RESULTADO_ENVIADO) {
             $monitor->registrar(MonitorNotificacionesService::ULTIMO_PUSH);
+            $this->verificarRecibo($respuesta['ticket_id']);
 
             return;
         }
@@ -74,6 +76,29 @@ class SendExpoPushJob implements ShouldQueue
             // Error de configuración o del mensaje: reintentar no lo arregla,
             // pero tampoco debe esconderse.
             $this->fail(new RuntimeException('Expo push: error no recuperable (ver log «Expo push»).'));
+        }
+    }
+
+    /**
+     * Expo aceptó el mensaje; si FCM/APNs lo entregó se sabe hasta el recibo
+     * (App\Jobs\VerificarReciboExpoJob). Con cola `sync` no hay espera
+     * posible (el recibo aún no existe), así que no se consulta. Un fallo al
+     * encolar la verificación nunca afecta al push ya enviado.
+     */
+    private function verificarRecibo(?string $ticketId): void
+    {
+        if ($ticketId === null || ! (bool) config('expo.recibos', true) || config('queue.default') === 'sync') {
+            return;
+        }
+
+        try {
+            $tipo = $this->data['type'] ?? null;
+            $usuario = $this->data['user_id'] ?? null;
+
+            VerificarReciboExpoJob::dispatch($this->token, $ticketId, is_string($tipo) ? $tipo : null, is_int($usuario) ? $usuario : null)
+                ->delay(now()->addSeconds(max(30, (int) config('expo.recibos_espera', 900))));
+        } catch (Throwable $e) {
+            Log::warning('SendExpoPushJob: no se pudo programar la verificación del recibo.', ['error' => $e->getMessage()]);
         }
     }
 
