@@ -86,7 +86,7 @@ defineProps<{
             <Link
                 :href="logout()"
                 as="button"
-                class="text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
+                class="enlace-animado text-center text-sm text-muted-foreground"
             >
                 Cerrar sesión
             </Link>

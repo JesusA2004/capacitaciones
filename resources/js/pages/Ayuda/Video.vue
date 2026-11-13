@@ -198,7 +198,7 @@ function irA(segundos: number): void {
                     class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 open:shadow-sm"
                 >
                     <summary
-                        class="flex cursor-pointer list-none items-start gap-3"
+                        class="flex cursor-pointer list-none items-start gap-3 rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                         <span
                             class="flex size-9 shrink-0 items-center justify-center rounded-full bg-salvia text-[var(--mrl-petroleo)]"
@@ -232,7 +232,7 @@ function irA(segundos: number): void {
                     </ol>
                     <Link
                         :href="`/ayuda/articulo/${mini.articulo}`"
-                        class="mt-3 inline-flex items-center gap-1 text-xs text-[var(--mrl-petroleo)] hover:underline"
+                        class="mt-3 inline-flex items-center gap-1 enlace-animado text-xs text-[var(--mrl-petroleo)]"
                     >
                         <BookOpen class="size-3" />
                         {{ articulo(mini.articulo)?.titulo }}

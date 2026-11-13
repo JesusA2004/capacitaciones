@@ -71,7 +71,7 @@ const terminos = computed(() => {
                 <Link
                     v-if="t.articulo"
                     :href="`/ayuda/articulo/${t.articulo}`"
-                    class="mt-auto inline-flex items-center gap-1 text-xs font-semibold text-[var(--mrl-petroleo)] hover:underline"
+                    class="mt-auto inline-flex items-center gap-1 enlace-animado text-xs font-semibold text-[var(--mrl-petroleo)]"
                 >
                     Ver en la guía <ArrowRight class="size-3" />
                 </Link>

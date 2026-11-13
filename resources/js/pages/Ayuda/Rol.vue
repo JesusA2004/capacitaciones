@@ -41,7 +41,7 @@ const otrosRoles = computed(() =>
                 class="flex items-center gap-1.5 text-xs text-[var(--mrl-texto-suave)]"
                 aria-label="Ubicación en la guía"
             >
-                <Link href="/ayuda" class="hover:underline">Guía</Link>
+                <Link href="/ayuda" class="enlace-animado">Guía</Link>
                 <span>›</span>
                 <span>¿Qué hago según mi rol?</span>
                 <span>›</span>

@@ -45,7 +45,7 @@ const preguntas = computed(() =>
                 class="group rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 open:bg-crema/30"
             >
                 <summary
-                    class="flex cursor-pointer list-none items-center gap-3 font-medium"
+                    class="flex cursor-pointer list-none items-center gap-3 rounded-lg font-medium focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                     <CircleHelp class="size-5 shrink-0 text-oro" />
                     {{ p.pregunta }}
@@ -58,7 +58,7 @@ const preguntas = computed(() =>
                 <Link
                     v-if="p.articulo"
                     :href="`/ayuda/articulo/${p.articulo}`"
-                    class="mt-2 ml-8 inline-flex items-center gap-1 text-xs font-semibold text-[var(--mrl-petroleo)] hover:underline"
+                    class="mt-2 ml-8 inline-flex items-center gap-1 enlace-animado text-xs font-semibold text-[var(--mrl-petroleo)]"
                 >
                     Leer la guía completa <ArrowRight class="size-3" />
                 </Link>

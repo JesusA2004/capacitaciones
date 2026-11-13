@@ -93,12 +93,12 @@ defineOptions({
                 class="flex flex-wrap items-center gap-1.5 text-xs text-[var(--mrl-texto-suave)]"
                 aria-label="Ubicación en la guía"
             >
-                <Link href="/ayuda" class="hover:underline">Guía</Link>
+                <Link href="/ayuda" class="enlace-animado">Guía</Link>
                 <span>›</span>
                 <Link
                     v-if="proc"
                     :href="`/ayuda/proceso/${proc.id}`"
-                    class="hover:underline"
+                    class="enlace-animado"
                 >
                     {{ proc.numero }}. {{ proc.titulo }}
                 </Link>
@@ -491,7 +491,7 @@ defineOptions({
                             <li v-for="id in art.relacionados" :key="id">
                                 <Link
                                     :href="`/ayuda/articulo/${id}`"
-                                    class="text-sm text-[var(--mrl-petroleo)] hover:underline"
+                                    class="enlace-animado text-sm text-[var(--mrl-petroleo)]"
                                 >
                                     {{ buscarArticulo(id)?.titulo }}
                                 </Link>

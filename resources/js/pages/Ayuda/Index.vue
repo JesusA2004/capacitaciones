@@ -178,7 +178,7 @@ function buscar(): void {
                     Estás viendo la guía como
                     <Link
                         :href="`/ayuda/rol/${rolGuia}`"
-                        class="font-semibold text-[var(--mrl-petroleo)] underline-offset-2 hover:underline"
+                        class="enlace-animado font-semibold text-[var(--mrl-petroleo)]"
                     >
                         {{ miRol?.nombre ?? NOMBRE_ROL[rolGuia] }}
                     </Link>
@@ -411,7 +411,7 @@ function buscar(): void {
                         </Button>
                         <Link
                             :href="`/ayuda/articulo/${r.articulo}`"
-                            class="ml-auto text-xs text-[var(--mrl-texto-suave)] hover:underline"
+                            class="ml-auto enlace-animado text-xs text-[var(--mrl-texto-suave)]"
                         >
                             Leer la guía
                         </Link>
@@ -439,7 +439,7 @@ function buscar(): void {
                     class="group rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 open:shadow-sm"
                 >
                     <summary
-                        class="flex cursor-pointer list-none items-start gap-3"
+                        class="flex cursor-pointer list-none items-start gap-3 rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                         <span
                             class="flex size-9 shrink-0 items-center justify-center rounded-full bg-salvia text-[var(--mrl-petroleo)]"
@@ -486,7 +486,7 @@ function buscar(): void {
                     >
                         <button
                             type="button"
-                            class="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--mrl-petroleo)] hover:underline"
+                            class="inline-flex items-center gap-1.5 enlace-animado text-sm font-medium text-[var(--mrl-petroleo)]"
                             @click="iniciar(tourDeModulo(m, contextoTour))"
                         >
                             <Compass class="size-3.5" /> Recorrido
@@ -495,7 +495,7 @@ function buscar(): void {
                             v-for="id in ARTICULOS_DE_MODULO[m.id] ?? []"
                             :key="id"
                             :href="`/ayuda/articulo/${id}`"
-                            class="inline-flex items-center gap-1 text-xs text-[var(--mrl-texto-suave)] hover:underline"
+                            class="inline-flex items-center gap-1 enlace-animado text-xs text-[var(--mrl-texto-suave)]"
                         >
                             <BookOpen class="size-3" />
                             {{ articulo(id)?.titulo }}
@@ -553,7 +553,7 @@ function buscar(): void {
                             ? `/ayuda/articulo/${p.articulo}`
                             : '/ayuda/preguntas'
                     "
-                    class="text-sm hover:underline"
+                    class="enlace-animado text-sm"
                 >
                     {{ p.pregunta }}
                 </Link>
