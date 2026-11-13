@@ -64,14 +64,14 @@ const fechaFormateada = computed(() => {
 <template>
     <Head title="Descarga MR. LANA PEOPLE" />
 
-    <div class="min-h-screen bg-muted/30 px-4 py-10">
+    <div class="min-h-screen bg-crema/40 px-4 py-10">
         <div
-            class="mx-auto flex w-full max-w-lg flex-col items-center text-center"
+            class="mx-auto flex w-full max-w-lg entrada-escalonada flex-col items-center text-center"
         >
             <span
                 class="mb-4 flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-primary"
             >
-                <Smartphone class="size-8" />
+                <Smartphone class="size-8" aria-hidden="true" />
             </span>
 
             <h1 class="text-2xl font-bold tracking-tight">
@@ -100,7 +100,7 @@ const fechaFormateada = computed(() => {
                     ·
                     <Link
                         :href="versiones()"
-                        class="underline underline-offset-2"
+                        class="enlace-animado font-medium text-primary"
                         >Ver historial</Link
                     >
                 </p>
@@ -156,7 +156,7 @@ const fechaFormateada = computed(() => {
             </p>
 
             <div
-                class="mt-8 w-full rounded-xl border bg-background p-4 text-left"
+                class="mt-8 w-full rounded-2xl border bg-card p-4 text-left shadow-sm"
             >
                 <p class="mb-3 text-sm font-semibold">
                     ¿Ya tienes la app? Escanea tu QR o inicia sesión.

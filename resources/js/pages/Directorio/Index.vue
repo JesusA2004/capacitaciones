@@ -35,6 +35,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
 import { dashboard } from '@/routes';
 import { excel, pdf } from '@/routes/directorio/exportar';
 
@@ -448,7 +449,7 @@ function detalle(c: ColaboradorDirectorio): string {
                         type="button"
                         role="tab"
                         :aria-selected="vista === v.valor"
-                        class="flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-medium transition-colors lg:px-4"
+                        class="flex min-h-10 items-center justify-center gap-1.5 rounded-lg px-3 text-sm font-medium transicion-ui active:scale-[0.97] lg:px-4"
                         :class="
                             vista === v.valor
                                 ? 'bg-[var(--mrl-superficie)] text-primary shadow-sm'
@@ -456,7 +457,11 @@ function detalle(c: ColaboradorDirectorio): string {
                         "
                         @click="vista = v.valor"
                     >
-                        <component :is="v.icono" class="size-4 shrink-0" />
+                        <component
+                            :is="v.icono"
+                            class="size-4 shrink-0"
+                            aria-hidden="true"
+                        />
                         {{ v.etiqueta }}
                     </button>
                 </div>
@@ -483,7 +488,7 @@ function detalle(c: ColaboradorDirectorio): string {
                 <button
                     v-if="busqueda"
                     type="button"
-                    class="absolute top-1/2 right-2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground hover:bg-accent"
+                    class="absolute top-1/2 right-1 flex size-9 -translate-y-1/2 aparece-zoom items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     aria-label="Limpiar búsqueda"
                     @click="busqueda = ''"
                 >
@@ -521,8 +526,8 @@ function detalle(c: ColaboradorDirectorio): string {
                 <Users class="size-4" />
                 <strong
                     class="font-semibold text-[var(--mrl-texto)] tabular-nums"
-                    >{{ filtrados.length }}</strong
-                >
+                    ><NumeroAnimado :valor="filtrados.length"
+                /></strong>
                 <template v-if="filtrados.length !== totales.personas">
                     de {{ totales.personas }}
                 </template>
@@ -633,7 +638,7 @@ function detalle(c: ColaboradorDirectorio): string {
                                 <Link
                                     v-if="c.expediente_url"
                                     :href="c.expediente_url"
-                                    class="mt-0.5 w-fit text-xs font-medium text-primary hover:underline"
+                                    class="mt-0.5 w-fit enlace-animado py-0.5 text-xs font-medium text-primary"
                                     >Abrir expediente</Link
                                 >
                             </div>
@@ -645,7 +650,7 @@ function detalle(c: ColaboradorDirectorio): string {
                                         c.correo_personal
                                     "
                                     :href="`mailto:${c.correo_corporativo || c.correo_personal}`"
-                                    class="flex size-10 items-center justify-center rounded-xl bg-info-soft text-info transition-colors hover:bg-info-soft/70"
+                                    class="flex size-10 items-center justify-center rounded-xl bg-info-soft text-info transicion-ui hover:-translate-y-0.5 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-95"
                                     :aria-label="`Escribir a ${c.nombre}`"
                                     :title="
                                         c.correo_corporativo ||
@@ -658,7 +663,7 @@ function detalle(c: ColaboradorDirectorio): string {
                                 <a
                                     v-if="c.telefono"
                                     :href="`tel:${c.telefono}`"
-                                    class="flex size-10 items-center justify-center rounded-xl bg-success-soft text-success transition-colors hover:bg-success-soft/70"
+                                    class="flex size-10 items-center justify-center rounded-xl bg-success-soft text-success transicion-ui hover:-translate-y-0.5 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-95"
                                     :aria-label="`Llamar a ${c.nombre}`"
                                     :title="c.telefono"
                                 >
@@ -681,7 +686,7 @@ function detalle(c: ColaboradorDirectorio): string {
                                 <button
                                     v-if="puedeEditar(c)"
                                     type="button"
-                                    class="flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-[var(--mrl-fondo)] hover:text-[var(--mrl-texto)]"
+                                    class="flex size-10 items-center justify-center rounded-xl text-muted-foreground transicion-ui hover:bg-[var(--mrl-fondo)] hover:text-[var(--mrl-texto)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-95"
                                     :aria-label="`Editar a ${c.nombre}`"
                                     title="Editar"
                                     @click="editandoId = c.id"
@@ -728,7 +733,7 @@ function detalle(c: ColaboradorDirectorio): string {
                                 <button
                                     v-if="dato.valor !== null"
                                     type="button"
-                                    class="flex size-7 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-[var(--mrl-superficie)] hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                    class="flex size-8 items-center justify-center rounded-lg text-muted-foreground transicion-ui hover:bg-[var(--mrl-superficie)] hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-90"
                                     :aria-label="
                                         copiado === `${c.id}:${dato.clave}`
                                             ? 'Copiado'
@@ -745,7 +750,7 @@ function detalle(c: ColaboradorDirectorio): string {
                                         v-if="
                                             copiado === `${c.id}:${dato.clave}`
                                         "
-                                        class="size-3.5 text-success"
+                                        class="size-3.5 aparece-zoom text-success"
                                     />
                                     <Copy v-else class="size-3.5" />
                                 </button>
@@ -758,10 +763,11 @@ function detalle(c: ColaboradorDirectorio): string {
                         personasVisibles(grupo).length < grupo.personas.length
                     "
                     type="button"
-                    class="w-full border-t border-[var(--mrl-borde)] px-4 py-2.5 text-center text-xs font-medium text-primary hover:bg-[var(--mrl-fondo)]"
+                    class="group flex min-h-10 w-full items-center justify-center gap-1 border-t border-[var(--mrl-borde)] px-4 py-2.5 text-xs font-medium text-primary transition-colors hover:bg-[var(--mrl-fondo)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset"
                     @click="abrirGrupo(grupo.clave)"
                 >
-                    Ver los {{ grupo.personas.length }} →
+                    Ver los {{ grupo.personas.length }}
+                    <span class="icono-avanza" aria-hidden="true">→</span>
                 </button>
             </section>
         </div>

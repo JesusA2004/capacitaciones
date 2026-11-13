@@ -339,7 +339,9 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                             :key="doc.id"
                             class="flex items-center justify-between gap-2 text-sm"
                         >
-                            <span>{{ doc.generated_name }}</span>
+                            <span class="min-w-0 break-words">{{
+                                doc.generated_name
+                            }}</span>
                             <EstadoBadge :estado="doc.status" />
                         </li>
                     </ul>
@@ -361,7 +363,7 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                             :key="doc.id"
                             class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/60 p-3 text-sm"
                         >
-                            <span class="truncate">{{
+                            <span class="min-w-0 flex-1 truncate">{{
                                 doc.original_name
                             }}</span>
                             <Button
@@ -369,7 +371,7 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                                 variant="outline"
                                 @click="previsualizar(doc)"
                             >
-                                <Eye class="size-3.5" />
+                                <Eye class="size-3.5" aria-hidden="true" />
                                 Previsualizar
                             </Button>
                         </li>
@@ -389,7 +391,7 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                 <div class="rounded-2xl border border-border/60 bg-card p-5">
                     <h3 class="mb-3 text-sm font-semibold">Historial</h3>
                     <ol
-                        class="relative flex flex-col gap-4 border-s border-border/60 ps-4"
+                        class="relative flex entrada-escalonada flex-col gap-4 border-s border-border/60 ps-4"
                     >
                         <li
                             v-for="evento in solicitud.historial"
@@ -398,6 +400,7 @@ function previsualizar(doc: SolicitudInternaDocumentoItem) {
                         >
                             <span
                                 class="absolute -start-[21px] mt-1 size-2.5 rounded-full bg-[var(--brand-primary)]"
+                                aria-hidden="true"
                             />
                             <p class="text-sm font-medium">
                                 {{ evento.accion_etiqueta }}
