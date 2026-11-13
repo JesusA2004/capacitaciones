@@ -602,8 +602,11 @@ class PerfilIngresoService
             $quitar = array_diff(array_intersect($vigentesNoAplica, $permitidos), $noAplica);
             $agregar = array_diff($noAplica, $vigentesNoAplica);
 
-            if ($this->soloCompletaVacios($origen) && $quitar !== []) {
-                $bloqueados = [...$bloqueados, ...array_map(fn (string $c): string => CatalogoSolicitudEmpleo::campo($c)['etiqueta'], $quitar)];
+            // Completar: un «No aplica» ya guardado sale bloqueado en pantalla y
+            // por eso no viene en la petición. Que falte NO es pedir quitarlo:
+            // se conserva tal cual (antes tronaba con «Ya está registrado…» al
+            // llenar el otro dato de la misma sección).
+            if ($this->soloCompletaVacios($origen)) {
                 $quitar = [];
             }
 

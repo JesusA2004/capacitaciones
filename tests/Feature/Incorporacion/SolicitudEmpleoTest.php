@@ -246,6 +246,24 @@ test('app: con el registro cerrado solo llena lo vacío; lo capturado se corrige
         ->assertJsonPath('errors.datos.0', 'Ya está registrado: Número de hijos. Si algo está mal, pide una corrección de datos desde «Mis solicitudes».');
 });
 
+test('completar: con una calle de referencia en «No aplica» se puede llenar la otra, y ambas son opcionales', function () {
+    $persona = sePersona($this->estructura);
+    $usuario = clUsuarioDe($persona);
+    $servicio = app(PerfilIngresoService::class);
+
+    $this->actingAs($usuario)->postJson('/mi-solicitud-empleo/domicilio', ['datos' => [], 'no_aplica' => ['calle_posterior']])->assertOk();
+
+    // La pantalla ya no manda el «No aplica» bloqueado: no es pedir quitarlo.
+    $this->actingAs($usuario)->postJson('/mi-solicitud-empleo/domicilio', ['datos' => ['calle_lateral' => 'Morelos'], 'no_aplica' => []])->assertOk();
+
+    expect($servicio->noAplica($persona))->toBe(['calle_posterior'])
+        ->and($servicio->valores($persona)['calle_lateral'])->toBe('Morelos')
+        ->and(collect($servicio->completitud($persona)['faltantes'])->pluck('campo')->all())->not->toContain('calle_posterior', 'calle_lateral');
+
+    $otra = sePersona($this->estructura);
+    expect(collect($servicio->completitud($otra)['faltantes'])->pluck('campo')->all())->not->toContain('calle_posterior', 'calle_lateral');
+});
+
 test('web: el colaborador ve su solicitud y completa lo que falta (mismas reglas que la app)', function () {
     $persona = sePersona($this->estructura);
     $usuario = clUsuarioDe($persona);

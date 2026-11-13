@@ -124,8 +124,9 @@ final class CatalogoSolicitudEmpleo
         'tiempo_traslado_minutos' => ['domicilio', 'Minutos de tu domicilio a la sucursal', 'entero', 'perfil', true, self::S, ['min' => 1, 'max' => 600]],
         'entre_calle_1' => ['domicilio', 'Entre calle', 'texto', 'perfil', true, self::E, ['max' => 48]],
         'entre_calle_2' => ['domicilio', 'Y calle', 'texto', 'perfil', true, self::E, ['max' => 48]],
-        'calle_posterior' => ['domicilio', 'Calle de atrás', 'texto', 'perfil', true, self::E, ['no_aplica' => true, 'max' => 48]],
-        'calle_lateral' => ['domicilio', 'Otra calle de referencia', 'texto', 'perfil', true, self::E, ['no_aplica' => true, 'max' => 48]],
+        // Calles de referencia: opcionales (no detienen la solicitud).
+        'calle_posterior' => ['domicilio', 'Calle de atrás', 'texto', 'perfil', false, self::E, ['no_aplica' => true, 'max' => 48]],
+        'calle_lateral' => ['domicilio', 'Otra calle de referencia', 'texto', 'perfil', false, self::E, ['no_aplica' => true, 'max' => 48]],
         'referencias_domicilio' => ['domicilio', 'Referencias para llegar a tu domicilio', 'texto_largo', 'perfil', true, self::S, ['max' => 300, 'ayuda' => 'Color de la casa, negocios cercanos, señas para encontrarla.']],
         // ── Vivienda ──
         'vivienda_tipo' => ['vivienda', 'Tipo de vivienda', 'select', 'perfil', true, self::E, ['opciones' => TipoVivienda::class]],
