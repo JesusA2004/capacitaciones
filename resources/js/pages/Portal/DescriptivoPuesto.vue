@@ -52,9 +52,13 @@ defineOptions({
             >
                 <Link
                     :href="miProceso()"
-                    class="inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-medium text-primary hover:bg-salvia/60"
+                    class="inline-flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm font-medium text-primary transition-colors hover:bg-salvia/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
-                    Ir a Mis pendientes <ArrowRight class="size-4" />
+                    Ir a Mis pendientes
+                    <ArrowRight
+                        class="size-4 icono-avanza"
+                        aria-hidden="true"
+                    />
                 </Link>
             </EmptyState>
         </section>

@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { Head } from '@inertiajs/vue3';
-import { Bell, Check, CheckCheck } from '@lucide/vue';
+import { Bell, BellOff, Check, CheckCheck } from '@lucide/vue';
 import { ref } from 'vue';
 import ActivarNotificacionesEscritorio from '@/components/ActivarNotificacionesEscritorio.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Button } from '@/components/ui/button';
 import { useNotificaciones } from '@/composables/useNotificaciones';
@@ -78,19 +79,20 @@ async function marcarTodas() {
 
         <ActivarNotificacionesEscritorio />
 
-        <div
+        <EmptyState
             v-if="!lista.length"
-            class="rounded-2xl border border-dashed border-border/60 p-10 text-center text-sm text-muted-foreground"
-        >
-            No tienes notificaciones todavía.
-        </div>
+            :icono="BellOff"
+            titulo="No tienes notificaciones todavía"
+            descripcion="Aquí verás los avisos de tus solicitudes, documentos y celebraciones."
+            class="rounded-2xl border border-dashed border-border/60 bg-card"
+        />
 
-        <div v-else class="flex flex-col gap-2">
+        <div v-else class="flex entrada-escalonada flex-col gap-2">
             <button
                 v-for="notificacion in lista"
                 :key="notificacion.id"
                 type="button"
-                class="flex items-start gap-3 rounded-2xl border border-border/60 bg-card p-4 text-left shadow-sm transition-colors hover:bg-muted/40"
+                class="flex tarjeta-interactiva items-start gap-3 rounded-2xl border border-border/60 bg-card p-4 text-left shadow-sm"
                 :class="
                     !notificacion.leida &&
                     'border-[var(--brand-primary)]/30 bg-[var(--brand-primary)]/[0.03]'
@@ -100,6 +102,7 @@ async function marcarTodas() {
                 <span
                     class="flex size-9 shrink-0 items-center justify-center rounded-full text-lg"
                     :class="colorClaseNotificacion(notificacion.color)"
+                    aria-hidden="true"
                 >
                     {{ notificacion.emoji }}
                 </span>
@@ -110,10 +113,16 @@ async function marcarTodas() {
                             ? 'bg-[var(--brand-primary)]'
                             : 'bg-transparent'
                     "
+                    aria-hidden="true"
                 />
                 <div class="min-w-0 flex-1">
-                    <p class="font-medium">{{ notificacion.titulo }}</p>
-                    <p class="text-sm text-muted-foreground">
+                    <p class="font-medium break-words">
+                        <span v-if="!notificacion.leida" class="sr-only"
+                            >Sin leer:
+                        </span>
+                        {{ notificacion.titulo }}
+                    </p>
+                    <p class="text-sm break-words text-muted-foreground">
                         {{ notificacion.mensaje }}
                     </p>
                     <p class="mt-1 text-xs text-muted-foreground">
@@ -122,7 +131,8 @@ async function marcarTodas() {
                 </div>
                 <Check
                     v-if="notificacion.leida"
-                    class="size-4 shrink-0 text-muted-foreground"
+                    class="size-4 shrink-0 aparece-zoom text-muted-foreground"
+                    aria-hidden="true"
                 />
             </button>
         </div>

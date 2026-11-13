@@ -72,11 +72,14 @@ const fecha = (valor: string) =>
             class="rounded-2xl border border-dashed border-border/60 bg-card"
         />
 
-        <div v-else class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div
+            v-else
+            class="grid entrada-escalonada gap-4 md:grid-cols-2 xl:grid-cols-3"
+        >
             <article
                 v-for="recibo in recibos.data"
                 :key="recibo.id"
-                class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-5"
+                class="flex flex-col gap-3 rounded-2xl border border-border/60 bg-card p-5 shadow-sm"
             >
                 <div class="flex items-start justify-between gap-2">
                     <div>
@@ -89,7 +92,9 @@ const fecha = (valor: string) =>
                             {{ recibo.folio }}
                         </p>
                     </div>
-                    <p class="text-lg font-bold text-primary">
+                    <p
+                        class="shrink-0 text-lg font-bold text-primary tabular-nums"
+                    >
                         {{ dinero(recibo.neto) }}
                     </p>
                 </div>

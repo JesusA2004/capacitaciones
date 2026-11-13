@@ -120,7 +120,7 @@ const DATOS = [
             <div
                 class="flex items-center gap-2 rounded-full bg-[var(--brand-primary)]/10 px-4 py-1.5 text-sm font-medium text-[var(--brand-primary)]"
             >
-                <UserRound class="size-4" />
+                <UserRound class="size-4" aria-hidden="true" />
                 {{ perfil.antiguedad_anios }}
                 {{ perfil.antiguedad_anios === 1 ? 'año' : 'años' }} de
                 antigüedad
@@ -130,17 +130,21 @@ const DATOS = [
         <!-- Datos: grid de dos columnas en pantallas grandes, aprovechando el ancho. -->
         <div class="flex min-w-0 flex-col gap-4">
             <div
-                class="grid grid-cols-1 gap-3 rounded-3xl border border-border/60 bg-card p-3 shadow-sm transition-shadow duration-200 hover:shadow-md sm:grid-cols-2 sm:p-5 2xl:grid-cols-3"
+                class="grid entrada-escalonada grid-cols-1 gap-3 rounded-3xl border border-border/60 bg-card p-3 shadow-sm sm:grid-cols-2 sm:p-5 2xl:grid-cols-3"
             >
                 <div
                     v-for="dato in DATOS"
                     :key="dato.etiqueta"
-                    class="flex items-center gap-3 rounded-2xl p-3 transition-colors duration-150 hover:bg-muted/40"
+                    class="flex items-center gap-3 rounded-2xl p-3"
                 >
                     <span
                         class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground"
                     >
-                        <component :is="dato.icono" class="size-4" />
+                        <component
+                            :is="dato.icono"
+                            class="size-4"
+                            aria-hidden="true"
+                        />
                     </span>
                     <div class="min-w-0">
                         <p class="text-xs text-muted-foreground">

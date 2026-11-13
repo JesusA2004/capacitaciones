@@ -70,7 +70,7 @@ const pestana = (activa: boolean) =>
             </Link>
             <Link
                 :href="contratos()"
-                class="ml-auto text-sm font-medium text-primary hover:underline"
+                class="ml-auto enlace-animado py-2 text-sm font-medium text-primary"
             >
                 Mis contratos
             </Link>
@@ -88,12 +88,15 @@ const pestana = (activa: boolean) =>
             class="rounded-2xl border border-dashed border-border/60 bg-card"
         />
 
-        <div v-else class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div
+            v-else
+            class="grid entrada-escalonada gap-3 md:grid-cols-2 xl:grid-cols-3"
+        >
             <Link
                 v-for="documento in documentos.data"
                 :key="documento.id"
                 :href="rutaShow(documento.id)"
-                class="flex tarjeta-interactiva items-start gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+                class="group flex tarjeta-interactiva items-start gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
             >
                 <span
                     class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-salvia text-primary"
@@ -121,7 +124,8 @@ const pestana = (activa: boolean) =>
                     />
                 </span>
                 <ChevronRight
-                    class="mt-2 size-4 shrink-0 text-muted-foreground"
+                    class="mt-2 size-4 shrink-0 icono-avanza text-muted-foreground"
+                    aria-hidden="true"
                 />
             </Link>
         </div>

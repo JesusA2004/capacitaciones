@@ -12,6 +12,7 @@ import {
 import { computed, ref } from 'vue';
 import MaterialInduccionTarjetaRh from '@/components/ciclo/MaterialInduccionTarjetaRh.vue';
 import PresentacionInduccionRh from '@/components/ciclo/PresentacionInduccionRh.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import VisorPdf from '@/components/documentos/VisorPdf.vue';
 import AsignacionesInduccionRh from '@/components/onboarding/AsignacionesInduccionRh.vue';
@@ -158,7 +159,9 @@ const repasando = ref(false);
                 «Mi inducción» —en Mi espacio o en la app—, y al terminar
                 contesta su evaluación FO-RH-EI. Al aprobarla empieza a laborar.
             </p>
-            <ol class="mt-4 grid gap-2 text-sm sm:grid-cols-4">
+            <ol
+                class="mt-4 grid entrada-escalonada gap-2 text-sm sm:grid-cols-2 xl:grid-cols-4"
+            >
                 <li
                     class="flex items-center gap-2 rounded-2xl bg-card/80 px-3 py-2"
                 >
@@ -212,7 +215,7 @@ const repasando = ref(false);
             </div>
 
             <div
-                class="grid grid-cols-1 gap-4 lg:grid-cols-3 [&>article]:min-w-0"
+                class="grid entrada-escalonada grid-cols-1 gap-4 lg:grid-cols-3 [&>article]:min-w-0"
             >
                 <article
                     class="flex flex-col gap-3 rounded-3xl border border-border/60 bg-card p-5 shadow-sm"
@@ -303,7 +306,7 @@ const repasando = ref(false);
 
             <div
                 v-if="repasando && pdf"
-                class="flex h-[78vh] min-h-[28rem] flex-col rounded-3xl border border-border/60 bg-card p-3 shadow-sm"
+                class="flex h-[78vh] min-h-[28rem] entrada-suave flex-col rounded-3xl border border-border/60 bg-card p-3 shadow-sm"
             >
                 <p class="mb-2 px-1 text-xs text-muted-foreground">
                     Repaso de RH: no se registra avance de nadie.
@@ -350,17 +353,22 @@ const repasando = ref(false);
     <!-- Colaborador sin contenido visible (sin asignar / evaluación / completada). -->
     <div v-else class="pagina-ancha flex flex-col gap-4 pb-10">
         <MiInduccionTarjeta v-if="miInduccion" :induccion="miInduccion" />
-        <p v-else class="text-sm text-muted-foreground">
-            {{
+        <EmptyState
+            v-else
+            :icono="GraduationCap"
+            titulo="Tu inducción todavía no está disponible"
+            :descripcion="
                 acceso?.mensaje ??
                 'Aún no tienes asignada la Inducción Mr. Lana.'
-            }}
-        </p>
+            "
+            class="rounded-3xl border border-dashed border-border/60 bg-card"
+        />
         <Link
             :href="miProceso()"
-            class="inline-flex w-fit items-center gap-2 rounded-xl border border-border/60 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-muted/50"
+            class="inline-flex min-h-10 w-fit items-center gap-2 rounded-xl border border-border/60 px-4 py-2.5 text-sm font-medium transition-colors hover:bg-salvia/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
-            Ir a Mis pendientes <ArrowRight class="size-4" />
+            Ir a Mis pendientes
+            <ArrowRight class="size-4 icono-avanza" aria-hidden="true" />
         </Link>
     </div>
 </template>

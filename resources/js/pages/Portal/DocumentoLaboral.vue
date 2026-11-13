@@ -175,7 +175,7 @@ async function firmarDocumento() {
                         firma.
                     </p>
                     <label
-                        class="flex items-start gap-2 text-sm"
+                        class="flex min-h-10 items-start gap-2 text-sm transition-opacity"
                         :class="aperturaVerificada ? '' : 'opacity-50'"
                     >
                         <Casilla
@@ -198,7 +198,10 @@ async function firmarDocumento() {
                     v-else-if="documento.firmado_digital_en"
                     class="flex items-center gap-2 rounded-2xl bg-success-soft p-4 text-sm font-medium text-success"
                 >
-                    <CheckCircle2 class="size-4" />
+                    <CheckCircle2
+                        class="size-4 aparece-zoom"
+                        aria-hidden="true"
+                    />
                     Ya lo firmaste.
                 </div>
 

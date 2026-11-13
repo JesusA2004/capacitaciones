@@ -75,7 +75,7 @@ function enviar() {
             role="status"
             class="sticky top-2 z-10 mb-4 flex items-start gap-3 rounded-2xl border bg-warning-soft px-4 py-3 text-sm shadow-sm"
         >
-            <Eye class="mt-0.5 size-4 shrink-0" />
+            <Eye class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
             <p>
                 <strong>Vista previa — así lo verá el colaborador.</strong>
                 Puedes marcar respuestas para probarla, pero no se envía ni se
@@ -102,7 +102,11 @@ function enviar() {
                                 : undefined
                         "
                     >
-                        Enviar evaluación <ArrowRight class="size-4" />
+                        Enviar evaluación
+                        <ArrowRight
+                            class="size-4 icono-avanza"
+                            aria-hidden="true"
+                        />
                     </Button>
                 </template>
             </FormularioInduccion>

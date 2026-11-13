@@ -53,7 +53,10 @@ const porVencer = (c: ContratoPropio) =>
             class="rounded-2xl border border-dashed border-border/60 bg-card"
         />
 
-        <div v-else class="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <div
+            v-else
+            class="grid entrada-escalonada gap-3 md:grid-cols-2 xl:grid-cols-3"
+        >
             <article
                 v-for="contrato in contratos"
                 :key="contrato.id"
