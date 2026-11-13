@@ -23,6 +23,7 @@ import CicloStepper from '@/components/ciclo/CicloStepper.vue';
 import Casilla from '@/components/Common/Casilla.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import DateTimePicker from '@/components/Common/DateTimePicker.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import SiguientePasoPanel from '@/components/flujos/SiguientePaso.vue';
 import InputError from '@/components/InputError.vue';
@@ -765,7 +766,7 @@ const esDecisionViable = computed(() =>
         <!-- Pestañas: cada tema en su lugar en vez de una fila larga. -->
         <div
             id="ficha-pestanas"
-            class="-mx-1 flex scroll-mt-20 gap-1.5 overflow-x-auto px-1 py-1"
+            class="-mx-1 scroll-x-limpio flex scroll-mt-20 gap-1.5 px-1 py-1"
             role="tablist"
             aria-label="Secciones de la ficha"
             @keydown.left.prevent="moverPestana"
@@ -780,7 +781,7 @@ const esDecisionViable = computed(() =>
                 :aria-selected="pestana === p.clave"
                 :aria-controls="`panel-${p.clave}`"
                 :tabindex="pestana === p.clave ? 0 : -1"
-                class="inline-flex shrink-0 items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transicion-ui focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                class="inline-flex min-h-10 shrink-0 presionable items-center gap-2 rounded-xl border px-3.5 py-2 text-sm font-medium transicion-ui focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 :class="
                     pestana === p.clave
                         ? 'border-primary/30 bg-[var(--mrl-petroleo)] text-[var(--mrl-superficie)] shadow-sm'
@@ -870,13 +871,13 @@ const esDecisionViable = computed(() =>
                     :candidato="candidato"
                     @ver="(ev) => (evidenciaActiva = ev)"
                 />
-                <p
+                <EmptyState
                     v-else
-                    class="flex items-center gap-2 rounded-2xl border border-dashed border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-5 text-sm text-muted-foreground"
-                >
-                    <ClipboardList class="size-5" aria-hidden="true" />
-                    Aún no hay evaluaciones registradas.
-                </p>
+                    class="rounded-2xl border border-dashed border-[var(--mrl-borde)] bg-[var(--mrl-superficie)]"
+                    :icono="ClipboardList"
+                    titulo="Sin evaluaciones"
+                    descripcion="Aún no hay evaluaciones registradas para este candidato."
+                />
             </div>
 
             <!-- Expediente y archivos -->

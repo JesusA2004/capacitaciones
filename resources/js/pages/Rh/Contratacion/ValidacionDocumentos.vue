@@ -382,7 +382,7 @@ function confirmarDecisionVisor() {
                                     <Link
                                         v-if="fila.expediente_url"
                                         :href="fila.expediente_url"
-                                        class="font-medium text-primary hover:underline"
+                                        class="enlace-animado font-medium text-primary"
                                     >
                                         {{ fila.colaborador.nombre }}
                                     </Link>
@@ -398,7 +398,7 @@ function confirmarDecisionVisor() {
                         <TableCell>
                             <button
                                 type="button"
-                                class="text-left font-medium hover:text-primary hover:underline"
+                                class="enlace-animado text-left font-medium hover:text-primary"
                                 title="Ver el documento"
                                 @click="verDocumento(fila)"
                             >

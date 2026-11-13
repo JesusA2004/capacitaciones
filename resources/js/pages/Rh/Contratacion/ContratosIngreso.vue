@@ -129,7 +129,7 @@ function varianteDocumento(estado: string | null): 'success' | 'info' {
         <!-- Hasta escritorio ancho: tarjetas (la tabla escondía «Gestión»). -->
         <ul
             v-if="contratos.data.length"
-            class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:hidden"
+            class="grid entrada-escalonada grid-cols-1 gap-3 md:grid-cols-2 xl:hidden"
         >
             <li
                 v-for="fila in contratos.data"

@@ -136,7 +136,9 @@ function fechaCorta(valor: string | null): string {
                 </h2>
                 <Badge variant="info">{{ altasDigitales.length }}</Badge>
             </div>
-            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div
+                class="grid entrada-escalonada grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+            >
                 <Link
                     v-for="alta in altasDigitales"
                     :key="alta.id"
@@ -191,7 +193,7 @@ function fechaCorta(valor: string | null): string {
              caben sin esconder «Siguiente acción», que es lo importante). -->
         <ul
             v-if="personas.data.length"
-            class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:hidden"
+            class="grid entrada-escalonada grid-cols-1 gap-3 md:grid-cols-2 xl:hidden"
         >
             <li
                 v-for="persona in personas.data"
@@ -207,7 +209,7 @@ function fechaCorta(valor: string | null): string {
                     <div class="min-w-0">
                         <Link
                             :href="persona.ciclo_url"
-                            class="font-medium text-primary hover:underline"
+                            class="enlace-animado font-medium text-primary"
                         >
                             {{ persona.nombre }}
                         </Link>
@@ -305,7 +307,7 @@ function fechaCorta(valor: string | null): string {
                                 <div class="min-w-0">
                                     <Link
                                         :href="persona.ciclo_url"
-                                        class="font-medium text-primary hover:underline"
+                                        class="enlace-animado font-medium text-primary"
                                     >
                                         {{ persona.nombre }}
                                     </Link>

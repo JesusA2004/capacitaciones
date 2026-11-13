@@ -585,7 +585,9 @@ function etiquetasFaltantes(fila: PlanContratos): string[] {
 
             <Progress :model-value="porcentaje" class="h-3" />
 
-            <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div
+                class="grid entrada-escalonada grid-cols-2 gap-2 sm:grid-cols-4"
+            >
                 <div
                     v-for="c in contadoresLote"
                     :key="c.etiqueta"
