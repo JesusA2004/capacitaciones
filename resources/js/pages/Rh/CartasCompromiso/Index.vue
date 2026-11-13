@@ -15,6 +15,7 @@ import {
 import { useDebounceFn } from '@vueuse/core';
 import { computed, ref, watch } from 'vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import CrudStats from '@/components/DataTable/CrudStats.vue';
@@ -326,18 +327,16 @@ function textoPlazo(c: CartaCompromisoFila): string {
                     </div>
                 </li>
             </ul>
-            <div
+            <EmptyState
                 v-else
-                class="flex flex-col items-center gap-2 px-4 py-12 text-center text-sm text-muted-foreground"
-            >
-                <FilePenLine class="size-8 text-muted-foreground/60" />
-                <p>No hay cartas compromiso con estos filtros.</p>
-                <p v-if="puedeGenerar" class="max-w-md">
-                    Una carta cubre como máximo
-                    {{ reglas.max_documentos }} documentos y da
-                    {{ reglas.dias_plazo }} días para entregarlos.
-                </p>
-            </div>
+                :icono="FilePenLine"
+                titulo="No hay cartas compromiso con estos filtros"
+                :descripcion="
+                    puedeGenerar
+                        ? `Una carta cubre como máximo ${reglas.max_documentos} documentos y da ${reglas.dias_plazo} días para entregarlos.`
+                        : 'Cambia la pestaña o lo que escribiste en el buscador.'
+                "
+            />
         </section>
 
         <PaginacionTabla :datos="cartas" />
