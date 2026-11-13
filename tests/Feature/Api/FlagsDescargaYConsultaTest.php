@@ -62,7 +62,8 @@ function fdSoloConsultaContratos(): User
 }
 
 test('el titular recibe puede_descargar y sin bandera en el listado RH no se manda', function () {
-$L
+    // Con el autoservicio documental encendido (por defecto apagado: copia física).
+    config(['features.documentos_laborales_colaborador' => true]);
     $documento = fdDocumento($this->persona);
 
     Sanctum::actingAs($this->titular);

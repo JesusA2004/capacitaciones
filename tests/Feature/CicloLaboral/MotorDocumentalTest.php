@@ -110,7 +110,8 @@ test('el expediente solo está completo cuando todos los obligatorios están APR
 });
 
 test('descargas privadas: el titular descarga su documento, otro colaborador recibe 403 (sin IDOR)', function () {
-$L
+    // Con el autoservicio documental encendido (por defecto apagado: copia física).
+    config(['features.documentos_laborales_colaborador' => true]);
     Sanctum::actingAs($this->rh);
     clPlantilla('contrato_confidencialidad');
     $id = $this->postJson("/api/v1/rh/colaboradores/{$this->colaborador->id}/documentos-laborales", ['clave' => 'contrato_confidencialidad'])->json('data.id');
