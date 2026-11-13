@@ -151,7 +151,7 @@ function generarQr() {
 <template>
     <Head :title="alta.nombre ?? 'Alta digital'" />
 
-    <div class="pagina-media flex flex-col gap-6">
+    <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader
             detalle
             :titulo="
