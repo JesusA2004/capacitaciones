@@ -80,6 +80,8 @@ export type ListaSolicitud = {
     campos: CampoListaSolicitud[];
     filas: Record<string, ValorSolicitud>[];
     bloqueada: boolean;
+    /** Renglones ya registrados: se muestran, no se editan ni se quitan. */
+    fijas?: number;
 };
 
 export type SeccionSolicitud = {

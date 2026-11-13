@@ -233,6 +233,8 @@ const enRevisionTotal = computed(() =>
 const listaEditable = computed(
     () => !!seccion.value?.lista && !seccion.value.lista.bloqueada,
 );
+/** Renglones ya registrados (solo lectura); los nuevos van después. */
+const filasFijas = computed(() => seccion.value?.lista?.fijas ?? 0);
 
 function vacio(valor: ValorSolicitud): boolean {
     return (
@@ -768,7 +770,13 @@ const trazo = computed(
                                     >{{ seccion.lista.singular }}
                                     {{ i + 1 }}</span
                                 >
+                                <span
+                                    v-if="i < filasFijas"
+                                    class="text-xs text-muted-foreground"
+                                    >Ya registrada</span
+                                >
                                 <Button
+                                    v-else
                                     type="button"
                                     size="sm"
                                     variant="ghost"
@@ -778,7 +786,18 @@ const trazo = computed(
                                     <Trash2 class="size-4" />
                                 </Button>
                             </div>
+                            <p v-if="i < filasFijas" class="text-sm">
+                                {{
+                                    seccion.lista.campos
+                                        .slice(0, 3)
+                                        .map((c) =>
+                                            texto(c, fila[c.campo] ?? null),
+                                        )
+                                        .join(' · ')
+                                }}
+                            </p>
                             <FilaListaSolicitud
+                                v-else
                                 v-model="filas[i]"
                                 :campos="seccion.lista.campos"
                                 :id-base="`mse-${seccion.clave}-${i}`"

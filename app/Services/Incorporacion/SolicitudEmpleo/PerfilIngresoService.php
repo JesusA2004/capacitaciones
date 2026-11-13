@@ -475,7 +475,10 @@ class PerfilIngresoService
                         'max' => isset($c['max']) ? (int) $c['max'] : null,
                     ], array_keys($lista['campos']), array_values($lista['campos'])),
                     'filas' => $actual['filas'],
-                    'bloqueada' => ! $editable || ($this->soloCompletaVacios($modo) && ($actual['filas'] !== [] || $actual['vacia'])),
+                    'bloqueada' => ! $editable || ($this->soloCompletaVacios($modo) && $this->listaYaCapturada($lista['minimo'], $actual)),
+                    // Renglones ya registrados: no se editan ni se quitan, solo
+                    // se agregan los que faltan para llegar al mínimo.
+                    'fijas' => $this->soloCompletaVacios($modo) ? count($actual['filas']) : 0,
                 ];
             }
 
@@ -620,10 +623,16 @@ class PerfilIngresoService
             $actual = $listas[$lista['clave']];
 
             if (array_key_exists($lista['clave'], $datos) || ($lista['bandera_vacia'] !== null && array_key_exists($lista['bandera_vacia'], $datos))) {
-                if ($this->soloCompletaVacios($origen) && ($actual['filas'] !== [] || $actual['vacia'])) {
+                if ($this->soloCompletaVacios($origen) && $this->listaYaCapturada($lista['minimo'], $actual)) {
                     $bloqueados[] = $lista['etiqueta'];
                 } else {
                     $filasNuevas = array_key_exists($lista['clave'], $datos) ? $this->normalizarFilas($lista, $datos[$lista['clave']]) : $actual['filas'];
+
+                    // Completar: lo ya registrado se conserva tal cual; solo
+                    // entran los renglones que se agregan después.
+                    if ($this->soloCompletaVacios($origen) && $actual['filas'] !== []) {
+                        $filasNuevas = [...$actual['filas'], ...array_slice($filasNuevas, count($actual['filas']))];
+                    }
                     $banderaNueva = $lista['bandera_vacia'] !== null && array_key_exists($lista['bandera_vacia'], $datos) ? (bool) $datos[$lista['bandera_vacia']] : $actual['vacia'];
 
                     if ($banderaNueva && $filasNuevas !== []) {
@@ -758,6 +767,18 @@ class PerfilIngresoService
     private function soloCompletaVacios(string $origen): bool
     {
         return $origen === self::ORIGEN_RH || $origen === self::ORIGEN_COMPLETAR;
+    }
+
+    /**
+     * Una lista ya no admite captura cuando se marcó vacía o ya tiene los
+     * renglones mínimos. Con menos del mínimo (p. ej. 1 referencia de 2)
+     * sigue abierta para AGREGAR los que faltan.
+     *
+     * @param  array{filas: array<array-key, mixed>, vacia: bool}  $actual
+     */
+    private function listaYaCapturada(int $minimo, array $actual): bool
+    {
+        return $actual['vacia'] || ($actual['filas'] !== [] && count($actual['filas']) >= $minimo);
     }
 
     /**
