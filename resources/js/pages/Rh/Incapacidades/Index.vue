@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { AlertTriangle, CheckCircle2, HeartPulse, Plus } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
+import MonthPicker from '@/components/Common/MonthPicker.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
 import CrudExportButtons from '@/components/DataTable/CrudExportButtons.vue';
@@ -19,7 +20,6 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useFiltros } from '@/composables/useFiltros';
@@ -292,12 +292,15 @@ function confirmarDescarte() {
                             </button>
                         </div>
                         <div class="ml-auto flex flex-wrap items-center gap-2">
-                            <Input
-                                v-model="filtrosActivos.mes"
-                                type="month"
+                            <MonthPicker
+                                :model-value="filtrosActivos.mes"
                                 aria-label="Mes"
-                                class="w-40"
-                                @change="aplicar"
+                                @update:model-value="
+                                    (mes) => {
+                                        filtrosActivos.mes = mes;
+                                        aplicar();
+                                    }
+                                "
                             />
                             <SelectSimple
                                 :model-value="filtrosActivos.sucursal_id"
@@ -388,7 +391,7 @@ function confirmarDescarte() {
                                         />
                                         <Link
                                             :href="show.url(fila.id)"
-                                            class="font-semibold hover:underline"
+                                            class="enlace-animado font-semibold"
                                         >
                                             {{ fila.colaborador }}
                                         </Link>

@@ -12,6 +12,7 @@ import {
 import { computed, ref } from 'vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import BotonCorregir from '@/components/correcciones/BotonCorregir.vue';
 import SiguientePasoPanel from '@/components/flujos/SiguientePaso.vue';
 import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue';
@@ -302,12 +303,15 @@ function enviarCancelacion() {
             </Button>
         </div>
 
-        <p
+        <div
             v-if="!cadenas.length"
-            class="rounded-xl border border-border/60 bg-card p-6 text-center text-sm text-muted-foreground"
+            class="rounded-xl border border-border/60 bg-card"
         >
-            Esta persona no tiene incapacidades registradas.
-        </p>
+            <EmptyState
+                titulo="Sin incapacidades registradas"
+                descripcion="Esta persona no tiene incapacidades registradas."
+            />
+        </div>
 
         <section
             v-for="cadena in cadenas"
@@ -601,7 +605,7 @@ function enviarCancelacion() {
                             <button
                                 v-if="puede.descargar"
                                 type="button"
-                                class="text-primary hover:underline"
+                                class="enlace-animado text-primary"
                                 @click="verDocumentoEnVisor(cadena, documento)"
                             >
                                 {{ documento.nombre_original }}
