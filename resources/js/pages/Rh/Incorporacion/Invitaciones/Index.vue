@@ -235,7 +235,7 @@ const columnas: ColumnaDataTable[] = [
             <template #acciones="{ fila }">
                 <Link
                     :href="show.url(fila.id)"
-                    class="text-sm font-medium text-[var(--brand-primary)] hover:underline"
+                    class="enlace-animado text-sm font-medium text-[var(--brand-primary)]"
                     >Ver</Link
                 >
             </template>

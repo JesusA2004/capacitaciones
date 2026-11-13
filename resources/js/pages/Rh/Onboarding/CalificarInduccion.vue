@@ -740,7 +740,7 @@ function letra(indice: number): string {
 
         <Link
             :href="presentacionInduccion()"
-            class="text-sm text-muted-foreground underline-offset-4 hover:underline"
+            class="enlace-animado text-sm text-muted-foreground"
             >← Volver al seguimiento de inducción</Link
         >
     </div>

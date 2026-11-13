@@ -271,14 +271,14 @@ function generarQr() {
                             v-if="alta.tiene_foto"
                             :href="descargarFoto.url(alta.id)"
                             target="_blank"
-                            class="inline-flex items-center gap-1.5 text-[var(--brand-primary)] hover:underline"
+                            class="inline-flex items-center gap-1.5 enlace-animado text-[var(--brand-primary)]"
                             ><Download class="size-4" /> Fotografía</a
                         >
                         <a
                             v-if="alta.tiene_firma && puedeDescargarDocumentos"
                             :href="descargarFirma.url(alta.id)"
                             target="_blank"
-                            class="inline-flex items-center gap-1.5 text-[var(--brand-primary)] hover:underline"
+                            class="inline-flex items-center gap-1.5 enlace-animado text-[var(--brand-primary)]"
                             ><Download class="size-4" /> Firma</a
                         >
                     </div>
@@ -298,7 +298,7 @@ function generarQr() {
                                     ])
                                 "
                                 target="_blank"
-                                class="text-[var(--brand-primary)] hover:underline"
+                                class="enlace-animado text-[var(--brand-primary)]"
                                 >Descargar</a
                             >
                         </li>

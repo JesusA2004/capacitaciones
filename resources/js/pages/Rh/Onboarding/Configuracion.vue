@@ -316,7 +316,9 @@ const pasosIngreso = [
                 en este orden. Aquí configuras qué ve y qué se le entrega; los
                 cambios aplican a quienes empiecen su onboarding después.
             </p>
-            <ol class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            <ol
+                class="mt-4 grid entrada-escalonada gap-2 sm:grid-cols-2 xl:grid-cols-4"
+            >
                 <li
                     v-for="(p, i) in pasosIngreso"
                     :key="p.titulo"
@@ -628,7 +630,10 @@ const pasosIngreso = [
                 >
                     Todavía no hay módulos aquí.
                 </p>
-                <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div
+                    v-else
+                    class="grid entrada-escalonada gap-3 sm:grid-cols-2 xl:grid-cols-3"
+                >
                     <article
                         v-for="m in grupo.lista"
                         :key="m.id"
