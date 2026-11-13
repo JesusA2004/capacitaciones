@@ -27,12 +27,12 @@ defineOptions({
     <Head :title="titulo" />
 
     <div
-        class="flex flex-1 flex-col items-center justify-center gap-6 p-6 text-center"
+        class="pagina-ancha flex flex-1 flex-col items-center justify-center gap-6 text-center"
     >
         <span
-            class="flex size-16 items-center justify-center rounded-3xl bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]"
+            class="flex size-16 aparece-zoom items-center justify-center rounded-3xl bg-[var(--brand-primary)]/10 text-[var(--brand-primary)]"
         >
-            <Rocket class="size-8" />
+            <Rocket class="size-8" aria-hidden="true" />
         </span>
 
         <div class="space-y-2">
@@ -54,7 +54,7 @@ defineOptions({
 
         <Link
             :href="dashboard()"
-            class="text-sm font-medium text-[var(--brand-primary)] underline-offset-4 hover:underline"
+            class="enlace-animado py-2 text-sm font-medium text-[var(--brand-primary)]"
         >
             Volver al inicio
         </Link>

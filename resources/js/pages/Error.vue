@@ -126,10 +126,10 @@ function volver() {
     <Head :title="texto.titulo" />
 
     <main
-        class="flex min-h-svh items-center justify-center bg-background px-4 py-10 text-foreground"
+        class="flex min-h-svh items-center justify-center bg-crema/40 px-4 py-10 text-foreground"
     >
         <div
-            class="flex w-full max-w-md flex-col gap-6 rounded-2xl border bg-card p-6 shadow-sm sm:p-8"
+            class="flex w-full max-w-md entrada-suave flex-col gap-6 rounded-3xl border bg-card p-6 shadow-sm sm:p-8"
         >
             <div class="flex items-center">
                 <AppLogo />
@@ -137,7 +137,7 @@ function volver() {
 
             <div class="space-y-2">
                 <p
-                    class="text-sm font-semibold text-[var(--brand-primary)] tabular-nums"
+                    class="inline-flex aparece-zoom rounded-full bg-salvia px-3 py-1 text-sm font-semibold text-[var(--brand-primary)] tabular-nums"
                 >
                     Error {{ status }}
                 </p>
@@ -151,12 +151,12 @@ function volver() {
 
             <div class="flex flex-col gap-2 sm:flex-row">
                 <Button variant="outline" class="gap-2" @click="volver">
-                    <ArrowLeft class="size-4" />
+                    <ArrowLeft class="size-4" aria-hidden="true" />
                     Regresar
                 </Button>
                 <Button as-child class="gap-2">
                     <Link href="/">
-                        <House class="size-4" />
+                        <House class="size-4" aria-hidden="true" />
                         Ir al inicio
                     </Link>
                 </Button>
@@ -166,7 +166,9 @@ function volver() {
                 v-if="diagnostico"
                 class="rounded-xl border bg-muted/40 p-3 text-xs text-muted-foreground"
             >
-                <summary class="cursor-pointer font-medium text-foreground">
+                <summary
+                    class="cursor-pointer rounded-md py-1 font-medium text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                >
                     Diagnóstico de acceso
                 </summary>
                 <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">

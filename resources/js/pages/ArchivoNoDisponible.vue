@@ -72,7 +72,7 @@ function volver() {
             <span
                 class="flex size-11 items-center justify-center rounded-full bg-warning-soft text-warning"
             >
-                <FileWarning class="size-5" />
+                <FileWarning class="size-5" aria-hidden="true" />
             </span>
             <div class="space-y-1.5">
                 <h1 class="text-lg font-semibold tracking-tight">
@@ -85,7 +85,7 @@ function volver() {
             </div>
             <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <Button variant="ghost" @click="volver">
-                    <ArrowLeft class="size-4" /> Regresar
+                    <ArrowLeft class="size-4" aria-hidden="true" /> Regresar
                 </Button>
                 <Button
                     v-if="urlReparar"
