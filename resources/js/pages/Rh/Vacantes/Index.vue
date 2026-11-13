@@ -406,7 +406,7 @@ const TONO_ESTADO: Record<string, string> = {
             <button
                 v-if="filtros.departamento_id"
                 type="button"
-                class="rounded-full px-2 py-0.5 text-xs text-muted-foreground underline-offset-2 hover:underline"
+                class="rounded-full enlace-animado px-2 py-0.5 text-xs text-muted-foreground"
                 @click="filtrarPorArea(null)"
             >
                 Todas las áreas
@@ -479,7 +479,7 @@ const TONO_ESTADO: Record<string, string> = {
                                     tienePermiso('sucursales.administrar')
                                 "
                                 :href="showSucursal.url(vacante.sucursal_id)"
-                                class="hover:text-foreground hover:underline"
+                                class="enlace-animado hover:text-foreground"
                                 >{{ vacante.sucursal }}</Link
                             >
                             <span v-else>{{

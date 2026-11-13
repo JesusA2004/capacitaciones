@@ -359,7 +359,10 @@ const segmento = (activo: boolean) =>
                     </p>
                 </div>
 
-                <ul data-tour="pendientes-lista" class="flex flex-col gap-3">
+                <ul
+                    data-tour="pendientes-lista"
+                    class="flex entrada-escalonada flex-col gap-3"
+                >
                     <li v-for="tarea in tareas.data" :key="tarea.id">
                         <component
                             :is="tarea.url ? Link : 'div'"

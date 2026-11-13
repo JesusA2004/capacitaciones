@@ -108,7 +108,7 @@ function porQuien(evento: AgendaEvento): string {
 </script>
 
 <template>
-    <div v-if="vista === 'semana'" class="overflow-x-auto">
+    <div v-if="vista === 'semana'" class="tabla-scroll">
         <table
             class="w-full min-w-[720px] table-fixed border-separate border-spacing-1 text-xs"
         >
@@ -165,7 +165,7 @@ function porQuien(evento: AgendaEvento): string {
         </table>
     </div>
 
-    <div v-else class="overflow-x-auto">
+    <div v-else class="tabla-scroll">
         <div class="grid min-w-[720px] grid-cols-7 gap-1 text-xs">
             <div
                 v-for="dia in DIAS"

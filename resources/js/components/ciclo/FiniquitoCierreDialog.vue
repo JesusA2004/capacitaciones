@@ -359,9 +359,9 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
                         },
                     ]"
                     :key="grupo.titulo"
-                    class="overflow-x-auto"
+                    class="tabla-scroll"
                 >
-                    <table class="w-full text-sm">
+                    <table class="w-full min-w-[30rem] text-sm">
                         <thead>
                             <tr
                                 class="border-b text-left text-xs text-muted-foreground"

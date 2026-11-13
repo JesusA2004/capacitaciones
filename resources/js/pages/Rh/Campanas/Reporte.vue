@@ -630,9 +630,7 @@ const abierta = ref<number | null>(null);
             </div>
 
             <!-- ===================== Comparativo ===================== -->
-            <section
-                class="overflow-x-auto rounded-2xl border bg-card shadow-sm"
-            >
+            <section class="tabla-scroll rounded-2xl border bg-card shadow-sm">
                 <table class="w-full min-w-[56rem] text-sm">
                     <thead class="bg-salvia text-left text-xs uppercase">
                         <tr>
@@ -652,8 +650,13 @@ const abierta = ref<number | null>(null);
                     <tbody>
                         <template v-for="c in reporte.campanas" :key="c.id">
                             <tr
-                                class="cursor-pointer border-t hover:bg-crema/50"
+                                class="fila-interactiva border-t focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+                                tabindex="0"
+                                :aria-expanded="abierta === c.id"
                                 @click="
+                                    abierta = abierta === c.id ? null : c.id
+                                "
+                                @keydown.enter="
                                     abierta = abierta === c.id ? null : c.id
                                 "
                             >

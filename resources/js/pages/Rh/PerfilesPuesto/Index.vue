@@ -2,6 +2,7 @@
 import { Head, Link } from '@inertiajs/vue3';
 import { ChevronRight, FileUp, Search, Users } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import { dashboard } from '@/routes';
 import { importacion, show } from '@/routes/rh/perfiles-puesto';
 import type { PuestoConPerfil } from '@/types';
@@ -164,7 +165,7 @@ const CIRC = 2 * Math.PI * 16;
                 {{ g.area }}
             </h2>
             <div
-                class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+                class="grid entrada-escalonada gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
             >
                 <Link
                     v-for="p in g.puestos"
@@ -226,11 +227,11 @@ const CIRC = 2 * Math.PI * 16;
             </div>
         </section>
 
-        <p
+        <EmptyState
             v-if="grupos.length === 0"
-            class="py-12 text-center text-sm text-muted-foreground"
-        >
-            No hay puestos con ese filtro.
-        </p>
+            :icono="Search"
+            titulo="Sin puestos"
+            descripcion="No hay puestos con ese filtro. Prueba con otra búsqueda o cambia de pestaña."
+        />
     </div>
 </template>

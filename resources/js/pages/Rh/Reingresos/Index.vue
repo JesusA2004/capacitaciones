@@ -7,6 +7,7 @@ import AprobacionesResumen from '@/components/ciclo/AprobacionesResumen.vue';
 import Casilla from '@/components/Common/Casilla.vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
@@ -158,7 +159,10 @@ function enviarDecision(reingreso: ReingresoFila) {
             <Button type="submit"><Search class="size-4" /> Buscar</Button>
         </form>
 
-        <ul v-if="resultados.length" class="grid gap-2 2xl:grid-cols-2">
+        <ul
+            v-if="resultados.length"
+            class="grid entrada-escalonada gap-2 2xl:grid-cols-2"
+        >
             <li
                 v-for="r in resultados"
                 :key="r.id"
@@ -196,7 +200,7 @@ function enviarDecision(reingreso: ReingresoFila) {
                 </div>
                 <Link
                     :href="cicloColaborador.url(r.id)"
-                    class="text-xs text-[var(--mrl-petroleo)] hover:underline"
+                    class="enlace-animado text-xs text-[var(--mrl-petroleo)]"
                     >Ver historial</Link
                 >
                 <Button
@@ -313,13 +317,15 @@ function enviarDecision(reingreso: ReingresoFila) {
 
         <section data-tour="reingresos-lista" class="flex flex-col gap-3">
             <h2 class="text-sm font-semibold">Solicitudes de reingreso</h2>
-            <p
+            <EmptyState
                 v-if="!reingresos.data.length"
-                class="text-sm text-[var(--mrl-texto-suave)]"
+                :icono="RotateCcw"
+                titulo="Sin solicitudes de reingreso"
+                descripcion="Cuando alguien solicite un reingreso aparecerá aquí con sus aprobaciones."
+            />
+            <div
+                class="grid entrada-escalonada items-start gap-3 xl:grid-cols-2"
             >
-                Sin solicitudes.
-            </p>
-            <div class="grid items-start gap-3 xl:grid-cols-2">
                 <article
                     v-for="r in reingresos.data"
                     :key="r.id"
@@ -333,7 +339,7 @@ function enviarDecision(reingreso: ReingresoFila) {
                         />
                         <Link
                             :href="cicloColaborador.url(r.colaborador.id)"
-                            class="font-medium hover:underline"
+                            class="enlace-animado font-medium"
                             >{{ r.colaborador.nombre }}</Link
                         >
                         <span

@@ -7,6 +7,7 @@ import ChipEstado from '@/components/people/ChipEstado.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { vTablaTarjetas } from '@/lib/tablaTarjetas';
 import type { Tono } from '@/lib/tonos';
 import { formatoMoneda } from '@/lib/utils';
 import { index } from '@/routes/administracion/puestos';
@@ -126,7 +127,7 @@ function descartar(): void {
             </div>
 
             <div class="tabla-scroll rounded-2xl border">
-                <table class="w-full min-w-[640px] text-sm">
+                <table v-tabla-tarjetas class="w-full min-w-[640px] text-sm">
                     <thead class="bg-crema text-left text-xs">
                         <tr>
                             <th class="p-2.5">Fila</th>

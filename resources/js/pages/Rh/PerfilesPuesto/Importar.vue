@@ -2,6 +2,7 @@
 import { Head, useForm } from '@inertiajs/vue3';
 import { CircleCheck, FileText, TriangleAlert } from '@lucide/vue';
 import { reactive } from 'vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import { Spinner } from '@/components/ui/spinner';
 import { dashboard } from '@/routes';
 import { importar, index } from '@/routes/rh/perfiles-puesto';
@@ -230,11 +231,11 @@ function importarArchivo(a: Analisis) {
             </div>
         </article>
 
-        <p
+        <EmptyState
             v-if="archivos.length === 0"
-            class="py-10 text-center text-sm text-muted-foreground"
-        >
-            No hay PDF en la carpeta de descriptivos.
-        </p>
+            :icono="FileText"
+            titulo="Sin descriptivos por importar"
+            descripcion="No hay PDF en la carpeta de descriptivos."
+        />
     </div>
 </template>

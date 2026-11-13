@@ -49,7 +49,10 @@ defineOptions({
             que empezaron.
         </p>
 
-        <div data-tour="formularios-tarjetas" class="grid gap-5 lg:grid-cols-2">
+        <div
+            data-tour="formularios-tarjetas"
+            class="grid entrada-escalonada gap-5 lg:grid-cols-2"
+        >
             <Link
                 v-for="f in formularios"
                 :key="f.clave"
