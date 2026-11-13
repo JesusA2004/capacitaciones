@@ -39,17 +39,20 @@ onMounted(async () => {
 <template>
     <section
         v-if="items.length > 0"
-        class="flex flex-col gap-3 rounded-2xl border border-pink-400/30 bg-gradient-to-br from-pink-400/10 via-amber-300/10 to-emerald-400/10 p-4"
+        class="flex entrada-suave flex-col gap-3 rounded-2xl border border-pink-400/30 bg-gradient-to-br from-pink-400/10 via-amber-300/10 to-emerald-400/10 p-4"
     >
         <p class="flex items-center gap-2 font-semibold">
-            <PartyPopper class="size-5 text-pink-500" />
+            <PartyPopper
+                class="size-5 aparece-zoom text-pink-500"
+                aria-hidden="true"
+            />
             {{
                 items.length === 1
                     ? 'Hoy celebramos'
                     : `Hoy celebramos a ${items.length} personas`
             }}
         </p>
-        <ul class="flex flex-col gap-2">
+        <ul class="flex entrada-escalonada flex-col gap-2">
             <li
                 v-for="item in items.slice(0, 5)"
                 :key="item.id"

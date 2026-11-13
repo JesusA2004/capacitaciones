@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { CalendarHeart } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import CelebracionPersonaFila from '@/components/Celebraciones/CelebracionPersonaFila.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import { Button } from '@/components/ui/button';
 import type { EventoCelebracion } from '@/types';
 
@@ -50,12 +52,13 @@ const visibles = computed(() =>
             <slot name="acciones" />
         </header>
 
-        <p
+        <EmptyState
             v-if="eventos.length === 0"
-            class="px-4 py-8 text-center text-sm text-muted-foreground"
-        >
-            {{ vacio }}
-        </p>
+            :icono="CalendarHeart"
+            titulo="Sin celebraciones"
+            :descripcion="vacio"
+            class="!py-8"
+        />
 
         <ul
             v-else
