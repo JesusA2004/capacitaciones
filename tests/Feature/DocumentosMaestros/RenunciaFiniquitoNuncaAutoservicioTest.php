@@ -34,6 +34,9 @@ test('un colaborador no puede ver ni firmar su propio documento de renuncia o fi
 });
 
 test('un colaborador si puede ver su propio contrato (otra categoria) una vez firmado', function () {
+    // Solo con el autoservicio documental encendido (por defecto: copia física).
+    config(['features.documentos_laborales_colaborador' => true]);
+
     $colaborador = User::factory()->create(['colaborador_id' => Colaborador::factory()->create()->id]);
     $colaborador->assignRole('colaborador');
 

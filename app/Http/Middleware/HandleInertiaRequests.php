@@ -94,6 +94,7 @@ class HandleInertiaRequests extends Middleware
             'features' => [
                 'capacitacion' => (bool) config('features.capacitacion'),
                 'recibos_colaborador' => (bool) config('features.recibos_colaborador'),
+                'documentos_laborales_colaborador' => (bool) config('features.documentos_laborales_colaborador'),
                 // Modulos de Desarrollo (etapa 6) aun no liberados: el sidebar
                 // los oculta hasta tener pantalla real (ver docs/FEATURE_FLAGS.md).
                 'evaluacion_desempeno' => (bool) config('features.evaluacion_desempeno'),

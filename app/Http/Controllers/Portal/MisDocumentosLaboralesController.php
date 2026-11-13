@@ -105,13 +105,22 @@ class MisDocumentosLaboralesController extends Controller
         $this->authorize('firmar', $documento);
         $request->validate(['acepto' => ['accepted']], ['acepto.accepted' => 'Confirma que leíste y aceptas el documento.']);
 
-        $this->flujo->firmarDigitalmente($documento, $request->user(), $request->validated('comentario'));
+        $documento = $this->flujo->firmarDigitalmente($documento, $request->user(), $request->validated('comentario'));
 
-        return back()->with('toast', ['type' => 'success', 'message' => 'Documento firmado digitalmente.']);
+        // Sin autoservicio documental, el documento ya firmado deja de estar
+        // a la vista del colaborador: regresa a su inicio, no a un 404.
+        $destino = $this->documentos->esVisibleParaTitular($this->colaboradorDe($request), $documento)
+            ? back()
+            : redirect()->route('portal.index');
+
+        return $destino->with('toast', ['type' => 'success', 'message' => 'Documento firmado digitalmente.']);
     }
 
     public function contratos(Request $request): Response
     {
+        // El contrato se entrega impreso y firmado (config('features.documentos_laborales_colaborador')).
+        abort_unless((bool) config('features.documentos_laborales_colaborador'), 404, 'Tu contrato te lo entrega Recursos Humanos impreso y firmado.');
+
         $usuario = $request->user();
 
         return Inertia::render('Portal/MisContratos', [

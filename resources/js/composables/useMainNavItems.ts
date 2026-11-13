@@ -204,18 +204,21 @@ export function useMainNavItems() {
                 href: miExpediente(),
                 icon: FolderOpen,
             },
-            // Documentos laborales (consulta y firma digital) y contratos:
-            // siempre los propios (MisDocumentosLaboralesController).
-            tieneColaboradorVinculado.value && {
-                title: 'Mis documentos laborales',
-                href: misDocumentosLaborales(),
-                icon: FileSignature,
-            },
-            tieneColaboradorVinculado.value && {
-                title: 'Mis contratos',
-                href: misContratos(),
-                icon: ScrollText,
-            },
+            // Documentos laborales y contratos propios: el colaborador recibe
+            // su copia física firmada, así que no hay acceso salvo que el
+            // backend lo encienda (config('features.documentos_laborales_colaborador')).
+            features.value.documentos_laborales_colaborador &&
+                tieneColaboradorVinculado.value && {
+                    title: 'Mis documentos laborales',
+                    href: misDocumentosLaborales(),
+                    icon: FileSignature,
+                },
+            features.value.documentos_laborales_colaborador &&
+                tieneColaboradorVinculado.value && {
+                    title: 'Mis contratos',
+                    href: misContratos(),
+                    icon: ScrollText,
+                },
             // Autoservicio propio: cualquiera con colaborador vinculado en Mi
             // espacio, sin importar su rol operativo (SolicitudInternaPolicy::create).
             (tieneColaboradorVinculado.value ||

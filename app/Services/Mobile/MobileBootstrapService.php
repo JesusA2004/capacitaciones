@@ -251,6 +251,11 @@ class MobileBootstrapService
             // recibos" cuando llega false (utils/modules.ts), incluso en
             // versiones ya instaladas.
             'recibos' => (bool) config('features.recibos_colaborador'),
+            // «Mis documentos laborales» y «Mis contratos»: apagados — el
+            // colaborador recibe su copia física firmada. La app ya instalada
+            // oculta ambos módulos cuando llega false (utils/modules.ts).
+            'documentos_laborales' => (bool) config('features.documentos_laborales_colaborador'),
+            'contratos' => (bool) config('features.documentos_laborales_colaborador'),
             // Directorio: quien tiene `directorio.ver` o es de Corporativo
             // (los gestores no). La app oculta el módulo cuando llega false.
             'directorio' => app(DirectorioColaboradoresService::class)->puedeEntrar($usuario),

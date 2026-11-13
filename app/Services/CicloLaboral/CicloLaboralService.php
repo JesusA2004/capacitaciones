@@ -900,7 +900,7 @@ class CicloLaboralService
             $pendientes[] = [
                 'clave' => 'firmar_documentos',
                 'titulo' => $porFirmar->count() === 1 ? 'Firma un documento' : sprintf('Firma %d documentos', $porFirmar->count()),
-                'descripcion' => 'Revísalos con calma y fírmalos en «Mis documentos laborales».',
+                'descripcion' => 'Revísalos con calma y fírmalos.',
                 'tipo' => 'accion',
                 'accion' => ['etiqueta' => 'Revisar y firmar', 'href' => route('portal.documentos-laborales.index', ['estado' => 'pendientes_firma']), 'app' => 'documentos-laborales'],
                 'detalle' => array_values($porFirmar->map(fn (GeneratedDocument $d) => (string) ($d->titulo ?? 'Documento'))->all()),

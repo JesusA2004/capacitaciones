@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { Head, useForm } from '@inertiajs/vue3';
-import { ArrowRight, Eye } from '@lucide/vue';
+import { ArrowRight, Eye, History } from '@lucide/vue';
+import { ref, watch } from 'vue';
 import FormularioInduccion from '@/components/formularios-evaluacion/FormularioInduccion.vue';
 import InputError from '@/components/InputError.vue';
 import { Button } from '@/components/ui/button';
@@ -57,12 +58,105 @@ const form = useForm<{
     },
 });
 
+/*
+ * Borrador en este navegador: cada respuesta se guarda al momento, así una
+ * sesión vencida, una recarga o un corte de red nunca borran lo contestado.
+ * Se elimina al enviar la evaluación. La vista previa de RH no guarda nada.
+ */
+const claveBorrador =
+    props.vistaPrevia || props.evaluacionId === null
+        ? null
+        : `people:evaluacion-induccion:${props.evaluacionId}`;
+const borradorRecuperado = ref(false);
+
+function esObjeto(valor: unknown): valor is Record<string, unknown> {
+    return typeof valor === 'object' && valor !== null && !Array.isArray(valor);
+}
+
+function recuperarBorrador(): void {
+    if (claveBorrador === null) {
+        return;
+    }
+
+    try {
+        const guardado: unknown = JSON.parse(
+            window.localStorage.getItem(claveBorrador) ?? 'null',
+        );
+
+        if (!esObjeto(guardado)) {
+            return;
+        }
+
+        if (esObjeto(guardado.respuestas)) {
+            form.respuestas = {
+                ...form.respuestas,
+                ...(guardado.respuestas as InduccionRespuestas),
+            };
+        }
+
+        if (esObjeto(guardado.opinion)) {
+            form.opinion = {
+                ...form.opinion,
+                ...(guardado.opinion as Record<string, number | string | null>),
+            };
+        }
+
+        borradorRecuperado.value = true;
+    } catch {
+        // Borrador ilegible o almacenamiento bloqueado: se empieza en blanco.
+    }
+}
+
+function borrarBorrador(): void {
+    if (claveBorrador === null) {
+        return;
+    }
+
+    try {
+        window.localStorage.removeItem(claveBorrador);
+    } catch {
+        // Sin almacenamiento local no hay nada que borrar.
+    }
+}
+
+recuperarBorrador();
+
+watch(
+    () => [form.respuestas, form.opinion],
+    () => {
+        if (claveBorrador === null) {
+            return;
+        }
+
+        try {
+            window.localStorage.setItem(
+                claveBorrador,
+                JSON.stringify({
+                    respuestas: form.respuestas,
+                    opinion: form.opinion,
+                }),
+            );
+        } catch {
+            // Modo privado / almacenamiento lleno: la evaluación sigue en pantalla.
+        }
+    },
+    { deep: true },
+);
+
 function enviar() {
     if (props.vistaPrevia || props.evaluacionId === null) {
         return;
     }
 
-    form.post(presentar.url(props.evaluacionId), { preserveScroll: true });
+    form.post(presentar.url(props.evaluacionId), {
+        preserveScroll: true,
+        onSuccess: (pagina) => {
+            // Solo si de verdad salió de la evaluación (un 419 regresa aquí).
+            if (pagina.component !== 'Portal/EvaluacionInduccion') {
+                borrarBorrador();
+            }
+        },
+    });
 }
 </script>
 
@@ -80,6 +174,19 @@ function enviar() {
                 <strong>Vista previa — así lo verá el colaborador.</strong>
                 Puedes marcar respuestas para probarla, pero no se envía ni se
                 guarda nada.
+            </p>
+        </div>
+
+        <div
+            v-if="borradorRecuperado"
+            role="status"
+            class="mb-4 flex items-start gap-3 rounded-2xl border bg-success-soft px-4 py-3 text-sm shadow-sm"
+        >
+            <History class="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            <p>
+                <strong>Recuperamos tus respuestas.</strong>
+                Lo que ya habías contestado en este equipo sigue aquí: revisa y
+                envía tu evaluación cuando termines.
             </p>
         </div>
 

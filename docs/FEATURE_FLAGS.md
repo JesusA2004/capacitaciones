@@ -29,6 +29,19 @@ Activa la identidad y navegación de Portal RH (fase actual, ver `docs/PORTAL_RH
 - No se le envía aviso/push al emitir.
 - RH (`nomina.recibos.ver`, `documentos_laborales.ver`) los sigue viendo y descargando igual.
 
+## `documentos_laborales_colaborador`
+
+`DOCUMENTOS_LABORALES_COLABORADOR_ENABLED` (por defecto `false`). Decisión de negocio (2026-11-13): el colaborador recibe su **copia física firmada**; el PDF del sistema no trae firmas y no debe consultarlo. Con `false`:
+
+- Desaparecen «Mis documentos laborales» y «Mis contratos» del menú y de «Mi inicio» (web), y de la app (`mobile/bootstrap` manda `features.documentos_laborales = false` y `features.contratos = false`, también en APKs ya instaladas).
+- El colaborador no ve, no abre ni descarga sus documentos generados ni sus contratos (`GeneratedDocumentPolicy`, `DocumentoLaboralConsultaService`): web 404, API 403; `GET /mis-contratos` responde 404 y `GET /api/v1/colaborador/contratos` una lista vacía.
+- **Única excepción**: un documento que RH mandó a **firma digital** sigue abierto para él mientras esté pendiente de su firma (lo abre desde su pendiente «Firma un documento») y deja de verlo al firmar.
+- RH no cambia: sigue viendo, descargando y operando todo.
+
+## Duración de la sesión web
+
+`SESSION_LIFETIME` (minutos sin actividad; por defecto `720` = 12 horas, antes 120). El valor del `.env` del servidor manda sobre el default: al desplegar hay que poner `SESSION_LIFETIME=720` también en producción y correr `php artisan config:cache`. La evaluación de inducción guarda además un borrador en el navegador (`Portal/EvaluacionInduccion.vue`), así que una sesión vencida ya no borra lo contestado.
+
 ## `bloqueo_expediente_incompleto`
 
 `BLOQUEO_EXPEDIENTE_INCOMPLETO` (por defecto `true`). «Modo completar expediente» de la app. La regla vive en `App\Services\Expedientes\ExpedienteIncompletoService::estado()`:

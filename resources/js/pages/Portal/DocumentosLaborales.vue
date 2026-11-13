@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import { ChevronRight, FileCheck2, FileSignature, FileText } from '@lucide/vue';
+import { computed } from 'vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
@@ -34,6 +35,16 @@ defineOptions({
     },
 });
 
+// Sin autoservicio documental (features.documentos_laborales_colaborador)
+// aquí solo llega lo pendiente de firma digital: sin «Todos» ni contratos.
+const page = usePage();
+const autoservicio = computed(
+    () => page.props.features.documentos_laborales_colaborador,
+);
+const titulo = computed(() =>
+    autoservicio.value ? 'Mis documentos laborales' : 'Documentos por firmar',
+);
+
 const pestana = (activa: boolean) =>
     cn(
         'inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium transicion-ui',
@@ -44,16 +55,20 @@ const pestana = (activa: boolean) =>
 </script>
 
 <template>
-    <Head title="Mis documentos laborales" />
+    <Head :title="titulo" />
 
     <div class="pagina-ancha flex flex-col gap-5">
         <CrudPageHeader
-            titulo="Mis documentos laborales"
-            descripcion="Consulta, descarga y firma tus documentos."
+            :titulo="titulo"
+            :descripcion="
+                autoservicio
+                    ? 'Consulta, descarga y firma tus documentos.'
+                    : 'Revisa y firma los documentos que Recursos Humanos te envió.'
+            "
             :icono="FileText"
         />
 
-        <div class="flex flex-wrap items-center gap-2">
+        <div v-if="autoservicio" class="flex flex-wrap items-center gap-2">
             <Link :href="rutaIndex()" :class="pestana(filtro === null)">
                 Todos
             </Link>
@@ -78,9 +93,9 @@ const pestana = (activa: boolean) =>
 
         <EmptyState
             v-if="documentos.data.length === 0"
-            :icono="filtro ? FileCheck2 : FileText"
+            :icono="filtro || !autoservicio ? FileCheck2 : FileText"
             :titulo="
-                filtro
+                filtro || !autoservicio
                     ? 'No tienes documentos por firmar'
                     : 'Todavía no hay documentos'
             "

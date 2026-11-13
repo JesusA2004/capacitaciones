@@ -147,6 +147,13 @@ class CicloLaboralColaboradorController extends Controller
     {
         $colaborador = $this->colaborador($request);
 
+        // El contrato se entrega impreso y firmado: sin autoservicio la lista
+        // llega vacía (compatible con apps ya instaladas; el módulo se oculta
+        // con features.contratos=false del bootstrap).
+        if (! config('features.documentos_laborales_colaborador')) {
+            return response()->json(['data' => []]);
+        }
+
         return response()->json(['data' => $colaborador->contratos()->with('documento')->get()->map(fn (ContratoLaboral $c) => $this->contratos->aArray($c, $request->user()))->values()]);
     }
 

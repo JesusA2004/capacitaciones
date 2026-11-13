@@ -174,7 +174,15 @@ class GeneratedDocumentPolicy
             return ! config('features.recibos_colaborador');
         }
 
-        return $documento->categoria === CategoriaDocumento::BajaFiniquito;
+        if ($documento->categoria === CategoriaDocumento::BajaFiniquito) {
+            return true;
+        }
+
+        // Sin autoservicio documental el colaborador recibe su copia física:
+        // solo abre lo que tiene pendiente de su firma digital
+        // (config('features.documentos_laborales_colaborador')).
+        return ! config('features.documentos_laborales_colaborador')
+            && $documento->estado_flujo !== EstadoFlujoDocumento::PendienteFirmaColaborador;
     }
 
     /**

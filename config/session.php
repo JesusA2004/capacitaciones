@@ -32,7 +32,9 @@ return [
     |
     */
 
-    'lifetime' => (int) env('SESSION_LIFETIME', 120),
+    // 12 horas sin actividad (una jornada completa): con 2 horas la sesión
+    // se cerraba a media captura de un formulario largo y se perdía todo.
+    'lifetime' => (int) env('SESSION_LIFETIME', 720),
 
     'expire_on_close' => env('SESSION_EXPIRE_ON_CLOSE', false),
 

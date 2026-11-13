@@ -22,6 +22,8 @@ declare module '@inertiajs/core' {
             features: {
                 capacitacion: boolean;
                 recibos_colaborador: boolean;
+                /** «Mis documentos laborales» y «Mis contratos» del colaborador (apagado: copia física). */
+                documentos_laborales_colaborador: boolean;
                 // Módulos de Desarrollo (etapa 6) aún no liberados: se ocultan
                 // del menú hasta tener ruta + pantalla reales (no pantallas
                 // falsas, ver docs/ROLES_Y_NAVEGACION.md §Desarrollo).

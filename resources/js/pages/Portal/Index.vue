@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, usePage } from '@inertiajs/vue3';
 import {
     ArrowRight,
     Bell,
@@ -94,6 +94,7 @@ const urlCompletarDatos = indexSolicitudes.url({
 });
 
 const { tienePermiso } = usePermisos();
+const page = usePage();
 
 const accesos = computed(() => [
     {
@@ -115,14 +116,19 @@ const accesos = computed(() => [
               },
           ]
         : []),
-    // Documentos laborales propios: consulta, descarga y firma digital.
-    {
-        href: misDocumentosLaborales().url,
-        icono: FileSignature,
-        color: 'bg-[var(--mrl-primary)]/10 text-[var(--mrl-primary)] group-hover:bg-[var(--mrl-primary)] group-hover:text-white',
-        titulo: 'Mis documentos laborales',
-        descripcion: 'Contratos y documentos por firmar',
-    },
+    // Documentos laborales propios: solo con el autoservicio encendido
+    // (features.documentos_laborales_colaborador); se entregan impresos.
+    ...(page.props.features.documentos_laborales_colaborador
+        ? [
+              {
+                  href: misDocumentosLaborales().url,
+                  icono: FileSignature,
+                  color: 'bg-[var(--mrl-primary)]/10 text-[var(--mrl-primary)] group-hover:bg-[var(--mrl-primary)] group-hover:text-white',
+                  titulo: 'Mis documentos laborales',
+                  descripcion: 'Contratos y documentos por firmar',
+              },
+          ]
+        : []),
     {
         href: indexSolicitudes().url,
         icono: CalendarDays,
@@ -198,13 +204,13 @@ const enlace =
                 </div>
                 <Link
                     :href="indexNotificaciones()"
-                    class="flex size-12 shrink-0 items-center justify-center rounded-full bg-card text-primary shadow-sm ring-1 ring-border/60 transicion-ui hover:scale-105 hover:ring-oro/60 active:scale-95 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none max-sm:absolute max-sm:top-0 max-sm:right-0 sm:relative"
+                    class="flex size-12 shrink-0 items-center justify-center rounded-full bg-card text-primary shadow-sm ring-1 ring-border/60 transicion-ui hover:scale-105 hover:ring-oro/60 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none active:scale-95 max-sm:absolute max-sm:top-0 max-sm:right-0 sm:relative"
                     :aria-label="`Notificaciones (${notificaciones.no_leidas} sin leer)`"
                 >
                     <Bell class="size-5" aria-hidden="true" />
                     <span
                         v-if="notificaciones.no_leidas > 0"
-                        class="absolute -top-1 -right-1 flex h-5 min-w-5 aparece-zoom items-center px-1 justify-center rounded-full bg-[var(--mrl-danger)] text-[10px] font-bold text-white"
+                        class="absolute -top-1 -right-1 flex h-5 min-w-5 aparece-zoom items-center justify-center rounded-full bg-[var(--mrl-danger)] px-1 text-[10px] font-bold text-white"
                     >
                         {{
                             notificaciones.no_leidas > 99
@@ -283,7 +289,7 @@ const enlace =
                         </p>
                     </div>
                     <span
-                        class="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--mrl-primary)] icono-avanza text-white"
+                        class="flex size-9 shrink-0 icono-avanza items-center justify-center rounded-full bg-[var(--mrl-primary)] text-white"
                     >
                         <ArrowRight class="size-4" aria-hidden="true" />
                     </span>

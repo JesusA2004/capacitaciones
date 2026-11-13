@@ -84,9 +84,8 @@ function sbColaborador(): array
     return [
         'Mi inicio' => [[], 'portal.index'],
         'Mi expediente' => [['expedientes.ver'], 'mi-expediente'],
-        // Siempre los propios: toda cuenta con colaborador vinculado.
-        'Mis documentos laborales' => [[], 'portal.documentos-laborales.index'],
-        'Mis contratos' => [[], 'portal.contratos'],
+        // «Mis documentos laborales» y «Mis contratos» ya no están en el menú:
+        // features.documentos_laborales_colaborador (apagado, copia física).
         'Mis solicitudes' => [['portal.solicitudes.ver', 'solicitudes.crear'], 'solicitudes.index'],
         'Mis notificaciones' => [[], 'portal.notificaciones'],
         'Mi inducción' => [[], 'portal.induccion.ver'],

@@ -69,6 +69,19 @@ return [
     'recibos_colaborador' => env('RECIBOS_COLABORADOR_ENABLED', false),
 
     /*
+    | Documentos laborales y contratos en autoservicio (Mi espacio web y app:
+    | «Mis documentos laborales» y «Mis contratos»). Apagado por decisión de
+    | negocio (2026-11-13): el colaborador recibe su copia FÍSICA firmada; el
+    | PDF del sistema no trae firmas y no debe consultarlo. Con false el
+    | colaborador no ve, no abre ni descarga sus documentos generados ni sus
+    | contratos, y los dos accesos desaparecen del menú (web y app). Única
+    | excepción: un documento que RH le mandó a FIRMA DIGITAL sigue abierto
+    | para él mientras esté pendiente de su firma (tiene que leerlo para
+    | firmarlo) y deja de verlo al firmar. RH no cambia: sigue viendo todo.
+    */
+    'documentos_laborales_colaborador' => (bool) env('DOCUMENTOS_LABORALES_COLABORADOR_ENABLED', false),
+
+    /*
     | Modulos de la etapa 6 (Desarrollo) que todavia NO tienen pantalla real.
     | Apagados por defecto: el sidebar no muestra accesos falsos (ver
     | docs/ROLES_Y_NAVEGACION.md y docs/FEATURE_FLAGS.md). Al construir cada
