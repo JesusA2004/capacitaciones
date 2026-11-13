@@ -638,7 +638,7 @@ const opcionesTipo = [
                     {{ seleccion.length }} seleccionado(s) ·
                     <button
                         type="button"
-                        class="text-primary underline"
+                        class="enlace-animado text-primary"
                         @click="seleccion = []"
                     >
                         quitar selección
@@ -710,7 +710,7 @@ const opcionesTipo = [
                                                     recibo.colaborador
                                                         .expediente_url
                                                 "
-                                                class="hover:underline"
+                                                class="enlace-animado"
                                                 >{{
                                                     recibo.colaborador.nombre
                                                 }}</Link

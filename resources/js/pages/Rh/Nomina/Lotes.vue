@@ -13,6 +13,7 @@ import {
     Wallet,
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
+import Casilla from '@/components/Common/Casilla.vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import MetricCard from '@/components/Common/MetricCard.vue';
@@ -431,14 +432,15 @@ function crear() {
                         <label
                             v-for="sucursal in sucursalesSemanal"
                             :key="sucursal.id"
-                            class="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/60"
+                            class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/60"
                         >
-                            <input
-                                type="checkbox"
-                                :checked="
+                            <Casilla
+                                :model-value="
                                     form.sucursal_ids.includes(sucursal.id)
                                 "
-                                @change="alternarSucursal(sucursal.id)"
+                                @update:model-value="
+                                    alternarSucursal(sucursal.id)
+                                "
                             />
                             {{ sucursal.nombre }}
                         </label>
