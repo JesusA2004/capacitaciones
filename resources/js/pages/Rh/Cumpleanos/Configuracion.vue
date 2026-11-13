@@ -215,7 +215,9 @@ function eliminarFrase() {
                     size="sm"
                     :disabled="formFondo.processing"
                 >
-                    <label class="cursor-pointer">
+                    <label
+                        class="cursor-pointer focus-within:ring-2 focus-within:ring-ring"
+                    >
                         <Spinner v-if="formFondo.processing" />
                         <Upload v-else class="size-4" />
                         {{ tieneFondo ? 'Reemplazar fondo' : 'Subir fondo' }}

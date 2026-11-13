@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { Cake, MessageCircleHeart, PartyPopper } from '@lucide/vue';
+import {
+    Cake,
+    ChevronRight,
+    MessageCircleHeart,
+    PartyPopper,
+} from '@lucide/vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -91,13 +96,13 @@ function estado(c: CelebracionMuro): string {
 
         <div
             v-else
-            class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
+            class="grid entrada-escalonada gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4"
         >
             <Link
                 v-for="c in celebraciones"
                 :key="c.id"
                 :href="c.url"
-                class="group flex flex-col gap-4 rounded-2xl border border-border/60 bg-card p-5 transition hover:border-primary/50 hover:shadow-md"
+                class="group flex tarjeta-interactiva flex-col gap-4 rounded-2xl border border-border/60 bg-card p-5 shadow-sm"
             >
                 <div class="flex items-center justify-between gap-2">
                     <span
@@ -142,10 +147,14 @@ function estado(c: CelebracionMuro): string {
                 <p class="text-sm">{{ c.titulo }}</p>
 
                 <div
-                    class="mt-auto flex items-center gap-2 text-sm font-medium text-primary group-hover:underline"
+                    class="mt-auto flex items-center gap-2 text-sm font-medium text-primary"
                 >
-                    <MessageCircleHeart class="size-4" />
-                    {{ estado(c) }}
+                    <MessageCircleHeart class="size-4" aria-hidden="true" />
+                    <span class="min-w-0 flex-1">{{ estado(c) }}</span>
+                    <ChevronRight
+                        class="size-4 shrink-0 icono-avanza"
+                        aria-hidden="true"
+                    />
                 </div>
             </Link>
         </div>

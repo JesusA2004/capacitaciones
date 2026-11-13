@@ -197,10 +197,12 @@ function navegar({ anio, mes, filtros: f, rango }: NavegacionCelebraciones) {
         <template #dialogo="{ evento }">
             <Link
                 :href="felicitacion.url(evento.colaborador_id)"
-                class="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                class="inline-flex min-h-9 items-center gap-1.5 text-sm text-primary"
             >
-                <PenLine class="size-4" />
-                Elegir otra frase para esta tarjeta
+                <PenLine class="size-4" aria-hidden="true" />
+                <span class="enlace-animado"
+                    >Elegir otra frase para esta tarjeta</span
+                >
             </Link>
         </template>
     </CelebracionesPanel>

@@ -162,7 +162,7 @@ function enviar() {
                     <code>{nombre}</code> y <code>{sucursal}</code>.
                     <button
                         type="button"
-                        class="ml-1 text-primary underline"
+                        class="ml-1 rounded-sm enlace-animado py-1 font-medium text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                         @click="form.mensaje = mensajePredeterminado"
                     >
                         Restaurar predeterminado

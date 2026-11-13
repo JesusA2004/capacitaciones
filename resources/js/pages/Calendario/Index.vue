@@ -84,32 +84,48 @@ function abrirEvento(evento: EventoCalendarioItem) {
 <template>
     <Head title="Calendario" />
 
-    <div class="flex flex-col gap-6 p-4">
-        <div class="flex items-center justify-between">
+    <div class="pagina-ancha flex flex-col gap-6">
+        <div class="flex flex-wrap items-center justify-between gap-3">
             <Heading
                 title="Calendario"
                 description="Fechas límite y sesiones en vivo próximas"
             />
             <div class="flex items-center gap-2">
-                <Button variant="outline" size="icon" @click="mesAnterior">
-                    <ChevronLeft class="size-4" />
+                <Button
+                    variant="outline"
+                    size="icon"
+                    class="size-10"
+                    aria-label="Mes anterior"
+                    @click="mesAnterior"
+                >
+                    <ChevronLeft class="size-4" aria-hidden="true" />
                 </Button>
-                <span class="w-36 text-center text-sm font-medium capitalize">
+                <span
+                    class="w-36 text-center text-sm font-medium capitalize"
+                    aria-live="polite"
+                >
                     {{ nombreMes }}
                 </span>
-                <Button variant="outline" size="icon" @click="mesSiguiente">
-                    <ChevronRight class="size-4" />
+                <Button
+                    variant="outline"
+                    size="icon"
+                    class="size-10"
+                    aria-label="Mes siguiente"
+                    @click="mesSiguiente"
+                >
+                    <ChevronRight class="size-4" aria-hidden="true" />
                 </Button>
             </div>
         </div>
 
         <div
-            class="grid grid-cols-7 gap-px overflow-hidden rounded-lg border bg-border text-xs"
+            :key="nombreMes"
+            class="grid entrada-suave grid-cols-7 gap-px overflow-hidden rounded-2xl border bg-border text-xs"
         >
             <div
                 v-for="dia in diasSemana"
                 :key="dia"
-                class="bg-muted/50 px-2 py-1 text-center font-medium"
+                class="bg-crema px-1 py-1.5 text-center font-medium text-bronce sm:px-2"
             >
                 {{ dia }}
             </div>
@@ -117,7 +133,7 @@ function abrirEvento(evento: EventoCalendarioItem) {
             <div
                 v-for="dia in diasDelMes"
                 :key="dia.toISOString()"
-                class="min-h-24 bg-background p-1.5"
+                class="min-h-16 min-w-0 bg-card p-1 sm:min-h-24 sm:p-1.5"
                 :class="{ 'opacity-40': !isSameMonth(dia, mesActual) }"
             >
                 <span
@@ -134,7 +150,8 @@ function abrirEvento(evento: EventoCalendarioItem) {
                         v-for="evento in eventosDelDia(dia)"
                         :key="evento.id"
                         type="button"
-                        class="block w-full text-left"
+                        class="block w-full presionable rounded-md text-left focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                        :title="evento.titulo"
                         @click="abrirEvento(evento)"
                     >
                         <Badge

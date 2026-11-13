@@ -11,6 +11,7 @@ import {
 } from '@lucide/vue';
 import { computed, ref } from 'vue';
 import AccionesCelebracionHoy from '@/components/Celebraciones/AccionesCelebracionHoy.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import InputError from '@/components/InputError.vue';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -271,12 +272,14 @@ function fecha(valor: string): string {
                 v-else-if="celebracion.mi_mensaje"
                 class="flex flex-col gap-2 rounded-2xl border p-4"
             >
-                <p class="text-sm font-medium">Ya enviaste tu felicitación.</p>
+                <p class="text-sm font-medium text-success">
+                    Ya enviaste tu felicitación.
+                </p>
                 <template v-if="!editando">
                     <p class="text-sm whitespace-pre-line">
                         {{ celebracion.mi_mensaje.mensaje }}
                     </p>
-                    <div class="flex gap-2">
+                    <div class="flex flex-wrap gap-2">
                         <Button
                             v-if="celebracion.mi_mensaje.puede_editar"
                             size="sm"
@@ -343,16 +346,17 @@ function fecha(valor: string): string {
                     }}
                     ({{ celebracion.mensajes_count ?? mensajes.length }})
                 </h2>
-                <p
+                <EmptyState
                     v-if="otrosMensajes.length === 0"
-                    class="text-sm text-muted-foreground"
-                >
-                    Aún no hay mensajes.
-                </p>
+                    :icono="MessageCircleHeart"
+                    titulo="Aún no hay mensajes"
+                    descripcion="Las felicitaciones aparecerán aquí conforme lleguen."
+                    class="rounded-2xl border border-dashed border-border/60 !py-8"
+                />
                 <article
                     v-for="m in otrosMensajes"
                     :key="m.id"
-                    class="flex gap-3 rounded-2xl border p-3"
+                    class="flex entrada-suave gap-3 rounded-2xl border bg-card p-3"
                 >
                     <Avatar
                         class="size-12 shrink-0 shadow-sm ring-2 ring-background"
@@ -384,7 +388,7 @@ function fecha(valor: string): string {
                             v-if="m.foto_url"
                             :src="m.foto_url"
                             alt="Foto de la felicitación"
-                            class="mt-2 max-h-64 rounded-lg border"
+                            class="mt-2 max-h-64 max-w-full rounded-lg border"
                         />
                         <p class="mt-1 text-xs text-muted-foreground">
                             {{ fecha(m.creado_en)
@@ -400,7 +404,7 @@ function fecha(valor: string): string {
                         aria-label="Eliminar mensaje"
                         @click="eliminar(m)"
                     >
-                        <Trash2 class="size-4" />
+                        <Trash2 class="size-4" aria-hidden="true" />
                     </Button>
                 </article>
             </div>
