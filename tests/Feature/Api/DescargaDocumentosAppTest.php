@@ -34,6 +34,7 @@ beforeEach(function () {
 });
 
 test('L: el PDF de un documento laboral se descarga autenticado — sin token 401, el titular 200 application/pdf sin redirigir al NAS', function () {
+$L
     Sanctum::actingAs($this->rh);
     clPlantilla('contrato_confidencialidad');
     $id = $this->postJson("/api/v1/rh/colaboradores/{$this->colaborador->id}/documentos-laborales", ['clave' => 'contrato_confidencialidad'])

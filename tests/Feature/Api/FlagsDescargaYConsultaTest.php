@@ -62,6 +62,7 @@ function fdSoloConsultaContratos(): User
 }
 
 test('el titular recibe puede_descargar y sin bandera en el listado RH no se manda', function () {
+$L
     $documento = fdDocumento($this->persona);
 
     Sanctum::actingAs($this->titular);

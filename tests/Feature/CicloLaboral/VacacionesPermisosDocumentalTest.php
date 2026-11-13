@@ -22,6 +22,7 @@ beforeEach(function () {
 });
 
 test('aprobar vacaciones genera el comprobante PDF archivado en el expediente y resuelve el pendiente', function () {
+$L
     Sanctum::actingAs($this->cuenta);
     $id = $this->postJson('/api/v1/solicitudes', [
         'tipo' => 'vacaciones',
