@@ -688,7 +688,7 @@ async function cerrarActa() {
                                 "
                                 target="_blank"
                                 rel="noopener"
-                                class="inline-flex items-center gap-1.5 text-[var(--mrl-petroleo)] hover:underline"
+                                class="inline-flex items-center gap-1.5 enlace-animado text-[var(--mrl-petroleo)]"
                             >
                                 <Paperclip class="size-4" /> {{ a.nombre }}
                             </a>
@@ -785,7 +785,7 @@ async function cerrarActa() {
 
         <Link
             :href="index()"
-            class="text-sm text-[var(--mrl-petroleo)] hover:underline"
+            class="self-start enlace-animado text-sm text-[var(--mrl-petroleo)]"
         >
             ← Volver a actas
         </Link>

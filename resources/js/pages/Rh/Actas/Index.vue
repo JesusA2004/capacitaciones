@@ -5,6 +5,7 @@ import { computed, ref } from 'vue';
 import ActaCircunstanciadaCampos from '@/components/actas/ActaCircunstanciadaCampos.vue';
 import ActaPasos from '@/components/actas/ActaPasos.vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
+import EmptyState from '@/components/Common/EmptyState.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
@@ -191,15 +192,15 @@ function levantar() {
         >
             <ul
                 v-if="actas.data.length"
-                class="divide-y divide-[var(--mrl-borde)]"
+                class="entrada-escalonada divide-y divide-[var(--mrl-borde)]"
             >
                 <li v-for="a in actas.data" :key="a.id">
                     <Link
                         :href="show.url(a.id)"
-                        class="flex tarjeta-interactiva flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3"
+                        class="group flex fila-interactiva flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3"
                     >
                         <span
-                            class="w-24 shrink-0 font-mono text-xs text-muted-foreground"
+                            class="shrink-0 font-mono text-xs text-muted-foreground sm:w-24"
                             >{{ a.folio }}</span
                         >
                         <ColaboradorAvatar
@@ -228,17 +229,17 @@ function levantar() {
                             >{{ a.estado_etiqueta }}</span
                         >
                         <ChevronRight
-                            class="size-4 shrink-0 text-muted-foreground"
+                            class="size-4 shrink-0 icono-avanza text-muted-foreground"
                         />
                     </Link>
                 </li>
             </ul>
-            <p
+            <EmptyState
                 v-else
-                class="px-4 py-10 text-center text-sm text-muted-foreground"
-            >
-                No hay actas con estos filtros.
-            </p>
+                :icono="FilePen"
+                titulo="No hay actas con estos filtros"
+                descripcion="Cambia el tipo o el estado para ver otras actas."
+            />
         </section>
 
         <PaginacionTabla :datos="actas" />
