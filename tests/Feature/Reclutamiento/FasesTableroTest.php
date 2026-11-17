@@ -17,6 +17,7 @@ use App\Models\SesionInduccionColaborador;
 use App\Models\User;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Reclutamiento\FaseContratadoService;
+use App\Services\Reclutamiento\IndicadoresCandidatosService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -249,4 +250,21 @@ test('el paso a paso de la ficha usa las mismas columnas: todo lo previo complet
     ftContratoIndeterminado($candidato);
     $final = collect(app(CicloLaboralService::class)->obtenerEstado($candidato->fresh())['pasos'])->pluck('estado', 'clave');
     expect($final->unique()->values()->all())->toBe(['completado']);
+});
+
+test('los indicadores del tablero no cuentan la plantilla histórica y respetan los filtros de organización', function () {
+    $this->seed(RolesYPermisosSeeder::class);
+    $estructura = clEstructura();
+    $rh = clUsuario('rh_admin', ['sucursal_principal_id' => $estructura['sucursal']->id]);
+    $base = ['empresa_id' => $estructura['empresa']->id, 'sucursal_id' => $estructura['sucursal']->id, 'estado' => EstadoCandidato::Recibidos];
+    Candidato::factory()->count(2)->create($base);
+    Candidato::factory()->create([...$base, 'historico' => true]);
+
+    $kpis = app(IndicadoresCandidatosService::class)->kpis($rh, []);
+    $otraSucursal = app(IndicadoresCandidatosService::class)->kpis($rh, ['sucursal_id' => $estructura['sucursal']->id + 999]);
+
+    expect($kpis['recibidos_periodo'])->toBe(2)
+        ->and($kpis['en_proceso'])->toBe(2)
+        ->and($kpis['tasa_conversion'])->toBe(0.0)
+        ->and($otraSucursal['recibidos_periodo'])->toBe(0);
 });

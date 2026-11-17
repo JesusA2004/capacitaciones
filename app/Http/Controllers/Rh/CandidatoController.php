@@ -34,14 +34,12 @@ use App\Models\PreguntaFiltroCandidato;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
-use App\Services\AlcanceOrganizacionalService;
 use App\Services\Bajas\AntecedenteBajaService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Flujos\SiguientePasoService;
 use App\Services\Notificaciones\AvisoAltaSistemasService;
 use App\Services\Puestos\PerfilPuestoService;
 use App\Services\Reaperturas\ReaperturaService;
-use App\Services\Reclutamiento\AprobadorEntrevistaService;
 use App\Services\Reclutamiento\BandejaCvService;
 use App\Services\Reclutamiento\CadenaContratacionService;
 use App\Services\Reclutamiento\CampanaReclutamientoService;
@@ -50,17 +48,16 @@ use App\Services\Reclutamiento\CandidatoWorkflowService;
 use App\Services\Reclutamiento\ContratacionCandidatoService;
 use App\Services\Reclutamiento\CvStorageService;
 use App\Services\Reclutamiento\ExpedienteCandidatoService;
+use App\Services\Reclutamiento\IndicadoresCandidatosService;
 use App\Services\Reclutamiento\IntervencionCandidatoService;
 use App\Services\Reclutamiento\PreguntasFiltroCandidatoService;
 use App\Services\Vacantes\VacantesListadoService;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
@@ -79,7 +76,6 @@ class CandidatoController extends Controller
     private const FILTROS = ['empresa_id', 'sucursal_id', 'departamento_id', 'puesto_objetivo_id', 'vacante_id', 'responsable_rh_id', 'fuente', 'busqueda', 'fecha_inicio', 'fecha_fin', 'historicos', 'mes'];
 
     public function __construct(
-        private readonly AlcanceOrganizacionalService $alcance,
         private readonly CvStorageService $cvStorage,
         private readonly CandidatoWorkflowService $workflow,
         private readonly ContratacionCandidatoService $contratacion,
@@ -92,8 +88,8 @@ class CandidatoController extends Controller
         private readonly BandejaCvService $bandejaCv,
         private readonly AntecedenteBajaService $antecedentes,
         private readonly CadenaContratacionService $cadena,
-        private readonly AprobadorEntrevistaService $aprobadorEntrevista,
         private readonly ReaperturaService $reaperturas,
+        private readonly IndicadoresCandidatosService $indicadores,
     ) {}
 
     public function index(Request $request): Response
@@ -132,67 +128,8 @@ class CandidatoController extends Controller
             'candidatos' => $candidatos,
             'filtros' => $request->only(self::FILTROS),
             'opciones' => $this->opciones($request->user()),
-            'kpis' => $this->kpis($request),
+            'kpis' => $this->indicadores->kpis($request->user(), $request->only(['empresa_id', 'sucursal_id', 'departamento_id', 'puesto_objetivo_id', 'fuente', 'mes'])),
         ]);
-    }
-
-    /**
-     * KPIs del header de Candidatos: recibidos en el periodo, en proceso,
-     * finalistas (esperando o con autorización de RH), contratados, tasa de
-     * conversión y tiempo promedio de contratación. Respeta alcance y filtros.
-     *
-     * @return array<string, int|float|null>
-     */
-    private function kpis(Request $request): array
-    {
-        $usuario = $request->user();
-        [$inicioPeriodo, $finPeriodo] = $this->rangoMes($request->string('mes')->toString());
-
-        $base = fn () => $this->aprobadorEntrevista
-            // La plantilla histórica no es reclutamiento: nunca cuenta en estos indicadores.
-            ->limitarCandidatos($this->alcance->limitarPorSucursal(Candidato::query()->where('historico', false), $usuario, 'sucursal_id', 'candidatos'), $usuario)
-            ->when($request->integer('empresa_id'), fn ($q, $v) => $q->where('empresa_id', $v))
-            ->when($request->integer('sucursal_id'), fn ($q, $v) => $q->where('sucursal_id', $v))
-            ->when($request->integer('departamento_id'), fn ($q, $v) => $q->where('departamento_id', $v))
-            ->when($request->integer('puesto_objetivo_id'), fn ($q, $v) => $q->where('puesto_objetivo_id', $v))
-            ->when($request->string('fuente')->toString(), fn ($q, string $v) => $q->where('fuente', $v));
-
-        $recibidosPeriodo = $base()->whereBetween('created_at', [$inicioPeriodo, $finPeriodo])->count();
-        $enProceso = $base()->whereIn('estado', array_map(fn (EstadoCandidato $e) => $e->value, EstadoCandidato::abiertos()))->count();
-        $finalistas = $base()->whereIn('estado', [EstadoCandidato::AutorizacionRhPendiente->value, EstadoCandidato::AutorizadoRh->value])->count();
-
-        $contratados = $base()
-            ->where('estado', EstadoCandidato::Contratado->value)
-            ->whereNotNull('contratado_en')
-            ->whereBetween('contratado_en', [$inicioPeriodo, $finPeriodo])
-            ->get(['id', 'created_at', 'contratado_en']);
-
-        $dias = $contratados
-            ->map(fn (Candidato $c) => $c->created_at !== null && $c->contratado_en !== null ? $c->created_at->diffInDays($c->contratado_en) : null)
-            ->filter(fn ($d) => $d !== null);
-
-        return [
-            'recibidos_periodo' => $recibidosPeriodo,
-            'en_proceso' => $enProceso,
-            'finalistas' => $finalistas,
-            'contratados_periodo' => $contratados->count(),
-            'tasa_conversion' => $recibidosPeriodo > 0 ? round($contratados->count() / $recibidosPeriodo, 4) : 0.0,
-            'tiempo_promedio_contratacion_dias' => $dias->isEmpty() ? null : round((float) $dias->avg(), 1),
-        ];
-    }
-
-    /**
-     * @return array{0: CarbonInterface, 1: CarbonInterface}
-     */
-    private function rangoMes(string $mes): array
-    {
-        if ($mes !== '' && preg_match('/^\d{4}-\d{2}$/', $mes) === 1) {
-            $inicio = Carbon::parse("{$mes}-01")->startOfDay();
-
-            return [$inicio, $inicio->copy()->endOfMonth()];
-        }
-
-        return [now()->startOfMonth(), now()->copy()->endOfMonth()];
     }
 
     public function exportarExcel(Request $request): HttpResponse
