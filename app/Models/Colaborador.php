@@ -314,6 +314,16 @@ class Colaborador extends Model
     }
 
     /**
+     * Evaluaciones técnicas del calendario de su puesto («Seguimiento N»).
+     *
+     * @return HasMany<EvaluacionTecnica, $this>
+     */
+    public function evaluacionesTecnicas(): HasMany
+    {
+        return $this->hasMany(EvaluacionTecnica::class);
+    }
+
+    /**
      * @return BelongsTo<Candidato, $this>
      */
     public function candidatoOrigen(): BelongsTo

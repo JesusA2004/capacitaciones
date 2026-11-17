@@ -1,5 +1,7 @@
 import type {
+    ContenidoFormularioTecnico,
     ContenidoPeriodoPrueba,
+    DefinicionTecnica,
     DefinicionInduccion,
     DefinicionPeriodoPrueba,
     DisenoFormulario,
@@ -191,6 +193,48 @@ export function contenidoPeriodoPrueba(
         un_uno_no_renueva: d.un_uno_no_renueva,
         comentario_obligatorio_hasta: d.comentario_obligatorio_hasta,
         comentario_si_filtro: d.comentario_si_filtro,
+    };
+}
+
+/** Puntos que da una pregunta técnica (las abiertas nunca suman). */
+export function puntosPreguntaTecnica(p: {
+    tipo: string;
+    puntos: number;
+}): number {
+    return p.tipo === 'respuesta_corta' || p.tipo === 'parrafo'
+        ? 0
+        : Number(p.puntos) || 0;
+}
+
+/**
+ * Vista previa del formulario técnico: el MISMO contenido que arma el
+ * servidor (DefinicionFormularioTecnicoService::contenidoPublico), sin las
+ * respuestas correctas.
+ */
+export function contenidoTecnico(
+    d: DefinicionTecnica,
+    meta: Metadatos,
+): ContenidoFormularioTecnico {
+    const preguntas = d.secciones.flatMap((s) => s.preguntas);
+
+    return {
+        ...meta,
+        secciones: d.secciones.map((s) => ({
+            ...s,
+            preguntas: s.preguntas.map((p) => {
+                const copia = { ...p };
+                delete copia.correctas;
+
+                return copia;
+            }),
+        })),
+        puntos_secciones: null,
+        mostrar_resultado: d.mostrar_resultado,
+        total_preguntas: preguntas.length,
+        total_puntos: preguntas.reduce(
+            (suma, p) => suma + puntosPreguntaTecnica(p),
+            0,
+        ),
     };
 }
 

@@ -50,6 +50,15 @@ Schedule::command('contratos:revisar-vencimientos')
     ->withoutOverlapping()
     ->onOneServer();
 
+// Evaluaciones técnicas por puesto (docs/EVALUACIONES_TECNICAS.md): genera
+// las «Seguimiento N» cuyo día desde el ingreso ya llegó y avisa a quien las
+// contesta. Idempotente (índice único colaborador + puesto + día).
+Schedule::command('evaluaciones-tecnicas:programar')
+    ->dailyAt('06:45')
+    ->timezone('America/Mexico_City')
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // «Préstamo disponible»: aviso único al colaborador que cumple la
 // antigüedad mínima (6 meses desde su ingreso, fecha del servidor).
 // Idempotente: nunca repite el aviso a la misma persona.

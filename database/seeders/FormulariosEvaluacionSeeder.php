@@ -17,7 +17,7 @@ class FormulariosEvaluacionSeeder extends Seeder
 {
     public function run(FormularioEvaluacionService $formularios): void
     {
-        foreach (ClaveFormularioEvaluacion::cases() as $clave) {
+        foreach (ClaveFormularioEvaluacion::fijas() as $clave) {
             $formularios->asegurarVersionInicial($clave);
         }
     }

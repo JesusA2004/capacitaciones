@@ -10,7 +10,9 @@ use App\Services\Evaluaciones\FormularioEvaluacionService;
 /**
  * Configurar los formularios de evaluación (inducción y periodo de prueba)
  * es de Recursos Humanos con `formularios_evaluacion.administrar`. Una
- * versión publicada nunca se edita: solo el borrador.
+ * versión publicada nunca se edita: solo el borrador. Los formularios
+ * técnicos («Seguimiento N») también los edita quien tiene
+ * evaluaciones_tecnicas.configurar.
  */
 class FormularioEvaluacionPolicy
 {
@@ -23,7 +25,7 @@ class FormularioEvaluacionPolicy
 
     public function view(User $usuario, FormularioEvaluacion $formulario): bool
     {
-        return $usuario->can(FormularioEvaluacionService::PERMISO_ADMINISTRAR);
+        return app(FormularioEvaluacionService::class)->puedeAdministrar($usuario, $formulario->clave);
     }
 
     public function create(User $usuario): bool
@@ -33,7 +35,7 @@ class FormularioEvaluacionPolicy
 
     public function update(User $usuario, FormularioEvaluacion $formulario): bool
     {
-        return $usuario->can(FormularioEvaluacionService::PERMISO_ADMINISTRAR) && $formulario->esBorrador();
+        return app(FormularioEvaluacionService::class)->puedeAdministrar($usuario, $formulario->clave) && $formulario->esBorrador();
     }
 
     public function publicar(User $usuario, FormularioEvaluacion $formulario): bool

@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Rh;
 use App\Enums\ClaveFormularioEvaluacion;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FormulariosEvaluacion\GuardarFormularioEvaluacionRequest;
+use App\Models\EvaluacionTecnica;
 use App\Models\FormularioEvaluacion;
+use App\Models\PlantillaEvaluacionTecnica;
 use App\Services\Evaluaciones\FormularioEvaluacionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -46,14 +48,38 @@ class FormularioEvaluacionController extends Controller
     public function version(FormularioEvaluacion $formulario): Response
     {
         $this->authorize('view', $formulario);
+        $plantilla = $formulario->plantillaTecnica;
 
         if ($formulario->esBorrador()) {
-            return $this->editar($formulario->clave);
+            return $plantilla !== null ? $this->editarTecnico(request(), $plantilla) : $this->editar($formulario->clave);
         }
 
-        $publicado = $this->formularios->publicado($formulario->clave) ?? $formulario;
+        $publicado = $this->formularios->publicado($formulario->clave, $plantilla) ?? $formulario;
 
-        return $this->pantalla($formulario->clave, $formulario, $publicado, true);
+        return $this->pantalla($formulario->clave, $formulario, $publicado, true, $plantilla);
+    }
+
+    /** Editor del formulario técnico de una plantilla («Seguimiento N»). */
+    public function editarTecnico(Request $request, PlantillaEvaluacionTecnica $plantilla): Response
+    {
+        $this->authorize('configurar', EvaluacionTecnica::class);
+
+        $borrador = $this->formularios->borrador(ClaveFormularioEvaluacion::Tecnica, $plantilla);
+        $publicado = $this->formularios->publicado(ClaveFormularioEvaluacion::Tecnica, $plantilla);
+        $formulario = $borrador ?? $publicado ?? $this->formularios->crearBorrador(ClaveFormularioEvaluacion::Tecnica, $request->user(), null, $plantilla);
+
+        return $this->pantalla(ClaveFormularioEvaluacion::Tecnica, $formulario, $publicado ?? $formulario, false, $plantilla);
+    }
+
+    public function crearBorradorTecnico(Request $request, PlantillaEvaluacionTecnica $plantilla): RedirectResponse
+    {
+        $this->authorize('configurar', EvaluacionTecnica::class);
+        $datos = $request->validate(['desde' => ['nullable', 'integer']]);
+        $base = isset($datos['desde']) ? FormularioEvaluacion::query()->where('id', (int) $datos['desde'])->first() : null;
+
+        $this->formularios->crearBorrador(ClaveFormularioEvaluacion::Tecnica, $request->user(), $base, $plantilla);
+
+        return to_route('evaluaciones-tecnicas.formularios.editar', $plantilla->id);
     }
 
     /** «Editar»: crea (o retoma) el borrador; con `desde`, restaura esa versión como borrador. */
@@ -81,7 +107,7 @@ class FormularioEvaluacionController extends Controller
         $this->authorize('publicar', $formulario);
         $publicado = $this->formularios->publicar($formulario, $request->user());
 
-        return to_route('rh.formularios-evaluacion.editar', $publicado->clave->value)->with('toast', [
+        return $this->volverAlEditor($publicado)->with('toast', [
             'type' => 'success',
             'message' => sprintf('Publicaste la versión %d. Las evaluaciones nuevas ya la usan; las que ya existen conservan su versión.', $publicado->version),
         ]);
@@ -90,10 +116,10 @@ class FormularioEvaluacionController extends Controller
     public function descartar(Request $request, FormularioEvaluacion $formulario): RedirectResponse
     {
         $this->authorize('update', $formulario);
-        $clave = $formulario->clave;
+        $destino = $this->volverAlEditor($formulario);
         $this->formularios->descartarBorrador($formulario, $request->user());
 
-        return to_route('rh.formularios-evaluacion.editar', $clave->value)->with('toast', ['type' => 'success', 'message' => 'Descartaste el borrador. El formulario vigente no cambió.']);
+        return $destino->with('toast', ['type' => 'success', 'message' => 'Descartaste el borrador. El formulario vigente no cambió.']);
     }
 
     public function subirBanner(Request $request, FormularioEvaluacion $formulario): RedirectResponse
@@ -126,17 +152,27 @@ class FormularioEvaluacionController extends Controller
         return back();
     }
 
-    private function pantalla(ClaveFormularioEvaluacion $clave, FormularioEvaluacion $formulario, FormularioEvaluacion $publicado, bool $soloLectura = false): Response
+    private function volverAlEditor(FormularioEvaluacion $formulario): RedirectResponse
+    {
+        return $formulario->plantilla_evaluacion_tecnica_id !== null
+            ? to_route('evaluaciones-tecnicas.formularios.editar', $formulario->plantilla_evaluacion_tecnica_id)
+            : to_route('rh.formularios-evaluacion.editar', $formulario->clave->value);
+    }
+
+    private function pantalla(ClaveFormularioEvaluacion $clave, FormularioEvaluacion $formulario, FormularioEvaluacion $publicado, bool $soloLectura = false, ?PlantillaEvaluacionTecnica $plantilla = null): Response
     {
         return Inertia::render('Rh/FormulariosEvaluacion/Editor', [
             'clave' => $clave->value,
-            'etiqueta' => $clave->etiqueta(),
+            'etiqueta' => $plantilla !== null ? $plantilla->nombre : $clave->etiqueta(),
             'descripcionModulo' => $clave->descripcion(),
+            // Formulario técnico: a qué plantilla pertenece (las rutas de
+            // editar/crear borrador son las de Evaluaciones técnicas).
+            'plantilla' => $plantilla !== null ? ['id' => $plantilla->id, 'nombre' => $plantilla->nombre] : null,
             'formulario' => $this->formularios->aArray($formulario, true),
             'publicado' => $this->formularios->aArray($publicado, false),
             'editable' => ! $soloLectura && $formulario->esBorrador(),
             'soloLectura' => $soloLectura,
-            'historial' => $this->formularios->historial($clave),
+            'historial' => $this->formularios->historial($clave, $plantilla),
             'opciones' => $this->formularios->opcionesDiseno(),
         ]);
     }

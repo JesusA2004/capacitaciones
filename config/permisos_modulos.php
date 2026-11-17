@@ -58,6 +58,21 @@ return [
             'alcances' => ['todos' => 'seguimiento.ver_todo', 'region' => 'seguimiento.ver_region', 'sucursal' => 'seguimiento.ver_sucursal'],
             'acciones' => ['seguimiento.vincular' => 'Vincular sucursales y gestores con Reportes'],
         ],
+        // Fase 2 «Seguimiento» (docs/EVALUACIONES_TECNICAS.md): evaluaciones
+        // técnicas por puesto («Seguimiento 15 / 30 / 60…»). El alcance acota
+        // a qué colaboradores ve/aplica cada quien (EvaluacionTecnicaService).
+        'evaluaciones_tecnicas' => [
+            'etiqueta' => 'Evaluaciones técnicas (Seguimiento por días)',
+            'grupo' => 'Reportes',
+            'etapa' => 'reportes',
+            'acceso' => 'evaluaciones_tecnicas.ver',
+            'alcances' => ['todos' => 'evaluaciones_tecnicas.ver_todos', 'region' => 'evaluaciones_tecnicas.ver_region', 'sucursal' => 'evaluaciones_tecnicas.ver_sucursal', 'equipo' => 'evaluaciones_tecnicas.ver_equipo'],
+            'descripcion' => 'Calendario de evaluaciones técnicas por puesto (Seguimiento 15, 30, 60…) desde la fecha de ingreso: se generan solas y las contesta el colaborador o su jefe directo.',
+            'acciones' => [
+                'evaluaciones_tecnicas.aplicar' => 'Contestar como evaluador (jefe directo) las evaluaciones de su equipo',
+                'evaluaciones_tecnicas.configurar' => 'Configurar el calendario por puesto y los formularios técnicos',
+            ],
+        ],
         'formatos' => [
             'etiqueta' => 'Formatos y plantillas',
             'grupo' => 'Contratación',

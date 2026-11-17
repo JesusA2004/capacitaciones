@@ -93,10 +93,15 @@ import { index as indexMuroFelicitaciones } from '@/routes/celebraciones';
 import { index as indexCursos } from '@/routes/cursos';
 import { index as indexDirectorio } from '@/routes/directorio';
 import { presentacion as presentacionInduccion } from '@/routes/induccion';
+import {
+    configuracion as configuracionEvaluacionesTecnicas,
+    index as indexEvaluacionesTecnicas,
+} from '@/routes/evaluaciones-tecnicas';
 import { index as indexMiCapacitacion } from '@/routes/mi-capacitacion';
 import { index as indexMultimedia } from '@/routes/multimedia';
 import {
     contratos as misContratos,
+    evaluacionesTecnicas as misEvaluacionesTecnicas,
     index as indexPortal,
     notificaciones as indexNotificacionesPortal,
     recibos as misRecibosNomina,
@@ -274,6 +279,13 @@ export function useMainNavItems() {
                 title: 'Mi capacitación',
                 href: indexMiCapacitacion(),
                 icon: BookOpenCheck,
+            },
+            // «Seguimiento 15 / 30 / 60…» que contesto (y las de mi equipo si
+            // soy jefe directo). Siempre la cuenta en sesión.
+            tieneColaboradorVinculado.value && {
+                title: 'Mis seguimientos técnicos',
+                href: misEvaluacionesTecnicas(),
+                icon: ListChecks,
             },
             {
                 title: 'Celebraciones',
@@ -848,6 +860,18 @@ export function useMainNavItems() {
                             href: indexSeguimientoGestores(),
                             icon: Users,
                         },
+                    // Evaluaciones técnicas por puesto «Seguimiento 15 / 30 / 60…»
+                    // (docs/EVALUACIONES_TECNICAS.md): no dependen de Reportes.
+                    tienePermiso('evaluaciones_tecnicas.ver') && {
+                        title: 'Seguimientos técnicos',
+                        href: indexEvaluacionesTecnicas(),
+                        icon: ListChecks,
+                    },
+                    tienePermiso('evaluaciones_tecnicas.configurar') && {
+                        title: 'Calendario de seguimientos',
+                        href: configuracionEvaluacionesTecnicas(),
+                        icon: Settings2,
+                    },
                     features.value.seguimiento &&
                         tienePermiso('seguimiento.vincular') && {
                             title: 'Vínculos con Reportes',

@@ -55,3 +55,4 @@ export * from './recepcionDocumental';
 export * from './sistemas';
 export * from './misDocumentos';
 export * from './seguimiento';
+export * from './evaluacionesTecnicas';

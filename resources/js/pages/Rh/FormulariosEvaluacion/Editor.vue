@@ -22,9 +22,11 @@ import { computed, reactive, ref, watch } from 'vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import EditorInduccion from '@/components/formularios-evaluacion/editor/EditorInduccion.vue';
 import EditorPeriodoPrueba from '@/components/formularios-evaluacion/editor/EditorPeriodoPrueba.vue';
+import EditorTecnico from '@/components/formularios-evaluacion/editor/EditorTecnico.vue';
 import EncabezadoFormulario from '@/components/formularios-evaluacion/EncabezadoFormulario.vue';
 import FormularioInduccion from '@/components/formularios-evaluacion/FormularioInduccion.vue';
 import FormularioPeriodoPrueba from '@/components/formularios-evaluacion/FormularioPeriodoPrueba.vue';
+import FormularioTecnico from '@/components/formularios-evaluacion/FormularioTecnico.vue';
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import { Button } from '@/components/ui/button';
 import {
@@ -40,12 +42,18 @@ import { formatearFechaHora } from '@/lib/fechas';
 import {
     contenidoPeriodoPrueba,
     contenidoPublicoInduccion,
+    contenidoTecnico,
     estiloAcento,
     tonoAcento,
     totalInduccion,
 } from '@/lib/formulariosEvaluacion';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
+import {
+    configuracion as configuracionTecnicas,
+    index as indexTecnicas,
+} from '@/routes/evaluaciones-tecnicas';
+import formulariosTecnicos from '@/routes/evaluaciones-tecnicas/formularios';
 import {
     borrador as crearBorrador,
     descartar,
@@ -60,10 +68,12 @@ import type {
     ClaveFormularioEvaluacion,
     DefinicionInduccion,
     DefinicionPeriodoPrueba,
+    DefinicionTecnica,
     DisenoFormulario,
     FormularioEvaluacionDetalle,
     InduccionRespuestas,
     OpcionesDisenoFormulario,
+    RespuestasTecnicas,
 } from '@/types';
 
 /**
@@ -83,15 +93,26 @@ const props = defineProps<{
     soloLectura: boolean;
     historial: FormularioEvaluacionDetalle[];
     opciones: OpcionesDisenoFormulario;
+    /** Formulario técnico («Seguimiento N»): su plantilla; null en los fijos. */
+    plantilla?: { id: number; nombre: string } | null;
 }>();
 
 defineOptions({
-    layout: (p: { etiqueta?: string }) => ({
-        breadcrumbs: [
-            { title: 'Inicio', href: dashboard() },
-            { title: 'Formularios de evaluación', href: index() },
-            { title: p.etiqueta ?? 'Editor', href: '' },
-        ],
+    layout: (p: { etiqueta?: string; clave?: string }) => ({
+        breadcrumbs:
+            p.clave === 'tecnica'
+                ? [
+                      { title: 'Inicio', href: dashboard() },
+                      { title: 'Seguimiento', href: '' },
+                      { title: 'Evaluaciones técnicas', href: indexTecnicas() },
+                      { title: 'Configuración', href: configuracionTecnicas() },
+                      { title: p.etiqueta ?? 'Formulario técnico', href: '' },
+                  ]
+                : [
+                      { title: 'Inicio', href: dashboard() },
+                      { title: 'Formularios de evaluación', href: index() },
+                      { title: p.etiqueta ?? 'Editor', href: '' },
+                  ],
     }),
 });
 
@@ -105,7 +126,7 @@ type Borrador = {
     descripcion: string;
     codigo: string;
     diseno: DisenoFormulario;
-    definicion: DefinicionInduccion | DefinicionPeriodoPrueba;
+    definicion: DefinicionInduccion | DefinicionPeriodoPrueba | DefinicionTecnica;
 };
 
 function desdeProps(): Borrador {
@@ -117,12 +138,31 @@ function desdeProps(): Borrador {
         codigo: f.codigo,
         diseno: f.diseno,
         definicion: f.definicion as
-            DefinicionInduccion | DefinicionPeriodoPrueba,
+            | DefinicionInduccion
+            | DefinicionPeriodoPrueba
+            | DefinicionTecnica,
     };
 }
 
 const local = reactive<Borrador>(desdeProps());
 const esInduccion = computed(() => props.clave === 'induccion');
+const esTecnica = computed(() => props.clave === 'tecnica');
+const defTecnica = computed({
+    get: () => local.definicion as DefinicionTecnica,
+    set: (v) => (local.definicion = v),
+});
+
+// Rutas del editor: las técnicas viven en Evaluaciones técnicas (por plantilla).
+const urlEditar = computed(() =>
+    esTecnica.value && props.plantilla
+        ? formulariosTecnicos.editar(props.plantilla.id)
+        : editar(props.clave),
+);
+const urlCrearBorrador = computed(() =>
+    esTecnica.value && props.plantilla
+        ? formulariosTecnicos.borrador.url(props.plantilla.id)
+        : crearBorrador.url(props.clave),
+);
 const defInduccion = computed({
     get: () => local.definicion as DefinicionInduccion,
     set: (v) => (local.definicion = v),
@@ -202,17 +242,23 @@ watch(
 
 // ---- Totales y problemas
 const totalPuntos = computed(() =>
-    esInduccion.value
-        ? totalInduccion(defInduccion.value)
-        : defPrueba.value.criterios.length * 4,
+    esTecnica.value
+        ? defTecnica.value.total_puntos
+        : esInduccion.value
+          ? totalInduccion(defInduccion.value)
+          : defPrueba.value.criterios.length * 4,
 );
 const minimo = computed(() =>
-    esInduccion.value
-        ? defInduccion.value.calificacion_aprobatoria
-        : defPrueba.value.total_minimo_renovar,
+    esTecnica.value
+        ? `${defTecnica.value.calificacion_aprobatoria} %`
+        : esInduccion.value
+          ? defInduccion.value.calificacion_aprobatoria
+          : defPrueba.value.total_minimo_renovar,
 );
 const porcentajeMinimo = computed(() =>
-    totalPuntos.value
+    esTecnica.value
+        ? Math.min(100, Number(defTecnica.value.calificacion_aprobatoria) || 0)
+        : totalPuntos.value
         ? Math.min(
               100,
               Math.round((Number(minimo.value) / totalPuntos.value) * 100),
@@ -237,6 +283,10 @@ const contenidoInduccion = computed(() =>
 const contenidoPrueba = computed(() =>
     contenidoPeriodoPrueba(defPrueba.value, meta.value),
 );
+const contenidoTec = computed(() =>
+    contenidoTecnico(defTecnica.value, meta.value),
+);
+const respuestasTecnicas = ref<RespuestasTecnicas>({});
 
 const respuestasPrueba = ref<InduccionRespuestas>({
     a: {},
@@ -252,6 +302,12 @@ const filtrosPrueba = ref<{ clave: string; respuesta: boolean }[]>([]);
 const observacionesPrueba = ref('');
 
 function reiniciarVistaPrevia(): void {
+    respuestasTecnicas.value = {};
+
+    if (esTecnica.value) {
+        return;
+    }
+
     respuestasPrueba.value = { a: {}, b: {}, c: {}, d: {} };
     opinionPrueba.value = { tema_reforzar: '' };
     criteriosPrueba.value = esInduccion.value
@@ -281,7 +337,7 @@ const confirmarDescartar = ref(false);
 const procesando = ref(false);
 
 function editarFormulario(desde?: number): void {
-    router.post(crearBorrador.url(props.clave), desde ? { desde } : {}, {
+    router.post(urlCrearBorrador.value, desde ? { desde } : {}, {
         preserveScroll: true,
     });
 }
@@ -397,7 +453,7 @@ const campoTitulo =
             </template>
             <template v-else-if="soloLectura">
                 <Button variant="outline" as-child>
-                    <Link :href="editar(clave)"
+                    <Link :href="urlEditar"
                         ><Undo2 class="size-4" /> Volver a la vigente</Link
                     >
                 </Button>
@@ -477,7 +533,7 @@ const campoTitulo =
                     />
                 </span>
                 <span class="text-muted-foreground tabular-nums"
-                    >{{ esInduccion ? 'aprueba con' : 'renueva con' }}
+                    >{{ esInduccion || esTecnica ? 'aprueba con' : 'renueva con' }}
                     <strong class="text-foreground">{{ minimo }}</strong></span
                 >
             </span>
@@ -553,8 +609,13 @@ const campoTitulo =
                     </div>
                 </header>
 
+                <EditorTecnico
+                    v-if="esTecnica"
+                    v-model="defTecnica"
+                    :solo-lectura="!editable"
+                />
                 <EditorInduccion
-                    v-if="esInduccion"
+                    v-else-if="esInduccion"
                     v-model="defInduccion"
                     :solo-lectura="!editable"
                 />
@@ -602,7 +663,23 @@ const campoTitulo =
                     <ul
                         class="flex list-disc flex-col gap-1.5 pl-4 text-muted-foreground"
                     >
-                        <template v-if="esInduccion">
+                        <template v-if="esTecnica">
+                            <li>
+                                Arma libremente secciones y preguntas: opción
+                                múltiple, casillas, verdadero o falso, escala y
+                                abiertas. Cada pregunta da sus propios puntos.
+                            </li>
+                            <li>
+                                El calendario del puesto decide cuándo se
+                                aplica («Seguimiento 15», «Seguimiento 30»…),
+                                quién la contesta y la calificación mínima real.
+                            </li>
+                            <li>
+                                Las respuestas correctas nunca se muestran a
+                                quien contesta.
+                            </li>
+                        </template>
+                        <template v-else-if="esInduccion">
                             <li>
                                 Las secciones A a E son fijas: así las leen la
                                 app y el PDF. Dentro de cada una puedes agregar,
@@ -769,7 +846,15 @@ const campoTitulo =
             >
                 <p class="flex items-start gap-2">
                     <Eye class="mt-0.5 size-4 shrink-0" />
-                    <span v-if="esInduccion">
+                    <span v-if="esTecnica">
+                        <strong
+                            >Vista previa como quien contesta (colaborador o
+                            jefe directo, según el calendario).</strong
+                        >
+                        Puedes marcar respuestas para probarla; no se guarda
+                        nada.
+                    </span>
+                    <span v-else-if="esInduccion">
                         <strong>Vista previa como colaborador.</strong>
                         Es la misma pantalla que verá; puedes marcar respuestas
                         para probarla, pero no se guarda nada.
@@ -815,8 +900,34 @@ const campoTitulo =
                         : 'rounded-3xl border border-dashed border-border bg-background p-4 sm:p-6'
                 "
             >
+                <FormularioTecnico
+                    v-if="esTecnica"
+                    v-model:respuestas="respuestasTecnicas"
+                    :contenido="contenidoTec"
+                    :compacto="dispositivo === 'telefono'"
+                >
+                    <template #acciones>
+                        <div class="flex flex-wrap items-center gap-3">
+                            <Button
+                                type="button"
+                                size="lg"
+                                class="w-fit"
+                                disabled
+                                aria-describedby="envio-tecnico-vista-previa"
+                            >
+                                Enviar evaluación
+                            </Button>
+                            <p
+                                id="envio-tecnico-vista-previa"
+                                class="text-sm text-muted-foreground"
+                            >
+                                Solo vista previa: aquí no se envía.
+                            </p>
+                        </div>
+                    </template>
+                </FormularioTecnico>
                 <FormularioInduccion
-                    v-if="esInduccion"
+                    v-else-if="esInduccion"
                     v-model:respuestas="respuestasPrueba"
                     v-model:opinion="opinionPrueba"
                     :contenido="contenidoInduccion"
@@ -895,7 +1006,7 @@ const campoTitulo =
                     <Link
                         :href="
                             v.estado === 'borrador'
-                                ? editar(clave)
+                                ? urlEditar
                                 : verVersion(v.id)
                         "
                     >

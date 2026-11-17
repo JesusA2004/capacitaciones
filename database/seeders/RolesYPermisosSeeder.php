@@ -515,6 +515,8 @@ class RolesYPermisosSeeder extends Seeder
         'rh_admin' => [
             // Seguimiento (Fase 2): tableros con datos de Reportes y vínculos PEOPLE ↔ Reportes.
             'seguimiento.ver', 'seguimiento.vincular',
+            // Evaluaciones técnicas por puesto (Seguimiento 15 / 30 / 60…).
+            'evaluaciones_tecnicas.ver', 'evaluaciones_tecnicas.aplicar', 'evaluaciones_tecnicas.configurar',
             // Consulta la bandeja «Pendientes de alta en sistemas» (la atiende Sistemas).
             'sistemas.altas.ver',
             'salarios.ver', 'salarios.editar', 'salarios.exportar', 'salarios.ver_en_expediente',
@@ -679,6 +681,7 @@ class RolesYPermisosSeeder extends Seeder
         'gerente_sucursal' => [
             // Seguimiento (Fase 2): datos de Reportes de SU sucursal (alcance «Sucursal»).
             'seguimiento.ver',
+            'evaluaciones_tecnicas.ver', 'evaluaciones_tecnicas.aplicar',
             'directorio.contactos.ver_todos',
             'perfiles_puesto.ver',
             'dashboard.sucursal.ver',
@@ -784,6 +787,7 @@ class RolesYPermisosSeeder extends Seeder
         'gerente_regional' => [
             // Seguimiento (Fase 2): datos de Reportes de su región (alcance «Región»).
             'seguimiento.ver',
+            'evaluaciones_tecnicas.ver', 'evaluaciones_tecnicas.aplicar',
             // Alcance amplio: elige de qué sucursales no recibir avisos.
             'notificaciones.silenciar_sucursales',
             'directorio.contactos.ver_todos',
@@ -833,6 +837,7 @@ class RolesYPermisosSeeder extends Seeder
         // catálogo de permisos equivalente). "gerente_sucursal" se conserva
         // intacto por compatibilidad con datos/roles ya asignados.
         'gerente' => [
+            'evaluaciones_tecnicas.ver', 'evaluaciones_tecnicas.aplicar',
             'directorio.contactos.ver_todos',
             'perfiles_puesto.ver',
             'dashboard.sucursal.ver',

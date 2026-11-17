@@ -9,8 +9,10 @@ use App\Enums\EstiloEncabezadoFormulario;
 use App\Models\EvaluacionInduccion;
 use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\FormularioEvaluacion;
+use App\Models\PlantillaEvaluacionTecnica;
 use App\Models\User;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\EvaluacionesTecnicas\DefinicionFormularioTecnicoService;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -18,6 +20,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use LogicException;
 
 /**
  * Fuente ÚNICA de los formularios de evaluación (inducción FO-RH-EI y
@@ -41,6 +44,8 @@ class FormularioEvaluacionService
 {
     public const PERMISO_ADMINISTRAR = 'formularios_evaluacion.administrar';
 
+    public const PERMISO_CONFIGURAR_TECNICAS = 'evaluaciones_tecnicas.configurar';
+
     /** La escala del periodo de prueba es fija 1-4 (la app y el formato Word la usan). */
     private const ESCALA_PRUEBA_MIN = 1;
 
@@ -55,27 +60,41 @@ class FormularioEvaluacionService
 
     private const MAX_LETRAS = 10;
 
-    public function __construct(private readonly AuditoriaService $auditoria) {}
+    public function __construct(
+        private readonly AuditoriaService $auditoria,
+        private readonly DefinicionFormularioTecnicoService $tecnico,
+    ) {}
 
     // ---------------------------------------------------------------------
     // Resolución de versiones
     // ---------------------------------------------------------------------
 
-    public function publicado(ClaveFormularioEvaluacion $clave): ?FormularioEvaluacion
+    public function publicado(ClaveFormularioEvaluacion $clave, ?PlantillaEvaluacionTecnica $plantilla = null): ?FormularioEvaluacion
     {
         return FormularioEvaluacion::query()
-            ->where('clave', $clave->value)
+            ->where('familia', FormularioEvaluacion::familiaDe($clave, $plantilla?->id))
             ->where('estado', EstadoFormularioEvaluacion::Publicado->value)
             ->orderByDesc('version')
             ->first();
     }
 
-    public function borrador(ClaveFormularioEvaluacion $clave): ?FormularioEvaluacion
+    public function borrador(ClaveFormularioEvaluacion $clave, ?PlantillaEvaluacionTecnica $plantilla = null): ?FormularioEvaluacion
     {
         return FormularioEvaluacion::query()
-            ->where('clave', $clave->value)
+            ->where('familia', FormularioEvaluacion::familiaDe($clave, $plantilla?->id))
             ->where('estado', EstadoFormularioEvaluacion::Borrador->value)
             ->first();
+    }
+
+    /**
+     * Quién puede configurar el formulario: los fijos, con
+     * formularios_evaluacion.administrar; los técnicos, además con
+     * evaluaciones_tecnicas.configurar.
+     */
+    public function puedeAdministrar(User $actor, ClaveFormularioEvaluacion $clave): bool
+    {
+        return $actor->can(self::PERMISO_ADMINISTRAR)
+            || ($clave === ClaveFormularioEvaluacion::Tecnica && $actor->can(self::PERMISO_CONFIGURAR_TECNICAS));
     }
 
     /** Versión con la que se contesta/califica esta evaluación de inducción (null = config). */
@@ -221,7 +240,9 @@ class FormularioEvaluacionService
                 'estilo_encabezado' => $diseno['estilo_encabezado'],
                 'banner_url' => $diseno['banner_url'],
             ],
-            'secciones' => $definicion['secciones'] ?? null,
+            // Los técnicos traen sus secciones con respuestas: salen solo por
+            // DefinicionFormularioTecnicoService::contenidoPublico().
+            'secciones' => $clave === ClaveFormularioEvaluacion::Tecnica ? null : ($definicion['secciones'] ?? null),
             // Puntos por sección (no revela respuestas): encabezado de cada sección.
             'puntos_secciones' => $clave === ClaveFormularioEvaluacion::Induccion ? [
                 'a' => (int) collect((array) $definicion['seccion_a'])->sum('puntos'),
@@ -266,8 +287,12 @@ class FormularioEvaluacionService
      */
     public function asegurarVersionInicial(ClaveFormularioEvaluacion $clave): FormularioEvaluacion
     {
+        if ($clave === ClaveFormularioEvaluacion::Tecnica) {
+            throw new LogicException('Los formularios técnicos nacen con su plantilla (PlantillasEvaluacionTecnicaService::crear()).');
+        }
+
         return DB::transaction(function () use ($clave): FormularioEvaluacion {
-            $existente = FormularioEvaluacion::query()->where('clave', $clave->value)->orderBy('version')->lockForUpdate()->first();
+            $existente = FormularioEvaluacion::query()->where('familia', $clave->value)->orderBy('version')->lockForUpdate()->first();
 
             if ($existente !== null) {
                 return $existente;
@@ -293,17 +318,23 @@ class FormularioEvaluacionService
      * Borrador editable de la clave: el existente, o uno nuevo copiado de
      * la versión publicada (o de $base, p. ej. restaurar una anterior).
      */
-    public function crearBorrador(ClaveFormularioEvaluacion $clave, User $actor, ?FormularioEvaluacion $base = null): FormularioEvaluacion
+    public function crearBorrador(ClaveFormularioEvaluacion $clave, User $actor, ?FormularioEvaluacion $base = null, ?PlantillaEvaluacionTecnica $plantilla = null): FormularioEvaluacion
     {
-        $this->exigirPermiso($actor);
+        $this->exigirPermiso($actor, $clave);
 
-        if ($base !== null && $base->clave !== $clave) {
+        if ($clave === ClaveFormularioEvaluacion::Tecnica && $plantilla === null) {
+            throw new LogicException('Un formulario técnico necesita su plantilla.');
+        }
+
+        $familia = FormularioEvaluacion::familiaDe($clave, $plantilla?->id);
+
+        if ($base !== null && $base->familia !== $familia) {
             throw ValidationException::withMessages(['formulario' => 'Esa versión pertenece a otro formulario.']);
         }
 
-        $borrador = DB::transaction(function () use ($clave, $actor, $base): FormularioEvaluacion {
+        $borrador = DB::transaction(function () use ($clave, $actor, $base, $plantilla, $familia): FormularioEvaluacion {
             $existente = FormularioEvaluacion::query()
-                ->where('clave', $clave->value)
+                ->where('familia', $familia)
                 ->where('estado', EstadoFormularioEvaluacion::Borrador->value)
                 ->lockForUpdate()
                 ->first();
@@ -316,8 +347,30 @@ class FormularioEvaluacionService
                 throw ValidationException::withMessages(['formulario' => 'Ya hay un borrador en edición. Publícalo o descártalo antes de restaurar otra versión.']);
             }
 
-            $origen = $base ?? $this->publicado($clave) ?? $this->asegurarVersionInicial($clave);
-            $siguiente = (int) FormularioEvaluacion::query()->where('clave', $clave->value)->max('version') + 1;
+            $origen = $base ?? $this->publicado($clave, $plantilla)
+                ?? ($clave === ClaveFormularioEvaluacion::Tecnica ? null : $this->asegurarVersionInicial($clave));
+            $siguiente = (int) FormularioEvaluacion::query()->where('familia', $familia)->max('version') + 1;
+
+            // Plantilla técnica nueva (sin ninguna versión): nace con la
+            // estructura de ejemplo, lista para editar.
+            if ($origen === null) {
+                $meta = $this->metadatosPorDefecto($clave);
+
+                return FormularioEvaluacion::query()->create([
+                    'clave' => $clave,
+                    'familia' => $familia,
+                    'plantilla_evaluacion_tecnica_id' => $plantilla?->id,
+                    'version' => $siguiente,
+                    'codigo' => $meta['codigo'],
+                    'titulo' => $plantilla !== null ? $plantilla->nombre : $meta['titulo'],
+                    'descripcion' => $plantilla !== null ? $plantilla->descripcion : $meta['descripcion'],
+                    'diseno' => $this->guardableDiseno($this->normalizarDiseno($clave, [])),
+                    'definicion' => $this->guardable($clave, $this->normalizar($clave, $this->definicionDesdeConfig($clave))),
+                    'estado' => EstadoFormularioEvaluacion::Borrador,
+                    'creado_por' => $actor->id,
+                    'actualizado_por' => $actor->id,
+                ]);
+            }
 
             // El borrador hereda la definición de su versión base; si es
             // periodo de prueba, se rellenan los niveles/ayudas oficiales que
@@ -330,6 +383,8 @@ class FormularioEvaluacionService
 
             return FormularioEvaluacion::query()->create([
                 'clave' => $clave,
+                'familia' => $familia,
+                'plantilla_evaluacion_tecnica_id' => $plantilla?->id,
                 'version' => $siguiente,
                 'codigo' => $origen->codigo,
                 'titulo' => $origen->titulo,
@@ -360,7 +415,7 @@ class FormularioEvaluacionService
      */
     public function guardarBorrador(FormularioEvaluacion $formulario, User $actor, array $datos): FormularioEvaluacion
     {
-        $this->exigirPermiso($actor);
+        $this->exigirPermiso($actor, $formulario->clave);
         $this->exigirBorrador($formulario);
 
         $clave = $formulario->clave;
@@ -388,7 +443,7 @@ class FormularioEvaluacionService
      */
     public function publicar(FormularioEvaluacion $formulario, User $actor): FormularioEvaluacion
     {
-        $this->exigirPermiso($actor);
+        $this->exigirPermiso($actor, $formulario->clave);
 
         $publicado = DB::transaction(function () use ($formulario, $actor): FormularioEvaluacion {
             $formulario = FormularioEvaluacion::query()->lockForUpdate()->findOrFail($formulario->id);
@@ -401,7 +456,7 @@ class FormularioEvaluacionService
             }
 
             FormularioEvaluacion::query()
-                ->where('clave', $formulario->clave->value)
+                ->where('familia', $formulario->familia)
                 ->where('estado', EstadoFormularioEvaluacion::Publicado->value)
                 ->update(['estado' => EstadoFormularioEvaluacion::Archivado->value]);
 
@@ -426,7 +481,7 @@ class FormularioEvaluacionService
     /** Descarta el borrador (nunca toca versiones publicadas: nadie las contestó con un borrador). */
     public function descartarBorrador(FormularioEvaluacion $formulario, User $actor): void
     {
-        $this->exigirPermiso($actor);
+        $this->exigirPermiso($actor, $formulario->clave);
         $this->exigirBorrador($formulario);
 
         $this->auditoria->registrar('formulario_evaluacion_borrador_descartado', $formulario, $actor, [
@@ -439,7 +494,7 @@ class FormularioEvaluacionService
 
     public function subirBanner(FormularioEvaluacion $formulario, User $actor, UploadedFile $archivo): FormularioEvaluacion
     {
-        $this->exigirPermiso($actor);
+        $this->exigirPermiso($actor, $formulario->clave);
         $this->exigirBorrador($formulario);
 
         $ruta = $archivo->storeAs(
@@ -462,7 +517,7 @@ class FormularioEvaluacionService
 
     public function quitarBanner(FormularioEvaluacion $formulario, User $actor): FormularioEvaluacion
     {
-        $this->exigirPermiso($actor);
+        $this->exigirPermiso($actor, $formulario->clave);
         $this->exigirBorrador($formulario);
 
         $diseno = (array) ($formulario->diseno ?? []);
@@ -482,9 +537,11 @@ class FormularioEvaluacionService
         $problemas = trim($formulario->titulo) === '' ? ['Escribe el título del formulario.'] : [];
         $definicion = $this->normalizar($formulario->clave, $formulario->definicion);
 
-        return [...$problemas, ...($formulario->clave === ClaveFormularioEvaluacion::Induccion
-            ? $this->problemasInduccion($definicion)
-            : $this->problemasPeriodoPrueba($definicion))];
+        return [...$problemas, ...match ($formulario->clave) {
+            ClaveFormularioEvaluacion::Induccion => $this->problemasInduccion($definicion),
+            ClaveFormularioEvaluacion::PeriodoPrueba => $this->problemasPeriodoPrueba($definicion),
+            ClaveFormularioEvaluacion::Tecnica => $this->tecnico->problemas($definicion),
+        }];
     }
 
     /**
@@ -505,10 +562,10 @@ class FormularioEvaluacionService
                 'descripcion_modulo' => $clave->descripcion(),
                 'publicado' => $this->aArray($publicado, false),
                 'borrador' => $borrador !== null ? $this->aArray($borrador, false) : null,
-                'total_versiones' => FormularioEvaluacion::query()->where('clave', $clave->value)->count(),
+                'total_versiones' => FormularioEvaluacion::query()->where('familia', $clave->value)->count(),
                 'resumen' => $this->metricas($clave, $definicion),
             ];
-        }, ClaveFormularioEvaluacion::cases());
+        }, ClaveFormularioEvaluacion::fijas());
     }
 
     /**
@@ -517,9 +574,13 @@ class FormularioEvaluacionService
      *
      * @return list<array<string, mixed>>
      */
-    public function historial(ClaveFormularioEvaluacion $clave): array
+    public function historial(ClaveFormularioEvaluacion $clave, ?PlantillaEvaluacionTecnica $plantilla = null): array
     {
-        $tabla = $clave === ClaveFormularioEvaluacion::Induccion ? 'evaluaciones_induccion' : 'evaluaciones_periodo_prueba';
+        $tabla = match ($clave) {
+            ClaveFormularioEvaluacion::Induccion => 'evaluaciones_induccion',
+            ClaveFormularioEvaluacion::PeriodoPrueba => 'evaluaciones_periodo_prueba',
+            ClaveFormularioEvaluacion::Tecnica => 'evaluaciones_tecnicas',
+        };
         /** @var Collection<int|string, int> $usos */
         $usos = DB::table($tabla)
             ->whereNotNull('formulario_evaluacion_id')
@@ -528,7 +589,7 @@ class FormularioEvaluacionService
             ->pluck('total', 'formulario_evaluacion_id');
 
         return array_values(FormularioEvaluacion::query()
-            ->where('clave', $clave->value)
+            ->where('familia', FormularioEvaluacion::familiaDe($clave, $plantilla?->id))
             ->with(['publicadoPor:id,name', 'actualizadoPor:id,name'])
             ->orderByDesc('version')
             ->get()
@@ -553,6 +614,7 @@ class FormularioEvaluacionService
         return [
             'id' => $formulario->id,
             'clave' => $clave->value,
+            'plantilla_id' => $formulario->plantilla_evaluacion_tecnica_id,
             'version' => $formulario->version,
             'etiqueta_version' => $formulario->etiquetaVersion(),
             'codigo' => $formulario->codigo,
@@ -593,9 +655,11 @@ class FormularioEvaluacionService
      */
     public function normalizar(ClaveFormularioEvaluacion $clave, array $definicion): array
     {
-        return $clave === ClaveFormularioEvaluacion::Induccion
-            ? $this->normalizarInduccion($definicion)
-            : $this->normalizarPeriodoPrueba($definicion);
+        return match ($clave) {
+            ClaveFormularioEvaluacion::Induccion => $this->normalizarInduccion($definicion),
+            ClaveFormularioEvaluacion::PeriodoPrueba => $this->normalizarPeriodoPrueba($definicion),
+            ClaveFormularioEvaluacion::Tecnica => $this->tecnico->normalizar($definicion),
+        };
     }
 
     /**
@@ -816,7 +880,11 @@ class FormularioEvaluacionService
     private function normalizarDiseno(ClaveFormularioEvaluacion $clave, array $diseno): array
     {
         $acento = ColorAcentoFormulario::tryFrom((string) ($diseno['acento'] ?? ''))
-            ?? ($clave === ClaveFormularioEvaluacion::Induccion ? ColorAcentoFormulario::Petroleo : ColorAcentoFormulario::Esmeralda);
+            ?? match ($clave) {
+                ClaveFormularioEvaluacion::Induccion => ColorAcentoFormulario::Petroleo,
+                ClaveFormularioEvaluacion::PeriodoPrueba => ColorAcentoFormulario::Esmeralda,
+                ClaveFormularioEvaluacion::Tecnica => ColorAcentoFormulario::Oro,
+            };
         $estilo = EstiloEncabezadoFormulario::tryFrom((string) ($diseno['estilo_encabezado'] ?? '')) ?? EstiloEncabezadoFormulario::Franja;
         $banner = isset($diseno['banner_path']) && is_string($diseno['banner_path']) && $diseno['banner_path'] !== '' ? $diseno['banner_path'] : null;
 
@@ -1035,6 +1103,10 @@ class FormularioEvaluacionService
      */
     private function metricas(ClaveFormularioEvaluacion $clave, array $definicion): array
     {
+        if ($clave === ClaveFormularioEvaluacion::Tecnica) {
+            return $this->tecnico->metricas($definicion);
+        }
+
         if ($clave === ClaveFormularioEvaluacion::Induccion) {
             /** @var array{conceptos: list<mixed>} $c */
             $c = $definicion['seccion_c'];
@@ -1142,6 +1214,10 @@ class FormularioEvaluacionService
      */
     public function definicionDesdeConfig(ClaveFormularioEvaluacion $clave): array
     {
+        if ($clave === ClaveFormularioEvaluacion::Tecnica) {
+            return $this->tecnico->porDefecto();
+        }
+
         if ($clave === ClaveFormularioEvaluacion::Induccion) {
             $escala = collect((array) config('induccion_evaluacion.escala', []));
             $sobresaliente = $escala->firstWhere('nivel', 'sobresaliente');
@@ -1173,6 +1249,15 @@ class FormularioEvaluacionService
      */
     private function metadatosPorDefecto(ClaveFormularioEvaluacion $clave): array
     {
+        if ($clave === ClaveFormularioEvaluacion::Tecnica) {
+            return [
+                'version' => sprintf('%s-v1', $clave->codigoPorDefecto()),
+                'codigo' => $clave->codigoPorDefecto(),
+                'titulo' => 'Evaluación técnica',
+                'descripcion' => 'Responde cada pregunta con lo que aplicas en tu operación diaria.',
+            ];
+        }
+
         if ($clave === ClaveFormularioEvaluacion::Induccion) {
             return [
                 'version' => (string) config('induccion_evaluacion.version', 'FO-RH-EI-2026-v1'),
@@ -1268,9 +1353,9 @@ class FormularioEvaluacionService
         return $clave;
     }
 
-    private function exigirPermiso(User $actor): void
+    private function exigirPermiso(User $actor, ClaveFormularioEvaluacion $clave): void
     {
-        if (! $actor->can(self::PERMISO_ADMINISTRAR)) {
+        if (! $this->puedeAdministrar($actor, $clave)) {
             throw new AuthorizationException('No tienes permiso para configurar los formularios de evaluación.');
         }
     }

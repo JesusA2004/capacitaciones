@@ -3,7 +3,9 @@
  * prueba FO-RH-EPP-001) — ver App\Services\Evaluaciones\FormularioEvaluacionService.
  */
 
-export type ClaveFormularioEvaluacion = 'induccion' | 'periodo_prueba';
+import type { DefinicionTecnica } from './evaluacionesTecnicas';
+
+export type ClaveFormularioEvaluacion = 'induccion' | 'periodo_prueba' | 'tecnica';
 
 export type ColorAcentoFormulario =
     'petroleo' | 'esmeralda' | 'oro' | 'bronce' | 'salvia' | 'crema';
@@ -104,6 +106,8 @@ export type ContenidoPeriodoPrueba = PresentacionFormulario &
 export type FormularioEvaluacionDetalle = {
     id: number;
     clave: ClaveFormularioEvaluacion;
+    /** Formulario técnico: la plantilla a la que pertenece la versión. */
+    plantilla_id?: number | null;
     version: number;
     etiqueta_version: string;
     codigo: string;
@@ -116,7 +120,11 @@ export type FormularioEvaluacionDetalle = {
     publicado_por: string | null;
     actualizado_en: string | null;
     actualizado_por: string | null;
-    definicion: DefinicionInduccion | DefinicionPeriodoPrueba | null;
+    definicion:
+        | DefinicionInduccion
+        | DefinicionPeriodoPrueba
+        | DefinicionTecnica
+        | null;
     problemas: string[];
     evaluaciones?: number;
 };

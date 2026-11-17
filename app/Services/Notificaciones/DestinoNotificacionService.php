@@ -19,6 +19,7 @@ use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\EmployeeDocument;
 use App\Models\EvaluacionPeriodoPrueba;
+use App\Models\EvaluacionTecnica;
 use App\Models\GeneratedDocument;
 use App\Models\IntervencionCandidato;
 use App\Models\SolicitudInterna;
@@ -93,6 +94,9 @@ class DestinoNotificacionService
                 $tipo === 'expediente_incompleto' => $this->expedienteDePersona($colaboradorId, $usuario, 'documentos'),
                 $tipo === 'rh_cumpleanos' => self::destino(route('rh.cumpleanos.index', [], false)),
                 $relacionado === 'EvaluacionPeriodoPrueba' => $this->evaluacion($id, $tipo),
+                // Evaluación técnica («Seguimiento N»): a contestarla si le
+                // toca a quien abre el aviso; si no, a su resultado.
+                $relacionado === 'EvaluacionTecnica' && $id !== null => $this->evaluacionTecnica($id, $usuario),
                 $relacionado === 'ContratoLaboral' => $this->contrato($id),
                 // Cierre laboral (finiquito/renuncia/baja/aviso de terminación):
                 // va al cierre exacto, nunca al expediente genérico (sección
@@ -475,6 +479,31 @@ class DestinoNotificacionService
             $pendiente
                 ? sprintf('La evaluación sigue pendiente («%s»).', $estado->etiqueta())
                 : sprintf('La evaluación ya fue atendida: está «%s».', $estado->etiqueta()),
+        );
+    }
+
+    /**
+     * @return Destino
+     */
+    private function evaluacionTecnica(int $id, User $usuario): array
+    {
+        $evaluacion = EvaluacionTecnica::query()->where('id', $id)->first();
+
+        if ($evaluacion === null) {
+            return self::inexistente(null, 'Esta evaluación técnica ya no existe.');
+        }
+
+        if ($usuario->can('contestar', $evaluacion)) {
+            return self::destino(route('evaluaciones-tecnicas.contestar', $evaluacion->id, false));
+        }
+
+        return self::destino(
+            route('evaluaciones-tecnicas.show', $evaluacion->id, false),
+            ! $evaluacion->estaPendiente(),
+            $evaluacion->estado->etiqueta(),
+            $evaluacion->estaPendiente()
+                ? sprintf('«%s» sigue pendiente.', $evaluacion->nombre)
+                : sprintf('«%s» ya está «%s».', $evaluacion->nombre, $evaluacion->estado->etiqueta()),
         );
     }
 

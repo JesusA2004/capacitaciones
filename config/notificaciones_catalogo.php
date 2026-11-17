@@ -53,6 +53,7 @@ return [
         'contratacion' => 'Contratación y expediente',
         'onboarding' => 'Onboarding e inducción',
         'periodo_prueba' => 'Cierre del periodo de prueba',
+        'evaluaciones_tecnicas' => 'Evaluaciones técnicas (Seguimiento por días)',
         'bajas' => 'Bajas y cierres laborales',
         'nomina' => 'Nómina y préstamos',
         'comunicacion' => 'Avisos y celebraciones',
@@ -522,6 +523,26 @@ return [
             'etiqueta' => 'Se resolvió la excepción de renovación que pediste',
             'push_titulo' => 'Excepción de renovación resuelta',
             'modulo' => 'periodo_prueba',
+            'audiencia' => 'asignada',
+        ],
+
+        // ─────────────── Evaluaciones técnicas (Seguimiento N) ───────────────
+        'evaluacion_tecnica_pendiente' => [
+            'etiqueta' => 'Evaluación técnica por contestar (Seguimiento 15, 30, 60…)',
+            'push_titulo' => 'Evaluación técnica pendiente',
+            'modulo' => 'evaluaciones_tecnicas',
+            'audiencia' => 'asignada',
+        ],
+        'evaluacion_tecnica_vencida' => [
+            'etiqueta' => 'Evaluación técnica vencida sin contestar',
+            'push_titulo' => 'Evaluación técnica vencida',
+            'modulo' => 'evaluaciones_tecnicas',
+            'audiencia' => 'asignada',
+        ],
+        'evaluacion_tecnica_contestada' => [
+            'etiqueta' => 'Tu colaborador contestó su evaluación técnica',
+            'push_titulo' => 'Evaluación técnica contestada',
+            'modulo' => 'evaluaciones_tecnicas',
             'audiencia' => 'asignada',
         ],
 

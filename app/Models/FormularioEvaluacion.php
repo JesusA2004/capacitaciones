@@ -16,6 +16,8 @@ use Illuminate\Support\Carbon;
  *
  * @property int $id
  * @property ClaveFormularioEvaluacion $clave
+ * @property string $familia Historial de versiones: la clave (inducción/periodo de prueba) o «tecnica_{id}» por plantilla técnica.
+ * @property int|null $plantilla_evaluacion_tecnica_id
  * @property int $version
  * @property string $codigo
  * @property string $titulo
@@ -31,15 +33,34 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $updated_at
  * @property-read User|null $publicadoPor
  * @property-read User|null $actualizadoPor
+ * @property-read PlantillaEvaluacionTecnica|null $plantillaTecnica
  */
 class FormularioEvaluacion extends Model
 {
     protected $table = 'formularios_evaluacion';
 
     protected $fillable = [
-        'clave', 'version', 'codigo', 'titulo', 'descripcion', 'diseno', 'definicion',
+        'clave', 'familia', 'plantilla_evaluacion_tecnica_id', 'version', 'codigo', 'titulo', 'descripcion', 'diseno', 'definicion',
         'estado', 'publicado_en', 'publicado_por', 'creado_por', 'actualizado_por',
     ];
+
+    protected static function booted(): void
+    {
+        // Inducción y periodo de prueba: su familia es su clave (una sola
+        // historia de versiones cada una, como siempre).
+        static::creating(function (FormularioEvaluacion $formulario): void {
+            if (($formulario->familia ?? '') === '') {
+                $formulario->familia = self::familiaDe($formulario->clave, $formulario->plantilla_evaluacion_tecnica_id);
+            }
+        });
+    }
+
+    public static function familiaDe(ClaveFormularioEvaluacion $clave, ?int $plantillaId = null): string
+    {
+        return $clave === ClaveFormularioEvaluacion::Tecnica && $plantillaId !== null
+            ? sprintf('tecnica_%d', $plantillaId)
+            : $clave->value;
+    }
 
     protected function casts(): array
     {
@@ -67,6 +88,14 @@ class FormularioEvaluacion extends Model
     public function actualizadoPor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'actualizado_por');
+    }
+
+    /**
+     * @return BelongsTo<PlantillaEvaluacionTecnica, $this>
+     */
+    public function plantillaTecnica(): BelongsTo
+    {
+        return $this->belongsTo(PlantillaEvaluacionTecnica::class, 'plantilla_evaluacion_tecnica_id');
     }
 
     public function esBorrador(): bool
