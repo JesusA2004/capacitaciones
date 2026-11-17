@@ -47,6 +47,7 @@ import { formatearFecha } from '@/lib/fechas';
 import { vistaPreviaPost } from '@/lib/http';
 import { dashboard } from '@/routes';
 import rutasBajas from '@/routes/rh/bajas';
+import rutasFiniquitosBajas from '@/routes/rh/bajas/finiquitos';
 import { create as nuevaCartaCompromiso } from '@/routes/rh/cartas-compromiso';
 import cierres from '@/routes/rh/cierres';
 import { activar as activarColaborador } from '@/routes/rh/colaboradores';
@@ -367,6 +368,14 @@ const puedeEditarFiniquito = computed(
     () =>
         clavesAcciones.value.includes('ver_finiquito') ||
         clavesAcciones.value.includes('calcular_finiquito'),
+);
+// El finiquito se corrige en un solo lugar: Bajas → Finiquitos.
+const edicionFiniquitoUrl = computed(() =>
+    finiquitoCierre.value && tienePermiso('finiquitos.ver')
+        ? rutasFiniquitosBajas.index.url({
+              query: { finiquito: finiquitoCierre.value.id },
+          })
+        : null,
 );
 const puedeEntregarFiniquito = computed(() =>
     clavesAcciones.value.includes('registrar_entrega_finiquito'),
@@ -1587,6 +1596,7 @@ const etiquetaFecha: Record<string, string> = {
         :finiquito="finiquitoCierre"
         :puede-editar="puedeEditarFiniquito"
         :puede-entregar="puedeEntregarFiniquito"
+        :edicion-url="edicionFiniquitoUrl"
         :entrega-inicial="finiquitoEntregaInicial"
     />
 

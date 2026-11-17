@@ -718,9 +718,9 @@ function irACompletarExpediente() {
                                         class="text-xs whitespace-normal opacity-80"
                                     >
                                         Abre el registro de Bajas: forma de
-                                        salida, causal, último día, documentos
-                                        y finiquito. Cuenta en rotación y nunca
-                                        se borra nada.
+                                        salida, causal, último día, documentos y
+                                        finiquito. Cuenta en rotación y nunca se
+                                        borra nada.
                                     </span>
                                 </Link>
                             </DropdownMenuItem>

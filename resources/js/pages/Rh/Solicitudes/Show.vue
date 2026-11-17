@@ -72,6 +72,7 @@ const props = defineProps<{
     plantillasSugeridas: { id: number; nombre: string; tipo: string }[];
     tiposDocumentoExpediente: { id: number; nombre: string }[];
     finiquitoPermisos: FiniquitoPermisos;
+    finiquitoGestionUrl: string | null;
     finiquitoDesglose: FiniquitoDesgloseItem[];
     formatosOficiales: FormatoOficialItem[];
     personaSolicitud: { id: number; nombre: string } | null;
@@ -494,6 +495,7 @@ function previsualizarAdjunto(doc: SolicitudInternaDocumentoItem) {
                     :finiquito="solicitud.finiquito_calculo ?? null"
                     :desglose="finiquitoDesglose"
                     :permisos="finiquitoPermisos"
+                    :gestion-url="finiquitoGestionUrl"
                 />
 
                 <div class="rounded-2xl border border-border/60 bg-card p-5">

@@ -323,8 +323,10 @@ class SolicitudController extends Controller
             'tiposDocumentoExpediente' => $puedeGenerarFormato
                 ? DocumentType::query()->where('activo', true)->orderBy('nombre')->get(['id', 'nombre'])
                 : [],
-            // El finiquito de una baja se trabaja en el Cierre laboral; aquí
-            // solo se consulta.
+            // El finiquito de una baja se edita en UN solo lugar: Bajas →
+            // Finiquitos (FiniquitoBajasController). Aquí solo se consulta y
+            // se enlaza a esa pantalla.
+            'finiquitoGestionUrl' => $finiquito !== null ? route('rh.bajas.finiquitos.index', ['finiquito' => $finiquito->id]) : null,
             'finiquitoPermisos' => [
                 'puedeCalcular' => ! $esBaja && ($finiquito === null
                     ? $request->user()->can('calcular', [FiniquitoCalculo::class, $solicitud])
@@ -332,7 +334,7 @@ class SolicitudController extends Controller
                 'puedeRevisar' => ! $esBaja && $finiquito !== null && $request->user()->can('revisar', $finiquito),
                 'puedeSubirFirmado' => ! $esBaja && $finiquito !== null && $request->user()->can('subirFirmado', $finiquito),
                 'puedeDescargar' => $finiquito !== null && $request->user()->can('descargar', $finiquito),
-                'puedeGenerarPdf' => $finiquito !== null && $request->user()->can('generarDocumento', $finiquito),
+                'puedeGenerarPdf' => ! $esBaja && $finiquito !== null && $request->user()->can('generarDocumento', $finiquito),
                 'puedeOmitirRevision' => $request->user()->can('solicitudes.bajas.omitir_finiquito'),
                 'usaFormatoOficial' => $this->finiquitos->tieneFormatoOficialConfigurado(),
             ],

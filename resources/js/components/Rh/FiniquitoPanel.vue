@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { router, useForm } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import {
     Calculator,
     Download,
@@ -48,6 +48,8 @@ const props = defineProps<{
     finiquito: FiniquitoCalculoItem | null;
     desglose: FiniquitoDesgloseItem[];
     permisos: FiniquitoPermisos;
+    /** Bajas → Finiquitos: el único lugar donde se edita el finiquito. */
+    gestionUrl?: string | null;
 }>();
 
 function moneda(valor: string | number): string {
@@ -258,8 +260,17 @@ function eliminarConcepto(id: number) {
     <div class="rounded-2xl border border-border/60 bg-card p-5">
         <div class="mb-3 flex items-center justify-between gap-2">
             <h3 class="text-sm font-semibold">Finiquito</h3>
-            <EstadoBadge v-if="finiquito" :estado="finiquito.estado" />
+            <div class="flex items-center gap-2">
+                <EstadoBadge v-if="finiquito" :estado="finiquito.estado" />
+                <Button v-if="gestionUrl" as-child size="sm" variant="outline">
+                    <Link :href="gestionUrl">Abrir en Bajas → Finiquitos</Link>
+                </Button>
+            </div>
         </div>
+        <p v-if="gestionUrl" class="mb-3 text-xs text-muted-foreground">
+            Aquí solo se consulta. Cálculo, correcciones, PDF, firma y pago se
+            trabajan en Bajas → Finiquitos.
+        </p>
 
         <p
             v-if="!finiquito && !permisos.puedeCalcular"

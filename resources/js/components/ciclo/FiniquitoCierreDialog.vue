@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { router, useForm } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import { Eye, PackageCheck, Pencil, Plus, Trash2 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
 import DatePicker from '@/components/Common/DatePicker.vue';
@@ -44,6 +44,11 @@ const props = defineProps<{
     puedeEntregar: boolean;
     /** Abrir directo en «Registrar entrega de finiquito». */
     entregaInicial?: boolean;
+    /**
+     * Bajas → Finiquitos: si llega, los importes se corrigen allá (único
+     * lugar de edición) y aquí solo se consulta y se registra la entrega.
+     */
+    edicionUrl?: string | null;
 }>();
 
 const emit = defineEmits<{ 'update:open': [abierto: boolean] }>();
@@ -58,6 +63,7 @@ function moneda(valor: string | number | null | undefined): string {
 const editable = computed(
     () => props.puedeEditar && (props.finiquito?.editable ?? false),
 );
+const editaConceptos = computed(() => editable.value && !props.edicionUrl);
 const percepciones = computed(() =>
     (props.finiquito?.desglose ?? []).filter((f) => f.tipo !== 'deduccion'),
 );
@@ -376,7 +382,7 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
                                 <th class="w-32 py-1.5 text-right font-medium">
                                     Importe
                                 </th>
-                                <th v-if="editable" class="w-20" />
+                                <th v-if="editaConceptos" class="w-20" />
                             </tr>
                         </thead>
                         <tbody>
@@ -436,7 +442,10 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
                                     >
                                         {{ moneda(fila.importe) }}
                                     </td>
-                                    <td v-if="editable" class="py-1 text-right">
+                                    <td
+                                        v-if="editaConceptos"
+                                        class="py-1 text-right"
+                                    >
                                         <Button
                                             v-if="fila.editable !== false"
                                             size="icon"
@@ -548,7 +557,7 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
                                 >
                                     {{ moneda(grupo.total) }}
                                 </td>
-                                <td v-if="editable" />
+                                <td v-if="editaConceptos" />
                             </tr>
                         </tbody>
                     </table>
@@ -566,7 +575,7 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
                 </div>
 
                 <form
-                    v-if="editable && agregando"
+                    v-if="editaConceptos && agregando"
                     class="grid gap-2 rounded-xl border border-border/60 p-3 sm:grid-cols-2"
                     @submit.prevent="guardarNuevo"
                 >
@@ -712,11 +721,21 @@ const erroresEntrega = computed(() => formEntrega.errors as Errores);
                         >
                     </Button>
                     <Button
-                        v-if="editable && !agregando"
+                        v-if="editaConceptos && !agregando"
                         variant="outline"
                         @click="abrirNuevo"
                         ><Plus class="size-4" /> Agregar renglón</Button
                     >
+                    <Button
+                        v-if="editable && edicionUrl"
+                        as-child
+                        variant="outline"
+                    >
+                        <Link :href="edicionUrl"
+                            ><Pencil class="size-4" /> Corregir importes en
+                            Bajas → Finiquitos</Link
+                        >
+                    </Button>
                     <Button
                         v-if="editable && puedeEntregar && !entregando"
                         @click="entregando = true"

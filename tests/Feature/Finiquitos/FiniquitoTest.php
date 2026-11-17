@@ -324,3 +324,16 @@ test('el finiquito no se calcula dos veces para la misma solicitud', function ()
 
     expect(FiniquitoCalculo::where('solicitud_interna_id', $solicitud->id)->count())->toBe(1);
 });
+
+test('la solicitud de baja solo consulta el finiquito y enlaza a Bajas → Finiquitos para editarlo', function () {
+    $solicitud = crearSolicitudBaja();
+    $finiquito = app(FiniquitoService::class)->calcular($solicitud, $this->rh, 15000);
+
+    $this->actingAs($this->rh)
+        ->get(route('rh.solicitudes.show', $solicitud))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('finiquitoGestionUrl', route('rh.bajas.finiquitos.index', ['finiquito' => $finiquito->id]))
+            ->where('finiquitoPermisos.puedeCalcular', false)
+            ->where('finiquitoPermisos.puedeGenerarPdf', false));
+});
