@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { RotateCcw, Search } from '@lucide/vue';
+import {
+    CalendarX2,
+    Hourglass,
+    RotateCcw,
+    Search,
+    UserRoundCheck,
+} from '@lucide/vue';
 import { useDebounceFn } from '@vueuse/core';
 import { ref, watch } from 'vue';
 import AprobacionesResumen from '@/components/ciclo/AprobacionesResumen.vue';
@@ -148,14 +154,21 @@ function enviarDecision(reingreso: ReingresoFila) {
 
         <form
             data-tour="reingresos-busqueda"
-            class="flex gap-2"
+            class="flex gap-2 rounded-2xl border border-border/60 bg-card p-2 shadow-sm"
             @submit.prevent="buscar"
         >
-            <Input
-                v-model="termino"
-                placeholder="Número de empleado, CURP, RFC, NSS o nombre"
-                class="flex-1"
-            />
+            <div class="relative min-w-0 flex-1">
+                <Search
+                    class="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+                    aria-hidden="true"
+                />
+                <Input
+                    v-model="termino"
+                    placeholder="Número de empleado, CURP, RFC, NSS o nombre"
+                    aria-label="Buscar persona"
+                    class="border-transparent bg-transparent pl-9 shadow-none focus-visible:border-border"
+                />
+            </div>
             <Button type="submit"><Search class="size-4" /> Buscar</Button>
         </form>
 
@@ -166,7 +179,7 @@ function enviarDecision(reingreso: ReingresoFila) {
             <li
                 v-for="r in resultados"
                 :key="r.id"
-                class="flex flex-wrap items-center gap-3 rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 text-sm"
+                class="flex flex-wrap items-center gap-3 rounded-2xl border border-border/60 bg-card p-4 text-sm shadow-sm transicion-ui hover:border-oro/40 hover:shadow-md"
             >
                 <div
                     class="flex w-full min-w-0 items-center gap-3 sm:w-auto sm:flex-1"
@@ -180,27 +193,38 @@ function enviarDecision(reingreso: ReingresoFila) {
                         <p class="font-medium">
                             {{ r.nombre }}
                             <span
-                                class="text-xs text-[var(--mrl-texto-suave)]"
+                                class="ml-1 text-xs text-muted-foreground tabular-nums"
                                 >{{ r.numero_empleado }}</span
                             >
                         </p>
-                        <p class="text-xs text-[var(--mrl-texto-suave)]">
+                        <p class="text-xs text-muted-foreground">
                             {{ r.puesto ?? '—' }} · {{ r.sucursal ?? '—' }} ·
                             CURP
                             {{ r.curp ?? '—' }}
                         </p>
-                        <p v-if="r.dado_de_baja" class="text-xs">
+                        <p
+                            v-if="r.dado_de_baja"
+                            class="mt-1 inline-flex flex-wrap items-center gap-1.5 rounded-xl bg-crema/70 px-2 py-0.5 text-xs text-bronce"
+                        >
+                            <CalendarX2 class="size-3.5" aria-hidden="true" />
                             Baja {{ formatearFecha(r.fecha_baja) }} · causa:
                             {{ r.causa_salida ?? 'sin registro' }}
                         </p>
-                        <p v-else class="text-xs text-[var(--mrl-verde)]">
+                        <p
+                            v-else
+                            class="mt-1 inline-flex items-center gap-1.5 rounded-xl bg-success-soft px-2 py-0.5 text-xs text-success"
+                        >
+                            <UserRoundCheck
+                                class="size-3.5"
+                                aria-hidden="true"
+                            />
                             Activo actualmente
                         </p>
                     </div>
                 </div>
                 <Link
                     :href="cicloColaborador.url(r.id)"
-                    class="enlace-animado text-xs text-[var(--mrl-petroleo)]"
+                    class="enlace-animado text-xs text-primary"
                     >Ver historial</Link
                 >
                 <Button
@@ -208,23 +232,26 @@ function enviarDecision(reingreso: ReingresoFila) {
                         puedeSolicitar && r.dado_de_baja && !r.reingreso_abierto
                     "
                     size="sm"
+                    variant="outline"
+                    class="border-primary/25 bg-salvia/40 text-primary hover:bg-salvia"
                     @click="elegir(r)"
-                    >Solicitar reingreso</Button
+                    ><RotateCcw class="size-3.5" /> Solicitar reingreso</Button
                 >
                 <span
                     v-else-if="r.reingreso_abierto"
-                    class="text-xs text-[var(--mrl-dorado-oscuro)]"
-                    >Reingreso en curso</span
+                    class="inline-flex items-center gap-1 rounded-xl bg-warning-soft px-2.5 py-0.5 text-xs font-medium text-warning"
+                    ><Hourglass class="size-3.5" aria-hidden="true" /> Reingreso
+                    en curso</span
                 >
             </li>
         </ul>
-        <p v-else-if="busqueda" class="text-sm text-[var(--mrl-texto-suave)]">
+        <p v-else-if="busqueda" class="text-sm text-muted-foreground">
             Sin coincidencias para «{{ busqueda }}».
         </p>
 
         <form
             v-if="seleccionado"
-            class="flex flex-col gap-3 rounded-2xl border border-[var(--mrl-petroleo)]/30 bg-[var(--mrl-superficie)] p-5"
+            class="flex entrada-suave flex-col gap-3 rounded-2xl border border-primary/30 bg-card p-5 shadow-sm"
             @submit.prevent="solicitar"
         >
             <h2 class="text-sm font-semibold">
@@ -329,7 +356,7 @@ function enviarDecision(reingreso: ReingresoFila) {
                 <article
                     v-for="r in reingresos.data"
                     :key="r.id"
-                    class="rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)] p-4 text-sm"
+                    class="rounded-2xl border border-border/60 bg-card p-4 text-sm shadow-sm"
                 >
                     <div class="flex flex-wrap items-center gap-2">
                         <ColaboradorAvatar
@@ -343,11 +370,10 @@ function enviarDecision(reingreso: ReingresoFila) {
                             >{{ r.colaborador.nombre }}</Link
                         >
                         <span
-                            class="rounded-full bg-[var(--mrl-fondo)] px-2 py-0.5 text-xs"
+                            class="rounded-full bg-crema/70 px-2 py-0.5 text-xs"
                             >{{ r.estado_etiqueta }}</span
                         >
-                        <span
-                            class="ml-auto text-xs text-[var(--mrl-texto-suave)]"
+                        <span class="ml-auto text-xs text-muted-foreground"
                             >Solicitó {{ r.solicitado_por ?? '—' }}</span
                         >
                     </div>
