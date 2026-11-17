@@ -163,36 +163,59 @@ function levantar() {
             </Button>
         </CrudPageHeader>
 
-        <div class="flex flex-wrap items-end gap-3" data-tour="actas-filtros">
-            <div class="flex w-full flex-col gap-1.5 sm:w-56">
-                <Label for="filtro-tipo">Tipo</Label>
+        <div
+            class="flex flex-wrap items-center gap-3 rounded-2xl border border-border/60 bg-card p-3 shadow-sm"
+            data-tour="actas-filtros"
+        >
+            <div class="flex w-full items-center gap-2 sm:w-auto">
+                <Label for="filtro-tipo" class="shrink-0 text-muted-foreground"
+                    >Tipo</Label
+                >
                 <SelectSimple
                     id="filtro-tipo"
                     v-model="tipoFiltro"
+                    class="w-full sm:w-56"
                     :opciones="tipos"
                     opcion-vacia="Todos"
                     @update:model-value="filtrar"
                 />
             </div>
-            <div class="flex w-full flex-col gap-1.5 sm:w-56">
-                <Label for="filtro-estado">Estado</Label>
-                <SelectSimple
-                    id="filtro-estado"
-                    v-model="estadoFiltro"
-                    :opciones="estados"
-                    opcion-vacia="Todos"
-                    @update:model-value="filtrar"
-                />
+            <div
+                class="scroll-x-limpio flex max-w-full items-center gap-1 rounded-xl bg-muted/50 p-1"
+                role="group"
+                aria-label="Estado del acta"
+            >
+                <button
+                    v-for="opcion in [
+                        { value: '', label: 'Todas' },
+                        ...estados,
+                    ]"
+                    :key="opcion.value"
+                    type="button"
+                    class="shrink-0 presionable rounded-lg px-3 py-1 text-sm whitespace-nowrap transicion-ui"
+                    :class="
+                        (estadoFiltro ?? '') === opcion.value
+                            ? 'bg-card font-medium text-primary shadow-sm'
+                            : 'text-muted-foreground hover:text-foreground'
+                    "
+                    :aria-pressed="(estadoFiltro ?? '') === opcion.value"
+                    @click="
+                        estadoFiltro = opcion.value;
+                        filtrar();
+                    "
+                >
+                    {{ opcion.label }}
+                </button>
             </div>
         </div>
 
         <section
             data-tour="actas-lista"
-            class="overflow-hidden rounded-2xl border border-[var(--mrl-borde)] bg-[var(--mrl-superficie)]"
+            class="overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm"
         >
             <ul
                 v-if="actas.data.length"
-                class="entrada-escalonada divide-y divide-[var(--mrl-borde)]"
+                class="entrada-escalonada divide-y divide-border/60"
             >
                 <li v-for="a in actas.data" :key="a.id">
                     <Link
@@ -200,7 +223,7 @@ function levantar() {
                         class="group flex fila-interactiva flex-wrap items-center gap-x-4 gap-y-1 px-4 py-3"
                     >
                         <span
-                            class="shrink-0 font-mono text-xs text-muted-foreground sm:w-24"
+                            class="shrink-0 rounded-lg bg-crema/60 px-2 py-0.5 font-mono text-xs text-bronce sm:w-24 sm:text-center"
                             >{{ a.folio }}</span
                         >
                         <ColaboradorAvatar
@@ -224,7 +247,7 @@ function levantar() {
                             formatearFecha(a.fecha)
                         }}</span>
                         <span
-                            class="rounded-full px-2 py-0.5 text-xs"
+                            class="rounded-full px-2.5 py-0.5 text-xs font-medium"
                             :class="COLOR_ESTADO[a.estado]"
                             >{{ a.estado_etiqueta }}</span
                         >
@@ -237,9 +260,25 @@ function levantar() {
             <EmptyState
                 v-else
                 :icono="FilePen"
-                titulo="No hay actas con estos filtros"
-                descripcion="Cambia el tipo o el estado para ver otras actas."
-            />
+                :titulo="
+                    tipoFiltro || estadoFiltro
+                        ? 'No hay actas con estos filtros'
+                        : 'Todavía no hay actas'
+                "
+                :descripcion="
+                    tipoFiltro || estadoFiltro
+                        ? 'Cambia el tipo o el estado para ver otras actas.'
+                        : 'Cuando se levante un acta administrativa aparecerá aquí con su estado.'
+                "
+            >
+                <Button
+                    v-if="puedeCrear && !tipoFiltro && !estadoFiltro"
+                    size="sm"
+                    @click="abrir"
+                >
+                    <Plus class="size-4" /> Levantar acta
+                </Button>
+            </EmptyState>
         </section>
 
         <PaginacionTabla :datos="actas" />
