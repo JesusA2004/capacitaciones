@@ -1,9 +1,16 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
 import {
+    ArrowRight,
     ClipboardList,
+    FileCheck2,
+    FileClock,
     FileSignature,
+    FileX2,
     FolderOpen,
+    Hourglass,
+    MapPin,
+    ShieldCheck,
     UserPlus,
 } from '@lucide/vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
@@ -12,6 +19,8 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import FiltroColaboradorActivo from '@/components/flujos/FiltroColaboradorActivo.vue';
+import ChipEstado from '@/components/people/ChipEstado.vue';
+import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -108,20 +117,69 @@ function fechaCorta(valor: string | null): string {
             titulo="Personas en contratación"
             descripcion="Colaboradores en la Etapa 2 (contratación y expediente): integra tanto a quienes ya se dieron de alta como las altas digitales que aún no se aprueban."
             :icono="UserPlus"
+        />
+
+        <!-- Indicadores + accesos a los dos pasos que siguen (validar
+             documentos y contratos de ingreso). -->
+        <div
+            data-tour="encabezado"
+            class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-4"
         >
-            <Button variant="outline" as-child>
-                <Link :href="validacionIndex.url()">
-                    <ClipboardList class="size-4" />
-                    Validación de documentos
-                </Link>
-            </Button>
-            <Button variant="outline" as-child>
-                <Link :href="contratosIngresoIndex.url()">
-                    <FileSignature class="size-4" />
-                    Contratos de ingreso
-                </Link>
-            </Button>
-        </CrudPageHeader>
+            <TarjetaMetrica
+                etiqueta="En contratación"
+                :valor="personas.total"
+                :icono="UserPlus"
+                tono="primario"
+                detalle="Etapa 2: contrato y expediente"
+            />
+            <TarjetaMetrica
+                etiqueta="Altas digitales por aprobar"
+                :valor="altasDigitales.length"
+                :icono="Hourglass"
+                :tono="altasDigitales.length ? 'alerta' : 'exito'"
+                detalle="Esperan la revisión de RH"
+            />
+            <Link
+                :href="validacionIndex.url()"
+                class="group col-span-2 flex tarjeta-interactiva items-center gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm lg:col-span-1"
+            >
+                <span
+                    class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-info-soft text-info"
+                    aria-hidden="true"
+                >
+                    <ClipboardList class="size-5" />
+                </span>
+                <span class="min-w-0 flex-1">
+                    <span class="block text-sm font-semibold"
+                        >Validar documentos</span
+                    >
+                    <span class="block text-xs text-muted-foreground"
+                        >Revisa lo que subió cada persona</span
+                    >
+                </span>
+                <ArrowRight class="size-4 icono-avanza text-muted-foreground" />
+            </Link>
+            <Link
+                :href="contratosIngresoIndex.url()"
+                class="group col-span-2 flex tarjeta-interactiva items-center gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm lg:col-span-1"
+            >
+                <span
+                    class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-crema text-bronce"
+                    aria-hidden="true"
+                >
+                    <FileSignature class="size-5" />
+                </span>
+                <span class="min-w-0 flex-1">
+                    <span class="block text-sm font-semibold"
+                        >Contratos de ingreso</span
+                    >
+                    <span class="block text-xs text-muted-foreground"
+                        >Genera y da seguimiento al paquete</span
+                    >
+                </span>
+                <ArrowRight class="size-4 icono-avanza text-muted-foreground" />
+            </Link>
+        </div>
 
         <!-- Altas digitales abiertas: el paso previo del mismo embudo (antes
              vivía en una entrada de menú aparte). -->
@@ -198,7 +256,7 @@ function fechaCorta(valor: string | null): string {
             <li
                 v-for="persona in personas.data"
                 :key="persona.id"
-                class="flex min-w-0 flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm"
+                class="flex min-w-0 flex-col gap-3 rounded-2xl border border-border/60 bg-card p-4 shadow-sm transicion-ui hover:border-oro/40 hover:shadow-md"
             >
                 <div class="flex min-w-0 items-center gap-3">
                     <ColaboradorAvatar
@@ -227,7 +285,7 @@ function fechaCorta(valor: string | null): string {
                         class="h-1.5 w-full overflow-hidden rounded-full bg-muted"
                     >
                         <div
-                            class="h-full rounded-full bg-primary"
+                            class="h-full crece-barra rounded-full bg-gradient-to-r from-primary to-esmeralda"
                             :style="{ width: persona.progreso + '%' }"
                         />
                     </div>
@@ -273,33 +331,29 @@ function fechaCorta(valor: string | null): string {
 
         <div
             v-if="personas.data.length"
-            class="hidden tabla-scroll rounded-2xl border border-border/60 xl:block"
+            class="hidden tabla-scroll rounded-2xl border border-border/60 bg-card shadow-sm xl:block"
         >
             <Table v-tabla-tarjetas>
                 <TableHeader>
                     <TableRow>
                         <TableHead>Colaborador</TableHead>
-                        <TableHead>Puesto</TableHead>
-                        <TableHead>Sucursal</TableHead>
                         <TableHead>Avance</TableHead>
-                        <TableHead class="text-center"
-                            >Docs. pendientes</TableHead
-                        >
-                        <TableHead class="text-center"
-                            >Docs. rechazados</TableHead
-                        >
+                        <TableHead>Documentos</TableHead>
                         <TableHead>Contrato</TableHead>
                         <TableHead>IMSS</TableHead>
-                        <TableHead>Siguiente acción</TableHead>
+                        <TableHead class="text-right"
+                            >Siguiente acción</TableHead
+                        >
                     </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody class="entrada-escalonada">
                     <TableRow
                         v-for="persona in personas.data"
                         :key="persona.id"
+                        class="transicion-ui hover:bg-menta/40"
                     >
                         <TableCell>
-                            <div class="flex items-center gap-3">
+                            <div class="flex min-w-0 items-center gap-3">
                                 <ColaboradorAvatar
                                     :nombre="persona.nombre"
                                     :foto-url="persona.foto_url"
@@ -312,26 +366,56 @@ function fechaCorta(valor: string | null): string {
                                         {{ persona.nombre }}
                                     </Link>
                                     <p
-                                        v-if="persona.numero_empleado"
-                                        class="text-xs text-muted-foreground"
+                                        class="flex flex-wrap items-center gap-x-1.5 text-xs text-muted-foreground"
                                     >
-                                        #{{ persona.numero_empleado }}
+                                        <template
+                                            v-if="persona.numero_empleado"
+                                        >
+                                            <span class="tabular-nums"
+                                                >#{{
+                                                    persona.numero_empleado
+                                                }}</span
+                                            >
+                                            <span aria-hidden="true">·</span>
+                                        </template>
+                                        <span>{{
+                                            persona.puesto ?? 'Sin puesto'
+                                        }}</span>
+                                        <span aria-hidden="true">·</span>
+                                        <span
+                                            class="inline-flex items-center gap-0.5"
+                                        >
+                                            <MapPin
+                                                class="size-3"
+                                                aria-hidden="true"
+                                            />
+                                            {{
+                                                persona.sucursal ??
+                                                'Sin sucursal'
+                                            }}
+                                        </span>
                                     </p>
                                 </div>
                             </div>
                         </TableCell>
-                        <TableCell>{{ persona.puesto ?? '—' }}</TableCell>
-                        <TableCell>{{ persona.sucursal ?? '—' }}</TableCell>
                         <TableCell>
-                            <div class="flex min-w-32 flex-col gap-1">
-                                <span class="text-xs font-medium">{{
-                                    persona.etapa
-                                }}</span>
+                            <div class="flex min-w-40 flex-col gap-1.5">
+                                <div
+                                    class="flex items-baseline justify-between gap-2 text-xs"
+                                >
+                                    <span class="font-medium">{{
+                                        persona.etapa
+                                    }}</span>
+                                    <span
+                                        class="text-muted-foreground tabular-nums"
+                                        >{{ persona.progreso }}%</span
+                                    >
+                                </div>
                                 <div
                                     class="h-1.5 w-full overflow-hidden rounded-full bg-muted"
                                 >
                                     <div
-                                        class="h-full rounded-full bg-primary"
+                                        class="h-full crece-barra rounded-full bg-gradient-to-r from-primary to-esmeralda"
                                         :style="{
                                             width: persona.progreso + '%',
                                         }"
@@ -339,44 +423,65 @@ function fechaCorta(valor: string | null): string {
                                 </div>
                             </div>
                         </TableCell>
-                        <TableCell class="text-center">
-                            <Badge
-                                :variant="
-                                    persona.documentos_pendientes
-                                        ? 'warning'
-                                        : 'success'
-                                "
-                                >{{ persona.documentos_pendientes }}</Badge
-                            >
-                        </TableCell>
-                        <TableCell class="text-center">
-                            <Badge
-                                :variant="
-                                    persona.documentos_rechazados
-                                        ? 'destructive'
-                                        : 'secondary'
-                                "
-                                >{{ persona.documentos_rechazados }}</Badge
-                            >
+                        <TableCell>
+                            <div class="flex flex-wrap gap-1.5">
+                                <ChipEstado
+                                    :icono="
+                                        persona.documentos_pendientes
+                                            ? FileClock
+                                            : FileCheck2
+                                    "
+                                    :tono="
+                                        persona.documentos_pendientes
+                                            ? 'alerta'
+                                            : 'exito'
+                                    "
+                                    :etiqueta="
+                                        persona.documentos_pendientes
+                                            ? `${persona.documentos_pendientes} por recibir`
+                                            : 'Completos'
+                                    "
+                                />
+                                <ChipEstado
+                                    v-if="persona.documentos_rechazados"
+                                    :icono="FileX2"
+                                    tono="peligro"
+                                    :etiqueta="`${persona.documentos_rechazados} rechazado${persona.documentos_rechazados === 1 ? '' : 's'}`"
+                                />
+                            </div>
                         </TableCell>
                         <TableCell
-                            class="max-w-64 min-w-40 text-xs whitespace-normal"
-                            >{{ persona.estado_contrato }}</TableCell
+                            class="max-w-64 min-w-40 text-xs whitespace-normal text-muted-foreground"
                         >
-                        <TableCell class="text-xs">{{
-                            persona.estado_imss
-                        }}</TableCell>
+                            {{ persona.estado_contrato }}
+                        </TableCell>
                         <TableCell>
+                            <ChipEstado
+                                :icono="ShieldCheck"
+                                :tono="
+                                    persona.estado_imss
+                                        .toLowerCase()
+                                        .includes('pendiente')
+                                        ? 'neutro'
+                                        : 'exito'
+                                "
+                                :etiqueta="persona.estado_imss"
+                            />
+                        </TableCell>
+                        <TableCell class="text-right">
                             <Button
-                                variant="ghost"
+                                variant="outline"
                                 size="sm"
-                                class="h-auto min-h-8 max-w-56 whitespace-normal"
+                                class="h-auto min-h-8 max-w-60 border-primary/25 bg-salvia/40 text-left whitespace-normal text-primary hover:bg-salvia"
                                 as-child
                             >
                                 <Link :href="persona.ciclo_url">
                                     {{
                                         persona.siguiente_accion ?? 'Ver ciclo'
                                     }}
+                                    <ArrowRight
+                                        class="size-3.5 shrink-0 icono-avanza"
+                                    />
                                 </Link>
                             </Button>
                         </TableCell>

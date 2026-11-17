@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { Plus, QrCode } from '@lucide/vue';
+import { ArrowRight, Clock, Plus, QrCode } from '@lucide/vue';
 import { ref } from 'vue';
+import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import EstadoBadge from '@/components/Common/EstadoBadge.vue';
 import SelectSimple from '@/components/Common/SelectSimple.vue';
 import CrudEmptyState from '@/components/DataTable/CrudEmptyState.vue';
@@ -10,18 +11,13 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import DataTable from '@/components/DataTable/DataTable.vue';
 import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
+import ChipEstado from '@/components/people/ChipEstado.vue';
 import IncorporacionInvitacionFormDialog from '@/components/Rh/IncorporacionInvitacionFormDialog.vue';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/select';
 import { useFiltros } from '@/composables/useFiltros';
 import { opcionesDe } from '@/lib/opcionesSelect';
+import type { Tono } from '@/lib/tonos';
 import { dashboard } from '@/routes';
 import { index, show } from '@/routes/rh/incorporacion/invitaciones';
 import type { RespuestaPaginada } from '@/types';
@@ -72,6 +68,41 @@ const { filtros, aplicar, aplicarConDebounce, limpiar } = useFiltros(
 const filtroSheetAbierto = ref(false);
 const dialogoAbierto = ref(false);
 
+function elegirEstado(valor: string) {
+    filtros.estado = valor;
+    aplicar();
+}
+
+// Cuánto le queda a una invitación activa: menos de un día ya urge.
+function vencimiento(fila: IncorporacionInvitacionItem): {
+    etiqueta: string;
+    tono: Tono;
+} {
+    const horas = (new Date(fila.expires_at).getTime() - Date.now()) / 36e5;
+
+    if (fila.estado !== 'activo') {
+        return { etiqueta: 'Cerrada', tono: 'neutro' };
+    }
+
+    if (horas <= 0) {
+        return { etiqueta: 'Ya venció', tono: 'peligro' };
+    }
+
+    if (horas < 24) {
+        return {
+            etiqueta: `Vence en ${Math.max(1, Math.round(horas))} h`,
+            tono: 'alerta',
+        };
+    }
+
+    const dias = Math.round(horas / 24);
+
+    return {
+        etiqueta: `Vence en ${dias} ${dias === 1 ? 'día' : 'días'}`,
+        tono: 'exito',
+    };
+}
+
 const columnas: ColumnaDataTable[] = [
     { clave: 'destinatario', etiqueta: 'Destinatario' },
     { clave: 'sucursal', etiqueta: 'Sucursal' },
@@ -119,27 +150,30 @@ const columnas: ColumnaDataTable[] = [
                 "
             />
 
-            <Select
-                :model-value="filtros.estado"
-                @update:model-value="
-                    (v) => {
-                        filtros.estado = String(v ?? '');
-                        aplicar();
-                    }
-                "
+            <div
+                class="scroll-x-limpio flex max-w-full items-center gap-1 rounded-xl border border-border/60 bg-card p-1 shadow-sm"
+                role="group"
+                aria-label="Estado de la invitación"
             >
-                <SelectTrigger class="w-48"
-                    ><SelectValue placeholder="Todos los estados"
-                /></SelectTrigger>
-                <SelectContent>
-                    <SelectItem
-                        v-for="opcion in ESTADOS"
-                        :key="opcion.value"
-                        :value="opcion.value"
-                        >{{ opcion.etiqueta }}</SelectItem
-                    >
-                </SelectContent>
-            </Select>
+                <button
+                    v-for="opcion in [
+                        { value: '', etiqueta: 'Todas' },
+                        ...ESTADOS,
+                    ]"
+                    :key="opcion.value"
+                    type="button"
+                    class="shrink-0 presionable rounded-lg px-3 py-1 text-sm whitespace-nowrap transicion-ui"
+                    :class="
+                        filtros.estado === opcion.value
+                            ? 'bg-primary text-primary-foreground shadow-sm'
+                            : 'text-muted-foreground hover:bg-menta hover:text-foreground'
+                    "
+                    :aria-pressed="filtros.estado === opcion.value"
+                    @click="elegirEstado(opcion.value)"
+                >
+                    {{ opcion.etiqueta }}
+                </button>
+            </div>
 
             <CrudFilterSheet
                 titulo="Más filtros"
@@ -208,11 +242,19 @@ const columnas: ColumnaDataTable[] = [
             </template>
 
             <template #celda-destinatario="{ fila }">
-                <div class="flex flex-col">
-                    <span>{{ fila.nombre_prellenado ?? 'Sin nombre' }}</span>
-                    <span class="text-xs text-muted-foreground">{{
-                        fila.email ?? fila.codigo_legible
-                    }}</span>
+                <div class="flex min-w-0 items-center gap-3">
+                    <ColaboradorAvatar
+                        :nombre="fila.nombre_prellenado ?? 'Sin nombre'"
+                        tamano="sm"
+                    />
+                    <div class="flex min-w-0 flex-col">
+                        <span class="truncate font-medium">{{
+                            fila.nombre_prellenado ?? 'Sin nombre'
+                        }}</span>
+                        <span class="truncate text-xs text-muted-foreground">{{
+                            fila.email ?? fila.codigo_legible
+                        }}</span>
+                    </div>
                 </div>
             </template>
             <template #celda-sucursal="{ fila }">
@@ -222,22 +264,36 @@ const columnas: ColumnaDataTable[] = [
                 <EstadoBadge :estado="fila.estado" />
             </template>
             <template #celda-vence="{ fila }">
-                {{
-                    new Date(fila.expires_at).toLocaleString('es-MX', {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
-                    })
-                }}
+                <div class="flex flex-col items-start gap-0.5">
+                    <ChipEstado
+                        v-if="fila.estado === 'activo'"
+                        :icono="Clock"
+                        :tono="vencimiento(fila).tono"
+                        :etiqueta="vencimiento(fila).etiqueta"
+                    />
+                    <span class="text-xs text-muted-foreground">{{
+                        new Date(fila.expires_at).toLocaleString('es-MX', {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                        })
+                    }}</span>
+                </div>
             </template>
             <template #celda-creada_por="{ fila }">
                 {{ fila.creado_por?.name ?? '—' }}
             </template>
             <template #acciones="{ fila }">
-                <Link
-                    :href="show.url(fila.id)"
-                    class="enlace-animado text-sm font-medium text-[var(--brand-primary)]"
-                    >Ver</Link
+                <Button
+                    variant="outline"
+                    size="sm"
+                    class="border-primary/25 bg-salvia/40 text-primary hover:bg-salvia"
+                    as-child
                 >
+                    <Link :href="show.url(fila.id)">
+                        Ver QR
+                        <ArrowRight class="size-3.5 icono-avanza" />
+                    </Link>
+                </Button>
             </template>
         </DataTable>
     </div>

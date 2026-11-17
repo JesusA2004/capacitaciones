@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import { Head, Link } from '@inertiajs/vue3';
-import { ArrowUpRight, FileSignature } from '@lucide/vue';
+import {
+    ArrowUpRight,
+    FileCheck2,
+    FileClock,
+    FilePen,
+    FileSignature,
+} from '@lucide/vue';
 import ColaboradorAvatar from '@/components/Common/ColaboradorAvatar.vue';
 import EmptyState from '@/components/Common/EmptyState.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
@@ -8,6 +14,7 @@ import CrudToolbar from '@/components/DataTable/CrudToolbar.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import EnlaceRegreso from '@/components/flujos/EnlaceRegreso.vue';
 import FiltroColaboradorActivo from '@/components/flujos/FiltroColaboradorActivo.vue';
+import ChipEstado from '@/components/people/ChipEstado.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -79,6 +86,14 @@ function variantePaquete(
     }
 
     return fila.paquete_generado ? 'warning' : 'secondary';
+}
+
+function tonoPaquete(fila: ContratoFila): 'exito' | 'alerta' | 'neutro' {
+    if (fila.paquete_firmado) {
+        return 'exito';
+    }
+
+    return fila.paquete_generado ? 'alerta' : 'neutro';
 }
 
 // El estado del documento firmado físicamente es terminal (el original se
@@ -202,7 +217,7 @@ function varianteDocumento(estado: string | null): 'success' | 'info' {
 
         <div
             v-if="contratos.data.length"
-            class="hidden tabla-scroll rounded-2xl border border-border/60 xl:block"
+            class="hidden tabla-scroll rounded-2xl border border-border/60 bg-card shadow-sm xl:block"
         >
             <Table v-tabla-tarjetas>
                 <TableHeader>
@@ -215,8 +230,12 @@ function varianteDocumento(estado: string | null): 'success' | 'info' {
                         <TableHead class="text-right">Gestión</TableHead>
                     </TableRow>
                 </TableHeader>
-                <TableBody>
-                    <TableRow v-for="fila in contratos.data" :key="fila.id">
+                <TableBody class="entrada-escalonada">
+                    <TableRow
+                        v-for="fila in contratos.data"
+                        :key="fila.id"
+                        class="transicion-ui hover:bg-menta/40"
+                    >
                         <TableCell>
                             <div class="flex items-center gap-3">
                                 <ColaboradorAvatar
@@ -256,35 +275,65 @@ function varianteDocumento(estado: string | null): 'success' | 'info' {
                                     :key="doc.id"
                                     class="flex items-center gap-2"
                                 >
-                                    <Badge
-                                        :variant="varianteDocumento(doc.estado)"
-                                        >{{ doc.estado_etiqueta }}</Badge
-                                    >
+                                    <ChipEstado
+                                        :icono="
+                                            doc.estado === 'firmado_fisicamente'
+                                                ? FileCheck2
+                                                : FilePen
+                                        "
+                                        :tono="
+                                            varianteDocumento(doc.estado) ===
+                                            'success'
+                                                ? 'exito'
+                                                : 'info'
+                                        "
+                                        :etiqueta="doc.estado_etiqueta"
+                                    />
                                     <span class="text-xs">{{
                                         doc.titulo
                                     }}</span>
                                 </div>
                             </div>
-                            <span v-else class="text-xs text-muted-foreground"
-                                >Sin documentos generados</span
+                            <span
+                                v-else
+                                class="inline-flex items-center gap-1.5 rounded-xl border border-dashed px-2.5 py-1 text-xs text-muted-foreground"
+                                ><FileClock
+                                    class="size-3.5"
+                                    aria-hidden="true"
+                                />
+                                Sin documentos generados</span
                             >
                         </TableCell>
                         <TableCell>
-                            <Badge :variant="variantePaquete(fila)">
-                                {{
+                            <ChipEstado
+                                tamano="md"
+                                :icono="
+                                    fila.paquete_firmado
+                                        ? FileCheck2
+                                        : fila.paquete_generado
+                                          ? FilePen
+                                          : FileClock
+                                "
+                                :tono="tonoPaquete(fila)"
+                                :etiqueta="
                                     fila.paquete_firmado
                                         ? 'Firmado'
                                         : fila.paquete_generado
                                           ? 'Generado'
                                           : 'Por generar'
-                                }}
-                            </Badge>
+                                "
+                            />
                         </TableCell>
                         <TableCell class="text-right">
-                            <Button variant="ghost" size="sm" as-child>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                class="border-primary/25 bg-salvia/40 text-primary hover:bg-salvia"
+                                as-child
+                            >
                                 <Link :href="fila.gestion_url">
                                     Gestionar
-                                    <ArrowUpRight class="size-4" />
+                                    <ArrowUpRight class="size-4 icono-avanza" />
                                 </Link>
                             </Button>
                         </TableCell>
