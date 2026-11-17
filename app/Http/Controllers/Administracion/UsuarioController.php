@@ -8,10 +8,10 @@ use App\Http\Requests\Administracion\PurgarPersonaRequest;
 use App\Http\Requests\Administracion\StoreUsuarioRequest;
 use App\Http\Requests\Administracion\UpdateUsuarioRequest;
 use App\Models\CierreLaboral;
-use App\Models\Colaborador;
 use App\Models\User;
 use App\Notifications\CredencialesActualizadasNotification;
 use App\Services\Administracion\AccesoCuentaService;
+use App\Services\Administracion\CuentaUsuarioService;
 use App\Services\Administracion\PurgaPersonaService;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Autenticacion\CredencialesService;
@@ -24,8 +24,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Password;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -51,6 +49,7 @@ class UsuarioController extends Controller
         private readonly AccesoCuentaService $acceso,
         private readonly CredencialesService $credenciales,
         private readonly FotoColaboradorService $fotos,
+        private readonly CuentaUsuarioService $cuentas,
     ) {}
 
     public function index(Request $request): Response
@@ -121,8 +120,8 @@ class UsuarioController extends Controller
             // recarga parcial al abrirlo (Inertia::optional), no viaja en
             // cada visita al listado — con la plantilla completa eran miles
             // de filas para un diálogo cerrado.
-            'colaboradoresSinCuenta' => Inertia::optional(fn () => Colaborador::query()
-                ->whereDoesntHave('user')
+            // Solo vigentes, sin cuenta y en el alcance de quien mira.
+            'colaboradoresSinCuenta' => Inertia::optional(fn () => $this->cuentas->colaboradoresSinCuenta($usuario)
                 ->orderBy('name')
                 ->get(['id', 'name', 'apellidos'])),
             // Solo los que esta cuenta puede dar o quitar.
@@ -146,17 +145,13 @@ class UsuarioController extends Controller
 
     public function store(StoreUsuarioRequest $request): RedirectResponse
     {
-        $colaborador = Colaborador::query()->whereDoesntHave('user')->findOrFail($request->integer('colaborador_id'));
-
-        $usuario = User::create([
-            'colaborador_id' => $colaborador->id,
-            'name' => $colaborador->name,
-            'apellidos' => $colaborador->apellidos,
-            'email' => $request->filled('email') ? $request->string('email')->toString() : null,
-            'password' => Hash::make(Str::random(40)),
-        ]);
-
-        $this->rolPermisoService->asignarRoles($usuario, $request->input('roles', []), $request->user());
+        // Vigente, en alcance y en una sola transacción (CuentaUsuarioService).
+        $usuario = $this->cuentas->crear(
+            $request->integer('colaborador_id'),
+            $request->filled('email') ? $request->string('email')->toString() : null,
+            array_values(array_map(fn ($rol): string => (string) $rol, (array) $request->input('roles', []))),
+            $request->user(),
+        );
 
         // Sin correo no hay enlace que mandar: la pantalla abre «Generar
         // credenciales» para copiar usuario + contraseña temporal.
@@ -166,8 +161,6 @@ class UsuarioController extends Controller
                 'message' => sprintf('Cuenta creada. Usuario: %s.', $usuario->username),
             ]);
         }
-
-        Password::broker()->sendResetLink(['email' => $usuario->email]);
 
         return back()->with('toast', [
             'type' => 'success',
