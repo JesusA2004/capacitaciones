@@ -144,3 +144,11 @@ Schedule::command('sistemas:avisos-alta-pendientes --dias=14')
     ->timezone('America/Mexico_City')
     ->withoutOverlapping()
     ->onOneServer();
+
+// Seguimiento (docs/SEGUIMIENTO.md): directorio de personas/sucursales de
+// Reportes y actividad del mes en caché, para que Vínculos y la Nine Box
+// abran sin esperar a Reportes. Solo lectura.
+Schedule::command('seguimiento:sincronizar-reportes')
+    ->hourlyAt(20)
+    ->withoutOverlapping()
+    ->onOneServer();

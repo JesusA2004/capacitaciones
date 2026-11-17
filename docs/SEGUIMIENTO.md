@@ -25,31 +25,55 @@ PEOPLE muestra **colocación, recuperación, cartera y mora** por **sucursal** y
 | KPIs oficiales del mes por sucursal | `GET /periods/{mes}/branches` | `financial.read` |
 | KPIs oficiales del mes por gestor (cartera/mora) | `GET /periods/{mes}/employees` | `employees.read` + `financial.read` |
 | Tendencia mensual de un gestor | `GET /employees/{id}/periods?period_ids=…&include_effectiveness=0` | `employees.read` + `financial.read` |
-| Catálogos para vincular | `GET /branches`, `GET /employees` | `branches.read`, `employees.read` |
+| Personas para vincular (employees agrupados, con sucursal y rutas) | `GET /people?per_page=500` (§16; si no existe, se agrupa `GET /employees` aquí) | `employees.read` |
+| Sucursales con sus rutas | `GET /sucursales` (§16; si no existe, cada branch es su sucursal) | `branches.read` |
+| Una ruta suelta (compatibilidad) | `GET /branches` | `branches.read` |
 | Prueba de conexión | `GET /capabilities` (`features.weekly_activity`) | autenticado |
 
 Cliente: `ReportesApiCliente` — token Bearer, `timeout` 60 s (la primera vez Reportes calcula la radiografía; después la guarda 12 h), conexión 5 s, **2 reintentos** solo ante falla de red, 429 o 5xx (nunca 401/403/404/422), caché de 30 min de las respuestas correctas. Cualquier falla se traduce a un mensaje en español (`ReportesNoDisponibleException`) y la pantalla lo muestra con «Reintentar»: nunca truena.
 
-## 3. Cómo se mapean sucursales y gestores (tabla `vinculos_reportes`)
+## 3. Cómo se mapean sucursales y personas (tabla `vinculos_reportes`)
 
-No hay llave confiable compartida:
+**PEOPLE trabaja a nivel PERSONA y SUCURSAL; las rutas son un detalle de Reportes.** Un gestor
+cambia de ruta pero siempre pertenece a su sucursal.
 
-- La clave de empleado de Reportes (`employee_code`, clave NOI) **no es única** (la clave «7» la tienen dos personas) y no es el `numero_empleado` de PEOPLE.
-- Las sucursales de Reportes son `branches` (oficinas y rutas); su atribución institucional (`sucursal`) hoy viene `null` en local.
+Por qué no se vincula por `employee` ni por `branch` (corrección 2026-11-17, producción):
+`GET /employees` es un catálogo de **registros**: la misma persona aparecía hasta 12 veces (alta de
+NOI con clave, altas de Lendus cobranza sin clave, variantes de captura, cada una con su ruta) y
+`GET /branches` mezcla sucursales con rutas. Resultado: 1,485 «colaboradores» casi todos
+«homónimos», 98 sugerencias imposibles y 11/122 sucursales. Ahora:
 
-Por eso existe una tabla de mapeo **auditable** (`App\Models\VinculoReportes`, `VinculoReportesService`):
-
-| Tipo | PEOPLE | Reportes | Cardinalidad |
+| Tipo | PEOPLE | Reportes | Cómo se guarda |
 |---|---|---|---|
-| `sucursal` | `sucursal_id` | `branch.id` | una sucursal de PEOPLE agrupa varios branches; un branch solo pertenece a una sucursal a la vez |
-| `colaborador` | `colaborador_id` | `employee.id` | uno a uno |
+| `sucursal` | `sucursal_id` | **sucursal** de Reportes (`/sucursales`) con todas sus rutas | una fila por ruta (`reportes_id` = branch). Una ruta nueva de una sucursal ya vinculada **hereda** la sucursal de PEOPLE (`sucursalPorBranch()`), y la pantalla la sugiere para dejarla guardada |
+| `colaborador` | `colaborador_id` | **persona** de Reportes (`/people`: todos sus employee ids) | `reportes_id` = un employee id de la persona; el vínculo vale para **toda** la persona |
 
-- Cada fila guarda la foto del nombre/clave en Reportes, el método (`MetodoVinculoReportes`: elegido a mano / sugerencia confirmada) y quién vinculó.
-- **Nunca se borra**: cambiar o quitar un vínculo lo desactiva (`desactivado_en`, `desactivado_por`, `motivo_desactivacion`) y, si aplica, crea uno nuevo.
-- **Sugerencias** (nunca automáticas): sucursal con nombre idéntico (sin acentos) o branch que empieza con el nombre de la sucursal («TULA CENTRO» → Tula); colaborador con las mismas palabras del nombre y **único en ambos lados** (con homónimos decide una persona). «Confirmar sugerencias» las recalcula en el servidor.
-- El nombre y la clave se toman de Reportes al vincular, nunca del formulario.
-- Un gestor **sin vincular** se ubica por el branch que Reportes le asignó en ese mes (`assigned_branch_id` → sucursal vinculada).
-- En los datos actuales, los 13 branches con datos (88–100) son sucursales completas con el mismo nombre que en PEOPLE; en local se confirmaron las 13 sugerencias (+1 ruta).
+- **Directorio** (`DirectorioReportesService`): personas + sucursales en la caché de PEOPLE (vale
+  `REPORTES_API_CACHE_DIRECTORIO_MINUTOS`, 360; se guarda 7 días y, si Reportes no responde, se usa
+  el último conocido). `php artisan seguimiento:sincronizar-reportes` (programado cada hora, :20)
+  lo refresca y precalienta la actividad del mes; la pantalla tiene «Actualizar desde Reportes».
+- **Vínculos ya hechos**: no se migran datos. Un vínculo viejo a un employee id se resuelve a su
+  persona al leer (`colaboradorPorEmpleado()` lo extiende a todos sus ids); si dos ids de la misma
+  persona estaban ligados a colaboradores distintos, la pantalla lo marca («vínculos anteriores a
+  dos colaboradores») y vincular de nuevo cierra el sobrante. Nada se borra.
+- **Sugerencias** (nunca automáticas): persona con las mismas palabras del nombre (sin acentos ni
+  orden) y única en ambos lados; con homónimos en PEOPLE, se desempata por la sucursal (la de su
+  ruta más reciente en Reportes ↔ sucursal principal en PEOPLE). Activos antes que bajas. Las
+  variantes con typo ya vienen juntas desde Reportes; si no, se eligen a mano. Sucursal: nombre
+  idéntico o que empiece con el de PEOPLE. «Confirmar sugerencias» las recalcula en el servidor.
+- **No son personas** (`kind: placeholder` de Reportes: VACANTE…, …VENCIDOS, códigos de promotor):
+  se listan aparte y no se vinculan.
+- Cálculos: `SeguimientoService::gestoresUbicados()` junta las filas de la actividad semanal de la
+  misma persona (suma semanas y mes; cartera/vencida oficiales suman sus filas distintas), así «Por
+  gestor», el detalle y la **Nine Box** ven una fila por persona con todas sus rutas. «Por
+  sucursal» suma todas las rutas de cada sucursal. Verificado en local (Junio 2026): 136 gestores
+  sin repetidos, colocación de gestores 14,170,074.60 = filas crudas; por sucursal 14,151,329 =
+  oficial.
+- Rendimiento de «Vínculos»: ya no llama a `weekly-activity` (lo «con actividad» sale solo si ya está
+  en caché) ni recorre 15 páginas de `/employees`; no manda la lista de colaboradores a cada fila
+  (buscador bajo demanda, `GET /seguimiento/vinculos/colaboradores/buscar`) y pinta 40 filas por
+  tanda. Local: 0.57 s → 0.04 s el servidor; ~1,485 filas × N colaboradores de opciones en el
+  navegador → 40 filas sin opciones montadas.
 
 ## 4. Permisos y alcance
 

@@ -9,10 +9,12 @@ use App\Models\Colaborador;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Models\VinculoReportes;
+use App\Services\Seguimiento\DirectorioReportesService;
 use App\Services\Seguimiento\ReportesApiCliente;
 use App\Services\Seguimiento\ReportesNoDisponibleException;
 use App\Services\Seguimiento\SeguimientoService;
 use App\Services\Seguimiento\VinculoReportesService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -30,6 +32,7 @@ class VinculosReportesController extends Controller
         private readonly VinculoReportesService $vinculos,
         private readonly SeguimientoService $seguimiento,
         private readonly ReportesApiCliente $cliente,
+        private readonly DirectorioReportesService $directorio,
     ) {}
 
     public function index(Request $request): Response
@@ -53,19 +56,24 @@ class VinculosReportesController extends Controller
     {
         $this->authorize('vincular', VinculoReportes::class);
         $datos = $request->validate([
-            'reportes_id' => ['required', 'integer', 'min:1'],
+            // Sucursal de Reportes completa (todas sus rutas) o, por compatibilidad, una ruta.
+            'codigo' => ['required_without:reportes_id', 'nullable', 'string', 'max:100'],
+            'reportes_id' => ['required_without:codigo', 'nullable', 'integer', 'min:1'],
             'sucursal_id' => ['required', 'integer', Rule::exists('sucursales', 'id')->whereNull('deleted_at')],
             'sugerencia' => ['sometimes', 'boolean'],
-        ], [], ['reportes_id' => 'sucursal de Reportes', 'sucursal_id' => 'sucursal de PEOPLE']);
+        ], [], ['codigo' => 'sucursal de Reportes', 'reportes_id' => 'ruta de Reportes', 'sucursal_id' => 'sucursal de PEOPLE']);
 
         $sucursal = Sucursal::query()->where('id', (int) $datos['sucursal_id'])->firstOrFail();
+        $metodo = ($datos['sugerencia'] ?? false) ? MetodoVinculoReportes::SugerenciaConfirmada : MetodoVinculoReportes::Manual;
+        $usuario = $this->usuario($request);
+        $codigo = is_string($datos['codigo'] ?? null) ? $datos['codigo'] : null;
 
-        return $this->conReportes(fn () => $this->vinculos->vincularSucursalDesdeReportes(
-            $this->usuario($request),
-            $sucursal,
-            (int) $datos['reportes_id'],
-            ($datos['sugerencia'] ?? false) ? MetodoVinculoReportes::SugerenciaConfirmada : MetodoVinculoReportes::Manual,
-        ), sprintf('Listo: la sucursal de Reportes quedó vinculada a %s.', $sucursal->nombre));
+        return $this->conReportes(
+            fn () => $codigo !== null
+                ? $this->vinculos->vincularSucursalReportes($usuario, $sucursal, $codigo, $metodo)
+                : $this->vinculos->vincularSucursalDesdeReportes($usuario, $sucursal, (int) $datos['reportes_id'], $metodo),
+            sprintf('Listo: la sucursal de Reportes quedó vinculada a %s con todas sus rutas.', $sucursal->nombre),
+        );
     }
 
     public function vincularColaborador(Request $request): RedirectResponse
@@ -105,6 +113,32 @@ class VinculosReportesController extends Controller
             'type' => 'success',
             'message' => $creados === 0 ? 'No había sugerencias pendientes.' : sprintf('Listo: %d vínculo(s) confirmados.', $creados),
         ]);
+    }
+
+    /**
+     * Buscador de colaboradores de PEOPLE (se pide al abrir el selector y al
+     * escribir): nunca se manda la lista completa a cada fila.
+     */
+    public function buscarColaboradores(Request $request): JsonResponse
+    {
+        $this->authorize('vincular', VinculoReportes::class);
+        $datos = $request->validate([
+            'q' => ['nullable', 'string', 'max:100'],
+            'sucursal' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        return response()->json(['data' => $this->vinculos->buscarColaboradores(
+            is_string($datos['q'] ?? null) ? $datos['q'] : '',
+            isset($datos['sucursal']) ? (int) $datos['sucursal'] : null,
+        )]);
+    }
+
+    /** Vuelve a pedir a Reportes el directorio de personas y sucursales. */
+    public function actualizar(Request $request): RedirectResponse
+    {
+        $this->authorize('vincular', VinculoReportes::class);
+
+        return $this->conReportes(fn () => $this->directorio->directorio(fresco: true), 'Listo: personas y sucursales actualizadas desde Reportes.');
     }
 
     public function desvincular(Request $request, VinculoReportes $vinculo): RedirectResponse

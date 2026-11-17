@@ -42,6 +42,12 @@ return [
         // invalida su propia caché al regenerar la radiografía).
         'cache_minutos' => (int) env('REPORTES_API_CACHE_MINUTOS', 30),
 
+        // Minutos que vale el directorio de PERSONAS y SUCURSALES de Reportes
+        // (GET /people y /sucursales) antes de pedirlo de nuevo; se refresca
+        // cada hora con seguimiento:sincronizar-reportes y, si Reportes no
+        // responde, se sigue usando el último conocido.
+        'cache_directorio_minutos' => (int) env('REPORTES_API_CACHE_DIRECTORIO_MINUTOS', 360),
+
         'verificar_ssl' => (bool) env('REPORTES_API_VERIFICAR_SSL', true),
     ],
 

@@ -192,3 +192,61 @@ it('vincular exige seguimiento.vincular y reasignar conserva el historial', func
 it('quien no tiene seguimiento.ver no entra', function () {
     $this->actingAs(clUsuario('colaborador'))->get('/seguimiento')->assertForbidden();
 });
+
+it('agrupa por PERSONA y por SUCURSAL de Reportes: un vínculo viejo vale para toda la persona y la sucursal vincula todas sus rutas', function () {
+    $cero = ['placement' => ['amount' => 0, 'operations' => 0], 'recovery' => ['total' => 0]];
+    segFalsoReportes([
+        // La misma persona viene en dos filas (dos registros/rutas que el reporte no fusionó).
+        SEG_URL.'/api/v1/periods/21/weekly-activity*' => Http::response([
+            'status' => 'ok', 'weeks' => [
+                ['id' => 13, 'index' => 1, 'label' => 'Semana 22', 'start_date' => '2026-05-25', 'end_date' => '2026-05-31'],
+            ],
+            'branches' => ['data' => [
+                ['branch_id' => 99, 'branch' => ['id' => 99, 'name' => 'TULA'], 'weeks' => [segSemana(13, 300, 3, 100)], 'outside_weeks' => $cero, 'month_total' => ['placement' => ['amount' => 300], 'recovery' => ['total' => 100]]],
+                ['branch_id' => 98, 'branch' => ['id' => 98, 'name' => 'TULA CENTRO'], 'weeks' => [segSemana(13, 50, 1, 20)], 'outside_weeks' => $cero, 'month_total' => ['placement' => ['amount' => 50], 'recovery' => ['total' => 20]]],
+            ]],
+            'employees' => ['data' => [
+                ['employee' => ['id' => 73, 'employee_ids' => [73], 'full_name' => 'ALEJANDRA ROSAS JUAREZ'], 'assigned_branch_id' => 99, 'branch' => ['id' => 99, 'name' => 'TULA'], 'weeks' => [segSemana(13, 300, 3, 100)], 'month_total' => ['placement' => ['amount' => 300, 'operations' => 3], 'recovery' => ['total' => 100]]],
+                ['employee' => ['id' => 74, 'employee_ids' => [74], 'full_name' => 'ALEJANDRA ROSAS JUÁREZ'], 'assigned_branch_id' => 98, 'branch' => ['id' => 98, 'name' => 'TULA CENTRO'], 'weeks' => [segSemana(13, 50, 1, 20)], 'month_total' => ['placement' => ['amount' => 50, 'operations' => 1], 'recovery' => ['total' => 20]]],
+            ]],
+        ]),
+        SEG_URL.'/api/v1/people*' => Http::response(['data' => [
+            ['id' => 73, 'employee_ids' => [73, 74], 'full_name' => 'ALEJANDRA ROSAS JUAREZ', 'employee_codes' => ['22'], 'kind' => 'person', 'sucursal' => ['code' => 'TULA', 'name' => 'TULA'], 'routes' => [['id' => 99, 'name' => 'TULA', 'sucursal_code' => 'TULA'], ['id' => 98, 'name' => 'TULA CENTRO', 'sucursal_code' => 'TULA']]],
+            ['id' => 900, 'employee_ids' => [900], 'full_name' => 'TEMIXCO VACANTE', 'kind' => 'placeholder', 'placeholder_reason' => 'vacante', 'routes' => []],
+        ], 'meta' => ['last_page' => 1]]),
+        SEG_URL.'/api/v1/sucursales*' => Http::response(['data' => [
+            ['code' => 'TULA', 'name' => 'TULA', 'routes' => [['id' => 99, 'name' => 'TULA'], ['id' => 98, 'name' => 'TULA CENTRO']]],
+        ]]),
+    ]);
+
+    $rh = clUsuario('rh_admin');
+    $colaborador = clUsuario('colaborador', ['name' => 'Alejandra', 'apellidos' => 'Rosas Juárez', 'sucursal_principal_id' => $this->tula->id])->colaborador;
+
+    // La sucursal de Reportes se vincula con TODAS sus rutas.
+    $this->actingAs($rh)->post('/seguimiento/vinculos/sucursales', ['codigo' => 'TULA', 'sucursal_id' => $this->tula->id])->assertRedirect();
+    expect(VinculoReportes::query()->activos()->deTipo(TipoVinculoReportes::Sucursal)->where('sucursal_id', $this->tula->id)->pluck('reportes_id')->sort()->values()->all())->toBe([98, 99]);
+
+    // Vínculo de antes, a UN employee id (74): vale para toda la persona.
+    VinculoReportes::query()->create([
+        'tipo' => TipoVinculoReportes::Colaborador->value, 'colaborador_id' => $colaborador->id, 'reportes_id' => 74,
+        'reportes_nombre' => 'ALEJANDRA ROSAS JUÁREZ', 'metodo' => MetodoVinculoReportes::Manual->value, 'vinculado_por' => $rh->id,
+    ]);
+
+    $this->actingAs($rh)->get('/seguimiento/gestores?mes=21')->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->loadDeferredProps(fn (Assert $reload) => $reload
+            ->has('datos.datos.tablero.gestores', 1)
+            ->where('datos.datos.tablero.gestores.0.colaborador_id', $colaborador->id)
+            ->where('datos.datos.tablero.gestores.0.colocacion', 350)
+            ->where('datos.datos.tablero.gestores.0.recuperacion', 120)
+        ));
+
+    // Pantalla de vínculos: una sola fila por persona, ya vinculada; la vacante va aparte.
+    $this->actingAs($rh)->get('/seguimiento/vinculos')->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->loadDeferredProps(fn (Assert $reload) => $reload
+            ->has('datos.datos.personas', 1)
+            ->where('datos.datos.personas.0.vinculo.colaborador_id', $colaborador->id)
+            ->where('datos.datos.personas.0.rutas', ['TULA', 'TULA CENTRO'])
+            ->has('datos.datos.no_personas', 1)
+            ->where('datos.datos.sucursales.0.vinculo.rutas_vinculadas', 2)
+        ));
+});

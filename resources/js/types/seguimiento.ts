@@ -173,58 +173,59 @@ export type FiltrosSeguimiento = {
     semana: number | null;
 };
 
-export type VinculoBranch = {
-    reportes_id: number;
-    codigo: string;
-    nombre: string;
-    sucursal_reportes: string | null;
-    region: string | null;
-    con_datos: boolean;
-    vinculo: {
-        id: number;
-        sucursal_id: number | null;
-        sucursal: string | null;
-        metodo: string;
-        vinculado_por: string | null;
-        vinculado_en: string | null;
-    } | null;
-    sugerencia: { sucursal_id: number; sucursal: string | null } | null;
+type DatosVinculo = {
+    id: number;
+    metodo: string;
+    vinculado_por: string | null;
+    vinculado_en: string | null;
 };
 
-export type VinculoEmpleado = {
+/** Persona de Reportes (todos sus registros/rutas) ↔ colaborador de PEOPLE. */
+export type VinculoPersona = {
     reportes_id: number;
-    clave: string | null;
+    registros: number;
     nombre: string;
+    variantes: string[];
+    claves: string[];
     puesto: string | null;
-    branch: string | null;
+    sucursal: string | null;
+    sucursal_people: string | null;
+    rutas: string[];
     con_datos: boolean;
-    vinculo: {
-        id: number;
-        colaborador_id: number | null;
-        colaborador: string | null;
-        metodo: string;
-        vinculado_por: string | null;
-        vinculado_en: string | null;
-    } | null;
-    sugerencia: { colaborador_id: number; colaborador: string | null } | null;
+    vinculo: (DatosVinculo & { colaborador_id: number | null; colaborador: string | null }) | null;
+    conflicto: boolean;
+    sugerencia: { colaborador_id: number; colaborador: string | null; motivo: string | null } | null;
     homonimos: boolean;
+};
+
+/** Sucursal de Reportes (con TODAS sus rutas) ↔ sucursal de PEOPLE. */
+export type VinculoSucursalReportes = {
+    codigo: string;
+    nombre: string;
+    sin_sucursal_en_reportes: boolean;
+    rutas: { id: number; nombre: string; sucursal_id: number | null; con_datos: boolean }[];
+    con_datos: boolean;
+    vinculo: (DatosVinculo & { sucursal_id: number; sucursal: string; rutas_vinculadas: number }) | null;
+    mixta: boolean;
+    sugerencia: { sucursal_id: number; sucursal: string } | null;
 };
 
 export type PantallaVinculos = {
     mes: string | null;
-    branches: VinculoBranch[];
-    empleados: VinculoEmpleado[];
+    personas: VinculoPersona[];
+    no_personas: { reportes_id: number; nombre: string; motivo: string; sucursal: string | null }[];
+    sucursales: VinculoSucursalReportes[];
     opciones_sucursales: { value: number; label: string }[];
-    opciones_colaboradores: {
-        value: number;
-        label: string;
-        descripcion: string | null;
-    }[];
+    con_datos_disponible: boolean;
+    actualizado_en: string;
     totales: {
-        branches: number;
-        branches_vinculados: number;
-        empleados: number;
-        empleados_vinculados: number;
-        sugerencias: number;
+        personas: number;
+        personas_vinculadas: number;
+        sucursales: number;
+        sucursales_vinculadas: number;
+        rutas: number;
+        sugerencias_personas: number;
+        sugerencias_sucursales: number;
+        no_personas: number;
     };
 };

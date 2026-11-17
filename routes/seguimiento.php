@@ -34,6 +34,8 @@ Route::middleware(['auth', 'verified', 'feature:seguimiento'])->prefix('seguimie
         Route::get('/', [VinculosReportesController::class, 'index'])->name('index');
         Route::post('sucursales', [VinculosReportesController::class, 'vincularSucursal'])->name('sucursales.store')->middleware('throttle:120,1');
         Route::post('colaboradores', [VinculosReportesController::class, 'vincularColaborador'])->name('colaboradores.store')->middleware('throttle:120,1');
+        Route::get('colaboradores/buscar', [VinculosReportesController::class, 'buscarColaboradores'])->name('colaboradores.buscar')->middleware('throttle:240,1');
+        Route::post('actualizar', [VinculosReportesController::class, 'actualizar'])->name('actualizar')->middleware('throttle:10,1');
         Route::post('confirmar-sugerencias', [VinculosReportesController::class, 'confirmarSugerencias'])->name('confirmar-sugerencias')->middleware('throttle:10,1');
         Route::delete('{vinculo}', [VinculosReportesController::class, 'desvincular'])->name('destroy')->whereNumber('vinculo')->middleware('throttle:120,1');
     });

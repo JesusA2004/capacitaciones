@@ -6,7 +6,6 @@ use App\Models\Colaborador;
 use App\Models\Sucursal;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Support\Collection;
 
 /**
  * Seguimiento (Fase 2): datos duros de Reportes por SUCURSAL y por GESTOR,
@@ -32,6 +31,7 @@ class SeguimientoService
         private readonly ReportesCatalogoService $catalogo,
         private readonly VinculoReportesService $vinculos,
         private readonly AlcanceSeguimientoService $alcance,
+        private readonly DirectorioReportesService $directorio,
     ) {}
 
     /**
@@ -204,7 +204,8 @@ class SeguimientoService
         $actividad = $this->catalogo->actividadSemanal($mesId);
         $semanas = $this->semanas($actividad);
         $semanaId = $this->semanaValida($semanas, $semanaId);
-        $oficialPorEmpleado = $this->kpisOficialesPorEmpleado($mesId);
+        $ubicados = $this->gestoresUbicados($actividad);
+        $oficialPorGestor = $this->oficialesPorGestor($ubicados, $this->kpisOficialesPorEmpleado($mesId));
         $nombres = Sucursal::query()->pluck('nombre', 'id');
 
         $filas = [];
@@ -213,7 +214,7 @@ class SeguimientoService
         // sucursal, el filtro solo ofrecía esa).
         $sucursalesConGestores = [];
 
-        foreach ($this->gestoresUbicados($actividad) as $gestor) {
+        foreach ($ubicados as $gestor) {
             if (! $this->alcance->alcanzaSucursal($visibles, $gestor['sucursal_id'])) {
                 continue;
             }
@@ -226,14 +227,14 @@ class SeguimientoService
                 continue;
             }
 
-            $oficial = $oficialPorEmpleado[$gestor['reportes_id']] ?? null;
+            $oficial = $oficialPorGestor[$gestor['reportes_id']] ?? null;
             $semanasGestor = $this->sumarSemanas(
                 array_map(fn (array $s): array => ['semana_id' => $s['id'], 'colocacion' => 0.0, 'operaciones' => 0, 'recuperacion' => 0.0], $semanas),
                 $gestor['semanas'],
             );
             $semana = $semanaId === null ? null : collect($semanasGestor)->firstWhere('semana_id', $semanaId);
-            $cartera = $oficial === null ? null : DatoReportes::decimalONulo(DatoReportes::ruta($oficial, 'kpis.portfolio.total'));
-            $vencida = $oficial === null ? null : DatoReportes::decimalONulo(DatoReportes::ruta($oficial, 'kpis.portfolio.overdue'));
+            $cartera = $oficial['cartera'] ?? null;
+            $vencida = $oficial['vencida'] ?? null;
 
             $filas[] = [
                 'reportes_id' => $gestor['reportes_id'],
@@ -316,21 +317,32 @@ class SeguimientoService
         $mensual = [];
 
         if ($mesesTendencia !== []) {
-            $respuesta = $this->catalogo->colaboradorEnMeses($empleadoId, array_column($mesesTendencia, 'id'));
+            // Una persona puede tener varias filas en Reportes (una por
+            // registro/ruta no fusionado): se suma una consulta por fila.
+            $porMes = [];
 
-            foreach (DatoReportes::lista($respuesta['data'] ?? null) as $entrada) {
-                $cartera = DatoReportes::decimalONulo(DatoReportes::ruta($entrada, 'kpis.portfolio.total'));
-                $vencida = DatoReportes::decimalONulo(DatoReportes::ruta($entrada, 'kpis.portfolio.overdue'));
-                $mensual[] = [
-                    'mes_id' => DatoReportes::entero(DatoReportes::ruta($entrada, 'period.id')),
-                    'etiqueta' => DatoReportes::texto(DatoReportes::ruta($entrada, 'period.label')),
-                    'estado' => DatoReportes::texto($entrada['status'] ?? null),
-                    'colocacion' => DatoReportes::decimalONulo(DatoReportes::ruta($entrada, 'kpis.placement.amount')),
-                    'recuperacion' => DatoReportes::decimalONulo(DatoReportes::ruta($entrada, 'kpis.recovery.total')),
-                    'cartera' => $cartera,
-                    'vencida' => $vencida,
-                    'mora' => $this->mora($cartera, $vencida),
-                ];
+            foreach ($this->filasOficialesDe($gestor['ids'] ?? [$empleadoId], $mesId) as $filaId) {
+                $respuesta = $this->catalogo->colaboradorEnMeses($filaId, array_column($mesesTendencia, 'id'));
+
+                foreach (DatoReportes::lista($respuesta['data'] ?? null) as $entrada) {
+                    $mes = DatoReportes::entero(DatoReportes::ruta($entrada, 'period.id'));
+                    $previo = $porMes[$mes ?? 0] ?? null;
+                    $porMes[$mes ?? 0] = [
+                        'mes_id' => $mes,
+                        'etiqueta' => DatoReportes::texto(DatoReportes::ruta($entrada, 'period.label')),
+                        'estado' => DatoReportes::texto($entrada['status'] ?? null),
+                        'colocacion' => $this->sumar($previo['colocacion'] ?? null, DatoReportes::decimalONulo(DatoReportes::ruta($entrada, 'kpis.placement.amount'))),
+                        'recuperacion' => $this->sumar($previo['recuperacion'] ?? null, DatoReportes::decimalONulo(DatoReportes::ruta($entrada, 'kpis.recovery.total'))),
+                        'cartera' => $this->sumar($previo['cartera'] ?? null, DatoReportes::decimalONulo(DatoReportes::ruta($entrada, 'kpis.portfolio.total'))),
+                        'vencida' => $this->sumar($previo['vencida'] ?? null, DatoReportes::decimalONulo(DatoReportes::ruta($entrada, 'kpis.portfolio.overdue'))),
+                        'mora' => null,
+                    ];
+                }
+            }
+
+            foreach ($porMes as $entrada) {
+                $entrada['mora'] = $this->mora($entrada['cartera'], $entrada['vencida']);
+                $mensual[] = $entrada;
             }
         }
 
@@ -442,12 +454,23 @@ class SeguimientoService
     public function actividadGestoresMes(int $mesId): array
     {
         $actividad = $this->catalogo->actividadSemanal($mesId);
+        $gestores = $this->gestoresUbicados($actividad);
+        $oficiales = [];
+
+        // Cartera/vencida oficiales sumadas por PERSONA, bajo cada uno de sus ids.
+        foreach ($this->oficialesPorGestor($gestores, $this->kpisOficialesPorEmpleado($mesId)) as $reportesId => $oficial) {
+            $fila = ['kpis' => ['portfolio' => ['total' => $oficial['cartera'], 'overdue' => $oficial['vencida']]]];
+
+            foreach (collect($gestores)->firstWhere('reportes_id', $reportesId)['ids'] ?? [$reportesId] as $id) {
+                $oficiales[$id] = $fila;
+            }
+        }
 
         return [
             'estado' => DatoReportes::texto($actividad['status'] ?? null) === 'ok' ? 'ok' : 'sin_datos',
             'semanas' => $this->semanas($actividad),
-            'gestores' => $this->gestoresUbicados($actividad),
-            'oficiales' => $this->kpisOficialesPorEmpleado($mesId),
+            'gestores' => $gestores,
+            'oficiales' => $oficiales,
         ];
     }
 
@@ -462,12 +485,14 @@ class SeguimientoService
     {
         $colaboradorPorEmpleado = $this->vinculos->colaboradorPorEmpleado();
         $sucursalPorBranch = $this->vinculos->sucursalPorBranch();
-        $filas = DatoReportes::lista(DatoReportes::ruta($actividad, 'employees.data'));
+        $personaPorEmpleado = $this->directorio->personaPorEmpleado();
+        $idsPorPersona = $this->directorio->idsPorPersona();
 
-        $colaboradoresIds = [];
-        $preparados = [];
+        // Una PERSONA puede venir en varias filas (registros/rutas que el
+        // reporte no fusionó): se juntan por la persona del directorio.
+        $grupos = [];
 
-        foreach ($filas as $fila) {
+        foreach (DatoReportes::lista(DatoReportes::ruta($actividad, 'employees.data')) as $fila) {
             $id = DatoReportes::entero(DatoReportes::ruta($fila, 'employee.id'));
 
             if ($id === null) {
@@ -475,6 +500,26 @@ class SeguimientoService
             }
 
             $ids = array_values(array_unique([$id, ...DatoReportes::enteros(DatoReportes::ruta($fila, 'employee.employee_ids'))]));
+            $personaId = null;
+
+            foreach ($ids as $candidato) {
+                $personaId ??= $personaPorEmpleado[$candidato] ?? null;
+            }
+
+            $grupos[$personaId ?? $id][] = ['ids' => $ids, 'fila' => $fila];
+        }
+
+        $colaboradoresIds = [];
+        $preparados = [];
+
+        foreach ($grupos as $llave => $filas) {
+            $ids = $idsPorPersona[$llave] ?? [];
+
+            foreach ($filas as $entrada) {
+                array_push($ids, ...$entrada['ids']);
+            }
+
+            $ids = array_values(array_unique([$llave, ...$ids]));
             $colaboradorId = null;
 
             foreach ($ids as $candidato) {
@@ -485,10 +530,14 @@ class SeguimientoService
                 $colaboradoresIds[] = $colaboradorId;
             }
 
-            $preparados[] = [$id, $ids, $colaboradorId, $fila];
+            // La fila con más colocación da el nombre y la ruta asignada.
+            $soloFilas = array_column($filas, 'fila');
+            usort($soloFilas, fn (array $a, array $b): int => DatoReportes::decimal(DatoReportes::ruta($b, 'month_total.placement.amount'))
+                <=> DatoReportes::decimal(DatoReportes::ruta($a, 'month_total.placement.amount')));
+
+            $preparados[] = ['id' => $llave, 'ids' => $ids, 'colaborador_id' => $colaboradorId, 'filas' => $soloFilas];
         }
 
-        /** @var Collection<int, Colaborador> $colaboradores */
         $colaboradores = Colaborador::query()->with('puesto:id,nombre')
             ->whereIn('id', array_values(array_unique($colaboradoresIds)))
             ->get(['id', 'name', 'apellidos', 'puesto_id', 'sucursal_principal_id'])
@@ -496,31 +545,150 @@ class SeguimientoService
 
         $resultado = [];
 
-        foreach ($preparados as [$id, $ids, $colaboradorId, $fila]) {
-            $colaborador = $colaboradorId === null ? null : $colaboradores->get($colaboradorId);
-            $branchId = DatoReportes::entero($fila['assigned_branch_id'] ?? null) ?? DatoReportes::entero(DatoReportes::ruta($fila, 'branch.id'));
-            $nombreReportes = DatoReportes::texto(DatoReportes::ruta($fila, 'employee.full_name'));
-            $operaciones = DatoReportes::entero(DatoReportes::ruta($fila, 'month_total.placement.operations'));
+        foreach ($preparados as $preparado) {
+            $filas = $preparado['filas'];
+            $principal = $filas[0];
+            $colaborador = $preparado['colaborador_id'] === null ? null : $colaboradores->get($preparado['colaborador_id']);
+            $branchId = DatoReportes::entero($principal['assigned_branch_id'] ?? null) ?? DatoReportes::entero(DatoReportes::ruta($principal, 'branch.id'));
+            $nombreReportes = DatoReportes::texto(DatoReportes::ruta($principal, 'employee.full_name'));
+            $colocacion = null;
+            $operaciones = null;
+            $recuperacion = null;
+            $semanas = [];
+
+            foreach ($filas as $fila) {
+                $colocacion = $this->sumar($colocacion, DatoReportes::decimalONulo(DatoReportes::ruta($fila, 'month_total.placement.amount')));
+                $recuperacion = $this->sumar($recuperacion, DatoReportes::decimalONulo(DatoReportes::ruta($fila, 'month_total.recovery.total')));
+                $ops = DatoReportes::entero(DatoReportes::ruta($fila, 'month_total.placement.operations'));
+                $operaciones = $ops === null ? $operaciones : (int) $operaciones + $ops;
+                $semanas = $this->juntarSemanas($semanas, DatoReportes::lista($fila['weeks'] ?? null));
+            }
 
             $resultado[] = [
-                'reportes_id' => $id,
-                'ids' => $ids,
+                'reportes_id' => $preparado['id'],
+                'ids' => $preparado['ids'],
                 'nombre' => $colaborador?->nombreCompleto() ?? $nombreReportes,
                 'nombre_reportes' => $nombreReportes,
-                'puesto' => $colaborador?->puesto->nombre ?? DatoReportes::textoONulo(DatoReportes::ruta($fila, 'employee.position')),
+                'puesto' => $colaborador?->puesto->nombre ?? DatoReportes::textoONulo(DatoReportes::ruta($principal, 'employee.position')),
                 'colaborador_id' => $colaborador?->id,
                 'sucursal_id' => $colaborador !== null
                     ? ($colaborador->sucursal_principal_id === null ? null : (int) $colaborador->sucursal_principal_id)
                     : ($branchId === null ? null : ($sucursalPorBranch[$branchId] ?? null)),
-                'branch' => DatoReportes::textoONulo(DatoReportes::ruta($fila, 'branch.name')),
-                'semanas' => DatoReportes::lista($fila['weeks'] ?? null),
-                'mes_colocacion' => DatoReportes::decimalONulo(DatoReportes::ruta($fila, 'month_total.placement.amount')),
+                'branch' => DatoReportes::textoONulo(DatoReportes::ruta($principal, 'branch.name')),
+                'semanas' => $semanas,
+                'mes_colocacion' => $colocacion,
                 'mes_operaciones' => $operaciones,
-                'mes_recuperacion' => DatoReportes::decimalONulo(DatoReportes::ruta($fila, 'month_total.recovery.total')),
+                'mes_recuperacion' => $recuperacion,
             ];
         }
 
         return $resultado;
+    }
+
+    /**
+     * Suma semanas crudas de Reportes por period_id (misma forma de salida).
+     *
+     * @param  list<array<string, mixed>>  $acumulado
+     * @param  list<array<string, mixed>>  $semanas
+     * @return list<array<string, mixed>>
+     */
+    private function juntarSemanas(array $acumulado, array $semanas): array
+    {
+        if ($acumulado === []) {
+            return $semanas;
+        }
+
+        $porId = [];
+
+        foreach ([...$acumulado, ...$semanas] as $semana) {
+            $id = DatoReportes::entero($semana['period_id'] ?? null);
+
+            if ($id === null) {
+                continue;
+            }
+
+            $previa = $porId[$id] ?? null;
+            $porId[$id] = [
+                'period_id' => $id,
+                'placement' => [
+                    'amount' => round(DatoReportes::decimal(DatoReportes::ruta($previa, 'placement.amount')) + DatoReportes::decimal(DatoReportes::ruta($semana, 'placement.amount')), 2),
+                    'operations' => (int) DatoReportes::entero(DatoReportes::ruta($previa, 'placement.operations')) + (int) DatoReportes::entero(DatoReportes::ruta($semana, 'placement.operations')),
+                ],
+                'recovery' => [
+                    'total' => round(DatoReportes::decimal(DatoReportes::ruta($previa, 'recovery.total')) + DatoReportes::decimal(DatoReportes::ruta($semana, 'recovery.total')), 2),
+                ],
+            ];
+        }
+
+        return array_values($porId);
+    }
+
+    /**
+     * Cartera y vencida OFICIALES de cada gestor (persona): suma de las filas
+     * distintas de /periods/{mes}/employees que caen en sus ids.
+     *
+     * @param  list<array{reportes_id: int, ids: list<int>, nombre: string, nombre_reportes: string, puesto: string|null, colaborador_id: int|null, sucursal_id: int|null, branch: string|null, semanas: list<array<string, mixed>>, mes_colocacion: float|null, mes_operaciones: int|null, mes_recuperacion: float|null}>  $gestores
+     * @param  array<int, array<string, mixed>>  $porEmpleado
+     * @return array<int, array{cartera: float|null, vencida: float|null}>
+     */
+    private function oficialesPorGestor(array $gestores, array $porEmpleado): array
+    {
+        $resultado = [];
+
+        foreach ($gestores as $gestor) {
+            $vistas = [];
+            $cartera = null;
+            $vencida = null;
+
+            foreach ($gestor['ids'] as $id) {
+                $fila = $porEmpleado[$id] ?? null;
+
+                if ($fila === null) {
+                    continue;
+                }
+
+                $filaId = DatoReportes::entero(DatoReportes::ruta($fila, 'employee.id')) ?? -$id;
+
+                if (isset($vistas[$filaId])) {
+                    continue;
+                }
+
+                $vistas[$filaId] = true;
+                $cartera = $this->sumar($cartera, DatoReportes::decimalONulo(DatoReportes::ruta($fila, 'kpis.portfolio.total')));
+                $vencida = $this->sumar($vencida, DatoReportes::decimalONulo(DatoReportes::ruta($fila, 'kpis.portfolio.overdue')));
+            }
+
+            if ($vistas !== []) {
+                $resultado[$gestor['reportes_id']] = ['cartera' => $cartera, 'vencida' => $vencida];
+            }
+        }
+
+        return $resultado;
+    }
+
+    /**
+     * Ids de las filas oficiales distintas de un gestor en el mes (para
+     * pedir su tendencia mensual una vez por fila).
+     *
+     * @param  list<int>  $ids
+     * @return list<int>
+     *
+     * @throws ReportesNoDisponibleException
+     */
+    private function filasOficialesDe(array $ids, int $mesId): array
+    {
+        $porEmpleado = $this->kpisOficialesPorEmpleado($mesId);
+        $filas = [];
+
+        foreach ($ids as $id) {
+            $filaId = DatoReportes::entero(DatoReportes::ruta($porEmpleado[$id] ?? null, 'employee.id'));
+
+            if ($filaId !== null) {
+                $filas[$filaId] = true;
+            }
+        }
+
+        return $filas === [] ? array_slice($ids, 0, 1) : array_keys($filas);
     }
 
     /**

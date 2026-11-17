@@ -19,7 +19,7 @@ Solo se ofrecen meses con radiografía generada (los KPIs oficiales la necesitan
 
 ## 2. Eje DESEMPEÑO (0-100)
 
-PEOPLE **no recalcula KPIs**: suma lo que Reportes ya calculó (`SeguimientoService::actividadGestoresMes`).
+PEOPLE **no recalcula KPIs**: suma lo que Reportes ya calculó (`SeguimientoService::actividadGestoresMes`). Cada gestor es una **persona** de Reportes: suma la actividad de todos sus employee ids y rutas (directorio `/people`, docs/SEGUIMIENTO.md §3), así nadie aparece dos veces ni se le parte el desempeño al cambiar de ruta.
 
 | Indicador | Dato de Reportes | Puntaje |
 |---|---|---|

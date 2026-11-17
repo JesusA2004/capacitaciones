@@ -59,6 +59,22 @@ class ReportesApiCliente
     }
 
     /**
+     * La respuesta de un GET SOLO si ya está en la caché (no llama a
+     * Reportes): para marcar «con datos» sin hacer esperar a nadie.
+     *
+     * @param  array<string, scalar|null>  $consulta
+     * @return array<string, mixed>|null
+     */
+    public function enCache(string $ruta, array $consulta = []): ?array
+    {
+        $consulta = array_filter($consulta, fn ($valor): bool => $valor !== null && $valor !== '');
+        ksort($consulta);
+        $datos = Cache::get(sprintf('%s%s', self::PREFIJO_CACHE, md5(sprintf('%s|%s|%s', $this->url(), ltrim($ruta, '/'), http_build_query($consulta)))));
+
+        return is_array($datos) ? DatoReportes::arreglo($datos) : null;
+    }
+
+    /**
      * Comprueba la conexión (sin caché): health público + capabilities con token.
      *
      * @return array{ok: bool, mensaje: string, capacidades: array<string, mixed>|null}
