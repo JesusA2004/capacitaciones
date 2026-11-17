@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Services\Navigation\NavigationService;
 use App\Services\Reclutamiento\AprobadorEntrevistaService;
 use Database\Seeders\RolesYPermisosSeeder;
+use Spatie\Permission\Models\Role;
 
 /*
 | Recorre cada rol sembrado: toda entrada de su menú responde 200 y toda entrada
@@ -40,10 +41,10 @@ function sbOperativo(): array
         'Contratos de ingreso' => [['contratos.ver'], 'rh.contratos-ingreso.index'],
         'Contratos' => [['contratos.ver'], 'rh.contratos.index'],
         'Cartas compromiso' => [['cartas_compromiso.ver'], 'rh.cartas-compromiso.index'],
-        'Inducción institucional' => [['onboarding.gestionar'], 'induccion.presentacion'],
-        'Inducción al puesto' => [['onboarding.gestionar'], 'rh.induccion-puesto.index'],
-        'Configuración de onboarding' => [['onboarding.gestionar'], 'rh.onboarding.configuracion'],
-        'Calificaciones y refuerzo' => [['onboarding.gestionar'], 'rh.onboarding.calificaciones'],
+        'Inducción institucional' => [['onboarding.gestionar+onboarding.presentar_induccion'], 'induccion.presentacion'],
+        'Inducción al puesto' => [['onboarding.gestionar+onboarding.induccion_puesto'], 'rh.induccion-puesto.index'],
+        'Configuración de onboarding' => [['onboarding.gestionar+onboarding.configurar'], 'rh.onboarding.configuracion'],
+        'Calificaciones y refuerzo' => [['onboarding.gestionar+onboarding.calificar'], 'rh.onboarding.calificaciones'],
         'Activos y responsivas' => [['responsivas.ver'], 'rh.activos-responsivas.index'],
         'Evaluaciones de periodo de prueba' => [['evaluaciones.capturar', 'evaluaciones.autorizar', 'evaluaciones.ver_todos'], 'rh.evaluaciones.index'],
         'Colaboradores' => [['expedientes.ver_todos', 'expedientes.ver_region', 'expedientes.ver_sucursal', 'expedientes.ver_equipo'], 'rh.expedientes.index'],
@@ -57,7 +58,7 @@ function sbOperativo(): array
         'Enviar notificación' => [['avisos.ver', 'avisos.enviar'], 'rh.avisos.index'],
         'Reingresos' => [['reingresos.solicitar', 'reingresos.gestionar'], 'rh.reingresos.index'],
         'Organigrama' => [['organigrama.ver'], 'administracion.jerarquia-puestos.index'],
-        'Responsables de aprobación' => [['organigrama.ver'], 'administracion.responsables-aprobacion.index'],
+        'Responsables de aprobación' => [['organigrama.ver+responsables_aprobacion.ver', 'organigrama.ver+responsables_aprobacion.administrar'], 'administracion.responsables-aprobacion.index'],
         'Puestos y salarios' => [['puestos.administrar', 'salarios.ver'], 'administracion.puestos.index'],
         'Sucursales' => [['sucursales.administrar'], 'administracion.sucursales.index'],
         'Departamentos' => [['departamentos.administrar'], 'administracion.departamentos.index'],
@@ -67,10 +68,10 @@ function sbOperativo(): array
         'Mis reportes' => [['reportes_rh.mis_reportes'], 'rh.reportes.mis-reportes.index'],
         'Formularios de evaluación' => [['formularios_evaluacion.administrar'], 'rh.formularios-evaluacion.index'],
         'Documentos maestros' => [['plantillas_documentales.administrar'], 'rh.documentos-maestros.index'],
-        'Usuarios y permisos' => [['usuarios.ver', 'roles.administrar'], 'administracion.usuarios.index'],
+        'Usuarios y permisos' => [['usuarios.ver'], 'administracion.usuarios.index'],
         'Roles y permisos' => [['roles.administrar', 'notificaciones_rol.editar'], 'administracion.roles.index'],
-        'Importar datos' => [['expedientes.migrar', 'headcount.importar', 'colaboradores.importar_salarios_vacaciones', 'rotacion.cargar', 'perfiles_puesto.importar', 'contactos_emergencia.importar', 'nomina.recibos.importar'], 'administracion.importar-datos.index'],
-        'Ajustes y notificaciones' => [['configuracion.ver', 'notificaciones.ver_todas'], 'administracion.configuracion.index'],
+        'Importar datos' => [['expedientes.migrar', 'headcount.importar', 'reportes_rh.importar_historico', 'colaboradores.importar_salarios_vacaciones', 'rotacion.cargar', 'perfiles_puesto.importar', 'contactos_emergencia.importar', 'nomina.recibos.importar'], 'administracion.importar-datos.index'],
+        'Ajustes y notificaciones' => [['configuracion.ver'], 'administracion.configuracion.index'],
         'Notificaciones del sistema' => [['notificaciones.ver_todas'], 'administracion.notificaciones-sistema.index'],
         'Versiones de app' => [['app_releases.ver'], 'administracion.app-releases.index'],
     ];
@@ -99,7 +100,10 @@ function sbColaborador(): array
 
 function sbTiene(User $usuario, array $permisos): bool
 {
-    return $permisos === [] || collect($permisos)->contains(fn (string $p): bool => $usuario->can($p));
+    // 'a+b' = el permiso general Y la acción (así lo pide el menú).
+    return $permisos === [] || collect($permisos)->contains(
+        fn (string $p): bool => collect(explode('+', $p))->every(fn (string $parte): bool => $usuario->can($parte)),
+    );
 }
 
 beforeEach(function () {
@@ -130,6 +134,30 @@ test('cada entrada del menú operativo responde 200 y las ajenas 403', function 
     // Su inicio siempre abre algo útil.
     $this->actingAs($usuario)->followingRedirects()->get(route('dashboard'))->assertOk();
 })->with('rolesOperativos');
+
+test('un rol personalizado con las acciones apagadas no ve entradas que el backend rechaza', function () {
+    // Como RH, pero en «Roles y permisos» le apagaron acciones sueltas que
+    // heredaban del permiso general: el menú debe esconder exactamente esas.
+    $apagadas = ['onboarding.configurar', 'onboarding.calificar', 'onboarding.presentar_induccion', 'onboarding.induccion_puesto', 'responsables_aprobacion.ver', 'responsables_aprobacion.administrar', 'configuracion.ver', 'usuarios.ver'];
+    $rol = Role::create(['name' => 'rh_recortado', 'guard_name' => 'web']);
+    $rol->syncPermissions(Role::findByName('rh_admin', 'web')->permissions->pluck('name')->diff($apagadas)->values()->all());
+    $usuario = clUsuario('colaborador', ['sucursal_principal_id' => $this->sucursal->id]);
+    $usuario->syncRoles(['rh_recortado']);
+    $rotas = [];
+
+    foreach (sbOperativo() as $titulo => [$permisos, $ruta]) {
+        $estado = $this->actingAs($usuario)->get(route($ruta))->getStatusCode();
+        $visible = sbTiene($usuario, $permisos);
+
+        if (($visible && ! in_array($estado, [200, 302], true)) || (! $visible && $estado !== 403)) {
+            $rotas[] = sprintf('%s [%s]: %s, responde %d', $titulo, $ruta, $visible ? 'visible' : 'ajena', $estado);
+        }
+    }
+
+    expect($rotas)->toBe([])
+        ->and(sbTiene($usuario, sbOperativo()['Configuración de onboarding'][0]))->toBeFalse()
+        ->and(sbTiene($usuario, sbOperativo()['Inducción al puesto'][0]))->toBeFalse();
+});
 
 test('cada entrada de Mi espacio responde 200 y la operación da 403', function (string $rol) {
     $usuario = clUsuario($rol, ['sucursal_principal_id' => $this->sucursal->id]);

@@ -487,17 +487,22 @@ export function useMainNavItems() {
                     icono: Sparkles,
                 },
                 [
-                    tienePermiso('onboarding.gestionar') && {
+                    // Cada entrada pide lo mismo que su controlador: el
+                    // permiso general + la acción (Roles y permisos).
+                    tienePermiso('onboarding.gestionar') &&
+                        tienePermiso('onboarding.presentar_induccion') && {
                         title: 'Inducción institucional',
                         href: presentacionInduccion(),
                         icon: GraduationCap,
                     },
-                    tienePermiso('onboarding.gestionar') && {
+                    tienePermiso('onboarding.gestionar') &&
+                        tienePermiso('onboarding.induccion_puesto') && {
                         title: 'Inducción al puesto',
                         href: indexInduccionPuesto(),
                         icon: Compass,
                     },
-                    tienePermiso('onboarding.gestionar') && {
+                    tienePermiso('onboarding.gestionar') &&
+                        tienePermiso('onboarding.configurar') && {
                         title: 'Configuración de onboarding',
                         href: configuracionOnboarding(),
                         icon: Sparkles,
@@ -505,7 +510,8 @@ export function useMainNavItems() {
                     // Calificaciones de la INDUCCIÓN (FO-RH-EI + lecciones),
                     // retroalimentación y reevaluación. Las evaluaciones de
                     // PERIODO DE PRUEBA viven en el grupo «4».
-                    tienePermiso('onboarding.gestionar') && {
+                    tienePermiso('onboarding.gestionar') &&
+                        tienePermiso('onboarding.calificar') && {
                         title: 'Calificaciones y refuerzo',
                         href: calificacionesInduccion(),
                         icon: ClipboardCheck,
@@ -792,7 +798,11 @@ export function useMainNavItems() {
                     },
                     // Quién aprueba las solicitudes de cada persona/puesto
                     // (≠ jefe organizacional). Editar: organigrama.editar.
-                    tienePermiso('organigrama.ver') && {
+                    tienePermiso('organigrama.ver') &&
+                        algunPermiso(
+                            'responsables_aprobacion.ver',
+                            'responsables_aprobacion.administrar',
+                        ) && {
                         title: 'Responsables de aprobación',
                         href: indexResponsablesAprobacion(),
                         icon: UserCheck,
@@ -919,7 +929,9 @@ export function useMainNavItems() {
                             href: causalesBajas(),
                             icon: ListTree,
                         },
-                    algunPermiso('usuarios.ver', 'roles.administrar') && {
+                    // UserPolicy::viewAny exige usuarios.ver (quien solo
+                    // administra roles entra por «Roles y permisos»).
+                    tienePermiso('usuarios.ver') && {
                         title: 'Usuarios y permisos',
                         href: indexUsuarios(),
                         icon: ShieldCheck,
@@ -938,6 +950,7 @@ export function useMainNavItems() {
                     algunPermiso(
                         'expedientes.migrar',
                         'headcount.importar',
+                        'reportes_rh.importar_historico',
                         'colaboradores.importar_salarios_vacaciones',
                         'rotacion.cargar',
                         'perfiles_puesto.importar',
@@ -948,10 +961,8 @@ export function useMainNavItems() {
                         href: indexImportarDatos(),
                         icon: FileSpreadsheet,
                     },
-                    algunPermiso(
-                        'configuracion.ver',
-                        'notificaciones.ver_todas',
-                    ) && {
+                    // ConfiguracionController exige configuracion.ver.
+                    tienePermiso('configuracion.ver') && {
                         title: 'Ajustes y notificaciones',
                         href: indexConfiguracion(),
                         icon: Settings2,
