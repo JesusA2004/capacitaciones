@@ -103,7 +103,14 @@ class SolicitudController extends Controller
                 'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
                 'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
                 'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre']),
-                'responsables' => User::query()->role(['rh_admin', 'rh_auxiliar'])->orderBy('name')->get(['id', 'name', 'apellidos']),
+                // Filtro «revisado_por»: quien revisa solicitudes de toda la
+                // empresa (acción revisar + alcance «Todos») o ya revisó alguna.
+                // Por permiso y por dato, nunca por nombre de rol.
+                'responsables' => User::query()
+                    ->where(fn ($q) => $q
+                        ->whereIn('id', User::permission('solicitudes.revisar')->permission('solicitudes.ver_todos')->select('users.id'))
+                        ->orWhereIn('id', SolicitudInterna::query()->whereNotNull('revisado_por')->select('revisado_por')))
+                    ->orderBy('name')->get(['id', 'name', 'apellidos']),
             ],
         ]);
     }
