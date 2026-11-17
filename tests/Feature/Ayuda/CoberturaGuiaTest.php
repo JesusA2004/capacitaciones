@@ -114,14 +114,32 @@ const SIDEBAR_A_GUIA = [
 const SIDEBAR_SIN_GUIA = [
     // Es la propia página de la guía (buscador + guía escrita + recorridos).
     'Ayuda',
-    // Ocultos tras el feature flag `capacitacion` (docs/CAPACITACION_PROXIMAMENTE.md).
+    // Etapa 6 · Capacitación (Fase 3, tras el feature flag `capacitacion`):
+    // documentada en docs/CAPACITACION.md; aún sin recorrido guiado propio.
     'Mi capacitación',
-    'Capacitación continua',
-    // Detrás de su feature flag apagado y con href '#': el menú nunca los
-    // pinta (no tienen pantalla real todavía).
-    'Evaluación del desempeño',
-    'Matriz 9 box y planes',
+    'Portada de capacitación',
+    'Cursos y aulas',
+    'Asignaciones',
+    'Calificar cuestionarios',
+    'Calificar actividades',
+    'Banco de preguntas',
+    'Biblioteca multimedia',
+    'Calendario de sesiones',
+    'Reporte de cumplimiento',
+    // Base mínima tras su feature flag `certificacion` (docs/CAPACITACION.md).
     'Certificación Mr. Lana',
+    // Seguimiento (Fase 2): documentado en docs/SEGUIMIENTO.md,
+    // docs/NINE_BOX.md y docs/EVALUACIONES_TECNICAS.md; aún sin recorrido
+    // guiado propio.
+    'Por sucursal',
+    'Por gestor',
+    'Nine Box',
+    'Seguimientos técnicos',
+    'Calendario de seguimientos',
+    'Vínculos con Reportes',
+    'Mis seguimientos técnicos',
+    // Captura masiva de fechas laborales: documentada en docs/FECHAS_LABORALES.md.
+    'Fechas laborales',
     // Recibo impreso: el acceso del colaborador solo existe con
     // features.recibos_colaborador (apagado).
     'Mi recibo',
@@ -154,6 +172,7 @@ const SIDEBAR_SIN_GUIA = [
     'Recepción documental',
     // Bandeja de Sistemas: documentada en docs/SISTEMAS_PENDIENTES_ALTA.md.
     'Pendientes de alta en sistemas',
+    'Pendientes de baja en sistemas',
     'Agenda de entrevistas',
     'Mi agenda',
     'Mi bandeja de bajas',

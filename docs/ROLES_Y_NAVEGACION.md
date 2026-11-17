@@ -3,7 +3,7 @@
 MR. LANA PEOPLE separa dos experiencias completamente distintas dentro del mismo sistema — ver `App\Services\Navigation\NavigationService`:
 
 - **Modo colaborador**: el portal personal de cualquier empleado (Mi inicio, Mi expediente, Mis solicitudes, Mi recibo —solo con autoservicio—, Mis notificaciones, Mi inducción, Mi capacitación, Mis seguimientos técnicos, Celebraciones, Directorio, Mi agenda, Ayuda).
-- **Modo operativo**: las herramientas de RH/gerencia/dirección ordenadas por el **ciclo de vida laboral del colaborador** (Inicio → 1 Reclutamiento → 2 Contratación → 3 Onboarding → 4 Cierre del periodo de prueba → 5 Permanencia → Capacitación (parte de la etapa 6 · Desarrollo) → 7 Cierres laborales), más los bloques transversales Organización, Seguimiento, Reportes y Configuración.
+- **Modo operativo**: las herramientas de RH/gerencia/dirección ordenadas por el **ciclo de vida laboral del colaborador** (Inicio → 1 Reclutamiento → 2 Contratación → 3 Onboarding → 4 Cierre del periodo de prueba → 5 Permanencia → 6 Capacitación (etapa Desarrollo) → 7 Cierres laborales), más los bloques transversales Organización, Seguimiento, Reportes y Configuración.
 
 Un usuario **nunca** ve ambos mezclados en el mismo menú. Una misma CUENTA puede representar a la vez a un colaborador real y a alguien con permisos operativos; ninguna capacidad depende del nombre del rol:
 
@@ -57,7 +57,7 @@ El orden es exactamente el ciclo de vida laboral + transversales. **«Inicio» v
 | | | Recibos de nómina (lotes: preparar → revisar → emitir; `docs/NOMINA_QUINCENAL.md`) | `nomina.recibos.ver` | `rh.nomina.lotes.index` |
 | | | Avisos (enviar a toda la empresa o a una persona; historial) | `avisos.ver`/`avisos.enviar` | `rh.avisos.index` |
 | | | Celebraciones | `rh.cumpleanos.ver`/`celebraciones.ver` | `rh.cumpleanos.index` / `celebraciones.index` |
-| — | **Capacitación** (Fase 3, parte de la etapa 6 · Desarrollo; sin número) · feature `capacitacion` | Portada de capacitación | permisos de capacitación (`CursoPolicy::portada`) | `capacitacion.index` |
+| 6 | **Capacitación** (Fase 3, etapa 6 · Desarrollo, igual que `config/permisos_modulos.php → etapas.desarrollo`) · feature `capacitacion` | Portada de capacitación | permisos de capacitación (`CursoPolicy::portada`) | `capacitacion.index` |
 | | | Cursos y aulas (constructor + aula tipo Classroom) | `cursos.ver` | `cursos.index` |
 | | | Asignaciones | `asignaciones.ver` | `asignaciones.index` |
 | | | Calificar cuestionarios · Calificar actividades | `respuestas.ver` | `calificaciones.cuestionarios.index` / `calificaciones.actividades.index` |

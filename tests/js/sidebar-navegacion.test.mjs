@@ -42,7 +42,19 @@ function gruposDeclarados() {
 }
 
 const ESPERADO = [
-    ['Inicio', ['Tablero de RH', 'Directorio', 'Pendientes']],
+    // «Tablero de RH» / «Mi bandeja de bajas» son las dos ramas del mismo
+    // acceso (según tenga o no tablero). «Solicitudes» (bandeja de RH) vive
+    // en Inicio, siempre a la vista (2026-11-12).
+    [
+        'Inicio',
+        [
+            'Tablero de RH',
+            'Mi bandeja de bajas',
+            'Directorio',
+            'Pendientes',
+            'Solicitudes',
+        ],
+    ],
     [
         'Reclutamiento y selección',
         [
@@ -51,17 +63,19 @@ const ESPERADO = [
             'Descriptivos y perfiles',
             'Candidatos',
             'Agenda de entrevistas',
-            'Invitaciones QR',
         ],
     ],
     [
         'Contratación y expediente',
         [
             'Personas en contratación',
+            // Solo aplica a quien ya está en contratación (antes en el grupo 1).
+            'Invitaciones QR',
             'Pendientes de alta en sistemas',
+            'Pendientes de baja en sistemas',
             'Validación de documentos',
             'Contratos de ingreso',
-            'Contratos',
+            'Contratos de la plantilla',
             'Cartas compromiso',
         ],
     ],
@@ -80,22 +94,17 @@ const ESPERADO = [
         'Permanencia',
         [
             'Colaboradores',
-            'Solicitudes',
+            'Fechas laborales',
             'Incapacidades',
             'Actas administrativas',
-            'Recepción documental',
-            'Recibo simple de pago',
-            'Importar salarios y vacaciones',
-            'Contactos de emergencia',
-            'Enviar notificación',
+            'Recibos de nómina',
+            'Avisos',
             'Celebraciones',
         ],
     ],
-    // «6 Desarrollo» ya no tiene accesos marcador (2026-11-17): la Nine Box
-    // vive en «Seguimiento» y Evaluación del desempeño aún no tiene pantalla.
+    // Etapa 6 · Desarrollo = Capacitación (Fase 3). Los accesos marcador
+    // href '#' del antiguo grupo «Desarrollo» ya no existen (2026-11-17).
     [
-        // Fase 3 (2026-11-17): Capacitación como grupo propio dentro de la
-        // etapa 6, sin número (no es una etapa nueva del ciclo laboral).
         'Capacitación',
         [
             'Portada de capacitación',
@@ -110,30 +119,47 @@ const ESPERADO = [
             'Certificación Mr. Lana',
         ],
     ],
-    [
-        'Cierres laborales',
-        ['Bajas', 'Reingresos'],
-    ],
+    ['Cierres laborales', ['Bajas', 'Reingresos']],
     [
         'Organización',
         [
             'Organigrama',
             // Responsable de aprobación explícito ≠ jefe organizacional (2026-10-20).
             'Responsables de aprobación',
-            'Puestos y tabulador',
-            'Administración de salarios',
+            'Puestos y salarios',
             'Sucursales',
             'Departamentos',
             'Empresas',
         ],
     ],
-    ['Reportes', ['Reportes de RH', 'Mis reportes']],
+    [
+        // Fase 2 (docs/SEGUIMIENTO.md, docs/NINE_BOX.md,
+        // docs/EVALUACIONES_TECNICAS.md): bloque transversal, sin número.
+        'Seguimiento',
+        [
+            'Por sucursal',
+            'Por gestor',
+            'Nine Box',
+            'Seguimientos técnicos',
+            'Calendario de seguimientos',
+            'Vínculos con Reportes',
+        ],
+    ],
+    [
+        'Reportes',
+        [
+            'Rotación de personal',
+            'Reportes de RH',
+            'Mis reportes',
+            'Recepción documental',
+        ],
+    ],
     [
         'Configuración',
         [
             'Formularios de evaluación',
             'Documentos maestros',
-            'Catálogo de bajas',
+            'Catálogo de causales',
             'Usuarios y permisos',
             'Roles y permisos',
             'Importar datos',
@@ -151,20 +177,26 @@ test('el sidebar operativo tiene exactamente los grupos y accesos, en orden', ()
     );
 });
 
-// Grupos sin número intercalados entre etapas (no son etapas del ciclo).
-const SIN_NUMERO = ['Capacitación'];
+const TRANSVERSALES = [
+    'Inicio',
+    'Organización',
+    'Seguimiento',
+    'Reportes',
+    'Configuración',
+];
 
-test('las etapas 1–7 llevan su número y los bloques transversales no', () => {
+test('las etapas 1–7 llevan su número, sin huecos, y los bloques transversales no', () => {
     const numeros = [
         ...operativo.matchAll(/numero: (\d+),\s*titulo: '([^']+)'/g),
     ].map((m) => [Number(m[1]), m[2]]);
 
     assert.deepEqual(
         numeros,
-        ESPERADO.filter(([titulo]) => !SIN_NUMERO.includes(titulo))
-            .slice(1, 8)
-            .map(([titulo], i) => [i + 1, titulo]),
+        ESPERADO.filter(([titulo]) => !TRANSVERSALES.includes(titulo)).map(
+            ([titulo], i) => [i + 1, titulo],
+        ),
     );
+    assert.equal(numeros.length, 7);
 });
 
 /** Texto de la declaración de un acceso (desde la condición previa hasta su `}`). */
@@ -178,11 +210,14 @@ function declaracion(titulo) {
     return operativo.slice(inicio, operativo.indexOf('}', i) + 1);
 }
 
-test('cada acceso (salvo Tablero y Directorio) está condicionado por permiso o bandera', () => {
+test('cada acceso (salvo Tablero/Bandeja y Directorio) está condicionado por permiso o bandera', () => {
+    // El inicio siempre existe (rama según dashboard.*.ver) y el directorio
+    // es de toda la empresa (cualquier usuario autenticado).
+    const abiertos = ['Tablero de RH', 'Mi bandeja de bajas', 'Directorio'];
+
     for (const [, items] of ESPERADO) {
         for (const titulo of items) {
-            // El directorio es de toda la empresa (cualquier usuario autenticado).
-            if (titulo === 'Tablero de RH' || titulo === 'Directorio') {
+            if (abiertos.includes(titulo)) {
                 continue;
             }
 
@@ -195,23 +230,64 @@ test('cada acceso (salvo Tablero y Directorio) está condicionado por permiso o 
     }
 });
 
+test('cada acceso nuevo o reacomodado exige el permiso real de su controlador', () => {
+    const permisos = {
+        Solicitudes: ['solicitudes.revisar', 'solicitudes.aprobar', 'rh.solicitudes.ver'],
+        'Invitaciones QR': ['rh.incorporacion.invitaciones.ver'],
+        'Pendientes de baja en sistemas': ['sistemas.altas.ver'],
+        'Contratos de la plantilla': ['contratos.ver'],
+        'Fechas laborales': ['expedientes.editar_fechas'],
+        'Recibos de nómina': ['nomina.recibos.ver'],
+        Avisos: ['avisos.ver', 'avisos.enviar'],
+        'Portada de capacitación': ['cursos.ver', 'asignaciones.ver', 'respuestas.ver'],
+        'Cursos y aulas': ['cursos.ver'],
+        Asignaciones: ['asignaciones.ver'],
+        'Calificar cuestionarios': ['respuestas.ver'],
+        'Calificar actividades': ['respuestas.ver'],
+        'Certificación Mr. Lana': ['cursos.ver', 'asignaciones.ver', 'respuestas.ver'],
+        'Por sucursal': ['seguimiento.ver'],
+        'Por gestor': ['seguimiento.ver'],
+        'Nine Box': ['nine_box.ver'],
+        'Seguimientos técnicos': ['evaluaciones_tecnicas.ver'],
+        'Calendario de seguimientos': ['evaluaciones_tecnicas.configurar'],
+        'Vínculos con Reportes': ['seguimiento.vincular'],
+        'Catálogo de causales': ['finiquitos.causales_rotacion', 'finiquitos.ver'],
+    };
+
+    for (const [titulo, lista] of Object.entries(permisos)) {
+        for (const permiso of lista) {
+            assert.ok(
+                declaracion(titulo).includes(`'${permiso}'`),
+                `«${titulo}» no exige ${permiso}`,
+            );
+        }
+    }
+
+    // Todo el grupo Capacitación queda tras su feature flag.
+    for (const titulo of ESPERADO.find(([g]) => g === 'Capacitación')[1]) {
+        assert.match(declaracion(titulo), /capacitacionActiva\.value &&/);
+    }
+});
+
 test('las importaciones solo se ofrecen con permisos de importación (solo super_admin, 2026-10-20)', () => {
     const permisosImportacion = [
         'expedientes.migrar',
         'headcount.importar',
+        'reportes_rh.importar_historico',
         'colaboradores.importar_salarios_vacaciones',
         'rotacion.cargar',
         'perfiles_puesto.importar',
         'contactos_emergencia.importar',
         'nomina.recibos.importar',
     ];
-    const gate = {
-        'Importar salarios y vacaciones': /tienePermiso\(\s*'colaboradores\.importar_salarios_vacaciones',?\s*\)/,
-        'Contactos de emergencia': /tienePermiso\('contactos_emergencia\.importar'\)/,
-    };
 
-    for (const [titulo, patron] of Object.entries(gate)) {
-        assert.match(declaracion(titulo), patron, `«${titulo}» debe exigir su permiso de importación`);
+    // Las cargas por Excel ya no tienen acceso propio en Permanencia: todo
+    // entra por Configuración → Importar datos.
+    for (const titulo of ['Importar salarios y vacaciones', 'Contactos de emergencia']) {
+        assert.ok(
+            !operativo.includes(`title: '${titulo}'`),
+            `«${titulo}» no debe tener acceso propio en el menú`,
+        );
     }
 
     const hub = declaracion('Importar datos');
@@ -222,14 +298,15 @@ test('las importaciones solo se ofrecen con permisos de importación (solo super
 
     // Ningún permiso de RH de uso diario (editar expedientes o perfiles)
     // abre una pantalla de importación.
-    for (const titulo of ['Importar datos', 'Contactos de emergencia', 'Importar salarios y vacaciones']) {
-        assert.doesNotMatch(declaracion(titulo), /'expedientes\.editar'|'perfiles_puesto\.editar'/);
-    }
+    assert.doesNotMatch(hub, /'expedientes\.editar'|'perfiles_puesto\.editar'/);
 });
 
 test('los módulos con bandera quedan tras su feature flag y nunca se pintan con href "#"', () => {
     const marcadores = {
+        'Por sucursal': 'seguimiento',
+        'Por gestor': 'seguimiento',
         'Nine Box': 'nine_box',
+        'Vínculos con Reportes': 'seguimiento',
         'Certificación Mr. Lana': 'certificacion',
     };
 
@@ -248,10 +325,12 @@ test('los módulos con bandera quedan tras su feature flag y nunca se pintan con
     assert.match(operativo, /i !== false && i\.href !== '#'/);
 
     // Y las banderas existen en config/features.php: la del módulo sin
-    // pantalla, apagada; Nine Box y Certificación Mr. Lana, encendidas.
+    // pantalla, apagada; Seguimiento, Nine Box y Certificación Mr. Lana,
+    // encendidas.
     const features = leer('config/features.php');
     const porDefecto = {
         evaluacion_desempeno: false,
+        seguimiento: true,
         nine_box: true,
         certificacion: true,
     };
@@ -273,8 +352,10 @@ test('NavMain: grupos plegables, persistidos con try/catch y abiertos si contien
     assert.match(navMain, /try \{\s*window\.localStorage\.setItem/);
     assert.match(navMain, /leerPreferencia\(\) \?\? grupoActivo\.value/);
     assert.match(navMain, /watch\(grupoActivo/);
-    // Accesos compactos (min-h-8) que envuelven el texto en vez de cortarlo.
-    assert.match(navMain, /class="relative h-auto min-h-8 /);
+    // Accesos de altura mínima min-h-9 (152971ff, 2026-11-12: más área de
+    // toque con el efecto «presionable») que envuelven el texto en vez de
+    // cortarlo.
+    assert.match(navMain, /class="relative h-auto min-h-9 /);
     assert.ok(navMain.includes('[&>span:last-child]:whitespace-normal!'));
 });
 

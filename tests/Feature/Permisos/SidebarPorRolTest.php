@@ -37,6 +37,7 @@ function sbOperativo(): array
         'Invitaciones QR' => [['rh.incorporacion.invitaciones.ver'], 'rh.incorporacion.invitaciones.index'],
         'Personas en contratación' => [['contratos.ver'], 'rh.contratacion.index'],
         'Pendientes de alta en sistemas' => [['sistemas.altas.ver'], 'sistemas.pendientes-alta.index'],
+        'Pendientes de baja en sistemas' => [['sistemas.altas.ver'], 'sistemas.pendientes-baja.index'],
         'Validación de documentos' => [['documentos.revisar'], 'rh.validacion-documentos.index'],
         'Contratos de ingreso' => [['contratos.ver'], 'rh.contratos-ingreso.index'],
         'Contratos de la plantilla' => [['contratos.ver'], 'rh.contratos.index'],
@@ -48,12 +49,26 @@ function sbOperativo(): array
         'Activos y responsivas' => [['responsivas.ver'], 'rh.activos-responsivas.index'],
         'Evaluaciones de periodo de prueba' => [['evaluaciones.capturar', 'evaluaciones.autorizar', 'evaluaciones.ver_todos'], 'rh.evaluaciones.index'],
         'Colaboradores' => [['expedientes.ver_todos', 'expedientes.ver_region', 'expedientes.ver_sucursal', 'expedientes.ver_equipo'], 'rh.expedientes.index'],
+        'Fechas laborales' => [['expedientes.editar_fechas'], 'rh.fechas-laborales.index'],
         'Solicitudes' => [['solicitudes.revisar', 'solicitudes.aprobar', 'rh.solicitudes.ver'], 'rh.solicitudes.index'],
         'Incapacidades' => [['incapacidades.ver'], 'rh.incapacidades.index'],
         'Actas administrativas' => [['actas.ver'], 'rh.actas.index'],
         'Recepción documental' => [['recepcion_documental.ver'], 'rh.recepcion-documental.index'],
         'Recibos de nómina' => [['nomina.recibos.ver'], 'rh.nomina.lotes.index'],
         'Avisos' => [['avisos.ver', 'avisos.enviar'], 'rh.avisos.index'],
+        // Etapa 6 · Capacitación (feature `capacitacion`, encendida en phpunit.xml).
+        'Portada de capacitación' => [['cursos.ver', 'asignaciones.ver', 'respuestas.ver', 'reportes.globales', 'reportes.sucursal'], 'capacitacion.index'],
+        'Cursos y aulas' => [['cursos.ver'], 'cursos.index'],
+        'Asignaciones' => [['asignaciones.ver'], 'asignaciones.index'],
+        'Calificar cuestionarios' => [['respuestas.ver'], 'calificaciones.cuestionarios.index'],
+        'Calificar actividades' => [['respuestas.ver'], 'calificaciones.actividades.index'],
+        'Banco de preguntas' => [['cuestionarios.administrar'], 'bancos-preguntas.index'],
+        'Biblioteca multimedia' => [['multimedia.administrar'], 'multimedia.index'],
+        // El menú lo ofrece con sesiones.administrar, pero la ruta es el
+        // calendario personal de cualquier usuario (CalendarioService: sus
+        // fechas límite y sesiones; las creadas solo con sesiones.administrar).
+        'Calendario de sesiones' => [[], 'calendario'],
+        'Reporte de cumplimiento' => [['reportes.globales', 'reportes.sucursal'], 'reportes.cumplimiento.index'],
         'Reingresos' => [['reingresos.solicitar', 'reingresos.gestionar'], 'rh.reingresos.index'],
         'Organigrama' => [['organigrama.ver'], 'administracion.jerarquia-puestos.index'],
         'Responsables de aprobación' => [['organigrama.ver+responsables_aprobacion.ver', 'organigrama.ver+responsables_aprobacion.administrar'], 'administracion.responsables-aprobacion.index'],
@@ -61,6 +76,13 @@ function sbOperativo(): array
         'Sucursales' => [['sucursales.administrar'], 'administracion.sucursales.index'],
         'Departamentos' => [['departamentos.administrar'], 'administracion.departamentos.index'],
         'Empresas' => [['empresas.ver'], 'administracion.empresas.index'],
+        // Seguimiento (features `seguimiento` y `nine_box`, encendidas por defecto).
+        'Por sucursal' => [['seguimiento.ver'], 'seguimiento.index'],
+        'Por gestor' => [['seguimiento.ver'], 'seguimiento.gestores.index'],
+        'Nine Box' => [['nine_box.ver'], 'seguimiento.nine-box.index'],
+        'Seguimientos técnicos' => [['evaluaciones_tecnicas.ver'], 'evaluaciones-tecnicas.index'],
+        'Calendario de seguimientos' => [['evaluaciones_tecnicas.configurar'], 'evaluaciones-tecnicas.configuracion'],
+        'Vínculos con Reportes' => [['seguimiento.vincular'], 'seguimiento.vinculos.index'],
         'Rotación de personal' => [['bajas.tablero.ver'], 'reportes.rotacion.tablero.index'],
         'Reportes de RH' => [['reportes_rh.ver'], 'reportes.index'],
         'Mis reportes' => [['reportes_rh.mis_reportes'], 'rh.reportes.mis-reportes.index'],
@@ -88,6 +110,8 @@ function sbColaborador(): array
         'Mis solicitudes' => [['portal.solicitudes.ver', 'solicitudes.crear'], 'solicitudes.index'],
         'Mis notificaciones' => [[], 'portal.notificaciones'],
         'Mi inducción' => [[], 'portal.induccion.ver'],
+        // Las propias (y las de su equipo si es jefe directo): toda cuenta con colaborador.
+        'Mis seguimientos técnicos' => [[], 'portal.evaluaciones-tecnicas'],
         'Celebraciones' => [[], 'celebraciones.index'],
         // El menú lo muestra con `features.directorio` (directorio.ver o
         // Corporativo): el rol colaborador (gestores) no tiene el módulo.
@@ -171,7 +195,7 @@ test('cada entrada de Mi espacio responde 200 y la operación da 403', function 
     }
 
     foreach (sbOperativo() as $titulo => [$permisos, $ruta]) {
-        $yaEsSuyo = in_array($ruta, ['directorio.index', 'agenda.index'], true);
+        $yaEsSuyo = in_array($ruta, ['directorio.index', 'agenda.index', 'calendario'], true);
 
         if (! $yaEsSuyo && $this->actingAs($usuario)->get(route($ruta))->getStatusCode() !== 403) {
             $rotas[] = sprintf('%s [%s] debería ser 403', $titulo, $ruta);
@@ -187,7 +211,7 @@ test('el menú no tiene entradas fuera de este recorrido', function () {
     preg_match_all("/\\? '([^']+)'\\s*: '([^']+)'/", (string) file_get_contents(resource_path('js/composables/useMainNavItems.ts')), $condicionales);
 
     // Enrutadas por permiso o detrás de una bandera: no son una sola ruta fija.
-    $aparte = ['Tablero de RH', 'Mi bandeja de bajas', 'Bajas', 'Catálogo de causales', 'Ayuda', 'Mi recibo', 'Mis documentos laborales', 'Mis contratos', 'Mi capacitación', 'Evaluación del desempeño', 'Matriz 9 box y planes', 'Capacitación continua', 'Certificación Mr. Lana', 'Celebraciones'];
+    $aparte = ['Tablero de RH', 'Mi bandeja de bajas', 'Bajas', 'Catálogo de causales', 'Ayuda', 'Mi recibo', 'Mis documentos laborales', 'Mis contratos', 'Mi capacitación', 'Certificación Mr. Lana', 'Celebraciones'];
 
     $sueltos = array_diff(array_unique($titulos[1]), array_keys(sbOperativo()), array_keys(sbColaborador()), $aparte);
 

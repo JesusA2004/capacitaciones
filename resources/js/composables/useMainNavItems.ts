@@ -157,8 +157,8 @@ import type { NavItem } from '@/types';
 /**
  * Grupo del sidebar = una etapa del ciclo de vida laboral (o un bloque
  * transversal). `numero` es la etapa (1–7) que se pinta de forma discreta;
- * los bloques transversales (Inicio, Organización, Reportes, Configuración)
- * no llevan número. Esta es la ÚNICA fuente declarativa de la navegación —
+ * los bloques transversales (Inicio, Organización, Seguimiento, Reportes,
+ * Configuración) no llevan número. Esta es la ÚNICA fuente declarativa de la navegación —
  * la consumen AppSidebar.vue y MobileBottomNav.vue. Ver
  * docs/ROLES_Y_NAVEGACION.md. Nunca dupliques esta estructura.
  */
@@ -182,9 +182,9 @@ export type NavGroup = {
  *   • Modo colaborador («Mi espacio»): portal personal.
  *   • Modo operativo («Operación RH»): el ciclo de vida laboral ordenado por
  *     etapas — Inicio · 1 Reclutamiento · 2 Contratación · 3 Onboarding ·
- *     4 Cierre del periodo de prueba · 5 Permanencia · 6 Desarrollo ·
- *     7 Cierres laborales — más los bloques transversales Organización,
- *     Reportes y Configuración.
+ *     4 Cierre del periodo de prueba · 5 Permanencia · 6 Capacitación
+ *     (etapa Desarrollo) · 7 Cierres laborales — más los bloques
+ *     transversales Organización, Seguimiento, Reportes y Configuración.
  *
  * El menú SOLO refleja lo que el backend permite (Policies + permisos de
  * Spatie + alcance). Cada acceso se muestra únicamente si el usuario tiene
@@ -631,12 +631,14 @@ export function useMainNavItems() {
                 ],
             ),
 
-            // Capacitación (Fase 3, parte de la etapa 6 · Desarrollo): aulas
-            // tipo Classroom, asignaciones, calificaciones y Certificación
-            // Mr. Lana. Cada acceso exige el permiso real de su controlador.
+            // Etapa 6 · Desarrollo = Capacitación (Fase 3): aulas tipo
+            // Classroom, asignaciones, calificaciones y Certificación Mr. Lana
+            // (config/permisos_modulos.php → etapas.desarrollo = 6). Cada
+            // acceso exige el permiso real de su controlador.
             grupo(
                 {
                     id: 'capacitacion',
+                    numero: 6,
                     titulo: 'Capacitación',
                     icono: GraduationCap,
                 },
