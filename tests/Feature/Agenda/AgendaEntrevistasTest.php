@@ -216,7 +216,8 @@ test('No viable conserva motivo y comentario, y cierra al candidato (47)', funct
 
     Sanctum::actingAs($this->gerente);
     $this->postJson("/api/v1/agenda/{$evento->id}/resultado-entrevista", ['resultado' => 'no_viable'])->assertUnprocessable();
-    $this->postJson("/api/v1/agenda/{$evento->id}/resultado-entrevista", ['resultado' => 'no_viable', 'motivo' => 'inventado', 'comentario' => 'x'])->assertUnprocessable();
+    $this->postJson("/api/v1/agenda/{$evento->id}/resultado-entrevista", ['resultado' => 'no_viable', 'motivo' => 'inventado', 'comentario' => 'x'])->assertUnprocessable()
+        ->assertJsonValidationErrors(['motivo' => 'Elige un motivo de la lista.']);
     $this->postJson("/api/v1/agenda/{$evento->id}/resultado-entrevista", ['resultado' => 'no_viable', 'motivo' => 'actitud', 'comentario' => 'Llegó tarde y sin interés'])->assertOk();
 
     expect($evento->refresh()->motivo_no_viable?->value)->toBe('actitud')

@@ -6,6 +6,8 @@ use App\Enums\EstadoAgendaEvento;
 use App\Enums\MotivoNoViableAgenda;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Reclutamiento\AgendarEventoRequest;
+use App\Http\Requests\Reclutamiento\CancelarAgendaRequest;
+use App\Http\Requests\Reclutamiento\ResultadoEntrevistaAgendaRequest;
 use App\Http\Requests\Reclutamiento\ResultadoSocioeconomicoAgendaRequest;
 use App\Models\AgendaEvento;
 use App\Services\Reclutamiento\AgendaConsultaService;
@@ -102,11 +104,9 @@ class AgendaController extends Controller
         return response()->json(['data' => $this->consulta->aArray($resultado['evento'], $request->user(), true), 'empalmes' => $resultado['empalmes']]);
     }
 
-    public function cancelar(Request $request, AgendaEvento $evento): JsonResponse
+    public function cancelar(CancelarAgendaRequest $request, AgendaEvento $evento): JsonResponse
     {
-        $datos = $request->validate(['motivo' => ['required', 'string', 'max:500']]);
-
-        return $this->ficha($request, $this->agenda->cancelar($evento, $datos['motivo'], $request->user()));
+        return $this->ficha($request, $this->agenda->cancelar($evento, (string) $request->validated('motivo'), $request->user()));
     }
 
     public function noAsistio(Request $request, AgendaEvento $evento): JsonResponse
@@ -116,15 +116,9 @@ class AgendaController extends Controller
         return $this->ficha($request, $this->agenda->registrarInasistencia($evento, $datos['comentario'] ?? null, $request->user()));
     }
 
-    public function resultadoEntrevista(Request $request, AgendaEvento $evento): JsonResponse
+    public function resultadoEntrevista(ResultadoEntrevistaAgendaRequest $request, AgendaEvento $evento): JsonResponse
     {
-        $datos = $request->validate([
-            'resultado' => ['required', 'in:viable,no_viable'],
-            'motivo' => ['nullable', 'required_if:resultado,no_viable', 'string'],
-            'comentario' => ['nullable', 'required_if:resultado,no_viable', 'string', 'max:2000'],
-        ]);
-
-        return $this->ficha($request, $this->agenda->registrarResultadoEntrevista($evento, $datos, $request->user()));
+        return $this->ficha($request, $this->agenda->registrarResultadoEntrevista($evento, $request->validated(), $request->user()));
     }
 
     public function resultadoSocioeconomico(ResultadoSocioeconomicoAgendaRequest $request, AgendaEvento $evento): JsonResponse

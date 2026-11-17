@@ -8,6 +8,8 @@ use App\Enums\TipoAgendaEvento;
 use App\Exports\ReporteRhExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Reclutamiento\AgendarEventoRequest;
+use App\Http\Requests\Reclutamiento\CancelarAgendaRequest;
+use App\Http\Requests\Reclutamiento\ResultadoEntrevistaAgendaRequest;
 use App\Http\Requests\Reclutamiento\ResultadoSocioeconomicoAgendaRequest;
 use App\Models\AgendaEvento;
 use App\Models\Candidato;
@@ -142,10 +144,9 @@ class AgendaController extends Controller
         ]);
     }
 
-    public function cancelar(Request $request, AgendaEvento $evento): RedirectResponse
+    public function cancelar(CancelarAgendaRequest $request, AgendaEvento $evento): RedirectResponse
     {
-        $datos = $request->validate(['motivo' => ['required', 'string', 'max:500']], ['motivo.required' => 'Indica el motivo de la cancelación.']);
-        $this->agenda->cancelar($evento, $datos['motivo'], $request->user());
+        $this->agenda->cancelar($evento, (string) $request->validated('motivo'), $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Cita cancelada.']);
     }
@@ -158,14 +159,9 @@ class AgendaController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Inasistencia registrada. Puedes reprogramar la cita.']);
     }
 
-    public function resultadoEntrevista(Request $request, AgendaEvento $evento): RedirectResponse
+    public function resultadoEntrevista(ResultadoEntrevistaAgendaRequest $request, AgendaEvento $evento): RedirectResponse
     {
-        $datos = $request->validate([
-            'resultado' => ['required', 'in:viable,no_viable'],
-            'motivo' => ['nullable', 'required_if:resultado,no_viable', 'string'],
-            'comentario' => ['nullable', 'required_if:resultado,no_viable', 'string', 'max:2000'],
-        ], ['motivo.required_if' => 'Elige el motivo.', 'comentario.required_if' => 'Escribe un comentario breve.']);
-        $this->agenda->registrarResultadoEntrevista($evento, $datos, $request->user());
+        $this->agenda->registrarResultadoEntrevista($evento, $request->validated(), $request->user());
 
         return back()->with('toast', $this->avisoConSiguientePaso($request, $evento, 'Resultado guardado. El candidato ya se actualizó en su proceso.'));
     }
