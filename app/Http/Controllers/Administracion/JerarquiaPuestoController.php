@@ -3,25 +3,22 @@
 namespace App\Http\Controllers\Administracion;
 
 use App\Enums\MotivoCobertura;
-use App\Enums\TipoMovimientoLaboral;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Administracion\ActualizarJerarquiaPuestoRequest;
 use App\Models\CoberturaPuesto;
 use App\Models\Colaborador;
 use App\Models\Departamento;
 use App\Models\Empresa;
-use App\Models\MovimientoLaboral;
 use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Services\Administracion\JerarquiaPuestoService;
-use App\Services\AlcanceOrganizacionalService;
 use App\Services\Organigrama\ClasificacionRegionService;
 use App\Services\Organigrama\LaminasOrganigramaService;
 use App\Services\Organigrama\MiniOrganigramaService;
 use App\Services\Organigrama\OrganigramaPersonasService;
 use App\Services\Organigrama\PuestosSinUbicarService;
 use App\Services\Organigrama\ResponsableAprobacionService;
-use App\Services\Salarios\AccesoSueldoService;
+use App\Services\Puestos\HistorialPuestoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -140,56 +137,7 @@ class JerarquiaPuestoController extends Controller
     public function historial(Request $request, Puesto $puesto): JsonResponse
     {
         $this->authorize('view', $puesto);
-        $usuario = $request->user();
-        $alcance = app(AlcanceOrganizacionalService::class);
 
-        $cambiosJerarquia = Activity::query()
-            ->where('subject_type', Puesto::class)
-            ->where('subject_id', $puesto->id)
-            ->orderByDesc('created_at')
-            ->limit(20)
-            ->get(['id', 'description', 'properties', 'causer_id', 'created_at'])
-            ->map(fn ($registro) => [
-                'id' => $registro->id,
-                'descripcion' => $registro->description,
-                'cambios' => $registro->properties,
-                'fecha' => $registro->created_at?->toDateTimeString(),
-            ]);
-
-        // Mismo set de relaciones que ExpedienteController::renderExpediente()
-        // para que el frontend use un único tipo MovimientoLaboralItem sin
-        // huecos según el tipo de movimiento (ver docs/MOVIMIENTOS_LABORALES.md).
-        $movimientos = MovimientoLaboral::query()
-            ->where(fn ($query) => $query->where('puesto_anterior_id', $puesto->id)->orWhere('puesto_nuevo_id', $puesto->id))
-            // Solo movimientos de personas de su alcance (expedientes) y,
-            // sin acceso a sueldos, sin cambios de sueldo.
-            ->whereIn('colaborador_id', $alcance->limitarExpedientesPorAlcance(Colaborador::withTrashed(), $usuario)->select('colaboradores.id'))
-            ->when(! app(AccesoSueldoService::class)->puedeVer($usuario), fn ($query) => $query->where('tipo_movimiento', '!=', TipoMovimientoLaboral::CambioSueldo->value))
-            ->with([
-                'colaborador:id,name,apellidos',
-                'puestoAnterior:id,nombre', 'puestoNuevo:id,nombre',
-                'sucursalAnterior:id,nombre', 'sucursalNueva:id,nombre',
-                'departamentoAnterior:id,nombre', 'departamentoNuevo:id,nombre',
-                'empresaAnterior:id,nombre', 'empresaNueva:id,nombre',
-                'jefeAnterior:id,name,apellidos', 'jefeNuevo:id,name,apellidos',
-                'vacante:id,puesto_id', 'vacante.puesto:id,nombre',
-                'documento:id,original_name',
-                'registradoPor:id,name,apellidos',
-            ])
-            ->orderByDesc('fecha_movimiento')
-            ->limit(20)
-            ->get();
-
-        $vacantes = $alcance->limitarPorSucursal($puesto->vacantes()->getQuery(), $usuario, 'sucursal_id', 'vacantes')
-            ->with(['empresa:id,nombre', 'sucursal:id,nombre'])
-            ->orderByDesc('fecha_apertura')
-            ->limit(20)
-            ->get(['id', 'empresa_id', 'sucursal_id', 'motivo', 'estado', 'fecha_apertura', 'puesto_id']);
-
-        return response()->json([
-            'cambiosJerarquia' => $cambiosJerarquia,
-            'movimientos' => $movimientos,
-            'vacantes' => $vacantes,
-        ]);
+        return response()->json(app(HistorialPuestoService::class)->historial($puesto, $request->user()));
     }
 }
