@@ -169,6 +169,22 @@ class CausalRotacionService
     }
 
     /**
+     * Encabezados y filas del Excel «Catálogo de causales» (mismo orden y
+     * contenido que listado()).
+     *
+     * @return array{encabezados: list<string>, filas: list<list<mixed>>}
+     */
+    public function tablaExcel(): array
+    {
+        return [
+            'encabezados' => ['Clave', 'Causal', 'Forma de salida', 'Genera', 'Fundamento', 'Integrar expediente probatorio', 'Comentario obligatorio', 'Alerta', 'Estatus', 'Usos'],
+            'filas' => array_map(fn (array $c): array => [
+                $c['clave'], $c['nombre'], $c['forma_etiqueta'], $c['genera'], $c['fundamento_legal'] ?? '', $c['requiere_juridico'] ? 'Sí' : 'No', $c['comentario_obligatorio'] ? 'Sí' : 'No', $c['alerta'] ?? '', $c['activo'] ? 'Activa' : 'Inactiva', $c['usos'],
+            ], $this->listado()),
+        ];
+    }
+
+    /**
      * @param  array<string, mixed>  $datos  tipo, nombre, descripcion?, requiere_juridico?, comentario_obligatorio?, alerta?, activo?
      */
     public function crear(array $datos, User $actor): CausalRotacion

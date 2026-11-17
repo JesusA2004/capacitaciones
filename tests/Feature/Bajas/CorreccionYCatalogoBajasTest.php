@@ -13,6 +13,7 @@ use App\Models\FiniquitoCalculo;
 use App\Models\GeneratedDocument;
 use App\Services\Bajas\BajaDocumentoSalidaService;
 use App\Services\Bajas\BajaDocumentosService;
+use App\Services\CierreLaboral\CausalRotacionService;
 use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Finiquitos\FiniquitoService;
@@ -367,4 +368,14 @@ test('si el flujo no admite la firma, el firmado no queda adjunto: la falla no s
 
     expect(BajaDocumento::query()->where('clasificacion', BajaDocumentoSalidaService::FIRMADO)->count())->toBe(0)
         ->and(GeneratedDocument::query()->where('clave_plantilla', 'convenio_terminacion')->sole()->estado_flujo?->firmaFisicaRegistrada())->toBeFalse();
+});
+
+test('el Excel del catálogo de causales trae una fila por causal del catálogo con sus 10 columnas', function () {
+    $tabla = app(CausalRotacionService::class)->tablaExcel();
+
+    expect($tabla['encabezados'])->toHaveCount(10)
+        ->and($tabla['filas'])->toHaveCount(count(app(CausalRotacionService::class)->listado()))
+        ->and($tabla['filas'][0])->toHaveCount(10);
+
+    $this->actingAs($this->rh)->get(route('rh.bajas.causales-excel'))->assertOk()->assertDownload('catalogo-causales.xlsx');
 });
