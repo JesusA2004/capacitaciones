@@ -324,3 +324,15 @@ test('rh puede rechazar un alta con motivo', function () {
 
     expect($alta->fresh()->estado->value)->toBe('rechazada');
 });
+
+test('el alta digital respeta la regla común de alta: no crea un segundo expediente con la misma CURP', function () {
+    Colaborador::factory()->create(['curp' => 'PEPJ900101HDFRRN09']);
+    $alta = AltaDigital::factory()->create(['estado' => 'en_revision_rh', 'curp' => 'PEPJ900101HDFRRN09']);
+    $usuario = User::factory()->create();
+    $usuario->assignRole('rh_admin');
+
+    $this->actingAs($usuario)->post(route('rh.altas.aprobar', $alta))->assertSessionHasErrors('curp');
+
+    expect($alta->refresh()->estado->value)->toBe('en_revision_rh')
+        ->and($alta->colaborador_id)->toBeNull();
+});

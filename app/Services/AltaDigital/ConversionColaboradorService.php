@@ -17,6 +17,7 @@ use App\Services\Asignaciones\AsignacionService;
 use App\Services\Colaboradores\AvisoAltaBajaService;
 use App\Services\Colaboradores\DomicilioService;
 use App\Services\Colaboradores\FotoColaboradorService;
+use App\Services\Colaboradores\IdentidadColaboradorService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\MovimientosLaborales\MovimientoLaboralService;
 use App\Services\Reclutamiento\CvStorageService;
@@ -48,6 +49,7 @@ class ConversionColaboradorService
         private readonly AsignacionService $asignaciones,
         private readonly AvisoAltaBajaService $avisoAltaBaja,
         private readonly FotoColaboradorService $fotos,
+        private readonly IdentidadColaboradorService $identidad,
     ) {}
 
     /**
@@ -82,6 +84,11 @@ class ConversionColaboradorService
         if ($alta->user_id !== null) {
             throw new RuntimeException('Esta alta ya fue convertida en colaborador.');
         }
+
+        // Regla común a TODOS los caminos de alta (QR, alta digital, alta
+        // directa y candidato contratado): nunca un segundo expediente para la
+        // misma persona (CURP/RFC/NSS, incluidas bajas → Reingresos).
+        $this->identidad->validarNoDuplicado(['curp' => $alta->curp, 'rfc' => $alta->rfc, 'nss' => $alta->nss]);
 
         $usuario = DB::transaction(function () use ($alta, $aprobadoPor, $aprobando) {
             // Dos aprobaciones simultáneas: la segunda espera y ve la primera.
