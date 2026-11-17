@@ -7,6 +7,9 @@ use App\Enums\TipoAsignacionNodoComercial;
 use App\Models\AsignacionNodoComercial;
 use App\Models\Colaborador;
 use App\Models\NodoComercial;
+use App\Models\User;
+use App\Services\AlcanceOrganizacionalService;
+use App\Services\Auditoria\AuditoriaService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -24,6 +27,11 @@ use Illuminate\Validation\ValidationException;
  */
 class MatrizComercialService
 {
+    public function __construct(
+        private readonly AlcanceOrganizacionalService $alcance,
+        private readonly AuditoriaService $auditoria,
+    ) {}
+
     /**
      * Árbol completo, ya anidado (cada nodo trae 'hijos'), listo para
      * renderizar. La raíz MATRIZ siempre existe tras MatrizComercialSeeder.
@@ -155,11 +163,30 @@ class MatrizComercialService
      * sincronizada del gestor activo en App\Models\AsignacionNodoComercial
      * (fuente de verdad real, con historial).
      */
-    public function asignarResponsable(NodoComercial $nodo, ?Colaborador $colaborador): void
+    public function asignarResponsable(NodoComercial $nodo, ?Colaborador $colaborador, ?User $actor = null): void
     {
         if ($colaborador !== null) {
             $this->asegurarRutaAsignable($nodo);
         }
+
+        if ($actor !== null) {
+            // Desde la pantalla: el servidor valida lo que el selector ya
+            // acotaba (persona activa y dentro del alcance) — también al
+            // quitar a quien hoy ocupa la ruta.
+            if ($colaborador !== null) {
+                $this->asegurarAsignablePor($actor, $colaborador, 'responsable_colaborador_id');
+            }
+
+            $actual = $nodo->responsable_colaborador_id !== null
+                ? Colaborador::query()->withTrashed()->where('id', $nodo->responsable_colaborador_id)->first()
+                : null;
+
+            if ($actual !== null && ! $this->alcance->alcanzaColaborador($actor, $actual)) {
+                throw ValidationException::withMessages(['responsable_colaborador_id' => 'Quien ocupa hoy esta ruta está fuera de tu alcance.']);
+            }
+        }
+
+        $anterior = $nodo->responsable_colaborador_id;
 
         DB::transaction(function () use ($nodo, $colaborador): void {
             $this->cerrarAsignacionesActivas($nodo, TipoAsignacionNodoComercial::Gestor);
@@ -180,6 +207,26 @@ class MatrizComercialService
                 'responsable_user_id' => $colaborador?->user?->id,
             ]);
         });
+
+        $this->auditoria->registrar('matriz_comercial.gestor_asignado', $nodo, $actor, [
+            'nodo' => $nodo->nombre,
+            'colaborador_anterior_id' => $anterior,
+            'colaborador_id' => $colaborador?->id,
+        ]);
+    }
+
+    /**
+     * Solo personas activas y dentro del alcance de quien edita la matriz.
+     */
+    private function asegurarAsignablePor(User $actor, Colaborador $colaborador, string $campo): void
+    {
+        if ($colaborador->estatus !== EstadoUsuario::Activo || $colaborador->trashed()) {
+            throw ValidationException::withMessages([$campo => sprintf('%s no está activo: solo se asignan colaboradores activos.', $colaborador->nombreCompleto())]);
+        }
+
+        if (! $this->alcance->alcanzaColaborador($actor, $colaborador)) {
+            throw ValidationException::withMessages([$campo => sprintf('%s está fuera de tu alcance.', $colaborador->nombreCompleto())]);
+        }
     }
 
     /**
@@ -201,9 +248,13 @@ class MatrizComercialService
      * diferencia del gestor, puede haber varios apoyos/volantes activos a
      * la vez).
      */
-    public function agregarApoyo(NodoComercial $nodo, Colaborador $colaborador, TipoAsignacionNodoComercial $tipo): void
+    public function agregarApoyo(NodoComercial $nodo, Colaborador $colaborador, TipoAsignacionNodoComercial $tipo, ?User $actor = null): void
     {
         $this->asegurarRutaAsignable($nodo);
+
+        if ($actor !== null) {
+            $this->asegurarAsignablePor($actor, $colaborador, 'colaborador_id');
+        }
 
         $yaActivo = AsignacionNodoComercial::query()
             ->where('nodo_comercial_id', $nodo->id)
@@ -224,20 +275,38 @@ class MatrizComercialService
             'activo' => true,
             'fecha_inicio' => now(),
         ]);
+
+        $this->auditoria->registrar('matriz_comercial.apoyo_agregado', $nodo, $actor, [
+            'nodo' => $nodo->nombre,
+            'colaborador_id' => $colaborador->id,
+            'tipo' => $tipo->value,
+        ]);
     }
 
     /**
      * Cierra la asignación activa de un colaborador específico en un nodo
      * (quitar un apoyo/volante puntual sin afectar a los demás).
      */
-    public function quitarAsignacion(NodoComercial $nodo, Colaborador $colaborador, TipoAsignacionNodoComercial $tipo): void
+    public function quitarAsignacion(NodoComercial $nodo, Colaborador $colaborador, TipoAsignacionNodoComercial $tipo, ?User $actor = null): void
     {
-        AsignacionNodoComercial::query()
+        if ($actor !== null && ! $this->alcance->alcanzaColaborador($actor, $colaborador)) {
+            throw ValidationException::withMessages(['colaborador_id' => sprintf('%s está fuera de tu alcance.', $colaborador->nombreCompleto())]);
+        }
+
+        $cerradas = AsignacionNodoComercial::query()
             ->where('nodo_comercial_id', $nodo->id)
             ->where('colaborador_id', $colaborador->id)
             ->where('tipo_asignacion', $tipo->value)
             ->where('activo', true)
             ->update(['activo' => false, 'fecha_fin' => now()]);
+
+        if ($cerradas > 0) {
+            $this->auditoria->registrar('matriz_comercial.asignacion_quitada', $nodo, $actor, [
+                'nodo' => $nodo->nombre,
+                'colaborador_id' => $colaborador->id,
+                'tipo' => $tipo->value,
+            ]);
+        }
     }
 
     /**

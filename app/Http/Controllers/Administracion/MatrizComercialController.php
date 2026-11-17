@@ -61,6 +61,8 @@ class MatrizComercialController extends Controller
             $datos['responsable_colaborador_id'] !== null
                 ? Colaborador::query()->where('id', $datos['responsable_colaborador_id'])->first()
                 : null,
+            // Con actor: el Service valida activo + alcance y deja bitácora.
+            $request->user(),
         );
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Gestor actualizado.']);
@@ -76,7 +78,7 @@ class MatrizComercialController extends Controller
         ]);
 
         $colaborador = Colaborador::query()->where('id', $datos['colaborador_id'])->firstOrFail();
-        $this->matriz->agregarApoyo($nodo, $colaborador, TipoAsignacionNodoComercial::from($datos['tipo']));
+        $this->matriz->agregarApoyo($nodo, $colaborador, TipoAsignacionNodoComercial::from($datos['tipo']), $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Colaborador agregado a la ruta.']);
     }
@@ -91,7 +93,7 @@ class MatrizComercialController extends Controller
         ]);
 
         $colaborador = Colaborador::query()->where('id', $datos['colaborador_id'])->firstOrFail();
-        $this->matriz->quitarAsignacion($nodo, $colaborador, TipoAsignacionNodoComercial::from($datos['tipo']));
+        $this->matriz->quitarAsignacion($nodo, $colaborador, TipoAsignacionNodoComercial::from($datos['tipo']), $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Colaborador quitado de la ruta.']);
     }
