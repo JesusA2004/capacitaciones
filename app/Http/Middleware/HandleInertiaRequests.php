@@ -56,9 +56,9 @@ class HandleInertiaRequests extends Middleware
         // `back()->with('toast', [...])` (flash de sesión), pero el frontend
         // (resources/js/lib/flashToast.ts) solo escucha el canal `flash` de
         // Inertia 3. Sin este puente esos mensajes nunca se mostraban.
-        $toast = $request->hasSession() ? $request->session()->get('toast') : null;
+        $toast = $request->hasSession() ? $this->toastDeSesion($request) : null;
 
-        if (is_array($toast) && isset($toast['type'], $toast['message'])) {
+        if ($toast !== null) {
             Inertia::flash('toast', $toast);
         }
 
@@ -139,5 +139,35 @@ class HandleInertiaRequests extends Middleware
 
             return 0;
         }
+    }
+
+    /**
+     * Aviso de la sesión para el puente de toasts. Canal principal:
+     * `->with('toast', ['type' => …, 'message' => …])`. También acepta el
+     * atajo de Laravel `->with('success'|'error'|'warning'|'info', 'texto')`
+     * que usan varios controladores (Sistemas, Avisos de alta,
+     * Incapacidades…): antes esos mensajes nunca se mostraban porque el
+     * frontend solo escucha `toast`.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function toastDeSesion(Request $request): ?array
+    {
+        $sesion = $request->session();
+        $toast = $sesion->get('toast');
+
+        if (is_array($toast) && isset($toast['type'], $toast['message'])) {
+            return $toast;
+        }
+
+        foreach (['success', 'error', 'warning', 'info'] as $tipo) {
+            $mensaje = $sesion->get($tipo);
+
+            if (is_string($mensaje) && trim($mensaje) !== '') {
+                return ['type' => $tipo, 'message' => $mensaje];
+            }
+        }
+
+        return null;
     }
 }

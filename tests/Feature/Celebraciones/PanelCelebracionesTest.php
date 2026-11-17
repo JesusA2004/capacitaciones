@@ -231,3 +231,15 @@ test('los toasts de `->with(toast)` llegan al frontend por el canal flash de Ine
 
     expect($pagina['flash']['toast'] ?? null)->toBe(['type' => 'success', 'message' => 'Tarjeta generada.']);
 });
+
+test('el atajo `->with(success|warning)` también llega como toast (Sistemas, Incapacidades, Avisos de alta)', function (string $tipo) {
+    $respuesta = $this->actingAs($this->rhPanel)
+        ->withSession([$tipo => 'Correo a Sistemas en cola.'])
+        ->get(route('rh.cumpleanos.index'))
+        ->assertOk();
+
+    preg_match('/<script data-page="app" type="application\/json">(.*?)<\/script>/s', (string) $respuesta->getContent(), $coincidencia);
+    $pagina = json_decode($coincidencia[1] ?? '{}', true);
+
+    expect($pagina['flash']['toast'] ?? null)->toBe(['type' => $tipo, 'message' => 'Correo a Sistemas en cola.']);
+})->with(['success', 'warning', 'error']);
