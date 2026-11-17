@@ -223,15 +223,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::delete('finiquito/conceptos/{concepto}', [CierreLaboralController::class, 'eliminarConceptoFiniquito'])->name('finiquito.conceptos.destroy');
             Route::get('finiquito/vista-previa', [CierreLaboralController::class, 'vistaPreviaFiniquito'])->name('finiquito.vistaPrevia');
             Route::post('finiquito/entrega', [CierreLaboralController::class, 'entregarFiniquito'])->name('entregarFiniquito');
-            // COMPATIBILIDAD LEGACY (flujo anterior del finiquito: programar
-            // pago → cita → firma → confirmar pago). El flujo vigente cierra el
-            // cierre con «Registrar entrega de finiquito»; CierreLaboralService
-            // rechaza estos pasos (ValidationException) salvo con
-            // features.cierre_flujo_legacy (CIERRE_FLUJO_LEGACY, apagado).
-            Route::post('pago/programar', [CierreLaboralController::class, 'programarPago'])->name('programarPago');
-            Route::post('cita', [CierreLaboralController::class, 'cita'])->name('cita');
-            Route::post('finiquito/firmado', [CierreLaboralController::class, 'finiquitoFirmado'])->name('finiquitoFirmado');
-            Route::post('pago/confirmar', [CierreLaboralController::class, 'confirmarPago'])->name('confirmarPago');
+            // Las 4 rutas web del flujo anterior del finiquito (pago/programar,
+            // cita, finiquito/firmado, pago/confirmar) se retiraron: siempre
+            // respondían 422 y ninguna pantalla las usaba. Los cierres que
+            // quedaron en esos estados se cierran con «finiquito/entrega».
+            // La API v1 conserva las suyas por las APK instaladas.
             Route::post('cerrar', [CierreLaboralController::class, 'cerrar'])->name('cerrar');
             Route::post('cancelar', [CierreLaboralController::class, 'cancelar'])->name('cancelar');
         });

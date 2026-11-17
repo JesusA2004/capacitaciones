@@ -205,3 +205,12 @@ test('ya no existe ninguna ruta para autorizar el finiquito (web ni API)', funct
     $this->actingAs($this->rh)->post("/rh/cierres/{$this->cierre->id}/finiquito/autorizar")->assertNotFound();
     expect(FiniquitoCalculo::query()->sole()->estado)->toBe(EstadoFiniquito::Borrador);
 });
+
+test('las rutas web del flujo anterior del finiquito ya no existen; la API las conserva por las APK', function () {
+    foreach (['programarPago', 'cita', 'finiquitoFirmado', 'confirmarPago'] as $nombre) {
+        expect(Route::has("rh.cierres.{$nombre}"))->toBeFalse();
+    }
+
+    expect(Route::has('api.v1.rh.cierres.finiquito.firmado'))->toBeTrue()
+        ->and(Route::has('api.v1.rh.cierres.finiquito.pago'))->toBeTrue();
+});

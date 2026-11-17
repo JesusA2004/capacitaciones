@@ -10,7 +10,6 @@ use App\Http\Requests\CicloLaboral\ArchivoLaboralRequest;
 use App\Http\Requests\CicloLaboral\DecisionAprobacionRequest;
 use App\Http\Requests\CicloLaboral\EntregaFiniquitoRequest;
 use App\Http\Requests\CicloLaboral\FiniquitoCierreRequest;
-use App\Http\Requests\CicloLaboral\ProgramarPagoRequest;
 use App\Http\Requests\CicloLaboral\SolicitarCierreRequest;
 use App\Http\Requests\Rh\AjustarConceptoFiniquitoRequest;
 use App\Models\CausalRotacion;
@@ -220,42 +219,6 @@ class CierreLaboralController extends Controller
         $this->cierres->registrarEntregaFiniquito($cierre, $request->user(), $request->datosEntrega());
 
         return $this->ok('Finiquito entregado: el cierre laboral quedó completo. El expediente y el historial se conservan.');
-    }
-
-    public function programarPago(ProgramarPagoRequest $request, CierreLaboral $cierre): RedirectResponse
-    {
-        $this->authorize('ver', $cierre);
-        $this->cierres->programarPago($cierre, $request->user(), $request->datosPago());
-
-        return $this->ok('Pago programado: el gerente cita al excolaborador.');
-    }
-
-    public function cita(Request $request, CierreLaboral $cierre): RedirectResponse
-    {
-        $this->authorize('operar', $cierre);
-        $datos = $request->validate(['fecha' => ['required', 'date']]);
-        $this->cierres->registrarCita($cierre, $request->user(), (string) $datos['fecha']);
-
-        return $this->ok('Cita registrada.');
-    }
-
-    public function finiquitoFirmado(ArchivoLaboralRequest $request, CierreLaboral $cierre): RedirectResponse
-    {
-        $this->authorize('operar', $cierre);
-        $archivo = $request->file('archivo');
-        abort_unless($archivo instanceof UploadedFile, 422);
-        $this->cierres->registrarFiniquitoFirmado($cierre, $archivo, $request->user());
-
-        return $this->ok('Finiquito firmado registrado.');
-    }
-
-    public function confirmarPago(Request $request, CierreLaboral $cierre): RedirectResponse
-    {
-        $this->authorize('confirmarPago', $cierre);
-        $datos = $request->validate(['referencia' => ['required', 'string', 'max:120']]);
-        $this->cierres->confirmarPago($cierre, $request->user(), (string) $datos['referencia']);
-
-        return $this->ok('Pago confirmado.');
     }
 
     public function cerrar(Request $request, CierreLaboral $cierre): RedirectResponse
