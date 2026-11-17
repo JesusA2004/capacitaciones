@@ -4,7 +4,9 @@ import {
     AlertTriangle,
     ArrowLeft,
     Banknote,
+    FolderOpen,
     HandCoins,
+    Link2,
     UserRound,
     Wallet,
 } from '@lucide/vue';
@@ -17,6 +19,7 @@ import SelectorPeriodo from '@/components/Seguimiento/SelectorPeriodo.vue';
 import TarjetaKpi from '@/components/Seguimiento/TarjetaKpi.vue';
 import { Button } from '@/components/ui/button';
 import CambioSuave from '@/components/ui/CambioSuave.vue';
+import { usePermisos } from '@/composables/usePermisos';
 import { VueApexCharts } from '@/lib/apexDiferido';
 import {
     formatoCompacto,
@@ -25,8 +28,10 @@ import {
     tonoMora,
 } from '@/lib/seguimiento';
 import { dashboard } from '@/routes';
+import { show as showExpediente } from '@/routes/rh/expedientes';
 import { index as indexSeguimiento } from '@/routes/seguimiento';
 import { index as indexGestores, show as showGestor } from '@/routes/seguimiento/gestores';
+import { index as indexVinculos } from '@/routes/seguimiento/vinculos';
 import type {
     DetalleGestor,
     FiltrosSeguimiento,
@@ -57,6 +62,7 @@ defineOptions({
     },
 });
 
+const { tienePermiso } = usePermisos();
 const cargando = ref(false);
 const periodo = computed(() => props.datos.datos?.periodo ?? null);
 const detalle = computed(() => props.datos.datos?.detalle ?? null);
@@ -139,6 +145,15 @@ const opcionesMensual = computed(() => ({
             :icono="UserRound"
             detalle
         >
+            <Button
+                v-if="detalle?.gestor.colaborador_id && tienePermiso('expedientes.ver')"
+                variant="outline"
+                as-child
+            >
+                <Link :href="showExpediente(detalle.gestor.colaborador_id)">
+                    <FolderOpen class="size-4" /> Expediente
+                </Link>
+            </Button>
             <Button variant="outline" as-child>
                 <Link :href="indexGestores({ query: periodo?.mes ? { mes: periodo.mes.id } : {} })">
                     <ArrowLeft class="size-4" /> Todos los gestores
@@ -172,11 +187,17 @@ const opcionesMensual = computed(() => ({
                 <div v-else :key="`d-${periodo.mes?.id}`" class="flex flex-col gap-5">
                     <div
                         v-if="!detalle.gestor.vinculado"
-                        class="rounded-2xl border border-border bg-warning-soft p-3 text-sm"
+                        class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-warning-soft p-3 text-sm"
                     >
-                        Este gestor de Reportes
-                        <span class="font-medium">({{ detalle.gestor.nombre_reportes }})</span> aún no está
-                        vinculado con un colaborador de PEOPLE.
+                        <p>
+                            Este gestor de Reportes
+                            <span class="font-medium">({{ detalle.gestor.nombre_reportes }})</span> aún no está
+                            vinculado con un colaborador de PEOPLE: sin vínculo no tiene expediente ni potencial en la
+                            Nine Box.
+                        </p>
+                        <Button v-if="puedeVincular" size="sm" variant="outline" class="bg-card" as-child>
+                            <Link :href="indexVinculos()"><Link2 class="size-4" /> Vincular</Link>
+                        </Button>
                     </div>
                     <div
                         v-if="!detalle.con_actividad"

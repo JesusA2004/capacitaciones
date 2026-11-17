@@ -122,15 +122,27 @@ const rankingSucursales = computed(() =>
 const opcionesRanking = computed(() => ({
     chart: { toolbar: { show: false }, fontFamily: 'inherit' },
     colors: ['var(--chart-3)'],
+    // La etiqueta va FUERA de la barra (al final): dentro se cortaba en las
+    // sucursales con poca colocación («$894.7» recortado).
     plotOptions: {
-        bar: { horizontal: true, borderRadius: 5, barHeight: '60%' },
+        bar: {
+            horizontal: true,
+            borderRadius: 5,
+            barHeight: '60%',
+            dataLabels: { position: 'top' },
+        },
     },
     dataLabels: {
         enabled: true,
         formatter: (v: number) => formatoCompacto(v),
-        style: { fontSize: '11px' },
+        offsetX: 36,
+        style: { fontSize: '11px', colors: ['var(--foreground)'] },
     },
-    grid: { borderColor: 'var(--border)', strokeDashArray: 4 },
+    grid: {
+        borderColor: 'var(--border)',
+        strokeDashArray: 4,
+        padding: { right: 36 },
+    },
     xaxis: {
         categories: rankingSucursales.value.map((s) => s.nombre),
         labels: { formatter: (v: string) => formatoCompacto(Number(v)) },
@@ -242,7 +254,7 @@ const opcionesRanking = computed(() => ({
                                 :valor="tablero.totales.gestores"
                                 :icono="Users"
                                 tono="menta"
-                                :nota="`${tablero.totales.sucursales} sucursales`"
+                                :nota="`${tablero.totales.sucursales} ${tablero.totales.sucursales === 1 ? 'sucursal' : 'sucursales'}`"
                             />
                         </section>
 
@@ -360,7 +372,9 @@ const opcionesRanking = computed(() => ({
                             class="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-warning-soft p-4 text-sm"
                         >
                             <p>
-                                <span class="font-semibold">{{ tablero.sin_vincular.branches }} sucursal(es) de Reportes sin vincular</span>
+                                <span class="font-semibold">{{ tablero.sin_vincular.branches }}
+                                    {{ tablero.sin_vincular.branches === 1 ? 'sucursal' : 'sucursales' }} de Reportes sin
+                                    vincular</span>
                                 ({{ tablero.sin_vincular.nombres.join(', ') }}) con
                                 {{ formatoMoneda(tablero.sin_vincular.colocacion) }} de colocación en el mes: no
                                 están sumadas arriba.

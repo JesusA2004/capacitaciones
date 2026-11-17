@@ -208,10 +208,18 @@ class SeguimientoService
         $nombres = Sucursal::query()->pluck('nombre', 'id');
 
         $filas = [];
+        // Opciones del filtro: TODAS las sucursales de su alcance con
+        // gestores (antes salían de las filas ya filtradas y, al elegir una
+        // sucursal, el filtro solo ofrecía esa).
+        $sucursalesConGestores = [];
 
         foreach ($this->gestoresUbicados($actividad) as $gestor) {
             if (! $this->alcance->alcanzaSucursal($visibles, $gestor['sucursal_id'])) {
                 continue;
+            }
+
+            if ($gestor['sucursal_id'] !== null) {
+                $sucursalesConGestores[$gestor['sucursal_id']] = (string) ($nombres[$gestor['sucursal_id']] ?? '');
             }
 
             if ($sucursalId !== null && $gestor['sucursal_id'] !== $sucursalId) {
@@ -248,8 +256,8 @@ class SeguimientoService
 
         usort($filas, fn (array $a, array $b): int => ($b['colocacion'] ?? 0) <=> ($a['colocacion'] ?? 0));
 
-        $opcionesSucursal = collect($filas)->pluck('sucursal', 'sucursal_id')->filter()->sort()
-            ->map(fn ($nombre, $id): array => ['value' => (int) $id, 'label' => (string) $nombre])->values()->all();
+        $opcionesSucursal = collect($sucursalesConGestores)->filter()->sort()
+            ->map(fn (string $nombre, int $id): array => ['value' => $id, 'label' => $nombre])->values()->all();
 
         return [
             'estado' => DatoReportes::texto($actividad['status'] ?? null) === 'ok' ? 'ok' : 'sin_datos',
@@ -419,6 +427,28 @@ class SeguimientoService
         }
 
         return $semanas;
+    }
+
+    /**
+     * Actividad de los gestores de UN mes, sin acotar por alcance (la usa la
+     * Nine Box, que calcula percentiles contra toda la empresa y acota
+     * después): semanas del mes, cada gestor ubicado con sus semanas y los
+     * KPIs oficiales de la radiografía por id de empleado de Reportes.
+     *
+     * @return array{estado: string, semanas: list<array{id: int, indice: int, etiqueta: string, nombre: string, inicio: string|null, fin: string|null}>, gestores: list<array{reportes_id: int, ids: list<int>, nombre: string, nombre_reportes: string, puesto: string|null, colaborador_id: int|null, sucursal_id: int|null, branch: string|null, semanas: list<array<string, mixed>>, mes_colocacion: float|null, mes_operaciones: int|null, mes_recuperacion: float|null}>, oficiales: array<int, array<string, mixed>>}
+     *
+     * @throws ReportesNoDisponibleException
+     */
+    public function actividadGestoresMes(int $mesId): array
+    {
+        $actividad = $this->catalogo->actividadSemanal($mesId);
+
+        return [
+            'estado' => DatoReportes::texto($actividad['status'] ?? null) === 'ok' ? 'ok' : 'sin_datos',
+            'semanas' => $this->semanas($actividad),
+            'gestores' => $this->gestoresUbicados($actividad),
+            'oficiales' => $this->kpisOficialesPorEmpleado($mesId),
+        ];
     }
 
     /**
@@ -651,7 +681,7 @@ class SeguimientoService
         return round(($acumulado ?? 0.0) + $valor, 2);
     }
 
-    private function mora(?float $cartera, ?float $vencida): ?float
+    public function mora(?float $cartera, ?float $vencida): ?float
     {
         if ($cartera === null || $vencida === null || $cartera <= 0) {
             return null;
