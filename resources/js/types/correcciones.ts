@@ -8,6 +8,7 @@ export type ModoCorreccion =
 export type DominioCorreccion =
     | 'salario'
     | 'laboral'
+    | 'fechas_laborales'
     | 'personal'
     | 'contratacion'
     | 'incapacidad'

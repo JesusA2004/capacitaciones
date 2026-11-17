@@ -57,3 +57,4 @@ export * from './misDocumentos';
 export * from './seguimiento';
 export * from './nineBox';
 export * from './evaluacionesTecnicas';
+export * from './fechasLaborales';

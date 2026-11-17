@@ -5,6 +5,7 @@ import {
     Briefcase,
     Building2,
     Calendar,
+    CalendarRange,
     ChevronDown,
     ClipboardList,
     Clock,
@@ -42,6 +43,7 @@ import type { DatosFaltantesResumen } from '@/components/Rh/DatosFaltantesBanner
 import ExpedienteCentro from '@/components/Rh/Expediente/ExpedienteCentro.vue';
 import ExpedienteContratacion from '@/components/Rh/Expediente/ExpedienteContratacion.vue';
 import ExpedienteDatosPersonales from '@/components/Rh/Expediente/ExpedienteDatosPersonales.vue';
+import FechasLaboralesSeccion from '@/components/Rh/Expediente/FechasLaborales/FechasLaboralesSeccion.vue';
 import HistorialCambiosDatos from '@/components/Rh/Expediente/HistorialCambiosDatos.vue';
 import PestanaChecklist from '@/components/Rh/Expediente/PestanaChecklist.vue';
 import PestanaCuenta from '@/components/Rh/Expediente/PestanaCuenta.vue';
@@ -303,6 +305,7 @@ const PESTANAS = [
     'contratacion',
     'cambios',
     'laborales',
+    'fechas',
     'cuenta',
     'documentos',
     'onboarding',
@@ -324,6 +327,7 @@ const pestanaInicial = (() => {
         PESTANAS.includes(solicitada) &&
         !(
             (solicitada === 'cuenta' ||
+                solicitada === 'fechas' ||
                 solicitada === 'onboarding' ||
                 solicitada === 'contratacion' ||
                 solicitada === 'cambios') &&
@@ -371,6 +375,11 @@ const gruposPestanas = computed(() => {
             pestanas: [
                 { valor: 'personales', etiqueta: 'Personales', icono: IdCard },
                 { valor: 'laborales', etiqueta: 'Laborales', icono: Briefcase },
+                ajenas && {
+                    valor: 'fechas',
+                    etiqueta: 'Fechas laborales',
+                    icono: CalendarRange,
+                },
                 ajenas && {
                     valor: 'cuenta',
                     etiqueta: 'Cuenta',
@@ -991,6 +1000,13 @@ function irACompletarExpediente() {
                             persona.
                         </p>
                     </Deferred>
+                </TabsContent>
+
+                <TabsContent v-if="!esPropio" value="fechas">
+                    <FechasLaboralesSeccion
+                        v-if="pestana === 'fechas'"
+                        :colaborador-id="colaborador.id"
+                    />
                 </TabsContent>
 
                 <TabsContent v-if="historialCambios" value="cambios">
