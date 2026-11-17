@@ -90,13 +90,18 @@ test('el token plano solo esta disponible en sesion los minutos siguientes a cre
     $vistaSiguiente->assertInertia(fn ($page) => $page->where('tokenPlano', fn ($valor) => $valor !== null));
 
     // Pasada la ventana de vigencia del token en sesión (5 min), "Ver" ya no
-    // puede volver a mostrar el token plano de ESTA invitación — pero como
-    // la invitación lógica sigue activa y no vencida, el controlador la
-    // regenera de forma transparente (misma persona, nueva invitación
-    // enlazada) en vez de dejar a RH sin ninguna forma de compartir el QR.
+    // muestra el token plano ni regenera nada por un GET (un prefetch o la
+    // vista previa de un enlace no deben revocar un QR ya enviado): ofrece
+    // «Generar QR nuevo», que es un POST explícito.
     $this->travel(10)->minutes();
-    $vistaTardia = $this->actingAs($rh)->get(route('rh.incorporacion.invitaciones.show', $invitacion));
-    $vistaTardia->assertRedirect();
+    $this->actingAs($rh)->get(route('rh.incorporacion.invitaciones.show', $invitacion))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('tokenPlano', null)->where('codigoOculto', true)->where('puedeRegenerar', true));
+
+    expect($invitacion->fresh()->estado)->toBe(EstadoInvitacionIncorporacion::Activo);
+    expect(IncorporacionInvitacion::query()->where('regenerated_from_id', $invitacion->id)->exists())->toBeFalse();
+
+    $this->actingAs($rh)->post(route('rh.incorporacion.invitaciones.regenerar', $invitacion))->assertRedirect();
 
     expect($invitacion->fresh()->estado)->toBe(EstadoInvitacionIncorporacion::Revocado);
     $regenerada = IncorporacionInvitacion::query()->where('regenerated_from_id', $invitacion->id)->firstOrFail();

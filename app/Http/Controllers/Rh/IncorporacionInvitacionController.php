@@ -11,8 +11,10 @@ use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\IncorporacionInvitacion;
 use App\Models\Puesto;
-use App\Models\Sucursal;
+use App\Models\User;
+use App\Policies\IncorporacionInvitacionPolicy;
 use App\Services\Incorporacion\IncorporacionInvitacionService;
+use App\Services\Permisos\AlcanceModuloService;
 use App\Support\Paginacion;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -38,14 +40,17 @@ class IncorporacionInvitacionController extends Controller
 {
     private const FILTROS = ['estado', 'empresa_id', 'sucursal_id', 'busqueda'];
 
-    public function __construct(private readonly IncorporacionInvitacionService $invitaciones) {}
+    public function __construct(
+        private readonly IncorporacionInvitacionService $invitaciones,
+        private readonly AlcanceModuloService $alcance,
+    ) {}
 
     public function index(Request $request): Response
     {
         $usuario = $request->user();
-        abort_unless($usuario->can('rh.incorporacion.invitaciones.ver'), 403);
+        $this->authorize('viewAny', IncorporacionInvitacion::class);
 
-        $invitaciones = $this->queryFiltrada($request)
+        $invitaciones = $this->queryFiltrada($request, $usuario)
             ->with([
                 'empresa:id,nombre', 'sucursal:id,nombre', 'departamento:id,nombre', 'puesto:id,nombre',
                 'candidato:id,nombre,apellidos', 'usuario:id,name,apellidos',
@@ -61,10 +66,10 @@ class IncorporacionInvitacionController extends Controller
             'filtros' => $request->only(self::FILTROS),
             'opciones' => [
                 'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
-                'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
+                'sucursales' => $this->alcance->sucursalesDelModulo($usuario, IncorporacionInvitacionPolicy::MODULO)->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
                 'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
                 'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'departamento_id']),
-                'candidatosElegibles' => $this->candidatosElegibles(),
+                'candidatosElegibles' => $this->candidatosElegibles($usuario),
             ],
             'puedeCrear' => $usuario->can('rh.incorporacion.invitaciones.crear'),
             'puedeRegenerar' => $usuario->can('rh.incorporacion.invitaciones.regenerar'),
@@ -80,17 +85,19 @@ class IncorporacionInvitacionController extends Controller
      *
      * @return Collection<int, array<string, mixed>>
      */
-    private function candidatosElegibles(): Collection
+    private function candidatosElegibles(User $usuario): Collection
     {
-        return $this->resumirCandidatosElegibles($this->queryCandidatosElegibles());
+        return $this->resumirCandidatosElegibles($this->queryCandidatosElegibles($usuario));
     }
 
     /**
      * @return EloquentCollection<int, Candidato>
      */
-    private function queryCandidatosElegibles(): EloquentCollection
+    private function queryCandidatosElegibles(User $usuario): EloquentCollection
     {
-        return Candidato::query()
+        // Solo candidatos dentro del alcance del módulo: mismo criterio que
+        // IncorporacionInvitacionPolicy::crearPara() al emitir.
+        return $this->alcance->limitarPorSucursal(Candidato::query(), $usuario, IncorporacionInvitacionPolicy::MODULO)
             // Solo candidatos YA en contratación (autorizados por RH y con su
             // colaborador creado): el primer QR lo genera la ficha del
             // candidato con los datos laborales (ContratacionCandidatoService).
@@ -169,9 +176,9 @@ class IncorporacionInvitacionController extends Controller
     /**
      * @return Builder<IncorporacionInvitacion>
      */
-    private function queryFiltrada(Request $request): Builder
+    private function queryFiltrada(Request $request, User $usuario): Builder
     {
-        return IncorporacionInvitacion::query()
+        return $this->alcance->limitarPorSucursal(IncorporacionInvitacion::query(), $usuario, IncorporacionInvitacionPolicy::MODULO)
             ->when($request->string('estado')->toString(), fn ($query, string $estado) => $query->where('estado', $estado))
             ->when($request->integer('empresa_id'), fn ($query, int $id) => $query->where('empresa_id', $id))
             ->when($request->integer('sucursal_id'), fn ($query, int $id) => $query->where('sucursal_id', $id))
@@ -194,6 +201,7 @@ class IncorporacionInvitacionController extends Controller
     {
         $datos = $request->validated();
         $candidato = Candidato::query()->where('id', $datos['candidato_id'])->firstOrFail();
+        $this->authorize('crearPara', [IncorporacionInvitacion::class, $candidato]);
 
         ['invitacion' => $invitacion, 'token' => $token] = $this->invitaciones->crear([
             'candidato_id' => $candidato->id,
@@ -215,29 +223,17 @@ class IncorporacionInvitacionController extends Controller
             ->with('toast', ['type' => 'success', 'message' => 'Invitación creada. Copia la liga o descarga el QR: no vuelve a mostrarse.']);
     }
 
-    public function show(Request $request, IncorporacionInvitacion $invitacion): Response|RedirectResponse
+    public function show(Request $request, IncorporacionInvitacion $invitacion): Response
     {
-        abort_unless($request->user()->can('rh.incorporacion.invitaciones.ver'), 403);
-
-        $tokenPlano = $this->tokenPlanoDeSesion($invitacion);
+        $this->authorize('view', $invitacion);
 
         // El token plano nunca se guarda en BD (solo su hash) — vive unos
-        // minutos en sesión tras crear/regenerar. Pasada esa ventana, si la
-        // invitación SIGUE vigente, se regenera aquí de forma transparente
-        // (misma invitación lógica, nuevo token) para que "Ver" siempre
-        // pueda mostrar un QR funcional mientras siga activa; nunca se
-        // persiste ningún secreto nuevo. Si ya venció/fue revocada/usada, no
-        // se regenera nada — se muestra tal cual (sin QR), como antes.
-        if ($tokenPlano === null && $this->puedeRegenerarSilenciosamente($invitacion) && $request->user()->can('rh.incorporacion.invitaciones.regenerar')) {
-            ['invitacion' => $invitacion, 'token' => $tokenPlano] = $this->invitaciones->regenerar($invitacion, $request->user());
-            $this->guardarTokenPlanoEnSesion($invitacion, $tokenPlano);
-
-            // Redirige a la URL de la invitación nueva (regenerar() revoca
-            // la anterior y crea otra con id distinto): así la URL en el
-            // navegador queda consistente y un refresh no vuelve a caer en
-            // la invitación ya revocada.
-            return redirect()->route('rh.incorporacion.invitaciones.show', $invitacion);
-        }
+        // minutos en sesión tras crear/regenerar. Pasada esa ventana, «Ver»
+        // ya NO regenera nada por sí solo: un GET (prefetch, vista previa
+        // del enlace, recarga) no debe revocar un QR que ya se envió. Si la
+        // invitación sigue vigente, la pantalla ofrece «Generar QR nuevo»,
+        // que es la acción POST explícita regenerar().
+        $tokenPlano = $this->tokenPlanoDeSesion($invitacion);
 
         $invitacion->loadMissing([
             'empresa:id,nombre', 'sucursal:id,nombre', 'departamento:id,nombre', 'puesto:id,nombre',
@@ -254,16 +250,19 @@ class IncorporacionInvitacionController extends Controller
             // dentro de la pagina, no se sirve como archivo .svg (eso lo
             // hace qr(), con el SVG completo tal cual devuelve el Service).
             'qrSvg' => $tokenPlano ? preg_replace('/^<\?xml[^>]*\?>/', '', $this->invitaciones->qrSvg($tokenPlano)) : null,
-            'puedeRegenerar' => $request->user()->can('rh.incorporacion.invitaciones.regenerar') && $this->invitaciones->esRegenerable($invitacion),
+            'puedeRegenerar' => $request->user()->can('regenerar', $invitacion) && $this->invitaciones->esRegenerable($invitacion),
             'yaUsada' => ! $this->invitaciones->esRegenerable($invitacion),
-            'puedeRevocar' => $request->user()->can('rh.incorporacion.invitaciones.revocar'),
-            'puedeDescargarQr' => $request->user()->can('rh.incorporacion.invitaciones.qr.descargar'),
+            // Sigue activa pero su código ya no está en esta sesión: se
+            // ofrece «Generar QR nuevo» (POST) en vez de regenerar al abrir.
+            'codigoOculto' => $tokenPlano === null && $this->sigueVigente($invitacion),
+            'puedeRevocar' => $request->user()->can('revocar', $invitacion),
+            'puedeDescargarQr' => $request->user()->can('descargarQr', $invitacion),
         ]);
     }
 
     public function regenerar(Request $request, IncorporacionInvitacion $invitacion): RedirectResponse
     {
-        abort_unless($request->user()->can('rh.incorporacion.invitaciones.regenerar'), 403);
+        $this->authorize('regenerar', $invitacion);
 
         try {
             ['invitacion' => $nueva, 'token' => $token] = $this->invitaciones->regenerar($invitacion, $request->user());
@@ -279,7 +278,7 @@ class IncorporacionInvitacionController extends Controller
 
     public function revocar(Request $request, IncorporacionInvitacion $invitacion): RedirectResponse
     {
-        abort_unless($request->user()->can('rh.incorporacion.invitaciones.revocar'), 403);
+        $this->authorize('revocar', $invitacion);
 
         try {
             $this->invitaciones->revocar($invitacion);
@@ -298,7 +297,7 @@ class IncorporacionInvitacionController extends Controller
      */
     public function qr(Request $request, IncorporacionInvitacion $invitacion): HttpResponse
     {
-        abort_unless($request->user()->can('rh.incorporacion.invitaciones.qr.descargar'), 403);
+        $this->authorize('descargarQr', $invitacion);
 
         $tokenPlano = $this->tokenPlanoDeSesion($invitacion);
         abort_unless($tokenPlano !== null, 410, 'El código ya no está disponible en esta sesión. Genera uno nuevo (regenerar).');
@@ -339,12 +338,12 @@ class IncorporacionInvitacionController extends Controller
     }
 
     /**
-     * True si vale la pena emitirle un token nuevo a esta invitación en vez
-     * de mostrarla como "no disponible": sigue activa, no venció y todavía
-     * le quedan usos — exactamente los mismos requisitos que ya exige
-     * IncorporacionInvitacionService::validar() al escanear el QR.
+     * True si la invitación todavía serviría al escanearla (activa, sin
+     * vencer y con usos): exactamente los mismos requisitos que ya exige
+     * IncorporacionInvitacionService::validar(). Solo decide el mensaje de
+     * la pantalla; regenerar siempre es una acción POST explícita.
      */
-    private function puedeRegenerarSilenciosamente(IncorporacionInvitacion $invitacion): bool
+    private function sigueVigente(IncorporacionInvitacion $invitacion): bool
     {
         return $invitacion->estado === EstadoInvitacionIncorporacion::Activo
             && $this->invitaciones->esRegenerable($invitacion)

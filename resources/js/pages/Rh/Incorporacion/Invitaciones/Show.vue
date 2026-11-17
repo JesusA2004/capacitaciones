@@ -29,6 +29,7 @@ const props = defineProps<{
     qrSvg: string | null;
     puedeRegenerar: boolean;
     yaUsada: boolean;
+    codigoOculto: boolean;
     puedeRevocar: boolean;
     puedeDescargarQr: boolean;
 }>();
@@ -229,20 +230,36 @@ function nombreUsuario(
                 v-else-if="!yaUsada"
                 class="flex flex-col justify-center gap-2 rounded-2xl border border-dashed border-border/60 bg-card p-6 xl:col-span-2"
             >
-                <p class="text-base font-semibold">
-                    Esta invitación ya no tiene un QR utilizable
-                </p>
-                <p class="text-sm text-muted-foreground">
-                    {{
-                        invitacion.estado === 'revocado'
-                            ? 'Fue revocada.'
-                            : 'Ya venció.'
-                    }}
-                    <template v-if="puedeRegenerar">
-                        Usa «Generar QR nuevo» si la persona todavía lo
-                        necesita.
-                    </template>
-                </p>
+                <template v-if="codigoOculto">
+                    <p class="text-base font-semibold">
+                        El código QR ya no se muestra en esta sesión
+                    </p>
+                    <p class="text-sm text-muted-foreground">
+                        Por seguridad el código solo se ve unos minutos
+                        después de generarlo. La invitación sigue vigente: si
+                        la persona ya lo recibió, puede usarlo.
+                        <template v-if="puedeRegenerar">
+                            Si necesitas volver a compartirlo, usa «Generar QR
+                            nuevo» (el anterior dejará de funcionar).
+                        </template>
+                    </p>
+                </template>
+                <template v-else>
+                    <p class="text-base font-semibold">
+                        Esta invitación ya no tiene un QR utilizable
+                    </p>
+                    <p class="text-sm text-muted-foreground">
+                        {{
+                            invitacion.estado === 'revocado'
+                                ? 'Fue revocada.'
+                                : 'Ya venció.'
+                        }}
+                        <template v-if="puedeRegenerar">
+                            Usa «Generar QR nuevo» si la persona todavía lo
+                            necesita.
+                        </template>
+                    </p>
+                </template>
             </section>
 
             <section

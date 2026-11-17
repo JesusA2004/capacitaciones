@@ -126,6 +126,39 @@ class AlcanceModuloService
         return $query->where(fn (Builder $q) => $q->whereIn($columna, $sucursales)->orWhereNull($columna));
     }
 
+    /**
+     * Mismo criterio que limitarPorSucursal() para UN registro ya cargado
+     * (Policies de módulos acotados por sucursal: invitaciones QR,
+     * campañas): un registro sin sucursal es visible para todos.
+     */
+    public function alcanzaSucursal(User $usuario, ?int $sucursalId, string $modulo): bool
+    {
+        $nivel = $this->nivel($usuario, $modulo);
+
+        if ($nivel === AlcanceDatos::Todos || $sucursalId === null) {
+            return true;
+        }
+
+        return $this->sucursalesPara($usuario, $nivel === AlcanceDatos::Region ? AlcanceDatos::Region : AlcanceDatos::Sucursal)
+            ->contains($sucursalId);
+    }
+
+    /**
+     * Catálogo de sucursales para los filtros de un módulo acotado por
+     * sucursal: con alcance «Todos», todas; si no, solo las suyas (un gerente
+     * no ve en el filtro nombres de sucursales ajenas).
+     *
+     * @return Builder<Sucursal>
+     */
+    public function sucursalesDelModulo(User $usuario, string $modulo): Builder
+    {
+        $nivel = $this->nivel($usuario, $modulo);
+
+        return $nivel === AlcanceDatos::Todos
+            ? Sucursal::query()
+            : Sucursal::query()->whereIn('id', $this->sucursalesPara($usuario, $nivel === AlcanceDatos::Region ? AlcanceDatos::Region : AlcanceDatos::Sucursal)->all());
+    }
+
     public function alcanzaColaborador(User $usuario, ?Colaborador $colaborador, string $modulo): bool
     {
         if ($colaborador === null) {
