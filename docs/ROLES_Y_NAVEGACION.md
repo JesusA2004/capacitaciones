@@ -2,8 +2,8 @@
 
 MR. LANA PEOPLE separa dos experiencias completamente distintas dentro del mismo sistema — ver `App\Services\Navigation\NavigationService`:
 
-- **Modo colaborador**: el portal personal de cualquier empleado (Mi inicio, Mi expediente, Mis solicitudes, Mi recibo, Mis notificaciones, Mi inducción, Celebraciones, Ayuda).
-- **Modo operativo**: las herramientas de RH/gerencia/dirección ordenadas por el **ciclo de vida laboral del colaborador** (Inicio → 1 Reclutamiento → 2 Contratación → 3 Onboarding → 4 Cierre del periodo de prueba → 5 Permanencia → 6 Desarrollo → 7 Cierres laborales), más los bloques transversales Organización, Reportes y Configuración.
+- **Modo colaborador**: el portal personal de cualquier empleado (Mi inicio, Mi expediente, Mis solicitudes, Mi recibo —solo con autoservicio—, Mis notificaciones, Mi inducción, Mi capacitación, Mis seguimientos técnicos, Celebraciones, Directorio, Mi agenda, Ayuda).
+- **Modo operativo**: las herramientas de RH/gerencia/dirección ordenadas por el **ciclo de vida laboral del colaborador** (Inicio → 1 Reclutamiento → 2 Contratación → 3 Onboarding → 4 Cierre del periodo de prueba → 5 Permanencia → Capacitación (parte de la etapa 6 · Desarrollo) → 7 Cierres laborales), más los bloques transversales Organización, Seguimiento, Reportes y Configuración.
 
 Un usuario **nunca** ve ambos mezclados en el mismo menú. Una misma CUENTA puede representar a la vez a un colaborador real y a alguien con permisos operativos; ninguna capacidad depende del nombre del rol:
 
@@ -28,31 +28,37 @@ El orden es exactamente el ciclo de vida laboral + transversales. **«Inicio» v
 
 | # | Grupo | Accesos | Permiso de cada acceso | Ruta |
 |---|---|---|---|---|
-| — | **Inicio** | Tablero de RH | abierto (contenido por `dashboard.*.ver`) | `dashboard` |
-| | | Pendientes | `ciclo.*`/`evaluaciones.*`/`onboarding.entregar_activos`/`cierres.*`/`expedientes.revisar`/`solicitudes.*`/`nomina.recibos.crear` | `rh.pendientes.index` |
+| — | **Inicio** (siempre desplegado) | Tablero de RH (Jurídico/Contraloría: «Mi bandeja de bajas») | abierto (contenido por `dashboard.*.ver`); una sola página `Dashboard/Operativo` para global y sucursal: cambia el alcance de los datos | `dashboard` |
+| | | Directorio (contactos; `directorio.ver` o Corporativo — no es «Colaboradores», ver abajo) | feature `directorio` | `directorio.index` |
+| | | Pendientes | `ciclo.*`/`evaluaciones.*`/`onboarding.entregar_activos`/`cierres.*`/`expedientes.revisar`/`solicitudes.*`/`nomina.recibos.crear`/`candidatos.*` | `rh.pendientes.index` |
 | | | Solicitudes (bandeja de RH/gerencia; eliminar pruebas: `solicitudes.eliminar`) | `solicitudes.revisar`/`aprobar`/`rh.solicitudes.ver` | `rh.solicitudes.index` |
 | 1 | **Reclutamiento y selección** | Vacantes | `vacantes.ver` | `rh.vacantes.index` |
 | | | Campañas | `reclutamiento.campanas.ver` | `rh.campanas.index` |
+| | | Descriptivos y perfiles | `perfiles_puesto.ver` | `rh.perfiles-puesto.index` |
 | | | Candidatos | `candidatos.ver` | `rh.candidatos.index` |
-| | | Invitaciones QR | `rh.incorporacion.invitaciones.ver` | `rh.incorporacion.invitaciones.index` |
+| | | Agenda de entrevistas | `agenda.ver` | `agenda.index` |
 | 2 | **Contratación y expediente** | Personas en contratación | `contratos.ver` | `rh.contratacion.index` |
-| | | Pendientes de alta en sistemas (Sistemas marca a quién ya dio usuarios; RH consulta; contador solo para quien atiende — `docs/SISTEMAS_PENDIENTES_ALTA.md`) | `sistemas.altas.ver` (marcar: `sistemas.altas.atender`) | `sistemas.pendientes-alta.index` |
+| | | Invitaciones QR (solo personas ya en contratación; antes estaba en el grupo 1) | `rh.incorporacion.invitaciones.ver` | `rh.incorporacion.invitaciones.index` |
+| | | Pendientes de alta en sistemas (`docs/SISTEMAS_PENDIENTES_ALTA.md`) | `sistemas.altas.ver` (marcar: `sistemas.altas.atender`) | `sistemas.pendientes-alta.index` |
+| | | Pendientes de baja en sistemas | `sistemas.altas.ver` | `sistemas.pendientes-baja.index` |
 | | | Validación de documentos | `documentos.revisar` | `rh.validacion-documentos.index` |
-| | | Contratos de ingreso | `contratos.ver` | `rh.contratos-ingreso.index` |
-| | | Contratos (toda la plantilla activa por fecha de ingreso; «Generar todos») | `contratos.ver` (generar: `documentos_laborales.generar`) | `rh.contratos.index` |
-| 3 | **Onboarding** | Inducción institucional | `onboarding.gestionar` | `induccion.presentacion` |
-| | | Inducción al puesto | `onboarding.gestionar` | `rh.induccion-puesto.index` |
-| | | Calificaciones y refuerzo (inducción FO-RH-EI + lecciones, retroalimentación y reevaluación) | `onboarding.gestionar` | `rh.onboarding.calificaciones` |
+| | | Contratos de ingreso (vista por paquete documental de quien está entrando) | `contratos.ver` | `rh.contratos-ingreso.index` |
+| | | Contratos de la plantilla (toda la plantilla activa por fecha de ingreso; «Generar todos») | `contratos.ver` (generar: `documentos_laborales.generar`) | `rh.contratos.index` |
+| | | Cartas compromiso | `cartas_compromiso.ver` | `rh.cartas-compromiso.index` |
+| 3 | **Onboarding** | Inducción institucional | `onboarding.gestionar` + `onboarding.presentar_induccion` | `induccion.presentacion` |
+| | | Inducción al puesto | `onboarding.gestionar` + `onboarding.induccion_puesto` | `rh.induccion-puesto.index` |
+| | | Configuración de onboarding | `onboarding.gestionar` + `onboarding.configurar` | `rh.onboarding.configuracion` |
+| | | Calificaciones y refuerzo (inducción FO-RH-EI + lecciones, retroalimentación y reevaluación) | `onboarding.gestionar` + `onboarding.calificar` | `rh.onboarding.calificaciones` |
 | | | Activos y responsivas | `responsivas.ver` | `rh.activos-responsivas.index` |
 | 4 | **Cierre del periodo de prueba** | Evaluaciones de periodo de prueba (UN solo acceso, pestañas «Próximas / por asignar», «En proceso» con chip «Por decidir RH» y «Evaluadas») | `evaluaciones.*` | `rh.evaluaciones.index` |
 | 5 | **Permanencia** | Colaboradores | `expedientes.ver_todos`/`ver_region`/`ver_sucursal`/`ver_equipo` | `rh.expedientes.index` |
+| | | Incapacidades | `incapacidades.ver` | `rh.incapacidades.index` |
 | | | Actas administrativas | `actas.ver` | `rh.actas.index` |
-| | | Recibo simple de pago | `nomina.recibos.ver` | `rh.nomina.lotes.index` |
-| | | Importar salarios y vacaciones · solo super_admin | `colaboradores.importar_salarios_vacaciones` | `rh.importaciones.index` |
-| | | Contactos de emergencia (solo importación por Excel) · solo super_admin | `contactos_emergencia.importar` | `rh.contactos-emergencia.index` |
-| | | Celebraciones | `rh.cumpleanos.ver`/`celebraciones.ver` | `rh.cumpleanos.index` / `rh.aniversarios.index` |
-| 6 | **Desarrollo** | (Capacitación como grupo propio; la Nine Box vive en «Seguimiento») | Evaluación del desempeño sin pantalla: sin acceso en el menú | — |
-| — | **Capacitación** (Fase 3, dentro de la etapa 6; sin número) · feature `capacitacion` | Cursos y aulas (constructor + aula tipo Classroom) | `cursos.ver` | `cursos.index` |
+| | | Recibos de nómina (lotes: preparar → revisar → emitir; `docs/NOMINA_QUINCENAL.md`) | `nomina.recibos.ver` | `rh.nomina.lotes.index` |
+| | | Avisos (enviar a toda la empresa o a una persona; historial) | `avisos.ver`/`avisos.enviar` | `rh.avisos.index` |
+| | | Celebraciones | `rh.cumpleanos.ver`/`celebraciones.ver` | `rh.cumpleanos.index` / `celebraciones.index` |
+| — | **Capacitación** (Fase 3, parte de la etapa 6 · Desarrollo; sin número) · feature `capacitacion` | Portada de capacitación | permisos de capacitación (`CursoPolicy::portada`) | `capacitacion.index` |
+| | | Cursos y aulas (constructor + aula tipo Classroom) | `cursos.ver` | `cursos.index` |
 | | | Asignaciones | `asignaciones.ver` | `asignaciones.index` |
 | | | Calificar cuestionarios · Calificar actividades | `respuestas.ver` | `calificaciones.cuestionarios.index` / `calificaciones.actividades.index` |
 | | | Banco de preguntas | `cuestionarios.administrar` | `bancos-preguntas.index` |
@@ -60,20 +66,44 @@ El orden es exactamente el ciclo de vida laboral + transversales. **«Inicio» v
 | | | Calendario de sesiones | `sesiones.administrar` | `calendario` |
 | | | Reporte de cumplimiento | `reportes.globales`/`reportes.sucursal` | `reportes.cumplimiento.index` |
 | | | Certificación Mr. Lana | feature `certificacion` + `cursos.ver`/`asignaciones.ver`/`respuestas.ver` | `capacitacion.certificacion` |
-| 7 | **Cierres laborales** | Bajas (bandeja, registro directo del gerente o RH, expediente — docs/BAJAS_Y_CAUSALES.md). Solo gerentes, RH y super admin; Jurídico y Contraloría de lectura | `bajas.ver`/`bajas.revisar_juridico`/`bajas.consulta_contraloria` | `rh.bajas.index` |
-| | | Bajas y finiquitos (pestañas Documentos —recopilación por persona—, Cierres y finiquitos, Causales) | `cierres.ver` | `rh.cierres.index` |
+| 7 | **Cierres laborales** | Bajas (un apartado con pestañas Bajas · Finiquitos · Rotación · Catálogo de causales; abre la primera pestaña que el backend permite — `docs/BAJAS_Y_CAUSALES.md`) | `bajas.ver`/`bajas.revisar_juridico`/`bajas.consulta_contraloria`/`finiquitos.ver`/`bajas.tablero.ver`/`rotacion.ver`/`cierres.ver` | `rh.bajas.index` (o la pestaña permitida) |
 | | | Reingresos | `reingresos.solicitar`/`gestionar` | `rh.reingresos.index` |
 | — | **Organización** | Organigrama | `organigrama.ver` | `administracion.jerarquia-puestos.index` |
+| | | Responsables de aprobación | `organigrama.ver` + `responsables_aprobacion.ver`/`administrar` | `administracion.responsables-aprobacion.index` |
 | | | Puestos y salarios | `puestos.administrar` o `salarios.ver` | `administracion.puestos.index` |
 | | | Sucursales | `sucursales.administrar` | `administracion.sucursales.index` |
-| | | Departamentos (catálogo + mover personas en lote entre departamentos) | `departamentos.administrar` (mover: + `expedientes.editar`) | `administracion.departamentos.index` |
-| — | **Reportes** | Reportes de RH (incluye Rotación) | `reportes_rh.ver` | `reportes.index` |
-| | | Rotación de personal (tablero: Excel histórico + bajas del sistema; sin `bajas.tablero.ver` abre el histórico del Excel) | `bajas.tablero.ver`/`rotacion.ver` | `reportes.rotacion.tablero.index` / `reportes.rotacion.index` |
-| — | **Configuración** · solo administrador | Documentos maestros | `plantillas_documentales.administrar` | `rh.documentos-maestros.index` |
-| | | Catálogo de bajas (misma pantalla que Bajas y finiquitos → «Causales») | `finiquitos.causales_rotacion` + `finiquitos.ver` | `rh.cierres.index?seccion=causales` |
-| | | Usuarios y permisos | `usuarios.ver`/`roles.administrar` | `administracion.usuarios.index` |
-| | | Importar datos · solo super_admin | `expedientes.migrar`/`headcount.importar`/`colaboradores.importar_salarios_vacaciones`/`rotacion.cargar`/`perfiles_puesto.importar`/`contactos_emergencia.importar`/`nomina.recibos.importar` | `administracion.importar-datos.index` |
-| | | Ajustes y notificaciones | `configuracion.ver`/`notificaciones.ver_todas` | `administracion.configuracion.index` |
+| | | Departamentos (catálogo + mover personas en lote) | `departamentos.administrar` (mover: + `expedientes.editar`) | `administracion.departamentos.index` |
+| | | Empresas | `empresas.ver` | `administracion.empresas.index` |
+| — | **Seguimiento** (Fase 2, `docs/SEGUIMIENTO.md`) | Por sucursal · Por gestor | feature `seguimiento` + `seguimiento.ver` | `seguimiento.index` / `seguimiento.gestores.index` |
+| | | Nine Box | features `seguimiento` + `nine_box` + `nine_box.ver` | `seguimiento.nine-box.index` |
+| | | Seguimientos técnicos · Calendario de seguimientos | `evaluaciones_tecnicas.ver` / `evaluaciones_tecnicas.configurar` | `evaluaciones-tecnicas.index` / `evaluaciones-tecnicas.configuracion` |
+| | | Vínculos con Reportes | feature `seguimiento` + `seguimiento.vincular` | `seguimiento.vinculos.index` |
+| — | **Reportes** | Rotación de personal (tablero: histórico + bajas del sistema) | `bajas.tablero.ver` | `reportes.rotacion.tablero.index` |
+| | | Reportes de RH | `reportes_rh.ver` | `reportes.index` |
+| | | Mis reportes | `reportes_rh.mis_reportes` | `rh.reportes.mis-reportes.index` |
+| | | Recepción documental | `recepcion_documental.ver` | `rh.recepcion-documental.index` |
+| — | **Configuración** · solo administrador | Formularios de evaluación | `formularios_evaluacion.administrar` | `rh.formularios-evaluacion.index` |
+| | | Documentos maestros | `plantillas_documentales.administrar` | `rh.documentos-maestros.index` |
+| | | Catálogo de causales (misma pantalla que la pestaña de Bajas) | `finiquitos.causales_rotacion` + `finiquitos.ver` | `rh.bajas.causales` |
+| | | Usuarios y permisos | `usuarios.ver` | `administracion.usuarios.index` |
+| | | Roles y permisos | `roles.administrar`/`notificaciones_rol.editar` | `administracion.roles.index` |
+| | | Importar datos · solo super_admin (única entrada para TODAS las cargas por Excel: migración, headcount, salarios y vacaciones, contactos de emergencia, «Carga de rotación (Excel)», perfiles, recibos) | `expedientes.migrar`/`headcount.importar`/`colaboradores.importar_salarios_vacaciones`/`rotacion.cargar`/`perfiles_puesto.importar`/`contactos_emergencia.importar`/`nomina.recibos.importar` | `administracion.importar-datos.index` |
+| | | Ajustes y notificaciones | `configuracion.ver` | `administracion.configuracion.index` |
+| | | Notificaciones del sistema | `notificaciones.ver_todas` | `administracion.notificaciones-sistema.index` |
+| | | Versiones de app | `app_releases.ver` | `administracion.app-releases.index` |
+
+Íconos sin repetir (2026-11-17): Usuarios `ShieldCheck` / Roles `KeyRound`; Vacantes `Briefcase` / Puestos y salarios `BadgeDollarSign` / Departamentos `FolderTree`.
+
+### URL canónicas y redirecciones compatibles (2026-11-17)
+
+| Pantalla | URL canónica | URL vieja (se conserva) |
+|---|---|---|
+| Rotación de personal | `/reportes/rotacion/tablero` (`reportes.rotacion.tablero.index`) | `/rh/bajas/rotacion` (`rh.bajas.rotacion`) → **301** con los mismos filtros. La pestaña «Rotación» de Bajas ya apunta a la canónica. |
+| Reportes de RH | `/reportes` (`reportes.index`) | `/rh/reportes` (`rh.reportes.index`) → **301** con los mismos filtros. Las exportaciones siguen en `/rh/reportes/excel` y `/rh/reportes/pdf`. |
+| Mi expediente | `/mi-expediente` | `/mi-perfil` (`portal.perfil`) → redirige a Mi expediente a quien tiene `expedientes.ver`; sin ese permiso sigue mostrando el perfil básico. |
+| Recibos de nómina | `/rh/nomina/lotes` | `/rh/nomina` queda como «Recibos y descargas» (ajustes y descargas de la quincena; «Preparar lote» crea el lote). `POST rh/expedientes/{id}/recibos-nomina` ya no crea recibos: redirige a `/rh/nomina?colaborador=…`. |
+
+Dos pantallas distintas que **no** se consolidan: **Directorio** (contactos, `directorio.ver`, también para gestores sin el módulo de expedientes) y **Colaboradores** (expedientes con alcance). «Contratos de ingreso» y «Personas en contratación» comparten consulta; se mantienen separadas hasta que RH confirme si usa la vista por paquete documental.
 
 Las vistas de **evaluación de periodo de prueba** (Evaluaciones de periodo de prueba, Evaluación y decisión) son filtros `?estado=` reales de la **misma** pantalla (`rh.evaluaciones.index`), no pantallas duplicadas. «Calificaciones y refuerzo» (grupo 3) es otra cosa: las calificaciones de la **inducción** (`rh.onboarding.calificaciones`, SesionInduccionService::calificacionesRh).
 
@@ -91,7 +121,7 @@ Tres conceptos relacionados pero distintos, cada uno con su propia pantalla:
 
 La cuenta de acceso de un colaborador puede administrarse desde cualquiera de los dos lugares con datos de esa cuenta — la pestaña «Cuenta» del expediente (contextual, cuando ya estás viendo a ese colaborador) o el listado global de Usuarios (para gestionar cuentas sin pasar por un expediente primero) — ambos llaman a los mismos endpoints de `UsuarioController`, así que nunca quedan desincronizados.
 
-Lo que **ya no existe** como entrada de menú (aunque las rutas sigan vivas por compatibilidad): "Vacaciones" y "Vacaciones (revisión)" como módulos aparte (vacaciones vive dentro de Solicitudes), "Reclutamiento" (se resume en Vacantes), "Reportes RH" duplicado (queda solo "Reportes de RH"), "Jerarquía de puestos" como texto visible (la pantalla y el menú dicen "Organigrama" — ver `docs/ORGANIGRAMA.md`), **"Rotación de personal" como entrada suelta** (ahora vive dentro de Reportes de RH; su fuente canónica sigue siendo `RotacionPeriodo`), **"Directorio" aparte** (es "Colaboradores" en Permanencia — una sola fuente de personas), y el **grupo "Administración"** disperso (Empresas, Usuarios, Sucursales, Departamentos, Puestos, Roles, Versiones de app): esas entradas se reagruparon en **Organización** y **Configuración** según corresponde. Cumpleaños + Aniversarios + Muro se unifican en **"Celebraciones"**.
+Lo que **ya no existe** como entrada de menú (aunque las rutas sigan vivas por compatibilidad): "Vacaciones" y "Vacaciones (revisión)" como módulos aparte (vacaciones vive dentro de Solicitudes), "Reclutamiento" (se resume en Vacantes), "Reportes RH" duplicado (queda solo "Reportes de RH", URL `/reportes`), "Jerarquía de puestos" como texto visible (la pantalla y el menú dicen "Organigrama" — ver `docs/ORGANIGRAMA.md`), "Bajas y finiquitos" (`rh.cierres.index`) como entrada propia (todo vive en «Bajas» con pestañas), "Recibo simple de pago" (ahora «Recibos de nómina»), "Enviar notificación" (ahora «Avisos»), "Catálogo de bajas" (ahora «Catálogo de causales»), "Importar salarios y vacaciones" y "Contactos de emergencia" en Permanencia (solo en Configuración → Importar datos), "Mi perfil" (redirige a Mi expediente) y el **grupo "Administración"** disperso: esas entradas se reagruparon en **Organización** y **Configuración**. Cumpleaños + Aniversarios + Muro se unifican en **"Celebraciones"**. La carga del Excel de rotación (`reportes.rotacion.index`) se llama «Carga de rotación (Excel)» para no confundirse con el tablero «Rotación de personal».
 
 ## Permisos personales vs operativos
 
