@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Rh;
 
+use App\Enums\TipoImportacionExcel;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Rh\AnalizarImportacionTrabajadoresRequest;
 use App\Http\Requests\Rh\AplicarImportacionTrabajadoresRequest;
@@ -36,7 +37,7 @@ class ImportacionTrabajadoresController extends Controller
 
         return Inertia::render('Rh/Importaciones/Index', [
             'importaciones' => ImportacionExcel::query()
-                ->where('tipo', 'trabajadores_salarios_vacaciones')
+                ->where('tipo', TipoImportacionExcel::TrabajadoresSalariosVacaciones->value)
                 ->with(['subidoPor:id,name,apellidos', 'aplicadoPor:id,name,apellidos'])
                 ->orderByDesc('id')
                 ->paginate(Paginacion::porPagina())
@@ -68,6 +69,7 @@ class ImportacionTrabajadoresController extends Controller
 
     public function show(Request $request, ImportacionExcel $importacion): Response
     {
+        $this->asegurarTipo($importacion);
         abort_unless($request->user()->can('colaboradores.importar_salarios_vacaciones'), 403);
 
         $detalle = $importacion->detalle ?? [];
@@ -118,6 +120,7 @@ class ImportacionTrabajadoresController extends Controller
     /** Quita un archivo analizado que ya no se aplicará (las aplicadas no se quitan). */
     public function destroy(Request $request, ImportacionExcel $importacion): RedirectResponse
     {
+        $this->asegurarTipo($importacion);
         abort_unless($request->user()->can('colaboradores.importar_salarios_vacaciones'), 403);
         $this->importador->eliminar($importacion, $request->user());
 
@@ -126,6 +129,7 @@ class ImportacionTrabajadoresController extends Controller
 
     public function aplicar(AplicarImportacionTrabajadoresRequest $request, ImportacionExcel $importacion): RedirectResponse
     {
+        $this->asegurarTipo($importacion);
         $resultado = $this->importador->aplicar($importacion, $request->user(), $request->validated('filas'));
 
         return back()->with('toast', [
@@ -140,6 +144,7 @@ class ImportacionTrabajadoresController extends Controller
      */
     public function asignarColaborador(AsignarColaboradorImportacionRequest $request, ImportacionExcel $importacion, int $fila): RedirectResponse
     {
+        $this->asegurarTipo($importacion);
         $this->importador->asignarManual($importacion, $fila, (int) $request->validated('colaborador_id'), $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Colaborador asignado a la fila.']);
@@ -151,6 +156,7 @@ class ImportacionTrabajadoresController extends Controller
      */
     public function crearColaborador(CrearColaboradorImportacionRequest $request, ImportacionExcel $importacion, int $fila): RedirectResponse
     {
+        $this->asegurarTipo($importacion);
         $colaborador = $this->importador->registrarColaboradorDesdeFila($importacion, $fila, $request->validated(), $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => "Se creó a {$colaborador->nombreCompleto()} y se actualizó la fila."]);
@@ -164,8 +170,18 @@ class ImportacionTrabajadoresController extends Controller
     public function confirmarMatch(Request $request, ImportacionExcel $importacion, int $fila): RedirectResponse
     {
         abort_unless($request->user()->can('colaboradores.importar_salarios_vacaciones'), 403);
+        $this->asegurarTipo($importacion);
         $this->importador->confirmarMatch($importacion, $fila, $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Asociación confirmada.']);
+    }
+
+    /**
+     * Este importador solo opera SUS registros: un id de otra importación
+     * (contactos, plazas, altas históricas…) en la URL responde 404.
+     */
+    private function asegurarTipo(ImportacionExcel $importacion): void
+    {
+        abort_unless($importacion->tipo === TipoImportacionExcel::TrabajadoresSalariosVacaciones->value, 404);
     }
 }
