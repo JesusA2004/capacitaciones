@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Services\Organigrama\AutoridadJerarquicaService;
 use App\Services\Permisos\AlcanceModuloService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
 /**
@@ -349,6 +350,24 @@ class AlcanceOrganizacionalService
             $sub->whereIn($columnaSucursal, $sucursalesVisibles)
                 ->orWhereNull($columnaSucursal);
         });
+    }
+
+    /**
+     * Catálogo de sucursales para los FILTROS de una pantalla: solo las que
+     * el usuario alcanza (con `$modulo`, el alcance configurado para ese
+     * módulo en Roles y permisos), ordenadas por nombre. Un filtro nunca
+     * ofrece el nombre de una sucursal ajena. Reemplaza los
+     * `Sucursal::query()->orderBy('nombre')->get()` sueltos de cada
+     * controlador.
+     *
+     * @param  list<string>  $columnas
+     * @return EloquentCollection<int, Sucursal>
+     */
+    public function sucursalesParaFiltro(User $usuario, ?string $modulo = null, array $columnas = ['id', 'nombre']): EloquentCollection
+    {
+        return $this->limitarPorSucursal(Sucursal::query(), $usuario, 'sucursales.id', $modulo)
+            ->orderBy('nombre')
+            ->get($columnas);
     }
 
     /**

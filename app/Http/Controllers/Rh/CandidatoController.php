@@ -32,8 +32,8 @@ use App\Models\Empresa;
 use App\Models\MotivoRechazoCandidato;
 use App\Models\PreguntaFiltroCandidato;
 use App\Models\Puesto;
-use App\Models\Sucursal;
 use App\Models\User;
+use App\Services\AlcanceOrganizacionalService;
 use App\Services\Bajas\AntecedenteBajaService;
 use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Flujos\SiguientePasoService;
@@ -523,7 +523,8 @@ class CandidatoController extends Controller
 
         return [
             'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
-            'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
+            // Solo las sucursales del alcance del módulo (como el tablero).
+            'sucursales' => app(AlcanceOrganizacionalService::class)->sucursalesParaFiltro($usuario, 'candidatos', ['id', 'nombre', 'empresa_id']),
             'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
             'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre', 'departamento_id']),
             'vacantes' => $vacantes,

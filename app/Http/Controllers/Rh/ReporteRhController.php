@@ -8,7 +8,7 @@ use App\Models\Departamento;
 use App\Models\Empresa;
 use App\Models\Puesto;
 use App\Models\ReporteGuardado;
-use App\Models\Sucursal;
+use App\Services\AlcanceOrganizacionalService;
 use App\Services\Pdf\PdfRendererException;
 use App\Services\Reportes\AltasNoiService;
 use App\Services\Reportes\ReportePdfService;
@@ -34,6 +34,7 @@ class ReporteRhController extends Controller
         private readonly ReportesRhService $reportes,
         private readonly ReportePdfService $pdf,
         private readonly AltasNoiService $noi,
+        private readonly AlcanceOrganizacionalService $alcance,
     ) {}
 
     public function index(Request $request): InertiaResponse
@@ -72,7 +73,8 @@ class ReporteRhController extends Controller
             ] : null,
             'opciones' => [
                 'empresas' => Empresa::query()->orderBy('nombre')->get(['id', 'nombre']),
-                'sucursales' => Sucursal::query()->orderBy('nombre')->get(['id', 'nombre', 'empresa_id']),
+                // Solo las sucursales de su alcance (los datos ya se acotan igual).
+                'sucursales' => $this->alcance->sucursalesParaFiltro($usuario, null, ['id', 'nombre', 'empresa_id']),
                 'departamentos' => Departamento::query()->orderBy('nombre')->get(['id', 'nombre']),
                 'puestos' => Puesto::query()->orderBy('nombre')->get(['id', 'nombre']),
             ],
