@@ -7,21 +7,21 @@ use App\Http\Requests\Administracion\StoreEmpresaRequest;
 use App\Http\Requests\Administracion\UpdateEmpresaRequest;
 use App\Models\Colaborador;
 use App\Models\Empresa;
+use App\Services\Administracion\EmpresaService;
 use App\Support\Consultas\EstadisticasActivoInactivo;
 use App\Support\Paginacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
 /**
- * El logo de empresa es una imagen ligera de marca (no un documento laboral
- * pesado): se guarda en el disco publico normal, no en el NAS reservado
- * para expedientes/documentos (ver App\Services\Expedientes\DocumentoStorageService).
+ * Catálogo de empresas. El alta/edición con logo vive en EmpresaService.
  */
 class EmpresaController extends Controller
 {
+    public function __construct(private readonly EmpresaService $empresas) {}
+
     public function index(Request $request): Response
     {
         $this->authorize('viewAny', Empresa::class);
@@ -68,30 +68,14 @@ class EmpresaController extends Controller
 
     public function store(StoreEmpresaRequest $request): RedirectResponse
     {
-        $datos = $request->safe()->except('logo');
-
-        if ($request->hasFile('logo')) {
-            $datos['logo_path'] = $request->file('logo')->store('empresas/logos', 'public');
-        }
-
-        Empresa::create($datos);
+        $this->empresas->crear($request->safe()->except('logo'), $request->file('logo'));
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Empresa creada correctamente.']);
     }
 
     public function update(UpdateEmpresaRequest $request, Empresa $empresa): RedirectResponse
     {
-        $datos = $request->safe()->except('logo');
-
-        if ($request->hasFile('logo')) {
-            if ($empresa->logo_path) {
-                Storage::disk('public')->delete($empresa->logo_path);
-            }
-
-            $datos['logo_path'] = $request->file('logo')->store('empresas/logos', 'public');
-        }
-
-        $empresa->update($datos);
+        $this->empresas->actualizar($empresa, $request->safe()->except('logo'), $request->file('logo'));
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Empresa actualizada correctamente.']);
     }

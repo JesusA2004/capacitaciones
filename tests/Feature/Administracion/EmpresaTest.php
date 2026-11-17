@@ -4,6 +4,8 @@ use App\Models\Empresa;
 use App\Models\Sucursal;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $this->seed(RolesYPermisosSeeder::class);
@@ -71,4 +73,25 @@ test('no se puede eliminar una empresa con sucursales asociadas', function () {
     $this->actingAs($usuario)->delete(route('administracion.empresas.destroy', $empresa));
 
     expect(Empresa::find($empresa->id))->not->toBeNull();
+});
+
+test('cambiar el logo guarda el nuevo y borra el anterior del disco público', function () {
+    Storage::fake('public');
+    $usuario = User::factory()->create();
+    $usuario->assignRole('super_admin');
+
+    $this->actingAs($usuario)
+        ->post(route('administracion.empresas.store'), ['nombre' => 'Con logo', 'activo' => true, 'logo' => UploadedFile::fake()->image('logo.png')])
+        ->assertSessionHasNoErrors();
+    $empresa = Empresa::where('nombre', 'Con logo')->firstOrFail();
+    $anterior = $empresa->logo_path;
+
+    $this->actingAs($usuario)
+        ->post(route('administracion.empresas.update', $empresa), ['nombre' => 'Con logo', 'activo' => true, 'logo' => UploadedFile::fake()->image('nuevo.png')])
+        ->assertSessionHasNoErrors();
+
+    expect($anterior)->not->toBeNull()
+        ->and($empresa->fresh()->logo_path)->not->toBe($anterior);
+    Storage::disk('public')->assertMissing($anterior);
+    Storage::disk('public')->assertExists($empresa->fresh()->logo_path);
 });
