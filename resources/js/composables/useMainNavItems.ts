@@ -90,11 +90,11 @@ import {
 import { index as indexMuroFelicitaciones } from '@/routes/celebraciones';
 import { index as indexCursos } from '@/routes/cursos';
 import { index as indexDirectorio } from '@/routes/directorio';
-import { presentacion as presentacionInduccion } from '@/routes/induccion';
 import {
     configuracion as configuracionEvaluacionesTecnicas,
     index as indexEvaluacionesTecnicas,
 } from '@/routes/evaluaciones-tecnicas';
+import { presentacion as presentacionInduccion } from '@/routes/induccion';
 import { index as indexMiCapacitacion } from '@/routes/mi-capacitacion';
 import { index as indexMultimedia } from '@/routes/multimedia';
 import {
@@ -127,6 +127,7 @@ import { index as indexCumpleanos } from '@/routes/rh/cumpleanos';
 import { index as indexDocumentosMaestros } from '@/routes/rh/documentos-maestros';
 import { index as indexEvaluaciones } from '@/routes/rh/evaluaciones';
 import { index as indexExpedientes } from '@/routes/rh/expedientes';
+import { index as indexFechasLaborales } from '@/routes/rh/fechas-laborales';
 import { index as indexFormulariosEvaluacion } from '@/routes/rh/formularios-evaluacion';
 import { index as indexIncapacidades } from '@/routes/rh/incapacidades';
 import { index as indexIncorporacionInvitaciones } from '@/routes/rh/incorporacion/invitaciones';
@@ -584,6 +585,13 @@ export function useMainNavItems() {
                         href: indexExpedientes(),
                         icon: Users,
                     },
+                    // Captura masiva de fechas laborales (ingreso, inducción,
+                    // capacitación inicial, periodo específico): docs/FECHAS_LABORALES.md.
+                    tienePermiso('expedientes.editar_fechas') && {
+                        title: 'Fechas laborales',
+                        href: indexFechasLaborales(),
+                        icon: CalendarClock,
+                    },
                     // «Solicitudes» (bandeja de RH) está en «Inicio», siempre
                     // a la vista: una sola entrada, no se repite aquí.
                     tienePermiso('incapacidades.ver') && {
@@ -833,6 +841,15 @@ export function useMainNavItems() {
                             href: indexSeguimientoGestores(),
                             icon: Users,
                         },
+                    // Desempeño (Reportes) × potencial (Seguimientos técnicos +
+                    // calibración): docs/NINE_BOX.md.
+                    features.value.seguimiento &&
+                        features.value.nine_box &&
+                        tienePermiso('nine_box.ver') && {
+                            title: 'Nine Box',
+                            href: indexNineBox(),
+                            icon: Grid3x3,
+                        },
                     // Evaluaciones técnicas por puesto «Seguimiento 15 / 30 / 60…»
                     // (docs/EVALUACIONES_TECNICAS.md): no dependen de Reportes.
                     tienePermiso('evaluaciones_tecnicas.ver') && {
@@ -845,15 +862,6 @@ export function useMainNavItems() {
                         href: configuracionEvaluacionesTecnicas(),
                         icon: Settings2,
                     },
-                    // Desempeño (Reportes) × potencial (Seguimientos técnicos +
-                    // calibración): docs/NINE_BOX.md.
-                    features.value.seguimiento &&
-                        features.value.nine_box &&
-                        tienePermiso('nine_box.ver') && {
-                            title: 'Nine Box',
-                            href: indexNineBox(),
-                            icon: Grid3x3,
-                        },
                     features.value.seguimiento &&
                         tienePermiso('seguimiento.vincular') && {
                             title: 'Vínculos con Reportes',
