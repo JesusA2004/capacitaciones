@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Colaborador;
 use App\Models\DocumentAsset;
 use App\Models\PlantillaAdministrativa;
+use App\Services\AlcanceOrganizacionalService;
 use App\Services\DocumentosAdministrativos\DisenoAdministrativoService;
 use App\Services\DocumentosAdministrativos\DocumentoAdministrativoService;
 use App\Services\DocumentosAdministrativos\PlantillasAdministrativasService;
@@ -34,6 +35,7 @@ class DocumentoAdministrativoController extends Controller
         private readonly PlantillasAdministrativasService $plantillas,
         private readonly DocumentoAdministrativoService $documentos,
         private readonly DisenoAdministrativoService $disenos,
+        private readonly AlcanceOrganizacionalService $alcance,
     ) {}
 
     public function index(Request $request): Response
@@ -141,6 +143,9 @@ class DocumentoAdministrativoController extends Controller
         try {
             if ($request->filled('colaborador')) {
                 $colaborador = Colaborador::query()->whereKey($request->integer('colaborador'))->firstOrFail();
+                // Mismo criterio que DocumentoMaestroController::probar(): solo
+                // colaboradores dentro del alcance de quien prueba.
+                abort_unless($this->alcance->alcanzaColaborador($request->user(), $colaborador), 403, 'Ese colaborador está fuera de tu alcance.');
                 $resultado = $this->documentos->vistaPreviaConColaborador($familia, $plantilla, $colaborador);
 
                 if (isset($resultado['faltante'])) {
