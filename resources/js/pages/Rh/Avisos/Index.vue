@@ -58,7 +58,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Enviar notificación', href: index.url() },
+            { title: 'Avisos', href: index.url() },
         ],
     },
 });
@@ -158,7 +158,7 @@ onBeforeUnmount(liberarPrevisualizacion);
 </script>
 
 <template>
-    <Head title="Enviar notificación" />
+    <Head title="Avisos" />
 
     <div class="pagina-ancha flex flex-col gap-6">
         <CrudPageHeader

@@ -463,7 +463,7 @@ export const ARTICULOS_ADMINISTRACION: ArticuloGuia[] = [
             {
                 titulo: 'Subir y previsualizar',
                 detalle:
-                    'Configuración → «Importar datos» → Salarios y vacaciones (o Permanencia → «Importar salarios y vacaciones»). Cada fila queda como Aplicable, Requiere revisión, Sin cambios, No encontrado o Error, con su motivo.',
+                    'Configuración → «Importar datos» → Salarios y vacaciones. Cada fila queda como Aplicable, Requiere revisión, Sin cambios, No encontrado o Error, con su motivo.',
                 canal: 'web',
             },
             {

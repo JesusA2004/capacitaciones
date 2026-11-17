@@ -2738,7 +2738,7 @@ El importador lee el Excel oficial, busca a cada persona por nombre EXACTO dentr
 
 #### Pasos
 
-1. **Subir y previsualizar** _(Web)_ — Configuración → «Importar datos» → Salarios y vacaciones (o Permanencia → «Importar salarios y vacaciones»). Cada fila queda como Aplicable, Requiere revisión, Sin cambios, No encontrado o Error, con su motivo.
+1. **Subir y previsualizar** _(Web)_ — Configuración → «Importar datos» → Salarios y vacaciones. Cada fila queda como Aplicable, Requiere revisión, Sin cambios, No encontrado o Error, con su motivo.
 2. **Aplicar** _(Web)_ — Solo las filas «Aplicable». El salario mensual se recalcula como diario × 30 y queda en el historial de salarios.
 
 #### Qué pasa después
