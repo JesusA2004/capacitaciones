@@ -88,14 +88,19 @@ return [
     'documentos_laborales_colaborador' => (bool) env('DOCUMENTOS_LABORALES_COLABORADOR_ENABLED', false),
 
     /*
-    | Modulos de la etapa 6 (Desarrollo) que todavia NO tienen pantalla real.
-    | Apagados por defecto: el sidebar no muestra accesos falsos (ver
-    | docs/ROLES_Y_NAVEGACION.md y docs/FEATURE_FLAGS.md). Al construir cada
-    | modulo se cambia el href marcador por su ruta y se enciende la bandera.
+    | «Evaluación del desempeño» (etapa 6) todavía NO tiene pantalla: sin
+    | acceso en el menú. Su lugar lo ocupa hoy la Nine Box (desempeño por
+    | datos duros de Reportes) + las evaluaciones técnicas por puesto
+    | («Seguimiento 15/30/60»). Ver docs/NINE_BOX.md §Pendientes.
     */
     'evaluacion_desempeno' => (bool) env('EVALUACION_DESEMPENO_ENABLED', false),
 
-    'nine_box' => (bool) env('NINE_BOX_ENABLED', false),
+    /*
+    | Nine Box (Seguimiento → Nine Box, docs/NINE_BOX.md): matriz desempeño
+    | (Reportes) × potencial (evaluaciones técnicas + calibración). Encendida
+    | por defecto desde 2026-11-17; exige además `seguimiento`.
+    */
+    'nine_box' => (bool) env('NINE_BOX_ENABLED', true),
 
     /*
     | «Certificación Mr. Lana» (niveles por constancias de capacitación, base

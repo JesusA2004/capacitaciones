@@ -3,6 +3,7 @@ import { Deferred, Head, Link } from '@inertiajs/vue3';
 import {
     Banknote,
     Building2,
+    Grid3x3,
     HandCoins,
     Link2,
     Search,
@@ -23,6 +24,7 @@ import CambioSuave from '@/components/ui/CambioSuave.vue';
 import { ComboboxBuscable } from '@/components/ui/combobox-buscable';
 import { Input } from '@/components/ui/input';
 import ListaAnimada from '@/components/ui/ListaAnimada.vue';
+import { usePermisos } from '@/composables/usePermisos';
 import { useSeguimientoPeriodo } from '@/composables/useSeguimientoPeriodo';
 import {
     formatoMoneda,
@@ -32,6 +34,7 @@ import {
 import { dashboard } from '@/routes';
 import { index as indexSeguimiento } from '@/routes/seguimiento';
 import { index as indexGestores, show as showGestor } from '@/routes/seguimiento/gestores';
+import { index as indexNineBox } from '@/routes/seguimiento/nine-box';
 import { index as indexVinculos } from '@/routes/seguimiento/vinculos';
 import type {
     FiltrosSeguimiento,
@@ -63,6 +66,7 @@ defineOptions({
 });
 
 const { cargando, ir } = useSeguimientoPeriodo(() => indexGestores.url());
+const { tienePermiso } = usePermisos();
 
 const periodo = computed(() => props.datos?.datos?.periodo ?? null);
 const tablero = computed(() => props.datos?.datos?.tablero ?? null);
@@ -135,6 +139,9 @@ const opcionesSucursal = computed(() => tablero.value?.opciones_sucursal ?? []);
                 <Link :href="indexSeguimiento({ query: filtros.mes ? { mes: filtros.mes } : {} })">
                     <Building2 class="size-4" /> Por sucursal
                 </Link>
+            </Button>
+            <Button v-if="$page.props.features.nine_box && tienePermiso('nine_box.ver')" variant="outline" as-child>
+                <Link :href="indexNineBox()"> <Grid3x3 class="size-4" /> Nine Box </Link>
             </Button>
             <Button v-if="puedeVincular" variant="outline" as-child>
                 <Link :href="indexVinculos()">

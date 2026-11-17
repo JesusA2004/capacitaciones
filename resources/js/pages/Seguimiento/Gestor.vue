@@ -5,6 +5,7 @@ import {
     ArrowLeft,
     Banknote,
     FolderOpen,
+    Grid3x3,
     HandCoins,
     Link2,
     UserRound,
@@ -31,6 +32,7 @@ import { dashboard } from '@/routes';
 import { show as showExpediente } from '@/routes/rh/expedientes';
 import { index as indexSeguimiento } from '@/routes/seguimiento';
 import { index as indexGestores, show as showGestor } from '@/routes/seguimiento/gestores';
+import { index as indexNineBox } from '@/routes/seguimiento/nine-box';
 import { index as indexVinculos } from '@/routes/seguimiento/vinculos';
 import type {
     DetalleGestor,
@@ -145,6 +147,11 @@ const opcionesMensual = computed(() => ({
             :icono="UserRound"
             detalle
         >
+            <Button v-if="$page.props.features.nine_box && tienePermiso('nine_box.ver')" variant="outline" as-child>
+                <Link :href="indexNineBox({ query: periodo?.mes ? { tipo: 'mes', periodo: periodo.mes.codigo } : {} })">
+                    <Grid3x3 class="size-4" /> Nine Box
+                </Link>
+            </Button>
             <Button
                 v-if="detalle?.gestor.colaborador_id && tienePermiso('expedientes.ver')"
                 variant="outline"

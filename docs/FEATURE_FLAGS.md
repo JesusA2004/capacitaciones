@@ -98,8 +98,8 @@ La etapa **6 · Desarrollo** del sidebar (ver `docs/ROLES_Y_NAVEGACION.md`) incl
 
 | Bandera | Env | Default | Oculta |
 |---|---|---|---|
-| `evaluacion_desempeno` | `EVALUACION_DESEMPENO_ENABLED` | `false` | «Evaluación del desempeño» (evaluación técnica/por puesto, KPIs, ciclos). |
-| `nine_box` | `NINE_BOX_ENABLED` | `false` | «Matriz 9 box y planes» (desempeño × potencial, planes de desarrollo/mejora). |
+| `evaluacion_desempeno` | `EVALUACION_DESEMPENO_ENABLED` | `false` | «Evaluación del desempeño»: sin pantalla ni acceso en el menú (ver docs/NINE_BOX.md §8). |
+| `nine_box` | `NINE_BOX_ENABLED` | `true` | **Seguimiento → Nine Box** (desempeño de Reportes × potencial). Exige también `seguimiento`. docs/NINE_BOX.md. |
 | `certificacion` | `CERTIFICACION_ENABLED` | `true` (desde 2026-11-17) | «Certificación Mr. Lana»: niveles Bronce/Plata/Oro por constancias de capacitación (base mínima, umbrales en `config/capacitacion.php`; ver `docs/CAPACITACION.md`). Solo se ve con `capacitacion` encendida. |
 
 Con la bandera apagada, el acceso **no se muestra a nadie** en el menú (el `href` es un marcador `'#'`). Al construir cada módulo real se cambia el `href` por su ruta y se enciende la bandera; mientras tanto la etapa Desarrollo sí existe en el orden del menú con «Capacitación continua» (detrás de `capacitacion`). Estas tres banderas se exponen al frontend en `App\Http\Middleware\HandleInertiaRequests` (`features`).

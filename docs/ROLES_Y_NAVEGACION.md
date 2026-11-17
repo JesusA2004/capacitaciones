@@ -51,7 +51,7 @@ El orden es exactamente el ciclo de vida laboral + transversales. **«Inicio» v
 | | | Importar salarios y vacaciones · solo super_admin | `colaboradores.importar_salarios_vacaciones` | `rh.importaciones.index` |
 | | | Contactos de emergencia (solo importación por Excel) · solo super_admin | `contactos_emergencia.importar` | `rh.contactos-emergencia.index` |
 | | | Celebraciones | `rh.cumpleanos.ver`/`celebraciones.ver` | `rh.cumpleanos.index` / `rh.aniversarios.index` |
-| 6 | **Desarrollo** | Evaluación del desempeño · Matriz 9 box y planes | features `evaluacion_desempeno` / `nine_box` (apagados: aún sin pantalla real, no se muestran) | — |
+| 6 | **Desarrollo** | (Capacitación como grupo propio; la Nine Box vive en «Seguimiento») | Evaluación del desempeño sin pantalla: sin acceso en el menú | — |
 | — | **Capacitación** (Fase 3, dentro de la etapa 6; sin número) · feature `capacitacion` | Cursos y aulas (constructor + aula tipo Classroom) | `cursos.ver` | `cursos.index` |
 | | | Asignaciones | `asignaciones.ver` | `asignaciones.index` |
 | | | Calificar cuestionarios · Calificar actividades | `respuestas.ver` | `calificaciones.cuestionarios.index` / `calificaciones.actividades.index` |

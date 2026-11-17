@@ -515,6 +515,8 @@ class RolesYPermisosSeeder extends Seeder
         'rh_admin' => [
             // Seguimiento (Fase 2): tableros con datos de Reportes y vínculos PEOPLE ↔ Reportes.
             'seguimiento.ver', 'seguimiento.vincular',
+            // Nine Box: ve todo, calibra el potencial y configura pesos/cortes.
+            'nine_box.ver', 'nine_box.calibrar', 'nine_box.configurar',
             // Evaluaciones técnicas por puesto (Seguimiento 15 / 30 / 60…).
             'evaluaciones_tecnicas.ver', 'evaluaciones_tecnicas.aplicar', 'evaluaciones_tecnicas.configurar',
             // Consulta la bandeja «Pendientes de alta en sistemas» (la atiende Sistemas).
@@ -681,6 +683,8 @@ class RolesYPermisosSeeder extends Seeder
         'gerente_sucursal' => [
             // Seguimiento (Fase 2): datos de Reportes de SU sucursal (alcance «Sucursal»).
             'seguimiento.ver',
+            // Nine Box de su sucursal; calibra el potencial de su gente.
+            'nine_box.ver', 'nine_box.calibrar',
             'evaluaciones_tecnicas.ver', 'evaluaciones_tecnicas.aplicar',
             'directorio.contactos.ver_todos',
             'perfiles_puesto.ver',
@@ -751,6 +755,7 @@ class RolesYPermisosSeeder extends Seeder
         'director_comercial' => [
             // Seguimiento (Fase 2): datos de Reportes de toda la empresa.
             'seguimiento.ver',
+            'nine_box.ver',
             // Alcance amplio: elige de qué sucursales no recibir avisos.
             'notificaciones.silenciar_sucursales',
             'directorio.contactos.ver_todos',
@@ -787,6 +792,8 @@ class RolesYPermisosSeeder extends Seeder
         'gerente_regional' => [
             // Seguimiento (Fase 2): datos de Reportes de su región (alcance «Región»).
             'seguimiento.ver',
+            // Nine Box de su región; calibra el potencial.
+            'nine_box.ver', 'nine_box.calibrar',
             'evaluaciones_tecnicas.ver', 'evaluaciones_tecnicas.aplicar',
             // Alcance amplio: elige de qué sucursales no recibir avisos.
             'notificaciones.silenciar_sucursales',
@@ -899,6 +906,8 @@ class RolesYPermisosSeeder extends Seeder
         // (jefe_id), un alcance mas estrecho que gerente_sucursal (que ve
         // toda la sucursal). Ver AlcanceOrganizacionalService.
         'jefe_directo' => [
+            // Nine Box de su equipo (alcance «Equipo»): calibra el potencial de sus subordinados.
+            'nine_box.ver', 'nine_box.calibrar',
             'perfiles_puesto.ver',
             'dashboard.sucursal.ver',
             // Alcance «equipo» (sus subordinados directos): expedientes.ver_equipo
@@ -981,6 +990,7 @@ class RolesYPermisosSeeder extends Seeder
         'direccion' => [
             // Seguimiento (Fase 2): datos de Reportes de toda la empresa.
             'seguimiento.ver',
+            'nine_box.ver',
             'salarios.ver', 'salarios.exportar', 'salarios.ver_en_expediente',
             // Alcance amplio: elige de qué sucursales no recibir avisos.
             'notificaciones.silenciar_sucursales',

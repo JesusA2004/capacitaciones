@@ -12,7 +12,6 @@ import {
     BookOpenCheck,
     FileChartColumn,
     BellRing,
-    Boxes,
     Briefcase,
     Building2,
     CalendarClock,
@@ -30,6 +29,7 @@ import {
     FolderOpen,
     GitBranch,
     GraduationCap,
+    Grid3x3,
     Inbox,
     Landmark,
     LayoutGrid,
@@ -50,8 +50,6 @@ import {
     Smartphone,
     ShieldCheck,
     Sparkles,
-    Target,
-    TrendingUp,
     UserPlus,
     UserRound,
     UserSearch,
@@ -148,6 +146,7 @@ import { index as indexVacantes } from '@/routes/rh/vacantes';
 import { index as indexValidacionDocumentos } from '@/routes/rh/validacion-documentos';
 import { index as indexSeguimiento } from '@/routes/seguimiento';
 import { index as indexSeguimientoGestores } from '@/routes/seguimiento/gestores';
+import { index as indexNineBox } from '@/routes/seguimiento/nine-box';
 import { index as indexSeguimientoVinculos } from '@/routes/seguimiento/vinculos';
 import { index as indexPendientesAltaSistemas } from '@/routes/sistemas/pendientes-alta';
 import { index as indexPendientesBajaSistemas } from '@/routes/sistemas/pendientes-baja';
@@ -624,32 +623,6 @@ export function useMainNavItems() {
                 ],
             ),
 
-            grupo(
-                {
-                    id: 'desarrollo',
-                    numero: 6,
-                    titulo: 'Desarrollo',
-                    icono: TrendingUp,
-                },
-                [
-                    // Evaluación del desempeño y Matriz 9 box aún no tienen
-                    // pantalla real: se quedan DETRÁS de
-                    // su feature flag (apagado) para no mostrar accesos falsos
-                    // (plan §9). Al construir cada módulo se cambia el href '#'
-                    // por su ruta real y se enciende la bandera.
-                    features.value.evaluacion_desempeno && {
-                        title: 'Evaluación del desempeño',
-                        href: '#',
-                        icon: Target,
-                    },
-                    features.value.nine_box && {
-                        title: 'Matriz 9 box y planes',
-                        href: '#',
-                        icon: Boxes,
-                    },
-                ],
-            ),
-
             // Capacitación (Fase 3, parte de la etapa 6 · Desarrollo): aulas
             // tipo Classroom, asignaciones, calificaciones y Certificación
             // Mr. Lana. Cada acceso exige el permiso real de su controlador.
@@ -872,6 +845,15 @@ export function useMainNavItems() {
                         href: configuracionEvaluacionesTecnicas(),
                         icon: Settings2,
                     },
+                    // Desempeño (Reportes) × potencial (Seguimientos técnicos +
+                    // calibración): docs/NINE_BOX.md.
+                    features.value.seguimiento &&
+                        features.value.nine_box &&
+                        tienePermiso('nine_box.ver') && {
+                            title: 'Nine Box',
+                            href: indexNineBox(),
+                            icon: Grid3x3,
+                        },
                     features.value.seguimiento &&
                         tienePermiso('seguimiento.vincular') && {
                             title: 'Vínculos con Reportes',

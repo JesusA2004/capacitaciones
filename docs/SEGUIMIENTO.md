@@ -5,7 +5,8 @@ PEOPLE muestra **colocación, recuperación, cartera y mora** por **sucursal** y
 - Bandera: `features.seguimiento` (`SEGUIMIENTO_ENABLED`, encendida por defecto).
 - Rutas: `routes/seguimiento.php` (`/seguimiento`, `/seguimiento/gestores`, `/seguimiento/gestores/{empleado}`, `/seguimiento/vinculos`).
 - Servicios: `app/Services/Seguimiento/*` (cliente HTTP, catálogo, vínculos, alcance, tableros).
-- Menú: grupo **Seguimiento** del modo operativo («Por sucursal», «Por gestor», «Vínculos con Reportes»). Nunca en modo colaborador.
+- Menú: grupo **Seguimiento** del modo operativo («Por sucursal», «Por gestor», «Nine Box», «Vínculos con Reportes»). Nunca en modo colaborador.
+- **Nine Box** (desempeño de Reportes × potencial): ver `docs/NINE_BOX.md`.
 
 ## 1. Periodos (modelo de Reportes, respetado tal cual)
 
@@ -96,7 +97,12 @@ Después: `php artisan config:clear` (o `config:cache` en producción).
 
 Resultado (2026-11-17, Junio 2026): conexión correcta (`weekly_activity: true`); 13 sucursales, 4 semanas, colocación 14,151,329 (oficial) y 136 gestores con su tendencia semanal (12 semanas) y mensual (abril–junio).
 
-## 7. Pendientes / decisiones abiertas
+## 7. Revisión de integración (2026-11-17)
+
+- Verificado en local con Reportes real (Junio 2026) y en navegador: super_admin/RH ven todo; gerente de sucursal solo su sucursal (y 403 en el detalle de un gestor de otra); gerente regional todas las operativas; colaborador 403 y sin menú. Reportes caído → aviso con «Reintentar» (prueba `si Reportes no responde…`).
+- Corregido: el filtro de sucursal de «Por gestor» solo ofrecía la sucursal ya elegida (las opciones salían de las filas filtradas); «1 sucursales»; etiquetas recortadas en «Colocación por sucursal»; el detalle de un gestor ahora enlaza a su expediente y, si no está vinculado, a «Vínculos con Reportes»; desde la Nine Box se abre su detalle en Seguimiento.
+
+## 8. Pendientes / decisiones abiertas
 
 - Vincular a los gestores reales: los colaboradores de la base local son de demostración, por eso no hubo sugerencias de colaborador. En producción usar «Confirmar sugerencias» y resolver a mano los homónimos.
 - EBITDA, nómina y comisiones por sucursal/gestor existen en Reportes pero **no se muestran** (datos sensibles): falta la decisión de negocio sobre quién los ve.

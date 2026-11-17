@@ -58,6 +58,20 @@ return [
             'alcances' => ['todos' => 'seguimiento.ver_todo', 'region' => 'seguimiento.ver_region', 'sucursal' => 'seguimiento.ver_sucursal'],
             'acciones' => ['seguimiento.vincular' => 'Vincular sucursales y gestores con Reportes'],
         ],
+        // Nine Box (docs/NINE_BOX.md): desempeño (Reportes) × potencial
+        // (evaluaciones técnicas + calibración). El alcance acota qué
+        // gestores ve cada quien; calibrar exige además alcanzar a la persona.
+        'nine_box' => [
+            'etiqueta' => 'Nine Box (desempeño × potencial)',
+            'grupo' => 'Reportes',
+            'etapa' => 'reportes',
+            'acceso' => 'nine_box.ver',
+            'alcances' => ['todos' => 'nine_box.ver_todo', 'region' => 'nine_box.ver_region', 'sucursal' => 'nine_box.ver_sucursal', 'equipo' => 'nine_box.ver_equipo'],
+            'acciones' => [
+                'nine_box.calibrar' => 'Calibrar el potencial (bajo/medio/alto con comentario)',
+                'nine_box.configurar' => 'Configurar pesos, metas y cortes de la Nine Box',
+            ],
+        ],
         // Fase 2 «Seguimiento» (docs/EVALUACIONES_TECNICAS.md): evaluaciones
         // técnicas por puesto («Seguimiento 15 / 30 / 60…»). El alcance acota
         // a qué colaboradores ve/aplica cada quien (EvaluacionTecnicaService).
@@ -996,6 +1010,9 @@ return [
     ],
 
     'descripciones' => [
+        'nine_box.ver' => 'Entrar a Seguimiento → Nine Box: cada gestor en la matriz desempeño (datos de Reportes) × potencial (evaluaciones técnicas + calibración).',
+        'nine_box.calibrar' => 'Capturar el potencial (bajo/medio/alto con comentario) de las personas de su alcance en un periodo. Nunca se borra: recalibrar deja historial.',
+        'nine_box.configurar' => 'Cambiar pesos, metas y cortes de la Nine Box. Cada cambio guarda una versión con quién y por qué.',
         'sistemas.altas.ver' => 'Ver la bandeja «Pendientes de alta en sistemas»: quién entró a contratación, sus datos básicos y si Sistemas ya le dio sus usuarios.',
         'sistemas.altas.atender' => 'Marcar a una persona como dada de alta en los demás sistemas (con notas) y reenviar el correo de alta a Sistemas. Recibe el aviso de cada alta nueva.',
         'notificaciones.silenciar_sucursales' => 'En Configuración → Avisos por sucursal, la persona elige sucursales de las que no quiere avisos (campana y push). Lo suyo, lo de su equipo directo y sus confirmaciones le siguen llegando; lo pendiente sigue en «Mis pendientes».',

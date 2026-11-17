@@ -91,13 +91,8 @@ const ESPERADO = [
             'Celebraciones',
         ],
     ],
-    [
-        'Desarrollo',
-        [
-            'Evaluación del desempeño',
-            'Matriz 9 box y planes',
-        ],
-    ],
+    // «6 Desarrollo» ya no tiene accesos marcador (2026-11-17): la Nine Box
+    // vive en «Seguimiento» y Evaluación del desempeño aún no tiene pantalla.
     [
         // Fase 3 (2026-11-17): Capacitación como grupo propio dentro de la
         // etapa 6, sin número (no es una etapa nueva del ciclo laboral).
@@ -232,12 +227,15 @@ test('las importaciones solo se ofrecen con permisos de importación (solo super
     }
 });
 
-test('los módulos sin pantalla de Desarrollo quedan tras su feature flag y nunca se pintan con href "#"', () => {
+test('los módulos con bandera quedan tras su feature flag y nunca se pintan con href "#"', () => {
     const marcadores = {
-        'Evaluación del desempeño': 'evaluacion_desempeno',
-        'Matriz 9 box y planes': 'nine_box',
+        'Nine Box': 'nine_box',
         'Certificación Mr. Lana': 'certificacion',
     };
+
+    // Ningún acceso declara un href marcador: un módulo sin pantalla no
+    // tiene entrada en el menú (Evaluación del desempeño, 2026-11-17).
+    assert.doesNotMatch(operativo, /href: '#'/);
 
     for (const [titulo, bandera] of Object.entries(marcadores)) {
         assert.match(
@@ -249,12 +247,12 @@ test('los módulos sin pantalla de Desarrollo quedan tras su feature flag y nunc
     // Defensa: el filtro de cada grupo descarta cualquier href '#'.
     assert.match(operativo, /i !== false && i\.href !== '#'/);
 
-    // Y las banderas existen en config/features.php: las de módulos sin
-    // pantalla, apagadas; Certificación Mr. Lana (Fase 3), encendida.
+    // Y las banderas existen en config/features.php: la del módulo sin
+    // pantalla, apagada; Nine Box y Certificación Mr. Lana, encendidas.
     const features = leer('config/features.php');
     const porDefecto = {
         evaluacion_desempeno: false,
-        nine_box: false,
+        nine_box: true,
         certificacion: true,
     };
 
