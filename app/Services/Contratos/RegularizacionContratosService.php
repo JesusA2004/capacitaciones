@@ -32,6 +32,7 @@ use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
@@ -65,6 +66,15 @@ class RegularizacionContratosService
 {
     /** @var array<string, DocumentTemplate|string> Master (o motivo de por qué no hay) por clave+puesto+empresa. */
     private array $masters = [];
+
+    /**
+     * Datos por colaborador precargados en bloque para el listado (evita
+     * 4 consultas por fila). Solo se usan dentro de listar(); fuera de él
+     * cada plan() consulta lo suyo.
+     *
+     * @var array{contratos: array<int, EloquentCollection<int, ContratoLaboral>>, generados: array<int, Collection<string, GeneratedDocument>>, cargados: array<int, Collection<string, EmployeeDocument>>, evaluaciones: array<int, true>}|null
+     */
+    private ?array $precarga = null;
 
     public function __construct(
         private readonly ContratoLaboralService $contratos,
@@ -178,10 +188,21 @@ class RegularizacionContratosService
     {
         $planes = [];
         $colaboradores = [];
+        // El estado de cada fila se calcula (no es columna), así que el
+        // resumen necesita a toda la plantilla filtrada: se precarga en
+        // bloque lo que plan() consultaría fila por fila.
+        $activos = $this->queryActivos($usuario, $filtros)
+            ->with(['sucursalPrincipal.empresa', 'departamento', 'jefe.puesto', 'jefe.jefe', 'gerente', 'user'])
+            ->get();
+        $this->precarga = $this->precargar($activos->modelKeys());
 
-        foreach ($this->queryActivos($usuario, $filtros)->get() as $colaborador) {
-            $planes[] = $this->plan($colaborador, $hoy);
-            $colaboradores[$colaborador->id] = $colaborador;
+        try {
+            foreach ($activos as $colaborador) {
+                $planes[] = $this->plan($colaborador, $hoy);
+                $colaboradores[$colaborador->id] = $colaborador;
+            }
+        } finally {
+            $this->precarga = null;
         }
 
         $resumen = ['total' => count($planes)];
@@ -335,7 +356,9 @@ class RegularizacionContratosService
                 'contratos' => [], 'faltantes' => [], 'bloqueos' => [], 'generable' => false];
         }
 
-        $existentes = ContratoLaboral::query()->where('colaborador_id', $colaborador->id)->orderByDesc('fecha_inicio')->orderByDesc('id')->get();
+        $existentes = $this->precarga !== null
+            ? ($this->precarga['contratos'][$colaborador->id] ?? new EloquentCollection)
+            : ContratoLaboral::query()->where('colaborador_id', $colaborador->id)->orderByDesc('fecha_inicio')->orderByDesc('id')->get();
         $inicial = $existentes->first(fn (ContratoLaboral $c): bool => $c->contrato_anterior_id === null && $c->estado === EstadoContratoLaboral::Vigente)
             ?? $existentes->first(fn (ContratoLaboral $c): bool => $c->contrato_anterior_id === null);
         // Un indeterminado CANCELADO (p. ej. revertido porque se generó por una
@@ -450,10 +473,80 @@ class RegularizacionContratosService
      */
     private function evaluacionEnCurso(ContratoLaboral $inicial): bool
     {
-        return $inicial->exists && EvaluacionPeriodoPrueba::query()
-            ->where('contrato_laboral_id', $inicial->id)
-            ->whereIn('estado', [EstadoEvaluacionPrueba::Pendiente->value, EstadoEvaluacionPrueba::Capturada->value, EstadoEvaluacionPrueba::Devuelta->value])
-            ->exists();
+        if (! $inicial->exists) {
+            return false;
+        }
+
+        if ($this->precarga !== null) {
+            return isset($this->precarga['evaluaciones'][$inicial->id]);
+        }
+
+        return $this->queryEvaluacionesEnCurso()->where('contrato_laboral_id', $inicial->id)->exists();
+    }
+
+    /**
+     * @return Builder<EvaluacionPeriodoPrueba>
+     */
+    private function queryEvaluacionesEnCurso(): Builder
+    {
+        return EvaluacionPeriodoPrueba::query()
+            ->whereIn('estado', [EstadoEvaluacionPrueba::Pendiente->value, EstadoEvaluacionPrueba::Capturada->value, EstadoEvaluacionPrueba::Devuelta->value]);
+    }
+
+    /**
+     * Contratos, documentos generados, escaneos cargados y evaluaciones en
+     * curso de varios colaboradores en 4 consultas (mismos criterios y
+     * mismo orden que las consultas por fila).
+     *
+     * @param  array<int, mixed>  $ids
+     * @return array{contratos: array<int, EloquentCollection<int, ContratoLaboral>>, generados: array<int, Collection<string, GeneratedDocument>>, cargados: array<int, Collection<string, EmployeeDocument>>, evaluaciones: array<int, true>}
+     */
+    private function precargar(array $ids): array
+    {
+        $precarga = ['contratos' => [], 'generados' => [], 'cargados' => [], 'evaluaciones' => []];
+
+        if ($ids === []) {
+            return $precarga;
+        }
+
+        foreach (ContratoLaboral::query()->whereIn('colaborador_id', $ids)->orderByDesc('fecha_inicio')->orderByDesc('id')->get() as $contrato) {
+            $precarga['contratos'][$contrato->colaborador_id] ??= new EloquentCollection;
+            $precarga['contratos'][$contrato->colaborador_id]->push($contrato);
+        }
+
+        foreach ($this->queryGenerados()->whereIn('colaborador_id', $ids)->get() as $documento) {
+            $colaboradorId = $documento->colaborador_id;
+
+            if ($colaboradorId !== null) {
+                $precarga['generados'][$colaboradorId] ??= new Collection;
+                $precarga['generados'][$colaboradorId]->put(sprintf('%s', $documento->clave_plantilla), $documento);
+            }
+        }
+
+        foreach ($this->queryCargados()->whereIn('colaborador_id', $ids)->get() as $documento) {
+            $colaboradorId = $documento->colaborador_id;
+
+            if ($colaboradorId !== null) {
+                $precarga['cargados'][$colaboradorId] ??= new Collection;
+                $precarga['cargados'][$colaboradorId]->put(sprintf('%s', $documento->tipo->clave), $documento);
+            }
+        }
+
+        $contratoIds = [];
+
+        foreach ($precarga['contratos'] as $lista) {
+            foreach ($lista as $contrato) {
+                $contratoIds[] = $contrato->id;
+            }
+        }
+
+        if ($contratoIds !== []) {
+            foreach ($this->queryEvaluacionesEnCurso()->whereIn('contrato_laboral_id', $contratoIds)->pluck('contrato_laboral_id') as $contratoId) {
+                $precarga['evaluaciones'][(int) $contratoId] = true;
+            }
+        }
+
+        return $precarga;
     }
 
     /**
@@ -635,13 +728,14 @@ class RegularizacionContratosService
      */
     private function generadosDe(Colaborador $colaborador): Collection
     {
+        if ($this->precarga !== null) {
+            return $this->precarga['generados'][$colaborador->id] ?? new Collection;
+        }
+
         $resultado = new Collection;
 
-        GeneratedDocument::query()
+        $this->queryGenerados()
             ->where('colaborador_id', $colaborador->id)
-            ->whereNotNull('clave_plantilla')
-            ->where(fn (Builder $q) => $q->whereNull('estado_flujo')->orWhere('estado_flujo', '!=', EstadoFlujoDocumento::Cancelado->value))
-            ->orderBy('id')
             ->get()
             ->each(function (GeneratedDocument $documento) use ($resultado): void {
                 $resultado->put(sprintf('%s', $documento->clave_plantilla), $documento);
@@ -658,26 +752,53 @@ class RegularizacionContratosService
      */
     private function cargadosDe(Colaborador $colaborador): Collection
     {
-        $tipos = [];
-
-        foreach ((array) config('contratos.regularizacion.tipos_expediente', []) as $lista) {
-            $tipos = [...$tipos, ...array_filter((array) $lista, 'is_string')];
+        if ($this->precarga !== null) {
+            return $this->precarga['cargados'][$colaborador->id] ?? new Collection;
         }
 
         $resultado = new Collection;
 
-        EmployeeDocument::query()
-            ->with('tipo')
+        $this->queryCargados()
             ->where('colaborador_id', $colaborador->id)
-            ->whereNotIn('status', [EstadoDocumento::Pendiente->value, EstadoDocumento::Rechazado->value, EstadoDocumento::RequiereCorreccion->value])
-            ->whereHas('tipo', fn (Builder $q) => $q->whereIn('clave', array_values(array_unique($tipos))))
-            ->orderBy('id')
             ->get()
             ->each(function (EmployeeDocument $documento) use ($resultado): void {
                 $resultado->put(sprintf('%s', $documento->tipo->clave), $documento);
             });
 
         return $resultado;
+    }
+
+    /**
+     * Documentos contractuales generados y no cancelados (sin acotar a una persona).
+     *
+     * @return Builder<GeneratedDocument>
+     */
+    private function queryGenerados(): Builder
+    {
+        return GeneratedDocument::query()
+            ->whereNotNull('clave_plantilla')
+            ->where(fn (Builder $q) => $q->whereNull('estado_flujo')->orWhere('estado_flujo', '!=', EstadoFlujoDocumento::Cancelado->value))
+            ->orderBy('id');
+    }
+
+    /**
+     * Escaneos del expediente que cubren un contrato (sin acotar a una persona).
+     *
+     * @return Builder<EmployeeDocument>
+     */
+    private function queryCargados(): Builder
+    {
+        $tipos = [];
+
+        foreach ((array) config('contratos.regularizacion.tipos_expediente', []) as $lista) {
+            $tipos = [...$tipos, ...array_filter((array) $lista, 'is_string')];
+        }
+
+        return EmployeeDocument::query()
+            ->with('tipo')
+            ->whereNotIn('status', [EstadoDocumento::Pendiente->value, EstadoDocumento::Rechazado->value, EstadoDocumento::RequiereCorreccion->value])
+            ->whereHas('tipo', fn (Builder $q) => $q->whereIn('clave', array_values(array_unique($tipos))))
+            ->orderBy('id');
     }
 
     // ───────────────────────── Acciones ─────────────────────────

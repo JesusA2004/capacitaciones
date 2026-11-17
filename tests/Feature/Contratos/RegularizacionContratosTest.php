@@ -19,6 +19,7 @@ use App\Services\Contratos\RegularizacionContratosService;
 use Carbon\CarbonImmutable;
 use Database\Seeders\DocumentTypeSeeder;
 use Database\Seeders\RolesYPermisosSeeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -244,6 +245,51 @@ test('la pantalla lista a los activos con su estado', function () {
             ->where('filas.data.0.estado', 'por_generar')
             ->has('resumen')
             ->where('puedeGenerar', true));
+});
+
+test('el listado precarga en bloque y da el mismo estado que el cálculo por persona', function () {
+    $this->seed(DocumentTypeSeeder::class);
+    $ingreso = $this->hoy->subMonths(2)->subDays(3);
+    $conEvaluacion = rcActivo($this->gestor, $ingreso);
+    $inicial = ContratoLaboral::query()->create([
+        'colaborador_id' => $conEvaluacion->id,
+        'tipo' => TipoContratacion::CapacitacionInicial,
+        'fecha_inicio' => $ingreso->toDateString(),
+        'fecha_fin' => $ingreso->addMonthsNoOverflow(2)->subDay()->toDateString(),
+        'estado' => EstadoContratoLaboral::Vigente,
+    ]);
+    EvaluacionPeriodoPrueba::query()->create([
+        'contrato_laboral_id' => $inicial->id,
+        'colaborador_id' => $conEvaluacion->id,
+        'estado' => EstadoEvaluacionPrueba::Pendiente,
+        'fecha_limite' => $inicial->fecha_fin?->toDateString(),
+    ]);
+    $conFirmado = rcActivo($this->gestor, $this->hoy->subDays(15));
+    EmployeeDocument::factory()->aprobado()->create([
+        'user_id' => null,
+        'colaborador_id' => $conFirmado->id,
+        'document_type_id' => DocumentType::query()->where('clave', 'contrato')->value('id'),
+    ]);
+    rcActivo($this->gerente, $this->hoy->subYears(2));
+
+    $servicio = app(RegularizacionContratosService::class);
+    DB::enableQueryLog();
+    $listado = $servicio->listar($this->rh, [], $this->hoy);
+    $consultasContratos = collect(DB::getQueryLog())
+        ->filter(fn (array $q): bool => preg_match('/^select \* from .?contratos_laborales.? /', $q['query']) === 1)->count();
+
+    expect($consultasContratos)->toBe(1);
+
+    foreach ($listado['filas']['data'] as $fila) {
+        $plan = $servicio->plan(Colaborador::query()->findOrFail($fila['id']), $this->hoy);
+
+        expect($fila['estado'])->toBe($plan['estado'])
+            ->and(array_column($fila['contratos'], 'pendiente_evaluacion'))->toBe(array_column($plan['contratos'], 'pendiente_evaluacion'))
+            ->and(array_map(fn (array $e): array => array_column($e['documentos'], 'firmado_cargado'), $fila['contratos']))
+            ->toEqual(array_map(fn (array $e): array => array_column($e['documentos'], 'firmado_cargado'), $plan['contratos']));
+    }
+
+    expect(collect($listado['filas']['data'])->firstWhere('id', $conEvaluacion->id)['contratos'][1]['pendiente_evaluacion'])->toBeTrue();
 });
 
 // --- Periodos por vencer ----------------------------------------------------
