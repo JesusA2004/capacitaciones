@@ -224,7 +224,7 @@ test('escenario 31: la pestaña de Bajas abre el mismo módulo y Corporativo usa
     rotBaja($this->corporativo, 'RV-01', '2026-10-02');
     rotBaja($this->corporativo, 'RV-01', '2026-10-03');
 
-    $this->actingAs($this->rh)->get(route('rh.bajas.rotacion', ['periodo' => 'mes', 'anio' => 2026, 'mes' => 10]))
+    $this->actingAs($this->rh)->get(route('reportes.rotacion.tablero.index', ['periodo' => 'mes', 'anio' => 2026, 'mes' => 10]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->component('Reportes/Rotacion/Index')->has('metas.vigentes', 3)->where('pestanas.rotacion', true));
 
@@ -359,10 +359,10 @@ test('permisos: sin bajas.gestionar no se editan metas ni sin tablero se consult
     $direccion = clUsuario('direccion', ['sucursal_principal_id' => $this->sucursal->id]);
     $colaborador = clUsuario('colaborador', ['sucursal_principal_id' => $this->sucursal->id]);
 
-    $this->actingAs($direccion)->get(route('rh.bajas.rotacion'))->assertOk();
+    $this->actingAs($direccion)->get(route('reportes.rotacion.tablero.index'))->assertOk();
     $this->actingAs($direccion)->post(route('rh.bajas.rotacion-metas'), ['segmento' => 'global', 'verde_hasta' => 2, 'ambar_hasta' => 4, 'vigente_desde' => '2026-11', 'motivo' => 'Ajuste de prueba'])->assertForbidden();
 
-    $this->actingAs($colaborador)->get(route('rh.bajas.rotacion'))->assertForbidden();
+    $this->actingAs($colaborador)->get(route('reportes.rotacion.tablero.index'))->assertForbidden();
     $this->actingAs($colaborador)->get(route('reportes.rotacion.tablero.excel'))->assertForbidden();
     $this->actingAs($colaborador)->get(route('reportes.rotacion.tablero.pdf'))->assertForbidden();
 });
@@ -391,4 +391,11 @@ test('Tablero de RH y módulo de Rotación dan la misma cifra del mismo motor', 
         ->and($tablero['summary']['rotacion_mes']['bajas'])->toBe($modulo['total'])
         ->and($punto['indice'])->toBe(2.0)
         ->and($punto['en_curso'])->toBeTrue();
+});
+
+test('la URL vieja de rotación en Bajas redirige 301 a la canónica de Reportes con los mismos filtros', function () {
+    $this->actingAs($this->rh)
+        ->get('/rh/bajas/rotacion?periodo=mes&anio=2026&mes=10')
+        ->assertStatus(301)
+        ->assertRedirect(route('reportes.rotacion.tablero.index', ['periodo' => 'mes', 'anio' => 2026, 'mes' => 10]));
 });

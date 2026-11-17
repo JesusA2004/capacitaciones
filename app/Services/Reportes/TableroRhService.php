@@ -158,7 +158,7 @@ class TableroRhService
         $plantilla = $ruta($usuario->can('viewAny', Sucursal::class), 'administracion.sucursales.index');
         $vacantes = $ruta($usuario->can('viewAny', Vacante::class), 'rh.vacantes.index', $porSucursal);
         $bajas = $ruta($usuario->can('viewAny', Baja::class), 'rh.bajas.index', $porSucursal);
-        $rotacion = $ruta($usuario->can('verTablero', Baja::class), 'rh.bajas.rotacion');
+        $rotacion = $ruta($usuario->can('verTablero', Baja::class), 'reportes.rotacion.tablero.index');
         $candidatos = $ruta($usuario->can('viewAny', Candidato::class), 'rh.candidatos.index', $porSucursal);
         $campanas = $ruta($usuario->can('reclutamiento.campanas.ver'), 'rh.campanas.index');
         $expedientes = $ruta($this->alcance->puedeExplorarExpedientes($usuario), 'rh.expedientes.index');

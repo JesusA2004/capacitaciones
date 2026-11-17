@@ -2,6 +2,7 @@
 import { Link } from '@inertiajs/vue3';
 import { computed } from 'vue';
 import { cn } from '@/lib/utils';
+import { index as tableroRotacion } from '@/routes/reportes/rotacion/tablero';
 import rutasBajas from '@/routes/rh/bajas';
 import rutasFiniquitos from '@/routes/rh/bajas/finiquitos';
 import type { PestanasBajas } from '@/types';
@@ -34,7 +35,7 @@ const lista = computed(() =>
             clave: 'rotacion',
             etiqueta: 'Rotación',
             conteo: null,
-            href: rutasBajas.rotacion(),
+            href: tableroRotacion(),
         },
         props.pestanas.causales && {
             clave: 'causales',

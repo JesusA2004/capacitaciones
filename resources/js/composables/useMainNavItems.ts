@@ -108,11 +108,7 @@ import { index as indexActas } from '@/routes/rh/actas';
 import { index as indexActivosResponsivas } from '@/routes/rh/activos-responsivas';
 import { index as indexAniversarios } from '@/routes/rh/aniversarios';
 import { index as indexAvisos } from '@/routes/rh/avisos';
-import {
-    causales as causalesBajas,
-    index as indexBajas,
-    rotacion as rotacionBajas,
-} from '@/routes/rh/bajas';
+import { causales as causalesBajas, index as indexBajas } from '@/routes/rh/bajas';
 import { index as indexFiniquitosBaja } from '@/routes/rh/bajas/finiquitos';
 import { index as indexCampanas } from '@/routes/rh/campanas';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
@@ -765,7 +761,7 @@ export function useMainNavItems() {
                             : tienePermiso('finiquitos.ver')
                               ? indexFiniquitosBaja()
                               : tienePermiso('bajas.tablero.ver')
-                                ? rotacionBajas()
+                                ? indexTableroRotacion()
                                 : tienePermiso('cierres.ver')
                                   ? indexCierres()
                                   : indexRotacion(),

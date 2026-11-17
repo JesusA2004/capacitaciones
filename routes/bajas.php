@@ -4,6 +4,7 @@ use App\Http\Controllers\Reportes\TableroRotacionController;
 use App\Http\Controllers\Rh\BajaController;
 use App\Http\Controllers\Rh\BajaDocumentoSalidaController;
 use App\Http\Controllers\Rh\FiniquitoBajasController;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -18,7 +19,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [BajaController::class, 'index'])->name('index');
         Route::get('nueva', [BajaController::class, 'create'])->name('create');
         // Pestañas de Cierres laborales → Bajas (PDF Etapa 1, Pantalla 4).
-        Route::get('rotacion', [TableroRotacionController::class, 'index'])->name('rotacion');
+        // URL canónica de la rotación: /reportes/rotacion/tablero. Esta se
+        // conserva (301 con los mismos filtros) para enlaces, avisos y
+        // marcadores viejos.
+        Route::get('rotacion', fn (Request $request) => redirect()->route('reportes.rotacion.tablero.index', $request->query(), 301))->name('rotacion');
         Route::post('rotacion/metas', [TableroRotacionController::class, 'guardarMeta'])->name('rotacion-metas');
         Route::get('causales', [BajaController::class, 'causales'])->name('causales');
         Route::get('causales/excel', [BajaController::class, 'causalesExcel'])->name('causales-excel')->middleware('throttle:20,1');

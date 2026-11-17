@@ -31,9 +31,9 @@ import {
     SECCIONES,
 } from '@/lib/rotacion';
 import { dashboard } from '@/routes';
+import { index as indexReportes } from '@/routes/reportes';
 import { index as rotacionExcel } from '@/routes/reportes/rotacion';
 import rutasTablero from '@/routes/reportes/rotacion/tablero';
-import rutasBajas from '@/routes/rh/bajas';
 import type {
     AntiguedadRotacion,
     CalidadRotacion,
@@ -89,7 +89,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Bajas', href: rutasBajas.index() },
+            { title: 'Reportes', href: indexReportes() },
             { title: 'Rotación de personal', href: '' },
         ],
     },

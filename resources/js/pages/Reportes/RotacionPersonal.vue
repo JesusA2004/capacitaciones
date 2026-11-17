@@ -56,7 +56,7 @@ defineOptions({
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
             { title: 'Reportes', href: indexReportes() },
-            { title: 'Rotación de personal', href: '' },
+            { title: 'Carga de rotación (Excel)', href: '' },
         ],
     },
 });
@@ -282,11 +282,11 @@ const NOMBRE_MES = [
 </script>
 
 <template>
-    <Head title="Rotación de personal" />
+    <Head title="Carga de rotación (Excel)" />
 
     <div class="pagina-ancha flex flex-col gap-5">
         <CrudPageHeader
-            titulo="Rotación de personal"
+            titulo="Carga de rotación (Excel)"
             descripcion="Índice de rotación mensual por sucursal, cargado desde el Excel de RH (bajas ÷ plantilla promedio × 100)."
             :icono="TrendingDown"
         >

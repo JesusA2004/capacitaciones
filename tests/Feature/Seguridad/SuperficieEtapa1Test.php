@@ -104,7 +104,7 @@ test('el filtro de rotación no le abre a un gerente otra sucursal', function ()
     $ajena = Sucursal::factory()->create(['nombre' => 'Sucursal ajena de prueba']);
 
     $this->actingAs($this->gerente)
-        ->get(route('rh.bajas.rotacion', ['sucursal_id' => $ajena->id, 'vista' => 'por_sucursal']))
+        ->get(route('reportes.rotacion.tablero.index', ['sucursal_id' => $ajena->id, 'vista' => 'por_sucursal']))
         ->assertOk()
         ->assertDontSee('Sucursal ajena de prueba');
 });
