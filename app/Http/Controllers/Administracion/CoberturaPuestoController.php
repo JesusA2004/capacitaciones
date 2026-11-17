@@ -19,11 +19,20 @@ class CoberturaPuestoController extends Controller
 
     public function store(StoreCoberturaPuestoRequest $request): RedirectResponse
     {
-        /** @var array{colaborador_id: int, puesto_id: int, sucursal_id?: int|null, region_id?: int|null, motivo?: string|null, nota?: string|null, fecha_inicio?: string|null, ocupa_plaza?: bool|null} $datos */
-        $datos = $request->validated();
-        $datos['ocupa_plaza'] = $request->filled('ocupa_plaza') ? $request->boolean('ocupa_plaza') : null;
+        $request->validated();
 
-        $cobertura = $this->coberturas->asignar($datos, $request->user());
+        // Tipos reales desde la petición ya validada (el Service compara
+        // ids con ===: un "5" de formulario nunca debe llegar como string).
+        $cobertura = $this->coberturas->asignar([
+            'colaborador_id' => $request->integer('colaborador_id'),
+            'puesto_id' => $request->integer('puesto_id'),
+            'sucursal_id' => $request->filled('sucursal_id') ? $request->integer('sucursal_id') : null,
+            'region_id' => $request->filled('region_id') ? $request->integer('region_id') : null,
+            'motivo' => $request->filled('motivo') ? $request->string('motivo')->toString() : null,
+            'nota' => $request->filled('nota') ? $request->string('nota')->toString() : null,
+            'fecha_inicio' => $request->filled('fecha_inicio') ? $request->string('fecha_inicio')->toString() : null,
+            'ocupa_plaza' => $request->filled('ocupa_plaza') ? $request->boolean('ocupa_plaza') : null,
+        ], $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => $cobertura->ocupa_plaza
             ? 'Listo: ocupa ambos puestos. La plaza cuenta como ocupada y no queda vacante.'

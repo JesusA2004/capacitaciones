@@ -18,7 +18,6 @@ class RolNotificacionesController extends Controller
 
     public function update(UpdateRolNotificacionesRequest $request, Role $rol): RedirectResponse
     {
-        /** @var list<string> $eventos */
         $eventos = array_values(array_map('strval', (array) $request->validated('eventos')));
         $this->politica->guardar($rol, $eventos, $request->user());
 

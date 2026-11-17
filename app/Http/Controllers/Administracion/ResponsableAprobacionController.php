@@ -34,10 +34,15 @@ class ResponsableAprobacionController extends Controller
 
     public function store(GuardarResponsableAprobacionRequest $request): RedirectResponse
     {
-        /** @var array{colaborador_id?: int|null, puesto_id?: int|null, responsable_colaborador_id: int, motivo: string} $datos */
-        $datos = $request->validated();
+        $request->validated();
 
-        $this->responsables->asignar($datos, $request->user());
+        // Tipos reales desde la petición ya validada (no un @var que los suponga).
+        $this->responsables->asignar([
+            'colaborador_id' => $request->filled('colaborador_id') ? $request->integer('colaborador_id') : null,
+            'puesto_id' => $request->filled('puesto_id') ? $request->integer('puesto_id') : null,
+            'responsable_colaborador_id' => $request->integer('responsable_colaborador_id'),
+            'motivo' => $request->string('motivo')->toString(),
+        ], $request->user());
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Responsable de aprobación guardado. Sus solicitudes abiertas ya van con esa persona.']);
     }

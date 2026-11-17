@@ -68,7 +68,6 @@ class PuestoController extends Controller
 
         $puestos = $puestos
             ->through(function (Puesto $puesto) use ($tabulador, $verSalarios, $plazas): array {
-                /** @var array<string, mixed>|null $renglon */
                 $renglon = $tabulador->get($puesto->id);
 
                 return [
@@ -178,7 +177,6 @@ class PuestoController extends Controller
     {
         $destino = Puesto::query()->whereKey($request->integer('puesto_destino_id'))->firstOrFail();
 
-        /** @var list<int> $ids */
         $ids = array_values(array_map('intval', (array) $request->validated('colaborador_ids')));
 
         $resultado = $this->movimientos->mover($puesto, $destino, $ids, $request->user(), $request->validated('motivo'));

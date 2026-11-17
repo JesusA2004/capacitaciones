@@ -138,7 +138,6 @@ class ConfiguracionController extends Controller
             'activa' => ['sometimes', 'boolean'],
         ]);
 
-        /** @var list<string> $destinatarios */
         $destinatarios = array_values(array_map('strval', $datos['destinatarios']));
 
         $this->routing->guardarRegla($evento, [

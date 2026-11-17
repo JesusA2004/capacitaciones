@@ -82,7 +82,6 @@ class DepartamentoController extends Controller
     {
         $destino = Departamento::query()->whereKey($request->integer('departamento_destino_id'))->firstOrFail();
 
-        /** @var list<int> $ids */
         $ids = array_values(array_map('intval', (array) $request->validated('colaborador_ids')));
 
         $resultado = $this->movimientos->mover(
