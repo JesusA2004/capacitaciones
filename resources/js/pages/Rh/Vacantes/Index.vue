@@ -3,9 +3,12 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import {
     Briefcase,
     Building2,
+    CalendarClock,
     FilterX,
+    Hourglass,
     Layers,
     MapPin,
+    UserRoundX,
     UserSearch,
 } from '@lucide/vue';
 import { computed, ref, watch } from 'vue';
@@ -16,11 +19,15 @@ import CrudFilterSheet from '@/components/DataTable/CrudFilterSheet.vue';
 import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import CrudSearchInput from '@/components/DataTable/CrudSearchInput.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
+import ChipEstado from '@/components/people/ChipEstado.vue';
+import TarjetaMetrica from '@/components/people/TarjetaMetrica.vue';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { usePaginacionLocal } from '@/composables/usePaginacion';
 import { usePermisos } from '@/composables/usePermisos';
+import type { Tono } from '@/lib/tonos';
+import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { show as showSucursal } from '@/routes/administracion/sucursales';
 import { index as indexCandidatos } from '@/routes/rh/candidatos';
@@ -182,17 +189,53 @@ function fecha(valor: string): string {
     });
 }
 
-const TONO_ESTADO: Record<string, string> = {
-    abierta: 'border-[var(--warning)]/40 text-[var(--warning)]',
-    en_reclutamiento:
-        'border-[var(--brand-secondary)]/40 text-[var(--brand-secondary)]',
-    con_candidatos:
-        'border-[var(--brand-secondary)]/40 text-[var(--brand-secondary)]',
-    en_revision:
-        'border-[var(--brand-secondary)]/40 text-[var(--brand-secondary)]',
-    cubierta: 'border-[var(--success)]/40 text-[var(--success)]',
-    cancelada: 'text-muted-foreground',
+const TONO_ESTADO: Record<string, Tono> = {
+    abierta: 'alerta',
+    en_reclutamiento: 'oro',
+    con_candidatos: 'oro',
+    en_revision: 'oro',
+    cubierta: 'exito',
+    cancelada: 'neutro',
 };
+
+// Antigüedad de la vacante: a partir de 30 días ya urge, a partir de 60 es
+// crítica. Solo cambia el tono (franja y chip), nunca los datos.
+function tonoAntiguedad(dias: number): Tono {
+    if (dias >= 60) {
+        return 'peligro';
+    }
+
+    return dias >= 30 ? 'alerta' : 'exito';
+}
+
+const FRANJA: Record<Tono, string> = {
+    peligro: 'before:bg-destructive/70',
+    alerta: 'before:bg-warning/70',
+    exito: 'before:bg-success/60',
+    info: 'before:bg-info/60',
+    neutro: 'before:bg-border',
+    oro: 'before:bg-oro/70',
+    primario: 'before:bg-primary/60',
+};
+
+// Indicadores de lo que se está viendo (la lista llega completa, ya filtrada).
+const sinCandidatos = computed(
+    () => props.vacantes.filter((v) => v.candidatos_activos === 0).length,
+);
+const urgentes = computed(
+    () => props.vacantes.filter((v) => v.dias_abierta >= 30).length,
+);
+const promedioDias = computed(() =>
+    props.vacantes.length
+        ? Math.round(
+              props.vacantes.reduce((suma, v) => suma + v.dias_abierta, 0) /
+                  props.vacantes.length,
+          )
+        : 0,
+);
+const maxPlazasPuesto = computed(() =>
+    Math.max(1, ...props.resumen.por_puesto.map((p) => p.plazas)),
+);
 </script>
 
 <template>
@@ -207,67 +250,108 @@ const TONO_ESTADO: Record<string, string> = {
             />
         </CrudPageHeader>
 
+        <!-- Indicadores de lo que se está viendo (respetan los filtros). -->
+        <div
+            v-if="vacantes.length > 0"
+            class="grid entrada-escalonada grid-cols-2 gap-3 lg:grid-cols-4"
+        >
+            <TarjetaMetrica
+                etiqueta="Plazas por cubrir"
+                :valor="resumen.plazas"
+                :icono="Briefcase"
+                tono="primario"
+                :detalle="`${resumen.vacantes} ${resumen.vacantes === 1 ? 'vacante' : 'vacantes'} en ${resumen.sucursales} ${resumen.sucursales === 1 ? 'ubicación' : 'ubicaciones'}`"
+            />
+            <TarjetaMetrica
+                etiqueta="Sin candidatos"
+                :valor="sinCandidatos"
+                :icono="UserRoundX"
+                :tono="sinCandidatos > 0 ? 'alerta' : 'exito'"
+                detalle="Vacantes sin nadie en proceso"
+            />
+            <TarjetaMetrica
+                etiqueta="Abiertas 30 días o más"
+                :valor="urgentes"
+                :icono="Hourglass"
+                :tono="urgentes > 0 ? 'peligro' : 'exito'"
+                detalle="Las que más urge cubrir"
+            />
+            <TarjetaMetrica
+                etiqueta="Días abiertas en promedio"
+                :valor="promedioDias"
+                :icono="CalendarClock"
+                tono="oro"
+                detalle="Desde que se abrió cada vacante"
+            />
+        </div>
+
         <!-- Totales concretos: cuántas plazas faltan de cada puesto y en
              qué sucursales (de lo que se está viendo). -->
         <section
             v-if="resumen.por_puesto.length > 0"
             data-tour="vacantes-resumen"
-            class="rounded-xl border bg-card p-4"
+            class="rounded-2xl border border-border/60 bg-card p-4 shadow-sm sm:p-5"
             aria-label="Resumen de vacantes"
         >
-            <p class="text-sm text-muted-foreground">
-                <span
-                    class="text-2xl font-semibold text-foreground tabular-nums"
-                    >{{ resumen.plazas }}</span
-                >
-                {{
-                    resumen.plazas === 1
-                        ? 'plaza por cubrir'
-                        : 'plazas por cubrir'
-                }}
-                en {{ resumen.sucursales }}
-                {{ resumen.sucursales === 1 ? 'ubicación' : 'ubicaciones' }}
-                (sucursales y Corporativo)
-            </p>
-            <ul class="mt-3 divide-y">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+                <h2 class="text-sm font-semibold">Qué falta cubrir</h2>
+                <p class="text-xs text-muted-foreground">
+                    Clic en un puesto o en una ubicación para ver solo esas
+                    vacantes
+                </p>
+            </div>
+            <ul
+                class="mt-3 grid entrada-escalonada gap-x-8 gap-y-1 xl:grid-cols-2"
+            >
                 <li
                     v-for="p in resumen.por_puesto"
                     :key="p.puesto_id ?? 0"
-                    class="flex flex-col gap-1.5 py-2.5 sm:flex-row sm:items-baseline sm:gap-4"
+                    class="grid gap-2 rounded-xl px-2 py-2 transicion-ui hover:bg-menta/50 sm:grid-cols-[minmax(0,15rem)_minmax(0,1fr)] sm:items-center"
                 >
                     <button
                         type="button"
-                        class="flex shrink-0 flex-col items-start text-left sm:w-72"
+                        class="group flex w-full min-w-0 items-center gap-3 text-left"
                         :title="`Ver solo ${p.puesto}`"
                         @click="filtrarPor(p.puesto_id)"
                     >
-                        <span class="flex items-baseline gap-2 hover:underline">
-                            <span class="font-semibold tabular-nums">{{
-                                p.plazas
-                            }}</span>
-                            <span class="font-medium">{{ p.puesto }}</span>
-                            <span
-                                v-if="p.area"
-                                class="text-xs text-muted-foreground"
-                                >· {{ p.area }}</span
-                            >
-                        </span>
                         <span
-                            v-if="p.nota"
-                            class="text-xs text-muted-foreground"
-                            >{{ p.nota }}</span
+                            class="flex size-9 shrink-0 items-center justify-center rounded-xl bg-salvia text-sm font-bold text-primary tabular-nums"
+                            >{{ p.plazas }}</span
                         >
+                        <span class="flex min-w-0 flex-1 flex-col">
+                            <span
+                                class="truncate font-medium group-hover:text-primary"
+                                >{{ p.puesto }}</span
+                            >
+                            <span class="truncate text-xs text-muted-foreground"
+                                >{{ p.area ?? 'Sin área'
+                                }}<template v-if="p.nota">
+                                    · {{ p.nota }}</template
+                                ></span
+                            >
+                            <span
+                                class="mt-1 h-1 w-full overflow-hidden rounded-full bg-muted"
+                                aria-hidden="true"
+                            >
+                                <span
+                                    class="block h-full crece-barra rounded-full bg-oro"
+                                    :style="{
+                                        width: `${(p.plazas * 100) / maxPlazasPuesto}%`,
+                                    }"
+                                />
+                            </span>
+                        </span>
                     </button>
                     <div class="flex flex-wrap gap-1.5">
                         <button
                             v-for="s in p.sucursales"
                             :key="s.sucursal_id ?? 0"
                             type="button"
-                            class="inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+                            class="inline-flex presionable items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs text-muted-foreground transicion-ui hover:border-oro/60 hover:text-foreground"
                             :class="
                                 s.es_corporativo
                                     ? 'border-transparent bg-crema text-foreground'
-                                    : ''
+                                    : 'bg-card'
                             "
                             :title="`${p.puesto} en ${s.sucursal}: ${plazas(s.plazas)}`"
                             @click="filtrarPor(p.puesto_id, s.sucursal_id)"
@@ -277,6 +361,7 @@ const TONO_ESTADO: Record<string, string> = {
                                 class="size-3"
                                 aria-hidden="true"
                             />
+                            <MapPin v-else class="size-3" aria-hidden="true" />
                             {{ s.sucursal }}
                             <span class="font-semibold tabular-nums">{{
                                 s.plazas
@@ -433,22 +518,26 @@ const TONO_ESTADO: Record<string, string> = {
         <ul
             v-else
             data-tour="vacantes-lista"
-            class="@container divide-y rounded-xl border bg-card"
+            class="@container divide-y divide-border/60 overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm"
             aria-label="Vacantes"
         >
             <li
                 v-for="vacante in paginacion.filasPagina.value"
                 :key="vacante.id"
-                class="grid gap-3 p-4 transition-colors duration-150 first:rounded-t-xl last:rounded-b-xl hover:bg-muted/40 @3xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_auto] @3xl:items-center"
+                :class="
+                    cn(
+                        'relative grid gap-3 p-4 pl-5 transicion-ui before:absolute before:inset-y-3 before:left-0 before:w-1 before:rounded-r-full hover:bg-menta/40 @3xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_auto] @3xl:items-center',
+                        FRANJA[tonoAntiguedad(vacante.dias_abierta)],
+                    )
+                "
             >
                 <div class="min-w-0">
                     <p class="flex flex-wrap items-center gap-2 font-semibold">
                         {{ vacante.puesto ?? 'Puesto sin definir' }}
-                        <Badge
-                            variant="outline"
-                            :class="TONO_ESTADO[vacante.estado]"
-                            >{{ vacante.estado_etiqueta }}</Badge
-                        >
+                        <ChipEstado
+                            :etiqueta="vacante.estado_etiqueta"
+                            :tono="TONO_ESTADO[vacante.estado] ?? 'neutro'"
+                        />
                         <Badge
                             v-if="!vacante.generada_automaticamente"
                             variant="secondary"
@@ -497,7 +586,9 @@ const TONO_ESTADO: Record<string, string> = {
 
                 <div class="text-sm">
                     <p class="font-semibold tabular-nums">
-                        {{ vacante.plazas_disponibles }}
+                        <span class="text-lg text-primary">{{
+                            vacante.plazas_disponibles
+                        }}</span>
                         {{
                             vacante.plazas_disponibles === 1
                                 ? 'plaza por cubrir'
@@ -522,21 +613,32 @@ const TONO_ESTADO: Record<string, string> = {
                     </p>
                 </div>
 
-                <div class="text-sm">
-                    <p>
-                        {{
+                <div class="flex flex-col items-start gap-1 text-sm">
+                    <ChipEstado
+                        :icono="Hourglass"
+                        :tono="tonoAntiguedad(vacante.dias_abierta)"
+                        :etiqueta="
                             vacante.dias_abierta === 0
                                 ? 'Abierta hoy'
                                 : `Abierta hace ${vacante.dias_abierta} ${vacante.dias_abierta === 1 ? 'día' : 'días'}`
-                        }}
-                    </p>
+                        "
+                    />
                     <p class="text-xs text-muted-foreground">
                         Desde el {{ fecha(vacante.fecha_apertura) }}
                     </p>
                 </div>
 
                 <div class="flex items-center gap-2 @3xl:justify-end">
-                    <Button as-child variant="outline" size="sm">
+                    <Button
+                        as-child
+                        variant="outline"
+                        size="sm"
+                        :class="
+                            vacante.candidatos_activos === 0
+                                ? 'border-dashed text-muted-foreground'
+                                : 'border-primary/30 bg-salvia/40 text-primary'
+                        "
+                    >
                         <Link
                             :href="
                                 indexCandidatos.url({
