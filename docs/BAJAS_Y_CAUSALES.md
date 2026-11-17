@@ -13,7 +13,7 @@ Especificación funcional de la Gerencia de RH v1.0 (20-oct-2026). Cada baja de 
 - `App\Enums\FormaSalida` (RV/NR/RE) ↔ `App\Enums\TipoBaja` 1:1; la tabla `formas_salida` guarda nombre/descripción/orden.
 - Las **17 causales** (RV-01…RV-06, NR-01…NR-06, RE-01…RE-05) con nombre, ayuda «cuándo usarla», requiere Jurídico, comentario obligatorio y alerta están en `config/bajas.php` (`causales`) y viven en `causales_rotacion` (columnas `forma_salida`, `requiere_juridico`, `comentario_obligatorio`, `alerta`, `legado`). Textos confirmados por RH.
 - **Documentos requeridos** (`documentos_requeridos_baja`): los de la forma + los adicionales de la causal (NR-01 evidencia de desempeño, NR-05/NR-06 autorización de Dirección General, RE-02 arqueo o auditoría, RE-03 evidencia de la falta). Un espacio se cumple con un adjunto (PDF o imagen) o, si el documento lo lleva el sistema (`documento_sistema`), con lo que ya está en el cierre laboral: carta de renuncia / aviso de terminación marcados como firmados físicamente, o el finiquito entregado. El **aviso de rescisión siempre se adjunta** (el sistema no lo genera).
-- RN-15: el catálogo lo administra **solo RH** (`finiquitos.causales_rotacion`) en **una sola pantalla**: Bajas y finiquitos → pestaña «Causales» (`rh.cierres.index?seccion=causales`), también enlazada desde Configuración → «Catálogo de bajas». Las causales **nunca se borran** (no hay ruta de borrado): se desactivan. Una causal nueva recibe la siguiente clave de su forma (RV-07…).
+- RN-15: el catálogo lo administra **solo RH** (`finiquitos.causales_rotacion`) en **una sola pantalla**: Bajas → pestaña «Catálogo de causales» (`rh.bajas.causales`, panel completo con grupos, documentos e historial), también enlazada desde Configuración → «Catálogo de bajas». El enlace viejo `rh.cierres.index?seccion=causales` redirige (301) a esa pantalla. Las causales **nunca se borran** (no hay ruta de borrado): se desactivan. Una causal nueva recibe la siguiente clave de su forma (RV-07…).
 - La causal «SC» (sin causal) solo existía en el histórico de Excel y **no** se usa.
 
 ### Conversión del subcatálogo anterior (migración `2026_10_20_200000_modulo_bajas_y_causales`)
@@ -106,9 +106,9 @@ Jurídico y Contraloría entran al modo operativo con su permiso de bajas (`Navi
 | Registrar baja (¿quién?, ¿cómo se va?, ¿por qué?; vista previa de renuncia/formato y finiquito; confirmación) | `rh.bajas.create` → `rh.bajas.store` | botón «Registrar baja» |
 | Expediente (datos, documentos con vista previa, bitácora, acciones) | `rh.bajas.show` | — |
 | Vista previa del finiquito propuesto (PDF inline, no-store, sin escribir) | `rh.bajas.previa.finiquito` | — |
-| **Bajas y finiquitos → Documentos** (recopilación por persona: tarjetas con foto/iniciales, puesto, sucursal, forma · causal con su color, último día, estatus, avance N/M y la lista de documentos —generados, finiquito, entrega del finiquito, adjuntos— con estado generado/firmado/pendiente; botón grande «Vista previa» abre el visor en galería; adjuntar el que falta y descargar; filtros por estatus, sucursal, forma, documentos completos/incompletos y buscador sin mínimo) | `rh.cierres.index` (pestaña por defecto; `BajaRecopilacionService`, alcance del módulo «cierres») | 7 Cierres laborales → «Bajas y finiquitos» |
+| **Bajas → Documentos** (recopilación por persona: tarjetas con foto/iniciales, puesto, sucursal, forma · causal con su color, último día, estatus, avance N/M y la lista de documentos —generados, finiquito, entrega del finiquito, adjuntos— con estado generado/firmado/pendiente; botón grande «Vista previa» abre el visor en galería; adjuntar el que falta y descargar; filtros por estatus, sucursal, forma, documentos completos/incompletos y buscador sin mínimo) | `rh.cierres.index` (pestaña «Documentos» de Bajas; `BajaRecopilacionService`, alcance del módulo «cierres») | Cierres laborales → Bajas → pestaña «Documentos» |
 | Cierres y finiquitos (estado del cierre y del finiquito) | `rh.cierres.index?seccion=cierres` | pestaña |
-| Catálogo | `rh.cierres.index?seccion=causales` | Bajas y finiquitos → «Causales» y Configuración → «Catálogo de bajas» |
+| Catálogo | `rh.bajas.causales` (compatibilidad: `rh.cierres.index?seccion=causales` → 301) | Bajas → «Catálogo de causales» y Configuración → «Catálogo de bajas» |
 | Rotación | `rh.bajas.rotacion` (compatibilidad: `reportes.rotacion.tablero.index`; exporta con `.excel`, `.pdf`) | Cierres laborales → Bajas → pestaña «Rotación» |
 | Rotación histórica (carga del Excel) | `reportes.rotacion.index` | enlace «Histórico» desde el tablero |
 | API v1 | `api.v1.rh.bajas.*` (catálogo, listado, detalle, registrar, compatibilidad enviar/actualizar/rechazar, adjuntar) | — |
@@ -136,3 +136,49 @@ En la recopilación, el avance N/M cuenta los documentos **obligatorios para cer
 - **Metas** (`rotacion_metas`, `RotacionMetaService`): por segmento, editables con `bajas.gestionar` desde la pestaña. Un cambio agrega una fila con vigencia y motivo; cada mes se mide contra la meta vigente en ese mes. Valores sembrados de la propuesta: Sucursales 4/6, Corporativo 1.7/2.5, Global 3/4.5. Aquí el semáforo es verde hasta el primer límite, ámbar hasta el segundo y rojo arriba.
 - La carga del Excel sigue en `reportes.rotacion.index` (botón «Histórico»), ya con la misma fórmula. `rotacion_periodos.indice` e `indice_excel` solo conservan lo que traía el archivo para auditar la carga. `RotacionFormatoService` sigue generando el formato de RH tal cual.
 
+
+## Un solo camino para dar de baja (2026-11-17)
+
+- **No existe baja ordinaria fuera del procedimiento formal.** «Dar de baja» del expediente (`ExpedienteDetalle.vue`) es un enlace a `rh.bajas.create?colaborador=…`, con los mismos permisos que ese formulario (`BajaPolicy::create` + `BajaService::puedeSolicitarPara`). La ruta `DELETE rh/expedientes/{colaborador}` (`rh.expedientes.dar-de-baja`) se conserva **por compatibilidad** y solo redirige al formulario: ya no aplica nada. No tenía consumidores en la API, la app ni integraciones (es ruta web de sesión).
+- `BajaColaboradorService::ejecutar` (bloqueo definitivo, inactivo, movimiento, vacante, avisos a RH y Sistemas) solo lo invocan el cierre de la baja formal (`CierreLaboralService::ejecutarBaja`) y la aprobación de una solicitud histórica de baja.
+- **Excepción explícita: la purga de super_admin** (`administracion.usuarios.purga.*`, `PurgaPersonaService`) borra físicamente cuenta y expediente. Es SOLO para registros erróneos o de prueba, se detiene ante cualquier actividad real (documentos firmados, recibos emitidos, finiquito firmado o pagado, correcciones auditadas) y nunca toca los archivos del NAS. No es una baja ni cuenta en rotación.
+
+## Finiquito: una fuente de verdad
+
+`FiniquitoService` es el único que calcula, corrige, genera el PDF, cambia estados y congela el finiquito; `FiniquitoCalculoPolicy` autoriza. La **edición** vive en **Bajas → Finiquitos** (`rh.bajas.finiquitos.*`, `FiniquitoBajasController`; «Corregir» exige motivo y queda en la bitácora de la baja).
+
+| Pantalla | Qué hace |
+|---|---|
+| Bajas → Finiquitos / expediente de la baja (`PanelFiniquito.vue`) | Recalcular, corregir importes, revisar, generar PDF, subir recibo firmado, registrar pago (si tiene cierre abierto, usa la entrega del cierre). |
+| Solicitud de baja (`FiniquitoPanel.vue`) | Solo consulta + «Abrir en Bajas → Finiquitos». |
+| Ciclo laboral → cierre (`FiniquitoCierreDialog.vue`) | Calcular el primero (si quedó «Finiquito pendiente»), consultar, «Corregir importes en Bajas → Finiquitos» y **registrar la entrega**. Quien no tiene `finiquitos.ver` sigue editando ahí. |
+| API v1 (`api.v1.rh.cierres.finiquito.*`) | Sin cambios: la usan las APK instaladas. |
+
+**Pendiente de decisión del negocio — cuándo un finiquito está «firmado».** Hoy conviven tres reglas y unificarlas cambiaría cómo se leen registros existentes, así que NO se tocaron:
+
+1. `marcarFirmadoFisicamente` (solicitud): exige estado Aprobado, sin archivo; deja `firmado_fisicamente_en`. Solo aplica a finiquitos del flujo de solicitudes con aprobación (las bajas directas nunca llegan a Aprobado); hoy sin pantalla.
+2. `registrarFirmado` (Bajas → Finiquitos): exige Revisado o Aprobado y **el escaneo**; deja `documento_firmado_path`. «Registrar pago» exige este estado Firmado.
+3. `registrarEntrega` (cierre laboral / API): pasa directo a **Pagado** sin estado Firmado (la firma se entiende por la entrega en papel).
+
+Opciones: (a) firmado = entrega registrada (regla 3; el escaneo pasa a evidencia opcional); (b) firmado = escaneo obligatorio antes de entregar (regla 2; la entrega del cierre lo exigiría); (c) firmado = marca física sin escaneo (regla 1, extendida a Revisado). Cualquiera necesita decidir qué hacer con los finiquitos ya Pagados sin Firmado previo.
+
+## Rutas legacy del finiquito (clasificación)
+
+A = eliminación segura · B = sustitución previa · C = compatibilidad temporal · D = conservación obligatoria · E = pendiente de validación.
+
+| Elemento | Clase | Nota |
+|---|---|---|
+| Web `rh.cierres.programarPago/cita/finiquitoFirmado/confirmarPago` | **A — retiradas** | Siempre 422 (`features.cierre_flujo_legacy` apagado) y sin pantalla. Los cierres en `pago_programado`/`finiquito_autorizado`/`finiquito_firmado`/`pagado` (en la BD local quedaba 1 en `pago_programado`) se cierran con «finiquito/entrega», que acepta esos estados. |
+| API `api.v1.rh.cierres.pago.programar`, `cita`, `finiquito.firmado`, `finiquito.pago` | **C** | `mr-lana-people-app/src/api/rh/cicloLaboral.ts` aún llama `finiquito/firmado` y `finiquito/pago`. Retirar cuando ninguna APK instalada las use. |
+| `CierreLaboralService::autorizarFiniquito/programarPago/registrarCita/registrarFiniquitoFirmado/confirmarPago` | **C** | Respaldan la API anterior y la bandera; los cubren pruebas. |
+| `rh.solicitudes.finiquito.firmado` (subir escaneo, LEGACY) y `FiniquitoService::subirFirmado` | **B** | Sin pantalla; antes de retirarla, pasar sus 4 pruebas al servicio. |
+| Rutas web de escritura `rh.solicitudes.finiquito.*` (calcular, ajustes, conceptos, revisar, generar-pdf) | **B** | La pantalla ya no las ofrece (solicitud = consulta); 40+ pruebas las usan para ejercer `FiniquitoService`. |
+| `rh.solicitudes.finiquito.firmado-fisico` | **E** | Depende de la decisión sobre «firmado». |
+| Enums `EstadoCierreLaboral::FiniquitoAutorizado/PagoProgramado/FiniquitoFirmado/Pagado`, `TipoTarea::PagoPorProgramar/CitaFiniquito` | **D** | Historial. |
+| `features.cierre_flujo_legacy` | **E** | Contar en producción cierres en esos estados antes de retirarla. |
+
+## Altas (regla común)
+
+Los caminos de alta (QR → `IncorporacionInvitacionService::registrarUsuario`, alta directa y candidato contratado → `AltaColaboradorService::registrar`, alta digital → `ConversionColaboradorService::aprobar`) comparten la regla de identidad `IdentidadColaboradorService::validarNoDuplicado` (CURP/RFC/NSS, incluidas bajas → Reingresos). El alta digital se aprueba y convierte en **un solo paso transaccional e idempotente**: nunca queda «Aprobada» sin colaborador; una segunda aprobación devuelve la misma cuenta.
+
+`AltaPublica/Wizard.vue`, `Rh/Altas/Index` (sin menú) y los permisos `altas.*`: **E — pendiente de validación**. La BD local no tiene altas digitales; antes de retirarlos hay que contar en producción altas en `creada/enviada/en_captura/enviada_por_candidato/en_revision_rh/requiere_correccion` (ligas vivas). `Rh/Altas/Show` y las descargas se conservan (D) para el historial.
