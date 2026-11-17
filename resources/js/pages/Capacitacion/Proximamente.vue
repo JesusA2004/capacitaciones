@@ -9,13 +9,13 @@ import {
     Video,
 } from '@lucide/vue';
 import { dashboard } from '@/routes';
-import { proximamente } from '@/routes/capacitacion';
+import { index as indexCapacitacion } from '@/routes/capacitacion';
 
 defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Capacitación', href: proximamente() },
+            { title: 'Capacitación', href: indexCapacitacion() },
         ],
     },
 });

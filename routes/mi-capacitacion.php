@@ -13,7 +13,9 @@ Route::middleware(['auth', 'verified', 'feature:capacitacion'])
     ->name('mi-capacitacion.')
     ->group(function () {
         Route::get('/', [MiCapacitacionController::class, 'index'])->name('index');
-        Route::get('{curso}', [MiCapacitacionController::class, 'show'])->name('show');
+        Route::get('pendientes', [MiCapacitacionController::class, 'pendientes'])->name('pendientes');
+        Route::get('certificados', [MiCapacitacionController::class, 'certificados'])->name('certificados');
+        Route::get('{curso}', [MiCapacitacionController::class, 'show'])->name('show')->whereNumber('curso');
         Route::post('lecciones/{leccion}/completar', [MiCapacitacionController::class, 'completarLeccion'])->name('lecciones.completar');
 
         Route::prefix('lecciones/{leccion}/reproduccion')->name('lecciones.reproduccion.')->group(function () {

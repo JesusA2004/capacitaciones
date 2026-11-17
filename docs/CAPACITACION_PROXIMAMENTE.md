@@ -1,3 +1,5 @@
+> **Actualización 2026-11-17 — Fase 3:** la bandera `capacitacion` quedó **encendida por defecto** y el módulo ya se muestra en el sidebar (grupo «Capacitación» en Operación RH y «Mi capacitación» en Mi espacio). Lo de abajo describe cómo se comporta si se vuelve a apagar. Ver `docs/CAPACITACION.md`.
+
 # Capacitación — oculta, no eliminada
 
 A partir de este checkpoint, el sistema deja de presentarse principalmente como "Portal de Capacitación" y pasa a ser el **Portal Integral de Colaboradores y Recursos Humanos Mr. Lana**. Capacitación se convierte en una fase futura (Fase 5 del roadmap, ver `docs/PORTAL_RH.md`), pero **no se borró nada**.

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Actividades\ActividadController;
+use App\Http\Controllers\Capacitacion\AulaController;
 use App\Http\Controllers\Cuestionarios\CuestionarioController;
 use App\Http\Controllers\Cursos\CursoController;
 use App\Http\Controllers\Cursos\CursoModuloController;
@@ -15,6 +16,8 @@ Route::middleware(['auth', 'verified', 'feature:capacitacion'])
         Route::get('/', [CursoController::class, 'index'])->name('index');
         Route::post('/', [CursoController::class, 'store'])->name('store');
         Route::get('{curso}', [CursoController::class, 'edit'])->name('edit');
+        // Aula tipo Classroom (tablón, trabajo, calificaciones, participantes).
+        Route::get('{curso}/aula', [AulaController::class, 'show'])->name('aula');
         Route::put('{curso}', [CursoController::class, 'update'])->name('update');
         Route::delete('{curso}', [CursoController::class, 'destroy'])->name('destroy');
         Route::post('{curso}/publicar', [CursoController::class, 'publicar'])->name('publicar');

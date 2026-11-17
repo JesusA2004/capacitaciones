@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Certificado;
 use App\Models\Curso;
 use App\Models\Leccion;
+use App\Services\Capacitacion\MiCapacitacionService;
 use App\Services\Capacitacion\ProgresoService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -15,17 +16,38 @@ use Inertia\Response;
 
 class MiCapacitacionController extends Controller
 {
-    public function __construct(private readonly ProgresoService $progresoService) {}
+    public function __construct(
+        private readonly ProgresoService $progresoService,
+        private readonly MiCapacitacionService $miCapacitacion,
+    ) {}
 
+    /**
+     * «Mi capacitación»: mis aulas, mis pendientes y mis certificados en una
+     * sola pantalla con tres secciones (cada una con su URL para que el menú
+     * y los avisos puedan abrir directo la que corresponde).
+     */
     public function index(Request $request): Response
     {
-        $inscripciones = $request->user()->inscripcionesCurso()
-            ->with('curso:id,titulo,duracion_estimada_minutos,genera_constancia')
-            ->orderByDesc('created_at')
-            ->get();
+        return $this->panel($request, 'aulas');
+    }
+
+    public function pendientes(Request $request): Response
+    {
+        return $this->panel($request, 'pendientes');
+    }
+
+    public function certificados(Request $request): Response
+    {
+        return $this->panel($request, 'certificados');
+    }
+
+    private function panel(Request $request, string $seccion): Response
+    {
+        $usuario = $request->user();
 
         return Inertia::render('MiCapacitacion/Index', [
-            'inscripciones' => $inscripciones,
+            'seccion' => $seccion,
+            'panel' => Inertia::defer(fn () => $this->miCapacitacion->panel($usuario)),
         ]);
     }
 

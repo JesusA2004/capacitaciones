@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
-import { BookOpen, Plus, Trash2 } from '@lucide/vue';
+import { BookOpen, Plus, Presentation, Trash2 } from '@lucide/vue';
 import { ref } from 'vue';
 import CursoFormDialog from '@/components/Cursos/CursoFormDialog.vue';
 import type { ColumnaDataTable } from '@/components/DataTable/DataTable.vue';
@@ -19,7 +19,7 @@ import {
 import { useAlertas } from '@/composables/useAlertas';
 import { useFiltros } from '@/composables/useFiltros';
 import { dashboard } from '@/routes';
-import { destroy, edit, index } from '@/routes/cursos';
+import { aula, destroy, edit, index } from '@/routes/cursos';
 import type { CursoItem, EstadoCursoOpcion, RespuestaPaginada } from '@/types';
 
 const props = defineProps<{
@@ -32,7 +32,7 @@ defineOptions({
     layout: {
         breadcrumbs: [
             { title: 'Inicio', href: dashboard() },
-            { title: 'Cursos', href: index.url() },
+            { title: 'Cursos y aulas', href: index.url() },
         ],
     },
 });
@@ -87,11 +87,11 @@ async function eliminar(curso: CursoItem) {
 <template>
     <Head title="Cursos" />
 
-    <div class="flex flex-col gap-6 p-4">
+    <div class="pagina-ancha flex flex-col gap-6">
         <div class="flex items-center justify-between">
             <Heading
-                title="Cursos"
-                description="Administra los cursos de capacitación e inducción"
+                title="Cursos y aulas"
+                description="Crea el contenido de cada curso y abre su aula para ver avance, trabajo y calificaciones"
             />
             <Button @click="dialogAbierto = true">
                 <Plus class="size-4" />
@@ -156,6 +156,16 @@ async function eliminar(curso: CursoItem) {
             </template>
             <template #acciones="{ fila }">
                 <div class="flex justify-end gap-1">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Abrir aula (tablón, trabajo, calificaciones y participantes)"
+                        as-child
+                    >
+                        <Link :href="aula(fila.id)">
+                            <Presentation class="size-4" />
+                        </Link>
+                    </Button>
                     <Button
                         variant="ghost"
                         size="icon"
