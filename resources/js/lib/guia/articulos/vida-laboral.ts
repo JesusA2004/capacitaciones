@@ -484,8 +484,8 @@ export const ARTICULOS_VIDA_LABORAL: ArticuloGuia[] = [
                 modo: 'operativo',
             },
             {
-                etiqueta: 'Ir a mis Avisos',
-                ruta: '/avisos',
+                etiqueta: 'Ir a Mis notificaciones',
+                ruta: '/mis-notificaciones',
                 modo: 'colaborador',
             },
         ],
