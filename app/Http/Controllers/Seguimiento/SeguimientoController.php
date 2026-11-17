@@ -9,6 +9,7 @@ use App\Services\Seguimiento\AlcanceSeguimientoService;
 use App\Services\Seguimiento\ReportesApiCliente;
 use App\Services\Seguimiento\ReportesNoDisponibleException;
 use App\Services\Seguimiento\SeguimientoService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -26,6 +27,19 @@ class SeguimientoController extends Controller
         private readonly AlcanceSeguimientoService $alcance,
         private readonly ReportesApiCliente $cliente,
     ) {}
+
+    /**
+     * /seguimiento lleva a la Nine Box (para qué sirven los datos de
+     * Reportes); sin Nine Box, al tablero por sucursal.
+     */
+    public function inicio(Request $request): Response|RedirectResponse
+    {
+        if (config('features.nine_box') && $this->usuario($request)->can('nine_box.ver')) {
+            return redirect()->route('seguimiento.nine-box.index', $request->query());
+        }
+
+        return $this->sucursales($request);
+    }
 
     public function sucursales(Request $request): Response
     {

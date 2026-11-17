@@ -137,8 +137,6 @@ const ESPERADO = [
         // docs/EVALUACIONES_TECNICAS.md): bloque transversal, sin número.
         'Seguimiento',
         [
-            'Por sucursal',
-            'Por gestor',
             'Nine Box',
             'Seguimientos técnicos',
             'Calendario de seguimientos',
@@ -245,8 +243,6 @@ test('cada acceso nuevo o reacomodado exige el permiso real de su controlador', 
         'Calificar cuestionarios': ['respuestas.ver'],
         'Calificar actividades': ['respuestas.ver'],
         'Certificación Mr. Lana': ['cursos.ver', 'asignaciones.ver', 'respuestas.ver'],
-        'Por sucursal': ['seguimiento.ver'],
-        'Por gestor': ['seguimiento.ver'],
         'Nine Box': ['nine_box.ver'],
         'Seguimientos técnicos': ['evaluaciones_tecnicas.ver'],
         'Calendario de seguimientos': ['evaluaciones_tecnicas.configurar'],
@@ -303,8 +299,6 @@ test('las importaciones solo se ofrecen con permisos de importación (solo super
 
 test('los módulos con bandera quedan tras su feature flag y nunca se pintan con href "#"', () => {
     const marcadores = {
-        'Por sucursal': 'seguimiento',
-        'Por gestor': 'seguimiento',
         'Nine Box': 'nine_box',
         'Vínculos con Reportes': 'seguimiento',
         'Certificación Mr. Lana': 'certificacion',

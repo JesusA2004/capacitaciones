@@ -11,7 +11,11 @@ use Illuminate\Support\Facades\Route;
 // (VinculoReportesPolicy); el alcance de sucursales lo resuelve
 // AlcanceSeguimientoService (módulo «seguimiento» de Roles y permisos).
 Route::middleware(['auth', 'verified', 'feature:seguimiento'])->prefix('seguimiento')->name('seguimiento.')->group(function () {
-    Route::get('/', [SeguimientoController::class, 'sucursales'])->name('index');
+    // La entrada del módulo es la Nine Box (2026-11-17): los datos duros de
+    // Reportes solo informan el desempeño. «Por sucursal» y «Por gestor»
+    // siguen como consulta secundaria, sin entrada en el menú.
+    Route::get('/', [SeguimientoController::class, 'inicio'])->name('index');
+    Route::get('sucursales', [SeguimientoController::class, 'sucursales'])->name('sucursales.index');
     Route::get('gestores', [SeguimientoController::class, 'gestores'])->name('gestores.index');
     Route::get('gestores/{empleado}', [SeguimientoController::class, 'gestor'])->name('gestores.show')->whereNumber('empleado');
 

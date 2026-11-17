@@ -145,8 +145,6 @@ import { index as indexMisReportes } from '@/routes/rh/reportes/mis-reportes';
 import { index as indexRhSolicitudes } from '@/routes/rh/solicitudes';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
 import { index as indexValidacionDocumentos } from '@/routes/rh/validacion-documentos';
-import { index as indexSeguimiento } from '@/routes/seguimiento';
-import { index as indexSeguimientoGestores } from '@/routes/seguimiento/gestores';
 import { index as indexNineBox } from '@/routes/seguimiento/nine-box';
 import { index as indexSeguimientoVinculos } from '@/routes/seguimiento/vinculos';
 import { index as indexPendientesAltaSistemas } from '@/routes/sistemas/pendientes-alta';
@@ -822,8 +820,9 @@ export function useMainNavItems() {
                 ],
             ),
 
-            // Fase 2 «Seguimiento» (docs/SEGUIMIENTO.md): datos duros de
-            // Reportes por sucursal y por gestor. Solo modo operativo.
+            // Fase 2 «Seguimiento» (docs/SEGUIMIENTO.md, docs/NINE_BOX.md): los
+            // datos duros de Reportes alimentan la Nine Box; «Por sucursal» y
+            // «Por gestor» quedan sin entrada (consulta secundaria). Solo modo operativo.
             grupo(
                 {
                     id: 'seguimiento',
@@ -831,18 +830,6 @@ export function useMainNavItems() {
                     icono: Activity,
                 },
                 [
-                    features.value.seguimiento &&
-                        tienePermiso('seguimiento.ver') && {
-                            title: 'Por sucursal',
-                            href: indexSeguimiento(),
-                            icon: Activity,
-                        },
-                    features.value.seguimiento &&
-                        tienePermiso('seguimiento.ver') && {
-                            title: 'Por gestor',
-                            href: indexSeguimientoGestores(),
-                            icon: Users,
-                        },
                     // Desempeño (Reportes) × potencial (Seguimientos técnicos +
                     // calibración): docs/NINE_BOX.md.
                     features.value.seguimiento &&

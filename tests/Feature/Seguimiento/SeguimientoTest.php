@@ -101,7 +101,7 @@ it('el tablero suma por sucursal de PEOPLE los branches vinculados, con semanas 
     segVincularSucursales($this);
 
     $this->actingAs(clUsuario('rh_admin'))
-        ->get('/seguimiento')
+        ->get('/seguimiento/sucursales')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('Seguimiento/Sucursales')
@@ -152,7 +152,7 @@ it('si Reportes no responde la pantalla muestra el motivo en vez de tronar', fun
     Http::fake([SEG_URL.'/*' => Http::response(['message' => 'Server Error'], 500)]);
 
     $this->actingAs(clUsuario('rh_admin'))
-        ->get('/seguimiento')
+        ->get('/seguimiento/sucursales')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->loadDeferredProps(fn (Assert $reload) => $reload

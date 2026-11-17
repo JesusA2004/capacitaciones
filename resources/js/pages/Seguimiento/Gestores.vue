@@ -35,6 +35,7 @@ import { dashboard } from '@/routes';
 import { index as indexSeguimiento } from '@/routes/seguimiento';
 import { index as indexGestores, show as showGestor } from '@/routes/seguimiento/gestores';
 import { index as indexNineBox } from '@/routes/seguimiento/nine-box';
+import { index as indexSeguimientoSucursales } from '@/routes/seguimiento/sucursales';
 import { index as indexVinculos } from '@/routes/seguimiento/vinculos';
 import type {
     FiltrosSeguimiento,
@@ -136,7 +137,7 @@ const opcionesSucursal = computed(() => tablero.value?.opciones_sucursal ?? []);
             :icono="Users"
         >
             <Button variant="outline" as-child>
-                <Link :href="indexSeguimiento({ query: filtros.mes ? { mes: filtros.mes } : {} })">
+                <Link :href="indexSeguimientoSucursales({ query: filtros.mes ? { mes: filtros.mes } : {} })">
                     <Building2 class="size-4" /> Por sucursal
                 </Link>
             </Button>

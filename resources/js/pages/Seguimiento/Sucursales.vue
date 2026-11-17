@@ -30,8 +30,8 @@ import {
     tonoMora,
 } from '@/lib/seguimiento';
 import { dashboard } from '@/routes';
-import { index as indexSeguimiento } from '@/routes/seguimiento';
 import { index as indexGestores } from '@/routes/seguimiento/gestores';
+import { index as indexSeguimientoSucursales } from '@/routes/seguimiento/sucursales';
 import { index as indexVinculos } from '@/routes/seguimiento/vinculos';
 import type {
     FiltrosSeguimiento,
@@ -60,7 +60,7 @@ defineOptions({
     },
 });
 
-const { cargando, ir } = useSeguimientoPeriodo(() => indexSeguimiento.url());
+const { cargando, ir } = useSeguimientoPeriodo(() => indexSeguimientoSucursales.url());
 
 const periodo = computed(() => props.datos?.datos?.periodo ?? null);
 const tablero = computed(() => props.datos?.datos?.tablero ?? null);

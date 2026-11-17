@@ -77,8 +77,6 @@ function sbOperativo(): array
         'Departamentos' => [['departamentos.administrar'], 'administracion.departamentos.index'],
         'Empresas' => [['empresas.ver'], 'administracion.empresas.index'],
         // Seguimiento (features `seguimiento` y `nine_box`, encendidas por defecto).
-        'Por sucursal' => [['seguimiento.ver'], 'seguimiento.index'],
-        'Por gestor' => [['seguimiento.ver'], 'seguimiento.gestores.index'],
         'Nine Box' => [['nine_box.ver'], 'seguimiento.nine-box.index'],
         'Seguimientos técnicos' => [['evaluaciones_tecnicas.ver'], 'evaluaciones-tecnicas.index'],
         'Calendario de seguimientos' => [['evaluaciones_tecnicas.configurar'], 'evaluaciones-tecnicas.configuracion'],
