@@ -9,6 +9,7 @@ use App\Enums\EstadoUsuario;
 use App\Enums\EstatusImss;
 use App\Enums\Genero;
 use App\Enums\TipoContratacion;
+use App\Enums\UnidadPeriodoPrueba;
 use App\Models\Concerns\NombreSinApellidos;
 use App\Models\Concerns\SincronizaDomicilio;
 use App\Services\Colaboradores\BuscadorColaboradoresService;
@@ -72,6 +73,9 @@ use Spatie\Activitylog\Traits\LogsActivity;
  * @property int|null $alta_imss_subido_por
  * @property Carbon|null $periodo_prueba_inicio
  * @property Carbon|null $periodo_prueba_fin
+ * @property Carbon|null $fecha_induccion Fecha en que tomó su inducción (captura de RH; docs/FECHAS_LABORALES.md).
+ * @property int|null $periodo_prueba_cantidad Periodo de prueba ESPECÍFICO de la persona (vacío = hereda el del puesto).
+ * @property UnidadPeriodoPrueba|null $periodo_prueba_unidad
  * @property Carbon|null $contrato_indeterminado_fisico_desde Su contrato indeterminado existe en papel (plantilla histórica): rige desde esta fecha. Nunca un documento generado.
  * @property Carbon|null $fecha_nacimiento
  * @property string|null $curp
@@ -128,6 +132,7 @@ use Spatie\Activitylog\Traits\LogsActivity;
     'fecha_baja', 'expediente_cerrado_en', 'expediente_cerrado_por',
     'fecha_ingreso', 'estatus', 'estatus_imss', 'fecha_alta_imss',
     'periodo_prueba_inicio', 'periodo_prueba_fin', 'contrato_indeterminado_fisico_desde',
+    'fecha_induccion', 'periodo_prueba_cantidad', 'periodo_prueba_unidad',
     'fecha_nacimiento', 'curp', 'rfc', 'nss', 'domicilio',
     'correo_personal', 'correo_corporativo', 'contacto_emergencia_nombre', 'contacto_emergencia_telefono',
     'contacto_emergencia_parentesco', 'contacto_emergencia_direccion', 'clave_legacy', 'importado_de', 'estatus_origen',
@@ -177,6 +182,9 @@ class Colaborador extends Model
             'alta_imss_subido_en' => 'datetime',
             'periodo_prueba_inicio' => 'date',
             'periodo_prueba_fin' => 'date',
+            'fecha_induccion' => 'date',
+            'periodo_prueba_cantidad' => 'integer',
+            'periodo_prueba_unidad' => UnidadPeriodoPrueba::class,
             'contrato_indeterminado_fisico_desde' => 'date',
             'fecha_nacimiento' => 'date',
             'aviso_privacidad_aceptado' => 'boolean',
@@ -495,7 +503,7 @@ class Colaborador extends Model
             ->logOnly([
                 'name', 'apellidos', 'estatus', 'sucursal_principal_id', 'departamento_id', 'puesto_id',
                 'jefe_id', 'gerente_id', 'sueldo_mensual', 'fecha_ingreso', 'tipo_contratacion',
-                'periodo_prueba_inicio', 'periodo_prueba_fin', 'estado_alta', 'fecha_baja',
+                'periodo_prueba_inicio', 'periodo_prueba_fin', 'fecha_induccion', 'periodo_prueba_cantidad', 'periodo_prueba_unidad', 'estado_alta', 'fecha_baja',
                 'expediente_cerrado_en', 'incorporacion_decision',
             ])
             ->logOnlyDirty()

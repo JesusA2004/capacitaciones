@@ -56,6 +56,7 @@ use App\Http\Controllers\Api\V1\Rh\DocumentoProcesoController;
 use App\Http\Controllers\Api\V1\Rh\EstructuraController;
 use App\Http\Controllers\Api\V1\Rh\EvaluacionInduccionPdfController as RhEvaluacionInduccionPdfController;
 use App\Http\Controllers\Api\V1\Rh\ExpedienteController as RhExpedienteController;
+use App\Http\Controllers\Api\V1\Rh\FechasLaboralesController as RhFechasLaboralesController;
 use App\Http\Controllers\Api\V1\Rh\IncorporacionController as RhIncorporacionController;
 use App\Http\Controllers\Api\V1\Rh\JerarquiaPuestoController as RhJerarquiaPuestoController;
 use App\Http\Controllers\Api\V1\Rh\LoteNominaController as RhLoteNominaController;
@@ -469,6 +470,8 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
             Route::get('tablero', [CicloLaboralRhController::class, 'tablero'])->name('tablero');
             Route::get('ciclo/pendientes', [CicloLaboralRhController::class, 'pendientes'])->name('ciclo.pendientes');
             Route::get('colaboradores/{colaborador}/ciclo', [CicloLaboralRhController::class, 'ciclo'])->name('colaboradores.ciclo')->withTrashed();
+            // Fechas laborales (aditivo; se editan por correcciones/fechas_laborales).
+            Route::get('colaboradores/{colaborador}/fechas-laborales', [RhFechasLaboralesController::class, 'show'])->name('colaboradores.fechas-laborales');
             // Solicitud de empleo + Estudio socioeconómico: ver y completar lo faltante (mismo controlador que la web).
             Route::get('colaboradores/{colaborador}/solicitud-empleo', [RhSolicitudEmpleoIngresoController::class, 'show'])->name('solicitud-empleo.show');
             Route::post('colaboradores/{colaborador}/solicitud-empleo/{seccion}', [RhSolicitudEmpleoIngresoController::class, 'guardar'])->name('solicitud-empleo.guardar')

@@ -14,8 +14,8 @@ use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\Colaboradores\DomicilioService;
+use App\Services\Colaboradores\FechasLaboralesService;
 use App\Services\Compensacion\CompensacionService;
-use App\Services\Contratos\ContratoLaboralService;
 use App\Services\Formatos\Variables\NumeroALetras;
 use App\Services\Incorporacion\SolicitudEmpleo\DatosSolicitudEmpleoService;
 use App\Support\DatoMarcador;
@@ -875,11 +875,9 @@ class DatosDocumentoService
      */
     private function finSegunPuesto(Colaborador $c, CarbonImmutable $inicio): ?CarbonInterface
     {
-        if ($c->puesto_id === null || (int) ($c->puesto->meses_periodo_prueba ?? 0) < 1) {
-            return null;
-        }
-
-        return app(ContratoLaboralService::class)->fechaFinPeriodoPrueba($c->puesto_id, $inicio);
+        // Periodo efectivo: el específico de la persona o el de su puesto
+        // (FechasLaboralesService); sin ninguno, queda vacío.
+        return app(FechasLaboralesService::class)->finDesde($c, $inicio);
     }
 
     /**

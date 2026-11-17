@@ -20,6 +20,7 @@ use App\Models\User;
 use App\Policies\GeneratedDocumentPolicy;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Colaboradores\FechasLaboralesService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\DocumentosLaborales\MotorDocumentalService;
 use App\Services\DocumentosMaestros\CatalogoMaestrosService;
@@ -87,6 +88,7 @@ class RegularizacionContratosService
         private readonly AuditoriaService $auditoria,
         private readonly ContratoFirmadoService $firmados,
         private readonly FotoColaboradorService $fotos,
+        private readonly FechasLaboralesService $fechas,
     ) {}
 
     // ───────────────────────── Permisos ─────────────────────────
@@ -372,7 +374,7 @@ class RegularizacionContratosService
             $bloqueos[] = ['etiqueta' => 'Fecha de ingreso', 'detalle' => 'Captura la fecha de ingreso en el expediente del colaborador.', 'configurar_url' => null];
         }
 
-        if ($inicial === null && (int) ($puesto->meses_periodo_prueba ?? 0) < 1) {
+        if ($inicial === null && $this->fechas->periodoEfectivo($colaborador)['origen'] === 'sin_definir') {
             $bloqueos[] = [
                 'etiqueta' => 'Duración del periodo de prueba del puesto',
                 'detalle' => sprintf('El puesto «%s» no tiene duración de periodo de prueba: captúrala en Organización → Puestos y salarios.', $puesto->nombre ?? 'sin puesto'),
@@ -387,8 +389,11 @@ class RegularizacionContratosService
         }
 
         if ($inicial === null) {
-            $ingreso = CarbonImmutable::parse((string) $colaborador->fecha_ingreso?->toDateString());
-            $inicial = $this->enMemoria($colaborador, TipoContratacion::CapacitacionInicial, $ingreso, $this->contratos->fechaFinPeriodoPrueba($colaborador->puesto_id, $ingreso), null);
+            // Fechas laborales (FechasLaboralesService): desde el inicio de
+            // capacitación inicial (o ingreso) con el periodo efectivo
+            // (específico de la persona o el del puesto).
+            $ingreso = CarbonImmutable::parse((string) $this->fechas->inicioCapacitacion($colaborador)?->toDateString());
+            $inicial = $this->enMemoria($colaborador, TipoContratacion::CapacitacionInicial, $ingreso, $this->fechas->finDesde($colaborador, $ingreso) ?? $this->contratos->fechaFinPeriodoPrueba($colaborador->puesto_id, $ingreso), null);
         }
 
         $fin = $inicial->fecha_fin !== null ? CarbonImmutable::parse($inicial->fecha_fin->toDateString()) : null;

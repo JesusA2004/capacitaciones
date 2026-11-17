@@ -11,6 +11,7 @@ use App\Models\PasoEvaluacionTecnica;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Auditoria\AuditoriaService;
+use App\Services\Colaboradores\FechasLaboralesService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Evaluaciones\FormularioEvaluacionService;
 use App\Support\FechaMexico;
@@ -38,6 +39,7 @@ class EvaluacionTecnicaService
         private readonly AvisosEvaluacionTecnicaService $avisos,
         private readonly AuditoriaService $auditoria,
         private readonly FotoColaboradorService $fotos,
+        private readonly FechasLaboralesService $fechas,
     ) {}
 
     /**
@@ -213,8 +215,10 @@ class EvaluacionTecnicaService
         $hitos = $evaluaciones->map(fn (EvaluacionTecnica $e): array => $this->fila($e, $hoy))->all();
         $generados = $evaluaciones->where('puesto_id', $colaborador->puesto_id)->pluck('dias')->all();
 
-        if ($colaborador->puesto_id !== null && $colaborador->fecha_ingreso !== null) {
-            $ingreso = CarbonImmutable::parse($colaborador->fecha_ingreso)->startOfDay();
+        // Día N = inicio de capacitación inicial (o ingreso) + N días.
+        $ingreso = $this->fechas->baseSeguimientos($colaborador);
+
+        if ($colaborador->puesto_id !== null && $ingreso !== null) {
 
             foreach (PasoEvaluacionTecnica::query()->where('puesto_id', $colaborador->puesto_id)->where('activo', true)->orderBy('dias')->get() as $paso) {
                 if (in_array($paso->dias, $generados, true)) {
@@ -255,6 +259,8 @@ class EvaluacionTecnicaService
                 'jefe' => $colaborador->jefe?->nombreCompleto(),
                 'fecha_ingreso' => $colaborador->fecha_ingreso?->toDateString(),
                 'dias_desde_ingreso' => $colaborador->fecha_ingreso !== null ? (int) CarbonImmutable::parse($colaborador->fecha_ingreso)->startOfDay()->diffInDays($hoy) : null,
+                // Aditivo: desde dónde corren los días de los Seguimientos.
+                'inicio_capacitacion' => $ingreso?->toDateString(),
             ],
             'hitos' => $hitos,
             'resumen' => [

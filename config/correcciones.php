@@ -82,6 +82,44 @@ return [
             ],
         ],
 
+        // Fechas laborales del expediente (docs/FECHAS_LABORALES.md): cada
+        // cambio guarda también las fechas calculadas que se movieron.
+        'fechas_laborales' => [
+            'etiqueta' => 'Fechas laborales',
+            'campos' => [
+                'fecha_ingreso' => [
+                    'etiqueta' => 'Fecha de ingreso (inicio de labores)', 'tipo' => 'fecha', 'modo' => ModoCorreccion::Directo->value,
+                    'permiso' => 'expedientes.editar_fechas',
+                    'reglas' => ['required', 'date', 'after:1950-01-01', 'before_or_equal:+1 year'],
+                ],
+                'periodo_prueba_inicio' => [
+                    'etiqueta' => 'Inicio de capacitación inicial', 'tipo' => 'fecha', 'modo' => ModoCorreccion::Directo->value,
+                    'permiso' => 'expedientes.editar_fechas',
+                    'reglas' => ['nullable', 'date', 'after:1950-01-01', 'before_or_equal:+1 year'],
+                ],
+                'fecha_induccion' => [
+                    'etiqueta' => 'Fecha de inducción', 'tipo' => 'fecha', 'modo' => ModoCorreccion::Directo->value,
+                    'permiso' => 'expedientes.editar_fechas',
+                    'reglas' => ['nullable', 'date', 'after:1950-01-01', 'before_or_equal:+1 year'],
+                ],
+                'fecha_alta_imss' => [
+                    'etiqueta' => 'Fecha de alta IMSS', 'tipo' => 'fecha', 'modo' => ModoCorreccion::Directo->value,
+                    'permiso' => 'expedientes.editar_fechas',
+                    'reglas' => ['nullable', 'date', 'after:1950-01-01', 'before_or_equal:+1 year'],
+                ],
+                'periodo_prueba_cantidad' => [
+                    'etiqueta' => 'Periodo de prueba específico (cantidad)', 'tipo' => 'entero', 'modo' => ModoCorreccion::Directo->value,
+                    'permiso' => 'expedientes.editar_fechas',
+                    'reglas' => ['nullable', 'integer', 'min:1', 'max:730'],
+                ],
+                'periodo_prueba_unidad' => [
+                    'etiqueta' => 'Periodo de prueba específico (unidad)', 'tipo' => 'seleccion', 'modo' => ModoCorreccion::Directo->value,
+                    'permiso' => 'expedientes.editar_fechas',
+                    'reglas' => ['nullable', 'string', 'in:meses,dias'],
+                ],
+            ],
+        ],
+
         'personal' => [
             'etiqueta' => 'Datos personales',
             'campos' => [

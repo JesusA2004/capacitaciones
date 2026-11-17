@@ -13,6 +13,7 @@ use App\Services\Correcciones\Contracts\DominioCorreccion;
 use App\Services\Correcciones\Dominios\AgendaDominio;
 use App\Services\Correcciones\Dominios\ContratacionDominio;
 use App\Services\Correcciones\Dominios\DocumentoGeneradoDominio;
+use App\Services\Correcciones\Dominios\FechasLaboralesDominio;
 use App\Services\Correcciones\Dominios\FiniquitoDominio;
 use App\Services\Correcciones\Dominios\IncapacidadDominio;
 use App\Services\Correcciones\Dominios\LaboralDominio;
@@ -45,6 +46,7 @@ class CorreccionService
     private const DOMINIOS = [
         'salario' => SalarioDominio::class,
         'laboral' => LaboralDominio::class,
+        'fechas_laborales' => FechasLaboralesDominio::class,
         'personal' => PersonalDominio::class,
         'contratacion' => ContratacionDominio::class,
         'incapacidad' => IncapacidadDominio::class,

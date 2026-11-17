@@ -7,12 +7,11 @@ use App\Enums\EstadoCandidato;
 use App\Enums\EstadoUsuario;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
-use App\Services\Calendario\CalendarioLaboralService;
+use App\Services\Colaboradores\FechasLaboralesService;
 use App\Services\Reclutamiento\FaseContratadoService;
 use App\Support\FechaMexico;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
-use Illuminate\Support\Carbon;
 
 /**
  * ÚNICA fuente de «¿ya se le puede asignar la evaluación de periodo de prueba
@@ -31,9 +30,11 @@ use Illuminate\Support\Carbon;
  *  4. tiene un contrato vigente con fecha de término;
  *  5. ya llegó su fecha: faltan `contratos.dias_aviso_vencimiento` días
  *     HÁBILES o menos (15, FO-RH-EPP-001) para que termine su periodo de
- *     prueba. El periodo se cuenta igual en todos lados: fecha de ingreso +
- *     duración del puesto − 1 día (y solo si eso no se puede calcular, la
- *     fecha de término de su contrato).
+ *     prueba. El periodo se cuenta igual en todos lados
+ *     (FechasLaboralesService): inicio de capacitación inicial (o fecha de
+ *     ingreso) + periodo efectivo (el específico de la persona o el del
+ *     puesto) − 1 día; solo si eso no se puede calcular, la fecha de término
+ *     de su contrato.
  *
  * @phpstan-import-type Hechos from FaseContratadoService
  *
@@ -53,7 +54,7 @@ class ElegibilidadEvaluacionPeriodoPruebaService
 
     public function __construct(
         private readonly FaseContratadoService $fases,
-        private readonly CalendarioLaboralService $calendario,
+        private readonly FechasLaboralesService $fechas,
     ) {}
 
     /**
@@ -117,11 +118,12 @@ class ElegibilidadEvaluacionPeriodoPruebaService
      */
     public function finPeriodo(Colaborador $colaborador, ?ContratoLaboral $contrato): ?CarbonImmutable
     {
-        $colaborador->loadMissing('puesto');
-        $meses = (int) ($colaborador->puesto->meses_periodo_prueba ?? 0);
+        // Inicio de capacitación inicial (o ingreso) + periodo efectivo
+        // (específico de la persona o el del puesto): FechasLaboralesService.
+        $fin = $this->fechas->finPeriodoPrueba($colaborador);
 
-        if ($colaborador->fecha_ingreso !== null && $meses >= 1) {
-            return CarbonImmutable::parse($colaborador->fecha_ingreso->toDateString())->addMonthsNoOverflow($meses)->subDay();
+        if ($fin !== null) {
+            return $fin;
         }
 
         return $contrato?->fecha_fin !== null ? CarbonImmutable::parse($contrato->fecha_fin->toDateString()) : null;
@@ -134,27 +136,12 @@ class ElegibilidadEvaluacionPeriodoPruebaService
      */
     public function asignableDesde(CarbonInterface $fin): CarbonImmutable
     {
-        $fin = CarbonImmutable::parse($fin->toDateString());
-        $dias = $this->diasAnticipacion();
-        $desde = $fin;
-
-        // Tope de seguridad: N días hábiles nunca abarcan más de 3N + 7 naturales.
-        for ($i = 0; $i < $dias * 3 + 7; $i++) {
-            $anterior = $desde->subDay();
-
-            if ($this->calendario->sumarDiasHabiles(Carbon::parse($anterior->toDateString()), $dias)->toDateString() < $fin->toDateString()) {
-                break;
-            }
-
-            $desde = $anterior;
-        }
-
-        return $desde;
+        return $this->fechas->evaluacionHabilitadaDesde($fin);
     }
 
     public function diasAnticipacion(): int
     {
-        return max(0, (int) config('contratos.dias_aviso_vencimiento', 15));
+        return $this->fechas->diasAnticipacion();
     }
 
     /**

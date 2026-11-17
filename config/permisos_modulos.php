@@ -414,6 +414,9 @@ return [
             'alcances' => ['todos' => 'expedientes.ver_todos', 'region' => 'expedientes.ver_region', 'sucursal' => 'expedientes.ver_sucursal', 'equipo' => 'expedientes.ver_equipo'],
             'acciones' => [
                 'expedientes.crear' => 'Crear', 'expedientes.editar' => 'Editar', 'expedientes.revisar' => 'Revisar', 'expedientes.eliminar' => 'Eliminar',
+                // Fechas laborales (ingreso, capacitación inicial, inducción,
+                // alta IMSS y periodo de prueba específico; docs/FECHAS_LABORALES.md).
+                'expedientes.editar_fechas' => 'Editar fechas laborales y periodo de prueba',
                 // Documentos del expediente: ver el estado ≠ abrir/descargar el
                 // archivo (el gerente consulta datos generales, no descarga).
                 'documentos.ver' => 'Ver documentos del expediente (estado)',
@@ -1116,6 +1119,7 @@ return [
         'usuarios.restablecer_acceso' => 'Rehabilita una cuenta suspendida.',
         'usuarios.reactivar' => 'Reactiva a un colaborador dado de baja desde su expediente.',
         'expedientes.migrar' => 'Migración y carga inicial de colaboradores y expedientes históricos.',
+        'expedientes.editar_fechas' => 'Edita las fechas laborales (ingreso, capacitación inicial, inducción, alta IMSS) y el periodo de prueba específico de una persona, con motivo e historial; incluye la captura masiva.',
         'headcount.importar' => 'Importa la plantilla autorizada (headcount) desde Excel.',
         'colaboradores.importar_salarios_vacaciones' => 'Importa salarios y vacaciones históricas desde Excel.',
         'contactos_emergencia.importar' => 'Importa los contactos de emergencia desde el Excel de Google Forms.',

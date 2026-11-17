@@ -96,6 +96,8 @@ class RolesYPermisosSeeder extends Seeder
         'expedientes.ver_sucursal',
         'expedientes.crear',
         'expedientes.editar',
+        // Fechas laborales y periodo de prueba específico (migración 2026_11_18_100100).
+        'expedientes.editar_fechas',
         'expedientes.revisar',
         'expedientes.eliminar',
         // Migración inicial de colaboradores/expedientes históricos y datos médicos (sensibles).
@@ -530,7 +532,7 @@ class RolesYPermisosSeeder extends Seeder
             'usuarios.ver', 'usuarios.crear', 'usuarios.editar', 'usuarios.asignar_roles', 'usuarios.desactivar', 'usuarios.restablecer_acceso',
             'sucursales.administrar', 'departamentos.administrar', 'puestos.administrar',
             'empresas.ver', 'empresas.crear', 'empresas.editar',
-            'expedientes.ver', 'expedientes.ver_todos', 'expedientes.crear', 'expedientes.editar', 'expedientes.revisar',
+            'expedientes.ver', 'expedientes.ver_todos', 'expedientes.crear', 'expedientes.editar', 'expedientes.editar_fechas', 'expedientes.revisar',
             // Sin importaciones/cargas masivas (solo super_admin, 2026-10-20).
             'expedientes.datos_medicos.ver',
             'documentos.ver', 'documentos.subir', 'documentos.descargar', 'documentos.revisar', 'documentos.aprobar', 'documentos.rechazar', 'documentos.versiones',

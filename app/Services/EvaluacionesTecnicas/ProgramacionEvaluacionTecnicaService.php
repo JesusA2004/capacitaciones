@@ -8,6 +8,7 @@ use App\Enums\EstadoUsuario;
 use App\Models\Colaborador;
 use App\Models\EvaluacionTecnica;
 use App\Models\PasoEvaluacionTecnica;
+use App\Services\Colaboradores\FechasLaboralesService;
 use App\Services\Evaluaciones\FormularioEvaluacionService;
 use App\Support\FechaMexico;
 use Carbon\CarbonImmutable;
@@ -21,7 +22,8 @@ use Illuminate\Support\Facades\Log;
  * `evaluaciones-tecnicas:programar`). Idempotente:
  *
  *  1. Por cada paso activo del calendario, genera la evaluación a cada
- *     colaborador ACTIVO del puesto cuyo día N desde su fecha de ingreso ya
+ *     colaborador ACTIVO del puesto cuyo día N desde su inicio de capacitación
+ *     inicial (o, vacío, su fecha de ingreso; FechasLaboralesService) ya
  *     llegó (dentro de la ventana de gracia, config/evaluaciones_tecnicas.php),
  *     con la versión publicada vigente del formulario, y avisa a quien la
  *     contesta. El índice único (colaborador, puesto, día) impide duplicados.
@@ -34,6 +36,7 @@ class ProgramacionEvaluacionTecnicaService
     public function __construct(
         private readonly FormularioEvaluacionService $formularios,
         private readonly AvisosEvaluacionTecnicaService $avisos,
+        private readonly FechasLaboralesService $fechas,
     ) {}
 
     /**
@@ -59,8 +62,10 @@ class ProgramacionEvaluacionTecnicaService
                 ->where('puesto_id', $paso->puesto_id)
                 ->where('estatus', EstadoUsuario::Activo->value)
                 ->whereNotNull('fecha_ingreso')
-                ->whereDate('fecha_ingreso', '<=', $hoy->subDays($paso->dias)->toDateString())
-                ->whereDate('fecha_ingreso', '>=', $hoy->subDays($paso->dias + $gracia)->toDateString())
+                // Base = inicio de capacitación inicial o, vacío, fecha de
+                // ingreso (FechasLaboralesService::baseSeguimientos).
+                ->whereRaw('COALESCE(periodo_prueba_inicio, fecha_ingreso) <= ?', [$hoy->subDays($paso->dias)->toDateString()])
+                ->whereRaw('COALESCE(periodo_prueba_inicio, fecha_ingreso) >= ?', [$hoy->subDays($paso->dias + $gracia)->toDateString()])
                 ->whereDoesntHave('evaluacionesTecnicas', fn ($q) => $q->where('puesto_id', $paso->puesto_id)->where('dias', $paso->dias))
                 ->get();
 
@@ -95,9 +100,13 @@ class ProgramacionEvaluacionTecnicaService
 
     private function generar(Colaborador $colaborador, PasoEvaluacionTecnica $paso, int $formularioId): ?EvaluacionTecnica
     {
-        /** @var CarbonInterface $ingreso */
-        $ingreso = $colaborador->fecha_ingreso;
-        $programada = CarbonImmutable::parse($ingreso)->startOfDay()->addDays($paso->dias);
+        $base = $this->fechas->baseSeguimientos($colaborador);
+
+        if ($base === null) {
+            return null;
+        }
+
+        $programada = $base->addDays($paso->dias);
 
         try {
             return DB::transaction(fn (): EvaluacionTecnica => EvaluacionTecnica::query()->create([

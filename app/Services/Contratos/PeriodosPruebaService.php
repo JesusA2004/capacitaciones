@@ -5,12 +5,14 @@ namespace App\Services\Contratos;
 use App\Enums\EstadoContratoLaboral;
 use App\Enums\EstadoUsuario;
 use App\Enums\TipoContratacion;
+use App\Enums\UnidadPeriodoPrueba;
 use App\Models\Colaborador;
 use App\Models\ContratoLaboral;
 use App\Models\EvaluacionPeriodoPrueba;
 use App\Models\Puesto;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\FechasLaboralesService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\Reclutamiento\FaseContratadoService;
 use App\Support\FechaMexico;
@@ -31,8 +33,9 @@ use Illuminate\Support\Collection;
  * redirige ahí).
  *
  * Reglas (fuente en código):
- *  - vencimiento = SOLO fecha de ingreso + puestos.meses_periodo_prueba − 1 día
- *    (ContratoLaboralService::fechaFinPeriodoPrueba); el contrato solo se informa;
+ *  - vencimiento = inicio de capacitación inicial (o fecha de ingreso) +
+ *    periodo efectivo (específico de la persona o puestos.meses_periodo_prueba)
+ *    − 1 día (FechasLaboralesService::finPeriodoPrueba); el contrato solo se informa;
  *  - quien ya tiene contrato indeterminado vigente ya no está en periodo;
  *  - alerta: vence dentro de contratos.regularizacion.dias_alerta_periodo_prueba
  *    días NATURALES (15). El aviso automático que abre la evaluación
@@ -46,7 +49,7 @@ use Illuminate\Support\Collection;
 class PeriodosPruebaService
 {
     public function __construct(
-        private readonly ContratoLaboralService $contratos,
+        private readonly FechasLaboralesService $fechas,
         private readonly AlcanceOrganizacionalService $alcance,
         private readonly ElegibilidadEvaluacionPeriodoPruebaService $elegibilidad,
         private readonly FaseContratadoService $fases,
@@ -129,11 +132,18 @@ class PeriodosPruebaService
         $hoy = CarbonImmutable::parse(($hoy ?? FechaMexico::inicioDeHoy())->toDateString());
         $diasAlerta = (int) config('contratos.regularizacion.dias_alerta_periodo_prueba', 15);
         $limiteAlerta = $hoy->addDays($diasAlerta);
-        $maxMeses = max(1, (int) Puesto::query()->max('meses_periodo_prueba'));
+        // Ventana: el periodo más largo posible (del puesto o específico de
+        // alguien), contado desde el inicio de capacitación inicial (o ingreso).
+        $maxMeses = max(
+            1,
+            (int) Puesto::query()->max('meses_periodo_prueba'),
+            (int) Colaborador::query()->where('periodo_prueba_unidad', UnidadPeriodoPrueba::Meses->value)->max('periodo_prueba_cantidad'),
+            (int) ceil(((int) Colaborador::query()->where('periodo_prueba_unidad', UnidadPeriodoPrueba::Dias->value)->max('periodo_prueba_cantidad')) / 28),
+        );
 
         $colaboradores = $this->query($usuario, $filtros)
             ->whereNotNull('fecha_ingreso')
-            ->whereDate('fecha_ingreso', '>=', $hoy->subMonthsNoOverflow($maxMeses)->toDateString())
+            ->whereRaw('COALESCE(periodo_prueba_inicio, fecha_ingreso) >= ?', [$hoy->subMonthsNoOverflow($maxMeses)->toDateString()])
             ->get();
 
         $contratos = ContratoLaboral::query()
@@ -168,14 +178,16 @@ class PeriodosPruebaService
                 ->filter(fn (ContratoLaboral $c): bool => $c->fecha_fin !== null)
                 ->sortBy(fn (ContratoLaboral $c): string => (string) $c->fecha_fin?->toDateString())
                 ->first();
-            $ingreso = CarbonImmutable::parse((string) $colaborador->fecha_ingreso?->toDateString());
+            $ingreso = CarbonImmutable::parse((string) $this->fechas->inicioCapacitacion($colaborador)?->toDateString());
 
-            // Regla del negocio: SOLO fecha de ingreso + duración del puesto
-            // (el contrato registrado, si lo hay, solo se informa).
-            if ((int) ($colaborador->puesto->meses_periodo_prueba ?? 0) >= 1) {
-                $fin = CarbonImmutable::parse($this->contratos->fechaFinPeriodoPrueba($colaborador->puesto_id, $ingreso)->toDateString());
-                $fuente = 'fecha_ingreso';
-            } else {
+            // Regla del negocio (FechasLaboralesService): inicio de
+            // capacitación inicial (o ingreso) + periodo efectivo (específico
+            // o del puesto). El contrato registrado, si lo hay, solo se informa.
+            $fin = $this->fechas->finPeriodoPrueba($colaborador);
+            $periodo = $this->fechas->periodoEfectivo($colaborador);
+            $fuente = $colaborador->periodo_prueba_inicio !== null ? 'inicio_capacitacion' : 'fecha_ingreso';
+
+            if ($fin === null) {
                 $sinDuracion[] = $this->base($colaborador, $usuario);
 
                 continue;
@@ -194,7 +206,11 @@ class PeriodosPruebaService
                 ...$this->base($colaborador, $usuario),
                 'fin_periodo' => $fin->toDateString(),
                 'fuente' => $fuente,
-                'fuente_etiqueta' => 'Calculado por fecha de ingreso',
+                'fuente_etiqueta' => sprintf(
+                    'Calculado desde %s · %s',
+                    $fuente === 'inicio_capacitacion' ? 'el inicio de capacitación inicial' : 'la fecha de ingreso',
+                    $periodo['origen'] === 'especifico' ? sprintf('periodo específico de %s', $periodo['etiqueta']) : sprintf('periodo del puesto (%s)', $periodo['etiqueta']),
+                ),
                 'dias_restantes' => (int) $hoy->diffInDays($fin, false),
                 'dias_transcurridos' => (int) $ingreso->diffInDays($hoy, false),
                 'alerta' => $fin->lte($limiteAlerta),
@@ -292,6 +308,9 @@ class PeriodosPruebaService
             'evaluador' => ($colaborador->jefe ?? $colaborador->gerente)?->nombreCompleto(),
             'fecha_ingreso' => $colaborador->fecha_ingreso?->toDateString(),
             'meses_periodo_prueba' => $colaborador->puesto?->meses_periodo_prueba,
+            // Aditivo: periodo que de verdad se aplica (específico o del puesto).
+            'periodo_prueba_etiqueta' => $this->fechas->periodoEfectivo($colaborador)['etiqueta'],
+            'periodo_prueba_origen' => $this->fechas->periodoEfectivo($colaborador)['origen'],
             'ciclo_url' => sprintf('/rh/colaboradores/%d/ciclo', $colaborador->id),
         ];
     }
