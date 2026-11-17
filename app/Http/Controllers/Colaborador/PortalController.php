@@ -7,6 +7,7 @@ use App\Services\CicloLaboral\CicloLaboralService;
 use App\Services\Colaboradores\ColaboradorPerfilService;
 use App\Services\Notificaciones\NotificationFeedService;
 use App\Services\Onboarding\ProgresoInduccionService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -40,8 +41,17 @@ class PortalController extends Controller
         ]);
     }
 
-    public function perfil(Request $request): Response
+    /**
+     * «Mi perfil» repetía en solo lectura lo que ya muestra «Mi expediente».
+     * Quien puede ver su expediente va ahí (una sola pantalla); el perfil
+     * básico queda solo para cuentas sin `expedientes.ver`.
+     */
+    public function perfil(Request $request): Response|RedirectResponse
     {
+        if ($request->user()->can('expedientes.ver')) {
+            return redirect()->route('mi-expediente');
+        }
+
         return Inertia::render('Portal/Perfil', [
             'perfil' => $this->perfil->perfil($request->user()),
         ]);

@@ -3,6 +3,7 @@
 use App\Models\Colaborador;
 use App\Models\User;
 use Database\Seeders\RolesYPermisosSeeder;
+use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function () {
     // Fechas armadas con now(): el código usa el calendario de México.
@@ -26,9 +27,24 @@ test('un colaborador autenticado puede ver su portal', function () {
     );
 });
 
-test('un colaborador autenticado puede ver su perfil básico', function () {
+test('«Mi perfil» lleva a «Mi expediente» a quien puede verlo (una sola pantalla)', function () {
     $colaborador = User::factory()->create();
     $colaborador->assignRole('colaborador');
+    $colaborador->givePermissionTo('expedientes.ver');
+
+    $this->actingAs($colaborador)
+        ->get(route('portal.perfil'))
+        ->assertRedirect(route('mi-expediente'));
+});
+
+test('un colaborador sin expediente sí ve su perfil básico', function () {
+    $colaborador = User::factory()->create();
+    $colaborador->assignRole('colaborador');
+    $colaborador->revokePermissionTo('expedientes.ver');
+    $colaborador->roles->each(fn ($rol) => $rol->revokePermissionTo('expedientes.ver'));
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    $colaborador = $colaborador->fresh();
+    expect($colaborador->can('expedientes.ver'))->toBeFalse();
 
     $this->actingAs($colaborador)
         ->get(route('portal.perfil'))

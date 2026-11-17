@@ -97,13 +97,19 @@ const { tienePermiso } = usePermisos();
 const page = usePage();
 
 const accesos = computed(() => [
-    {
-        href: rutaMiPerfil().url,
-        icono: UserRound,
-        color: 'bg-[var(--mrl-primary)]/10 text-[var(--mrl-primary)] group-hover:bg-[var(--mrl-primary)] group-hover:text-white',
-        titulo: 'Mi perfil',
-        descripcion: 'Datos básicos y antigüedad',
-    },
+    // «Mi perfil» solo sin expediente: con `expedientes.ver` la misma
+    // información (y más) está en «Mi expediente», y la ruta redirige ahí.
+    ...(!tienePermiso('expedientes.ver')
+        ? [
+              {
+                  href: rutaMiPerfil().url,
+                  icono: UserRound,
+                  color: 'bg-[var(--mrl-primary)]/10 text-[var(--mrl-primary)] group-hover:bg-[var(--mrl-primary)] group-hover:text-white',
+                  titulo: 'Mi perfil',
+                  descripcion: 'Datos básicos y antigüedad',
+              },
+          ]
+        : []),
     // Mi expediente solo con `expedientes.ver` (la ruta lo exige).
     ...(tienePermiso('expedientes.ver')
         ? [

@@ -55,7 +55,7 @@ test('3) administrativo con colaborador activo: ambos modos, sin rol colaborador
     $this->actingAs($usuario)->get(route('dashboard'))
         ->assertInertia(fn (Assert $page) => $page->where('navegacion.modosDisponibles', ['operativo', 'colaborador']));
     $this->actingAs($usuario)->get(route('portal.index'))->assertOk();
-    $this->actingAs($usuario)->get(route('portal.perfil'))->assertOk();
+    $this->actingAs($usuario)->get(route('portal.perfil'))->assertRedirect(route('mi-expediente'));
     $this->actingAs($usuario)->get(route('mi-expediente'))->assertOk();
 });
 
@@ -120,6 +120,5 @@ test('7) Mi espacio de un administrador jamás abre los datos de otro colaborado
 
     $this->actingAs($admin)
         ->get(route('portal.perfil', ['colaborador_id' => $otro->id]))
-        ->assertOk()
-        ->assertDontSee('Otra Persona');
+        ->assertRedirect(route('mi-expediente'));
 });
