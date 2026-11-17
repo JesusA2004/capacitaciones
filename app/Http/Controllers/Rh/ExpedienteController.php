@@ -17,6 +17,7 @@ use App\Http\Requests\Rh\GenerarReciboNominaRequest;
 use App\Http\Requests\Rh\RegistrarAvisosRequest;
 use App\Http\Requests\Rh\VistaPreviaReciboNominaRequest;
 use App\Models\AltaDigital;
+use App\Models\Baja;
 use App\Models\Colaborador;
 use App\Models\Departamento;
 use App\Models\DocumentType;
@@ -34,6 +35,7 @@ use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
 use App\Services\Autenticacion\CredencialesService;
 use App\Services\Avisos\AvisoService;
+use App\Services\Bajas\BajaService;
 use App\Services\Colaboradores\AltaImssService;
 use App\Services\Colaboradores\DomicilioService;
 use App\Services\Colaboradores\FotoColaboradorService;
@@ -100,6 +102,7 @@ class ExpedienteController extends Controller
         private readonly DatosExpedienteService $datosExpediente,
         private readonly DomicilioService $domicilios,
         private readonly DocumentoParService $pares,
+        private readonly BajaService $bajas,
     ) {}
 
     /**
@@ -381,9 +384,8 @@ class ExpedienteController extends Controller
             'puedeReprocesarExtraccion' => $usuario->can('rh.documentos.extraccion.reprocesar') && ! $esCuentaPropia,
             'puedeIgnorarExtraccion' => $usuario->can('rh.documentos.extraccion.ignorar') && ! $esCuentaPropia,
             'puedeGestionarAcceso' => $usuario->can('usuarios.desactivar') && ! $esCuentaPropia && $cuenta !== null,
-            // Baja administrativa inmediata = decisión laboral, no de cuenta:
-            // permiso de baja del cierre laboral (nunca usuarios.desactivar).
-            // El alcance ya lo exige puedeVerExpediente() arriba.
+            // «Dar de baja» = enlace al registro formal de Bajas (nunca
+            // usuarios.desactivar, que solo administra la cuenta).
             'puedeDarDeBaja' => ! $esPropio && $this->puedeDarDeBaja($usuario, $colaborador),
             'puedeGestionarPassword' => $cuenta !== null && $puedeGenerarCredenciales,
             // Mismo chequeo que UpdateUsuarioRequest (UserPolicy::update).
@@ -654,20 +656,22 @@ class ExpedienteController extends Controller
     }
 
     /**
-     * Baja administrativa inmediata sin pasar por el flujo de aprobación de
-     * solicitudes (ver App\Services\Solicitudes\BajaColaboradorService, la
-     * misma fuente que usa la baja aprobada por solicitud). Funciona con o
-     * sin cuenta de acceso.
+     * COMPATIBILIDAD: `DELETE rh/expedientes/{colaborador}` ya NO da de baja.
+     * Antes hacía una baja administrativa sin causal, folio, finiquito, avisos
+     * ni rotación (auditoría D7/R1). Ahora solo guía al procedimiento formal
+     * (`rh.bajas.create?colaborador=…` → BajaService::registrar), que es el
+     * único camino para terminar una relación laboral. Sin consumidores en la
+     * API ni en la app (es una ruta web de sesión); se conserva para que un
+     * enlace o pestaña vieja no termine en 404/405.
      */
     public function darDeBaja(Request $request, Colaborador $colaborador): RedirectResponse
     {
         abort_unless($this->puedeDarDeBaja($request->user(), $colaborador), 403, 'No tienes permiso para dar de baja a este colaborador.');
 
-        $datos = $request->validate(['motivo' => ['nullable', 'string', 'max:500']]);
-
-        $this->baja->ejecutar($colaborador, $request->user(), $datos['motivo'] ?? null);
-
-        return back()->with('toast', ['type' => 'success', 'message' => 'El colaborador se dio de baja correctamente.']);
+        return to_route('rh.bajas.create', ['colaborador' => $colaborador->id])->with('toast', [
+            'type' => 'info',
+            'message' => 'La baja se registra en el módulo de Bajas: causal, último día, documentos y finiquito.',
+        ]);
     }
 
     /**
@@ -684,16 +688,17 @@ class ExpedienteController extends Controller
     }
 
     /**
-     * La baja administrativa inmediata termina la relación laboral: exige el
-     * permiso de baja del cierre laboral (`cierres.ejecutar_baja`, el mismo
-     * de CierreLaboralPolicy::ejecutarBaja) y alcance sobre el expediente.
-     * `usuarios.desactivar` solo administra la cuenta de acceso. Nadie se da
-     * de baja a sí mismo.
+     * «Dar de baja» desde el expediente lleva al registro formal de Bajas:
+     * mismas reglas que ese formulario (BajaPolicy::create +
+     * BajaService::puedeSolicitarPara: RH, o el gerente sobre su personal;
+     * nunca a sí mismo ni hacia arriba en la línea comercial). Un expediente
+     * ya dado de baja no muestra el botón.
      */
     private function puedeDarDeBaja(User $usuario, Colaborador $colaborador): bool
     {
-        return $usuario->can('cierres.ejecutar_baja')
-            && $usuario->colaborador_id !== $colaborador->id
+        return ! $colaborador->trashed()
+            && $usuario->can('create', Baja::class)
+            && $this->bajas->puedeSolicitarPara($usuario, $colaborador)
             && $this->alcance->puedeVerExpediente($usuario, $colaborador);
     }
 
@@ -791,18 +796,14 @@ class ExpedienteController extends Controller
      */
     public function generarReciboNomina(GenerarReciboNominaRequest $request, Colaborador $colaborador): RedirectResponse
     {
-        abort_if($colaborador->sueldo_mensual === null, 422, 'Este colaborador todavía no tiene un sueldo mensual capturado en Datos laborales.');
-
-        $recibo = $this->reciboNomina->generar($colaborador, [
-            'periodo_inicio' => (string) $request->validated('periodo_inicio'),
-            'periodo_fin' => (string) $request->validated('periodo_fin'),
-            'fecha_pago' => (string) $request->validated('fecha_pago'),
-            'sueldo_base' => (float) $request->validated('sueldo_base'),
-            'percepciones' => $request->validated('percepciones') ?? [],
-            'deducciones' => $request->validated('deducciones') ?? [],
-        ], $request->user());
-
-        return back()->with('toast', ['type' => 'success', 'message' => sprintf('Recibo de nómina %s generado correctamente.', $recibo->folio)]);
+        // Regla vigente (docs/NOMINA_QUINCENAL.md): todo recibo nace como
+        // borrador DENTRO de un lote. La ruta se conserva por compatibilidad,
+        // pero ya no crea recibos sueltos (sin lote ni trazabilidad): lleva
+        // a «Recibos de nómina» filtrado por la persona.
+        return redirect()->route('rh.nomina.index', ['colaborador' => $colaborador->id])->with('toast', [
+            'type' => 'warning',
+            'message' => 'Los recibos ya no se generan desde el expediente: se preparan dentro del lote de su periodo en «Recibos de nómina».',
+        ]);
     }
 
     /**

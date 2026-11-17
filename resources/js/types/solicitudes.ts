@@ -429,6 +429,21 @@ export type PasoFlujoAprobacion = {
     motivo_no_puede: string | null;
 };
 
+/**
+ * Nivel de visto bueno de la cadena de autorización de una solicitud
+ * (props `vistosBuenos` de Rh/Solicitudes/Show; la cadena la pinta
+ * FlujoAprobacion).
+ */
+export type NivelVistoBueno = {
+    nivel: string;
+    etiqueta: string;
+    estado: 'pendiente' | 'aprobado' | 'rechazado' | string;
+    aprobadores: string[];
+    decidio: string | null;
+    comentario: string | null;
+    fecha: string | null;
+};
+
 export type FlujoAprobacion = {
     pasos: PasoFlujoAprobacion[];
     puede_actuar_usuario_actual: boolean;

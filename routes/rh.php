@@ -218,10 +218,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
                 Route::post('{division}/editor/confirmar', [DivisionExpedienteHistoricoController::class, 'confirmarEditor'])->name('editor.confirmar')->middleware('throttle:20,1');
                 Route::get('{colaborador}', [DivisionExpedienteHistoricoController::class, 'show'])->name('show')->withTrashed();
             });
-            // withTrashed(): un colaborador dado de baja (soft-deleted, ver
-            // ExpedienteController::darDeBaja()) debe poder seguir
-            // abriéndose desde Expedientes -- es donde vive tanto la baja
-            // administrativa directa como "Reactivar colaborador"; Usuarios
+            // withTrashed(): un colaborador dado de baja (soft-deleted por
+            // el cierre de su baja formal, BajaColaboradorService) debe poder
+            // seguir abriéndose desde Expedientes -- es donde vive
+            // "Reactivar colaborador"; Usuarios
             // (Administracion\UsuarioController) solo administra la cuenta
             // de acceso (correo/roles/bloqueo), nunca la relación laboral.
             Route::get('{colaborador}', [ExpedienteController::class, 'show'])->name('show')->withTrashed();
@@ -249,6 +249,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('prestamos/{prestamo}/movimientos', [ExpedienteController::class, 'registrarPagoPrestamo'])->name('prestamos.movimientos.store');
             Route::post('prestamos/{prestamo}/activar', [ExpedienteController::class, 'activarPrestamo'])->name('prestamos.activar');
             Route::put('{colaborador}/avisos', [ExpedienteController::class, 'registrarAvisos'])->name('avisos.update');
+            // COMPATIBILIDAD: ya no da de baja; redirige al registro formal
+            // (rh.bajas.create?colaborador=…). Ver ExpedienteController::darDeBaja().
             Route::delete('{colaborador}', [ExpedienteController::class, 'darDeBaja'])->name('dar-de-baja');
             Route::post('{colaborador}/reactivar', [ExpedienteController::class, 'reactivar'])->name('reactivar')->withTrashed();
             Route::post('{colaborador}/documentos', [EmployeeDocumentController::class, 'store'])->name('documentos.store');

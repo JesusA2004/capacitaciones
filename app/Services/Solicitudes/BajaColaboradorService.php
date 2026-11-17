@@ -17,11 +17,11 @@ use Illuminate\Support\Facades\DB;
 /**
  * Ejecuta la baja REAL de un colaborador cuando una solicitud interna de
  * tipo BajaColaborador queda aprobada (ver
- * App\Services\Solicitudes\SolicitudesService::aprobar()). Distinto del
- * flujo directo de administración (App\Http\Controllers\Rh\ExpedienteController::darDeBaja(),
- * que sigue existiendo para una baja administrativa inmediata sin pasar por
- * aprobación): aquí el bloqueo de acceso viene aparejado a la aprobación de
- * la solicitud, no antes.
+ * App\Services\Solicitudes\SolicitudesService::aprobar()) o cuando el
+ * cierre laboral de una baja formal ejecuta la baja definitiva
+ * (CierreLaboralService::ejecutarBaja). Ya no existe una baja administrativa
+ * suelta desde el expediente: `rh.expedientes.dar-de-baja` solo redirige al
+ * registro formal de Bajas (BajaService::registrar).
  *
  * Nunca borra al colaborador ni su expediente — solo bloquea acceso (si
  * tiene cuenta) y actualiza headcount/vacantes, sección 2 del encargo ("Baja

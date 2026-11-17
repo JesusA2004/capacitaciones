@@ -70,7 +70,8 @@ import {
     restablecerAcceso,
     revocarAcceso,
 } from '@/routes/administracion/usuarios';
-import { darDeBaja, reactivar } from '@/routes/rh/expedientes';
+import { create as registrarBaja } from '@/routes/rh/bajas';
+import { reactivar } from '@/routes/rh/expedientes';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type {
     SiguientePaso,
@@ -188,7 +189,7 @@ const props = defineProps<{
 
 // Acuse de alta IMSS: lo sube RH al concluir el alta. Verde = registrado,
 // naranja = falta. Es un indicador, no un pendiente de la bandeja.
-const { mostrarExito, mostrarError, confirmarDelicada } = useAlertas();
+const { mostrarExito, mostrarError } = useAlertas();
 
 function reactivarColaborador() {
     accion.ejecutar('reactivarColaborador', (estado) => {
@@ -204,29 +205,6 @@ function reactivarColaborador() {
                     mostrarError('No fue posible reactivar al colaborador.'),
             },
         );
-    });
-}
-
-async function darDeBajaColaborador() {
-    const confirmado = await confirmarDelicada(
-        `¿Dar de baja a ${props.colaborador.name} ${props.colaborador.apellidos ?? ''}?`,
-        'Termina su relación laboral, no solo su acceso. Su expediente y su historial se conservan.',
-        'Dar de baja',
-    );
-
-    if (!confirmado) {
-        return;
-    }
-
-    accion.ejecutar('darDeBajaColaborador', (estado) => {
-        router.delete(darDeBaja.url(props.colaborador.id), {
-            ...estado,
-            preserveScroll: true,
-            onSuccess: () =>
-                mostrarExito('El colaborador se dio de baja correctamente.'),
-            onError: () =>
-                mostrarError('No fue posible dar de baja al colaborador.'),
-        });
     });
 }
 
@@ -660,7 +638,11 @@ function irACompletarExpediente() {
                         <DropdownMenuContent align="end" class="w-80">
                             <slot name="acciones-menu" />
                             <DropdownMenuItem
-                                v-if="cicloUrl && puedeIniciarBaja"
+                                v-if="
+                                    cicloUrl &&
+                                    puedeIniciarBaja &&
+                                    !puedeDarDeBaja
+                                "
                                 as-child
                                 class="font-medium text-destructive"
                             >
@@ -718,20 +700,29 @@ function irACompletarExpediente() {
                             </template>
                             <DropdownMenuItem
                                 v-if="puedeDarDeBaja"
+                                as-child
                                 variant="destructive"
                                 class="flex-col items-start gap-0.5 py-2"
-                                @select="darDeBajaColaborador"
                             >
-                                <span class="font-medium">Dar de baja</span>
-                                <span
-                                    class="text-xs whitespace-normal opacity-80"
+                                <Link
+                                    :href="
+                                        registrarBaja.url({
+                                            query: {
+                                                colaborador: colaborador.id,
+                                            },
+                                        })
+                                    "
                                 >
-                                    Baja administrativa inmediata: termina la
-                                    relación laboral y libera la plaza, sin
-                                    aprobaciones ni finiquito. Para el proceso
-                                    normal usa «Iniciar baja» (Ciclo laboral).
-                                    Nunca se borra nada (baja lógica).
-                                </span>
+                                    <span class="font-medium">Dar de baja</span>
+                                    <span
+                                        class="text-xs whitespace-normal opacity-80"
+                                    >
+                                        Abre el registro de Bajas: forma de
+                                        salida, causal, último día, documentos
+                                        y finiquito. Cuenta en rotación y nunca
+                                        se borra nada.
+                                    </span>
+                                </Link>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>

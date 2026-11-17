@@ -8,6 +8,7 @@ use App\Models\SolicitudVacaciones;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
+use App\Services\Solicitudes\BajaColaboradorService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Storage;
 
@@ -35,9 +36,9 @@ test('un colaborador dado de baja sigue siendo visible en expedientes y super_ad
     $colaborador = User::factory()->create(['sucursal_principal_id' => $sucursal->id]);
     $colaborador->assignRole('colaborador');
 
-    $this->actingAs($admin)
-        ->delete(route('rh.expedientes.dar-de-baja', $colaborador->id))
-        ->assertRedirect();
+    // La baja definitiva la ejecuta el cierre de la baja formal con
+    // BajaColaboradorService (rh.expedientes.dar-de-baja ya solo redirige).
+    app(BajaColaboradorService::class)->ejecutar($colaborador->colaborador()->firstOrFail(), $admin);
 
     // rh_admin todavia puede abrir el expediente de una baja (antes daba 404
     // porque la ruta no soportaba soft-deleted).

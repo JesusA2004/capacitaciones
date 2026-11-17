@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Baja;
 use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
 use App\Models\Sucursal;
@@ -38,7 +39,7 @@ test('sistemas no puede dar de baja a un colaborador desde el expediente', funct
     expect($colaborador->fresh()->trashed())->toBeFalse();
 });
 
-test('rh_admin da de baja desde el expediente y ve la acción separada de la gestión de acceso', function () {
+test('«Dar de baja» del expediente lleva al registro formal de Bajas y no da de baja por su cuenta', function () {
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
     $sistemas = User::factory()->create();
@@ -56,12 +57,16 @@ test('rh_admin da de baja desde el expediente y ve la acción separada de la ges
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('puedeDarDeBaja', true));
 
+    // Compatibilidad: la ruta DELETE ya no aplica una baja sin causal, folio,
+    // finiquito ni rotación (auditoría D7/R1); guía al procedimiento formal.
     $this->actingAs($rh)
         ->delete(route('rh.expedientes.dar-de-baja', $colaborador->colaborador_id))
-        ->assertRedirect()
-        ->assertSessionHasNoErrors();
+        ->assertRedirect(route('rh.bajas.create', ['colaborador' => $colaborador->colaborador_id]));
 
-    expect(Colaborador::withTrashed()->findOrFail($colaborador->colaborador_id)->trashed())->toBeTrue();
+    $expediente = Colaborador::withTrashed()->findOrFail($colaborador->colaborador_id);
+    expect($expediente->trashed())->toBeFalse()
+        ->and($expediente->estatus->value)->toBe('activo')
+        ->and(Baja::query()->where('colaborador_id', $expediente->id)->exists())->toBeFalse();
 });
 
 test('la baja administrativa respeta el alcance del expediente', function () {

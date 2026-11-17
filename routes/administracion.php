@@ -182,9 +182,9 @@ Route::middleware(['auth', 'verified'])
             Route::delete('{nodo}/apoyo', [MatrizComercialController::class, 'quitarApoyo'])->name('apoyo.quitar');
         });
 
-        // Solo cuenta de acceso (correo, roles, bloqueo) — la baja/reactivación
-        // laboral vive en rh.expedientes.dar-de-baja/reactivar (Colaborador,
-        // funciona con o sin cuenta), ver App\Http\Controllers\Rh\ExpedienteController.
+        // Solo cuenta de acceso (correo, roles, bloqueo) — la baja laboral vive
+        // en el módulo de Bajas (rh.bajas.create) y la reactivación en
+        // rh.expedientes.reactivar (Colaborador, con o sin cuenta).
         // Listado global de cuentas (index) además de la gestión contextual
         // desde la pestaña «Cuenta» del expediente — ver docs/ROLES_Y_NAVEGACION.md.
         Route::prefix('usuarios')->name('usuarios.')->group(function () {

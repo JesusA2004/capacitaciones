@@ -2,7 +2,7 @@
 import type { Component } from 'vue';
 
 /**
- * Variante compacta de KpiCard para métricas secundarias que se muestran
+ * Tarjeta compacta (la usa CrudStats) para métricas secundarias que se muestran
  * varias a la vez en una fila (p. ej. "colaboradores activos", "calificación
  * promedio"): icono + etiqueta + valor + subvalor opcional, en una sola
  * línea en vez de la tarjeta grande.

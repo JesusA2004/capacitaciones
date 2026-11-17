@@ -13,7 +13,6 @@ import DocumentPreviewDialog from '@/components/people/DocumentPreviewDialog.vue
 import PeopleFileDropzone from '@/components/people/PeopleFileDropzone.vue';
 import FiniquitoPanel from '@/components/Rh/FiniquitoPanel.vue';
 import AutorizarPrestamoDialog from '@/components/Solicitudes/AutorizarPrestamoDialog.vue';
-import type { NivelVistoBueno } from '@/components/Solicitudes/CadenaAutorizacion.vue';
 import ComparativoDatos from '@/components/Solicitudes/ComparativoDatos.vue';
 import EliminarSolicitudDialog from '@/components/Solicitudes/EliminarSolicitudDialog.vue';
 import FlujoAprobacion from '@/components/Solicitudes/FlujoAprobacion.vue';
@@ -45,6 +44,7 @@ import type {
     FiniquitoPermisos,
     FlujoAprobacion as FlujoAprobacionDatos,
     FormatoOficialItem,
+    NivelVistoBueno,
     SolicitudInternaDocumentoItem,
     SolicitudInternaItem,
     PermisoResumen,

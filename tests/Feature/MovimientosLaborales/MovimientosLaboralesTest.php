@@ -8,6 +8,7 @@ use App\Models\Puesto;
 use App\Models\Sucursal;
 use App\Models\User;
 use App\Models\Vacante;
+use App\Services\Solicitudes\BajaColaboradorService;
 use Database\Seeders\RolesYPermisosSeeder;
 use Illuminate\Support\Facades\Storage;
 
@@ -133,14 +134,10 @@ test('dar de baja a un colaborador registra el movimiento, bloquea su acceso y s
     $admin->assignRole('super_admin');
 
     // administracion.usuarios.destroy no existe (Nunca borres usuarios ni
-    // expedientes — CLAUDE.md): la baja laboral directa es
-    // rh.expedientes.dar-de-baja (soft-delete + bloqueo de acceso), ver
-    // ExpedienteController::darDeBaja()/BajaColaboradorService.
-    $this->actingAs($admin)
-        ->delete(route('rh.expedientes.dar-de-baja', $colaborador->colaborador_id), [
-            'motivo' => 'Renuncia voluntaria',
-        ])
-        ->assertRedirect();
+    // expedientes — CLAUDE.md): la baja definitiva la ejecuta
+    // BajaColaboradorService al cerrar la baja formal (soft-delete + bloqueo
+    // de acceso); rh.expedientes.dar-de-baja ya solo redirige a Bajas.
+    app(BajaColaboradorService::class)->ejecutar($colaborador->colaborador()->firstOrFail(), $admin, 'Renuncia voluntaria');
 
     $movimiento = MovimientoLaboral::where('user_id', $colaborador->id)->first();
     // No se crea una vacante "de reemplazo" a mano: BajaColaboradorService
