@@ -45,21 +45,28 @@ class ExpedienteController extends Controller
         // Mismo criterio que la web (+ el permiso móvil histórico).
         abort_unless($usuario->can('rh.expedientes.ver') || $this->alcance->puedeExplorarExpedientes($usuario), 403);
 
-        $colaboradores = $this->queryFiltrada($request)->orderBy('name')->get();
+        $query = $this->queryFiltrada($request)->orderBy('name')->orderBy('id');
+        $pagina = max(1, $request->integer('page', 1));
+        $estado = $request->string('estado')->toString();
 
-        $filas = $colaboradores->map(fn (Colaborador $c) => [
-            'colaborador' => $c,
-            'estado' => $this->incorporacion->estado($c),
-        ]);
-
-        if ($estado = $request->string('estado')->toString()) {
-            $filas = $filas->filter(fn (array $fila) => $fila['estado'] === $estado)->values();
+        if ($estado !== '') {
+            // El estado de incorporación se calcula (no es columna): con ese
+            // filtro hay que evaluarlo en toda la plantilla visible.
+            $filas = $query->get()
+                ->map(fn (Colaborador $c) => ['colaborador' => $c, 'estado' => $this->incorporacion->estado($c)])
+                ->filter(fn (array $fila) => $fila['estado'] === $estado)
+                ->values();
+            $total = $filas->count();
+            $filas = $filas->forPage($pagina, self::POR_PAGINA);
+        } else {
+            // Sin filtro de estado se pagina en la base y el estado se calcula
+            // solo para la página visible (misma forma de respuesta).
+            $total = (clone $query)->count();
+            $filas = $query->forPage($pagina, self::POR_PAGINA)->get()
+                ->map(fn (Colaborador $c) => ['colaborador' => $c, 'estado' => $this->incorporacion->estado($c)]);
         }
 
-        $total = $filas->count();
-        $pagina = max(1, $request->integer('page', 1));
-
-        $data = $filas->forPage($pagina, self::POR_PAGINA)->map(function (array $fila) {
+        $data = $filas->map(function (array $fila) {
             $c = $fila['colaborador'];
 
             return [

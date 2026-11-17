@@ -29,7 +29,7 @@ Cualquier cambio a un endpoint debe preservar **el contrato exacto**: método y 
 
 ### `GET /api/v1/rh/expedientes` — `Api\V1\Rh\ExpedienteController@index`
 
-- **Backend**: no usa `paginate()`. Carga todos los colaboradores del alcance (`queryFiltrada`: `busqueda`, `empresa_id`, `sucursal_id`, `departamento_id`), calcula el estado de incorporación de cada uno, filtra `estado` **en memoria** y corta con `forPage($page, 20)`.
+- **Backend** (desde 2026-11-17): no usa `paginate()` (el `meta` se arma a mano). Sin `estado`, cuenta y pagina **en la base** (`orderBy name, id`, `LIMIT 20`) y calcula el estado de incorporación solo de las 20 filas de la página. Con `estado`, como el estado se calcula (no es columna), carga todo el alcance (`queryFiltrada`: `busqueda`, `empresa_id`, `sucursal_id`, `departamento_id`), filtra en memoria y corta con `forPage($page, 20)`. La respuesta es idéntica en ambos casos (prueba «la lista de expedientes de la api pagina en la base con el mismo meta y orden»).
 - **Respuesta**:
   ```json
   {

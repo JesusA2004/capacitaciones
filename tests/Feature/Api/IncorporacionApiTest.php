@@ -145,6 +145,23 @@ test('rh con permiso puede listar expedientes', function () {
         ->assertJsonStructure(['data', 'meta']);
 });
 
+test('la lista de expedientes de la api pagina en la base con el mismo meta y orden', function () {
+    $rh = User::factory()->create();
+    $rh->assignRole('rh_admin');
+    User::factory()->count(22)->create()->each(fn (User $u) => $u->assignRole('colaborador'));
+
+    $primera = $this->withHeaders(headersIncorporacion($rh))->getJson('/api/v1/rh/expedientes')->assertOk();
+    $total = $primera->json('meta.total');
+    $segunda = $this->withHeaders(headersIncorporacion($rh))->getJson('/api/v1/rh/expedientes?page=2')->assertOk();
+
+    expect($total)->toBeGreaterThan(20)
+        ->and($primera->json('meta'))->toBe(['current_page' => 1, 'per_page' => 20, 'total' => $total, 'last_page' => (int) ceil($total / 20)])
+        ->and($primera->json('data'))->toHaveCount(20)
+        ->and($segunda->json('data'))->toHaveCount($total - 20)
+        ->and($primera->json('data.0'))->toHaveKeys(['id', 'nombre', 'correo', 'numero_empleado', 'empresa', 'sucursal', 'departamento', 'estatus_usuario', 'estado_incorporacion'])
+        ->and(array_intersect(array_column($primera->json('data'), 'id'), array_column($segunda->json('data'), 'id')))->toBe([]);
+});
+
 test('rh con permiso puede ver el detalle de un expediente', function () {
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');
