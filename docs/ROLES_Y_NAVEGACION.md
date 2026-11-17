@@ -51,8 +51,15 @@ El orden es exactamente el ciclo de vida laboral + transversales. **«Inicio» v
 | | | Importar salarios y vacaciones · solo super_admin | `colaboradores.importar_salarios_vacaciones` | `rh.importaciones.index` |
 | | | Contactos de emergencia (solo importación por Excel) · solo super_admin | `contactos_emergencia.importar` | `rh.contactos-emergencia.index` |
 | | | Celebraciones | `rh.cumpleanos.ver`/`celebraciones.ver` | `rh.cumpleanos.index` / `rh.aniversarios.index` |
-| 6 | **Desarrollo** | Capacitación continua | feature `capacitacion` | `cursos.index` |
-| | | Evaluación del desempeño · Matriz 9 box y planes · Certificación Mr. Lana | features `evaluacion_desempeno` / `nine_box` / `certificacion` (apagados: aún sin pantalla real, no se muestran) | — |
+| 6 | **Desarrollo** | Evaluación del desempeño · Matriz 9 box y planes | features `evaluacion_desempeno` / `nine_box` (apagados: aún sin pantalla real, no se muestran) | — |
+| — | **Capacitación** (Fase 3, dentro de la etapa 6; sin número) · feature `capacitacion` | Cursos y aulas (constructor + aula tipo Classroom) | `cursos.ver` | `cursos.index` |
+| | | Asignaciones | `asignaciones.ver` | `asignaciones.index` |
+| | | Calificar cuestionarios · Calificar actividades | `respuestas.ver` | `calificaciones.cuestionarios.index` / `calificaciones.actividades.index` |
+| | | Banco de preguntas | `cuestionarios.administrar` | `bancos-preguntas.index` |
+| | | Biblioteca multimedia | `multimedia.administrar` | `multimedia.index` |
+| | | Calendario de sesiones | `sesiones.administrar` | `calendario` |
+| | | Reporte de cumplimiento | `reportes.globales`/`reportes.sucursal` | `reportes.cumplimiento.index` |
+| | | Certificación Mr. Lana | feature `certificacion` + `cursos.ver`/`asignaciones.ver`/`respuestas.ver` | `capacitacion.certificacion` |
 | 7 | **Cierres laborales** | Bajas (bandeja, registro directo del gerente o RH, expediente — docs/BAJAS_Y_CAUSALES.md). Solo gerentes, RH y super admin; Jurídico y Contraloría de lectura | `bajas.ver`/`bajas.revisar_juridico`/`bajas.consulta_contraloria` | `rh.bajas.index` |
 | | | Bajas y finiquitos (pestañas Documentos —recopilación por persona—, Cierres y finiquitos, Causales) | `cierres.ver` | `rh.cierres.index` |
 | | | Reingresos | `reingresos.solicitar`/`gestionar` | `rh.reingresos.index` |
@@ -72,7 +79,7 @@ Las vistas de **evaluación de periodo de prueba** (Evaluaciones de periodo de p
 
 «Periodos por vencer» ya NO es pantalla propia (2026-10-22): es la pestaña «Próximas / por asignar» de `rh.evaluaciones.index` (`rh.periodos-prueba.index` solo redirige ahí, `?tab=proximas`; los enlaces viejos `?estado=…` caen en la pestaña equivalente). `PeriodosPruebaService` detecta por **fecha de ingreso** y `puestos.meses_periodo_prueba` a quien sigue en periodo de prueba aunque su contrato o su evaluación todavía no existan en el sistema (alerta a `contratos.regularizacion.dias_alerta_periodo_prueba` = 15 días naturales; el aviso automático que abre la evaluación sigue en días hábiles). «Contratos» (`rh.contratos.index`, `RegularizacionContratosService`) muestra qué contratos le corresponden a cada colaborador activo y genera los que falten (individual o en lote en la cola, idempotente).
 
-**Colaborador ("Mi espacio")**: Mi inicio, Mi expediente (si `expedientes.ver`), Mis solicitudes (si `portal.solicitudes.ver`/`solicitudes.crear`), Mi recibo (solo si `features.recibos_colaborador`), Mis notificaciones, Mi inducción, Mi capacitación (si `features.capacitacion`), Celebraciones, Ayuda.
+**Colaborador ("Mi espacio")**: Mi inicio, Mi expediente (si `expedientes.ver`), Mis solicitudes (si `portal.solicitudes.ver`/`solicitudes.crear`), Mi recibo (solo si `features.recibos_colaborador`), Mis notificaciones, Mi inducción, Mi capacitación (si `features.capacitacion`: mis aulas, pendientes y mis certificados — `mi-capacitacion.index`), Celebraciones, Ayuda.
 
 ## Expedientes vs. Usuarios vs. Roles y permisos
 

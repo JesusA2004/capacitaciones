@@ -100,6 +100,8 @@ class HandleInertiaRequests extends Middleware
                 'evaluacion_desempeno' => (bool) config('features.evaluacion_desempeno'),
                 'nine_box' => (bool) config('features.nine_box'),
                 'certificacion' => (bool) config('features.certificacion'),
+                // Fase 2 «Seguimiento» (datos de Reportes), docs/SEGUIMIENTO.md.
+                'seguimiento' => (bool) config('features.seguimiento'),
                 // Directorio: quien tiene `directorio.ver` o es de Corporativo
                 // (misma regla que la ruta; los gestores no lo ven).
                 'directorio' => $user !== null && app(DirectorioColaboradoresService::class)->puedeEntrar($user),

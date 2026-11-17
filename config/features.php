@@ -19,7 +19,13 @@ return [
 
     'rh_portal' => env('RH_PORTAL_ENABLED', true),
 
-    'capacitacion' => env('CAPACITACION_ENABLED', false),
+    /*
+    | Capacitación (Fase 3 de PEOPLE: aulas tipo Classroom, asignaciones,
+    | calificaciones y Mi capacitación). Encendida por defecto desde
+    | 2026-11-17; apagarla vuelve a la pantalla «Próximamente» sin borrar nada.
+    | Ver docs/CAPACITACION.md.
+    */
+    'capacitacion' => (bool) env('CAPACITACION_ENABLED', true),
 
     /*
     | Flujo documental ANTERIOR (envío a corporativo → recepción → escaneo).
@@ -91,7 +97,21 @@ return [
 
     'nine_box' => (bool) env('NINE_BOX_ENABLED', false),
 
-    'certificacion' => (bool) env('CERTIFICACION_ENABLED', false),
+    /*
+    | «Certificación Mr. Lana» (niveles por constancias de capacitación, base
+    | mínima — umbrales en config/capacitacion.php). Encendida por defecto
+    | desde 2026-11-17; solo se muestra si `capacitacion` también lo está.
+    */
+    'certificacion' => (bool) env('CERTIFICACION_ENABLED', true),
+
+    /*
+    | Fase 2 «Seguimiento»: datos duros de Reportes (colocación, recuperación,
+    | cartera, mora) por sucursal y por gestor, por semana y por mes. Lee la
+    | API v1 de Reportes (config/seguimiento.php). Encendido por defecto; si
+    | Reportes no está configurado o no responde, la pantalla lo dice sin
+    | tronar. Ver docs/SEGUIMIENTO.md.
+    */
+    'seguimiento' => (bool) env('SEGUIMIENTO_ENABLED', true),
 
     /*
     | Notificaciones en tiempo real del portal web (Laravel Reverb). Debe

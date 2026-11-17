@@ -6,13 +6,14 @@ El portal usa banderas de configuración para activar/desactivar módulos comple
 // config/features.php
 return [
     'rh_portal' => env('RH_PORTAL_ENABLED', true),
-    'capacitacion' => env('CAPACITACION_ENABLED', false),
+    'capacitacion' => (bool) env('CAPACITACION_ENABLED', true),
 ];
 ```
 
 ```env
 RH_PORTAL_ENABLED=true
-CAPACITACION_ENABLED=false
+CAPACITACION_ENABLED=true
+CERTIFICACION_ENABLED=true
 ```
 
 ## `rh_portal`
@@ -57,7 +58,9 @@ Activa la identidad y navegación de Portal RH (fase actual, ver `docs/PORTAL_RH
 
 Controla la visibilidad y el acceso de **todo** el módulo de capacitación: cursos, mi capacitación, biblioteca multimedia, cuestionarios/banco de preguntas, actividades/calificaciones, sesiones en vivo/asistencias, asignaciones, reporte de cumplimiento y el calendario de sesiones.
 
-Con `CAPACITACION_ENABLED=false` (valor por defecto):
+**Encendida por defecto desde 2026-11-17 (Fase 3 de PEOPLE, ver `docs/CAPACITACION.md`).** El sidebar operativo muestra el grupo «Capacitación» (Cursos y aulas, Asignaciones, Calificar cuestionarios/actividades, Banco de preguntas, Biblioteca multimedia, Calendario de sesiones, Reporte de cumplimiento, Certificación Mr. Lana — cada acceso con el permiso real de su controlador) y Mi espacio muestra «Mi capacitación». Para apagarla de nuevo: `CAPACITACION_ENABLED=false` + `php artisan config:clear`.
+
+Con `CAPACITACION_ENABLED=false`:
 
 - El sidebar no muestra ninguno de esos módulos. Solo queda un acceso "Capacitación" con badge "Próximamente" (`resources/js/components/AppSidebar.vue`).
 - Si alguien entra por URL directa a una ruta protegida, el middleware `App\Http\Middleware\EnsureFeatureEnabled` responde:
@@ -97,6 +100,6 @@ La etapa **6 · Desarrollo** del sidebar (ver `docs/ROLES_Y_NAVEGACION.md`) incl
 |---|---|---|---|
 | `evaluacion_desempeno` | `EVALUACION_DESEMPENO_ENABLED` | `false` | «Evaluación del desempeño» (evaluación técnica/por puesto, KPIs, ciclos). |
 | `nine_box` | `NINE_BOX_ENABLED` | `false` | «Matriz 9 box y planes» (desempeño × potencial, planes de desarrollo/mejora). |
-| `certificacion` | `CERTIFICACION_ENABLED` | `false` | «Certificación Mr. Lana» (programa de certificación por puesto). |
+| `certificacion` | `CERTIFICACION_ENABLED` | `true` (desde 2026-11-17) | «Certificación Mr. Lana»: niveles Bronce/Plata/Oro por constancias de capacitación (base mínima, umbrales en `config/capacitacion.php`; ver `docs/CAPACITACION.md`). Solo se ve con `capacitacion` encendida. |
 
 Con la bandera apagada, el acceso **no se muestra a nadie** en el menú (el `href` es un marcador `'#'`). Al construir cada módulo real se cambia el `href` por su ruta y se enciende la bandera; mientras tanto la etapa Desarrollo sí existe en el orden del menú con «Capacitación continua» (detrás de `capacitacion`). Estas tres banderas se exponen al frontend en `App\Http\Middleware\HandleInertiaRequests` (`features`).

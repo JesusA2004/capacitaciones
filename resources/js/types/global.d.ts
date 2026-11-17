@@ -30,6 +30,8 @@ declare module '@inertiajs/core' {
                 evaluacion_desempeno: boolean;
                 nine_box: boolean;
                 certificacion: boolean;
+                /** Fase 2 «Seguimiento»: datos duros de Reportes (docs/SEGUIMIENTO.md). */
+                seguimiento: boolean;
                 /** Entra al Directorio (`directorio.ver` o personal de Corporativo). */
                 directorio: boolean;
             };

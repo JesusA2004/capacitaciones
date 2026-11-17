@@ -73,7 +73,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('induccion/presentacion', [InduccionPresentacionController::class, 'show'])->name('induccion.presentacion');
     Route::get('induccion/pdf', [InduccionPresentacionController::class, 'pdf'])->name('induccion.pdf');
 
-    Route::inertia('capacitacion', 'Capacitacion/Proximamente')->name('capacitacion.proximamente');
+    // /capacitacion (portada) vive en routes/capacitacion.php; con la bandera
+    // apagada el middleware feature:capacitacion muestra «Próximamente» ahí.
 
     // Guía / Ayuda: centro de guía por proceso, artículos, roles, video,
     // glosario y preguntas (contenido en resources/js/lib/guia, misma fuente
@@ -132,6 +133,7 @@ require __DIR__.'/formularios-evaluacion.php';
 require __DIR__.'/solicitudes.php';
 require __DIR__.'/portal.php';
 require __DIR__.'/alta-publica.php';
+require __DIR__.'/capacitacion.php';
 require __DIR__.'/cursos.php';
 require __DIR__.'/asignaciones.php';
 require __DIR__.'/mi-capacitacion.php';
@@ -140,6 +142,7 @@ require __DIR__.'/cuestionarios.php';
 require __DIR__.'/actividades.php';
 require __DIR__.'/reuniones.php';
 require __DIR__.'/reportes.php';
+require __DIR__.'/seguimiento.php';
 require __DIR__.'/salarios.php';
 require __DIR__.'/correcciones.php';
 require __DIR__.'/agenda.php';

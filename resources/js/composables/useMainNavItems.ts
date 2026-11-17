@@ -1,7 +1,15 @@
 import { usePage } from '@inertiajs/vue3';
 import {
+    Activity,
+    Link2,
     Award,
     BarChart3,
+    Send,
+    Presentation,
+    ListChecks,
+    Clapperboard,
+    CalendarDays,
+    BookOpenCheck,
     FileChartColumn,
     BellRing,
     Boxes,
@@ -28,6 +36,7 @@ import {
     ListTree,
     Megaphone,
     MonitorCheck,
+    MonitorX,
     Network,
     Package,
     PackageCheck,
@@ -54,7 +63,7 @@ import type { LucideIcon } from '@lucide/vue';
 import { computed } from 'vue';
 import { useNavegacion } from '@/composables/useNavegacion';
 import { usePermisos } from '@/composables/usePermisos';
-import { ayuda } from '@/routes';
+import { ayuda, calendario } from '@/routes';
 import { dashboard, miExpediente } from '@/routes';
 import { index as indexAppReleases } from '@/routes/administracion/app-releases';
 import { index as indexConfiguracion } from '@/routes/administracion/configuracion';
@@ -69,11 +78,20 @@ import { index as indexRoles } from '@/routes/administracion/roles';
 import { index as indexSucursales } from '@/routes/administracion/sucursales';
 import { index as indexUsuarios } from '@/routes/administracion/usuarios';
 import { index as indexAgenda } from '@/routes/agenda';
-import { proximamente as capacitacionProximamente } from '@/routes/capacitacion';
+import { index as indexAsignaciones } from '@/routes/asignaciones';
+import { index as indexBancosPreguntas } from '@/routes/bancos-preguntas';
+import { index as indexCalificacionesActividades } from '@/routes/calificaciones/actividades';
+import { index as indexCalificacionesCuestionarios } from '@/routes/calificaciones/cuestionarios';
+import {
+    certificacion as rutaCertificacion,
+    index as indexCapacitacion,
+} from '@/routes/capacitacion';
 import { index as indexMuroFelicitaciones } from '@/routes/celebraciones';
 import { index as indexCursos } from '@/routes/cursos';
 import { index as indexDirectorio } from '@/routes/directorio';
 import { presentacion as presentacionInduccion } from '@/routes/induccion';
+import { index as indexMiCapacitacion } from '@/routes/mi-capacitacion';
+import { index as indexMultimedia } from '@/routes/multimedia';
 import {
     contratos as misContratos,
     index as indexPortal,
@@ -83,6 +101,7 @@ import {
 import { index as misDocumentosLaborales } from '@/routes/portal/documentos-laborales';
 import { ver as verInduccion } from '@/routes/portal/induccion';
 import { index as indexReportes } from '@/routes/reportes';
+import { index as indexCumplimiento } from '@/routes/reportes/cumplimiento';
 import { index as indexRotacion } from '@/routes/reportes/rotacion';
 import { index as indexTableroRotacion } from '@/routes/reportes/rotacion/tablero';
 import { index as indexActas } from '@/routes/rh/actas';
@@ -125,7 +144,11 @@ import { index as indexMisReportes } from '@/routes/rh/reportes/mis-reportes';
 import { index as indexRhSolicitudes } from '@/routes/rh/solicitudes';
 import { index as indexVacantes } from '@/routes/rh/vacantes';
 import { index as indexValidacionDocumentos } from '@/routes/rh/validacion-documentos';
+import { index as indexSeguimiento } from '@/routes/seguimiento';
+import { index as indexSeguimientoGestores } from '@/routes/seguimiento/gestores';
+import { index as indexSeguimientoVinculos } from '@/routes/seguimiento/vinculos';
 import { index as indexPendientesAltaSistemas } from '@/routes/sistemas/pendientes-alta';
+import { index as indexPendientesBajaSistemas } from '@/routes/sistemas/pendientes-baja';
 import { index as indexSolicitudes } from '@/routes/solicitudes';
 import type { NavItem } from '@/types';
 
@@ -247,10 +270,13 @@ export function useMainNavItems() {
                 href: verInduccion(),
                 icon: GraduationCap,
             },
+            // Capacitación (Fase 3): sus aulas con progreso, lo pendiente y
+            // sus constancias/certificación. Solo opera sobre lo propio
+            // (MiCapacitacionService usa el usuario autenticado).
             capacitacionActiva.value && {
                 title: 'Mi capacitación',
-                href: capacitacionProximamente(),
-                icon: GraduationCap,
+                href: indexMiCapacitacion(),
+                icon: BookOpenCheck,
             },
             {
                 title: 'Celebraciones',
@@ -423,6 +449,13 @@ export function useMainNavItems() {
                         icon: MonitorCheck,
                         badge: altasSistemasPendientes.value || undefined,
                     },
+                    // Bajas: Sistemas retira los usuarios en las demás
+                    // plataformas (aviso al bloquear accesos y al entregar finiquito).
+                    tienePermiso('sistemas.altas.ver') && {
+                        title: 'Pendientes de baja en sistemas',
+                        href: indexPendientesBajaSistemas(),
+                        icon: MonitorX,
+                    },
                     tienePermiso('documentos.revisar') && {
                         title: 'Validación de documentos',
                         href: indexValidacionDocumentos(),
@@ -593,8 +626,8 @@ export function useMainNavItems() {
                     icono: TrendingUp,
                 },
                 [
-                    // Evaluación del desempeño, Matriz 9 box y Certificación
-                    // Mr. Lana aún no tienen pantalla real: se quedan DETRÁS de
+                    // Evaluación del desempeño y Matriz 9 box aún no tienen
+                    // pantalla real: se quedan DETRÁS de
                     // su feature flag (apagado) para no mostrar accesos falsos
                     // (plan §9). Al construir cada módulo se cambia el href '#'
                     // por su ruta real y se enciende la bandera.
@@ -608,16 +641,97 @@ export function useMainNavItems() {
                         href: '#',
                         icon: Boxes,
                     },
-                    capacitacionActiva.value && {
-                        title: 'Capacitación continua',
-                        href: indexCursos(),
-                        icon: GraduationCap,
-                    },
-                    features.value.certificacion && {
-                        title: 'Certificación Mr. Lana',
-                        href: '#',
-                        icon: Award,
-                    },
+                ],
+            ),
+
+            // Capacitación (Fase 3, parte de la etapa 6 · Desarrollo): aulas
+            // tipo Classroom, asignaciones, calificaciones y Certificación
+            // Mr. Lana. Cada acceso exige el permiso real de su controlador.
+            grupo(
+                {
+                    id: 'capacitacion',
+                    titulo: 'Capacitación',
+                    icono: GraduationCap,
+                },
+                [
+                    // Portada: indicadores, aulas y próximas sesiones
+                    // (CursoPolicy::portada).
+                    capacitacionActiva.value &&
+                        algunPermiso(
+                            'cursos.ver',
+                            'asignaciones.ver',
+                            'respuestas.ver',
+                            'reportes.globales',
+                            'reportes.sucursal',
+                        ) && {
+                            title: 'Portada de capacitación',
+                            href: indexCapacitacion(),
+                            icon: LayoutGrid,
+                        },
+                    capacitacionActiva.value &&
+                        tienePermiso('cursos.ver') && {
+                            title: 'Cursos y aulas',
+                            href: indexCursos(),
+                            icon: Presentation,
+                        },
+                    capacitacionActiva.value &&
+                        tienePermiso('asignaciones.ver') && {
+                            title: 'Asignaciones',
+                            href: indexAsignaciones(),
+                            icon: Send,
+                        },
+                    capacitacionActiva.value &&
+                        tienePermiso('respuestas.ver') && {
+                            title: 'Calificar cuestionarios',
+                            href: indexCalificacionesCuestionarios(),
+                            icon: ClipboardCheck,
+                        },
+                    capacitacionActiva.value &&
+                        tienePermiso('respuestas.ver') && {
+                            title: 'Calificar actividades',
+                            href: indexCalificacionesActividades(),
+                            icon: FileCheck,
+                        },
+                    capacitacionActiva.value &&
+                        tienePermiso('cuestionarios.administrar') && {
+                            title: 'Banco de preguntas',
+                            href: indexBancosPreguntas(),
+                            icon: ListChecks,
+                        },
+                    capacitacionActiva.value &&
+                        tienePermiso('multimedia.administrar') && {
+                            title: 'Biblioteca multimedia',
+                            href: indexMultimedia(),
+                            icon: Clapperboard,
+                        },
+                    capacitacionActiva.value &&
+                        tienePermiso('sesiones.administrar') && {
+                            title: 'Calendario de sesiones',
+                            href: calendario(),
+                            icon: CalendarDays,
+                        },
+                    capacitacionActiva.value &&
+                        algunPermiso(
+                            'reportes.globales',
+                            'reportes.sucursal',
+                        ) && {
+                            title: 'Reporte de cumplimiento',
+                            href: indexCumplimiento(),
+                            icon: BarChart3,
+                        },
+                    // Base mínima: niveles por constancias emitidas
+                    // (CursoPolicy::certificacion + feature:certificacion).
+                    features.value.certificacion &&
+                        capacitacionActiva.value &&
+                        algunPermiso(
+                            'cursos.ver',
+                            'asignaciones.ver',
+                            'respuestas.ver',
+                        ) && {
+                            title: 'Certificación Mr. Lana',
+                            href: rutaCertificacion(),
+                            icon: Award,
+                        },
                 ],
             ),
 
@@ -712,6 +826,36 @@ export function useMainNavItems() {
                         href: indexEmpresas(),
                         icon: Landmark,
                     },
+                ],
+            ),
+
+            // Fase 2 «Seguimiento» (docs/SEGUIMIENTO.md): datos duros de
+            // Reportes por sucursal y por gestor. Solo modo operativo.
+            grupo(
+                {
+                    id: 'seguimiento',
+                    titulo: 'Seguimiento',
+                    icono: Activity,
+                },
+                [
+                    features.value.seguimiento &&
+                        tienePermiso('seguimiento.ver') && {
+                            title: 'Por sucursal',
+                            href: indexSeguimiento(),
+                            icon: Activity,
+                        },
+                    features.value.seguimiento &&
+                        tienePermiso('seguimiento.ver') && {
+                            title: 'Por gestor',
+                            href: indexSeguimientoGestores(),
+                            icon: Users,
+                        },
+                    features.value.seguimiento &&
+                        tienePermiso('seguimiento.vincular') && {
+                            title: 'Vínculos con Reportes',
+                            href: indexSeguimientoVinculos(),
+                            icon: Link2,
+                        },
                 ],
             ),
 

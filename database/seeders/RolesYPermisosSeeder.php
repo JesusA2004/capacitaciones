@@ -510,6 +510,8 @@ class RolesYPermisosSeeder extends Seeder
         // no configura empresas.eliminar/roles.administrar/configuracion
         // (reservado a super_admin).
         'rh_admin' => [
+            // Seguimiento (Fase 2): tableros con datos de Reportes y vínculos PEOPLE ↔ Reportes.
+            'seguimiento.ver', 'seguimiento.vincular',
             // Consulta la bandeja «Pendientes de alta en sistemas» (la atiende Sistemas).
             'sistemas.altas.ver',
             'salarios.ver', 'salarios.editar', 'salarios.exportar', 'salarios.ver_en_expediente',
@@ -672,6 +674,8 @@ class RolesYPermisosSeeder extends Seeder
         ],
 
         'gerente_sucursal' => [
+            // Seguimiento (Fase 2): datos de Reportes de SU sucursal (alcance «Sucursal»).
+            'seguimiento.ver',
             'directorio.contactos.ver_todos',
             'perfiles_puesto.ver',
             'dashboard.sucursal.ver',
@@ -739,6 +743,8 @@ class RolesYPermisosSeeder extends Seeder
         // documentos ni aprueba solicitudes/vacaciones (eso es de RH/gerencia
         // de sucursal). Ver AlcanceOrganizacionalService::ROLES_ALCANCE_GLOBAL.
         'director_comercial' => [
+            // Seguimiento (Fase 2): datos de Reportes de toda la empresa.
+            'seguimiento.ver',
             // Alcance amplio: elige de qué sucursales no recibir avisos.
             'notificaciones.silenciar_sucursales',
             'directorio.contactos.ver_todos',
@@ -773,6 +779,8 @@ class RolesYPermisosSeeder extends Seeder
         // gerente_sucursal — ver AlcanceOrganizacionalService::ROLES_ALCANCE_SUCURSAL
         // y sucursal_user). Alcance más amplio que "gerente" (una sola sucursal).
         'gerente_regional' => [
+            // Seguimiento (Fase 2): datos de Reportes de su región (alcance «Región»).
+            'seguimiento.ver',
             // Alcance amplio: elige de qué sucursales no recibir avisos.
             'notificaciones.silenciar_sucursales',
             'directorio.contactos.ver_todos',
@@ -963,6 +971,8 @@ class RolesYPermisosSeeder extends Seeder
         // PRÉSTAMO lo autoriza SOLO RH (prestamos.autorizar): Dirección
         // consulta (2026-10-20, migración 2026_10_20_170200).
         'direccion' => [
+            // Seguimiento (Fase 2): datos de Reportes de toda la empresa.
+            'seguimiento.ver',
             'salarios.ver', 'salarios.exportar', 'salarios.ver_en_expediente',
             // Alcance amplio: elige de qué sucursales no recibir avisos.
             'notificaciones.silenciar_sucursales',

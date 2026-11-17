@@ -96,7 +96,22 @@ const ESPERADO = [
         [
             'Evaluación del desempeño',
             'Matriz 9 box y planes',
-            'Capacitación continua',
+        ],
+    ],
+    [
+        // Fase 3 (2026-11-17): Capacitación como grupo propio dentro de la
+        // etapa 6, sin número (no es una etapa nueva del ciclo laboral).
+        'Capacitación',
+        [
+            'Portada de capacitación',
+            'Cursos y aulas',
+            'Asignaciones',
+            'Calificar cuestionarios',
+            'Calificar actividades',
+            'Banco de preguntas',
+            'Biblioteca multimedia',
+            'Calendario de sesiones',
+            'Reporte de cumplimiento',
             'Certificación Mr. Lana',
         ],
     ],
@@ -141,6 +156,9 @@ test('el sidebar operativo tiene exactamente los grupos y accesos, en orden', ()
     );
 });
 
+// Grupos sin número intercalados entre etapas (no son etapas del ciclo).
+const SIN_NUMERO = ['Capacitación'];
+
 test('las etapas 1–7 llevan su número y los bloques transversales no', () => {
     const numeros = [
         ...operativo.matchAll(/numero: (\d+),\s*titulo: '([^']+)'/g),
@@ -148,7 +166,9 @@ test('las etapas 1–7 llevan su número y los bloques transversales no', () => 
 
     assert.deepEqual(
         numeros,
-        ESPERADO.slice(1, 8).map(([titulo], i) => [i + 1, titulo]),
+        ESPERADO.filter(([titulo]) => !SIN_NUMERO.includes(titulo))
+            .slice(1, 8)
+            .map(([titulo], i) => [i + 1, titulo]),
     );
 });
 
@@ -229,13 +249,19 @@ test('los módulos sin pantalla de Desarrollo quedan tras su feature flag y nunc
     // Defensa: el filtro de cada grupo descarta cualquier href '#'.
     assert.match(operativo, /i !== false && i\.href !== '#'/);
 
-    // Y las banderas existen en config/features.php, apagadas por defecto.
+    // Y las banderas existen en config/features.php: las de módulos sin
+    // pantalla, apagadas; Certificación Mr. Lana (Fase 3), encendida.
     const features = leer('config/features.php');
+    const porDefecto = {
+        evaluacion_desempeno: false,
+        nine_box: false,
+        certificacion: true,
+    };
 
-    for (const bandera of Object.values(marcadores)) {
+    for (const [bandera, valor] of Object.entries(porDefecto)) {
         assert.match(
             features,
-            new RegExp(`'${bandera}' => \\(bool\\) env\\('[A-Z_]+', false\\)`),
+            new RegExp(`'${bandera}' => \\(bool\\) env\\('[A-Z_]+', ${valor}\\)`),
         );
     }
 });

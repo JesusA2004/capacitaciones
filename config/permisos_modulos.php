@@ -47,6 +47,17 @@ return [
             'alcances' => [],
             'acciones' => [],
         ],
+        // Fase 2 «Seguimiento» (docs/SEGUIMIENTO.md): datos duros de Reportes
+        // por sucursal y por gestor. El alcance acota las SUCURSALES de PEOPLE
+        // que ve cada quien (AlcanceSeguimientoService).
+        'seguimiento' => [
+            'etiqueta' => 'Seguimiento (datos de Reportes)',
+            'grupo' => 'Reportes',
+            'etapa' => 'reportes',
+            'acceso' => 'seguimiento.ver',
+            'alcances' => ['todos' => 'seguimiento.ver_todo', 'region' => 'seguimiento.ver_region', 'sucursal' => 'seguimiento.ver_sucursal'],
+            'acciones' => ['seguimiento.vincular' => 'Vincular sucursales y gestores con Reportes'],
+        ],
         'formatos' => [
             'etiqueta' => 'Formatos y plantillas',
             'grupo' => 'Contratación',
@@ -77,7 +88,7 @@ return [
             'etiqueta' => 'Capacitación continua',
             'grupo' => 'Desarrollo',
             'etapa' => 'desarrollo',
-            'descripcion' => 'Oculta tras el feature flag «capacitacion»: estos permisos aplican cuando se encienda.',
+            'descripcion' => 'Aulas tipo Classroom, asignaciones, calificaciones y Certificación Mr. Lana (feature flag «capacitacion», encendido).',
             'acceso' => 'cursos.ver',
             'alcances' => [],
             'acciones' => [
@@ -981,7 +992,7 @@ return [
         'headcount.ver' => 'Ver la plantilla autorizada y las vacantes por sucursal y puesto.',
         'headcount.editar' => 'Cambiar cuántas plazas autorizadas tiene cada sucursal por puesto.',
         'indicadores.ver' => 'Ver los indicadores de RH (rotación, plantilla, tiempos).',
-        'cursos.ver' => 'Entrar a Capacitación continua (cuando el módulo esté encendido).',
+        'cursos.ver' => 'Entrar a Cursos y aulas de Capacitación (constructor y aula de cada curso).',
         // Contratación y expediente.
         'contratos.ver' => 'Entra a Contratos, Personas en contratación y Contratos de ingreso: lista y estado, sin abrir el contrato.',
         'contratos.ver_documento' => 'Abre el PDF del contrato generado de otra persona en el visor.',
