@@ -168,20 +168,41 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureRateLimiting(): void
     {
-        RateLimiter::for('api', fn (Request $request) => Limit::perMinute(120)->by($request->user()?->id ?: $request->ip()));
+        // Valores en config/limites_api.php; el login se queda estricto (10/min) a propósito.
+        RateLimiter::for('api', fn (Request $request) => Limit::perMinute(max(1, (int) config('limites_api.movil_por_minuto', 240)))->by($request->user()?->id ?: $request->ip()));
         RateLimiter::for('api-login', fn (Request $request) => Limit::perMinute(10)->by(app(AutenticacionService::class)->llaveLimite($request->input('username') ?? $request->input('email'), $request->ip())));
-        RateLimiter::for('api-cargas', fn (Request $request) => Limit::perMinute(30)->by($request->user()?->id ?: $request->ip()));
-        RateLimiter::for('api-reautenticar', fn (Request $request) => Limit::perMinute(5)->by($request->user()?->id.'|'.$request->ip()));
+        RateLimiter::for('api-cargas', fn (Request $request) => Limit::perMinute(max(1, (int) config('limites_api.cargas_por_minuto', 30)))->by($request->user()?->id ?: $request->ip()));
+        RateLimiter::for('api-reautenticar', fn (Request $request) => Limit::perMinute(max(1, (int) config('limites_api.reautenticar_por_minuto', 5)))->by($request->user()?->id.'|'.$request->ip()));
 
         // API servidor-a-servidor de Auditoría: por cliente de integración
         // (lo fija AutenticarClienteIntegracion, que corre antes), con
-        // Retry-After y error JSON {message, codigo}.
+        // Retry-After y error JSON {message, codigo}. Un límite propio del
+        // cliente (limite_por_minuto) manda sobre el de config.
         RateLimiter::for('integracion-auditoria', function (Request $request) {
-            $cliente = $request->attributes->get(AutenticarClienteIntegracion::ATRIBUTO);
+            $cliente = AutenticarClienteIntegracion::clienteParaLimite($request);
             $llave = $cliente instanceof ClienteIntegracion ? sprintf('cliente:%d', $cliente->id) : sprintf('ip:%s', (string) $request->ip());
+            $limite = $cliente instanceof ClienteIntegracion && $cliente->limite_por_minuto !== null
+                ? $cliente->limitePorMinuto()
+                : max(1, (int) config('integraciones.auditoria.limite_por_minuto', 300));
 
-            return Limit::perMinute(max(1, (int) config('integraciones.auditoria.limite_por_minuto', 120)))
+            return Limit::perMinute($limite)
                 ->by(sprintf('integracion-auditoria|%s', $llave))
+                ->response(fn (Request $request, array $headers) => response()->json([
+                    'message' => 'Demasiadas solicitudes. Espera antes de reintentar.',
+                    'codigo' => 'limite_excedido',
+                ], 429, $headers));
+        });
+
+        // API multi-sistema /api/integracion/v1: un cubo por cliente con su
+        // propio límite (ClienteIntegracion::limitePorMinuto, default de
+        // config/integraciones.php). Encabezados X-RateLimit-* en cada respuesta.
+        RateLimiter::for('integracion', function (Request $request) {
+            $cliente = AutenticarClienteIntegracion::clienteParaLimite($request);
+            $llave = $cliente instanceof ClienteIntegracion ? sprintf('cliente:%d', $cliente->id) : sprintf('ip:%s', (string) $request->ip());
+            $limite = $cliente instanceof ClienteIntegracion ? $cliente->limitePorMinuto() : max(1, (int) config('integraciones.sistemas.limite_por_minuto', 600));
+
+            return Limit::perMinute($limite)
+                ->by(sprintf('integracion|%s', $llave))
                 ->response(fn (Request $request, array $headers) => response()->json([
                     'message' => 'Demasiadas solicitudes. Espera antes de reintentar.',
                     'codigo' => 'limite_excedido',

@@ -1,6 +1,11 @@
 <?php
 
+use App\Enums\HabilidadIntegracion;
 use App\Enums\TipoReapertura;
+use App\Http\Controllers\Api\Integracion\V1\CatalogoController as IntegracionCatalogoController;
+use App\Http\Controllers\Api\Integracion\V1\ColaboradorController as IntegracionColaboradorController;
+use App\Http\Controllers\Api\Integracion\V1\MovimientoController as IntegracionMovimientoController;
+use App\Http\Controllers\Api\Integracion\V1\RotacionController as IntegracionRotacionController;
 use App\Http\Controllers\Api\V1\AgendaController;
 use App\Http\Controllers\Api\V1\AppConfigController;
 use App\Http\Controllers\Api\V1\AppReleaseController;
@@ -71,6 +76,7 @@ use App\Http\Controllers\Api\V1\SolicitudEmpleoRegistroController;
 use App\Http\Controllers\Api\V1\TareaController;
 use App\Http\Controllers\Api\V1\VacacionesController;
 use App\Http\Middleware\AutenticarClienteIntegracion;
+use App\Http\Middleware\RegistrarConsultaIntegracion;
 use App\Services\Documentos\Versiones\DocumentoEdicionService;
 use App\Services\DocumentosMaestros\VistaPreviaFlujoService;
 use App\Services\Incorporacion\SolicitudEmpleo\CatalogoSolicitudEmpleo;
@@ -131,7 +137,7 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
     // cuentas de colaborador (un token de la app móvil da 401 aquí).
     // Autenticación antes del límite, que se lleva por cliente.
     Route::prefix('auditoria')->name('auditoria.')
-        ->middleware([AutenticarClienteIntegracion::con(TokenIntegracionService::HABILIDAD_AUDITORIA_LEER), 'throttle:integracion-auditoria'])
+        ->middleware([RegistrarConsultaIntegracion::class, AutenticarClienteIntegracion::con(TokenIntegracionService::HABILIDAD_AUDITORIA_LEER), 'throttle:integracion-auditoria'])
         ->group(function () {
             Route::get('catalogo', [IntegracionAuditoriaController::class, 'catalogo'])->name('catalogo');
             Route::get('colaboradores', [IntegracionAuditoriaController::class, 'colaboradores'])->name('colaboradores.index');
@@ -821,3 +827,46 @@ Route::prefix('v1')->name('api.v1.')->group(function () {
         });
     });
 });
+
+/*
+|--------------------------------------------------------------------------
+| API de integración multi-sistema (/api/integracion/v1)
+|--------------------------------------------------------------------------
+|
+| Servidor-a-servidor y sólo lectura, para Reportes y los sistemas que
+| sigan (docs/API_INTEGRACION_SISTEMAS.md). Token de ClienteIntegracion con
+| habilidades granulares (App\Enums\HabilidadIntegracion), NO Sanctum: un
+| token de la app móvil da 401. Orden: bitácora (registra también 403/429)
+| → autenticación + habilidad → límite por cliente (throttle:integracion).
+|
+*/
+
+Route::prefix('integracion/v1')->name('api.integracion.v1.')
+    ->middleware(RegistrarConsultaIntegracion::class)
+    ->group(function () {
+        $con = fn (HabilidadIntegracion|string $habilidad): array => [
+            AutenticarClienteIntegracion::con($habilidad instanceof HabilidadIntegracion ? $habilidad->value : $habilidad),
+            'throttle:integracion',
+        ];
+
+        Route::get('capacidades', [IntegracionCatalogoController::class, 'capacidades'])->middleware($con(AutenticarClienteIntegracion::CUALQUIERA))->name('capacidades');
+
+        Route::middleware($con(HabilidadIntegracion::CatalogosLeer))->group(function () {
+            Route::get('empresas', [IntegracionCatalogoController::class, 'empresas'])->name('empresas.index');
+            Route::get('sucursales', [IntegracionCatalogoController::class, 'sucursales'])->name('sucursales.index');
+            Route::get('puestos', [IntegracionCatalogoController::class, 'puestos'])->name('puestos.index');
+            Route::get('departamentos', [IntegracionCatalogoController::class, 'departamentos'])->name('departamentos.index');
+        });
+
+        Route::middleware($con(HabilidadIntegracion::ColaboradoresLeer))->group(function () {
+            Route::get('colaboradores', [IntegracionColaboradorController::class, 'index'])->name('colaboradores.index');
+            Route::get('colaboradores/{colaborador}', [IntegracionColaboradorController::class, 'show'])->name('colaboradores.show');
+        });
+
+        Route::middleware($con(HabilidadIntegracion::MovimientosLeer))->group(function () {
+            Route::get('movimientos/altas', [IntegracionMovimientoController::class, 'altas'])->name('movimientos.altas');
+            Route::get('movimientos/bajas', [IntegracionMovimientoController::class, 'bajas'])->name('movimientos.bajas');
+        });
+
+        Route::get('rotacion', IntegracionRotacionController::class)->middleware($con(HabilidadIntegracion::RotacionLeer))->name('rotacion');
+    });

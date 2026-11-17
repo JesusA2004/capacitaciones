@@ -13,7 +13,7 @@ People sirve ambos a la vez. Auditoría usa el v2 si existe y, si People respond
 
 - Token de `clientes_integracion` (prefijo `ppl_aud_`, guardado sólo como SHA-256), habilidad **`auditoria:leer`** y empresas permitidas explícitas. No es Sanctum: un token de la app móvil o de una cuenta da **401**; un token sin la habilidad da **403** (`sin_permiso`).
 - `php artisan integraciones:token-auditoria emitir --empresa=<id>|rotar|revocar|estado`. El v2 **no necesita token nuevo ni habilidad nueva**: el mismo token con `auditoria:leer` lee ambos contratos.
-- Límite `throttle:integracion-auditoria` (120/min por cliente, `INTEGRACION_AUDITORIA_LIMITE_POR_MINUTO`), intentos fallidos limitados por IP. Errores en JSON `{message, codigo}`: 401, 403, 404 (`no_encontrado`), 422, 429 (`Retry-After`).
+- Límite `throttle:integracion-auditoria` (300/min por cliente, `INTEGRACION_AUDITORIA_LIMITE_POR_MINUTO`, o el límite propio del cliente; ver docs/API_INTEGRACION_SISTEMAS.md), intentos fallidos limitados por IP. Errores en JSON `{message, codigo}`: 401, 403, 404 (`no_encontrado`), 422, 429 (`Retry-After`).
 - Sólo GET. TLS verificado del lado de Auditoría.
 
 ## Contrato v2 — datos del acta

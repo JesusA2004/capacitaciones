@@ -222,10 +222,12 @@ class ColaboradoresAuditoriaService
     /**
      * GREATEST en MySQL/MariaDB/PostgreSQL; MAX escalar en SQLite (pruebas).
      * Cada término con COALESCE: en MySQL un NULL anularía el GREATEST.
+     * Pública para la API multi-sistema (PlantillaIntegracionService), que
+     * usa los mismos alias c, s, e, p y d: una sola definición de «cambió».
      *
      * @return literal-string
      */
-    private function expresionEfectiva(): string
+    public function expresionEfectiva(): string
     {
         $funcion = DB::connection()->getDriverName() === 'sqlite' ? 'MAX' : 'GREATEST';
 

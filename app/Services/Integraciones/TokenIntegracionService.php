@@ -22,7 +22,11 @@ class TokenIntegracionService
 
     public const HABILIDAD_AUDITORIA_LEER = 'auditoria:leer';
 
+    /** Prefijo histórico del token de Auditoría (sus clientes lo validan). */
     private const PREFIJO = 'ppl_aud_';
+
+    /** Prefijo del token de cualquier otro sistema (Reportes, …). */
+    private const PREFIJO_SISTEMAS = 'ppl_int_';
 
     public function __construct(private readonly AuditoriaService $auditoria) {}
 
@@ -32,10 +36,19 @@ class TokenIntegracionService
      *
      * @param  list<int>  $empresas  ids permitidos (ignorado si $todasLasEmpresas)
      * @param  list<string>  $habilidades
+     * @param  int|null  $limitePorMinuto  null = conserva el actual (o ninguno); 0 = vuelve al de config
      * @return array{cliente: ClienteIntegracion, token: string}
      */
-    public function emitir(string $clave, string $nombre, array $habilidades, bool $todasLasEmpresas, array $empresas): array
+    public function emitir(string $clave, string $nombre, array $habilidades, bool $todasLasEmpresas, array $empresas, ?int $limitePorMinuto = null, ?string $descripcion = null): array
     {
+        if (preg_match('/^[a-z0-9][a-z0-9_-]{1,59}$/', $clave) !== 1) {
+            throw new InvalidArgumentException('La clave del sistema sólo admite minúsculas, números, guion y guion bajo (2 a 60 caracteres).');
+        }
+
+        if ($limitePorMinuto !== null && $limitePorMinuto < 0) {
+            throw new InvalidArgumentException('El límite por minuto no puede ser negativo.');
+        }
+
         if (! $todasLasEmpresas && $empresas === []) {
             throw new InvalidArgumentException('Indica al menos una empresa permitida o «todas las empresas» de forma explícita.');
         }
@@ -48,11 +61,19 @@ class TokenIntegracionService
             throw new InvalidArgumentException(sprintf('No existen las empresas: %s.', implode(', ', $faltantes)));
         }
 
-        $token = sprintf('%s%s', self::PREFIJO, Str::random(48));
+        $token = sprintf('%s%s', $clave === self::CLAVE_AUDITORIA ? self::PREFIJO : self::PREFIJO_SISTEMAS, Str::random(48));
 
-        $cliente = DB::transaction(function () use ($clave, $nombre, $habilidades, $todasLasEmpresas, $empresas, $token): ClienteIntegracion {
+        $cliente = DB::transaction(function () use ($clave, $nombre, $habilidades, $todasLasEmpresas, $empresas, $token, $limitePorMinuto, $descripcion): ClienteIntegracion {
             $cliente = ClienteIntegracion::query()->where('clave', $clave)->lockForUpdate()->first() ?? new ClienteIntegracion(['clave' => $clave]);
             $rotacion = $cliente->exists;
+
+            if ($limitePorMinuto !== null) {
+                $cliente->limite_por_minuto = $limitePorMinuto === 0 ? null : $limitePorMinuto;
+            }
+
+            if ($descripcion !== null) {
+                $cliente->descripcion = $descripcion === '' ? null : $descripcion;
+            }
 
             $cliente->fill([
                 'nombre' => $nombre,
@@ -71,6 +92,7 @@ class TokenIntegracionService
                 'habilidades' => $cliente->habilidades,
                 'todas_las_empresas' => $cliente->todas_las_empresas,
                 'empresas_permitidas' => $cliente->empresas_permitidas,
+                'limite_por_minuto' => $cliente->limite_por_minuto,
             ]);
 
             return $cliente;
@@ -100,7 +122,7 @@ class TokenIntegracionService
      */
     public function autenticar(?string $token): ?ClienteIntegracion
     {
-        if ($token === null || ! str_starts_with($token, self::PREFIJO) || strlen($token) > 200) {
+        if ($token === null || (! str_starts_with($token, self::PREFIJO) && ! str_starts_with($token, self::PREFIJO_SISTEMAS)) || strlen($token) > 200) {
             return null;
         }
 

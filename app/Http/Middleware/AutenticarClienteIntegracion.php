@@ -20,6 +20,9 @@ class AutenticarClienteIntegracion
 {
     public const ATRIBUTO = 'cliente_integracion';
 
+    /** Sólo exige un token válido, sin habilidad concreta (p. ej. /capacidades). */
+    public const CUALQUIERA = '*';
+
     private const FALLOS_POR_MINUTO = 20;
 
     public function __construct(private readonly TokenIntegracionService $tokens) {}
@@ -36,6 +39,24 @@ class AutenticarClienteIntegracion
         abort_unless($cliente instanceof ClienteIntegracion, 401);
 
         return $cliente;
+    }
+
+    /**
+     * Cliente para la llave del límite de solicitudes. El framework ordena
+     * ThrottleRequests ANTES de este middleware (prioridad de middleware), así
+     * que el limiter puede correr sin el atributo: entonces se resuelve el
+     * token aquí (una búsqueda por hash). Sin token válido: null (la llave cae
+     * a la IP y el 401 lo da después handle()).
+     */
+    public static function clienteParaLimite(Request $request): ?ClienteIntegracion
+    {
+        $cliente = $request->attributes->get(self::ATRIBUTO);
+
+        if ($cliente instanceof ClienteIntegracion) {
+            return $cliente;
+        }
+
+        return app(TokenIntegracionService::class)->autenticar($request->bearerToken());
     }
 
     public function handle(Request $request, Closure $next, string $habilidad): Response
@@ -56,21 +77,23 @@ class AutenticarClienteIntegracion
             return $this->error('Token de integración ausente o no válido.', 'no_autenticado', 401, ['WWW-Authenticate' => 'Bearer']);
         }
 
-        if (! $cliente->puede($habilidad)) {
-            return $this->error('El token de integración no tiene permiso para este recurso.', 'sin_permiso', 403);
-        }
-
+        // Antes de revisar la habilidad: la bitácora registra también el 403.
         $request->attributes->set(self::ATRIBUTO, $cliente);
         $this->tokens->registrarUso($cliente, $request->ip());
+
+        if ($habilidad !== self::CUALQUIERA && ! $cliente->puede($habilidad)) {
+            return $this->error('El token de integración no tiene permiso para este recurso.', 'sin_permiso', 403, [], ['habilidad_requerida' => $habilidad]);
+        }
 
         return $next($request);
     }
 
     /**
      * @param  array<string, string>  $encabezados
+     * @param  array<string, string>  $extra
      */
-    private function error(string $mensaje, string $codigo, int $estado, array $encabezados = []): JsonResponse
+    private function error(string $mensaje, string $codigo, int $estado, array $encabezados = [], array $extra = []): JsonResponse
     {
-        return response()->json(['message' => $mensaje, 'codigo' => $codigo], $estado, $encabezados);
+        return response()->json(['message' => $mensaje, 'codigo' => $codigo, ...$extra], $estado, $encabezados);
     }
 }
