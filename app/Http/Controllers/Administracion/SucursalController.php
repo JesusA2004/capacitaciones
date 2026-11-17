@@ -15,11 +15,13 @@ use App\Models\User;
 use App\Services\Headcount\HeadcountService;
 use App\Services\Headcount\PlantillaAutorizadaService;
 use App\Services\Headcount\VolantesSucursalService;
+use App\Services\Sucursales\EliminacionCatalogoOrganizacionalService;
 use App\Services\Sucursales\SucursalDetalleService;
 use App\Support\Consultas\EstadisticasActivoInactivo;
 use App\Support\Paginacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -181,11 +183,17 @@ class SucursalController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Sucursal actualizada correctamente.']);
     }
 
-    public function destroy(Sucursal $sucursal): RedirectResponse
+    public function destroy(Sucursal $sucursal, EliminacionCatalogoOrganizacionalService $eliminacion): RedirectResponse
     {
         $this->authorize('delete', $sucursal);
 
-        $sucursal->delete();
+        // Igual que Empresas/Puestos: no se borra si aún sostiene personas,
+        // plantilla autorizada o vacantes abiertas.
+        try {
+            $eliminacion->eliminarSucursal($sucursal);
+        } catch (ValidationException $e) {
+            return back()->with('toast', ['type' => 'error', 'message' => (string) collect($e->errors())->flatten()->first()]);
+        }
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Sucursal eliminada correctamente.']);
     }

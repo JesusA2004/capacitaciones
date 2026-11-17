@@ -9,10 +9,12 @@ use App\Http\Requests\Administracion\StoreDepartamentoRequest;
 use App\Http\Requests\Administracion\UpdateDepartamentoRequest;
 use App\Models\Departamento;
 use App\Services\Departamentos\MovimientoDepartamentoService;
+use App\Services\Sucursales\EliminacionCatalogoOrganizacionalService;
 use App\Support\Consultas\EstadisticasActivoInactivo;
 use App\Support\Paginacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -118,11 +120,16 @@ class DepartamentoController extends Controller
         return back()->with('toast', ['type' => 'success', 'message' => 'Departamento actualizado correctamente.']);
     }
 
-    public function destroy(Departamento $departamento): RedirectResponse
+    public function destroy(Departamento $departamento, EliminacionCatalogoOrganizacionalService $eliminacion): RedirectResponse
     {
         $this->authorize('delete', $departamento);
 
-        $departamento->delete();
+        // No se borra si aún tiene colaboradores, puestos, plazas o vacantes abiertas.
+        try {
+            $eliminacion->eliminarDepartamento($departamento);
+        } catch (ValidationException $e) {
+            return back()->with('toast', ['type' => 'error', 'message' => (string) collect($e->errors())->flatten()->first()]);
+        }
 
         return back()->with('toast', ['type' => 'success', 'message' => 'Departamento eliminado correctamente.']);
     }
