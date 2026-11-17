@@ -38,6 +38,7 @@ use App\Services\Avisos\AvisoService;
 use App\Services\Bajas\BajaService;
 use App\Services\Colaboradores\AltaImssService;
 use App\Services\Colaboradores\DomicilioService;
+use App\Services\Colaboradores\FiltroColaboradoresService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use App\Services\DocumentosMaestros\DocumentoProcesoService;
 use App\Services\Expedientes\AvisoPrivacidadService;
@@ -263,13 +264,14 @@ class ExpedienteController extends Controller
                 'departamento:id,nombre',
                 'puesto:id,nombre',
             ])
-            // Buscador único: cada palabra en nombre, apellidos, número,
-            // puesto, sucursal o departamento («demo cuernavaca»).
-            ->when($request->string('busqueda')->toString(), fn ($query, string $busqueda) => $query->buscar($busqueda))
-            ->when($request->integer('empresa_id'), fn ($query, int $id) => $query->whereHas('sucursalPrincipal', fn ($sub) => $sub->where('empresa_id', $id)))
-            ->when($request->integer('sucursal_id'), fn ($query, int $id) => $query->where('sucursal_principal_id', $id))
-            ->when($request->integer('departamento_id'), fn ($query, int $id) => $query->where('departamento_id', $id))
-            ->when($request->integer('puesto_id'), fn ($query, int $id) => $query->where('puesto_id', $id))
+            // Filtros comunes con la API (FiltroColaboradoresService).
+            ->tap(fn ($query) => app(FiltroColaboradoresService::class)->aplicar($query, [
+                'busqueda' => $request->string('busqueda')->toString(),
+                'empresa_id' => $request->integer('empresa_id'),
+                'sucursal_id' => $request->integer('sucursal_id'),
+                'departamento_id' => $request->integer('departamento_id'),
+                'puesto_id' => $request->integer('puesto_id'),
+            ]))
             // Por defecto solo ACTIVOS; "todos" quita el filtro. Las bajas
             // nunca se borran: se ven eligiendo "Inactivo".
             ->when($this->estatusFiltro($request) !== 'todos', fn ($query) => $query->where('estatus', $this->estatusFiltro($request)))

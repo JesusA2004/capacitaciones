@@ -7,6 +7,7 @@ use App\Models\Colaborador;
 use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\FiltroColaboradoresService;
 use App\Services\Expedientes\DocumentoStorageService;
 use App\Services\Expedientes\ExpedienteZipService;
 use App\Services\Incorporacion\IncorporacionService;
@@ -335,15 +336,13 @@ class ExpedienteController extends Controller
             // Alcance del módulo «Expedientes», igual que el explorador web.
             ->tap(fn ($query) => $this->alcance->limitarExpedientesPorAlcance($query, $usuario))
             ->with(['sucursalPrincipal:id,nombre,empresa_id', 'sucursalPrincipal.empresa:id,nombre', 'departamento:id,nombre'])
-            ->when($request->string('busqueda')->toString(), function ($query, string $busqueda) {
-                // Buscador único (nombre, número, puesto, sucursal…) o el
-                // correo personal (quien ve expedientes sí puede verlo).
-                $query->where(fn ($sub) => $sub
-                    ->where(fn ($b) => $b->buscar($busqueda))
-                    ->orWhere('correo_personal', 'like', "%{$busqueda}%"));
-            })
-            ->when($request->integer('empresa_id'), fn ($query, int $id) => $query->whereHas('sucursalPrincipal', fn ($sub) => $sub->where('empresa_id', $id)))
-            ->when($request->integer('sucursal_id'), fn ($query, int $id) => $query->where('sucursal_principal_id', $id))
-            ->when($request->integer('departamento_id'), fn ($query, int $id) => $query->where('departamento_id', $id));
+            // Filtros comunes con la web; la búsqueda también mira el correo
+            // personal (quien ve expedientes sí puede verlo).
+            ->tap(fn ($query) => app(FiltroColaboradoresService::class)->aplicar($query, [
+                'busqueda' => $request->string('busqueda')->toString(),
+                'empresa_id' => $request->integer('empresa_id'),
+                'sucursal_id' => $request->integer('sucursal_id'),
+                'departamento_id' => $request->integer('departamento_id'),
+            ], conCorreo: true));
     }
 }

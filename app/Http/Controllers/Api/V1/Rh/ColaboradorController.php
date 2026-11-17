@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Colaborador;
 use App\Models\SolicitudInterna;
 use App\Services\AlcanceOrganizacionalService;
+use App\Services\Colaboradores\FiltroColaboradoresService;
 use App\Services\Colaboradores\FotoColaboradorService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -32,10 +33,12 @@ class ColaboradorController extends Controller
 
         $query = Colaborador::query()
             ->with(['sucursalPrincipal:id,nombre', 'departamento:id,nombre', 'puesto:id,nombre'])
-            // Buscador único (nombre, número, puesto, sucursal…), aditivo para la app.
-            ->when($request->string('q')->toString(), fn ($q, string $busqueda) => $q->buscar($busqueda))
-            ->when($request->integer('sucursal_id'), fn ($q, int $id) => $q->where('sucursal_principal_id', $id))
-            ->when($request->integer('departamento_id'), fn ($q, int $id) => $q->where('departamento_id', $id))
+            // Filtros comunes con Expedientes (FiltroColaboradoresService); aquí la búsqueda llega como `q`.
+            ->tap(fn ($q) => app(FiltroColaboradoresService::class)->aplicar($q, [
+                'busqueda' => $request->string('q')->toString(),
+                'sucursal_id' => $request->integer('sucursal_id'),
+                'departamento_id' => $request->integer('departamento_id'),
+            ]))
             ->when($request->string('estatus')->toString(), fn ($q, string $estatus) => $q->where('estatus', $estatus));
 
         // Mismo alcance que el detalle (módulo «Expedientes», puedeVerExpediente):
