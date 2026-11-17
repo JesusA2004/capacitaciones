@@ -407,20 +407,13 @@ class SolicitudController extends Controller
      */
     private function toastAprobacion(string $mensajeBase): array
     {
-        $resultado = $this->solicitudes->ultimoResultadoDocumentoOficial();
+        $aviso = $this->solicitudes->avisoDocumentoOficial();
 
-        if ($resultado === null || ! $resultado['aplica']) {
+        if ($aviso === null) {
             return ['type' => 'success', 'message' => $mensajeBase];
         }
 
-        if ($resultado['motivo_error'] !== null) {
-            return [
-                'type' => 'warning',
-                'message' => "{$mensajeBase} Documento oficial NO generado: {$resultado['motivo_error']}.",
-            ];
-        }
-
-        return ['type' => 'success', 'message' => "{$mensajeBase} Documento oficial generado correctamente."];
+        return ['type' => $aviso['error'] ? 'warning' : 'success', 'message' => sprintf('%s %s', $mensajeBase, $aviso['texto'])];
     }
 
     public function rechazar(RechazarSolicitudInternaRequest $request, SolicitudInterna $solicitud): RedirectResponse

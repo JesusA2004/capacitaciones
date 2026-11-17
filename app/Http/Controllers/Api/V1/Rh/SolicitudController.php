@@ -142,12 +142,10 @@ class SolicitudController extends Controller
         $solicitud = $this->solicitudes->aprobar($solicitud, $usuario, $datos['comentario'] ?? null);
 
         $mensaje = 'Solicitud aprobada correctamente';
-        $resultadoDocumento = $this->solicitudes->ultimoResultadoDocumentoOficial();
+        $aviso = $this->solicitudes->avisoDocumentoOficial();
 
-        if ($resultadoDocumento !== null && $resultadoDocumento['aplica']) {
-            $mensaje = $resultadoDocumento['motivo_error'] !== null
-                ? "{$mensaje}. Documento oficial NO generado: {$resultadoDocumento['motivo_error']}."
-                : "{$mensaje}. Documento oficial generado correctamente.";
+        if ($aviso !== null) {
+            $mensaje = sprintf('%s. %s', $mensaje, $aviso['texto']);
         }
 
         return response()->json(['message' => $mensaje, 'data' => ['id' => $solicitud->id, 'estado' => $solicitud->estado->value]]);
@@ -207,12 +205,10 @@ class SolicitudController extends Controller
         $solicitud = $this->solicitudes->moverEnTablero($solicitud, $usuario, $nuevoEstado, $comentario);
 
         $mensaje = 'Solicitud movida a '.$nuevoEstado->etiqueta().'.';
-        $resultadoDocumento = $this->solicitudes->ultimoResultadoDocumentoOficial();
+        $aviso = $this->solicitudes->avisoDocumentoOficial();
 
-        if ($resultadoDocumento !== null && $resultadoDocumento['aplica']) {
-            $mensaje = $resultadoDocumento['motivo_error'] !== null
-                ? "{$mensaje} Documento oficial NO generado: {$resultadoDocumento['motivo_error']}."
-                : "{$mensaje} Documento oficial generado correctamente.";
+        if ($aviso !== null) {
+            $mensaje = sprintf('%s %s', $mensaje, $aviso['texto']);
         }
 
         return response()->json(['message' => $mensaje, 'data' => ['id' => $solicitud->id, 'estado' => $solicitud->estado->value]]);

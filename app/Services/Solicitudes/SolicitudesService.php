@@ -951,6 +951,26 @@ class SolicitudesService
     }
 
     /**
+     * Texto único (web y API) sobre el documento oficial del último
+     * aprobar()/moverEnTablero(): null si no aplica. `error` = no se generó
+     * (la aprobación sigue en pie; RH debe generarlo o subirlo a mano).
+     *
+     * @return array{error: bool, texto: string}|null
+     */
+    public function avisoDocumentoOficial(): ?array
+    {
+        $resultado = $this->ultimoResultadoDocumentoOficial;
+
+        if ($resultado === null || ! $resultado['aplica']) {
+            return null;
+        }
+
+        return $resultado['motivo_error'] !== null
+            ? ['error' => true, 'texto' => sprintf('Documento oficial NO generado: %s.', $resultado['motivo_error'])]
+            : ['error' => false, 'texto' => 'Documento oficial generado correctamente.'];
+    }
+
+    /**
      * Resumen del permiso (modalidad, goce, causal, horas y si RH ya lo
      * autorizó) para web y app. null si la solicitud no es un permiso.
      *
