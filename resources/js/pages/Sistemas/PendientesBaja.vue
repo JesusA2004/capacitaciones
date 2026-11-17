@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
+    CalendarX2,
     ChevronRight,
+    Hourglass,
     Info,
+    MapPin,
     MonitorX,
     Search,
     UserRoundCheck,
@@ -15,6 +18,7 @@ import CrudPageHeader from '@/components/DataTable/CrudPageHeader.vue';
 import PaginacionTabla from '@/components/DataTable/PaginacionTabla.vue';
 import CambioSuave from '@/components/ui/CambioSuave.vue';
 import { Input } from '@/components/ui/input';
+import NumeroAnimado from '@/components/ui/NumeroAnimado.vue';
 import SelectorVista from '@/components/ui/SelectorVista.vue';
 import { dashboard } from '@/routes';
 import { index, show } from '@/routes/sistemas/pendientes-baja';
@@ -67,6 +71,24 @@ const opciones = computed(() => [
     { valor: 'todos' as const, etiqueta: 'Todos' },
 ]);
 
+// Indicadores (clic = filtra), igual que en Pendientes de alta.
+const indicadores = computed(() => [
+    {
+        clave: 'pendientes' as const,
+        valor: props.totales.pendientes,
+        texto: 'Por dar de baja',
+        icono: Hourglass,
+        clases: 'bg-warning-soft text-warning',
+    },
+    {
+        clave: 'atendidos' as const,
+        valor: props.totales.atendidos,
+        texto: 'Ya atendidos',
+        icono: UserRoundCheck,
+        clases: 'bg-success-soft text-success',
+    },
+]);
+
 function visitar(): void {
     router.get(
         index.url({
@@ -117,6 +139,37 @@ function estadoFila(fila: PendienteBajaSistemas): {
             :icono="MonitorX"
         />
 
+        <!-- Indicadores (clic = filtra) -->
+        <div class="grid entrada-escalonada gap-3 sm:grid-cols-2">
+            <button
+                v-for="ind in indicadores"
+                :key="ind.clave"
+                type="button"
+                class="flex tarjeta-interactiva items-center gap-3 rounded-2xl border bg-card p-4 text-left shadow-xs"
+                :class="filtro === ind.clave ? 'border-oro/60 bg-crema/40' : ''"
+                :aria-pressed="filtro === ind.clave"
+                @click="filtro = ind.clave"
+            >
+                <span
+                    class="flex size-11 shrink-0 items-center justify-center rounded-xl"
+                    :class="ind.clases"
+                    aria-hidden="true"
+                >
+                    <component :is="ind.icono" class="size-5" />
+                </span>
+                <span class="flex flex-col">
+                    <span
+                        class="text-2xl leading-none font-semibold tabular-nums"
+                    >
+                        <NumeroAnimado :valor="ind.valor" />
+                    </span>
+                    <span class="text-sm text-muted-foreground">
+                        {{ ind.texto }}
+                    </span>
+                </span>
+            </button>
+        </div>
+
         <p
             v-if="!correoActivo"
             class="flex items-start gap-2 rounded-xl bg-warning-soft px-3 py-2 text-sm text-warning"
@@ -159,11 +212,15 @@ function estadoFila(fila: PendienteBajaSistemas): {
                 "
                 descripcion="Cuando se aplique una baja aparecerá aquí."
             />
-            <ul v-else key="lista" class="flex flex-col gap-2">
+            <ul
+                v-else
+                key="lista"
+                class="flex entrada-escalonada flex-col gap-2"
+            >
                 <li v-for="fila in pendientes.data" :key="fila.id">
                     <Link
                         :href="show.url(fila.id)"
-                        class="flex tarjeta-interactiva flex-wrap items-center gap-3 rounded-2xl border bg-card p-3 shadow-xs"
+                        class="group flex tarjeta-interactiva flex-wrap items-center gap-3 rounded-2xl border bg-card p-3 shadow-xs sm:p-4"
                     >
                         <ColaboradorAvatar
                             :nombre="fila.colaborador.nombre"
@@ -173,13 +230,28 @@ function estadoFila(fila: PendienteBajaSistemas): {
                             <span class="block font-medium">
                                 {{ fila.colaborador.nombre }}
                             </span>
-                            <span class="block text-sm text-muted-foreground">
-                                {{ fila.colaborador.puesto ?? 'Sin puesto' }}
-                                ·
-                                {{
-                                    fila.colaborador.sucursal ?? 'Sin sucursal'
-                                }}
-                                · Baja {{ fila.fecha_baja ?? 'sin fecha' }}
+                            <span
+                                class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm text-muted-foreground"
+                            >
+                                <span>{{
+                                    fila.colaborador.puesto ?? 'Sin puesto'
+                                }}</span>
+                                <span class="inline-flex items-center gap-1"
+                                    ><MapPin
+                                        class="size-3.5"
+                                        aria-hidden="true"
+                                    />{{
+                                        fila.colaborador.sucursal ??
+                                        'Sin sucursal'
+                                    }}</span
+                                >
+                                <span class="inline-flex items-center gap-1"
+                                    ><CalendarX2
+                                        class="size-3.5"
+                                        aria-hidden="true"
+                                    />Baja
+                                    {{ fila.fecha_baja ?? 'sin fecha' }}</span
+                                >
                             </span>
                         </span>
                         <span
@@ -194,7 +266,7 @@ function estadoFila(fila: PendienteBajaSistemas): {
                             {{ estadoFila(fila).texto }}
                         </span>
                         <ChevronRight
-                            class="size-4 text-muted-foreground"
+                            class="size-4 icono-avanza text-muted-foreground"
                             aria-hidden="true"
                         />
                     </Link>
