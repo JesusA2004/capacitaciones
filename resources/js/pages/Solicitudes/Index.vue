@@ -394,8 +394,30 @@ const fechaTermino = computed(() => {
 const saldoRestante = computed(
     () => props.saldoVacaciones.dias_disponibles - form.dias.length,
 );
+// Tipos que ya no están en el catálogo vigente (p. ej. «permiso_con_goce»
+// de antes de unificar permisos) se muestran legibles, nunca con la clave.
 function nombreTipo(clave: string): string {
-    return props.tipos.find((t) => t.clave === clave)?.nombre ?? clave;
+    const nombre = props.tipos.find((t) => t.clave === clave)?.nombre;
+
+    if (nombre) {
+        return nombre;
+    }
+
+    const texto = clave.replace(/_/g, ' ');
+
+    return texto.charAt(0).toUpperCase() + texto.slice(1);
+}
+
+function periodo(solicitud: SolicitudInternaItem): string | null {
+    if (!solicitud.fecha_inicio) {
+        return null;
+    }
+
+    const inicio = formatearFecha(solicitud.fecha_inicio);
+
+    return solicitud.fecha_fin && solicitud.fecha_fin !== solicitud.fecha_inicio
+        ? `${inicio} – ${formatearFecha(solicitud.fecha_fin)}`
+        : inicio;
 }
 </script>
 
@@ -451,22 +473,31 @@ function nombreTipo(clave: string): string {
         <div
             v-else
             data-tour="mis-solicitudes-lista"
-            class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+            class="grid entrada-escalonada gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
         >
             <Link
                 v-for="solicitud in solicitudes.data"
                 :key="solicitud.id"
                 :href="show.url(solicitud.id)"
-                class="group flex flex-col gap-2.5 rounded-2xl border border-border/60 bg-card p-5 shadow-sm transicion-ui hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                class="group flex tarjeta-interactiva flex-col gap-3 rounded-2xl border border-border/60 bg-card p-5 shadow-sm"
             >
-                <div class="flex items-start justify-between gap-2">
-                    <div>
+                <div class="flex items-start gap-3">
+                    <span
+                        class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-salvia text-primary transition-transform duration-200 group-hover:scale-105 motion-reduce:group-hover:scale-100"
+                        aria-hidden="true"
+                    >
+                        <component
+                            :is="ICONO_TIPO[solicitud.tipo] ?? ClipboardList"
+                            class="size-5"
+                        />
+                    </span>
+                    <div class="min-w-0 flex-1">
                         <p
-                            class="text-xs font-medium tracking-wide text-muted-foreground uppercase"
+                            class="text-xs font-medium tracking-wide text-muted-foreground uppercase tabular-nums"
                         >
                             {{ solicitud.folio }}
                         </p>
-                        <p class="text-base font-semibold">
+                        <p class="truncate text-base font-semibold">
                             {{ nombreTipo(solicitud.tipo) }}
                         </p>
                     </div>
@@ -475,13 +506,31 @@ function nombreTipo(clave: string): string {
                 <p class="line-clamp-2 text-sm text-muted-foreground">
                     {{ solicitud.motivo }}
                 </p>
-                <div
-                    class="mt-1 flex items-center justify-between text-xs text-muted-foreground"
+                <p
+                    v-if="periodo(solicitud)"
+                    class="inline-flex w-fit items-center gap-1.5 rounded-xl bg-crema/70 px-2.5 py-1 text-xs font-medium text-bronce"
                 >
-                    <span>{{ formatearFecha(solicitud.created_at) }}</span>
-                    <Eye
-                        class="size-4 opacity-60 transition-opacity md:opacity-0 md:group-hover:opacity-100"
-                    />
+                    <Calendar class="size-3.5" aria-hidden="true" />
+                    {{ periodo(solicitud) }}
+                    <template v-if="solicitud.dias_solicitados"
+                        >· {{ solicitud.dias_solicitados }}
+                        {{
+                            solicitud.dias_solicitados === 1 ? 'día' : 'días'
+                        }}</template
+                    >
+                </p>
+                <div
+                    class="mt-auto flex items-center justify-between border-t border-border/50 pt-2.5 text-xs text-muted-foreground"
+                >
+                    <span
+                        >Enviada el
+                        {{ formatearFecha(solicitud.created_at) }}</span
+                    >
+                    <span
+                        class="inline-flex items-center gap-1 font-medium text-primary"
+                        >Ver detalle
+                        <Eye class="size-3.5 icono-avanza" aria-hidden="true"
+                    /></span>
                 </div>
             </Link>
         </div>
