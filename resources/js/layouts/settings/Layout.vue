@@ -43,7 +43,7 @@ const { isCurrentOrParentUrl } = useCurrentUrl();
 </script>
 
 <template>
-    <div class="pagina-media">
+    <div class="pagina-ancha">
         <Heading
             title="Configuración"
             description="Administra tu perfil y las preferencias de tu cuenta"

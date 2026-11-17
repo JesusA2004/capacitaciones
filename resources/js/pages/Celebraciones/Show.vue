@@ -156,7 +156,7 @@ function fecha(valor: string): string {
     <Head :title="celebracion.titulo" />
 
     <div
-        class="pagina-media grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]"
+        class="pagina-ancha grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]"
     >
         <!-- Tarjeta oficial -->
         <section class="flex flex-col gap-3">

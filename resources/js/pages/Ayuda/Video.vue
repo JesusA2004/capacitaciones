@@ -55,7 +55,7 @@ function irA(segundos: number): void {
 <template>
     <Head title="Tutorial en video" />
 
-    <div class="pagina-media flex flex-col gap-8">
+    <div class="pagina-ancha flex flex-col gap-8">
         <header class="space-y-2">
             <p
                 class="text-xs font-semibold tracking-[0.18em] text-bronce uppercase"

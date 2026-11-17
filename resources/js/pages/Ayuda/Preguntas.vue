@@ -24,7 +24,7 @@ const preguntas = computed(() =>
 <template>
     <Head title="Preguntas frecuentes" />
 
-    <div class="pagina-media flex flex-col gap-6">
+    <div class="pagina-ancha flex flex-col gap-6">
         <header class="space-y-2">
             <p
                 class="text-xs font-semibold tracking-[0.18em] text-bronce uppercase"

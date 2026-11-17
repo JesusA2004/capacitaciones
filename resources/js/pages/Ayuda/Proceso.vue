@@ -60,7 +60,7 @@ const siguiente = computed(() => {
 <template>
     <Head :title="proc ? `Guía · ${proc.titulo}` : 'Guía'" />
 
-    <div class="pagina-media flex flex-col gap-8">
+    <div class="pagina-ancha flex flex-col gap-8">
         <template v-if="proc">
             <nav
                 class="flex items-center gap-1.5 text-xs text-[var(--mrl-texto-suave)]"

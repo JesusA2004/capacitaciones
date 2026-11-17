@@ -117,7 +117,7 @@ function buscar(): void {
 <template>
     <Head title="Guía del sistema" />
 
-    <div class="pagina-media flex flex-col gap-12">
+    <div class="pagina-ancha flex flex-col gap-12">
         <!-- Encabezado -->
         <section
             id="guia-inicio"

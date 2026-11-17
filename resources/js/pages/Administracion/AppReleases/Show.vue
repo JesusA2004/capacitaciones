@@ -91,7 +91,7 @@ async function eliminarRelease() {
 </script>
 
 <template>
-    <div class="pagina-media flex flex-col">
+    <div class="pagina-ancha flex flex-col">
         <Link
             :href="index.url()"
             class="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"

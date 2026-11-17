@@ -86,7 +86,7 @@ defineOptions({
 <template>
     <Head :title="art?.titulo ?? 'Guía'" />
 
-    <div class="pagina-media flex flex-col gap-8">
+    <div class="pagina-ancha flex flex-col gap-8">
         <template v-if="art">
             <!-- Migas y encabezado -->
             <nav
