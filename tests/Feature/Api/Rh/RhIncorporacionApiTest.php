@@ -22,6 +22,23 @@ test('rh puede listar incorporaciones', function () {
         ->assertOk();
 });
 
+test('el listado de incorporaciones pagina en la base con el mismo meta, también filtrando por estado', function () {
+    $rh = User::factory()->create();
+    $rh->assignRole('rh_admin');
+    Colaborador::factory()->count(3)->create(['estatus' => 'en_incorporacion']);
+    $token = ['Authorization' => 'Bearer '.$rh->createToken('test')->plainTextToken];
+
+    $pagina = $this->withHeaders($token)->getJson('/api/v1/rh/incorporaciones?per_page=2&page=2')->assertOk();
+    $estado = $pagina->json('data.0.estado');
+    $filtrada = $this->withHeaders($token)->getJson('/api/v1/rh/incorporaciones?per_page=2&estado='.$estado)->assertOk();
+
+    expect($pagina->json('meta'))->toBe(['current_page' => 2, 'per_page' => 2, 'total' => 3])
+        ->and($pagina->json('data'))->toHaveCount(1)
+        ->and($pagina->json('data.0'))->toHaveKeys(['id', 'resource_id', 'estado', 'colaborador', 'creado_en', 'acciones_permitidas'])
+        ->and($filtrada->json('meta.per_page'))->toBe(2)
+        ->and(collect($filtrada->json('data'))->pluck('estado')->unique()->all())->toBe([$estado]);
+});
+
 test('rh puede ver el detalle de una incorporacion', function () {
     $rh = User::factory()->create();
     $rh->assignRole('rh_admin');

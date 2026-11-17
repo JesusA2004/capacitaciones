@@ -54,22 +54,28 @@ class IncorporacionController extends Controller
             $query->buscar($busqueda);
         }
 
-        $candidatos = $query->orderByDesc('created_at')->get();
-
-        $filas = $candidatos->map(fn (Colaborador $c) => [
-            'colaborador' => $c,
-            'estado' => $this->estadoIncorporacion($c),
-        ]);
-
-        if ($estado = $request->string('estado')->toString()) {
-            $filas = $filas->filter(fn (array $f) => $f['estado'] === $estado)->values();
-        }
-
+        $query->orderByDesc('created_at')->orderByDesc('id');
         $porPagina = max(1, (int) $request->integer('per_page', 15));
         $pagina = max(1, (int) $request->integer('page', 1));
-        $total = $filas->count();
+        $estado = $request->string('estado')->toString();
 
-        $data = $filas->forPage($pagina, $porPagina)->map(fn (array $f) => [
+        if ($estado !== '') {
+            // El estado se calcula (no es columna): con ese filtro se evalúa
+            // en todo el alcance y se pagina en memoria.
+            $filas = $query->get()
+                ->map(fn (Colaborador $c) => ['colaborador' => $c, 'estado' => $this->estadoIncorporacion($c)])
+                ->filter(fn (array $f) => $f['estado'] === $estado)
+                ->values();
+            $total = $filas->count();
+            $filas = $filas->forPage($pagina, $porPagina);
+        } else {
+            // Sin filtro de estado: página en la base, estado solo de sus filas.
+            $total = (clone $query)->count();
+            $filas = $query->forPage($pagina, $porPagina)->get()
+                ->map(fn (Colaborador $c) => ['colaborador' => $c, 'estado' => $this->estadoIncorporacion($c)]);
+        }
+
+        $data = $filas->map(fn (array $f) => [
             'id' => "incorporacion:{$f['colaborador']->id}",
             'resource_id' => $f['colaborador']->id,
             'estado' => $f['estado'],

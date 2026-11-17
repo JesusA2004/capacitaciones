@@ -44,7 +44,7 @@ Cualquier cambio a un endpoint debe preservar **el contrato exacto**: método y 
 
 ### `GET /api/v1/rh/incorporaciones` — `Api\V1\Rh\IncorporacionController@index`
 
-- **Backend**: tampoco usa `paginate()`. Colaboradores `en_incorporacion` o con `incorporacion_decision`, dentro del alcance (`limitarColaboradoresPorAlcance`), búsqueda `q`, orden `created_at desc`; filtra `estado` en memoria y corta con `forPage($page, $per_page)` (`per_page` por defecto 15, sin tope).
+- **Backend**: tampoco usa `paginate()`. Colaboradores `en_incorporacion` o con `incorporacion_decision`, dentro del alcance (`limitarColaboradoresPorAlcance`), búsqueda `q`, orden `created_at desc, id desc`. Desde 2026-11-17: sin `estado` cuenta y pagina en la base y calcula el estado solo de la página; con `estado` filtra en memoria y corta con `forPage($page, $per_page)`. `per_page` por defecto 15, **sin tope** (no se agregó para no cambiar el contrato con APKs viejas; ponerle tope es una decisión pendiente).
 - **Respuesta**:
   ```json
   {
